@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <g class="nc-icon-wrapper" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#111111" stroke="#111111">
+    <line data-color="color-2" fill="none" stroke-miterlimit="10" x1="1" y1="8" x2="23" y2="8" />
+    <polygon fill="none" stroke="#111111" stroke-miterlimit="10" points="23,23 1,23 1,1 10,1 12,4 23,4 " />
+  </g>
+</svg>

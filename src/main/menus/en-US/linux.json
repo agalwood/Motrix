@@ -1,0 +1,81 @@
+{
+  "menu": [
+    {
+      "label": "Motrix",
+      "id": "app",
+      "submenu": [
+        { "label": "About Motrix", "id": "app.about", "command": "application:about" },
+        { "type": "separator" },
+        { "label": "Preferences...", "id": "app.preferences", "command": "application:preferences" },
+        { "label": "Check for Updates...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
+        { "label": "Services", "role": "services", "submenu": [] },
+        { "label": "Hide Motrix", "role": "hide" },
+        { "label": "Hide Others", "role": "hideothers" },
+        { "label": "Show All", "role": "unhide" },
+        { "type": "separator" },
+        { "label": "Quit Motrix", "id": "app.quit", "role": "quit" }
+      ]
+    },
+    {
+      "label": "Task",
+      "id": "task",
+      "submenu": [
+        { "label": "New Task", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri" },
+        { "label": "New BT Task", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent" },
+        { "type": "separator" },
+        { "label": "Pause Task", "id": "task.pause-task", "command": "application:pause-task" },
+        { "label": "Resume Task", "id": "task.resume-task", "command": "application:resume-task" },
+        { "label": "Delete Task", "id": "task.delete-task", "command": "application:delete-task" },
+        { "label": "Move Task Up", "id": "task.move-task-up", "command": "application:move-task-up" },
+        { "label": "Move Task Down", "id": "task.move-task-down", "command": "application:move-task-down" },
+        { "type": "separator" },
+        { "label": "Pause All Task", "id": "task.pause-all-task", "command": "application:pause-all-task" },
+        { "label": "Resume All Task", "id": "task.resume-all-task", "command": "application:resume-all-task" },
+        { "type": "separator" },
+        { "label": "Clear Recent Tasks", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+      ]
+    },
+    {
+      "label": "Edit",
+      "id": "edit",
+      "submenu": [
+        { "label": "Undo", "id": "edit.undo", "role": "undo" },
+        { "label": "Redo", "id": "edit.redo", "role": "redo" },
+        { "type": "separator" },
+        { "label": "Cut", "id": "edit.cut", "role": "cut" },
+        { "label": "Copy", "id": "edit.copy", "role": "copy" },
+        { "label": "Paste", "id": "edit.paste", "role": "paste" },
+        { "label": "Delete", "id": "edit.delete", "role": "delete" },
+        { "label": "Select All", "id": "edit.select-all", "role": "selectall" }
+      ]
+    },
+    {
+      "label": "Window",
+      "role": "window",
+      "id": "window",
+      "submenu": [
+        { "label": "Reload", "id": "view.reload", "role": "reload" },
+        { "label": "Close", "role": "close" },
+        { "label": "Minimize", "role": "minimize" },
+        { "label": "Zoom", "role": "zoom" },
+        { "label": "Enter Full Screen", "role": "togglefullscreen" },
+        { "type": "separator" },
+        { "label": "Bring All to Front", "role": "front" }
+      ]
+    },
+    {
+      "label": "Help",
+      "role": "help",
+      "id": "help",
+      "submenu": [
+        { "label": "Motrix Website", "id": "help.official-website", "command": "help:official-website" },
+        { "label": "Manual", "id": "help.manual", "command": "help:manual" },
+        { "label": "Release Notes...", "id": "help.release-notes", "command": "help:release-notes" },
+        { "type": "separator" },
+        { "label": "Report Problem", "id": "help.report-problem", "command": "help:report-problem" },
+        { "type": "separator" },
+        { "label": "Toggle Developer Tools", "id": "help.toggle-dev-tools", "role": "toggledevtools" }
+      ]
+    }
+  ]
+}

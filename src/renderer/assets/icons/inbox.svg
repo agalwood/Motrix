@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <g class="nc-icon-wrapper" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#111111" stroke="#111111">
+    <polyline data-cap="butt" fill="none" stroke="#111111" stroke-miterlimit="10" points="23,15 16,15 16,18 8,18 8,15 1,15 "/>
+    <line data-cap="butt" data-color="color-2" fill="none" stroke-miterlimit="10" x1="12" y1="1" x2="12" y2="11"/>
+    <polyline fill="none" stroke="#111111" stroke-miterlimit="10" points="19,6 20,6 23,15 23,23 1,23 1,15 4,6 5,6 "/>
+    <polyline data-color="color-2" fill="none" stroke-miterlimit="10" points=" 15,8 12,11 9,8 "/>
+  </g>
+</svg>

@@ -1,0 +1,29 @@
+version: 0.1.{build}
+
+branches:
+  only:
+    - master
+
+image: Visual Studio 2017
+platform:
+  - x64
+
+cache:
+  - node_modules
+  - '%APPDATA%\npm-cache'
+  - '%USERPROFILE%\.electron'
+  - '%USERPROFILE%\AppData\Local\Yarn\cache'
+
+init:
+  - git config --global core.autocrlf input
+
+install:
+  - ps: Install-Product node 8 x64
+  - git reset --hard HEAD
+  - yarn
+  - node --version
+
+build_script:
+  - yarn build
+
+test: off

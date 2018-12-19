@@ -1,0 +1,189 @@
+{
+  "name": "Motrix",
+  "version": "1.0.2",
+  "description": "A full-featured macOS download manager",
+  "homepage": "https://motrix.app",
+  "author": {
+    "name": "AGALWOOD",
+    "email": "agalwood.net@gmail.com"
+  },
+  "copyright": "Copyright© AGALWOOD",
+  "main": "./dist/electron/main.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:agalwood/Motrix.git"
+  },
+  "scripts": {
+    "build": "cross-env DEBUG=electron-osx-sign* node .electron-vue/build.js && electron-builder",
+    "build:dir": "node .electron-vue/build.js && electron-builder --dir",
+    "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
+    "build:web": "cross-env BUILD_TARGET=web node .electron-vue/build.js",
+    "dev": "node .electron-vue/dev-runner.js",
+    "dev:renderer": "webpack-dev-server --hot --colors --config .electron-vue/webpack.renderer.config.js --port 9080 --content-base app/dist",
+    "lint": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter src",
+    "lint:fix": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter --fix src",
+    "pack": "npm run pack:main && npm run pack:renderer",
+    "pack:main": "cross-env NODE_ENV=production webpack --mode production --progress --colors --config .electron-vue/webpack.main.config.js",
+    "pack:renderer": "cross-env NODE_ENV=production webpack --mode production --progress --colors --config .electron-vue/webpack.renderer.config.js",
+    "postinstall": "npm run lint:fix"
+  },
+  "build": {
+    "productName": "Motrix",
+    "appId": "net.agalwood.Motrix",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/electron/**/*"
+    ],
+    "dmg": {
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 410,
+          "y": 230,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 230,
+          "type": "file"
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "type": "distribution",
+      "darkModeSupport": true,
+      "extraResources": {
+        "from": "./extra/darwin/",
+        "to": "./",
+        "filter": [
+          "**/*"
+        ]
+      },
+      "binaries": [
+        "./release/mac/Motrix.app/Contents/Resources/engine/aria2c"
+      ],
+      "category": "public.app-category.utilities",
+      "protocols": [
+        {
+          "name": "Motrix Protocol",
+          "schemes": [
+            "mo",
+            "motrix"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "extraResources": {
+        "from": "./extra/win32/",
+        "to": "./",
+        "filter": [
+          "**/*"
+        ]
+      }
+    },
+    "linux": {
+      "extraResources": {
+        "from": "./extra/linux/",
+        "to": "./",
+        "filter": [
+          "**/*"
+        ]
+      }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://motrix.app/release/"
+      }
+    ]
+  },
+  "dependencies": {
+    "aria2": "^4.0.3",
+    "axios": "^0.18.0",
+    "clipboard-polyfill": "^2.7.0",
+    "electron-debug": "^2.0.0",
+    "electron-is": "^3.0.0",
+    "electron-log": "^2.2.17",
+    "electron-updater": "^4.0.4",
+    "element-ui": "^2.4.11",
+    "forever-monitor": "^1.7.1",
+    "lodash": "^4.17.11",
+    "normalize.css": "^8.0.1",
+    "parse-torrent": "^6.1.2",
+    "svg-innerhtml": "^1.1.0",
+    "vue": "^2.5.17",
+    "vue-electron": "^1.0.6",
+    "vue-router": "^3.0.2",
+    "vuex": "^3.0.1",
+    "vuex-router-sync": "^5.0.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "^3.1.1",
+    "@vue/cli-plugin-eslint": "^3.1.5",
+    "@vue/cli-service": "^3.1.4",
+    "@vue/eslint-config-standard": "^4.0.0",
+    "ajv": "^6.5.5",
+    "babel-core": "^6.26.3",
+    "babel-eslint": "^10.0.1",
+    "babel-loader": "^7.1.4",
+    "babel-plugin-component": "^1.1.1",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-stage-0": "^6.24.1",
+    "babel-register": "^6.26.0",
+    "babili-webpack-plugin": "^0.1.2",
+    "cfonts": "^2.2.3",
+    "chalk": "^2.4.1",
+    "copy-webpack-plugin": "^4.6.0",
+    "cross-env": "^5.1.6",
+    "css-loader": "^1.0.1",
+    "del": "^3.0.0",
+    "devtron": "^1.4.0",
+    "electron": "^3.0.11",
+    "electron-builder": "^20.38.3",
+    "electron-devtools-installer": "^2.2.4",
+    "electron-notarize": "^0.0.5",
+    "electron-osx-sign": "^0.4.11",
+    "electron-store": "^2.0.0",
+    "eslint": "^5.6.1",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-friendly-formatter": "^4.0.1",
+    "eslint-loader": "^2.1.1",
+    "eslint-plugin-html": "^4.0.6",
+    "eslint-plugin-import": "^2.12.0",
+    "eslint-plugin-node": "^7.0.1",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-standard": "^4.0.0",
+    "file-loader": "^2.0.0",
+    "html-webpack-plugin": "^3.2.0",
+    "mini-css-extract-plugin": "0.4.5",
+    "multispinner": "^0.2.1",
+    "node-loader": "^0.6.0",
+    "node-sass": "^4.10.0",
+    "optimize-css-assets-webpack-plugin": "^5.0.1",
+    "sass-loader": "^7.1.0",
+    "style-loader": "^0.23.1",
+    "url-loader": "^1.1.2",
+    "vue-html-loader": "^1.2.4",
+    "vue-loader": "^15.4.2",
+    "vue-style-loader": "^4.1.2",
+    "vue-template-compiler": "^2.5.17",
+    "webpack": "^4.26.1",
+    "webpack-cli": "^3.1.2",
+    "webpack-dev-server": "^3.1.10",
+    "webpack-hot-middleware": "^2.24.3",
+    "webpack-merge": "^4.1.4"
+  }
+}

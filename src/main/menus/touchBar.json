@@ -1,0 +1,35 @@
+[
+  {
+    "type": "button", "icon": "new-task", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"
+  },
+  {
+    "type": "spacer", "size": "small"
+  },
+  {
+    "type": "group",
+    "id": "task.task-list",
+    "items": [
+      {
+        "type": "button", "icon": "task-active", "command": "application:task-list", "command-arg": "active"
+      },
+      {
+        "type": "button", "icon": "task-waiting", "command": "application:task-list", "command-arg": "waiting"
+      },
+      {
+        "type": "button", "icon": "task-stopped", "command": "application:task-list", "command-arg": "stopped"
+      }
+    ]
+  },
+  {
+    "type": "spacer", "size": "large"
+  },
+  {
+    "type": "button", "icon": "preferences", "id": "app.preferences", "command": "application:preferences"
+  },
+  {
+    "type": "spacer", "size": "small"
+  },
+  {
+    "type": "button", "icon": "about", "id": "app.about", "command": "application:about", "command-before": "application:show,index"
+  }
+]

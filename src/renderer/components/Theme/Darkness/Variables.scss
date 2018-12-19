@@ -1,0 +1,35 @@
+/* App
+-------------------------- */
+$--dk-app-background: transparent !default;
+
+/* Aside
+-------------------------- */
+$--dk-aside-background: rgba(0, 0, 0, 0.75) !default;
+$--dk-aside-text-color: #fff !default;
+
+/* SubNav
+-------------------------- */
+$--dk-subnav-background: #F4F5F7 !default;
+$--dk-subnav-title-color: $--color-primary-dark-6 !default;
+$--dk-subnav-text-color: #4D515A !default;
+$--dk-subnav-active-text-color: $--color-primary !default;
+
+/* Panel
+-------------------------- */
+$--panel-background: $--color-white !default;
+$--dk-panel-title-color: $--color-primary-dark-6 !default;
+$--dk-panel-border-color: #EBECF0 !default;
+
+/* Task
+-------------------------- */
+$--dk-task-item-border-color: #ccc !default;
+$--dk-task-item-hover-border-color: $--color-primary !default;
+$--dk-task-item-hover-background: $--color-primary !default;
+
+/* Speedometer
+-------------------------- */
+$--dk-speedometer-background: $--color-white !default;
+$--dk-speedometer-border-color: #ccc !default;
+$--dk-speedometer-hover-border-color: #9b9b9b !default;
+$--dk-speedometer-primary-color: $--color-primary !default;
+$--dk-speedometer-text-color: #9b9b9b !default;

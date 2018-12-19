@@ -1,0 +1,10 @@
+<svg viewBox="0 0 24 24" width="24" height="24">
+  <g class="nc-icon-wrapper" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#111111"
+    stroke="#111111">
+    <path data-cap="butt" data-color="color-2" fill="none" stroke-miterlimit="10" d="M6.3,10C6.1,10.6,6,11.3,6,12"></path>
+    <path data-cap="butt" data-color="color-2" fill="none" stroke-miterlimit="10" d="M18,12c0-3.3-2.7-6-6-6 c-0.7,0-1.4,0.1-2,0.3"></path>
+    <line data-color="color-2" fill="none" stroke-miterlimit="10" x1="10.6" y1="10.6" x2="7" y2="7"></line>
+    <circle data-color="color-2" fill="none" stroke-miterlimit="10" cx="12" cy="12" r="2"></circle>
+    <circle fill="none" stroke="#111111" stroke-miterlimit="10" cx="12" cy="12" r="11"></circle>
+  </g>
+</svg>

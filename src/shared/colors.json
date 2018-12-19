@@ -1,0 +1,8 @@
+{
+  "active": "#5b5bea",
+  "waiting": "#737373",
+  "paused": "#737373",
+  "error": "#FF6157",
+  "complete": "#2ACB42",
+  "removed": "#737373"
+}

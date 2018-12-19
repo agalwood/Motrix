@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <g class="nc-icon-wrapper" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#111111" stroke="#111111">
+    <path fill="none" stroke="#111111" stroke-miterlimit="10" d="M11,6l2.5-2.5 c1.9-1.9,5.1-1.9,7,0l0,0c1.9,1.9,1.9,5.1,0,7L18,13"
+    />
+    <path fill="none" stroke="#111111" stroke-miterlimit="10" d="M13,18l-2.5,2.5 c-1.9,1.9-5.1,1.9-7,0l0,0c-1.9-1.9-1.9-5.1,0-7L6,11"
+    />
+    <line data-color="color-2" fill="none" stroke-miterlimit="10" x1="9" y1="15" x2="15" y2="9" />
+  </g>
+</svg>

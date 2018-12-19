@@ -1,0 +1,81 @@
+{
+  "menu": [
+    {
+      "label": "Motrix",
+      "id": "app",
+      "submenu": [
+        { "label": "关于 Motrix", "id": "app.about", "command": "application:about", "command-before": "application:show,index"},
+        { "type": "separator" },
+        { "label": "偏好设置...", "id": "app.preferences", "command": "application:preferences" },
+        { "label": "检查更新...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
+        { "label": "服务", "role": "services", "submenu": [] },
+        { "label": "隐藏 Motrix", "role": "hide" },
+        { "label": "隐藏其他", "role": "hideothers" },
+        { "label": "显示全部", "role": "unhide" },
+        { "type": "separator" },
+        { "label": "退出 Motrix", "id": "app.quit", "role": "quit" }
+      ]
+    },
+    {
+      "label": "任务",
+      "id": "task",
+      "submenu": [
+        { "label": "新建任务", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index"},
+        { "label": "新建 BT 任务", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "type": "separator" },
+        { "label": "暂停任务", "id": "task.pause-task", "command": "application:pause-task" },
+        { "label": "恢复任务", "id": "task.resume-task", "command": "application:resume-task" },
+        { "label": "删除任务", "id": "task.delete-task", "command": "application:delete-task" },
+        { "label": "上移任务", "id": "task.move-task-up", "command": "application:move-task-up" },
+        { "label": "下移任务", "id": "task.move-task-down", "command": "application:move-task-down" },
+        { "type": "separator" },
+        { "label": "暂停所有任务", "id": "task.pause-all-task", "command": "application:pause-all-task" },
+        { "label": "恢复所有任务", "id": "task.resume-all-task", "command": "application:resume-all-task" },
+        { "type": "separator" },
+        { "label": "清除最近的下载记录", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+      ]
+    },
+    {
+      "label": "编辑",
+      "id": "edit",
+      "submenu": [
+        { "label": "撤销", "id": "edit.undo", "role": "undo" },
+        { "label": "重做", "id": "edit.redo", "role": "redo" },
+        { "type": "separator" },
+        { "label": "剪切", "id": "edit.cut", "role": "cut" },
+        { "label": "复制", "id": "edit.copy", "role": "copy" },
+        { "label": "黏贴", "id": "edit.paste", "role": "paste" },
+        { "label": "删除", "id": "edit.delete", "role": "delete" },
+        { "label": "全选", "id": "edit.select-all", "role": "selectall" }
+      ]
+    },
+    {
+      "label": "窗口",
+      "role": "window",
+      "id": "window",
+      "submenu": [
+        { "label": "重新加载", "id": "view.reload", "role": "reload" },
+        { "label": "关闭", "role": "close" },
+        { "label": "最小化", "role": "minimize" },
+        { "label": "放大", "role": "zoom" },
+        { "label": "进入全屏幕", "role": "togglefullscreen" },
+        { "type": "separator" },
+        { "label": "前置全部窗口", "role": "front" }
+      ]
+    },
+    {
+      "label": "帮助",
+      "role": "help",
+      "id": "help",
+      "submenu": [
+        { "label": "Motrix 官网", "id": "help.official-website", "command": "help:official-website" },
+        { "label": "使用手册", "id": "help.manual", "command": "help:manual" },
+        { "label": "发行说明...", "id": "help.release-notes", "command": "help:release-notes" },
+        { "type": "separator" },
+        { "label": "报告问题", "id": "help.report-problem", "command": "help:report-problem" },
+        { "type": "separator" },
+        { "label": "开发者工具", "id": "help.toggle-dev-tools", "role": "toggledevtools" }
+      ]
+    }
+  ]
+}

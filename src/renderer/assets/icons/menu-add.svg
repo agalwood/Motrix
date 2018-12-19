@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <g class="nc-icon-wrapper" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#000000" stroke="#000000">
+    <line fill="none" stroke="#000000" stroke-miterlimit="10" x1="12" y1="2" x2="12" y2="22" />
+    <line fill="none" stroke="#000000" stroke-miterlimit="10" x1="22" y1="12" x2="2" y2="12" />
+  </g>
+</svg>

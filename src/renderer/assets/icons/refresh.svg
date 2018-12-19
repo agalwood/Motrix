@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <g class="nc-icon-wrapper" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#111111" stroke="#111111">
+    <path data-cap="butt" fill="none" stroke="#111111" stroke-miterlimit="10" d="M22,12c0,5.5-4.5,10-10,10 S2,17.5,2,12S6.5,2,12,2c3.9,0,7.3,2.2,8.9,5.5"/>
+    <polyline fill="none" stroke="#111111" stroke-miterlimit="10" points="21.8,1.7 21,7.6 15,6.8 "/>
+  </g>
+</svg>

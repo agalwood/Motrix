@@ -1,0 +1,36 @@
+osx_image: xcode8.3
+sudo: required
+dist: trusty
+language: c
+matrix:
+  include:
+  - os: osx
+  - os: linux
+    env: CC=clang CXX=clang++ npm_config_clang=1
+    compiler: clang
+cache:
+  directories:
+  - node_modules
+  - "$HOME/.electron"
+  - "$HOME/.cache"
+addons:
+  apt:
+    packages:
+    - libgnome-keyring-dev
+    - icnsutils
+before_install:
+- mkdir -p /tmp/git-lfs && curl -L https://github.com/github/git-lfs/releases/download/v1.2.1/git-lfs-$([
+  "$TRAVIS_OS_NAME" == "linux" ] && echo "linux" || echo "darwin")-amd64-1.2.1.tar.gz
+  | tar -xz -C /tmp/git-lfs --strip-components 1 && /tmp/git-lfs/git-lfs pull
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install --no-install-recommends -y icnsutils graphicsmagick xz-utils; fi
+install:
+- nvm install 7
+- curl -o- -L https://yarnpkg.com/install.sh | bash
+- source ~/.bashrc
+- npm install -g xvfb-maybe
+- yarn
+script:
+- yarn run build
+branches:
+  only:
+  - master
