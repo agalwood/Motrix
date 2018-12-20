@@ -149,7 +149,7 @@ export default class Application extends EventEmitter {
       this.windowManager.setWillQuit(true)
     })
 
-    this.updateManager.on('error', (event) => {
+    this.updateManager.on('update-error', (event) => {
       this.menuManager.updateMenuItemEnabledState('app.check-for-updates', true)
     })
   }

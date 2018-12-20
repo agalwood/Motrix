@@ -15,6 +15,7 @@ export default class UpdateManager extends EventEmitter {
     this.options = options
 
     this.updater = autoUpdater
+    this.updater.autoDownload = false
     this.updater.logger = logger
     this.init()
   }
@@ -31,7 +32,7 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('update-available', this.updateAvailable.bind(this))
     this.updater.on('update-not-available', this.updateNotAvailable.bind(this))
     this.updater.on('download-progress', this.updateDownloadProgress.bind(this))
-    this.updater.on('download-downloaded', this.updateDownloaded.bind(this))
+    this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
     this.updater.on('error', this.updateError.bind(this))
   }
 
@@ -81,6 +82,7 @@ export default class UpdateManager extends EventEmitter {
 
   updateDownloaded (event, info) {
     this.emit('update-downloaded', info)
+    this.updater.logger.log(`Update Downloaded: ${info}`)
     dialog.showMessageBox({
       title: '安装更新',
       message: '更新下载完成，应用程序将退出并开始更新...'
@@ -95,6 +97,7 @@ export default class UpdateManager extends EventEmitter {
   updateError (event, error) {
     this.emit('update-error', error)
     const msg = error == null ? '未知错误' : (error.stack || error).toString()
+    this.updater.logger.warn(`Update Error: ${msg}`)
     dialog.showErrorBox('错误: ', msg)
   }
 }
