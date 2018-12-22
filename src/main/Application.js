@@ -195,22 +195,22 @@ export default class Application extends EventEmitter {
     })
 
     this.on('help:official-website', () => {
-      const url = 'https://moapp.me/'
+      const url = 'https://motrix.app/'
       shell.openExternal(url)
     })
 
     this.on('help:manual', () => {
-      const url = 'https://moapp.me/manual'
+      const url = 'https://motrix.app/manual'
       shell.openExternal(url)
     })
 
     this.on('help:release-notes', () => {
-      const url = 'https://moapp.me/release'
+      const url = 'https://motrix.app/release'
       shell.openExternal(url)
     })
 
     this.on('help:report-problem', () => {
-      const url = 'https://moapp.me/report'
+      const url = 'https://motrix.app/report'
       shell.openExternal(url)
     })
   }
