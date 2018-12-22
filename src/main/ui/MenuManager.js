@@ -20,8 +20,13 @@ export default class MenuManager extends EventEmitter {
   }
 
   load (locale = 'en-US') {
-    let template = require(`../menus/${locale}/${process.platform}.json`)
-    if (!template) {
+    let template = null
+    try {
+      template = require(`../menus/${locale}/${process.platform}.json`)
+      if (!template) {
+        template = require(`../menus/en-US/${process.platform}.json`)
+      }
+    } catch (err) {
       template = require(`../menus/en-US/${process.platform}.json`)
     }
     this.template = template['menu']
