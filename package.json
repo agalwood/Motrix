@@ -1,6 +1,6 @@
 {
   "name": "Motrix",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "A full-featured macOS download manager",
   "homepage": "https://motrix.app",
   "author": {
@@ -14,7 +14,7 @@
     "url": "git@github.com:agalwood/Motrix.git"
   },
   "scripts": {
-    "build": "cross-env DEBUG=electron-osx-sign* node .electron-vue/build.js && electron-builder",
+    "build": "node .electron-vue/build.js && electron-builder",
     "build:dir": "node .electron-vue/build.js && electron-builder --dir",
     "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
     "build:web": "cross-env BUILD_TARGET=web node .electron-vue/build.js",
