@@ -15,10 +15,15 @@ export default class ProtocolManager extends EventEmitter {
 
   init () {
     // package.json:build.mac.protocols[].schemes[]
-    app.setAsDefaultProtocolClient('motrix')
+    if (!app.isDefaultProtocolClient('mo')) {
+      app.setAsDefaultProtocolClient('mo')
+    }
+    if (!app.isDefaultProtocolClient('motrix')) {
+      app.setAsDefaultProtocolClient('motrix')
+    }
   }
 
-  handle (event, url) {
+  handle (url) {
     logger.info(`[Motrix] protocol url: ${url}`)
     const parsed = URL.parse(url)
     const { host } = parsed

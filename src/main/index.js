@@ -9,10 +9,25 @@ if (process.env.NODE_ENV !== 'development') {
 }
 
 function init () {
+  let openURL = null
+  if (!is.mas()) {
+    app.on('open-url', (event, url) => {
+      logger.info(`You arrived from: ${url}`)
+      event.preventDefault()
+      openURL = url
+      if (global.application) {
+        global.application.handleProtocol(openURL)
+      }
+    })
+  }
+
   app.on('ready', () => {
     global.application = new Application()
-
     global.application.start('index')
+
+    if (openURL) {
+      global.application.handleProtocol(openURL)
+    }
   })
 
   app.on('will-quit', () => {
@@ -30,18 +45,6 @@ function init () {
 
   app.on('activate', () => {
     global.application.showPage('index')
-  })
-
-  if (is.mas()) {
-    return
-  }
-  /**
-   * May not working on MAS build
-   * https://stackoverflow.com/questions/26601840/making-app-default-handler-on-osx-10-10-with-sandbox-enabled
-   */
-  app.on('open-url', (event, url) => {
-    logger.info(`You arrived from: ${url}`)
-    global.application.handleProtocol(event, url)
   })
 }
 

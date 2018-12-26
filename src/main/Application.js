@@ -109,11 +109,11 @@ export default class Application extends EventEmitter {
     this.protocolManager = new ProtocolManager()
   }
 
-  handleProtocol (event, url) {
+  handleProtocol (url) {
     if (is.mas()) {
       return
     }
-    this.protocolManager.handle(event, url)
+    this.protocolManager.handle(url)
     this.showPage('index')
   }
 
