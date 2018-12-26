@@ -85,6 +85,9 @@
       },
       onResumeAllClick: function () {
         this.$store.dispatch('task/resumeAllTask')
+          .then(() => {
+            this.$message.success(`恢复全部任务成功`)
+          })
           .catch(({ code }) => {
             if (code === 1) {
               this.$message.error(`恢复全部任务失败`)
@@ -93,6 +96,9 @@
       },
       onPauseAllClick: function () {
         this.$store.dispatch('task/pauseAllTask')
+          .then(() => {
+            this.$message.success(`暂停全部任务成功`)
+          })
           .catch(({ code }) => {
             if (code === 1) {
               this.$message.error(`暂停全部任务失败`)
@@ -101,6 +107,9 @@
       },
       onPurgeRecordClick: function () {
         this.$store.dispatch('task/purgeTaskRecord')
+          .then(() => {
+            this.$message.success(`移除全部下载记录成功`)
+          })
           .catch(({ code }) => {
             if (code === 1) {
               this.$message.error(`移除全部下载记录失败`)

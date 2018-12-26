@@ -40,17 +40,14 @@ const actions = {
     dispatch('fetchList')
   },
   fetchList ({ state, commit }) {
-    console.log('fetchList===>')
     api.fetchTaskList({ type: state.currentList })
       .then((data) => {
-        console.log('data===>', data)
         commit('UPDATE_TASK_LIST', data)
       })
   },
   fetchItem ({ dispatch }, gid) {
     api.fetchTaskItem({ gid })
       .then((data) => {
-        console.log('data===>', data)
         dispatch('updateCurrentTaskItem', data)
       })
   },
@@ -87,7 +84,6 @@ const actions = {
   },
   removeTask ({ dispatch }, task) {
     const { gid } = task
-    console.log('removeTask', gid)
     return api.removeTask({ gid })
       .catch(() => {
         return api.forceRemoveTask({ gid })
@@ -99,7 +95,6 @@ const actions = {
   },
   pauseTask ({ dispatch }, task) {
     const { gid } = task
-    console.log('pauseTask', gid)
     return api.pauseTask({ gid })
       .catch(() => {
         return api.forcePauseTask({ gid })
@@ -111,7 +106,6 @@ const actions = {
   },
   resumeTask ({ dispatch }, task) {
     const { gid } = task
-    console.log('resumeTask', gid)
     return api.resumeTask({ gid })
       .finally(() => {
         dispatch('fetchList')
@@ -119,7 +113,6 @@ const actions = {
       })
   },
   pauseAllTask ({ dispatch }) {
-    console.log('pauseAllTask===>')
     return api.pauseAllTask()
       .catch(() => {
         return api.forcePauseAllTask()
@@ -130,7 +123,6 @@ const actions = {
       })
   },
   resumeAllTask ({ dispatch }) {
-    console.log('resumeAllTask===>')
     return api.resumeAllTask()
       .finally(() => {
         dispatch('fetchList')
@@ -139,7 +131,6 @@ const actions = {
   },
   removeTaskRecord ({ dispatch }, task) {
     const { gid } = task
-    console.log('removeTaskRecord', gid)
     return api.removeTaskRecord({ gid })
       .finally(() => dispatch('fetchList'))
   },
@@ -151,7 +142,6 @@ const actions = {
       .finally(() => dispatch('fetchList'))
   },
   toggleTask ({ dispatch }, task) {
-    console.log('切换任务状态===>', task)
     const { status } = task
     if (status === 'active') {
       return dispatch('pauseTask', task)
