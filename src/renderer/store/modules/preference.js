@@ -32,10 +32,13 @@ const actions = {
     commit('CHANGE_CURRENT_FORM', currentForm)
   },
   fetchPreference ({ commit }) {
-    return api.fetchPreference()
-      .then((config) => {
-        commit('UPDATE_PREFERENCE_DATA', config)
-      })
+    return new Promise((resolve) => {
+      api.fetchPreference()
+        .then((config) => {
+          commit('UPDATE_PREFERENCE_DATA', config)
+          resolve(config)
+        })
+    })
   },
   save ({ commit }, config) {
     commit('UPDATE_PREFERENCE_DATA', config)
