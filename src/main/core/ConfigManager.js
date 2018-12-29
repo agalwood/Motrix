@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import is from 'electron-is'
 import Store from 'electron-store'
 import {
   getLogPath,
@@ -24,15 +25,17 @@ export default class ConfigManager {
       name: 'system',
       defaults: {
         dir: getUserDownloadsPath(),
-        continue: true, // 断点续传
+        // 断点续传
+        continue: true,
         pause: true,
-        split: 32,
+        split: 16,
         'rpc-listen-port': 16800,
         'rpc-secret': '',
         'auto-file-renaming': true,
         'allow-overwrite': true,
         'max-concurrent-downloads': 5,
-        'max-connection-per-server': 64,
+        // macOS 版本修改过源码自己编译的，Linux 和 Windows 版本 暂未处理
+        'max-connection-per-server': is.macOS() ? 64 : 16,
         'min-split-size': '1M',
         'max-overall-download-limit': 0,
         'max-overall-upload-limit': 0,

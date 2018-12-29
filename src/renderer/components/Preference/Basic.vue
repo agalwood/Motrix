@@ -45,7 +45,7 @@
               v-model="form.split"
               controls-position="right"
               :min="1"
-              :max="64"
+              :max="form.maxConnectionPerServer"
               label="单任务下载线程数">
             </el-input-number>
           </el-col>
@@ -86,6 +86,7 @@
       split,
       resumeAllWhenAppLaunched,
       maxConcurrentDownloads,
+      maxConnectionPerServer,
       taskNotification,
       newTaskShowDownloading
     } = config
@@ -99,6 +100,7 @@
       continue: config.continue,
       resumeAllWhenAppLaunched,
       maxConcurrentDownloads,
+      maxConnectionPerServer,
       taskNotification,
       newTaskShowDownloading
     }
