@@ -3,13 +3,15 @@
     custom-class="task-info-dialog"
     width="61.8vw"
     v-if="task"
-    :title="`${taskName} 详情`"
+    :title="dialogTitle"
     :show-close="true"
     :visible.sync="visible"
     :before-close="handleClose"
     @closed="handleClosed"
   >
-    <div class="task-name" :title="taskName">{{ taskName }}</div>
+    <div class="task-name" :title="taskName">
+      <span>{{ taskName }}</span>
+    </div>
     <mo-task-item-actions mode="ITEM" :task="task" />
     <div class="task-progress">
       <mo-task-progress :completed="Number(task.completedLength)" :total="Number(task.totalLength)" :status="task.status" />
@@ -69,6 +71,11 @@
       taskName: function () {
         return getTaskName(this.task, '获取任务名中...')
       },
+      dialogTitle: function () {
+        const len = this.taskName.length
+        let title = len > 40 ? this.taskName.substr(0, 40) + '...' : this.taskName
+        return `${title} 详情`
+      },
       remaining: function () {
         const { totalLength, completedLength, downloadSpeed } = this.task
         return timeRemaining(totalLength, completedLength, downloadSpeed)
@@ -95,20 +102,24 @@
 
 <style lang="scss">
   .task-info-dialog {
+    .el-dialog__header {
+      padding-right: 60px;
+    }
     .el-dialog__body {
       position: relative;
+    }
+    .task-name {
+      font-size: 14px;
+      color: #505753;
+      line-height: 26px;
+      margin-bottom: 32px;
+      margin-right: 200px;
     }
   }
   .task-item-info {
     padding: 16px 12px;
   }
-  .task-name {
-    font-size: 14px;
-    color: #505753;
-    line-height: 26px;
-    margin-bottom: 32px;
-    margin-right: 240px;
-  }
+
   .task-item-actions {
     display: inline-block;
     position: absolute;

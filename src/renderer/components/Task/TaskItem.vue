@@ -1,6 +1,8 @@
 <template>
   <li :key="task.gid" class="task-item" v-on:dblclick="toggleTask">
-    <div class="task-name" :title="taskName">{{ taskName }}</div>
+    <div class="task-name" :title="taskName">
+      <span>{{ taskName }}</span>
+    </div>
     <mo-task-item-actions mode="LIST" :task="task" />
     <div class="task-progress">
       <mo-task-progress :completed="Number(task.completedLength)" :total="Number(task.totalLength)" :status="task.status" />
@@ -95,11 +97,18 @@
     }
   }
   .task-name {
-    font-size: 14px;
     color: #505753;
-    line-height: 26px;
     margin-bottom: 32px;
-    margin-right: 200px;
+    margin-right: 240px;
+    &> span {
+      font-size: 14px;
+      line-height: 26px;
+      overflow : hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
   }
   .task-speed {
     font-size: 12px;
