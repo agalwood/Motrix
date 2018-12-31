@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import logger from './core/Logger'
+import ExceptionHandler from './core/ExceptionHandler'
 import ConfigManager from './core/ConfigManager'
 import Engine from './core/Engine'
 import UpdateManager from './core/UpdateManager'
@@ -15,8 +16,10 @@ export default class Application extends EventEmitter {
   constructor () {
     super()
 
+    this.exceptionHandler = new ExceptionHandler()
+
     this.locale = app.getLocale()
-    logger.log('this.locale', this.locale)
+    logger.log('[Motrix] Locale: ', this.locale)
 
     this.configManager = new ConfigManager()
 

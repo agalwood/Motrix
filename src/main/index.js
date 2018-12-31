@@ -2,10 +2,6 @@ import { app } from 'electron'
 import is from 'electron-is'
 
 import logger from './core/Logger'
-import {
-  isRunningInDmg,
-  moveAppToApplicationsFolder
-} from './utils/index'
 import Application from './Application'
 
 if (process.env.NODE_ENV !== 'development') {
@@ -53,26 +49,22 @@ function _init () {
 }
 
 function init () {
-  if (isRunningInDmg()) {
-    moveAppToApplicationsFolder()
-    return
-  }
-  _init()
-}
-
-// Mac App Store Sandboxed App Not support requestSingleInstanceLock
-if (is.mas()) {
-  init()
-} else {
-  const gotSingleLock = app.requestSingleInstanceLock()
-
-  if (!gotSingleLock) {
-    app.quit()
+  // Mac App Store Sandboxed App Not support requestSingleInstanceLock
+  if (is.mas()) {
+    _init()
   } else {
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
-      global.application.showPage('index')
-    })
+    const gotSingleLock = app.requestSingleInstanceLock()
 
-    init()
+    if (!gotSingleLock) {
+      app.quit()
+    } else {
+      app.on('second-instance', (event, commandLine, workingDirectory) => {
+        global.application.showPage('index')
+      })
+
+      _init()
+    }
   }
 }
+
+init()

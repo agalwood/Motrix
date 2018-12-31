@@ -36,7 +36,7 @@ export function transformConfig (config) {
 }
 
 export function isRunningInDmg () {
-  if (!is.macOS()) {
+  if (!is.macOS() || is.dev()) {
     return false
   }
   const appPath = app.getAppPath()
