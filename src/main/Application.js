@@ -20,13 +20,13 @@ export default class Application extends EventEmitter {
 
     this.configManager = new ConfigManager()
 
+    this.windowManager = new WindowManager()
+
     this.engine = new Engine({
       systemConfig: this.configManager.getSystemConfig(),
       userConfig: this.configManager.getUserConfig()
     })
     this.startEngine()
-
-    this.windowManager = new WindowManager()
 
     this.menuManager = new MenuManager()
     this.menuManager.setup(this.locale)

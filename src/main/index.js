@@ -2,13 +2,17 @@ import { app } from 'electron'
 import is from 'electron-is'
 
 import logger from './core/Logger'
+import {
+  isRunningInDmg,
+  moveAppToApplicationsFolder
+} from './utils/index'
 import Application from './Application'
 
 if (process.env.NODE_ENV !== 'development') {
   global.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
 }
 
-function init () {
+function _init () {
   let openURL = null
   if (!is.mas()) {
     app.on('open-url', (event, url) => {
@@ -46,6 +50,14 @@ function init () {
   app.on('activate', () => {
     global.application.showPage('index')
   })
+}
+
+function init () {
+  if (isRunningInDmg()) {
+    moveAppToApplicationsFolder()
+    return
+  }
+  _init()
 }
 
 // Mac App Store Sandboxed App Not support requestSingleInstanceLock
