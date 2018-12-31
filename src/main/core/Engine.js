@@ -6,7 +6,11 @@ import { existsSync } from 'fs'
 import { resolve, join } from 'path'
 import forever from 'forever-monitor'
 import logger from './Logger'
-import { getEngineBin, getSessionPath, transformConfig } from '../utils/index'
+import {
+  getEngineBin,
+  getSessionPath,
+  transformConfig
+} from '../utils/index'
 
 export default class Engine {
   static instance = null
@@ -18,8 +22,7 @@ export default class Engine {
 
   getStartSh () {
     const { platform } = process
-    let basePath = resolve(app.getAppPath(), '..').replace(/(\s)/, '\\ ')
-    logger.info('basePath===>', basePath)
+    let basePath = resolve(app.getAppPath(), '..')
 
     if (is.dev()) {
       basePath = resolve(__dirname, `../../../extra/${platform}`)
@@ -29,20 +32,20 @@ export default class Engine {
     if (!binName) {
       throw new Error('引擎已损坏，请重新安装: (')
     }
-    const binPath = join(basePath, `/engine/${binName}`)
-    const confPath = join(basePath, '/engine/aria2.conf')
+
+    let binPath = join(basePath, `/engine/${binName}`)
     const binIsExist = existsSync(binPath)
     if (!binIsExist) {
+      logger.error('[Motrix] engine bin is not exist===>', binPath)
       throw new Error('引擎文件缺失，请重新安装: (')
     }
 
+    let confPath = join(basePath, '/engine/aria2.conf')
+
     let sessionPath = this.userConfig['session-path'] || getSessionPath()
-    logger.info('sessionPath===>', sessionPath)
-    let result = [`${binPath}`, `--conf-path=${confPath}`, `--save-session=${sessionPath}`]
-
     const sessionIsExist = existsSync(sessionPath)
-    logger.info('sessionIsExist===>', sessionIsExist)
 
+    let result = [`${binPath}`, `--conf-path=${confPath}`, `--save-session=${sessionPath}`]
     if (sessionIsExist) {
       result = [...result, `--input-file=${sessionPath}`]
     }
@@ -55,12 +58,17 @@ export default class Engine {
 
   start () {
     const sh = this.getStartSh()
-    logger.info('[Motrix] Engine start===>', sh)
+    logger.info('[Motrix] Engine start sh===>', sh)
     this.instance = forever.start(sh, {
       max: 3,
-      silent: false // !is.dev()
+      parser: function (command, args) {
+        return {
+          command: command,
+          args: args
+        }
+      },
+      silent: !is.dev()
     })
-    logger.info('[Motrix] Engine start===>', this.instance)
 
     const { child } = this.instance
     logger.info('[Motrix] Engine pid===>', child.pid)
