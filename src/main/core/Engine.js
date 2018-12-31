@@ -31,6 +31,10 @@ export default class Engine {
     }
     const binPath = join(basePath, `/engine/${binName}`)
     const confPath = join(basePath, '/engine/aria2.conf')
+    const binIsExist = existsSync(binPath)
+    if (!binIsExist) {
+      throw new Error('引擎文件缺失，请重新安装: (')
+    }
 
     let sessionPath = this.userConfig['session-path'] || getSessionPath()
     logger.info('sessionPath===>', sessionPath)
@@ -56,8 +60,10 @@ export default class Engine {
       max: 3,
       silent: false // !is.dev()
     })
+    logger.info('[Motrix] Engine start===>', this.instance)
 
-    logger.info('[Motrix] Engine pid===>', this.instance.child.pid)
+    const { child } = this.instance
+    logger.info('[Motrix] Engine pid===>', child.pid)
 
     this.instance.on('exit:code', function (code) {
       logger.info(`[Motrix] Engine  has exited after 3 restarts===> ${code}`)
@@ -73,9 +79,9 @@ export default class Engine {
     try {
       logger.info('[Motrix] Engine stopping===>')
       this.instance.stop()
-      logger.info('[Motrix] Engine stopped===>', this.instance)
+      logger.info('[Motrix] Engine stopped===>', pid)
     } catch (err) {
-      logger.error('[Motrix] Engine stop fail===>', err)
+      logger.error('[Motrix] Engine stop fail===>', err.message)
       this.forceStop(pid)
     } finally {
     }
