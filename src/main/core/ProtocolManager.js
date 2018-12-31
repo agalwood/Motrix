@@ -1,7 +1,6 @@
 
 import { EventEmitter } from 'events'
 import { app } from 'electron'
-import * as URL from 'url'
 import logger from './Logger'
 import protocolMap from '../configs/protocol'
 
@@ -25,7 +24,7 @@ export default class ProtocolManager extends EventEmitter {
 
   handle (url) {
     logger.info(`[Motrix] protocol url: ${url}`)
-    const parsed = URL.parse(url)
+    const parsed = new URL(url)
     const { host } = parsed
     logger.info('[Motrix] protocol parsed:', parsed, host)
 
