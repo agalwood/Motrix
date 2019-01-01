@@ -8,6 +8,14 @@ if (process.env.NODE_ENV !== 'development') {
   global.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
 }
 
+/**
+ * Fix Windows notification func
+ * appId defined in .electron-vue/webpack.main.config.js
+ */
+if (process.platform === 'win32') {
+  app.setAppUserModelId(appId)
+}
+
 function _init () {
   let openURL = null
   if (!is.mas()) {
