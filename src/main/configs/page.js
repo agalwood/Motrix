@@ -9,7 +9,7 @@ export default {
       minWidth: 840,
       minHeight: 420,
       // backgroundColor: '#FFFFFF',
-      transparent: true
+      transparent: !is.windows()
     },
     bindCloseToHide: true,
     url: is.dev() ? `http://localhost:9080` : `file://${__dirname}/index.html`
