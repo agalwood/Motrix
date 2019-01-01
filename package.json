@@ -1,6 +1,6 @@
 {
   "name": "Motrix",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A full-featured download manager",
   "homepage": "https://motrix.app",
   "author": {
@@ -14,6 +14,7 @@
     "url": "git@github.com:agalwood/Motrix.git"
   },
   "scripts": {
+    "release": "npm run build",
     "build": "node .electron-vue/build.js && electron-builder",
     "build:dir": "node .electron-vue/build.js && electron-builder --dir",
     "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
