@@ -68,7 +68,8 @@ let mainConfig = {
 if (devMode) {
   mainConfig.plugins.push(
     new webpack.DefinePlugin({
-      '__static': `"${path.join(__dirname, '../static').replace(/\\/g, '\\\\')}"`
+      '__static': `"${path.join(__dirname, '../static').replace(/\\/g, '\\\\')}"`,
+      'appId': `"${build.appId}"`
     })
   )
 }
