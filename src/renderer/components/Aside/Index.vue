@@ -1,5 +1,5 @@
 <template>
-  <el-aside width="78px" class="aside">
+  <el-aside width="78px" class="aside" :class="{ draggable: !isWindows() }">
     <div class="aside-inner">
       <mo-logo-mini />
       <ul class="menu top-menu">
@@ -43,6 +43,7 @@
     },
     methods: {
       isRenderer: is.renderer,
+      isWindows: is.windows,
       open (link) {
         this.$electron.shell.openExternal(link)
       },
