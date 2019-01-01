@@ -169,7 +169,8 @@ export function isTorrent (file) {
 export function getAsBase64 (file, callback) {
   const reader = new FileReader()
   reader.addEventListener('load', () => {
-    const result = reader.result.replace('data:;base64,', '')
+    // https://developer.mozilla.org/en-US/docs/Web/API/FileReader/readAsDataURL
+    const result = reader.result.split('base64,')[1]
     callback(result)
   })
   reader.readAsDataURL(file)
