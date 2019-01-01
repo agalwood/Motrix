@@ -85,6 +85,10 @@
       ]
     },
     "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "extraResources": {
         "from": "./extra/win32/",
         "to": "./",
@@ -92,6 +96,10 @@
           "**/*"
         ]
       }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     },
     "linux": {
       "extraResources": {
