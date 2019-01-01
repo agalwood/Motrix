@@ -63,6 +63,9 @@ export function updateDockBadge (text) {
 }
 
 export function showDownloadSpeedInDock (downloadSpeed) {
+  if (is.windows()) {
+    return
+  }
   const text = downloadSpeed > 0 ? bytesToSize(downloadSpeed) : ''
   updateDockBadge(text)
 }
