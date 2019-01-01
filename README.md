@@ -58,3 +58,6 @@ npm run build
 
 ## 🤝 参与共建 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 如果你有兴趣参与共同开发，欢迎 FORK 和 PR。
+
+## 开源许可
+基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
