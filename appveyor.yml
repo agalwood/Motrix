@@ -18,7 +18,7 @@ init:
   - git config --global core.autocrlf input
 
 install:
-  - ps: Install-Product node 10.15 x64
+  - ps: Install-Product node 10 x64
   - git reset --hard HEAD
   - npm install
   - node --version
