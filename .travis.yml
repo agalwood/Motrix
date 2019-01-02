@@ -24,7 +24,7 @@ before_install:
   | tar -xz -C /tmp/git-lfs --strip-components 1 && /tmp/git-lfs/git-lfs pull
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install --no-install-recommends -y icnsutils graphicsmagick xz-utils; fi
 install:
-- nvm install 10.15
+- nvm install 10
 - source ~/.bashrc
 - npm install -g xvfb-maybe
 - npm install
