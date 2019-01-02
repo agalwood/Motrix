@@ -5,6 +5,8 @@
 </a>
 
 ## 一款全能的下载工具
+[![Build Status](https://travis-ci.org/agalwood/Motrix.svg?branch=master)](https://travis-ci.org/agalwood/Motrix)[![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master)
+
 
 支持下载 HTTP、FTP、BT、磁力链、百度网盘等资源
 
