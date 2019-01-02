@@ -15,7 +15,7 @@
     "url": "git@github.com:agalwood/Motrix.git"
   },
   "scripts": {
-    "release": "npm run build",
+    "release": "npm run build --publish always",
     "build": "node .electron-vue/build.js && electron-builder",
     "build:dir": "node .electron-vue/build.js && electron-builder --dir",
     "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
@@ -104,6 +104,10 @@
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
       "extraResources": {
         "from": "./extra/linux/",
         "to": "./",
@@ -116,6 +120,9 @@
       {
         "provider": "generic",
         "url": "https://motrix.app/release/"
+      },
+      {
+        "provider": "github"
       }
     ]
   },
