@@ -1,4 +1,4 @@
-osx_image: xcode8.3
+osx_image: xcode10.1
 sudo: required
 dist: trusty
 language: c
@@ -24,13 +24,12 @@ before_install:
   | tar -xz -C /tmp/git-lfs --strip-components 1 && /tmp/git-lfs/git-lfs pull
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install --no-install-recommends -y icnsutils graphicsmagick xz-utils; fi
 install:
-- nvm install 10
-- curl -o- -L https://yarnpkg.com/install.sh | bash
+- nvm install 10.15
 - source ~/.bashrc
 - npm install -g xvfb-maybe
-- yarn
+- npm install
 script:
-- yarn run build
+- npm run release
 branches:
   only:
   - master
