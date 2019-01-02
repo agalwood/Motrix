@@ -8,6 +8,7 @@
     "email": "agalwood.net@gmail.com"
   },
   "copyright": "Copyright© AGALWOOD",
+  "license": "MIT",
   "main": "./dist/electron/main.js",
   "repository": {
     "type": "git",
