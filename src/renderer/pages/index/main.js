@@ -31,7 +31,8 @@ const loading = Loading.service({
 })
 
 store.dispatch('preference/fetchPreference')
-  .then(() => {
+  .then((config) => {
+    console.log('fetchPreference===>', config)
     /* eslint-disable no-new */
     window.app = new Vue({
       components: { App },

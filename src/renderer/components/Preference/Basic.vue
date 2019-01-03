@@ -90,13 +90,9 @@
       taskNotification,
       newTaskShowDownloading
     } = config
-    console.log('initialForm===>', dir, split)
     const result = {
       dir,
       split,
-      userAgent: '',
-      referer: '',
-      cookie: '',
       continue: config.continue,
       resumeAllWhenAppLaunched,
       maxConcurrentDownloads,
