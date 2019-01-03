@@ -5,7 +5,7 @@
 </a>
 
 ## 一款全能的下载工具
-[![Build Status](https://travis-ci.org/agalwood/Motrix.svg?branch=master)](https://travis-ci.org/agalwood/Motrix)[![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master)
+[![Build Status](https://travis-ci.org/agalwood/Motrix.svg?branch=master)](https://travis-ci.org/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master)
 
 
 支持下载 HTTP、FTP、BT、磁力链、百度网盘等资源
@@ -19,7 +19,7 @@
 ## 🛠 技术栈
 - [Electron](https://electronjs.org/)
 - [Vue](https://vuejs.org/) + [VueX](https://vuex.vuejs.org/) + [Element](https://element.eleme.io)
-- [Aria2](https://aria2.github.io/)
+- [Aria2](https://aria2.github.io/) (注：macOS 和 Linux 版本使用的是 64 位的 aria2c，Windows 版使用的 32 位的）
 
 ## 📦 自行编译
 
