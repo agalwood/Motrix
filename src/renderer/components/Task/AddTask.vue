@@ -20,6 +20,7 @@
               :autosize="{ minRows: 3, maxRows: 5 }"
               auto-complete="off"
               placeholder="添加多个下载链接时，请确保每行只有一个链接"
+              @change="handleUriChange"
               v-model="form.uris">
             </el-input>
           </el-form-item>
@@ -110,12 +111,12 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
-  import { isEmpty, compact } from 'lodash'
+  import { isEmpty } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
   import { prettifyDir } from '@/components/Native/utils'
   import '@/components/Icons/inbox'
-  import { splitTextRows, needCheckCopyright } from '@shared/utils'
+  import { splitTaskLinks, needCheckCopyright } from '@shared/utils'
 
   const initialForm = (state) => {
     const { dir, split, newTaskShowDownloading } = state.preference.config
@@ -210,6 +211,18 @@
         console.log(tab, tab.name, event)
         this.$store.dispatch('app/changeAddTaskType', tab.name)
       },
+      handleUriChange () {
+        // el-input does not support @paste event ?
+        // https://github.com/ElemeFE/element/blob/master/packages/input/src/input.vue
+        const { uris } = this.form
+        if (uris.includes('thunder://')) {
+          this.$message({
+            type: 'warning',
+            message: '友情提示：迅雷链接解码之后的资源不一定存在',
+            duration: 6000
+          })
+        }
+      },
       handleTorrentChange (torrent, file, fileList) {
         // TODO 种子选择部分文件下载
         // console.log('handleTorrentChange===>', torrent, file, fileList)
@@ -270,7 +283,7 @@
       },
       buildUriPayload (form) {
         let { uris } = form
-        uris = compact(splitTextRows(uris))
+        uris = splitTaskLinks(uris)
         const options = this.buildOption(form)
         const result = {
           uris,
@@ -309,8 +322,7 @@
         }
       },
       checkCopyright (type, form) {
-        let { uris } = form
-        uris = compact(splitTextRows(uris))
+        const { uris } = form
 
         return new Promise((resolve, reject) => {
           if (type !== 'uri') {

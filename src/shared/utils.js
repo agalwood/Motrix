@@ -1,6 +1,7 @@
 import {
   isEmpty,
   isNaN,
+  compact,
   parseInt,
   isFunction,
   camelCase,
@@ -268,11 +269,31 @@ export function isAudioOrVideo (uri = '') {
   return result
 }
 
-export function needCheckCopyright (uris) {
+export function needCheckCopyright (links = '') {
+  const uris = splitTaskLinks(links)
   const avs = uris.filter(uri => {
     return isAudioOrVideo(uri)
   })
 
   const result = avs.length > 0
+  return result
+}
+
+export function decodeThunderLink (url = '') {
+  if (!url.startsWith('thunder://')) {
+    return url
+  }
+
+  let result = url.split('thunder://')[1]
+  result = Buffer.from(result, 'base64').toString('utf8')
+  result = result.substr(2, result.length - 4)
+  return result
+}
+
+export function splitTaskLinks (links = '') {
+  const temp = compact(splitTextRows(links))
+  const result = temp.map((item) => {
+    return decodeThunderLink(item)
+  })
   return result
 }
