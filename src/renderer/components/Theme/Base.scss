@@ -28,6 +28,7 @@ img {
   height: 40px;
   user-select: none;
   -webkit-app-region: drag;
+  -webkit-user-select: none;
   z-index: 5000;
 }
 
@@ -38,6 +39,7 @@ img {
 
 .draggable {
   -webkit-app-region: drag;
+  -webkit-user-select: none;
 }
 
 .el-progress-bar__inner {
