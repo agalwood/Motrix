@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <div class="title-bar"></div>
+    <div v-if="isRenderer()" class="title-bar"></div>
     <router-view></router-view>
     <mo-engine-client
       :secret="rpcSecret"
