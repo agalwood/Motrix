@@ -12,7 +12,6 @@ const state = {
     version: '',
     enabledFeatures: []
   },
-  engineStatus: '',
   interval: BASE_INTERVAL,
   stat: {
     downloadSpeed: 0,
@@ -21,22 +20,11 @@ const state = {
     numStopped: 0,
     numWaiting: 0
   },
-  currentPage: 'task',
   addTaskVisible: false,
-  addTaskType: 'uri',
-  i18n: 'zh_CN'
-}
-
-const pageTitles = {
-  'task': '任务列表',
-  'preference': '偏好设置',
-  'about': '关于'
+  addTaskType: 'uri'
 }
 
 const getters = {
-  currentPageTitle: (state, getters) => {
-    return pageTitles[state.currentPage] ? pageTitles[state.currentPage] : ''
-  }
 }
 
 const mutations = {
@@ -48,9 +36,6 @@ const mutations = {
   },
   UPDATE_GLOBAL_STAT (state, stat) {
     state.stat = stat
-  },
-  CHANGE_CURRENT_PAGE (state, currentPage) {
-    state.currentPage = currentPage
   },
   CHANGE_ADD_TASK_VISIBLE (state, visible) {
     state.addTaskVisible = visible
@@ -107,8 +92,9 @@ const actions = {
           stat[key] = Number(data[key])
         })
 
-        if (stat.numActive > 0) {
-          const interval = BASE_INTERVAL - PER_INTERVAL * stat.numActive
+        const { numActive } = stat
+        if (numActive > 0) {
+          const interval = BASE_INTERVAL - PER_INTERVAL * numActive
           dispatch('updateInterval', interval)
         } else {
           // fix downloadSpeed when numActive = 0
@@ -117,22 +103,20 @@ const actions = {
         }
         commit('UPDATE_GLOBAL_STAT', stat)
 
-        // @4ET
-        if (!is.renderer()) {
-          return
-        }
-        if (stat.numActive > 0) {
-          api.startPowerSaveBlocker()
-        } else {
-          api.stopPowerSaveBlocker()
+        if (is.renderer()) {
+          dispatch('togglePowerSaveBlocker', numActive)
         }
       })
   },
+  togglePowerSaveBlocker (context, numActive) {
+    if (numActive > 0) {
+      api.startPowerSaveBlocker()
+    } else {
+      api.stopPowerSaveBlocker()
+    }
+  },
   increaseInterval ({ commit }, millisecond = 100) {
     commit('INCREASE_INTERVAL', millisecond)
-  },
-  changeCurrentPage ({ commit }, currentPage) {
-    commit('CHANGE_CURRENT_PAGE', currentPage)
   },
   showAddTaskDialog ({ commit }, taskType) {
     commit('CHANGE_ADD_TASK_TYPE', taskType)
