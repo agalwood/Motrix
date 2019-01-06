@@ -24,7 +24,7 @@
 
 <script>
   import is from 'electron-is'
-  import { mapState, mapActions } from 'vuex'
+  import { mapState } from 'vuex'
   import LogoMini from '@/components/Logo/LogoMini'
   import '@/components/Icons/menu-task'
   import '@/components/Icons/menu-add'
@@ -62,10 +62,7 @@
         this.$router.push({
           path: page
         })
-      },
-      ...mapActions('app', [
-        'changeCurrentPage'
-      ])
+      }
     }
   }
 </script>
