@@ -1,21 +1,21 @@
 <template>
   <div class="task-actions">
-    <el-tooltip class="item" effect="dark" content="刷新列表" placement="bottom">
+    <el-tooltip class="item" effect="dark" :content="$t('task.refresh-list')" placement="bottom">
       <i @click="onRefreshClick">
         <mo-icon name="refresh" width="14" height="14" :spin="refreshing" />
       </i>
     </el-tooltip>
-    <el-tooltip class="item" effect="dark" content="恢复所有任务" placement="bottom">
+    <el-tooltip class="item" effect="dark" :content="$t('task.resume-all-task')" placement="bottom">
       <i @click="onResumeAllClick">
         <mo-icon name="task-start-line" width="14" height="14" />
       </i>
     </el-tooltip>
-    <el-tooltip class="item" effect="dark" content="暂停所有任务" placement="bottom">
+    <el-tooltip class="item" effect="dark" :content="$t('task.pause-all-task')" placement="bottom">
       <i @click="onPauseAllClick">
         <mo-icon name="task-pause-line" width="14" height="14" />
       </i>
     </el-tooltip>
-    <!-- <el-tooltip class="item" effect="dark" content="移除选中的任务" placement="bottom">
+    <!-- <el-tooltip class="item" effect="dark" :content="$t('task.delete-selected-tasks')" placement="bottom">
       <i>
         <mo-icon name="delete" width="14" height="14" />
       </i>
@@ -23,7 +23,7 @@
     <el-tooltip
       class="item"
       effect="dark"
-      content="清除已完成的任务"
+      :content="$t('task.purge-record')"
       placement="bottom"
       v-if="currentList === 'stopped'"
     >
@@ -86,33 +86,33 @@
       onResumeAllClick: function () {
         this.$store.dispatch('task/resumeAllTask')
           .then(() => {
-            this.$message.success(`恢复全部任务成功`)
+            this.$message.success(this.$t('task.resume-all-task-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`恢复全部任务失败`)
+              this.$message.error(this.$t('task.resume-all-task-fail'))
             }
           })
       },
       onPauseAllClick: function () {
         this.$store.dispatch('task/pauseAllTask')
           .then(() => {
-            this.$message.success(`暂停全部任务成功`)
+            this.$message.success(this.$t('task.pause-all-task-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`暂停全部任务失败`)
+              this.$message.error(this.$t('task.pause-all-task-fail'))
             }
           })
       },
       onPurgeRecordClick: function () {
         this.$store.dispatch('task/purgeTaskRecord')
           .then(() => {
-            this.$message.success(`移除全部下载记录成功`)
+            this.$message.success(this.$t('task.purge-record-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`移除全部下载记录失败`)
+              this.$message.error(this.$t('task.purge-record-fail'))
             }
           })
       }
