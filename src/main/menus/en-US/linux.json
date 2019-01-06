@@ -1,8 +1,8 @@
 {
   "menu": [
     {
-      "label": "Motrix",
       "id": "app",
+      "label": "File",
       "submenu": [
         { "label": "About Motrix", "id": "app.about", "command": "application:about" },
         { "type": "separator" },
