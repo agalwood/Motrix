@@ -5,19 +5,11 @@
 </template>
 
 <script>
-  // import { mapState, mapGetters } from 'vuex'
-
   export default {
     name: 'mo-subnav',
     components: {
     },
     computed: {
-      // ...mapState('app', {
-      //   currentPage: state => state.currentPage
-      // }),
-      // ...mapGetters('app', {
-      //   title: 'currentPageTitle'
-      // })
     },
     methods: {
     }
