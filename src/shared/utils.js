@@ -297,3 +297,24 @@ export function splitTaskLinks (links = '') {
   })
   return result
 }
+
+/**
+ * determineLocale
+ * @param { String } locale
+ * https://electronjs.org/docs/api/locales
+ */
+export function determineLocale (locale = 'en-US') {
+  let result = 'en'
+
+  if (locale.startsWith('en')) {
+    result = 'en'
+    return result
+  }
+
+  if (locale.startsWith('zh')) {
+    result = 'zh'
+    return result
+  }
+
+  return result
+}
