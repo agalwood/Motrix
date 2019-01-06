@@ -3,11 +3,10 @@
     <div class="app-version">
       <mo-logo :width="93" :height="21" style="vertical-align: bottom;" />
       <span>Version {{version}}</span>
-      <!-- <p>一款 macOS 全能下载工具</p> -->
     </div>
     <div class="app-icon"></div>
     <div class="engine-info" v-if="!!engine">
-      <h4>引擎版本 {{engine.version}}</h4>
+      <h4>{{ $t('about.engine-version') }} {{engine.version}}</h4>
       <ul v-if="!isMas()">
         <li
           v-for="(feature, index) in engine.enabledFeatures"

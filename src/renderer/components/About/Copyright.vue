@@ -7,10 +7,10 @@
     </el-col>
     <el-col :span="16" class="copyright-right">
       <a target="_blank" href="https://motrix.app/about" rel="noopener noreferrer">
-        关于我们
+        {{ $t('about.about') }}
       </a>
       <a target="_blank" href="https://motrix.app/support" rel="noopener noreferrer">
-        帮助支持
+        {{ $t('about.support') }}
       </a>
     </el-col>
   </el-row>
@@ -21,7 +21,6 @@
     name: 'mo-copyright'
   }
 </script>
-
 
 <style lang="scss">
   .copyright {
@@ -45,5 +44,4 @@
       margin-left: 30px;
     }
   }
-
 </style>
