@@ -11,12 +11,12 @@
         size="mini"
         :model="form"
         :rules="rules">
-        <el-form-item label="启动: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.startup')}: `" :label-width="formLabelWidth">
           <el-checkbox v-model="form.resumeAllWhenAppLaunched">
-            启动后自动开始未完成任务
+            {{ $t('preferences.auto-resume-all') }}
           </el-checkbox>
         </el-form-item>
-        <el-form-item label="默认下载路径: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.default-dir')}: `" :label-width="formLabelWidth">
           <el-input placeholder="" v-model="downloadDir" :readonly="isMas()">
             <mo-select-directory
               v-if="isRenderer()"
@@ -25,50 +25,50 @@
             />
           </el-input>
           <div class="el-form-item__info" v-if="isMas()" style="margin-top: 8px;">
-            因 App Store 的沙箱权限限制，默认下载路径建议设置为您的「下载」目录
+            {{ $t('preferences.mas-default-dir-tip') }}
           </div>
         </el-form-item>
-        <el-form-item label="任务管理: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.task-manage')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
-            同时下载的最大任务数
+            {{ $t('preferences.max-concurrent-downloads') }}
             <el-input-number
               v-model="form.maxConcurrentDownloads"
               controls-position="right"
               :min="1"
               :max="10"
-              label="同时下载最大任务数">
+              :label="$t('preferences.max-concurrent-downloads')">
             </el-input-number>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            单任务下载的线程数
+            {{ $t('preferences.max-connection-per-server') }}
             <el-input-number
               v-model="form.split"
               controls-position="right"
               :min="1"
               :max="form.maxConnectionPerServer"
-              label="单任务下载线程数">
+              :label="$t('preferences.max-connection-per-server')">
             </el-input-number>
           </el-col>
           <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.continue">
-              断点续传
+              {{ $t('preferences.continue') }}
             </el-checkbox>
           </el-col>
           <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.newTaskShowDownloading">
-              新建任务后自动跳转到下载页面
+              {{ $t('preferences.new-task-show-downloading') }}
             </el-checkbox>
           </el-col>
           <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.taskNotification">
-              下载完成后通知
+              {{ $t('preferences.task-completed-notify') }}
             </el-checkbox>
           </el-col>
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('basicForm')">保存并应用</el-button>
-        <el-button @click="resetForm('basicForm')">放弃</el-button>
+        <el-button type="primary" @click="submitForm('basicForm')">{{ $t('preferences.save') }}</el-button>
+        <el-button @click="resetForm('basicForm')">{{ $t('preferences.discard') }}</el-button>
       </div>
     </el-main>
   </el-container>
@@ -117,7 +117,7 @@
     },
     computed: {
       title: function () {
-        return '基础设置'
+        return this.$t('preferences.basic')
       },
       downloadDir: function () {
         return prettifyDir(this.form.dir)

@@ -6,15 +6,28 @@
     <el-main class="panel-content">
       <el-form
         class="form-preference"
-        ref="basicForm"
+        ref="advancedForm"
         label-position="right"
         size="mini"
         :model="form"
         :rules="rules">
-        <el-form-item label="代理: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
+          <el-select
+            v-model="locale"
+            @change="handleLocaleChange"
+            :placeholder="$t('preferences.change-language')">
+            <el-option
+              v-for="item in locales"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
           <el-switch
             v-model="form.useProxy"
-            active-text="使用代理服务器"
+            :active-text="$t('preferences.use-proxy')"
             @change="onUseProxyChange"
             >
           </el-switch>
@@ -28,9 +41,9 @@
             </el-input>
           </el-col>
         </el-form-item>
-        <el-form-item label="开发者: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
-            模拟用户代理
+            {{ $t('preferences.mock-user-agent') }}
             <el-input
               type="textarea"
               :autosize="{ minRows: 2, maxRows: 3 }"
@@ -45,7 +58,7 @@
             </el-button-group>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            应用日志路径
+            {{ $t('preferences.app-log-path') }}
             <el-input placeholder="" disabled v-model="logPath">
               <mo-show-in-folder
                 slot="append"
@@ -55,7 +68,7 @@
             </el-input>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            下载会话记录
+            {{ $t('preferences.download-session-path') }}
             <el-input placeholder="" disabled v-model="sessionPath">
               <mo-show-in-folder
                 slot="append"
@@ -65,13 +78,13 @@
             </el-input>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            <el-button plain type="danger" @click="() => onResetClick()">恢复初始设置</el-button>
+            <el-button plain type="danger" @click="() => onFactoryResetClick()">{{ $t('preferences.factory-reset') }}</el-button>
           </el-col>
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('basicForm')">保存并应用</el-button>
-        <el-button @click="resetForm('basicForm')">放弃</el-button>
+        <el-button type="primary" @click="submitForm('advancedForm')">{{ $t('preferences.save') }}</el-button>
+        <el-button @click="resetForm('advancedForm')">{{ $t('preferences.discard') }}</el-button>
       </div>
     </el-main>
   </el-container>
@@ -82,6 +95,7 @@
   import { mapState } from 'vuex'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
+  import { determineLocale } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -108,12 +122,24 @@
       return {
         formLabelWidth: '23%',
         form: initialForm(this.$store.state.preference.config),
-        rules: {}
+        rules: {},
+        color: '#c00',
+        locale: 'zh-CN',
+        locales: [
+          {
+            value: 'zh-CN',
+            label: '🇨🇳 简体中文'
+          },
+          {
+            value: 'en-US',
+            label: '🇺🇸 English (US)'
+          }
+        ]
       }
     },
     computed: {
       title: function () {
-        return '进阶设置'
+        return this.$t('preferences.advanced')
       },
       ...mapState('preference', {
         config: state => state.config,
@@ -126,6 +152,12 @@
     },
     methods: {
       isRenderer: is.renderer,
+      handleLocaleChange (value) {
+        console.log('handleLocaleChange=>', value)
+        const lng = determineLocale(value)
+        // this.$i18n.locale = locale
+        this.$i18n.i18next.changeLanguage(lng)
+      },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''
         console.log('this.form.allProxy===>', flag, this.form.allProxy)
@@ -141,15 +173,14 @@
         }
         this.form.userAgent = ua
       },
-      onResetClick () {
+      onFactoryResetClick () {
         this.$electron.remote.dialog.showMessageBox({
           type: 'warning',
           title: '恢复初始设置',
           message: '你确定要恢复为初始设置吗?',
-          buttons: ['是', '否'],
+          buttons: [this.$t('app.yes'), this.$t('app.no')],
           cancelId: 1
         }, (buttonIndex) => {
-          // 点击的按钮是哪个按钮 0: 是, 1: 否
           if (buttonIndex === 0) {
             this.$electron.ipcRenderer.send('command', 'application:reset')
           }

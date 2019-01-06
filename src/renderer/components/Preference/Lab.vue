@@ -6,41 +6,43 @@
     <el-main class="panel-content">
       <el-form
         class="form-preference"
-        ref="basicForm"
+        ref="labForm"
         label-position="right"
         size="mini"
         :model="form"
         :rules="rules">
         <el-form-item :label-width="formLabelWidth">
-          <div class="el-form-item__error">⚠️启用实验特性可能造成应用崩溃或数据丢失，请自行决定！</div>
+          <div class="el-form-item__error">
+            {{ $t('preferences.lab-warning') }}
+          </div>
         </el-form-item>
-        <el-form-item label="下载协议: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.enableEggFeatures"
-              active-text="支持更多下载协议"
+              :active-text="$t('preferences.support-more-download-protocols')"
               >
             </el-switch>
           </el-col>
         </el-form-item>
-        <el-form-item label="浏览器扩展: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.browser-extensions')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             <a target="_blank" href="https://motrix.app/release/BaiduExporter.zip" rel="noopener noreferrer">
-              百度网盘助手
+              {{ $t('preferences.baidu-exporter') }}
               <mo-icon name="link" width="14" height="14" />
             </a>
             <div class="el-form-item__info" style="margin-top: 8px;">
-              社区提供的浏览器扩展「不保证可用性」，
+              {{ $t('preferences.browser-extensions-tip') }}
               <a target="_blank" href="https://motrix.app/extensions/baidu" rel="noopener noreferrer">
-                点此查看使用说明
+                {{ $t('preferences.baidu-exporter-help') }}
               </a>
             </div>
           </el-col>
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('basicForm')">保存并应用</el-button>
-        <el-button @click="resetForm('basicForm')">放弃</el-button>
+        <el-button type="primary" @click="submitForm('labForm')">{{ $t('preferences.save') }}</el-button>
+        <el-button @click="resetForm('labForm')">{{ $t('preferences.discard') }}</el-button>
       </div>
     </el-main>
   </el-container>
@@ -74,7 +76,7 @@
     },
     computed: {
       title: function () {
-        return '实验室'
+        return this.$t('preferences.lab')
       },
       ...mapState('preference', {
         config: state => state.config
