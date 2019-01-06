@@ -9,7 +9,7 @@
         <i class="subnav-icon">
           <mo-icon name='preference-basic' width="20" height="20" />
         </i>
-        <span>基础设置</span>
+        <span>{{ $t('preferences.basic') }}</span>
       </li>
       <li
         @click="() => nav('advanced')"
@@ -18,7 +18,7 @@
         <i class="subnav-icon">
           <mo-icon name='preference-advanced' width="20" height="20" />
         </i>
-        <span>进阶设置</span>
+        <span>{{ $t('preferences.advanced') }}</span>
       </li>
       <li
         @click="() => nav('lab')"
@@ -27,7 +27,7 @@
         <i class="subnav-icon">
           <mo-icon name='preference-lab' width="20" height="20" />
         </i>
-        <span>实验室</span>
+        <span>{{ $t('preferences.lab') }}</span>
       </li>
     </ul>
   </nav>
@@ -49,7 +49,7 @@
     },
     computed: {
       title: function () {
-        return '偏好设置'
+        return this.$t('subnav.preferences')
       }
     },
     methods: {
