@@ -59,9 +59,6 @@
 </script>
 
 <style lang="scss">
-  @import '../Theme/Variables';
-  @import '../Theme/Darkness/Variables';
-
   .upload-torrent {
     width: 100%;
     .el-upload, .el-upload-dragger {
