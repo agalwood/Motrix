@@ -4,7 +4,7 @@
       "label": "文件",
       "id": "app",
       "submenu": [
-        { "label": "关于 Motrix", "id": "app.about", "command": "application:about" },
+        { "label": "关于 Motrix", "id": "app.about", "command": "application:about", "command-before": "application:show,index"},
         { "type": "separator" },
         { "label": "偏好设置...", "id": "app.preferences", "command": "application:preferences" },
         { "label": "检查更新...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
@@ -20,8 +20,8 @@
       "label": "任务",
       "id": "task",
       "submenu": [
-        { "label": "新建任务", "id": "task.new-task", "command": "application:new-task" },
-        { "label": "新建 BT 任务", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent" },
+        { "label": "新建任务", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index"},
+        { "label": "新建 BT 任务", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
         { "type": "separator" },
         { "label": "暂停任务", "id": "task.pause-task", "command": "application:pause-task" },
         { "label": "恢复任务", "id": "task.resume-task", "command": "application:resume-task" },
