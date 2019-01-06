@@ -1,7 +1,7 @@
 {
   "menu": [
     {
-      "label": "Motrix",
+      "label": "文件",
       "id": "app",
       "submenu": [
         { "label": "关于 Motrix", "id": "app.about", "command": "application:about" },
