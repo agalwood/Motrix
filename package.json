@@ -127,6 +127,7 @@
     ]
   },
   "dependencies": {
+    "@panter/vue-i18next": "^0.13.0",
     "aria2": "^4.0.3",
     "axios": "^0.18.0",
     "clipboard-polyfill": "^2.7.0",
@@ -136,6 +137,7 @@
     "electron-updater": "^4.0.7",
     "element-ui": "^2.4.11",
     "forever-monitor": "^1.7.1",
+    "i18next": "^13.1.0",
     "lodash": "^4.17.11",
     "normalize.css": "^8.0.1",
     "parse-torrent": "^6.1.2",
