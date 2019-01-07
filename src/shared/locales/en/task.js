@@ -41,5 +41,13 @@ export default {
   'get-task-name': 'Get the task name...',
   'remaining-prefix': 'Remaining',
   'select-torrent': 'Drag the torrent here, or click to select',
-  'task-info-dialog-title': '{title} Detail'
+  'task-info-dialog-title': '{title} Detail',
+  'download-start-message': 'Start download {taskName}',
+  'download-pause-message': 'Pause download {taskName}',
+  'download-stop-message': '{taskName} download stopped',
+  'download-error-message': '{taskName} download error occurred',
+  'download-complete-message': '{taskName} download completed',
+  'download-complete-notify': 'Download Completed',
+  'download-fail-message': '{taskName} download failed',
+  'download-fail-notify': 'Download Failed'
 }

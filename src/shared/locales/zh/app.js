@@ -4,5 +4,9 @@ export default {
   'about': '关于',
   'preferences': '偏好设置',
   'yes': '是',
-  'no': '否'
+  'no': '否',
+  'gt1d': '超过一天',
+  'hour': '时',
+  'minutes': '分',
+  'seconds': '秒'
 }

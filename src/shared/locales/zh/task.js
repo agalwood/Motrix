@@ -41,5 +41,13 @@ export default {
   'get-task-name': '获取任务名中...',
   'remaining-prefix': '剩余',
   'select-torrent': '将种子拖到此处，或点击选择',
-  'task-info-dialog-title': '{title} 详情'
+  'task-info-dialog-title': '{title} 详情',
+  'download-start-message': '开始下载 {taskName}',
+  'download-pause-message': '暂停下载 {taskName}',
+  'download-stop-message': '{taskName} 下载中止',
+  'download-error-message': '{taskName} 下载发生错误',
+  'task-complete-message': '{taskName} 下载完成',
+  'task-complete-notify': '下载完成',
+  'download-fail-message': '{taskName} 下载失败',
+  'download-fail-notify': '下载失败'
 }

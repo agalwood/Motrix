@@ -17,7 +17,17 @@
           <div v-if="task.status ==='active'">
             <span>{{ task.downloadSpeed | bytesToSize }}/s</span>
             <span>
-              {{ remaining | timeFormat('剩余') }}
+              {{
+                remaining | timeFormat({
+                  prefix: $t('task.remaining-prefix'),
+                  i18n: {
+                    'gt1d': $t('app.gt1d'),
+                    'hour': $t('app.hour'),
+                    'minute': $t('app.minute'),
+                    'second': $t('app.second')
+                  }
+                })
+              }}
             </span>
           </div>
         </el-col>
@@ -55,7 +65,7 @@
     },
     computed: {
       taskName: function () {
-        return getTaskName(this.task, '获取任务名中...')
+        return getTaskName(this.task, this.$t('task.get-task-name'))
       },
       remaining: function () {
         const { totalLength, completedLength, downloadSpeed } = this.task

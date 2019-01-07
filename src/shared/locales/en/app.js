@@ -4,5 +4,9 @@ export default {
   'about': 'About',
   'preferences': 'Preferences',
   'yes': 'Yes',
-  'no': 'No'
+  'no': 'No',
+  'gt1d': '> 1 day',
+  'hour': 'H',
+  'minute': 'm',
+  'second': 's'
 }
