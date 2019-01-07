@@ -34,27 +34,47 @@ export function timeRemaining (totalLength, completedLength, downloadSpeed) {
   return Math.ceil(remainingLength / downloadSpeed)
 }
 
-export function timeFormat (seconds, prefix = '', suffix = '') {
+/**
+ * timeFormat
+ * @param {int} seconds
+ * @param {string} prefix
+ * @param {string} suffix
+ * @param {object} i18n
+ * i18n: {
+ *  gt1d: 'More than one day',
+ *  hour: 'H',
+ *  minute: 'm',
+ *  second: 's'
+ * }
+ */
+export function timeFormat (seconds, { prefix = '', suffix = '', i18n }) {
   let result = ''
   let hours = ''
   let minutes = ''
   let secs = seconds || 0
+  const i = {
+    gt1d: '> 1 day',
+    hour: 'H',
+    minute: 'm',
+    second: 's',
+    ...i18n
+  }
 
   if (secs <= 0) {
     return ''
   }
   if (secs > 86400) {
-    return `${prefix} 超过一天 ${suffix}`
+    return `${prefix} ${i.gt1d} ${suffix}`
   }
   if (secs > 3600) {
-    hours = `${Math.floor(secs / 3600)}时 `
+    hours = `${Math.floor(secs / 3600)}${i.hour} `
     secs %= 3600
   }
   if (secs > 60) {
-    minutes = `${Math.floor(secs / 60)}分 `
+    minutes = `${Math.floor(secs / 60)}${i.minute} `
     secs %= 60
   }
-  secs += '秒'
+  secs += i.second
   result = hours + minutes + secs
   return result ? `${prefix} ${result} ${suffix}` : result
 }
