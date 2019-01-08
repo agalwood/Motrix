@@ -24,10 +24,10 @@ export default {
   'download-session-path': 'Download session path',
   'factory-reset': 'Factory Reset',
   'lab-warning': '⚠️ Enabling lab features may cause app crashes or data loss, decide for yourself!',
-  'download-protocol': 'Download Protocol',
+  'download-protocol': 'Protocol',
   'support-more-download-protocols': 'Enable more download protocols support',
-  'browser-extensions': 'Browser Extensions',
-  'baidu-exporter': 'BaiduPan Exporter',
+  'browser-extensions': 'Extensions',
+  'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tip': 'Provided by the community, ',
   'baidu-exporter-help': 'Click here for usage'
 }
