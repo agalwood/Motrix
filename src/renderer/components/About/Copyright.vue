@@ -12,6 +12,9 @@
       <a target="_blank" href="https://motrix.app/support" rel="noopener noreferrer">
         {{ $t('about.support') }}
       </a>
+      <a target="_blank" href="https://motrix.app/release" rel="noopener noreferrer">
+        {{ $t('about.release') }}
+      </a>
     </el-col>
   </el-row>
 </template>
