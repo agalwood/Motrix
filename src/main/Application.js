@@ -93,14 +93,14 @@ export default class Application extends EventEmitter {
 
   sendCommandToAll (command, ...args) {
     if (!this.emit(command, ...args)) {
-      this.windowManager.getWindows().forEach(window => {
+      this.windowManager.getWindowList().forEach(window => {
         this.windowManager.sendCommandTo(window, command, ...args)
       })
     }
   }
 
   sendMessageToAll (channel, ...args) {
-    this.windowManager.getWindows().forEach(window => {
+    this.windowManager.getWindowList().forEach(window => {
       this.windowManager.sendMessageTo(window, channel, ...args)
     })
   }

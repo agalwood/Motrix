@@ -70,7 +70,11 @@ export default class WindowManager extends EventEmitter {
   }
 
   getWindows () {
-    return this.windows
+    return this.windows || {}
+  }
+
+  getWindowList () {
+    return Object.values(this.getWindows())
   }
 
   addWindow (page, window) {
