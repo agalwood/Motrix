@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" width="12" height="12">
+  <g class="nc-icon-wrapper" stroke-width="1" fill="#111111" stroke="#111111">
+    <polyline points="5.5 1.5 10.5 1.5 10.5 6.5" fill="none" stroke="#111111" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="1.5 5.5 1.5 10.5 6.5 10.5" fill="none" stroke-linecap="round" stroke-linejoin="round" data-color="color-2"/>
+  </g>
+</svg>
