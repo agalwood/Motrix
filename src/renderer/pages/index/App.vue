@@ -1,6 +1,9 @@
 <template>
   <div id="app">
-    <div v-if="isRenderer()" class="title-bar"></div>
+    <mo-title-bar
+      v-if="isRenderer()"
+      :showActions="showWindowActions"
+    />
     <router-view></router-view>
     <mo-engine-client
       :secret="rpcSecret"
@@ -11,6 +14,7 @@
 
 <script>
   import is from 'electron-is'
+  import TitleBar from '@/components/Native/TitleBar'
   import EngineClient from '@/components/Native/EngineClient'
   import Ipc from '@/components/Native/Ipc'
   import { mapState } from 'vuex'
@@ -18,12 +22,14 @@
   export default {
     name: 'Motrix',
     components: {
+      [TitleBar.name]: TitleBar,
       [EngineClient.name]: EngineClient,
       [Ipc.name]: Ipc
     },
     computed: {
       ...mapState('preference', {
-        rpcSecret: state => state.rpcSecret
+        showWindowActions: state => is.windows() && state.config.hideAppMenu,
+        rpcSecret: state => state.config.rpcSecret
       })
     },
     methods: {

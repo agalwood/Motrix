@@ -23,7 +23,9 @@ export default class Application extends EventEmitter {
 
     this.configManager = new ConfigManager()
 
-    this.windowManager = new WindowManager()
+    this.windowManager = new WindowManager({
+      userConfig: this.configManager.getUserConfig()
+    })
 
     this.engine = new Engine({
       systemConfig: this.configManager.getSystemConfig(),

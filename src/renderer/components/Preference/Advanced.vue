@@ -11,18 +11,25 @@
         size="mini"
         :model="form"
         :rules="rules">
-        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
-          <el-select
-            v-model="locale"
-            @change="handleLocaleChange"
-            :placeholder="$t('preferences.change-language')">
-            <el-option
-              v-for="item in locales"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value">
-            </el-option>
-          </el-select>
+        <el-form-item :label="`${$t('preferences.ui')}: `" :label-width="formLabelWidth">
+          <el-col class="form-item-sub" :span="16">
+            <el-select
+              v-model="locale"
+              @change="handleLocaleChange"
+              :placeholder="$t('preferences.change-language')">
+              <el-option
+                v-for="item in locales"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
+          </el-col>
+          <el-col class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.hideAppMenu">
+              {{ $t('preferences.hide-app-menu') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
         <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
           <el-switch
@@ -99,12 +106,14 @@
 
   const initialForm = (config) => {
     const {
+      hideAppMenu,
       useProxy,
       allProxy,
       allProxyBackup,
       userAgent
     } = config
     const result = {
+      hideAppMenu,
       useProxy,
       allProxy,
       allProxyBackup,
