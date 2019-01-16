@@ -5,6 +5,7 @@ import pageConfig from '../configs/page'
 const defaultBrowserOptions = {
   titleBarStyle: 'hiddenInset',
   useContentSize: true,
+  autoHideMenuBar: true,
   show: false,
   width: 1024,
   height: 768
