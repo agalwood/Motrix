@@ -61,7 +61,7 @@
       float: left;
       padding: 5px 10px;
       &:hover {
-        background-color: #eee;
+        background-color: $--titlebar-actions-active-background;
       }
     }
   }
