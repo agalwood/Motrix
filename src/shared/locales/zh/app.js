@@ -7,6 +7,6 @@ export default {
   'no': '否',
   'gt1d': '超过一天',
   'hour': '时',
-  'minutes': '分',
-  'seconds': '秒'
+  'minute': '分',
+  'second': '秒'
 }

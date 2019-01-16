@@ -46,8 +46,8 @@ export default {
   'download-pause-message': '暂停下载 {taskName}',
   'download-stop-message': '{taskName} 下载中止',
   'download-error-message': '{taskName} 下载发生错误',
-  'task-complete-message': '{taskName} 下载完成',
-  'task-complete-notify': '下载完成',
+  'download-complete-message': '{taskName} 下载完成',
+  'download-complete-notify': '下载完成',
   'download-fail-message': '{taskName} 下载失败',
   'download-fail-notify': '下载失败'
 }
