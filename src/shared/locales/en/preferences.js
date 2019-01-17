@@ -17,7 +17,7 @@ export default {
   'ui': 'UI',
   'language': 'Language',
   'change-language': 'Change language',
-  'hide-app-menu': 'Hide App Menu (Windows Only)',
+  'hide-app-menu': 'Hide App Menu (Windows & Linux Only)',
   'proxy': 'Proxy',
   'use-proxy': 'Enable Proxy',
   'developer': 'Developer',

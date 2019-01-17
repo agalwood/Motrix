@@ -25,7 +25,7 @@
               </el-option>
             </el-select>
           </el-col>
-          <el-col class="form-item-sub" :span="16">
+          <el-col v-if="showHideAppMenuOption" class="form-item-sub" :span="16">
             <el-checkbox v-model="form.hideAppMenu">
               {{ $t('preferences.hide-app-menu') }}
             </el-checkbox>
@@ -149,6 +149,9 @@
     computed: {
       title: function () {
         return this.$t('preferences.advanced')
+      },
+      showHideAppMenuOption: function () {
+        return is.windows() || is.linux()
       },
       ...mapState('preference', {
         config: state => state.config,

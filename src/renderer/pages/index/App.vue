@@ -28,7 +28,9 @@
     },
     computed: {
       ...mapState('preference', {
-        showWindowActions: state => is.windows() && state.config.hideAppMenu,
+        showWindowActions: state => {
+          return (is.windows() || is.linux()) && state.config.hideAppMenu
+        },
         rpcSecret: state => state.config.rpcSecret
       })
     },

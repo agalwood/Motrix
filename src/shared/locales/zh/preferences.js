@@ -17,7 +17,7 @@ export default {
   'ui': '界面',
   'language': '语言',
   'change-language': '切换语言',
-  'hide-app-menu': '隐藏菜单栏（仅支持Windows）',
+  'hide-app-menu': '隐藏菜单栏（仅支持 Windows 和 Linux）',
   'proxy': '代理',
   'use-proxy': '使用代理服务器',
   'developer': '开发者',
