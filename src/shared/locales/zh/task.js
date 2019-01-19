@@ -39,6 +39,7 @@ export default {
   'remove-record-success': '移除 "{{taskName}}" 下载记录成功',
   'remove-record-fail': '移除 "{{taskName}}" 下载记录失败',
   'show-in-folder': '在文件夹中显示',
+  'opening-task-message': '正在打开 "{{taskName}}" ...',
   'get-task-name': '获取任务名中...',
   'remaining-prefix': '剩余',
   'select-torrent': '将种子拖到此处，或点击选择',

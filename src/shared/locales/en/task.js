@@ -39,6 +39,7 @@ export default {
   'remove-record-success': 'Remove task "{{taskName}}" record success',
   'remove-record-fail': 'Remove task "{{taskName}}" record fail',
   'show-in-folder': 'Show Task In Folder',
+  'opening-task-message': 'Opening "{{taskName}}" ...',
   'get-task-name': 'Get the task name...',
   'remaining-prefix': 'Remaining',
   'select-torrent': 'Drag the torrent here, or click to select',

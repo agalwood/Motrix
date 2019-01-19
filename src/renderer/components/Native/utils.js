@@ -29,6 +29,17 @@ export function showItemInFolder (fullPath) {
   return result
 }
 
+export function openItem (fullPath) {
+  if (!fullPath) {
+    return
+  }
+  const result = remote.shell.openItem(fullPath)
+  if (!result) {
+    Message.error('目标文件不存在或已删除')
+  }
+  return result
+}
+
 export function moveTaskFilesToTrash (task) {
   const path = getTaskFullPath(task)
   if (!path) {

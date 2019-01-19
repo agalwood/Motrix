@@ -1,5 +1,5 @@
 <template>
-  <li :key="task.gid" class="task-item" v-on:dblclick="toggleTask">
+  <li :key="task.gid" class="task-item" v-on:dblclick="onDbClick">
     <div class="task-name" :title="taskName">
       <span>{{ taskName }}</span>
     </div>
@@ -47,10 +47,14 @@
   import '@/components/Icons/more'
   import {
     getTaskName,
+    getTaskFullPath,
     timeRemaining,
     bytesToSize,
     timeFormat
   } from '@shared/utils'
+  import {
+    openItem
+  } from '@/components/Native/utils'
 
   export default {
     name: 'mo-task-item',
@@ -78,11 +82,21 @@
     },
     methods: {
       getTaskName,
-      toggleTask () {
+      onDbClick () {
         const { status } = this.task
-        if (['waiting', 'paused'].indexOf(status) === -1) {
-          return
+        if (status === 'complete') {
+          this.openTask()
+        } else if (['waiting', 'paused'].includes(status) !== -1) {
+          this.toggleTask()
         }
+      },
+      openTask () {
+        const { taskName } = this
+        this.$message.info(this.$t('task.opening-task-message', { taskName }))
+        const fullPath = getTaskFullPath(this.task)
+        openItem(fullPath)
+      },
+      toggleTask () {
         this.$store.dispatch('task/toggleTask', this.task)
       }
     }
