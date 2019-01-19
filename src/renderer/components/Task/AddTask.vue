@@ -12,21 +12,21 @@
       :model="form"
       :rules="rules">
       <el-tabs :value="type" @tab-click="handleTabClick">
-        <el-tab-pane label="链接任务" name="uri">
+        <el-tab-pane :label="$t('task.uri-task')" name="uri">
           <el-form-item>
             <el-input
               ref="uri"
               type="textarea"
               :autosize="{ minRows: 3, maxRows: 5 }"
               auto-complete="off"
-              placeholder="添加多个下载链接时，请确保每行只有一个链接"
+              :placeholder="$t('task.uri-task-tip')"
               @change="handleUriChange"
               v-model="form.uris">
             </el-input>
           </el-form-item>
         </el-tab-pane>
         <el-tab-pane
-          label="种子任务"
+          :label="$t('task.torrent-task')"
           name="torrent"
           v-if="iLoveEggFeatures"
           >
@@ -39,13 +39,13 @@
       </el-tabs>
       <el-row :gutter="12">
         <el-col :span="15">
-          <el-form-item label="文件名: " :label-width="formLabelWidth">
-            <el-input placeholder="请输入文件名" v-model="form.out">
+          <el-form-item :label="`${$t('task.task-out')}: `" :label-width="formLabelWidth">
+            <el-input :placeholder="$t('task.task-out-tip')" v-model="form.out">
             </el-input>
           </el-form-item>
         </el-col>
         <el-col :span="9">
-          <el-form-item label="下载线程: " :label-width="formLabelWidth">
+          <el-form-item :label="`${$t('task.task-split')}: `" :label-width="formLabelWidth">
             <el-input-number
               v-model="form.split"
               @change="handleSplitChange"
@@ -53,12 +53,12 @@
               :min="1"
               :max="config.maxConnectionPerServer"
               :value="config.split"
-              label="下载线程">
+              :label="$t('task.task-split')">
             </el-input-number>
           </el-form-item>
         </el-col>
       </el-row>
-      <el-form-item label="存储路径: " :label-width="formLabelWidth">
+      <el-form-item :label="`${$t('task.task-dir')}: `" :label-width="formLabelWidth">
         <el-input placeholder="" v-model="downloadDir" :readonly="isMas()">
           <mo-select-directory
             v-if="isRenderer()"
@@ -68,42 +68,42 @@
         </el-input>
       </el-form-item>
       <div v-if="showAdvanced">
-        <el-form-item label="UA: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('task.task-dir')}: `" :label-width="formLabelWidth">
           <el-input
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 3 }"
             auto-complete="off"
-            placeholder="User-Agent"
+            :placeholder="$t('task.task-user-agent')"
             v-model="form.userAgent">
           </el-input>
         </el-form-item>
-        <el-form-item label="Referer: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('task.task-referer')}: `" :label-width="formLabelWidth">
           <el-input
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 3 }"
             auto-complete="off"
-            placeholder="Referer"
+            :placeholder="$t('task.task-referer')"
             v-model="form.referer">
           </el-input>
         </el-form-item>
-        <el-form-item label="Cookie: " :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('task.task-cookie')}: `" :label-width="formLabelWidth">
           <el-input
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 3 }"
             auto-complete="off"
-            placeholder="Cookie"
+            :placeholder="$t('task.task-cookie')"
             v-model="form.cookie">
           </el-input>
         </el-form-item>
         <el-form-item label="" :label-width="formLabelWidth">
-          <el-checkbox class="chk" v-model="form.newTaskShowDownloading">跳转到下载页面</el-checkbox>
+          <el-checkbox class="chk" v-model="form.newTaskShowDownloading">{{$t('task.navigate-to-downloading')}}</el-checkbox>
         </el-form-item>
       </div>
     </el-form>
     <div slot="footer" class="dialog-footer">
-      <el-checkbox class="chk" v-model="showAdvanced">显示高级选项</el-checkbox>
-      <el-button @click="handleCancel('taskForm')">取 消</el-button>
-      <el-button type="primary" @click="submitForm('taskForm')">确 定</el-button>
+      <el-checkbox class="chk" v-model="showAdvanced">{{$t('task.show-advanced-options')}}</el-checkbox>
+      <el-button @click="handleCancel('taskForm')">{{$t('app.cancel')}}</el-button>
+      <el-button type="primary" @click="submitForm('taskForm')">{{$t('app.submit')}}</el-button>
     </div>
   </el-dialog>
 </template>
@@ -156,8 +156,7 @@
         showAdvanced: false,
         torrentName: '',
         form: {},
-        rules: {
-        }
+        rules: {}
       }
     },
     computed: {
@@ -218,7 +217,7 @@
         if (uris.includes('thunder://')) {
           this.$message({
             type: 'warning',
-            message: '友情提示：迅雷链接解码之后的资源不一定存在',
+            message: this.$t('task.thunder-link-tip'),
             duration: 6000
           })
         }
@@ -341,16 +340,15 @@
 
           this.$electron.remote.dialog.showMessageBox({
             type: 'warning',
-            title: '版权检查',
-            message: '您要下载的文件可能是有版权的音视频，请确保您有相应的版权方授权！',
-            buttons: ['是，我有版权方授权', '否'],
+            title: this.$t('task.copyright-warning'),
+            message: this.$t('task.copyright-warning-message'),
+            buttons: [this.$t('task.copyright-yes'), this.$t('task.copyright-no')],
             cancelId: 1
           }, (buttonIndex, checkboxChecked) => {
-            // 点击的按钮是哪个按钮 0: 是, 1: 否
             if (buttonIndex === 0) {
               resolve()
             } else {
-              reject(new Error('因版权问题，添加任务失败'))
+              reject(new Error(this.$t('task.copyright-error-message')))
             }
           })
         })
@@ -373,7 +371,6 @@
             })
             .catch((err) => {
               this.$message.error(err.message)
-              // this.reset()
             })
         })
       }
@@ -398,6 +395,5 @@
         line-height: 28px;
       }
     }
-
   }
 </style>

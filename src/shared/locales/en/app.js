@@ -5,6 +5,8 @@ export default {
   'preferences': 'Preferences',
   'yes': 'Yes',
   'no': 'No',
+  'cancel': 'Cancel',
+  'submit': 'Submit',
   'gt1d': '> 1 day',
   'hour': 'H',
   'minute': 'm',
