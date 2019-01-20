@@ -2,23 +2,22 @@
   "menu": [
     {
       "label": "文件",
-      "id": "app",
+      "id": "menu.file",
       "submenu": [
         { "label": "关于 Motrix", "id": "app.about", "command": "application:about", "command-before": "application:show,index"},
         { "type": "separator" },
         { "label": "偏好设置...", "id": "app.preferences", "command": "application:preferences" },
         { "label": "检查更新...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
-        { "label": "服务", "role": "services", "submenu": [] },
-        { "label": "隐藏 Motrix", "role": "hide" },
-        { "label": "隐藏其他", "role": "hideothers" },
-        { "label": "显示全部", "role": "unhide" },
+        { "label": "隐藏 Motrix", "id": "app.hide", "role": "hide" },
+        { "label": "隐藏其他", "id": "app.hide-others", "role": "hideothers" },
+        { "label": "显示全部", "id": "app.unhide", "role": "unhide" },
         { "type": "separator" },
         { "label": "退出 Motrix", "id": "app.quit", "role": "quit" }
       ]
     },
     {
       "label": "任务",
-      "id": "task",
+      "id": "menu.task",
       "submenu": [
         { "label": "新建任务", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index"},
         { "label": "新建 BT 任务", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
@@ -37,7 +36,7 @@
     },
     {
       "label": "编辑",
-      "id": "edit",
+      "id": "menu.edit",
       "submenu": [
         { "label": "撤销", "id": "edit.undo", "role": "undo" },
         { "label": "重做", "id": "edit.redo", "role": "redo" },
@@ -52,21 +51,21 @@
     {
       "label": "窗口",
       "role": "window",
-      "id": "window",
+      "id": "menu.window",
       "submenu": [
-        { "label": "重新加载", "id": "view.reload", "role": "reload" },
-        { "label": "关闭", "role": "close" },
-        { "label": "最小化", "role": "minimize" },
-        { "label": "放大", "role": "zoom" },
-        { "label": "进入全屏幕", "role": "togglefullscreen" },
+        { "label": "重新加载", "id": "window.reload", "role": "reload" },
+        { "label": "关闭", "id": "window.close", "role": "close" },
+        { "label": "最小化", "id": "window.minimize", "role": "minimize" },
+        { "label": "放大", "id": "window.zoom", "role": "zoom" },
+        { "label": "进入全屏幕", "id": "window.toggle-fullscreen", "role": "togglefullscreen" },
         { "type": "separator" },
-        { "label": "前置全部窗口", "role": "front" }
+        { "label": "前置全部窗口", "id": "window.front", "role": "front" }
       ]
     },
     {
       "label": "帮助",
       "role": "help",
-      "id": "help",
+      "id": "menu.help",
       "submenu": [
         { "label": "Motrix 官网", "id": "help.official-website", "command": "help:official-website" },
         { "label": "使用手册", "id": "help.manual", "command": "help:manual" },
