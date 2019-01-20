@@ -83,6 +83,10 @@ export default class ConfigManager {
     return this.userConfig.get(key, defaultValue)
   }
 
+  getLocale () {
+    return this.getUserConfig('locale') || app.getLocale()
+  }
+
   setSystemConfig (...args) {
     this.systemConfig.set(...args)
   }
