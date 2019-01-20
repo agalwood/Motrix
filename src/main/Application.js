@@ -18,10 +18,12 @@ export default class Application extends EventEmitter {
 
     this.exceptionHandler = new ExceptionHandler()
 
-    this.locale = app.getLocale()
-    logger.log('[Motrix] Locale: ', this.locale)
+    this.init()
+  }
 
+  init () {
     this.configManager = new ConfigManager()
+    this.locale = this.configManager.getLocale()
 
     this.windowManager = new WindowManager({
       userConfig: this.configManager.getUserConfig()
@@ -195,7 +197,7 @@ export default class Application extends EventEmitter {
       this.updateManager.check()
     })
 
-    this.on('application:set-locale', (locale) => {
+    this.on('application:change-locale', (locale) => {
       this.menuManager.setup(locale)
     })
 

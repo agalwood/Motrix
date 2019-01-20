@@ -14,7 +14,7 @@
         <el-form-item :label="`${$t('preferences.ui')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="16">
             <el-select
-              v-model="locale"
+              v-model="form.locale"
               @change="handleLocaleChange"
               :placeholder="$t('preferences.change-language')">
               <el-option
@@ -106,6 +106,7 @@
 
   const initialForm = (config) => {
     const {
+      locale,
       hideAppMenu,
       useProxy,
       allProxy,
@@ -113,6 +114,7 @@
       userAgent
     } = config
     const result = {
+      locale,
       hideAppMenu,
       useProxy,
       allProxy,
@@ -133,7 +135,6 @@
         form: initialForm(this.$store.state.preference.config),
         rules: {},
         color: '#c00',
-        locale: 'zh-CN',
         locales: [
           {
             value: 'zh-CN',
@@ -164,11 +165,10 @@
     },
     methods: {
       isRenderer: is.renderer,
-      handleLocaleChange (value) {
-        console.log('handleLocaleChange=>', value)
-        const lng = getLanguage(value)
-        // this.$i18n.locale = locale
+      handleLocaleChange (locale) {
+        const lng = getLanguage(locale)
         this.$i18n.i18next.changeLanguage(lng)
+        this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
       },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''

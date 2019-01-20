@@ -21,7 +21,9 @@
         if (!this.path) {
           return
         }
-        this.$electron.shell.showItemInFolder(this.path)
+        this.$electron.shell.showItemInFolder(path, {
+          errorMsg: this.$t('task.file-not-exist')
+        })
       }
     }
   }

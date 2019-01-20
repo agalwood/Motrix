@@ -94,7 +94,9 @@
         const { taskName } = this
         this.$message.info(this.$t('task.opening-task-message', { taskName }))
         const fullPath = getTaskFullPath(this.task)
-        openItem(fullPath)
+        openItem(fullPath, {
+          errorMsg: this.$t('task.file-not-exist')
+        })
       },
       toggleTask () {
         this.$store.dispatch('task/toggleTask', this.task)

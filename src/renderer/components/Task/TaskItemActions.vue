@@ -81,11 +81,18 @@
       showConfirmBox: function () {
 
       },
+      deleteTaskFiles: function (task) {
+        moveTaskFilesToTrash(task, {
+          pathErrorMsg: this.$t('task.file-path-error'),
+          delFailMsg: this.$t('task.remove-task-file-fail'),
+          delConfigFailMsg: this.$t('task.remove-task-config-file-fail')
+        })
+      },
       removeTaskItem: function (task, isRemoveWithFiles) {
         this.$store.dispatch('task/removeTask', this.task)
           .then(() => {
             if (isRemoveWithFiles) {
-              moveTaskFilesToTrash(task)
+              this.deleteTaskFiles(task)
             }
             this.$message.success(this.$t('task.delete-task-success', {
               taskName: this.taskName
@@ -103,7 +110,7 @@
         this.$store.dispatch('task/removeTaskRecord', this.task)
           .then(() => {
             if (isRemoveWithFiles) {
-              moveTaskFilesToTrash(task)
+              this.deleteTaskFiles(task)
             }
             this.$message.success(this.$t('task.remove-record-success', {
               taskName: this.taskName
@@ -180,7 +187,9 @@
         })
       },
       onFolderClick: function () {
-        showItemInFolder(this.path)
+        showItemInFolder(path, {
+          errorMsg: this.$t('task.file-not-exist')
+        })
       },
       onLinkClick: function () {
         const uri = getTaskUri(this.task)

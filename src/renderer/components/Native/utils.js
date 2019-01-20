@@ -14,42 +14,42 @@ export function getUserDownloadsPath () {
 
 export function prettifyDir (dir) {
   const downloads = getUserDownloadsPath()
-  const result = dir === downloads ? '下载' : dir
+  const result = dir === downloads ? 'Downloads' : dir
   return result
 }
 
-export function showItemInFolder (fullPath) {
+export function showItemInFolder (fullPath, { errorMsg }) {
   if (!fullPath) {
     return
   }
   const result = remote.shell.showItemInFolder(fullPath)
-  if (!result) {
-    Message.error('目标文件不存在或已删除')
+  if (!result && errorMsg) {
+    Message.error(errorMsg)
   }
   return result
 }
 
-export function openItem (fullPath) {
+export function openItem (fullPath, { errorMsg }) {
   if (!fullPath) {
     return
   }
   const result = remote.shell.openItem(fullPath)
-  if (!result) {
-    Message.error('目标文件不存在或已删除')
+  if (!result && errorMsg) {
+    Message.error(errorMsg)
   }
   return result
 }
 
-export function moveTaskFilesToTrash (task) {
+export function moveTaskFilesToTrash (task, { pathErrorMsg, delFailMsg, delConfigFailMsg }) {
   const path = getTaskFullPath(task)
-  if (!path) {
-    Message.error('文件路径异常，请手动删除')
+  if (!path && notExistMsg) {
+    Message.error(notExistMsg)
     return false
   }
 
   const deleteResult1 = remote.shell.moveItemToTrash(path)
-  if (!deleteResult1) {
-    Message.error('删除任务文件失败，请手动删除')
+  if (!deleteResult1 && delFailMsg) {
+    Message.error(delFailMsg)
   }
 
   let deleteResult2 = true
@@ -57,8 +57,8 @@ export function moveTaskFilesToTrash (task) {
   const isExtraExist = existsSync(extraFilePath)
   if (isExtraExist) {
     deleteResult2 = remote.shell.moveItemToTrash(extraFilePath)
-    if (!deleteResult2) {
-      Message.error('删除任务配置文件失败，请手动删除')
+    if (!deleteResult2 && delConfigFailMsg) {
+      Message.error(delConfigFailMsg)
     }
   }
 

@@ -116,7 +116,9 @@
           body: taskName
         })
         notify.onclick = () => {
-          showItemInFolder(path)
+          showItemInFolder(path, {
+            errorMsg: this.$t('task.file-not-exist')
+          })
         }
       },
       showTaskErrorNotify: function (task) {

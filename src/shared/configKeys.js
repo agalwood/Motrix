@@ -1,4 +1,5 @@
 const userKeys = [
+  'locale',
   'cookie',
   'resume-all-when-app-launched',
   'task-notification',
