@@ -1,7 +1,7 @@
 # Motrix
 
 <a href="https://motrix.app">
-  <img src="https://motrix.app/images/app-icon@2x.png" width="256" alt="App Icon" />
+  <img src="https://cdn.nlark.com/yuque/0/2018/png/129147/1543735425232-a5d2c99f-d788-43e4-9781-558ff6d21027.png" width="256" alt="App Icon" />
 </a>
 
 ## 一款全能的下载工具
@@ -53,12 +53,7 @@ npm run build
 完成之后可以在项目的 release 目录看到编译打包好的应用文件
 
 ## ☑️ TODO
-- [x] Windows 和 Linux 版本已经发布 => [https://motrix.app/release](https://motrix.app/release)
-- [ ] 国际化支持
-- [ ] macOS Mojave 深色模式
-- [ ] 下载任务排序
-- [ ] 批量操作下载任务
-- [ ] 测试用例
+开发计划请移步 [Trello](https://trello.com/b/qNUzA0bv/motrix)
 
 ## 🤝 参与共建 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 如果你有兴趣参与共同开发，欢迎 FORK 和 PR。
