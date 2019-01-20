@@ -14,6 +14,7 @@ export default {
   'new-task-show-downloading': '新建任务后自动跳转到下载页面',
   'continue': '断点续传',
   'task-completed-notify': '下载完成后通知',
+  'auto-purge-record': '当应用退出时自动清除下载记录',
   'ui': '界面',
   'language': '语言',
   'change-language': '切换语言',

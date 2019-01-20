@@ -104,7 +104,7 @@ export function getTaskName (task, defaultName = '') {
       }
     }
     if (cnt > 1) {
-      result += ` (${cnt} 文件...)`
+      result += ` (${cnt} / ${files.length})`
     }
   }
 
@@ -285,7 +285,6 @@ export function isAudioOrVideo (uri = '') {
   const result = suffixs.some((suffix) => {
     return uri.includes(suffix)
   })
-  console.warn('isAudioOrVideo===>', result)
   return result
 }
 
@@ -315,26 +314,5 @@ export function splitTaskLinks (links = '') {
   const result = temp.map((item) => {
     return decodeThunderLink(item)
   })
-  return result
-}
-
-/**
- * determineLocale
- * @param { String } locale
- * https://electronjs.org/docs/api/locales
- */
-export function determineLocale (locale = 'en-US') {
-  let result = 'en'
-
-  if (locale.startsWith('en')) {
-    result = 'en'
-    return result
-  }
-
-  if (locale.startsWith('zh')) {
-    result = 'zh'
-    return result
-  }
-
   return result
 }

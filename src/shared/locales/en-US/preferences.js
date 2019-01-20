@@ -14,6 +14,7 @@ export default {
   'new-task-show-downloading': 'Auto show downloading after add task',
   'continue': 'Continue',
   'task-completed-notify': 'Notification after download is complete',
+  'auto-purge-record': 'Auto purge download record when app exit',
   'ui': 'UI',
   'language': 'Language',
   'change-language': 'Change language',

@@ -22,9 +22,9 @@ function init (config) {
   Vue.config.productionTip = false
 
   console.log('config.locale==>', config.locale)
-  const localManager = new LocaleManager()
-  localManager.init(config.locale)
-  const i18n = localManager.getI18n()
+  const localeManager = new LocaleManager()
+  localeManager.init(config.locale)
+  const i18n = localeManager.getI18n()
 
   Vue.use(Element, {
     size: 'mini',

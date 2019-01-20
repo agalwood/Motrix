@@ -102,7 +102,7 @@
   import { mapState } from 'vuex'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
-  import { determineLocale } from '@shared/utils'
+  import { getLanguage } from '@shared/locales'
 
   const initialForm = (config) => {
     const {
@@ -166,7 +166,7 @@
       isRenderer: is.renderer,
       handleLocaleChange (value) {
         console.log('handleLocaleChange=>', value)
-        const lng = determineLocale(value)
+        const lng = getLanguage(value)
         // this.$i18n.locale = locale
         this.$i18n.i18next.changeLanguage(lng)
       },
