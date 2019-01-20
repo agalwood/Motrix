@@ -187,7 +187,7 @@
         })
       },
       onFolderClick: function () {
-        showItemInFolder(path, {
+        showItemInFolder(this.path, {
           errorMsg: this.$t('task.file-not-exist')
         })
       },
