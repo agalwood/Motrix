@@ -110,14 +110,14 @@ export default class Application extends EventEmitter {
   }
 
   initProtocolManager () {
-    if (is.mas()) {
+    if (is.dev() || is.mas()) {
       return
     }
     this.protocolManager = new ProtocolManager()
   }
 
   handleProtocol (url) {
-    if (is.mas()) {
+    if (is.dev() || is.mas()) {
       return
     }
     this.protocolManager.handle(url)

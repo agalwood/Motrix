@@ -58,7 +58,6 @@
         // }
       },
       nav (page) {
-        console.log('nav page===>', page)
         this.$router.push({
           path: page
         })

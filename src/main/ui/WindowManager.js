@@ -1,4 +1,3 @@
-import is from 'electron-is'
 import { EventEmitter } from 'events'
 import { app, shell, BrowserWindow } from 'electron'
 import pageConfig from '../configs/page'
