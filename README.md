@@ -68,5 +68,4 @@ Development Roadmap see: [Trello](https://trello.com/b/qNUzA0bv/motrix)
 If you are interested in participating in joint development, Fork and PR are welcome.
 
 ## 📜 License
-[MIT](https://opensource.org/licenses/MIT)
-Copyright (c) 2018-present Dr_rOot
+[MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot
