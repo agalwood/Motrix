@@ -28,6 +28,7 @@ Download from [Github Releases](https://github.com/agalwood/Motrix/releases) and
 - 🚀 Single task maximum support 64 thread download
 - 🕶 Mock User-Agent
 - 🔔 Download completed Notification
+- 🗑 Delete related files when removing tasks (optional)
 - 🌍 I18n, currently available Simplified Chinese & English.
 - 🎏 ...
 
