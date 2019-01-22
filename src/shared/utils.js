@@ -297,3 +297,10 @@ export function splitTaskLinks (links = '') {
   })
   return result
 }
+
+const resourceTag = ['http://', 'https://', 'ftp://', 'magnet:', 'thunder://']
+export function detectResource (content) {
+  return resourceTag.some((type) => {
+    return content.includes(type)
+  })
+}

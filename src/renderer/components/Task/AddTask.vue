@@ -116,7 +116,11 @@
   import SelectTorrent from '@/components/Task/SelectTorrent'
   import { prettifyDir } from '@/components/Native/utils'
   import '@/components/Icons/inbox'
-  import { splitTaskLinks, needCheckCopyright } from '@shared/utils'
+  import {
+    detectResource,
+    splitTaskLinks,
+    needCheckCopyright
+  } from '@shared/utils'
 
   const initialForm = (state) => {
     const { dir, split, newTaskShowDownloading } = state.preference.config
@@ -196,10 +200,19 @@
       handleOpen () {
         this.form = initialForm(this.$store.state)
         if (this.taskType === 'uri') {
+          this.autofillResourceLink()
           setTimeout(() => {
             this.$refs.uri && this.$refs.uri.focus()
           }, 50)
         }
+      },
+      autofillResourceLink () {
+        const content = this.$electron.clipboard.readText()
+        const hasResource = detectResource(content)
+        if (!hasResource) {
+          return
+        }
+        this.form.uris = content
       },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
