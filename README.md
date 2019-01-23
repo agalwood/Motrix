@@ -9,11 +9,8 @@
 
 English | [简体中文](./README-CN.md)
 
-Support downloading HTTP, FTP, BitTorrent, Magnet, Baidu Net Disk and other resources.
-
-Hello everyone, I am an interested desktop application developer 🤓. I developed a full-featured download manager in my spare time for my hobbies. Its name is Motrix. I completed its interface design, application icons, completed most of the coding, and opened it source.
-
-I think that its interface is beautiful, easy to operate, and rich in configuration 😌, I hope you will like it 👻.
+Motrix a full-featured download manager that support downloading HTTP, FTP, BitTorrent, Magnet, Baidu Net Disk and other resources.
+It has a clean and simple interface and is easy to use. I hope you will like it 👻.
 
 [Official Website](https://motrix.app)
 
@@ -31,6 +28,9 @@ Download from [Github Releases](https://github.com/agalwood/Motrix/releases) and
 - 🗑 Delete related files when removing tasks (optional)
 - 🌍 I18n, currently available Simplified Chinese & English.
 - 🎏 ...
+
+## 🖥 User Interface
+![motrix-screenshot-task-en.png](https://cdn.nlark.com/yuque/0/2019/png/129147/1548251350313-73aa0d60-ee31-4405-bdb9-1793e3fd46ef.png)
 
 ## ⌨️ Development
 
