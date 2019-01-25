@@ -120,8 +120,11 @@ export default class Api {
       uris,
       options
     } = params
-    const args = compactUndefined([uris, options])
-    return this.client.call('addUri', ...args)
+    const tasks = uris.map((uri) => {
+      const args = compactUndefined([[uri], options])
+      return [ 'aria2.addUri', ...args ]
+    })
+    return this.client.multicall(tasks)
   }
 
   addTorrent (params) {
