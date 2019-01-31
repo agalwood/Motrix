@@ -8,6 +8,7 @@ export default {
   'hide-others': '隐藏其他',
   'unhide': '显示全部',
   'quit': '退出 Motrix',
+  'under-development-message': '该功能开发中...',
   'yes': '是',
   'no': '否',
   'cancel': '取 消',

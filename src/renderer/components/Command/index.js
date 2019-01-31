@@ -1,8 +1,11 @@
 import router from '@/router'
 import store from '@/store'
 import CommandManager from './CommandManager'
+import { Message } from 'element-ui'
+import { getLocaleManager } from '@/components/Locale'
 
 const commands = new CommandManager()
+const i18n = getLocaleManager().getI18n()
 
 function showAboutPanel () {
   store.dispatch('app/showAboutPanel')
@@ -20,24 +23,28 @@ function navigatePreferences () {
   router.push({ path: '/preference' })
 }
 
-function pauseTask () {
+function showUnderDevelopmentMessage () {
+  Message.info(i18n.t('app.under-development-message'))
+}
 
+function pauseTask () {
+  showUnderDevelopmentMessage()
 }
 
 function resumeTask () {
-
+  showUnderDevelopmentMessage()
 }
 
 function deleteTask () {
-
+  showUnderDevelopmentMessage()
 }
 
 function moveTaskUp () {
-
+  showUnderDevelopmentMessage()
 }
 
 function moveTaskDown () {
-
+  showUnderDevelopmentMessage()
 }
 
 function pauseAllTask () {

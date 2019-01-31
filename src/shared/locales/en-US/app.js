@@ -8,6 +8,7 @@ export default {
   'hide-others': 'Hide Others',
   'unhide': 'Show All',
   'quit': 'Quit Motrix',
+  'under-development-message': 'Sorry, this feature is under development...',
   'yes': 'Yes',
   'no': 'No',
   'cancel': 'Cancel',
