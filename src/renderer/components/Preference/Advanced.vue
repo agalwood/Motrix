@@ -103,6 +103,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import { getLanguage } from '@shared/locales'
+  import { getLocaleManager } from '@/components/Locale'
 
   const initialForm = (config) => {
     const {
@@ -161,25 +162,22 @@
       })
     },
     watch: {
-
     },
     methods: {
       isRenderer: is.renderer,
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
-        this.$i18n.i18next.changeLanguage(lng)
+        getLocaleManager().changeLanguage(lng)
         this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
       },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''
-        console.log('this.form.allProxy===>', flag, this.form.allProxy)
       },
       onAllProxyBackupChange (value) {
         this.form.allProxy = value
       },
       changeUA (type) {
         const ua = userAgentMap[type]
-        console.log('changeUA===>', ua)
         if (!ua) {
           return
         }
