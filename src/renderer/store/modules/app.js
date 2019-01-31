@@ -55,19 +55,16 @@ const mutations = {
       return
     }
     state.interval = interval
-    console.log('current interval===>', state.interval)
   },
   INCREASE_INTERVAL (state, millisecond) {
     if (state.interval < MAX_INTERVAL) {
       state.interval += millisecond
     }
-    console.log('current interval===>', state.interval)
   },
   DECREASE_INTERVAL (state, millisecond) {
     if (state.interval > MIN_INTERVAL) {
       state.interval -= millisecond
     }
-    console.log('current interval===>', state.interval)
   }
 }
 

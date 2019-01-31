@@ -31,7 +31,6 @@
     },
     data () {
       const version = this.$electron.remote.app.getVersion()
-      console.log('version===>', version)
       return {
         version
       }

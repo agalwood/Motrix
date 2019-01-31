@@ -53,7 +53,6 @@
     },
     methods: {
       nav: function (status = 'active') {
-        console.log('nav status===>', status)
         this.$router.push({
           path: `/task/${status}`
         })

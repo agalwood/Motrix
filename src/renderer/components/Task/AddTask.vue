@@ -207,7 +207,6 @@
         this.reset()
       },
       handleTabClick (tab, event) {
-        console.log(tab, tab.name, event)
         this.$store.dispatch('app/changeAddTaskType', tab.name)
       },
       handleUriChange () {

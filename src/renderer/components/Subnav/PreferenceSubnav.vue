@@ -55,7 +55,6 @@
     methods: {
       isMas: is.mas,
       nav: function (category = 'basic') {
-        console.log('nav category===>', category)
         this.$router.push({
           path: `/preference/${category}`
         })
