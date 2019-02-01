@@ -81,17 +81,28 @@
       showConfirmBox: function () {
 
       },
+      deleteTaskFiles: function (task) {
+        moveTaskFilesToTrash(task, {
+          pathErrorMsg: this.$t('task.file-path-error'),
+          delFailMsg: this.$t('task.remove-task-file-fail'),
+          delConfigFailMsg: this.$t('task.remove-task-config-file-fail')
+        })
+      },
       removeTaskItem: function (task, isRemoveWithFiles) {
         this.$store.dispatch('task/removeTask', this.task)
           .then(() => {
             if (isRemoveWithFiles) {
-              moveTaskFilesToTrash(task)
+              this.deleteTaskFiles(task)
             }
-            this.$message.success(`移除任务「${this.taskName}」成功`)
+            this.$message.success(this.$t('task.delete-task-success', {
+              taskName: this.taskName
+            }))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`移除任务「${this.taskName}」失败`)
+              this.$message.error(this.$t('task.delete-task-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
@@ -99,35 +110,47 @@
         this.$store.dispatch('task/removeTaskRecord', this.task)
           .then(() => {
             if (isRemoveWithFiles) {
-              moveTaskFilesToTrash(task)
+              this.deleteTaskFiles(task)
             }
-            this.$message.success(`移除「${this.taskName}」下载记录成功`)
+            this.$message.success(this.$t('task.remove-record-success', {
+              taskName: this.taskName
+            }))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`移除「${this.taskName}」下载记录失败`)
+              this.$message.error(this.$t('task.remove-record-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
       onResumeClick: function () {
         this.$store.dispatch('task/resumeTask', this.task)
           .then(() => {
-            this.$message.success(`恢复任务「${this.taskName}」成功`)
+            this.$message.success(this.$t('task.resume-task-success', {
+              taskName: this.taskName
+            }))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`恢复任务「${this.taskName}」失败`)
+              this.$message.error(this.$t('task.resume-task-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
       onPauseClick: function () {
         this.$store.dispatch('task/pauseTask', this.task)
           .then(() => {
-            this.$message.success(`暂停任务「${this.taskName}」成功`)
+            this.$message.success(this.$t('task.pause-task-success', {
+              taskName: this.taskName
+            }))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(`暂停任务「${this.taskName}」失败`)
+              this.$message.error(this.$t('task.pause-task-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
@@ -136,13 +159,12 @@
         const { task } = this
         this.$electron.remote.dialog.showMessageBox({
           type: 'warning',
-          title: '移除任务',
-          message: `你确定要移除任务「${this.taskName}」吗?`,
-          buttons: ['是', '否'],
+          title: this.$t('task.delete-task'),
+          message: this.$t('task.delete-task-confirm', { taskName: this.taskName }),
+          buttons: [this.$t('app.yes'), this.$t('app.no')],
           cancelId: 1,
-          checkboxLabel: '同时删除文件'
+          checkboxLabel: this.$t('task.delete-task-label')
         }, (buttonIndex, checkboxChecked) => {
-          // 点击的按钮是哪个按钮 0: 是, 1: 否
           if (buttonIndex === 0) {
             self.removeTaskItem(task, checkboxChecked)
           }
@@ -153,26 +175,27 @@
         const { task } = this
         this.$electron.remote.dialog.showMessageBox({
           type: 'warning',
-          title: '移除下载记录',
-          message: `你确定要移除「${this.taskName}」下载记录吗?`,
-          buttons: ['是', '否'],
+          title: this.$t('task.remove-record'),
+          message: this.$t('task.remove-record-confirm', { taskName: this.taskName }),
+          buttons: [this.$t('app.yes'), this.$t('app.no')],
           cancelId: 1,
-          checkboxLabel: '同时删除文件'
+          checkboxLabel: this.$t('task.remove-record-label')
         }, (buttonIndex, checkboxChecked) => {
-          // 点击的按钮是哪个按钮 0: 是, 1: 否
           if (buttonIndex === 0) {
             self.removeTaskRecord(task, checkboxChecked)
           }
         })
       },
       onFolderClick: function () {
-        showItemInFolder(this.path)
+        showItemInFolder(this.path, {
+          errorMsg: this.$t('task.file-not-exist')
+        })
       },
       onLinkClick: function () {
         const uri = getTaskUri(this.task)
         clipboard.writeText(uri)
           .then(() => {
-            this.$message.success('复制下载地址成功')
+            this.$message.success(this.$t('task.copy-link-success'))
           })
       },
       onInfoClick: function () {

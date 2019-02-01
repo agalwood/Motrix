@@ -13,7 +13,7 @@ const defaultBrowserOptions = {
 export default class WindowManager extends EventEmitter {
   constructor (options = {}) {
     super()
-    this.options = options
+    this.userConfig = options.userConfig || {}
 
     this.windows = {}
 
@@ -28,8 +28,18 @@ export default class WindowManager extends EventEmitter {
     this.willQuit = flag
   }
 
+  getPageOptions (page) {
+    const result = pageConfig[page] || {}
+    const hideAppMenu = this.userConfig['hide-app-menu']
+    if (hideAppMenu) {
+      result.frame = false
+    }
+    return result
+  }
+
   openWindow (page) {
-    const options = pageConfig[page] || {}
+    const options = this.getPageOptions(page)
+
     let window = this.windows[page] || null
     if (window) {
       window.restore()

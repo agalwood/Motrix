@@ -1,48 +1,63 @@
+import is from 'electron-is'
 import Vue from 'vue'
-import axios from 'axios'
-
-import App from './App'
+import VueI18Next from '@panter/vue-i18next'
 import { sync } from 'vuex-router-sync'
-import router from '@/router'
-import store from '@/store'
-
 import Element, { Loading } from 'element-ui'
-import '../../components/Theme/Index.scss'
-
-import Icon from '../../components/Icons/Icon'
+import axios from 'axios'
 import 'svg-innerhtml'
 
-import is from 'electron-is'
-if (is.renderer()) {
-  Vue.use(require('vue-electron'))
+import App from './App'
+import router from '@/router'
+import store from '@/store'
+import { getLocaleManager } from '@/components/Locale'
+import Icon from '@/components/Icons/Icon'
+import '@/components/Theme/Index.scss'
+
+function init (config) {
+  if (is.renderer()) {
+    Vue.use(require('vue-electron'))
+  }
+
+  Vue.http = Vue.prototype.$http = axios
+  Vue.config.productionTip = false
+
+  const { locale } = config
+  const localeManager = getLocaleManager()
+  localeManager.changeLanguageByLocale(locale)
+
+  Vue.use(VueI18Next)
+  const i18n = new VueI18Next(localeManager.getI18n())
+  Vue.use(Element, {
+    size: 'mini',
+    i18n: (key, value) => i18n.t(key, value)
+  })
+
+  const loading = Loading.service({
+    fullscreen: true,
+    background: 'rgba(0, 0, 0, 0.1)'
+  })
+  Vue.component('mo-icon', Icon)
+
+  sync(store, router)
+
+  /* eslint-disable no-new */
+  window.app = new Vue({
+    components: { App },
+    router,
+    store,
+    i18n,
+    template: '<App/>'
+  }).$mount('#app')
+
+  setTimeout(() => {
+    loading.close()
+  }, 400)
 }
-
-Vue.http = Vue.prototype.$http = axios
-Vue.config.productionTip = false
-
-Vue.use(Element, { size: 'mini' })
-Vue.component('mo-icon', Icon)
-
-sync(store, router)
-
-const loading = Loading.service({
-  fullscreen: true,
-  background: 'rgba(0, 0, 0, 0.1)'
-})
 
 store.dispatch('preference/fetchPreference')
   .then((config) => {
-    console.log('fetchPreference===>', config)
-    /* eslint-disable no-new */
-    window.app = new Vue({
-      components: { App },
-      router,
-      store,
-      template: '<App/>'
-    }).$mount('#app')
-    setTimeout(() => {
-      loading.close()
-    }, 400)
+    console.info('[Motrix] fetchPreference===>', config)
+    init(config)
   })
   .catch((err) => {
     alert(err)

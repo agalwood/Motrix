@@ -1,5 +1,5 @@
 <template>
-  <li :key="task.gid" class="task-item" v-on:dblclick="toggleTask">
+  <li :key="task.gid" class="task-item" v-on:dblclick="onDbClick">
     <div class="task-name" :title="taskName">
       <span>{{ taskName }}</span>
     </div>
@@ -17,7 +17,17 @@
           <div v-if="task.status ==='active'">
             <span>{{ task.downloadSpeed | bytesToSize }}/s</span>
             <span>
-              {{ remaining | timeFormat('剩余') }}
+              {{
+                remaining | timeFormat({
+                  prefix: $t('task.remaining-prefix'),
+                  i18n: {
+                    'gt1d': $t('app.gt1d'),
+                    'hour': $t('app.hour'),
+                    'minute': $t('app.minute'),
+                    'second': $t('app.second')
+                  }
+                })
+              }}
             </span>
           </div>
         </el-col>
@@ -37,10 +47,14 @@
   import '@/components/Icons/more'
   import {
     getTaskName,
+    getTaskFullPath,
     timeRemaining,
     bytesToSize,
     timeFormat
   } from '@shared/utils'
+  import {
+    openItem
+  } from '@/components/Native/utils'
 
   export default {
     name: 'mo-task-item',
@@ -55,7 +69,7 @@
     },
     computed: {
       taskName: function () {
-        return getTaskName(this.task, '获取任务名中...')
+        return getTaskName(this.task, this.$t('task.get-task-name'))
       },
       remaining: function () {
         const { totalLength, completedLength, downloadSpeed } = this.task
@@ -68,11 +82,23 @@
     },
     methods: {
       getTaskName,
-      toggleTask () {
+      onDbClick () {
         const { status } = this.task
-        if (['waiting', 'paused'].indexOf(status) === -1) {
-          return
+        if (status === 'complete') {
+          this.openTask()
+        } else if (['waiting', 'paused'].includes(status) !== -1) {
+          this.toggleTask()
         }
+      },
+      openTask () {
+        const { taskName } = this
+        this.$message.info(this.$t('task.opening-task-message', { taskName }))
+        const fullPath = getTaskFullPath(this.task)
+        openItem(fullPath, {
+          errorMsg: this.$t('task.file-not-exist')
+        })
+      },
+      toggleTask () {
         this.$store.dispatch('task/toggleTask', this.task)
       }
     }

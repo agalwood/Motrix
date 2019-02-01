@@ -7,16 +7,7 @@ const state = {
   taskList: []
 }
 
-const listTitles = {
-  'active': '下载中',
-  'waiting': '已暂停',
-  'stopped': '已完成'
-}
-
 const getters = {
-  currentListTitle: (state, getters) => {
-    return listTitles[state.currentList] ? listTitles[state.currentList] : ''
-  }
 }
 
 const mutations = {

@@ -1,7 +1,9 @@
 const userKeys = [
+  'locale',
   'cookie',
   'resume-all-when-app-launched',
   'task-notification',
+  'hide-app-menu',
   'new-task-show-downloading',
   'use-proxy',
   'all-proxy-backup',

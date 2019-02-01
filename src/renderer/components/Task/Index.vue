@@ -36,9 +36,9 @@
     computed: {
       title: function () {
         const titles = {
-          'active': '下载中',
-          'waiting': '已暂停',
-          'stopped': '已完成'
+          'active': this.$t('task.active'),
+          'waiting': this.$t('task.waiting'),
+          'stopped': this.$t('task.stopped')
         }
         return titles[this.status]
       }

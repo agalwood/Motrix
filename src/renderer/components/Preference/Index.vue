@@ -11,19 +11,8 @@
   export default {
     name: 'mo-content-preference',
     props: {
-      category: {
-        type: String
-      }
     },
     computed: {
-      title: function () {
-        const titles = {
-          'basic': '基础设置',
-          'advanced': '进阶设置',
-          'lab': '实验室'
-        }
-        return titles[this.category]
-      }
     },
     components: {
     },
@@ -47,6 +36,9 @@
     }
     .form-item-sub {
       margin-bottom: 12px;
+      &:last-of-type {
+        margin-bottom: 0;
+      }
       a {
         color: $--color-text-regular;
         text-decoration: none;

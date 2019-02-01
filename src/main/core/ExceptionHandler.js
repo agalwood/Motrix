@@ -26,7 +26,7 @@ export default class ExceptionHandler {
       logger.error(stack)
 
       if (showDialog && app.isReady()) {
-        dialog.showErrorBox('系统错误', message)
+        dialog.showErrorBox('Error: ', message)
       }
     })
   }

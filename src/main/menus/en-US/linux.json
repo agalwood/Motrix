@@ -1,24 +1,23 @@
 {
   "menu": [
     {
-      "id": "app",
       "label": "File",
+      "id": "menu.file",
       "submenu": [
         { "label": "About Motrix", "id": "app.about", "command": "application:about", "command-before": "application:show,index"},
         { "type": "separator" },
-        { "label": "Preferences...", "id": "app.preferences", "command": "application:preferences" },
+        { "label": "Preferences...", "id": "app.preferences", "command": "application:preferences", "command-before": "application:show,index"},
         { "label": "Check for Updates...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
-        { "label": "Services", "role": "services", "submenu": [] },
-        { "label": "Hide Motrix", "role": "hide" },
-        { "label": "Hide Others", "role": "hideothers" },
-        { "label": "Show All", "role": "unhide" },
+        { "label": "Hide Motrix", "id": "app.hide", "role": "hide" },
+        { "label": "Hide Others", "id": "app.hide-others", "role": "hideothers" },
+        { "label": "Show All", "id": "app.unhide", "role": "unhide" },
         { "type": "separator" },
         { "label": "Quit Motrix", "id": "app.quit", "role": "quit" }
       ]
     },
     {
       "label": "Task",
-      "id": "task",
+      "id": "menu.task",
       "submenu": [
         { "label": "New Task", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"},
         { "label": "New BT Task", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
@@ -37,7 +36,7 @@
     },
     {
       "label": "Edit",
-      "id": "edit",
+      "id": "menu.edit",
       "submenu": [
         { "label": "Undo", "id": "edit.undo", "role": "undo" },
         { "label": "Redo", "id": "edit.redo", "role": "redo" },
@@ -52,21 +51,21 @@
     {
       "label": "Window",
       "role": "window",
-      "id": "window",
+      "id": "menu.window",
       "submenu": [
-        { "label": "Reload", "id": "view.reload", "role": "reload" },
-        { "label": "Close", "role": "close" },
-        { "label": "Minimize", "role": "minimize" },
-        { "label": "Zoom", "role": "zoom" },
-        { "label": "Enter Full Screen", "role": "togglefullscreen" },
+        { "label": "Reload", "id": "window.reload", "role": "reload" },
+        { "label": "Close", "id": "window.close", "role": "close" },
+        { "label": "Minimize", "id": "window.minimize", "role": "minimize" },
+        { "label": "Zoom", "id": "window.zoom", "role": "zoom" },
+        { "label": "Enter Full Screen", "id": "window.toggle-fullscreen", "role": "togglefullscreen" },
         { "type": "separator" },
-        { "label": "Bring All to Front", "role": "front" }
+        { "label": "Bring All to Front", "id": "window.front", "role": "front" }
       ]
     },
     {
       "label": "Help",
       "role": "help",
-      "id": "help",
+      "id": "menu.help",
       "submenu": [
         { "label": "Motrix Website", "id": "help.official-website", "command": "help:official-website" },
         { "label": "Manual", "id": "help.manual", "command": "help:manual" },

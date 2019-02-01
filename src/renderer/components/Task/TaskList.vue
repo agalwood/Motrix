@@ -4,7 +4,7 @@
   </ul>
   <div class="no-task" v-else>
     <div class="no-task-inner">
-      当前没有下载任务
+      {{ $t('task.no-task') }}
     </div>
   </div>
 </template>
