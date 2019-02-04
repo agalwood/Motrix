@@ -55,7 +55,7 @@ npm run build
 ## ☑️ TODO
 开发计划请移步 [Trello](https://trello.com/b/qNUzA0bv/motrix)
 
-## 🤝 参与共建 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
+## 🤝 参与共建 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![Join the chat at https://gitter.im/motrix-community/community](https://badges.gitter.im/motrix-community/community.svg)](https://gitter.im/motrix-community/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 如果你有兴趣参与共同开发，欢迎 FORK 和 PR。
 
 ## 📜 开源许可
