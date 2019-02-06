@@ -9,10 +9,11 @@
 
 English | [简体中文](./README-CN.md)
 
-Motrix a full-featured download manager that support downloading HTTP, FTP, BitTorrent, Magnet, Baidu Net Disk and other resources.
+Motrix is a full-featured download manager that support downloading HTTP, FTP, BitTorrent, Magnet, Baidu Net Disk etc.
+
 It has a clean and simple interface and is easy to use. I hope you will like it 👻.
 
-[Official Website](https://motrix.app)
+✈️ [Official Website](https://motrix.app)
 
 ## 💽 Installation
 Download from [Github Releases](https://github.com/agalwood/Motrix/releases) and install it.
