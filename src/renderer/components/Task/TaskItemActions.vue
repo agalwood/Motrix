@@ -1,8 +1,8 @@
 <template>
   <div class="task-item-actions" v-on:dblclick.stop="() => null">
-    <i @click.stop="onMoreClick">
+    <!-- <i @click.stop="onMoreClick">
       <mo-icon name="more" width="14" height="14" />
-    </i>
+    </i> -->
     <i @click.stop="onInfoClick" v-if="mode === 'LIST'">
       <mo-icon name="info-circle" width="14" height="14" />
     </i>
