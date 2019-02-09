@@ -74,13 +74,8 @@
         return getTaskFullPath(this.task)
       }
     },
-    filters: {
-    },
     methods: {
       isRenderer: is.renderer,
-      showConfirmBox: function () {
-
-      },
       deleteTaskFiles: function (task) {
         moveTaskFilesToTrash(task, {
           pathErrorMsg: this.$t('task.file-path-error'),
@@ -126,11 +121,6 @@
       },
       onResumeClick: function () {
         this.$store.dispatch('task/resumeTask', this.task)
-          .then(() => {
-            this.$message.success(this.$t('task.resume-task-success', {
-              taskName: this.taskName
-            }))
-          })
           .catch(({ code }) => {
             if (code === 1) {
               this.$message.error(this.$t('task.resume-task-fail', {
@@ -141,11 +131,6 @@
       },
       onPauseClick: function () {
         this.$store.dispatch('task/pauseTask', this.task)
-          .then(() => {
-            this.$message.success(this.$t('task.pause-task-success', {
-              taskName: this.taskName
-            }))
-          })
           .catch(({ code }) => {
             if (code === 1) {
               this.$message.error(this.$t('task.pause-task-fail', {
