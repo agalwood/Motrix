@@ -89,6 +89,7 @@
     "win": {
       "target": [
         "nsis",
+        "zip",
         "portable"
       ],
       "extraResources": {
