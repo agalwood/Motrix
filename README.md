@@ -16,7 +16,7 @@ It has a clean and simple interface and is easy to use. I hope you will like it 
 ✈️ [Official Website](https://motrix.app)
 
 ## 💽 Installation
-Download from [Github Releases](https://github.com/agalwood/Motrix/releases) and install it.
+Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
 
 ## ✨ Features
 - 🕹 Simple and clear user interface

@@ -1,7 +1,7 @@
 export default {
   'active': 'Downloading',
   'waiting': 'Waiting',
-  'stopped': 'Finished',
+  'stopped': 'Stopped',
   'new-task': 'New Task',
   'new-bt-task': 'New BT Task',
   'uri-task': 'URL',
