@@ -107,6 +107,9 @@
     "linux": {
       "target": [
         "deb",
+        "snap",
+        "rpm",
+        "pacman",
         "AppImage"
       ],
       "extraResources": {
