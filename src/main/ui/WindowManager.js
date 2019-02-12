@@ -32,7 +32,7 @@ export default class WindowManager extends EventEmitter {
     const result = pageConfig[page] || {}
     const hideAppMenu = this.userConfig['hide-app-menu']
     if (hideAppMenu) {
-      result.frame = false
+      result.attrs.frame = false
     }
     return result
   }
