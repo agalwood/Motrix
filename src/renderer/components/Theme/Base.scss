@@ -21,26 +21,6 @@ img {
   @include clearfix();
 }
 
-.title-bar {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  height: 40px;
-  user-select: none;
-  -webkit-app-region: drag;
-  -webkit-user-select: none;
-  z-index: 5000;
-  &> .window-actions {
-    opacity: 0.4;
-    transition: $--fade-transition;
-  }
-  &:hover {
-    .window-actions {
-      opacity: 1;
-    }
-  }
-}
-
 #app,
 #container {
   height: 100%;

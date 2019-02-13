@@ -1,5 +1,6 @@
 <template>
   <div class="title-bar">
+    <div class="title-bar-dragger"></div>
     <ul v-if="showActions" class="window-actions">
       <li @click="handleMinimize">
         <mo-icon name="win-minimize" width="12" height="12" />
@@ -50,19 +51,41 @@
 </script>
 
 <style lang="scss">
+.title-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 36px;
+  z-index: 5000;
+  .title-bar-dragger {
+    flex: 1;
+    user-select: none;
+    -webkit-app-region: drag;
+    -webkit-user-select: none;
+  }
   .window-actions {
-    position: fixed;
-    top: 0;
-    right: 24px;
+    opacity: 0.4;
+    transition: $--fade-transition;
     list-style: none;
     padding: 0;
     margin: 0;
+    z-index: 5100;
     > li {
-      float: left;
+      display: inline-block;
       padding: 5px 10px;
+      margin: 0 5px;
       &:hover {
         background-color: $--titlebar-actions-active-background;
       }
     }
   }
+  &:hover {
+    .window-actions {
+      opacity: 1;
+    }
+  }
+}
 </style>
