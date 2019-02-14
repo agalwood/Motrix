@@ -13,7 +13,7 @@ Motrix is a full-featured download manager that support downloading HTTP, FTP, B
 
 It has a clean and simple interface and is easy to use. I hope you will like it 👻.
 
-✈️ [Official Website](https://motrix.app)
+✈️ [Official Website](https://motrix.app) | 📖 [Manual](http://motrix.app/support/issues) (zh-CN)
 
 ## 💽 Installation
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
