@@ -32,7 +32,7 @@ Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and
 - 🎏 ...
 
 ## 🖥 User Interface
-![motrix-screenshot-task-en.png](https://cdn.nlark.com/yuque/0/2019/png/129147/1548251350313-73aa0d60-ee31-4405-bdb9-1793e3fd46ef.png)
+![motrix-screenshot-task-en.png](https://cdn.nlark.com/yuque/0/2019/png/129147/1550151166169-94b4bfb0-746e-42b8-aad7-0b6890f89abb.png)
 
 ## ⌨️ Development
 

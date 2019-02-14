@@ -34,7 +34,7 @@ Motirx 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 - 🎏 ...
 
 ## 🖥 应用界面
-![motrix-screenshot-task-cn.png](https://cdn.nlark.com/yuque/0/2019/png/129147/1548251088177-21762a41-3975-4417-bf54-6f64aeb0f20d.png)
+![motrix-screenshot-task-cn.png](https://cdn.nlark.com/yuque/0/2019/png/129147/1550151234585-e513bd4f-e127-402f-accb-1ebbba9b3c41.png)
 
 ## ⌨️ 本地开发
 
