@@ -13,10 +13,10 @@
 
 Motirx 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链、百度网盘等资源。它的界面简洁易用，希望大家喜欢 👻。
 
-✈️ 去 [官网](https://motrix.app) 逛逛  |  📖 查看 [帮助手册](http://motrix.app/support/issues)
+✈️ 去 [官网](https://motrix.app/zh-CN) 逛逛  |  📖 查看 [帮助手册](http://motrix.app/support/issues)
 
 ## 💽 安装稳定版
-[GitHub](https://github.com/agalwood/Motrix/releases) 和 [官网](https://motrix.app) 提供了已经编译好的稳定版安装包，当然你也可以自己克隆代码编译打包。
+[GitHub](https://github.com/agalwood/Motrix/releases) 和 [官网](https://motrix.app/zh-CN) 提供了已经编译好的稳定版安装包，当然你也可以自己克隆代码编译打包。
 
 > 七牛CDN流量🔥烧不起，高峰时一天烧了110G的流量💸💸💸
 
