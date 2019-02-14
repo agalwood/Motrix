@@ -52,7 +52,7 @@ export default class ConfigManager {
       defaults: {
         'resume-all-when-app-launched': false,
         'task-notification': true,
-        'hide-app-menu': false,
+        'hide-app-menu': is.windows() || is.linux(),
         'new-task-show-downloading': true,
         'auto-check-for-updates': false,
         'update-channel': 'latest',
