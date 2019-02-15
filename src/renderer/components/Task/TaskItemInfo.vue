@@ -9,8 +9,8 @@
     :before-close="handleClose"
     @closed="handleClosed"
   >
-    <div class="task-name" :title="taskName">
-      <span>{{ taskName }}</span>
+    <div class="task-name" :title="taskFullName">
+      <span>{{ taskFullName }}</span>
     </div>
     <mo-task-item-actions mode="ITEM" :task="task" />
     <div class="task-progress">
@@ -78,13 +78,20 @@
       }
     },
     computed: {
+      taskFullName: function () {
+        return getTaskName(this.task, {
+          defaultName: this.$t('task.get-task-name'),
+          maxLen: -1
+        })
+      },
       taskName: function () {
-        return getTaskName(this.task, this.$t('task.get-task-name'))
+        return getTaskName(this.task, {
+          defaultName: this.$t('task.get-task-name'),
+          maxLen: 32
+        })
       },
       dialogTitle: function () {
-        const len = this.taskName.length
-        let title = len > 40 ? this.taskName.substr(0, 40) + '...' : this.taskName
-        return this.$t('task.task-info-dialog-title', { title })
+        return this.$t('task.task-info-dialog-title', { title: this.taskName })
       },
       remaining: function () {
         const { totalLength, completedLength, downloadSpeed } = this.task
@@ -96,7 +103,6 @@
       timeFormat
     },
     methods: {
-      getTaskName,
       handleClose (done) {
         this.$store.dispatch('task/hideTaskItemInfoDialog')
       },

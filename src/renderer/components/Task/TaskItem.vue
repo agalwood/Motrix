@@ -1,7 +1,7 @@
 <template>
   <li :key="task.gid" class="task-item" v-on:dblclick="onDbClick">
-    <div class="task-name" :title="taskName">
-      <span>{{ taskName }}</span>
+    <div class="task-name" :title="taskFullName">
+      <span>{{ taskFullName }}</span>
     </div>
     <mo-task-item-actions mode="LIST" :task="task" />
     <div class="task-progress">
@@ -68,8 +68,16 @@
       }
     },
     computed: {
+      taskFullName: function () {
+        return getTaskName(this.task, {
+          defaultName: this.$t('task.get-task-name'),
+          maxLen: -1
+        })
+      },
       taskName: function () {
-        return getTaskName(this.task, this.$t('task.get-task-name'))
+        return getTaskName(this.task, {
+          defaultName: this.$t('task.get-task-name')
+        })
       },
       remaining: function () {
         const { totalLength, completedLength, downloadSpeed } = this.task
@@ -81,7 +89,6 @@
       timeFormat
     },
     methods: {
-      getTaskName,
       onDbClick () {
         const { status } = this.task
         if (status === 'complete') {
@@ -126,6 +133,7 @@
     color: #505753;
     margin-bottom: 32px;
     margin-right: 240px;
+    word-break: break-all;
     &> span {
       font-size: 14px;
       line-height: 26px;

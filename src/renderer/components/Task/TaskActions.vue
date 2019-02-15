@@ -44,7 +44,6 @@
   import '@/components/Icons/purge'
   import '@/components/Icons/more'
   import {
-    getTaskName,
     bytesToSize,
     timeFormat
   } from '@shared/utils'
@@ -70,7 +69,6 @@
       timeFormat
     },
     methods: {
-      getTaskName,
       refreshSpin: function () {
         this.t && clearTimeout(this.t)
 
