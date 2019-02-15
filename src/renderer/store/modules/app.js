@@ -21,7 +21,8 @@ const state = {
     numWaiting: 0
   },
   addTaskVisible: false,
-  addTaskType: 'uri'
+  addTaskType: 'uri',
+  addTaskTorrents: []
 }
 
 const getters = {
@@ -42,6 +43,9 @@ const mutations = {
   },
   CHANGE_ADD_TASK_TYPE (state, taskType) {
     state.addTaskType = taskType
+  },
+  CHANGE_ADD_TASK_TORRENTS (state, fileList) {
+    state.addTaskTorrents = [...fileList]
   },
   UPDATE_INTERVAL (state, millisecond) {
     let interval = millisecond
@@ -121,9 +125,13 @@ const actions = {
   },
   hideAddTaskDialog ({ commit }) {
     commit('CHANGE_ADD_TASK_VISIBLE', false)
+    commit('CHANGE_ADD_TASK_TORRENTS', [])
   },
   changeAddTaskType ({ commit }, taskType) {
     commit('CHANGE_ADD_TASK_TYPE', taskType)
+  },
+  addTaskAddTorrents ({ commit }, { fileList }) {
+    commit('CHANGE_ADD_TASK_TORRENTS', fileList)
   },
   updateInterval ({ commit }, millisecond) {
     commit('UPDATE_INTERVAL', millisecond)

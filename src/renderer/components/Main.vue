@@ -40,6 +40,28 @@
       })
     },
     methods: {
+    },
+    created () {
+      document.ondragover = document.ondrop = (ev) => {
+        ev.preventDefault()
+      }
+
+      document.body.ondrop = (ev) => {
+        ev.preventDefault()
+
+        const fileList = [...ev.dataTransfer.files]
+          .map(item => ({ raw: item, name: item.name }))
+          .filter(item => /\.torrent$/.test(item.name))
+        if (!fileList.length) {
+          return
+        }
+
+        this.$store.dispatch('app/showAddTaskDialog', 'torrent')
+
+        this.$nextTick(() => {
+          this.$store.dispatch('app/addTaskAddTorrents', { fileList })
+        })
+      }
     }
   }
 </script>
