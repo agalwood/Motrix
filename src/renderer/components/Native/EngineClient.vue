@@ -47,7 +47,7 @@
             let taskName = getTaskName(task)
             if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-start-message', { taskName })
-            this.$message.info(message)
+            this.$message.info({ message, showClose: true })
           })
       },
       onDownloadPause: function (event) {
@@ -58,7 +58,7 @@
             let taskName = getTaskName(task)
             if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-pause-message', { taskName })
-            this.$message.info(message)
+            this.$message.info({ message, showClose: true })
           })
       },
       onDownloadStop: function (event) {
@@ -69,7 +69,7 @@
             let taskName = getTaskName(task)
             if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-stop-message', { taskName })
-            this.$message.info(message)
+            this.$message.info({ message, showClose: true })
           })
       },
       onDownloadError: function (event) {
@@ -80,7 +80,7 @@
             let taskName = getTaskName(task)
             if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-error-message', { taskName })
-            this.$message.error(message)
+            this.$message.error({ message, showClose: true })
           })
       },
       onDownloadComplete: function (event) {
@@ -114,7 +114,7 @@
         openDownloadDock(path)
 
         const message = this.$t('task.download-complete-message', { taskName })
-        this.$message.success(message)
+        this.$message.success({ message, showClose: true })
 
         /* eslint-disable no-new */
         const notify = new Notification(this.$t('task.download-complete-notify'), {
@@ -135,7 +135,7 @@
         if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
 
         const message = this.$t('task.download-fail-message', { taskName })
-        this.$message.success(message)
+        this.$message.success({ message, showClose: true })
 
         /* eslint-disable no-new */
         new Notification(this.$t('task.download-fail-notify'), {
