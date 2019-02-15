@@ -156,7 +156,7 @@
     },
     data () {
       return {
-        formLabelWidth: '75px',
+        formLabelWidth: '100px',
         showAdvanced: false,
         torrentName: '',
         form: {},
