@@ -68,7 +68,7 @@
         </el-input>
       </el-form-item>
       <div v-if="showAdvanced">
-        <el-form-item :label="`${$t('task.task-dir')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('task.task-user-agent')}: `" :label-width="formLabelWidth">
           <el-input
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 3 }"
