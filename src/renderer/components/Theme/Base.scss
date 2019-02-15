@@ -69,6 +69,11 @@ img {
   outline: none;
 }
 
+.el-message__content {
+  line-height: 18px;
+  word-break: break-all;
+}
+
 .tab-title-dialog {
   .el-dialog__header {
     padding: 0 20px;
@@ -84,6 +89,7 @@ img {
 .el-form-item--mini .el-form-item__info {
   padding-top: 1px;
 }
+
 .el-form-item__info {
   font-size: 12px;
   line-height: 1;
