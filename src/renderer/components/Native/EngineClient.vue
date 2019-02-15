@@ -44,7 +44,8 @@
         const [{ gid }] = event
         api.fetchTaskItem({ gid })
           .then((task) => {
-            const taskName = getTaskName(task)
+            let taskName = getTaskName(task)
+            if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-start-message', { taskName })
             this.$message.info(message)
           })
@@ -54,7 +55,8 @@
         const [{ gid }] = event
         api.fetchTaskItem({ gid })
           .then((task) => {
-            const taskName = getTaskName(task)
+            let taskName = getTaskName(task)
+            if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-pause-message', { taskName })
             this.$message.info(message)
           })
@@ -64,7 +66,8 @@
         const [{ gid }] = event
         api.fetchTaskItem({ gid })
           .then((task) => {
-            const taskName = getTaskName(task)
+            let taskName = getTaskName(task)
+            if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-stop-message', { taskName })
             this.$message.info(message)
           })
@@ -74,7 +77,8 @@
         const [{ gid }] = event
         api.fetchTaskItem({ gid })
           .then((task) => {
-            const taskName = getTaskName(task)
+            let taskName = getTaskName(task)
+            if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
             const message = this.$t('task.download-error-message', { taskName })
             this.$message.error(message)
           })
@@ -102,7 +106,8 @@
           return
         }
 
-        const taskName = getTaskName(task)
+        let taskName = getTaskName(task)
+        if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
         const path = getTaskFullPath(task)
 
         addToRecentTask(task)
@@ -126,7 +131,8 @@
           return
         }
 
-        const taskName = getTaskName(task)
+        let taskName = getTaskName(task)
+        if (taskName.length > 60) taskName = `${taskName.substring(0, 60)}...`
 
         const message = this.$t('task.download-fail-message', { taskName })
         this.$message.success(message)
