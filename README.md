@@ -28,7 +28,7 @@ Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and
 - 🔔 Download completed Notification
 - 💻 Ready for Touch Bar (Mac only)
 - 🗑 Delete related files when removing tasks (optional)
-- 🌍 I18n, [View supported languages](#-internationalization).
+- 🌍 I18n, [View supported languages](#internationalization).
 - 🎏 ...
 
 ## 🖥 User Interface
