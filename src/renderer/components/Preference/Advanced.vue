@@ -144,6 +144,10 @@
           {
             value: 'en-US',
             label: '🇺🇸 English (US)'
+          },
+          {
+            value: 'tr-TR',
+            label: '🇹🇷 Türkçe (TR)'
           }
         ]
       }
@@ -218,7 +222,7 @@
 </script>
 
 <style lang="scss">
-  .ua-group {
-    margin-top: 8px;
-  }
+.ua-group {
+  margin-top: 8px;
+}
 </style>
