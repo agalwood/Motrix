@@ -44,7 +44,6 @@
   import '@/components/Icons/purge'
   import '@/components/Icons/more'
   import {
-    getTaskName,
     bytesToSize,
     timeFormat
   } from '@shared/utils'
@@ -70,7 +69,6 @@
       timeFormat
     },
     methods: {
-      getTaskName,
       refreshSpin: function () {
         this.t && clearTimeout(this.t)
 
@@ -86,33 +84,51 @@
       onResumeAllClick: function () {
         this.$store.dispatch('task/resumeAllTask')
           .then(() => {
-            this.$message.success(this.$t('task.resume-all-task-success'))
+            this.$message.success({
+              message: this.$t('task.resume-all-task-success'),
+              showClose: true
+            })
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(this.$t('task.resume-all-task-fail'))
+              this.$message.error({
+                message: this.$t('task.resume-all-task-fail'),
+                showClose: true
+              })
             }
           })
       },
       onPauseAllClick: function () {
         this.$store.dispatch('task/pauseAllTask')
           .then(() => {
-            this.$message.success(this.$t('task.pause-all-task-success'))
+            this.$message.success({
+              message: this.$t('task.pause-all-task-success'),
+              showClose: true
+            })
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(this.$t('task.pause-all-task-fail'))
+              this.$message.error({
+                message: this.$t('task.pause-all-task-fail'),
+                showClose: true
+              })
             }
           })
       },
       onPurgeRecordClick: function () {
         this.$store.dispatch('task/purgeTaskRecord')
           .then(() => {
-            this.$message.success(this.$t('task.purge-record-success'))
+            this.$message.success({
+              message: this.$t('task.purge-record-success'),
+              showClose: true
+            })
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(this.$t('task.purge-record-fail'))
+              this.$message.error({
+                message: this.$t('task.purge-record-fail'),
+                showClose: true
+              })
             }
           })
       }

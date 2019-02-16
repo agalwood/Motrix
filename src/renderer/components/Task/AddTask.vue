@@ -230,7 +230,8 @@
           this.$message({
             type: 'warning',
             message: this.$t('task.thunder-link-tip'),
-            duration: 6000
+            duration: 6000,
+            showClose: true
           })
         }
       },
@@ -318,13 +319,19 @@
           payload = this.buildUriPayload(form)
           this.$store.dispatch('task/addUri', payload)
             .catch((err) => {
-              this.$message.error(err.message)
+              this.$message.error({
+                message: err.message,
+                showClose: true
+              })
             })
         } else if (type === 'torrent') {
           payload = this.buildTorrentPayload(form)
           this.$store.dispatch('task/addTorrent', payload)
             .catch((err) => {
-              this.$message.error(err.message)
+              this.$message.error({
+                message: err.message,
+                showClose: true
+              })
             })
         } else if (type === 'metalink') {
           // @TODO addMetalink
@@ -382,7 +389,10 @@
               }
             })
             .catch((err) => {
-              this.$message.error(err.message)
+              this.$message.error({
+                message: err.message,
+                showClose: true
+              })
             })
         })
       }

@@ -79,33 +79,49 @@ export function timeFormat (seconds, { prefix = '', suffix = '', i18n }) {
   return result ? `${prefix} ${result} ${suffix}` : result
 }
 
-export function getTaskName (task, defaultName = '') {
+export function ellipsis (str = '', maxLen = 64) {
+  const len = str.length
+  let result = str
+  if (len < maxLen) {
+    return result
+  }
+
+  if (maxLen > 0) {
+    result = `${result.substring(0, maxLen)}...`
+  }
+
+  return result
+}
+
+export function getTaskName (task, options = {}) {
+  const o = {
+    defaultName: '',
+    maxLen: 64, // -1: No limit length
+    ...options
+  }
+  const { defaultName, maxLen } = o
   let result = defaultName
   if (!task) {
     return result
   }
 
   const { files, bittorrent } = task
+  const total = files.length
 
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
-    result = bittorrent.info.name
-    return result
-  }
+    result = ellipsis(bittorrent.info.name, maxLen)
 
-  if (files && files.length === 1) {
-    result = getFileName(files[0])
-  }
-
-  if (files.length > 1) {
-    let cnt = 0
-    for (let i = 0; i < files.length; i += 1) {
-      if (files[i].selected === 'true') {
-        cnt += 1
+    if (total > 1) {
+      const cnt = files.filter((file) => {
+        return file.selected
+      }).length
+      if (cnt > 1) {
+        result += ` (${cnt} / ${total})`
       }
     }
-    if (cnt > 1) {
-      result += ` (${cnt} / ${files.length})`
-    }
+  } else if (total === 1) {
+    result = getFileName(files[0])
+    result = ellipsis(result, maxLen)
   }
 
   return result
