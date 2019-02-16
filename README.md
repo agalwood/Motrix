@@ -28,7 +28,7 @@ Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and
 - 🔔 Download completed Notification
 - 💻 Ready for Touch Bar (Mac only)
 - 🗑 Delete related files when removing tasks (optional)
-- 🌍 I18n, [View supported languages](#internationalization).
+- 🌍 I18n, [View supported languages](#-internationalization).
 - 🎏 ...
 
 ## 🖥 User Interface
@@ -70,7 +70,7 @@ Development Roadmap see: [Trello](https://trello.com/b/qNUzA0bv/motrix)
 ## 🤝 Contribute [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 If you are interested in participating in joint development, Welcome Fork and PR !
 
-## 🌍Internationalization
+## 🌍 Internationalization
 Welcome to translate to more versions in other languages 🧐
 
 The key of locale please refer to the Electron documentation:

@@ -30,7 +30,7 @@ Motirx 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 - 🔔 下载完成后通知
 - 💻 支持触控栏快捷健 (Mac 专享)
 - 🗑 移除任务时可同时删除相关文件
-- 🌍 国际化，[查看已可选的语言](#国际化)
+- 🌍 国际化，[查看已可选的语言](#-国际化)
 - 🎏 ...
 
 ## 🖥 应用界面
@@ -78,7 +78,7 @@ npm run build
 ## 🤝 参与共建 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 如果你有兴趣参与共同开发，欢迎 FORK 和 PR。
 
-## 🌍国际化
+## 🌍 国际化
 欢迎大家将 Motrix 翻译成更多的语言版本 🧐
 
 locale 的值请参考 Electron 的文档:
