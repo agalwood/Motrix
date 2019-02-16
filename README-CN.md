@@ -80,7 +80,9 @@ npm run build
 
 ## 🌍国际化
 欢迎大家将 Motrix 翻译成更多的语言版本 🧐
+
 locale 的值请参考 Electron 的文档:
+
 https://electronjs.org/docs/api/locales
 
 | Key   | Name               | Status       |

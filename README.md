@@ -72,7 +72,9 @@ If you are interested in participating in joint development, Welcome Fork and PR
 
 ## 🌍Internationalization
 Welcome to translate to more versions in other languages 🧐
+
 The key of locale please refer to the Electron documentation:
+
 https://electronjs.org/docs/api/locales
 
 | Key   | Name               | Status       |
