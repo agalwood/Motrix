@@ -122,7 +122,7 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     margin-bottom: 16px;
-    transition: $--border-transition-base;
+    transition: $--all-transition;
     &:hover {
       border-color: $--task-item-hover-border-color;
     }

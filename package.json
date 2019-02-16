@@ -147,6 +147,7 @@
     "vue": "^2.6.4",
     "vue-electron": "^1.0.6",
     "vue-router": "^3.0.2",
+    "vuedraggable": "^2.17.0",
     "vuex": "^3.1.0",
     "vuex-router-sync": "^5.0.0"
   },
