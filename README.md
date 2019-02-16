@@ -28,7 +28,7 @@ Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and
 - 🔔 Download completed Notification
 - 💻 Ready for Touch Bar (Mac only)
 - 🗑 Delete related files when removing tasks (optional)
-- 🌍 I18n, currently available Simplified Chinese & English.
+- 🌍 I18n, [View supported languages](#-internationalization).
 - 🎏 ...
 
 ## 🖥 User Interface
@@ -68,7 +68,18 @@ After build finish, you can see the compiled packaged application file in the `r
 Development Roadmap see: [Trello](https://trello.com/b/qNUzA0bv/motrix)
 
 ## 🤝 Contribute [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
-If you are interested in participating in joint development, Fork and PR are welcome.
+If you are interested in participating in joint development, Welcome Fork and PR !
+
+## 🌍Internationalization
+Welcome to translate to more versions in other languages 🧐
+The key of locale please refer to the Electron documentation:
+https://electronjs.org/docs/api/locales
+
+| Key   | Name               | Status       |
+|-------|:-------------------|:-------------|
+| zh-CN | 🇨🇳 简体中文         | ✔️           |
+| en-US | 🇺🇸 English (US)    | ✔️           |
+| tr    | 🇹🇷 Türkçe          | 🏗 @abdullah |
 
 ## 📜 License
 [MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot
