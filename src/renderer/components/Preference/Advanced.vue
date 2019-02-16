@@ -146,7 +146,7 @@
             label: '🇺🇸 English (US)'
           },
           {
-            value: 'tr-TR',
+            value: 'tr',
             label: '🇹🇷 Türkçe (TR)'
           }
         ]

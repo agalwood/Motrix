@@ -1,6 +1,6 @@
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleZhCN from '@shared/locales/zh-CN'
-import appLocaleTrTR from '@shared/locales/tr-TR'
+import appLocaleTrTR from '@shared/locales/tr'
 
 const resources = {
   'en-US': {
@@ -13,7 +13,7 @@ const resources = {
       ...appLocaleZhCN
     }
   },
-  'tr-TR': {
+  'tr': {
     translation: {
       ...appLocaleTrTR
     }
