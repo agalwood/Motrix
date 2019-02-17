@@ -39,7 +39,7 @@ export default {
   'remove-task-file-fail': 'Görev dosyaları silinemedi, lütfen manuel olarak silin',
   'remove-task-config-file-fail': 'Görev yapılandırma dosyası silinemedi, lütfen manuel olarak silin',
   'move-task-up': 'Görevi yukarı taşı',
-  'move-task-down': 'Görevi aşşağı taşı',
+  'move-task-down': 'Görevi aşağı taşı',
   'pause-all-task': 'Bütün görevleri durdur',
   'pause-all-task-success': 'Bütün görevleri durdurma başarılı',
   'pause-all-task-fail': 'Bütün görevleri durdurma başarısız',
