@@ -4,7 +4,7 @@
     <ul>
       <li
         @click="() => nav('active')"
-        v-bind:class="[ current === 'active' ? 'active' : '' ]"
+        :class="[ current === 'active' ? 'active' : '' ]"
       >
         <i class="subnav-icon">
           <mo-icon name="task-start" width="20" height="20" />
@@ -13,7 +13,7 @@
       </li>
       <li
         @click="() => nav('waiting')"
-        v-bind:class="[ current === 'waiting' ? 'active' : '' ]"
+        :class="[ current === 'waiting' ? 'active' : '' ]"
       >
         <i class="subnav-icon">
           <mo-icon name="task-pause" width="20" height="20" />
@@ -22,7 +22,7 @@
       </li>
       <li
         @click="() => nav('stopped')"
-        v-bind:class="[ current === 'stopped' ? 'active' : '' ]"
+        :class="[ current === 'stopped' ? 'active' : '' ]"
       >
         <i class="subnav-icon">
           <mo-icon name="task-stop" width="20" height="20" />

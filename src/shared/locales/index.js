@@ -5,7 +5,8 @@
  */
 export const supportLanguages = [
   'en-US',
-  'zh-CN'
+  'zh-CN',
+  'tr'
 ]
 
 /**

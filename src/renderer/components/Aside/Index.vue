@@ -1,5 +1,5 @@
 <template>
-  <el-aside width="78px" class="aside" :class="{ draggable: !isWindows() }">
+  <el-aside width="78px" :class="['aside', { 'draggable': asideDraggable }]">
     <div class="aside-inner">
       <mo-logo-mini />
       <ul class="menu top-menu">
@@ -39,11 +39,12 @@
     computed: {
       ...mapState('app', {
         currentPage: state => state.currentPage
-      })
+      }),
+      asideDraggable: function () {
+        return is.macOS()
+      }
     },
     methods: {
-      isRenderer: is.renderer,
-      isWindows: is.windows,
       open (link) {
         this.$electron.shell.openExternal(link)
       },
@@ -51,7 +52,7 @@
         this.$store.dispatch('app/showAddTaskDialog', taskType)
       },
       showAboutPanel () {
-        // if (this.isRenderer()) {
+        // if (is.renderer()) {
         //   this.$electron.ipcRenderer.send('command', 'application:about')
         // } else {
         this.$store.dispatch('app/showAboutPanel')
