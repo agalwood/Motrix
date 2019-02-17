@@ -42,7 +42,7 @@ export function timeRemaining (totalLength, completedLength, downloadSpeed) {
  * @param {object} i18n
  * i18n: {
  *  gt1d: 'More than one day',
- *  hour: 'H',
+ *  hour: 'h',
  *  minute: 'm',
  *  second: 's'
  * }
@@ -54,7 +54,7 @@ export function timeFormat (seconds, { prefix = '', suffix = '', i18n }) {
   let secs = seconds || 0
   const i = {
     gt1d: '> 1 day',
-    hour: 'H',
+    hour: 'h',
     minute: 'm',
     second: 's',
     ...i18n
