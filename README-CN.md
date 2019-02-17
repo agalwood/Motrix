@@ -89,7 +89,7 @@ https://electronjs.org/docs/api/locales
 |-------|:-------------------|:-------------|
 | zh-CN | 🇨🇳 简体中文         | ✔️           |
 | en-US | 🇺🇸 English (US)    | ✔️           |
-| tr    | 🇹🇷 Türkçe          | 🏗 @abdullah |
+| tr    | 🇹🇷 Türkçe          | 🏗 [@abdullah](https://github.com/abdullah) |
 
 ## 📜 开源许可
 基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。

@@ -26,6 +26,7 @@ export default {
   'app-log-path': 'App log path',
   'download-session-path': 'Download session path',
   'factory-reset': 'Factory Reset',
+  'factory-reset-confirm': 'Are you sure you want to revert to factory settings?',
   'lab-warning': '⚠️ Enabling lab features may cause app crashes or data loss, decide for yourself!',
   'download-protocol': 'Protocol',
   'support-more-download-protocols': 'Enable more download protocols support',

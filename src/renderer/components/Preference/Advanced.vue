@@ -85,7 +85,9 @@
             </el-input>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            <el-button plain type="danger" @click="() => onFactoryResetClick()">{{ $t('preferences.factory-reset') }}</el-button>
+            <el-button plain type="danger" @click="() => onFactoryResetClick()">
+              {{ $t('preferences.factory-reset') }}
+            </el-button>
           </el-col>
         </el-form-item>
       </el-form>
@@ -190,8 +192,8 @@
       onFactoryResetClick () {
         this.$electron.remote.dialog.showMessageBox({
           type: 'warning',
-          title: '恢复初始设置',
-          message: '你确定要恢复为初始设置吗?',
+          title: this.$t('preferences.factory-reset'),
+          message: this.$t('preferences.factory-reset-confirm'),
           buttons: [this.$t('app.yes'), this.$t('app.no')],
           cancelId: 1
         }, (buttonIndex) => {
