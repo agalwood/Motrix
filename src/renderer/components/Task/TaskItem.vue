@@ -99,10 +99,7 @@
       },
       openTask () {
         const { taskName } = this
-        this.$message.info({
-          message: this.$t('task.opening-task-message', { taskName }),
-          showClose: true
-        })
+        this.$msg.info(this.$t('task.opening-task-message', { taskName }))
         const fullPath = getTaskFullPath(this.task)
         openItem(fullPath, {
           errorMsg: this.$t('task.file-not-exist')

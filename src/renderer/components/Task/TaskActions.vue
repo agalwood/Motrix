@@ -84,51 +84,33 @@
       onResumeAllClick: function () {
         this.$store.dispatch('task/resumeAllTask')
           .then(() => {
-            this.$message.success({
-              message: this.$t('task.resume-all-task-success'),
-              showClose: true
-            })
+            this.$msg.success(this.$t('task.resume-all-task-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.resume-all-task-fail'),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.resume-all-task-fail'))
             }
           })
       },
       onPauseAllClick: function () {
         this.$store.dispatch('task/pauseAllTask')
           .then(() => {
-            this.$message.success({
-              message: this.$t('task.pause-all-task-success'),
-              showClose: true
-            })
+            this.$msg.success(this.$t('task.pause-all-task-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.pause-all-task-fail'),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.pause-all-task-fail'))
             }
           })
       },
       onPurgeRecordClick: function () {
         this.$store.dispatch('task/purgeTaskRecord')
           .then(() => {
-            this.$message.success({
-              message: this.$t('task.purge-record-success'),
-              showClose: true
-            })
+            this.$msg.success(this.$t('task.purge-record-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.purge-record-fail'),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.purge-record-fail'))
             }
           })
       }

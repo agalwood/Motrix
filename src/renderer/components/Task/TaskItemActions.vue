@@ -89,21 +89,15 @@
             if (isRemoveWithFiles) {
               this.deleteTaskFiles(task)
             }
-            this.$message.success({
-              message: this.$t('task.delete-task-success', {
-                taskName: this.taskName
-              }),
-              showClose: true
-            })
+            this.$msg.success(this.$t('task.delete-task-success', {
+              taskName: this.taskName
+            }))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.delete-task-fail', {
-                  taskName: this.taskName
-                }),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.delete-task-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
@@ -113,21 +107,15 @@
             if (isRemoveWithFiles) {
               this.deleteTaskFiles(task)
             }
-            this.$message.success({
-              message: this.$t('task.remove-record-success', {
-                taskName: this.taskName
-              }),
-              showClose: true
-            })
+            this.$msg.success(this.$t('task.remove-record-success', {
+              taskName: this.taskName
+            }))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.remove-record-fail', {
-                  taskName: this.taskName
-                }),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.remove-record-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
@@ -135,12 +123,9 @@
         this.$store.dispatch('task/resumeTask', this.task)
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.resume-task-fail', {
-                  taskName: this.taskName
-                }),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.resume-task-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
@@ -148,12 +133,9 @@
         this.$store.dispatch('task/pauseTask', this.task)
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error({
-                message: this.$t('task.pause-task-fail', {
-                  taskName: this.taskName
-                }),
-                showClose: true
-              })
+              this.$msg.error(this.$t('task.pause-task-fail', {
+                taskName: this.taskName
+              }))
             }
           })
       },
@@ -198,10 +180,7 @@
         const uri = getTaskUri(this.task)
         clipboard.writeText(uri)
           .then(() => {
-            this.$message.success({
-              message: this.$t('task.copy-link-success'),
-              showClose: true
-            })
+            this.$msg.success(this.$t('task.copy-link-success'))
           })
       },
       onInfoClick: function () {
