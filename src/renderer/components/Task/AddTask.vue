@@ -227,11 +227,10 @@
         // https://github.com/ElemeFE/element/blob/master/packages/input/src/input.vue
         const { uris } = this.form
         if (uris.includes('thunder://')) {
-          this.$message({
+          this.$msg({
             type: 'warning',
             message: this.$t('task.thunder-link-tip'),
-            duration: 6000,
-            showClose: true
+            duration: 6000
           })
         }
       },
@@ -319,19 +318,13 @@
           payload = this.buildUriPayload(form)
           this.$store.dispatch('task/addUri', payload)
             .catch((err) => {
-              this.$message.error({
-                message: err.message,
-                showClose: true
-              })
+              this.$msg.error(err.message)
             })
         } else if (type === 'torrent') {
           payload = this.buildTorrentPayload(form)
           this.$store.dispatch('task/addTorrent', payload)
             .catch((err) => {
-              this.$message.error({
-                message: err.message,
-                showClose: true
-              })
+              this.$msg.error(err.message)
             })
         } else if (type === 'metalink') {
           // @TODO addMetalink
@@ -389,10 +382,7 @@
               }
             })
             .catch((err) => {
-              this.$message.error({
-                message: err.message,
-                showClose: true
-              })
+              this.$msg.error(err.message)
             })
         })
       }
