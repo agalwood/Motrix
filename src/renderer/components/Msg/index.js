@@ -33,7 +33,7 @@ export default {
           queue.unshift(task)
 
           if (queue.length === 1) {
-            queue[0].run()
+            queue.pop().run()
           }
         }
       }
