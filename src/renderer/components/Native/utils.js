@@ -40,10 +40,14 @@ export function openItem (fullPath, { errorMsg }) {
   return result
 }
 
-export function moveTaskFilesToTrash (task, { pathErrorMsg, delFailMsg, delConfigFailMsg }) {
+export function moveTaskFilesToTrash (task, messages = {}) {
+  const { pathErrorMsg, delFailMsg, delConfigFailMsg } = messages
+  const { dir } = task
   const path = getTaskFullPath(task)
-  if (!path && pathErrorMsg) {
-    Message.error(pathErrorMsg)
+  if (!path || dir === path) {
+    if (pathErrorMsg) {
+      Message.error(pathErrorMsg)
+    }
     return false
   }
 

@@ -110,15 +110,6 @@ export function getTaskName (task, options = {}) {
 
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
     result = ellipsis(bittorrent.info.name, maxLen)
-
-    if (total > 1) {
-      const cnt = files.filter((file) => {
-        return file.selected
-      }).length
-      if (cnt > 1) {
-        result += ` (${cnt} / ${total})`
-      }
-    }
   } else if (total === 1) {
     result = getFileName(files[0])
     result = ellipsis(result, maxLen)
@@ -148,19 +139,26 @@ export function getFileName (file) {
 
 export function getTaskFullPath (task) {
   const { dir, files, bittorrent } = task
-  let result = ''
+  let result = dir
 
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
-    result = `${dir}/${bittorrent.info.name}`
+    result = `${result}/${bittorrent.info.name}`
     return result
   }
 
   const [file] = files
   const { path } = file
-  result = path
+  let fileName = ''
 
-  if (!path && files && files.length === 1) {
-    result = `${dir}/${getFileName(file)}`
+  if (path) {
+    result = path
+  } else {
+    if (files && files.length === 1) {
+      fileName = getFileName(file)
+      if (fileName) {
+        result = `${result}/${fileName}`
+      }
+    }
   }
 
   return result
