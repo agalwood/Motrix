@@ -35,7 +35,6 @@
 
 <script>
   import is from 'electron-is'
-  import { mapState } from 'vuex'
   import * as clipboard from 'clipboard-polyfill'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
