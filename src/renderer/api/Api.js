@@ -111,6 +111,15 @@ export default class Api {
     return this.client.call('getVersion')
   }
 
+  getGlobalOption () {
+    return new Promise((resolve) => {
+      this.client.call('getGlobalOption')
+        .then((data) => {
+          resolve(changeKeysToCamelCase(data))
+        })
+    })
+  }
+
   getGlobalStat () {
     return this.client.call('getGlobalStat')
   }
