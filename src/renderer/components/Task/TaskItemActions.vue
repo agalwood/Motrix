@@ -35,7 +35,8 @@
 
 <script>
   import is from 'electron-is'
-  import clipboard from 'clipboard-polyfill'
+  import { mapState } from 'vuex'
+  import * as clipboard from 'clipboard-polyfill'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
   import '@/components/Icons/delete'
@@ -177,10 +178,14 @@
         })
       },
       onLinkClick: function () {
-        const uri = getTaskUri(this.task)
-        clipboard.writeText(uri)
-          .then(() => {
-            this.$msg.success(this.$t('task.copy-link-success'))
+        this.$store.dispatch('app/fetchEngineOptions')
+          .then((data) => {
+            const { btTracker } = data
+            const uri = getTaskUri(this.task, btTracker)
+            clipboard.writeText(uri)
+              .then(() => {
+                this.$msg.success(this.$t('task.copy-link-success'))
+              })
           })
       },
       onInfoClick: function () {

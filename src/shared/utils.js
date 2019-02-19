@@ -2,6 +2,7 @@ import {
   isEmpty,
   isNaN,
   compact,
+  difference,
   parseInt,
   isFunction,
   camelCase,
@@ -164,11 +165,11 @@ export function getTaskFullPath (task) {
   return result
 }
 
-export function getTaskUri (task) {
+export function getTaskUri (task, btTracker = []) {
   const { files } = task
   let result = ''
   if (checkTaskIsBT(task)) {
-    result = '种子任务'
+    result = buildMagnetLink(task, btTracker)
     return result
   }
 
@@ -176,6 +177,27 @@ export function getTaskUri (task) {
     const { uris } = files[0]
     result = uris[0].uri
   }
+
+  return result
+}
+
+export function buildMagnetLink (task, btTracker = []) {
+  const { bittorrent, infoHash } = task
+  const { announceList, info: { name } } = bittorrent
+  const trackers = difference(announceList, btTracker)
+
+  let params = [
+    `magnet:?xt=urn:btih:${infoHash}`
+  ]
+  if (name) {
+    params.push(`dn=${encodeURI(name)}`)
+  }
+
+  trackers.forEach((tracker) => {
+    params.push(`tr=${encodeURI(tracker)}`)
+  })
+
+  const result = params.join('&')
 
   return result
 }
