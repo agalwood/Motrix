@@ -183,14 +183,14 @@ export function getTaskUri (task, btTracker = []) {
 
 export function buildMagnetLink (task, btTracker = []) {
   const { bittorrent, infoHash } = task
-  const { announceList, info: { name } } = bittorrent
+  const { announceList, info } = bittorrent
   const trackers = difference(announceList, btTracker)
 
   let params = [
     `magnet:?xt=urn:btih:${infoHash}`
   ]
-  if (name) {
-    params.push(`dn=${encodeURI(name)}`)
+  if (info && info.name) {
+    params.push(`dn=${encodeURI(info.name)}`)
   }
 
   trackers.forEach((tracker) => {
