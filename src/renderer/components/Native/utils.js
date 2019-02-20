@@ -70,15 +70,21 @@ export function moveTaskFilesToTrash (task, messages = {}) {
 }
 
 export function openDownloadDock (path) {
+  if (!is.macOS()) {
+    return
+  }
   remote.app.dock.downloadFinished(path)
 }
 
 export function updateDockBadge (text) {
+  if (!is.macOS()) {
+    return
+  }
   remote.app.dock.setBadge(text)
 }
 
 export function showDownloadSpeedInDock (downloadSpeed) {
-  if (is.windows()) {
+  if (!is.macOS()) {
     return
   }
   const text = downloadSpeed > 0 ? bytesToSize(downloadSpeed) : ''
