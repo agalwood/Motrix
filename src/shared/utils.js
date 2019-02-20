@@ -152,7 +152,8 @@ export function getTaskFullPath (task) {
   let fileName = ''
 
   if (path) {
-    result = path
+    // Magnet task file's path did not start with dir
+    result = path.startsWith(dir) ? path : result
   } else {
     if (files && files.length === 1) {
       fileName = getFileName(file)
