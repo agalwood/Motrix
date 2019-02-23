@@ -24,7 +24,7 @@ export default {
   'developer': '开发者',
   'mock-user-agent': '模拟用户代理（UA）',
   'app-log-path': '应用日志路径',
-  'download-session-path': '应用日志路径',
+  'download-session-path': '下载会话路径',
   'factory-reset': '恢复初始设置',
   'factory-reset-confirm': '你确定要恢复为初始设置吗?',
   'lab-warning': '⚠️启用实验特性可能造成应用崩溃或数据丢失，请自行决定！',
