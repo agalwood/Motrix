@@ -20,8 +20,8 @@ Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and
 
 ## ✨ Features
 - 🕹 Simple and clear user interface
-- 🧲 Support BitTorrent & Magnet
-- 🤫 Support downloading Baidu Net Disk
+- 🦄 Support BitTorrent & Magnet
+- 💾 Support downloading Baidu Net Disk
 - 🎛 Up to 10 tasks concurrently download
 - 🚀 Single task maximum support 64 thread download
 - 🕶 Mock User-Agent
