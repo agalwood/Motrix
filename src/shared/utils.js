@@ -8,6 +8,7 @@ import {
   camelCase,
   kebabCase
 } from 'lodash'
+import { resolve } from 'path'
 import { userKeys, systemKeys } from './configKeys'
 
 export function bytesToSize (bytes) {
@@ -140,30 +141,39 @@ export function getFileName (file) {
 
 export function getTaskFullPath (task) {
   const { dir, files, bittorrent } = task
-  let result = dir
+  let result = resolve(dir)
 
-  if (bittorrent && bittorrent.info && bittorrent.info.name) {
-    result = `${result}/${bittorrent.info.name}`
+  // Magnet link task
+  if (isMagnetTask(task)) {
+    return result
+  }
+
+  if (bittorrent.info && bittorrent.info.name) {
+    result = resolve(result, bittorrent.info.name)
     return result
   }
 
   const [file] = files
-  const { path } = file
+  const path = resolve(file.path)
   let fileName = ''
 
   if (path) {
-    // Magnet task file's path did not start with dir
-    result = path.startsWith(dir) ? path : result
+    result = path
   } else {
     if (files && files.length === 1) {
       fileName = getFileName(file)
       if (fileName) {
-        result = `${result}/${fileName}`
+        result = resolve(result, fileName)
       }
     }
   }
 
   return result
+}
+
+export function isMagnetTask (task) {
+  const { bittorrent } = task
+  return bittorrent && !bittorrent.info
 }
 
 export function getTaskUri (task, btTracker = []) {

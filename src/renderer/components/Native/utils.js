@@ -2,6 +2,7 @@ import is from 'electron-is'
 import { existsSync } from 'fs'
 import { Message } from 'element-ui'
 import {
+  isMagnetTask,
   getTaskFullPath,
   bytesToSize
 } from '@shared/utils'
@@ -41,6 +42,15 @@ export function openItem (fullPath, { errorMsg }) {
 }
 
 export function moveTaskFilesToTrash (task, messages = {}) {
+  /**
+   * 磁力链接任务，有 bittorrent，但没有 bittorrent.info ，
+   * 在没下完变成BT任务之前 path 不是一个完整路径，
+   * 未避免误删所在目录，所以删除时直接返回 true
+   */
+  if (isMagnetTask(task)) {
+    return true
+  }
+
   const { pathErrorMsg, delFailMsg, delConfigFailMsg } = messages
   const { dir } = task
   const path = getTaskFullPath(task)
