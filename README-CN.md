@@ -79,11 +79,7 @@ npm run build
 如果你有兴趣参与共同开发，欢迎 FORK 和 PR。
 
 ## 🌍 国际化
-欢迎大家将 Motrix 翻译成更多的语言版本 🧐
-
-locale 的值请参考 Electron 的文档:
-
-https://electronjs.org/docs/api/locales
+欢迎大家将 Motrix 翻译成更多的语言版本 🧐，开工之前请先阅读一下 [翻译指南](./CONTRIBUTING-CN.md#-翻译指南)。
 
 | Key   | Name               | Status       |
 |-------|:-------------------|:-------------|

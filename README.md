@@ -71,11 +71,7 @@ Development Roadmap see: [Trello](https://trello.com/b/qNUzA0bv/motrix)
 If you are interested in participating in joint development, Welcome Fork and PR !
 
 ## 🌍 Internationalization
-Welcome to translate to more versions in other languages 🧐
-
-The key of locale please refer to the Electron documentation:
-
-https://electronjs.org/docs/api/locales
+Welcome to translate to more versions in other languages 🧐. Please read the [translation guide](./CONTRIBUTING.md#-translation-guide) before starting work.
 
 | Key   | Name               | Status       |
 |-------|:-------------------|:-------------|
