@@ -148,7 +148,7 @@ export function getTaskFullPath (task) {
     return result
   }
 
-  if (bittorrent.info && bittorrent.info.name) {
+  if (bittorrent && bittorrent.info && bittorrent.info.name) {
     result = resolve(result, bittorrent.info.name)
     return result
   }
