@@ -150,6 +150,10 @@
           {
             value: 'tr',
             label: '🇹🇷 Türkçe (TR)'
+          },
+          {
+            value: 'fr',
+            label: '🇫🇷 Français (FR)'
           }
         ]
       }
