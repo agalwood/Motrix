@@ -4,5 +4,5 @@ export default {
   'minimize': 'Réduire',
   'zoom': 'Zoom',
   'toggle-fullscreen': 'Passer en mode Plein écran',
-  'front': 'Mettre tout au premier plan'
+  'front': 'Tout mettre au premier plan'
 }
