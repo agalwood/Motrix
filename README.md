@@ -77,7 +77,8 @@ Welcome to translate to more versions in other languages 🧐. Please read the [
 |-------|:-------------------|:-------------|
 | zh-CN | 🇨🇳 简体中文         | ✔️           |
 | en-US | 🇺🇸 English (US)    | ✔️           |
-| tr    | 🇹🇷 Türkçe          | 🏗 [@abdullah](https://github.com/abdullah) |
+| tr    | 🇹🇷 Türkçe          | Next release [@abdullah](https://github.com/abdullah) |
+| fr    | 🇫🇷 Français        | 🏗 [@gpatarin](https://github.com/gpatarin) |
 
 ## 📜 License
 [MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot

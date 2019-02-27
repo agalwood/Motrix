@@ -85,7 +85,8 @@ npm run build
 |-------|:-------------------|:-------------|
 | zh-CN | 🇨🇳 简体中文         | ✔️           |
 | en-US | 🇺🇸 English (US)    | ✔️           |
-| tr    | 🇹🇷 Türkçe          | 🏗 [@abdullah](https://github.com/abdullah) |
+| tr    | 🇹🇷 Türkçe          | 下版本发布 [@abdullah](https://github.com/abdullah) |
+| fr    | 🇫🇷 Français        | 🏗 [@gpatarin](https://github.com/gpatarin) |
 
 ## 📜 开源许可
 基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
