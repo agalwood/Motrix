@@ -6,8 +6,7 @@
 export const supportLanguages = [
   'en-US',
   'zh-CN',
-  'tr',
-  'fr'
+  'tr'
 ]
 
 /**
@@ -26,9 +25,5 @@ export function getLanguage (locale = 'en-US') {
 
   if (locale.startsWith('zh')) {
     return 'zh-CN'
-  }
-
-  if (locale.startsWith('fr')) {
-    return 'fr'
   }
 }
