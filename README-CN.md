@@ -17,6 +17,7 @@ Motirx 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 
 ## 💽 安装稳定版
 [GitHub](https://github.com/agalwood/Motrix/releases) 和 [官网](https://motrix.app/zh-CN) 提供了已经编译好的稳定版安装包，当然你也可以自己克隆代码编译打包。
+
 更新：macOS 用户支持 `brew cask` 安装，感谢 [Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。
 ```brew update && brew cask install motrix```
 
