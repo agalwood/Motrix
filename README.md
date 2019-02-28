@@ -15,10 +15,14 @@ It has a clean and simple interface and is easy to use. I hope you will like it 
 
 ✈️ [Official Website](https://motrix.app) | 📖 [Manual](http://motrix.app/support/issues) (zh-CN)
 
-Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
-
 ## 💽 Installation
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
+
+Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
+
+```bash
+brew update && brew cask install motrix
+```
 
 ## ✨ Features
 - 🕹 Simple and clear user interface
