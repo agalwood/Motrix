@@ -104,7 +104,7 @@
   import { mapState } from 'vuex'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
-  import { getLanguage } from '@shared/locales'
+  import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
 
   const initialForm = (config) => {
@@ -138,24 +138,7 @@
         form: initialForm(this.$store.state.preference.config),
         rules: {},
         color: '#c00',
-        locales: [
-          {
-            value: 'zh-CN',
-            label: '🇨🇳 简体中文'
-          },
-          {
-            value: 'en-US',
-            label: '🇺🇸 English (US)'
-          },
-          {
-            value: 'tr',
-            label: '🇹🇷 Türkçe (TR)'
-          },
-          {
-            value: 'fr',
-            label: '🇫🇷 Français (FR)'
-          }
-        ]
+        locales: availableLanguages
       }
     },
     computed: {

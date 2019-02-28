@@ -1,14 +1,30 @@
 /**
- * If you want to contribute translation, please add a 'locale' here.
- * For the value of locale, please refer to the link below.
- * https://electronjs.org/docs/api/locales
+ * Welcome to translate to more versions in other languages.
+ * Please read the translation guide before starting work.
+ * https://github.com/agalwood/Motrix/blob/master/CONTRIBUTING.md#-translation-guide
  */
-export const supportLanguages = [
-  'en-US',
-  'zh-CN',
-  'tr',
-  'fr'
+export const availableLanguages = [
+  {
+    value: 'en-US',
+    label: '🇺🇸 English (US)'
+  },
+  {
+    value: 'zh-CN',
+    label: '🇨🇳 简体中文'
+  },
+  {
+    value: 'tr',
+    label: '🇹🇷 Türkçe (TR)'
+  },
+  {
+    value: 'fr',
+    label: '🇫🇷 Français (FR)'
+  }
 ]
+
+function checkLngIsAvailable (locale) {
+  return availableLanguages.some((lng) => lng.value === locale)
+}
 
 /**
  * getLanguage
@@ -16,7 +32,7 @@ export const supportLanguages = [
  * https://electronjs.org/docs/api/locales
  */
 export function getLanguage (locale = 'en-US') {
-  if (supportLanguages.includes(locale)) {
+  if (checkLngIsAvailable(locale)) {
     return locale
   }
 
