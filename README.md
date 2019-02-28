@@ -14,6 +14,7 @@ Motrix is a full-featured download manager that support downloading HTTP, FTP, B
 It has a clean and simple interface and is easy to use. I hope you will like it 👻.
 
 ✈️ [Official Website](https://motrix.app) | 📖 [Manual](http://motrix.app/support/issues) (zh-CN)
+Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
 
 ## 💽 Installation
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
@@ -78,7 +79,7 @@ Welcome to translate to more versions in other languages 🧐. Please read the [
 | zh-CN | 🇨🇳 简体中文         | ✔️           |
 | en-US | 🇺🇸 English (US)    | ✔️           |
 | tr    | 🇹🇷 Türkçe          | Next release [@abdullah](https://github.com/abdullah) |
-| fr    | 🇫🇷 Français        | 🏗 [@gpatarin](https://github.com/gpatarin) |
+| fr    | 🇫🇷 Français        | Next release [@gpatarin](https://github.com/gpatarin) |
 
 ## 📜 License
 [MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot
