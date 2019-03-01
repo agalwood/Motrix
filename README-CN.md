@@ -85,12 +85,13 @@ npm run build
 ## 🌍 国际化
 欢迎大家将 Motrix 翻译成更多的语言版本 🧐，开工之前请先阅读一下 [翻译指南](./CONTRIBUTING-CN.md#-翻译指南)。
 
-| Key   | Name               | Status       |
-|-------|:-------------------|:-------------|
-| zh-CN | 🇨🇳 简体中文         | ✔️           |
-| en-US | 🇺🇸 English (US)    | ✔️           |
-| tr    | 🇹🇷 Türkçe          | 下版本发布 [@abdullah](https://github.com/abdullah) |
-| fr    | 🇫🇷 Français        | 下版本发布 [@gpatarin](https://github.com/gpatarin) |
+| Key   | Name            | Status       |
+|-------|:----------------|:-------------|
+| en-US | English         | ✔️           |
+| fr    | Français        | 下版本发布 [@gpatarin](https://github.com/gpatarin) |
+| tr    | Türkçe          | 下版本发布 [@abdullah](https://github.com/abdullah) |
+| zh-CN | 简体中文         | ✔️           |
+| zh-TW | 繁体中文         | 下版本发布 [@Yukaii](https://github.com/Yukaii) |
 
 ## 📜 开源许可
 基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
