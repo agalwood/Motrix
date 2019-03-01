@@ -13,6 +13,10 @@ export const availableLanguages = [
     label: '🇨🇳 简体中文'
   },
   {
+    value: 'zh-TW',
+    label: 'ᴛᴡ 正體中文'
+  },
+  {
     value: 'tr',
     label: '🇹🇷 Türkçe (TR)'
   },
