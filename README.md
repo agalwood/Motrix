@@ -85,7 +85,7 @@ Welcome to translate to more versions in other languages 🧐. Please read the [
 | fr    | Français        | Next Release [@gpatarin](https://github.com/gpatarin) |
 | tr    | Türkçe          | Next Release [@abdullah](https://github.com/abdullah) |
 | zh-CN | 简体中文         | ✔️           |
-| zh-TW | 繁体中文         | Next Release [@Yukaii](https://github.com/Yukaii) |
+| zh-TW | 繁體中文         | Next Release [@Yukaii](https://github.com/Yukaii) |
 
 ## 📜 License
 [MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot
