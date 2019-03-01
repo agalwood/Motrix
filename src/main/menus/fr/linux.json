@@ -8,9 +8,6 @@
         { "type": "separator" },
         { "label": "Préférences...", "id": "app.preferences", "command": "application:preferences", "command-before": "application:show,index"},
         { "label": "Verifier les mises a jour...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
-        { "label": "Cacher Motrix", "id": "app.hide", "role": "hide" },
-        { "label": "Cacher les autres", "id": "app.hide-others", "role": "hideothers" },
-        { "label": "Tout montrer", "id": "app.unhide", "role": "unhide" },
         { "type": "separator" },
         { "label": "Quitter Motrix", "id": "app.quit", "role": "quit" }
       ]

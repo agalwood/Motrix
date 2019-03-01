@@ -6,23 +6,23 @@
 export const availableLanguages = [
   {
     value: 'en-US',
-    label: '🇺🇸 English (US)'
-  },
-  {
-    value: 'zh-CN',
-    label: '🇨🇳 简体中文'
-  },
-  {
-    value: 'zh-TW',
-    label: 'ᴛᴡ 正體中文'
-  },
-  {
-    value: 'tr',
-    label: '🇹🇷 Türkçe (TR)'
+    label: 'English'
   },
   {
     value: 'fr',
-    label: '🇫🇷 Français (FR)'
+    label: 'Français'
+  },
+  {
+    value: 'tr',
+    label: 'Türkçe'
+  },
+  {
+    value: 'zh-CN',
+    label: '简体中文'
+  },
+  {
+    value: 'zh-TW',
+    label: '繁體中文'
   }
 ]
 
