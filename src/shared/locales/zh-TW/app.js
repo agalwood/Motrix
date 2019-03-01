@@ -1,0 +1,20 @@
+export default {
+  'task-list': '工作列表',
+  'add-task': '新增任務',
+  'about': '關於 Motrix',
+  'preferences': '偏好設定...',
+  'check-for-updates': '檢查更新...',
+  'hide': '隱藏 Motrix',
+  'hide-others': '隱藏其它',
+  'unhide': '全部顯示',
+  'quit': '結束 Motrix',
+  'under-development-message': '該功能開發中...',
+  'yes': '是',
+  'no': '否',
+  'cancel': '取 消',
+  'submit': '送 出',
+  'gt1d': '超過一天',
+  'hour': '時',
+  'minute': '分',
+  'second': '秒'
+}
