@@ -1,5 +1,5 @@
 import eleLocaleEn from 'element-ui/lib/locale/lang/en'
-import eleLocalePtBr from 'element-ui/lib/locale/lang/pt-br'
+import eleLocalePtBR from 'element-ui/lib/locale/lang/pt-br'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
 import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
@@ -18,9 +18,9 @@ const resources = {
       ...appLocaleEnUS
     }
   },
-  'pr-BT': {
+  'pt-BR': {
     translation: {
-      ...eleLocalePtBr,
+      ...eleLocalePtBR,
       ...appLocalePtBR
     }
   },
