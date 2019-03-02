@@ -10,7 +10,7 @@ export const availableLanguages = [
   },
   {
     value: 'pt-BR',
-    label: 'Português do Brasil'
+    label: 'Português (Brasil)'
   },
   {
     value: 'fr',
