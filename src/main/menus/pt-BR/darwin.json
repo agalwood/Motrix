@@ -1,0 +1,80 @@
+{
+  "menu": [
+    {
+      "label": "Motrix",
+      "id": "menu.app",
+      "submenu": [
+        { "label": "Sobre o Motrix", "id": "app.about", "command": "application:about", "command-before": "application:show,index"},
+        { "type": "separator" },
+        { "label": "Preferências...", "id": "app.preferences", "command": "application:preferences", "command-before": "application:show,index"},
+        { "label": "Buscar por Atualizações...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
+        { "label": "Ocultar o Motrix", "id": "app.hide", "role": "hide" },
+        { "label": "Ocultar os Outros", "id": "app.hide-others", "role": "hideothers" },
+        { "label": "Exibir Tudo", "id": "app.unhide", "role": "unhide" },
+        { "type": "separator" },
+        { "label": "Fechar o Motrix", "id": "app.quit", "role": "quit" }
+      ]
+    },
+    {
+      "label": "Task",
+      "id": "menu.task",
+      "submenu": [
+        { "label": "Nova Tarefa", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"},
+        { "label": "Nova Tarefa BT", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "type": "separator" },
+        { "label": "Pausar Tarefa", "id": "task.pause-task", "command": "application:pause-task" },
+        { "label": "Resumir Tarefa", "id": "task.resume-task", "command": "application:resume-task" },
+        { "label": "Apagar Tarefa", "id": "task.delete-task", "command": "application:delete-task" },
+        { "label": "Mover Tarefa Para Cima", "id": "task.move-task-up", "command": "application:move-task-up" },
+        { "label": "Mover Tarefa Para Baixo", "id": "task.move-task-down", "command": "application:move-task-down" },
+        { "type": "separator" },
+        { "label": "Pausar Todas as Tarefas", "id": "task.pause-all-task", "command": "application:pause-all-task" },
+        { "label": "Resumir Todas as Tarefas", "id": "task.resume-all-task", "command": "application:resume-all-task" },
+        { "type": "separator" },
+        { "label": "Limpar Tarefas Recentes", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+      ]
+    },
+    {
+      "label": "Edit",
+      "id": "menu.edit",
+      "submenu": [
+        { "label": "Desfazer", "id": "edit.undo", "role": "undo" },
+        { "label": "Refazer", "id": "edit.redo", "role": "redo" },
+        { "type": "separator" },
+        { "label": "Recortar", "id": "edit.cut", "role": "cut" },
+        { "label": "Copiar", "id": "edit.copy", "role": "copy" },
+        { "label": "Colar", "id": "edit.paste", "role": "paste" },
+        { "label": "Apagar", "id": "edit.delete", "role": "delete" },
+        { "label": "Selecionar Tudo", "id": "edit.select-all", "role": "selectall" }
+      ]
+    },
+    {
+      "label": "Window",
+      "role": "window",
+      "id": "menu.window",
+      "submenu": [
+        { "label": "Recarregar", "id": "window.reload", "role": "reload" },
+        { "label": "Fechar", "id": "window.close", "role": "close" },
+        { "label": "Minimizar", "id": "window.minimize", "role": "minimize" },
+        { "label": "Zoom", "id": "window.zoom", "role": "zoom" },
+        { "label": "Modo Full Screen", "id": "window.toggle-fullscreen", "role": "togglefullscreen" },
+        { "type": "separator" },
+        { "label": "Trazer Tudo Para Fremte", "id": "window.front", "role": "front" }
+      ]
+    },
+    {
+      "label": "Help",
+      "role": "help",
+      "id": "menu.help",
+      "submenu": [
+        { "label": "Motrix Website", "id": "help.official-website", "command": "help:official-website" },
+        { "label": "Manual", "id": "help.manual", "command": "help:manual" },
+        { "label": "Notas de Lançamento...", "id": "help.release-notes", "command": "help:release-notes" },
+        { "type": "separator" },
+        { "label": "Reportar Um Problema", "id": "help.report-problem", "command": "help:report-problem" },
+        { "type": "separator" },
+        { "label": "Alternar Developer Tools", "id": "help.toggle-dev-tools", "role": "toggledevtools" }
+      ]
+    }
+  ]
+}
