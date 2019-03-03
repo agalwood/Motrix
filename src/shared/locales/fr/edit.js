@@ -5,5 +5,5 @@ export default {
   'copy': 'Copier',
   'paste': 'Coller',
   'delete': 'Supprimer',
-  'select-all': 'Tout séléctionner'
+  'select-all': 'Tout sélectionner'
 }

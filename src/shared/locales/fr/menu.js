@@ -3,6 +3,6 @@ export default {
   'file': 'Fichier',
   'task': 'Tâche',
   'edit': 'Editer',
-  'window': 'Fenétre',
+  'window': 'Fenêtre',
   'help': 'Aide'
 }
