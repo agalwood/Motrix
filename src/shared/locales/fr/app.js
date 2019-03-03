@@ -3,7 +3,7 @@ export default {
   'add-task': 'Ajouter une tâche',
   'about': 'À Propos de Motrix',
   'preferences': 'Préférences...',
-  'check-for-updates': 'Verifier les mises à jour...',
+  'check-for-updates': 'Vérifier les mises à jour...',
   'hide': 'Cacher Motrix',
   'hide-others': 'Cacher les autres',
   'unhide': 'Tout montrer',
