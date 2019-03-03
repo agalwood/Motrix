@@ -11,11 +11,18 @@ import appLocaleZhTW from '@shared/locales/zh-TW'
 import appLocaleTr from '@shared/locales/tr'
 import appLocaleFr from '@shared/locales/fr'
 
+// Please keep the locale key in alphabetical order.
 const resources = {
   'en-US': {
     translation: {
       ...eleLocaleEn,
       ...appLocaleEnUS
+    }
+  },
+  'fr': {
+    translation: {
+      ...eleLocaleFr,
+      ...appLocaleFr
     }
   },
   'pt-BR': {
@@ -40,12 +47,6 @@ const resources = {
     translation: {
       ...eleLocaleZhTW,
       ...appLocaleZhTW
-    }
-  },
-  'fr': {
-    translation: {
-      ...eleLocaleFr,
-      ...appLocaleFr
     }
   }
 }

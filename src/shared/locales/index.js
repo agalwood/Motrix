@@ -2,6 +2,8 @@
  * Welcome to translate to more versions in other languages.
  * Please read the translation guide before starting work.
  * https://github.com/agalwood/Motrix/blob/master/CONTRIBUTING.md#-translation-guide
+ *
+ * Please keep the locale key in alphabetical order.
  */
 export const availableLanguages = [
   {
@@ -9,12 +11,12 @@ export const availableLanguages = [
     label: 'English'
   },
   {
-    value: 'pt-BR',
-    label: 'Português (Brasil)'
-  },
-  {
     value: 'fr',
     label: 'Français'
+  },
+  {
+    value: 'pt-BR',
+    label: 'Português (Brasil)'
   },
   {
     value: 'tr',
