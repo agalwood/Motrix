@@ -1,9 +1,9 @@
 import appLocaleEnUS from '@shared/locales/en-US'
+import appLocaleFrFR from '@shared/locales/fr'
 import appLocalePtBr from '@shared/locales/pt-BR'
+import appLocaleTrTR from '@shared/locales/tr'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
-import appLocaleTrTR from '@shared/locales/tr'
-import appLocaleFrFR from '@shared/locales/fr'
 
 // Please keep the locale key in alphabetical order.
 const resources = {

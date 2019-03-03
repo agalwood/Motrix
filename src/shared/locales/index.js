@@ -50,6 +50,8 @@ export function getLanguage (locale = 'en-US') {
     return 'en-US'
   }
 
+  // If there is a pt-PT translation in the future,
+  // here will fallback to pt-PT.
   if (locale.startsWith('pt')) {
     return 'pt-BR'
   }
