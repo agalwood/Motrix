@@ -18,10 +18,16 @@ It has a clean and simple interface and is easy to use. I hope you will like it 
 ## 💽 Installation
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
 
+Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
+
+```bash
+brew update && brew cask install motrix
+```
+
 ## ✨ Features
 - 🕹 Simple and clear user interface
-- 🧲 Support BitTorrent & Magnet
-- 🤫 Support downloading Baidu Net Disk
+- 🦄 Support BitTorrent & Magnet
+- 💾 Support downloading Baidu Net Disk
 - 🎛 Up to 10 tasks concurrently download
 - 🚀 Single task maximum support 64 thread download
 - 🕶 Mock User-Agent
@@ -71,17 +77,15 @@ Development Roadmap see: [Trello](https://trello.com/b/qNUzA0bv/motrix)
 If you are interested in participating in joint development, Welcome Fork and PR !
 
 ## 🌍 Internationalization
-Welcome to translate to more versions in other languages 🧐
+Welcome to translate to more versions in other languages 🧐. Please read the [translation guide](./CONTRIBUTING.md#-translation-guide) before starting work.
 
-The key of locale please refer to the Electron documentation:
-
-https://electronjs.org/docs/api/locales
-
-| Key   | Name               | Status       |
-|-------|:-------------------|:-------------|
-| zh-CN | 🇨🇳 简体中文         | ✔️           |
-| en-US | 🇺🇸 English (US)    | ✔️           |
-| tr    | 🇹🇷 Türkçe          | 🏗 [@abdullah](https://github.com/abdullah) |
+| Key   | Name            | Status       |
+|-------|:----------------|:-------------|
+| en-US | English         | ✔️           |
+| fr    | Français        | Next Release [@gpatarin](https://github.com/gpatarin) |
+| tr    | Türkçe          | Next Release [@abdullah](https://github.com/abdullah) |
+| zh-CN | 简体中文         | ✔️           |
+| zh-TW | 繁體中文         | Next Release [@Yukaii](https://github.com/Yukaii) |
 
 ## 📜 License
 [MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot

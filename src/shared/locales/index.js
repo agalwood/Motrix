@@ -1,13 +1,40 @@
 /**
- * If you want to contribute translation, please add a 'locale' here.
- * For the value of locale, please refer to the link below.
- * https://electronjs.org/docs/api/locales
+ * Welcome to translate to more versions in other languages.
+ * Please read the translation guide before starting work.
+ * https://github.com/agalwood/Motrix/blob/master/CONTRIBUTING.md#-translation-guide
+ *
+ * Please keep the locale key in alphabetical order.
  */
-export const supportLanguages = [
-  'en-US',
-  'zh-CN',
-  'tr'
+export const availableLanguages = [
+  {
+    value: 'en-US',
+    label: 'English'
+  },
+  {
+    value: 'fr',
+    label: 'Français'
+  },
+  {
+    value: 'pt-BR',
+    label: 'Português (Brasil)'
+  },
+  {
+    value: 'tr',
+    label: 'Türkçe'
+  },
+  {
+    value: 'zh-CN',
+    label: '简体中文'
+  },
+  {
+    value: 'zh-TW',
+    label: '繁體中文'
+  }
 ]
+
+function checkLngIsAvailable (locale) {
+  return availableLanguages.some((lng) => lng.value === locale)
+}
 
 /**
  * getLanguage
@@ -15,7 +42,7 @@ export const supportLanguages = [
  * https://electronjs.org/docs/api/locales
  */
 export function getLanguage (locale = 'en-US') {
-  if (supportLanguages.includes(locale)) {
+  if (checkLngIsAvailable(locale)) {
     return locale
   }
 
@@ -23,7 +50,17 @@ export function getLanguage (locale = 'en-US') {
     return 'en-US'
   }
 
+  // If there is a pt-PT translation in the future,
+  // here will fallback to pt-PT.
+  if (locale.startsWith('pt')) {
+    return 'pt-BR'
+  }
+
   if (locale.startsWith('zh')) {
     return 'zh-CN'
+  }
+
+  if (locale.startsWith('fr')) {
+    return 'fr'
   }
 }

@@ -8,9 +8,6 @@
         { "type": "separator" },
         { "label": "偏好设置...", "id": "app.preferences", "command": "application:preferences" },
         { "label": "检查更新...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
-        { "label": "隐藏 Motrix", "id": "app.hide", "role": "hide" },
-        { "label": "隐藏其他", "id": "app.hide-others", "role": "hideothers" },
-        { "label": "显示全部", "id": "app.unhide", "role": "unhide" },
         { "type": "separator" },
         { "label": "退出 Motrix", "id": "app.quit", "role": "quit" }
       ]

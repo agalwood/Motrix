@@ -172,6 +172,7 @@
     },
     created: function () {
       this.$store.dispatch('app/fetchEngineInfo')
+      this.$store.dispatch('app/fetchEngineOptions')
 
       this.startPolling()
 

@@ -12,6 +12,7 @@ const state = {
     version: '',
     enabledFeatures: []
   },
+  engineOptions: {},
   interval: BASE_INTERVAL,
   stat: {
     downloadSpeed: 0,
@@ -34,6 +35,9 @@ const mutations = {
   },
   UPDATE_ENGINE_INFO (state, engineInfo) {
     state.engineInfo = { ...state.engineInfo, ...engineInfo }
+  },
+  UPDATE_ENGINE_OPTIONS (state, engineOptions) {
+    state.engineOptions = { ...state.engineOptions, ...engineOptions }
   },
   UPDATE_GLOBAL_STAT (state, stat) {
     state.stat = stat
@@ -84,6 +88,15 @@ const actions = {
       .then((data) => {
         commit('UPDATE_ENGINE_INFO', data)
       })
+  },
+  fetchEngineOptions ({ commit }) {
+    return new Promise((resolve) => {
+      api.getGlobalOption()
+        .then((data) => {
+          commit('UPDATE_ENGINE_OPTIONS', data)
+          resolve(data)
+        })
+    })
   },
   fetchGlobalStat ({ commit, dispatch }) {
     api.getGlobalStat()

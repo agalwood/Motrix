@@ -14,7 +14,7 @@ export default {
   'cancel': 'Cancel',
   'submit': 'Submit',
   'gt1d': '> 1 day',
-  'hour': 'H',
+  'hour': 'h',
   'minute': 'm',
   'second': 's'
 }

@@ -8,9 +8,6 @@
         { "type": "separator" },
         { "label": "Ayarlar...", "id": "app.preferences", "command": "application:preferences", "command-before": "application:show,index"},
         { "label": "Güncellemeleri denetle...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
-        { "label": "Motrix'i gizle", "id": "app.hide", "role": "hide" },
-        { "label": "Diğerlerini gizle", "id": "app.hide-others", "role": "hideothers" },
-        { "label": "Hepsini Göster", "id": "app.unhide", "role": "unhide" },
         { "type": "separator" },
         { "label": "Motrix'ten çık", "id": "app.quit", "role": "quit" }
       ]

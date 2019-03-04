@@ -2,6 +2,7 @@ import is from 'electron-is'
 import { existsSync } from 'fs'
 import { Message } from 'element-ui'
 import {
+  isMagnetTask,
   getTaskFullPath,
   bytesToSize
 } from '@shared/utils'
@@ -40,10 +41,23 @@ export function openItem (fullPath, { errorMsg }) {
   return result
 }
 
-export function moveTaskFilesToTrash (task, { pathErrorMsg, delFailMsg, delConfigFailMsg }) {
+export function moveTaskFilesToTrash (task, messages = {}) {
+  /**
+   * 磁力链接任务，有 bittorrent，但没有 bittorrent.info ，
+   * 在没下完变成BT任务之前 path 不是一个完整路径，
+   * 未避免误删所在目录，所以删除时直接返回 true
+   */
+  if (isMagnetTask(task)) {
+    return true
+  }
+
+  const { pathErrorMsg, delFailMsg, delConfigFailMsg } = messages
+  const { dir } = task
   const path = getTaskFullPath(task)
-  if (!path && pathErrorMsg) {
-    Message.error(pathErrorMsg)
+  if (!path || dir === path) {
+    if (pathErrorMsg) {
+      Message.error(pathErrorMsg)
+    }
     return false
   }
 
@@ -66,15 +80,21 @@ export function moveTaskFilesToTrash (task, { pathErrorMsg, delFailMsg, delConfi
 }
 
 export function openDownloadDock (path) {
+  if (!is.macOS()) {
+    return
+  }
   remote.app.dock.downloadFinished(path)
 }
 
 export function updateDockBadge (text) {
+  if (!is.macOS()) {
+    return
+  }
   remote.app.dock.setBadge(text)
 }
 
 export function showDownloadSpeedInDock (downloadSpeed) {
-  if (is.windows()) {
+  if (!is.macOS()) {
     return
   }
   const text = downloadSpeed > 0 ? bytesToSize(downloadSpeed) : ''
