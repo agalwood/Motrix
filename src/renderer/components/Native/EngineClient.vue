@@ -46,7 +46,7 @@
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-start-message', { taskName })
-            this.$message.info(message)
+            this.$msg.info(message)
           })
       },
       onDownloadPause: function (event) {
@@ -56,7 +56,7 @@
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-pause-message', { taskName })
-            this.$message.info(message)
+            this.$msg.info(message)
           })
       },
       onDownloadStop: function (event) {
@@ -66,7 +66,7 @@
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-stop-message', { taskName })
-            this.$message.info(message)
+            this.$msg.info(message)
           })
       },
       onDownloadError: function (event) {
@@ -76,7 +76,7 @@
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-error-message', { taskName })
-            this.$message.error(message)
+            this.$msg.error(message)
           })
       },
       onDownloadComplete: function (event) {
@@ -109,7 +109,7 @@
         openDownloadDock(path)
 
         const message = this.$t('task.download-complete-message', { taskName })
-        this.$message.success(message)
+        this.$msg.success(message)
 
         /* eslint-disable no-new */
         const notify = new Notification(this.$t('task.download-complete-notify'), {
@@ -129,7 +129,7 @@
         const taskName = getTaskName(task)
 
         const message = this.$t('task.download-fail-message', { taskName })
-        this.$message.success(message)
+        this.$msg.success(message)
 
         /* eslint-disable no-new */
         new Notification(this.$t('task.download-fail-notify'), {

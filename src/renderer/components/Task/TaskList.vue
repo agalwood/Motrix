@@ -12,12 +12,6 @@
 <script>
   import { mapState } from 'vuex'
   import TaskItem from './TaskItem'
-  import {
-    getTaskName,
-    bytesToSize,
-    timeRemaining,
-    timeFormat
-  } from '@shared/utils'
 
   export default {
     name: 'mo-task-list',
@@ -30,10 +24,6 @@
       })
     },
     methods: {
-      getTaskName,
-      bytesToSize,
-      timeRemaining,
-      timeFormat
     }
   }
 </script>

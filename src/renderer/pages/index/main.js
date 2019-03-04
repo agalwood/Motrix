@@ -2,7 +2,7 @@ import is from 'electron-is'
 import Vue from 'vue'
 import VueI18Next from '@panter/vue-i18next'
 import { sync } from 'vuex-router-sync'
-import Element, { Loading } from 'element-ui'
+import Element, { Loading, Message } from 'element-ui'
 import axios from 'axios'
 import 'svg-innerhtml'
 
@@ -12,6 +12,7 @@ import store from '@/store'
 import { getLocaleManager } from '@/components/Locale'
 import Icon from '@/components/Icons/Icon'
 import '@/components/Theme/Index.scss'
+import Msg from '@/components/Msg'
 
 function init (config) {
   if (is.renderer()) {
@@ -30,6 +31,9 @@ function init (config) {
   Vue.use(Element, {
     size: 'mini',
     i18n: (key, value) => i18n.t(key, value)
+  })
+  Vue.use(Msg, Message, {
+    showClose: true
   })
 
   const loading = Loading.service({

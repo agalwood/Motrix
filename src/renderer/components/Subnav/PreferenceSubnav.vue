@@ -4,7 +4,7 @@
     <ul>
       <li
         @click="() => nav('basic')"
-        v-bind:class="[ current === 'basic' ? 'active' : '' ]"
+        :class="[ current === 'basic' ? 'active' : '' ]"
         >
         <i class="subnav-icon">
           <mo-icon name='preference-basic' width="20" height="20" />
@@ -13,7 +13,7 @@
       </li>
       <li
         @click="() => nav('advanced')"
-        v-bind:class="[ current === 'advanced' ? 'active' : '' ]"
+        :class="[ current === 'advanced' ? 'active' : '' ]"
         >
         <i class="subnav-icon">
           <mo-icon name='preference-advanced' width="20" height="20" />
@@ -22,7 +22,7 @@
       </li>
       <li
         @click="() => nav('lab')"
-        v-bind:class="[ current === 'lab' ? 'active' : '' ]"
+        :class="[ current === 'lab' ? 'active' : '' ]"
         >
         <i class="subnav-icon">
           <mo-icon name='preference-lab' width="20" height="20" />
@@ -34,7 +34,6 @@
 </template>
 
 <script>
-  import is from 'electron-is'
   import '@/components/Icons/preference-basic'
   import '@/components/Icons/preference-advanced'
   import '@/components/Icons/preference-lab'
@@ -53,7 +52,6 @@
       }
     },
     methods: {
-      isMas: is.mas,
       nav: function (category = 'basic') {
         this.$router.push({
           path: `/preference/${category}`

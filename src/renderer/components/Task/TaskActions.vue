@@ -44,7 +44,6 @@
   import '@/components/Icons/purge'
   import '@/components/Icons/more'
   import {
-    getTaskName,
     bytesToSize,
     timeFormat
   } from '@shared/utils'
@@ -70,7 +69,6 @@
       timeFormat
     },
     methods: {
-      getTaskName,
       refreshSpin: function () {
         this.t && clearTimeout(this.t)
 
@@ -86,33 +84,33 @@
       onResumeAllClick: function () {
         this.$store.dispatch('task/resumeAllTask')
           .then(() => {
-            this.$message.success(this.$t('task.resume-all-task-success'))
+            this.$msg.success(this.$t('task.resume-all-task-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(this.$t('task.resume-all-task-fail'))
+              this.$msg.error(this.$t('task.resume-all-task-fail'))
             }
           })
       },
       onPauseAllClick: function () {
         this.$store.dispatch('task/pauseAllTask')
           .then(() => {
-            this.$message.success(this.$t('task.pause-all-task-success'))
+            this.$msg.success(this.$t('task.pause-all-task-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(this.$t('task.pause-all-task-fail'))
+              this.$msg.error(this.$t('task.pause-all-task-fail'))
             }
           })
       },
       onPurgeRecordClick: function () {
         this.$store.dispatch('task/purgeTaskRecord')
           .then(() => {
-            this.$message.success(this.$t('task.purge-record-success'))
+            this.$msg.success(this.$t('task.purge-record-success'))
           })
           .catch(({ code }) => {
             if (code === 1) {
-              this.$message.error(this.$t('task.purge-record-fail'))
+              this.$msg.error(this.$t('task.purge-record-fail'))
             }
           })
       }

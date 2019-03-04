@@ -68,7 +68,7 @@
         </el-input>
       </el-form-item>
       <div v-if="showAdvanced">
-        <el-form-item :label="`${$t('task.task-dir')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('task.task-user-agent')}: `" :label-width="formLabelWidth">
           <el-input
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 3 }"
@@ -156,7 +156,7 @@
     },
     data () {
       return {
-        formLabelWidth: '75px',
+        formLabelWidth: '100px',
         showAdvanced: false,
         torrentName: '',
         form: {},
@@ -227,7 +227,7 @@
         // https://github.com/ElemeFE/element/blob/master/packages/input/src/input.vue
         const { uris } = this.form
         if (uris.includes('thunder://')) {
-          this.$message({
+          this.$msg({
             type: 'warning',
             message: this.$t('task.thunder-link-tip'),
             duration: 6000
@@ -318,13 +318,13 @@
           payload = this.buildUriPayload(form)
           this.$store.dispatch('task/addUri', payload)
             .catch((err) => {
-              this.$message.error(err.message)
+              this.$msg.error(err.message)
             })
         } else if (type === 'torrent') {
           payload = this.buildTorrentPayload(form)
           this.$store.dispatch('task/addTorrent', payload)
             .catch((err) => {
-              this.$message.error(err.message)
+              this.$msg.error(err.message)
             })
         } else if (type === 'metalink') {
           // @TODO addMetalink
@@ -382,7 +382,7 @@
               }
             })
             .catch((err) => {
-              this.$message.error(err.message)
+              this.$msg.error(err.message)
             })
         })
       }

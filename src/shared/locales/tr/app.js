@@ -1,0 +1,20 @@
+export default {
+  'task-list': 'Görev Listesi',
+  'add-task': 'Görev Ekle',
+  'about': 'Motrix Hakkında',
+  'preferences': 'Ayarlar...',
+  'check-for-updates': 'Güncellemeleri kontrol et...',
+  'hide': 'Motrix\'i gizle',
+  'hide-others': 'Diğerlerini gizle',
+  'unhide': 'Hepsini Göster',
+  'quit': 'Motrix\'ten çık',
+  'under-development-message': 'Üzgünüz, bu özellik geliştirme aşamasında...',
+  'yes': 'Evet',
+  'no': 'Hayır',
+  'cancel': 'İptal',
+  'submit': 'Gönder',
+  'gt1d': '> 1 gün',
+  'hour': 'S',
+  'minute': 'd',
+  'second': 's'
+}
