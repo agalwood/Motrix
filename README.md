@@ -63,7 +63,7 @@ npm run dev
 ```bash
 npm run build
 ```
-After building, the packaged application will be found in the project's `release` directory.
+After building, the application will be found in the project's `release` directory.
 
 ## 🛠 Technology Stack
 - [Electron](https://electronjs.org/)
