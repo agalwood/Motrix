@@ -5,8 +5,10 @@ export default {
     this.preventDefault = ev => ev.preventDefault()
     let count = 0
     this.onDragEnter = (ev) => {
+      if (count === 0) {
+        this.$store.dispatch('app/showAddTaskDialog', 'torrent')
+      }
       count++
-      this.$store.dispatch('app/showAddTaskDialog', 'torrent')
     }
 
     this.onDragLeave = (ev) => {
