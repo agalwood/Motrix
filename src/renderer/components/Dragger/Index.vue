@@ -1,3 +1,6 @@
+<template>
+</template>
+
 <script>
 export default {
   name: 'mo-dragger',
