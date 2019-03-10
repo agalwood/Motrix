@@ -26,9 +26,7 @@
         { "label": "下移任務", "id": "task.move-task-down", "command": "application:move-task-down" },
         { "type": "separator" },
         { "label": "暫停所有任務", "id": "task.pause-all-task", "command": "application:pause-all-task" },
-        { "label": "繼續所有任務", "id": "task.resume-all-task", "command": "application:resume-all-task" },
-        { "type": "separator" },
-        { "label": "清除最近的下載紀錄", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+        { "label": "繼續所有任務", "id": "task.resume-all-task", "command": "application:resume-all-task" }
       ]
     },
     {

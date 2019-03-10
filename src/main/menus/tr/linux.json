@@ -26,9 +26,7 @@
         { "label": "Görevi Aşağı taşı", "id": "task.move-task-down", "command": "application:move-task-down" },
         { "type": "separator" },
         { "label": "Bütün Görevleri Durdur", "id": "task.pause-all-task", "command": "application:pause-all-task" },
-        { "label": "Bütün Görevleri Sürdür", "id": "task.resume-all-task", "command": "application:resume-all-task" },
-        { "type": "separator" },
-        { "label": "Son Görevleri Temizle", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+        { "label": "Bütün Görevleri Sürdür", "id": "task.resume-all-task", "command": "application:resume-all-task" }
       ]
     },
     {

@@ -26,9 +26,7 @@
         { "label": "Baisser la tâche", "id": "task.move-task-down", "command": "application:move-task-down" },
         { "type": "separator" },
         { "label": "Tout mettre en pause", "id": "task.pause-all-task", "command": "application:pause-all-task" },
-        { "label": "Tout reprendre", "id": "task.resume-all-task", "command": "application:resume-all-task" },
-        { "type": "separator" },
-        { "label": "Nettoyer les tâches récentes", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+        { "label": "Tout reprendre", "id": "task.resume-all-task", "command": "application:resume-all-task" }
       ]
     },
     {

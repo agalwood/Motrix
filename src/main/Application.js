@@ -201,6 +201,10 @@ export default class Application extends EventEmitter {
       this.menuManager.setup(locale)
     })
 
+    this.on('application:clear-recent-tasks', () => {
+      app.clearRecentDocuments()
+    })
+
     this.on('help:official-website', () => {
       const url = 'https://motrix.app/'
       shell.openExternal(url)

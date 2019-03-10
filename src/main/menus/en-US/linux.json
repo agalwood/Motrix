@@ -26,9 +26,7 @@
         { "label": "Move Task Down", "id": "task.move-task-down", "command": "application:move-task-down" },
         { "type": "separator" },
         { "label": "Pause All Task", "id": "task.pause-all-task", "command": "application:pause-all-task" },
-        { "label": "Resume All Task", "id": "task.resume-all-task", "command": "application:resume-all-task" },
-        { "type": "separator" },
-        { "label": "Clear Recent Tasks", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+        { "label": "Resume All Task", "id": "task.resume-all-task", "command": "application:resume-all-task" }
       ]
     },
     {

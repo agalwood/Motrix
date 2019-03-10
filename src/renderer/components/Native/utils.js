@@ -102,14 +102,23 @@ export function showDownloadSpeedInDock (downloadSpeed) {
 }
 
 export function addToRecentTask (task) {
+  if (is.linux()) {
+    return
+  }
   const path = getTaskFullPath(task)
   remote.app.addRecentDocument(path)
 }
 
 export function addToRecentTaskByPath (path) {
+  if (is.linux()) {
+    return
+  }
   remote.app.addRecentDocument(path)
 }
 
 export function clearRecentTasks () {
+  if (is.linux()) {
+    return
+  }
   remote.app.clearRecentDocuments()
 }
