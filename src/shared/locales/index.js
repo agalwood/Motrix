@@ -7,6 +7,10 @@
  */
 export const availableLanguages = [
   {
+    value: 'de',
+    label: 'Deutsch'
+  },
+  {
     value: 'en-US',
     label: 'English'
   },
@@ -44,6 +48,10 @@ function checkLngIsAvailable (locale) {
 export function getLanguage (locale = 'en-US') {
   if (checkLngIsAvailable(locale)) {
     return locale
+  }
+
+  if (locale.startsWith('de')) {
+    return 'de'
   }
 
   if (locale.startsWith('en')) {

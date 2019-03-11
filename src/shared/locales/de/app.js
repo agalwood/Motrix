@@ -1,0 +1,20 @@
+export default {
+  'task-list': 'Aufgabenliste',
+  'add-task': 'Aufgabe hinzufügen',
+  'about': 'Über Motrix',
+  'preferences': 'Präferenzen...',
+  'check-for-updates': 'Nach Updates suchen...',
+  'hide': 'Motrix verbergen',
+  'hide-others': 'Andere verbergen',
+  'unhide': 'Alles anzeigen',
+  'quit': 'Motrix beenden',
+  'under-development-message': 'Entschuldigung, diese Funktion befindet sich in der Entwicklung...',
+  'yes': 'Ja',
+  'no': 'Nein',
+  'cancel': 'Abbrechen',
+  'submit': 'Übernehmen',
+  'gt1d': '> 1 Tag',
+  'hour': 'h',
+  'minute': 'm',
+  'second': 's'
+}
