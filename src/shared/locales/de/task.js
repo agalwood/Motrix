@@ -1,7 +1,7 @@
 export default {
-  'active': 'Aktive Downloads',
+  'active': 'Aktiv',
   'waiting': 'Warteschlange',
-  'stopped': 'Beendet',
+  'stopped': 'Gestoppt',
   'new-task': 'Neue Aufgabe',
   'new-bt-task': 'Neue BT Aufgabe',
   'uri-task': 'URL',
