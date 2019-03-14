@@ -90,7 +90,7 @@ npm run build
 | de    | German              | 下版本发布 [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
 | fr    | Français            | 下版本发布 [@gpatarin](https://github.com/gpatarin) |
-| pt-BR | Portuguese (Brazil) | 下版本发布 [@gpatarin](https://github.com/gpatarin) |
+| pt-BR | Portuguese (Brazil) | 下版本发布 [@andrenoberto](https://github.com/andrenoberto) |
 | tr    | Türkçe              | 下版本发布 [@abdullah](https://github.com/abdullah) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | 下版本发布 [@Yukaii](https://github.com/Yukaii) |
