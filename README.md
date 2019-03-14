@@ -84,7 +84,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | de    | German              | Next Release [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
 | fr    | Français            | Next Release [@gpatarin](https://github.com/gpatarin) |
-| pt-BR | Portuguese (Brazil) | Next Release [@andrenoberto](hhttps://github.com/andrenoberto) |
+| pt-BR | Portuguese (Brazil) | Next Release [@andrenoberto](https://github.com/andrenoberto) |
 | tr    | Türkçe              | Next Release [@abdullah](https://github.com/abdullah) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | Next Release [@Yukaii](https://github.com/Yukaii) |
