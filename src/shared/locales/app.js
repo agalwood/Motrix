@@ -1,3 +1,4 @@
+import appLocaleDeDE from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleFrFR from '@shared/locales/fr'
 import appLocalePtBr from '@shared/locales/pt-BR'
@@ -7,6 +8,11 @@ import appLocaleZhTW from '@shared/locales/zh-TW'
 
 // Please keep the locale key in alphabetical order.
 const resources = {
+  'de': {
+    translation: {
+      ...appLocaleDeDE
+    }
+  },
   'en-US': {
     translation: {
       ...appLocaleEnUS
