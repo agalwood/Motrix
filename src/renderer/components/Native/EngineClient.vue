@@ -37,12 +37,18 @@
       }
     },
     methods: {
+      fetchTaskItem ({ gid }) {
+        return api.fetchTaskItem({ gid })
+          .catch((e) => {
+            console.warn(`fetchTaskItem fail: ${e.message}`)
+          })
+      },
       onDownloadStart: function (event) {
         this.$store.dispatch('task/fetchList')
         this.$store.dispatch('app/resetInterval')
         console.log('aria2 onDownloadStart', event)
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-start-message', { taskName })
@@ -52,7 +58,7 @@
       onDownloadPause: function (event) {
         console.log('aria2 onDownloadPause')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-pause-message', { taskName })
@@ -62,7 +68,7 @@
       onDownloadStop: function (event) {
         console.log('aria2 onDownloadStop')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-stop-message', { taskName })
@@ -72,7 +78,7 @@
       onDownloadError: function (event) {
         console.log('aria2 onDownloadError', event)
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-error-message', { taskName })
@@ -83,7 +89,7 @@
         console.log('aria2 onDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             this.showTaskCompleteNotify(task)
           })
@@ -92,7 +98,7 @@
         console.log('aria2 onBtDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             this.showTaskCompleteNotify(task)
           })
