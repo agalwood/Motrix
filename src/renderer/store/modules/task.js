@@ -31,13 +31,13 @@ const actions = {
     dispatch('fetchList')
   },
   fetchList ({ state, commit }) {
-    api.fetchTaskList({ type: state.currentList })
+    return api.fetchTaskList({ type: state.currentList })
       .then((data) => {
         commit('UPDATE_TASK_LIST', data)
       })
   },
   fetchItem ({ dispatch }, gid) {
-    api.fetchTaskItem({ gid })
+    return api.fetchTaskItem({ gid })
       .then((data) => {
         dispatch('updateCurrentTaskItem', data)
       })
@@ -75,13 +75,16 @@ const actions = {
   },
   removeTask ({ dispatch }, task) {
     const { gid } = task
-    return api.removeTask({ gid })
-      .catch(() => {
-        return api.forceRemoveTask({ gid })
+    return api.forcePauseTask({ gid })
+      .catch((e) => {
+        console.log(e.message)
       })
       .finally(() => {
-        dispatch('fetchList')
-        dispatch('saveSession')
+        return api.removeTask({ gid })
+          .finally(() => {
+            dispatch('fetchList')
+            dispatch('saveSession')
+          })
       })
   },
   pauseTask ({ dispatch }, task) {
