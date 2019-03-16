@@ -11,6 +11,8 @@ export default {
   'update-error-message': 'Atualizar erro',
   'engine-damaged-message': 'O motor está danificado, por favor, reinstale : (',
   'engine-missing-message': 'O motor está faltando, por favor, reinstale : (',
+  'system-error-title': 'Erro do sistema',
+  'system-error-message': 'O aplicativo falhou ao iniciar: {{message}}',
   'hide': 'Ocultar Motrix',
   'hide-others': 'Ocultar Outros',
   'unhide': 'Exibir Todos',

@@ -11,6 +11,8 @@ export default {
   'update-error-message': 'Aktualisierungsfehler',
   'engine-damaged-message': 'Der Motor ist beschädigt, bitte neu installieren : (',
   'engine-missing-message': 'Der Motor fehlt, bitte neu installieren : (',
+  'system-error-title': 'Systemfehler',
+  'system-error-message': 'Die Anwendung konnte nicht gestartet werden: {{message}}',
   'hide': 'Motrix verbergen',
   'hide-others': 'Andere verbergen',
   'unhide': 'Alles anzeigen',

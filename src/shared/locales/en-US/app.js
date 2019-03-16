@@ -11,6 +11,8 @@ export default {
   'update-error-message': 'Update Error',
   'engine-damaged-message': 'The engine is damaged, please reinstall : (',
   'engine-missing-message': 'The engine is missing, please reinstall : (',
+  'system-error-title': 'System Error',
+  'system-error-message': 'Application startup failed: {{message}}',
   'hide': 'Hide Motrix',
   'hide-others': 'Hide Others',
   'unhide': 'Show All',

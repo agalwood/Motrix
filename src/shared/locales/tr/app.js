@@ -11,6 +11,8 @@ export default {
   'update-error-message': 'Güncelleme Hatası',
   'engine-damaged-message': 'Motor hasarlı, lütfen tekrar takın : (',
   'engine-missing-message': 'Motor eksik, lütfen tekrar takın : (',
+  'system-error-title': 'Sistem hatası',
+  'system-error-message': 'Uygulama başlatılamadı: {{message}}',
   'hide': 'Motrix\'i gizle',
   'hide-others': 'Diğerlerini gizle',
   'unhide': 'Hepsini Göster',

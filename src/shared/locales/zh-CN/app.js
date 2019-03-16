@@ -11,6 +11,8 @@ export default {
   'update-error-message': '检查更新失败',
   'engine-damaged-message': '引擎损坏，请重新安装 : (',
   'engine-missing-message': '引擎缺失，请重新安装 : (',
+  'system-error-title': '系统错误',
+  'system-error-message': '应用启动失败: {{message}}',
   'hide': '隐藏 Motrix',
   'hide-others': '隐藏其他',
   'unhide': '显示全部',
