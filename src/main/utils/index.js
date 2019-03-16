@@ -44,14 +44,14 @@ export function isRunningInDmg () {
   return result
 }
 
-export function moveAppToApplicationsFolder () {
+export function moveAppToApplicationsFolder (errorMsg = '') {
   return new Promise((resolve, reject) => {
     try {
       const result = app.moveToApplicationsFolder()
       if (result) {
         resolve(result)
       } else {
-        reject(new Error('应用程序移动失败'))
+        reject(new Error(errorMsg))
       }
     } catch (err) {
       reject(err)

@@ -2,8 +2,8 @@ import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import logger from './core/Logger'
-import ExceptionHandler from './core/ExceptionHandler'
 import ConfigManager from './core/ConfigManager'
+import { setupLocaleManager } from '@/ui/Locale'
 import Engine from './core/Engine'
 import UpdateManager from './core/UpdateManager'
 import EnergyManager from './core/EnergyManager'
@@ -15,15 +15,14 @@ import TouchBarManager from './ui/TouchBarManager'
 export default class Application extends EventEmitter {
   constructor () {
     super()
-
-    this.exceptionHandler = new ExceptionHandler()
-
     this.init()
   }
 
   init () {
     this.configManager = new ConfigManager()
+
     this.locale = this.configManager.getLocale()
+    this.localeManager = setupLocaleManager(this.locale)
 
     this.windowManager = new WindowManager({
       userConfig: this.configManager.getUserConfig()
