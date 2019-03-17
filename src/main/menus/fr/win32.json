@@ -13,7 +13,7 @@
       ]
     },
     {
-      "label": "Task",
+      "label": "Tâche",
       "id": "menu.task",
       "submenu": [
         { "label": "Nouvelle Tâche", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"},
@@ -33,7 +33,7 @@
       ]
     },
     {
-      "label": "Edit",
+      "label": "Éditer",
       "id": "menu.edit",
       "submenu": [
         { "label": "Annuler la dernière action", "id": "edit.undo", "role": "undo" },
@@ -47,7 +47,7 @@
       ]
     },
     {
-      "label": "Window",
+      "label": "Fenêtre",
       "role": "window",
       "id": "menu.window",
       "submenu": [
@@ -61,7 +61,7 @@
       ]
     },
     {
-      "label": "Help",
+      "label": "Aider",
       "role": "help",
       "id": "menu.help",
       "submenu": [
