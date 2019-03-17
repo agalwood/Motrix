@@ -16,7 +16,7 @@
       ]
     },
     {
-      "label": "Task",
+      "label": "Tarefa",
       "id": "menu.task",
       "submenu": [
         { "label": "Nova Tarefa", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"},
@@ -36,7 +36,7 @@
       ]
     },
     {
-      "label": "Edit",
+      "label": "Editar",
       "id": "menu.edit",
       "submenu": [
         { "label": "Desfazer", "id": "edit.undo", "role": "undo" },
@@ -50,7 +50,7 @@
       ]
     },
     {
-      "label": "Window",
+      "label": "Janela",
       "role": "window",
       "id": "menu.window",
       "submenu": [
@@ -64,7 +64,7 @@
       ]
     },
     {
-      "label": "Help",
+      "label": "Ajuda",
       "role": "help",
       "id": "menu.help",
       "submenu": [
