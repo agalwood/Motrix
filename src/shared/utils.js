@@ -370,3 +370,17 @@ export function detectResource (content) {
     return content.includes(type)
   })
 }
+
+export function buildFileList (rawFile) {
+  rawFile.uid = Date.now()
+  let file = {
+    status: 'ready',
+    name: rawFile.name,
+    size: rawFile.size,
+    percentage: 0,
+    uid: rawFile.uid,
+    raw: rawFile
+  }
+  const fileList = [file]
+  return fileList
+}
