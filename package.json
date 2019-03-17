@@ -32,6 +32,16 @@
   "build": {
     "productName": "Motrix",
     "appId": "net.agalwood.Motrix",
+    "fileAssociations": [
+      {
+        "ext": [
+          "torrent"
+        ],
+        "mimeType": "application/x-bittorrent",
+        "name": "Torrent",
+        "role": "Viewer"
+      }
+    ],
     "asar": true,
     "directories": {
       "output": "release"
@@ -138,6 +148,7 @@
     "@panter/vue-i18next": "^0.15.0",
     "aria2": "^4.0.3",
     "axios": "^0.18.0",
+    "blob-util": "^2.0.2",
     "clipboard-polyfill": "^2.7.0",
     "electron-debug": "^2.1.0",
     "electron-is": "^3.0.0",
