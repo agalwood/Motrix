@@ -77,7 +77,7 @@ const actions = {
     const { gid } = task
     return api.forcePauseTask({ gid })
       .catch((e) => {
-        console.log(e.message)
+        console.log(`[Motrix] removeTask.forcePauseTask#[${gid}] fail`, e.message)
       })
       .finally(() => {
         return api.removeTask({ gid })
