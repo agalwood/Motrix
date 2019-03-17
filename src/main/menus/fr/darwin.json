@@ -21,6 +21,7 @@
       "submenu": [
         { "label": "Nouvelle Tâche", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"},
         { "label": "Nouvelle Tâche BT", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "label": "Ouvrir un fichier torrent...", "id": "task.open-file", "command": "application:open-file", "command-before": "application:show,index"},
         { "type": "separator" },
         { "label": "Mettre en pause", "id": "task.pause-task", "command": "application:pause-task" },
         { "label": "Reprendre la tâche", "id": "task.resume-task", "command": "application:resume-task" },

@@ -18,6 +18,7 @@
       "submenu": [
         { "label": "新建任务", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index"},
         { "label": "新建 BT 任务", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "label": "打开种子文件...", "id": "task.open-file", "command": "application:open-file", "command-before": "application:show,index"},
         { "type": "separator" },
         { "label": "暂停任务", "id": "task.pause-task", "command": "application:pause-task" },
         { "label": "恢复任务", "id": "task.resume-task", "command": "application:resume-task" },

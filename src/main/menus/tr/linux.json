@@ -18,6 +18,7 @@
       "submenu": [
         { "label": "Yeni Görev",  "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"},
         { "label": "Yeni BT Görevi", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "label": "Torrent Dosyasını Aç...", "id": "task.open-file", "command": "application:open-file", "command-before": "application:show,index"},
         { "type": "separator" },
         { "label": "Görevi Durdur", "id": "task.pause-task", "command": "application:pause-task" },
         { "label": "Görevi Sürdür", "id": "task.resume-task", "command": "application:resume-task" },

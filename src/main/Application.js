@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
+import * as fs from 'fs'
+import { extname, basename } from 'path'
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
@@ -15,6 +17,7 @@ import TouchBarManager from './ui/TouchBarManager'
 export default class Application extends EventEmitter {
   constructor () {
     super()
+    this.isReady = false
     this.init()
   }
 
@@ -23,6 +26,7 @@ export default class Application extends EventEmitter {
 
     this.locale = this.configManager.getLocale()
     this.localeManager = setupLocaleManager(this.locale)
+    this.i18n = this.localeManager.getI18n()
 
     this.windowManager = new WindowManager({
       userConfig: this.configManager.getUserConfig()
@@ -53,12 +57,11 @@ export default class Application extends EventEmitter {
     try {
       this.engine.start()
     } catch (err) {
+      const { message } = err
       dialog.showMessageBox({
         type: 'error',
-        title: '系统错误',
-        message: `应用启动失败：${err.message}`,
-        buttons: ['知道了'],
-        cancelId: 1
+        title: this.i18n.t('app.system-error-title'),
+        message: this.i18n.t('app.system-error-message', { message })
       }, () => {
         setTimeout(() => {
           app.quit()
@@ -73,6 +76,10 @@ export default class Application extends EventEmitter {
 
   showPage (page) {
     const win = this.windowManager.openWindow(page)
+    win.once('ready-to-show', () => {
+      this.isReady = true
+      this.emit('ready')
+    })
     this.touchBarManager.setup(page, win)
   }
 
@@ -121,6 +128,26 @@ export default class Application extends EventEmitter {
     }
     this.protocolManager.handle(url)
     this.showPage('index')
+  }
+
+  handleFileAssociation (path) {
+    if (!path) {
+      return
+    }
+    if (extname(path).toLowerCase() !== '.torrent') {
+      return
+    }
+
+    const fileName = basename(path)
+    fs.readFile(path, (err, data) => {
+      if (err) {
+        logger.warn(`[Motrix] read file error: ${path}`, err.message)
+        return
+      }
+      const file = Buffer.from(data).toString('base64')
+      const args = [fileName, file]
+      this.sendCommand('application:new-bt-task-with-file', ...args)
+    })
   }
 
   initUpdaterManager () {
@@ -198,6 +225,21 @@ export default class Application extends EventEmitter {
 
     this.on('application:change-locale', (locale) => {
       this.menuManager.setup(locale)
+    })
+
+    this.on('application:open-file', (event) => {
+      dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          {
+            name: 'Torrent',
+            extensions: ['torrent']
+          }
+        ]
+      }, (filePaths) => {
+        const [filePath] = filePaths
+        this.handleFileAssociation(filePath)
+      })
     })
 
     this.on('application:clear-recent-tasks', () => {

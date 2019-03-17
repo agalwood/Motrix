@@ -17,7 +17,8 @@
       "id": "menu.task",
       "submenu": [
         { "label": "新增任務", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index"},
-        { "label": "新建 BT 任務", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "label": "新增 BT 任務", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "label": "打開種子文件...", "id": "task.open-file", "command": "application:open-file", "command-before": "application:show,index"},
         { "type": "separator" },
         { "label": "暫停任務", "id": "task.pause-task", "command": "application:pause-task" },
         { "label": "繼續任務", "id": "task.resume-task", "command": "application:resume-task" },
