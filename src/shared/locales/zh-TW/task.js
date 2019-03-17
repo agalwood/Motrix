@@ -32,7 +32,7 @@ export default {
   'resume-task-fail': '繼續任務 "{{taskName}}" 失敗',
   'delete-task': '移除任務',
   'delete-selected-tasks': '移除選取的任務',
-  'delete-task-confirm': '你確定要移除 "{{taskName}}" 下載紀錄嗎?',
+  'delete-task-confirm': '你確定要移除 "{{taskName}}" 下載任務嗎?',
   'delete-task-label': '同時删除檔案',
   'delete-task-success': '移除任務 "{{taskName}}" 成功',
   'delete-task-fail': '移除任務 "{{taskName}}" 失敗',
