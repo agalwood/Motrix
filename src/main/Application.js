@@ -83,6 +83,22 @@ export default class Application extends EventEmitter {
     this.touchBarManager.setup(page, win)
   }
 
+  show (page = 'index') {
+    this.showPage(page)
+  }
+
+  hide (page) {
+    if (page) {
+      this.windowManager.hideWindow(page)
+    } else {
+      this.windowManager.hideAllWindow()
+    }
+  }
+
+  toggle (page = 'index') {
+    this.windowManager.toggleWindow(page)
+  }
+
   closePage (page) {
     this.windowManager.destroyWindow(page)
   }
@@ -126,8 +142,10 @@ export default class Application extends EventEmitter {
     if (is.dev() || is.mas()) {
       return
     }
+
+    this.show()
+
     this.protocolManager.handle(url)
-    this.showPage('index')
   }
 
   handleFile (path) {
@@ -138,6 +156,8 @@ export default class Application extends EventEmitter {
       return
     }
 
+    this.show()
+
     const fileName = basename(path)
     fs.readFile(path, (err, data) => {
       if (err) {
@@ -146,7 +166,7 @@ export default class Application extends EventEmitter {
       }
       const file = Buffer.from(data).toString('base64')
       const args = [fileName, file]
-      this.sendCommand('application:new-bt-task-with-file', ...args)
+      this.sendCommandToAll('application:new-bt-task-with-file', ...args)
     })
   }
 
@@ -210,8 +230,12 @@ export default class Application extends EventEmitter {
       app.exit()
     })
 
-    this.on('application:show', (page = 'index') => {
-      this.showPage(page)
+    this.on('application:show', (page) => {
+      this.show(page)
+    })
+
+    this.on('application:hide', (page) => {
+      this.hide(page)
     })
 
     this.on('application:reset', () => {
