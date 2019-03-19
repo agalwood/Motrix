@@ -96,7 +96,7 @@ export function handleCommand (item) {
     ? [item.command, item['command-arg']]
     : [item.command]
 
-  global.application.sendCommandAll(...args)
+  global.application.sendCommandToAll(...args)
 
   handleCommandAfter(item)
 }
@@ -108,7 +108,7 @@ function handleCommandBefore (item) {
   }
   const [ command, ...args ] = item['command-before'].split(',')
   console.log('handleCommandBefore==2=>', command, ...args)
-  global.application.sendCommandAll(command, ...args)
+  global.application.sendCommandToAll(command, ...args)
 }
 
 function handleCommandAfter (item) {
@@ -118,7 +118,7 @@ function handleCommandAfter (item) {
   }
   const [ command, ...args ] = item['command-after'].split(',')
   console.log('handleCommandAfter==2=>', command, ...args)
-  global.application.sendCommandAll(command, ...args)
+  global.application.sendCommandToAll(command, ...args)
 }
 
 function acceleratorForCommand (command, keystrokesByCommand) {
