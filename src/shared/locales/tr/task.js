@@ -4,6 +4,7 @@ export default {
   'stopped': 'Durdu',
   'new-task': 'Yeni Görev',
   'new-bt-task': 'Yeni BT Görevi',
+  'open-file': 'Torrent Dosyasını Aç...',
   'uri-task': 'URL',
   'torrent-task': 'Torrent',
   'uri-task-tip': 'Her bir satır için bir görev (magnet destekli)',

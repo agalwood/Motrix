@@ -4,6 +4,7 @@ export default {
   'stopped': '已停止',
   'new-task': '新增任務',
   'new-bt-task': '新增 BT 任務',
+  'open-file': '打開種子文件...',
   'uri-task': '連結任務',
   'torrent-task': '種子任務',
   'uri-task-tip': '新增多個下載連結時，請確保每行只有一個連結（支援磁力連結）',
