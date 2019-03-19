@@ -95,7 +95,7 @@ export default class Launcher extends EventEmitter {
 
   sendFileToApplication () {
     if (this.file && global.application && global.application.isReady) {
-      global.application.handleFileAssociation(this.file)
+      global.application.handleFile(this.file)
       this.file = EMPTY_STRING
     }
   }
@@ -112,7 +112,7 @@ export default class Launcher extends EventEmitter {
         }
 
         if (this.file) {
-          global.application.handleFileAssociation(this.file)
+          global.application.handleFile(this.file)
         }
       })
     })

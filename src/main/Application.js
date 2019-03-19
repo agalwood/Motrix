@@ -130,7 +130,7 @@ export default class Application extends EventEmitter {
     this.showPage('index')
   }
 
-  handleFileAssociation (path) {
+  handleFile (path) {
     if (!path) {
       return
     }
@@ -238,7 +238,7 @@ export default class Application extends EventEmitter {
         ]
       }, (filePaths) => {
         const [filePath] = filePaths
-        this.handleFileAssociation(filePath)
+        this.handleFile(filePath)
       })
     })
 
