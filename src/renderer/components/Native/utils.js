@@ -97,7 +97,7 @@ export function showDownloadSpeedInDock (downloadSpeed) {
   if (!is.macOS()) {
     return
   }
-  const text = downloadSpeed > 0 ? bytesToSize(downloadSpeed) : ''
+  const text = downloadSpeed > 0 ? `${bytesToSize(downloadSpeed)}/s` : ''
   updateDockBadge(text)
 }
 
