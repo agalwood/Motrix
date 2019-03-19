@@ -12,12 +12,12 @@ export default class LocaleManager {
   }
 
   changeLanguage (lng) {
-    i18next.changeLanguage(lng)
+    return i18next.changeLanguage(lng)
   }
 
   changeLanguageByLocale (locale) {
     const lng = getLanguage(locale)
-    this.changeLanguage(lng)
+    return this.changeLanguage(lng)
   }
 
   getI18n () {
