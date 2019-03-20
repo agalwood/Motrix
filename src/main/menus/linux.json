@@ -1,0 +1,72 @@
+{
+  "menu": [
+    {
+      "id": "menu.file",
+      "submenu": [
+        { "id": "app.about", "command": "application:about", "command-before": "application:show,index" },
+        { "type": "separator" },
+        { "id": "app.preferences", "command": "application:preferences" },
+        { "id": "app.check-for-updates", "command": "application:check-for-updates" },
+        { "id": "app.show", "command": "application:show", "command-arg": "index" },
+        { "type": "separator" },
+        { "id": "app.quit", "role": "quit" }
+      ]
+    },
+    {
+      "id": "menu.task",
+      "submenu": [
+        { "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index" },
+        { "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index" },
+        { "id": "task.open-file", "command": "application:open-file", "command-before": "application:show,index" },
+        { "type": "separator" },
+        { "id": "task.pause-task", "command": "application:pause-task" },
+        { "id": "task.resume-task", "command": "application:resume-task" },
+        { "id": "task.delete-task", "command": "application:delete-task" },
+        { "id": "task.move-task-up", "command": "application:move-task-up" },
+        { "id": "task.move-task-down", "command": "application:move-task-down" },
+        { "type": "separator" },
+        { "id": "task.pause-all-task", "command": "application:pause-all-task" },
+        { "id": "task.resume-all-task", "command": "application:resume-all-task" }
+      ]
+    },
+    {
+      "id": "menu.edit",
+      "submenu": [
+        { "id": "edit.undo", "role": "undo" },
+        { "id": "edit.redo", "role": "redo" },
+        { "type": "separator" },
+        { "id": "edit.cut", "role": "cut" },
+        { "id": "edit.copy", "role": "copy" },
+        { "id": "edit.paste", "role": "paste" },
+        { "id": "edit.delete", "role": "delete" },
+        { "id": "edit.select-all", "role": "selectall" }
+      ]
+    },
+    {
+      "role": "window",
+      "id": "menu.window",
+      "submenu": [
+        { "id": "window.reload", "role": "reload" },
+        { "id": "window.close", "role": "close" },
+        { "id": "window.minimize", "role": "minimize" },
+        { "id": "window.zoom", "role": "zoom" },
+        { "id": "window.toggle-fullscreen", "role": "togglefullscreen" },
+        { "type": "separator" },
+        { "id": "window.front", "role": "front" }
+      ]
+    },
+    {
+      "role": "help",
+      "id": "menu.help",
+      "submenu": [
+        { "id": "help.official-website", "command": "help:official-website" },
+        { "id": "help.manual", "command": "help:manual" },
+        { "id": "help.release-notes", "command": "help:release-notes" },
+        { "type": "separator" },
+        { "id": "help.report-problem", "command": "help:report-problem" },
+        { "type": "separator" },
+        { "id": "help.toggle-dev-tools", "role": "toggledevtools" }
+      ]
+    }
+  ]
+}
