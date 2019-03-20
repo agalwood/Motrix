@@ -16,6 +16,7 @@ export default {
   'hide': '隐藏 Motrix',
   'hide-others': '隐藏其他',
   'unhide': '显示全部',
+  'show': '显示 Motrix',
   'quit': '退出 Motrix',
   'under-development-message': '该功能开发中...',
   'yes': '是',

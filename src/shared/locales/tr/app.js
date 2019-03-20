@@ -16,6 +16,7 @@ export default {
   'hide': 'Motrix\'i gizle',
   'hide-others': 'Diğerlerini gizle',
   'unhide': 'Hepsini Göster',
+  'show': 'Motrix\'i Göster',
   'quit': 'Motrix\'ten çık',
   'under-development-message': 'Üzgünüz, bu özellik geliştirme aşamasında...',
   'yes': 'Evet',

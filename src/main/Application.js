@@ -13,6 +13,7 @@ import ProtocolManager from './core/ProtocolManager'
 import WindowManager from './ui/WindowManager'
 import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
+import TrayManager from './ui/TrayManager'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -42,6 +43,8 @@ export default class Application extends EventEmitter {
     this.menuManager.setup(this.locale)
 
     this.touchBarManager = new TouchBarManager()
+
+    this.trayManager = new TrayManager()
 
     this.energyManager = new EnergyManager()
 
@@ -248,7 +251,12 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:change-locale', (locale) => {
-      this.menuManager.setup(locale)
+      logger.info('[Motrix] application:change-locale===>', locale)
+      this.localeManager.changeLanguageByLocale(locale)
+        .then(() => {
+          this.menuManager.setup(locale)
+          this.trayManager.setup(locale)
+        })
     })
 
     this.on('application:open-file', (event) => {

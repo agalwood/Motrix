@@ -16,6 +16,7 @@ export default {
   'hide': 'Ocultar Motrix',
   'hide-others': 'Ocultar Outros',
   'unhide': 'Exibir Todos',
+  'show': 'Exibir Motrix',
   'quit': 'Sair do Motrix',
   'under-development-message': 'Desculpe, essa funcionalidade está em desenvolvimento...',
   'yes': 'Sim',
