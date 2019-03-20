@@ -125,6 +125,40 @@ export default class WindowManager extends EventEmitter {
     })
   }
 
+  showWindow (page) {
+    const window = this.getWindow(page)
+    if (!window) {
+      return
+    }
+    window.show()
+  }
+
+  hideWindow (page) {
+    const window = this.getWindow(page)
+    if (!window) {
+      return
+    }
+    window.hide()
+  }
+
+  hideAllWindow () {
+    this.getWindowList().forEach((window) => {
+      window.hide()
+    })
+  }
+
+  toggleWindow (page) {
+    const window = this.getWindow(page)
+    if (!window) {
+      return
+    }
+    if (window.isVisible()) {
+      window.hide()
+    } else {
+      window.show()
+    }
+  }
+
   getFocusedWindow () {
     return BrowserWindow.getFocusedWindow()
   }

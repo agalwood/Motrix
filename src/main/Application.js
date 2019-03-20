@@ -84,7 +84,7 @@ export default class Application extends EventEmitter {
   }
 
   show (page = 'index') {
-    this.showPage(page)
+    this.windowManager.showWindow(page)
   }
 
   hide (page) {
