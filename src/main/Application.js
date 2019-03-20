@@ -261,6 +261,10 @@ export default class Application extends EventEmitter {
           }
         ]
       }, (filePaths) => {
+        if (!filePaths || filePaths.length === 0) {
+          return
+        }
+
         const [filePath] = filePaths
         this.handleFile(filePath)
       })
