@@ -31,8 +31,12 @@ export default class Launcher extends EventEmitter {
     if (!gotSingleLock) {
       app.quit()
     } else {
-      app.on('second-instance', (event, commandLine, workingDirectory) => {
+      app.on('second-instance', (event, argv, workingDirectory) => {
         global.application.showPage('index')
+        if (!is.macOS() && argv.length > 0) { // Windows, Linux
+          this.file = argv[1]
+          this.sendFileToApplication()
+        }
       })
 
       callback()
@@ -50,7 +54,6 @@ export default class Launcher extends EventEmitter {
     this.handleOpenFile()
 
     this.handelAppReady()
-    this.handleAllWindowClosed()
     this.handleAppWillQuit()
   }
 
@@ -121,15 +124,6 @@ export default class Launcher extends EventEmitter {
       if (global.application) {
         logger.info('[Motrix] activate')
         global.application.showPage('index')
-      }
-    })
-  }
-
-  handleAllWindowClosed () {
-    app.on('window-all-closed', function () {
-      // On OS X it's common NOT to close app even if all windows are closed
-      if (process.platform !== 'darwin') {
-        app.quit()
       }
     })
   }
