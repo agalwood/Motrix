@@ -11,7 +11,7 @@ export default {
   'task-manage': 'Tâches',
   'max-concurrent-downloads': 'Nombre de tâches active au maximum',
   'max-connection-per-server': 'Nombre maximum de connexions par serveurs',
-  'new-task-show-downloading': 'Montrer automatiquement les téléchagements après l\'ajout d\'une tâche',
+  'new-task-show-downloading': 'Montrer automatiquement les téléchargements après l\'ajout d\'une tâche',
   'continue': 'Continuer',
   'task-completed-notify': 'Notifier à la fin d\'un téléchargement',
   'auto-purge-record': 'Purger l\'historique de téléchargement lorsque vous quittez l\'application',
