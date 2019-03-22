@@ -34,9 +34,7 @@
     "appId": "net.agalwood.Motrix",
     "fileAssociations": [
       {
-        "ext": [
-          "torrent"
-        ],
+        "ext": "torrent",
         "mimeType": "application/x-bittorrent",
         "name": "Torrent",
         "role": "Viewer"
