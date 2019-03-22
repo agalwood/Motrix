@@ -34,10 +34,30 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('download-progress', this.updateDownloadProgress.bind(this))
     this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
     this.updater.on('error', this.updateError.bind(this))
+    this.autoCheckData = {
+      timeOut: 1 * 60 * 1000,
+      timeCount: 0,
+      checkEnable: true,
+      userCheck: false
+    }
+
+    this.authCheckTimer = setInterval(function (data, updater) {
+      if (data.checkEnable) {
+        if (data.timeCount >= data.timeOut) {
+          data.timeCount = 0
+          data.userCheck = false
+          updater.checkForUpdates()
+        } else {
+          data.timeCount += 30 * 1000
+        }
+      }
+    }, 30 * 1000, this.autoCheckData, this.updater)
   }
 
   check () {
     this.updater.checkForUpdates()
+    this.autoCheckData.timeCount = 0
+    this.autoCheckData.userCheck = true
   }
 
   checkingForUpdate () {
@@ -61,10 +81,12 @@ export default class UpdateManager extends EventEmitter {
 
   updateNotAvailable (event, info) {
     this.emit('update-not-available', info)
-    dialog.showMessageBox({
-      title: '没有更新的版本',
-      message: '您目前使用的已是最新版本'
-    })
+    if (this.autoCheckData.userCheck) {
+      dialog.showMessageBox({
+        title: '没有更新的版本',
+        message: '您目前使用的已是最新版本'
+      })
+    }
   }
 
   /**
