@@ -21,7 +21,6 @@ install:
   - ps: Install-Product node 10 x64
   - git reset --hard HEAD
   - npm install
-  - npm audit fix
   - node --version
 
 build_script:
