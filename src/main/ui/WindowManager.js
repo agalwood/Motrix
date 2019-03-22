@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import { app, shell, BrowserWindow } from 'electron'
 import is from 'electron-is'
 import pageConfig from '../configs/page'
+import logger from '../core/Logger'
 
 const defaultBrowserOptions = {
   titleBarStyle: 'hiddenInset',
@@ -21,9 +22,9 @@ export default class WindowManager extends EventEmitter {
 
     this.willQuit = false
 
-    app.on('before-quit', () => {
-      this.setWillQuit(true)
-    })
+    this.handleBeforeQuit()
+
+    this.handleAllWindowClosed()
   }
 
   setWillQuit (flag) {
@@ -74,7 +75,7 @@ export default class WindowManager extends EventEmitter {
       window.show()
     })
 
-    if (options.bindCloseToHide && process.platform === 'darwin') {
+    if (options.bindCloseToHide) {
       this.bindCloseToHide(page, window)
     }
 
@@ -125,15 +126,61 @@ export default class WindowManager extends EventEmitter {
     })
   }
 
+  showWindow (page) {
+    const window = this.getWindow(page)
+    if (!window) {
+      return
+    }
+    window.show()
+  }
+
+  hideWindow (page) {
+    const window = this.getWindow(page)
+    if (!window) {
+      return
+    }
+    window.hide()
+  }
+
+  hideAllWindow () {
+    this.getWindowList().forEach((window) => {
+      window.hide()
+    })
+  }
+
+  toggleWindow (page) {
+    const window = this.getWindow(page)
+    if (!window) {
+      return
+    }
+    if (window.isVisible()) {
+      window.hide()
+    } else {
+      window.show()
+    }
+  }
+
   getFocusedWindow () {
     return BrowserWindow.getFocusedWindow()
+  }
+
+  handleBeforeQuit () {
+    app.on('before-quit', () => {
+      this.setWillQuit(true)
+    })
+  }
+
+  handleAllWindowClosed () {
+    app.on('window-all-closed', (event) => {
+      event.preventDefault()
+    })
   }
 
   sendCommandTo (window, command, ...args) {
     if (!window) {
       return
     }
-    console.log('sendCommandTo====>', window, command, ...args)
+    logger.info('[Motrix] sendCommandTo===>', window, command, ...args)
     window.webContents.send('command', command, ...args)
   }
 

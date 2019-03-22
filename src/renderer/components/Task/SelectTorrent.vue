@@ -3,8 +3,11 @@
     class="upload-torrent"
     drag
     action="/"
+    :limit="1"
+    :multiple="false"
     accept=".torrent"
     :on-change="handleChange"
+    :on-exceed="handleExceed"
     :auto-upload="false"
     :show-file-list="false">
     <i class="upload-inbox-icon"><mo-icon name="inbox" width="24" height="24" /></i>
@@ -19,7 +22,7 @@
   import { mapState } from 'vuex'
   import parseTorrent from 'parse-torrent'
   import '@/components/Icons/inbox'
-  import { getAsBase64 } from '@shared/utils'
+  import { getAsBase64, buildFileList } from '@shared/utils'
 
   export default {
     name: 'mo-select-torrent',
@@ -65,7 +68,10 @@
     methods: {
       handleChange (file, fileList) {
         this.$store.dispatch('app/addTaskAddTorrents', { fileList })
-        console.log('file===>', file)
+      },
+      handleExceed (files) {
+        const fileList = buildFileList(files[0])
+        this.$store.dispatch('app/addTaskAddTorrents', { fileList })
       }
     }
   }

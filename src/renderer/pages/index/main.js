@@ -11,8 +11,9 @@ import router from '@/router'
 import store from '@/store'
 import { getLocaleManager } from '@/components/Locale'
 import Icon from '@/components/Icons/Icon'
-import '@/components/Theme/Index.scss'
 import Msg from '@/components/Msg'
+
+import '@/components/Theme/Index.scss'
 
 function init (config) {
   if (is.renderer()) {

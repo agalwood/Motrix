@@ -1,0 +1,11 @@
+[
+  { "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index" },
+  { "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index" },
+  { "id": "task.open-file", "command": "application:open-file", "command-before": "application:show,index" },
+  { "type": "separator" },
+  { "id": "app.show", "command": "application:show", "command-arg": "index" },
+  { "id": "help.manual", "command": "help:manual" },
+  { "type": "separator" },
+  { "id": "app.preferences", "command": "application:preferences", "command-before": "application:show,index" },
+  { "id": "app.quit", "role": "quit" }
+]

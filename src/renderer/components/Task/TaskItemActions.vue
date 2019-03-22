@@ -130,12 +130,12 @@
           })
       },
       onPauseClick: function () {
+        const { taskName } = this
+        this.$msg.info(this.$t('task.download-pause-message', { taskName }))
         this.$store.dispatch('task/pauseTask', this.task)
           .catch(({ code }) => {
             if (code === 1) {
-              this.$msg.error(this.$t('task.pause-task-fail', {
-                taskName: this.taskName
-              }))
+              this.$msg.error(this.$t('task.pause-task-fail', { taskName }))
             }
           })
       },

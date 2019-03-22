@@ -3,6 +3,7 @@
 </template>
 
 <script>
+  import is from 'electron-is'
   import { mapState } from 'vuex'
   import api from '@/api'
   import {
@@ -18,10 +19,17 @@
 
   export default {
     name: 'mo-engine-client',
+    data: function () {
+      return {
+        downloading: false
+      }
+    },
     computed: {
+      isRenderer: () => is.renderer(),
       ...mapState('app', {
         downloadSpeed: state => state.stat.downloadSpeed,
-        interval: state => state.interval
+        interval: state => state.interval,
+        numActive: state => state.stat.numActive
       }),
       ...mapState('task', {
         taskItemInfoVisible: state => state.taskItemInfoVisible,
@@ -34,15 +42,29 @@
     watch: {
       downloadSpeed: function (val, oldVal) {
         showDownloadSpeedInDock(val)
+      },
+      numActive: function (val, oldVal) {
+        this.downloading = val > 0
+      },
+      downloading: function (val, oldVal) {
+        if (val !== oldVal && this.isRenderer) {
+          this.$electron.ipcRenderer.send('download-status-change', val)
+        }
       }
     },
     methods: {
+      fetchTaskItem ({ gid }) {
+        return api.fetchTaskItem({ gid })
+          .catch((e) => {
+            console.warn(`fetchTaskItem fail: ${e.message}`)
+          })
+      },
       onDownloadStart: function (event) {
         this.$store.dispatch('task/fetchList')
         this.$store.dispatch('app/resetInterval')
         console.log('aria2 onDownloadStart', event)
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-start-message', { taskName })
@@ -52,7 +74,7 @@
       onDownloadPause: function (event) {
         console.log('aria2 onDownloadPause')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-pause-message', { taskName })
@@ -62,7 +84,7 @@
       onDownloadStop: function (event) {
         console.log('aria2 onDownloadStop')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-stop-message', { taskName })
@@ -72,7 +94,7 @@
       onDownloadError: function (event) {
         console.log('aria2 onDownloadError', event)
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
             const message = this.$t('task.download-error-message', { taskName })
@@ -83,7 +105,7 @@
         console.log('aria2 onDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             this.showTaskCompleteNotify(task)
           })
@@ -92,7 +114,7 @@
         console.log('aria2 onBtDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
-        api.fetchTaskItem({ gid })
+        this.fetchTaskItem({ gid })
           .then((task) => {
             this.showTaskCompleteNotify(task)
           })
@@ -138,7 +160,7 @@
       },
       bindEngineEvents: function () {
         api.client.on('onDownloadStart', this.onDownloadStart)
-        api.client.on('onDownloadPause', this.onDownloadPause)
+        // api.client.on('onDownloadPause', this.onDownloadPause)
         api.client.on('onDownloadStop', this.onDownloadStop)
         api.client.on('onDownloadComplete', this.onDownloadComplete)
         api.client.on('onDownloadError', this.onDownloadError)
@@ -146,7 +168,7 @@
       },
       unbindEngineEvents: function () {
         api.client.removeListener('onDownloadStart', this.onDownloadStart)
-        api.client.removeListener('onDownloadPause', this.onDownloadPause)
+        // api.client.removeListener('onDownloadPause', this.onDownloadPause)
         api.client.removeListener('onDownloadStop', this.onDownloadStop)
         api.client.removeListener('onDownloadComplete', this.onDownloadComplete)
         api.client.removeListener('onDownloadError', this.onDownloadError)

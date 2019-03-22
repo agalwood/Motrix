@@ -25,6 +25,7 @@ install:
 - source ~/.bashrc
 - npm install -g xvfb-maybe
 - npm install
+- npm audit fix
 script:
 - npm run release
 branches:

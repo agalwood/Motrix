@@ -71,19 +71,29 @@ function findById (template, id) {
   return null
 }
 
-export function translateTemplate (template, keystrokesByCommand) {
+export function translateTemplate (template, keystrokesByCommand, i18n) {
   for (let i in template) {
     let item = template[i]
     if (item.command) {
       item.accelerator = acceleratorForCommand(item.command, keystrokesByCommand)
     }
+
+    // If label is specified, label is used as the key of i18n.t(key),
+    // which mainly solves the inaccurate translation of item.id.
+    if (i18n) {
+      if (item.label) {
+        item.label = i18n.t(item.label)
+      } else if (item.id) {
+        item.label = i18n.t(item.id)
+      }
+    }
+
     item.click = () => {
-      console.log('click sendCommand', item)
       handleCommand(item)
     }
 
     if (item.submenu) {
-      translateTemplate(item.submenu, keystrokesByCommand)
+      translateTemplate(item.submenu, keystrokesByCommand, i18n)
     }
   }
   return template
@@ -96,7 +106,7 @@ export function handleCommand (item) {
     ? [item.command, item['command-arg']]
     : [item.command]
 
-  global.application.sendCommand(...args)
+  global.application.sendCommandToAll(...args)
 
   handleCommandAfter(item)
 }
@@ -108,7 +118,7 @@ function handleCommandBefore (item) {
   }
   const [ command, ...args ] = item['command-before'].split(',')
   console.log('handleCommandBefore==2=>', command, ...args)
-  global.application.sendCommand(command, ...args)
+  global.application.sendCommandToAll(command, ...args)
 }
 
 function handleCommandAfter (item) {
@@ -118,7 +128,7 @@ function handleCommandAfter (item) {
   }
   const [ command, ...args ] = item['command-after'].split(',')
   console.log('handleCommandAfter==2=>', command, ...args)
-  global.application.sendCommand(command, ...args)
+  global.application.sendCommandToAll(command, ...args)
 }
 
 function acceleratorForCommand (command, keystrokesByCommand) {
