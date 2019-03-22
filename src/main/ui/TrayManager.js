@@ -94,7 +94,7 @@ export default class TrayManager extends EventEmitter {
   }
 
   updateStatus (status) {
-    const icon = status === 'active' ? this.activeIcon : this.normalIcon
+    const icon = status ? this.activeIcon : this.normalIcon
     tray.setImage(icon)
   }
 }

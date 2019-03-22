@@ -3,6 +3,7 @@
 </template>
 
 <script>
+  import is from 'electron-is'
   import { mapState } from 'vuex'
   import api from '@/api'
   import {
@@ -18,10 +19,17 @@
 
   export default {
     name: 'mo-engine-client',
+    data: function () {
+      return {
+        downloading: false
+      }
+    },
     computed: {
+      isRenderer: () => is.renderer(),
       ...mapState('app', {
         downloadSpeed: state => state.stat.downloadSpeed,
-        interval: state => state.interval
+        interval: state => state.interval,
+        numActive: state => state.stat.numActive
       }),
       ...mapState('task', {
         taskItemInfoVisible: state => state.taskItemInfoVisible,
@@ -34,6 +42,14 @@
     watch: {
       downloadSpeed: function (val, oldVal) {
         showDownloadSpeedInDock(val)
+      },
+      numActive: function (val, oldVal) {
+        this.downloading = val > 0
+      },
+      downloading: function (val, oldVal) {
+        if (val !== oldVal && this.isRenderer) {
+          this.$electron.ipcRenderer.send('download-status-change', val)
+        }
       }
     },
     methods: {
