@@ -24,10 +24,7 @@ export default class TrayManager extends EventEmitter {
   load () {
     this.template = require(`../menus/tray.json`)
 
-    if (is.windows()) {
-      this.normalIcon = join(__static, './mo-tray-colorful-normal.ico')
-      this.activeIcon = join(__static, './mo-tray-colorful-active.ico')
-    } else if (is.macOS()) {
+    if (is.macOS()) {
       this.normalIcon = join(__static, './mo-tray-normal.png')
       this.activeIcon = join(__static, './mo-tray-active.png')
     } else {
