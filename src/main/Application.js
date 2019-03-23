@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import * as fs from 'fs'
-import { extname, basename } from 'path'
+import { resolve, extname, basename } from 'path'
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
@@ -151,20 +151,22 @@ export default class Application extends EventEmitter {
     this.protocolManager.handle(url)
   }
 
-  handleFile (path) {
-    if (!path) {
+  handleFile (filePath) {
+    if (!filePath) {
       return
     }
-    if (extname(path).toLowerCase() !== '.torrent') {
+    filePath = resolve(filePath)
+
+    if (extname(filePath).toLowerCase() !== '.torrent') {
       return
     }
 
     this.show()
 
-    const fileName = basename(path)
-    fs.readFile(path, (err, data) => {
+    const fileName = basename(filePath)
+    fs.readFile(filePath, (err, data) => {
       if (err) {
-        logger.warn(`[Motrix] read file error: ${path}`, err.message)
+        logger.warn(`[Motrix] read file error: ${filePath}`, err.message)
         return
       }
       const file = Buffer.from(data).toString('base64')
