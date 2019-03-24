@@ -5,6 +5,7 @@ import is from 'electron-is'
 import ExceptionHandler from './core/ExceptionHandler'
 import logger from './core/Logger'
 import Application from './Application'
+import { parseArgv } from './utils'
 
 const EMPTY_STRING = ''
 
@@ -32,9 +33,11 @@ export default class Launcher extends EventEmitter {
       app.quit()
     } else {
       app.on('second-instance', (event, argv, workingDirectory) => {
+        logger.warn('second-instance argv===>', argv)
+        logger.warn('second-instance workingDirectory===>', workingDirectory)
         global.application.showPage('index')
-        if (!is.macOS() && argv.length > 0) { // Windows, Linux
-          this.file = argv[1]
+        if (!is.macOS() && argv.length > 1) { // Windows, Linux
+          this.file = parseArgv(argv)
           this.sendFileToApplication()
         }
       })
@@ -90,8 +93,9 @@ export default class Launcher extends EventEmitter {
         this.file = path
         this.sendFileToApplication()
       })
-    } else if (process.argv.length > 0) { // Windows, Linux
-      this.file = process.argv[1]
+    } else if (process.argv.length > 1) { // Windows, Linux
+      logger.warn('handleOpenFile argv===>', process.argv)
+      this.file = parseArgv(process.argv)
       this.sendFileToApplication()
     }
   }

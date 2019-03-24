@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import * as fs from 'fs'
-import { resolve, extname, basename } from 'path'
+import { extname, basename } from 'path'
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
@@ -155,7 +155,6 @@ export default class Application extends EventEmitter {
     if (!filePath) {
       return
     }
-    filePath = resolve(filePath)
 
     if (extname(filePath).toLowerCase() !== '.torrent') {
       return

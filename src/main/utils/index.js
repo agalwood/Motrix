@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import is from 'electron-is'
 import { resolve } from 'path'
+import { existsSync, lstatSync } from 'fs'
 import logger from '../core/Logger'
 import engineBinMap from '../configs/engine'
 
@@ -57,4 +58,18 @@ export function moveAppToApplicationsFolder (errorMsg = '') {
       reject(err)
     }
   })
+}
+
+export function isDirectory (path) {
+  return existsSync(path) && lstatSync(path).isDirectory()
+}
+
+export function parseArgv (argv) {
+  logger.warn('parseArgv==111==>', argv)
+  const arg = argv[1]
+  if (!arg || isDirectory(arg)) {
+    return
+  }
+  logger.warn('parseArgv==222==>', arg)
+  return resolve(arg)
 }
