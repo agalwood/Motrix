@@ -33,6 +33,7 @@ brew update && brew cask install motrix
 - 🕶 模拟用户代理UA
 - 🔔 下载完成后通知
 - 💻 支持触控栏快捷健 (Mac 专享)
+- 🤖 常驻系统托盘，操作更加便捷
 - 🗑 移除任务时可同时删除相关文件
 - 🌍 国际化，[查看已可选的语言](#-国际化)
 - 🎏 ...
@@ -87,13 +88,13 @@ npm run build
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| de    | German              | 下版本发布 [@Schloemicher](https://github.com/Schloemicher) |
+| de    | German              | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
-| fr    | Français            | 下版本发布 [@gpatarin](https://github.com/gpatarin) |
-| pt-BR | Portuguese (Brazil) | 下版本发布 [@andrenoberto](https://github.com/andrenoberto) |
-| tr    | Türkçe              | 下版本发布 [@abdullah](https://github.com/abdullah) |
+| fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
+| pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
+| tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
 | zh-CN | 简体中文             | ✔️           |
-| zh-TW | 繁體中文             | 下版本发布 [@Yukaii](https://github.com/Yukaii) |
+| zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
 
 ## 📜 开源许可
 基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
