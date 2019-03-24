@@ -11,7 +11,7 @@
 
 我是个兴趣使然的桌面应用开发者🤓，利用搬砖之余开发了 Motrix。
 
-Motirx 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链、百度网盘等资源。它的界面简洁易用，希望大家喜欢 👻。
+Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链、百度网盘等资源。它的界面简洁易用，希望大家喜欢 👻。
 
 ✈️ 去 [官网](https://motrix.app/zh-CN) 逛逛  |  📖 查看 [帮助手册](http://motrix.app/support/issues)
 
