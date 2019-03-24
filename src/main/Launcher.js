@@ -33,8 +33,6 @@ export default class Launcher extends EventEmitter {
       app.quit()
     } else {
       app.on('second-instance', (event, argv, workingDirectory) => {
-        logger.warn('second-instance argv===>', argv)
-        logger.warn('second-instance workingDirectory===>', workingDirectory)
         global.application.showPage('index')
         if (!is.macOS() && argv.length > 1) { // Windows, Linux
           this.file = parseArgv(argv)
@@ -94,7 +92,6 @@ export default class Launcher extends EventEmitter {
         this.sendFileToApplication()
       })
     } else if (process.argv.length > 1) { // Windows, Linux
-      logger.warn('handleOpenFile argv===>', process.argv)
       this.file = parseArgv(process.argv)
       this.sendFileToApplication()
     }

@@ -131,7 +131,7 @@
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
-      "category": "Network;Download;Utility",
+      "category": "Network",
       "target": [
         "deb",
         "snap",

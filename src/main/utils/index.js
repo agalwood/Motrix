@@ -65,11 +65,13 @@ export function isDirectory (path) {
 }
 
 export function parseArgv (argv) {
-  logger.warn('parseArgv==111==>', argv)
-  const arg = argv[1]
+  let arg = argv[1]
   if (!arg || isDirectory(arg)) {
     return
   }
-  logger.warn('parseArgv==222==>', arg)
-  return resolve(arg)
+
+  if (is.linux()) {
+    arg = arg.replace('file://', '')
+  }
+  return arg
 }

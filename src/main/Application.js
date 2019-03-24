@@ -1,8 +1,9 @@
 import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
-import * as fs from 'fs'
+import { readFile } from 'fs'
 import { extname, basename } from 'path'
+
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
@@ -163,7 +164,7 @@ export default class Application extends EventEmitter {
     this.show()
 
     const fileName = basename(filePath)
-    fs.readFile(filePath, (err, data) => {
+    readFile(filePath, (err, data) => {
       if (err) {
         logger.warn(`[Motrix] read file error: ${filePath}`, err.message)
         return
