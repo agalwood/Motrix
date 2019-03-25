@@ -64,6 +64,11 @@
               {{ $t('preferences.task-completed-notify') }}
             </el-checkbox>
           </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.autoCheckUpdate">
+              {{ $t('preferences.auto-check-update') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
       </el-form>
       <div class="form-actions">
@@ -88,6 +93,7 @@
       maxConcurrentDownloads,
       maxConnectionPerServer,
       taskNotification,
+      autoCheckUpdate,
       newTaskShowDownloading
     } = config
     const result = {
@@ -98,6 +104,7 @@
       maxConcurrentDownloads,
       maxConnectionPerServer,
       taskNotification,
+      autoCheckUpdate,
       newTaskShowDownloading
     }
     return result

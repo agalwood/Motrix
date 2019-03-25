@@ -128,7 +128,7 @@ export default class Application extends EventEmitter {
     if (is.mas()) {
       return
     }
-    this.updateManager = new UpdateManager()
+    this.updateManager = new UpdateManager({ AutoCheck: this.configManager.getSystemConfig('auto-check-update') })
     this.handleUpdaterEvents()
   }
 

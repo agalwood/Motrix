@@ -33,5 +33,6 @@ export default {
   'browser-extensions': 'Eklentiler',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tip': 'Topluluk tarafından sağlanan, ',
-  'baidu-exporter-help': 'Kullanım detayları için buraya tıklayın'
+  'baidu-exporter-help': 'Kullanım detayları için buraya tıklayın',
+  'auto-check-update': 'Auto Check Update'
 }

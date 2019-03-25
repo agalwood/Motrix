@@ -123,7 +123,8 @@ const systemKeys = [
   'timeout',
   'uri-selector',
   'use-head',
-  'user-agent'
+  'user-agent',
+  'auto-check-update'
 ]
 
 export {

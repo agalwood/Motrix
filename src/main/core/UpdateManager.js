@@ -35,9 +35,9 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
     this.updater.on('error', this.updateError.bind(this))
     this.autoCheckData = {
-      timeOut: 1 * 60 * 1000,
+      timeOut: 30 * 60 * 1000,
       timeCount: 0,
-      checkEnable: true,
+      checkEnable: this.options.AutoCheck,
       userCheck: false
     }
 
