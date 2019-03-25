@@ -1,9 +1,12 @@
 import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
+import { readFile } from 'fs'
+import { extname, basename } from 'path'
+
 import logger from './core/Logger'
-import ExceptionHandler from './core/ExceptionHandler'
 import ConfigManager from './core/ConfigManager'
+import { setupLocaleManager } from '@/ui/Locale'
 import Engine from './core/Engine'
 import UpdateManager from './core/UpdateManager'
 import EnergyManager from './core/EnergyManager'
@@ -11,19 +14,21 @@ import ProtocolManager from './core/ProtocolManager'
 import WindowManager from './ui/WindowManager'
 import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
+import TrayManager from './ui/TrayManager'
 
 export default class Application extends EventEmitter {
   constructor () {
     super()
-
-    this.exceptionHandler = new ExceptionHandler()
-
+    this.isReady = false
     this.init()
   }
 
   init () {
     this.configManager = new ConfigManager()
+
     this.locale = this.configManager.getLocale()
+    this.localeManager = setupLocaleManager(this.locale)
+    this.i18n = this.localeManager.getI18n()
 
     this.windowManager = new WindowManager({
       userConfig: this.configManager.getUserConfig()
@@ -40,6 +45,8 @@ export default class Application extends EventEmitter {
 
     this.touchBarManager = new TouchBarManager()
 
+    this.trayManager = new TrayManager()
+
     this.energyManager = new EnergyManager()
 
     this.initUpdaterManager()
@@ -54,12 +61,11 @@ export default class Application extends EventEmitter {
     try {
       this.engine.start()
     } catch (err) {
+      const { message } = err
       dialog.showMessageBox({
         type: 'error',
-        title: '系统错误',
-        message: `应用启动失败：${err.message}`,
-        buttons: ['知道了'],
-        cancelId: 1
+        title: this.i18n.t('app.system-error-title'),
+        message: this.i18n.t('app.system-error-message', { message })
       }, () => {
         setTimeout(() => {
           app.quit()
@@ -74,7 +80,27 @@ export default class Application extends EventEmitter {
 
   showPage (page) {
     const win = this.windowManager.openWindow(page)
+    win.once('ready-to-show', () => {
+      this.isReady = true
+      this.emit('ready')
+    })
     this.touchBarManager.setup(page, win)
+  }
+
+  show (page = 'index') {
+    this.windowManager.showWindow(page)
+  }
+
+  hide (page) {
+    if (page) {
+      this.windowManager.hideWindow(page)
+    } else {
+      this.windowManager.hideAllWindow()
+    }
+  }
+
+  toggle (page = 'index') {
+    this.windowManager.toggleWindow(page)
   }
 
   closePage (page) {
@@ -120,8 +146,33 @@ export default class Application extends EventEmitter {
     if (is.dev() || is.mas()) {
       return
     }
+
+    this.show()
+
     this.protocolManager.handle(url)
-    this.showPage('index')
+  }
+
+  handleFile (filePath) {
+    if (!filePath) {
+      return
+    }
+
+    if (extname(filePath).toLowerCase() !== '.torrent') {
+      return
+    }
+
+    this.show()
+
+    const fileName = basename(filePath)
+    readFile(filePath, (err, data) => {
+      if (err) {
+        logger.warn(`[Motrix] read file error: ${filePath}`, err.message)
+        return
+      }
+      const file = Buffer.from(data).toString('base64')
+      const args = [fileName, file]
+      this.sendCommandToAll('application:new-bt-task-with-file', ...args)
+    })
   }
 
   initUpdaterManager () {
@@ -184,8 +235,12 @@ export default class Application extends EventEmitter {
       app.exit()
     })
 
-    this.on('application:show', (page = 'index') => {
-      this.showPage(page)
+    this.on('application:show', (page) => {
+      this.show(page)
+    })
+
+    this.on('application:hide', (page) => {
+      this.hide(page)
     })
 
     this.on('application:reset', () => {
@@ -198,7 +253,31 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:change-locale', (locale) => {
-      this.menuManager.setup(locale)
+      logger.info('[Motrix] application:change-locale===>', locale)
+      this.localeManager.changeLanguageByLocale(locale)
+        .then(() => {
+          this.menuManager.setup(locale)
+          this.trayManager.setup(locale)
+        })
+    })
+
+    this.on('application:open-file', (event) => {
+      dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          {
+            name: 'Torrent',
+            extensions: ['torrent']
+          }
+        ]
+      }, (filePaths) => {
+        if (!filePaths || filePaths.length === 0) {
+          return
+        }
+
+        const [filePath] = filePaths
+        this.handleFile(filePath)
+      })
     })
 
     this.on('application:clear-recent-tasks', () => {
@@ -234,6 +313,10 @@ export default class Application extends EventEmitter {
 
     ipcMain.on('update-menu-states', (event, visibleStates, enabledStates, checkedStates) => {
       this.menuManager.updateStates(visibleStates, enabledStates, checkedStates)
+    })
+
+    ipcMain.on('download-status-change', (event, status) => {
+      this.trayManager.updateStatus(status)
     })
   }
 }

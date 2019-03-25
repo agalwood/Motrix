@@ -4,6 +4,7 @@ export default {
   'stopped': 'Stopped',
   'new-task': 'New Task',
   'new-bt-task': 'New BT Task',
+  'open-file': 'Open Torrent File...',
   'uri-task': 'URL',
   'torrent-task': 'Torrent',
   'uri-task-tip': 'One task url per line (support magnet)',

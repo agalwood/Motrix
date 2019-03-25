@@ -33,6 +33,7 @@ brew update && brew cask install motrix
 - 🕶 Mock User-Agent
 - 🔔 Download completed Notification
 - 💻 Ready for Touch Bar (Mac only)
+- 🤖 Resident system tray for quick operation
 - 🗑 Delete related files when removing tasks (optional)
 - 🌍 I18n, [View supported languages](#-internationalization).
 - 🎏 ...
@@ -81,13 +82,13 @@ Translations into versions for other languages are welcome 🧐! Please read the
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| de    | German              | Next Release [@Schloemicher](https://github.com/Schloemicher) |
+| de    | German              | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
-| fr    | Français            | Next Release [@gpatarin](https://github.com/gpatarin) |
-| pt-BR | Portuguese (Brazil) | Next Release [@andrenoberto](https://github.com/andrenoberto) |
-| tr    | Türkçe              | Next Release [@abdullah](https://github.com/abdullah) |
+| fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
+| pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
+| tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
 | zh-CN | 简体中文             | ✔️           |
-| zh-TW | 繁體中文             | Next Release [@Yukaii](https://github.com/Yukaii) |
+| zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
 
 ## 📜 License
 [MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot

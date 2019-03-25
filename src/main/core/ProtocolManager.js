@@ -37,6 +37,6 @@ export default class ProtocolManager extends EventEmitter {
     // 如果按顺序传递，那 url 的 query string 就要求有序的了
     // const query = queryString.parse(parsed.query)
     const args = []
-    global.application.sendCommand(command, ...args)
+    global.application.sendCommandToAll(command, ...args)
   }
 }

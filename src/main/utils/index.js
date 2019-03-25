@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import is from 'electron-is'
 import { resolve } from 'path'
+import { existsSync, lstatSync } from 'fs'
 import logger from '../core/Logger'
 import engineBinMap from '../configs/engine'
 
@@ -44,17 +45,33 @@ export function isRunningInDmg () {
   return result
 }
 
-export function moveAppToApplicationsFolder () {
+export function moveAppToApplicationsFolder (errorMsg = '') {
   return new Promise((resolve, reject) => {
     try {
       const result = app.moveToApplicationsFolder()
       if (result) {
         resolve(result)
       } else {
-        reject(new Error('应用程序移动失败'))
+        reject(new Error(errorMsg))
       }
     } catch (err) {
       reject(err)
     }
   })
+}
+
+export function isDirectory (path) {
+  return existsSync(path) && lstatSync(path).isDirectory()
+}
+
+export function parseArgv (argv) {
+  let arg = argv[1]
+  if (!arg || isDirectory(arg)) {
+    return
+  }
+
+  if (is.linux()) {
+    arg = arg.replace('file://', '')
+  }
+  return arg
 }

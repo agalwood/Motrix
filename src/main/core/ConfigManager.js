@@ -20,6 +20,10 @@ export default class ConfigManager {
     this.initUserConfig()
   }
 
+  /**
+   * some aria2 conf
+   * https://aria2.github.io/manual/en/html/aria2c.html
+   */
   initSystemConfig () {
     this.systemConfig = new Store({
       name: 'system',
