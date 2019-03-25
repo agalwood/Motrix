@@ -83,12 +83,12 @@ export default class UpdateManager extends EventEmitter {
 
   updateNotAvailable (event, info) {
     this.emit('update-not-available', info)
-
-    dialog.showMessageBox({
-      title: this.i18n.t('app.check-for-updates-title'),
-      message: this.i18n.t('app.update-not-available-message')
-    })
-
+    if (this.autoCheckData.userCheck) {
+      dialog.showMessageBox({
+        title: this.i18n.t('app.check-for-updates-title'),
+        message: this.i18n.t('app.update-not-available-message')
+      })
+    }
   }
 
   /**
