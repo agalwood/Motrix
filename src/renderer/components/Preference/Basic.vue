@@ -68,6 +68,9 @@
             <el-checkbox v-model="form.autoCheckUpdate">
               {{ $t('preferences.auto-check-update') }}
             </el-checkbox>
+            <div class="el-form-item__info" style="margin-top: 8px;">
+              {{ $t('preferences.last-check-update-time') + ':   ' + new Date(form.lastCheckUpdateTime).toLocaleString() }}
+            </div>
           </el-col>
         </el-form-item>
       </el-form>
@@ -94,7 +97,8 @@
       maxConnectionPerServer,
       taskNotification,
       autoCheckUpdate,
-      newTaskShowDownloading
+      newTaskShowDownloading,
+      lastCheckUpdateTime
     } = config
     const result = {
       dir,
@@ -105,7 +109,8 @@
       maxConnectionPerServer,
       taskNotification,
       autoCheckUpdate,
-      newTaskShowDownloading
+      newTaskShowDownloading,
+      lastCheckUpdateTime
     }
     return result
   }

@@ -34,5 +34,6 @@ export default {
   'baidu-exporter': 'Baidu Exporter',
   'browser-extensions-tip': 'Von der Community bereitgestellt, ',
   'baidu-exporter-help': 'mehr über die Verwendung zu erfahren',
-  'auto-check-update': 'Automatische Updates überprüfen'
+  'auto-check-update': 'Automatische Updates überprüfen',
+  'last-check-update-time': 'letzte kontrolle update - zeit'
 }

@@ -45,8 +45,7 @@ export default class ConfigManager {
         'max-overall-upload-limit': 0,
         'max-download-limit': 0,
         'all-proxy': '',
-        'user-agent': 'Transmission/2.94',
-        'auto-check-update': false
+        'user-agent': 'Transmission/2.94'
       }
     })
   }
@@ -65,7 +64,9 @@ export default class ConfigManager {
         'all-proxy-backup': '',
         'log-path': getLogPath(),
         'session-path': getSessionPath(),
-        'locale': app.getLocale()
+        'locale': app.getLocale(),
+        'auto-check-update': false,
+        'last-check-update-time': 0
       }
     })
   }

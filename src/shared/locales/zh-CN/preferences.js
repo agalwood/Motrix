@@ -34,5 +34,6 @@ export default {
   'baidu-exporter': '百度网盘助手',
   'browser-extensions-tip': '社区提供的浏览器扩展「不保证可用性」，',
   'baidu-exporter-help': '点此查看使用说明',
-  'auto-check-update': '自动检查更新'
+  'auto-check-update': '自动检查更新',
+  'last-check-update-time': '上次检查更新时间'
 }

@@ -19,6 +19,10 @@ export default class UpdateManager extends EventEmitter {
     this.updater = autoUpdater
     this.updater.autoDownload = false
     this.updater.logger = logger
+    this.autoCheckData = {
+      checkEnable: this.options.autoCheck,
+      userCheck: false
+    }
     this.init()
   }
 
@@ -36,30 +40,18 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('download-progress', this.updateDownloadProgress.bind(this))
     this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
     this.updater.on('error', this.updateError.bind(this))
-    this.autoCheckData = {
-      timeOut: 30 * 60 * 1000,
-      timeCount: 0,
-      checkEnable: this.options.AutoCheck,
-      userCheck: false
-    }
 
-    this.authCheckTimer = setInterval(function (data, updater) {
-      if (data.checkEnable) {
-        if (data.timeCount >= data.timeOut) {
-          data.timeCount = 0
-          data.userCheck = false
-          updater.checkForUpdates()
-        } else {
-          data.timeCount += 30 * 1000
-        }
-      }
-    }, 30 * 1000, this.autoCheckData, this.updater)
+    if (this.autoCheckData.checkEnable) {
+      this.autoCheckData.userCheck = false
+      this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
+      this.updater.checkForUpdates()
+    }
   }
 
   check () {
-    this.updater.checkForUpdates()
-    this.autoCheckData.timeCount = 0
+    this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
     this.autoCheckData.userCheck = true
+    this.updater.checkForUpdates()
   }
 
   checkingForUpdate () {
