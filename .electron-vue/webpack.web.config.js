@@ -143,20 +143,6 @@ let webConfig = {
         ? path.resolve(__dirname, '../node_modules')
         : false
     }),
-    new HtmlWebpackPlugin({
-      title: '关于',
-      filename: 'about.html',
-      chunks: ['about'],
-      template: path.resolve(__dirname, '../src/about.ejs'),
-      // minify: {
-      //   collapseWhitespace: true,
-      //   removeAttributeQuotes: true,
-      //   removeComments: true
-      // },
-      nodeModules: devMode
-        ? path.resolve(__dirname, '../node_modules')
-        : false
-    }),
     new webpack.DefinePlugin({
       'process.env.IS_WEB': 'true'
     }),

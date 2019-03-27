@@ -33,5 +33,7 @@ export default {
   'browser-extensions': 'Extensions',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tip': 'Fourni par la communauté, ',
-  'baidu-exporter-help': 'Cliquez ici pour voir l\'utilisation'
+  'baidu-exporter-help': 'Cliquez ici pour voir l\'utilisation',
+  'auto-check-update': 'Mise à jour automatique',
+  'last-check-update-time': 'dernier contrôle la mise à jour du temps'
 }

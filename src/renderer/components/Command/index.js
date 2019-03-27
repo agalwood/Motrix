@@ -3,6 +3,8 @@ import store from '@/store'
 import CommandManager from './CommandManager'
 import { Message } from 'element-ui'
 import { getLocaleManager } from '@/components/Locale'
+import { base64StringToBlob } from 'blob-util'
+import { buildFileList } from '@shared/utils'
 
 const commands = new CommandManager()
 const i18n = getLocaleManager().getI18n()
@@ -13,6 +15,16 @@ function showAboutPanel () {
 
 function showAddTask (taskType = 'uri') {
   store.dispatch('app/showAddTaskDialog', taskType)
+}
+
+function showAddBtTaskWithFile (fileName, base64Data = '') {
+  const blob = base64StringToBlob(base64Data, 'application/x-bittorrent')
+  const file = new File([blob], fileName, { type: 'application/x-bittorrent' })
+  const fileList = buildFileList(file)
+  store.dispatch('app/showAddTaskDialog', 'torrent')
+  setTimeout(() => {
+    store.dispatch('app/addTaskAddTorrents', { fileList })
+  }, 200)
 }
 
 function navigateTaskList (status = 'active') {
@@ -58,6 +70,7 @@ function resumeAllTask () {
 commands.register('application:about', showAboutPanel)
 commands.register('application:new-task', showAddTask)
 commands.register('application:new-bt-task', showAddTask)
+commands.register('application:new-bt-task-with-file', showAddBtTaskWithFile)
 commands.register('application:task-list', navigateTaskList)
 commands.register('application:preferences', navigatePreferences)
 

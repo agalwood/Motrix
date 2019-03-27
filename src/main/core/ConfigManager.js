@@ -20,6 +20,10 @@ export default class ConfigManager {
     this.initUserConfig()
   }
 
+  /**
+   * some aria2 conf
+   * https://aria2.github.io/manual/en/html/aria2c.html
+   */
   initSystemConfig () {
     this.systemConfig = new Store({
       name: 'system',
@@ -60,7 +64,9 @@ export default class ConfigManager {
         'all-proxy-backup': '',
         'log-path': getLogPath(),
         'session-path': getSessionPath(),
-        'locale': app.getLocale()
+        'locale': app.getLocale(),
+        'auto-check-update': false,
+        'last-check-update-time': 0
       }
     })
   }

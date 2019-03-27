@@ -4,6 +4,7 @@ import is from 'electron-is'
 import { autoUpdater } from 'electron-updater'
 import { resolve } from 'path'
 import logger from './Logger'
+import { getI18n } from '@/ui/Locale'
 
 if (is.dev()) {
   autoUpdater.updateConfigPath = resolve(__dirname, '../../../app-update.yml')
@@ -13,10 +14,15 @@ export default class UpdateManager extends EventEmitter {
   constructor (options = {}) {
     super()
     this.options = options
+    this.i18n = getI18n()
 
     this.updater = autoUpdater
     this.updater.autoDownload = false
     this.updater.logger = logger
+    this.autoCheckData = {
+      checkEnable: this.options.autoCheck,
+      userCheck: false
+    }
     this.init()
   }
 
@@ -34,30 +40,18 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('download-progress', this.updateDownloadProgress.bind(this))
     this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
     this.updater.on('error', this.updateError.bind(this))
-    this.autoCheckData = {
-      timeOut: 1 * 60 * 1000,
-      timeCount: 0,
-      checkEnable: true,
-      userCheck: false
-    }
 
-    this.authCheckTimer = setInterval(function (data, updater) {
-      if (data.checkEnable) {
-        if (data.timeCount >= data.timeOut) {
-          data.timeCount = 0
-          data.userCheck = false
-          updater.checkForUpdates()
-        } else {
-          data.timeCount += 30 * 1000
-        }
-      }
-    }, 30 * 1000, this.autoCheckData, this.updater)
+    if (this.autoCheckData.checkEnable) {
+      this.autoCheckData.userCheck = false
+      this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
+      this.updater.checkForUpdates()
+    }
   }
 
   check () {
-    this.updater.checkForUpdates()
-    this.autoCheckData.timeCount = 0
+    this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
     this.autoCheckData.userCheck = true
+    this.updater.checkForUpdates()
   }
 
   checkingForUpdate () {
@@ -68,9 +62,9 @@ export default class UpdateManager extends EventEmitter {
     this.emit('update-available', info)
     dialog.showMessageBox({
       type: 'info',
-      title: '发现新版本',
-      message: '发现新版本，是否现在更新？',
-      buttons: ['是', '否'],
+      title: this.i18n.t('app.check-for-updates-title'),
+      message: this.i18n.t('app.update-available-message'),
+      buttons: [this.i18n.t('app.yes'), this.i18n.t('app.no')],
       cancelId: 1
     }, (buttonIndex) => {
       if (buttonIndex === 0) {
@@ -83,8 +77,8 @@ export default class UpdateManager extends EventEmitter {
     this.emit('update-not-available', info)
     if (this.autoCheckData.userCheck) {
       dialog.showMessageBox({
-        title: '没有更新的版本',
-        message: '您目前使用的已是最新版本'
+        title: this.i18n.t('app.check-for-updates-title'),
+        message: this.i18n.t('app.update-not-available-message')
       })
     }
   }
@@ -106,8 +100,8 @@ export default class UpdateManager extends EventEmitter {
     this.emit('update-downloaded', info)
     this.updater.logger.log(`Update Downloaded: ${info}`)
     dialog.showMessageBox({
-      title: '安装更新',
-      message: '更新下载完成，应用程序将退出并开始更新...'
+      title: this.i18n.t('app.check-for-updates-title'),
+      message: this.i18n.t('app.update-downloaded-message')
     }, () => {
       this.emit('will-updated')
       setImmediate(() => {
@@ -118,8 +112,8 @@ export default class UpdateManager extends EventEmitter {
 
   updateError (event, error) {
     this.emit('update-error', error)
-    const msg = error == null ? '未知错误' : (error.stack || error).toString()
-    this.updater.logger.warn(`Update Error: ${msg}`)
-    dialog.showErrorBox('错误: ', msg)
+    const msg = error == null ? this.i18n.t('update-error-message') : (error.stack || error).toString()
+    this.updater.logger.warn(`[Motrix] update-error: ${msg}`)
+    dialog.showErrorBox(msg)
   }
 }

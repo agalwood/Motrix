@@ -4,6 +4,7 @@ export default {
   'stopped': 'Stopées',
   'new-task': 'Nouvelle Tâche',
   'new-bt-task': 'Nouvelle Tâche BT',
+  'open-file': 'Ouvrir un fichier torrent...',
   'uri-task': 'Lien',
   'torrent-task': 'Torrent',
   'uri-task-tip': 'Un lien par ligne (supporte les magnets)',
