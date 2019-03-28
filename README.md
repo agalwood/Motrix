@@ -5,7 +5,7 @@
 </a>
 
 ## A full-featured download manager.
-![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg) [![Build Status](https://travis-ci.org/agalwood/Motrix.svg?branch=master)](https://travis-ci.org/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
+[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) [![Build Status](https://travis-ci.org/agalwood/Motrix.svg?branch=master)](https://travis-ci.org/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master) [![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)](https://github.com/agalwood/Motrix/releases) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
 
 English | [简体中文](./README-CN.md)
 
@@ -74,7 +74,7 @@ After building, the application will be found in the project's `release` directo
 ## ☑️ TODO
 Development Roadmap see: [Trello](https://trello.com/b/qNUzA0bv/motrix)
 
-## 🤝 Contribute [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
+## 🤝 Contribute [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
 If you are interested in participating in joint development, PR and Forks are welcome!
 
 ## 🌍 Internationalization
