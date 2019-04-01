@@ -64,7 +64,9 @@ export default class ConfigManager {
         'all-proxy-backup': '',
         'log-path': getLogPath(),
         'session-path': getSessionPath(),
-        'locale': app.getLocale()
+        'locale': app.getLocale(),
+        'auto-check-update': false,
+        'last-check-update-time': 0
       }
     })
   }

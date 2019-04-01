@@ -19,6 +19,10 @@ export default class UpdateManager extends EventEmitter {
     this.updater = autoUpdater
     this.updater.autoDownload = false
     this.updater.logger = logger
+    this.autoCheckData = {
+      checkEnable: this.options.autoCheck,
+      userCheck: false
+    }
     this.init()
   }
 
@@ -36,9 +40,17 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('download-progress', this.updateDownloadProgress.bind(this))
     this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
     this.updater.on('error', this.updateError.bind(this))
+
+    if (this.autoCheckData.checkEnable) {
+      this.autoCheckData.userCheck = false
+      this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
+      this.updater.checkForUpdates()
+    }
   }
 
   check () {
+    this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
+    this.autoCheckData.userCheck = true
     this.updater.checkForUpdates()
   }
 
@@ -63,10 +75,12 @@ export default class UpdateManager extends EventEmitter {
 
   updateNotAvailable (event, info) {
     this.emit('update-not-available', info)
-    dialog.showMessageBox({
-      title: this.i18n.t('app.check-for-updates-title'),
-      message: this.i18n.t('app.update-not-available-message')
-    })
+    if (this.autoCheckData.userCheck) {
+      dialog.showMessageBox({
+        title: this.i18n.t('app.check-for-updates-title'),
+        message: this.i18n.t('app.update-not-available-message')
+      })
+    }
   }
 
   /**

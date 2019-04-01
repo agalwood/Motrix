@@ -9,3 +9,4 @@ npm-debug.log.*
 thumbs.db
 !.gitkeep
 release/*
+.idea/

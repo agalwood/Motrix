@@ -179,7 +179,12 @@ export default class Application extends EventEmitter {
     if (is.mas()) {
       return
     }
-    this.updateManager = new UpdateManager()
+    this.updateManager = new UpdateManager({
+      autoCheck: this.configManager.getUserConfig('auto-check-update')
+        ? (new Date().getTime() - this.configManager.getUserConfig('last-check-update-time') > 7 * 24 * 60 * 60 * 1000)
+        : false,
+      setCheckTime: this.configManager
+    })
     this.handleUpdaterEvents()
   }
 

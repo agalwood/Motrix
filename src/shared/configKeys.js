@@ -9,7 +9,9 @@ const userKeys = [
   'all-proxy-backup',
   'log-path',
   'session-path',
-  'enable-egg-features'
+  'enable-egg-features',
+  'auto-check-update',
+  'last-check-update-time'
 ]
 
 const systemKeys = [
