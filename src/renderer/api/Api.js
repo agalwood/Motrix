@@ -154,6 +154,26 @@ export default class Api {
     return this.client.call('addMetalink', ...args)
   }
 
+  fetchAllTaskList (params = {}) {
+    const { offset = 0, num = 20, keys } = params
+    const activeArgs = compactUndefined([keys])
+    const waitingAndStoppedArgs = compactUndefined([offset, num, keys])
+    return new Promise((resolve, reject) => {
+      this.client.multicall([
+        [ 'aria2.tellActive', ...activeArgs ],
+        [ 'aria2.tellWaiting', ...waitingAndStoppedArgs ],
+        [ 'aria2.tellStopped', ...waitingAndStoppedArgs ]
+      ]).then((data) => {
+        console.log('fetchAllTaskList data', data)
+        const result = mergeTaskResult(data)
+        resolve(result)
+      }).catch((err) => {
+        console.log('fetchAllTaskList fail===>', err)
+        reject(err)
+      })
+    })
+  }
+
   fetchDownloadingTaskList (params = {}) {
     const { offset = 0, num = 20, keys } = params
     const activeArgs = compactUndefined([keys])
@@ -188,6 +208,8 @@ export default class Api {
   fetchTaskList (params = {}) {
     const { type } = params
     switch (type) {
+      case 'all':
+        return this.fetchAllTaskList(params)
       case 'active':
         return this.fetchDownloadingTaskList(params)
       case 'waiting':
@@ -195,7 +217,7 @@ export default class Api {
       case 'stopped':
         return this.fetchStoppedTaskList(params)
       default:
-        return this.fetchDownloadingTaskList(params)
+        return this.fetchAllTaskList(params)
     }
   }
 
