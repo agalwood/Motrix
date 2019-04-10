@@ -38,6 +38,7 @@
 .subnav-inner {
   margin-top: 44px;
   padding: 0 16px;
+  user-select: none;
 
   h3 {
     font-size: 16px;
@@ -51,7 +52,6 @@
     list-style: none;
     padding: 0;
     margin: 0;
-    user-select: none;
     cursor: default;
 
     li {

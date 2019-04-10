@@ -41,6 +41,7 @@
     justify-content: center;
     font-size: 14px;
     color: #555;
+    user-select: none;
   }
   .no-task-inner {
     width: 100%;

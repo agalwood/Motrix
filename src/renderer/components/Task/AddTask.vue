@@ -393,6 +393,9 @@
 <style lang="scss">
   .add-task-dialog {
     max-width: 632px;
+    .el-tabs__header {
+      user-select: none;
+    }
     .el-input-number.el-input-number--mini {
       width: 100%;
     }
