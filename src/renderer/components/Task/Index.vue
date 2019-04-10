@@ -36,9 +36,10 @@
     computed: {
       title: function () {
         const titles = {
-          'active': this.$t('task.active'),
-          'waiting': this.$t('task.waiting'),
-          'stopped': this.$t('task.stopped')
+          all: this.$t('task.all'),
+          active: this.$t('task.active'),
+          waiting: this.$t('task.waiting'),
+          stopped: this.$t('task.stopped')
         }
         return titles[this.status]
       }

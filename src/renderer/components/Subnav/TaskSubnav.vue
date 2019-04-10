@@ -3,6 +3,15 @@
     <h3>{{ title }}</h3>
     <ul>
       <li
+        @click="() => nav('all')"
+        :class="[ current === 'all' ? 'active' : '' ]"
+      >
+        <i class="subnav-icon">
+          <mo-icon name="folder" width="20" height="20" />
+        </i>
+        <span>{{ $t('task.all') }}</span>
+      </li>
+      <li
         @click="() => nav('active')"
         :class="[ current === 'active' ? 'active' : '' ]"
       >
