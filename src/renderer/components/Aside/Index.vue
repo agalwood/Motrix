@@ -9,6 +9,9 @@
         <li @click="showAddTask()">
           <mo-icon name="menu-add" width="20" height="20" />
         </li>
+        <li @click="nav('/scrapper')">
+          <mo-icon name="lens" width="20" height="20" />
+        </li>
       </ul>
       <ul class="menu bottom-menu">
         <li @click="nav('/preference')">
@@ -28,6 +31,7 @@
   import LogoMini from '@/components/Logo/LogoMini'
   import '@/components/Icons/menu-task'
   import '@/components/Icons/menu-add'
+  import '@/components/Icons/lens'
   import '@/components/Icons/menu-preference'
   import '@/components/Icons/menu-about'
 

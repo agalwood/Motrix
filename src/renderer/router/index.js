@@ -25,6 +25,12 @@ export default new Router({
           props: true
         },
         {
+          path: '/scrapper',
+          name: 'scrapper',
+          component: require('@/components/Scrapper/Index').default,
+          props: true
+        },
+        {
           path: '/preference',
           name: 'preference',
           component: require('@/components/Preference/Index').default,
