@@ -20,7 +20,12 @@ const fetchFileHead = async (url) => {
       }
     }
     const getType = () => {
-      return response.headers['content-type']
+      const type = response.headers['content-type']
+      if (type === '' || type === null || type === undefined) {
+        return '-'
+      } else {
+        return type
+      }
     }
 
     return {
