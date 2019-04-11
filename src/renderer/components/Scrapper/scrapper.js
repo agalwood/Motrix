@@ -4,25 +4,31 @@ import urlParser from 'url-parse'
 import prettyBytes from 'pretty-bytes'
 
 let scrapOrigin = null
+let scrapCallback = (files) => {}
 let files = []
 
 const fetchFileHead = async (url) => {
-  const response = await axios.head(url)
-  const size = () => {
-    if (response.headers.hasOwnProperty('content-length')) {
-      const contentLength = parseInt(response.headers['content-length'])
-      return prettyBytes(contentLength)
-    } else {
-      return '-'
-    }
-  }
-  const type = () => {
-    return response.headers['content-type']
-  }
+  try {
+    const response = await axios.head(url)
 
-  return {
-    size: size(),
-    type: type()
+    const getSize = () => {
+      if (response.headers.hasOwnProperty('content-length')) {
+        const contentLength = parseInt(response.headers['content-length'])
+        return prettyBytes(contentLength)
+      } else {
+        return '-'
+      }
+    }
+    const getType = () => {
+      return response.headers['content-type']
+    }
+
+    return {
+      size: getSize(),
+      type: getType()
+    }
+  } catch (error) {
+    return { size: '-', type: '-' }
   }
 }
 
@@ -51,11 +57,21 @@ const parseElement = async (tag, attr) => {
       name: url.substr(url.lastIndexOf('/') + 1),
       ...await fetchFileHead(url)
     }
-    files.push(item)
-    scrapCallback(files)
+    if (urlInFiles(item.url, files) === false) {
+      files.push(item)
+      scrapCallback(files)
+    }
   }
 }
-let scrapCallback = (f) => {}
+
+const urlInFiles = (url, files) => {
+  console.log(url, files, files.length)
+  if (files.find(x => x.url === url)) {
+    return true
+  }
+  return false
+}
+
 const scrap = async (url, cb) => {
   scrapOrigin = urlParser(url).origin
   files = []
