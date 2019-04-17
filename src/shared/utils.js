@@ -350,9 +350,10 @@ export function decodeThunderLink (url = '') {
     return url
   }
 
-  let result = url.split('thunder://')[1]
+  let result = url.trim()
+  result = result.split('thunder://')[1]
   result = Buffer.from(result, 'base64').toString('utf8')
-  result = result.substring(0, result.length - 2)
+  result = result.substring(2, result.length - 2)
   return result
 }
 
