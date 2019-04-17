@@ -154,7 +154,7 @@ export function getTaskFullPath (task) {
   }
 
   const [file] = files
-  const path = resolve(file.path)
+  const path = file.path ? resolve(file.path) : ''
   let fileName = ''
 
   if (path) {
