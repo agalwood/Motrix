@@ -53,26 +53,4 @@
     right: 36px;
     bottom: 24px;
   }
-  .panel {
-    background: $--panel-background;
-    .panel-header {
-      position: relative;
-      padding: 44px 0 12px;
-      margin: 0 36px;
-      border-bottom: 2px solid $--panel-border-color;
-      user-select: none;
-      h4 {
-        margin: 0;
-        color: $--panel-title-color;
-        font-size: 16px;
-        font-weight: normal;
-        line-height: 24px;
-      }
-    }
-    .panel-content {
-      position: relative;
-      padding: 16px 36px 24px;
-      height: 100%;
-    }
-  }
 </style>

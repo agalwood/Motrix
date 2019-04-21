@@ -116,7 +116,8 @@
   .task-item {
     position: relative;
     padding: 16px 12px;
-    border: 1px solid #ccc;
+    background-color: $--task-item-background;
+    border: 1px solid $--task-item-border-color;
     border-radius: 6px;
     margin-bottom: 16px;
     transition: $--border-transition-base;
