@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events'
 import { join } from 'path'
-import { Tray, Menu } from 'electron'
+import { Tray, Menu, systemPreferences } from 'electron'
 import is from 'electron-is'
 import { translateTemplate } from '../utils/menu'
 import { getI18n } from '@/ui/Locale'
+import { LIGHT_THEME, DARK_THEME } from '@shared/constants'
 
 let tray = null
 
@@ -23,10 +24,11 @@ export default class TrayManager extends EventEmitter {
 
   load () {
     this.template = require(`../menus/tray.json`)
+    const theme = systemPreferences.isDarkMode() ? DARK_THEME : LIGHT_THEME
 
     if (is.macOS()) {
-      this.normalIcon = join(__static, './mo-tray-normal.png')
-      this.activeIcon = join(__static, './mo-tray-active.png')
+      this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)
+      this.activeIcon = join(__static, `./mo-tray-${theme}-active.png`)
     } else {
       this.normalIcon = join(__static, './mo-tray-colorful-normal.png')
       this.activeIcon = join(__static, './mo-tray-colorful-active.png')
@@ -91,7 +93,23 @@ export default class TrayManager extends EventEmitter {
   }
 
   updateStatus (status) {
-    const icon = status ? this.activeIcon : this.normalIcon
+    this.status = status
+    this.updateIcon()
+  }
+
+  updateIcon () {
+    const icon = this.status ? this.activeIcon : this.normalIcon
     tray.setImage(icon)
+  }
+
+  changeIconTheme (theme = LIGHT_THEME) {
+    if (!is.macOS()) {
+      return
+    }
+
+    this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)
+    this.activeIcon = join(__static, `./mo-tray-${theme}-active.png`)
+
+    this.updateIcon()
   }
 }
