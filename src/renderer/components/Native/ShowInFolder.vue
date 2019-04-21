@@ -1,6 +1,6 @@
 <template>
   <i @click.stop="onFolderClick">
-    <mo-icon name="folder" width="14" height="14" />
+    <mo-icon name="folder" width="10" height="10" />
   </i>
 </template>
 
