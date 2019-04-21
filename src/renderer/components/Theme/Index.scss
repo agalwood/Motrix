@@ -1,13 +1,15 @@
+/* Normalize.css
+-------------------------- */
 @import '~normalize.css/normalize.css';
-@import './Variables.scss';
+
+/* Element UI
+-------------------------- */
 @import "~element-ui/packages/theme-chalk/src/index";
 
-@import './Base.scss';
-
-/* Theme Capriccio
+/* Theme Light (default)
 -------------------------- */
 @import './Default.scss';
 
-/* Theme Darkness
+/* Theme Dark
 -------------------------- */
-@import './Darkness.scss';
+@import './Dark.scss';

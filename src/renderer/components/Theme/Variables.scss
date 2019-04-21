@@ -727,45 +727,6 @@ $--breakpoints-spec: (
 /* 改变 icon 字体路径变量，必需 */
 $--font-path: '~element-ui/lib/theme-chalk/fonts';
 
-/* App
--------------------------- */
-$--app-background: transparent !default;
-// $--app-background: #fff !default;
-$--titlebar-actions-active-background: #eee !default;
-
-/* Aside
--------------------------- */
-$--aside-background: rgba(0, 0, 0, 0.8) !default;
-$--aside-text-color: #fff !default;
-
-/* SubNav
--------------------------- */
-$--subnav-background: #F4F5F7 !default;
-$--subnav-title-color: $--color-text-primary !default;
-$--subnav-text-color: #4D515A !default;
-$--subnav-active-text-color: $--color-primary !default;
-
-/* Panel
--------------------------- */
-$--panel-background: $--color-white !default;
-$--panel-title-color: $--color-text-primary !default;
-$--panel-border-color: rgba(0, 0, 0, 0.1) !default;
-
-/* Task
--------------------------- */
-$--task-item-border-color: #ccc !default;
-$--task-item-hover-border-color: $--color-primary !default;
-$--task-item-hover-background: $--color-primary !default;
-
-/* Speedometer
--------------------------- */
-$--speedometer-background: $--color-white !default;
-$--speedometer-border-color: #ccc !default;
-$--speedometer-hover-border-color: #9b9b9b !default;
-$--speedometer-primary-color: $--color-primary !default;
-$--speedometer-stopped-color: #9b9b9b !default;
-$--speedometer-text-color: #9b9b9b !default;
-
 /* Mixin
 -------------------------- */
 @mixin clearfix {
@@ -775,3 +736,8 @@ $--speedometer-text-color: #9b9b9b !default;
     clear: both;
   }
 }
+
+/* App Theme Variables
+-------------------------- */
+@import './Light/Variables.scss';
+@import './Dark/Variables.scss';

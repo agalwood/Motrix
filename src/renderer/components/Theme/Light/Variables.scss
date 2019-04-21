@@ -1,0 +1,60 @@
+/* App
+-------------------------- */
+$--app-background: transparent !default;
+$--titlebar-actions-color: #1f1f1f !default;
+$--titlebar-actions-active-background: #eee !default;
+$--titlebar-close-active-background: $--color-danger !default;
+$--app-logo-color: #4D515A !default;
+$--app-version-color: $--color-text-regular !default;
+$--app-engine-title-color: $--color-text-regular !default;
+$--app-engine-info-color: $--color-text-secondary !default;
+$--app-copyright-color: $--color-text-regular !default;
+
+/* Aside
+-------------------------- */
+$--aside-background: rgba(0, 0, 0, 0.8) !default;
+$--aside-text-color: #fff !default;
+
+/* SubNav
+-------------------------- */
+$--subnav-background: #F4F5F7 !default;
+$--subnav-title-color: $--color-text-primary !default;
+$--subnav-text-color: #4D515A !default;
+$--subnav-active-text-color: $--color-primary !default;
+$--subnav-active-background: #EAECF0 !default;
+
+/* Panel
+-------------------------- */
+$--panel-background: $--color-white !default;
+$--panel-title-color: $--color-text-primary !default;
+$--panel-border-color: rgba(0, 0, 0, 0.1) !default;
+
+/* Task
+-------------------------- */
+$--task-action-color: #4d515a !default;
+$--task-action-hover-color: $--color-primary !default;
+$--task-item-background: #fff !default;
+$--task-item-border-color: #ccc !default;
+$--task-item-hover-border-color: $--color-primary !default;
+$--task-item-hover-background: $--color-primary !default;
+$--task-item-text-color: #505753 !default;
+$--task-item-action-background: #fff !default;
+$--task-item-action-hover-background: $--color-primary !default;
+$--task-item-action-border-color: #F5F5F5 !default;
+$--task-item-action-hover-border-color: $--color-primary !default;
+$--task-item-action-color: #9B9B9B !default;
+$--task-item-action-hover-color: #fff !default;
+$--no-task-color: #eee !default;
+
+/* Preference
+-------------------------- */
+$--preference-form-text-color: #4c4c4c;
+
+/* Speedometer
+-------------------------- */
+$--speedometer-background: $--color-white !default;
+$--speedometer-border-color: #ccc !default;
+$--speedometer-hover-border-color: #9b9b9b !default;
+$--speedometer-primary-color: $--color-primary !default;
+$--speedometer-stopped-color: #9b9b9b !default;
+$--speedometer-text-color: #9b9b9b !default;

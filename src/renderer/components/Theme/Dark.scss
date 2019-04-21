@@ -1,0 +1,335 @@
+.theme-dark {
+  .title-bar .window-actions > li {
+    color: $--dk-titlebar-actions-color;
+    &:hover {
+      background-color: $--dk-titlebar-actions-active-background;
+    }
+    &.win-close-btn:hover {
+      background-color: $--dk-titlebar-close-active-background;
+    }
+  }
+
+  .logo > a {
+    color: $--dk-app-logo-color;
+  }
+
+  .app-info .app-version span {
+    color: $--dk-app-version-color;
+  }
+
+  .app-info .engine-info {
+    h4 {
+      color: $--dk-app-engine-title-color;
+    }
+    ul {
+      color: $--dk-app-engine-info-color;
+    }
+  }
+
+  .copyright a {
+    color: $--dk-app-copyright-color;
+  }
+
+  .aside {
+    background-color: $--dk-aside-background;
+  }
+
+  .subnav {
+    background-color: $--dk-subnav-background;
+    color: $--dk-subnav-text-color;
+  }
+
+  .subnav-inner {
+    h3 {
+      color: $--dk-subnav-title-color;
+    }
+    ul li {
+      &:hover,
+      &.active {
+        background-color: $--dk-subnav-active-background;
+
+        i,
+        span,
+        svg {
+          color: $--dk-subnav-active-text-color;
+        }
+      }
+    }
+  }
+
+  .panel {
+    background-color: $--dk-panel-background;
+  }
+
+  .panel .panel-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+    h4 {
+      color: $--dk-panel-title-color;
+    }
+  }
+
+  .task-item {
+    background-color: $--dk-task-item-backgroud;
+    border-color: $--dk-task-item-border-color;
+    &:hover {
+      border-color: $--dk-task-item-hover-border-color;
+    }
+  }
+
+  .task-name {
+    color: $--dk-task-item-text-color;
+  }
+
+  .task-actions {
+    color: $--dk-task-action-color;
+  }
+
+  .task-item-actions {
+    background-color: $--dk-task-item-action-background;
+    border-color: $--dk-task-item-action-border-color;
+    &:hover {
+      border-color: $--dk-task-item-action-hover-border-color;
+      color: $--dk-task-item-action-hover-color;
+      background-color: $--dk-task-item-action-hover-background;
+    }
+  }
+
+  .mo-speedometer {
+    background-color: $--dk-speedometer-background;
+    border-color: #5f5f5f;
+  }
+
+  .no-task {
+    color: $--dk-no-task-color;
+  }
+
+  /* Element UI
+  -------------------------- */
+  .el-progress-bar__outer {
+    background-color: #4a4a4a;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    background-color: #373737;
+    border-color: #5f5f5f;
+    color: #eee;
+    &:focus {
+      outline: none;
+      border-color: $--color-primary;
+    }
+    &::placeholder {
+      color: #777;
+    }
+  }
+
+  .el-input.is-disabled .el-input__inner {
+    background-color: #373737;
+    border-color: #5f5f5f;
+    color: #aaa;
+  }
+
+  .el-input-group__append,
+  .el-input-group__prepend {
+    background-color: #333;
+    border-color: #5f5f5f;
+    color: #e7e7e7;
+  }
+
+  .el-input-number__increase,
+  .el-input-number__decrease {
+    background-color: #333;
+    color: #e7e7e7;
+  }
+
+  .el-input-number__decrease {
+    border-right-color: #5f5f5f;
+  }
+
+  .el-input-number__increase {
+    border-left-color: #5f5f5f;
+  }
+
+  .el-input-number.is-controls-right .el-input-number__increase {
+    border-left-color: #5f5f5f;
+    border-bottom-color: #5f5f5f;
+  }
+
+  .el-input-number.is-controls-right .el-input-number__decrease {
+    border-left-color: #5f5f5f;
+  }
+
+  .el-form-item__label,
+  .el-checkbox,
+  .el-radio {
+    color: $--dk-preference-form-text-color;
+  }
+
+  .el-switch__core,
+  .el-checkbox__inner {
+    border-color: #606060;
+    background-color: #5c5d5f;
+  }
+
+  .el-select .el-input .el-select__caret {
+    color: #e7e7e7;
+  }
+
+  .el-select-dropdown {
+    background-color: #3d3d3d;
+    border-color: #606060;
+  }
+
+  .el-select-dropdown__item {
+    color: #eee;
+    &.selected {
+      color: $--color-primary;
+    }
+    &.hover,
+    &:hover {
+      background-color: $--color-primary;
+      color: #fff;
+    }
+  }
+
+  .el-upload-dragger {
+    background-color: #2d2d2d;
+    border-color: #606060;
+    > i,
+    .el-upload__text {
+      color: #a2a3a4;
+    }
+  }
+
+  .el-popper[x-placement^="top"] .popper__arrow {
+    border-top-color: #606060;
+    &:after {
+      border-top-color: #3d3d3d;
+    }
+  }
+
+  .el-popper[x-placement^="right"] .popper__arrow {
+    border-right-color: #606060;
+    &:after {
+      border-right-color: #3d3d3d;
+    }
+  }
+
+  .el-popper[x-placement^="bottom"] .popper__arrow {
+    border-bottom-color: #606060;
+    &:after {
+      border-bottom-color: #3d3d3d;
+    }
+  }
+
+  .el-popper[x-placement^="left"] .popper__arrow {
+    border-left-color: #606060;
+    &:after {
+      border-left-color: #3d3d3d;
+    }
+  }
+
+  .el-button {
+    background-color: #5b5b5b;
+    border-color: #606060;
+    color: #e6e6e6;
+    &:hover,
+    &:focus {
+      color: $--color-primary;
+      border-color: #606060;
+      background-color: #333;
+    }
+  }
+
+  .el-button--primary {
+    color: #eee;
+    background-color: $--color-primary;
+    border-color: $--color-primary;
+    &:hover,
+    &:focus {
+      background: $--color-primary;
+      border-color: $--color-primary;
+      color: #fff;
+    }
+  }
+
+  .el-button--danger.is-plain {
+    color: #ff6157;
+    background-color: #5b5b5b;
+    border-color: #ffc0bc;
+  }
+
+  .el-button--danger.is-plain:hover,
+  .el-button--danger.is-plain:focus {
+    background-color: #ff6157;
+    border-color: #ff6157;
+    color: #fff;
+  }
+
+  /* Message */
+  .el-message {
+    background-color: #2d2d2d;
+    border-color: #606060;
+  }
+
+  .el-message__closeBtn {
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .el-message--info .el-message__content {
+    color: #a2a3a4;
+  }
+
+  .el-message--success {
+    background-color: #2d2d2d;
+    border-color: #606060;
+    .el-message__content {
+      color: #67c23a;
+    }
+  }
+
+  .el-message--warning {
+    background-color: #2d2d2d;
+    border-color: #606060;
+    .el-message__content {
+      color: #e6a23c;
+    }
+  }
+
+  .el-message--error {
+    background-color: #2d2d2d;
+    border-color: #606060;
+    .el-message__content {
+      color: #f56c6c;
+    }
+  }
+
+  /* Dialog */
+  .el-dialog {
+    background-color: #343434;
+  }
+
+  .add-task-dialog .el-dialog__footer {
+    background-color: #373737;
+  }
+
+  /* Tabs */
+  .el-tabs__item {
+    color: #a2a3a4;
+    &.is-active {
+      color: $--color-primary;
+    }
+  }
+
+  .el-tabs__nav-wrap::after {
+    background-color: #606060;
+  }
+
+  .form-preference .el-form-item__content {
+    color: $--dk-preference-form-text-color;
+  }
+
+  .form-preference .el-switch__label {
+    color: $--dk-preference-form-text-color;
+  }
+}
