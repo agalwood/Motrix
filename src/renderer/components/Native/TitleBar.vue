@@ -8,7 +8,7 @@
       <li @click="handleMaximize">
         <mo-icon name="win-maximize" width="12" height="12" />
       </li>
-      <li @click="handleClose">
+      <li @click="handleClose" class="win-close-btn">
         <mo-icon name="win-close" width="12" height="12" />
       </li>
     </ul>
@@ -77,8 +77,12 @@
       display: inline-block;
       padding: 5px 10px;
       margin: 0 5px;
+      color: $--titlebar-actions-color;
       &:hover {
         background-color: $--titlebar-actions-active-background;
+      }
+      &.win-close-btn:hover {
+        background-color: $--titlebar-close-active-background;
       }
     }
   }
