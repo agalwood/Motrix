@@ -10,6 +10,7 @@ const userKeys = [
   'log-path',
   'session-path',
   'enable-egg-features',
+  'theme',
   'auto-check-update',
   'last-check-update-time'
 ]

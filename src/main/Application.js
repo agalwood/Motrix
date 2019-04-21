@@ -142,7 +142,7 @@ export default class Application extends EventEmitter {
     this.themeManager = new ThemeManager()
     this.themeManager.on('system-theme-changed', (theme) => {
       this.trayManager.changeIconTheme(theme)
-      this.sendCommandToAll('application:theme', theme)
+      this.sendCommandToAll('application:system-theme', theme)
     })
   }
 
@@ -273,6 +273,11 @@ export default class Application extends EventEmitter {
 
     this.on('application:check-for-updates', () => {
       this.updateManager.check()
+    })
+
+    this.on('application:change-theme', (theme) => {
+      this.themeManager.updateAppAppearance(theme)
+      this.sendCommandToAll('application:theme', theme)
     })
 
     this.on('application:change-locale', (locale) => {

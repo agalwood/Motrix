@@ -31,9 +31,16 @@ export default class ThemeManager extends EventEmitter {
       'AppleInterfaceThemeChangedNotification',
       () => {
         const theme = this.getSystemTheme()
-        systemPreferences.setAppLevelAppearance(theme)
+        this.updateAppAppearance(theme)
         this.emit('system-theme-changed', theme)
       }
     )
+  }
+
+  updateAppAppearance (theme) {
+    if (!is.macOS() || theme !== LIGHT_THEME || theme !== DARK_THEME) {
+      return
+    }
+    systemPreferences.setAppLevelAppearance(theme)
   }
 }

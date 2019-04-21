@@ -13,6 +13,10 @@ function updateSystemTheme (theme) {
   store.dispatch('app/updateSystemTheme', theme)
 }
 
+function updateTheme (theme) {
+  store.dispatch('preference/changeThemeConfig', theme)
+}
+
 function showAboutPanel () {
   store.dispatch('app/showAboutPanel')
 }
@@ -71,7 +75,8 @@ function resumeAllTask () {
   store.dispatch('task/resumeAllTask')
 }
 
-commands.register('application:theme', updateSystemTheme)
+commands.register('application:system-theme', updateSystemTheme)
+commands.register('application:theme', updateTheme)
 commands.register('application:about', showAboutPanel)
 commands.register('application:new-task', showAddTask)
 commands.register('application:new-bt-task', showAddTask)
