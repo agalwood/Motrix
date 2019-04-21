@@ -49,13 +49,13 @@
 <style lang="scss">
   .app-info {
     position: relative;
-    padding: 8px 0;
+    margin: 8px 0;
     .app-version span {
       display: inline-block;
       vertical-align: bottom;
       font-size: $--font-size-large;
       margin-left: 20px;
-      color: $--color-text-regular;
+      color: $--app-version-color;
       line-height: 18px;
     }
     .app-icon {
@@ -72,11 +72,11 @@
       h4 {
         font-size: $--font-size-base;
         font-weight: $--font-weight-secondary;
-        color: $--color-text-regular;
+        color: $--app-engine-title-color;
       }
       ul {
         font-size: 12px;
-        color: $--color-text-secondary;
+        color: $--app-engine-info-color;
         list-style: none;
         padding: 0;
         line-height: 20px;
