@@ -15,6 +15,7 @@ import WindowManager from './ui/WindowManager'
 import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
+import ThemeManager from './ui/ThemeManager'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -40,12 +41,14 @@ export default class Application extends EventEmitter {
     })
     this.startEngine()
 
+    this.initThemeManager()
+
     this.menuManager = new MenuManager()
     this.menuManager.setup(this.locale)
 
-    this.touchBarManager = new TouchBarManager()
-
     this.trayManager = new TrayManager()
+
+    this.initTouchBarManager()
 
     this.energyManager = new EnergyManager()
 
@@ -133,6 +136,20 @@ export default class Application extends EventEmitter {
     this.windowManager.getWindowList().forEach(window => {
       this.windowManager.sendMessageTo(window, channel, ...args)
     })
+  }
+
+  initThemeManager () {
+    this.themeManager = new ThemeManager()
+    this.themeManager.on('system-theme-changed', (theme) => {
+      this.sendCommandToAll('application:theme', theme)
+    })
+  }
+
+  initTouchBarManager () {
+    if (!is.macOS()) {
+      return
+    }
+    this.touchBarManager = new TouchBarManager()
   }
 
   initProtocolManager () {

@@ -65,6 +65,7 @@ export default class ConfigManager {
         'log-path': getLogPath(),
         'session-path': getSessionPath(),
         'locale': app.getLocale(),
+        'theme': 'auto',
         'auto-check-update': false,
         'last-check-update-time': 0
       }
