@@ -9,6 +9,10 @@ import { buildFileList } from '@shared/utils'
 const commands = new CommandManager()
 const i18n = getLocaleManager().getI18n()
 
+function updateSystemTheme (theme) {
+  store.dispatch('app/updateSystemTheme', theme)
+}
+
 function showAboutPanel () {
   store.dispatch('app/showAboutPanel')
 }
@@ -67,6 +71,7 @@ function resumeAllTask () {
   store.dispatch('task/resumeAllTask')
 }
 
+commands.register('application:theme', updateSystemTheme)
 commands.register('application:about', showAboutPanel)
 commands.register('application:new-task', showAddTask)
 commands.register('application:new-bt-task', showAddTask)

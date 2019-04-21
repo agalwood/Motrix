@@ -1,5 +1,6 @@
 import is from 'electron-is'
 import api from '@/api'
+import { getSystemTheme } from '@/components/Native/utils'
 
 const BASE_INTERVAL = 1000
 const PER_INTERVAL = 100
@@ -7,6 +8,7 @@ const MIN_INTERVAL = 500
 const MAX_INTERVAL = 6000
 
 const state = {
+  systemTheme: getSystemTheme(),
   aboutPanelVisible: false,
   engineInfo: {
     version: '',
@@ -30,6 +32,9 @@ const getters = {
 }
 
 const mutations = {
+  CHANGE_SYSTEM_THEME (state, theme) {
+    state.systemTheme = theme
+  },
   CHANGE_ABOUT_PANEL_VISIBLE (state, visible) {
     state.aboutPanelVisible = visible
   },
@@ -77,6 +82,9 @@ const mutations = {
 }
 
 const actions = {
+  updateSystemTheme ({ commit }, theme) {
+    commit('CHANGE_SYSTEM_THEME', theme)
+  },
   showAboutPanel ({ commit }) {
     commit('CHANGE_ABOUT_PANEL_VISIBLE', true)
   },
