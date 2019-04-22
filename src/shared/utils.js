@@ -322,7 +322,9 @@ export function compactUndefined (arr = []) {
 }
 
 export function splitTextRows (text = '') {
-  return text.replace(/\r\n/g, '\n').split('\n') || []
+  let result = text.replace(/\r\n/g, '\n').split('\n') || []
+  result = result.map((row) => row.trim())
+  return result
 }
 
 const audioSuffix = ['.aac', '.mp3', '.ogg', '.ape', '.flac', '.m4a', '.wav', '.wma', '.flav']
