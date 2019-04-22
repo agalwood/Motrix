@@ -305,12 +305,12 @@
   }
 
   /* Dialog */
-  .el-dialog {
-    background-color: #343434;
+  .el-dialog.add-task-dialog {
+    background-color: $--dk-add-task-dialog-background;
   }
 
   .add-task-dialog .el-dialog__footer {
-    background-color: #373737;
+    background-color: $--dk-add-task-dialog-footer-background;
   }
 
   /* Tabs */
