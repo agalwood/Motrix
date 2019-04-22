@@ -70,7 +70,7 @@
     margin: 0 16px 0 0;
     cursor: pointer;
     span {
-      font-size: 14px;
+      font-size: 13px;
       line-height: 20px;
     }
     &.active {
