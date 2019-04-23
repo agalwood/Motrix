@@ -112,4 +112,8 @@ export default class TrayManager extends EventEmitter {
 
     this.updateIcon()
   }
+
+  destroy () {
+    tray.destroy()
+  }
 }

@@ -115,6 +115,7 @@ export default class Application extends EventEmitter {
   stop () {
     this.engine.stop()
     this.energyManager.stopPowerSaveBlocker()
+    this.trayManager.destroy()
   }
 
   sendCommand (command, ...args) {
