@@ -102,6 +102,14 @@ export default class Engine {
     // })
   }
 
+  isRunning (pid) {
+    try {
+      return process.kill(pid, 0)
+    } catch (e) {
+      return e.code === 'EPERM'
+    }
+  }
+
   stop () {
     const { pid } = this.instance.child
     try {
@@ -116,7 +124,7 @@ export default class Engine {
 
   forceStop (pid) {
     try {
-      if (pid) {
+      if (pid && this.isRunning(pid)) {
         process.kill(pid)
       }
     } catch (err) {
