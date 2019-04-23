@@ -4,7 +4,7 @@
       v-if="isRenderer()"
       :showActions="showWindowActions"
     />
-    <router-view></router-view>
+    <router-view />
     <mo-engine-client
       :secret="rpcSecret"
     />

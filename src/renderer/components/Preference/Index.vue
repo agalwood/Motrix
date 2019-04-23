@@ -1,9 +1,9 @@
 <template>
   <el-container class="content panel" direction="horizontal">
     <el-aside width="200px" class="subnav">
-      <router-view name="subnav"></router-view>
+      <router-view name="subnav" />
     </el-aside>
-    <router-view name="form"></router-view>
+    <router-view name="form" />
   </el-container>
 </template>
 

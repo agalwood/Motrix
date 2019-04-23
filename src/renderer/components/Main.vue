@@ -1,7 +1,7 @@
 <template>
   <el-container id="container">
     <mo-aside />
-    <router-view></router-view>
+    <router-view />
     <mo-speedometer />
     <mo-add-task :visible="addTaskVisible" :type="addTaskType" />
     <mo-about-panel :visible="aboutPanelVisible" />

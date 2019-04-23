@@ -1,6 +1,6 @@
 <template>
   <el-aside width="200px" class="subnav">
-    <router-view name="subnav"></router-view>
+    <router-view name="subnav" />
   </el-aside>
 </template>
 
