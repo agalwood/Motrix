@@ -3,6 +3,7 @@
 $--app-background: transparent !default;
 $--titlebar-actions-color: #1f1f1f !default;
 $--titlebar-actions-active-background: #eee !default;
+$--titlebar-close-active-color: #fff !default;
 $--titlebar-close-active-background: $--color-danger !default;
 $--app-logo-color: #4D515A !default;
 $--app-version-color: $--color-text-regular !default;
@@ -45,7 +46,6 @@ $--task-item-action-hover-border-color: $--color-primary !default;
 $--task-item-action-color: #9B9B9B !default;
 $--task-item-action-hover-color: #fff !default;
 $--no-task-color: #eee !default;
-$--add-task-dialog-background: #fff !default;
 $--add-task-dialog-footer-background: #f5f5f5 !default;
 
 /* Preference
@@ -60,3 +60,7 @@ $--speedometer-hover-border-color: #9b9b9b !default;
 $--speedometer-primary-color: $--color-primary !default;
 $--speedometer-stopped-color: #9b9b9b !default;
 $--speedometer-text-color: #9b9b9b !default;
+
+/* Element UI
+-------------------------- */
+$--dialog-background: #fff !default;

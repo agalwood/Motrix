@@ -76,6 +76,7 @@
     &.active {
       .theme-thumb {
         border-color: $--color-primary;
+        box-shadow: 0 0 1px $--color-primary;
       }
       span {
         color: $--color-primary;
@@ -96,7 +97,7 @@
   }
   .theme-thumb {
     box-sizing: border-box;
-    border: 2px solid #aaa;
+    border: 1px solid #aaa;
     border-radius: 5px;
     width: 68px;
     height: 44px;

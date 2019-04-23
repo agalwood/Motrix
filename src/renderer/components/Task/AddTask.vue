@@ -393,7 +393,6 @@
 <style lang="scss">
   .el-dialog.add-task-dialog {
     max-width: 632px;
-    background-color: $--add-task-dialog-background;
     .el-tabs__header {
       user-select: none;
     }

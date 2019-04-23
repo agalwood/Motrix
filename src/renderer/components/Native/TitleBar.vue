@@ -82,6 +82,7 @@
         background-color: $--titlebar-actions-active-background;
       }
       &.win-close-btn:hover {
+        color: $--titlebar-close-active-color;
         background-color: $--titlebar-close-active-background;
       }
     }
