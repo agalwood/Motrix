@@ -74,6 +74,9 @@ export default {
   'download-error-message': '{{taskName}} une erreur c\'est produite',
   'download-complete-message': '{{taskName}} téléchargement terminé',
   'download-complete-notify': 'Téléchargement Terminé',
+  'bt-download-complete-message': '{{taskName}} téléchargement terminé, ensemencement...',
+  'bt-download-complete-notify': 'BT Télécharger Terminé, Ensemencement...',
+  'bt-download-complete-tips': 'Astuces: Vous pouvez arrêter la tâche pour mettre fin à l\'ensemencement',
   'download-fail-message': '{{taskName}} téléchargement échoué',
   'download-fail-notify': 'Téléchargement Échoué'
 }

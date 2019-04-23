@@ -74,6 +74,9 @@ export default {
   'download-error-message': '{{taskName}} ocorreu um erro no download',
   'download-complete-message': '{{taskName}} download completado',
   'download-complete-notify': 'Download Completado',
+  'bt-download-complete-message': '{{taskName}} download completado, propagação ...',
+  'bt-download-complete-notify': 'Download do BT concluído, Propagação ...',
+  'bt-download-complete-tips': 'Dicas: você pode parar a tarefa para terminar a propagação',
   'download-fail-message': '{{taskName}} falha no download',
   'download-fail-notify': 'Falha no Download'
 }

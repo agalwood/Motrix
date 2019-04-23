@@ -74,6 +74,9 @@ export default {
   'download-error-message': '{{taskName}} görevinde hata oluştu',
   'download-complete-message': '{{taskName}} görevi tamamlandı',
   'download-complete-notify': 'İndirme bitti',
+  'bt-download-complete-message': '{{taskName}} indirme tamamlandı, tohumlama...',
+  'bt-download-complete-notify': 'BT Indirme tamamlandı, tohumlama...',
+  'bt-download-complete-tips': 'Ipuçları: Eğer tohumlama sona erdirmek için görev durdurabilirsiniz',
   'download-fail-message': '{{taskName}} görevi indirilemedi',
   'download-fail-notify': 'İndirme başarısız'
 }

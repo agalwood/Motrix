@@ -74,6 +74,9 @@ export default {
   'download-error-message': 'Fehler beim Download von {{taskName}} aufgetreten',
   'download-complete-message': 'Download von {{taskName}} abgeschlossen',
   'download-complete-notify': 'Download abgeschlossen',
+  'bt-download-complete-message': 'Download von {{taskName}} abgeschlossen, aussaat...',
+  'bt-download-complete-notify': 'BT Download abgeschlossen, Aussaat...',
+  'bt-download-complete-tips': 'Tipps: Sie können die Aufgabe stoppen, die aussaat zu beenden',
   'download-fail-message': 'Download von {{taskName}} fehlgeschlagen',
   'download-fail-notify': 'Download fehlgeschlagen'
 }

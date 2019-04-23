@@ -107,7 +107,7 @@
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
           .then((task) => {
-            this.showTaskCompleteNotify(task)
+            this.handleDownloadComplete(task, false)
           })
       },
       onBtDownloadComplete: function (event) {
@@ -116,26 +116,39 @@
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
           .then((task) => {
-            this.showTaskCompleteNotify(task)
+            this.handleDownloadComplete(task, true)
           })
       },
-      showTaskCompleteNotify: function (task) {
-        if (!this.taskNotification) {
-          return
-        }
-
-        const taskName = getTaskName(task)
+      handleDownloadComplete: function (task, isBT) {
         const path = getTaskFullPath(task)
 
         addToRecentTask(task)
         openDownloadDock(path)
 
-        const message = this.$t('task.download-complete-message', { taskName })
-        this.$msg.success(message)
+        this.showTaskCompleteNotify(task, isBT, path)
+      },
+      showTaskCompleteNotify: function (task, isBT, path) {
+        const taskName = getTaskName(task)
+        const message = isBT
+          ? this.$t('task.bt-download-complete-message', { taskName })
+          : this.$t('task.download-complete-message', { taskName })
+        const tips = isBT
+          ? '\n' + this.$t('task.bt-download-complete-tips')
+          : ''
+
+        this.$msg.success(`${message}${tips}`)
+
+        if (!this.taskNotification) {
+          return
+        }
 
         /* eslint-disable no-new */
-        const notify = new Notification(this.$t('task.download-complete-notify'), {
-          body: taskName
+        const notifyMessage = isBT
+          ? this.$t('task.bt-download-complete-notify')
+          : this.$t('task.download-complete-notify')
+
+        const notify = new Notification(notifyMessage, {
+          body: `${taskName}${tips}`
         })
         notify.onclick = () => {
           showItemInFolder(path, {
@@ -144,14 +157,14 @@
         }
       },
       showTaskErrorNotify: function (task) {
-        if (!this.taskNotification) {
-          return
-        }
-
         const taskName = getTaskName(task)
 
         const message = this.$t('task.download-fail-message', { taskName })
         this.$msg.success(message)
+
+        if (!this.taskNotification) {
+          return
+        }
 
         /* eslint-disable no-new */
         new Notification(this.$t('task.download-fail-notify'), {

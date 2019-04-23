@@ -74,6 +74,9 @@ export default {
   'download-error-message': '{{taskName}} download error occurred',
   'download-complete-message': '{{taskName}} download completed',
   'download-complete-notify': 'Download Completed',
+  'bt-download-complete-message': '{{taskName}} download completed, seeding',
+  'bt-download-complete-notify': 'BT Download Completed, Seeding...',
+  'bt-download-complete-tips': 'Tips: You can stop the task to end the seeding',
   'download-fail-message': '{{taskName}} download failed',
   'download-fail-notify': 'Download Failed'
 }

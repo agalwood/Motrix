@@ -74,6 +74,9 @@ export default {
   'download-error-message': '{{taskName}} 下載錯誤',
   'download-complete-message': '{{taskName}} 下載完成',
   'download-complete-notify': '下載完成',
+  'bt-download-complete-message': '{{taskName}} 下載完成，正在做種...',
+  'bt-download-complete-notify': 'BT 任務下載完成，正在做種...',
+  'bt-download-complete-tips': '提示：你可以停止任務結束做種',
   'download-fail-message': '{{taskName}} 下載失敗',
   'download-fail-notify': '下載失敗'
 }
