@@ -51,6 +51,12 @@ export default class ConfigManager {
   initUserConfig () {
     this.userConfig = new Store({
       name: 'user',
+      schema: {
+        theme: {
+          type: 'string',
+          enum: ['auto', 'light', 'dark']
+        }
+      },
       defaults: {
         'all-proxy-backup': '',
         'auto-check-for-updates': false,
