@@ -30,15 +30,12 @@
     width: 100%;
     font-size: $--font-size-small;
     a {
-      color: $--color-text-regular;
+      color: $--app-copyright-color;
       text-decoration: none;
     }
   }
   .copyright-left {
     text-align: left;
-    a {
-      color: $--color-text-regular;
-    }
   }
 
   .copyright-right {

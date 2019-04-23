@@ -4,7 +4,7 @@
       v-if="isRenderer()"
       :showActions="showWindowActions"
     />
-    <router-view></router-view>
+    <router-view />
     <mo-engine-client
       :secret="rpcSecret"
     />
@@ -27,15 +27,45 @@
       [Ipc.name]: Ipc
     },
     computed: {
+      ...mapState('app', {
+        systemTheme: state => state.systemTheme
+      }),
       ...mapState('preference', {
         showWindowActions: state => {
           return (is.windows() || is.linux()) && state.config.hideAppMenu
         },
-        rpcSecret: state => state.config.rpcSecret
-      })
+        rpcSecret: state => state.config.rpcSecret,
+        theme: state => state.config.theme,
+        locale: state => state.config.locale
+      }),
+      themeClass: function () {
+        if (this.theme === 'auto') {
+          return `theme-${this.systemTheme}`
+        } else {
+          return `theme-${this.theme}`
+        }
+      },
+      i18nClass: function () {
+        return `i18n-${this.locale}`
+      }
     },
     methods: {
-      isRenderer: is.renderer
+      isRenderer: is.renderer,
+      updateRootClassName: function () {
+        const { themeClass = '', i18nClass = '' } = this
+        document.documentElement.className = `${themeClass} ${i18nClass}`
+      }
+    },
+    beforeMount: function () {
+      this.updateRootClassName()
+    },
+    watch: {
+      themeClass: function (val, oldVal) {
+        this.updateRootClassName()
+      },
+      i18nClass: function (val, oldVal) {
+        this.updateRootClassName()
+      }
     }
   }
 </script>

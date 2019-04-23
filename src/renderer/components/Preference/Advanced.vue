@@ -11,7 +11,20 @@
         size="mini"
         :model="form"
         :rules="rules">
-        <el-form-item :label="`${$t('preferences.ui')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.appearance')}: `" :label-width="formLabelWidth">
+          <el-col class="form-item-sub" :span="24">
+            <mo-theme-switcher
+              v-model="form.theme"
+              @change="handleThemeChange"
+            />
+          </el-col>
+          <el-col v-if="showHideAppMenuOption" class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.hideAppMenu">
+              {{ $t('preferences.hide-app-menu') }}
+            </el-checkbox>
+          </el-col>
+        </el-form-item>
+        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="16">
             <el-select
               v-model="form.locale"
@@ -24,11 +37,6 @@
                 :value="item.value">
               </el-option>
             </el-select>
-          </el-col>
-          <el-col v-if="showHideAppMenuOption" class="form-item-sub" :span="16">
-            <el-checkbox v-model="form.hideAppMenu">
-              {{ $t('preferences.hide-app-menu') }}
-            </el-checkbox>
           </el-col>
         </el-form-item>
         <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
@@ -102,6 +110,7 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
+  import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import { availableLanguages, getLanguage } from '@shared/locales'
@@ -110,6 +119,7 @@
   const initialForm = (config) => {
     const {
       locale,
+      theme,
       hideAppMenu,
       useProxy,
       allProxy,
@@ -118,6 +128,7 @@
     } = config
     const result = {
       locale,
+      theme,
       hideAppMenu,
       useProxy,
       allProxy,
@@ -130,6 +141,7 @@
   export default {
     name: 'mo-preference-advanced',
     components: {
+      [ThemeSwitcher.name]: ThemeSwitcher,
       [ShowInFolder.name]: ShowInFolder
     },
     data: function () {
@@ -162,6 +174,10 @@
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
         this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
+      },
+      handleThemeChange (theme) {
+        this.form.theme = theme
+        this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
       },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''

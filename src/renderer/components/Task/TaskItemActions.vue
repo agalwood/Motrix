@@ -207,15 +207,15 @@
     cursor: default;
     text-align: right;
     direction: rtl;
-    border: 1px solid #F5F5F5;
-    color: #9B9B9B;
-    background-color: #fff;
+    border: 1px solid $--task-item-action-border-color;
+    color: $--task-item-action-color;
+    background-color: $--task-item-action-background;
     border-radius: 14px;
     transition: $--all-transition;
     &:hover {
-      border-color: $--task-item-hover-border-color;
-      color: #fff;
-      background-color: $--task-item-hover-background;
+      border-color: $--task-item-action-hover-border-color;
+      color: $--task-item-action-hover-color;
+      background-color: $--task-item-action-hover-background;
       width: auto;
     }
     &> i {

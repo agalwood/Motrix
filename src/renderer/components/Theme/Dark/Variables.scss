@@ -1,0 +1,66 @@
+/* App
+-------------------------- */
+$--dk-app-background: transparent !default;
+$--dk-titlebar-actions-color: #eee !default;
+$--dk-titlebar-close-active-color: #fff !default;
+$--dk-titlebar-actions-active-background: rgba(0, 0, 0, 0.9) !default;
+$--dk-titlebar-close-active-background: $--color-danger !default;
+$--dk-app-logo-color: #eee !default;
+$--dk-app-version-color: #a2a3a4 !default;
+$--dk-app-engine-title-color: #a2a3a4 !default;
+$--dk-app-engine-info-color: #777 !default;
+$--dk-app-copyright-color: #a2a3a4 !default;
+
+/* Aside
+-------------------------- */
+$--dk-aside-background: rgba(0, 0, 0, 0.9) !default;
+$--dk-aside-text-color: #fff !default;
+
+/* SubNav
+-------------------------- */
+$--dk-subnav-background: #2D2D2D !default;
+$--dk-subnav-title-color: #fff !default;
+$--dk-subnav-text-color: #aaa !default;
+$--dk-subnav-active-text-color: #fff !default;
+$--dk-subnav-active-background: #444 !default;
+
+/* Panel
+-------------------------- */
+$--dk-panel-background: #343434 !default;
+$--dk-panel-title-color: #fff !default;
+$--dk-panel-border-color: #EBECF0 !default;
+
+/* Task
+-------------------------- */
+$--dk-task-action-color: #eee !default;
+$--dk-task-action-hover-color: $--color-primary !default;
+$--dk-task-item-backgroud: #2D2D2D !default;
+$--dk-task-item-border-color: #555 !default;
+$--dk-task-item-hover-border-color: $--color-primary !default;
+$--dk-task-item-hover-background: $--color-primary !default;
+$--dk-task-item-text-color: #eee !default;
+$--dk-task-item-action-background: #4a4a4a !default;
+$--dk-task-item-action-hover-background: $--color-primary !default;
+$--dk-task-item-action-border-color: #5f5f5f !default;
+$--dk-task-item-action-hover-border-color: $--color-primary !default;
+$--dk-task-item-action-color: #eee !default;
+$--dk-task-item-action-hover-color: #fff !default;
+$--dk-no-task-color: #aaa !default;
+$--dk-add-task-dialog-footer-background: #4a4a4a !default;
+
+/* Preference
+-------------------------- */
+$--dk-preference-form-text-color: #dfdfdf;
+
+/* Speedometer
+-------------------------- */
+$--dk-speedometer-background: #333 !default;
+$--dk-speedometer-border-color: #ccc !default;
+$--dk-speedometer-hover-border-color: #9b9b9b !default;
+$--dk-speedometer-primary-color: $--color-primary !default;
+$--dk-speedometer-stopped-color: #9b9b9b !default;
+$--dk-speedometer-text-color: #9b9b9b !default;
+
+/* Element UI
+-------------------------- */
+$--dk-dialog-background: #343434 !default;

@@ -391,7 +391,7 @@
 </script>
 
 <style lang="scss">
-  .add-task-dialog {
+  .el-dialog.add-task-dialog {
     max-width: 632px;
     .el-tabs__header {
       user-select: none;
@@ -401,7 +401,7 @@
     }
     .el-dialog__footer {
       padding-top: 20px;
-      background: #f5f5f5;
+      background-color: $--add-task-dialog-footer-background;
       border-radius: 0 0 5px 5px;
     }
     .dialog-footer {

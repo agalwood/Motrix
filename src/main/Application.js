@@ -15,6 +15,7 @@ import WindowManager from './ui/WindowManager'
 import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
+import ThemeManager from './ui/ThemeManager'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -30,6 +31,11 @@ export default class Application extends EventEmitter {
     this.localeManager = setupLocaleManager(this.locale)
     this.i18n = this.localeManager.getI18n()
 
+    this.menuManager = new MenuManager()
+    this.menuManager.setup(this.locale)
+
+    this.initTouchBarManager()
+
     this.windowManager = new WindowManager({
       userConfig: this.configManager.getUserConfig()
     })
@@ -40,12 +46,9 @@ export default class Application extends EventEmitter {
     })
     this.startEngine()
 
-    this.menuManager = new MenuManager()
-    this.menuManager.setup(this.locale)
-
-    this.touchBarManager = new TouchBarManager()
-
     this.trayManager = new TrayManager()
+
+    this.initThemeManager()
 
     this.energyManager = new EnergyManager()
 
@@ -84,7 +87,9 @@ export default class Application extends EventEmitter {
       this.isReady = true
       this.emit('ready')
     })
-    this.touchBarManager.setup(page, win)
+    if (is.macOS()) {
+      this.touchBarManager.setup(page, win)
+    }
   }
 
   show (page = 'index') {
@@ -110,6 +115,7 @@ export default class Application extends EventEmitter {
   stop () {
     this.engine.stop()
     this.energyManager.stopPowerSaveBlocker()
+    this.trayManager.destroy()
   }
 
   sendCommand (command, ...args) {
@@ -133,6 +139,21 @@ export default class Application extends EventEmitter {
     this.windowManager.getWindowList().forEach(window => {
       this.windowManager.sendMessageTo(window, channel, ...args)
     })
+  }
+
+  initThemeManager () {
+    this.themeManager = new ThemeManager()
+    this.themeManager.on('system-theme-changed', (theme) => {
+      this.trayManager.changeIconTheme(theme)
+      this.sendCommandToAll('application:system-theme', theme)
+    })
+  }
+
+  initTouchBarManager () {
+    if (!is.macOS()) {
+      return
+    }
+    this.touchBarManager = new TouchBarManager()
   }
 
   initProtocolManager () {
@@ -255,6 +276,11 @@ export default class Application extends EventEmitter {
 
     this.on('application:check-for-updates', () => {
       this.updateManager.check()
+    })
+
+    this.on('application:change-theme', (theme) => {
+      this.themeManager.updateAppAppearance(theme)
+      this.sendCommandToAll('application:theme', theme)
     })
 
     this.on('application:change-locale', (locale) => {

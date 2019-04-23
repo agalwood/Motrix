@@ -1,28 +1,104 @@
-:root {
-  --app-background: '';
-  --aside-background: '';
-  --aside-text-color: '';
-  --subnav-background: '';
-  --subnav-title-color: '';
-  --subnav-text-color: '';
-  --subnav-active-text-color: '';
-  --panel-background: '';
-  --panel-title-color: '';
-  --panel-border-color: '';
-  --task-item-border-color: '';
-  --task-item-hover-border-color: '';
-  --task-item-hover-background: '';
-  --speedometer-background: '';
-  --speedometer-border-color: '';
-  --speedometer-hover-border-color: '';
-  --speedometer-primary-color: '';
-  --speedometer-text-color: '';
+html,
+body {
+  height: 100%;
+  padding: 0;
 }
 
+body {
+  font-family: 'Monospaced Number', 'Chinese Quote', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-variant: tabular-nums;
+}
+
+img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.clearfix {
+  @include clearfix();
+}
+
+/* Element UI
+-------------------------- */
+.el-progress-bar__inner {
+  transition: all 0.4s cubic-bezier(0.08, 0.82, 0.17, 1) 0s;
+}
+
+.el-progress--line.is-text {
+  .el-progress-bar__inner::before {
+    content: '';
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    border-radius: 10px;
+    animation: mo-progress-active 2.4s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+  }
+}
+
+@keyframes mo-progress-active {
+  0% {
+    opacity: 0.1;
+    width: 0;
+  }
+  20% {
+    opacity: 0.5;
+    width: 0;
+  }
+  100% {
+    opacity: 0;
+    width: 100%;
+  }
+}
+
+.el-message-box__wrapper {
+  outline: none;
+}
+
+.el-message__content {
+  line-height: 18px;
+  word-break: break-all;
+}
+
+.tab-title-dialog {
+  .el-dialog__header {
+    padding: 0 20px;
+    position: relative;
+    z-index: 10;
+  }
+  .el-dialog__body {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+
+.el-form-item--mini .el-form-item__info {
+  padding-top: 1px;
+}
+
+.el-form-item__info {
+  font-size: 12px;
+  line-height: 1;
+  padding-top: 4px;
+  color: $--color-info;
+}
+
+/* App Main
+-------------------------- */
 #app,
 #container {
   height: 100%;
   background-color: $--app-background;
+}
+
+.draggable {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
 }
 
 .aside {
@@ -70,7 +146,7 @@
 
       &:hover,
       &.active {
-        background-color: #EAECF0;
+        background-color: $--subnav-active-background;
 
         i,
         span,
@@ -95,4 +171,27 @@
 
 .content {
   padding: 0;
+}
+
+.panel {
+  background: $--panel-background;
+  .panel-header {
+    position: relative;
+    padding: 44px 0 12px;
+    margin: 0 36px;
+    border-bottom: 2px solid $--panel-border-color;
+    user-select: none;
+    h4 {
+      margin: 0;
+      color: $--panel-title-color;
+      font-size: 16px;
+      font-weight: normal;
+      line-height: 24px;
+    }
+  }
+  .panel-content {
+    position: relative;
+    padding: 16px 36px 24px;
+    height: 100%;
+  }
 }

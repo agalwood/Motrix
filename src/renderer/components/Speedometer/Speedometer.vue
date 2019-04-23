@@ -47,9 +47,6 @@
 </script>
 
 <style lang="scss">
-  @import '../Theme/Variables';
-  @import '../Theme/Darkness/Variables';
-
   .mo-speedometer {
     font-size: 12px;
     position: relative;
@@ -142,14 +139,6 @@
       font-size: 14px;
       line-height: 28px;
       color: $--speedometer-primary-color;
-    }
-  }
-
-  .darkness .mo-speedometer {
-    border: 1px solid $--dk-speedometer-border-color;
-    background: $--dk-speedometer-background;
-    &:hover {
-      border-color: $--dk-speedometer-hover-border-color;
     }
   }
 </style>

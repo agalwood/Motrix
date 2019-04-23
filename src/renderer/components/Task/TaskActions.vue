@@ -119,9 +119,6 @@
 </script>
 
 <style lang="scss">
-  @import '../Theme/Variables';
-  @import '../Theme/Darkness/Variables';
-
   .task-actions {
     position: absolute;
     top: 44px;
@@ -132,7 +129,7 @@
     user-select: none;
     cursor: default;
     text-align: right;
-    color: #4D515A;
+    color: $--task-action-color;
     transition: all 0.25s;
     &> i {
       display: inline-block;
@@ -142,7 +139,7 @@
       cursor: pointer;
       outline: none;
       &:hover {
-        color: $--color-primary;
+        color: $--task-action-hover-color;
       }
     }
   }
