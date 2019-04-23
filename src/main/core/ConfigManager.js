@@ -28,23 +28,21 @@ export default class ConfigManager {
     this.systemConfig = new Store({
       name: 'system',
       defaults: {
-        dir: getUserDownloadsPath(),
-        // 断点续传
-        continue: true,
-        pause: true,
-        split: 16,
+        'all-proxy': '',
+        'allow-overwrite': true,
+        'auto-file-renaming': true,
+        'continue': true,
+        'dir': getUserDownloadsPath(),
+        'max-concurrent-downloads': 5,
+        'max-connection-per-server': is.macOS() ? 64 : 16,
+        'max-download-limit': 0,
+        'max-overall-download-limit': 0,
+        'max-overall-upload-limit': '128K',
+        'min-split-size': '1M',
+        'pause': true,
         'rpc-listen-port': 16800,
         'rpc-secret': '',
-        'auto-file-renaming': true,
-        'allow-overwrite': true,
-        'max-concurrent-downloads': 5,
-        // macOS 版本修改过源码自己编译的，Linux 和 Windows 版本 暂未处理
-        'max-connection-per-server': is.macOS() ? 64 : 16,
-        'min-split-size': '1M',
-        'max-overall-download-limit': 0,
-        'max-overall-upload-limit': 0,
-        'max-download-limit': 0,
-        'all-proxy': '',
+        'split': 16,
         'user-agent': 'Transmission/2.94'
       }
     })
@@ -54,20 +52,20 @@ export default class ConfigManager {
     this.userConfig = new Store({
       name: 'user',
       defaults: {
-        'resume-all-when-app-launched': false,
-        'task-notification': true,
-        'hide-app-menu': is.windows() || is.linux(),
-        'new-task-show-downloading': true,
-        'auto-check-for-updates': false,
-        'update-channel': 'latest',
-        'use-proxy': false,
         'all-proxy-backup': '',
-        'log-path': getLogPath(),
-        'session-path': getSessionPath(),
-        'locale': app.getLocale(),
-        'theme': 'auto',
+        'auto-check-for-updates': false,
         'auto-check-update': false,
-        'last-check-update-time': 0
+        'hide-app-menu': is.windows() || is.linux(),
+        'last-check-update-time': 0,
+        'locale': app.getLocale(),
+        'log-path': getLogPath(),
+        'new-task-show-downloading': true,
+        'resume-all-when-app-launched': false,
+        'session-path': getSessionPath(),
+        'task-notification': true,
+        'theme': 'auto',
+        'update-channel': 'latest',
+        'use-proxy': false
       }
     })
   }
