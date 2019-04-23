@@ -31,6 +31,11 @@ export default class Application extends EventEmitter {
     this.localeManager = setupLocaleManager(this.locale)
     this.i18n = this.localeManager.getI18n()
 
+    this.menuManager = new MenuManager()
+    this.menuManager.setup(this.locale)
+
+    this.initTouchBarManager()
+
     this.windowManager = new WindowManager({
       userConfig: this.configManager.getUserConfig()
     })
@@ -41,14 +46,9 @@ export default class Application extends EventEmitter {
     })
     this.startEngine()
 
-    this.initThemeManager()
-
-    this.menuManager = new MenuManager()
-    this.menuManager.setup(this.locale)
-
     this.trayManager = new TrayManager()
 
-    this.initTouchBarManager()
+    this.initThemeManager()
 
     this.energyManager = new EnergyManager()
 
@@ -87,7 +87,9 @@ export default class Application extends EventEmitter {
       this.isReady = true
       this.emit('ready')
     })
-    this.touchBarManager.setup(page, win)
+    if (is.macOS()) {
+      this.touchBarManager.setup(page, win)
+    }
   }
 
   show (page = 'index') {
