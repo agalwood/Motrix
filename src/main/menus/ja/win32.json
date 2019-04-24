@@ -1,0 +1,80 @@
+{
+  "menu": [
+    {
+      "label": "ファイル",
+      "id": "menu.file",
+      "submenu": [
+        { "label": "Motrix について", "id": "app.about", "command": "application:about", "command-before": "application:show,index"},
+        { "type": "separator" },
+        { "label": "環境設定...", "id": "app.preferences", "command": "application:preferences" },
+        { "label": "更新を確認...", "id": "app.check-for-updates", "command": "application:check-for-updates" },
+        { "label": "Motrix を隠す", "id": "app.hide", "role": "hide" },
+        { "label": "ほかを隠す", "id": "app.hide-others", "role": "hideothers" },
+        { "label": "すべてを表示", "id": "app.unhide", "role": "unhide" },
+        { "type": "separator" },
+        { "label": "Motrix を終了", "id": "app.quit", "role": "quit" }
+      ]
+    },
+    {
+      "label": "タスク",
+      "id": "menu.task",
+      "submenu": [
+        { "label": "新規タスク", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show,index"},
+        { "label": "新建torrentタスク", "id": "task.new-bt-task", "command": "application:new-bt-task", "command-arg": "torrent", "command-after": "application:show,index"},
+        { "type": "separator" },
+        { "label": "タスクを一時停止", "id": "task.pause-task", "command": "application:pause-task" },
+        { "label": "タスクを再開", "id": "task.resume-task", "command": "application:resume-task" },
+        { "label": "タスクを削除", "id": "task.delete-task", "command": "application:delete-task" },
+        { "label": "タスクを上に移動", "id": "task.move-task-up", "command": "application:move-task-up" },
+        { "label": "タスクを下に移動", "id": "task.move-task-down", "command": "application:move-task-down" },
+        { "type": "separator" },
+        { "label": "すべてのタスクを一時停止", "id": "task.pause-all-task", "command": "application:pause-all-task" },
+        { "label": "すべてのタスクを再開", "id": "task.resume-all-task", "command": "application:resume-all-task" },
+        { "type": "separator" },
+        { "label": "最近のタスク履歴を削除", "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
+      ]
+    },
+    {
+      "label": "編集",
+      "id": "menu.edit",
+      "submenu": [
+        { "label": "元に戻す", "id": "edit.undo", "role": "undo" },
+        { "label": "やり直す", "id": "edit.redo", "role": "redo" },
+        { "type": "separator" },
+        { "label": "貼り付け", "id": "edit.cut", "role": "cut" },
+        { "label": "コピー", "id": "edit.copy", "role": "copy" },
+        { "label": "貼り付け", "id": "edit.paste", "role": "paste" },
+        { "label": "削除", "id": "edit.delete", "role": "delete" },
+        { "label": "すべてを選択", "id": "edit.select-all", "role": "selectall" }
+      ]
+    },
+    {
+      "label": "ウィンドウ",
+      "role": "window",
+      "id": "menu.window",
+      "submenu": [
+        { "label": "リロード", "id": "window.reload", "role": "reload" },
+        { "label": "閉じる", "id": "window.close", "role": "close" },
+        { "label": "最小化", "id": "window.minimize", "role": "minimize" },
+        { "label": "ズーム", "id": "window.zoom", "role": "zoom" },
+        { "label": "フルスクリーンにする", "id": "window.toggle-fullscreen", "role": "togglefullscreen" },
+        { "type": "separator" },
+        { "label": "すべてを手前に移動", "id": "window.front", "role": "front" }
+      ]
+    },
+    {
+      "label": "ヘルプ",
+      "role": "help",
+      "id": "menu.help",
+      "submenu": [
+        { "label": "Motrix 公式サイト", "id": "help.official-website", "command": "help:official-website" },
+        { "label": "使用説明", "id": "help.manual", "command": "help:manual" },
+        { "label": "リリースノート...", "id": "help.release-notes", "command": "help:release-notes" },
+        { "type": "separator" },
+        { "label": "問題を報告", "id": "help.report-problem", "command": "help:report-problem" },
+        { "type": "separator" },
+        { "label": "開発者ツール", "id": "help.toggle-dev-tools", "role": "toggledevtools" }
+      ]
+    }
+  ]
+}
