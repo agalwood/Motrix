@@ -1,6 +1,7 @@
 import appLocaleDeDE from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleFrFR from '@shared/locales/fr'
+import appLocaleJaJA from '@shared/locales/ja'
 import appLocalePtBr from '@shared/locales/pt-BR'
 import appLocaleTrTR from '@shared/locales/tr'
 import appLocaleZhCN from '@shared/locales/zh-CN'
@@ -21,6 +22,11 @@ const resources = {
   'fr': {
     translation: {
       ...appLocaleFrFR
+    }
+  },
+    'ja': {
+    translation: {
+      ...appLocaleJaJA
     }
   },
   'pt-BR': {

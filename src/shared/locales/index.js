@@ -19,6 +19,10 @@ export const availableLanguages = [
     label: 'Français'
   },
   {
+    value: 'ja',
+    label: '日本語'
+  },
+  {
     value: 'pt-BR',
     label: 'Português (Brasil)'
   },
@@ -70,5 +74,9 @@ export function getLanguage (locale = 'en-US') {
 
   if (locale.startsWith('fr')) {
     return 'fr'
+  }
+  
+  if (locale.startsWith('ja')) {
+    return 'ja'
   }
 }
