@@ -26,7 +26,7 @@ brew update && brew cask install motrix
 ```
 
 ### Linux
-You can download the appimage(for all linux distributions) package or build from source code.
+You can download the appimage(for all linux distributions) package or snap or just build from source code.
 Please read the **Build** section.
 
 For Arch Linux users, motrix is availible in [aur](https://aur.archlinux.org/packages/motrix/).
