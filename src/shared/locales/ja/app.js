@@ -1,0 +1,20 @@
+export default {
+  'task-list': 'タスクリスト',
+  'add-task': 'タスクを追加',
+  'about': 'Motrix について',
+  'preferences': '環境設定...',
+  'check-for-updates': '更新を確認...',
+  'hide': 'Motrix を隠す',
+  'hide-others': 'ほかを隠す',
+  'unhide': 'すべてを表示',
+  'quit': 'Motrix を終了',
+  'under-development-message': 'この機能は開発中です...',
+  'yes': 'はい',
+  'no': 'いいえ',
+  'cancel': 'キャンセル',
+  'submit': '確認',
+  'gt1d': '一日を超える',
+  'hour': '時',
+  'minute': '分',
+  'second': '秒'
+}
