@@ -61,7 +61,6 @@ export default class ConfigManager {
       // },
       defaults: {
         'all-proxy-backup': '',
-        'auto-check-for-updates': false,
         'auto-check-update': false,
         'hide-app-menu': is.windows() || is.linux(),
         'last-check-update-time': 0,
