@@ -48,6 +48,9 @@ function checkLngIsAvailable (locale) {
  * getLanguage
  * @param { String } locale
  * https://electronjs.org/docs/api/locales
+ *
+ * You need to add a fallback when there are
+ * multiple locale keys with the same prefix
  */
 export function getLanguage (locale = 'en-US') {
   if (checkLngIsAvailable(locale)) {
@@ -74,9 +77,5 @@ export function getLanguage (locale = 'en-US') {
 
   if (locale.startsWith('fr')) {
     return 'fr'
-  }
-  
-  if (locale.startsWith('ja')) {
-    return 'ja'
   }
 }

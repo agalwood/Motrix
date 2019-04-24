@@ -24,7 +24,7 @@ const resources = {
       ...appLocaleFrFR
     }
   },
-    'ja': {
+  'ja': {
     translation: {
       ...appLocaleJaJA
     }
