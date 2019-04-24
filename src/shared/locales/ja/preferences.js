@@ -37,8 +37,8 @@ export default {
   'browser-extensions': 'ブラウザ拡張機能',
   'baidu-exporter': 'バイドゥオンラインストレージ拡張機能',
   'browser-extensions-tip': '他のユーザによって作成されたものです。動作は保証できません。',
-  'baidu-exporter-help': 'ここをクリックし使用説明を見る'
+  'baidu-exporter-help': 'ここをクリックし使用説明を見る',
   'auto-check-update': '更新を自動で確認する',
-  'last-check-update-time': '前回更新確認時間'
+  'last-check-update-time': '前回更新確認時間',
 }
 
