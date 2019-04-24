@@ -51,12 +51,14 @@ export default class ConfigManager {
   initUserConfig () {
     this.userConfig = new Store({
       name: 'user',
-      schema: {
-        theme: {
-          type: 'string',
-          enum: ['auto', 'light', 'dark']
-        }
-      },
+      // Schema need electron-store upgrade to 3.x.x,
+      // but it will cause the application build to fail.
+      // schema: {
+      //   theme: {
+      //     type: 'string',
+      //     enum: ['auto', 'light', 'dark']
+      //   }
+      // },
       defaults: {
         'all-proxy-backup': '',
         'auto-check-for-updates': false,
