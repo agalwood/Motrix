@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { EventEmitter } from 'events'
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, screen, BrowserWindow } from 'electron'
 import is from 'electron-is'
 import pageConfig from '../configs/page'
 import logger from '../core/Logger'
@@ -37,6 +37,13 @@ export default class WindowManager extends EventEmitter {
     if (hideAppMenu) {
       result.attrs.frame = false
     }
+
+    // Optimized for small screen users
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize
+    const widthScale = width >= 1280 ? 1 : 0.875
+    const heightScale = height >= 800 ? 1 : 0.875
+    result.attrs.width *= widthScale
+    result.attrs.height *= heightScale
 
     // fix AppImage Dock Icon Missing
     // https://github.com/AppImage/AppImageKit/wiki/Bundling-Electron-apps

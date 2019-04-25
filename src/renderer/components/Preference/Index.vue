@@ -50,11 +50,11 @@
     }
   }
   .form-actions {
-    position: absolute;
+    position: fixed;
     bottom: 0;
-    left: 0;
-    width: 100%;
+    left: auto;
+    z-index: 10;
     box-sizing: border-box;
-    padding: 24px 36px;
+    padding: 24px 36px 24px 0;
   }
 </style>
