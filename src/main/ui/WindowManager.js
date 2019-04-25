@@ -10,7 +10,10 @@ const defaultBrowserOptions = {
   useContentSize: true,
   show: false,
   width: 1024,
-  height: 768
+  height: 768,
+  webPreferences: {
+    nodeIntegration: true
+  }
 }
 
 export default class WindowManager extends EventEmitter {
