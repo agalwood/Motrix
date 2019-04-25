@@ -18,10 +18,21 @@ Motrix has a clean and easy to use interface. I hope you will like it 👻.
 ## 💽 Installation
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
 
+### MacOS
 Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
 
 ```bash
 brew update && brew cask install motrix
+```
+
+### Linux
+You can download the appimage(for all linux distributions) package or snap or just build from source code.
+Please read the **Build** section.
+
+For Arch Linux users, motrix is availible in [aur](https://aur.archlinux.org/packages/motrix/).
+Run the following command to install:
+```bash
+yay motrix
 ```
 
 ## ✨ Features
