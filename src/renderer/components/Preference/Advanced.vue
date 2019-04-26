@@ -47,6 +47,24 @@
             >
           </el-switch>
         </el-form-item>
+        <el-form-item :label="`${$t('preferences.bt-tracker')}: `" :label-width="formLabelWidth">
+          <div class="bt-tracker">
+            <el-input
+              type="textarea"
+              :autosize="{ minRows: 3, maxRows: 5 }"
+              auto-complete="off"
+              :placeholder="`${$t('preferences.bt-tracker-input-tips')}`"
+              v-model="form.btTracker">
+            </el-input>
+          </div>
+          <div class="el-form-item__info" style="margin-top: 8px;">
+            {{ $t('preferences.bt-tracker-tips') }}
+            <a target="_blank" href="https://github.com/ngosang/trackerslist" rel="noopener noreferrer">
+              https://github.com/ngosang/trackerslist
+              <mo-icon name="link" width="12" height="12" />
+            </a>
+          </div>
+        </el-form-item>
         <el-form-item label="" :label-width="formLabelWidth" v-if="form.useProxy">
           <el-col class="form-item-sub" :span="16">
             <el-input
@@ -115,24 +133,29 @@
   import userAgentMap from '@shared/ua'
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
+  import {
+    convertToTextRows
+  } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
-      locale,
-      theme,
-      hideAppMenu,
-      useProxy,
       allProxy,
       allProxyBackup,
+      btTracker,
+      hideAppMenu,
+      locale,
+      theme,
+      useProxy,
       userAgent
     } = config
     const result = {
-      locale,
-      theme,
-      hideAppMenu,
-      useProxy,
       allProxy,
       allProxyBackup,
+      btTracker: convertToTextRows(btTracker),
+      hideAppMenu,
+      locale,
+      theme,
+      useProxy,
       userAgent
     }
     return result
