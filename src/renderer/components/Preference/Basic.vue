@@ -36,7 +36,7 @@
             />
           </el-input>
           <div class="el-form-item__info" v-if="isMas()" style="margin-top: 8px;">
-            {{ $t('preferences.mas-default-dir-tip') }}
+            {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
         <el-form-item :label="`${$t('preferences.task-manage')}: `" :label-width="formLabelWidth">

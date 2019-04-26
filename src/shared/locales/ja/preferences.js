@@ -7,7 +7,7 @@ export default {
   'startup': '起動',
   'auto-resume-all': '起動後自動的に未完了タスクを再開',
   'default-dir': '既定の保存先',
-  'mas-default-dir-tip': 'App Store の Sandbox 制限のため，デフォルトディレクトリ設定は「Download」を推奨します。',
+  'mas-default-dir-tips': 'App Store の Sandbox 制限のため，デフォルトディレクトリ設定は「Download」を推奨します。',
   'task-manage': 'タスク管理',
   'max-concurrent-downloads': '最大同時タスク数',
   'max-connection-per-server': '最大サーバ接続数',
@@ -40,7 +40,7 @@ export default {
   'support-more-download-protocols': 'より多くのプロトコルを適用',
   'browser-extensions': 'ブラウザ拡張機能',
   'baidu-exporter': 'バイドゥオンラインストレージ拡張機能',
-  'browser-extensions-tip': '他のユーザによって作成されたものです。動作は保証できません。',
+  'browser-extensions-tips': '他のユーザによって作成されたものです。動作は保証できません。',
   'baidu-exporter-help': 'ここをクリックし使用説明を見る',
   'auto-check-update': '更新を自動で確認する',
   'last-check-update-time': '前回更新確認時間'

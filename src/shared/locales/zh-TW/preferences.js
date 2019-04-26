@@ -7,7 +7,7 @@ export default {
   'startup': '啟動',
   'auto-resume-all': '啟動後自動繼續未完成任務',
   'default-dir': '預設下載路徑',
-  'mas-default-dir-tip': '因 App Store 的沙盒權限限制，建議將預設下載路徑設定為您的「下載」資料夾',
+  'mas-default-dir-tips': '因 App Store 的沙盒權限限制，建議將預設下載路徑設定為您的「下載」資料夾',
   'task-manage': '任務管理',
   'max-concurrent-downloads': '最多可同時下載的任務數',
   'max-connection-per-server': '每台伺服器的最大連線數',
@@ -40,7 +40,7 @@ export default {
   'support-more-download-protocols': '支援更多下載協定',
   'browser-extensions': '瀏覽器擴充功能',
   'baidu-exporter': '百度网盘助手',
-  'browser-extensions-tip': '社群提供的瀏覽器擴充功能「不保證可用性」，',
+  'browser-extensions-tips': '社群提供的瀏覽器擴充功能「不保證可用性」，',
   'baidu-exporter-help': '点此查看使用说明',
   'auto-check-update': '自動檢查更新',
   'last-check-update-time': '上次檢查更新時間'

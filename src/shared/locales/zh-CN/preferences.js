@@ -7,7 +7,7 @@ export default {
   'startup': '启动',
   'auto-resume-all': '启动后自动开始未完成任务',
   'default-dir': '默认下载路径',
-  'mas-default-dir-tip': '因 App Store 的沙箱权限限制，默认下载路径建议设置为您的「下载」目录',
+  'mas-default-dir-tips': '因 App Store 的沙箱权限限制，默认下载路径建议设置为您的「下载」目录',
   'task-manage': '任务管理',
   'max-concurrent-downloads': '同时下载的最大任务数',
   'max-connection-per-server': '每个服务器最大连接数',
@@ -40,7 +40,7 @@ export default {
   'support-more-download-protocols': '支持更多下载协议',
   'browser-extensions': '浏览器扩展',
   'baidu-exporter': '百度网盘助手',
-  'browser-extensions-tip': '社区提供的浏览器扩展「不保证可用性」，',
+  'browser-extensions-tips': '社区提供的浏览器扩展「不保证可用性」，',
   'baidu-exporter-help': '点此查看使用说明',
   'auto-check-update': '自动检查更新',
   'last-check-update-time': '上次检查更新时间'

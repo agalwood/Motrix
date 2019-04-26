@@ -7,7 +7,7 @@ export default {
   'startup': 'Startup',
   'auto-resume-all': 'Alle nicht abgeschlossenen Aufgaben automatisch fortsetzen',
   'default-dir': 'Standard Speicherort',
-  'mas-default-dir-tip': 'Aufgrund der Einschränkungen durch Sandbox-Berechtigungen im App Store wird der Download Ordner als Standard empfohlen',
+  'mas-default-dir-tips': 'Aufgrund der Einschränkungen durch Sandbox-Berechtigungen im App Store wird der Download Ordner als Standard empfohlen',
   'task-manage': 'Aufgaben verwalten',
   'max-concurrent-downloads': 'Maximal aktive Aufgaben',
   'max-connection-per-server': 'Maximale Verbindungen pro Server',
@@ -40,7 +40,7 @@ export default {
   'support-more-download-protocols': 'Erweiterte Protokollunterstützung aktivieren',
   'browser-extensions': 'Erweiterungen',
   'baidu-exporter': 'Baidu Exporter',
-  'browser-extensions-tip': 'Von der Community bereitgestellt, ',
+  'browser-extensions-tips': 'Von der Community bereitgestellt, ',
   'baidu-exporter-help': 'mehr über die Verwendung zu erfahren',
   'auto-check-update': 'Automatische Updates überprüfen',
   'last-check-update-time': 'letzte kontrolle update - zeit'

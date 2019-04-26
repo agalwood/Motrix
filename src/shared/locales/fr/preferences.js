@@ -7,7 +7,7 @@ export default {
   'startup': 'Démarrage',
   'auto-resume-all': 'Reprendre les tâches non terminées',
   'default-dir': 'Répertoire par défaut',
-  'mas-default-dir-tip': 'En raison des restrictions d\'autorisations du bac à sable de l\'App Store, il est recommandé de définir le répertoire de téléchargement par défaut sur le répertoire Téléchargements.',
+  'mas-default-dir-tips': 'En raison des restrictions d\'autorisations du bac à sable de l\'App Store, il est recommandé de définir le répertoire de téléchargement par défaut sur le répertoire Téléchargements.',
   'task-manage': 'Tâches',
   'max-concurrent-downloads': 'Nombre de tâches active au maximum',
   'max-connection-per-server': 'Nombre maximum de connexions par serveurs',
@@ -40,7 +40,7 @@ export default {
   'support-more-download-protocols': 'Activer les protocoles de téléchargement suplémentaires',
   'browser-extensions': 'Extensions',
   'baidu-exporter': 'BaiduExporter',
-  'browser-extensions-tip': 'Fourni par la communauté, ',
+  'browser-extensions-tips': 'Fourni par la communauté, ',
   'baidu-exporter-help': 'Cliquez ici pour voir l\'utilisation',
   'auto-check-update': 'Mise à jour automatique',
   'last-check-update-time': 'dernier contrôle la mise à jour du temps'

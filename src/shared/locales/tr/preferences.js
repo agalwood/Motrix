@@ -7,7 +7,7 @@ export default {
   'startup': 'Başlangıçta',
   'auto-resume-all': 'Tüm bitmemiş görevleri otomatik olarak devam ettir',
   'default-dir': 'Varsayılan Klasör',
-  'mas-default-dir-tip': 'App Store\'un sanal alan izinleri kısıtlamaları nedeniyle, varsayılan indirme dizininin İndirilenler dizinine ayarlanması önerilir.',
+  'mas-default-dir-tips': 'App Store\'un sanal alan izinleri kısıtlamaları nedeniyle, varsayılan indirme dizininin İndirilenler dizinine ayarlanması önerilir.',
   'task-manage': 'Görev Yöneticisi',
   'max-concurrent-downloads': 'Maksimum aktif görev',
   'max-connection-per-server': 'Sunucu başına maksimum bağlantı',
@@ -40,7 +40,7 @@ export default {
   'support-more-download-protocols': 'Daha fazla indirme protokolü desteğini etkinleştir',
   'browser-extensions': 'Eklentiler',
   'baidu-exporter': 'BaiduExporter',
-  'browser-extensions-tip': 'Topluluk tarafından sağlanan, ',
+  'browser-extensions-tips': 'Topluluk tarafından sağlanan, ',
   'baidu-exporter-help': 'Kullanım detayları için buraya tıklayın',
   'auto-check-update': 'Otomatik Kontrol Güncellemesi',
   'last-check-update-time': 'Son Kontrol Güncelleme Saati'
