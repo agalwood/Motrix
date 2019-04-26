@@ -9,6 +9,11 @@ export function getLogPath () {
   return logger.transports.file.file
 }
 
+export function getDhtPath (protocol) {
+  const name = protocol === 6 ? 'dht6.dat' : 'dht.dat'
+  return resolve(app.getPath('userData'), `./${name}`)
+}
+
 export function getSessionPath () {
   return resolve(app.getPath('userData'), './download.session')
 }

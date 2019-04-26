@@ -2,6 +2,7 @@ import { app } from 'electron'
 import is from 'electron-is'
 import Store from 'electron-store'
 import {
+  getDhtPath,
   getLogPath,
   getSessionPath,
   getUserDownloadsPath
@@ -21,7 +22,7 @@ export default class ConfigManager {
   }
 
   /**
-   * some aria2 conf
+   * Some aria2 conf
    * https://aria2.github.io/manual/en/html/aria2c.html
    */
   initSystemConfig () {
@@ -32,6 +33,8 @@ export default class ConfigManager {
         'allow-overwrite': true,
         'auto-file-renaming': true,
         'continue': true,
+        'dht-file-path': getDhtPath(4),
+        'dht-file-path6': getDhtPath(6),
         'dir': getUserDownloadsPath(),
         'max-concurrent-downloads': 5,
         'max-connection-per-server': is.macOS() ? 64 : 16,
