@@ -322,8 +322,15 @@ export function compactUndefined (arr = []) {
 }
 
 export function splitTextRows (text = '') {
-  let result = text.replace(/\r\n/g, '\n').split('\n') || []
+  let result = text.replace(/(?:\r\n|\r|\n)/g, '\n').split('\n') || []
   result = result.map((row) => row.trim())
+  return result
+}
+
+export function convertToTextRows (text = '') {
+  let arr = text.split(',')
+  arr = arr.map((row) => row.trim())
+  const result = arr.join('\n')
   return result
 }
 

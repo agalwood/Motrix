@@ -56,6 +56,27 @@
               :placeholder="`${$t('preferences.bt-tracker-input-tips')}`"
               v-model="form.btTracker">
             </el-input>
+            <div class="sync-tracker">
+              <el-tooltip
+                class="item"
+                effect="dark"
+                :content="$t('preferences.sync-tracker-tips')"
+                placement="bottom"
+              >
+                <el-button
+                  @click="syncTrackerFromGitHub"
+                >
+                  <mo-icon
+                    name="refresh"
+                    width="12"
+                    height="12"
+                    :spin="true"
+                    v-if="isSyncTracker"
+                  />
+                  <mo-icon name="sync" width="12" height="12" v-else />
+                </el-button>
+              </el-tooltip>
+            </div>
           </div>
           <div class="el-form-item__info" style="margin-top: 8px;">
             {{ $t('preferences.bt-tracker-tips') }}
@@ -136,6 +157,8 @@
   import {
     convertToTextRows
   } from '@shared/utils'
+  import '@/components/Icons/sync'
+  import '@/components/Icons/refresh'
 
   const initialForm = (config) => {
     const {
@@ -171,6 +194,7 @@
       return {
         formLabelWidth: '23%',
         form: initialForm(this.$store.state.preference.config),
+        isSyncTracker: false,
         rules: {},
         color: '#c00',
         locales: availableLanguages
@@ -201,6 +225,17 @@
       handleThemeChange (theme) {
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
+      },
+      syncTrackerFromGitHub () {
+        this.isSyncTracker = true
+        this.$store.dispatch('preference/fetchBtTracker')
+          .then((data) => {
+            console.log('syncTrackerFromGitHub data====>', data)
+            this.form.btTracker = data
+          })
+          .finally(() => {
+            this.isSyncTracker = false
+          })
       },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''
@@ -250,6 +285,14 @@
 </script>
 
 <style lang="scss">
+.bt-tracker {
+  position: relative;
+  .sync-tracker {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+}
 .ua-group {
   margin-top: 8px;
 }

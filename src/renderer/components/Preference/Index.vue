@@ -28,6 +28,19 @@
       font-weight: $--font-weight-secondary;
       color: $--color-text-regular;
     }
+    .el-form-item {
+      a {
+        color: $--color-text-regular;
+        text-decoration: none;
+        &:hover {
+          color: $--color-text-primary;
+          text-decoration: underline;
+        }
+        &:active {
+          color: $--color-text-primary;
+        }
+      }
+    }
     .el-form-item.el-form-item--mini {
       margin-bottom: 24px;
     }
@@ -38,14 +51,6 @@
       margin-bottom: 12px;
       &:last-of-type {
         margin-bottom: 0;
-      }
-      a {
-        color: $--color-text-regular;
-        text-decoration: none;
-        &:hover {
-          color: $--color-text-primary;
-          text-decoration: underline;
-        }
       }
     }
   }
