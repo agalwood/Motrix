@@ -65,11 +65,25 @@ export function moveAppToApplicationsFolder (errorMsg = '') {
   })
 }
 
+export function parseArgvAsUrl (argv) {
+  let arg = argv[1]
+  if (!arg) {
+    return
+  }
+
+  if (
+    arg.toLowerCase().startsWith('magnet:') ||
+    arg.toLowerCase().startsWith('thunder:')
+  ) {
+    return arg
+  }
+}
+
 export function isDirectory (path) {
   return existsSync(path) && lstatSync(path).isDirectory()
 }
 
-export function parseArgv (argv) {
+export function parseArgvAsFile (argv) {
   let arg = argv[1]
   if (!arg || isDirectory(arg)) {
     return
