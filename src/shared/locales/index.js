@@ -23,6 +23,10 @@ export const availableLanguages = [
     label: '日本語'
   },
   {
+    value: 'ko',
+    label: '한국어'
+  },
+  {
     value: 'pt-BR',
     label: 'Português (Brasil)'
   },
