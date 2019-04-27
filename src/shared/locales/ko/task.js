@@ -60,7 +60,7 @@ export default {
   'remove-record-label': '파일과 삭제',
   'remove-record-success': '"{{taskName}}" 작업 기록 제거 성공',
   'remove-record-fail': '"{{taskName}}" 작업 기록 제거 실패',
-  'show-in-folder': '작업 중인 폴더 표시',
+  'show-in-folder': '작업 폴더 표시',
   'file-not-exist': '파일이 존재하지 않거나 삭제되었습니다.',
   'file-path-error': '파일 경로 오류',
   'opening-task-message': '"{{taskName}}" 여는 중...',
