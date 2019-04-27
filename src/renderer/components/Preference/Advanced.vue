@@ -47,6 +47,15 @@
             >
           </el-switch>
         </el-form-item>
+        <el-form-item label="" :label-width="formLabelWidth" v-if="form.useProxy">
+          <el-col class="form-item-sub" :span="16">
+            <el-input
+              placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
+              @change="onAllProxyBackupChange"
+              v-model="form.allProxyBackup">
+            </el-input>
+          </el-col>
+        </el-form-item>
         <el-form-item :label="`${$t('preferences.bt-tracker')}: `" :label-width="formLabelWidth">
           <div class="bt-tracker">
             <el-input
@@ -85,15 +94,6 @@
               <mo-icon name="link" width="12" height="12" />
             </a>
           </div>
-        </el-form-item>
-        <el-form-item label="" :label-width="formLabelWidth" v-if="form.useProxy">
-          <el-col class="form-item-sub" :span="16">
-            <el-input
-              placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
-              @change="onAllProxyBackupChange"
-              v-model="form.allProxyBackup">
-            </el-input>
-          </el-col>
         </el-form-item>
         <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
