@@ -72,6 +72,11 @@ export function parseArgvAsUrl (argv) {
   }
 
   if (
+    arg.toLowerCase().startsWith('mo:') ||
+    arg.toLowerCase().startsWith('motrix:') ||
+    arg.toLowerCase().startsWith('http:') ||
+    arg.toLowerCase().startsWith('https:') ||
+    arg.toLowerCase().startsWith('ftp:') ||
     arg.toLowerCase().startsWith('magnet:') ||
     arg.toLowerCase().startsWith('thunder:')
   ) {

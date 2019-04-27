@@ -36,7 +36,7 @@ export default class Launcher extends EventEmitter {
         logger.warn('second-instance====>', event, argv, workingDirectory)
         global.application.showPage('index')
         if (!is.macOS() && argv.length > 1) { // Windows, Linux
-          this.handleAppArgv()
+          this.handleAppLaunchArgv(argv)
         }
       })
 
@@ -89,11 +89,11 @@ export default class Launcher extends EventEmitter {
         this.sendFileToApplication()
       })
     } else if (process.argv.length > 1) { // Windows, Linux
-      this.handleAppArgv()
+      this.handleAppLaunchArgv(process.argv)
     }
   }
 
-  handleAppArgv (argv) {
+  handleAppLaunchArgv (argv) {
     const file = parseArgvAsFile(argv)
     if (file) {
       this.file = file
@@ -128,13 +128,9 @@ export default class Launcher extends EventEmitter {
       global.application.start('index')
 
       global.application.on('ready', () => {
-        if (this.url) {
-          global.application.handleProtocol(this.url)
-        }
+        this.sendUrlToApplication()
 
-        if (this.file) {
-          global.application.handleFile(this.file)
-        }
+        this.sendFileToApplication()
       })
     })
 
