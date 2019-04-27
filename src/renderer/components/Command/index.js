@@ -28,6 +28,10 @@ function showAddTask (taskType = 'uri', task = '') {
   store.dispatch('app/showAddTaskDialog', taskType)
 }
 
+function showAddBtTask () {
+  store.dispatch('app/showAddTaskDialog', 'torrent')
+}
+
 function showAddBtTaskWithFile (fileName, base64Data = '') {
   const blob = base64StringToBlob(base64Data, 'application/x-bittorrent')
   const file = new File([blob], fileName, { type: 'application/x-bittorrent' })
@@ -82,7 +86,7 @@ commands.register('application:system-theme', updateSystemTheme)
 commands.register('application:theme', updateTheme)
 commands.register('application:about', showAboutPanel)
 commands.register('application:new-task', showAddTask)
-commands.register('application:new-bt-task', showAddTask)
+commands.register('application:new-bt-task', showAddBtTask)
 commands.register('application:new-bt-task-with-file', showAddBtTaskWithFile)
 commands.register('application:task-list', navigateTaskList)
 commands.register('application:preferences', navigatePreferences)
