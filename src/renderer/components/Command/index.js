@@ -21,7 +21,10 @@ function showAboutPanel () {
   store.dispatch('app/showAboutPanel')
 }
 
-function showAddTask (taskType = 'uri') {
+function showAddTask (taskType = 'uri', task = '') {
+  if (taskType === 'uri' && task) {
+    store.dispatch('app/updateAddTaskUrl', task)
+  }
   store.dispatch('app/showAddTaskDialog', taskType)
 }
 

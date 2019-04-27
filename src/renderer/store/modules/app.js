@@ -25,6 +25,7 @@ const state = {
   },
   addTaskVisible: false,
   addTaskType: 'uri',
+  addTaskUrl: '',
   addTaskTorrents: []
 }
 
@@ -52,6 +53,9 @@ const mutations = {
   },
   CHANGE_ADD_TASK_TYPE (state, taskType) {
     state.addTaskType = taskType
+  },
+  CHANGE_ADD_TASK_URL (state, text) {
+    state.addTaskUrl = text
   },
   CHANGE_ADD_TASK_TORRENTS (state, fileList) {
     state.addTaskTorrents = [...fileList]
@@ -130,7 +134,7 @@ const actions = {
         }
       })
   },
-  togglePowerSaveBlocker (context, numActive) {
+  togglePowerSaveBlocker (_, numActive) {
     if (numActive > 0) {
       api.startPowerSaveBlocker()
     } else {
@@ -146,10 +150,14 @@ const actions = {
   },
   hideAddTaskDialog ({ commit }) {
     commit('CHANGE_ADD_TASK_VISIBLE', false)
+    commit('CHANGE_ADD_TASK_URL', '')
     commit('CHANGE_ADD_TASK_TORRENTS', [])
   },
   changeAddTaskType ({ commit }, taskType) {
     commit('CHANGE_ADD_TASK_TYPE', taskType)
+  },
+  updateAddTaskUrl ({ commit }, text = '') {
+    commit('CHANGE_ADD_TASK_URL', text)
   },
   addTaskAddTorrents ({ commit }, { fileList }) {
     commit('CHANGE_ADD_TASK_TORRENTS', fileList)

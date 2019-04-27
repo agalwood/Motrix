@@ -47,6 +47,21 @@
     "files": [
       "dist/electron/**/*"
     ],
+    "protocols": [
+      {
+        "name": "Motrix Protocol",
+        "schemes": [
+          "mo",
+          "motrix"
+        ]
+      },
+      {
+        "name": "Magnet Protocol",
+        "schemes": [
+          "magnet"
+        ]
+      }
+    ],
     "dmg": {
       "window": {
         "width": 540,
@@ -83,16 +98,7 @@
       "binaries": [
         "./release/mac/Motrix.app/Contents/Resources/engine/aria2c"
       ],
-      "category": "public.app-category.utilities",
-      "protocols": [
-        {
-          "name": "Motrix Protocol",
-          "schemes": [
-            "mo",
-            "motrix"
-          ]
-        }
-      ]
+      "category": "public.app-category.utilities"
     },
     "win": {
       "target": [

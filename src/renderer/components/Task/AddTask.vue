@@ -123,9 +123,10 @@
   } from '@shared/utils'
 
   const initialForm = (state) => {
+    const { addTaskUrl } = state.app
     const { dir, split, newTaskShowDownloading } = state.preference.config
     const result = {
-      uris: '',
+      uris: addTaskUrl,
       torrent: '',
       out: '',
       userAgent: '',
@@ -211,7 +212,9 @@
         if (!hasResource) {
           return
         }
-        this.form.uris = content
+        if (isEmpty(this.form.uris)) {
+          this.form.uris = content
+        }
       },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
