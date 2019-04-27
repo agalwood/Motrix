@@ -1,10 +1,11 @@
-import appLocaleDeDE from '@shared/locales/de'
+import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
-import appLocaleFrFR from '@shared/locales/fr'
-import appLocaleJaJA from '@shared/locales/ja'
-import appLocaleKoKR from '@shared/locales/ko'
+import appLocaleFa from '@shared/locales/fa'
+import appLocaleFr from '@shared/locales/fr'
+import appLocaleJa from '@shared/locales/ja'
+import appLocaleKo from '@shared/locales/ko'
 import appLocalePtBr from '@shared/locales/pt-BR'
-import appLocaleTrTR from '@shared/locales/tr'
+import appLocaleTr from '@shared/locales/tr'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
 
@@ -12,7 +13,7 @@ import appLocaleZhTW from '@shared/locales/zh-TW'
 const resources = {
   'de': {
     translation: {
-      ...appLocaleDeDE
+      ...appLocaleDe
     }
   },
   'en-US': {
@@ -20,19 +21,24 @@ const resources = {
       ...appLocaleEnUS
     }
   },
+  'fa': {
+    translation: {
+      ...appLocaleFa
+    }
+  },
   'fr': {
     translation: {
-      ...appLocaleFrFR
+      ...appLocaleFr
     }
   },
   'ja': {
     translation: {
-      ...appLocaleJaJA
+      ...appLocaleJa
     }
   },
   'ko': {
     translation: {
-      ...appLocaleKoKR
+      ...appLocaleKo
     }
   },
   'pt-BR': {
@@ -42,7 +48,7 @@ const resources = {
   },
   'tr': {
     translation: {
-      ...appLocaleTrTR
+      ...appLocaleTr
     }
   },
   'zh-CN': {

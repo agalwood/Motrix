@@ -15,6 +15,10 @@ export const availableLanguages = [
     label: 'English'
   },
   {
+    value: 'fa',
+    label: 'فارسی'
+  },
+  {
     value: 'fr',
     label: 'Français'
   },
