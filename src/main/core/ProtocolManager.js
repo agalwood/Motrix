@@ -13,17 +13,43 @@ export default class ProtocolManager extends EventEmitter {
   }
 
   init () {
-    // package.json:build.mac.protocols[].schemes[]
+    // package.json:build.protocols[].schemes[]
     if (!app.isDefaultProtocolClient('mo')) {
       app.setAsDefaultProtocolClient('mo')
     }
     if (!app.isDefaultProtocolClient('motrix')) {
       app.setAsDefaultProtocolClient('motrix')
     }
+    if (!app.isDefaultProtocolClient('magnet')) {
+      app.setAsDefaultProtocolClient('magnet')
+    }
   }
 
   handle (url) {
     logger.info(`[Motrix] protocol url: ${url}`)
+
+    if (url.toLowerCase().startsWith('magnet:')) {
+      return this.handleMagnetProtocol(url)
+    }
+
+    if (
+      url.toLowerCase().startsWith('mo:') ||
+      url.toLowerCase().startsWith('motrix:')
+    ) {
+      return this.handleMoProtocol(url)
+    }
+  }
+
+  handleMagnetProtocol (url) {
+    if (!url) {
+      return
+    }
+    logger.error(`[Motrix] handleMagnetProtocol url: ${url}`)
+
+    global.application.sendCommandToAll('application:new-task', 'uri', url)
+  }
+
+  handleMoProtocol (url) {
     const parsed = new URL(url)
     const { host } = parsed
     logger.info('[Motrix] protocol parsed:', parsed, host)

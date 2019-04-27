@@ -21,12 +21,21 @@ const actions = {
         })
     })
   },
-  save ({ commit }, config) {
+  save ({ commit }, data) {
+    let { btTracker } = data
+    btTracker = btTracker.trim().replace(/(?:\r\n|\r|\n)/g, ',')
+    const config = {
+      ...data,
+      btTracker
+    }
     commit('UPDATE_PREFERENCE_DATA', config)
     return api.savePreference(config)
   },
   changeThemeConfig ({ commit }, theme) {
     commit('UPDATE_PREFERENCE_DATA', { theme })
+  },
+  fetchBtTracker () {
+    return api.fetchBtTrackerFromGitHub()
   },
   toggleEngineMode () {
 

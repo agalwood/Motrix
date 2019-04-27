@@ -9,6 +9,11 @@ export function getLogPath () {
   return logger.transports.file.file
 }
 
+export function getDhtPath (protocol) {
+  const name = protocol === 6 ? 'dht6.dat' : 'dht.dat'
+  return resolve(app.getPath('userData'), `./${name}`)
+}
+
 export function getSessionPath () {
   return resolve(app.getPath('userData'), './download.session')
 }
@@ -60,11 +65,30 @@ export function moveAppToApplicationsFolder (errorMsg = '') {
   })
 }
 
+export function parseArgvAsUrl (argv) {
+  let arg = argv[1]
+  if (!arg) {
+    return
+  }
+
+  if (
+    arg.toLowerCase().startsWith('mo:') ||
+    arg.toLowerCase().startsWith('motrix:') ||
+    arg.toLowerCase().startsWith('http:') ||
+    arg.toLowerCase().startsWith('https:') ||
+    arg.toLowerCase().startsWith('ftp:') ||
+    arg.toLowerCase().startsWith('magnet:') ||
+    arg.toLowerCase().startsWith('thunder:')
+  ) {
+    return arg
+  }
+}
+
 export function isDirectory (path) {
   return existsSync(path) && lstatSync(path).isDirectory()
 }
 
-export function parseArgv (argv) {
+export function parseArgvAsFile (argv) {
   let arg = argv[1]
   if (!arg || isDirectory(arg)) {
     return

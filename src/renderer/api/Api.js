@@ -9,6 +9,10 @@ import {
   changeKeysToCamelCase,
   changeKeysToKebabCase
 } from '@shared/utils'
+import {
+  BEST_TRACKERS_URL,
+  BEST_TRACKERS_IP_URL
+} from '@shared/constants'
 
 const application = remote.getGlobal('application')
 
@@ -267,5 +271,18 @@ export default class Api {
 
   stopPowerSaveBlocker () {
     application.energyManager.stopPowerSaveBlocker()
+  }
+
+  fetchBtTrackerFromGitHub () {
+    const now = Date.now()
+    const promises = [
+      fetch(`${BEST_TRACKERS_IP_URL}?t=${now}`).then((res) => res.text()),
+      fetch(`${BEST_TRACKERS_URL}?t=${now}`).then((res) => res.text())
+    ]
+
+    return Promise.all(promises).then((values) => {
+      let result = values.join('\r\n').replace(/^\s*[\r\n]/gm, '')
+      return result
+    })
   }
 }

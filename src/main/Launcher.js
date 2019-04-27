@@ -5,7 +5,7 @@ import is from 'electron-is'
 import ExceptionHandler from './core/ExceptionHandler'
 import logger from './core/Logger'
 import Application from './Application'
-import { parseArgv } from './utils'
+import { parseArgvAsUrl, parseArgvAsFile } from './utils'
 
 const EMPTY_STRING = ''
 
@@ -33,10 +33,10 @@ export default class Launcher extends EventEmitter {
       app.quit()
     } else {
       app.on('second-instance', (event, argv, workingDirectory) => {
+        logger.warn('second-instance====>', event, argv, workingDirectory)
         global.application.showPage('index')
         if (!is.macOS() && argv.length > 1) { // Windows, Linux
-          this.file = parseArgv(argv)
-          this.sendFileToApplication()
+          this.handleAppLaunchArgv(argv)
         }
       })
 
@@ -68,32 +68,49 @@ export default class Launcher extends EventEmitter {
       return
     }
     app.on('open-url', (event, url) => {
-      logger.info(`[Motrix] open-url path: ${url}`)
+      logger.info(`[Motrix] open-url: ${url}`)
       event.preventDefault()
       this.url = url
-      if (this.url && global.application && global.application.isReady) {
-        global.application.handleProtocol(this.url)
-        this.url = EMPTY_STRING
-      }
+      this.sendUrlToApplication()
     })
   }
 
   /**
-   * handleOpenFile [WIP]
+   * handleOpenFile
    * handle open torrent file
    */
   handleOpenFile () {
     // macOS
     if (is.macOS()) {
       app.on('open-file', (event, path) => {
-        logger.info(`[Motrix] open-file path: ${path}`)
+        logger.info(`[Motrix] open-file: ${path}`)
         event.preventDefault()
         this.file = path
         this.sendFileToApplication()
       })
     } else if (process.argv.length > 1) { // Windows, Linux
-      this.file = parseArgv(process.argv)
+      this.handleAppLaunchArgv(process.argv)
+    }
+  }
+
+  handleAppLaunchArgv (argv) {
+    const file = parseArgvAsFile(argv)
+    if (file) {
+      this.file = file
       this.sendFileToApplication()
+    }
+
+    const url = parseArgvAsUrl(argv)
+    if (url) {
+      this.url = url
+      this.sendUrlToApplication()
+    }
+  }
+
+  sendUrlToApplication () {
+    if (this.url && global.application && global.application.isReady) {
+      global.application.handleProtocol(this.url)
+      this.url = EMPTY_STRING
     }
   }
 
@@ -111,13 +128,9 @@ export default class Launcher extends EventEmitter {
       global.application.start('index')
 
       global.application.on('ready', () => {
-        if (this.url) {
-          global.application.handleProtocol(this.url)
-        }
+        this.sendUrlToApplication()
 
-        if (this.file) {
-          global.application.handleFile(this.file)
-        }
+        this.sendFileToApplication()
       })
     })
 

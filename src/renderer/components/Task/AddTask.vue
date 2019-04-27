@@ -19,7 +19,7 @@
               type="textarea"
               :autosize="{ minRows: 3, maxRows: 5 }"
               auto-complete="off"
-              :placeholder="$t('task.uri-task-tip')"
+              :placeholder="$t('task.uri-task-tips')"
               @change="handleUriChange"
               v-model="form.uris">
             </el-input>
@@ -40,7 +40,7 @@
       <el-row :gutter="12">
         <el-col :span="15">
           <el-form-item :label="`${$t('task.task-out')}: `" :label-width="formLabelWidth">
-            <el-input :placeholder="$t('task.task-out-tip')" v-model="form.out">
+            <el-input :placeholder="$t('task.task-out-tips')" v-model="form.out">
             </el-input>
           </el-form-item>
         </el-col>
@@ -123,9 +123,10 @@
   } from '@shared/utils'
 
   const initialForm = (state) => {
+    const { addTaskUrl } = state.app
     const { dir, split, newTaskShowDownloading } = state.preference.config
     const result = {
-      uris: '',
+      uris: addTaskUrl,
       torrent: '',
       out: '',
       userAgent: '',
@@ -211,7 +212,9 @@
         if (!hasResource) {
           return
         }
-        this.form.uris = content
+        if (isEmpty(this.form.uris)) {
+          this.form.uris = content
+        }
       },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
@@ -229,7 +232,7 @@
         if (uris.includes('thunder://')) {
           this.$msg({
             type: 'warning',
-            message: this.$t('task.thunder-link-tip'),
+            message: this.$t('task.thunder-link-tips'),
             duration: 6000
           })
         }
