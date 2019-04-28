@@ -123,8 +123,10 @@ npm run build
 |-------|:--------------------|:-------------|
 | de    | German              | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
+| fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
 | fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
+| ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
 | tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
 | zh-CN | 简体中文             | ✔️           |
