@@ -332,4 +332,16 @@
   .form-preference .el-switch__label {
     color: $--dk-preference-form-text-color;
   }
+
+  .form-preference .el-form-item {
+    a {
+      color: #dfdfdf;
+      &:hover {
+        color: #eee;
+      }
+      &:active {
+        color: #eee;
+      }
+    }
+  }
 }
