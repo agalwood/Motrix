@@ -1,4 +1,5 @@
 import api from '@/api'
+import { isEmpty } from 'lodash'
 
 const state = {
   engineMode: 'MAX',
@@ -21,13 +22,11 @@ const actions = {
         })
     })
   },
-  save ({ commit }, data) {
-    let { btTracker } = data
-    btTracker = btTracker.trim().replace(/(?:\r\n|\r|\n)/g, ',')
-    const config = {
-      ...data,
-      btTracker
+  save ({ commit }, config) {
+    if (isEmpty(config)) {
+      return
     }
+
     commit('UPDATE_PREFERENCE_DATA', config)
     return api.savePreference(config)
   },

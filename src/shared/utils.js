@@ -327,10 +327,15 @@ export function splitTextRows (text = '') {
   return result
 }
 
-export function convertToTextRows (text = '') {
+export function convertCommaToLine (text = '') {
   let arr = text.split(',')
   arr = arr.map((row) => row.trim())
   const result = arr.join('\n')
+  return result
+}
+
+export function convertLineToComma (text = '') {
+  const result = text.trim().replace(/(?:\r\n|\r|\n)/g, ',')
   return result
 }
 

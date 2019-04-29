@@ -155,7 +155,8 @@
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
   import {
-    convertToTextRows
+    convertCommaToLine,
+    convertLineToComma
   } from '@shared/utils'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
@@ -174,7 +175,7 @@
     const result = {
       allProxy,
       allProxyBackup,
-      btTracker: convertToTextRows(btTracker),
+      btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
       locale,
       theme,
@@ -269,9 +270,13 @@
             console.log('error submit!!')
             return false
           }
+          const data = {
+            ...this.form,
+            btTracker: convertLineToComma(this.form.btTracker)
+          }
 
-          console.log('this.form===>', this.form)
-          this.$store.dispatch('preference/save', this.form)
+          console.log('this.form===>', data)
+          this.$store.dispatch('preference/save', data)
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command', 'application:relaunch')
           }
