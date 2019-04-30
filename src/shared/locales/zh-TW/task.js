@@ -24,7 +24,7 @@ export default {
   'copyright-warning-message': '您要下載的檔案可能是有版權的音訊視訊，請確保您有相應的版權方授權。',
   'copyright-yes': '是，我有版權方授權',
   'copyright-no': '否',
-  'copyright-error-message': '版權問題，新增任務失敗',
+  'copyright-error-message': '因版權問題，新增任務失敗',
   'pause-task': '暫停任務',
   'pause-task-success': '暫停任務 "{{taskName}}" 成功',
   'pause-task-fail': '暫停任務 "{{taskName}}" 失敗',
