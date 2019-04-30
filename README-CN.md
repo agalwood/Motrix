@@ -24,7 +24,7 @@ Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 
 ### Windows
 
-如果你使用windows 7+ 你可以通过 [scoop](https://github.com/lukesampson/scoop) 来下载安装此软件的最新便携版本
+如果你使用 Windows 7+ 你可以通过 [scoop](https://github.com/lukesampson/scoop) 来下载安装此软件的最新便携版本
 
 ```bash
 scoop install motrix
