@@ -20,6 +20,16 @@ Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 
 [GitHub](https://github.com/agalwood/Motrix/releases) 和 [官网](https://motrix.app/zh-CN) 提供了已经编译好的稳定版安装包，当然你也可以自己克隆代码编译打包。
 
+
+
+### Windows
+
+如果你使用 Windows 7+ 你可以通过 [scoop](https://github.com/lukesampson/scoop) 来下载安装此软件的最新便携版本
+
+```bash
+scoop install motrix
+```
+
 ### macOS
 
 更新：macOS 用户支持 `brew cask` 安装，感谢 [Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。

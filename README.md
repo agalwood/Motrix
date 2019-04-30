@@ -20,6 +20,16 @@ Motrix has a clean and easy to use interface. I hope you will like it 👻.
 
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
 
+
+
+### Windows
+
+When you are using Windows 7+ you can download and install the latest portable version of this software with [scoop](https://github.com/lukesampson/scoop)
+
+```bash
+scoop install motrix
+```
+
 ### macOS
 
 Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
