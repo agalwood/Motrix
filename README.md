@@ -20,11 +20,11 @@ Motrix has a clean and easy to use interface. I hope you will like it 👻.
 
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
 
-
-
 ### Windows
 
-When you are using Windows 7+ you can download and install the latest portable version of this software with [scoop](https://github.com/lukesampson/scoop)
+It is recommended to install Motrix using the installation package (Motrix-Setup-x.y.z.exe) to ensure a complete experience, such as associating torrent files, capturing magnet links, etc.
+
+If you prefer the portable version, you can use [scoop](https://github.com/lukesampson/scoop) (need Windows 7+) to install Motrix.
 
 ```bash
 scoop install motrix
@@ -32,7 +32,7 @@ scoop install motrix
 
 ### macOS
 
-Update: macOS user support `brew cask` installation, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
+The macOS users can install Motrix using `brew cask`, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
 
 ```bash
 brew update && brew cask install motrix
@@ -40,7 +40,7 @@ brew update && brew cask install motrix
 
 ### Linux
 
-You can download the AppImage(for all Linux distributions) package or snap or just build from source code.
+You can download the AppImage (for all Linux distributions) package or snap or just build from source code to install Motrix.
 
 Please read the **Build** section.
 
