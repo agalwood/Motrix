@@ -24,9 +24,11 @@ Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and
 
 ### Windows
 
-When you are using Windows7+  you can download and install the latest portable version of this software with [scoop](https://github.com/lukesampson/scoop)
+When you are using Windows 7+ you can download and install the latest portable version of this software with [scoop](https://github.com/lukesampson/scoop)
 
-`scoop install motrix `
+```bash
+scoop install motrix
+```
 
 ### macOS
 
