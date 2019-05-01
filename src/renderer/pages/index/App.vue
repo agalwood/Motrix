@@ -18,6 +18,7 @@
   import EngineClient from '@/components/Native/EngineClient'
   import Ipc from '@/components/Native/Ipc'
   import { mapState } from 'vuex'
+  import { getLangDirection } from '@shared/utils'
 
   export default {
     name: 'Motrix',
@@ -36,7 +37,8 @@
         },
         rpcSecret: state => state.config.rpcSecret,
         theme: state => state.config.theme,
-        locale: state => state.config.locale
+        locale: state => state.config.locale,
+        dir: state => getLangDirection(state.config.locale)
       }),
       themeClass: function () {
         if (this.theme === 'auto') {
@@ -47,13 +49,17 @@
       },
       i18nClass: function () {
         return `i18n-${this.locale}`
+      },
+      dirClass: function () {
+        return `dir-${this.dir}`
       }
     },
     methods: {
       isRenderer: is.renderer,
       updateRootClassName: function () {
-        const { themeClass = '', i18nClass = '' } = this
-        document.documentElement.className = `${themeClass} ${i18nClass}`
+        const { themeClass = '', i18nClass = '', dirClass = '' } = this
+        const className = `${themeClass} ${i18nClass} ${dirClass}`
+        document.documentElement.className = className
       }
     },
     beforeMount: function () {

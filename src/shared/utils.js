@@ -399,3 +399,31 @@ export function buildFileList (rawFile) {
   const fileList = [file]
   return fileList
 }
+
+const supportRtlLocales = [
+  /* 'العربية', Arabic */
+  'ar',
+  /* 'فارسی', Persian */
+  'fa',
+  /* 'עברית', Hebrew */
+  'he',
+  /* 'Kurdî / كوردی', Kurdish */
+  'ku',
+  /* 'پنجابی', Western Punjabi */
+  'pa',
+  /* 'پښتو', Pashto, */
+  'ps',
+  /* 'سنڌي', Sindhi */
+  'sd',
+  /* 'اردو', Urdu */
+  'ur',
+  /* 'ייִדיש', Yiddish */
+  'yi'
+]
+export function isRTL (locale = 'en-US') {
+  return supportRtlLocales.includes(locale)
+}
+
+export function getLangDirection (locale = 'en-US') {
+  return isRTL(locale) ? 'rtl' : 'ltr'
+}
