@@ -71,6 +71,9 @@
       },
       i18nClass: function (val, oldVal) {
         this.updateRootClassName()
+      },
+      dirClass: function (val, oldVal) {
+        this.updateRootClassName()
       }
     }
   }
