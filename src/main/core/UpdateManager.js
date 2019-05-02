@@ -43,13 +43,13 @@ export default class UpdateManager extends EventEmitter {
 
     if (this.autoCheckData.checkEnable) {
       this.autoCheckData.userCheck = false
-      this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
+      this.options.setCheckTime.setUserConfig('last-check-update-time', Date.now())
       this.updater.checkForUpdates()
     }
   }
 
   check () {
-    this.options.setCheckTime.setUserConfig('last-check-update-time', new Date().getTime())
+    this.options.setCheckTime.setUserConfig('last-check-update-time', Date.now())
     this.autoCheckData.userCheck = true
     this.updater.checkForUpdates()
   }
@@ -112,7 +112,10 @@ export default class UpdateManager extends EventEmitter {
 
   updateError (event, error) {
     this.emit('update-error', error)
-    const msg = error == null ? this.i18n.t('update-error-message') : (error.stack || error).toString()
+    const msg = (error == null)
+      ? this.i18n.t('update-error-message')
+      : (error.stack || error).toString()
+
     this.updater.logger.warn(`[Motrix] update-error: ${msg}`)
     dialog.showErrorBox(msg)
   }

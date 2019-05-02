@@ -16,6 +16,7 @@ import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import ThemeManager from './ui/ThemeManager'
+import { AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -201,12 +202,20 @@ export default class Application extends EventEmitter {
       return
     }
     this.updateManager = new UpdateManager({
-      autoCheck: this.configManager.getUserConfig('auto-check-update')
-        ? (new Date().getTime() - this.configManager.getUserConfig('last-check-update-time') > 7 * 24 * 60 * 60 * 1000)
-        : false,
+      autoCheck: this.isNeedAutoCheck(),
       setCheckTime: this.configManager
     })
     this.handleUpdaterEvents()
+  }
+
+  isNeedAutoCheck () {
+    const enable = this.configManager.getUserConfig('auto-check-update')
+    if (!enable) {
+      return false
+    }
+
+    const lastCheck = this.configManager.getUserConfig('last-check-update-time')
+    return (Date.now() - lastCheck > AUTO_CHECK_UPDATE_INTERVAL)
   }
 
   handleUpdaterEvents () {
