@@ -65,22 +65,47 @@ export function moveAppToApplicationsFolder (errorMsg = '') {
   })
 }
 
+export function splitArgv (argv) {
+  const args = []
+  const extra = {}
+  for (const arg of argv) {
+    if (arg.startsWith('--')) {
+      const kv = arg.split('=')
+      const key = kv[0]
+      const value = kv[1] || '1'
+      extra[key] = value
+      continue
+    }
+    args.push(arg)
+  }
+  return { args, extra }
+}
+
 export function parseArgvAsUrl (argv) {
   let arg = argv[1]
   if (!arg) {
     return
   }
 
-  if (
-    arg.toLowerCase().startsWith('mo:') ||
-    arg.toLowerCase().startsWith('motrix:') ||
-    arg.toLowerCase().startsWith('http:') ||
-    arg.toLowerCase().startsWith('https:') ||
-    arg.toLowerCase().startsWith('ftp:') ||
-    arg.toLowerCase().startsWith('magnet:') ||
-    arg.toLowerCase().startsWith('thunder:')
-  ) {
+  if (checkIsSupportedSchema(arg)) {
     return arg
+  }
+}
+
+export function checkIsSupportedSchema (url = '') {
+  const str = url.toLowerCase()
+  if (
+    str.startsWith('mo:') ||
+    str.startsWith('motrix:') ||
+    str.startsWith('http:') ||
+    str.startsWith('https:') ||
+    str.startsWith('ftp:') ||
+    str.startsWith('magnet:') ||
+    str.startsWith('thunder:')
+  ) {
+    return true
+  } else {
+    return false
   }
 }
 
