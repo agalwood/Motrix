@@ -5,6 +5,7 @@ export default {
   'save': 'Sauver et appliquer',
   'discard': 'Annuler les changement',
   'startup': 'Démarrage',
+  'open-at-login': 'Ouvrir à la connexion',
   'auto-resume-all': 'Reprendre les tâches non terminées',
   'default-dir': 'Répertoire par défaut',
   'mas-default-dir-tips': 'En raison des restrictions d\'autorisations du bac à sable de l\'App Store, il est recommandé de définir le répertoire de téléchargement par défaut sur le répertoire Téléchargements.',

@@ -5,6 +5,7 @@ export default {
   'save': '保存して適用',
   'discard': '放棄',
   'startup': '起動',
+  'open-at-login': '自動的に起動します',
   'auto-resume-all': '起動後自動的に未完了タスクを再開',
   'default-dir': '既定の保存先',
   'mas-default-dir-tips': 'App Store の Sandbox 制限のため，デフォルトディレクトリ設定は「Download」を推奨します。',

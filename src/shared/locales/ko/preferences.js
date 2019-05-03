@@ -5,6 +5,7 @@ export default {
   'save': '저장 & 적용',
   'discard': '포기',
   'startup': '시작',
+  'open-at-login': '로그인 시 엽니다',
   'auto-resume-all': '완료되지 않은 모든 작업 자동 재개',
   'default-dir': '기본 폴더',
   'mas-default-dir-tips': '앱스토어의 샌드박스 사용 권한 제한으로 인해 기본 다운로드 폴더를 다운로드 폴더로 설정하는 것이 권장됩니다.',

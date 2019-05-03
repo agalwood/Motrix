@@ -5,6 +5,7 @@ export default {
   'save': 'Save & Apply',
   'discard': 'Discard',
   'startup': 'Startup',
+  'open-at-login': 'Open at login',
   'auto-resume-all': 'Auto resume all unfinished tasks',
   'default-dir': 'Default Dir',
   'mas-default-dir-tips': 'Due to the sandbox permissions restrictions of the App Store, the default download dir is recommended to be set to Downloads directory',
