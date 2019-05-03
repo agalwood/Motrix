@@ -57,8 +57,9 @@ export default class WindowManager extends EventEmitter {
     return result
   }
 
-  openWindow (page) {
-    const options = this.getPageOptions(page)
+  openWindow (page, options = {}) {
+    const pageOptions = this.getPageOptions(page)
+    const { hidden } = options
 
     let window = this.windows[page] || null
     if (window) {
@@ -69,7 +70,7 @@ export default class WindowManager extends EventEmitter {
 
     window = new BrowserWindow({
       ...defaultBrowserOptions,
-      ...options.attrs
+      ...pageOptions.attrs
     })
 
     window.webContents.on('new-window', (e, url) => {
@@ -77,15 +78,17 @@ export default class WindowManager extends EventEmitter {
       shell.openExternal(url)
     })
 
-    if (options.url) {
-      window.loadURL(options.url)
+    if (pageOptions.url) {
+      window.loadURL(pageOptions.url)
     }
 
     window.once('ready-to-show', () => {
-      window.show()
+      if (!hidden) {
+        window.show()
+      }
     })
 
-    if (options.bindCloseToHide) {
+    if (pageOptions.bindCloseToHide) {
       this.bindCloseToHide(page, window)
     }
 

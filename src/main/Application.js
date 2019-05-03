@@ -82,12 +82,15 @@ export default class Application extends EventEmitter {
     }
   }
 
-  start (page) {
-    this.showPage(page)
+  start (page, options = {}) {
+    this.showPage(page, options)
   }
 
-  showPage (page) {
-    const win = this.windowManager.openWindow(page)
+  showPage (page, options = {}) {
+    const { openedAtLogin } = options
+    const win = this.windowManager.openWindow(page, {
+      hidden: openedAtLogin
+    })
     win.once('ready-to-show', () => {
       this.isReady = true
       this.emit('ready')
@@ -270,7 +273,7 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:exit', () => {
-      this.engine.stop()
+      this.stop()
       app.exit()
     })
 
