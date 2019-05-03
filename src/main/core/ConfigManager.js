@@ -115,6 +115,7 @@ export default class ConfigManager {
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
+        'open-at-login': false,
         'resume-all-when-app-launched': false,
         'session-path': getSessionPath(),
         'task-notification': true,
