@@ -62,7 +62,7 @@ export default class WindowManager extends EventEmitter {
 
     let window = this.windows[page] || null
     if (window) {
-      window.restore()
+      window.show()
       window.focus()
       return window
     }
