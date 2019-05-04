@@ -124,6 +124,14 @@ export default class ConfigManager {
         'use-proxy': false
       }
     })
+    this.fixUserConfig()
+  }
+
+  fixUserConfig () {
+    const openAtLogin = app.getLoginItemSettings().openAtLogin
+    if (this.getUserConfig('open-at-login') !== openAtLogin) {
+      this.setUserConfig('open-at-login', openAtLogin)
+    }
   }
 
   getSystemConfig (key, defaultValue) {

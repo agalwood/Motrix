@@ -3,6 +3,11 @@ import { app } from 'electron'
 export default class AutoLaunchManager {
   enable () {
     return new Promise((resolve, reject) => {
+      const enabled = app.getLoginItemSettings().openAtLogin
+      if (enabled) {
+        resolve()
+      }
+
       app.setLoginItemSettings({
         openAtLogin: true,
         // For Windows
