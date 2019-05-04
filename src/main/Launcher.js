@@ -5,7 +5,11 @@ import is from 'electron-is'
 import ExceptionHandler from './core/ExceptionHandler'
 import logger from './core/Logger'
 import Application from './Application'
-import { parseArgvAsUrl, parseArgvAsFile } from './utils'
+import {
+  splitArgv,
+  parseArgvAsUrl,
+  parseArgvAsFile
+} from './utils'
 
 const EMPTY_STRING = ''
 
@@ -33,9 +37,9 @@ export default class Launcher extends EventEmitter {
       app.quit()
     } else {
       app.on('second-instance', (event, argv, workingDirectory) => {
-        logger.warn('second-instance====>', event, argv, workingDirectory)
+        logger.warn('second-instance====>', argv, workingDirectory)
         global.application.showPage('index')
-        if (!is.macOS() && argv.length > 1) { // Windows, Linux
+        if (!is.macOS() && argv.length > 1) {
           this.handleAppLaunchArgv(argv)
         }
       })
@@ -46,6 +50,16 @@ export default class Launcher extends EventEmitter {
 
   init () {
     this.exceptionHandler = new ExceptionHandler()
+
+    this.openedAtLogin = is.macOS()
+      ? app.getLoginItemSettings().wasOpenedAtLogin
+      : false
+
+    if (process.argv.length > 1) {
+      this.handleAppLaunchArgv(process.argv)
+    }
+
+    logger.warn('openedAtLogin===>', this.openedAtLogin)
 
     this.handleAppEvents()
   }
@@ -60,11 +74,12 @@ export default class Launcher extends EventEmitter {
 
   /**
    * handleOpenUrl
+   * Event 'open-url' macOS only
    * "name": "Motrix Protocol",
    * "schemes": ["mo", "motrix"]
    */
   handleOpenUrl () {
-    if (is.mas()) {
+    if (is.mas() || !is.macOS()) {
       return
     }
     app.on('open-url', (event, url) => {
@@ -77,30 +92,44 @@ export default class Launcher extends EventEmitter {
 
   /**
    * handleOpenFile
+   * Event 'open-file' macOS only
    * handle open torrent file
    */
   handleOpenFile () {
-    // macOS
-    if (is.macOS()) {
-      app.on('open-file', (event, path) => {
-        logger.info(`[Motrix] open-file: ${path}`)
-        event.preventDefault()
-        this.file = path
-        this.sendFileToApplication()
-      })
-    } else if (process.argv.length > 1) { // Windows, Linux
-      this.handleAppLaunchArgv(process.argv)
+    if (!is.macOS()) {
+      return
     }
+    app.on('open-file', (event, path) => {
+      logger.info(`[Motrix] open-file: ${path}`)
+      event.preventDefault()
+      this.file = path
+      this.sendFileToApplication()
+    })
   }
 
+  /**
+   * handleAppLaunchArgv
+   * For Windows, Linux
+   * @param {array} argv
+   */
   handleAppLaunchArgv (argv) {
-    const file = parseArgvAsFile(argv)
+    logger.info('handleAppLaunchArgv===>', argv)
+
+    // args: array, extra: map
+    const { args, extra } = splitArgv(argv)
+    logger.info('splitArgv.args===>', args)
+    logger.info('splitArgv.extra===>', extra)
+    if (extra['--opened-at-login'] === '1') {
+      this.openedAtLogin = true
+    }
+
+    const file = parseArgvAsFile(args)
     if (file) {
       this.file = file
       this.sendFileToApplication()
     }
 
-    const url = parseArgvAsUrl(argv)
+    const url = parseArgvAsUrl(args)
     if (url) {
       this.url = url
       this.sendUrlToApplication()
@@ -125,7 +154,10 @@ export default class Launcher extends EventEmitter {
     app.on('ready', () => {
       global.application = new Application()
 
-      global.application.start('index')
+      const { openedAtLogin } = this
+      global.application.start('index', {
+        openedAtLogin
+      })
 
       global.application.on('ready', () => {
         this.sendUrlToApplication()

@@ -5,6 +5,7 @@ export default {
   'save': 'Kaydet & Uygula',
   'discard': 'İptal Et',
   'startup': 'Başlangıçta',
+  'open-at-login': 'Giriş sırasında aç',
   'auto-resume-all': 'Tüm bitmemiş görevleri otomatik olarak devam ettir',
   'default-dir': 'Varsayılan Klasör',
   'mas-default-dir-tips': 'App Store\'un sanal alan izinleri kısıtlamaları nedeniyle, varsayılan indirme dizininin İndirilenler dizinine ayarlanması önerilir.',

@@ -5,6 +5,7 @@ export default {
   'save': '儲存並套用',
   'discard': '捨棄',
   'startup': '啟動',
+  'open-at-login': '開機自動啟動',
   'auto-resume-all': '啟動後自動繼續未完成任務',
   'default-dir': '預設下載路徑',
   'mas-default-dir-tips': '因 App Store 的沙盒權限限制，建議將預設下載路徑設定為您的「下載」資料夾',

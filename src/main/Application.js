@@ -8,6 +8,7 @@ import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
 import Engine from './core/Engine'
+import AutoLaunchManager from './core/AutoLaunchManager'
 import UpdateManager from './core/UpdateManager'
 import EnergyManager from './core/EnergyManager'
 import ProtocolManager from './core/ProtocolManager'
@@ -49,6 +50,8 @@ export default class Application extends EventEmitter {
 
     this.trayManager = new TrayManager()
 
+    this.autoLaunchManager = new AutoLaunchManager()
+
     this.initThemeManager()
 
     this.energyManager = new EnergyManager()
@@ -58,6 +61,7 @@ export default class Application extends EventEmitter {
     this.initProtocolManager()
 
     this.handleCommands()
+
     this.handleIpcMessages()
   }
 
@@ -78,12 +82,15 @@ export default class Application extends EventEmitter {
     }
   }
 
-  start (page) {
-    this.showPage(page)
+  start (page, options = {}) {
+    this.showPage(page, options)
   }
 
-  showPage (page) {
-    const win = this.windowManager.openWindow(page)
+  showPage (page, options = {}) {
+    const { openedAtLogin } = options
+    const win = this.windowManager.openWindow(page, {
+      hidden: openedAtLogin
+    })
     win.once('ready-to-show', () => {
       this.isReady = true
       this.emit('ready')
@@ -266,8 +273,21 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:exit', () => {
-      this.engine.stop()
+      this.stop()
       app.exit()
+    })
+
+    this.on('application:open-at-login', (openAtLogin) => {
+      console.log('application:open-at-login===>', openAtLogin)
+      if (is.linux()) {
+        return
+      }
+
+      if (openAtLogin) {
+        this.autoLaunchManager.enable()
+      } else {
+        this.autoLaunchManager.disable()
+      }
     })
 
     this.on('application:show', (page) => {

@@ -115,6 +115,7 @@ export default class ConfigManager {
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
+        'open-at-login': false,
         'resume-all-when-app-launched': false,
         'session-path': getSessionPath(),
         'task-notification': true,
@@ -123,6 +124,16 @@ export default class ConfigManager {
         'use-proxy': false
       }
     })
+    this.fixUserConfig()
+  }
+
+  fixUserConfig () {
+    // Fix the value of open-at-login when the user delete
+    // the Motrix self-starting item through startup management.
+    const openAtLogin = app.getLoginItemSettings().openAtLogin
+    if (this.getUserConfig('open-at-login') !== openAtLogin) {
+      this.setUserConfig('open-at-login', openAtLogin)
+    }
   }
 
   getSystemConfig (key, defaultValue) {
