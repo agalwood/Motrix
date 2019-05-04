@@ -128,6 +128,8 @@ export default class ConfigManager {
   }
 
   fixUserConfig () {
+    // Fix the value of open-at-login when the user delete
+    // the Motrix self-starting item through startup management.
     const openAtLogin = app.getLoginItemSettings().openAtLogin
     if (this.getUserConfig('open-at-login') !== openAtLogin) {
       this.setUserConfig('open-at-login', openAtLogin)
