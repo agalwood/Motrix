@@ -5,6 +5,7 @@
     :visible.sync="visible"
     :before-close="handleClose"
     @open="handleOpen"
+    @opened="handleOpened"
     @closed="handleClosed">
     <el-form
       ref="taskForm"
@@ -21,6 +22,7 @@
               auto-complete="off"
               :placeholder="$t('task.uri-task-tips')"
               @change="handleUriChange"
+              @paste.native="handleUriPaste"
               v-model="form.uris">
             </el-input>
           </el-form-item>
@@ -216,6 +218,9 @@
           this.form.uris = content
         }
       },
+      handleOpened () {
+        this.detectThunderResource(this.form.uris)
+      },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
       },
@@ -225,10 +230,13 @@
       handleTabClick (tab, event) {
         this.$store.dispatch('app/changeAddTaskType', tab.name)
       },
-      handleUriChange () {
-        // el-input does not support @paste event ?
-        // https://github.com/ElemeFE/element/blob/master/packages/input/src/input.vue
-        const { uris } = this.form
+      handleUriPaste () {
+        setImmediate(() => {
+          const uris = this.$refs.uri.value
+          this.detectThunderResource(uris)
+        })
+      },
+      detectThunderResource (uris) {
         if (uris.includes('thunder://')) {
           this.$msg({
             type: 'warning',
@@ -236,6 +244,9 @@
             duration: 6000
           })
         }
+      },
+      handleUriChange () {
+        console.log('handleUriChange===>', this.form.uris)
       },
       handleTorrentChange (torrent, file, fileList) {
         // TODO 种子选择部分文件下载
