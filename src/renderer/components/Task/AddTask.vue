@@ -236,7 +236,7 @@
           this.detectThunderResource(uris)
         })
       },
-      detectThunderResource (uris) {
+      detectThunderResource (uris = '') {
         if (uris.includes('thunder://')) {
           this.$msg({
             type: 'warning',
