@@ -4,10 +4,10 @@ import { app, shell, screen, BrowserWindow } from 'electron'
 import is from 'electron-is'
 import pageConfig from '../configs/page'
 import logger from '../core/Logger'
+import { debounce } from 'lodash'
 
 const defaultBrowserOptions = {
   titleBarStyle: 'hiddenInset',
-  useContentSize: true,
   show: false,
   width: 1024,
   height: 768,
@@ -88,9 +88,9 @@ export default class WindowManager extends EventEmitter {
       }
     })
 
-    if (pageOptions.bindCloseToHide) {
-      this.bindCloseToHide(page, window)
-    }
+    this.handleWindowState(page, window)
+
+    this.handleWindowClose(pageOptions, page, window)
 
     this.bindAfterClosed(page, window)
 
@@ -117,6 +117,9 @@ export default class WindowManager extends EventEmitter {
   destroyWindow (page) {
     const win = this.getWindow(page)
     this.removeWindow(page)
+    win.removeListener('closed')
+    win.removeListener('move')
+    win.removeListener('resize')
     win.destroy()
   }
 
@@ -130,12 +133,26 @@ export default class WindowManager extends EventEmitter {
     })
   }
 
-  bindCloseToHide (page, window) {
+  handleWindowState (page, window) {
+    window.on('resize', debounce(() => {
+      const bounds = window.getBounds()
+      this.emit('window-resized', { page, bounds })
+    }, 500))
+
+    window.on('move', debounce(() => {
+      const bounds = window.getBounds()
+      this.emit('window-moved', { page, bounds })
+    }, 500))
+  }
+
+  handleWindowClose (pageOptions, page, window) {
     window.on('close', (event) => {
-      if (!this.willQuit) {
+      if (pageOptions.bindCloseToHide && !this.willQuit) {
         event.preventDefault()
         window.hide()
       }
+      const bounds = window.getBounds()
+      this.emit('window-closed', { page, bounds })
     })
   }
 
