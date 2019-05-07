@@ -38,9 +38,7 @@ export default class Application extends EventEmitter {
 
     this.initTouchBarManager()
 
-    this.windowManager = new WindowManager({
-      userConfig: this.configManager.getUserConfig()
-    })
+    this.initWindowManager()
 
     this.engine = new Engine({
       systemConfig: this.configManager.getSystemConfig(),
@@ -80,6 +78,37 @@ export default class Application extends EventEmitter {
         }, 100)
       })
     }
+  }
+
+  initWindowManager () {
+    this.windowManager = new WindowManager({
+      userConfig: this.configManager.getUserConfig()
+    })
+
+    this.windowManager.on('window-resized', (data) => {
+      this.storeWindowState(data)
+    })
+    this.windowManager.on('window-moved', (data) => {
+      this.storeWindowState(data)
+    })
+    this.windowManager.on('window-closed', (data) => {
+      this.storeWindowState(data)
+    })
+  }
+
+  storeWindowState (data = {}) {
+    const enabled = this.configManager.getUserConfig('keep-window-state')
+    if (!enabled) {
+      return
+    }
+
+    const state = this.configManager.getUserConfig('window-state', {})
+    const { page, bounds } = data
+    const newState = {
+      ...state,
+      [page]: bounds
+    }
+    this.configManager.setUserConfig('window-state', newState)
   }
 
   start (page, options = {}) {
