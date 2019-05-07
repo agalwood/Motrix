@@ -57,6 +57,17 @@ export default class WindowManager extends EventEmitter {
     return result
   }
 
+  getPageBounds (page) {
+    const enabled = this.userConfig['keep-window-state']
+    const windowStateMap = this.userConfig['window-state'] || {}
+    let result = null
+    if (enabled) {
+      result = windowStateMap[page]
+    }
+
+    return result
+  }
+
   openWindow (page, options = {}) {
     const pageOptions = this.getPageOptions(page)
     const { hidden } = options
@@ -72,6 +83,12 @@ export default class WindowManager extends EventEmitter {
       ...defaultBrowserOptions,
       ...pageOptions.attrs
     })
+
+    const bounds = this.getPageBounds(page)
+    console.log('bounds ====>', bounds)
+    if (bounds) {
+      window.setBounds(bounds)
+    }
 
     window.webContents.on('new-window', (e, url) => {
       e.preventDefault()
