@@ -4,6 +4,7 @@ const userKeys = [
   'cookie',
   'enable-egg-features',
   'hide-app-menu',
+  'keep-window-state',
   'last-check-update-time',
   'locale',
   'log-path',
