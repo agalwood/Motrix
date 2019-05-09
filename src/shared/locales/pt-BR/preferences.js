@@ -6,6 +6,7 @@ export default {
   'discard': 'Descartar',
   'startup': 'Inicialização',
   'open-at-login': 'Abra no login',
+  'keep-window-state': 'Restaurar tamanho e posição da janela',
   'auto-resume-all': 'Auto resumir todas as tarefas não finalizadas',
   'default-dir': 'Diretório Padrão',
   'mas-default-dir-tips': 'Devido às restrições de permissões do sandbox da App Store, recomenda-se que o diretório de download padrão seja definido como o diretório de downloads',
