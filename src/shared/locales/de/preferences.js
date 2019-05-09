@@ -6,6 +6,7 @@ export default {
   'discard': 'Verwerfen',
   'startup': 'Startup',
   'open-at-login': 'Beim Login öffnen',
+  'keep-window-state': 'Stellen Sie die Größe und Position des Fensters wieder her',
   'auto-resume-all': 'Alle nicht abgeschlossenen Aufgaben automatisch fortsetzen',
   'default-dir': 'Standard Speicherort',
   'mas-default-dir-tips': 'Aufgrund der Einschränkungen durch Sandbox-Berechtigungen im App Store wird der Download Ordner als Standard empfohlen',

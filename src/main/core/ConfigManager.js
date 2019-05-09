@@ -117,11 +117,13 @@ export default class ConfigManager {
         'new-task-show-downloading': true,
         'open-at-login': false,
         'resume-all-when-app-launched': false,
+        'keep-window-state': false,
         'session-path': getSessionPath(),
         'task-notification': true,
         'theme': 'auto',
         'update-channel': 'latest',
-        'use-proxy': false
+        'use-proxy': false,
+        'window-state': {}
       }
     })
     this.fixUserConfig()

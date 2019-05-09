@@ -22,6 +22,11 @@
             </el-checkbox>
           </el-col>
           <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.keepWindowState">
+              {{ $t('preferences.keep-window-state') }}
+            </el-checkbox>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.resumeAllWhenAppLaunched">
               {{ $t('preferences.auto-resume-all') }}
             </el-checkbox>
@@ -104,6 +109,7 @@
     const {
       autoCheckUpdate,
       dir,
+      keepWindowState,
       lastCheckUpdateTime,
       maxConcurrentDownloads,
       maxConnectionPerServer,
@@ -117,6 +123,7 @@
       autoCheckUpdate,
       continue: config.continue,
       dir,
+      keepWindowState,
       lastCheckUpdateTime,
       maxConcurrentDownloads,
       maxConnectionPerServer,

@@ -7,6 +7,7 @@ export default {
   'startup': '起動',
   'open-at-login': '自動的に起動します',
   'auto-resume-all': '起動後自動的に未完了タスクを再開',
+  'keep-window-state': 'ウィンドウのサイズと位置を元に戻します',
   'default-dir': '既定の保存先',
   'mas-default-dir-tips': 'App Store の Sandbox 制限のため，デフォルトディレクトリ設定は「Download」を推奨します。',
   'task-manage': 'タスク管理',
