@@ -6,6 +6,9 @@
       </a>
     </el-col>
     <el-col :span="18" class="copyright-right">
+      <a target="_blank" href="https://motrix.app/license" rel="noopener noreferrer">
+        {{ $t('about.license') }}
+      </a>
       <a target="_blank" href="https://motrix.app/about" rel="noopener noreferrer">
         {{ $t('about.about') }}
       </a>
