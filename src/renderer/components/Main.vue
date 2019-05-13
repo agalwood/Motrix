@@ -14,7 +14,6 @@
   import { mapState } from 'vuex'
   import AboutPanel from '@/components/About/AboutPanel'
   import Aside from '@/components/Aside/Index'
-  import Subnav from '@/components/Subnav/Index'
   import Speedometer from '@/components/Speedometer/Speedometer'
   import AddTask from '@/components/Task/AddTask'
   import TaskItemInfo from '@/components/Task/TaskItemInfo'
@@ -25,7 +24,6 @@
     components: {
       [AboutPanel.name]: AboutPanel,
       [Aside.name]: Aside,
-      [Subnav.name]: Subnav,
       [Speedometer.name]: Speedometer,
       [AddTask.name]: AddTask,
       [TaskItemInfo.name]: TaskItemInfo,
