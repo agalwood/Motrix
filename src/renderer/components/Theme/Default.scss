@@ -88,6 +88,17 @@ img {
   color: $--color-info;
 }
 
+.el-input-number.el-input-number--mini {
+  &.is-controls-left .el-input__inner {
+    padding-left: 34px;
+    padding-right: 5px;
+  }
+  &.is-controls-right .el-input__inner {
+    padding-left: 5px;
+    padding-right: 34px;
+  }
+}
+
 /* App Main
 -------------------------- */
 #app,
