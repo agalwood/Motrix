@@ -133,15 +133,16 @@ img {
     li {
       margin-bottom: 8px;
       padding: 8px 10px;
-      font-size: 14px;
+      font-size: 0;
       line-height: 20px;
       border-radius: 3px;
       cursor: pointer;
 
       i,
       span {
-        vertical-align: middle;
         display: inline-block;
+        vertical-align: middle;
+        font-size: 14px;
       }
 
       &:hover,
