@@ -90,6 +90,7 @@ export default class ConfigManager {
         'pause': true,
         'rpc-listen-port': 16800,
         'rpc-secret': '',
+        'seed-time': 60,
         'split': 16,
         'user-agent': 'Transmission/2.94'
       }
