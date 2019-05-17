@@ -339,8 +339,65 @@ export function convertLineToComma (text = '') {
   return result
 }
 
-const audioSuffix = ['.aac', '.mp3', '.ogg', '.ape', '.flac', '.m4a', '.wav', '.wma', '.flav']
-const videoSuffix = ['.avi', '.mkv', '.rmvb', '.wmv', '.mp4', '.m4a', '.vob', '.mov', '.mpg']
+export const imageSuffix = [
+  '.ai',
+  '.bmp',
+  '.eps',
+  '.gif',
+  '.icn',
+  '.ico',
+  '.jpeg',
+  '.jpg',
+  '.png',
+  '.psd',
+  '.raw',
+  '.sketch',
+  '.svg',
+  '.tif',
+  '.webp',
+  '.xd'
+]
+export const audioSuffix = [
+  '.aac',
+  '.ape',
+  '.flac',
+  '.flav',
+  '.m4a',
+  '.mp3',
+  '.ogg',
+  '.wav',
+  '.wma'
+]
+export const videoSuffix = [
+  '.avi',
+  '.m4a',
+  '.mkv',
+  '.mov',
+  '.mp4',
+  '.mpg',
+  '.rmvb',
+  '.vob',
+  '.wmv'
+]
+
+export function filterVideoFiles (files = []) {
+  return files.filter((item) => {
+    return videoSuffix.includes(item.extension)
+  })
+}
+
+export function filterAudioFiles (files = []) {
+  return files.filter((item) => {
+    return audioSuffix.includes(item.extension)
+  })
+}
+
+export function filterImageFiles (files = []) {
+  return files.filter((item) => {
+    return imageSuffix.includes(item.extension)
+  })
+}
+
 export function isAudioOrVideo (uri = '') {
   const suffixs = [...audioSuffix, ...videoSuffix]
   const result = suffixs.some((suffix) => {
