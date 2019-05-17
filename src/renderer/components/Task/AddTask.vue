@@ -30,7 +30,6 @@
         <el-tab-pane
           :label="$t('task.torrent-task')"
           name="torrent"
-          v-if="iLoveEggFeatures"
           >
           <el-form-item>
             <mo-select-torrent
@@ -178,10 +177,7 @@
       }),
       ...mapState('preference', {
         config: state => state.config
-      }),
-      iLoveEggFeatures: function () {
-        return !this.isMas() || (this.isMas() && this.config.enableEggFeatures)
-      }
+      })
     },
     watch: {
       taskType: function (current, previous) {
