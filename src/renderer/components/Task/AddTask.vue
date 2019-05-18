@@ -116,12 +116,15 @@
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
   import { prettifyDir } from '@/components/Native/utils'
-  import '@/components/Icons/inbox'
+  import {
+    NONE_SELECTED_FILES,
+    SELECTED_ALL_FILES
+  } from '@shared/constants'
   import {
     detectResource,
-    splitTaskLinks,
-    needCheckCopyright
+    splitTaskLinks
   } from '@shared/utils'
+  import '@/components/Icons/inbox'
 
   const initialForm = (state) => {
     const { addTaskUrl } = state.app
@@ -129,6 +132,7 @@
     const result = {
       uris: addTaskUrl,
       torrent: '',
+      selectFile: NONE_SELECTED_FILES,
       out: '',
       userAgent: '',
       referer: '',
@@ -158,9 +162,8 @@
     },
     data () {
       return {
-        formLabelWidth: '100px',
+        formLabelWidth: '96px',
         showAdvanced: false,
-        torrentName: '',
         form: {},
         rules: {}
       }
@@ -244,10 +247,9 @@
       handleUriChange () {
         console.log('handleUriChange===>', this.form.uris)
       },
-      handleTorrentChange (torrent, file, fileList) {
-        // TODO 种子选择部分文件下载
-        // console.log('handleTorrentChange===>', torrent, file, fileList)
+      handleTorrentChange (torrent, selectedFileIndex) {
         this.form.torrent = torrent
+        this.form.selectFile = selectedFileIndex
       },
       handleSplitChange (value) {
         console.log('handleSplitChange===>', value)
@@ -278,9 +280,12 @@
         }
         return result
       },
-      buildOption (form) {
+      buildOption (type, form) {
         const {
-          dir, out, split
+          dir,
+          out,
+          selectFile,
+          split
         } = form
         const result = {}
 
@@ -290,6 +295,15 @@
 
         if (!isEmpty(out)) {
           result.out = out
+        }
+
+        if (type === 'torrent') {
+          if (
+            selectFile !== SELECTED_ALL_FILES &&
+            selectFile !== NONE_SELECTED_FILES
+          ) {
+            result['select-file'] = selectFile
+          }
         }
 
         if (split > 0) {
@@ -304,8 +318,11 @@
       },
       buildUriPayload (form) {
         let { uris } = form
+        if (isEmpty(uris)) {
+          throw new Error(this.$t('task.new-task-uris-required'))
+        }
         uris = splitTaskLinks(uris)
-        const options = this.buildOption(form)
+        const options = this.buildOption('uri', form)
         const result = {
           uris,
           options
@@ -314,12 +331,14 @@
       },
       buildTorrentPayload (form) {
         const { torrent } = form
-        const options = this.buildOption(form)
+        if (isEmpty(torrent)) {
+          throw new Error(this.$t('task.new-task-torrent-required'))
+        }
+        const options = this.buildOption('torrent', form)
         const result = {
           torrent,
           options
         }
-        console.log('buildTorrentPayload===>', result)
         return result
       },
       addTask (type, form) {
@@ -342,58 +361,23 @@
           console.error('addTask fail', form)
         }
       },
-      checkCopyright (type, form) {
-        const { uris } = form
-
-        return new Promise((resolve, reject) => {
-          if (type !== 'uri') {
-            resolve()
-          }
-
-          if (!needCheckCopyright(uris)) {
-            resolve()
-            return
-          }
-
-          if (this.iLoveEggFeatures) {
-            resolve()
-            return
-          }
-
-          this.$electron.remote.dialog.showMessageBox({
-            type: 'warning',
-            title: this.$t('task.copyright-warning'),
-            message: this.$t('task.copyright-warning-message'),
-            buttons: [this.$t('task.copyright-yes'), this.$t('task.copyright-no')],
-            cancelId: 1
-          }, (buttonIndex, checkboxChecked) => {
-            if (buttonIndex === 0) {
-              resolve()
-            } else {
-              reject(new Error(this.$t('task.copyright-error-message')))
-            }
-          })
-        })
-      },
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
             return false
           }
 
-          this.checkCopyright(this.type, this.form)
-            .then(() => {
-              this.addTask(this.type, this.form)
-              this.$store.dispatch('app/hideAddTaskDialog')
-              if (this.form.newTaskShowDownloading) {
-                this.$router.push({
-                  path: '/task/active'
-                })
-              }
-            })
-            .catch((err) => {
-              this.$msg.error(err.message)
-            })
+          try {
+            this.addTask(this.type, this.form)
+            this.$store.dispatch('app/hideAddTaskDialog')
+            if (this.form.newTaskShowDownloading) {
+              this.$router.push({
+                path: '/task/active'
+              })
+            }
+          } catch (err) {
+            this.$msg.error(err.message)
+          }
         })
       }
     }
