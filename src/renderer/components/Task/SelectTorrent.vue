@@ -195,7 +195,9 @@
         this.name = ''
         this.currentTorrent = ''
         this.files = []
-        this.$refs.torrentTable.clearSelection()
+        if (this.$refs.torrentTable) {
+          this.$refs.torrentTable.clearSelection()
+        }
         this.$emit('change', '', NONE_SELECTED_FILES)
       },
       handleChange (file, fileList) {
