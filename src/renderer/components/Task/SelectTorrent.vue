@@ -56,7 +56,7 @@
         </el-table-column>
         <el-table-column
           :label="$t('task.file-extension')"
-          width="70">
+          width="80">
           <template slot-scope="scope">{{ scope.row.extension | removeExtensionDot }}</template>
         </el-table-column>
         <el-table-column
@@ -67,7 +67,7 @@
       </el-table>
     </div>
     <el-row :gutter="12">
-      <el-col class="file-filters" :span="12">
+      <el-col class="file-filters" :span="8">
         <el-button-group>
           <el-button @click="toggleVideoSelection()">
             <mo-icon name="video" width="12" height="12" />
@@ -80,7 +80,7 @@
           </el-button>
         </el-button-group>
       </el-col>
-      <el-col :span="12" style="text-align: right">
+      <el-col :span="16" style="text-align: right">
         {{ $t('task.selected-files-sum', { selectedFilesCount, selectedFilesTotalSize }) }}
       </el-col>
     </el-row>
