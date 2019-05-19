@@ -162,7 +162,7 @@
     },
     data () {
       return {
-        formLabelWidth: '96px',
+        formLabelWidth: '100px',
         showAdvanced: false,
         form: {},
         rules: {}

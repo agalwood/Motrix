@@ -16,7 +16,7 @@ export default {
   'file-size': 'Dateigröße',
   'selected-files-sum': 'Ausgewählt: {{selectedFilesCount}} Dateien, insgesamt {{selectedFilesTotalSize}}',
   'task-name': 'Aufgaben Name',
-  'task-out': 'Umbenennen',
+  'task-out': 'Dateiname',
   'task-out-tips': 'Optional, unterstützt nur Einzelaufgaben',
   'task-split': 'Splits',
   'task-dir': 'Ordner',

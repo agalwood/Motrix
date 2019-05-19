@@ -16,7 +16,7 @@ export default {
   'file-size': 'Boyut',
   'selected-files-sum': 'Seçildi: {{selectedFilesCount}} dosya sayısı, total {{selectedFilesTotalSize}}',
   'task-name': 'Görev Adı',
-  'task-out': 'Yeniden Adlandır',
+  'task-out': 'Dosya Adı',
   'task-out-tips': 'Opsiyonel, tek görev destekle',
   'task-split': 'Parça',
   'task-dir': 'Yol',
