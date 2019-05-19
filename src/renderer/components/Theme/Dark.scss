@@ -307,10 +307,50 @@
   /* Dialog */
   .el-dialog {
     background-color: $--dk-dialog-background;
+    .el-dialog__body {
+      color: $--dk-dialog-text-color;
+    }
   }
 
   .add-task-dialog .el-dialog__footer {
     background-color: $--dk-add-task-dialog-footer-background;
+  }
+
+  .torrent-file-list {
+    border-color: $--dk-table-border-color;
+  }
+
+  .el-table {
+    background-color: $--dk-table-background;
+    color: $--dk-table-text-color;
+    tr {
+      background-color: $--dk-table-background;
+    }
+    th {
+      background-color: $--dk-table-th-background;
+      color: $--dk-table-text-color;
+    }
+    th.is-leaf, td {
+      background-color: $--dk-table-background;
+      color: $--dk-table-text-color;
+      border-bottom-color: $--dk-table-border-color;
+    }
+  }
+  .el-table thead th.is-leaf {
+    background-color: $--dk-table-th-background;
+  }
+
+  .el-table--enable-row-hover .el-table__body tr:hover > td,
+  .el-table--enable-row-hover .el-table__body tr.el-table__row--striped:hover > td {
+    background-color: $--dk-table-hover-background;
+  }
+
+  .el-table--group::after, .el-table--border::after, .el-table::before {
+    background-color: $--dk-table-border-color;
+  }
+
+  .el-table--striped .el-table__body tr.el-table__row--striped td {
+    background-color: $--dk-table-striped-background;
   }
 
   /* Tabs */

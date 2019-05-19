@@ -6,3 +6,6 @@ export const BEST_TRACKERS_IP_URL = 'https://raw.githubusercontent.com/ngosang/t
 
 // One Week
 export const AUTO_CHECK_UPDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000
+
+export const NONE_SELECTED_FILES = 'none'
+export const SELECTED_ALL_FILES = 'all'

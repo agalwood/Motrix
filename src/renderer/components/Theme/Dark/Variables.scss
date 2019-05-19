@@ -34,7 +34,7 @@ $--dk-panel-border-color: #EBECF0 !default;
 -------------------------- */
 $--dk-task-action-color: #eee !default;
 $--dk-task-action-hover-color: $--color-primary !default;
-$--dk-task-item-backgroud: #2D2D2D !default;
+$--dk-task-item-backgroud: #2d2d2d !default;
 $--dk-task-item-border-color: #555 !default;
 $--dk-task-item-hover-border-color: $--color-primary !default;
 $--dk-task-item-hover-background: $--color-primary !default;
@@ -50,7 +50,7 @@ $--dk-add-task-dialog-footer-background: #4a4a4a !default;
 
 /* Preference
 -------------------------- */
-$--dk-preference-form-text-color: #dfdfdf;
+$--dk-preference-form-text-color: #dfdfdf !default;
 
 /* Speedometer
 -------------------------- */
@@ -64,3 +64,10 @@ $--dk-speedometer-text-color: #9b9b9b !default;
 /* Element UI
 -------------------------- */
 $--dk-dialog-background: #343434 !default;
+$--dk-dialog-text-color: #9b9b9b !default;
+$--dk-table-background: #2a2b2c !default;
+$--dk-table-striped-background: #1f2122 !default;
+$--dk-table-hover-background: #565656 !default;
+$--dk-table-th-background: #1f2122 !default;
+$--dk-table-text-color: #9b9b9b !default;
+$--dk-table-border-color: #565656 !default;
