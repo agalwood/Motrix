@@ -484,3 +484,26 @@ export function isRTL (locale = 'en-US') {
 export function getLangDirection (locale = 'en-US') {
   return isRTL(locale) ? 'rtl' : 'ltr'
 }
+
+export function listTorrentFiles (files) {
+  const result = files.map((file, index) => {
+    const extension = getFileExtension(file.path)
+    const item = {
+      // aria2 select-file start index at 1
+      // possible Values: 1-1048576
+      idx: index + 1,
+      extension: `.${extension}`,
+      ...file
+    }
+    return item
+  })
+  return result
+}
+
+export function getFileExtension (filename) {
+  return filename.slice((filename.lastIndexOf('.') - 1 >>> 0) + 2)
+}
+
+export function removeExtensionDot (extension = '') {
+  return extension.replace('.', '')
+}
