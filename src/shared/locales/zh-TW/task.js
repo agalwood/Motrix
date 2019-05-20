@@ -14,7 +14,7 @@ export default {
   'file-name': '文件名',
   'file-extension': '擴展名',
   'file-size': '大小',
-  'selected-files-sum': '選中：{{ selectedFilesCount }}個文件，總計{{ selectedFilesTotalSize }}',
+  'selected-files-sum': '選中：{{selectedFilesCount}}個文件，總計 {{selectedFilesTotalSize}}',
   'task-name': '任務名稱',
   'task-out': '重新命名',
   'task-out-tips': '選填（僅支援單一任務）',

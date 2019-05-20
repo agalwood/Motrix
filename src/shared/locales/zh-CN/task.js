@@ -14,7 +14,7 @@ export default {
   'file-name': '文件名',
   'file-extension': '类型',
   'file-size': '大小',
-  'selected-files-sum': '已选：{{ selectedFilesCount }}个文件，共 {{ selectedFilesTotalSize }}',
+  'selected-files-sum': '已选：{{selectedFilesCount}}个文件，共 {{selectedFilesTotalSize}}',
   'task-name': '任务名',
   'task-out': '重命名',
   'task-out-tips': '选填（仅支持单任务）',
