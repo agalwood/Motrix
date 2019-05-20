@@ -9,6 +9,27 @@ body {
   font-variant: tabular-nums;
 }
 
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+::-webkit-scrollbar-thumb:window-inactive {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-resizer {
+  display: none;
+}
+
 img {
   width: auto;
   height: auto;
