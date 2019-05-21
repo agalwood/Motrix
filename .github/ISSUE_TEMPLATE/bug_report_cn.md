@@ -6,13 +6,13 @@ labels: ''
 assignees: ''
 
 ---
-**反馈之前**
+<!--
 反馈之前请搜索一下已有 issues 和 帮助文档，看是否有类似问题可以解决你的问题
 https://github.com/agalwood/Motrix/issues
 http://motrix.app/support
 
-**请删除上面和本行的内容，然后按以下格式填写反馈信息，谢谢**
-
+按以下格式填写反馈信息，谢谢
+-->
 **错误描述**
 清楚简洁地描述错误，方便我们复现之后处理。
 
