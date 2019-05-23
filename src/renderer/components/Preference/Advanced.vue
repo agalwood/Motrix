@@ -11,34 +11,6 @@
         size="mini"
         :model="form"
         :rules="rules">
-        <el-form-item :label="`${$t('preferences.appearance')}: `" :label-width="formLabelWidth">
-          <el-col class="form-item-sub" :span="24">
-            <mo-theme-switcher
-              v-model="form.theme"
-              @change="handleThemeChange"
-            />
-          </el-col>
-          <el-col v-if="showHideAppMenuOption" class="form-item-sub" :span="16">
-            <el-checkbox v-model="form.hideAppMenu">
-              {{ $t('preferences.hide-app-menu') }}
-            </el-checkbox>
-          </el-col>
-        </el-form-item>
-        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
-          <el-col class="form-item-sub" :span="16">
-            <el-select
-              v-model="form.locale"
-              @change="handleLocaleChange"
-              :placeholder="$t('preferences.change-language')">
-              <el-option
-                v-for="item in locales"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value">
-              </el-option>
-            </el-select>
-          </el-col>
-        </el-form-item>
         <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
           <el-switch
             v-model="form.useProxy"
@@ -149,11 +121,8 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
-  import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
-  import { availableLanguages, getLanguage } from '@shared/locales'
-  import { getLocaleManager } from '@/components/Locale'
   import {
     convertCommaToLine,
     convertLineToComma
@@ -167,8 +136,6 @@
       allProxyBackup,
       btTracker,
       hideAppMenu,
-      locale,
-      theme,
       useProxy,
       userAgent
     } = config
@@ -177,8 +144,6 @@
       allProxyBackup,
       btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
-      locale,
-      theme,
       useProxy,
       userAgent
     }
@@ -188,7 +153,6 @@
   export default {
     name: 'mo-preference-advanced',
     components: {
-      [ThemeSwitcher.name]: ThemeSwitcher,
       [ShowInFolder.name]: ShowInFolder
     },
     data: function () {
@@ -196,9 +160,7 @@
         formLabelWidth: '23%',
         form: initialForm(this.$store.state.preference.config),
         isSyncTracker: false,
-        rules: {},
-        color: '#c00',
-        locales: availableLanguages
+        rules: {}
       }
     },
     computed: {
@@ -218,15 +180,6 @@
     },
     methods: {
       isRenderer: is.renderer,
-      handleLocaleChange (locale) {
-        const lng = getLanguage(locale)
-        getLocaleManager().changeLanguage(lng)
-        this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
-      },
-      handleThemeChange (theme) {
-        this.form.theme = theme
-        this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
-      },
       syncTrackerFromGitHub () {
         this.isSyncTracker = true
         this.$store.dispatch('preference/fetchBtTracker')
