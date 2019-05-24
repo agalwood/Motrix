@@ -84,9 +84,9 @@ export default class Api {
   savePreference (params = {}) {
     const kebabParams = changeKeysToKebabCase(params)
     if (is.renderer()) {
-      this.savePreferenceToNativeStore(kebabParams)
+      return this.savePreferenceToNativeStore(kebabParams)
     } else {
-      this.savePreferenceToLocalStorage(kebabParams)
+      return this.savePreferenceToLocalStorage(kebabParams)
     }
   }
 
@@ -99,6 +99,7 @@ export default class Api {
     if (!isEmpty(system)) {
       console.info('[Motrix] save system config: ', system)
       application.configManager.setSystemConfig(system)
+      this.changeGlobalOption(system)
     }
 
     if (!isEmpty(user)) {
@@ -113,6 +114,15 @@ export default class Api {
 
   getVersion () {
     return this.client.call('getVersion')
+  }
+
+  changeGlobalOption (options) {
+    const args = {}
+    Object.keys(options).forEach((key) => {
+      args[key] = `${options[key]}`
+    })
+
+    return this.client.call('changeGlobalOption', args)
   }
 
   getGlobalOption () {
