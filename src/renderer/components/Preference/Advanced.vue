@@ -80,7 +80,7 @@
                     width="12"
                     height="12"
                     :spin="true"
-                    v-if="isSyncTracker"
+                    v-if="trackerSyncing"
                   />
                   <mo-icon name="sync" width="12" height="12" v-else />
                 </el-button>
@@ -192,13 +192,13 @@
       [ShowInFolder.name]: ShowInFolder
     },
     data: function () {
+      const form = initialForm(this.$store.state.preference.config)
       return {
+        form,
         formLabelWidth: '23%',
-        form: initialForm(this.$store.state.preference.config),
-        isSyncTracker: false,
+        locales: availableLanguages,
         rules: {},
-        color: '#c00',
-        locales: availableLanguages
+        trackerSyncing: false
       }
     },
     computed: {
@@ -228,14 +228,14 @@
         this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
       },
       syncTrackerFromGitHub () {
-        this.isSyncTracker = true
+        this.trackerSyncing = true
         this.$store.dispatch('preference/fetchBtTracker')
           .then((data) => {
             console.log('syncTrackerFromGitHub data====>', data)
             this.form.btTracker = data
           })
           .finally(() => {
-            this.isSyncTracker = false
+            this.trackerSyncing = false
           })
       },
       onUseProxyChange (flag) {
