@@ -206,12 +206,15 @@
       }
     },
     created: function () {
-      this.$store.dispatch('app/fetchEngineInfo')
-      this.$store.dispatch('app/fetchEngineOptions')
-
-      this.startPolling()
-
       this.bindEngineEvents()
+    },
+    mounted: function () {
+      setTimeout(() => {
+        this.$store.dispatch('app/fetchEngineInfo')
+        this.$store.dispatch('app/fetchEngineOptions')
+
+        this.startPolling()
+      }, 100)
     },
     destroyed: function () {
       this.$store.dispatch('task/saveSession')
