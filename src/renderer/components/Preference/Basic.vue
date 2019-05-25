@@ -102,8 +102,10 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
+  import { cloneDeep } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import { prettifyDir } from '@/components/Native/utils'
+  import { diffConfig } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -173,15 +175,18 @@
             return false
           }
 
+          const { openAtLogin } = this.form
+          const changed = diffConfig(this.formOriginal, this.form)
           const data = {
-            ...this.form
+            ...changed
           }
-          const { openAtLogin } = data
+          console.log('changed====》', data)
 
           this.$store.dispatch('preference/save', data)
+          this.$store.dispatch('app/fetchEngineOptions')
+
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command', 'application:open-at-login', openAtLogin)
-            this.$electron.ipcRenderer.send('command', 'application:relaunch')
           }
         })
       },

@@ -149,6 +149,7 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
+  import { cloneDeep } from 'lodash'
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
@@ -156,7 +157,8 @@
   import { getLocaleManager } from '@/components/Locale'
   import {
     convertCommaToLine,
-    convertLineToComma
+    convertLineToComma,
+    diffConfig
   } from '@shared/utils'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
@@ -270,15 +272,17 @@
             console.log('error submit!!')
             return false
           }
+          const changed = diffConfig(this.formOriginal, this.form)
           const data = {
-            ...this.form,
-            btTracker: convertLineToComma(this.form.btTracker)
+            ...changed,
+            btTracker: convertLineToComma(changed.btTracker)
           }
+          console.log('changed====》', data)
 
-          console.log('this.form===>', data)
           this.$store.dispatch('preference/save', data)
+          this.$store.dispatch('app/fetchEngineOptions')
+
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:relaunch')
           }
         })
       },
