@@ -58,7 +58,7 @@ export default {
   'purge-record-success': 'Successfully purged task records',
   'purge-record-fail': 'Failed to purge task records',
   'refresh-list': 'Refresh Task List',
-  'no-task': 'No active task',
+  'no-task': 'There are no current tasks',
   'copy-link': 'Copy Link',
   'copy-link-success': 'Successfully copied link',
   'remove-record': 'Remove Task Record',

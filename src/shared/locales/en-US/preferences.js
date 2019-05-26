@@ -8,7 +8,7 @@ export default {
   'open-at-login': 'Open at login',
   'keep-window-state': 'Keep size and position of the window when exit',
   'auto-resume-all': 'Automatically resume all unfinished tasks',
-  'default-dir': 'Default Download Directory',
+  'default-dir': 'Default Path',
   'mas-default-dir-tips': 'Due to sandbox permission restrictions of the App Store, the default download directory is recommended to be set to ~/Downloads',
   'task-manage': 'Task Management',
   'max-concurrent-downloads': 'Maximum active tasks',
