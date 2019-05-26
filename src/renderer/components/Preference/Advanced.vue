@@ -198,6 +198,7 @@
       return {
         form,
         formLabelWidth: '23%',
+        formOriginal: cloneDeep(form),
         locales: availableLanguages,
         rules: {},
         trackerSyncing: false
@@ -275,12 +276,18 @@
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed,
-            btTracker: convertLineToComma(changed.btTracker)
+            btTracker: convertLineToComma(this.form.btTracker)
           }
           console.log('changed====》', data)
 
           this.$store.dispatch('preference/save', data)
-          this.$store.dispatch('app/fetchEngineOptions')
+            .then(() => {
+              this.$store.dispatch('app/fetchEngineOptions')
+              this.$msg.success(this.$t('preferences.save-success-message'))
+            })
+            .catch(() => {
+              this.$msg.success(this.$t('preferences.save-fail-message'))
+            })
 
           if (this.isRenderer()) {
           }

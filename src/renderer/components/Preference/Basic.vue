@@ -144,9 +144,11 @@
       [SelectDirectory.name]: SelectDirectory
     },
     data: function () {
+      const form = initialForm(this.$store.state.preference.config)
       return {
+        form,
         formLabelWidth: '23%',
-        form: initialForm(this.$store.state.preference.config),
+        formOriginal: cloneDeep(form),
         rules: {}
       }
     },
@@ -183,7 +185,13 @@
           console.log('changed====》', data)
 
           this.$store.dispatch('preference/save', data)
-          this.$store.dispatch('app/fetchEngineOptions')
+            .then(() => {
+              this.$store.dispatch('app/fetchEngineOptions')
+              this.$msg.success(this.$t('preferences.save-success-message'))
+            })
+            .catch(() => {
+              this.$msg.success(this.$t('preferences.save-fail-message'))
+            })
 
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command', 'application:open-at-login', openAtLogin)
