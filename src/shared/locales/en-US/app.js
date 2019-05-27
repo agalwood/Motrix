@@ -5,7 +5,7 @@ export default {
   'preferences': 'Preferences...',
   'check-for-updates': 'Check for Updates...',
   'check-for-updates-title': 'Check for Updates',
-  'update-available-message': 'A new version of Motrix is available, update now?',
+  'update-available-message': 'A newer version of Motrix is available, update now?',
   'update-not-available-message': 'You are up-to-date!',
   'update-downloaded-message': 'Ready to install...',
   'update-error-message': 'Update Error',

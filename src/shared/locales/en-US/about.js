@@ -2,6 +2,6 @@ export default {
   'engine-version': 'Engine Version',
   'license': 'License',
   'about': 'About',
-  'release': 'Release',
+  'release': 'Releases',
   'support': 'Support'
 }
