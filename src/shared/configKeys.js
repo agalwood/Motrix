@@ -95,6 +95,8 @@ const systemKeys = [
   'max-resume-failure-tries',
   'max-tries',
   'max-upload-limit',
+  'max-overall-download-limit',
+  'max-overall-upload-limit',
   'metalink-base-uri',
   'metalink-enable-unique-protocol',
   'metalink-language',
