@@ -1,12 +1,15 @@
 import {
-  isEmpty,
-  isNaN,
+  camelCase,
   compact,
   difference,
-  parseInt,
+  isArray,
+  isEmpty,
   isFunction,
-  camelCase,
-  kebabCase
+  isNaN,
+  kebabCase,
+  omitBy,
+  parseInt,
+  pick
 } from 'lodash'
 import { resolve } from 'path'
 import { userKeys, systemKeys } from './configKeys'
@@ -301,6 +304,7 @@ export function separateConfig (options) {
   const system = {}
   // others
   const others = {}
+
   for (const [k, v] of Object.entries(options)) {
     if (userKeys.indexOf(k) !== -1) {
       user[k] = v
@@ -506,4 +510,15 @@ export function getFileExtension (filename) {
 
 export function removeExtensionDot (extension = '') {
   return extension.replace('.', '')
+}
+
+export function diffConfig (current = {}, next = {}) {
+  const curr = pick(current, Object.keys(next))
+  const result = omitBy(next, (val, key) => {
+    if (isArray(val)) {
+      return false
+    }
+    return curr[key] === val
+  })
+  return result
 }

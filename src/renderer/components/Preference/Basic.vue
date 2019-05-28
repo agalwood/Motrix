@@ -148,8 +148,10 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
+  import { cloneDeep } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import { prettifyDir } from '@/components/Native/utils'
+  import { diffConfig } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -192,9 +194,11 @@
       [SelectDirectory.name]: SelectDirectory
     },
     data: function () {
+      const form = initialForm(this.$store.state.preference.config)
       return {
+        form,
         formLabelWidth: '23%',
-        form: initialForm(this.$store.state.preference.config),
+        formOriginal: cloneDeep(form),
         rules: {}
       }
     },
@@ -305,15 +309,24 @@
             return false
           }
 
+          const { openAtLogin } = this.form
+          const changed = diffConfig(this.formOriginal, this.form)
           const data = {
-            ...this.form
+            ...changed
           }
-          const { openAtLogin } = data
+          console.log('changed====》', data)
 
           this.$store.dispatch('preference/save', data)
+            .then(() => {
+              this.$store.dispatch('app/fetchEngineOptions')
+              this.$msg.success(this.$t('preferences.save-success-message'))
+            })
+            .catch(() => {
+              this.$msg.success(this.$t('preferences.save-fail-message'))
+            })
+
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command', 'application:open-at-login', openAtLogin)
-            this.$electron.ipcRenderer.send('command', 'application:relaunch')
           }
         })
       },

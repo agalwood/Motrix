@@ -80,7 +80,7 @@
                     width="12"
                     height="12"
                     :spin="true"
-                    v-if="isSyncTracker"
+                    v-if="trackerSyncing"
                   />
                   <mo-icon name="sync" width="12" height="12" v-else />
                 </el-button>
@@ -149,6 +149,7 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
+  import { cloneDeep } from 'lodash'
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
@@ -156,7 +157,8 @@
   import { getLocaleManager } from '@/components/Locale'
   import {
     convertCommaToLine,
-    convertLineToComma
+    convertLineToComma,
+    diffConfig
   } from '@shared/utils'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
@@ -192,13 +194,14 @@
       [ShowInFolder.name]: ShowInFolder
     },
     data: function () {
+      const form = initialForm(this.$store.state.preference.config)
       return {
+        form,
         formLabelWidth: '23%',
-        form: initialForm(this.$store.state.preference.config),
-        isSyncTracker: false,
+        formOriginal: cloneDeep(form),
+        locales: availableLanguages,
         rules: {},
-        color: '#c00',
-        locales: availableLanguages
+        trackerSyncing: false
       }
     },
     computed: {
@@ -228,14 +231,14 @@
         this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
       },
       syncTrackerFromGitHub () {
-        this.isSyncTracker = true
+        this.trackerSyncing = true
         this.$store.dispatch('preference/fetchBtTracker')
           .then((data) => {
             console.log('syncTrackerFromGitHub data====>', data)
             this.form.btTracker = data
           })
           .finally(() => {
-            this.isSyncTracker = false
+            this.trackerSyncing = false
           })
       },
       onUseProxyChange (flag) {
@@ -270,15 +273,23 @@
             console.log('error submit!!')
             return false
           }
+          const changed = diffConfig(this.formOriginal, this.form)
           const data = {
-            ...this.form,
+            ...changed,
             btTracker: convertLineToComma(this.form.btTracker)
           }
+          console.log('changed====》', data)
 
-          console.log('this.form===>', data)
           this.$store.dispatch('preference/save', data)
+            .then(() => {
+              this.$store.dispatch('app/fetchEngineOptions')
+              this.$msg.success(this.$t('preferences.save-success-message'))
+            })
+            .catch(() => {
+              this.$msg.success(this.$t('preferences.save-fail-message'))
+            })
+
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:relaunch')
           }
         })
       },
