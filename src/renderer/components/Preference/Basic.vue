@@ -11,6 +11,34 @@
         size="mini"
         :model="form"
         :rules="rules">
+        <el-form-item :label="`${$t('preferences.appearance')}: `" :label-width="formLabelWidth">
+          <el-col class="form-item-sub" :span="24">
+            <mo-theme-switcher
+              v-model="form.theme"
+              @change="handleThemeChange"
+            />
+          </el-col>
+          <el-col v-if="showHideAppMenuOption" class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.hideAppMenu">
+              {{ $t('preferences.hide-app-menu') }}
+            </el-checkbox>
+          </el-col>
+        </el-form-item>
+        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
+          <el-col class="form-item-sub" :span="16">
+            <el-select
+              v-model="form.locale"
+              @change="handleLocaleChange"
+              :placeholder="$t('preferences.change-language')">
+              <el-option
+                v-for="item in locales"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
+          </el-col>
+        </el-form-item>
         <el-form-item :label="`${$t('preferences.startup')}: `" :label-width="formLabelWidth">
           <el-col
             class="form-item-sub"
@@ -141,7 +169,7 @@
     width: 60px;
   }
  .download-speed-input input::-webkit-outer-spin-button, .download-speed-input input::-webkit-inner-spin-button {
-    -webkit-appearance: none; 
+    -webkit-appearance: none;
   }
 </style>
 
@@ -150,6 +178,9 @@
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
+  import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
+  import { availableLanguages, getLanguage } from '@shared/locales'
+  import { getLocaleManager } from '@/components/Locale'
   import { prettifyDir } from '@/components/Native/utils'
   import { diffConfig } from '@shared/utils'
 
@@ -157,8 +188,10 @@
     const {
       autoCheckUpdate,
       dir,
+      hideAppMenu,
       keepWindowState,
       lastCheckUpdateTime,
+      locale,
       maxConcurrentDownloads,
       maxConnectionPerServer,
       maxOverallUploadLimit,
@@ -167,14 +200,17 @@
       openAtLogin,
       resumeAllWhenAppLaunched,
       split,
-      taskNotification
+      taskNotification,
+      theme
     } = config
     const result = {
       autoCheckUpdate,
       continue: config.continue,
       dir,
+      hideAppMenu,
       keepWindowState,
       lastCheckUpdateTime,
+      locale,
       maxConcurrentDownloads,
       maxConnectionPerServer,
       maxOverallUploadLimit,
@@ -183,7 +219,8 @@
       openAtLogin,
       resumeAllWhenAppLaunched,
       split,
-      taskNotification
+      taskNotification,
+      theme
     }
     return result
   }
@@ -191,7 +228,8 @@
   export default {
     name: 'mo-preference-basic',
     components: {
-      [SelectDirectory.name]: SelectDirectory
+      [SelectDirectory.name]: SelectDirectory,
+      [ThemeSwitcher.name]: ThemeSwitcher
     },
     data: function () {
       const form = initialForm(this.$store.state.preference.config)
@@ -199,12 +237,16 @@
         form,
         formLabelWidth: '23%',
         formOriginal: cloneDeep(form),
+        locales: availableLanguages,
         rules: {}
       }
     },
     computed: {
       title: function () {
         return this.$t('preferences.basic')
+      },
+      showHideAppMenuOption: function () {
+        return is.windows() || is.linux()
       },
       downloadDir: function () {
         return prettifyDir(this.form.dir)
@@ -299,6 +341,16 @@
       isRenderer: is.renderer,
       isMas: is.mas,
       isLinux: is.linux,
+      handleLocaleChange (locale) {
+        const lng = getLanguage(locale)
+        getLocaleManager().changeLanguage(lng)
+        this.speedOptions = this.buildSpeedOptions()
+        this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
+      },
+      handleThemeChange (theme) {
+        this.form.theme = theme
+        this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
+      },
       onDirectorySelected (dir) {
         this.form.dir = dir
       },
