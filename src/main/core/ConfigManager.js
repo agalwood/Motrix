@@ -110,7 +110,7 @@ export default class ConfigManager {
       // },
       defaults: {
         'all-proxy-backup': '',
-        'auto-check-update': false,
+        'auto-check-update': is.macOS(),
         'hide-app-menu': is.windows() || is.linux(),
         'last-check-update-time': 0,
         'locale': app.getLocale(),
