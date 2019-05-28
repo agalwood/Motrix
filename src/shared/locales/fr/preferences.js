@@ -3,6 +3,8 @@ export default {
   'advanced': 'Avancé',
   'lab': 'Labo',
   'save': 'Sauver et appliquer',
+  'save-success-message': 'Enregistrer les préférences avec succès',
+  'save-fail-message': 'La sauvegarde des préférences a échoué',
   'discard': 'Annuler les changement',
   'startup': 'Démarrage',
   'open-at-login': 'Ouvrir à la connexion',

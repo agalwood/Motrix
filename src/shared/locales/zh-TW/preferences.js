@@ -3,6 +3,8 @@ export default {
   'advanced': '進階設定',
   'lab': '實驗性功能',
   'save': '儲存並套用',
+  'save-success-message': '偏好設定保存成功',
+  'save-fail-message': '偏好設定保存失敗',
   'discard': '捨棄',
   'startup': '啟動',
   'open-at-login': '開機自動啟動',

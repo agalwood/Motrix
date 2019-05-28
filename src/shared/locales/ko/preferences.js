@@ -3,6 +3,8 @@ export default {
   'advanced': '고급',
   'lab': '실험실',
   'save': '저장 & 적용',
+  'save-success-message': '환경 설정을 성공적으로 저장 합니다',
+  'save-fail-message': '환경 설정 저장 실패',
   'discard': '포기',
   'startup': '시작',
   'open-at-login': '로그인 시 엽니다',

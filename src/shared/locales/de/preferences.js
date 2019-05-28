@@ -3,6 +3,8 @@ export default {
   'advanced': 'Erweitert',
   'lab': 'Experimentell',
   'save': 'Speichern & übernehmen',
+  'save-success-message': 'Einstellungen erfolgreich speichern',
+  'save-fail-message': 'Speichern der Einstellungen fehlgeschlagen',
   'discard': 'Verwerfen',
   'startup': 'Startup',
   'open-at-login': 'Beim Login öffnen',

@@ -3,6 +3,8 @@ export default {
   'advanced': 'پیشرفته',
   'lab': 'آزمایشگاه',
   'save': 'ذخیره و اجرا',
+  'save-success-message': 'تنظیمات را با موفقیت ذخیره کنید',
+  'save-fail-message': 'تنظیمات ذخیره نشد',
   'discard': 'لغو',
   'startup': 'شروع برنامه',
   'open-at-login': 'باز در ورود به سیستم',

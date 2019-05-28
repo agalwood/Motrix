@@ -3,6 +3,8 @@ export default {
   'advanced': 'Gelişmiş',
   'lab': 'Deneysel',
   'save': 'Kaydet & Uygula',
+  'save-success-message': 'Tercihleri başarıyla kaydedin',
+  'save-fail-message': 'Tercihleri kaydetme başarısız oldu',
   'discard': 'İptal Et',
   'startup': 'Başlangıçta',
   'open-at-login': 'Giriş sırasında aç',
