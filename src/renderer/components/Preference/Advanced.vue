@@ -122,7 +122,6 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
-  import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import {
@@ -164,7 +163,6 @@
         form,
         formLabelWidth: '23%',
         formOriginal: cloneDeep(form),
-        locales: availableLanguages,
         rules: {},
         trackerSyncing: false
       }
