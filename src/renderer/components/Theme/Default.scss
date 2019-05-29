@@ -5,7 +5,9 @@ body {
 }
 
 body {
-  font-family: 'Monospaced Number', 'Chinese Quote', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "Monospaced Number", "Chinese Quote", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-variant: tabular-nums;
 }
 
@@ -49,7 +51,7 @@ img {
 
 .el-progress--line.is-text {
   .el-progress-bar__inner::before {
-    content: '';
+    content: "";
     opacity: 0;
     position: absolute;
     top: 0;
@@ -131,6 +133,10 @@ img {
 .draggable {
   -webkit-app-region: drag;
   -webkit-user-select: none;
+}
+
+.non-draggable {
+  -webkit-app-region: no-drag;
 }
 
 .aside {
