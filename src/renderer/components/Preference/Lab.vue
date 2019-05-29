@@ -52,6 +52,9 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
   import '@/components/Icons/info-square'
+  import {
+    calcFormLabelWidth
+  } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -68,9 +71,11 @@
     components: {
     },
     data: function () {
+      const { locale } = this.$store.state.preference.config
+      const form = initialForm(this.$store.state.preference.config)
       return {
-        formLabelWidth: '23%',
-        form: initialForm(this.$store.state.preference.config),
+        form,
+        formLabelWidth: calcFormLabelWidth(locale),
         rules: {}
       }
     },
@@ -97,7 +102,6 @@
           console.log('this.form===>', this.form)
           this.$store.dispatch('preference/save', this.form)
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:relaunch')
           }
         })
       },

@@ -160,7 +160,7 @@
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
   import { prettifyDir } from '@/components/Native/utils'
-  import { diffConfig } from '@shared/utils'
+  import { calcFormLabelWidth, diffConfig } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -210,10 +210,11 @@
       [ThemeSwitcher.name]: ThemeSwitcher
     },
     data: function () {
+      const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
       return {
         form,
-        formLabelWidth: '23%',
+        formLabelWidth: calcFormLabelWidth(locale),
         formOriginal: cloneDeep(form),
         locales: availableLanguages,
         rules: {},
