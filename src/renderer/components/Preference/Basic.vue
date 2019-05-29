@@ -81,7 +81,7 @@
             {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.transfer-setting')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.transfer-settings')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-upload') }}
             <el-select v-model="form.maxOverallUploadLimit">
