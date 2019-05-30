@@ -81,36 +81,28 @@
             {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.transfer-setting')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.transfer-settings')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-upload') }}
-            <el-radio-group class="radio-group-margin-left" v-model="maxOverallUploadLimitRadio">
-              <el-radio :label="true">{{ $t('preferences.transfer-speed-no-set') }}</el-radio>
-              <el-radio :label="false">
-                {{ $t('preferences.transfer-speed-set') }}
-                <el-input class="download-speed-input" type="number" v-model="maxOverallUploadLimitValue">
-                  <el-select v-model="maxOverallUploadLimitUnit" slot="append">
-                    <el-option label="K" value="K"></el-option>
-                    <el-option label="M" value="M"></el-option>
-                  </el-select>
-                </el-input>
-              </el-radio>
-            </el-radio-group>
+            <el-select v-model="form.maxOverallUploadLimit">
+              <el-option
+                v-for="item in speedOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
           </el-col>
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-download') }}
-            <el-radio-group class="radio-group-margin-left" v-model="maxOverallDownloadLimitRadio">
-              <el-radio :label="true">{{ $t('preferences.transfer-speed-no-set') }}</el-radio>
-              <el-radio :label="false">
-                {{ $t('preferences.transfer-speed-set') }}
-                <el-input class="download-speed-input" type="number" v-model="maxOverallDownloadLimitValue">
-                  <el-select v-model="maxOverallDownloadLimitUnit" slot="append">
-                    <el-option label="K" value="K"></el-option>
-                    <el-option label="M" value="M"></el-option>
-                  </el-select>
-                </el-input>
-              </el-radio>
-            </el-radio-group>
+            <el-select v-model="form.maxOverallDownloadLimit">
+              <el-option
+                v-for="item in speedOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
           </el-col>
         </el-form-item>
         <el-form-item :label="`${$t('preferences.task-manage')}: `" :label-width="formLabelWidth">
@@ -158,20 +150,6 @@
     </el-main>
   </el-container>
 </template>
-<style>
-  .radio-group-margin-left {
-    margin-left: 6px;
-  }
-  .el-input-group.download-speed-input {
-    width: 50%;
-  }
-  .el-input-group .el-select .el-input {
-    width: 60px;
-  }
- .download-speed-input input::-webkit-outer-spin-button, .download-speed-input input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-  }
-</style>
 
 <script>
   import is from 'electron-is'
@@ -182,7 +160,7 @@
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
   import { prettifyDir } from '@/components/Native/utils'
-  import { diffConfig } from '@shared/utils'
+  import { calcFormLabelWidth, diffConfig } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -232,13 +210,15 @@
       [ThemeSwitcher.name]: ThemeSwitcher
     },
     data: function () {
+      const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
       return {
         form,
-        formLabelWidth: '23%',
+        formLabelWidth: calcFormLabelWidth(locale),
         formOriginal: cloneDeep(form),
         locales: availableLanguages,
-        rules: {}
+        rules: {},
+        speedOptions: this.buildSpeedOptions()
       }
     },
     computed: {
@@ -250,88 +230,6 @@
       },
       downloadDir: function () {
         return prettifyDir(this.form.dir)
-      },
-      maxOverallUploadLimitValue: {
-        get: function () {
-          let value = this.form.maxOverallUploadLimit
-          if (typeof value === 'string') {
-            return value.substring(0, value.length - 1)
-          }
-          return this.form.maxOverallUploadLimit
-        },
-        set: function (value) {
-          value = this.fixSpeedInputValue(value)
-          this.form.maxOverallUploadLimit = value + this.maxOverallUploadLimitUnit
-        }
-      },
-      maxOverallUploadLimitUnit: {
-        get: function () {
-          let value = this.form.maxOverallUploadLimit
-          if (typeof value === 'string') {
-            return value.substring(value.length - 1, value.length)
-          }
-          return 'K'
-        },
-        set: function (value) {
-          this.form.maxOverallUploadLimit = this.maxOverallUploadLimitValue + value
-        }
-      },
-      maxOverallUploadLimitRadio: {
-        get: function () {
-          let value = this.form.maxOverallUploadLimit
-          if (typeof value === 'string') {
-            return value.startsWith('0')
-          }
-          return value === 0
-        },
-        set: function (value) {
-          if (value) {
-            this.form.maxOverallUploadLimit = 0
-          } else {
-            this.form.maxOverallUploadLimit = 128
-          }
-        }
-      },
-      maxOverallDownloadLimitValue: {
-        get: function () {
-          let value = this.form.maxOverallDownloadLimit
-          if (typeof value === 'string') {
-            return value.substring(0, value.length - 1)
-          }
-          return this.form.maxOverallDownloadLimit
-        },
-        set: function (value) {
-          value = this.fixSpeedInputValue(value)
-          this.form.maxOverallDownloadLimit = value + this.maxOverallDownloadLimitUnit
-        }
-      },
-      maxOverallDownloadLimitUnit: {
-        get: function () {
-          let value = this.form.maxOverallDownloadLimit
-          if (typeof value === 'string') {
-            return value.substring(value.length - 1, value.length)
-          }
-          return 'K'
-        },
-        set: function (value) {
-          this.form.maxOverallDownloadLimit = this.maxOverallDownloadLimitValue + value
-        }
-      },
-      maxOverallDownloadLimitRadio: {
-        get: function () {
-          let value = this.form.maxOverallDownloadLimit
-          if (typeof value === 'string') {
-            return value.startsWith('0')
-          }
-          return value === 0
-        },
-        set: function (value) {
-          if (value) {
-            this.form.maxOverallDownloadLimit = 0
-          } else {
-            this.form.maxOverallDownloadLimit = 128
-          }
-        }
       },
       ...mapState('preference', {
         config: state => state.config
@@ -350,6 +248,34 @@
       handleThemeChange (theme) {
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
+      },
+      buildSpeedOptions () {
+        return [
+          {
+            label: this.$t('preferences.transfer-speed-unlimited'),
+            value: 0
+          },
+          {
+            label: '128 KB/s',
+            value: '128K'
+          },
+          {
+            label: '512 KB/s',
+            value: '512K'
+          },
+          {
+            label: '1 MB/s',
+            value: '1M'
+          },
+          {
+            label: '5 MB/s',
+            value: '5M'
+          },
+          {
+            label: '10 MB/s',
+            value: '10M'
+          }
+        ]
       },
       onDirectorySelected (dir) {
         this.form.dir = dir
@@ -384,15 +310,6 @@
       },
       resetForm (formName) {
         this.form = initialForm(this.$store.state.preference.config)
-      },
-      fixSpeedInputValue (value) {
-        if (!value) {
-          return 0
-        }
-        if (typeof value === 'string' && value.startsWith('0')) {
-          return this.fixSpeedInputValue(value.substring(1, value.length))
-        }
-        return value
       }
     }
   }

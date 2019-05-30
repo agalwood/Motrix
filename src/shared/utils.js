@@ -522,3 +522,7 @@ export function diffConfig (current = {}, next = {}) {
   })
   return result
 }
+
+export function calcFormLabelWidth (locale) {
+  return locale.startsWith('de') ? '28%' : '23%'
+}

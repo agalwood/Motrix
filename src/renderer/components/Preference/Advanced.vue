@@ -125,6 +125,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import {
+    calcFormLabelWidth,
     convertCommaToLine,
     convertLineToComma,
     diffConfig
@@ -158,10 +159,11 @@
       [ShowInFolder.name]: ShowInFolder
     },
     data: function () {
+      const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
       return {
         form,
-        formLabelWidth: '23%',
+        formLabelWidth: calcFormLabelWidth(locale),
         formOriginal: cloneDeep(form),
         rules: {},
         trackerSyncing: false
