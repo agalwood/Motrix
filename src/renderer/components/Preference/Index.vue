@@ -42,13 +42,13 @@
       }
     }
     .el-form-item.el-form-item--mini {
-      margin-bottom: 24px;
+      margin-bottom: 32px;
     }
     .el-form-item__content {
       color: $--color-text-regular;
     }
     .form-item-sub {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       &:last-of-type {
         margin-bottom: 0;
       }
