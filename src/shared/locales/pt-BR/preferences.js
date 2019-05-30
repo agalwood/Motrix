@@ -33,6 +33,7 @@ export default {
   'bt-tracker-input-tips': 'servidor rastreador, um por linha',
   'bt-tracker-tips': 'Recomendar:',
   'sync-tracker-tips': 'Sincronizar dados de ngosang/trackerslist',
+  'security': 'Segurança',
   'developer': 'Desenvolverdor',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'Diretório de logs',

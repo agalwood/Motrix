@@ -33,6 +33,7 @@ export default {
   'bt-tracker-input-tips': '트래커 서버, 한 줄에 하나씩',
   'bt-tracker-tips': '추천 :',
   'sync-tracker-tips': 'ngosang/trackerslist에서 동기화',
+  'security': '보안',
   'developer': '개발자',
   'mock-user-agent': '사용자 에이전트 흉내',
   'app-log-path': '앱 로그 경로',

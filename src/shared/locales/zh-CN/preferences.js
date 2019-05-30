@@ -38,6 +38,7 @@ export default {
   'bt-tracker-input-tips': 'Tracker 服务器，一行一个',
   'bt-tracker-tips': '推荐使用：',
   'sync-tracker-tips': '从 ngosang/trackerslist 同步',
+  'security': '安全性',
   'developer': '开发者',
   'mock-user-agent': '模拟用户代理（UA）',
   'app-log-path': '应用日志路径',

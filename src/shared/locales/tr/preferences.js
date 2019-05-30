@@ -33,6 +33,7 @@ export default {
   'bt-tracker-input-tips': 'İzleyici sunucusu, her satıra bir tane',
   'bt-tracker-tips': 'Tavsiye et:',
   'sync-tracker-tips': 'ngosang/trackerslist\'dan verileri senkronize et',
+  'security': 'Güvenlik',
   'developer': 'Geliştirici',
   'mock-user-agent': 'Sahte Kullanıcı Kimliği (User-Agent)',
   'app-log-path': 'Uygulama log yolu',

@@ -33,6 +33,7 @@ export default {
   'bt-tracker-input-tips': 'ردیاب سرور، در هر خط',
   'bt-tracker-tips': 'توصیه:',
   'sync-tracker-tips': 'داده همگام سازی از ngosang/trackerslist',
+  'security': 'امنیت',
   'developer': 'توسعه‌دهنده',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'ادرس لاگ برنامه',

@@ -67,7 +67,7 @@
             </a>
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.security')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.mock-user-agent') }}
             <el-input
@@ -83,6 +83,8 @@
               <el-button @click="() => changeUA('du')">du</el-button>
             </el-button-group>
           </el-col>
+        </el-form-item>
+        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.app-log-path') }}
             <el-input placeholder="" disabled v-model="logPath">

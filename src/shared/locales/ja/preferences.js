@@ -33,6 +33,7 @@ export default {
   'bt-tracker-input-tips': 'トラッカーサーバ、一行に一つ',
   'bt-tracker-tips': 'お勧め：',
   'sync-tracker-tips': 'ngosang/trackerslist からの同期',
+  'security': 'セキュリティ',
   'developer': '開発者',
   'mock-user-agent': '偽装ユーザーエージェント（UA）',
   'app-log-path': 'ログディレクトリを適用',
