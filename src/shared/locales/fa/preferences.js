@@ -47,6 +47,7 @@ export default {
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'تهیه شده توسط انجمن، ',
   'baidu-exporter-help': 'برای استفاده اینجا کلیک کنید',
+  'auto-update': 'به روز رسانی خودکار',
   'auto-check-update': 'اتوماتیک برای آپدیت چک کن',
   'last-check-update-time': 'آخرین باری که برای آپدیت چک شده'
 }

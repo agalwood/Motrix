@@ -47,6 +47,7 @@ export default {
   'baidu-exporter': 'Baidu Exporter',
   'browser-extensions-tips': 'Von der Community bereitgestellt, ',
   'baidu-exporter-help': 'mehr über die Verwendung zu erfahren',
+  'auto-update': 'Auto-Update',
   'auto-check-update': 'Automatische Updates überprüfen',
   'last-check-update-time': 'letzte kontrolle update - zeit'
 }
