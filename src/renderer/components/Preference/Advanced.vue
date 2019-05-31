@@ -30,7 +30,7 @@
             >
           </el-switch>
         </el-form-item>
-        <el-form-item label="" :label-width="formLabelWidth" v-if="form.useProxy">
+        <el-form-item :label-width="formLabelWidth" v-if="form.useProxy">
           <el-col class="form-item-sub" :span="16">
             <el-input
               placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"

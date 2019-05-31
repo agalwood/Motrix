@@ -40,13 +40,13 @@
       })
     },
     watch: {
-      downloadSpeed: function (val, oldVal) {
+      downloadSpeed (val, oldVal) {
         showDownloadSpeedInDock(val)
       },
-      numActive: function (val, oldVal) {
+      numActive (val, oldVal) {
         this.downloading = val > 0
       },
-      downloading: function (val, oldVal) {
+      downloading (val, oldVal) {
         if (val !== oldVal && this.isRenderer) {
           this.$electron.ipcRenderer.send('download-status-change', val)
         }
@@ -59,7 +59,7 @@
             console.warn(`fetchTaskItem fail: ${e.message}`)
           })
       },
-      onDownloadStart: function (event) {
+      onDownloadStart (event) {
         this.$store.dispatch('task/fetchList')
         this.$store.dispatch('app/resetInterval')
         console.log('aria2 onDownloadStart', event)
@@ -71,7 +71,7 @@
             this.$msg.info(message)
           })
       },
-      onDownloadPause: function (event) {
+      onDownloadPause (event) {
         console.log('aria2 onDownloadPause')
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
@@ -81,7 +81,7 @@
             this.$msg.info(message)
           })
       },
-      onDownloadStop: function (event) {
+      onDownloadStop (event) {
         console.log('aria2 onDownloadStop')
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
@@ -91,7 +91,7 @@
             this.$msg.info(message)
           })
       },
-      onDownloadError: function (event) {
+      onDownloadError (event) {
         console.log('aria2 onDownloadError', event)
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
@@ -101,7 +101,7 @@
             this.$msg.error(message)
           })
       },
-      onDownloadComplete: function (event) {
+      onDownloadComplete (event) {
         console.log('aria2 onDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
@@ -110,7 +110,7 @@
             this.handleDownloadComplete(task, false)
           })
       },
-      onBtDownloadComplete: function (event) {
+      onBtDownloadComplete (event) {
         console.log('aria2 onBtDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
@@ -119,7 +119,7 @@
             this.handleDownloadComplete(task, true)
           })
       },
-      handleDownloadComplete: function (task, isBT) {
+      handleDownloadComplete (task, isBT) {
         const path = getTaskFullPath(task)
 
         addToRecentTask(task)
@@ -127,7 +127,7 @@
 
         this.showTaskCompleteNotify(task, isBT, path)
       },
-      showTaskCompleteNotify: function (task, isBT, path) {
+      showTaskCompleteNotify (task, isBT, path) {
         const taskName = getTaskName(task)
         const message = isBT
           ? this.$t('task.bt-download-complete-message', { taskName })
@@ -156,7 +156,7 @@
           })
         }
       },
-      showTaskErrorNotify: function (task) {
+      showTaskErrorNotify (task) {
         const taskName = getTaskName(task)
 
         const message = this.$t('task.download-fail-message', { taskName })
@@ -171,7 +171,7 @@
           body: taskName
         })
       },
-      bindEngineEvents: function () {
+      bindEngineEvents () {
         api.client.on('onDownloadStart', this.onDownloadStart)
         // api.client.on('onDownloadPause', this.onDownloadPause)
         api.client.on('onDownloadStop', this.onDownloadStop)
@@ -179,7 +179,7 @@
         api.client.on('onDownloadError', this.onDownloadError)
         api.client.on('onBtDownloadComplete', this.onBtDownloadComplete)
       },
-      unbindEngineEvents: function () {
+      unbindEngineEvents () {
         api.client.removeListener('onDownloadStart', this.onDownloadStart)
         // api.client.removeListener('onDownloadPause', this.onDownloadPause)
         api.client.removeListener('onDownloadStop', this.onDownloadStop)
@@ -187,28 +187,28 @@
         api.client.removeListener('onDownloadError', this.onDownloadError)
         api.client.removeListener('onBtDownloadComplete', this.onBtDownloadComplete)
       },
-      startPolling: function () {
+      startPolling () {
         this.timer = setTimeout(() => {
           this.polling()
           this.startPolling()
         }, this.interval)
       },
-      polling: function () {
+      polling () {
         this.$store.dispatch('app/fetchGlobalStat')
         this.$store.dispatch('task/fetchList')
         if (this.taskItemInfoVisible && this.currentTaskItem) {
           this.$store.dispatch('task/fetchItem', this.currentTaskItem.gid)
         }
       },
-      stopPolling: function () {
+      stopPolling () {
         clearTimeout(this.timer)
         this.timer = null
       }
     },
-    created: function () {
+    created () {
       this.bindEngineEvents()
     },
-    mounted: function () {
+    mounted () {
       setTimeout(() => {
         this.$store.dispatch('app/fetchEngineInfo')
         this.$store.dispatch('app/fetchEngineOptions')
@@ -216,7 +216,7 @@
         this.startPolling()
       }, 100)
     },
-    destroyed: function () {
+    destroyed () {
       this.$store.dispatch('task/saveSession')
 
       this.unbindEngineEvents()
