@@ -3,7 +3,7 @@
     v-if="status === 'active'"
     :percentage="percent"
     :show-text="false"
-    status="text"
+    status="success"
     :color="color">
   </el-progress>
   <el-progress
