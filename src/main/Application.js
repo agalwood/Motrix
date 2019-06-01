@@ -401,7 +401,7 @@ export default class Application extends EventEmitter {
     })
 
     ipcMain.on('update-menu-states', (event, visibleStates, enabledStates, checkedStates) => {
-      this.menuManager.updateStates(visibleStates, enabledStates, checkedStates)
+      this.menuManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
     })
 
     ipcMain.on('download-status-change', (event, status) => {

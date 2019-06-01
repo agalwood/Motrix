@@ -50,7 +50,7 @@ export default class MenuManager extends EventEmitter {
     this.setup()
   }
 
-  updateStates (visibleStates, enabledStates, checkedStates) {
+  updateMenuStates (visibleStates, enabledStates, checkedStates) {
     updateStates(this.items, visibleStates, enabledStates, checkedStates)
   }
 
@@ -58,13 +58,13 @@ export default class MenuManager extends EventEmitter {
     const visibleStates = {
       [id]: flag
     }
-    this.updateStates(visibleStates, null, null)
+    this.updateMenuStates(visibleStates, null, null)
   }
 
   updateMenuItemEnabledState (id, flag) {
     const enabledStates = {
       [id]: flag
     }
-    this.updateStates(null, enabledStates, null)
+    this.updateMenuStates(null, enabledStates, null)
   }
 }
