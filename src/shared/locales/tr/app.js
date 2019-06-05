@@ -4,6 +4,8 @@ export default {
   'about': 'Motrix Hakkında',
   'preferences': 'Ayarlar...',
   'check-for-updates': 'Güncellemeleri kontrol et...',
+  'check-updates-now': 'Şimdi kontrol et',
+  'checking-for-updates': 'Güncellemeleri kontrol ediyor ...',
   'check-for-updates-title': 'Güncellemeleri kontrol et',
   'update-available-message': 'Motrix\'in yeni bir sürümü var, şimdi güncelle?',
   'update-not-available-message': 'Gündemdesin!',

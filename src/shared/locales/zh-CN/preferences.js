@@ -37,6 +37,9 @@ export default {
   'bt-tracker-input-tips': 'Tracker 服务器，一行一个',
   'bt-tracker-tips': '推荐使用：',
   'sync-tracker-tips': '从 ngosang/trackerslist 同步',
+  'security': '安全性',
+  'rpc-secret': 'RPC 密钥',
+  'rpc-secret-tips': 'RPC 密钥说明文档',
   'developer': '开发者',
   'mock-user-agent': '模拟用户代理（UA）',
   'app-log-path': '应用日志路径',
@@ -50,6 +53,7 @@ export default {
   'baidu-exporter': '百度网盘助手',
   'browser-extensions-tips': '社区提供的浏览器扩展「不保证可用性」，',
   'baidu-exporter-help': '点此查看使用说明',
+  'auto-update': '自动更新',
   'auto-check-update': '自动检查更新',
   'last-check-update-time': '上次检查更新时间'
 }

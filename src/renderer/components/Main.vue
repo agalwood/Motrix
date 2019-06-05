@@ -50,5 +50,6 @@
     position: fixed;
     right: 36px;
     bottom: 24px;
+    z-index: 20;
   }
 </style>

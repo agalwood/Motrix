@@ -37,6 +37,7 @@ export default {
   'bt-tracker-input-tips': 'Tracker 伺服器，一行一個',
   'bt-tracker-tips': '推薦使用：',
   'sync-tracker-tips': '從 ngosang/trackerslist 同步',
+  'security': '安全性',
   'developer': '開發者',
   'mock-user-agent': '模擬使用者代理（UA）',
   'app-log-path': '應用程式記錄檔位置',
@@ -50,6 +51,7 @@ export default {
   'baidu-exporter': '百度網盤助手',
   'browser-extensions-tips': '社群提供的瀏覽器擴充功能「不保證可用性」，',
   'baidu-exporter-help': '點此檢視使用說明',
+  'auto-update': '自動更新',
   'auto-check-update': '自動檢查更新',
   'last-check-update-time': '上次檢查更新時間'
 }

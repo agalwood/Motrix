@@ -2,7 +2,11 @@ import { EventEmitter } from 'events'
 import { join } from 'path'
 import { Tray, Menu, systemPreferences } from 'electron'
 import is from 'electron-is'
-import { translateTemplate } from '../utils/menu'
+import {
+  translateTemplate,
+  flattenMenuItems,
+  updateStates
+} from '../utils/menu'
 import { getI18n } from '@/ui/Locale'
 import { LIGHT_THEME, DARK_THEME } from '@shared/constants'
 
@@ -45,6 +49,7 @@ export default class TrayManager extends EventEmitter {
     const template = JSON.parse(JSON.stringify(this.template))
     const tpl = translateTemplate(template, keystrokesByCommand, this.i18n)
     this.menu = Menu.buildFromTemplate(tpl)
+    this.items = flattenMenuItems(this.menu)
   }
 
   setup () {
@@ -111,6 +116,24 @@ export default class TrayManager extends EventEmitter {
     this.activeIcon = join(__static, `./mo-tray-${theme}-active.png`)
 
     this.updateIcon()
+  }
+
+  updateMenuStates (visibleStates, enabledStates, checkedStates) {
+    updateStates(this.items, visibleStates, enabledStates, checkedStates)
+  }
+
+  updateMenuItemVisibleState (id, flag) {
+    const visibleStates = {
+      [id]: flag
+    }
+    this.updateMenuStates(visibleStates, null, null)
+  }
+
+  updateMenuItemEnabledState (id, flag) {
+    const enabledStates = {
+      [id]: flag
+    }
+    this.updateMenuStates(null, enabledStates, null)
   }
 
   destroy () {

@@ -4,6 +4,8 @@ export default {
   'about': 'درباره ماتریکس',
   'preferences': 'تنظیمات دلخواه',
   'check-for-updates': 'چک کردن آپدیت...',
+  'check-updates-now': 'اکنون بررسی کنید',
+  'checking-for-updates': 'بررسی برای به روز رسانی ...',
   'check-for-updates-title': 'چک کردن آپدیت',
   'update-available-message': 'نسخه‌ی جدید ماتریکس دردسترس است. آپدیت انجام شود؟',
   'update-not-available-message': 'شما آخرین نسخه را دارید!',

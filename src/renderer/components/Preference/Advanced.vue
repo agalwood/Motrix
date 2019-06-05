@@ -11,6 +11,20 @@
         size="mini"
         :model="form"
         :rules="rules">
+        <el-form-item :label="`${$t('preferences.auto-update')}: `" :label-width="formLabelWidth">
+          <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.autoCheckUpdate">
+              {{ $t('preferences.auto-check-update') }}
+            </el-checkbox>
+            <div class="el-form-item__info" style="margin-top: 8px;" v-if="form.lastCheckUpdateTime !== 0">
+              {{ $t('preferences.last-check-update-time') + ': ' + (form.lastCheckUpdateTime !== 0 ?  new
+              Date(form.lastCheckUpdateTime).toLocaleString() : new Date().toLocaleString()) }}
+              <span class="action-link" @click.prevent="onCheckUpdateClick">
+                {{ $t('app.check-updates-now') }}
+              </span>
+            </div>
+          </el-col>
+        </el-form-item>
         <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
           <el-switch
             v-model="form.useProxy"
@@ -19,7 +33,7 @@
             >
           </el-switch>
         </el-form-item>
-        <el-form-item label="" :label-width="formLabelWidth" v-if="form.useProxy">
+        <el-form-item :label-width="formLabelWidth" v-if="form.useProxy">
           <el-col class="form-item-sub" :span="16">
             <el-input
               placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
@@ -67,7 +81,7 @@
             </a>
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
+        <el-form-item :label="`${$t('preferences.security')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.mock-user-agent') }}
             <el-input
@@ -83,6 +97,8 @@
               <el-button @click="() => changeUA('du')">du</el-button>
             </el-button-group>
           </el-col>
+        </el-form-item>
+        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.app-log-path') }}
             <el-input placeholder="" disabled v-model="logPath">
@@ -137,16 +153,20 @@
     const {
       allProxy,
       allProxyBackup,
+      autoCheckUpdate,
       btTracker,
       hideAppMenu,
+      lastCheckUpdateTime,
       useProxy,
       userAgent
     } = config
     const result = {
       allProxy,
       allProxyBackup,
+      autoCheckUpdate,
       btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
+      lastCheckUpdateTime,
       useProxy,
       userAgent
     }
@@ -186,6 +206,15 @@
     },
     methods: {
       isRenderer: is.renderer,
+      onCheckUpdateClick () {
+        this.$electron.ipcRenderer.send('command', 'application:check-for-updates')
+        this.$msg.info(this.$t('app.checking-for-updates'))
+        this.$store.dispatch('preference/fetchPreference')
+          .then((config) => {
+            const { lastCheckUpdateTime } = config
+            this.form.lastCheckUpdateTime = lastCheckUpdateTime
+          })
+      },
       syncTrackerFromGitHub () {
         this.trackerSyncing = true
         this.$store.dispatch('preference/fetchBtTracker')

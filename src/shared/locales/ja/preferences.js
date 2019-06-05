@@ -37,6 +37,7 @@ export default {
   'bt-tracker-input-tips': 'トラッカーサーバ、一行に一つ',
   'bt-tracker-tips': 'お勧め：',
   'sync-tracker-tips': 'ngosang/trackerslist からの同期',
+  'security': 'セキュリティ',
   'developer': '開発者',
   'mock-user-agent': '偽装ユーザーエージェント（UA）',
   'app-log-path': 'ログディレクトリを適用',
@@ -50,6 +51,7 @@ export default {
   'baidu-exporter': 'バイドゥオンラインストレージ拡張機能',
   'browser-extensions-tips': '他のユーザによって作成されたものです。動作は保証できません。',
   'baidu-exporter-help': 'ここをクリックし使用説明を見る',
+  'auto-update': '自動更新',
   'auto-check-update': '更新を自動で確認する',
   'last-check-update-time': '前回更新確認時間'
 }

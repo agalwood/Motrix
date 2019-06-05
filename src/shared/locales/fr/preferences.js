@@ -37,6 +37,7 @@ export default {
   'bt-tracker-input-tips': 'Serveur de suivi, un par ligne',
   'bt-tracker-tips': 'Recommander:',
   'sync-tracker-tips': 'Sync de ngosang/trackerslist',
+  'security': 'Sécurité',
   'developer': 'Développeur',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'Chemin des logs',
@@ -50,6 +51,7 @@ export default {
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'Fourni par la communauté, ',
   'baidu-exporter-help': 'Cliquez ici pour voir l\'utilisation',
+  'auto-update': 'Mettre à jour',
   'auto-check-update': 'Mise à jour automatique',
   'last-check-update-time': 'dernier contrôle la mise à jour du temps'
 }

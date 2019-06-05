@@ -37,6 +37,7 @@ export default {
   'bt-tracker-input-tips': 'Tracker-Server, einer pro Zeile',
   'bt-tracker-tips': 'Empfehlen:',
   'sync-tracker-tips': 'Von ngosang/trackerslist synchronisieren',
+  'security': 'Sicherheit',
   'developer': 'Entwickler',
   'mock-user-agent': 'User-Agent simulieren',
   'app-log-path': 'Appprotokollpfad',
@@ -50,6 +51,7 @@ export default {
   'baidu-exporter': 'Baidu Exporter',
   'browser-extensions-tips': 'Von der Community bereitgestellt, ',
   'baidu-exporter-help': 'mehr über die Verwendung zu erfahren',
+  'auto-update': 'Auto-Update',
   'auto-check-update': 'Automatische Updates überprüfen',
   'last-check-update-time': 'letzte kontrolle update - zeit'
 }

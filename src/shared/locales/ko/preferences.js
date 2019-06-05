@@ -37,6 +37,7 @@ export default {
   'bt-tracker-input-tips': '트래커 서버, 한 줄에 하나씩',
   'bt-tracker-tips': '추천 :',
   'sync-tracker-tips': 'ngosang/trackerslist에서 동기화',
+  'security': '보안',
   'developer': '개발자',
   'mock-user-agent': '사용자 에이전트 흉내',
   'app-log-path': '앱 로그 경로',
@@ -50,6 +51,7 @@ export default {
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': '커뮤니티에서 제공하는, ',
   'baidu-exporter-help': '사용법을 보려면 여기를 클릭하십시오.',
+  'auto-update': '자동 업데이트',
   'auto-check-update': '업데이트 자동 확인',
   'last-check-update-time': '마지막 업데이트 확인 시간'
 }

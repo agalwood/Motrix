@@ -37,6 +37,7 @@ export default {
   'bt-tracker-input-tips': 'ردیاب سرور، در هر خط',
   'bt-tracker-tips': 'توصیه:',
   'sync-tracker-tips': 'داده همگام سازی از ngosang/trackerslist',
+  'security': 'امنیت',
   'developer': 'توسعه‌دهنده',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'ادرس لاگ برنامه',
@@ -50,6 +51,7 @@ export default {
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'تهیه شده توسط انجمن، ',
   'baidu-exporter-help': 'برای استفاده اینجا کلیک کنید',
+  'auto-update': 'به روز رسانی خودکار',
   'auto-check-update': 'اتوماتیک برای آپدیت چک کن',
   'last-check-update-time': 'آخرین باری که برای آپدیت چک شده'
 }
