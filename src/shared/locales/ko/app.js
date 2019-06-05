@@ -4,6 +4,8 @@ export default {
   'about': 'Motrix 정보',
   'preferences': '설정...',
   'check-for-updates': '업데이트 확인...',
+  'check-updates-now': '지금 확인',
+  'checking-for-updates': '업데이트 확인 중 ...',
   'check-for-updates-title': '업데이트 확인',
   'update-available-message': '새 버전의 Motrix를 사용할 수 있습니다, 지금 업데이트 하시겠습니까?',
   'update-not-available-message': '최신 버전을 사용 중입니다!',

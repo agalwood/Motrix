@@ -4,6 +4,8 @@ export default {
   'about': 'About Motrix',
   'preferences': 'Preferences...',
   'check-for-updates': 'Check for Updates...',
+  'check-updates-now': 'Check now',
+  'checking-for-updates': 'Checking for updates ...',
   'check-for-updates-title': 'Check for Updates',
   'update-available-message': 'A newer version of Motrix is available, update now?',
   'update-not-available-message': 'You are up-to-date!',

@@ -4,6 +4,8 @@ export default {
   'about': '关于 Motrix',
   'preferences': '偏好设置...',
   'check-for-updates': '检查更新...',
+  'check-updates-now': '立即检查',
+  'checking-for-updates': '正在检查更新...',
   'check-for-updates-title': '检查更新',
   'update-available-message': '发现新版本，是否现在更新？',
   'update-not-available-message': '已是最新版',
