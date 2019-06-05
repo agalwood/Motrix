@@ -19,6 +19,9 @@
             <div class="el-form-item__info" style="margin-top: 8px;" v-if="form.lastCheckUpdateTime !== 0">
               {{ $t('preferences.last-check-update-time') + ': ' + (form.lastCheckUpdateTime !== 0 ?  new
               Date(form.lastCheckUpdateTime).toLocaleString() : new Date().toLocaleString()) }}
+              <span class="action-link" @click.prevent="onCheckUpdateClick">
+                {{ $t('app.check-updates-now') }}
+              </span>
             </div>
           </el-col>
         </el-form-item>
@@ -201,6 +204,15 @@
     },
     methods: {
       isRenderer: is.renderer,
+      onCheckUpdateClick () {
+        this.$electron.ipcRenderer.send('command', 'application:check-for-updates')
+        this.$msg.info(this.$t('app.checking-for-updates'))
+        this.$store.dispatch('preference/fetchPreference')
+          .then((config) => {
+            const { lastCheckUpdateTime } = config
+            this.form.lastCheckUpdateTime = lastCheckUpdateTime
+          })
+      },
       syncTrackerFromGitHub () {
         this.trackerSyncing = true
         this.$store.dispatch('preference/fetchBtTracker')

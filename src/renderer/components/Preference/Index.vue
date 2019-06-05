@@ -10,8 +10,6 @@
 <script>
   export default {
     name: 'mo-content-preference',
-    props: {
-    },
     computed: {
     },
     components: {
@@ -61,5 +59,13 @@
     z-index: 10;
     box-sizing: border-box;
     padding: 24px 36px 24px 0;
+  }
+  .action-link {
+    cursor: pointer;
+    color: $--link-color;
+    &:hover {
+      color: $--link-hover-color;
+      text-decoration: underline;
+    }
   }
 </style>
