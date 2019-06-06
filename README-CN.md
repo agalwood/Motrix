@@ -24,9 +24,10 @@ Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 
 建议使用安装包（Motrix-Setup-x.y.z.exe）安装 Motrix 以确保完整的体验，例如关联 torrent 文件，捕获磁力链等。
 
-如果你更喜欢便携版，你可以使用 [scoop](https://github.com/lukesampson/scoop)（需要 Windows 7+）安装最新便携版本的 Motrix。
+如果你更喜欢便携版，你可以使用 [scoop](https://github.com/lukesampson/scoop)（需要 Windows 7+，天朝用户可能需要设置 Git 代理）安装最新便携版本的 Motrix。
 
 ```bash
+scoop bucket add extras
 scoop install motrix
 ```
 

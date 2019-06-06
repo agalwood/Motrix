@@ -27,6 +27,7 @@ It is recommended to install Motrix using the installation package (Motrix-Setup
 If you prefer the portable version, you can use [scoop](https://github.com/lukesampson/scoop) (need Windows 7+) to install Motrix.
 
 ```bash
+scoop bucket add extras
 scoop install motrix
 ```
 
