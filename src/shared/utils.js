@@ -179,6 +179,11 @@ export function isMagnetTask (task) {
   return bittorrent && !bittorrent.info
 }
 
+export function checkTaskIsSeeder (task) {
+  const { bittorrent, seeder } = task
+  return !!bittorrent && seeder
+}
+
 export function getTaskUri (task, btTracker = []) {
   const { files } = task
   let result = ''
