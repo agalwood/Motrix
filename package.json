@@ -177,6 +177,7 @@
     "lodash": "^4.17.11",
     "normalize.css": "^8.0.1",
     "parse-torrent": "^6.1.2",
+    "randomatic": "^3.1.1",
     "svg-innerhtml": "^1.1.0",
     "vue": "^2.6.10",
     "vue-electron": "^1.0.6",
