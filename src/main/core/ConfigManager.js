@@ -117,6 +117,7 @@ export default class ConfigManager {
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
         'open-at-login': false,
+        'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,
         'keep-window-state': false,
         'session-path': getSessionPath(),

@@ -10,6 +10,7 @@ const userKeys = [
   'log-path',
   'new-task-show-downloading',
   'open-at-login',
+  'protocols',
   'resume-all-when-app-launched',
   'session-path',
   'task-notification',
