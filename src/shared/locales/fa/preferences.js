@@ -38,6 +38,8 @@ export default {
   'bt-tracker-tips': 'توصیه:',
   'sync-tracker-tips': 'داده همگام سازی از ngosang/trackerslist',
   'security': 'امنیت',
+  'rpc-secret': 'مخفی RPC',
+  'rpc-secret-tips': 'مشاهده RPC راز دفترچه راهنما',
   'developer': 'توسعه‌دهنده',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'ادرس لاگ برنامه',
