@@ -197,7 +197,10 @@ export default class Application extends EventEmitter {
     if (is.dev() || is.mas()) {
       return
     }
-    this.protocolManager = new ProtocolManager()
+    const protocols = this.configManager.getUserConfig('protocols', {})
+    this.protocolManager = new ProtocolManager({
+      protocols
+    })
   }
 
   handleProtocol (url) {

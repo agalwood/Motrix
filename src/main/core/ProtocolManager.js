@@ -9,20 +9,33 @@ export default class ProtocolManager extends EventEmitter {
     super()
     this.options = options
 
+    // package.json:build.protocols[].schemes[]
+    // options.protocols: { 'magnet': true, 'thunder': false }
+    this.protocols = {
+      mo: true,
+      motrix: true,
+      ...options.protocols
+    }
+
     this.init()
   }
 
   init () {
-    // package.json:build.protocols[].schemes[]
-    if (!app.isDefaultProtocolClient('mo')) {
-      app.setAsDefaultProtocolClient('mo')
-    }
-    if (!app.isDefaultProtocolClient('motrix')) {
-      app.setAsDefaultProtocolClient('motrix')
-    }
-    if (!app.isDefaultProtocolClient('magnet')) {
-      app.setAsDefaultProtocolClient('magnet')
-    }
+    const { protocols } = this
+    this.setup(protocols)
+  }
+
+  setup (protocols) {
+    Object.keys(protocols).forEach((protocol) => {
+      const enabled = protocols[protocol]
+      if (enabled) {
+        if (!app.isDefaultProtocolClient(protocol)) {
+          app.setAsDefaultProtocolClient(protocol)
+        }
+      } else {
+        app.removeAsDefaultProtocolClient(protocol)
+      }
+    })
   }
 
   handle (url) {
