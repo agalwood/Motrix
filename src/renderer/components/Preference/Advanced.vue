@@ -97,6 +97,25 @@
               <el-button @click="() => changeUA('du')">du</el-button>
             </el-button-group>
           </el-col>
+          <el-col class="form-item-sub" :span="18">
+            {{ $t('preferences.rpc-secret') }}
+            <el-input
+              :show-password="hideRpcSecret"
+              placeholder="RPC Secret"
+              :maxlength="24"
+              v-model="form.rpcSecret"
+            >
+              <i slot="append" @click.prevent="onDiceClick">
+                <mo-icon name="dice" width="12" height="12" />
+              </i>
+            </el-input>
+            <div class="el-form-item__info" style="margin-top: 8px;">
+              <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/rpc-auth" rel="noopener noreferrer">
+                {{ $t('preferences.rpc-secret-tips') }}
+                <mo-icon name="link" width="12" height="12" />
+              </a>
+            </div>
+          </el-col>
         </el-form-item>
         <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
@@ -138,6 +157,8 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
+  import randomize from 'randomatic'
+  import * as clipboard from 'clipboard-polyfill'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import {
@@ -146,6 +167,7 @@
     convertLineToComma,
     diffConfig
   } from '@shared/utils'
+  import '@/components/Icons/dice'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
 
@@ -157,6 +179,7 @@
       btTracker,
       hideAppMenu,
       lastCheckUpdateTime,
+      rpcSecret,
       useProxy,
       userAgent
     } = config
@@ -167,6 +190,7 @@
       btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
       lastCheckUpdateTime,
+      rpcSecret,
       useProxy,
       userAgent
     }
@@ -185,6 +209,7 @@
         form,
         formLabelWidth: calcFormLabelWidth(locale),
         formOriginal: cloneDeep(form),
+        hideRpcSecret: true,
         rules: {},
         trackerSyncing: false
       }
@@ -238,6 +263,15 @@
           return
         }
         this.form.userAgent = ua
+      },
+      onDiceClick () {
+        this.hideRpcSecret = false
+        const rpcSecret = randomize('*', 12, { exclude: '@:/?,.' })
+        this.form.rpcSecret = rpcSecret
+        clipboard.writeText(rpcSecret)
+        setTimeout(() => {
+          this.hideRpcSecret = true
+        }, 2000)
       },
       onFactoryResetClick () {
         this.$electron.remote.dialog.showMessageBox({

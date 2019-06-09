@@ -38,6 +38,8 @@ export default {
   'bt-tracker-tips': '推薦使用：',
   'sync-tracker-tips': '從 ngosang/trackerslist 同步',
   'security': '安全性',
+  'rpc-secret': 'RPC 授權密鑰',
+  'rpc-secret-tips': '查看说明手冊',
   'developer': '開發者',
   'mock-user-agent': '模擬使用者代理（UA）',
   'app-log-path': '應用程式記錄檔位置',

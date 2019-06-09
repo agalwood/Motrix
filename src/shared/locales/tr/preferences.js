@@ -38,6 +38,8 @@ export default {
   'bt-tracker-tips': 'Tavsiye et:',
   'sync-tracker-tips': 'ngosang/trackerslist\'dan verileri senkronize et',
   'security': 'Güvenlik',
+  'rpc-secret': 'RPC sırrı',
+  'rpc-secret-tips': 'RPC gizli kılavuzunu görüntüle',
   'developer': 'Geliştirici',
   'mock-user-agent': 'Sahte Kullanıcı Kimliği (User-Agent)',
   'app-log-path': 'Uygulama log yolu',

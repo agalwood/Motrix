@@ -39,7 +39,7 @@ export default {
   'sync-tracker-tips': 'Sync from ngosang/trackerslist',
   'security': 'Security',
   'rpc-secret': 'RPC Secret',
-  'rpc-secret-tips': 'RPC Secret Manual',
+  'rpc-secret-tips': 'View RPC Secret Manual',
   'developer': 'Developer',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'App log path',

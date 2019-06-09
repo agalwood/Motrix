@@ -38,6 +38,8 @@ export default {
   'bt-tracker-tips': 'Recomendar:',
   'sync-tracker-tips': 'Sincronizar dados de ngosang/trackerslist',
   'security': 'Segurança',
+  'rpc-secret': 'Segredo de RPC',
+  'rpc-secret-tips': 'Veja o manual secreto de RPC',
   'developer': 'Desenvolverdor',
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'Diretório de logs',
