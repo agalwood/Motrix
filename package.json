@@ -60,6 +60,12 @@
         "schemes": [
           "magnet"
         ]
+      },
+      {
+        "name": "Thunder Protocol",
+        "schemes": [
+          "thunder"
+        ]
       }
     ],
     "dmg": {

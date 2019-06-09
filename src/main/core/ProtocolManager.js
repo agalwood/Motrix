@@ -32,6 +32,10 @@ export default class ProtocolManager extends EventEmitter {
       return this.handleMagnetProtocol(url)
     }
 
+    if (url.toLowerCase().startsWith('thunder:')) {
+      return this.handleThunderProtocol(url)
+    }
+
     if (
       url.toLowerCase().startsWith('mo:') ||
       url.toLowerCase().startsWith('motrix:')
@@ -45,6 +49,15 @@ export default class ProtocolManager extends EventEmitter {
       return
     }
     logger.error(`[Motrix] handleMagnetProtocol url: ${url}`)
+
+    global.application.sendCommandToAll('application:new-task', 'uri', url)
+  }
+
+  handleThunderProtocol (url) {
+    if (!url) {
+      return
+    }
+    logger.error(`[Motrix] handleThunderProtocol url: ${url}`)
 
     global.application.sendCommandToAll('application:new-task', 'uri', url)
   }
