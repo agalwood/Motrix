@@ -55,14 +55,14 @@ export default class ProtocolManager extends EventEmitter {
     if (!url) {
       return
     }
-    let protocolTag = "";
-    
+    let protocolTag = ''
+
     if (url.toLowerCase().startsWith('magnet:')) {
-      protocolTag = "handleMagnetProtocol";
+      protocolTag = 'handleMagnetProtocol'
     }
 
     if (url.toLowerCase().startsWith('thunder:')) {
-      protocolTag = "handleThunderProtocol";
+      protocolTag = 'handleThunderProtocol'
     }
 
     logger.error(`[Motrix] ${protocolTag} url: ${url}`)

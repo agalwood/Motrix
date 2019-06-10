@@ -30,6 +30,7 @@
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.protocols.magnet"
+              @change="onUseMagnetProtocolChange"
               :active-text="$t('preferences.protocols-magnet')"
               >
             </el-switch>
@@ -37,6 +38,7 @@
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.protocols.thunder"
+              @change="onUseThunderProtocolChange"
               :active-text="$t('preferences.protocols-thunder')"
               >
             </el-switch>
@@ -198,7 +200,8 @@
       lastCheckUpdateTime,
       rpcSecret,
       useProxy,
-      userAgent
+      userAgent,
+      protocols
     } = config
     const result = {
       allProxy,
@@ -209,7 +212,8 @@
       lastCheckUpdateTime,
       rpcSecret,
       useProxy,
-      userAgent
+      userAgent,
+      protocols
     }
     return result
   }
@@ -268,6 +272,12 @@
             this.trackerSyncing = false
           })
       },
+      onUseMagnetProtocolChange (flag) {
+        this.form.protocols.magnet = flag
+      },
+      onUseThunderProtocolChange (flag) {
+        this.form.protocols.thunder = flag
+      },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''
       },
@@ -315,7 +325,7 @@
             btTracker: convertLineToComma(this.form.btTracker)
           }
           console.log('changed====》', data)
-
+  
           this.$store.dispatch('preference/save', data)
             .then(() => {
               this.$store.dispatch('app/fetchEngineOptions')
@@ -326,6 +336,7 @@
             })
 
           if (this.isRenderer()) {
+            this.$electron.ipcRenderer.send('command', "application:setup-protocols-client", data.protocols)
           }
         })
       },
