@@ -25,6 +25,23 @@
             </div>
           </el-col>
         </el-form-item>
+        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
+          {{ $t('preferences.protocols-default-client') }}
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.protocols.magnet"
+              :active-text="$t('preferences.protocols-magnet')"
+              >
+            </el-switch>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.protocols.thunder"
+              :active-text="$t('preferences.protocols-thunder')"
+              >
+            </el-switch>
+          </el-col>
+        </el-form-item>
         <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
           <el-switch
             v-model="form.useProxy"

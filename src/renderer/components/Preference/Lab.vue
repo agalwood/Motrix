@@ -16,23 +16,6 @@
             {{ $t('preferences.lab-warning') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
-          {{ $t('preferences.protocols-default-client') }}
-          <el-col class="form-item-sub" :span="24">
-            <el-switch
-              v-model="form.protocols.magnet"
-              :active-text="$t('preferences.protocols-magnet')"
-              >
-            </el-switch>
-          </el-col>
-          <el-col class="form-item-sub" :span="24">
-            <el-switch
-              v-model="form.protocols.thunder"
-              :active-text="$t('preferences.protocols-thunder')"
-              >
-            </el-switch>
-          </el-col>
-        </el-form-item>
         <el-form-item :label="`${$t('preferences.browser-extensions')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             <a target="_blank" href="https://motrix.app/release/BaiduExporter.zip" rel="noopener noreferrer">
