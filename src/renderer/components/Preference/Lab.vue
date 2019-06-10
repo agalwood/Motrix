@@ -48,8 +48,8 @@
   } from '@shared/utils'
 
   const initialForm = (config) => {
-    const {
-    } = config
+    // const {
+    // } = config
     const result = {
     }
     return result
