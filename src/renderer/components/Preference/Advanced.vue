@@ -81,6 +81,25 @@
             </a>
           </div>
         </el-form-item>
+        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
+          {{ $t('preferences.protocols-default-client') }}
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.protocols.magnet"
+              :active-text="$t('preferences.protocols-magnet')"
+              @change="(val) => onProtocolsChange('magnet', val)"
+              >
+            </el-switch>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.protocols.thunder"
+              :active-text="$t('preferences.protocols-thunder')"
+              @change="(val) => onProtocolsChange('thunder', val)"
+              >
+            </el-switch>
+          </el-col>
+        </el-form-item>
         <el-form-item :label="`${$t('preferences.security')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.mock-user-agent') }}
@@ -179,6 +198,7 @@
       btTracker,
       hideAppMenu,
       lastCheckUpdateTime,
+      protocols,
       rpcSecret,
       useProxy,
       userAgent
@@ -190,6 +210,9 @@
       btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
       lastCheckUpdateTime,
+      protocols: {
+        ...protocols
+      },
       rpcSecret,
       useProxy,
       userAgent
@@ -251,6 +274,13 @@
             this.trackerSyncing = false
           })
       },
+      onProtocolsChange (protocol, enabled) {
+        const { protocols } = this.form
+        this.form.protocols = {
+          ...protocols,
+          [protocol]: enabled
+        }
+      },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''
       },
@@ -295,7 +325,10 @@
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed,
-            btTracker: convertLineToComma(this.form.btTracker)
+            btTracker: convertLineToComma(this.form.btTracker),
+            protocols: {
+              ...this.form.protocols
+            }
           }
           console.log('changed====》', data)
 
@@ -309,6 +342,7 @@
             })
 
           if (this.isRenderer()) {
+            this.$electron.ipcRenderer.send('command', 'application:setup-protocols-client', data.protocols)
           }
         })
       },

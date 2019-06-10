@@ -16,15 +16,6 @@
             {{ $t('preferences.lab-warning') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
-          <el-col class="form-item-sub" :span="24">
-            <el-switch
-              v-model="form.enableEggFeatures"
-              :active-text="$t('preferences.support-more-download-protocols')"
-              >
-            </el-switch>
-          </el-col>
-        </el-form-item>
         <el-form-item :label="`${$t('preferences.browser-extensions')}: `" :label-width="formLabelWidth">
           <el-col class="form-item-sub" :span="24">
             <a target="_blank" href="https://motrix.app/release/BaiduExporter.zip" rel="noopener noreferrer">
@@ -58,10 +49,10 @@
 
   const initialForm = (config) => {
     const {
-      enableEggFeatures
+      protocols
     } = config
     const result = {
-      enableEggFeatures
+      protocols
     }
     return result
   }

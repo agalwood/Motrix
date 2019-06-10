@@ -197,7 +197,10 @@ export default class Application extends EventEmitter {
     if (is.dev() || is.mas()) {
       return
     }
-    this.protocolManager = new ProtocolManager()
+    const protocols = this.configManager.getUserConfig('protocols', {})
+    this.protocolManager = new ProtocolManager({
+      protocols
+    })
   }
 
   handleProtocol (url) {
@@ -375,6 +378,14 @@ export default class Application extends EventEmitter {
 
     this.on('application:clear-recent-tasks', () => {
       app.clearRecentDocuments()
+    })
+
+    this.on('application:setup-protocols-client', (protocols) => {
+      if (is.dev() || is.mas()) {
+        return
+      }
+      console.log('this.protocolManager', protocols)
+      this.protocolManager.setup(protocols)
     })
 
     this.on('help:official-website', () => {
