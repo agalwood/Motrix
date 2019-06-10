@@ -380,6 +380,10 @@ export default class Application extends EventEmitter {
       app.clearRecentDocuments()
     })
 
+    this.on('application:setup-protocols-client', (protocols) => {
+      this.protocolManager.setup(protocols)
+    })
+
     this.on('help:official-website', () => {
       const url = 'https://motrix.app/'
       shell.openExternal(url)

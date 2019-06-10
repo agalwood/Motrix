@@ -336,7 +336,7 @@
             })
 
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', "application:setup-protocols-client", data.protocols)
+            this.$electron.ipcRenderer.send('command', 'application:setup-protocols-client', data.protocols)
           }
         })
       },
