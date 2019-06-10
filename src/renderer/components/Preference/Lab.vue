@@ -49,10 +49,8 @@
 
   const initialForm = (config) => {
     const {
-      protocols
     } = config
     const result = {
-      protocols
     }
     return result
   }
