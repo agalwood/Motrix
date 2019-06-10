@@ -381,6 +381,10 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:setup-protocols-client', (protocols) => {
+      if (is.dev() || is.mas()) {
+        return
+      }
+      console.log('this.protocolManager', protocols)
       this.protocolManager.setup(protocols)
     })
 
