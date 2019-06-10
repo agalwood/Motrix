@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': '초기 설정으로 되돌리시겠습니까?',
   'lab-warning': '⚠️ 실험실 기능을 활성화하면 앱 충돌이나 데이터 손실을 초래할 수 있으므로 직접 결정하십시오!',
   'download-protocol': '프로토콜',
-  'support-more-download-protocols': '더 많은 다운로드 프로토콜 지원 허용',
   'browser-extensions': '확장 프로그램',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': '커뮤니티에서 제공하는, ',

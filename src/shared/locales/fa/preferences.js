@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': 'آیا شما مطمئن هستید؟',
   'lab-warning': '⚠️ فعالسازی امکانات آزمایشگاه ممکن است باعث کرش برنامه یا از دست دادن دیتا بشود، خودتون تصمیم بگیرین!',
   'download-protocol': 'پروتکل',
-  'support-more-download-protocols': 'فعالسازی حمایت از پروتکل‌های دانلود بیشتر',
   'browser-extensions': 'افزونه‌ها',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'تهیه شده توسط انجمن، ',

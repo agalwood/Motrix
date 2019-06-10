@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': 'Are you sure you want to revert to factory settings?',
   'lab-warning': '⚠️ Enabling lab features may result in app crash or data loss, decide at you own risk!',
   'download-protocol': 'Protocols',
-  'support-more-download-protocols': 'Enable support for more download protocols',
   'protocols-default-client': 'Set as the default client for the following protocols',
   'protocols-magnet': 'Magnet [ magnet:// ]',
   'protocols-thunder': 'Thunder [ thunder:// ]',

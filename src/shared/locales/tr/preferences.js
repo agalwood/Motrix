@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': 'Fabrika ayarlarına geri dönmek istediğinize emin misiniz?',
   'lab-warning': '⚠️ Deneysel özellikleri etkinleştirmek uygulamanın çökmesine veya veri kaybına neden olabilir, kendiniz karar verin!',
   'download-protocol': 'Protokol',
-  'support-more-download-protocols': 'Daha fazla indirme protokolü desteğini etkinleştir',
   'browser-extensions': 'Eklentiler',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'Topluluk tarafından sağlanan, ',

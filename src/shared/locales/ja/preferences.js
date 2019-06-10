@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': '本当に初期設定に戻しますか?',
   'lab-warning': '⚠️ベータ機能をオンにするとアプリケーションの強制終了やデータが損失する可能性があります。自己責任でお願いします。',
   'download-protocol': 'プロトコル',
-  'support-more-download-protocols': 'より多くのプロトコルを適用',
   'browser-extensions': 'ブラウザ拡張機能',
   'baidu-exporter': 'バイドゥオンラインストレージ拡張機能',
   'browser-extensions-tips': '他のユーザによって作成されたものです。動作は保証できません。',

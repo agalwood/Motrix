@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': 'Você tem certeza de que deseja resetar às configurações de fábrica?',
   'lab-warning': '⚠️ Habilitar os recursos de lab pode causar perda de dados e fechar o app inesperadamete. Use por sua conta e risco!',
   'download-protocol': 'Protocolo',
-  'support-more-download-protocols': 'Habilitar suporte a mais protocolos de download',
   'browser-extensions': 'Extensões',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'Fornecido pela comunidade, ',

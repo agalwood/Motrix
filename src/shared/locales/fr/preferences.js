@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': 'Êtes vous sûr de vouloir réinitialiser les paramètres',
   'lab-warning': '⚠️ Activer les fonctionalités labo peut causer des crash ou la perte de données !',
   'download-protocol': 'Protocole',
-  'support-more-download-protocols': 'Activer les protocoles de téléchargement suplémentaires',
   'browser-extensions': 'Extensions',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': 'Fourni par la communauté, ',

@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': 'Sollen die Einstellungen auf die Werkseinstellungen unwiderruflich zurückgesetzt werden?',
   'lab-warning': '⚠️ Die Aktivierung von experimentellen Funktionen kann zu App-Abstürzen oder Datenverlust führen!',
   'download-protocol': 'Protokoll',
-  'support-more-download-protocols': 'Erweiterte Protokollunterstützung aktivieren',
   'browser-extensions': 'Erweiterungen',
   'baidu-exporter': 'Baidu Exporter',
   'browser-extensions-tips': 'Von der Community bereitgestellt, ',

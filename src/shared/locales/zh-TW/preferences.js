@@ -48,7 +48,6 @@ export default {
   'factory-reset-confirm': '您確定要還原為出廠預設值嗎？',
   'lab-warning': '⚠️開啟實驗性功能可能會造成程式當機或資料遺失，請自己決定！',
   'download-protocol': '下載協定',
-  'support-more-download-protocols': '支援更多下載協定',
   'browser-extensions': '瀏覽器擴充功能',
   'baidu-exporter': '百度網盤助手',
   'browser-extensions-tips': '社群提供的瀏覽器擴充功能「不保證可用性」，',
