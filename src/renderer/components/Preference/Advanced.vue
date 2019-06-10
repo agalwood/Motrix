@@ -30,7 +30,6 @@
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.protocols.magnet"
-              @change="onUseMagnetProtocolChange"
               :active-text="$t('preferences.protocols-magnet')"
               >
             </el-switch>
@@ -38,7 +37,6 @@
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.protocols.thunder"
-              @change="onUseThunderProtocolChange"
               :active-text="$t('preferences.protocols-thunder')"
               >
             </el-switch>
@@ -271,12 +269,6 @@
           .finally(() => {
             this.trackerSyncing = false
           })
-      },
-      onUseMagnetProtocolChange (flag) {
-        this.form.protocols.magnet = flag
-      },
-      onUseThunderProtocolChange (flag) {
-        this.form.protocols.thunder = flag
       },
       onUseProxyChange (flag) {
         this.form.allProxy = flag ? this.form.allProxyBackup : ''
