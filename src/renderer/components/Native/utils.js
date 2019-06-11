@@ -62,9 +62,13 @@ export function moveTaskFilesToTrash (task, messages = {}) {
     return false
   }
 
-  const deleteResult1 = remote.shell.moveItemToTrash(path)
-  if (!deleteResult1 && delFailMsg) {
-    Message.error(delFailMsg)
+  let deleteResult1 = true
+  const isFileExist = existsSync(path)
+  if (isFileExist) {
+    deleteResult1 = remote.shell.moveItemToTrash(path)
+    if (!deleteResult1 && delFailMsg) {
+      Message.error(delFailMsg)
+    }
   }
 
   let deleteResult2 = true
