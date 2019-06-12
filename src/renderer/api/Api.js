@@ -134,6 +134,18 @@ export default class Api {
     })
   }
 
+  getOption (params = {}) {
+    const { gid } = params
+    const args = compactUndefined([gid])
+
+    return new Promise((resolve) => {
+      this.client.call('getOption', ...args)
+        .then((data) => {
+          resolve(changeKeysToCamelCase(data))
+        })
+    })
+  }
+
   getGlobalStat () {
     return this.client.call('getGlobalStat')
   }

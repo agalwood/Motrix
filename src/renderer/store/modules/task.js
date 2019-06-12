@@ -73,6 +73,14 @@ const actions = {
         dispatch('fetchList')
       })
   },
+  getTaskOption (_, gid) {
+    return new Promise((resolve) => {
+      api.getOption({ gid })
+        .then((data) => {
+          resolve(data)
+        })
+    })
+  },
   removeTask ({ dispatch }, task) {
     const { gid } = task
     return api.forcePauseTask({ gid })
