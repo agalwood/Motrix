@@ -56,7 +56,9 @@
       }
     }
   }
-
+  .form-actions {
+    background: $--dk-form-actions-background;
+  }
   .panel {
     background-color: $--dk-panel-background;
   }
