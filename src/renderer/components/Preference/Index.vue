@@ -58,9 +58,11 @@
     left: auto;
     z-index: 10;
     width: -webkit-fill-available;
-    margin-right: 20.1rem;
     box-sizing: border-box;
-    padding: 24px 36px 24px 0;
+    padding: 24px 36px;
+    margin-left: -36px;
+    // aside.width + subnav.width + padding-left + scrollbar.width
+    margin-right: 322px;
   }
   .action-link {
     cursor: pointer;
