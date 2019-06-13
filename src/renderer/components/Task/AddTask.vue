@@ -302,7 +302,7 @@
             selectFile !== SELECTED_ALL_FILES &&
             selectFile !== NONE_SELECTED_FILES
           ) {
-            result['select-file'] = selectFile
+            result.selectFile = selectFile
           }
         }
 
