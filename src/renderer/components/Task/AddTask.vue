@@ -127,7 +127,7 @@
   import '@/components/Icons/inbox'
 
   const initialForm = (state) => {
-    const { addTaskUrl } = state.app
+    const { addTaskUrl, addTaskOptions } = state.app
     const { dir, split, newTaskShowDownloading } = state.preference.config
     const result = {
       uris: addTaskUrl,
@@ -139,7 +139,8 @@
       cookie: '',
       dir,
       split,
-      newTaskShowDownloading
+      newTaskShowDownloading,
+      ...addTaskOptions
     }
     return result
   }
@@ -222,6 +223,7 @@
       },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
+        this.$store.dispatch('app/updateAddTaskOptions', {})
       },
       handleClosed () {
         this.reset()
@@ -258,6 +260,7 @@
         this.form.dir = dir
       },
       reset () {
+        this.showAdvanced = false
         this.form = initialForm(this.$store.state)
       },
       handleCancel (formName) {
@@ -369,6 +372,7 @@
 
           try {
             this.addTask(this.type, this.form)
+
             this.$store.dispatch('app/hideAddTaskDialog')
             if (this.form.newTaskShowDownloading) {
               this.$router.push({

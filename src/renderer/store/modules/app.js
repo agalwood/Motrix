@@ -20,13 +20,14 @@ const state = {
     downloadSpeed: 0,
     uploadSpeed: 0,
     numActive: 0,
-    numStopped: 0,
-    numWaiting: 0
+    numWaiting: 0,
+    numStopped: 0
   },
   addTaskVisible: false,
   addTaskType: 'uri',
   addTaskUrl: '',
-  addTaskTorrents: []
+  addTaskTorrents: [],
+  addTaskOptions: {}
 }
 
 const getters = {
@@ -59,6 +60,11 @@ const mutations = {
   },
   CHANGE_ADD_TASK_TORRENTS (state, fileList) {
     state.addTaskTorrents = [...fileList]
+  },
+  UPDATE_ADD_TASK_OPTIONS (state, options) {
+    state.addTaskOptions = {
+      ...options
+    }
   },
   UPDATE_INTERVAL (state, millisecond) {
     let interval = millisecond
@@ -161,6 +167,9 @@ const actions = {
   },
   addTaskAddTorrents ({ commit }, { fileList }) {
     commit('CHANGE_ADD_TASK_TORRENTS', fileList)
+  },
+  updateAddTaskOptions ({ commit }, options = {}) {
+    commit('UPDATE_ADD_TASK_OPTIONS', options)
   },
   updateInterval ({ commit }, millisecond) {
     commit('UPDATE_INTERVAL', millisecond)
