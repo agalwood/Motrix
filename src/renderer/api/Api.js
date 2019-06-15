@@ -57,7 +57,9 @@ export default class Api {
       rpcListenPort: port,
       rpcSecret: secret
     } = this.config
+    const host = '127.0.0.1'
     this.client = new Aria2({
+      host,
       port,
       secret
     })
