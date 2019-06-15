@@ -57,6 +57,7 @@ const actions = {
     return api.addUri({ uris, options })
       .then(() => {
         dispatch('fetchList')
+        dispatch('app/updateAddTaskOptions', {}, { root: true })
       })
   },
   addTorrent ({ dispatch }, data) {
@@ -64,6 +65,7 @@ const actions = {
     return api.addTorrent({ torrent, options })
       .then(() => {
         dispatch('fetchList')
+        dispatch('app/updateAddTaskOptions', {}, { root: true })
       })
   },
   addMetalink ({ dispatch }, data) {
@@ -71,6 +73,7 @@ const actions = {
     return api.addMetalink({ metalink, options })
       .then(() => {
         dispatch('fetchList')
+        dispatch('app/updateAddTaskOptions', {}, { root: true })
       })
   },
   getTaskOption (_, gid) {
