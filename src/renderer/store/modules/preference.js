@@ -22,7 +22,8 @@ const actions = {
         })
     })
   },
-  save ({ commit }, config) {
+  save ({ commit, dispatch }, config) {
+    dispatch('task/saveSession', null, { root: true })
     if (isEmpty(config)) {
       return
     }
