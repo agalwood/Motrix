@@ -135,7 +135,10 @@ const actions = {
       })
   },
   removeTaskRecord ({ dispatch }, task) {
-    const { gid } = task
+    const { gid, status } = task
+    if (['error', 'complete', 'removed'].indexOf(status) === -1) {
+      return
+    }
     return api.removeTaskRecord({ gid })
       .finally(() => dispatch('fetchList'))
   },
