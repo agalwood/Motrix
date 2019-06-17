@@ -87,6 +87,9 @@ img {
 .el-message__content {
   line-height: 18px;
   word-break: break-all;
+  a {
+    color: $--link-color;
+  }
 }
 
 .tab-title-dialog {
