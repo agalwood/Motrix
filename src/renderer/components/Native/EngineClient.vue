@@ -92,13 +92,21 @@
           })
       },
       onDownloadError: function (event) {
-        console.log('aria2 onDownloadError', event)
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
+            const { errorCode, errorMessage } = task
+            console.error(`[Motrix] download error===> Gid: ${gid}, #${errorCode}, ${errorMessage}`)
             const message = this.$t('task.download-error-message', { taskName })
-            this.$msg.error(message)
+            const link = `<a target="_blank" href="https://github.com/agalwood/Motrix/wiki/Error#${errorCode}" rel="noopener noreferrer">#${errorCode}</a>`
+            this.$msg({
+              type: 'error',
+              showClose: true,
+              duration: 5000,
+              dangerouslyUseHTMLString: true,
+              message: `${message} ${link}`
+            })
           })
       },
       onDownloadComplete: function (event) {
@@ -196,6 +204,7 @@
       polling: function () {
         this.$store.dispatch('app/fetchGlobalStat')
         this.$store.dispatch('task/fetchList')
+
         if (this.taskItemInfoVisible && this.currentTaskItem) {
           this.$store.dispatch('task/fetchItem', this.currentTaskItem.gid)
         }
