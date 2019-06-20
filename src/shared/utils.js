@@ -181,7 +181,7 @@ export function isMagnetTask (task) {
 
 export function checkTaskIsSeeder (task) {
   const { bittorrent, seeder } = task
-  return !!bittorrent && seeder
+  return !!bittorrent && seeder === 'true'
 }
 
 export function getTaskUri (task, btTracker = []) {
