@@ -237,7 +237,7 @@
     color: #e6e6e6;
     &:hover,
     &:focus {
-      color: $--color-primary;
+      color: $--color-primary-light-4;
       border-color: #606060;
       background-color: #333;
     }
@@ -372,6 +372,10 @@
   }
 
   .form-preference .el-switch__label {
+    color: $--dk-preference-form-text-color;
+  }
+
+  .form-preference .el-checkbox__input.is-checked + .el-checkbox__label {
     color: $--dk-preference-form-text-color;
   }
 
