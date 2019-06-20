@@ -1,36 +1,38 @@
 <template>
-  <div class="task-item-actions" v-on:dblclick.stop="() => null">
-    <!-- <i @click.stop="onMoreClick">
-      <mo-icon name="more" width="14" height="14" />
-    </i> -->
-    <i @click.stop="onInfoClick" v-if="mode === 'LIST'">
-      <mo-icon name="info-circle" width="14" height="14" />
-    </i>
-    <i @click.stop="onLinkClick">
-      <mo-icon name="link" width="14" height="14" />
-    </i>
-    <i v-if="isRenderer()" @click.stop="onFolderClick">
-      <mo-icon name="folder" width="14" height="14" />
-    </i>
-    <i v-if="task.status ==='complete' ||
-      task.status ==='removed' ||
-      task.status ==='error'"
-      @click.stop="onTrashClick">
-      <mo-icon name="trash" width="14" height="14" />
-    </i>
-    <i v-if="task.status ==='active' ||
-      task.status ==='waiting' ||
-      task.status ==='paused'"
-      @click.stop="onDeleteClick">
-      <mo-icon name="delete" width="14" height="14" />
-    </i>
-    <i v-if="task.status ==='active'" @click.stop="onPauseClick">
-      <mo-icon name="task-pause-line" width="14" height="14" />
-    </i>
-    <i v-if="task.status ==='waiting' || task.status ==='paused'" @click.stop="onResumeClick">
-      <mo-icon name="task-start-line" width="14" height="14" />
-    </i>
-  </div>
+  <ul :key="task.gid" class="task-item-actions" v-on:dblclick.stop="() => null">
+    <li v-for="action in taskActions" :key="action" class="task-item-action">
+      <i v-if="action ==='PAUSE'" @click.stop="onPauseClick">
+        <mo-icon name="task-pause-line" width="14" height="14" />
+      </i>
+      <i v-if="action ==='STOP'" @click.stop="onStopClick">
+        <mo-icon name="task-stop-line" width="14" height="14" />
+      </i>
+      <i v-if="action === 'RESUME'" @click.stop="onResumeClick">
+        <mo-icon name="task-start-line" width="14" height="14" />
+      </i>
+      <i v-if="action === 'RESTART'" @click="onRestartClick">
+        <mo-icon name="task-restart" width="14" height="14" />
+      </i>
+      <i v-if="action === 'DELETE'" @click.stop="onDeleteClick">
+        <mo-icon name="delete" width="14" height="14" />
+      </i>
+      <i v-if="action === 'TRASH'" @click.stop="onTrashClick">
+        <mo-icon name="trash" width="14" height="14" />
+      </i>
+      <i v-if="action ==='FOLDER'" @click.stop="onFolderClick">
+        <mo-icon name="folder" width="14" height="14" />
+      </i>
+      <i v-if="action ==='LINK'" @click.stop="onLinkClick">
+        <mo-icon name="link" width="14" height="14" />
+      </i>
+      <i v-if="action ==='INFO'" @click.stop="onInfoClick">
+        <mo-icon name="info-circle" width="14" height="14" />
+      </i>
+      <i v-if="action ==='MORE'" @click.stop="onMoreClick">
+        <mo-icon name="more" width="14" height="14" />
+      </i>
+    </li>
+  </ul>
 </template>
 
 <script>
@@ -38,6 +40,8 @@
   import * as clipboard from 'clipboard-polyfill'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
+  import '@/components/Icons/task-stop-line'
+  import '@/components/Icons/task-restart'
   import '@/components/Icons/delete'
   import '@/components/Icons/folder'
   import '@/components/Icons/link'
@@ -49,10 +53,22 @@
     moveTaskFilesToTrash
   } from '@/components/Native/utils'
   import {
+    checkTaskIsSeeder,
+    getTaskFullPath,
     getTaskName,
     getTaskUri,
-    getTaskFullPath
+    parseHeader
   } from '@shared/utils'
+
+  const taskActionsMap = {
+    active: ['PAUSE', 'DELETE'],
+    paused: ['RESUME', 'DELETE'],
+    waiting: ['RESUME', 'DELETE'],
+    error: ['RESTART', 'TRASH'],
+    complete: ['RESTART', 'TRASH'],
+    removed: ['RESTART', 'TRASH'],
+    seeding: ['STOP', 'DELETE']
+  }
 
   export default {
     name: 'mo-task-item-actions',
@@ -67,23 +83,48 @@
       }
     },
     computed: {
-      taskName: function () {
+      taskName () {
         return getTaskName(this.task)
       },
-      path: function () {
+      path () {
         return getTaskFullPath(this.task)
+      },
+      isSeeder () {
+        return checkTaskIsSeeder(this.task)
+      },
+      taskStatus () {
+        const { task, isSeeder } = this
+        if (isSeeder) {
+          return 'seeding'
+        } else {
+          return task.status
+        }
+      },
+      taskCommonActions () {
+        let result = is.renderer() ? ['FOLDER'] : []
+        result = (this.mode === 'LIST')
+          ? [...result, 'LINK', 'INFO']
+          : [...result, 'LINK']
+
+        return result
+      },
+      taskActions () {
+        const { taskStatus, taskCommonActions } = this
+        const actions = taskActionsMap[taskStatus] || []
+        const result = [...actions, ...taskCommonActions].reverse()
+        return result
       }
     },
     methods: {
       isRenderer: is.renderer,
-      deleteTaskFiles: function (task) {
+      deleteTaskFiles (task) {
         moveTaskFilesToTrash(task, {
           pathErrorMsg: this.$t('task.file-path-error'),
           delFailMsg: this.$t('task.remove-task-file-fail'),
           delConfigFailMsg: this.$t('task.remove-task-config-file-fail')
         })
       },
-      removeTaskItem: function (task, isRemoveWithFiles) {
+      removeTaskItem (task, isRemoveWithFiles) {
         this.$store.dispatch('task/removeTask', this.task)
           .then(() => {
             if (isRemoveWithFiles) {
@@ -101,7 +142,7 @@
             }
           })
       },
-      removeTaskRecord: function (task, isRemoveWithFiles) {
+      removeTaskRecord (task, isRemoveWithFiles) {
         this.$store.dispatch('task/removeTaskRecord', this.task)
           .then(() => {
             if (isRemoveWithFiles) {
@@ -119,7 +160,7 @@
             }
           })
       },
-      onResumeClick: function () {
+      onResumeClick () {
         this.$store.dispatch('task/resumeTask', this.task)
           .catch(({ code }) => {
             if (code === 1) {
@@ -129,7 +170,75 @@
             }
           })
       },
-      onPauseClick: function () {
+      onRestartClick (event) {
+        const { task, taskName } = this
+        const { gid, status } = task
+        const uri = getTaskUri(task)
+        const isNeedShowDialog = status === 'complete' || !!event.altKey
+        this.$store.dispatch('task/getTaskOption', gid)
+          .then((data) => {
+            console.log('getTaskOption===>', data)
+            const { dir, header, split } = data
+            const options = {
+              dir,
+              header,
+              split,
+              out: taskName
+            }
+
+            if (isNeedShowDialog) {
+              this.showAddTaskDialog(uri, options)
+            } else {
+              this.directAddTask(uri, options)
+              this.$store.dispatch('task/removeTaskRecord', task)
+            }
+          })
+      },
+      directAddTask (uri, options = {}) {
+        const uris = [uri]
+        const payload = {
+          uris,
+          options: {
+            ...options
+          }
+        }
+        this.$store.dispatch('task/addUri', payload)
+          .catch((err) => {
+            this.$msg.error(err.message)
+          })
+      },
+      showAddTaskDialog (uri, options = {}) {
+        const {
+          header,
+          ...rest
+        } = options
+
+        const headers = parseHeader(header)
+        const newOptions = {
+          ...rest,
+          ...headers
+        }
+
+        this.$store.dispatch('app/updateAddTaskUrl', uri)
+        this.$store.dispatch('app/updateAddTaskOptions', newOptions)
+        this.$store.dispatch('app/showAddTaskDialog', 'uri')
+      },
+      onPauseClick () {
+        this.pauseTask()
+      },
+      onStopClick () {
+        this.stopSeeding()
+      },
+      stopSeeding () {
+        if (!this.isSeeder) {
+          return
+        }
+        this.$store.dispatch('task/pauseTask', this.task)
+          .then(() => {
+            this.$store.dispatch('task/resumeTask', this.task)
+          })
+      },
+      pauseTask () {
         const { taskName } = this
         this.$msg.info(this.$t('task.download-pause-message', { taskName }))
         this.$store.dispatch('task/pauseTask', this.task)
@@ -139,7 +248,7 @@
             }
           })
       },
-      onDeleteClick: function () {
+      onDeleteClick () {
         const self = this
         const { task } = this
         this.$electron.remote.dialog.showMessageBox({
@@ -155,7 +264,7 @@
           }
         })
       },
-      onTrashClick: function () {
+      onTrashClick () {
         const self = this
         const { task } = this
         this.$electron.remote.dialog.showMessageBox({
@@ -171,12 +280,12 @@
           }
         })
       },
-      onFolderClick: function () {
+      onFolderClick () {
         showItemInFolder(this.path, {
           errorMsg: this.$t('task.file-not-exist')
         })
       },
-      onLinkClick: function () {
+      onLinkClick () {
         this.$store.dispatch('app/fetchEngineOptions')
           .then((data) => {
             const { btTracker } = data
@@ -187,10 +296,10 @@
               })
           })
       },
-      onInfoClick: function () {
+      onInfoClick () {
         this.$store.dispatch('task/showTaskItemInfoDialog', this.task)
       },
-      onMoreClick: function () {
+      onMoreClick () {
         console.log('onMoreClick===>')
       }
     }
@@ -218,7 +327,7 @@
       background-color: $--task-item-action-hover-background;
       width: auto;
     }
-    &> i {
+    &> .task-item-action {
       display: inline-block;
       padding: 5px;
       margin: 0 4px;

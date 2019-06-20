@@ -45,9 +45,6 @@
       }
     },
     methods: {
-      open (link) {
-        this.$electron.shell.openExternal(link)
-      },
       showAddTask (taskType = 'uri') {
         this.$store.dispatch('app/showAddTaskDialog', taskType)
       },

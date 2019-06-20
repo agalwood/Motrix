@@ -57,6 +57,7 @@ const actions = {
     return api.addUri({ uris, options })
       .then(() => {
         dispatch('fetchList')
+        dispatch('app/updateAddTaskOptions', {}, { root: true })
       })
   },
   addTorrent ({ dispatch }, data) {
@@ -64,6 +65,7 @@ const actions = {
     return api.addTorrent({ torrent, options })
       .then(() => {
         dispatch('fetchList')
+        dispatch('app/updateAddTaskOptions', {}, { root: true })
       })
   },
   addMetalink ({ dispatch }, data) {
@@ -71,7 +73,16 @@ const actions = {
     return api.addMetalink({ metalink, options })
       .then(() => {
         dispatch('fetchList')
+        dispatch('app/updateAddTaskOptions', {}, { root: true })
       })
+  },
+  getTaskOption (_, gid) {
+    return new Promise((resolve) => {
+      api.getOption({ gid })
+        .then((data) => {
+          resolve(data)
+        })
+    })
   },
   removeTask ({ dispatch }, task) {
     const { gid } = task
@@ -124,7 +135,10 @@ const actions = {
       })
   },
   removeTaskRecord ({ dispatch }, task) {
-    const { gid } = task
+    const { gid, status } = task
+    if (['error', 'complete', 'removed'].indexOf(status) === -1) {
+      return
+    }
     return api.removeTaskRecord({ gid })
       .finally(() => dispatch('fetchList'))
   },

@@ -136,6 +136,18 @@ export default class Api {
     })
   }
 
+  getOption (params = {}) {
+    const { gid } = params
+    const args = compactUndefined([gid])
+
+    return new Promise((resolve) => {
+      this.client.call('getOption', ...args)
+        .then((data) => {
+          resolve(changeKeysToCamelCase(data))
+        })
+    })
+  }
+
   getGlobalStat () {
     return this.client.call('getGlobalStat')
   }
@@ -145,8 +157,9 @@ export default class Api {
       uris,
       options
     } = params
+    const kebabOptions = changeKeysToKebabCase(options)
     const tasks = uris.map((uri) => {
-      const args = compactUndefined([[uri], options])
+      const args = compactUndefined([[uri], kebabOptions])
       return [ 'aria2.addUri', ...args ]
     })
     return this.client.multicall(tasks)
@@ -157,7 +170,8 @@ export default class Api {
       torrent,
       options
     } = params
-    const args = compactUndefined([torrent, [], options])
+    const kebabOptions = changeKeysToKebabCase(options)
+    const args = compactUndefined([torrent, [], kebabOptions])
     return this.client.call('addTorrent', ...args)
   }
 
@@ -166,7 +180,8 @@ export default class Api {
       metalink,
       options
     } = params
-    const args = compactUndefined([metalink, options])
+    const kebabOptions = changeKeysToKebabCase(options)
+    const args = compactUndefined([metalink, kebabOptions])
     return this.client.call('addMetalink', ...args)
   }
 

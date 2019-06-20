@@ -179,6 +179,11 @@ export function isMagnetTask (task) {
   return bittorrent && !bittorrent.info
 }
 
+export function checkTaskIsSeeder (task) {
+  const { bittorrent, seeder } = task
+  return !!bittorrent && seeder
+}
+
 export function getTaskUri (task, btTracker = []) {
   const { files } = task
   let result = ''
@@ -525,4 +530,23 @@ export function diffConfig (current = {}, next = {}) {
 
 export function calcFormLabelWidth (locale) {
   return locale.startsWith('de') ? '28%' : '23%'
+}
+
+export function parseHeader (header = '') {
+  header = header.trim()
+  let result = {}
+  if (!header) {
+    return result
+  }
+
+  const headers = splitTextRows(header)
+  headers.forEach((line) => {
+    const index = line.indexOf(':')
+    const name = line.substr(0, index)
+    const value = line.substr(index + 1).trim()
+    result[name] = value
+  })
+  result = changeKeysToCamelCase(result)
+
+  return result
 }
