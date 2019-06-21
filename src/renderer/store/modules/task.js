@@ -84,6 +84,10 @@ const actions = {
         })
     })
   },
+  changeTaskOption (_, payload) {
+    const { gid, options } = payload
+    return api.changeOption({ gid, options })
+  },
   removeTask ({ dispatch }, task) {
     const { gid } = task
     return api.forcePauseTask({ gid })

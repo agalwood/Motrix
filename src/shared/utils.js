@@ -550,3 +550,13 @@ export function parseHeader (header = '') {
 
   return result
 }
+
+export function formatOptionsForEngine (options) {
+  const result = {}
+
+  Object.keys(options).forEach((key) => {
+    result[key] = `${options[key]}`
+  })
+
+  return result
+}

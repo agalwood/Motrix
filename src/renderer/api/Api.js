@@ -5,6 +5,7 @@ import Aria2 from 'aria2'
 import {
   separateConfig,
   compactUndefined,
+  formatOptionsForEngine,
   mergeTaskResult,
   changeKeysToCamelCase,
   changeKeysToKebabCase
@@ -119,10 +120,7 @@ export default class Api {
   }
 
   changeGlobalOption (options) {
-    const args = {}
-    Object.keys(options).forEach((key) => {
-      args[key] = `${options[key]}`
-    })
+    const args = formatOptionsForEngine(options)
 
     return this.client.call('changeGlobalOption', args)
   }
@@ -146,6 +144,16 @@ export default class Api {
           resolve(changeKeysToCamelCase(data))
         })
     })
+  }
+
+  changeOption (params = {}) {
+    let { gid, options = {} } = params
+    options = formatOptionsForEngine(options)
+
+    const kebabOptions = changeKeysToKebabCase(options)
+    const args = compactUndefined([gid, kebabOptions])
+
+    return this.client.call('changeOption', ...args)
   }
 
   getGlobalStat () {
