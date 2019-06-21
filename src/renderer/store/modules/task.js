@@ -138,6 +138,13 @@ const actions = {
         dispatch('saveSession')
       })
   },
+  stopSeeding ({ dispatch }, task) {
+    const { gid } = task
+    const options = {
+      seedTime: 0
+    }
+    return dispatch('changeTaskOption', { gid, options })
+  },
   removeTaskRecord ({ dispatch }, task) {
     const { gid, status } = task
     if (['error', 'complete', 'removed'].indexOf(status) === -1) {
