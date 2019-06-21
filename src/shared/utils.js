@@ -560,3 +560,14 @@ export function formatOptionsForEngine (options) {
 
   return result
 }
+
+export function buildRpcUrl (options) {
+  const { port, secret } = options
+  let result = `127.0.0.1:${port}/jsonrpc`
+  if (secret) {
+    result = `token:${secret}@${result}`
+  }
+  result = `http://${result}`
+
+  return result
+}

@@ -181,6 +181,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import {
+    buildRpcUrl,
     calcFormLabelWidth,
     convertCommaToLine,
     convertLineToComma,
@@ -199,6 +200,7 @@
       hideAppMenu,
       lastCheckUpdateTime,
       protocols,
+      rpcListenPort,
       rpcSecret,
       useProxy,
       userAgent
@@ -213,6 +215,7 @@
       protocols: {
         ...protocols
       },
+      rpcListenPort,
       rpcSecret,
       useProxy,
       userAgent
@@ -296,9 +299,13 @@
       },
       onDiceClick () {
         this.hideRpcSecret = false
-        const rpcSecret = randomize('*', 12, { exclude: '@:/?,.' })
+        const rpcSecret = randomize('Aa0', 12)
         this.form.rpcSecret = rpcSecret
-        clipboard.writeText(rpcSecret)
+        const url = buildRpcUrl({
+          port: this.form.rpcListenPort,
+          secret: rpcSecret
+        })
+        clipboard.writeText(url)
         setTimeout(() => {
           this.hideRpcSecret = true
         }, 2000)
