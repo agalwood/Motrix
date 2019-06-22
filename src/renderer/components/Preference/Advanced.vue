@@ -254,6 +254,13 @@
       })
     },
     watch: {
+      'form.rpcSecret': function (val) {
+        const url = buildRpcUrl({
+          port: this.form.rpcListenPort,
+          secret: val
+        })
+        clipboard.writeText(url)
+      }
     },
     methods: {
       isRenderer: is.renderer,
@@ -301,11 +308,7 @@
         this.hideRpcSecret = false
         const rpcSecret = randomize('Aa0', 12)
         this.form.rpcSecret = rpcSecret
-        const url = buildRpcUrl({
-          port: this.form.rpcListenPort,
-          secret: rpcSecret
-        })
-        clipboard.writeText(url)
+
         setTimeout(() => {
           this.hideRpcSecret = true
         }, 2000)
