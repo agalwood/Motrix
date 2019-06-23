@@ -233,10 +233,7 @@
         if (!this.isSeeder) {
           return
         }
-        this.$store.dispatch('task/pauseTask', this.task)
-          .then(() => {
-            this.$store.dispatch('task/resumeTask', this.task)
-          })
+        this.$store.dispatch('task/stopSeeding', this.task)
       },
       pauseTask () {
         const { taskName } = this

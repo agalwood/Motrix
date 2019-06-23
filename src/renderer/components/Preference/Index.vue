@@ -23,7 +23,13 @@
   .form-preference {
     padding-right: 7%;
     .el-switch__label {
-      font-weight: $--font-weight-secondary;
+      font-weight: normal;
+      color: $--color-text-regular;
+      &.is-active {
+        color: $--color-text-regular;
+      }
+    }
+    .el-checkbox__input.is-checked + .el-checkbox__label {
       color: $--color-text-regular;
     }
     .el-form-item {

@@ -64,7 +64,7 @@ export default class Engine {
     const sh = this.getStartSh()
     logger.info('[Motrix] Engine start sh===>', sh)
     this.instance = forever.start(sh, {
-      max: 10,
+      max: 100,
       parser: function (command, args) {
         return {
           command: command,

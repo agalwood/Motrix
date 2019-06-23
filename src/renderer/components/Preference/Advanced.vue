@@ -129,7 +129,7 @@
               </i>
             </el-input>
             <div class="el-form-item__info" style="margin-top: 8px;">
-              <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/rpc-auth" rel="noopener noreferrer">
+              <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/RPC" rel="noopener noreferrer">
                 {{ $t('preferences.rpc-secret-tips') }}
                 <mo-icon name="link" width="12" height="12" />
               </a>
@@ -181,6 +181,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import userAgentMap from '@shared/ua'
   import {
+    buildRpcUrl,
     calcFormLabelWidth,
     convertCommaToLine,
     convertLineToComma,
@@ -199,6 +200,7 @@
       hideAppMenu,
       lastCheckUpdateTime,
       protocols,
+      rpcListenPort,
       rpcSecret,
       useProxy,
       userAgent
@@ -213,6 +215,7 @@
       protocols: {
         ...protocols
       },
+      rpcListenPort,
       rpcSecret,
       useProxy,
       userAgent
@@ -251,6 +254,13 @@
       })
     },
     watch: {
+      'form.rpcSecret': function (val) {
+        const url = buildRpcUrl({
+          port: this.form.rpcListenPort,
+          secret: val
+        })
+        clipboard.writeText(url)
+      }
     },
     methods: {
       isRenderer: is.renderer,
@@ -296,9 +306,9 @@
       },
       onDiceClick () {
         this.hideRpcSecret = false
-        const rpcSecret = randomize('*', 12, { exclude: '@:/?,.' })
+        const rpcSecret = randomize('Aa0', 12)
         this.form.rpcSecret = rpcSecret
-        clipboard.writeText(rpcSecret)
+
         setTimeout(() => {
           this.hideRpcSecret = true
         }, 2000)

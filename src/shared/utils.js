@@ -181,7 +181,7 @@ export function isMagnetTask (task) {
 
 export function checkTaskIsSeeder (task) {
   const { bittorrent, seeder } = task
-  return !!bittorrent && seeder
+  return !!bittorrent && seeder === 'true'
 }
 
 export function getTaskUri (task, btTracker = []) {
@@ -547,6 +547,27 @@ export function parseHeader (header = '') {
     result[name] = value
   })
   result = changeKeysToCamelCase(result)
+
+  return result
+}
+
+export function formatOptionsForEngine (options) {
+  const result = {}
+
+  Object.keys(options).forEach((key) => {
+    result[key] = `${options[key]}`
+  })
+
+  return result
+}
+
+export function buildRpcUrl (options) {
+  const { port, secret } = options
+  let result = `127.0.0.1:${port}/jsonrpc`
+  if (secret) {
+    result = `token:${secret}@${result}`
+  }
+  result = `http://${result}`
 
   return result
 }

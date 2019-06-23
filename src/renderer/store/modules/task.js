@@ -84,6 +84,10 @@ const actions = {
         })
     })
   },
+  changeTaskOption (_, payload) {
+    const { gid, options } = payload
+    return api.changeOption({ gid, options })
+  },
   removeTask ({ dispatch }, task) {
     const { gid } = task
     return api.forcePauseTask({ gid })
@@ -133,6 +137,13 @@ const actions = {
         dispatch('fetchList')
         dispatch('saveSession')
       })
+  },
+  stopSeeding ({ dispatch }, task) {
+    const { gid } = task
+    const options = {
+      seedTime: 0
+    }
+    return dispatch('changeTaskOption', { gid, options })
   },
   removeTaskRecord ({ dispatch }, task) {
     const { gid, status } = task

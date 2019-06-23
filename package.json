@@ -1,6 +1,6 @@
 {
   "name": "Motrix",
-  "version": "1.3.8",
+  "version": "1.4.1",
   "description": "A full-featured download manager",
   "homepage": "https://motrix.app",
   "author": {
@@ -27,7 +27,7 @@
     "pack": "npm run pack:main && npm run pack:renderer",
     "pack:main": "cross-env NODE_ENV=production webpack --mode production --progress --colors --config .electron-vue/webpack.main.config.js",
     "pack:renderer": "cross-env NODE_ENV=production webpack --mode production --progress --colors --config .electron-vue/webpack.renderer.config.js",
-    "postinstall": "npm run lint:fix"
+    "postinstall": "electron-builder install-app-deps && npm run lint:fix"
   },
   "build": {
     "productName": "Motrix",
@@ -160,7 +160,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://motrix.app/release/"
+        "url": "https://dl.motrix.app/release/"
       },
       {
         "provider": "github"
@@ -168,18 +168,18 @@
     ]
   },
   "dependencies": {
-    "@panter/vue-i18next": "^0.15.0",
+    "@panter/vue-i18next": "^0.15.1",
     "aria2": "^4.0.3",
-    "axios": "^0.18.0",
+    "axios": "^0.19.0",
     "blob-util": "^2.0.2",
-    "clipboard-polyfill": "^2.8.0",
-    "electron-debug": "^2.2.0",
+    "clipboard-polyfill": "^2.8.1",
+    "electron-debug": "^3.0.0",
     "electron-is": "^3.0.0",
-    "electron-log": "^3.0.5",
-    "electron-updater": "^4.0.9",
-    "element-ui": "^2.7.2",
+    "electron-log": "^3.0.6",
+    "electron-updater": "^4.0.12",
+    "element-ui": "^2.9.1",
     "forever-monitor": "^1.7.1",
-    "i18next": "^15.0.9",
+    "i18next": "^17.0.3",
     "lodash": "^4.17.11",
     "normalize.css": "^8.0.1",
     "parse-torrent": "^6.1.2",
@@ -188,7 +188,7 @@
     "vue": "^2.6.10",
     "vue-electron": "^1.0.6",
     "vue-router": "^3.0.6",
-    "vuex": "^3.1.0",
+    "vuex": "^3.1.1",
     "vuex-router-sync": "^5.0.0"
   },
   "devDependencies": {
@@ -198,7 +198,7 @@
     "@vue/eslint-config-standard": "^4.0.0",
     "ajv": "^6.10.0",
     "babel-core": "^6.26.3",
-    "babel-eslint": "^10.0.1",
+    "babel-eslint": "^10.0.2",
     "babel-loader": "^7.1.5",
     "babel-plugin-component": "^1.1.1",
     "babel-plugin-transform-runtime": "^6.23.0",
@@ -206,17 +206,17 @@
     "babel-preset-stage-0": "^6.24.1",
     "babel-register": "^6.26.0",
     "babili-webpack-plugin": "^0.1.2",
-    "cfonts": "^2.4.2",
+    "cfonts": "^2.4.3",
     "chalk": "^2.4.2",
     "copy-webpack-plugin": "^5.0.3",
     "cross-env": "^5.1.6",
     "css-loader": "^2.1.1",
-    "del": "^4.1.0",
+    "del": "^4.1.1",
     "devtron": "^1.4.0",
-    "electron": "^4.1.5",
-    "electron-builder": "^20.39.0",
+    "electron": "^4.2.4",
+    "electron-builder": "^20.43.0",
     "electron-devtools-installer": "^2.2.4",
-    "electron-notarize": "^0.0.5",
+    "electron-notarize": "^0.1.1",
     "electron-osx-sign": "^0.4.11",
     "electron-store": "^2.0.0",
     "eslint": "^5.16.0",
@@ -224,17 +224,17 @@
     "eslint-friendly-formatter": "^4.0.1",
     "eslint-loader": "^2.1.2",
     "eslint-plugin-html": "^4.0.6",
-    "eslint-plugin-import": "^2.17.2",
+    "eslint-plugin-import": "^2.17.3",
     "eslint-plugin-node": "^8.0.1",
     "eslint-plugin-promise": "^4.1.1",
     "eslint-plugin-standard": "^4.0.0",
     "eslint-plugin-vue": "^5.2.2",
     "file-loader": "^3.0.1",
     "html-webpack-plugin": "^3.2.0",
-    "mini-css-extract-plugin": "0.6.0",
+    "mini-css-extract-plugin": "0.7.0",
     "multispinner": "^0.2.1",
     "node-loader": "^0.6.0",
-    "node-sass": "^4.10.0",
+    "node-sass": "^4.12.0",
     "optimize-css-assets-webpack-plugin": "^5.0.1",
     "sass-loader": "^7.1.0",
     "style-loader": "^0.23.1",
@@ -243,10 +243,10 @@
     "vue-loader": "^15.7.0",
     "vue-style-loader": "^4.1.2",
     "vue-template-compiler": "^2.6.10",
-    "webpack": "^4.30.0",
-    "webpack-cli": "^3.3.1",
-    "webpack-dev-server": "^3.3.1",
-    "webpack-hot-middleware": "^2.24.3",
+    "webpack": "^4.33.0",
+    "webpack-cli": "^3.3.4",
+    "webpack-dev-server": "^3.7.1",
+    "webpack-hot-middleware": "^2.25.0",
     "webpack-merge": "^4.2.1"
   }
 }
