@@ -11,7 +11,7 @@ assignees: ''
 Before you feedback, please search for the issues to see if there are similar problems that can solve your problem.
 
 **Please delete the above and the contents of this line, then fill in the feedback form in the following format, Thanks.**
-<!-- Windows and Linux versions hide the application menu by default. Please close the "Hide Menu Bar" in Preferences - Advanced Settings - Appearance. After saving and applying, the menu bar will appear. -->
+<!-- Windows and Linux versions hide the application menu by default. Please use the keyboard shortcut "Ctrl+Shift+I" to open "Developer Tools" -->
 
 **Describe the bug**
 A clear and concise description of what the bug is.
