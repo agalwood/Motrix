@@ -12,7 +12,7 @@ import {
   pick
 } from 'lodash'
 import { resolve } from 'path'
-import { userKeys, systemKeys } from './configKeys'
+import { userKeys, systemKeys, needRestartKeys } from './configKeys'
 
 export function bytesToSize (bytes) {
   const b = parseInt(bytes, 10)
@@ -568,6 +568,24 @@ export function buildRpcUrl (options) {
     result = `token:${secret}@${result}`
   }
   result = `http://${result}`
+
+  return result
+}
+
+export function checkIsNeedRestart (changed = {}) {
+  let result = false
+
+  if (isEmpty(changed)) {
+    return result
+  }
+
+  const kebabCaseChanged = changeKeysToKebabCase(changed)
+  needRestartKeys.some((key) => {
+    if (kebabCaseChanged.hasOwnProperty(key)) {
+      result = true
+      return true
+    }
+  })
 
   return result
 }

@@ -183,6 +183,7 @@
   import {
     buildRpcUrl,
     calcFormLabelWidth,
+    checkIsNeedRestart,
     convertCommaToLine,
     convertLineToComma,
     diffConfig
@@ -353,6 +354,10 @@
 
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command', 'application:setup-protocols-client', data.protocols)
+
+            if (checkIsNeedRestart(changed)) {
+              this.$electron.ipcRenderer.send('command', 'application:relaunch')
+            }
           }
         })
       },

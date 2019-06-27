@@ -151,7 +151,11 @@
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
   import { prettifyDir } from '@/components/Native/utils'
-  import { calcFormLabelWidth, diffConfig } from '@shared/utils'
+  import {
+    calcFormLabelWidth,
+    diffConfig,
+    checkIsNeedRestart
+  } from '@shared/utils'
 
   const initialForm = (config) => {
     const {
@@ -292,6 +296,10 @@
 
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command', 'application:open-at-login', openAtLogin)
+
+            if (checkIsNeedRestart(changed)) {
+              this.$electron.ipcRenderer.send('command', 'application:relaunch')
+            }
           }
         })
       },
