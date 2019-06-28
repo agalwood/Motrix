@@ -90,8 +90,4 @@ export function getLanguage (locale = 'en-US') {
   if (locale.startsWith('fr')) {
     return 'fr'
   }
-
-  if (locale.startsWith('uk')) {
-    return 'uk'
-  }
 }
