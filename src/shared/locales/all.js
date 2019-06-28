@@ -8,6 +8,7 @@ import eleLocalePtBR from 'element-ui/lib/locale/lang/pt-br'
 import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
+import eleLocaleUk from 'element-ui/lib/locale/lang/ua'
 import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleFa from '@shared/locales/fa'
@@ -18,6 +19,7 @@ import appLocalePtBR from '@shared/locales/pt-BR'
 import appLocaleTr from '@shared/locales/tr'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
+import appLocaleUk from '@shared/locales/uk'
 
 // Please keep the locale key in alphabetical order.
 const resources = {
@@ -79,6 +81,12 @@ const resources = {
     translation: {
       ...eleLocaleZhTW,
       ...appLocaleZhTW
+    }
+  },
+  'uk': {
+    translation: {
+      ...eleLocaleUk,
+      ...appLocaleUk
     }
   }
 }
