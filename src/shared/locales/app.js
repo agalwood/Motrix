@@ -8,6 +8,7 @@ import appLocalePtBr from '@shared/locales/pt-BR'
 import appLocaleTr from '@shared/locales/tr'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
+import appLocaleUk from '@shared/locales/uk'
 
 // Please keep the locale key in alphabetical order.
 const resources = {
@@ -59,6 +60,11 @@ const resources = {
   'zh-TW': {
     translation: {
       ...appLocaleZhTW
+    }
+  },
+  'uk': {
+    translation: {
+      ...appLocaleUk
     }
   }
 }

@@ -45,6 +45,10 @@ export const availableLanguages = [
   {
     value: 'zh-TW',
     label: '繁體中文'
+  },
+  {
+    value: 'uk',
+    label: 'Українська'
   }
 ]
 
@@ -85,5 +89,9 @@ export function getLanguage (locale = 'en-US') {
 
   if (locale.startsWith('fr')) {
     return 'fr'
+  }
+
+  if (locale.startsWith('uk')) {
+    return 'uk'
   }
 }
