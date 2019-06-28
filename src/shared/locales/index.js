@@ -61,8 +61,16 @@ function checkLngIsAvailable (locale) {
  * @param { String } locale
  * https://electronjs.org/docs/api/locales
  *
- * You need to add a fallback when there are
- * multiple locale keys with the same prefix
+ * Only these locales need to add a `startsWith` fallback
+ * when there are with the same prefix
+ *
+ * de, de-AT, de-CH, de-DE
+ * en, en-AU, en-CA, en-GB, en-NZ, en-US, en-ZA
+ * es, es-419
+ * fr, fr-CA, fr-CH, fr-FR
+ * it, it-CH, it-IT
+ * pt, pt-BR, pt-PT
+ * zh, zh-CN, zh-TW
  */
 export function getLanguage (locale = 'en-US') {
   if (checkLngIsAvailable(locale)) {
