@@ -57,9 +57,11 @@ yay motrix
 
 - 🕹 Simple and clear user interface
 - 🦄 Supports BitTorrent & Magnet
+- ☑️ BitTorrent selective download
 - 💾 Supports downloading Baidu Net Disk
 - 🎛 Up to 10 concurrent download tasks
 - 🚀 Supports 64 threads in a single task
+- 🚥 Supports speed limit
 - 🕶 Mock User-Agent
 - 🔔 Download completed Notification
 - 💻 Ready for Touch Bar (Mac only)
@@ -132,6 +134,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
 | tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
+| uk    | Українська          | 🚧 [@bladeaweb](https://github.com/bladeaweb) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
 
