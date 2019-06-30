@@ -132,7 +132,7 @@ npm run build
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| de    | German              | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
+| de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
 | fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
