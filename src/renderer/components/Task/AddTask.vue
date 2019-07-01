@@ -120,6 +120,7 @@
     NONE_SELECTED_FILES,
     SELECTED_ALL_FILES
   } from '@shared/constants'
+  import { buildOuts } from '@shared/rename'
   import {
     detectResource,
     splitTaskLinks
@@ -320,14 +321,17 @@
         return result
       },
       buildUriPayload (form) {
-        let { uris } = form
+        let { uris, out } = form
         if (isEmpty(uris)) {
           throw new Error(this.$t('task.new-task-uris-required'))
         }
         uris = splitTaskLinks(uris)
+        const outs = buildOuts(uris, out)
+
         const options = this.buildOption('uri', form)
         const result = {
           uris,
+          outs,
           options
         }
         return result
