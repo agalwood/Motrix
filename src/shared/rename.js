@@ -1,6 +1,7 @@
 const RULE_REGEX = /\(([^)]*)\)/
-const OPERATOR_PLUS = '+'
-const OPERATOR_MINUS = '-'
+const PLUS = '+'
+const MINUS = '-'
+const OPERATORS = [PLUS, MINUS]
 
 export function getRuleString (out) {
   const rule = out.match(RULE_REGEX)
@@ -16,19 +17,19 @@ export function buildRule (rule) {
   let step = 1
   let len = 1
 
-  if (rule.includes('+')) {
-    ruleArr = rule.split('+')
-    operator = OPERATOR_PLUS
-  } else if (rule.includes('-')) {
-    ruleArr = rule.split('-')
-    operator = OPERATOR_MINUS
-  }
+  OPERATORS.some(OPT => {
+    if (rule.includes(OPT)) {
+      ruleArr = rule.split(OPT)
+      operator = OPT
+      return true
+    }
+  })
 
   if (ruleArr) {
     len = ruleArr[0].length
     init = parseInt(ruleArr[0], 10)
     step = ruleArr[1] || 1
-    if (operator === OPERATOR_MINUS) {
+    if (operator === MINUS) {
       step = -step
     }
   }
