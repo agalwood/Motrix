@@ -134,7 +134,12 @@ const systemKeys = [
   'user-agent'
 ]
 
+const needRestartKeys = [
+  'hide-app-menu'
+]
+
 export {
   userKeys,
-  systemKeys
+  systemKeys,
+  needRestartKeys
 }
