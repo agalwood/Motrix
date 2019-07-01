@@ -12,7 +12,7 @@ export function getRuleString (out) {
 
 export function buildRule (rule) {
   let ruleArr
-  let operator
+  let operator = PLUS
   let init = 1
   let step = 1
   let len = 1
