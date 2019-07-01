@@ -163,10 +163,14 @@ export default class Api {
   addUri (params) {
     const {
       uris,
+      outs,
       options
     } = params
-    const kebabOptions = changeKeysToKebabCase(options)
-    const tasks = uris.map((uri) => {
+    const tasks = uris.map((uri, index) => {
+      const kebabOptions = changeKeysToKebabCase(options)
+      if (outs && outs[index]) {
+        kebabOptions['out'] = outs[index]
+      }
       const args = compactUndefined([[uri], kebabOptions])
       return [ 'aria2.addUri', ...args ]
     })
