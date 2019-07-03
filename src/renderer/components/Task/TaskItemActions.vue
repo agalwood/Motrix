@@ -245,16 +245,18 @@
             }
           })
       },
-      onDeleteClick () {
+      onDeleteClick (event) {
         const self = this
         const { task } = this
+        const isChecked = !!event.shiftKey
         this.$electron.remote.dialog.showMessageBox({
           type: 'warning',
           title: this.$t('task.delete-task'),
           message: this.$t('task.delete-task-confirm', { taskName: this.taskName }),
           buttons: [this.$t('app.yes'), this.$t('app.no')],
           cancelId: 1,
-          checkboxLabel: this.$t('task.delete-task-label')
+          checkboxLabel: this.$t('task.delete-task-label'),
+          checkboxChecked: isChecked
         }, (buttonIndex, checkboxChecked) => {
           if (buttonIndex === 0) {
             self.removeTaskItem(task, checkboxChecked)
