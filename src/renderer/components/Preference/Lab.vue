@@ -59,7 +59,7 @@
 
   export default {
     name: 'mo-preference-lab',
-    data: function () {
+    data () {
       const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
       const formOriginal = cloneDeep(form)
@@ -72,7 +72,7 @@
       }
     },
     computed: {
-      title: function () {
+      title () {
         return this.$t('preferences.lab')
       },
       ...mapState('preference', {

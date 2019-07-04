@@ -229,7 +229,7 @@
     components: {
       [ShowInFolder.name]: ShowInFolder
     },
-    data: function () {
+    data () {
       const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
       const formOriginal = cloneDeep(form)
@@ -244,11 +244,8 @@
       }
     },
     computed: {
-      title: function () {
+      title () {
         return this.$t('preferences.advanced')
-      },
-      showHideAppMenuOption: function () {
-        return is.windows() || is.linux()
       },
       ...mapState('preference', {
         config: state => state.config,
@@ -257,7 +254,7 @@
       })
     },
     watch: {
-      'form.rpcSecret': function (val) {
+      'form.rpcSecret' (val) {
         const url = buildRpcUrl({
           port: this.form.rpcListenPort,
           secret: val

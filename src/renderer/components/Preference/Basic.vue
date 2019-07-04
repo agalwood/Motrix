@@ -153,8 +153,8 @@
   import { prettifyDir } from '@/components/Native/utils'
   import {
     calcFormLabelWidth,
-    diffConfig,
-    checkIsNeedRestart
+    checkIsNeedRestart,
+    diffConfig
   } from '@shared/utils'
 
   const initialForm = (config) => {
@@ -200,7 +200,7 @@
       [SelectDirectory.name]: SelectDirectory,
       [ThemeSwitcher.name]: ThemeSwitcher
     },
-    data: function () {
+    data () {
       const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
       const formOriginal = cloneDeep(form)
@@ -215,13 +215,13 @@
       }
     },
     computed: {
-      title: function () {
+      title () {
         return this.$t('preferences.basic')
       },
-      showHideAppMenuOption: function () {
+      showHideAppMenuOption () {
         return is.windows() || is.linux()
       },
-      downloadDir: function () {
+      downloadDir () {
         return prettifyDir(this.form.dir)
       },
       ...mapState('preference', {
