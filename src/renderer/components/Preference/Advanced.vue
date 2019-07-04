@@ -232,10 +232,12 @@
     data: function () {
       const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
+      const formOriginal = cloneDeep(form)
+
       return {
         form,
         formLabelWidth: calcFormLabelWidth(locale),
-        formOriginal: cloneDeep(form),
+        formOriginal,
         hideRpcSecret: true,
         rules: {},
         trackerSyncing: false
@@ -327,6 +329,13 @@
           }
         })
       },
+      syncFormConfig () {
+        this.$store.dispatch('preference/fetchPreference')
+          .then((config) => {
+            this.form = initialForm(config)
+            this.formOriginal = cloneDeep(this.form)
+          })
+      },
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
@@ -346,6 +355,7 @@
           this.$store.dispatch('preference/save', data)
             .then(() => {
               this.$store.dispatch('app/fetchEngineOptions')
+              this.syncFormConfig()
               this.$msg.success(this.$t('preferences.save-success-message'))
             })
             .catch(() => {
@@ -362,7 +372,7 @@
         })
       },
       resetForm (formName) {
-        this.form = initialForm(this.$store.state.preference.config)
+        this.syncFormConfig()
       }
     }
   }
