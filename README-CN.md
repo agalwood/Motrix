@@ -53,6 +53,8 @@ brew update && brew cask install motrix
 yay motrix
 ```
 
+Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能没有创建下载会话文件的权限 (`/var/cache/aria2.session`)。
+
 ## ✨ 特性
 
 - 🕹 简洁明了的图形操作界面

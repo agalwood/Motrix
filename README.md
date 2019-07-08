@@ -53,6 +53,8 @@ Run the following command to install:
 yay motrix
 ```
 
+Motrix may need to run with `sudo` for the first time in Linux because there is no permission to create the download session file (`/var/cache/aria2.session`).
+
 ## ✨ Features
 
 - 🕹 Simple and clear user interface
