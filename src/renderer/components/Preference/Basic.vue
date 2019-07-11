@@ -153,8 +153,8 @@
   import { prettifyDir } from '@/components/Native/utils'
   import {
     calcFormLabelWidth,
-    diffConfig,
-    checkIsNeedRestart
+    checkIsNeedRestart,
+    diffConfig
   } from '@shared/utils'
 
   const initialForm = (config) => {
@@ -200,26 +200,28 @@
       [SelectDirectory.name]: SelectDirectory,
       [ThemeSwitcher.name]: ThemeSwitcher
     },
-    data: function () {
+    data () {
       const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
+      const formOriginal = cloneDeep(form)
+
       return {
         form,
         formLabelWidth: calcFormLabelWidth(locale),
-        formOriginal: cloneDeep(form),
+        formOriginal,
         locales: availableLanguages,
         rules: {},
         speedOptions: this.buildSpeedOptions()
       }
     },
     computed: {
-      title: function () {
+      title () {
         return this.$t('preferences.basic')
       },
-      showHideAppMenuOption: function () {
+      showHideAppMenuOption () {
         return is.windows() || is.linux()
       },
-      downloadDir: function () {
+      downloadDir () {
         return prettifyDir(this.form.dir)
       },
       ...mapState('preference', {
@@ -271,6 +273,13 @@
       onDirectorySelected (dir) {
         this.form.dir = dir
       },
+      syncFormConfig () {
+        this.$store.dispatch('preference/fetchPreference')
+          .then((config) => {
+            this.form = initialForm(config)
+            this.formOriginal = cloneDeep(this.form)
+          })
+      },
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
@@ -288,6 +297,7 @@
           this.$store.dispatch('preference/save', data)
             .then(() => {
               this.$store.dispatch('app/fetchEngineOptions')
+              this.syncFormConfig()
               this.$msg.success(this.$t('preferences.save-success-message'))
             })
             .catch(() => {
@@ -304,7 +314,7 @@
         })
       },
       resetForm (formName) {
-        this.form = initialForm(this.$store.state.preference.config)
+        this.syncFormConfig()
       }
     }
   }

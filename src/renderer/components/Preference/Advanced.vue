@@ -229,24 +229,23 @@
     components: {
       [ShowInFolder.name]: ShowInFolder
     },
-    data: function () {
+    data () {
       const { locale } = this.$store.state.preference.config
       const form = initialForm(this.$store.state.preference.config)
+      const formOriginal = cloneDeep(form)
+
       return {
         form,
         formLabelWidth: calcFormLabelWidth(locale),
-        formOriginal: cloneDeep(form),
+        formOriginal,
         hideRpcSecret: true,
         rules: {},
         trackerSyncing: false
       }
     },
     computed: {
-      title: function () {
+      title () {
         return this.$t('preferences.advanced')
-      },
-      showHideAppMenuOption: function () {
-        return is.windows() || is.linux()
       },
       ...mapState('preference', {
         config: state => state.config,
@@ -255,7 +254,7 @@
       })
     },
     watch: {
-      'form.rpcSecret': function (val) {
+      'form.rpcSecret' (val) {
         const url = buildRpcUrl({
           port: this.form.rpcListenPort,
           secret: val
@@ -327,6 +326,13 @@
           }
         })
       },
+      syncFormConfig () {
+        this.$store.dispatch('preference/fetchPreference')
+          .then((config) => {
+            this.form = initialForm(config)
+            this.formOriginal = cloneDeep(this.form)
+          })
+      },
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
@@ -346,6 +352,7 @@
           this.$store.dispatch('preference/save', data)
             .then(() => {
               this.$store.dispatch('app/fetchEngineOptions')
+              this.syncFormConfig()
               this.$msg.success(this.$t('preferences.save-success-message'))
             })
             .catch(() => {
@@ -362,7 +369,7 @@
         })
       },
       resetForm (formName) {
-        this.form = initialForm(this.$store.state.preference.config)
+        this.syncFormConfig()
       }
     }
   }
