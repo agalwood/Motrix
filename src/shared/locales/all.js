@@ -65,7 +65,7 @@ const resources = {
       ...appLocalePtBR
     }
   },
-  'ru-RU': {
+  'ru': {
     translation: {
       ...eleLocaleRu,
       ...appLocaleRu

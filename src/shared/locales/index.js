@@ -35,7 +35,7 @@ export const availableLanguages = [
     label: 'Português (Brasil)'
   },
   {
-    value: 'ru-RU',
+    value: 'ru',
     label: 'Русский'
   },
   {
@@ -84,7 +84,7 @@ export function getLanguage (locale = 'en-US') {
   }
 
   if (locale.startsWith('ru')) {
-    return 'ru-RU'
+    return 'ru'
   }
 
   if (locale.startsWith('zh')) {
