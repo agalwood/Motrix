@@ -35,6 +35,10 @@ export const availableLanguages = [
     label: 'Português (Brasil)'
   },
   {
+    value: 'ru',
+    label: 'Русский'
+  },
+  {
     value: 'tr',
     label: 'Türkçe'
   },
