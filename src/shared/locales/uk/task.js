@@ -68,7 +68,7 @@ export default {
   'remove-record-fail': 'Помилка при видаленні запису про завдання "{{taskName}}"',
   'show-in-folder': 'Відобразити файли завдання у папці',
   'file-not-exist': 'Розшукуємий файл не існує або був видаленний',
-  'file-path-error': 'Помілка шляху файла',
+  'file-path-error': 'Помилка шляху файла',
   'opening-task-message': 'Відкриття "{{taskName}}" ...',
   'get-task-name': 'Отримання Ім\'я завдання...',
   'remaining-prefix': 'Залишилося',
