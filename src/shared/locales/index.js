@@ -35,6 +35,10 @@ export const availableLanguages = [
     label: 'Português (Brasil)'
   },
   {
+    value: 'ru-RU',
+    label: 'Русский'
+  },
+  {
     value: 'tr',
     label: 'Türkçe'
   },
@@ -77,6 +81,10 @@ export function getLanguage (locale = 'en-US') {
   // here will fallback to pt-PT.
   if (locale.startsWith('pt')) {
     return 'pt-BR'
+  }
+
+  if (locale.startsWith('ru')) {
+    return 'ru-RU'
   }
 
   if (locale.startsWith('zh')) {

@@ -5,6 +5,7 @@ import eleLocaleFr from 'element-ui/lib/locale/lang/fr'
 import eleLocaleJa from 'element-ui/lib/locale/lang/ja'
 import eleLocaleKo from 'element-ui/lib/locale/lang/ko'
 import eleLocalePtBR from 'element-ui/lib/locale/lang/pt-br'
+import eleLocaleRu from 'element-ui/lib/locale/lang/ru-RU'
 import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
@@ -15,6 +16,7 @@ import appLocaleFr from '@shared/locales/fr'
 import appLocaleJa from '@shared/locales/ja'
 import appLocaleKo from '@shared/locales/ko'
 import appLocalePtBR from '@shared/locales/pt-BR'
+import appLocaleRu from '@shared/locales/ru-RU'
 import appLocaleTr from '@shared/locales/tr'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
@@ -61,6 +63,12 @@ const resources = {
     translation: {
       ...eleLocalePtBR,
       ...appLocalePtBR
+    }
+  },
+  'ru-RU': {
+    translation: {
+      ...eleLocaleRu,
+      ...appLocaleRu
     }
   },
   'tr': {
