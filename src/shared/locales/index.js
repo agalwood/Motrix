@@ -83,10 +83,6 @@ export function getLanguage (locale = 'en-US') {
     return 'pt-BR'
   }
 
-  if (locale.startsWith('ru')) {
-    return 'ru'
-  }
-
   if (locale.startsWith('zh')) {
     return 'zh-CN'
   }
