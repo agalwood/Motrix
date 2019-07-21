@@ -2,7 +2,7 @@
   <el-row class="copyright">
     <el-col :span="6" class="copyright-left">
       <a target="_blank" href="https://motrix.app/" rel="noopener noreferrer">
-        &copy;2018 Motrix
+        &copy;2019 Motrix
       </a>
     </el-col>
     <el-col :span="18" class="copyright-right">
