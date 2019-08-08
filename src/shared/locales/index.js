@@ -15,6 +15,10 @@ export const availableLanguages = [
     label: 'English'
   },
   {
+    value: 'es',
+    label: 'Español'
+  },
+  {
     value: 'fa',
     label: 'فارسی'
   },
@@ -87,6 +91,10 @@ export function getLanguage (locale = 'en-US') {
 
   if (locale.startsWith('en')) {
     return 'en-US'
+  }
+
+  if (locale.startsWith('es')) {
+    return 'es'
   }
 
   // If there is a pt-PT translation in the future,
