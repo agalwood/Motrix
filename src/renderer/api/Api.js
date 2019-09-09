@@ -10,10 +10,7 @@ import {
   changeKeysToCamelCase,
   changeKeysToKebabCase
 } from '@shared/utils'
-import {
-  BEST_TRACKERS_URL,
-  BEST_TRACKERS_IP_URL
-} from '@shared/constants'
+import { EMPTY_STRING } from '@shared/constants'
 
 const application = remote.getGlobal('application')
 
@@ -312,16 +309,18 @@ export default class Api {
     application.energyManager.stopPowerSaveBlocker()
   }
 
-  fetchBtTrackerFromGitHub () {
-    const now = Date.now()
-    const promises = [
-      fetch(`${BEST_TRACKERS_IP_URL}?t=${now}`).then((res) => res.text()),
-      fetch(`${BEST_TRACKERS_URL}?t=${now}`).then((res) => res.text())
-    ]
+  async fetchBtTrackerFromGitHub (source) {
+    if (isEmpty(source)) {
+      return EMPTY_STRING
+    }
 
-    return Promise.all(promises).then((values) => {
-      let result = values.join('\r\n').replace(/^\s*[\r\n]/gm, '')
-      return result
+    const now = Date.now()
+    const promises = source.map((url) => {
+      return fetch(`${url}?t=${now}`).then((res) => res.text())
     })
+
+    const values = await Promise.all(promises)
+    let result = values.join('\r\n').replace(/^\s*[\r\n]/gm, '')
+    return result
   }
 }

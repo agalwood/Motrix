@@ -8,6 +8,11 @@ import {
   getSessionPath,
   getUserDownloadsPath
 } from '../utils/index'
+import {
+  EMPTY_STRING,
+  TRACKERS_ALL_URL,
+  TRACKERS_ALL_IP_URL
+} from '@shared/constants'
 
 export default class ConfigManager {
   constructor () {
@@ -33,7 +38,7 @@ export default class ConfigManager {
     this.systemConfig = new Store({
       name: 'system',
       defaults: {
-        'all-proxy': '',
+        'all-proxy': EMPTY_STRING,
         'allow-overwrite': true,
         'auto-file-renaming': true,
         'bt-tracker': tracker.join(','),
@@ -49,7 +54,7 @@ export default class ConfigManager {
         'min-split-size': '1M',
         'pause': true,
         'rpc-listen-port': 16800,
-        'rpc-secret': '',
+        'rpc-secret': EMPTY_STRING,
         'seed-time': 60,
         'split': 16,
         'user-agent': 'Transmission/2.94'
@@ -69,7 +74,7 @@ export default class ConfigManager {
       //   }
       // },
       defaults: {
-        'all-proxy-backup': '',
+        'all-proxy-backup': EMPTY_STRING,
         'auto-check-update': is.macOS(),
         'hide-app-menu': is.windows() || is.linux(),
         'last-check-update-time': 0,
@@ -83,6 +88,10 @@ export default class ConfigManager {
         'session-path': getSessionPath(),
         'task-notification': true,
         'theme': 'auto',
+        'tracker-source': [
+          TRACKERS_ALL_IP_URL,
+          TRACKERS_ALL_URL
+        ],
         'update-channel': 'latest',
         'use-proxy': false,
         'window-state': {}
@@ -97,6 +106,13 @@ export default class ConfigManager {
     const openAtLogin = app.getLoginItemSettings().openAtLogin
     if (this.getUserConfig('open-at-login') !== openAtLogin) {
       this.setUserConfig('open-at-login', openAtLogin)
+    }
+
+    if (this.getUserConfig('tracker-source').length === 0) {
+      this.setUserConfig('tracker-source', [
+        TRACKERS_ALL_IP_URL,
+        TRACKERS_ALL_URL
+      ])
     }
   }
 

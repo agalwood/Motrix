@@ -10,8 +10,7 @@ import {
   parseArgvAsUrl,
   parseArgvAsFile
 } from './utils'
-
-const EMPTY_STRING = ''
+import { EMPTY_STRING } from '@shared/constants'
 
 export default class Launcher extends EventEmitter {
   constructor () {
