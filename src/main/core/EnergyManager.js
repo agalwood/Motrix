@@ -1,6 +1,6 @@
 import { powerSaveBlocker } from 'electron'
 
-let psbId = null
+let psbId
 export default class EnergyManager {
   startPowerSaveBlocker () {
     if (psbId && powerSaveBlocker.isStarted(psbId)) {
@@ -12,12 +12,12 @@ export default class EnergyManager {
   }
 
   stopPowerSaveBlocker () {
-    if (!psbId || !powerSaveBlocker.isStarted(psbId)) {
+    if (typeof psbId === 'undefined' || !powerSaveBlocker.isStarted(psbId)) {
       return
     }
 
     powerSaveBlocker.stop(psbId)
     console.log('stopPowerSaveBlocker===>', psbId)
-    psbId = null
+    psbId = undefined
   }
 }
