@@ -1,3 +1,4 @@
+import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleFa from '@shared/locales/fa'
@@ -13,6 +14,11 @@ import appLocaleUk from '@shared/locales/uk'
 
 // Please keep the locale key in alphabetical order.
 const resources = {
+  'ca': {
+    translation: {
+      ...appLocaleCa
+    }
+  },
   'de': {
     translation: {
       ...appLocaleDe

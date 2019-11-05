@@ -1,3 +1,4 @@
+import eleLocaleCa from 'element-ui/lib/locale/lang/ca'
 import eleLocaleDe from 'element-ui/lib/locale/lang/de'
 import eleLocaleEn from 'element-ui/lib/locale/lang/en'
 import eleLocaleEs from 'element-ui/lib/locale/lang/es'
@@ -11,6 +12,7 @@ import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
 import eleLocaleUk from 'element-ui/lib/locale/lang/ua'
+import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleEs from '@shared/locales/es'
@@ -27,6 +29,12 @@ import appLocaleUk from '@shared/locales/uk'
 
 // Please keep the locale key in alphabetical order.
 const resources = {
+  'ca': {
+    translation: {
+      ...eleLocaleCa,
+      ...appLocaleCa
+    }
+  },
   'de': {
     translation: {
       ...eleLocaleDe,

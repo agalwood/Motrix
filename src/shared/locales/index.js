@@ -7,6 +7,10 @@
  */
 export const availableLanguages = [
   {
+    value: 'ca',
+    label: 'Català'
+  },
+  {
     value: 'de',
     label: 'Deutsch'
   },
