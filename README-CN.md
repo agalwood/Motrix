@@ -136,6 +136,7 @@ npm run build
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
+| ca    | Català              | 🚧 [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
