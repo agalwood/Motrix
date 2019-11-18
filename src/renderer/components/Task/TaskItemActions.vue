@@ -246,22 +246,50 @@
           })
       },
       onDeleteClick (event) {
-        const self = this
+        // const { self } = this
+        // let isChecked = !!event.shiftKey
         const { task } = this
-        const isChecked = !!event.shiftKey
-        this.$electron.remote.dialog.showMessageBox({
+        const key = Date.now()
+        const h = this.$createElement
+        this.$msgbox({
           type: 'warning',
           title: this.$t('task.delete-task'),
-          message: this.$t('task.delete-task-confirm', { taskName: this.taskName }),
-          buttons: [this.$t('app.yes'), this.$t('app.no')],
-          cancelId: 1,
-          checkboxLabel: this.$t('task.delete-task-label'),
-          checkboxChecked: isChecked
-        }, (buttonIndex, checkboxChecked) => {
-          if (buttonIndex === 0) {
-            self.removeTaskItem(task, checkboxChecked)
-          }
+          message: h('div', [
+            h('p', this.$t('task.delete-task-confirm', { taskName: this.taskName })),
+            h('el-checkbox', {
+              props: {
+                key,
+                label: '同时删除文件'
+              },
+              ref: key
+            })
+          ]),
+          lockScroll: true,
+          showCancelButton: true,
+          confirmButtonText: this.$t('app.yes'),
+          cancelButtonText: this.$t('app.no')
+        }).then(() => {
+          const { isChecked } = this.$refs[key]
+          this.removeTaskItem(task, isChecked)
+        }).catch(() => {}).finally(() => {
+          this.$refs[key].model = false
         })
+        this.$nextTick(() => {
+          this.$refs[key].model = !!event.shiftKey
+        })
+        // this.$electron.remote.dialog.showMessageBox({
+        //   type: 'warning',
+        //   title: this.$t('task.delete-task'),
+        //   message: this.$t('task.delete-task-confirm', { taskName: this.taskName }),
+        //   buttons: [this.$t('app.yes'), this.$t('app.no')],
+        //   cancelId: 1,
+        //   checkboxLabel: this.$t('task.delete-task-label'),
+        //   checkboxChecked: isChecked
+        // }, (buttonIndex, checkboxChecked) => {
+        //   if (buttonIndex === 0) {
+        //     self.removeTaskItem(task, checkboxChecked)
+        //   }
+        // })
       },
       onTrashClick (event) {
         const self = this
