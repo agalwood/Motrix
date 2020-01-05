@@ -1,5 +1,10 @@
 <template>
   <div class="task-actions">
+    <el-tooltip class="item hidden-md-and-up" effect="dark" :content="$t('task.new-task')" placement="bottom">
+      <i @click.stop="onAddClick">
+        <mo-icon name="menu-add" width="14" height="14" />
+      </i>
+    </el-tooltip>
     <el-tooltip class="item" effect="dark" :content="$t('task.refresh-list')" placement="bottom">
       <i @click="onRefreshClick">
         <mo-icon name="refresh" width="14" height="14" :spin="refreshing" />
@@ -37,6 +42,7 @@
 <script>
   import { mapState } from 'vuex'
   import TaskProgress from './TaskProgress'
+  import '@/components/Icons/menu-add'
   import '@/components/Icons/refresh'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
@@ -113,6 +119,9 @@
               this.$msg.error(this.$t('task.purge-record-fail'))
             }
           })
+      },
+      onAddClick: function () {
+        this.$store.dispatch('app/showAddTaskDialog', 'uri')
       }
     }
   }

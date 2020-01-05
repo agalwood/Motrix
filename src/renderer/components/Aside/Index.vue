@@ -1,5 +1,5 @@
 <template>
-  <el-aside width="78px" :class="['aside', { 'draggable': asideDraggable }]">
+  <el-aside width="78px" :class="['aside', 'hidden-sm-and-down', { 'draggable': asideDraggable }]">
     <div class="aside-inner">
       <mo-logo-mini />
       <ul class="menu top-menu">
