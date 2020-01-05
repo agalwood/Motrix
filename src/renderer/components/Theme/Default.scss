@@ -242,3 +242,32 @@ img {
 .form-actions {
   background: $--form-actions-background;
 }
+
+@media only screen and (max-width:567px) {
+  .hidden-xs-only {
+    display:none!important
+  }
+}
+
+@media only screen and (min-width: 568px) {
+  .hidden-sm-and-up {
+    display: none !important;
+  }
+}
+@media only screen and (min-width: 568px) and (max-width: 991px) {
+  .hidden-sm-only {
+    display: none !important;
+  }
+}
+
+@media only screen and (max-width: 791px) {
+  .hidden-sm-and-down {
+    display: none !important;
+  }
+}
+
+@media only screen and (min-width: 792px) {
+  .hidden-md-and-up {
+    display: none !important;
+  }
+}

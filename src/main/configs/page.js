@@ -6,7 +6,7 @@ export default {
       title: 'Motrix',
       width: 1024,
       height: 768,
-      minWidth: 840,
+      minWidth: 400,
       minHeight: 420,
       // backgroundColor: '#FFFFFF',
       transparent: !is.windows()
