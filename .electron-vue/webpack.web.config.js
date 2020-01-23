@@ -49,7 +49,15 @@ let webConfig = {
         use: [
           devMode ? 'vue-style-loader' : MiniCssExtractPlugin.loader,
           'css-loader',
-          'sass-loader'
+          {
+            loader: 'sass-loader',
+            options: {
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
+            },
+          }
         ]
       },
       {
@@ -57,7 +65,16 @@ let webConfig = {
         use: [
           devMode ? 'vue-style-loader' : MiniCssExtractPlugin.loader,
           'css-loader',
-          'sass-loader?indentedSyntax'
+          {
+            loader: 'sass-loader',
+            options: {
+              indentedSyntax: true,
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
+            },
+          }
         ]
       },
       {

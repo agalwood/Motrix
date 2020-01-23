@@ -52,8 +52,10 @@ let rendererConfig = {
           {
             loader: 'sass-loader',
             options: {
-              data: '@import "@/components/Theme/Variables.scss";',
-              includePaths:[__dirname, 'src']
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
             },
           }
         ]
@@ -67,8 +69,10 @@ let rendererConfig = {
             loader: 'sass-loader',
             options: {
               indentedSyntax: true,
-              data: '@import "@/components/Theme/Variables.scss";',
-              includePaths:[__dirname, 'src']
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
             },
           }
         ]
