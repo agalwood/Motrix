@@ -133,6 +133,6 @@ export function getSystemTheme () {
   if (!is.macOS()) {
     return result
   }
-  result = remote.systemPreferences.isDarkMode() ? DARK_THEME : LIGHT_THEME
+  result = remote.nativeTheme.shouldUseDarkColors ? DARK_THEME : LIGHT_THEME
   return result
 }

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import { systemPreferences } from 'electron'
+import { nativeTheme, systemPreferences } from 'electron'
 import is from 'electron-is'
 import { LIGHT_THEME, DARK_THEME } from '@shared/constants'
 
@@ -19,7 +19,7 @@ export default class ThemeManager extends EventEmitter {
     if (!is.macOS()) {
       return result
     }
-    result = systemPreferences.isDarkMode() ? DARK_THEME : LIGHT_THEME
+    result = nativeTheme.shouldUseDarkColors ? DARK_THEME : LIGHT_THEME
     return result
   }
 
@@ -27,14 +27,12 @@ export default class ThemeManager extends EventEmitter {
     if (!is.macOS()) {
       return
     }
-    systemPreferences.subscribeNotification(
-      'AppleInterfaceThemeChangedNotification',
-      () => {
-        const theme = this.getSystemTheme()
-        this.updateAppAppearance(theme)
-        this.emit('system-theme-changed', theme)
-      }
-    )
+    nativeTheme.on('updated', () => {
+      const theme = this.getSystemTheme()
+      console.log('theme updated===>', theme)
+      this.updateAppAppearance(theme)
+      this.emit('system-theme-changed', theme)
+    })
   }
 
   updateAppAppearance (theme) {
