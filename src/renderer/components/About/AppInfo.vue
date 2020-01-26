@@ -71,7 +71,7 @@
       margin: 50px 35% 0 8px;
       h4 {
         font-size: $--font-size-base;
-        font-weight: $--font-weight-secondary;
+        font-weight: normal;
         color: $--app-engine-title-color;
       }
       ul {
