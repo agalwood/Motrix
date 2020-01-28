@@ -47,7 +47,7 @@
         @selection-change="handleSelectionChange">
         <el-table-column
           type="selection"
-          width="35">
+          width="42">
         </el-table-column>
         <el-table-column
           :label="$t('task.file-name')"
