@@ -72,7 +72,7 @@ export default class Application extends EventEmitter {
         type: 'error',
         title: this.i18n.t('app.system-error-title'),
         message: this.i18n.t('app.system-error-message', { message })
-      }, () => {
+      }).then(_ => {
         setTimeout(() => {
           app.quit()
         }, 100)

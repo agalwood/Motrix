@@ -6,8 +6,7 @@ const devMode = process.env.NODE_ENV !== 'production'
 const path = require('path')
 const { dependencies, build } = require('../package.json')
 const webpack = require('webpack')
-
-const BabiliWebpackPlugin = require('babili-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin');
 
 let mainConfig = {
   entry: {
@@ -59,7 +58,15 @@ let mainConfig = {
     },
     extensions: ['.js', '.json', '.node']
   },
-  target: 'electron-main'
+  target: 'electron-main',
+  optimization: {
+    minimize: !devMode,
+    minimizer: [
+      new TerserPlugin({
+        extractComments: false,
+      })
+    ],
+  },
 }
 
 /**
@@ -79,7 +86,6 @@ if (devMode) {
  */
 if (!devMode) {
   mainConfig.plugins.push(
-    new BabiliWebpackPlugin(),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"',
       'appId': `"${build.appId}"`

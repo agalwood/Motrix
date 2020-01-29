@@ -257,8 +257,8 @@
           cancelId: 1,
           checkboxLabel: this.$t('task.delete-task-label'),
           checkboxChecked: isChecked
-        }, (buttonIndex, checkboxChecked) => {
-          if (buttonIndex === 0) {
+        }).then(({ response, checkboxChecked }) => {
+          if (response === 0) {
             self.removeTaskItem(task, checkboxChecked)
           }
         })
@@ -275,8 +275,8 @@
           cancelId: 1,
           checkboxLabel: this.$t('task.remove-record-label'),
           checkboxChecked: isChecked
-        }, (buttonIndex, checkboxChecked) => {
-          if (buttonIndex === 0) {
+        }).then(({ response, checkboxChecked }) => {
+          if (response === 0) {
             self.removeTaskRecord(task, checkboxChecked)
           }
         })

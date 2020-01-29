@@ -66,8 +66,8 @@ export default class UpdateManager extends EventEmitter {
       message: this.i18n.t('app.update-available-message'),
       buttons: [this.i18n.t('app.yes'), this.i18n.t('app.no')],
       cancelId: 1
-    }, (buttonIndex) => {
-      if (buttonIndex === 0) {
+    }).then(({ response }) => {
+      if (response === 0) {
         this.updater.downloadUpdate()
       }
     })
@@ -102,7 +102,7 @@ export default class UpdateManager extends EventEmitter {
     dialog.showMessageBox({
       title: this.i18n.t('app.check-for-updates-title'),
       message: this.i18n.t('app.update-downloaded-message')
-    }, () => {
+    }).then(_ => {
       this.emit('will-updated')
       setImmediate(() => {
         this.updater.quitAndInstall()

@@ -6,8 +6,7 @@ const devMode = process.env.NODE_ENV !== 'production'
 const path = require('path')
 const { dependencies } = require('../package.json')
 const webpack = require('webpack')
-
-const BabiliWebpackPlugin = require('babili-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
@@ -49,7 +48,15 @@ let webConfig = {
         use: [
           devMode ? 'vue-style-loader' : MiniCssExtractPlugin.loader,
           'css-loader',
-          'sass-loader'
+          {
+            loader: 'sass-loader',
+            options: {
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
+            },
+          }
         ]
       },
       {
@@ -57,7 +64,16 @@ let webConfig = {
         use: [
           devMode ? 'vue-style-loader' : MiniCssExtractPlugin.loader,
           'css-loader',
-          'sass-loader?indentedSyntax'
+          {
+            loader: 'sass-loader',
+            options: {
+              indentedSyntax: true,
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
+            },
+          }
         ]
       },
       {
@@ -173,7 +189,15 @@ let webConfig = {
     },
     extensions: ['.js', '.vue', '.json', '.css']
   },
-  target: 'web'
+  target: 'web',
+  optimization: {
+    minimize: !devMode,
+    minimizer: [
+      new TerserPlugin({
+        extractComments: false,
+      })
+    ],
+  },
 }
 
 /**
@@ -183,7 +207,6 @@ if (!devMode) {
   webConfig.devtool = ''
 
   webConfig.plugins.push(
-    new BabiliWebpackPlugin(),
     new CopyWebpackPlugin([
       {
         from: path.join(__dirname, '../static'),

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import { join } from 'path'
-import { Tray, Menu, systemPreferences } from 'electron'
+import { Tray, Menu, nativeTheme } from 'electron'
 import is from 'electron-is'
 import {
   translateTemplate,
@@ -28,7 +28,7 @@ export default class TrayManager extends EventEmitter {
 
   load () {
     this.template = require(`../menus/tray.json`)
-    const theme = systemPreferences.isDarkMode() ? DARK_THEME : LIGHT_THEME
+    const theme = nativeTheme.shouldUseDarkColors ? DARK_THEME : LIGHT_THEME
 
     if (is.macOS()) {
       this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)

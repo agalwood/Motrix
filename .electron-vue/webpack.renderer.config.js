@@ -6,8 +6,7 @@ const devMode = process.env.NODE_ENV !== 'production'
 const path = require('path')
 const { dependencies } = require('../package.json')
 const webpack = require('webpack')
-
-const BabiliWebpackPlugin = require('babili-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
@@ -52,8 +51,10 @@ let rendererConfig = {
           {
             loader: 'sass-loader',
             options: {
-              data: '@import "@/components/Theme/Variables.scss";',
-              includePaths:[__dirname, 'src']
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
             },
           }
         ]
@@ -67,8 +68,10 @@ let rendererConfig = {
             loader: 'sass-loader',
             options: {
               indentedSyntax: true,
-              data: '@import "@/components/Theme/Variables.scss";',
-              includePaths:[__dirname, 'src']
+              prependData: '@import "@/components/Theme/Variables.scss";',
+              sassOptions: {
+                includePaths:[__dirname, 'src']
+              }
             },
           }
         ]
@@ -203,7 +206,15 @@ let rendererConfig = {
     },
     extensions: ['.js', '.vue', '.json', '.css', '.node']
   },
-  target: 'electron-renderer'
+  target: 'electron-renderer',
+  optimization: {
+    minimize: !devMode,
+    minimizer: [
+      new TerserPlugin({
+        extractComments: false,
+      })
+    ],
+  },
 }
 
 /**
@@ -224,7 +235,6 @@ if (!devMode) {
   rendererConfig.devtool = ''
 
   rendererConfig.plugins.push(
-    new BabiliWebpackPlugin(),
     new CopyWebpackPlugin([
       {
         from: path.join(__dirname, '../static'),

@@ -379,6 +379,8 @@ export default {
           if (this.form.newTaskShowDownloading) {
             this.$router.push({
               path: '/task/active'
+            }).catch(err => {
+              console.log(err)
             })
           }
         } catch (err) {

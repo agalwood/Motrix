@@ -19,9 +19,13 @@ const errorLog = chalk.bgRed.white(' ERROR ') + ' '
 const okayLog = chalk.bgBlue.white(' OKAY ') + ' '
 const isCI = process.env.CI || false
 
-if (process.env.BUILD_TARGET === 'clean') clean()
-else if (process.env.BUILD_TARGET === 'web') web()
-else build()
+if (process.env.BUILD_TARGET === 'clean') {
+  clean()
+} else if (process.env.BUILD_TARGET === 'web') {
+  web()
+} else {
+  build()
+}
 
 function clean () {
   del.sync(['build/*', '!build/icons', '!build/icons/icon.*'])
@@ -74,8 +78,9 @@ function pack (config) {
   return new Promise((resolve, reject) => {
     config.mode = 'production'
     webpack(config, (err, stats) => {
-      if (err) reject(err.stack || err)
-      else if (stats.hasErrors()) {
+      if (err) {
+        reject(err.stack || err)
+      } else if (stats.hasErrors()) {
         let err = ''
 
         stats.toString({

@@ -150,11 +150,11 @@
           return
         }
 
-        /* eslint-disable no-new */
         const notifyMessage = isBT
           ? this.$t('task.bt-download-complete-notify')
           : this.$t('task.download-complete-notify')
 
+        /* eslint-disable no-new */
         const notify = new Notification(notifyMessage, {
           body: `${taskName}${tips}`
         })

@@ -43,11 +43,15 @@ function showAddBtTaskWithFile (fileName, base64Data = '') {
 }
 
 function navigateTaskList (status = 'active') {
-  router.push({ path: `/task/${status}` })
+  router.push({ path: `/task/${status}` }).catch(err => {
+    console.log(err)
+  })
 }
 
 function navigatePreferences () {
-  router.push({ path: '/preference' })
+  router.push({ path: '/preference' }).catch(err => {
+    console.log(err)
+  })
 }
 
 function showUnderDevelopmentMessage () {

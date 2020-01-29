@@ -320,8 +320,8 @@
           message: this.$t('preferences.factory-reset-confirm'),
           buttons: [this.$t('app.yes'), this.$t('app.no')],
           cancelId: 1
-        }, (buttonIndex) => {
-          if (buttonIndex === 0) {
+        }).then(({ response }) => {
+          if (response === 0) {
             this.$electron.ipcRenderer.send('command', 'application:reset')
           }
         })
