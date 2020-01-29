@@ -1,4 +1,4 @@
-osx_image: xcode10.1
+osx_image: xcode11.3
 sudo: required
 dist: trusty
 language: c
@@ -21,7 +21,7 @@ addons:
 before_install:
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install --no-install-recommends -y icnsutils graphicsmagick xz-utils; fi
 install:
-- nvm install 10
+- nvm install 12.14.1
 - source ~/.bashrc
 - npm install -g xvfb-maybe
 - npm install
