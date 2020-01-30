@@ -18,11 +18,12 @@
       onFolderClick: function () {
         const self = this
         this.$electron.remote.dialog.showOpenDialog({
-          properties: ['openDirectory']
-        }, (filePaths) => {
-          if (!filePaths) {
+          properties: ['openDirectory', 'createDirectory']
+        }).then(({ canceled, filePaths }) => {
+          if (canceled || filePaths.length === 0) {
             return
           }
+
           const [path] = filePaths
           self.$emit('selected', path)
         })

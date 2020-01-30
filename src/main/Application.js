@@ -366,8 +366,8 @@ export default class Application extends EventEmitter {
             extensions: ['torrent']
           }
         ]
-      }, (filePaths) => {
-        if (!filePaths || filePaths.length === 0) {
+      }).then(({ canceled, filePaths }) => {
+        if (canceled || filePaths.length === 0) {
           return
         }
 
