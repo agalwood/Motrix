@@ -36,8 +36,7 @@
 import TaskSubnav from '@/components/Subnav/TaskSubnav'
 import TaskActions from '@/components/Task/TaskActions'
 import TaskList from '@/components/Task/TaskList'
-import TaskSwitch from '@/components/Task/TaskSwitcher'
-import SubnavSwitch from '@/components/Subnav/SubnavSwitcher'
+import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
 
 export default {
   name: 'mo-content-task',
@@ -45,8 +44,7 @@ export default {
     [TaskSubnav.name]: TaskSubnav,
     [TaskActions.name]: TaskActions,
     [TaskList.name]: TaskList,
-    [SubnavSwitch.name]: SubnavSwitch,
-    [TaskSwitch.name]: TaskSwitch
+    [SubnavSwitcher.name]: SubnavSwitcher
   },
   props: {
     status: {
