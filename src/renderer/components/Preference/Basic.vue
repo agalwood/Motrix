@@ -15,8 +15,12 @@
         label-position="right"
         size="mini"
         :model="form"
-        :rules="rules">
-        <el-form-item :label="`${$t('preferences.appearance')}: `" :label-width="formLabelWidth">
+        :rules="rules"
+      >
+        <el-form-item
+          :label="`${$t('preferences.appearance')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             <mo-theme-switcher
               v-model="form.theme"
@@ -29,7 +33,10 @@
             </el-checkbox>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.language')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="16">
             <el-select
               v-model="form.locale"
@@ -44,7 +51,10 @@
             </el-select>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.startup')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.startup')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col
             class="form-item-sub"
             :span="24"
@@ -65,7 +75,10 @@
             </el-checkbox>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.default-dir')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.default-dir')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-input placeholder="" v-model="downloadDir" :readonly="isMas()">
             <mo-select-directory
               v-if="isRenderer()"
@@ -77,7 +90,10 @@
             {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.transfer-settings')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.transfer-settings')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-upload') }}
             <el-select v-model="form.maxOverallUploadLimit">
@@ -101,7 +117,10 @@
             </el-select>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.task-manage')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.task-manage')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.max-concurrent-downloads') }}
             <el-input-number
@@ -140,8 +159,17 @@
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('basicForm')">{{ $t('preferences.save') }}</el-button>
-        <el-button @click="resetForm('basicForm')">{{ $t('preferences.discard') }}</el-button>
+        <el-button
+          type="primary"
+          @click="submitForm('basicForm')"
+        >
+          {{ $t('preferences.save') }}
+        </el-button>
+        <el-button
+          @click="resetForm('basicForm')"
+        >
+          {{ $t('preferences.discard') }}
+        </el-button>
       </div>
     </el-main>
   </el-container>
@@ -262,11 +290,13 @@
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
         this.speedOptions = this.buildSpeedOptions()
-        this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
+        this.$electron.ipcRenderer.send('command',
+          'application:change-locale', lng)
       },
       handleThemeChange (theme) {
         this.form.theme = theme
-        this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
+        this.$electron.ipcRenderer.send('command',
+          'application:change-theme', theme)
       },
       buildSpeedOptions () {
         return [
@@ -331,10 +361,12 @@
             })
 
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:open-at-login', openAtLogin)
+            this.$electron.ipcRenderer.send('command',
+              'application:open-at-login', openAtLogin)
 
             if (checkIsNeedRestart(changed)) {
-              this.$electron.ipcRenderer.send('command', 'application:relaunch')
+              this.$electron.ipcRenderer.send('command',
+                'application:relaunch')
             }
           }
         })

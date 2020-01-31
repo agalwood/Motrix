@@ -21,7 +21,10 @@
             {{ $t('preferences.lab-warning') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.browser-extensions')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.browser-extensions')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             <a target="_blank" href="https://motrix.app/release/BaiduExporter.zip" rel="noopener noreferrer">
               {{ $t('preferences.baidu-exporter') }}
@@ -37,8 +40,17 @@
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('labForm')">{{ $t('preferences.save') }}</el-button>
-        <el-button @click="resetForm('labForm')">{{ $t('preferences.discard') }}</el-button>
+        <el-button
+          type="primary"
+          @click="submitForm('labForm')"
+        >
+          {{ $t('preferences.save') }}
+        </el-button>
+        <el-button
+          @click="resetForm('labForm')"
+        >
+          {{ $t('preferences.discard') }}
+        </el-button>
       </div>
     </el-main>
   </el-container>

@@ -15,22 +15,39 @@
         label-position="right"
         size="mini"
         :model="form"
-        :rules="rules">
-        <el-form-item :label="`${$t('preferences.auto-update')}: `" :label-width="formLabelWidth">
+        :rules="rules"
+      >
+        <el-form-item
+          :label="`${$t('preferences.auto-update')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.autoCheckUpdate">
               {{ $t('preferences.auto-check-update') }}
             </el-checkbox>
-            <div class="el-form-item__info" style="margin-top: 8px;" v-if="form.lastCheckUpdateTime !== 0">
-              {{ $t('preferences.last-check-update-time') + ': ' + (form.lastCheckUpdateTime !== 0 ?  new
-              Date(form.lastCheckUpdateTime).toLocaleString() : new Date().toLocaleString()) }}
+            <div
+              class="el-form-item__info"
+              style="margin-top: 8px;"
+              v-if="form.lastCheckUpdateTime !== 0"
+            >
+              {{
+                $t('preferences.last-check-update-time') + ': ' +
+                (
+                  form.lastCheckUpdateTime !== 0 ?
+                    new Date(form.lastCheckUpdateTime).toLocaleString() :
+                    new Date().toLocaleString()
+                )
+              }}
               <span class="action-link" @click.prevent="onCheckUpdateClick">
                 {{ $t('app.check-updates-now') }}
               </span>
             </div>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.proxy')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-switch
             v-model="form.useProxy"
             :active-text="$t('preferences.use-proxy')"
@@ -47,7 +64,10 @@
             </el-input>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.bt-tracker')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.bt-tracker')}: `"
+          :label-width="formLabelWidth"
+        >
           <div class="bt-tracker">
             <el-input
               type="textarea"
@@ -86,7 +106,10 @@
             </a>
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.download-protocol')}: `"
+          :label-width="formLabelWidth"
+        >
           {{ $t('preferences.protocols-default-client') }}
           <el-col class="form-item-sub" :span="24">
             <el-switch
@@ -105,7 +128,10 @@
             </el-switch>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.security')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.security')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.mock-user-agent') }}
             <el-input
@@ -141,7 +167,10 @@
             </div>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.developer')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.app-log-path') }}
             <el-input placeholder="" disabled v-model="logPath">
@@ -170,8 +199,17 @@
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('advancedForm')">{{ $t('preferences.save') }}</el-button>
-        <el-button @click="resetForm('advancedForm')">{{ $t('preferences.discard') }}</el-button>
+        <el-button
+          type="primary"
+          @click="submitForm('advancedForm')"
+        >
+          {{ $t('preferences.save') }}
+        </el-button>
+        <el-button
+          @click="resetForm('advancedForm')"
+        >
+          {{ $t('preferences.discard') }}
+        </el-button>
       </div>
     </el-main>
   </el-container>
@@ -386,7 +424,8 @@
             })
 
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:setup-protocols-client', data.protocols)
+            this.$electron.ipcRenderer.send('command',
+              'application:setup-protocols-client', data.protocols)
 
             if (checkIsNeedRestart(changed)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')
