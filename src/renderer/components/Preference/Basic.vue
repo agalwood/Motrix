@@ -1,7 +1,12 @@
 <template>
   <el-container class="content panel" direction="vertical">
     <el-header class="panel-header" height="84">
-      <h4>{{ title }}</h4>
+      <h4 class="hidden-xs-only">{{ title }}</h4>
+      <mo-subnav-switcher
+        :title="title"
+        :subnavs="subnavs"
+        class="hidden-sm-and-up"
+      />
     </el-header>
     <el-main class="panel-content">
       <el-form
@@ -146,6 +151,7 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
+  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
@@ -197,6 +203,7 @@
   export default {
     name: 'mo-preference-basic',
     components: {
+      [SubnavSwitcher.name]: SubnavSwitcher,
       [SelectDirectory.name]: SelectDirectory,
       [ThemeSwitcher.name]: ThemeSwitcher
     },
@@ -217,6 +224,25 @@
     computed: {
       title () {
         return this.$t('preferences.basic')
+      },
+      subnavs: function () {
+        return [
+          {
+            key: 'basic',
+            title: this.$t('preferences.basic'),
+            route: '/preference/basic'
+          },
+          {
+            key: 'advanced',
+            title: this.$t('preferences.advanced'),
+            route: '/preference/advanced'
+          },
+          {
+            key: 'lab',
+            title: this.$t('preferences.lab'),
+            route: '/preference/lab'
+          }
+        ]
       },
       showHideAppMenuOption () {
         return is.windows() || is.linux()

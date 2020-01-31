@@ -1,7 +1,12 @@
 <template>
   <el-container class="content panel" direction="vertical">
     <el-header class="panel-header" height="84">
-      <h4>{{ title }}</h4>
+      <h4 class="hidden-xs-only">{{ title }}</h4>
+      <mo-subnav-switcher
+        :title="title"
+        :subnavs="subnavs"
+        class="hidden-sm-and-up"
+      />
     </el-header>
     <el-main class="panel-content">
       <el-form
@@ -179,6 +184,7 @@
   import randomize from 'randomatic'
   import * as clipboard from 'clipboard-polyfill'
   import ShowInFolder from '@/components/Native/ShowInFolder'
+  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
   import {
     buildRpcUrl,
@@ -227,6 +233,7 @@
   export default {
     name: 'mo-preference-advanced',
     components: {
+      [SubnavSwitcher.name]: SubnavSwitcher,
       [ShowInFolder.name]: ShowInFolder
     },
     data () {
@@ -246,6 +253,25 @@
     computed: {
       title () {
         return this.$t('preferences.advanced')
+      },
+      subnavs: function () {
+        return [
+          {
+            key: 'basic',
+            title: this.$t('preferences.basic'),
+            route: '/preference/basic'
+          },
+          {
+            key: 'advanced',
+            title: this.$t('preferences.advanced'),
+            route: '/preference/advanced'
+          },
+          {
+            key: 'lab',
+            title: this.$t('preferences.lab'),
+            route: '/preference/lab'
+          }
+        ]
       },
       ...mapState('preference', {
         config: state => state.config,

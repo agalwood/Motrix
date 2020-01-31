@@ -1,6 +1,6 @@
 <template>
   <el-container class="content panel" direction="horizontal">
-    <el-aside width="200px" class="subnav">
+    <el-aside width="200px" class="subnav hidden-xs-only">
       <router-view name="subnav" />
     </el-aside>
     <router-view name="form" />
