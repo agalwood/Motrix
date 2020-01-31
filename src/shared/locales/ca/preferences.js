@@ -36,6 +36,7 @@ export default {
   'hide-app-menu': 'Ocultar el menú (només Windows i Linux)',
   'proxy': 'Proxy',
   'use-proxy': 'Activar proxy',
+  'proxy-tips': 'Consulteu el manual del servidor intermediari',
   'bt-tracker': 'Seguir servidors',
   'bt-tracker-input-tips': 'Seguir servidors, un per línia',
   'bt-tracker-tips': 'Recomenat: ',

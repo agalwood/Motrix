@@ -36,6 +36,7 @@ export default {
   'hide-app-menu': 'Ocultar o Menu do App (Windows & Linux apenas)',
   'proxy': 'Proxy',
   'use-proxy': 'Habilitar Proxy',
+  'proxy-tips': 'Exibir manual do proxy',
   'bt-tracker': 'Rastreadores',
   'bt-tracker-input-tips': 'servidor rastreador, um por linha',
   'bt-tracker-tips': 'Recomendar:',

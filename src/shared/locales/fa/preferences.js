@@ -36,6 +36,7 @@ export default {
   'hide-app-menu': 'پنهان کردن منوی برنامه (تنها در ویندوز و لینوکس)',
   'proxy': 'پراکسی',
   'use-proxy': 'فعال کردن پراکسی',
+  'proxy-tips': 'مشاهده دفترچه راهنما',
   'bt-tracker': 'ردیاب سرور',
   'bt-tracker-input-tips': 'ردیاب سرور، در هر خط',
   'bt-tracker-tips': 'توصیه:',

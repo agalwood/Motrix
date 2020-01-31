@@ -36,6 +36,7 @@ export default {
   'hide-app-menu': '隐藏菜单栏（仅支持 Windows 和 Linux）',
   'proxy': '代理',
   'use-proxy': '使用代理服务器',
+  'proxy-tips': '查看代理配置说明',
   'bt-tracker': 'Tracker 服务器',
   'bt-tracker-input-tips': 'Tracker 服务器，一行一个',
   'bt-tracker-tips': '推荐使用：',

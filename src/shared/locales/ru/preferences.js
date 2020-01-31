@@ -36,6 +36,7 @@ export default {
   'hide-app-menu': 'Скрыть меню приложения (Только для Windows и Linux)',
   'proxy': 'Proxy',
   'use-proxy': 'Использовать Proxy',
+  'proxy-tips': 'Посмотреть руководство по прокси',
   'bt-tracker': 'Tracker Сервер',
   'bt-tracker-input-tips': 'Tracker сервера, один в строку',
   'bt-tracker-tips': 'Рекомендованно: ',
