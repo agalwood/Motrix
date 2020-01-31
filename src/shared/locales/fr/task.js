@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Sélectionné: {{selectedFilesCount}} fichiers, total {{selectedFilesTotalSize}}',
   'task-name': 'Nom de la tâche',
   'task-out': 'Renommer',
-  'task-out-tips': 'Optionel, supporte une seule tâche',
+  'task-out-tips': 'Optionel',
   'task-split': 'Découpages',
   'task-dir': 'Répertoire',
   'pause-task': 'Mettre en Pause',

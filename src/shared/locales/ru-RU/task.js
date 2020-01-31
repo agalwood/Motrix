@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Выбрано: {{selectedFilesCount}} файлов, общий размер {{selectedFilesTotalSize}}',
   'task-name': 'Имя загрузки',
   'task-out': 'Переименовать',
-  'task-out-tips': 'Необязательный (поддерживается только в еденичных заданиях)',
+  'task-out-tips': 'Необязательный',
   'task-split': 'Разбить',
   'task-dir': 'Сохранить в',
   'pause-task': 'Приостановить задание',

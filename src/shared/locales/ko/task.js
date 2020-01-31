@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': '선택됨: {{selectedFilesCount}} 개의 파일, 총 {{selectedFilesTotalSize}}',
   'task-name': '작업 이름',
   'task-out': '이름 변경',
-  'task-out-tips': '선택적, 단일 작업 지원',
+  'task-out-tips': '선택적',
   'task-split': '분할',
   'task-dir': '폴더',
   'pause-task': '작업 일시 중지',

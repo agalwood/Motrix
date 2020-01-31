@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Seleccionado: {{selectedFilesCount}} files, total size {{selectedFilesTotalSize}}',
   'task-name': 'Nombre de la tarea',
   'task-out': 'Renombrar',
-  'task-out-tips': 'Opcional (sólo soporta una tarea)',
+  'task-out-tips': 'Opcional',
   'task-split': 'Dividir',
   'task-dir': 'Guardar en',
   'pause-task': 'Pausar Tarea',
