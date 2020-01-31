@@ -36,6 +36,7 @@ export default {
   'hide-app-menu': 'メニューバーを隠す（Windows と Linux のみサポート）',
   'proxy': 'プロキシ',
   'use-proxy': 'プロキシを使う',
+  'proxy-tips': 'プロキシマニュアルを表示',
   'bt-tracker': 'トラッカーサーバー',
   'bt-tracker-input-tips': 'トラッカーサーバ、一行に一つ',
   'bt-tracker-tips': 'お勧め：',
