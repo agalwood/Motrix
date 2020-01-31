@@ -373,6 +373,11 @@ export default class Application extends EventEmitter {
         })
     })
 
+    this.on('application:change-menu-states', (visibleStates, enabledStates, checkedStates) => {
+      this.menuManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
+      this.trayManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
+    })
+
     this.on('application:open-file', (event) => {
       dialog.showOpenDialog({
         properties: ['openFile'],
@@ -431,10 +436,6 @@ export default class Application extends EventEmitter {
       this.emit(command, ...args)
     })
 
-    ipcMain.on('update-menu-states', (event, visibleStates, enabledStates, checkedStates) => {
-      this.menuManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
-      this.trayManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
-    })
 
     ipcMain.on('download-status-change', (event, status) => {
       this.trayManager.updateStatus(status)
