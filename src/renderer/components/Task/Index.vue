@@ -1,18 +1,28 @@
 <template>
-  <el-container class="content panel"
-                direction="horizontal">
-    <el-aside width="200px"
-              class="subnav hidden-xs-only">
+  <el-container
+    class="content panel"
+    direction="horizontal"
+  >
+    <el-aside
+      width="200px"
+      class="subnav hidden-xs-only"
+    >
       <mo-task-subnav :current="status" />
     </el-aside>
-    <el-container class="content panel"
-                  direction="vertical">
-      <el-header class="panel-header"
-                 height="84">
+    <el-container
+      class="content panel"
+      direction="vertical"
+    >
+      <el-header
+        class="panel-header"
+        height="84"
+      >
         <h4 class="task-title hidden-xs-only">{{ title }}</h4>
-        <mo-task-switcher :title="title"
-                          :commands="titles"
-                          class="hidden-sm-and-up" />
+        <mo-subnav-switcher
+          :title="title"
+          :subnavs="subnavs"
+          class="hidden-sm-and-up"
+        />
         <mo-task-actions />
       </el-header>
       <el-main class="panel-content">
@@ -26,7 +36,7 @@
 import TaskSubnav from '@/components/Subnav/TaskSubnav'
 import TaskActions from '@/components/Task/TaskActions'
 import TaskList from '@/components/Task/TaskList'
-import TaskSwitch from '@/components/Task/TaskSwitcher'
+import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
 
 export default {
   name: 'mo-content-task',
@@ -34,7 +44,7 @@ export default {
     [TaskSubnav.name]: TaskSubnav,
     [TaskActions.name]: TaskActions,
     [TaskList.name]: TaskList,
-    [TaskSwitch.name]: TaskSwitch
+    [SubnavSwitcher.name]: SubnavSwitcher
   },
   props: {
     status: {
@@ -43,23 +53,28 @@ export default {
     }
   },
   computed: {
-    titleMap: function () {
-      return {
-        active: this.$t('task.active'),
-        waiting: this.$t('task.waiting'),
-        stopped: this.$t('task.stopped')
-      }
-    },
-    titles: function () {
-      return Object.keys(this.titleMap).map(key => {
-        return {
-          key,
-          label: this.titleMap[key]
+    subnavs: function () {
+      return [
+        {
+          key: 'active',
+          title: this.$t('task.active'),
+          route: '/task/active'
+        },
+        {
+          key: 'waiting',
+          title: this.$t('task.waiting'),
+          route: '/task/waiting'
+        },
+        {
+          key: 'stopped',
+          title: this.$t('task.stopped'),
+          route: '/task/stopped'
         }
-      })
+      ]
     },
     title: function () {
-      return this.titleMap[this.status]
+      const subnav = this.subnavs.find((item) => item.key === this.status)
+      return subnav.title
     }
   },
   watch: {

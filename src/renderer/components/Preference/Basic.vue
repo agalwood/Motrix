@@ -1,7 +1,12 @@
 <template>
   <el-container class="content panel" direction="vertical">
     <el-header class="panel-header" height="84">
-      <h4>{{ title }}</h4>
+      <h4 class="hidden-xs-only">{{ title }}</h4>
+      <mo-subnav-switcher
+        :title="title"
+        :subnavs="subnavs"
+        class="hidden-sm-and-up"
+      />
     </el-header>
     <el-main class="panel-content">
       <el-form
@@ -10,8 +15,12 @@
         label-position="right"
         size="mini"
         :model="form"
-        :rules="rules">
-        <el-form-item :label="`${$t('preferences.appearance')}: `" :label-width="formLabelWidth">
+        :rules="rules"
+      >
+        <el-form-item
+          :label="`${$t('preferences.appearance')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             <mo-theme-switcher
               v-model="form.theme"
@@ -24,7 +33,10 @@
             </el-checkbox>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.language')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.language')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="16">
             <el-select
               v-model="form.locale"
@@ -39,7 +51,10 @@
             </el-select>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.startup')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.startup')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col
             class="form-item-sub"
             :span="24"
@@ -60,7 +75,10 @@
             </el-checkbox>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.default-dir')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.default-dir')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-input placeholder="" v-model="downloadDir" :readonly="isMas()">
             <mo-select-directory
               v-if="isRenderer()"
@@ -72,7 +90,10 @@
             {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.transfer-settings')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.transfer-settings')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-upload') }}
             <el-select v-model="form.maxOverallUploadLimit">
@@ -96,7 +117,10 @@
             </el-select>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.task-manage')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.task-manage')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.max-concurrent-downloads') }}
             <el-input-number
@@ -135,8 +159,17 @@
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('basicForm')">{{ $t('preferences.save') }}</el-button>
-        <el-button @click="resetForm('basicForm')">{{ $t('preferences.discard') }}</el-button>
+        <el-button
+          type="primary"
+          @click="submitForm('basicForm')"
+        >
+          {{ $t('preferences.save') }}
+        </el-button>
+        <el-button
+          @click="resetForm('basicForm')"
+        >
+          {{ $t('preferences.discard') }}
+        </el-button>
       </div>
     </el-main>
   </el-container>
@@ -146,6 +179,7 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
+  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
@@ -197,6 +231,7 @@
   export default {
     name: 'mo-preference-basic',
     components: {
+      [SubnavSwitcher.name]: SubnavSwitcher,
       [SelectDirectory.name]: SelectDirectory,
       [ThemeSwitcher.name]: ThemeSwitcher
     },
@@ -218,6 +253,25 @@
       title () {
         return this.$t('preferences.basic')
       },
+      subnavs: function () {
+        return [
+          {
+            key: 'basic',
+            title: this.$t('preferences.basic'),
+            route: '/preference/basic'
+          },
+          {
+            key: 'advanced',
+            title: this.$t('preferences.advanced'),
+            route: '/preference/advanced'
+          },
+          {
+            key: 'lab',
+            title: this.$t('preferences.lab'),
+            route: '/preference/lab'
+          }
+        ]
+      },
       showHideAppMenuOption () {
         return is.windows() || is.linux()
       },
@@ -236,11 +290,13 @@
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
         this.speedOptions = this.buildSpeedOptions()
-        this.$electron.ipcRenderer.send('command', 'application:change-locale', lng)
+        this.$electron.ipcRenderer.send('command',
+          'application:change-locale', lng)
       },
       handleThemeChange (theme) {
         this.form.theme = theme
-        this.$electron.ipcRenderer.send('command', 'application:change-theme', theme)
+        this.$electron.ipcRenderer.send('command',
+          'application:change-theme', theme)
       },
       buildSpeedOptions () {
         return [
@@ -305,10 +361,12 @@
             })
 
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:open-at-login', openAtLogin)
+            this.$electron.ipcRenderer.send('command',
+              'application:open-at-login', openAtLogin)
 
             if (checkIsNeedRestart(changed)) {
-              this.$electron.ipcRenderer.send('command', 'application:relaunch')
+              this.$electron.ipcRenderer.send('command',
+                'application:relaunch')
             }
           }
         })

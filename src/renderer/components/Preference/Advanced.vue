@@ -1,7 +1,12 @@
 <template>
   <el-container class="content panel" direction="vertical">
     <el-header class="panel-header" height="84">
-      <h4>{{ title }}</h4>
+      <h4 class="hidden-xs-only">{{ title }}</h4>
+      <mo-subnav-switcher
+        :title="title"
+        :subnavs="subnavs"
+        class="hidden-sm-and-up"
+      />
     </el-header>
     <el-main class="panel-content">
       <el-form
@@ -10,22 +15,39 @@
         label-position="right"
         size="mini"
         :model="form"
-        :rules="rules">
-        <el-form-item :label="`${$t('preferences.auto-update')}: `" :label-width="formLabelWidth">
+        :rules="rules"
+      >
+        <el-form-item
+          :label="`${$t('preferences.auto-update')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.autoCheckUpdate">
               {{ $t('preferences.auto-check-update') }}
             </el-checkbox>
-            <div class="el-form-item__info" style="margin-top: 8px;" v-if="form.lastCheckUpdateTime !== 0">
-              {{ $t('preferences.last-check-update-time') + ': ' + (form.lastCheckUpdateTime !== 0 ?  new
-              Date(form.lastCheckUpdateTime).toLocaleString() : new Date().toLocaleString()) }}
+            <div
+              class="el-form-item__info"
+              style="margin-top: 8px;"
+              v-if="form.lastCheckUpdateTime !== 0"
+            >
+              {{
+                $t('preferences.last-check-update-time') + ': ' +
+                (
+                  form.lastCheckUpdateTime !== 0 ?
+                    new Date(form.lastCheckUpdateTime).toLocaleString() :
+                    new Date().toLocaleString()
+                )
+              }}
               <span class="action-link" @click.prevent="onCheckUpdateClick">
                 {{ $t('app.check-updates-now') }}
               </span>
             </div>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.proxy')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.proxy')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-switch
             v-model="form.useProxy"
             :active-text="$t('preferences.use-proxy')"
@@ -42,7 +64,10 @@
             </el-input>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.bt-tracker')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.bt-tracker')}: `"
+          :label-width="formLabelWidth"
+        >
           <div class="bt-tracker">
             <el-input
               type="textarea"
@@ -81,7 +106,10 @@
             </a>
           </div>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.download-protocol')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.download-protocol')}: `"
+          :label-width="formLabelWidth"
+        >
           {{ $t('preferences.protocols-default-client') }}
           <el-col class="form-item-sub" :span="24">
             <el-switch
@@ -100,7 +128,10 @@
             </el-switch>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.security')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.security')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.mock-user-agent') }}
             <el-input
@@ -136,7 +167,10 @@
             </div>
           </el-col>
         </el-form-item>
-        <el-form-item :label="`${$t('preferences.developer')}: `" :label-width="formLabelWidth">
+        <el-form-item
+          :label="`${$t('preferences.developer')}: `"
+          :label-width="formLabelWidth"
+        >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.app-log-path') }}
             <el-input placeholder="" disabled v-model="logPath">
@@ -165,8 +199,17 @@
         </el-form-item>
       </el-form>
       <div class="form-actions">
-        <el-button type="primary" @click="submitForm('advancedForm')">{{ $t('preferences.save') }}</el-button>
-        <el-button @click="resetForm('advancedForm')">{{ $t('preferences.discard') }}</el-button>
+        <el-button
+          type="primary"
+          @click="submitForm('advancedForm')"
+        >
+          {{ $t('preferences.save') }}
+        </el-button>
+        <el-button
+          @click="resetForm('advancedForm')"
+        >
+          {{ $t('preferences.discard') }}
+        </el-button>
       </div>
     </el-main>
   </el-container>
@@ -179,6 +222,7 @@
   import randomize from 'randomatic'
   import * as clipboard from 'clipboard-polyfill'
   import ShowInFolder from '@/components/Native/ShowInFolder'
+  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
   import {
     buildRpcUrl,
@@ -227,6 +271,7 @@
   export default {
     name: 'mo-preference-advanced',
     components: {
+      [SubnavSwitcher.name]: SubnavSwitcher,
       [ShowInFolder.name]: ShowInFolder
     },
     data () {
@@ -246,6 +291,25 @@
     computed: {
       title () {
         return this.$t('preferences.advanced')
+      },
+      subnavs: function () {
+        return [
+          {
+            key: 'basic',
+            title: this.$t('preferences.basic'),
+            route: '/preference/basic'
+          },
+          {
+            key: 'advanced',
+            title: this.$t('preferences.advanced'),
+            route: '/preference/advanced'
+          },
+          {
+            key: 'lab',
+            title: this.$t('preferences.lab'),
+            route: '/preference/lab'
+          }
+        ]
       },
       ...mapState('preference', {
         config: state => state.config,
@@ -360,7 +424,8 @@
             })
 
           if (this.isRenderer()) {
-            this.$electron.ipcRenderer.send('command', 'application:setup-protocols-client', data.protocols)
+            this.$electron.ipcRenderer.send('command',
+              'application:setup-protocols-client', data.protocols)
 
             if (checkIsNeedRestart(changed)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')
