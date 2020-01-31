@@ -17,6 +17,7 @@ import WindowManager from './ui/WindowManager'
 import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
+import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
 import { AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
 
@@ -49,6 +50,9 @@ export default class Application extends EventEmitter {
 
     this.trayManager = new TrayManager()
 
+    this.dockManager = new DockManager({
+      runMode: this.configManager.getUserConfig('run-mode')
+    })
 
     this.autoLaunchManager = new AutoLaunchManager()
 
@@ -61,6 +65,8 @@ export default class Application extends EventEmitter {
     this.initProtocolManager()
 
     this.handleCommands()
+
+    this.handleEvents()
 
     this.handleIpcMessages()
   }
@@ -373,6 +379,16 @@ export default class Application extends EventEmitter {
         })
     })
 
+    this.on('application:toggle-dock', (visible) => {
+      if (visible) {
+        this.dockManager.show()
+      } else {
+        this.dockManager.hide()
+        // Hiding the dock icon will trigger the entire app to hide.
+        this.show()
+      }
+    })
+
     this.on('application:change-menu-states', (visibleStates, enabledStates, checkedStates) => {
       this.menuManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
       this.trayManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
@@ -430,15 +446,37 @@ export default class Application extends EventEmitter {
     })
   }
 
+  handleEvents () {
+    this.on('download-status-change', (downloading) => {
+      console.log('download-status-change===>', downloading)
+      this.trayManager.updateStatus(downloading)
+      if (downloading) {
+        this.energyManager.startPowerSaveBlocker()
+      } else {
+        this.energyManager.stopPowerSaveBlocker()
+      }
+    })
+
+    this.on('download-speed-change', (speed) => {
+      console.log('download-speed-change===>', speed)
+      this.dockManager.setBadge(speed)
+    })
+
+    this.on('task-download-complete', (task, path) => {
+      console.log('task-download-complete===>', task, path)
+      this.dockManager.openDock(path)
+    })
+  }
+
   handleIpcMessages () {
     ipcMain.on('command', (event, command, ...args) => {
       logger.log('receive command', command, ...args)
       this.emit(command, ...args)
     })
 
-
-    ipcMain.on('download-status-change', (event, status) => {
-      this.trayManager.updateStatus(status)
+    ipcMain.on('event', (event, eventName, ...args) => {
+      logger.log('receive event', eventName, ...args)
+      this.emit(eventName, ...args)
     })
   }
 }

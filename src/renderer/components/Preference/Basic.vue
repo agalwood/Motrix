@@ -34,6 +34,21 @@
           </el-col>
         </el-form-item>
         <el-form-item
+          :label="`${$t('preferences.run-mode')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-col class="form-item-sub" :span="24">
+            <el-select v-model="form.runMode">
+              <el-option
+                v-for="item in runModes"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
+          </el-col>
+        </el-form-item>
+        <el-form-item
           :label="`${$t('preferences.language')}: `"
           :label-width="formLabelWidth"
         >
@@ -190,6 +205,7 @@
     checkIsNeedRestart,
     diffConfig
   } from '@shared/utils'
+  import { APP_RUN_MODE } from '@shared/constants'
 
   const initialForm = (config) => {
     const {
@@ -204,6 +220,7 @@
       newTaskShowDownloading,
       openAtLogin,
       resumeAllWhenAppLaunched,
+      runMode,
       split,
       taskNotification,
       theme
@@ -221,6 +238,7 @@
       newTaskShowDownloading,
       openAtLogin,
       resumeAllWhenAppLaunched,
+      runMode,
       split,
       taskNotification,
       theme
@@ -251,6 +269,18 @@
     computed: {
       title () {
         return this.$t('preferences.basic')
+      },
+      runModes () {
+        return [
+          {
+            label: this.$t('preferences.run-mode-standard'),
+            value: 1
+          },
+          {
+            label: this.$t('preferences.run-mode-menu-bar'),
+            value: 2
+          }
+        ]
       },
       speedOptions () {
         return [
@@ -341,7 +371,7 @@
             return false
           }
 
-          const { openAtLogin } = this.form
+          const { runMode, openAtLogin } = this.form
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed
@@ -361,6 +391,9 @@
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command',
               'application:open-at-login', openAtLogin)
+
+            this.$electron.ipcRenderer.send('command',
+              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
 
             if (checkIsNeedRestart(changed)) {
               this.$electron.ipcRenderer.send('command',

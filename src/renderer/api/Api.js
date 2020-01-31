@@ -305,14 +305,6 @@ export default class Api {
     return this.client.call('removeDownloadResult', ...args)
   }
 
-  startPowerSaveBlocker () {
-    application.energyManager.startPowerSaveBlocker()
-  }
-
-  stopPowerSaveBlocker () {
-    application.energyManager.stopPowerSaveBlocker()
-  }
-
   async fetchBtTrackerFromGitHub (source) {
     if (isEmpty(source)) {
       return EMPTY_STRING
