@@ -245,13 +245,40 @@
         formLabelWidth: calcFormLabelWidth(locale),
         formOriginal,
         locales: availableLanguages,
-        rules: {},
-        speedOptions: this.buildSpeedOptions()
+        rules: {}
       }
     },
     computed: {
       title () {
         return this.$t('preferences.basic')
+      },
+      speedOptions () {
+        return [
+          {
+            label: this.$t('preferences.transfer-speed-unlimited'),
+            value: 0
+          },
+          {
+            label: '128 KB/s',
+            value: '128K'
+          },
+          {
+            label: '512 KB/s',
+            value: '512K'
+          },
+          {
+            label: '1 MB/s',
+            value: '1M'
+          },
+          {
+            label: '5 MB/s',
+            value: '5M'
+          },
+          {
+            label: '10 MB/s',
+            value: '10M'
+          }
+        ]
       },
       subnavs: function () {
         return [
@@ -289,7 +316,6 @@
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
-        this.speedOptions = this.buildSpeedOptions()
         this.$electron.ipcRenderer.send('command',
           'application:change-locale', lng)
       },
@@ -297,34 +323,6 @@
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command',
           'application:change-theme', theme)
-      },
-      buildSpeedOptions () {
-        return [
-          {
-            label: this.$t('preferences.transfer-speed-unlimited'),
-            value: 0
-          },
-          {
-            label: '128 KB/s',
-            value: '128K'
-          },
-          {
-            label: '512 KB/s',
-            value: '512K'
-          },
-          {
-            label: '1 MB/s',
-            value: '1M'
-          },
-          {
-            label: '5 MB/s',
-            value: '5M'
-          },
-          {
-            label: '10 MB/s',
-            value: '10M'
-          }
-        ]
       },
       onDirectorySelected (dir) {
         this.form.dir = dir
