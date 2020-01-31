@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Selected: {{selectedFilesCount}} files, total size {{selectedFilesTotalSize}}',
   'task-name': 'Task Name',
   'task-out': 'Rename',
-  'task-out-tips': 'Optional (only supports single task)',
+  'task-out-tips': 'Optional',
   'task-split': 'Splits',
   'task-dir': 'Save to',
   'pause-task': 'Pause Task',

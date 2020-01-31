@@ -8,11 +8,10 @@
   import api from '@/api'
   import {
     showItemInFolder,
-    addToRecentTask,
-    openDownloadDock,
-    showDownloadSpeedInDock
+    addToRecentTask
   } from '@/components/Native/utils'
   import {
+    bytesToSize,
     getTaskName,
     getTaskFullPath
   } from '@shared/utils'
@@ -41,14 +40,15 @@
     },
     watch: {
       downloadSpeed (val, oldVal) {
-        showDownloadSpeedInDock(val)
+        const speed = val > 0 ? `${bytesToSize(val)}/s` : ''
+        this.$electron.ipcRenderer.send('event', 'download-speed-change', speed)
       },
       numActive (val, oldVal) {
         this.downloading = val > 0
       },
       downloading (val, oldVal) {
         if (val !== oldVal && this.isRenderer) {
-          this.$electron.ipcRenderer.send('download-status-change', val)
+          this.$electron.ipcRenderer.send('event', 'download-status-change', val)
         }
       }
     },
@@ -130,10 +130,11 @@
       handleDownloadComplete (task, isBT) {
         const path = getTaskFullPath(task)
 
-        addToRecentTask(task)
-        openDownloadDock(path)
-
         this.showTaskCompleteNotify(task, isBT, path)
+
+        addToRecentTask(task)
+
+        this.$electron.ipcRenderer.send('event', 'task-download-complete', task, path)
       },
       showTaskCompleteNotify (task, isBT, path) {
         const taskName = getTaskName(task)

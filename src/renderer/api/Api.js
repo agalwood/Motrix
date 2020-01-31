@@ -1,4 +1,4 @@
-import { remote } from 'electron'
+import { ipcRenderer, remote } from 'electron'
 import is from 'electron-is'
 import { isEmpty } from 'lodash'
 import Aria2 from 'aria2'
@@ -98,17 +98,21 @@ export default class Api {
     const { user, system, others } = separateConfig(params)
     if (!isEmpty(system)) {
       console.info('[Motrix] save system config: ', system)
-      application.configManager.setSystemConfig(system)
+      ipcRenderer.send('command', 'application:save-preference', {
+        system
+      })
       this.changeGlobalOption(system)
     }
 
     if (!isEmpty(user)) {
       console.info('[Motrix] save user config: ', user)
-      application.configManager.setUserConfig(user)
+      ipcRenderer.send('command', 'application:save-preference', {
+        user
+      })
     }
 
     if (!isEmpty(others)) {
-      console.info('[Motrix] save config found iillegal key: ', others)
+      console.info('[Motrix] save config found illegal key: ', others)
     }
   }
 
@@ -299,14 +303,6 @@ export default class Api {
     const { gid } = params
     const args = compactUndefined([gid])
     return this.client.call('removeDownloadResult', ...args)
-  }
-
-  startPowerSaveBlocker () {
-    application.energyManager.startPowerSaveBlocker()
-  }
-
-  stopPowerSaveBlocker () {
-    application.energyManager.stopPowerSaveBlocker()
   }
 
   async fetchBtTrackerFromGitHub (source) {

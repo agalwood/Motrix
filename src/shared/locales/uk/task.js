@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Обрано: {{selectedFilesCount}} файлів, загальний розмір {{selectedFilesTotalSize}}',
   'task-name': 'Ім\'я завдання',
   'task-out': 'Перейменувати',
-  'task-out-tips': 'Необов\'язковий (підтримється тільки в поодиночних завданнях)',
+  'task-out-tips': 'Необов\'язковий',
   'task-split': 'Розбити',
   'task-dir': 'Зберігти в',
   'pause-task': 'Призупинити завдання',

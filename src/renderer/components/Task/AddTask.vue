@@ -1,121 +1,147 @@
 <template>
-  <el-dialog custom-class="tab-title-dialog add-task-dialog"
-             width="64vw"
-             :visible.sync="visible"
-             :before-close="handleClose"
-             @open="handleOpen"
-             @opened="handleOpened"
-             @closed="handleClosed">
-    <el-form ref="taskForm"
-             label-position="left"
-             :model="form"
-             :rules="rules">
-      <el-tabs :value="type"
-               @tab-click="handleTabClick">
-        <el-tab-pane :label="$t('task.uri-task')"
-                     name="uri">
+  <el-dialog
+    custom-class="tab-title-dialog add-task-dialog"
+    width="64vw"
+    :visible.sync="visible"
+    :before-close="handleClose"
+    @open="handleOpen"
+    @opened="handleOpened"
+    @closed="handleClosed"
+  >
+    <el-form ref="taskForm" label-position="left" :model="form" :rules="rules">
+      <el-tabs :value="type" @tab-click="handleTabClick">
+        <el-tab-pane :label="$t('task.uri-task')" name="uri">
           <el-form-item>
-            <el-input ref="uri"
-                      type="textarea"
-                      :autosize="{ minRows: 3, maxRows: 5 }"
-                      auto-complete="off"
-                      :placeholder="$t('task.uri-task-tips')"
-                      @change="handleUriChange"
-                      @paste.native="handleUriPaste"
-                      v-model="form.uris">
+            <el-input
+              ref="uri"
+              type="textarea"
+              :autosize="{ minRows: 3, maxRows: 5 }"
+              auto-complete="off"
+              :placeholder="$t('task.uri-task-tips')"
+              @change="handleUriChange"
+              @paste.native="handleUriPaste"
+              v-model="form.uris"
+            >
             </el-input>
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane :label="$t('task.torrent-task')"
-                     name="torrent">
+        <el-tab-pane :label="$t('task.torrent-task')" name="torrent">
           <el-form-item>
             <mo-select-torrent v-on:change="handleTorrentChange" />
           </el-form-item>
         </el-tab-pane>
       </el-tabs>
       <el-row :gutter="12">
-        <el-col :span="15"
-                :xs="24">
-          <el-form-item :label="`${$t('task.task-out')}: `"
-                        :label-width="formLabelWidth">
-            <el-input :placeholder="$t('task.task-out-tips')"
-                      v-model="form.out">
+        <el-col :span="15" :xs="24">
+          <el-form-item
+            :label="`${$t('task.task-out')}: `"
+            :label-width="formLabelWidth"
+          >
+            <el-input
+              :placeholder="$t('task.task-out-tips')"
+              v-model="form.out"
+            >
             </el-input>
           </el-form-item>
         </el-col>
-        <el-col :span="9"
-                :xs="24">
-          <el-form-item :label="`${$t('task.task-split')}: `"
-                        :label-width="formLabelWidth">
-            <el-input-number v-model="form.split"
-                             @change="handleSplitChange"
-                             controls-position="right"
-                             :min="1"
-                             :max="config.maxConnectionPerServer"
-                             :value="config.split"
-                             :label="$t('task.task-split')">
+        <el-col :span="9" :xs="24">
+          <el-form-item
+            :label="`${$t('task.task-split')}: `"
+            :label-width="formLabelWidth"
+          >
+            <el-input-number
+              v-model="form.split"
+              @change="handleSplitChange"
+              controls-position="right"
+              :min="1"
+              :max="config.maxConnectionPerServer"
+              :value="config.split"
+              :label="$t('task.task-split')"
+            >
             </el-input-number>
           </el-form-item>
         </el-col>
       </el-row>
-      <el-form-item :label="`${$t('task.task-dir')}: `"
-                    :label-width="formLabelWidth">
-        <el-input placeholder=""
-                  v-model="downloadDir"
-                  :readonly="isMas()">
-          <mo-select-directory v-if="isRenderer()"
-                               slot="append"
-                               @selected="onDirectorySelected" />
+      <el-form-item
+        :label="`${$t('task.task-dir')}: `"
+        :label-width="formLabelWidth"
+      >
+        <el-input
+          placeholder=""
+          v-model="downloadDir"
+          :readonly="isMas()"
+        >
+          <mo-select-directory
+            v-if="isRenderer()"
+            slot="append"
+            @selected="onDirectorySelected"
+          />
         </el-input>
       </el-form-item>
       <div v-if="showAdvanced">
-        <el-form-item :label="`${$t('task.task-user-agent')}: `"
-                      :label-width="formLabelWidth">
-          <el-input type="textarea"
-                    :autosize="{ minRows: 2, maxRows: 3 }"
-                    auto-complete="off"
-                    :placeholder="$t('task.task-user-agent')"
-                    v-model="form.userAgent">
+        <el-form-item
+          :label="`${$t('task.task-user-agent')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-input
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 3 }"
+            auto-complete="off"
+            :placeholder="$t('task.task-user-agent')"
+            v-model="form.userAgent"
+          >
           </el-input>
         </el-form-item>
-        <el-form-item :label="`${$t('task.task-referer')}: `"
-                      :label-width="formLabelWidth">
-          <el-input type="textarea"
-                    :autosize="{ minRows: 2, maxRows: 3 }"
-                    auto-complete="off"
-                    :placeholder="$t('task.task-referer')"
-                    v-model="form.referer">
+        <el-form-item
+          :label="`${$t('task.task-referer')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-input
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 3 }"
+            auto-complete="off"
+            :placeholder="$t('task.task-referer')"
+            v-model="form.referer"
+          >
           </el-input>
         </el-form-item>
-        <el-form-item :label="`${$t('task.task-cookie')}: `"
-                      :label-width="formLabelWidth">
-          <el-input type="textarea"
-                    :autosize="{ minRows: 2, maxRows: 3 }"
-                    auto-complete="off"
-                    :placeholder="$t('task.task-cookie')"
-                    v-model="form.cookie">
+        <el-form-item
+          :label="`${$t('task.task-cookie')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-input
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 3 }"
+            auto-complete="off"
+            :placeholder="$t('task.task-cookie')"
+            v-model="form.cookie"
+          >
           </el-input>
         </el-form-item>
-        <el-form-item label=""
-                      :label-width="formLabelWidth">
-          <el-checkbox class="chk"
-                       v-model="form.newTaskShowDownloading">{{$t('task.navigate-to-downloading')}}</el-checkbox>
+        <el-form-item label="" :label-width="formLabelWidth">
+          <el-checkbox class="chk" v-model="form.newTaskShowDownloading">
+            {{$t('task.navigate-to-downloading')}}
+          </el-checkbox>
         </el-form-item>
       </div>
     </el-form>
-    <div slot="footer"
-         class="dialog-footer">
+    <div slot="footer" class="dialog-footer">
       <el-row>
-        <el-col :span="9"
-                :xs="9">
-          <el-checkbox class="chk"
-                       v-model="showAdvanced">{{$t('task.show-advanced-options')}}</el-checkbox>
+        <el-col :span="9" :xs="9">
+          <el-checkbox class="chk" v-model="showAdvanced">
+            {{$t('task.show-advanced-options')}}
+          </el-checkbox>
         </el-col>
-        <el-col :span="15"
-                :xs="15">
-          <el-button @click="handleCancel('taskForm')">{{$t('app.cancel')}}</el-button>
-          <el-button type="primary"
-                     @click="submitForm('taskForm')">{{$t('app.submit')}}</el-button>
+        <el-col :span="15" :xs="15">
+          <el-button @click="handleCancel('taskForm')">
+            {{$t('app.cancel')}}
+          </el-button>
+          <el-button
+            type="primary"
+            @click="submitForm('taskForm')"
+          >
+            {{$t('app.submit')}}
+          </el-button>
         </el-col>
       </el-row>
     </div>

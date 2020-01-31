@@ -38,7 +38,7 @@
           visibleStates['task.new-bt-task'] = false
         }
       }
-      this.$electron.ipcRenderer.send('update-menu-states', visibleStates, null, null)
+      this.$electron.ipcRenderer.send('command', 'application:change-menu-states', visibleStates, null, null)
     },
     destroyed: function () {
       this.unbindIpcEvents()

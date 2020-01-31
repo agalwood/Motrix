@@ -34,6 +34,21 @@
           </el-col>
         </el-form-item>
         <el-form-item
+          :label="`${$t('preferences.run-mode')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-col class="form-item-sub" :span="24">
+            <el-select v-model="form.runMode">
+              <el-option
+                v-for="item in runModes"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
+          </el-col>
+        </el-form-item>
+        <el-form-item
           :label="`${$t('preferences.language')}: `"
           :label-width="formLabelWidth"
         >
@@ -190,6 +205,7 @@
     checkIsNeedRestart,
     diffConfig
   } from '@shared/utils'
+  import { APP_RUN_MODE } from '@shared/constants'
 
   const initialForm = (config) => {
     const {
@@ -204,6 +220,7 @@
       newTaskShowDownloading,
       openAtLogin,
       resumeAllWhenAppLaunched,
+      runMode,
       split,
       taskNotification,
       theme
@@ -221,6 +238,7 @@
       newTaskShowDownloading,
       openAtLogin,
       resumeAllWhenAppLaunched,
+      runMode,
       split,
       taskNotification,
       theme
@@ -245,13 +263,52 @@
         formLabelWidth: calcFormLabelWidth(locale),
         formOriginal,
         locales: availableLanguages,
-        rules: {},
-        speedOptions: this.buildSpeedOptions()
+        rules: {}
       }
     },
     computed: {
       title () {
         return this.$t('preferences.basic')
+      },
+      runModes () {
+        return [
+          {
+            label: this.$t('preferences.run-mode-standard'),
+            value: 1
+          },
+          {
+            label: this.$t('preferences.run-mode-menu-bar'),
+            value: 2
+          }
+        ]
+      },
+      speedOptions () {
+        return [
+          {
+            label: this.$t('preferences.transfer-speed-unlimited'),
+            value: 0
+          },
+          {
+            label: '128 KB/s',
+            value: '128K'
+          },
+          {
+            label: '512 KB/s',
+            value: '512K'
+          },
+          {
+            label: '1 MB/s',
+            value: '1M'
+          },
+          {
+            label: '5 MB/s',
+            value: '5M'
+          },
+          {
+            label: '10 MB/s',
+            value: '10M'
+          }
+        ]
       },
       subnavs: function () {
         return [
@@ -289,7 +346,6 @@
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
-        this.speedOptions = this.buildSpeedOptions()
         this.$electron.ipcRenderer.send('command',
           'application:change-locale', lng)
       },
@@ -297,34 +353,6 @@
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command',
           'application:change-theme', theme)
-      },
-      buildSpeedOptions () {
-        return [
-          {
-            label: this.$t('preferences.transfer-speed-unlimited'),
-            value: 0
-          },
-          {
-            label: '128 KB/s',
-            value: '128K'
-          },
-          {
-            label: '512 KB/s',
-            value: '512K'
-          },
-          {
-            label: '1 MB/s',
-            value: '1M'
-          },
-          {
-            label: '5 MB/s',
-            value: '5M'
-          },
-          {
-            label: '10 MB/s',
-            value: '10M'
-          }
-        ]
       },
       onDirectorySelected (dir) {
         this.form.dir = dir
@@ -343,7 +371,7 @@
             return false
           }
 
-          const { openAtLogin } = this.form
+          const { runMode, openAtLogin } = this.form
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed
@@ -363,6 +391,9 @@
           if (this.isRenderer()) {
             this.$electron.ipcRenderer.send('command',
               'application:open-at-login', openAtLogin)
+
+            this.$electron.ipcRenderer.send('command',
+              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
 
             if (checkIsNeedRestart(changed)) {
               this.$electron.ipcRenderer.send('command',

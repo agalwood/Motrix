@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'انتخاب شده: {{selectedFilesCount}} فایلها، مجموع {{selectedFilesTotalSize}}',
   'task-name': 'اسم تسک',
   'task-out': 'تغییرنام',
-  'task-out-tips': 'اختیاری، حمایت تک تسک',
+  'task-out-tips': 'اختیاری',
   'task-split': 'برش‌ها',
   'task-dir': 'آدرس',
   'pause-task': 'متوقف کن',

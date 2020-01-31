@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': '選中：{{selectedFilesCount}}個文件，總計 {{selectedFilesTotalSize}}',
   'task-name': '任務名稱',
   'task-out': '重新命名',
-  'task-out-tips': '選填（僅支援單一任務）',
+  'task-out-tips': '選填',
   'task-split': '下載執行緒',
   'task-dir': '儲存資料夾',
   'task-ua': 'UA',

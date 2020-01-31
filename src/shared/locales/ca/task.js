@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Seleccionat: {{selectedFilesCount}} arxius, mida total: {{selectedFilesTotalSize}}',
   'task-name': 'Nom de la tasca',
   'task-out': 'Canviar nom',
-  'task-out-tips': 'Opcional (només suporta una tasca)',
+  'task-out-tips': 'Opcional',
   'task-split': 'Dividir',
   'task-dir': 'Guardar a',
   'pause-task': 'Pausar tasca',

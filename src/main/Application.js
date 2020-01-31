@@ -3,6 +3,7 @@ import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import { readFile } from 'fs'
 import { extname, basename } from 'path'
+import { isEmpty } from 'lodash'
 
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
@@ -16,6 +17,7 @@ import WindowManager from './ui/WindowManager'
 import MenuManager from './ui/MenuManager'
 import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
+import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
 import { AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
 
@@ -48,17 +50,23 @@ export default class Application extends EventEmitter {
 
     this.trayManager = new TrayManager()
 
+    this.dockManager = new DockManager({
+      runMode: this.configManager.getUserConfig('run-mode')
+    })
+
     this.autoLaunchManager = new AutoLaunchManager()
 
-    this.initThemeManager()
-
     this.energyManager = new EnergyManager()
+
+    this.initThemeManager()
 
     this.initUpdaterManager()
 
     this.initProtocolManager()
 
     this.handleCommands()
+
+    this.handleEvents()
 
     this.handleIpcMessages()
   }
@@ -304,6 +312,20 @@ export default class Application extends EventEmitter {
   }
 
   handleCommands () {
+    this.on('application:save-preference', (config) => {
+      console.log('application:save-preference.config====>', config)
+      const { system, user } = config
+      if (!isEmpty(system)) {
+        console.info('[Motrix] main save system config: ', system)
+        this.configManager.setSystemConfig(system)
+      }
+
+      if (!isEmpty(user)) {
+        console.info('[Motrix] main save user config: ', user)
+        this.configManager.setUserConfig(user)
+      }
+    })
+
     this.on('application:relaunch', () => {
       this.relaunch()
     })
@@ -355,6 +377,21 @@ export default class Application extends EventEmitter {
           this.menuManager.setup(locale)
           this.trayManager.setup(locale)
         })
+    })
+
+    this.on('application:toggle-dock', (visible) => {
+      if (visible) {
+        this.dockManager.show()
+      } else {
+        this.dockManager.hide()
+        // Hiding the dock icon will trigger the entire app to hide.
+        this.show()
+      }
+    })
+
+    this.on('application:change-menu-states', (visibleStates, enabledStates, checkedStates) => {
+      this.menuManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
+      this.trayManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
     })
 
     this.on('application:open-file', (event) => {
@@ -409,19 +446,37 @@ export default class Application extends EventEmitter {
     })
   }
 
+  handleEvents () {
+    this.on('download-status-change', (downloading) => {
+      console.log('download-status-change===>', downloading)
+      this.trayManager.updateStatus(downloading)
+      if (downloading) {
+        this.energyManager.startPowerSaveBlocker()
+      } else {
+        this.energyManager.stopPowerSaveBlocker()
+      }
+    })
+
+    this.on('download-speed-change', (speed) => {
+      console.log('download-speed-change===>', speed)
+      this.dockManager.setBadge(speed)
+    })
+
+    this.on('task-download-complete', (task, path) => {
+      console.log('task-download-complete===>', task, path)
+      this.dockManager.openDock(path)
+    })
+  }
+
   handleIpcMessages () {
     ipcMain.on('command', (event, command, ...args) => {
       logger.log('receive command', command, ...args)
       this.emit(command, ...args)
     })
 
-    ipcMain.on('update-menu-states', (event, visibleStates, enabledStates, checkedStates) => {
-      this.menuManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
-      this.trayManager.updateMenuStates(visibleStates, enabledStates, checkedStates)
-    })
-
-    ipcMain.on('download-status-change', (event, status) => {
-      this.trayManager.updateStatus(status)
+    ipcMain.on('event', (event, eventName, ...args) => {
+      logger.log('receive event', eventName, ...args)
+      this.emit(eventName, ...args)
     })
   }
 }

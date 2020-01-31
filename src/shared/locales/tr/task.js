@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Seçildi: {{selectedFilesCount}} dosya sayısı, total {{selectedFilesTotalSize}}',
   'task-name': 'Görev Adı',
   'task-out': 'Dosya Adı',
-  'task-out-tips': 'Opsiyonel, tek görev destekle',
+  'task-out-tips': 'Opsiyonel',
   'task-split': 'Parça',
   'task-dir': 'Yol',
   'pause-task': 'Görevi Durdur',

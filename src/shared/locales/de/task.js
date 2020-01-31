@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': 'Ausgewählt: {{selectedFilesCount}} Dateien, insgesamt {{selectedFilesTotalSize}}',
   'task-name': 'Aufgaben Name',
   'task-out': 'Dateiname',
-  'task-out-tips': 'Optional, unterstützt nur Einzelaufgaben',
+  'task-out-tips': 'Optional',
   'task-split': 'Splits',
   'task-dir': 'Ordner',
   'pause-task': 'Aufgabe pausieren',

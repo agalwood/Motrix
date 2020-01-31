@@ -1,4 +1,3 @@
-import is from 'electron-is'
 import api from '@/api'
 import { getSystemTheme } from '@/components/Native/utils'
 
@@ -134,18 +133,7 @@ const actions = {
           dispatch('increaseInterval')
         }
         commit('UPDATE_GLOBAL_STAT', stat)
-
-        if (is.renderer()) {
-          dispatch('togglePowerSaveBlocker', numActive)
-        }
       })
-  },
-  togglePowerSaveBlocker (_, numActive) {
-    if (numActive > 0) {
-      api.startPowerSaveBlocker()
-    } else {
-      api.stopPowerSaveBlocker()
-    }
   },
   increaseInterval ({ commit }, millisecond = 100) {
     commit('INCREASE_INTERVAL', millisecond)

@@ -17,7 +17,7 @@ export default {
   'selected-files-sum': '選択済み：{{selectedFilesCount}}ファイル、合計{{selectedFilesTotalSize}}',
   'task-name': 'タスク名',
   'task-out': '名前を変更',
-  'task-out-tips': 'オプション（単独タスクのみサポート）',
+  'task-out-tips': 'オプション',
   'task-split': 'タスク分割',
   'task-dir': 'タスク保存先',
   'task-ua': 'UA',
