@@ -10,6 +10,7 @@ import {
 } from '../utils/index'
 import {
   EMPTY_STRING,
+  APP_RUN_MODE,
   TRACKERS_ALL_URL,
   TRACKERS_ALL_IP_URL
 } from '@shared/constants'
@@ -82,6 +83,7 @@ export default class ConfigManager {
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
         'open-at-login': false,
+        'run-mode': APP_RUN_MODE.STANDARD,
         'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,
         'keep-window-state': false,

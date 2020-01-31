@@ -12,6 +12,7 @@ const userKeys = [
   'open-at-login',
   'protocols',
   'resume-all-when-app-launched',
+  'run-mode',
   'session-path',
   'task-notification',
   'theme',
