@@ -3,6 +3,7 @@ import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import { readFile } from 'fs'
 import { extname, basename } from 'path'
+import { isEmpty } from 'lodash'
 
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
@@ -48,11 +49,12 @@ export default class Application extends EventEmitter {
 
     this.trayManager = new TrayManager()
 
+
     this.autoLaunchManager = new AutoLaunchManager()
 
-    this.initThemeManager()
-
     this.energyManager = new EnergyManager()
+
+    this.initThemeManager()
 
     this.initUpdaterManager()
 
@@ -304,6 +306,20 @@ export default class Application extends EventEmitter {
   }
 
   handleCommands () {
+    this.on('application:save-preference', (config) => {
+      console.log('application:save-preference.config====>', config)
+      const { system, user } = config
+      if (!isEmpty(system)) {
+        console.info('[Motrix] main save system config: ', system)
+        this.configManager.setSystemConfig(system)
+      }
+
+      if (!isEmpty(user)) {
+        console.info('[Motrix] main save user config: ', user)
+        this.configManager.setUserConfig(user)
+      }
+    })
+
     this.on('application:relaunch', () => {
       this.relaunch()
     })
