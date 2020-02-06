@@ -61,7 +61,11 @@ export default class TouchBarManager extends EventEmitter {
         result = new TouchBarSpacer({ size })
         break
       case 'group':
-        result = new TouchBarGroup({ items: options.items })
+        result = new TouchBarGroup({
+          items: new TouchBar({
+            items: options.items
+          })
+        })
         break
       default:
         result = null
@@ -90,7 +94,7 @@ export default class TouchBarManager extends EventEmitter {
     if (!bar) {
       try {
         const items = this.build(this.template)
-        bar = new TouchBar(items)
+        bar = new TouchBar({ items })
         this.bars[page] = bar
       } catch (e) {
         logger.info('getTouchBarByPage fail', e)
