@@ -75,8 +75,8 @@
     z-index: 5100;
     > li {
       display: inline-block;
-      padding: 5px 10px;
-      margin: 0 5px;
+      padding: 5px 15px;
+      margin: 0;
       color: $--titlebar-actions-color;
       &:hover {
         background-color: $--titlebar-actions-active-background;
