@@ -1,5 +1,7 @@
 # Motrix 贡献指南
 
+开始贡献之前，确保你已经理解了 [GitHub 的协作流程](https://guides.github.com/introduction/flow/)。
+
 ## 🌍 翻译指南
 
 首先你要确定一个语言的英文简写作为 **locale**，如 en-US，这个 locale 值请严格参考 [Electron 的 Locales 文档](https://electronjs.org/docs/api/locales)
