@@ -8,6 +8,9 @@ export const APP_RUN_MODE = {
   MENU_BAR: 2
 }
 
+export const ENGINE_RPC_HOST = '127.0.0.1'
+export const ENGINE_RPC_PORT = 16800
+
 /**
  * @see https://github.com/ngosang/trackerslist
  */

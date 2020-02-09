@@ -13,6 +13,7 @@ import {
 } from 'lodash'
 import { resolve } from 'path'
 import { userKeys, systemKeys, needRestartKeys } from './configKeys'
+import { ENGINE_RPC_HOST } from '@shared/constants'
 
 export function bytesToSize (bytes) {
   const b = parseInt(bytes, 10)
@@ -563,7 +564,7 @@ export function formatOptionsForEngine (options) {
 
 export function buildRpcUrl (options) {
   const { port, secret } = options
-  let result = `127.0.0.1:${port}/jsonrpc`
+  let result = `${ENGINE_RPC_HOST}:${port}/jsonrpc`
   if (secret) {
     result = `token:${secret}@${result}`
   }

@@ -10,7 +10,7 @@ import {
   changeKeysToCamelCase,
   changeKeysToKebabCase
 } from '@shared/utils'
-import { EMPTY_STRING } from '@shared/constants'
+import { EMPTY_STRING, ENGINE_RPC_HOST } from '@shared/constants'
 
 const application = remote.getGlobal('application')
 
@@ -55,7 +55,7 @@ export default class Api {
       rpcListenPort: port,
       rpcSecret: secret
     } = this.config
-    const host = '127.0.0.1'
+    const host = ENGINE_RPC_HOST
     this.client = new Aria2({
       host,
       port,
