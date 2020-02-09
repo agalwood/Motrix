@@ -14,6 +14,7 @@ import {
   NGOSANG_TRACKERS_ALL_URL,
   NGOSANG_TRACKERS_ALL_IP_URL
 } from '@shared/constants'
+import { separateConfig } from '@shared/utils'
 
 export default class ConfigManager {
   constructor () {
@@ -63,6 +64,7 @@ export default class ConfigManager {
         'user-agent': 'Transmission/2.94'
       }
     })
+    this.fixSystemConfig()
   }
 
   initUserConfig () {
@@ -102,6 +104,18 @@ export default class ConfigManager {
       }
     })
     this.fixUserConfig()
+  }
+
+  fixSystemConfig () {
+    // Remove aria2c unrecognized options
+    const { others } = separateConfig(this.systemConfig.store)
+    if (!others) {
+      return
+    }
+
+    Object.keys(others).forEach(key => {
+      this.systemConfig.delete(key)
+    })
   }
 
   fixUserConfig () {
