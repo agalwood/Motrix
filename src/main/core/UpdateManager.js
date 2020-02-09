@@ -43,13 +43,11 @@ export default class UpdateManager extends EventEmitter {
 
     if (this.autoCheckData.checkEnable) {
       this.autoCheckData.userCheck = false
-      this.options.setCheckTime.setUserConfig('last-check-update-time', Date.now())
       this.updater.checkForUpdates()
     }
   }
 
   check () {
-    this.options.setCheckTime.setUserConfig('last-check-update-time', Date.now())
     this.autoCheckData.userCheck = true
     this.updater.checkForUpdates()
   }

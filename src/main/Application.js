@@ -248,9 +248,9 @@ export default class Application extends EventEmitter {
     if (is.mas()) {
       return
     }
+
     this.updateManager = new UpdateManager({
-      autoCheck: this.isNeedAutoCheck(),
-      setCheckTime: this.configManager
+      autoCheck: this.isNeedAutoCheck()
     })
     this.handleUpdaterEvents()
   }
@@ -269,6 +269,7 @@ export default class Application extends EventEmitter {
     this.updateManager.on('checking', (event) => {
       this.menuManager.updateMenuItemEnabledState('app.check-for-updates', false)
       this.trayManager.updateMenuItemEnabledState('app.check-for-updates', false)
+      this.configManager.setUserConfig('last-check-update-time', Date.now())
     })
 
     this.updateManager.on('download-progress', (event) => {
