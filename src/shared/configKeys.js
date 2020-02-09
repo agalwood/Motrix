@@ -55,6 +55,8 @@ const systemKeys = [
   'connect-timeout',
   'content-disposition-default-utf8',
   'continue',
+  'dht-file-path',
+  'dht-file-path6',
   'dir',
   'dry-run',
   'enable-http-keep-alive',
@@ -122,7 +124,9 @@ const systemKeys = [
   'remove-control-file',
   'retry-wait',
   'reuse-uri',
+  'rpc-listen-port',
   'rpc-save-upload-metadata',
+  'rpc-secret',
   'seed-ratio',
   'seed-time',
   'select-file',
@@ -136,7 +140,8 @@ const systemKeys = [
 ]
 
 const needRestartKeys = [
-  'hide-app-menu'
+  'hide-app-menu',
+  'rpc-listen-port'
 ]
 
 export {
