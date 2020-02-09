@@ -11,8 +11,8 @@ import {
 import {
   EMPTY_STRING,
   APP_RUN_MODE,
-  TRACKERS_ALL_URL,
-  TRACKERS_ALL_IP_URL
+  NGOSANG_TRACKERS_ALL_URL,
+  NGOSANG_TRACKERS_ALL_IP_URL
 } from '@shared/constants'
 
 export default class ConfigManager {
@@ -33,7 +33,9 @@ export default class ConfigManager {
    * https://aria2.github.io/manual/en/html/aria2c.html
    *
    * Best bt trackers
-   * https://github.com/ngosang/trackerslist
+   * @see https://github.com/ngosang/trackerslist
+   *
+   * @see https://github.com/XIU2/TrackersListCollection
    */
   initSystemConfig () {
     this.systemConfig = new Store({
@@ -91,8 +93,8 @@ export default class ConfigManager {
         'task-notification': true,
         'theme': 'auto',
         'tracker-source': [
-          TRACKERS_ALL_IP_URL,
-          TRACKERS_ALL_URL
+          NGOSANG_TRACKERS_ALL_IP_URL,
+          NGOSANG_TRACKERS_ALL_URL
         ],
         'update-channel': 'latest',
         'use-proxy': false,
@@ -112,8 +114,8 @@ export default class ConfigManager {
 
     if (this.getUserConfig('tracker-source').length === 0) {
       this.setUserConfig('tracker-source', [
-        TRACKERS_ALL_IP_URL,
-        TRACKERS_ALL_URL
+        NGOSANG_TRACKERS_ALL_IP_URL,
+        NGOSANG_TRACKERS_ALL_URL
       ])
     }
   }
