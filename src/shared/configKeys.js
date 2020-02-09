@@ -16,6 +16,7 @@ const userKeys = [
   'session-path',
   'task-notification',
   'theme',
+  'tracker-source',
   'use-proxy'
 ]
 

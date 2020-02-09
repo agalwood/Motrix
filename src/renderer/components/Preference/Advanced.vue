@@ -74,7 +74,55 @@
           :label="`${$t('preferences.bt-tracker')}: `"
           :label-width="formLabelWidth"
         >
-          <div class="bt-tracker">
+          <div class="form-item-sub bt-tracker">
+            <el-row :gutter="10" style="line-height: 0;">
+              <el-col :span="20">
+                <div class="track-source">
+                  <el-select
+                    class="select-track-source"
+                    v-model="form.trackerSource"
+                    multiple
+                  >
+                    <el-option-group
+                      v-for="group in trackerSourceOptions"
+                      :key="group.label"
+                      :label="group.label"
+                    >
+                      <el-option
+                        v-for="item in group.options"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value">
+                      </el-option>
+                    </el-option-group>
+                  </el-select>
+                </div>
+              </el-col>
+              <el-col :span="3">
+                <div class="sync-tracker">
+                  <el-tooltip
+                    class="item"
+                    effect="dark"
+                    :content="$t('preferences.sync-tracker-tips')"
+                    placement="bottom"
+                  >
+                    <el-button
+                      @click="syncTrackerFromGitHub"
+                      class="sync-tracker-btn"
+                    >
+                      <mo-icon
+                        name="refresh"
+                        width="12"
+                        height="12"
+                        :spin="true"
+                        v-if="trackerSyncing"
+                      />
+                      <mo-icon name="sync" width="12" height="12" v-else />
+                    </el-button>
+                  </el-tooltip>
+                </div>
+              </el-col>
+            </el-row>
             <el-input
               type="textarea"
               :autosize="{ minRows: 3, maxRows: 5 }"
@@ -82,34 +130,17 @@
               :placeholder="`${$t('preferences.bt-tracker-input-tips')}`"
               v-model="form.btTracker">
             </el-input>
-            <div class="sync-tracker">
-              <el-tooltip
-                class="item"
-                effect="dark"
-                :content="$t('preferences.sync-tracker-tips')"
-                placement="bottom"
-              >
-                <el-button
-                  @click="syncTrackerFromGitHub"
-                >
-                  <mo-icon
-                    name="refresh"
-                    width="12"
-                    height="12"
-                    :spin="true"
-                    v-if="trackerSyncing"
-                  />
-                  <mo-icon name="sync" width="12" height="12" v-else />
-                </el-button>
-              </el-tooltip>
+            <div class="el-form-item__info" style="margin-top: 8px;">
+              {{ $t('preferences.bt-tracker-tips') }}
+              <a target="_blank" href="https://github.com/ngosang/trackerslist" rel="noopener noreferrer">
+                ngosang/trackerslist
+                <mo-icon name="link" width="12" height="12" />
+              </a>
+              <a target="_blank" href="https://github.com/XIU2/TrackersListCollection" rel="noopener noreferrer">
+                XIU2/TrackersListCollection
+                <mo-icon name="link" width="12" height="12" />
+              </a>
             </div>
-          </div>
-          <div class="el-form-item__info" style="margin-top: 8px;">
-            {{ $t('preferences.bt-tracker-tips') }}
-            <a target="_blank" href="https://github.com/ngosang/trackerslist" rel="noopener noreferrer">
-              https://github.com/ngosang/trackerslist
-              <mo-icon name="link" width="12" height="12" />
-            </a>
           </div>
         </el-form-item>
         <el-form-item
@@ -230,6 +261,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
+  import { trackerSourceOptions } from '@shared/constants'
   import {
     buildRpcUrl,
     calcFormLabelWidth,
@@ -253,6 +285,7 @@
       protocols,
       rpcListenPort,
       rpcSecret,
+      trackerSource,
       useProxy,
       userAgent
     } = config
@@ -268,6 +301,7 @@
       },
       rpcListenPort,
       rpcSecret,
+      trackerSource,
       useProxy,
       userAgent
     }
@@ -291,6 +325,7 @@
         formOriginal,
         hideRpcSecret: true,
         rules: {},
+        trackerSourceOptions,
         trackerSyncing: false
       }
     },
@@ -449,10 +484,14 @@
 <style lang="scss">
 .bt-tracker {
   position: relative;
-  .sync-tracker {
-    position: absolute;
-    top: 8px;
-    right: 8px;
+  .sync-tracker-btn {
+    line-height: 0;
+  }
+  .track-source {
+    margin-bottom: 16px;
+    .select-track-source {
+      width: 100%;
+    }
   }
 }
 .ua-group {

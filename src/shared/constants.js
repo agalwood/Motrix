@@ -23,6 +23,47 @@ export const XIU2_TRACKERS_BEST_URL = 'https://raw.githubusercontent.com/XIU2/Tr
 export const XIU2_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt'
 export const XIU2_TRACKERS_OTHER_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/other.txt'
 
+export const trackerSourceOptions = [
+  {
+    label: 'ngosang/trackerslist',
+    options: [
+      {
+        value: NGOSANG_TRACKERS_BEST_URL,
+        label: 'trackers_best.txt'
+      },
+      {
+        value: NGOSANG_TRACKERS_BEST_IP_URL,
+        label: 'trackers_best_ip.txt'
+      },
+      {
+        value: NGOSANG_TRACKERS_ALL_URL,
+        label: 'trackers_all.txt'
+      },
+      {
+        value: NGOSANG_TRACKERS_ALL_IP_URL,
+        label: 'trackers_all_ip.txt'
+      }
+    ]
+  },
+  {
+    label: 'XIU2/TrackersListCollection',
+    options: [
+      {
+        value: XIU2_TRACKERS_BEST_URL,
+        label: 'best.txt'
+      },
+      {
+        value: XIU2_TRACKERS_ALL_URL,
+        label: 'all.txt'
+      },
+      {
+        value: XIU2_TRACKERS_OTHER_URL,
+        label: 'other.txt'
+      }
+    ]
+  }
+]
+
 // One Week
 export const AUTO_CHECK_UPDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000
 
