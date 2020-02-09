@@ -315,7 +315,8 @@ export default class Api {
       return fetch(`${url}?t=${now}`).then((res) => res.text())
     })
 
-    const values = await Promise.all(promises)
+    const resp = await Promise.all(promises)
+    const values = [...new Set(resp)]
     let result = values.join('\r\n').replace(/^\s*[\r\n]/gm, '')
     return result
   }
