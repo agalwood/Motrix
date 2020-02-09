@@ -118,6 +118,7 @@
 
 <style lang="scss">
   .task-info-dialog {
+    min-width: 380px;
     .el-dialog__header {
       padding-right: 60px;
     }

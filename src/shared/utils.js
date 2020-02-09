@@ -529,7 +529,7 @@ export function diffConfig (current = {}, next = {}) {
 }
 
 export function calcFormLabelWidth (locale) {
-  return locale.startsWith('de') ? '28%' : '23%'
+  return locale.startsWith('de') ? '28%' : '25%'
 }
 
 export function parseHeader (header = '') {
