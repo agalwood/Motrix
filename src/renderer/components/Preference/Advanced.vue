@@ -380,7 +380,8 @@
       },
       syncTrackerFromGitHub () {
         this.trackerSyncing = true
-        this.$store.dispatch('preference/fetchBtTracker')
+        const { trackerSource } = this.form
+        this.$store.dispatch('preference/fetchBtTracker', trackerSource)
           .then((data) => {
             console.log('syncTrackerFromGitHub data====>', data)
             this.form.btTracker = data

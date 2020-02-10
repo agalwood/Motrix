@@ -34,8 +34,7 @@ const actions = {
   changeThemeConfig ({ commit }, theme) {
     commit('UPDATE_PREFERENCE_DATA', { theme })
   },
-  fetchBtTracker ({ state }) {
-    const { trackerSource = [] } = state.config
+  fetchBtTracker ({ state }, trackerSource = []) {
     return api.fetchBtTrackerFromGitHub(trackerSource)
   },
   toggleEngineMode () {
