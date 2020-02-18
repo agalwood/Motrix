@@ -26,6 +26,9 @@ export const XIU2_TRACKERS_BEST_URL = 'https://raw.githubusercontent.com/XIU2/Tr
 export const XIU2_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt'
 export const XIU2_TRACKERS_OTHER_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/other.txt'
 
+// For bt-exclude-tracker
+export const XIU2_TRACKERS_BLACK_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/blacklist.txt'
+
 export const trackerSourceOptions = [
   {
     label: 'ngosang/trackerslist',
