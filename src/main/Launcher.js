@@ -26,7 +26,7 @@ export default class Launcher extends EventEmitter {
   makeSingleInstance (callback) {
     // Mac App Store Sandboxed App not support requestSingleInstanceLock
     if (is.mas()) {
-      callback()
+      callback && callback()
       return
     }
 
@@ -43,7 +43,7 @@ export default class Launcher extends EventEmitter {
         }
       })
 
-      callback()
+      callback && callback()
     }
   }
 
