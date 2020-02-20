@@ -12,7 +12,8 @@ import {
   pick
 } from 'lodash'
 import { resolve } from 'path'
-import { userKeys, systemKeys, needRestartKeys } from './configKeys'
+
+import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
 import { ENGINE_RPC_HOST } from '@shared/constants'
 
 export function bytesToSize (bytes) {
@@ -589,4 +590,12 @@ export function checkIsNeedRestart (changed = {}) {
   })
 
   return result
+}
+
+export const checkIsNeedRun = (enable, lastTime, interval) => {
+  if (!enable) {
+    return false
+  }
+
+  return (Date.now() - lastTime > interval)
 }

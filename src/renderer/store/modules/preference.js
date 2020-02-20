@@ -1,4 +1,5 @@
 import api from '@/api'
+import { fetchBtTrackerFromSource } from '@shared/utils/tracker'
 import { isEmpty } from 'lodash'
 
 const state = {
@@ -35,7 +36,7 @@ const actions = {
     commit('UPDATE_PREFERENCE_DATA', { theme })
   },
   fetchBtTracker (_, trackerSource = []) {
-    return api.fetchBtTrackerFromGitHub(trackerSource)
+    return fetchBtTrackerFromSource(trackerSource)
   },
   toggleEngineMode () {
 
