@@ -29,6 +29,7 @@ export default {
   'theme-light': '浅色',
   'theme-dark': '深色',
   'run-mode': '运行为',
+  'hide-window': '隐藏窗口',
   'run-mode-standard': '标准应用',
   'run-mode-menu-bar': '菜单栏应用',
   'language': '语言',

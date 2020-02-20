@@ -29,6 +29,7 @@ export default {
   'theme-light': 'ライト',
   'theme-dark': 'ダーク',
   'run-mode': '実行者',
+  'hide-window': 'ウィンドウを隠す',
   'run-mode-standard': '標準アプリケーション',
   'run-mode-menu-bar': 'メニューバーアプリケーション',
   'language': '言語',

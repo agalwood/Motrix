@@ -29,6 +29,7 @@ export default {
   'theme-light': 'Світлий',
   'theme-dark': 'Темний',
   'run-mode': 'Виконати як',
+  'hide-window': 'Сховати вікно',
   'run-mode-standard': 'Стандартне застосування',
   'run-mode-menu-bar': 'Застосування рядка меню',
   'language': 'Мова',

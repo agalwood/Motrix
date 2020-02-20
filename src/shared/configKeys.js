@@ -10,6 +10,7 @@ const userKeys = [
   'log-path',
   'new-task-show-downloading',
   'open-at-login',
+  'hide-window',
   'protocols',
   'resume-all-when-app-launched',
   'run-mode',

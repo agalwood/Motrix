@@ -71,7 +71,7 @@ export default class WindowManager extends EventEmitter {
   openWindow (page, options = {}) {
     const pageOptions = this.getPageOptions(page)
     const { hidden } = options
-
+    const hideWindow = this.userConfig['hide-window']
     let window = this.windows[page] || null
     if (window) {
       window.show()
@@ -112,6 +112,9 @@ export default class WindowManager extends EventEmitter {
     this.bindAfterClosed(page, window)
 
     this.addWindow(page, window)
+    if (hideWindow) {
+      this.handleWindowBlur(window)
+    }
     return window
   }
 
@@ -215,6 +218,18 @@ export default class WindowManager extends EventEmitter {
     app.on('before-quit', () => {
       this.setWillQuit(true)
     })
+  }
+
+  onWindowBlur (event, window) {
+    window.hide()
+  }
+
+  handleWindowBlur () {
+    app.on('browser-window-blur', this.onWindowBlur)
+  }
+
+  unbindWindowBlur () {
+    app.removeListener('browser-window-blur', this.onWindowBlur)
   }
 
   handleAllWindowClosed () {
