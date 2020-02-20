@@ -107,7 +107,7 @@
                     placement="bottom"
                   >
                     <el-button
-                      @click="syncTrackerFromGitHub"
+                      @click="syncTrackerFromSource"
                       class="sync-tracker-btn"
                     >
                       <mo-icon
@@ -270,6 +270,7 @@
     convertLineToComma,
     diffConfig
   } from '@shared/utils'
+  import { convertTrackerDataToLine } from '@shared/utils/tracker'
   import '@/components/Icons/dice'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
@@ -378,13 +379,13 @@
             this.form.lastCheckUpdateTime = lastCheckUpdateTime
           })
       },
-      syncTrackerFromGitHub () {
+      syncTrackerFromSource () {
         this.trackerSyncing = true
         const { trackerSource } = this.form
         this.$store.dispatch('preference/fetchBtTracker', trackerSource)
           .then((data) => {
-            console.log('syncTrackerFromGitHub data====>', data)
-            this.form.btTracker = data
+            const tracker = convertTrackerDataToLine(data)
+            this.form.btTracker = tracker
           })
           .finally(() => {
             this.trackerSyncing = false
