@@ -113,7 +113,7 @@ export default class WindowManager extends EventEmitter {
 
     this.addWindow(page, window)
     if (hideWindow) {
-      this.handleWindowBlur(window)
+      this.handleWindowBlur()
     }
     return window
   }
