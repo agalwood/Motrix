@@ -142,6 +142,11 @@
               </a>
             </div>
           </div>
+          <div class="form-item-sub">
+            <el-checkbox v-model="form.autoSyncTracker">
+              {{ $t('preferences.auto-sync-tracker') }}
+            </el-checkbox>
+          </div>
         </el-form-item>
         <el-form-item
           :label="`${$t('preferences.download-protocol')}: `"
@@ -280,6 +285,7 @@
       allProxy,
       allProxyBackup,
       autoCheckUpdate,
+      autoSyncTracker,
       btTracker,
       hideAppMenu,
       lastCheckUpdateTime,
@@ -294,6 +300,7 @@
       allProxy,
       allProxyBackup,
       autoCheckUpdate,
+      autoSyncTracker,
       btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
       lastCheckUpdateTime,

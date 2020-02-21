@@ -81,8 +81,10 @@ export default class ConfigManager {
       defaults: {
         'all-proxy-backup': EMPTY_STRING,
         'auto-check-update': is.macOS(),
+        'auto-sync-tracker': true,
         'hide-app-menu': is.windows() || is.linux(),
         'last-check-update-time': 0,
+        'last-sync-tracker-time': 0,
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
