@@ -29,7 +29,7 @@ export default {
   'theme-light': '淺色',
   'theme-dark': '深色',
   'run-mode': '運行方式',
-  'hide-window': '隱藏視窗',
+  'auto-hide-window': '自動隱藏視窗',
   'run-mode-standard': '標準應用',
   'run-mode-menu-bar': '菜單欄應用',
   'language': '語言',

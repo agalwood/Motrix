@@ -29,7 +29,7 @@ export default {
   'theme-light': 'Clara',
   'theme-dark': 'Escura',
   'run-mode': 'Correr como',
-  'hide-window': 'Ocultar janela',
+  'auto-auto-hide-window': 'Ocultar janelas automaticamente',
   'run-mode-standard': 'Aplicação padrão',
   'run-mode-menu-bar': 'Aplicação da barra de menus',
   'language': 'Idioma',

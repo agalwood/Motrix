@@ -29,7 +29,7 @@ export default {
   'theme-light': 'Light',
   'theme-dark': 'Dark',
   'run-mode': 'Run As',
-  'hide-window': 'Hide Window',
+  'auto-hide-window': 'Auto Hide Window',
   'run-mode-standard': 'Standard Application',
   'run-mode-menu-bar': 'Menu Bar Application',
   'language': 'Language',

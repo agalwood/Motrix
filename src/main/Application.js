@@ -125,9 +125,9 @@ export default class Application extends EventEmitter {
 
   showPage (page, options = {}) {
     const { openedAtLogin } = options
-    const hideWindow = this.configManager.getUserConfig('hide-window')
+    const autoHideWindow = this.configManager.getUserConfig('auto-hide-window')
     const win = this.windowManager.openWindow(page, {
-      hidden: openedAtLogin || hideWindow
+      hidden: openedAtLogin || autoHideWindow
     })
     win.once('ready-to-show', () => {
       this.isReady = true
@@ -144,7 +144,7 @@ export default class Application extends EventEmitter {
 
   hide (page) {
     if (page) {
-      this.windowManager.hideWindow(page)
+      this.windowManager.autoHideWindow(page)
     } else {
       this.windowManager.hideAllWindow()
     }
@@ -390,7 +390,7 @@ export default class Application extends EventEmitter {
       }
     })
 
-    this.on('application:hide-window', (hide) => {
+    this.on('application:auto-hide-window', (hide) => {
       if (hide) {
         this.windowManager.handleWindowBlur()
       } else {

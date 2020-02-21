@@ -67,11 +67,11 @@
           </el-col>
         </el-form-item>
         <el-form-item
-          :label="`${$t('preferences.hide-window')}: `"
+          :label="`${$t('preferences.auto-hide-window')}: `"
           :label-width="formLabelWidth"
         >
           <el-col class="form-item-sub" :span="16">
-            <el-checkbox v-model="form.hideWindow">
+            <el-checkbox v-model="form.autoHideWindow">
             </el-checkbox>
           </el-col>
         </el-form-item>
@@ -228,7 +228,7 @@
       maxOverallDownloadLimit,
       newTaskShowDownloading,
       openAtLogin,
-      hideWindow,
+      autoHideWindow,
       resumeAllWhenAppLaunched,
       runMode,
       split,
@@ -247,7 +247,7 @@
       maxOverallDownloadLimit,
       newTaskShowDownloading,
       openAtLogin,
-      hideWindow,
+      autoHideWindow,
       resumeAllWhenAppLaunched,
       runMode,
       split,
@@ -382,7 +382,7 @@
             return false
           }
 
-          const { runMode, openAtLogin, hideWindow } = this.form
+          const { runMode, openAtLogin, autoHideWindow } = this.form
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed
@@ -407,7 +407,7 @@
               'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
 
             this.$electron.ipcRenderer.send('command',
-              'application:hide-window', hideWindow)
+              'application:auto-hide-window', autoHideWindow)
 
             if (checkIsNeedRestart(changed)) {
               this.$electron.ipcRenderer.send('command',

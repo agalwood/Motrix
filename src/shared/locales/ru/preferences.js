@@ -29,7 +29,7 @@ export default {
   'theme-light': 'Светлый',
   'theme-dark': 'Темный',
   'run-mode': 'Беги как',
-  'hide-window': 'Скрыть окно',
+  'auto-hide-window': 'Автоскрытие окон',
   'run-mode-standard': 'Стандартное приложение',
   'run-mode-menu-bar': 'Панель меню приложения',
   'language': 'Язык',
