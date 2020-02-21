@@ -9,6 +9,7 @@ import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
 import Engine from './core/Engine'
+import EngineClient from './core/EngineClient'
 import AutoLaunchManager from './core/AutoLaunchManager'
 import UpdateManager from './core/UpdateManager'
 import EnergyManager from './core/EnergyManager'
@@ -48,6 +49,8 @@ export default class Application extends EventEmitter {
     })
     this.startEngine()
 
+    this.initEngineClient()
+
     this.trayManager = new TrayManager()
 
     this.dockManager = new DockManager({
@@ -86,6 +89,15 @@ export default class Application extends EventEmitter {
         }, 100)
       })
     }
+  }
+
+  initEngineClient () {
+    const port = this.configManager.getSystemConfig('rpc-listen-port')
+    const secret = this.configManager.getSystemConfig('rpc-secret')
+    this.engineClient = new EngineClient({
+      port,
+      secret
+    })
   }
 
   initWindowManager () {
