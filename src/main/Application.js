@@ -317,20 +317,23 @@ export default class Application extends EventEmitter {
     // }, 500)
   }
 
-  handleCommands () {
-    this.on('application:save-preference', (config) => {
-      console.log('application:save-preference.config====>', config)
-      const { system, user } = config
-      if (!isEmpty(system)) {
-        console.info('[Motrix] main save system config: ', system)
-        this.configManager.setSystemConfig(system)
-      }
+  savePreference (config = {}) {
+    console.log('application:save-preference.config====>', config)
+    const { system, user } = config
+    if (!isEmpty(system)) {
+      console.info('[Motrix] main save system config: ', system)
+      this.configManager.setSystemConfig(system)
+      this.engineClient.changeGlobalOption(system)
+    }
 
-      if (!isEmpty(user)) {
-        console.info('[Motrix] main save user config: ', user)
-        this.configManager.setUserConfig(user)
-      }
-    })
+    if (!isEmpty(user)) {
+      console.info('[Motrix] main save user config: ', user)
+      this.configManager.setUserConfig(user)
+    }
+  }
+
+  handleCommands () {
+    this.on('application:save-preference', this.savePreference)
 
     this.on('application:relaunch', () => {
       this.relaunch()

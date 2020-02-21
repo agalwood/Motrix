@@ -96,24 +96,24 @@ export default class Api {
 
   savePreferenceToNativeStore (params = {}) {
     const { user, system, others } = separateConfig(params)
-    if (!isEmpty(system)) {
-      console.info('[Motrix] save system config: ', system)
-      ipcRenderer.send('command', 'application:save-preference', {
-        system
-      })
-      this.changeGlobalOption(system)
-    }
+    let config = {}
 
     if (!isEmpty(user)) {
       console.info('[Motrix] save user config: ', user)
-      ipcRenderer.send('command', 'application:save-preference', {
-        user
-      })
+      config.user = user
+    }
+
+    if (!isEmpty(system)) {
+      console.info('[Motrix] save system config: ', system)
+      config.system = system
+      this.updateActiveTaskOption(system)
     }
 
     if (!isEmpty(others)) {
       console.info('[Motrix] save config found illegal key: ', others)
     }
+
+    ipcRenderer.send('command', 'application:save-preference', config)
   }
 
   getVersion () {
@@ -147,6 +147,18 @@ export default class Api {
     })
   }
 
+  updateActiveTaskOption (options) {
+    this.fetchTaskList({ type: 'active' })
+      .then((data) => {
+        if (isEmpty(data)) {
+          return
+        }
+
+        const gids = data.map((task) => task.gid)
+        this.batchChangeOption({ gids, options })
+      })
+  }
+
   changeOption (params = {}) {
     let { gid, options = {} } = params
     options = formatOptionsForEngine(options)
@@ -155,6 +167,18 @@ export default class Api {
     const args = compactUndefined([gid, kebabOptions])
 
     return this.client.call('changeOption', ...args)
+  }
+
+  batchChangeOption (params = {}) {
+    let { gids, options = {} } = params
+    options = formatOptionsForEngine(options)
+
+    const data = gids.map((gid, index) => {
+      const kebabOptions = changeKeysToKebabCase(options)
+      const args = compactUndefined([gid, kebabOptions])
+      return [ 'aria2.changeOption', ...args ]
+    })
+    return this.client.multicall(data)
   }
 
   getGlobalStat () {
