@@ -10,7 +10,7 @@ import {
   changeKeysToCamelCase,
   changeKeysToKebabCase
 } from '@shared/utils'
-import { EMPTY_STRING, ENGINE_RPC_HOST } from '@shared/constants'
+import { ENGINE_RPC_HOST } from '@shared/constants'
 
 const application = remote.getGlobal('application')
 
@@ -327,21 +327,5 @@ export default class Api {
     const { gid } = params
     const args = compactUndefined([gid])
     return this.client.call('removeDownloadResult', ...args)
-  }
-
-  async fetchBtTrackerFromGitHub (source) {
-    if (isEmpty(source)) {
-      return EMPTY_STRING
-    }
-
-    const now = Date.now()
-    const promises = source.map((url) => {
-      return fetch(`${url}?t=${now}`).then((res) => res.text())
-    })
-
-    const resp = await Promise.all(promises)
-    const values = [...new Set(resp)]
-    let result = values.join('\r\n').replace(/^\s*[\r\n]/gm, '')
-    return result
   }
 }

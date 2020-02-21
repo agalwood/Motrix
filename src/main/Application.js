@@ -20,8 +20,9 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
-import { AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
+import { AUTO_SYNC_TRACKER_INTERVAL, AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
 import { checkIsNeedRun } from '@shared/utils'
+import { convertTrackerDataToComma, fetchBtTrackerFromSource } from '@shared/utils/tracker'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -51,6 +52,8 @@ export default class Application extends EventEmitter {
     this.startEngine()
 
     this.initEngineClient()
+
+    this.autoSyncTracker()
 
     this.trayManager = new TrayManager()
 
@@ -99,6 +102,30 @@ export default class Application extends EventEmitter {
       port,
       secret
     })
+  }
+
+  autoSyncTracker () {
+    const enable = this.configManager.getUserConfig('auto-sync-tracker')
+    const lastTime = this.configManager.getUserConfig('last-sync-tracker-time')
+    const result = checkIsNeedRun(enable, lastTime, AUTO_SYNC_TRACKER_INTERVAL)
+    if (!result) {
+      return
+    }
+
+    setTimeout(() => {
+      const source = this.configManager.getUserConfig('tracker-source')
+      fetchBtTrackerFromSource(source).then((data) => {
+        const tracker = convertTrackerDataToComma(data)
+        this.savePreference({
+          system: {
+            'bt-tracker': tracker
+          },
+          user: {
+            'last-sync-tracker-time': Date.now()
+          }
+        })
+      })
+    }, 3000)
   }
 
   initWindowManager () {
