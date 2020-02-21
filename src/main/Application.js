@@ -21,6 +21,7 @@ import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
 import { AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
+import { checkIsNeedRun } from '@shared/utils'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -261,20 +262,12 @@ export default class Application extends EventEmitter {
       return
     }
 
+    const enable = this.configManager.getUserConfig('auto-check-update')
+    const lastTime = this.configManager.getUserConfig('last-check-update-time')
     this.updateManager = new UpdateManager({
-      autoCheck: this.isNeedAutoCheck()
+      autoCheck: checkIsNeedRun(enable, lastTime, AUTO_CHECK_UPDATE_INTERVAL)
     })
     this.handleUpdaterEvents()
-  }
-
-  isNeedAutoCheck () {
-    const enable = this.configManager.getUserConfig('auto-check-update')
-    if (!enable) {
-      return false
-    }
-
-    const lastCheck = this.configManager.getUserConfig('last-check-update-time')
-    return (Date.now() - lastCheck > AUTO_CHECK_UPDATE_INTERVAL)
   }
 
   handleUpdaterEvents () {
