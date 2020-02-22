@@ -12,7 +12,7 @@ export default {
   'auto-resume-all': 'Автоматично поновлювати всі невиконанні завдання',
   'default-dir': 'Шлях за замовчуванням',
   'mas-default-dir-tips': 'Через обмеження в App Store, рекомендовано встановити шлях за замовчення ~/Downloads',
-  'transfer-settings': 'Transmission',
+  'transfer-settings': 'Передача',
   'transfer-speed-upload': 'Ліміт вивантаження',
   'transfer-speed-download': 'Ліміт завантаження',
   'transfer-speed-unlimited': 'Безлімітно',
