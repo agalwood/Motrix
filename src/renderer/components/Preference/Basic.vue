@@ -32,6 +32,11 @@
               {{ $t('preferences.hide-app-menu') }}
             </el-checkbox>
           </el-col>
+          <el-col class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.autoHideWindow">
+              {{ $t('preferences.auto-hide-window') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
         <el-form-item
           :label="`${$t('preferences.run-mode')}: `"
@@ -64,15 +69,6 @@
                 :value="item.value">
               </el-option>
             </el-select>
-          </el-col>
-        </el-form-item>
-        <el-form-item
-          :label="`${$t('preferences.auto-hide-window')}: `"
-          :label-width="formLabelWidth"
-        >
-          <el-col class="form-item-sub" :span="16">
-            <el-checkbox v-model="form.autoHideWindow">
-            </el-checkbox>
           </el-col>
         </el-form-item>
         <el-form-item
