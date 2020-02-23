@@ -29,6 +29,7 @@ export default {
   'theme-light': 'Clair',
   'theme-dark': 'Sombre',
   'run-mode': 'Courir comme',
+  'auto-hide-window': 'Masquer automatiquement les fenêtres',
   'run-mode-standard': 'Application standard',
   'run-mode-menu-bar': 'Application de la barre de menus',
   'language': 'Langues',

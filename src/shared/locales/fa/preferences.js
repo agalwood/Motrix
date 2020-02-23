@@ -29,6 +29,7 @@ export default {
   'theme-light': 'روشن',
   'theme-dark': 'تیره',
   'run-mode': 'اجرا به عنوان',
+  'auto-hide-window': 'پنجره های مخفی خودکار',
   'run-mode-standard': 'برنامه استاندارد',
   'run-mode-menu-bar': 'برنامه نوار منو',
   'language': 'زبان',

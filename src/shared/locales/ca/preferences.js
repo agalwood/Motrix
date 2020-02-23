@@ -29,6 +29,7 @@ export default {
   'theme-light': 'Clar',
   'theme-dark': 'Fosc',
   'run-mode': 'Executa com',
+  'auto-hide-window': 'Amaga automàticament les finestres',
   'run-mode-standard': 'Aplicació estàndard',
   'run-mode-menu-bar': 'Aplicació de la barra de menús',
   'language': 'Idioma',

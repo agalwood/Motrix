@@ -29,6 +29,7 @@ export default {
   'theme-light': 'Hell',
   'theme-dark': 'Dunkel',
   'run-mode': 'Rennen wie',
+  'auto-hide-window': 'Fenster automatisch ausblenden',
   'run-mode-standard': 'Standardanwendung',
   'run-mode-menu-bar': 'Menüleistenanwendung',
   'language': 'Sprache',

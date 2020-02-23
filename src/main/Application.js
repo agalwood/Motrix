@@ -125,8 +125,9 @@ export default class Application extends EventEmitter {
 
   showPage (page, options = {}) {
     const { openedAtLogin } = options
+    const autoHideWindow = this.configManager.getUserConfig('auto-hide-window')
     const win = this.windowManager.openWindow(page, {
-      hidden: openedAtLogin
+      hidden: openedAtLogin || autoHideWindow
     })
     win.once('ready-to-show', () => {
       this.isReady = true
@@ -143,7 +144,7 @@ export default class Application extends EventEmitter {
 
   hide (page) {
     if (page) {
-      this.windowManager.hideWindow(page)
+      this.windowManager.autoHideWindow(page)
     } else {
       this.windowManager.hideAllWindow()
     }
@@ -386,6 +387,14 @@ export default class Application extends EventEmitter {
         this.dockManager.hide()
         // Hiding the dock icon will trigger the entire app to hide.
         this.show()
+      }
+    })
+
+    this.on('application:auto-hide-window', (hide) => {
+      if (hide) {
+        this.windowManager.handleWindowBlur()
+      } else {
+        this.windowManager.unbindWindowBlur()
       }
     })
 

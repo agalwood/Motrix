@@ -90,6 +90,7 @@ export default class ConfigManager {
         'session-path': getSessionPath(),
         'task-notification': true,
         'theme': 'auto',
+        'auto-hide-window': false,
         'tracker-source': [
           TRACKERS_ALL_IP_URL,
           TRACKERS_ALL_URL

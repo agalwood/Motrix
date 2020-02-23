@@ -29,6 +29,7 @@ export default {
   'theme-light': '밝은',
   'theme-dark': '어두운',
   'run-mode': '다음 계정으로 실행',
+  'auto-hide-window': '창 자동 숨기기',
   'run-mode-standard': '표준 응용',
   'run-mode-menu-bar': '메뉴 바 어플리케이션',
   'language': '언어',

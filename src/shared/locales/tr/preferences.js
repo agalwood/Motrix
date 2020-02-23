@@ -28,6 +28,7 @@ export default {
   'theme-auto': 'Otomatik',
   'theme-light': 'Açık',
   'run-mode': 'Olarak çalıştırmak',
+  'auto-hide-window': 'Pencereleri otomatik gizle',
   'run-mode-standard': 'Standart Uygulama',
   'run-mode-menu-bar': 'Menü Çubuğu Uygulaması',
   'theme-dark': 'Koyu',
