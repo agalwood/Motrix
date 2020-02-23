@@ -146,6 +146,9 @@
             <el-checkbox v-model="form.autoSyncTracker">
               {{ $t('preferences.auto-sync-tracker') }}
             </el-checkbox>
+            <div class="el-form-item__info" style="margin-top: 8px;" v-if="form.lastSyncTrackerTime > 0">
+              {{ new Date(form.lastSyncTrackerTime).toLocaleString() }}
+            </div>
           </div>
         </el-form-item>
         <el-form-item
@@ -289,6 +292,7 @@
       btTracker,
       hideAppMenu,
       lastCheckUpdateTime,
+      lastSyncTrackerTime,
       protocols,
       rpcListenPort,
       rpcSecret,
@@ -304,6 +308,7 @@
       btTracker: convertCommaToLine(btTracker),
       hideAppMenu,
       lastCheckUpdateTime,
+      lastSyncTrackerTime,
       protocols: {
         ...protocols
       },
@@ -392,6 +397,7 @@
         this.$store.dispatch('preference/fetchBtTracker', trackerSource)
           .then((data) => {
             const tracker = convertTrackerDataToLine(data)
+            this.form.lastSyncTrackerTime = Date.now()
             this.form.btTracker = tracker
           })
           .finally(() => {
