@@ -100,6 +100,10 @@ export ELECTRON_MIRROR='https://npm.taobao.org/mirrors/electron/'
 export SASS_BINARY_SITE='https://npm.taobao.org/mirrors/node-sass'
 ```
 
+> Error: Electron failed to install correctly, please delete node_modules/electron and try installing again
+
+`Electron` 下载安装失败的问题，解决方式请参考 https://github.com/electron/electron/issues/8466#issuecomment-571425574
+
 如果喜欢 [Yarn](https://yarnpkg.com/)，也可以使用 `yarn` 安装依赖
 
 ### 开发模式

@@ -92,6 +92,10 @@ cd Motrix
 npm install
 ```
 
+> Error: Electron failed to install correctly, please delete node_modules/electron and try installing again
+
+`Electron` failed to install correctly, please refer to https://github.com/electron/electron/issues/8466#issuecomment-571425574
+
 If you like [Yarn](https://yarnpkg.com/), you can also use `yarn` to install dependencies.
 
 ### Dev Mode
