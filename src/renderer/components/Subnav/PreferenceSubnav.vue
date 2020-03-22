@@ -53,11 +53,13 @@
     },
     methods: {
       nav: function (category = 'basic') {
-        this.$router.push({
-          path: `/preference/${category}`
-        }).catch(err => {
+        try {
+          this.$router.push({
+            path: `/preference/${category}`
+          })
+        } catch (err) {
           console.log(err)
-        })
+        }
       }
     }
   }

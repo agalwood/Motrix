@@ -53,11 +53,13 @@
     },
     methods: {
       nav: function (status = 'active') {
-        this.$router.push({
-          path: `/task/${status}`
-        }).catch(err => {
+        try {
+          this.$router.push({
+            path: `/task/${status}`
+          })
+        } catch (err) {
           console.log(err)
-        })
+        }
       }
     }
   }

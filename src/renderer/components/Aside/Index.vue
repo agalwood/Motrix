@@ -56,11 +56,13 @@
         // }
       },
       nav (page) {
-        this.$router.push({
-          path: page
-        }).catch(err => {
+        try {
+          this.$router.push({
+            path: page
+          })
+        } catch (err) {
           console.log(err)
-        })
+        }
       }
     }
   }
