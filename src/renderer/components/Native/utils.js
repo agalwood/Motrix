@@ -24,11 +24,12 @@ export function showItemInFolder (fullPath, { errorMsg }) {
   if (!fullPath) {
     return
   }
-  const result = remote.shell.showItemInFolder(fullPath)
-  if (!result && errorMsg) {
+  try {
+    remote.shell.showItemInFolder(fullPath)
+  } catch (err) {
     Message.error(errorMsg)
+    throw err
   }
-  return result
 }
 
 export function openItem (fullPath, { errorMsg }) {
