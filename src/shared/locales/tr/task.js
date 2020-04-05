@@ -25,6 +25,7 @@ export default {
   'task-user-agent': 'User-Agent',
   'task-referer': 'Yönlendiren',
   'task-cookie': 'Çerez',
+  'task-proxy': 'Proxy',
   'navigate-to-downloading': 'İndirilenlere git',
   'show-advanced-options': 'Gelişmiş ayarlar',
   'copyright-warning': 'Telif Uyarısı',

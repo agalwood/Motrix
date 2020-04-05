@@ -25,6 +25,7 @@ export default {
   'task-user-agent': 'User-Agent',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
+  'task-proxy': 'پراکسی',
   'navigate-to-downloading': 'برو به دانلودها',
   'show-advanced-options': 'تنظیمات پیشرفته',
   'copyright-warning': 'خطر کپی‌رایت',

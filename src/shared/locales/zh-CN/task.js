@@ -24,6 +24,7 @@ export default {
   'task-user-agent': 'User-Agent',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
+  'task-proxy': '代理',
   'navigate-to-downloading': '跳转到下载页面',
   'show-advanced-options': '高级选项',
   'copyright-warning': '版权提醒',
