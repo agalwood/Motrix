@@ -113,6 +113,9 @@ img {
   line-height: 1;
   padding-top: 4px;
   color: $--color-info;
+  > a {
+    margin-right: 10px;
+  }
 }
 
 .el-input-number.el-input-number--mini {

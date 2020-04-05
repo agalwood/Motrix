@@ -78,7 +78,7 @@
           />
         </el-input>
       </el-form-item>
-      <div v-if="showAdvanced">
+      <div class="task-advanced-options" v-if="showAdvanced">
         <el-form-item
           :label="`${$t('task.task-user-agent')}: `"
           :label-width="formLabelWidth"
@@ -421,6 +421,10 @@ export default {
 <style lang="scss">
 .el-dialog.add-task-dialog {
   max-width: 632px;
+  min-width: 380px;
+  .task-advanced-options .el-form-item:last-of-type {
+    margin-bottom: 0;
+  }
   .el-tabs__header {
     user-select: none;
   }

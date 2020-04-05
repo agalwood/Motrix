@@ -9,6 +9,7 @@ import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
 import Engine from './core/Engine'
+import EngineClient from './core/EngineClient'
 import AutoLaunchManager from './core/AutoLaunchManager'
 import UpdateManager from './core/UpdateManager'
 import EnergyManager from './core/EnergyManager'
@@ -19,7 +20,9 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
-import { AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
+import { AUTO_SYNC_TRACKER_INTERVAL, AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
+import { checkIsNeedRun } from '@shared/utils'
+import { convertTrackerDataToComma, fetchBtTrackerFromSource } from '@shared/utils/tracker'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -47,6 +50,10 @@ export default class Application extends EventEmitter {
       userConfig: this.configManager.getUserConfig()
     })
     this.startEngine()
+
+    this.initEngineClient()
+
+    this.autoSyncTracker()
 
     this.trayManager = new TrayManager()
 
@@ -86,6 +93,39 @@ export default class Application extends EventEmitter {
         }, 100)
       })
     }
+  }
+
+  initEngineClient () {
+    const port = this.configManager.getSystemConfig('rpc-listen-port')
+    const secret = this.configManager.getSystemConfig('rpc-secret')
+    this.engineClient = new EngineClient({
+      port,
+      secret
+    })
+  }
+
+  autoSyncTracker () {
+    const enable = this.configManager.getUserConfig('auto-sync-tracker')
+    const lastTime = this.configManager.getUserConfig('last-sync-tracker-time')
+    const result = checkIsNeedRun(enable, lastTime, AUTO_SYNC_TRACKER_INTERVAL)
+    if (!result) {
+      return
+    }
+
+    setTimeout(() => {
+      const source = this.configManager.getUserConfig('tracker-source')
+      fetchBtTrackerFromSource(source).then((data) => {
+        const tracker = convertTrackerDataToComma(data)
+        this.savePreference({
+          system: {
+            'bt-tracker': tracker
+          },
+          user: {
+            'last-sync-tracker-time': Date.now()
+          }
+        })
+      })
+    }, 3000)
   }
 
   initWindowManager () {
@@ -250,27 +290,20 @@ export default class Application extends EventEmitter {
     if (is.mas()) {
       return
     }
+
+    const enable = this.configManager.getUserConfig('auto-check-update')
+    const lastTime = this.configManager.getUserConfig('last-check-update-time')
     this.updateManager = new UpdateManager({
-      autoCheck: this.isNeedAutoCheck(),
-      setCheckTime: this.configManager
+      autoCheck: checkIsNeedRun(enable, lastTime, AUTO_CHECK_UPDATE_INTERVAL)
     })
     this.handleUpdaterEvents()
-  }
-
-  isNeedAutoCheck () {
-    const enable = this.configManager.getUserConfig('auto-check-update')
-    if (!enable) {
-      return false
-    }
-
-    const lastCheck = this.configManager.getUserConfig('last-check-update-time')
-    return (Date.now() - lastCheck > AUTO_CHECK_UPDATE_INTERVAL)
   }
 
   handleUpdaterEvents () {
     this.updateManager.on('checking', (event) => {
       this.menuManager.updateMenuItemEnabledState('app.check-for-updates', false)
       this.trayManager.updateMenuItemEnabledState('app.check-for-updates', false)
+      this.configManager.setUserConfig('last-check-update-time', Date.now())
     })
 
     this.updateManager.on('download-progress', (event) => {
@@ -313,20 +346,23 @@ export default class Application extends EventEmitter {
     // }, 500)
   }
 
-  handleCommands () {
-    this.on('application:save-preference', (config) => {
-      console.log('application:save-preference.config====>', config)
-      const { system, user } = config
-      if (!isEmpty(system)) {
-        console.info('[Motrix] main save system config: ', system)
-        this.configManager.setSystemConfig(system)
-      }
+  savePreference (config = {}) {
+    console.log('application:save-preference.config====>', config)
+    const { system, user } = config
+    if (!isEmpty(system)) {
+      console.info('[Motrix] main save system config: ', system)
+      this.configManager.setSystemConfig(system)
+      this.engineClient.changeGlobalOption(system)
+    }
 
-      if (!isEmpty(user)) {
-        console.info('[Motrix] main save user config: ', user)
-        this.configManager.setUserConfig(user)
-      }
-    })
+    if (!isEmpty(user)) {
+      console.info('[Motrix] main save user config: ', user)
+      this.configManager.setUserConfig(user)
+    }
+  }
+
+  handleCommands () {
+    this.on('application:save-preference', this.savePreference)
 
     this.on('application:relaunch', () => {
       this.relaunch()

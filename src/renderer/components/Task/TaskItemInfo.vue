@@ -38,6 +38,10 @@
                 })
               }}
             </span>
+            <span class="task-connections">
+              <i><mo-icon name="node" width="10" height="10" /></i>
+              <i>{{ task.connections }}</i>
+            </span>
           </div>
         </el-col>
       </el-row>
@@ -118,6 +122,7 @@
 
 <style lang="scss">
   .task-info-dialog {
+    min-width: 380px;
     .el-dialog__header {
       padding-right: 60px;
     }
@@ -156,5 +161,11 @@
   .task-speed-right {
     min-height: 14px;
     text-align: right;
+  }
+  .task-connections {
+    margin-left: 8px;
+    & > i {
+      vertical-align: middle;
+    }
   }
 </style>

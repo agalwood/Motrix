@@ -1,11 +1,13 @@
 const userKeys = [
   'all-proxy-backup',
   'auto-check-update',
+  'auto-sync-tracker',
   'cookie',
   'enable-egg-features',
   'hide-app-menu',
   'keep-window-state',
   'last-check-update-time',
+  'last-sync-tracker-time',
   'locale',
   'log-path',
   'new-task-show-downloading',
@@ -17,6 +19,7 @@ const userKeys = [
   'session-path',
   'task-notification',
   'theme',
+  'tracker-source',
   'use-proxy'
 ]
 
@@ -56,6 +59,8 @@ const systemKeys = [
   'connect-timeout',
   'content-disposition-default-utf8',
   'continue',
+  'dht-file-path',
+  'dht-file-path6',
   'dir',
   'dry-run',
   'enable-http-keep-alive',
@@ -66,6 +71,7 @@ const systemKeys = [
   'follow-metalink',
   'follow-torrent',
   'force-save',
+  'force-sequential',
   'ftp-passwd',
   'ftp-pasv',
   'ftp-proxy-passwd',
@@ -123,7 +129,9 @@ const systemKeys = [
   'remove-control-file',
   'retry-wait',
   'reuse-uri',
+  'rpc-listen-port',
   'rpc-save-upload-metadata',
+  'rpc-secret',
   'seed-ratio',
   'seed-time',
   'select-file',
@@ -137,7 +145,8 @@ const systemKeys = [
 ]
 
 const needRestartKeys = [
-  'hide-app-menu'
+  'hide-app-menu',
+  'rpc-listen-port'
 ]
 
 export {

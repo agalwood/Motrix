@@ -29,6 +29,10 @@
                 })
               }}
             </span>
+            <span class="task-connections">
+              <i><mo-icon name="node" width="10" height="10" /></i>
+              <i>{{ task.connections }}</i>
+            </span>
           </div>
         </el-col>
       </el-row>
@@ -39,12 +43,7 @@
 <script>
   import TaskItemActions from './TaskItemActions'
   import TaskProgress from './TaskProgress'
-  import '@/components/Icons/task-start-line'
-  import '@/components/Icons/task-pause-line'
-  import '@/components/Icons/delete'
-  import '@/components/Icons/folder'
-  import '@/components/Icons/link'
-  import '@/components/Icons/more'
+  import '@/components/Icons/node'
   import {
     getTaskName,
     getTaskFullPath,
@@ -159,5 +158,11 @@
   .task-speed-right {
     min-height: 14px;
     text-align: right;
+  }
+  .task-connections {
+    margin-left: 8px;
+    & > i {
+      vertical-align: middle;
+    }
   }
 </style>

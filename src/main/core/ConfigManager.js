@@ -11,9 +11,10 @@ import {
 import {
   EMPTY_STRING,
   APP_RUN_MODE,
-  TRACKERS_ALL_URL,
-  TRACKERS_ALL_IP_URL
+  NGOSANG_TRACKERS_ALL_URL,
+  NGOSANG_TRACKERS_ALL_IP_URL
 } from '@shared/constants'
+import { separateConfig } from '@shared/utils'
 
 export default class ConfigManager {
   constructor () {
@@ -33,7 +34,9 @@ export default class ConfigManager {
    * https://aria2.github.io/manual/en/html/aria2c.html
    *
    * Best bt trackers
-   * https://github.com/ngosang/trackerslist
+   * @see https://github.com/ngosang/trackerslist
+   *
+   * @see https://github.com/XIU2/TrackersListCollection
    */
   initSystemConfig () {
     this.systemConfig = new Store({
@@ -61,6 +64,7 @@ export default class ConfigManager {
         'user-agent': 'Transmission/2.94'
       }
     })
+    this.fixSystemConfig()
   }
 
   initUserConfig () {
@@ -77,8 +81,10 @@ export default class ConfigManager {
       defaults: {
         'all-proxy-backup': EMPTY_STRING,
         'auto-check-update': is.macOS(),
+        'auto-sync-tracker': true,
         'hide-app-menu': is.windows() || is.linux(),
         'last-check-update-time': 0,
+        'last-sync-tracker-time': 0,
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
@@ -92,8 +98,8 @@ export default class ConfigManager {
         'theme': 'auto',
         'auto-hide-window': false,
         'tracker-source': [
-          TRACKERS_ALL_IP_URL,
-          TRACKERS_ALL_URL
+          NGOSANG_TRACKERS_ALL_IP_URL,
+          NGOSANG_TRACKERS_ALL_URL
         ],
         'update-channel': 'latest',
         'use-proxy': false,
@@ -101,6 +107,18 @@ export default class ConfigManager {
       }
     })
     this.fixUserConfig()
+  }
+
+  fixSystemConfig () {
+    // Remove aria2c unrecognized options
+    const { others } = separateConfig(this.systemConfig.store)
+    if (!others) {
+      return
+    }
+
+    Object.keys(others).forEach(key => {
+      this.systemConfig.delete(key)
+    })
   }
 
   fixUserConfig () {
@@ -113,8 +131,8 @@ export default class ConfigManager {
 
     if (this.getUserConfig('tracker-source').length === 0) {
       this.setUserConfig('tracker-source', [
-        TRACKERS_ALL_IP_URL,
-        TRACKERS_ALL_URL
+        NGOSANG_TRACKERS_ALL_IP_URL,
+        NGOSANG_TRACKERS_ALL_URL
       ])
     }
   }

@@ -12,7 +12,9 @@ import {
   pick
 } from 'lodash'
 import { resolve } from 'path'
-import { userKeys, systemKeys, needRestartKeys } from './configKeys'
+
+import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
+import { ENGINE_RPC_HOST } from '@shared/constants'
 
 export function bytesToSize (bytes) {
   const b = parseInt(bytes, 10)
@@ -529,7 +531,7 @@ export function diffConfig (current = {}, next = {}) {
 }
 
 export function calcFormLabelWidth (locale) {
-  return locale.startsWith('de') ? '28%' : '23%'
+  return locale.startsWith('de') ? '28%' : '25%'
 }
 
 export function parseHeader (header = '') {
@@ -563,7 +565,7 @@ export function formatOptionsForEngine (options) {
 
 export function buildRpcUrl (options) {
   const { port, secret } = options
-  let result = `127.0.0.1:${port}/jsonrpc`
+  let result = `${ENGINE_RPC_HOST}:${port}/jsonrpc`
   if (secret) {
     result = `token:${secret}@${result}`
   }
@@ -588,4 +590,12 @@ export function checkIsNeedRestart (changed = {}) {
   })
 
   return result
+}
+
+export const checkIsNeedRun = (enable, lastTime, interval) => {
+  if (!enable) {
+    return false
+  }
+
+  return (Date.now() - lastTime > interval)
 }

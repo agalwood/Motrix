@@ -1,5 +1,3 @@
-'use strict'
-
 import { app } from 'electron'
 import is from 'electron-is'
 import { existsSync } from 'fs'
