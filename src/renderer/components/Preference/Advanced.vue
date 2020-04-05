@@ -55,12 +55,25 @@
             >
           </el-switch>
         </el-form-item>
-        <el-form-item :label-width="formLabelWidth" v-if="form.useProxy">
+        <el-form-item
+          :label-width="formLabelWidth"
+          v-if="form.useProxy"
+          style="margin-top: -16px;"
+        >
           <el-col class="form-item-sub" :span="16">
             <el-input
               placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
               @change="onAllProxyBackupChange"
               v-model="form.allProxyBackup">
+            </el-input>
+          </el-col>
+          <el-col class="form-item-sub" :span="20">
+            <el-input
+              type="textarea"
+              :autosize="{ minRows: 2, maxRows: 3 }"
+              auto-complete="off"
+              :placeholder="`${$t('preferences.no-proxy-input-tips')}`"
+              v-model="form.noProxy">
             </el-input>
             <div class="el-form-item__info" style="margin-top: 8px;">
               <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/Proxy" rel="noopener noreferrer">
@@ -293,6 +306,7 @@
       hideAppMenu,
       lastCheckUpdateTime,
       lastSyncTrackerTime,
+      noProxy,
       protocols,
       rpcListenPort,
       rpcSecret,
@@ -309,6 +323,7 @@
       hideAppMenu,
       lastCheckUpdateTime,
       lastSyncTrackerTime,
+      noProxy: convertCommaToLine(noProxy),
       protocols: {
         ...protocols
       },
@@ -456,18 +471,20 @@
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
-            console.log('error submit!!')
+            console.log('[Motrix] preference form valid ===>', valid)
             return false
           }
+
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed,
             btTracker: convertLineToComma(this.form.btTracker),
+            noProxy: convertLineToComma(this.form.noProxy),
             protocols: {
               ...this.form.protocols
             }
           }
-          console.log('changed====》', data)
+          console.log('[Motrix] preference changed data ===>', data)
 
           this.$store.dispatch('preference/save', data)
             .then(() => {
@@ -475,7 +492,7 @@
               this.syncFormConfig()
               this.$msg.success(this.$t('preferences.save-success-message'))
             })
-            .catch(() => {
+            .catch((e) => {
               this.$msg.success(this.$t('preferences.save-fail-message'))
             })
 

@@ -56,6 +56,7 @@ export default class ConfigManager {
         'max-overall-download-limit': 0,
         'max-overall-upload-limit': '128K',
         'min-split-size': '1M',
+        'no-proxy': EMPTY_STRING,
         'pause': true,
         'rpc-listen-port': 16800,
         'rpc-secret': EMPTY_STRING,
