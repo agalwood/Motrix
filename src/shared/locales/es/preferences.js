@@ -37,6 +37,7 @@ export default {
   'hide-app-menu': 'Ocultar el menú (Solo Windows y Linux)',
   'proxy': 'Proxy',
   'use-proxy': 'Activar Proxy',
+  'no-proxy-input-tips': 'Omitir la configuración del proxy para estos hosts y dominios, uno por línea',
   'proxy-tips': 'Ver Proxy Manual',
   'bt-tracker': 'Seguir servidores',
   'bt-tracker-input-tips': 'Seguir servidores, uno por línea',

@@ -37,6 +37,7 @@ export default {
   'hide-app-menu': '隱藏選單列（僅支援 Windows 和 Linux）',
   'proxy': '代理伺服器',
   'use-proxy': '代理伺服器',
+  'no-proxy-input-tips': '忽略這些主機與網域的代理伺服器設定，一行一個',
   'proxy-tips': '查看代理伺服器配置手冊',
   'bt-tracker': 'Tracker 伺服器',
   'bt-tracker-input-tips': 'Tracker 伺服器，一行一個',

@@ -37,6 +37,7 @@ export default {
   'hide-app-menu': 'Сховати меню додатка (Тільки для Windows та Linux)',
   'proxy': 'Proxy',
   'use-proxy': 'Застосувати Proxy',
+  'no-proxy-input-tips': 'Обхід налаштувань проксі для цих хостів та доменів, по одному на рядок',
   'proxy-tips': 'Перегляньте посібник з проксі',
   'bt-tracker': 'Tracker Сервер',
   'bt-tracker-input-tips': 'Tracker сервера, один в рядок',

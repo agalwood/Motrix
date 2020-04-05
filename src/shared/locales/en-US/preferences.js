@@ -37,6 +37,7 @@ export default {
   'hide-app-menu': 'Hide App Menu (Windows & Linux Only)',
   'proxy': 'Proxy',
   'use-proxy': 'Enable Proxy',
+  'no-proxy-input-tips': 'Bypass proxy settings for these Hosts and Domains, one per line',
   'proxy-tips': 'View Proxy Manual',
   'bt-tracker': 'Tracker Servers',
   'bt-tracker-input-tips': 'Tracker servers, one per line',
