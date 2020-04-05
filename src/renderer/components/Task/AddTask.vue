@@ -177,8 +177,8 @@ import SelectDirectory from '@/components/Native/SelectDirectory'
 import SelectTorrent from '@/components/Task/SelectTorrent'
 import { prettifyDir } from '@/components/Native/utils'
 import { NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
-import { buildOuts } from '@shared/rename'
 import { detectResource, splitTaskLinks } from '@shared/utils'
+import { buildOuts } from '@shared/utils/rename'
 import '@/components/Icons/inbox'
 
 const initialForm = state => {
