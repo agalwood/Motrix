@@ -37,6 +37,7 @@ export default {
   'hide-app-menu': '앱 메뉴 숨기기 (Windows & Linux)',
   'proxy': '프록시',
   'use-proxy': '프록시 허용',
+  'no-proxy-input-tips': '이러한 호스트 및 도메인에 대한 프록시 설정을 한 줄에 하나씩 무시',
   'proxy-tips': '프록시 매뉴얼보기',
   'bt-tracker': '트래커 서버',
   'bt-tracker-input-tips': '트래커 서버, 한 줄에 하나씩',

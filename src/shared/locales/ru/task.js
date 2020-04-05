@@ -25,6 +25,7 @@ export default {
   'task-user-agent': 'User-Agent',
   'task-referer': 'Реферал',
   'task-cookie': 'Cookie',
+  'task-proxy': 'Proxy',
   'navigate-to-downloading': 'Перейти к загрузке',
   'show-advanced-options': 'Расширенные опции',
   'copyright-warning': 'Предупреждение об авторских правах',

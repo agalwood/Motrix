@@ -24,6 +24,7 @@ export default {
   'task-user-agent': 'ユーザーエージェント',
   'task-referer': 'リファラ',
   'task-cookie': 'クッキー',
+  'task-proxy': 'プロキシ',
   'navigate-to-downloading': 'タスク画面に進む',
   'show-advanced-options': '詳細設定',
   'copyright-warning': '著作権警告',

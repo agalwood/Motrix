@@ -118,7 +118,28 @@
           >
           </el-input>
         </el-form-item>
-        <el-form-item label="" :label-width="formLabelWidth">
+        <el-row :gutter="12">
+          <el-col :span="15" :xs="24">
+            <el-form-item
+              :label="`${$t('task.task-proxy')}: `"
+              :label-width="formLabelWidth"
+            >
+              <el-input
+                placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
+                v-model="form.allProxy">
+              </el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="9" :xs="24">
+            <div class="help-link">
+              <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/Proxy" rel="noopener noreferrer">
+                {{ $t('preferences.proxy-tips') }}
+                <mo-icon name="link" width="12" height="12" />
+              </a>
+            </div>
+          </el-col>
+        </el-row>
+        <el-form-item label="" :label-width="formLabelWidth" style="margin-top: 12px;">
           <el-checkbox class="chk" v-model="form.newTaskShowDownloading">
             {{$t('task.navigate-to-downloading')}}
           </el-checkbox>
@@ -156,14 +177,15 @@ import SelectDirectory from '@/components/Native/SelectDirectory'
 import SelectTorrent from '@/components/Task/SelectTorrent'
 import { prettifyDir } from '@/components/Native/utils'
 import { NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
-import { buildOuts } from '@shared/rename'
 import { detectResource, splitTaskLinks } from '@shared/utils'
+import { buildOuts } from '@shared/utils/rename'
 import '@/components/Icons/inbox'
 
 const initialForm = state => {
   const { addTaskUrl, addTaskOptions } = state.app
-  const { dir, split, newTaskShowDownloading } = state.preference.config
+  const { allProxy, dir, split, newTaskShowDownloading } = state.preference.config
   const result = {
+    allProxy,
     uris: addTaskUrl,
     torrent: '',
     selectFile: NONE_SELECTED_FILES,
@@ -316,8 +338,12 @@ export default {
       return result
     },
     buildOption (type, form) {
-      const { dir, out, selectFile, split } = form
+      const { allProxy, dir, out, selectFile, split } = form
       const result = {}
+
+      if (!isEmpty(allProxy)) {
+        result.allProxy = allProxy
+      }
 
       if (!isEmpty(dir)) {
         result.dir = dir
@@ -430,6 +456,14 @@ export default {
   }
   .el-input-number.el-input-number--mini {
     width: 100%;
+  }
+  .help-link {
+    font-size: 12px;
+    line-height: 14px;
+    padding-top: 7px;
+    > a {
+      color: #909399;
+    }
   }
   .el-dialog__footer {
     padding-top: 20px;

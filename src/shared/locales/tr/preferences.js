@@ -37,6 +37,7 @@ export default {
   'hide-app-menu': 'Uygulama menüsünü göster (Windows & Linux için)',
   'proxy': 'Proxy',
   'use-proxy': 'Proxy etkinleştir',
+  'no-proxy-input-tips': 'Her bir satırda bir tane olacak şekilde bu Ana Bilgisayarlar ve Alanlar için proxy ayarlarını atlayın',
   'proxy-tips': 'Proxy Kılavuzunu Görüntüle',
   'bt-tracker': 'İzleyici Sunucular',
   'bt-tracker-input-tips': 'İzleyici sunucusu, her satıra bir tane',
