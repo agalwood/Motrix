@@ -79,6 +79,8 @@ export default class Application extends EventEmitter {
   }
 
   startEngine () {
+    const self = this
+
     try {
       this.engine.start()
     } catch (err) {
@@ -89,7 +91,7 @@ export default class Application extends EventEmitter {
         message: this.i18n.t('app.system-error-message', { message })
       }).then(_ => {
         setTimeout(() => {
-          app.quit()
+          self.quit()
         }, 100)
       })
     }
@@ -200,9 +202,19 @@ export default class Application extends EventEmitter {
   }
 
   stop () {
-    this.engine.stop()
-    this.energyManager.stopPowerSaveBlocker()
-    this.trayManager.destroy()
+    try {
+      this.engineClient.shutdown()
+      this.trayManager.destroy()
+      this.engine.stop()
+      this.energyManager.stopPowerSaveBlocker()
+    } catch (err) {
+      logger.warn(`[Motrix] stop error: `, err.message)
+    }
+  }
+
+  quit () {
+    this.stop()
+    app.quit()
   }
 
   sendCommand (command, ...args) {
@@ -333,17 +345,10 @@ export default class Application extends EventEmitter {
     })
   }
 
-  relaunch (page = 'index') {
+  relaunch () {
     this.stop()
     app.relaunch()
     app.exit()
-    // this.closePage(page)
-    // if (page === 'index') {
-    //   this.engine.restart()
-    // }
-    // setTimeout(() => {
-    //   this.showPage(page)
-    // }, 500)
   }
 
   savePreference (config = {}) {
@@ -368,9 +373,8 @@ export default class Application extends EventEmitter {
       this.relaunch()
     })
 
-    this.on('application:exit', () => {
-      this.stop()
-      app.exit()
+    this.on('application:quit', () => {
+      this.quit()
     })
 
     this.on('application:open-at-login', (openAtLogin) => {

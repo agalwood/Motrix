@@ -8,5 +8,5 @@
   { "id": "app.check-for-updates", "command": "application:check-for-updates" },
   { "type": "separator" },
   { "id": "app.preferences", "command": "application:preferences", "command-before": "application:show,index" },
-  { "id": "app.quit", "role": "quit" }
+  { "id": "app.quit", "command": "application:quit" }
 ]

@@ -1,4 +1,5 @@
 {
+  "cmd-q": "application:quit",
   "cmd-n": "application:new-task",
   "cmd-shift-n": "application:new-bt-task",
   "cmd-o": "application:open-file",
