@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import { app } from 'electron'
 import logger from './Logger'
 import protocolMap from '../configs/protocol'
+import { ADD_TASK_TYPE } from '@shared/constants'
 
 export default class ProtocolManager extends EventEmitter {
   constructor (options = {}) {
@@ -61,7 +62,7 @@ export default class ProtocolManager extends EventEmitter {
       return
     }
 
-    global.application.sendCommandToAll('application:new-task', 'uri', url)
+    global.application.sendCommandToAll('application:new-task', ADD_TASK_TYPE.URI, url)
   }
 
   handleMoProtocol (url) {

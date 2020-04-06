@@ -5,6 +5,7 @@ import { Message } from 'element-ui'
 import { getLocaleManager } from '@/components/Locale'
 import { base64StringToBlob } from 'blob-util'
 import { buildFileList } from '@shared/utils'
+import { ADD_TASK_TYPE } from '@shared/constants'
 
 const commands = new CommandManager()
 const i18n = getLocaleManager().getI18n()
@@ -21,22 +22,22 @@ function showAboutPanel () {
   store.dispatch('app/showAboutPanel')
 }
 
-function showAddTask (taskType = 'uri', task = '') {
-  if (taskType === 'uri' && task) {
+function showAddTask (taskType = ADD_TASK_TYPE.URI, task = '') {
+  if (taskType === ADD_TASK_TYPE.URI && task) {
     store.dispatch('app/updateAddTaskUrl', task)
   }
   store.dispatch('app/showAddTaskDialog', taskType)
 }
 
 function showAddBtTask () {
-  store.dispatch('app/showAddTaskDialog', 'torrent')
+  store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.TORRENT)
 }
 
 function showAddBtTaskWithFile (fileName, base64Data = '') {
   const blob = base64StringToBlob(base64Data, 'application/x-bittorrent')
   const file = new File([blob], fileName, { type: 'application/x-bittorrent' })
   const fileList = buildFileList(file)
-  store.dispatch('app/showAddTaskDialog', 'torrent')
+  store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.TORRENT)
   setTimeout(() => {
     store.dispatch('app/addTaskAddTorrents', { fileList })
   }, 200)

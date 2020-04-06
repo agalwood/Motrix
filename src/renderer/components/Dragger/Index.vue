@@ -3,6 +3,8 @@
 </template>
 
 <script>
+import { ADD_TASK_TYPE } from '@shared/constants'
+
 export default {
   name: 'mo-dragger',
   mounted () {
@@ -10,7 +12,7 @@ export default {
     let count = 0
     this.onDragEnter = (ev) => {
       if (count === 0) {
-        this.$store.dispatch('app/showAddTaskDialog', 'torrent')
+        this.$store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.TORRENT)
       }
       count++
     }

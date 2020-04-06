@@ -1,3 +1,4 @@
+import { ADD_TASK_TYPE } from '@shared/constants'
 import api from '@/api'
 import { getSystemTheme } from '@/components/Native/utils'
 
@@ -23,7 +24,7 @@ const state = {
     numStopped: 0
   },
   addTaskVisible: false,
-  addTaskType: 'uri',
+  addTaskType: ADD_TASK_TYPE.URI,
   addTaskUrl: '',
   addTaskTorrents: [],
   addTaskOptions: {}

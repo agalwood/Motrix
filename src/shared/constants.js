@@ -11,6 +11,11 @@ export const APP_RUN_MODE = {
   MENU_BAR: 2
 }
 
+export const ADD_TASK_TYPE = {
+  URI: 'uri',
+  TORRENT: 'torrent'
+}
+
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 

@@ -38,6 +38,7 @@
 <script>
   import is from 'electron-is'
   import * as clipboard from 'clipboard-polyfill'
+  import { ADD_TASK_TYPE } from '@shared/constants'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
   import '@/components/Icons/task-stop-line'
@@ -221,7 +222,7 @@
 
         this.$store.dispatch('app/updateAddTaskUrl', uri)
         this.$store.dispatch('app/updateAddTaskOptions', newOptions)
-        this.$store.dispatch('app/showAddTaskDialog', 'uri')
+        this.$store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.URI)
       },
       onPauseClick () {
         this.pauseTask()
