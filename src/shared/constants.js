@@ -1,7 +1,10 @@
 export const EMPTY_STRING = ''
 
-export const LIGHT_THEME = 'light'
-export const DARK_THEME = 'dark'
+export const APP_THEME = {
+  AUTO: 'auto',
+  LIGHT: 'light',
+  DARK: 'dark'
+}
 
 export const APP_RUN_MODE = {
   STANDARD: 1,

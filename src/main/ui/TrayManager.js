@@ -8,7 +8,7 @@ import {
   updateStates
 } from '../utils/menu'
 import { getI18n } from '@/ui/Locale'
-import { LIGHT_THEME, DARK_THEME } from '@shared/constants'
+import { APP_THEME } from '@shared/constants'
 
 let tray = null
 
@@ -28,7 +28,7 @@ export default class TrayManager extends EventEmitter {
 
   load () {
     this.template = require(`../menus/tray.json`)
-    const theme = nativeTheme.shouldUseDarkColors ? DARK_THEME : LIGHT_THEME
+    const theme = nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
 
     if (is.macOS()) {
       this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)
@@ -107,7 +107,7 @@ export default class TrayManager extends EventEmitter {
     tray.setImage(icon)
   }
 
-  changeIconTheme (theme = LIGHT_THEME) {
+  changeIconTheme (theme = APP_THEME.LIGHT) {
     if (!is.macOS()) {
       return
     }

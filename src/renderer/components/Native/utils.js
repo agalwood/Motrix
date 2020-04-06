@@ -6,7 +6,7 @@ import {
   getTaskFullPath,
   bytesToSize
 } from '@shared/utils'
-import { LIGHT_THEME, DARK_THEME } from '@shared/constants'
+import { APP_THEME } from '@shared/constants'
 
 const remote = is.renderer() ? require('electron').remote : {}
 
@@ -148,10 +148,10 @@ export function clearRecentTasks () {
 }
 
 export function getSystemTheme () {
-  let result = LIGHT_THEME
+  let result = APP_THEME.LIGHT
   if (!is.macOS()) {
     return result
   }
-  result = remote.nativeTheme.shouldUseDarkColors ? DARK_THEME : LIGHT_THEME
+  result = remote.nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
   return result
 }

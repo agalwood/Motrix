@@ -15,6 +15,7 @@ import {
   NGOSANG_TRACKERS_ALL_IP_URL
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
+import { APP_THEME } from '@shared/constants'
 
 export default class ConfigManager {
   constructor () {
@@ -96,7 +97,7 @@ export default class ConfigManager {
         'keep-window-state': false,
         'session-path': getSessionPath(),
         'task-notification': true,
-        'theme': 'auto',
+        'theme': APP_THEME.AUTO,
         'auto-hide-window': false,
         'tracker-source': [
           NGOSANG_TRACKERS_ALL_IP_URL,
