@@ -9,13 +9,13 @@ import {
   getUserDownloadsPath
 } from '../utils/index'
 import {
+  APP_THEME,
   EMPTY_STRING,
   APP_RUN_MODE,
   NGOSANG_TRACKERS_ALL_URL,
   NGOSANG_TRACKERS_ALL_IP_URL
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
-import { APP_THEME } from '@shared/constants'
 
 export default class ConfigManager {
   constructor () {
