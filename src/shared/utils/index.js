@@ -341,7 +341,7 @@ export function splitTextRows (text = '') {
 export function convertCommaToLine (text = '') {
   let arr = text.split(',')
   arr = arr.map((row) => row.trim())
-  const result = arr.join('\n')
+  const result = arr.join('\n').trim()
   return result
 }
 
@@ -523,7 +523,7 @@ export function diffConfig (current = {}, next = {}) {
   const curr = pick(current, Object.keys(next))
   const result = omitBy(next, (val, key) => {
     if (isArray(val)) {
-      return false
+      return JSON.stringify(curr[key]) === JSON.stringify(val)
     }
     return curr[key] === val
   })

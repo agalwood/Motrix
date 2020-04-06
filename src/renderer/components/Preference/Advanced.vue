@@ -478,12 +478,20 @@
           const changed = diffConfig(this.formOriginal, this.form)
           const data = {
             ...changed,
-            btTracker: convertLineToComma(this.form.btTracker),
-            noProxy: convertLineToComma(this.form.noProxy),
             protocols: {
               ...this.form.protocols
             }
           }
+
+          const { btTracker, noProxy } = changed
+          if (btTracker) {
+            data.btTracker = convertLineToComma(btTracker)
+          }
+
+          if (noProxy) {
+            data.noProxy = convertLineToComma(noProxy)
+          }
+
           console.log('[Motrix] preference changed data ===>', data)
 
           this.$store.dispatch('preference/save', data)
@@ -500,7 +508,7 @@
             this.$electron.ipcRenderer.send('command',
               'application:setup-protocols-client', data.protocols)
 
-            if (checkIsNeedRestart(changed)) {
+            if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')
             }
           }

@@ -20,11 +20,11 @@ export const fetchBtTrackerFromSource = async (source) => {
 }
 
 export function convertTrackerDataToLine (arr = []) {
-  const result = arr.join('\r\n').replace(/^\s*[\r\n]/gm, '')
+  const result = arr.join('\r\n').replace(/^\s*[\r\n]/gm, '').trim()
   return result
 }
 
 export function convertTrackerDataToComma (arr = []) {
-  const result = convertTrackerDataToLine(arr).trim().replace(/(?:\r\n|\r|\n)/g, ',')
+  const result = convertTrackerDataToLine(arr).replace(/(?:\r\n|\r|\n)/g, ',').trim()
   return result
 }
