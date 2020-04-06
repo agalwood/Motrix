@@ -1,5 +1,4 @@
 import is from 'electron-is'
-import { existsSync } from 'fs'
 import { access, constants } from 'fs'
 import { Message } from 'element-ui'
 import {
@@ -50,16 +49,17 @@ export function openItem (fullPath, { errorMsg }) {
 
 export function moveTaskFilesToTrash (task, messages = {}) {
   /**
-   * 磁力链接任务，有 bittorrent，但没有 bittorrent.info ，
-   * 在没下完变成BT任务之前 path 不是一个完整路径，
-   * 未避免误删所在目录，所以删除时直接返回 true
+   * For magnet link tasks, there is bittorrent, but there is no bittorrent.info.
+   * The path is not a complete path before it becomes a BT task.
+   * In order to avoid accidentally deleting the directory
+   * where the task is located, it directly returns true when deleting.
    */
   if (isMagnetTask(task)) {
     return true
   }
 
   const { pathErrorMsg, delFailMsg, delConfigFailMsg } = messages
-  const { dir } = task
+  const { dir, status } = task
   const path = getTaskFullPath(task)
   if (!path || dir === path) {
     if (pathErrorMsg) {
@@ -69,23 +69,36 @@ export function moveTaskFilesToTrash (task, messages = {}) {
   }
 
   let deleteResult1 = true
-  const isFileExist = existsSync(path)
-  if (isFileExist) {
+  access(path, constants.F_OK, (err) => {
+    console.log(`${path} ${err ? 'does not exist' : 'exists'}`)
+    if (err) {
+      return true
+    }
+
     deleteResult1 = remote.shell.moveItemToTrash(path)
     if (!deleteResult1 && delFailMsg) {
       Message.error(delFailMsg)
     }
+  })
+
+  // There is no configuration file for the completed task.
+  if (status === 'complete') {
+    return deleteResult1
   }
 
   let deleteResult2 = true
   const extraFilePath = `${path}.aria2`
-  const isExtraExist = existsSync(extraFilePath)
-  if (isExtraExist) {
+  access(extraFilePath, constants.F_OK, (err) => {
+    console.log(`${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
+    if (err) {
+      return true
+    }
+
     deleteResult2 = remote.shell.moveItemToTrash(extraFilePath)
     if (!deleteResult2 && delConfigFailMsg) {
       Message.error(delConfigFailMsg)
     }
-  }
+  })
 
   return deleteResult1 && deleteResult2
 }
