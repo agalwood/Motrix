@@ -68,7 +68,7 @@
       >
         <el-input
           placeholder=""
-          v-model="downloadDir"
+          v-model="form.dir"
           :readonly="isMas()"
         >
           <mo-select-directory

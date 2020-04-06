@@ -99,7 +99,7 @@
           :label="`${$t('preferences.default-dir')}: `"
           :label-width="formLabelWidth"
         >
-          <el-input placeholder="" v-model="downloadDir" :readonly="isMas()">
+          <el-input placeholder="" v-model="form.dir" :readonly="isMas()">
             <mo-select-directory
               v-if="isRenderer()"
               slot="append"
