@@ -1,11 +1,19 @@
 export const EMPTY_STRING = ''
 
-export const LIGHT_THEME = 'light'
-export const DARK_THEME = 'dark'
+export const APP_THEME = {
+  AUTO: 'auto',
+  LIGHT: 'light',
+  DARK: 'dark'
+}
 
 export const APP_RUN_MODE = {
   STANDARD: 1,
   MENU_BAR: 2
+}
+
+export const ADD_TASK_TYPE = {
+  URI: 'uri',
+  TORRENT: 'torrent'
 }
 
 export const ENGINE_RPC_HOST = '127.0.0.1'

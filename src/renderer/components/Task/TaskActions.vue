@@ -41,7 +41,8 @@
 
 <script>
   import { mapState } from 'vuex'
-  import TaskProgress from './TaskProgress'
+  import { ADD_TASK_TYPE } from '@shared/constants'
+  import { bytesToSize, timeFormat } from '@shared/utils'
   import '@/components/Icons/menu-add'
   import '@/components/Icons/refresh'
   import '@/components/Icons/task-start-line'
@@ -49,15 +50,10 @@
   import '@/components/Icons/delete'
   import '@/components/Icons/purge'
   import '@/components/Icons/more'
-  import {
-    bytesToSize,
-    timeFormat
-  } from '@shared/utils'
 
   export default {
     name: 'mo-task-actions',
     components: {
-      [TaskProgress.name]: TaskProgress
     },
     props: ['task'],
     data: function () {
@@ -121,7 +117,7 @@
           })
       },
       onAddClick: function () {
-        this.$store.dispatch('app/showAddTaskDialog', 'uri')
+        this.$store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.URI)
       }
     }
   }

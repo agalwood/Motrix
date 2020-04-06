@@ -25,6 +25,7 @@
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
+  import { ADD_TASK_TYPE } from '@shared/constants'
   import LogoMini from '@/components/Logo/LogoMini'
   import '@/components/Icons/menu-task'
   import '@/components/Icons/menu-add'
@@ -45,7 +46,7 @@
       }
     },
     methods: {
-      showAddTask (taskType = 'uri') {
+      showAddTask (taskType = ADD_TASK_TYPE.URI) {
         this.$store.dispatch('app/showAddTaskDialog', taskType)
       },
       showAboutPanel () {

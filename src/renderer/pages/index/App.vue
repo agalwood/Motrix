@@ -14,11 +14,12 @@
 
 <script>
   import is from 'electron-is'
+  import { mapState } from 'vuex'
+  import { getLangDirection } from '@shared/utils'
+  import { APP_THEME } from '@shared/constants'
   import TitleBar from '@/components/Native/TitleBar'
   import EngineClient from '@/components/Native/EngineClient'
   import Ipc from '@/components/Native/Ipc'
-  import { mapState } from 'vuex'
-  import { getLangDirection } from '@shared/utils'
 
   export default {
     name: 'Motrix',
@@ -41,7 +42,7 @@
         dir: state => getLangDirection(state.config.locale)
       }),
       themeClass: function () {
-        if (this.theme === 'auto') {
+        if (this.theme === APP_THEME.AUTO) {
           return `theme-${this.systemTheme}`
         } else {
           return `theme-${this.theme}`

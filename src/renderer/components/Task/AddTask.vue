@@ -68,7 +68,7 @@
       >
         <el-input
           placeholder=""
-          v-model="downloadDir"
+          v-model="form.dir"
           :readonly="isMas()"
         >
           <mo-select-directory
@@ -176,7 +176,7 @@ import { isEmpty } from 'lodash'
 import SelectDirectory from '@/components/Native/SelectDirectory'
 import SelectTorrent from '@/components/Task/SelectTorrent'
 import { prettifyDir } from '@/components/Native/utils'
-import { NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
+import { ADD_TASK_TYPE, NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
 import { detectResource, splitTaskLinks } from '@shared/utils'
 import { buildOuts } from '@shared/utils/rename'
 import '@/components/Icons/inbox'
@@ -214,7 +214,7 @@ export default {
     },
     type: {
       type: String,
-      default: 'uri'
+      default: ADD_TASK_TYPE.URI
     }
   },
   data () {
@@ -241,11 +241,11 @@ export default {
   },
   watch: {
     taskType: function (current, previous) {
-      if (this.visible && previous === 'uri') {
+      if (this.visible && previous === ADD_TASK_TYPE.URI) {
         return
       }
 
-      if (current === 'uri') {
+      if (current === ADD_TASK_TYPE.URI) {
         setTimeout(() => {
           this.$refs.uri && this.$refs.uri.focus()
         }, 50)
@@ -257,7 +257,7 @@ export default {
     isMas: is.mas,
     handleOpen () {
       this.form = initialForm(this.$store.state)
-      if (this.taskType === 'uri') {
+      if (this.taskType === ADD_TASK_TYPE.URI) {
         this.autofillResourceLink()
         setTimeout(() => {
           this.$refs.uri && this.$refs.uri.focus()
@@ -353,7 +353,7 @@ export default {
         result.out = out
       }
 
-      if (type === 'torrent') {
+      if (type === ADD_TASK_TYPE.TORRENT) {
         if (
           selectFile !== SELECTED_ALL_FILES &&
           selectFile !== NONE_SELECTED_FILES
@@ -380,7 +380,7 @@ export default {
       uris = splitTaskLinks(uris)
       const outs = buildOuts(uris, out)
 
-      const options = this.buildOption('uri', form)
+      const options = this.buildOption(ADD_TASK_TYPE.URI, form)
       const result = {
         uris,
         outs,
@@ -393,7 +393,7 @@ export default {
       if (isEmpty(torrent)) {
         throw new Error(this.$t('task.new-task-torrent-required'))
       }
-      const options = this.buildOption('torrent', form)
+      const options = this.buildOption(ADD_TASK_TYPE.TORRENT, form)
       const result = {
         torrent,
         options
@@ -402,12 +402,12 @@ export default {
     },
     addTask (type, form) {
       let payload = null
-      if (type === 'uri') {
+      if (type === ADD_TASK_TYPE.URI) {
         payload = this.buildUriPayload(form)
         this.$store.dispatch('task/addUri', payload).catch(err => {
           this.$msg.error(err.message)
         })
-      } else if (type === 'torrent') {
+      } else if (type === ADD_TASK_TYPE.TORRENT) {
         payload = this.buildTorrentPayload(form)
         this.$store.dispatch('task/addTorrent', payload).catch(err => {
           this.$msg.error(err.message)

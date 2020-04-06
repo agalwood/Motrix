@@ -2,34 +2,21 @@
   <div>
     <ul class="theme-switcher">
       <li
-        class="theme-item theme-item-auto"
-        :class="{ active: currentValue === 'auto' }"
-        @click.prevent="() => handleChange('auto')"
+        v-for="item in themeOptions"
+        :class="['theme-item', item.className, { active: currentValue === item.value }]"
+        :key="item.value"
+        @click.prevent="() => handleChange(item.value)"
       >
         <div class="theme-thumb"></div>
-        <span>{{ $t('preferences.theme-auto') }}</span>
-      </li>
-      <li
-        class="theme-item theme-item-light"
-        :class="{ active: currentValue === 'light' }"
-        @click.prevent="() => handleChange('light')"
-      >
-        <div class="theme-thumb"></div>
-        <span>{{ $t('preferences.theme-light') }}</span>
-      </li>
-      <li
-        class="theme-item theme-item-dark"
-        :class="{ active: currentValue === 'dark' }"
-        @click.prevent="() => handleChange('dark')"
-      >
-        <div class="theme-thumb"></div>
-        <span>{{ $t('preferences.theme-dark') }}</span>
+        <span>{{ item.text }}</span>
       </li>
     </ul>
   </div>
 </template>
 
 <script>
+  import { APP_THEME } from '@shared/constants'
+
   export default {
     name: 'mo-theme-switcher',
     components: {
@@ -37,12 +24,33 @@
     props: {
       value: {
         type: String,
-        default: 'auto'
+        default: APP_THEME.AUTO
       }
     },
     data: function () {
       return {
         currentValue: this.value
+      }
+    },
+    computed: {
+      themeOptions () {
+        return [
+          {
+            className: 'theme-item-auto',
+            value: APP_THEME.AUTO,
+            text: this.$t('preferences.theme-auto')
+          },
+          {
+            className: 'theme-item-light',
+            value: APP_THEME.LIGHT,
+            text: this.$t('preferences.theme-light')
+          },
+          {
+            className: 'theme-item-dark',
+            value: APP_THEME.DARK,
+            text: this.$t('preferences.theme-dark')
+          }
+        ]
       }
     },
     watch: {
