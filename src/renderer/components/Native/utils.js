@@ -1,5 +1,6 @@
 import is from 'electron-is'
 import { existsSync } from 'fs'
+import { access, constants } from 'fs'
 import { Message } from 'element-ui'
 import {
   isMagnetTask,
@@ -24,11 +25,16 @@ export function showItemInFolder (fullPath, { errorMsg }) {
   if (!fullPath) {
     return
   }
-  const result = remote.shell.showItemInFolder(fullPath)
-  if (!result && errorMsg) {
-    Message.error(errorMsg)
-  }
-  return result
+
+  access(fullPath, constants.F_OK, (err) => {
+    console.log(`${fullPath} ${err ? 'does not exist' : 'exists'}`)
+    if (err) {
+      Message.error(errorMsg)
+      return
+    }
+
+    remote.shell.showItemInFolder(fullPath)
+  })
 }
 
 export function openItem (fullPath, { errorMsg }) {
