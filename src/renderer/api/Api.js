@@ -273,6 +273,12 @@ export default class Api {
     return this.client.call('tellStatus', ...args)
   }
 
+  fetchTaskItemPeers (params = {}) {
+    const { gid, keys } = params
+    const args = compactUndefined([gid, keys])
+    return this.client.call('getPeers', ...args)
+  }
+
   pauseTask (params = {}) {
     const { gid } = params
     const args = compactUndefined([gid])
