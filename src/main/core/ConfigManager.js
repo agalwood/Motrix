@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import is from 'electron-is'
 import Store from 'electron-store'
-import tracker from '../configs/tracker'
 import {
   getDhtPath,
   getLogPath,
@@ -12,8 +11,8 @@ import {
   APP_THEME,
   EMPTY_STRING,
   APP_RUN_MODE,
-  NGOSANG_TRACKERS_ALL_URL,
-  NGOSANG_TRACKERS_ALL_IP_URL
+  NGOSANG_TRACKERS_BEST_URL,
+  NGOSANG_TRACKERS_BEST_IP_URL
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
 
@@ -46,7 +45,7 @@ export default class ConfigManager {
         'all-proxy': EMPTY_STRING,
         'allow-overwrite': true,
         'auto-file-renaming': true,
-        'bt-tracker': tracker.join(','),
+        'bt-tracker': EMPTY_STRING,
         'continue': true,
         'dht-file-path': getDhtPath(4),
         'dht-file-path6': getDhtPath(6),
@@ -83,25 +82,26 @@ export default class ConfigManager {
       defaults: {
         'all-proxy-backup': EMPTY_STRING,
         'auto-check-update': is.macOS(),
+        'auto-hide-window': false,
         'auto-sync-tracker': true,
+        'engine-max-connection-per-server': getMaxConnectionPerServer(),
         'hide-app-menu': is.windows() || is.linux(),
+        'keep-window-state': false,
         'last-check-update-time': 0,
         'last-sync-tracker-time': 0,
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
         'open-at-login': false,
-        'run-mode': APP_RUN_MODE.STANDARD,
         'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,
-        'keep-window-state': false,
+        'run-mode': APP_RUN_MODE.STANDARD,
         'session-path': getSessionPath(),
         'task-notification': true,
         'theme': APP_THEME.AUTO,
-        'auto-hide-window': false,
         'tracker-source': [
-          NGOSANG_TRACKERS_ALL_IP_URL,
-          NGOSANG_TRACKERS_ALL_URL
+          NGOSANG_TRACKERS_BEST_IP_URL,
+          NGOSANG_TRACKERS_BEST_URL
         ],
         'update-channel': 'latest',
         'use-proxy': false,
@@ -133,8 +133,8 @@ export default class ConfigManager {
 
     if (this.getUserConfig('tracker-source').length === 0) {
       this.setUserConfig('tracker-source', [
-        NGOSANG_TRACKERS_ALL_IP_URL,
-        NGOSANG_TRACKERS_ALL_URL
+        NGOSANG_TRACKERS_BEST_IP_URL,
+        NGOSANG_TRACKERS_BEST_URL
       ])
     }
   }
