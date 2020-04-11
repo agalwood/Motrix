@@ -374,7 +374,7 @@
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
-            console.log('[Motrix] preference form valid ===>', valid)
+            console.log('[Motrix] preference form valid:', valid)
             return false
           }
 
@@ -383,7 +383,7 @@
           const data = {
             ...changed
           }
-          console.log('[Motrix] preference changed data ===>', data)
+          console.log('[Motrix] preference changed data:', data)
 
           this.$store.dispatch('preference/save', data)
             .then(() => {

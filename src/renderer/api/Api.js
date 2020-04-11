@@ -231,11 +231,11 @@ export default class Api {
         [ 'aria2.tellActive', ...activeArgs ],
         [ 'aria2.tellWaiting', ...waitingArgs ]
       ]).then((data) => {
-        console.log('fetchDownloadingTaskList data', data)
+        console.log('[Motrix] fetch downloading task list data:', data)
         const result = mergeTaskResult(data)
         resolve(result)
       }).catch((err) => {
-        console.log('fetchDownloadingTaskList fail===>', err)
+        console.log('[Motrix] fetch downloading task list fail:', err)
         reject(err)
       })
     })

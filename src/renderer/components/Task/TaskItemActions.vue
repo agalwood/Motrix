@@ -302,7 +302,6 @@
         this.$store.dispatch('task/showTaskItemInfoDialog', this.task)
       },
       onMoreClick () {
-        console.log('onMoreClick===>')
       }
     }
   }

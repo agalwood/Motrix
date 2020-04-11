@@ -85,7 +85,6 @@ export default class WindowManager extends EventEmitter {
     })
 
     const bounds = this.getPageBounds(page)
-    console.log('bounds ====>', bounds)
     if (bounds) {
       window.setBounds(bounds)
     }
@@ -242,7 +241,7 @@ export default class WindowManager extends EventEmitter {
     if (!window) {
       return
     }
-    logger.info('[Motrix] sendCommandTo===>', command, ...args)
+    logger.info('[Motrix] send command to:', command, ...args)
     window.webContents.send('command', command, ...args)
   }
 

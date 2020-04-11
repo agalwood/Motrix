@@ -352,7 +352,7 @@ export default class Application extends EventEmitter {
   }
 
   savePreference (config = {}) {
-    console.log('application:save-preference.config====>', config)
+    logger.info('[Motrix] save preference:', config)
     const { system, user } = config
     if (!isEmpty(system)) {
       console.info('[Motrix] main save system config: ', system)
@@ -378,7 +378,6 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:open-at-login', (openAtLogin) => {
-      console.log('application:open-at-login===>', openAtLogin)
       if (is.linux()) {
         return
       }
@@ -413,7 +412,6 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:change-locale', (locale) => {
-      logger.info('[Motrix] application:change-locale===>', locale)
       this.localeManager.changeLanguageByLocale(locale)
         .then(() => {
           this.menuManager.setup(locale)
@@ -471,7 +469,7 @@ export default class Application extends EventEmitter {
       if (is.dev() || is.mas()) {
         return
       }
-      console.log('this.protocolManager', protocols)
+      logger.info('[Motrix] setup protocols client:', protocols)
       this.protocolManager.setup(protocols)
     })
 
@@ -498,8 +496,7 @@ export default class Application extends EventEmitter {
 
   handleEvents () {
     this.on('download-status-change', (downloading) => {
-      console.log('download-status-change===>', downloading)
-      this.trayManager.updateStatus(downloading)
+      this.trayManager.updateTrayByStatus(downloading)
       if (downloading) {
         this.energyManager.startPowerSaveBlocker()
       } else {
@@ -508,24 +505,22 @@ export default class Application extends EventEmitter {
     })
 
     this.on('download-speed-change', (speed) => {
-      console.log('download-speed-change===>', speed)
       this.dockManager.setBadge(speed)
     })
 
     this.on('task-download-complete', (task, path) => {
-      console.log('task-download-complete===>', task, path)
       this.dockManager.openDock(path)
     })
   }
 
   handleIpcMessages () {
     ipcMain.on('command', (event, command, ...args) => {
-      logger.log('receive command', command, ...args)
+      logger.log('[Motrix] ipc receive command', command, ...args)
       this.emit(command, ...args)
     })
 
     ipcMain.on('event', (event, eventName, ...args) => {
-      logger.log('receive event', eventName, ...args)
+      logger.log('[Motrix] ipc receive event', eventName, ...args)
       this.emit(eventName, ...args)
     })
   }

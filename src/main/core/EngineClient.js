@@ -48,12 +48,12 @@ export default class EngineClient {
 
   async call (method, ...args) {
     return this.client.call(method, ...args).catch((err) => {
-      console.log('[Motrix] call client fail===>', err)
+      logger.warn('[Motrix] call client fail:', err)
     })
   }
 
   changeGlobalOption (options) {
-    console.log('EngineClient.changeGlobalOption===>', options)
+    logger.info('[Motrix] change engine global option:', options)
     const args = formatOptionsForEngine(options)
 
     return this.call('changeGlobalOption', args)

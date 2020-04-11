@@ -12,7 +12,6 @@ export default class DockManager extends EventEmitter {
     super()
     this.options = options
     const { runMode } = this.options
-    console.log('DockManager options', this.options)
     if (runMode !== APP_RUN_MODE.STANDARD) {
       this.hide()
     }

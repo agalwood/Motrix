@@ -25,7 +25,6 @@ export default {
   },
   methods: {
     handleRoute (route) {
-      console.log('route=====>', route)
       this.$router.push({
         path: route
       }).catch(err => {
