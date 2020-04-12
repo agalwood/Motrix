@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import is from 'electron-is'
 import Store from 'electron-store'
+
 import {
   getDhtPath,
   getLogPath,

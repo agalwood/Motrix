@@ -1,6 +1,7 @@
 
 import { EventEmitter } from 'events'
 import { app } from 'electron'
+
 import logger from './Logger'
 import protocolMap from '../configs/protocol'
 import { ADD_TASK_TYPE } from '@shared/constants'

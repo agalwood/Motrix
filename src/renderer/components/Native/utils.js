@@ -1,12 +1,13 @@
 import is from 'electron-is'
 import { access, constants } from 'fs'
 import { Message } from 'element-ui'
+
 import {
   isMagnetTask,
   getTaskFullPath,
   bytesToSize
 } from '@shared/utils'
-import { APP_THEME } from '@shared/constants'
+import { APP_THEME, TASK_STATUS } from '@shared/constants'
 
 const remote = is.renderer() ? require('electron').remote : {}
 
@@ -47,7 +48,7 @@ export function openItem (fullPath, { errorMsg }) {
   return result
 }
 
-export function moveTaskFilesToTrash (task, messages = {}) {
+export function moveTaskFilesToTrash (task) {
   /**
    * For magnet link tasks, there is bittorrent, but there is no bittorrent.info.
    * The path is not a complete path before it becomes a BT task.
@@ -58,31 +59,22 @@ export function moveTaskFilesToTrash (task, messages = {}) {
     return true
   }
 
-  const { pathErrorMsg, delFailMsg, delConfigFailMsg } = messages
   const { dir, status } = task
   const path = getTaskFullPath(task)
   if (!path || dir === path) {
-    if (pathErrorMsg) {
-      Message.error(pathErrorMsg)
-    }
-    return false
+    throw new Error('task.file-path-error')
   }
 
   let deleteResult1 = true
   access(path, constants.F_OK, (err) => {
     console.log(`${path} ${err ? 'does not exist' : 'exists'}`)
-    if (err) {
-      return true
-    }
-
-    deleteResult1 = remote.shell.moveItemToTrash(path)
-    if (!deleteResult1 && delFailMsg) {
-      Message.error(delFailMsg)
+    if (!err) {
+      deleteResult1 = remote.shell.moveItemToTrash(path)
     }
   })
 
   // There is no configuration file for the completed task.
-  if (status === 'complete') {
+  if (status === TASK_STATUS.COMPLETE) {
     return deleteResult1
   }
 
@@ -90,13 +82,8 @@ export function moveTaskFilesToTrash (task, messages = {}) {
   const extraFilePath = `${path}.aria2`
   access(extraFilePath, constants.F_OK, (err) => {
     console.log(`${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
-    if (err) {
-      return true
-    }
-
-    deleteResult2 = remote.shell.moveItemToTrash(extraFilePath)
-    if (!deleteResult2 && delConfigFailMsg) {
-      Message.error(delConfigFailMsg)
+    if (!err) {
+      deleteResult2 = remote.shell.moveItemToTrash(extraFilePath)
     }
   })
 

@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { join } from 'path'
 import { Tray, Menu, nativeTheme } from 'electron'
 import is from 'electron-is'
+
 import {
   translateTemplate,
   flattenMenuItems,

@@ -3,6 +3,7 @@ import is from 'electron-is'
 import { existsSync } from 'fs'
 import { resolve, join } from 'path'
 import forever from 'forever-monitor'
+
 import logger from './Logger'
 import { getI18n } from '@/ui/Locale'
 import {

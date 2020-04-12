@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { nativeTheme, systemPreferences } from 'electron'
+
 import is from 'electron-is'
 import { APP_THEME } from '@shared/constants'
 

@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { join } from 'path'
 import { TouchBar, nativeImage } from 'electron'
+
 import { handleCommand } from '../utils/menu'
 import logger from '../core/Logger'
 

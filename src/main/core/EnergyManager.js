@@ -1,4 +1,5 @@
 import { powerSaveBlocker } from 'electron'
+
 import logger from './Logger'
 
 let psbId

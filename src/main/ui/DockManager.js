@@ -1,6 +1,7 @@
 import is from 'electron-is'
 import { EventEmitter } from 'events'
 import { app } from 'electron'
+
 import {
   APP_RUN_MODE
 } from '@shared/constants'

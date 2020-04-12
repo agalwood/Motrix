@@ -2,6 +2,7 @@ import { app } from 'electron'
 import is from 'electron-is'
 import { resolve } from 'path'
 import { existsSync, lstatSync } from 'fs'
+
 import logger from '../core/Logger'
 import engineBinMap from '../configs/engine'
 

@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { Menu } from 'electron'
+
 import {
   translateTemplate,
   flattenMenuItems,
