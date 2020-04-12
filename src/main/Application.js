@@ -55,7 +55,9 @@ export default class Application extends EventEmitter {
 
     this.autoSyncTracker()
 
-    this.trayManager = new TrayManager()
+    this.trayManager = new TrayManager({
+      theme: this.configManager.getUserConfig('tray-theme')
+    })
 
     this.dockManager = new DockManager({
       runMode: this.configManager.getUserConfig('run-mode')

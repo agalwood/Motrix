@@ -103,6 +103,7 @@ export default class ConfigManager {
           NGOSANG_TRACKERS_BEST_IP_URL,
           NGOSANG_TRACKERS_BEST_URL
         ],
+        'tray-theme': APP_THEME.AUTO,
         'update-channel': 'latest',
         'use-proxy': false,
         'window-state': {}
