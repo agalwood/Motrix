@@ -50,7 +50,9 @@ export default class ConfigManager {
         'continue': true,
         'dht-file-path': getDhtPath(4),
         'dht-file-path6': getDhtPath(6),
+        'dht-listen-port': 26701,
         'dir': getUserDownloadsPath(),
+        'listen-port': 21301,
         'max-concurrent-downloads': 5,
         'max-connection-per-server': is.macOS() ? 64 : 16,
         'max-download-limit': 0,
@@ -61,6 +63,7 @@ export default class ConfigManager {
         'pause': true,
         'rpc-listen-port': 16800,
         'rpc-secret': EMPTY_STRING,
+        'seed-ratio': 1,
         'seed-time': 60,
         'split': 16,
         'user-agent': 'Transmission/2.94'
