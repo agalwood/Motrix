@@ -69,10 +69,10 @@
         <el-input
           placeholder=""
           v-model="form.dir"
-          :readonly="isMas()"
+          :readonly="isMas"
         >
           <mo-select-directory
-            v-if="isRenderer()"
+            v-if="isRenderer"
             slot="append"
             @selected="onDirectorySelected"
           />
@@ -226,6 +226,8 @@ export default {
     }
   },
   computed: {
+    isRenderer () { return is.renderer() },
+    isMas () { return is.mas() },
     taskType: function () {
       return this.type
     },
@@ -253,8 +255,6 @@ export default {
     }
   },
   methods: {
-    isRenderer: is.renderer,
-    isMas: is.mas,
     handleOpen () {
       this.form = initialForm(this.$store.state)
       if (this.taskType === ADD_TASK_TYPE.URI) {

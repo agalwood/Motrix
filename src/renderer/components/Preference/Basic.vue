@@ -78,7 +78,7 @@
           <el-col
             class="form-item-sub"
             :span="24"
-            v-if="!isLinux()"
+            v-if="!isLinux"
           >
             <el-checkbox v-model="form.openAtLogin">
               {{ $t('preferences.open-at-login') }}
@@ -99,14 +99,14 @@
           :label="`${$t('preferences.default-dir')}: `"
           :label-width="formLabelWidth"
         >
-          <el-input placeholder="" v-model="form.dir" :readonly="isMas()">
+          <el-input placeholder="" v-model="form.dir" :readonly="isMas">
             <mo-select-directory
-              v-if="isRenderer()"
+              v-if="isRenderer"
               slot="append"
               @selected="onDirectorySelected"
             />
           </el-input>
-          <div class="el-form-item__info" v-if="isMas()" style="margin-top: 8px;">
+          <div class="el-form-item__info" v-if="isMas" style="margin-top: 8px;">
             {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
@@ -274,6 +274,9 @@
       }
     },
     computed: {
+      isRenderer () { return is.renderer() },
+      isMas () { return is.mas() },
+      isLinux () { return is.linux() },
       title () {
         return this.$t('preferences.basic')
       },
@@ -347,9 +350,6 @@
       })
     },
     methods: {
-      isRenderer: is.renderer,
-      isMas: is.mas,
-      isLinux: is.linux,
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
@@ -395,7 +395,7 @@
               this.$msg.success(this.$t('preferences.save-fail-message'))
             })
 
-          if (this.isRenderer()) {
+          if (this.isRenderer) {
             this.$electron.ipcRenderer.send('command',
               'application:open-at-login', openAtLogin)
 

@@ -234,7 +234,7 @@
             <el-input placeholder="" disabled v-model="logPath">
               <mo-show-in-folder
                 slot="append"
-                v-if="isRenderer()"
+                v-if="isRenderer"
                 :path="logPath"
               />
             </el-input>
@@ -244,7 +244,7 @@
             <el-input placeholder="" disabled v-model="sessionPath">
               <mo-show-in-folder
                 slot="append"
-                v-if="isRenderer()"
+                v-if="isRenderer"
                 :path="sessionPath"
               />
             </el-input>
@@ -358,6 +358,7 @@
       }
     },
     computed: {
+      isRenderer () { return is.renderer() },
       title () {
         return this.$t('preferences.advanced')
       },
@@ -396,7 +397,6 @@
       }
     },
     methods: {
-      isRenderer: is.renderer,
       onCheckUpdateClick () {
         this.$electron.ipcRenderer.send('command', 'application:check-for-updates')
         this.$msg.info(this.$t('app.checking-for-updates'))
@@ -504,7 +504,7 @@
               this.$msg.success(this.$t('preferences.save-fail-message'))
             })
 
-          if (this.isRenderer()) {
+          if (this.isRenderer) {
             this.$electron.ipcRenderer.send('command',
               'application:setup-protocols-client', data.protocols)
 
