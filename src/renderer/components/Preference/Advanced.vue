@@ -70,7 +70,7 @@
           <el-col class="form-item-sub" :span="20">
             <el-input
               type="textarea"
-              :autosize="{ minRows: 2, maxRows: 3 }"
+              rows="2"
               auto-complete="off"
               :placeholder="`${$t('preferences.no-proxy-input-tips')}`"
               v-model="form.noProxy">
@@ -138,7 +138,7 @@
             </el-row>
             <el-input
               type="textarea"
-              :autosize="{ minRows: 3, maxRows: 5 }"
+              rows="3"
               auto-complete="off"
               :placeholder="`${$t('preferences.bt-tracker-input-tips')}`"
               v-model="form.btTracker">
@@ -163,6 +163,39 @@
               {{ new Date(form.lastSyncTrackerTime).toLocaleString() }}
             </div>
           </div>
+        </el-form-item>
+        <el-form-item
+          :label="`${$t('preferences.port')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-row style="margin-bottom: 8px;">
+            <el-col class="form-item-sub" :span="10">
+              {{ $t('preferences.bt-port') }}
+              <el-input
+                placeholder="BT Port"
+                :maxlength="8"
+                v-model="form.listenPort"
+              >
+                <i slot="append" @click.prevent="onPortDiceClick">
+                  <mo-icon name="dice" width="12" height="12" />
+                </i>
+              </el-input>
+            </el-col>
+          </el-row>
+          <el-row>
+            <el-col class="form-item-sub" :span="10">
+              {{ $t('preferences.dht-port') }}
+              <el-input
+                placeholder="DHT Port"
+                :maxlength="8"
+                v-model="form.dhtListenPort"
+              >
+                <i slot="append" @click.prevent="onDhtPortDiceClick">
+                  <mo-icon name="dice" width="12" height="12" />
+                </i>
+              </el-input>
+            </el-col>
+          </el-row>
         </el-form-item>
         <el-form-item
           :label="`${$t('preferences.download-protocol')}: `"
@@ -194,7 +227,7 @@
             {{ $t('preferences.mock-user-agent') }}
             <el-input
               type="textarea"
-              :autosize="{ minRows: 2, maxRows: 3 }"
+              rows="2"
               auto-complete="off"
               placeholder="User-Agent"
               v-model="form.userAgent">
@@ -289,7 +322,8 @@
     checkIsNeedRestart,
     convertCommaToLine,
     convertLineToComma,
-    diffConfig
+    diffConfig,
+    getRandomInt
   } from '@shared/utils'
   import { convertTrackerDataToLine } from '@shared/utils/tracker'
   import '@/components/Icons/dice'
@@ -303,9 +337,11 @@
       autoCheckUpdate,
       autoSyncTracker,
       btTracker,
+      dhtListenPort,
       hideAppMenu,
       lastCheckUpdateTime,
       lastSyncTrackerTime,
+      listenPort,
       noProxy,
       protocols,
       rpcListenPort,
@@ -320,9 +356,11 @@
       autoCheckUpdate,
       autoSyncTracker,
       btTracker: convertCommaToLine(btTracker),
+      dhtListenPort,
       hideAppMenu,
       lastCheckUpdateTime,
       lastSyncTrackerTime,
+      listenPort,
       noProxy: convertCommaToLine(noProxy),
       protocols: {
         ...protocols
@@ -438,6 +476,14 @@
           return
         }
         this.form.userAgent = ua
+      },
+      onPortDiceClick () {
+        const port = getRandomInt(20000, 24999)
+        this.form.listenPort = port
+      },
+      onDhtPortDiceClick () {
+        const port = getRandomInt(25000, 29999)
+        this.form.dhtListenPort = port
       },
       onDiceClick () {
         this.hideRpcSecret = false

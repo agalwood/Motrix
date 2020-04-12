@@ -61,6 +61,7 @@ const systemKeys = [
   'continue',
   'dht-file-path',
   'dht-file-path6',
+  'dht-listen-port',
   'dir',
   'dry-run',
   'enable-http-keep-alive',
@@ -95,6 +96,7 @@ const systemKeys = [
   'https-proxy-user',
   'https-proxy',
   'index-out',
+  'listen-port',
   'lowest-speed-limit',
   'max-concurrent-downloads',
   'max-connection-per-server',
@@ -145,8 +147,11 @@ const systemKeys = [
 ]
 
 const needRestartKeys = [
+  'dht-listen-port',
   'hide-app-menu',
-  'rpc-listen-port'
+  'listen-port',
+  'rpc-listen-port',
+  'rpc-secret'
 ]
 
 export {
