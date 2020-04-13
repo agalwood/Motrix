@@ -599,3 +599,10 @@ export const checkIsNeedRun = (enable, lastTime, interval) => {
 
   return (Date.now() - lastTime > interval)
 }
+
+export const getRandomInt = (min = 0, max = 10000) => {
+  let result = min
+  const range = max - min
+  result += Math.floor(Math.random() * Math.floor(range))
+  return result
+}
