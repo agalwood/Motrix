@@ -60,7 +60,7 @@ Motrix may need to run with `sudo` for the first time in Linux because there is 
 - 🕹 Simple and clear user interface
 - 🦄 Supports BitTorrent & Magnet
 - ☑️ BitTorrent selective download
-- 💾 Supports downloading Baidu Net Disk
+- 💾 Supports downloading BD Net Disk
 - 🎛 Up to 10 concurrent download tasks
 - 🚀 Supports 64 threads in a single task
 - 🚥 Supports speed limit
