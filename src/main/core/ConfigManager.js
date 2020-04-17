@@ -65,7 +65,7 @@ export default class ConfigManager {
         'rpc-secret': EMPTY_STRING,
         'seed-ratio': 1,
         'seed-time': 60,
-        'split': 16,
+        'split': 128,
         'user-agent': 'Transmission/2.94'
       }
     })

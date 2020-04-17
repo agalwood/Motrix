@@ -18,7 +18,6 @@
               :autosize="{ minRows: 3, maxRows: 5 }"
               auto-complete="off"
               :placeholder="$t('task.uri-task-tips')"
-              @change="handleUriChange"
               @paste.native="handleUriPaste"
               v-model="form.uris"
             >
@@ -50,12 +49,10 @@
             :label-width="formLabelWidth"
           >
             <el-input-number
-              v-model="form.split"
-              @change="handleSplitChange"
+              v-model="form.maxConnectionPerServer"
               controls-position="right"
               :min="1"
-              :max="config.maxConnectionPerServer"
-              :value="config.split"
+              :max="config.engineMaxConnectionPerServer"
               :label="$t('task.task-split')"
             >
             </el-input-number>
@@ -183,19 +180,26 @@ import '@/components/Icons/inbox'
 
 const initialForm = state => {
   const { addTaskUrl, addTaskOptions } = state.app
-  const { allProxy, dir, split, newTaskShowDownloading } = state.preference.config
+  const {
+    allProxy,
+    dir,
+    engineMaxConnectionPerServer,
+    maxConnectionPerServer,
+    newTaskShowDownloading
+  } = state.preference.config
   const result = {
     allProxy,
-    uris: addTaskUrl,
-    torrent: '',
-    selectFile: NONE_SELECTED_FILES,
-    out: '',
-    userAgent: '',
-    referer: '',
     cookie: '',
     dir,
-    split,
+    engineMaxConnectionPerServer,
+    maxConnectionPerServer,
     newTaskShowDownloading,
+    out: '',
+    referer: '',
+    selectFile: NONE_SELECTED_FILES,
+    torrent: '',
+    uris: addTaskUrl,
+    userAgent: '',
     ...addTaskOptions
   }
   return result
@@ -302,15 +306,9 @@ export default {
         })
       }
     },
-    handleUriChange () {
-      console.log('handleUriChange===>', this.form.uris)
-    },
     handleTorrentChange (torrent, selectedFileIndex) {
       this.form.torrent = torrent
       this.form.selectFile = selectedFileIndex
-    },
-    handleSplitChange (value) {
-      console.log('handleSplitChange===>', value)
     },
     onDirectorySelected (dir) {
       this.form.dir = dir
@@ -338,7 +336,7 @@ export default {
       return result
     },
     buildOption (type, form) {
-      const { allProxy, dir, out, selectFile, split } = form
+      const { allProxy, dir, out, selectFile } = form
       const result = {}
 
       if (!isEmpty(allProxy)) {
@@ -360,10 +358,6 @@ export default {
         ) {
           result.selectFile = selectFile
         }
-      }
-
-      if (split > 0) {
-        result.split = split
       }
 
       const header = this.buildHeader(form)

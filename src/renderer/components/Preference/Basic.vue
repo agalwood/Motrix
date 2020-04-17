@@ -154,10 +154,10 @@
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.max-connection-per-server') }}
             <el-input-number
-              v-model="form.split"
+              v-model="form.maxConnectionPerServer"
               controls-position="right"
               :min="1"
-              :max="form.maxConnectionPerServer"
+              :max="form.engineMaxConnectionPerServer"
               :label="$t('preferences.max-connection-per-server')">
             </el-input-number>
           </el-col>
@@ -214,39 +214,39 @@
 
   const initialForm = (config) => {
     const {
+      autoHideWindow,
       dir,
+      engineMaxConnectionPerServer,
       hideAppMenu,
       keepWindowState,
       locale,
       maxConcurrentDownloads,
       maxConnectionPerServer,
-      maxOverallUploadLimit,
       maxOverallDownloadLimit,
+      maxOverallUploadLimit,
       newTaskShowDownloading,
       openAtLogin,
-      autoHideWindow,
       resumeAllWhenAppLaunched,
       runMode,
-      split,
       taskNotification,
       theme
     } = config
     const result = {
+      autoHideWindow,
       continue: config.continue,
       dir,
+      engineMaxConnectionPerServer,
       hideAppMenu,
       keepWindowState,
       locale,
       maxConcurrentDownloads,
       maxConnectionPerServer,
-      maxOverallUploadLimit,
       maxOverallDownloadLimit,
+      maxOverallUploadLimit,
       newTaskShowDownloading,
       openAtLogin,
-      autoHideWindow,
       resumeAllWhenAppLaunched,
       runMode,
-      split,
       taskNotification,
       theme
     }
