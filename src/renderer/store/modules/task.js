@@ -48,6 +48,13 @@ const actions = {
         commit('UPDATE_SELECTED_GID_LIST', list)
       })
   },
+  selectTasks ({ commit }, list) {
+    commit('UPDATE_SELECTED_GID_LIST', list)
+  },
+  selectAllTask ({ commit, state }) {
+    const gids = state.taskList.map((task) => task.gid)
+    commit('UPDATE_SELECTED_GID_LIST', gids)
+  },
   fetchItem ({ dispatch }, gid) {
     return api.fetchTaskItem({ gid })
       .then((data) => {

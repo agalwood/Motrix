@@ -27,6 +27,7 @@
         { "type": "separator" },
         { "id": "task.pause-all-task", "command": "application:pause-all-task" },
         { "id": "task.resume-all-task", "command": "application:resume-all-task" },
+        { "id": "task.select-all-task", "command": "application:select-all-task" },
         { "type": "separator" },
         { "id": "task.clear-recent-tasks", "command": "application:clear-recent-tasks" }
       ]
