@@ -91,17 +91,19 @@ const actions = {
   },
   removeTask ({ dispatch }, task) {
     const { gid } = task
-    return api.forcePauseTask({ gid })
-      .catch((e) => {
-        console.log(`[Motrix] removeTask.forcePauseTask#[${gid}] fail`, e.message)
-      })
+    return api.removeTask({ gid })
       .finally(() => {
-        return api.removeTask({ gid })
-          .finally(() => {
-            dispatch('fetchList')
-            dispatch('saveSession')
-          })
+        dispatch('fetchList')
+        dispatch('saveSession')
       })
+  },
+  forcePauseTask (_, task) {
+    const { gid, status } = task
+    if (status !== TASK_STATUS.ACTIVE) {
+      return Promise.resolve(true)
+    }
+
+    return api.forcePauseTask({ gid })
   },
   pauseTask ({ dispatch }, task) {
     const { gid } = task
