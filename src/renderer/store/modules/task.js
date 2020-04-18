@@ -1,4 +1,5 @@
 import api from '@/api'
+import { TASK_STATUS } from '@shared/constants'
 
 const state = {
   currentList: 'active',
@@ -147,7 +148,8 @@ const actions = {
   },
   removeTaskRecord ({ dispatch }, task) {
     const { gid, status } = task
-    if (['error', 'complete', 'removed'].indexOf(status) === -1) {
+    const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
+    if ([ERROR, COMPLETE, REMOVED].indexOf(status) === -1) {
       return
     }
     return api.removeTaskRecord({ gid })
@@ -162,9 +164,10 @@ const actions = {
   },
   toggleTask ({ dispatch }, task) {
     const { status } = task
-    if (status === 'active') {
+    const { ACTIVE, WAITING, PAUSED } = TASK_STATUS
+    if (status === ACTIVE) {
       return dispatch('pauseTask', task)
-    } else if (status === 'waiting' || status === 'paused') {
+    } else if (status === WAITING || status === PAUSED) {
       return dispatch('resumeTask', task)
     }
   }

@@ -1,6 +1,6 @@
 <template>
   <el-progress
-    v-if="status === 'active'"
+    v-if="isActive"
     :percentage="percent"
     :show-text="false"
     status="success"
@@ -15,6 +15,7 @@
 </template>
 
 <script>
+  import { TASK_STATUS } from '@shared/constants'
   import { calcProgress } from '@shared/utils'
   import colors from '@shared/colors'
 
@@ -29,21 +30,19 @@
       },
       status: {
         type: String,
-        default: 'active'
+        default: TASK_STATUS.ACTIVE
       }
     },
     computed: {
-      percent: function () {
+      isActive () {
+        return this.status === TASK_STATUS.ACTIVE
+      },
+      percent () {
         return calcProgress(this.total, this.completed)
       },
-      color: function () {
+      color () {
         return colors[this.status]
       }
-    },
-    methods: {
     }
   }
 </script>
-
-<style lang="scss">
-</style>

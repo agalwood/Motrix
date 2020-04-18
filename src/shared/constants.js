@@ -16,6 +16,16 @@ export const ADD_TASK_TYPE = {
   TORRENT: 'torrent'
 }
 
+export const TASK_STATUS = {
+  ACTIVE: 'active',
+  WAITING: 'waiting',
+  PAUSED: 'paused',
+  ERROR: 'error',
+  COMPLETE: 'complete',
+  REMOVED: 'removed',
+  SEEDING: 'seeding'
+}
+
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 

@@ -54,6 +54,7 @@
   import {
     openItem
   } from '@/components/Native/utils'
+  import { TASK_STATUS } from '@shared/constants'
 
   export default {
     name: 'mo-task-item',
@@ -90,9 +91,10 @@
     methods: {
       onDbClick () {
         const { status } = this.task
-        if (status === 'complete') {
+        const { COMPLETE, WAITING, PAUSED } = TASK_STATUS
+        if (status === COMPLETE) {
           this.openTask()
-        } else if (['waiting', 'paused'].includes(status) !== -1) {
+        } else if ([WAITING, PAUSED].includes(status) !== -1) {
           this.toggleTask()
         }
       },
