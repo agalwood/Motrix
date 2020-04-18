@@ -172,6 +172,16 @@ const actions = {
     } else if (status === WAITING || status === PAUSED) {
       return dispatch('resumeTask', task)
     }
+  },
+  batchForcePauseTask (_, gids) {
+    return api.batchForcePauseTask({ gids })
+  },
+  batchRemoveTask ({ dispatch }, gids) {
+    return api.batchRemoveTask({ gids })
+      .finally(() => {
+        dispatch('fetchList')
+        dispatch('saveSession')
+      })
   }
 }
 

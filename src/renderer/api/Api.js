@@ -338,4 +338,16 @@ export default class Api {
   batchChangeOption (params = {}) {
     return this.multicall('aria2.changeOption', params)
   }
+
+  batchRemoveTask (params = {}) {
+    return this.multicall('aria2.remove', params)
+  }
+
+  batchPauseTask (params = {}) {
+    return this.multicall('aria2.pause', params)
+  }
+
+  batchForcePauseTask (params = {}) {
+    return this.multicall('aria2.forcePause', params)
+  }
 }
