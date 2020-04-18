@@ -14,63 +14,35 @@
     </div>
     <mo-task-item-actions mode="ITEM" :task="task" />
     <div class="task-progress">
-      <mo-task-progress :completed="Number(task.completedLength)" :total="Number(task.totalLength)" :status="task.status" />
-      <el-row class="task-speed">
-        <el-col :span="12" class="task-speed-left">
-          <div v-if="task.totalLength > 0">
-          {{ task.completedLength | bytesToSize }} / {{ task.totalLength | bytesToSize }}
-          </div>
-          <div v-else><!-- 等待中... --></div>
-        </el-col>
-        <el-col :span="12" class="task-speed-right">
-          <div v-if="task.status ==='active'">
-            <span>{{ task.downloadSpeed | bytesToSize }}/s</span>
-            <span>
-              {{
-                remaining | timeFormat({
-                  prefix: $t('task.remaining-prefix'),
-                  i18n: {
-                    'gt1d': $t('app.gt1d'),
-                    'hour': $t('app.hour'),
-                    'minute': $t('app.minute'),
-                    'second': $t('app.second')
-                  }
-                })
-              }}
-            </span>
-            <span class="task-connections">
-              <i><mo-icon name="node" width="10" height="10" /></i>
-              <i>{{ task.connections }}</i>
-            </span>
-          </div>
-        </el-col>
-      </el-row>
+      <mo-task-progress
+        :completed="Number(task.completedLength)"
+        :total="Number(task.totalLength)"
+        :status="task.status"
+      />
+      <mo-task-progress-info :task="task" />
     </div>
   </el-dialog>
 </template>
 
 <script>
   import { mapActions } from 'vuex'
+  import { getTaskName } from '@shared/utils'
   import TaskItemActions from './TaskItemActions'
   import TaskProgress from './TaskProgress'
+  import TaskProgressInfo from './TaskProgressInfo'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
   import '@/components/Icons/delete'
   import '@/components/Icons/folder'
   import '@/components/Icons/link'
   import '@/components/Icons/more'
-  import {
-    getTaskName,
-    timeRemaining,
-    bytesToSize,
-    timeFormat
-  } from '@shared/utils'
 
   export default {
     name: 'mo-task-item-info',
     components: {
       [TaskItemActions.name]: TaskItemActions,
-      [TaskProgress.name]: TaskProgress
+      [TaskProgress.name]: TaskProgress,
+      [TaskProgressInfo.name]: TaskProgressInfo
     },
     props: {
       task: {
@@ -96,15 +68,7 @@
       },
       dialogTitle: function () {
         return this.$t('task.task-info-dialog-title', { title: this.taskName })
-      },
-      remaining: function () {
-        const { totalLength, completedLength, downloadSpeed } = this.task
-        return timeRemaining(totalLength, completedLength, downloadSpeed)
       }
-    },
-    filters: {
-      bytesToSize,
-      timeFormat
     },
     methods: {
       handleClose (done) {
@@ -147,25 +111,43 @@
     top: 30px;
     right: 20px;
   }
-  .task-speed {
+  .task-name {
+    color: #505753;
+    margin-bottom: 32px;
+    margin-right: 240px;
+    word-break: break-all;
+    min-height: 26px;
+    &> span {
+      font-size: 14px;
+      line-height: 26px;
+      overflow : hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+  }
+  .task-progress-info {
     font-size: 12px;
     line-height: 14px;
     min-height: 14px;
     color: #9B9B9B;
     margin-top: 8px;
   }
-  .task-speed-left {
+  .task-progress-info-left {
     min-height: 14px;
     text-align: left;
   }
-  .task-speed-right {
+  .task-progress-info-right {
     min-height: 14px;
     text-align: right;
   }
-  .task-connections {
-    margin-left: 8px;
-    & > i {
-      vertical-align: middle;
+  .task-speed-info {
+    & > .task-speed-text {
+      margin-left: 8px;
+      & > i {
+        vertical-align: middle;
+      }
     }
   }
 </style>

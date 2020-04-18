@@ -5,62 +5,33 @@
     </div>
     <mo-task-item-actions mode="LIST" :task="task" />
     <div class="task-progress">
-      <mo-task-progress :completed="Number(task.completedLength)" :total="Number(task.totalLength)" :status="task.status" />
-      <el-row class="task-speed">
-        <el-col :span="12" class="task-speed-left">
-          <div v-if="task.totalLength > 0">
-          {{ task.completedLength | bytesToSize }} / {{ task.totalLength | bytesToSize }}
-          </div>
-          <div v-else><!-- 等待中... --></div>
-        </el-col>
-        <el-col :span="12" class="task-speed-right">
-          <div v-if="task.status ==='active'">
-            <span>{{ task.downloadSpeed | bytesToSize }}/s</span>
-            <span>
-              {{
-                remaining | timeFormat({
-                  prefix: $t('task.remaining-prefix'),
-                  i18n: {
-                    'gt1d': $t('app.gt1d'),
-                    'hour': $t('app.hour'),
-                    'minute': $t('app.minute'),
-                    'second': $t('app.second')
-                  }
-                })
-              }}
-            </span>
-            <span class="task-connections">
-              <i><mo-icon name="node" width="10" height="10" /></i>
-              <i>{{ task.connections }}</i>
-            </span>
-          </div>
-        </el-col>
-      </el-row>
+      <mo-task-progress
+        :completed="Number(task.completedLength)"
+        :total="Number(task.totalLength)"
+        :status="task.status"
+      />
+      <mo-task-progress-info :task="task" />
     </div>
   </li>
 </template>
 
 <script>
+  import {
+    getTaskFullPath,
+    getTaskName
+  } from '@shared/utils'
+  import { TASK_STATUS } from '@shared/constants'
+  import { openItem } from '@/components/Native/utils'
   import TaskItemActions from './TaskItemActions'
   import TaskProgress from './TaskProgress'
-  import '@/components/Icons/node'
-  import {
-    getTaskName,
-    getTaskFullPath,
-    timeRemaining,
-    bytesToSize,
-    timeFormat
-  } from '@shared/utils'
-  import {
-    openItem
-  } from '@/components/Native/utils'
-  import { TASK_STATUS } from '@shared/constants'
+  import TaskProgressInfo from './TaskProgressInfo'
 
   export default {
     name: 'mo-task-item',
     components: {
       [TaskItemActions.name]: TaskItemActions,
-      [TaskProgress.name]: TaskProgress
+      [TaskProgress.name]: TaskProgress,
+      [TaskProgressInfo.name]: TaskProgressInfo
     },
     props: {
       task: {
@@ -68,25 +39,17 @@
       }
     },
     computed: {
-      taskFullName: function () {
+      taskFullName () {
         return getTaskName(this.task, {
           defaultName: this.$t('task.get-task-name'),
           maxLen: -1
         })
       },
-      taskName: function () {
+      taskName () {
         return getTaskName(this.task, {
           defaultName: this.$t('task.get-task-name')
         })
-      },
-      remaining: function () {
-        const { totalLength, completedLength, downloadSpeed } = this.task
-        return timeRemaining(totalLength, completedLength, downloadSpeed)
       }
-    },
-    filters: {
-      bytesToSize,
-      timeFormat
     },
     methods: {
       onDbClick () {
@@ -116,6 +79,7 @@
 <style lang="scss">
   .task-item {
     position: relative;
+    min-height: 88px;
     padding: 16px 12px;
     background-color: $--task-item-background;
     border: 1px solid $--task-item-border-color;
@@ -136,6 +100,7 @@
     margin-bottom: 32px;
     margin-right: 240px;
     word-break: break-all;
+    min-height: 26px;
     &> span {
       font-size: 14px;
       line-height: 26px;
@@ -144,27 +109,6 @@
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
-    }
-  }
-  .task-speed {
-    font-size: 12px;
-    line-height: 14px;
-    min-height: 14px;
-    color: #9B9B9B;
-    margin-top: 8px;
-  }
-  .task-speed-left {
-    min-height: 14px;
-    text-align: left;
-  }
-  .task-speed-right {
-    min-height: 14px;
-    text-align: right;
-  }
-  .task-connections {
-    margin-left: 8px;
-    & > i {
-      vertical-align: middle;
     }
   }
 </style>
