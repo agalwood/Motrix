@@ -1,5 +1,5 @@
 <template>
-  <li :key="task.gid" class="task-item" v-on:dblclick="onDbClick">
+  <div :key="task.gid" class="task-item" v-on:dblclick="onDbClick">
     <div class="task-name" :title="taskFullName">
       <span>{{ taskFullName }}</span>
     </div>
@@ -12,7 +12,7 @@
       />
       <mo-task-progress-info :task="task" />
     </div>
-  </li>
+  </div>
 </template>
 
 <script>
@@ -94,6 +94,9 @@
       top: 16px;
       right: 12px;
     }
+  }
+  .selected .task-item {
+    border-color: $--task-item-hover-border-color;
   }
   .task-name {
     color: #505753;

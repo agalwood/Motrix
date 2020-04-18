@@ -606,3 +606,11 @@ export const getRandomInt = (min = 0, max = 10000) => {
   result += Math.floor(Math.random() * Math.floor(range))
   return result
 }
+
+export const intersection = (array1 = [], array2 = []) => {
+  if (array1.length === 0 || array2.length === 0) {
+    return []
+  }
+
+  return array1.filter(value => array2.includes(value))
+}

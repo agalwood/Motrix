@@ -1,11 +1,13 @@
 import api from '@/api'
 import { TASK_STATUS } from '@shared/constants'
+import { intersection } from '@shared/utils'
 
 const state = {
   currentList: 'active',
   taskItemInfoVisible: false,
   currentTaskItem: null,
-  taskList: []
+  taskList: [],
+  selectedGidList: []
 }
 
 const getters = {
@@ -14,6 +16,9 @@ const getters = {
 const mutations = {
   UPDATE_TASK_LIST (state, taskList) {
     state.taskList = taskList
+  },
+  UPDATE_SELECTED_GID_LIST (state, gidList) {
+    state.selectedGidList = gidList
   },
   CHANGE_CURRENT_LIST (state, currentList) {
     state.currentList = currentList
@@ -29,12 +34,18 @@ const mutations = {
 const actions = {
   changeCurrentList ({ commit, dispatch }, currentList) {
     commit('CHANGE_CURRENT_LIST', currentList)
+    commit('UPDATE_SELECTED_GID_LIST', [])
     dispatch('fetchList')
   },
-  fetchList ({ state, commit }) {
+  fetchList ({ commit, state }) {
     return api.fetchTaskList({ type: state.currentList })
       .then((data) => {
         commit('UPDATE_TASK_LIST', data)
+
+        const { selectedGidList } = state
+        const gids = data.map((task) => task.gid)
+        const list = intersection(selectedGidList, gids)
+        commit('UPDATE_SELECTED_GID_LIST', list)
       })
   },
   fetchItem ({ dispatch }, gid) {

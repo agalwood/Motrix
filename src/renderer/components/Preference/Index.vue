@@ -21,7 +21,7 @@
 
 <style lang="scss">
   .form-preference {
-    padding-right: 7%;
+    padding: 16px 7% 64px 0;
     .el-switch__label {
       font-weight: normal;
       color: $--color-text-regular;
