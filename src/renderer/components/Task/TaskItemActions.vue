@@ -196,12 +196,12 @@
         const isNeedShowDialog = status === TASK_STATUS.COMPLETE || !!event.altKey
         this.$store.dispatch('task/getTaskOption', gid)
           .then((data) => {
-            console.log('getTaskOption===>', data)
-            const { dir, header, split } = data
+            console.log('[Motrix] get task option:', data)
+            const { dir, header, maxConnectionPerServer } = data
             const options = {
               dir,
               header,
-              split,
+              maxConnectionPerServer,
               out: taskName
             }
 
