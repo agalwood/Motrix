@@ -169,18 +169,6 @@ export default class Api {
     return this.client.call('changeOption', ...args)
   }
 
-  batchChangeOption (params = {}) {
-    let { gids, options = {} } = params
-    options = formatOptionsForEngine(options)
-
-    const data = gids.map((gid, index) => {
-      const kebabOptions = changeKeysToKebabCase(options)
-      const args = compactUndefined([gid, kebabOptions])
-      return [ 'aria2.changeOption', ...args ]
-    })
-    return this.client.multicall(data)
-  }
-
   getGlobalStat () {
     return this.client.call('getGlobalStat')
   }
@@ -333,5 +321,21 @@ export default class Api {
     const { gid } = params
     const args = compactUndefined([gid])
     return this.client.call('removeDownloadResult', ...args)
+  }
+
+  multicall (method, params = {}) {
+    let { gids, options = {} } = params
+    options = formatOptionsForEngine(options)
+
+    const data = gids.map((gid, index) => {
+      const kebabOptions = changeKeysToKebabCase(options)
+      const args = compactUndefined([gid, kebabOptions])
+      return [ method, ...args ]
+    })
+    return this.client.multicall(data)
+  }
+
+  batchChangeOption (params = {}) {
+    return this.multicall('aria2.changeOption', params)
   }
 }
