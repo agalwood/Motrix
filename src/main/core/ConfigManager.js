@@ -6,7 +6,8 @@ import {
   getDhtPath,
   getLogPath,
   getSessionPath,
-  getUserDownloadsPath
+  getUserDownloadsPath,
+  getMaxConnectionPerServer
 } from '../utils/index'
 import {
   APP_THEME,
@@ -54,7 +55,7 @@ export default class ConfigManager {
         'dir': getUserDownloadsPath(),
         'listen-port': 21301,
         'max-concurrent-downloads': 5,
-        'max-connection-per-server': is.macOS() ? 64 : 16,
+        'max-connection-per-server': getMaxConnectionPerServer(),
         'max-download-limit': 0,
         'max-overall-download-limit': 0,
         'max-overall-upload-limit': '128K',

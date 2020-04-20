@@ -96,3 +96,6 @@ export const AUTO_CHECK_UPDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000
 
 export const NONE_SELECTED_FILES = 'none'
 export const SELECTED_ALL_FILES = 'all'
+
+export const MAX_CONNECTION_PER_SERVER_MAC = 64
+export const MAX_CONNECTION_PER_SERVER_OTHER = 16
