@@ -26,7 +26,7 @@
 <script>
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
-  import DragSelect from '@/components/DragSelect'
+  import DragSelect from '@/components/DragSelect/Index'
   import TaskItem from './TaskItem'
 
   export default {
