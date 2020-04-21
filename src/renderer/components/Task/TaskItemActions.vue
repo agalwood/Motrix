@@ -10,7 +10,7 @@
       <i v-if="action === 'RESUME'" @click.stop="onResumeClick">
         <mo-icon name="task-start-line" width="14" height="14" />
       </i>
-      <i v-if="action === 'RESTART'" @click="onRestartClick">
+      <i v-if="action === 'RESTART'" @click.stop="onRestartClick">
         <mo-icon name="task-restart" width="14" height="14" />
       </i>
       <i v-if="action === 'DELETE'" @click.stop="onDeleteClick">
@@ -38,17 +38,7 @@
 <script>
   import is from 'electron-is'
   import * as clipboard from 'clipboard-polyfill'
-  import { ADD_TASK_TYPE } from '@shared/constants'
-  import '@/components/Icons/task-start-line'
-  import '@/components/Icons/task-pause-line'
-  import '@/components/Icons/task-stop-line'
-  import '@/components/Icons/task-restart'
-  import '@/components/Icons/delete'
-  import '@/components/Icons/folder'
-  import '@/components/Icons/link'
-  import '@/components/Icons/info-circle'
-  import '@/components/Icons/more'
-  import '@/components/Icons/trash'
+  import { ADD_TASK_TYPE, TASK_STATUS } from '@shared/constants'
   import {
     showItemInFolder,
     moveTaskFilesToTrash
@@ -60,15 +50,25 @@
     getTaskUri,
     parseHeader
   } from '@shared/utils'
+  import '@/components/Icons/task-start-line'
+  import '@/components/Icons/task-pause-line'
+  import '@/components/Icons/task-stop-line'
+  import '@/components/Icons/task-restart'
+  import '@/components/Icons/delete'
+  import '@/components/Icons/folder'
+  import '@/components/Icons/link'
+  import '@/components/Icons/info-circle'
+  import '@/components/Icons/more'
+  import '@/components/Icons/trash'
 
   const taskActionsMap = {
-    active: ['PAUSE', 'DELETE'],
-    paused: ['RESUME', 'DELETE'],
-    waiting: ['RESUME', 'DELETE'],
-    error: ['RESTART', 'TRASH'],
-    complete: ['RESTART', 'TRASH'],
-    removed: ['RESTART', 'TRASH'],
-    seeding: ['STOP', 'DELETE']
+    [TASK_STATUS.ACTIVE]: ['PAUSE', 'DELETE'],
+    [TASK_STATUS.PAUSED]: ['RESUME', 'DELETE'],
+    [TASK_STATUS.WAITING]: ['RESUME', 'DELETE'],
+    [TASK_STATUS.ERROR]: ['RESTART', 'TRASH'],
+    [TASK_STATUS.COMPLETE]: ['RESTART', 'TRASH'],
+    [TASK_STATUS.REMOVED]: ['RESTART', 'TRASH'],
+    [TASK_STATUS.SEEDING]: ['STOP', 'DELETE']
   }
 
   export default {
@@ -96,7 +96,7 @@
       taskStatus () {
         const { task, isSeeder } = this
         if (isSeeder) {
-          return 'seeding'
+          return TASK_STATUS.SEEDING
         } else {
           return task.status
         }
@@ -119,18 +119,29 @@
     methods: {
       isRenderer: is.renderer,
       deleteTaskFiles (task) {
-        moveTaskFilesToTrash(task, {
-          pathErrorMsg: this.$t('task.file-path-error'),
-          delFailMsg: this.$t('task.remove-task-file-fail'),
-          delConfigFailMsg: this.$t('task.remove-task-config-file-fail')
-        })
+        try {
+          const result = moveTaskFilesToTrash(task)
+
+          if (!result) {
+            throw new Error('task.remove-task-file-fail')
+          }
+        } catch (err) {
+          this.$msg.error(this.$t(err.message))
+        }
       },
-      removeTaskItem (task, isRemoveWithFiles) {
-        this.$store.dispatch('task/removeTask', this.task)
-          .then(() => {
+      removeTask (task, isRemoveWithFiles) {
+        this.$store.dispatch('task/forcePauseTask', task)
+          .finally(() => {
             if (isRemoveWithFiles) {
               this.deleteTaskFiles(task)
             }
+
+            return this.removeTaskItem(task)
+          })
+      },
+      removeTaskItem (task) {
+        return this.$store.dispatch('task/removeTask', this.task)
+          .then(() => {
             this.$msg.success(this.$t('task.delete-task-success', {
               taskName: this.taskName
             }))
@@ -144,11 +155,18 @@
           })
       },
       removeTaskRecord (task, isRemoveWithFiles) {
-        this.$store.dispatch('task/removeTaskRecord', this.task)
-          .then(() => {
+        this.$store.dispatch('task/forcePauseTask', task)
+          .finally(() => {
             if (isRemoveWithFiles) {
               this.deleteTaskFiles(task)
             }
+
+            return this.removeTaskRecordItem(task)
+          })
+      },
+      removeTaskRecordItem (task) {
+        return this.$store.dispatch('task/removeTaskRecord', this.task)
+          .then(() => {
             this.$msg.success(this.$t('task.remove-record-success', {
               taskName: this.taskName
             }))
@@ -175,15 +193,15 @@
         const { task, taskName } = this
         const { gid, status } = task
         const uri = getTaskUri(task)
-        const isNeedShowDialog = status === 'complete' || !!event.altKey
+        const isNeedShowDialog = status === TASK_STATUS.COMPLETE || !!event.altKey
         this.$store.dispatch('task/getTaskOption', gid)
           .then((data) => {
-            console.log('getTaskOption===>', data)
-            const { dir, header, split } = data
+            console.log('[Motrix] get task option:', data)
+            const { dir, header, maxConnectionPerServer } = data
             const options = {
               dir,
               header,
-              split,
+              maxConnectionPerServer,
               out: taskName
             }
 
@@ -260,7 +278,7 @@
           checkboxChecked: isChecked
         }).then(({ response, checkboxChecked }) => {
           if (response === 0) {
-            self.removeTaskItem(task, checkboxChecked)
+            self.removeTask(task, checkboxChecked)
           }
         })
       },
@@ -302,7 +320,6 @@
         this.$store.dispatch('task/showTaskItemInfoDialog', this.task)
       },
       onMoreClick () {
-        console.log('onMoreClick===>')
       }
     }
   }
@@ -313,6 +330,7 @@
     // width: 28px;
     height: 24px;
     padding: 0 10px;
+    margin: 0;
     overflow: hidden;
     user-select: none;
     cursor: default;

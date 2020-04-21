@@ -3,6 +3,7 @@ import is from 'electron-is'
 import { existsSync } from 'fs'
 import { resolve, join } from 'path'
 import forever from 'forever-monitor'
+
 import logger from './Logger'
 import { getI18n } from '@/ui/Locale'
 import {
@@ -38,7 +39,7 @@ export default class Engine {
     let binPath = join(basePath, `/engine/${binName}`)
     const binIsExist = existsSync(binPath)
     if (!binIsExist) {
-      logger.error('[Motrix] engine bin is not exist===>', binPath)
+      logger.error('[Motrix] engine bin is not exist:', binPath)
       throw new Error(this.i18n.t('app.engine-missing-message'))
     }
 
@@ -60,7 +61,7 @@ export default class Engine {
 
   start () {
     const sh = this.getStartSh()
-    logger.info('[Motrix] Engine start sh===>', sh)
+    logger.info('[Motrix] Engine start sh:', sh)
     this.instance = forever.start(sh, {
       max: 100,
       parser: function (command, args) {
@@ -73,30 +74,30 @@ export default class Engine {
     })
 
     const { child } = this.instance
-    logger.info('[Motrix] Engine pid===>', child.pid)
+    logger.info('[Motrix] Engine pid:', child.pid)
 
     this.instance.on('error', (err) => {
-      logger.info(`[Motrix] Engine error===> ${err}`)
+      logger.info(`[Motrix] Engine error: ${err}`)
     })
 
     this.instance.on('start', function (process, data) {
-      logger.info(`[Motrix] Engine started===>`)
+      logger.info(`[Motrix] Engine started`)
     })
 
     this.instance.on('stop', function (process) {
-      logger.info(`[Motrix] Engine stopped===>`)
+      logger.info(`[Motrix] Engine stopped`)
     })
 
-    this.instance.on('restart', function (forever) {
-      logger.info(`[Motrix] Engine exit===>`)
-    })
+    // this.instance.on('restart', function (forever) {
+    //   logger.info(`[Motrix] Engine exit:`)
+    // })
 
-    this.instance.on('exit:code', function (code) {
-      logger.info(`[Motrix] Engine exit===> ${code}`)
-    })
+    // this.instance.on('exit:code', function (code) {
+    //   logger.info(`[Motrix] Engine exit: ${code}`)
+    // })
 
     // this.instance.on('stderr', (data) => {
-    //   logger.info(`[Motrix] Engine stderr===> ${data}`)
+    //   logger.info(`[Motrix] Engine stderr: ${data}`)
     // })
   }
 
@@ -111,10 +112,10 @@ export default class Engine {
   stop () {
     const { pid } = this.instance.child
     try {
-      logger.info('[Motrix] Engine stopping===>')
+      logger.info('[Motrix] Engine stopping')
       this.instance.stop()
     } catch (err) {
-      logger.error('[Motrix] Engine stop fail===>', err.message)
+      logger.error('[Motrix] Engine stop fail:', err.message)
       this.forceStop(pid)
     } finally {
     }
@@ -126,7 +127,7 @@ export default class Engine {
         process.kill(pid)
       }
     } catch (err) {
-      logger.warn('[Motrix] Engine forceStop fail===>', err)
+      logger.warn('[Motrix] Engine force stop fail:', err)
     }
   }
 

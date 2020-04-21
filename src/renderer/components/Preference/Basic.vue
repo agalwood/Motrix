@@ -78,7 +78,7 @@
           <el-col
             class="form-item-sub"
             :span="24"
-            v-if="!isLinux()"
+            v-if="!isLinux"
           >
             <el-checkbox v-model="form.openAtLogin">
               {{ $t('preferences.open-at-login') }}
@@ -99,14 +99,14 @@
           :label="`${$t('preferences.default-dir')}: `"
           :label-width="formLabelWidth"
         >
-          <el-input placeholder="" v-model="form.dir" :readonly="isMas()">
+          <el-input placeholder="" v-model="form.dir" :readonly="isMas">
             <mo-select-directory
-              v-if="isRenderer()"
+              v-if="isRenderer"
               slot="append"
               @selected="onDirectorySelected"
             />
           </el-input>
-          <div class="el-form-item__info" v-if="isMas()" style="margin-top: 8px;">
+          <div class="el-form-item__info" v-if="isMas" style="margin-top: 8px;">
             {{ $t('preferences.mas-default-dir-tips') }}
           </div>
         </el-form-item>
@@ -154,10 +154,10 @@
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.max-connection-per-server') }}
             <el-input-number
-              v-model="form.split"
+              v-model="form.maxConnectionPerServer"
               controls-position="right"
               :min="1"
-              :max="form.maxConnectionPerServer"
+              :max="form.engineMaxConnectionPerServer"
               :label="$t('preferences.max-connection-per-server')">
             </el-input-number>
           </el-col>
@@ -214,39 +214,39 @@
 
   const initialForm = (config) => {
     const {
+      autoHideWindow,
       dir,
+      engineMaxConnectionPerServer,
       hideAppMenu,
       keepWindowState,
       locale,
       maxConcurrentDownloads,
       maxConnectionPerServer,
-      maxOverallUploadLimit,
       maxOverallDownloadLimit,
+      maxOverallUploadLimit,
       newTaskShowDownloading,
       openAtLogin,
-      autoHideWindow,
       resumeAllWhenAppLaunched,
       runMode,
-      split,
       taskNotification,
       theme
     } = config
     const result = {
+      autoHideWindow,
       continue: config.continue,
       dir,
+      engineMaxConnectionPerServer,
       hideAppMenu,
       keepWindowState,
       locale,
       maxConcurrentDownloads,
       maxConnectionPerServer,
-      maxOverallUploadLimit,
       maxOverallDownloadLimit,
+      maxOverallUploadLimit,
       newTaskShowDownloading,
       openAtLogin,
-      autoHideWindow,
       resumeAllWhenAppLaunched,
       runMode,
-      split,
       taskNotification,
       theme
     }
@@ -274,6 +274,9 @@
       }
     },
     computed: {
+      isRenderer () { return is.renderer() },
+      isMas () { return is.mas() },
+      isLinux () { return is.linux() },
       title () {
         return this.$t('preferences.basic')
       },
@@ -347,9 +350,6 @@
       })
     },
     methods: {
-      isRenderer: is.renderer,
-      isMas: is.mas,
-      isLinux: is.linux,
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
@@ -374,7 +374,7 @@
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
-            console.log('error submit!!')
+            console.log('[Motrix] preference form valid:', valid)
             return false
           }
 
@@ -383,7 +383,7 @@
           const data = {
             ...changed
           }
-          console.log('changed====》', data)
+          console.log('[Motrix] preference changed data:', data)
 
           this.$store.dispatch('preference/save', data)
             .then(() => {
@@ -395,7 +395,7 @@
               this.$msg.success(this.$t('preferences.save-fail-message'))
             })
 
-          if (this.isRenderer()) {
+          if (this.isRenderer) {
             this.$electron.ipcRenderer.send('command',
               'application:open-at-login', openAtLogin)
 
@@ -405,7 +405,7 @@
             this.$electron.ipcRenderer.send('command',
               'application:auto-hide-window', autoHideWindow)
 
-            if (checkIsNeedRestart(changed)) {
+            if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command',
                 'application:relaunch')
             }

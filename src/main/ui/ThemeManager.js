@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { nativeTheme, systemPreferences } from 'electron'
+
 import is from 'electron-is'
 import { APP_THEME } from '@shared/constants'
 
@@ -29,7 +30,6 @@ export default class ThemeManager extends EventEmitter {
     }
     nativeTheme.on('updated', () => {
       const theme = this.getSystemTheme()
-      console.log('theme updated===>', theme)
       this.updateAppAppearance(theme)
       this.emit('system-theme-changed', theme)
     })

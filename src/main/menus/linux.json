@@ -9,7 +9,7 @@
         { "id": "app.check-for-updates", "command": "application:check-for-updates" },
         { "id": "app.show", "command": "application:show", "command-arg": "index" },
         { "type": "separator" },
-        { "id": "app.quit", "role": "quit" }
+        { "id": "app.quit", "command": "application:quit" }
       ]
     },
     {
@@ -26,7 +26,8 @@
         { "id": "task.move-task-down", "command": "application:move-task-down" },
         { "type": "separator" },
         { "id": "task.pause-all-task", "command": "application:pause-all-task" },
-        { "id": "task.resume-all-task", "command": "application:resume-all-task" }
+        { "id": "task.resume-all-task", "command": "application:resume-all-task" },
+        { "id": "task.select-all-task", "command": "application:select-all-task" }
       ]
     },
     {

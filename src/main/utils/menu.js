@@ -112,22 +112,18 @@ export function handleCommand (item) {
 }
 
 function handleCommandBefore (item) {
-  console.log('handleCommandBefore==1=>', item)
   if (!item['command-before']) {
     return
   }
   const [ command, ...args ] = item['command-before'].split(',')
-  console.log('handleCommandBefore==2=>', command, ...args)
   global.application.sendCommandToAll(command, ...args)
 }
 
 function handleCommandAfter (item) {
-  console.log('handleCommandAfter==1=>', item)
   if (!item['command-after']) {
     return
   }
   const [ command, ...args ] = item['command-after'].split(',')
-  console.log('handleCommandAfter==2=>', command, ...args)
   global.application.sendCommandToAll(command, ...args)
 }
 

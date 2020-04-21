@@ -36,7 +36,6 @@ export default class Launcher extends EventEmitter {
       app.quit()
     } else {
       app.on('second-instance', (event, argv, workingDirectory) => {
-        logger.warn('second-instance====>', argv, workingDirectory)
         global.application.showPage('index')
         if (!is.macOS() && argv.length > 1) {
           this.handleAppLaunchArgv(argv)
@@ -58,7 +57,7 @@ export default class Launcher extends EventEmitter {
       this.handleAppLaunchArgv(process.argv)
     }
 
-    logger.warn('openedAtLogin===>', this.openedAtLogin)
+    logger.info('[Motrix] openedAtLogin:', this.openedAtLogin)
 
     this.handleAppEvents()
   }
@@ -112,12 +111,12 @@ export default class Launcher extends EventEmitter {
    * @param {array} argv
    */
   handleAppLaunchArgv (argv) {
-    logger.info('handleAppLaunchArgv===>', argv)
+    logger.info('[Motrix] handleAppLaunchArgv:', argv)
 
     // args: array, extra: map
     const { args, extra } = splitArgv(argv)
-    logger.info('splitArgv.args===>', args)
-    logger.info('splitArgv.extra===>', extra)
+    logger.info('[Motrix] split argv args:', args)
+    logger.info('[Motrix] split argv extra:', extra)
     if (extra['--opened-at-login'] === '1') {
       this.openedAtLogin = true
     }

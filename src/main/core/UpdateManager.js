@@ -1,8 +1,9 @@
 import { EventEmitter } from 'events'
+import { resolve } from 'path'
 import { dialog } from 'electron'
 import is from 'electron-is'
 import { autoUpdater } from 'electron-updater'
-import { resolve } from 'path'
+
 import logger from './Logger'
 import { getI18n } from '@/ui/Locale'
 

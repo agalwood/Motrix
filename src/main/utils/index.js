@@ -2,6 +2,11 @@ import { app } from 'electron'
 import is from 'electron-is'
 import { resolve } from 'path'
 import { existsSync, lstatSync } from 'fs'
+
+import {
+  MAX_CONNECTION_PER_SERVER_MAC,
+  MAX_CONNECTION_PER_SERVER_OTHER
+} from '@shared/constants'
 import logger from '../core/Logger'
 import engineBinMap from '../configs/engine'
 
@@ -123,4 +128,10 @@ export function parseArgvAsFile (argv) {
     arg = arg.replace('file://', '')
   }
   return arg
+}
+
+export const getMaxConnectionPerServer = () => {
+  return is.macOS()
+    ? MAX_CONNECTION_PER_SERVER_MAC
+    : MAX_CONNECTION_PER_SERVER_OTHER
 }

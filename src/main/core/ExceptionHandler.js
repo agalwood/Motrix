@@ -1,5 +1,6 @@
 import { app, dialog } from 'electron'
 import is from 'electron-is'
+
 import logger from './Logger'
 
 const defaults = {

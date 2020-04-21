@@ -46,11 +46,17 @@ export default class EngineClient {
     })
   }
 
+  async call (method, ...args) {
+    return this.client.call(method, ...args).catch((err) => {
+      logger.warn('[Motrix] call client fail:', err)
+    })
+  }
+
   changeGlobalOption (options) {
-    console.log('EngineClient.changeGlobalOption===>', options)
+    logger.info('[Motrix] change engine global option:', options)
     const args = formatOptionsForEngine(options)
 
-    return this.client.call('changeGlobalOption', args)
+    return this.call('changeGlobalOption', args)
   }
 
   shutdown (options = {}) {
@@ -59,6 +65,6 @@ export default class EngineClient {
 
     const method = force ? 'forceShutdown' : 'shutdown'
     const args = compactUndefined([secret])
-    return this.client.call(method, ...args)
+    return this.call(method, ...args)
   }
 }

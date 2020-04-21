@@ -1,9 +1,12 @@
 const userKeys = [
   'all-proxy-backup',
   'auto-check-update',
+  'auto-hide-window',
   'auto-sync-tracker',
   'cookie',
   'enable-egg-features',
+  'engine-bin-path',
+  'engine-max-connection-per-server',
   'hide-app-menu',
   'keep-window-state',
   'last-check-update-time',
@@ -12,7 +15,6 @@ const userKeys = [
   'log-path',
   'new-task-show-downloading',
   'open-at-login',
-  'auto-hide-window',
   'protocols',
   'resume-all-when-app-launched',
   'run-mode',
@@ -61,6 +63,7 @@ const systemKeys = [
   'continue',
   'dht-file-path',
   'dht-file-path6',
+  'dht-listen-port',
   'dir',
   'dry-run',
   'enable-http-keep-alive',
@@ -95,6 +98,7 @@ const systemKeys = [
   'https-proxy-user',
   'https-proxy',
   'index-out',
+  'listen-port',
   'lowest-speed-limit',
   'max-concurrent-downloads',
   'max-connection-per-server',
@@ -145,8 +149,11 @@ const systemKeys = [
 ]
 
 const needRestartKeys = [
+  'dht-listen-port',
   'hide-app-menu',
-  'rpc-listen-port'
+  'listen-port',
+  'rpc-listen-port',
+  'rpc-secret'
 ]
 
 export {

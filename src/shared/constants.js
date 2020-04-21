@@ -16,6 +16,16 @@ export const ADD_TASK_TYPE = {
   TORRENT: 'torrent'
 }
 
+export const TASK_STATUS = {
+  ACTIVE: 'active',
+  WAITING: 'waiting',
+  PAUSED: 'paused',
+  ERROR: 'error',
+  COMPLETE: 'complete',
+  REMOVED: 'removed',
+  SEEDING: 'seeding'
+}
+
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 
@@ -86,3 +96,6 @@ export const AUTO_CHECK_UPDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000
 
 export const NONE_SELECTED_FILES = 'none'
 export const SELECTED_ALL_FILES = 'all'
+
+export const MAX_CONNECTION_PER_SERVER_MAC = 64
+export const MAX_CONNECTION_PER_SERVER_OTHER = 16

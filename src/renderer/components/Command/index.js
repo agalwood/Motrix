@@ -87,6 +87,10 @@ function resumeAllTask () {
   store.dispatch('task/resumeAllTask')
 }
 
+function selectAllTask () {
+  store.dispatch('task/selectAllTask')
+}
+
 commands.register('application:system-theme', updateSystemTheme)
 commands.register('application:theme', updateTheme)
 commands.register('application:about', showAboutPanel)
@@ -103,6 +107,7 @@ commands.register('application:move-task-up', moveTaskUp)
 commands.register('application:move-task-down', moveTaskDown)
 commands.register('application:pause-all-task', pauseAllTask)
 commands.register('application:resume-all-task', resumeAllTask)
+commands.register('application:select-all-task', selectAllTask)
 
 export {
   commands

@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { join } from 'path'
 import { Tray, Menu, nativeTheme } from 'electron'
 import is from 'electron-is'
+
 import {
   translateTemplate,
   flattenMenuItems,
@@ -16,8 +17,8 @@ export default class TrayManager extends EventEmitter {
   constructor (options = {}) {
     super()
 
+    this.theme = options.theme || APP_THEME.AUTO
     this.i18n = getI18n()
-
     this.menu = null
 
     this.load()
@@ -28,15 +29,23 @@ export default class TrayManager extends EventEmitter {
 
   load () {
     this.template = require(`../menus/tray.json`)
-    const theme = nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
 
-    if (is.macOS()) {
-      this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)
-      this.activeIcon = join(__static, `./mo-tray-${theme}-active.png`)
-    } else {
-      this.normalIcon = join(__static, './mo-tray-colorful-normal.png')
-      this.activeIcon = join(__static, './mo-tray-colorful-active.png')
+    let theme = APP_THEME.LIGHT
+
+    if (is.windows()) {
+      theme = 'colorful'
+    } else if (is.macOS()) {
+      theme = nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
+    } else if (is.linux()) {
+      theme = (this.theme === APP_THEME.AUTO) ? APP_THEME.DARK : this.theme
     }
+
+    this.setIcons(theme)
+  }
+
+  setIcons (theme) {
+    this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)
+    this.activeIcon = join(__static, `./mo-tray-${theme}-active.png`)
   }
 
   build () {
@@ -97,12 +106,12 @@ export default class TrayManager extends EventEmitter {
     global.application.handleFile(files[0])
   }
 
-  updateStatus (status) {
+  updateTrayByStatus (status) {
     this.status = status
-    this.updateIcon()
+    this.updateTray()
   }
 
-  updateIcon () {
+  updateTray () {
     const icon = this.status ? this.activeIcon : this.normalIcon
     tray.setImage(icon)
   }
@@ -112,10 +121,9 @@ export default class TrayManager extends EventEmitter {
       return
     }
 
-    this.normalIcon = join(__static, `./mo-tray-${theme}-normal.png`)
-    this.activeIcon = join(__static, `./mo-tray-${theme}-active.png`)
+    this.setIcons(theme)
 
-    this.updateIcon()
+    this.updateTray()
   }
 
   updateMenuStates (visibleStates, enabledStates, checkedStates) {

@@ -1,14 +1,14 @@
 <template>
   <div id="app">
     <mo-title-bar
-      v-if="isRenderer()"
+      v-if="isRenderer"
       :showActions="showWindowActions"
     />
     <router-view />
     <mo-engine-client
       :secret="rpcSecret"
     />
-    <mo-ipc v-if="isRenderer()" />
+    <mo-ipc v-if="isRenderer" />
   </div>
 </template>
 
@@ -29,6 +29,7 @@
       [Ipc.name]: Ipc
     },
     computed: {
+      isRenderer () { return is.renderer() },
       ...mapState('app', {
         systemTheme: state => state.systemTheme
       }),
@@ -56,7 +57,6 @@
       }
     },
     methods: {
-      isRenderer: is.renderer,
       updateRootClassName: function () {
         const { themeClass = '', i18nClass = '', dirClass = '' } = this
         const className = `${themeClass} ${i18nClass} ${dirClass}`

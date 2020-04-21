@@ -169,18 +169,6 @@ export default class Api {
     return this.client.call('changeOption', ...args)
   }
 
-  batchChangeOption (params = {}) {
-    let { gids, options = {} } = params
-    options = formatOptionsForEngine(options)
-
-    const data = gids.map((gid, index) => {
-      const kebabOptions = changeKeysToKebabCase(options)
-      const args = compactUndefined([gid, kebabOptions])
-      return [ 'aria2.changeOption', ...args ]
-    })
-    return this.client.multicall(data)
-  }
-
   getGlobalStat () {
     return this.client.call('getGlobalStat')
   }
@@ -231,11 +219,11 @@ export default class Api {
         [ 'aria2.tellActive', ...activeArgs ],
         [ 'aria2.tellWaiting', ...waitingArgs ]
       ]).then((data) => {
-        console.log('fetchDownloadingTaskList data', data)
+        console.log('[Motrix] fetch downloading task list data:', data)
         const result = mergeTaskResult(data)
         resolve(result)
       }).catch((err) => {
-        console.log('fetchDownloadingTaskList fail===>', err)
+        console.log('[Motrix] fetch downloading task list fail:', err)
         reject(err)
       })
     })
@@ -271,6 +259,12 @@ export default class Api {
     const { gid, keys } = params
     const args = compactUndefined([gid, keys])
     return this.client.call('tellStatus', ...args)
+  }
+
+  fetchTaskItemPeers (params = {}) {
+    const { gid, keys } = params
+    const args = compactUndefined([gid, keys])
+    return this.client.call('getPeers', ...args)
   }
 
   pauseTask (params = {}) {
@@ -327,5 +321,33 @@ export default class Api {
     const { gid } = params
     const args = compactUndefined([gid])
     return this.client.call('removeDownloadResult', ...args)
+  }
+
+  multicall (method, params = {}) {
+    let { gids, options = {} } = params
+    options = formatOptionsForEngine(options)
+
+    const data = gids.map((gid, index) => {
+      const kebabOptions = changeKeysToKebabCase(options)
+      const args = compactUndefined([gid, kebabOptions])
+      return [ method, ...args ]
+    })
+    return this.client.multicall(data)
+  }
+
+  batchChangeOption (params = {}) {
+    return this.multicall('aria2.changeOption', params)
+  }
+
+  batchRemoveTask (params = {}) {
+    return this.multicall('aria2.remove', params)
+  }
+
+  batchPauseTask (params = {}) {
+    return this.multicall('aria2.pause', params)
+  }
+
+  batchForcePauseTask (params = {}) {
+    return this.multicall('aria2.forcePause', params)
   }
 }
