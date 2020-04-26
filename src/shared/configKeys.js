@@ -4,7 +4,7 @@ const userKeys = [
   'auto-hide-window',
   'auto-sync-tracker',
   'cookie',
-  'enable-egg-features',
+  'enable-upnp',
   'engine-bin-path',
   'engine-max-connection-per-server',
   'hide-app-menu',

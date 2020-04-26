@@ -10,6 +10,7 @@ import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from '@/ui/Locale'
 import Engine from './core/Engine'
 import EngineClient from './core/EngineClient'
+import UPnPManager from './core/UPnPManager'
 import AutoLaunchManager from './core/AutoLaunchManager'
 import UpdateManager from './core/UpdateManager'
 import EnergyManager from './core/EnergyManager'
@@ -52,6 +53,8 @@ export default class Application extends EventEmitter {
     this.startEngine()
 
     this.initEngineClient()
+
+    this.initUPnPManager()
 
     this.autoSyncTracker()
 
@@ -99,12 +102,96 @@ export default class Application extends EventEmitter {
     }
   }
 
+  async stopEngine () {
+    try {
+      await this.engineClient.shutdown()
+    } catch (err) {
+      logger.warn(`[Motrix] shutdown engine fail: `, err.message)
+    } finally {
+      this.engine.stop()
+    }
+  }
+
   initEngineClient () {
     const port = this.configManager.getSystemConfig('rpc-listen-port')
     const secret = this.configManager.getSystemConfig('rpc-secret')
     this.engineClient = new EngineClient({
       port,
       secret
+    })
+  }
+
+  initUPnPManager () {
+    this.upnp = new UPnPManager()
+
+    const enable = this.configManager.getUserConfig('enable-upnp')
+    if (!enable) {
+      return
+    }
+
+    this.startUPnPMapping()
+
+    this.watchPortsChange()
+    this.watchEnableUPnPChange()
+  }
+
+  async startUPnPMapping () {
+    const btPort = this.configManager.getSystemConfig('listen-port')
+    const dhtPort = this.configManager.getSystemConfig('dht-listen-port')
+
+    const promises = [
+      this.upnp.map(btPort),
+      this.upnp.map(dhtPort)
+    ]
+    try {
+      await Promise.all(promises)
+    } catch (e) {
+      logger.warn('[Motrix] start UPnP mapping fail', e)
+    }
+  }
+
+  async stopUPnPMapping () {
+    const btPort = this.configManager.getSystemConfig('listen-port')
+    const dhtPort = this.configManager.getSystemConfig('dht-listen-port')
+
+    const promises = [
+      this.upnp.unmap(btPort),
+      this.upnp.unmap(dhtPort)
+    ]
+    try {
+      await Promise.all(promises)
+    } catch (e) {
+      logger.warn('[Motrix] stop UPnP mapping fail', e)
+    }
+  }
+
+  watchPortsChange () {
+    const watchKeys = ['listen-port', 'dht-listen-port']
+
+    watchKeys.map((key) => {
+      this.configManager.systemConfig.onDidChange(key, async (newValue, oldValue) => {
+        logger.info('[Motrix] detected port change event:', key, newValue, oldValue)
+        const promises = [
+          this.upnp.unmap(oldValue),
+          this.upnp.map(newValue)
+        ]
+        try {
+          await Promise.all(promises)
+        } catch (e) {
+          logger.info('[Motrix] change UPnP port mapping failed:', e)
+        }
+      })
+    })
+  }
+
+  watchEnableUPnPChange () {
+    this.configManager.userConfig.onDidChange('enable-upnp', async (newValue, oldValue) => {
+      logger.info('[Motrix] detected enable-upnp value change event:', newValue, oldValue)
+      if (newValue) {
+        this.startUPnPMapping()
+      } else {
+        this.stopUPnPMapping()
+      }
     })
   }
 
@@ -203,20 +290,23 @@ export default class Application extends EventEmitter {
     this.windowManager.destroyWindow(page)
   }
 
-  stop () {
+  async stop () {
     try {
-      this.engineClient.shutdown()
-      this.trayManager.destroy()
-      this.engine.stop()
       this.energyManager.stopPowerSaveBlocker()
+
+      this.trayManager.destroy()
+
+      await this.stopUPnPMapping()
+
+      await this.stopEngine()
     } catch (err) {
       logger.warn(`[Motrix] stop error: `, err.message)
     }
   }
 
-  quit () {
-    this.stop()
-    app.quit()
+  async quit () {
+    await this.stop()
+    app.exit()
   }
 
   sendCommand (command, ...args) {
@@ -497,6 +587,10 @@ export default class Application extends EventEmitter {
   }
 
   handleEvents () {
+    // this.configManager.systemConfig.onDidAnyChange(() => {
+    //   this.engineClient.changeGlobalOption(this.configManager.getSystemConfig())
+    // })
+
     this.on('download-status-change', (downloading) => {
       this.trayManager.updateTrayByStatus(downloading)
       if (downloading) {

@@ -168,6 +168,15 @@
           :label="`${$t('preferences.port')}: `"
           :label-width="formLabelWidth"
         >
+          <el-row>
+            <el-col class="form-item-sub" :span="10">
+              <el-switch
+                v-model="form.enableUpnp"
+                active-text="UPnP"
+                >
+              </el-switch>
+            </el-col>
+          </el-row>
           <el-row style="margin-bottom: 8px;">
             <el-col class="form-item-sub" :span="10">
               {{ $t('preferences.bt-port') }}
@@ -338,6 +347,7 @@
       autoSyncTracker,
       btTracker,
       dhtListenPort,
+      enableUpnp,
       hideAppMenu,
       lastCheckUpdateTime,
       lastSyncTrackerTime,
@@ -357,6 +367,7 @@
       autoSyncTracker,
       btTracker: convertCommaToLine(btTracker),
       dhtListenPort,
+      enableUpnp,
       hideAppMenu,
       lastCheckUpdateTime,
       lastSyncTrackerTime,

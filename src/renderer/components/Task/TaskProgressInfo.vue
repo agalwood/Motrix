@@ -1,11 +1,11 @@
 <template>
   <el-row class="task-progress-info">
-    <el-col :span="10" class="task-progress-info-left">
+    <el-col :span="8" class="task-progress-info-left">
       <div v-if="task.totalLength > 0">
       {{ task.completedLength | bytesToSize }} / {{ task.totalLength | bytesToSize }}
       </div>
     </el-col>
-    <el-col :span="14" class="task-progress-info-right">
+    <el-col :span="16" class="task-progress-info-right">
       <div class="task-speed-info" v-if="isActive">
         <span class="task-speed-text" v-if="isBT">
           <i><mo-icon name="arrow-up" width="10" height="10" /></i>
