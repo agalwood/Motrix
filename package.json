@@ -178,7 +178,7 @@
     "electron-store": "^5.1.1",
     "electron-updater": "^4.2.5",
     "element-ui": "^2.13.1",
-    "forever-monitor": "^2.0.0",
+    "forever-monitor": "1.7.2",
     "i18next": "^19.4.4",
     "lodash": "^4.17.15",
     "nat-api": "^0.1.3",
