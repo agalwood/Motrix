@@ -168,7 +168,7 @@
           :label="`${$t('preferences.port')}: `"
           :label-width="formLabelWidth"
         >
-          <el-row>
+          <el-row style="margin-bottom: 8px;">
             <el-col class="form-item-sub" :span="10">
               <el-switch
                 v-model="form.enableUpnp"

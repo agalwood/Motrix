@@ -124,15 +124,16 @@ export default class Application extends EventEmitter {
   initUPnPManager () {
     this.upnp = new UPnPManager()
 
+    this.watchEnableUPnPChange()
+
+    this.watchPortsChange()
+
     const enable = this.configManager.getUserConfig('enable-upnp')
     if (!enable) {
       return
     }
 
     this.startUPnPMapping()
-
-    this.watchPortsChange()
-    this.watchEnableUPnPChange()
   }
 
   async startUPnPMapping () {
@@ -171,6 +172,11 @@ export default class Application extends EventEmitter {
     watchKeys.map((key) => {
       this.configManager.systemConfig.onDidChange(key, async (newValue, oldValue) => {
         logger.info('[Motrix] detected port change event:', key, newValue, oldValue)
+        const enable = this.configManager.getUserConfig('enable-upnp')
+        if (!enable) {
+          return
+        }
+
         const promises = [
           this.upnp.unmap(oldValue),
           this.upnp.map(newValue)

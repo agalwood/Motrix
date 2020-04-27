@@ -28,6 +28,7 @@ export default class UPnPManager {
         if (err) {
           logger.warn(`[Motrix] UPnPManager map ${port} failed, error: `, err)
           reject(err.message)
+          return
         }
 
         logger.info(`[Motrix] UPnPManager port ${port} mapping succeeded`)
@@ -45,6 +46,7 @@ export default class UPnPManager {
         if (err) {
           logger.warn(`[Motrix] UPnPManager unmap ${port} failed, error: `, err)
           reject(err.message)
+          return
         }
 
         logger.info(`[Motrix] UPnPManager port ${port} unmapping succeeded`)
