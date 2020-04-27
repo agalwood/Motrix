@@ -43,6 +43,7 @@ export default class ConfigManager {
   initSystemConfig () {
     this.systemConfig = new Store({
       name: 'system',
+      /* eslint-disable quote-props */
       defaults: {
         'all-proxy': EMPTY_STRING,
         'allow-overwrite': true,
@@ -69,6 +70,7 @@ export default class ConfigManager {
         'split': 128,
         'user-agent': 'Transmission/2.94'
       }
+      /* eslint-enable quote-props */
     })
     this.fixSystemConfig()
   }
@@ -84,6 +86,7 @@ export default class ConfigManager {
       //     enum: ['auto', 'light', 'dark']
       //   }
       // },
+      /* eslint-disable quote-props */
       defaults: {
         'all-proxy-backup': EMPTY_STRING,
         'auto-check-update': is.macOS(),
@@ -114,6 +117,7 @@ export default class ConfigManager {
         'use-proxy': false,
         'window-state': {}
       }
+      /* eslint-enable quote-props */
     })
     this.fixUserConfig()
   }

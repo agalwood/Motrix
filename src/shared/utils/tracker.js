@@ -1,8 +1,9 @@
 import {
   isEmpty
 } from 'lodash'
-import { EMPTY_STRING } from '@shared/constants'
 import axios from 'axios'
+
+import { EMPTY_STRING } from '@shared/constants'
 
 export const fetchBtTrackerFromSource = async (source) => {
   if (isEmpty(source)) {

@@ -36,16 +36,16 @@ export default class Engine {
       throw new Error(this.i18n.t('app.engine-damaged-message'))
     }
 
-    let binPath = join(basePath, `/engine/${binName}`)
+    const binPath = join(basePath, `/engine/${binName}`)
     const binIsExist = existsSync(binPath)
     if (!binIsExist) {
       logger.error('[Motrix] engine bin is not exist:', binPath)
       throw new Error(this.i18n.t('app.engine-missing-message'))
     }
 
-    let confPath = join(basePath, '/engine/aria2.conf')
+    const confPath = join(basePath, '/engine/aria2.conf')
 
-    let sessionPath = this.userConfig['session-path'] || getSessionPath()
+    const sessionPath = this.userConfig['session-path'] || getSessionPath()
     const sessionIsExist = existsSync(sessionPath)
 
     let result = [`${binPath}`, `--conf-path=${confPath}`, `--save-session=${sessionPath}`]
@@ -81,11 +81,11 @@ export default class Engine {
     })
 
     this.instance.on('start', function (process, data) {
-      logger.info(`[Motrix] Engine started`)
+      logger.info('[Motrix] Engine started')
     })
 
     this.instance.on('stop', function (process) {
-      logger.info(`[Motrix] Engine stopped`)
+      logger.info('[Motrix] Engine stopped')
     })
 
     // this.instance.on('restart', function (forever) {

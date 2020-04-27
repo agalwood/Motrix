@@ -207,7 +207,7 @@ export function buildMagnetLink (task, btTracker = []) {
   const { announceList, info } = bittorrent
   const trackers = difference(announceList, btTracker)
 
-  let params = [
+  const params = [
     `magnet:?xt=urn:btih:${infoHash}`
   ]
   if (info && info.name) {
@@ -456,7 +456,7 @@ export function detectResource (content) {
 
 export function buildFileList (rawFile) {
   rawFile.uid = Date.now()
-  let file = {
+  const file = {
     status: 'ready',
     name: rawFile.name,
     size: rawFile.size,
@@ -583,7 +583,7 @@ export function checkIsNeedRestart (changed = {}) {
 
   const kebabCaseChanged = changeKeysToKebabCase(changed)
   needRestartKeys.some((key) => {
-    if (kebabCaseChanged.hasOwnProperty(key)) {
+    if (Object.keys(kebabCaseChanged).includes(key)) {
       result = true
       return true
     }

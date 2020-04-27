@@ -16,7 +16,7 @@ export default class TouchBarManager extends EventEmitter {
   }
 
   load () {
-    this.template = require(`../menus/touchBar.json`)
+    this.template = require('../menus/touchBar.json')
   }
 
   getClickFn (item) {
@@ -43,13 +43,11 @@ export default class TouchBarManager extends EventEmitter {
 
     switch (type) {
       case 'button':
-        const icon = this.getIconImage(options.icon)
-        const click = this.getClickFn(options)
         result = new TouchBarButton({
           label,
           backgroundColor,
-          icon,
-          click
+          icon: this.getIconImage(options.icon),
+          click: this.getClickFn(options)
         })
         break
       case 'label':

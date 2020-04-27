@@ -12,6 +12,6 @@ export default {
       transparent: !is.windows()
     },
     bindCloseToHide: true,
-    url: is.dev() ? `http://localhost:9080` : `file://${__dirname}/index.html`
+    url: is.dev() ? 'http://localhost:9080' : `file://${__dirname}/index.html`
   }
 }

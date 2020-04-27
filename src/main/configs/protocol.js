@@ -1,3 +1,4 @@
+/* eslint quote-props: ["error", "always"] */
 export default {
   'task-list': 'application:task-list',
   'new-task': 'application:new-task',
