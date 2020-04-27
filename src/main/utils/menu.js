@@ -3,31 +3,31 @@ export function concat (template, submenu, submenuToAdd) {
     let relativeItem = null
     if (sub.position) {
       switch (sub.position) {
-        case 'first':
-          submenu.unshift(sub)
-          break
-        case 'last':
-          submenu.push(sub)
-          break
-        case 'before':
-          relativeItem = findById(template, sub['relative-id'])
-          if (relativeItem) {
-            const array = relativeItem.__parent
-            const index = array.indexOf(relativeItem)
-            array.splice(index, 0, sub)
-          }
-          break
-        case 'after':
-          relativeItem = findById(template, sub['relative-id'])
-          if (relativeItem) {
-            const array = relativeItem.__parent
-            const index = array.indexOf(relativeItem)
-            array.splice(index + 1, 0, sub)
-          }
-          break
-        default:
-          submenu.push(sub)
-          break
+      case 'first':
+        submenu.unshift(sub)
+        break
+      case 'last':
+        submenu.push(sub)
+        break
+      case 'before':
+        relativeItem = findById(template, sub['relative-id'])
+        if (relativeItem) {
+          const array = relativeItem.__parent
+          const index = array.indexOf(relativeItem)
+          array.splice(index, 0, sub)
+        }
+        break
+      case 'after':
+        relativeItem = findById(template, sub['relative-id'])
+        if (relativeItem) {
+          const array = relativeItem.__parent
+          const index = array.indexOf(relativeItem)
+          array.splice(index + 1, 0, sub)
+        }
+        break
+      default:
+        submenu.push(sub)
+        break
       }
     } else {
       submenu.push(sub)
