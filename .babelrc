@@ -2,19 +2,11 @@
   "comments": false,
   "env": {
     "main": {
-      "presets": [
-        ["env", {
-          "targets": { "node": 7 }
-        }],
-        "stage-0"
-      ]
+      "presets": ["@babel/preset-env"]
     },
     "renderer": {
       "presets": [
-        ["env", {
-          "modules": false
-        }],
-        "stage-0"
+        "@babel/preset-env"
       ],
       "plugins": [
         [
@@ -27,12 +19,7 @@
       ]
     },
     "web": {
-      "presets": [
-        ["env", {
-          "modules": false
-        }],
-        "stage-0"
-      ],
+      "presets": ["@babel/preset-env"],
       "plugins": [
         [
           "component",
@@ -44,5 +31,8 @@
       ]
     }
   },
-  "plugins": ["transform-runtime"]
+  "plugins": [
+    "@babel/plugin-proposal-class-properties",
+    "@babel/plugin-transform-runtime"
+  ]
 }
