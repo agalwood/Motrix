@@ -354,12 +354,12 @@
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
         this.$electron.ipcRenderer.send('command',
-          'application:change-locale', lng)
+                                        'application:change-locale', lng)
       },
       handleThemeChange (theme) {
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command',
-          'application:change-theme', theme)
+                                        'application:change-theme', theme)
       },
       onDirectorySelected (dir) {
         this.form.dir = dir
@@ -397,17 +397,17 @@
 
           if (this.isRenderer) {
             this.$electron.ipcRenderer.send('command',
-              'application:open-at-login', openAtLogin)
+                                            'application:open-at-login', openAtLogin)
 
             this.$electron.ipcRenderer.send('command',
-              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
+                                            'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
 
             this.$electron.ipcRenderer.send('command',
-              'application:auto-hide-window', autoHideWindow)
+                                            'application:auto-hide-window', autoHideWindow)
 
             if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command',
-                'application:relaunch')
+                                              'application:relaunch')
             }
           }
         })

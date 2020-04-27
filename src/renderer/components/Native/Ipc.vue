@@ -31,7 +31,7 @@
     created: function () {
       this.bindIpcEvents()
       // id of the menu item
-      let visibleStates = {}
+      const visibleStates = {}
       if (is.mas()) {
         visibleStates['app.check-for-updates'] = false
         if (!this.enableEggFeatures) {

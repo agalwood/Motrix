@@ -50,11 +50,7 @@
         this.$store.dispatch('app/showAddTaskDialog', taskType)
       },
       showAboutPanel () {
-        // if (is.renderer()) {
-        //   this.$electron.ipcRenderer.send('command', 'application:about')
-        // } else {
         this.$store.dispatch('app/showAboutPanel')
-        // }
       },
       nav (page) {
         this.$router.push({

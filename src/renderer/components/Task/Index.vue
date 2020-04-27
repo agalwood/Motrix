@@ -33,65 +33,65 @@
 </template>
 
 <script>
-import TaskSubnav from '@/components/Subnav/TaskSubnav'
-import TaskActions from '@/components/Task/TaskActions'
-import TaskList from '@/components/Task/TaskList'
-import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
+  import TaskSubnav from '@/components/Subnav/TaskSubnav'
+  import TaskActions from '@/components/Task/TaskActions'
+  import TaskList from '@/components/Task/TaskList'
+  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
 
-export default {
-  name: 'mo-content-task',
-  components: {
-    [TaskSubnav.name]: TaskSubnav,
-    [TaskActions.name]: TaskActions,
-    [TaskList.name]: TaskList,
-    [SubnavSwitcher.name]: SubnavSwitcher
-  },
-  props: {
-    status: {
-      type: String,
-      default: 'active'
-    }
-  },
-  computed: {
-    subnavs: function () {
-      return [
-        {
-          key: 'active',
-          title: this.$t('task.active'),
-          route: '/task/active'
-        },
-        {
-          key: 'waiting',
-          title: this.$t('task.waiting'),
-          route: '/task/waiting'
-        },
-        {
-          key: 'stopped',
-          title: this.$t('task.stopped'),
-          route: '/task/stopped'
-        }
-      ]
+  export default {
+    name: 'mo-content-task',
+    components: {
+      [TaskSubnav.name]: TaskSubnav,
+      [TaskActions.name]: TaskActions,
+      [TaskList.name]: TaskList,
+      [SubnavSwitcher.name]: SubnavSwitcher
     },
-    title: function () {
-      const subnav = this.subnavs.find((item) => item.key === this.status)
-      return subnav.title
-    }
-  },
-  watch: {
-    status: 'onStatusChange'
-  },
-  methods: {
-    onStatusChange () {
+    props: {
+      status: {
+        type: String,
+        default: 'active'
+      }
+    },
+    computed: {
+      subnavs: function () {
+        return [
+          {
+            key: 'active',
+            title: this.$t('task.active'),
+            route: '/task/active'
+          },
+          {
+            key: 'waiting',
+            title: this.$t('task.waiting'),
+            route: '/task/waiting'
+          },
+          {
+            key: 'stopped',
+            title: this.$t('task.stopped'),
+            route: '/task/stopped'
+          }
+        ]
+      },
+      title: function () {
+        const subnav = this.subnavs.find((item) => item.key === this.status)
+        return subnav.title
+      }
+    },
+    watch: {
+      status: 'onStatusChange'
+    },
+    methods: {
+      onStatusChange () {
+        this.changeCurrentList()
+      },
+      changeCurrentList () {
+        this.$store.dispatch('task/changeCurrentList', this.status)
+      }
+    },
+    created: function () {
       this.changeCurrentList()
-    },
-    changeCurrentList () {
-      this.$store.dispatch('task/changeCurrentList', this.status)
     }
-  },
-  created: function () {
-    this.changeCurrentList()
   }
-}
 </script>
 
 <style lang="scss">
