@@ -28,7 +28,7 @@
       },
       color: {
         type: String,
-        default: '#4299E1'
+        default: '#bad7fb'
       },
       opacity: {
         type: Number,
