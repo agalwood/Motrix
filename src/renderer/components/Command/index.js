@@ -1,11 +1,12 @@
+import { Message } from 'element-ui'
+import { base64StringToBlob } from 'blob-util'
+
 import router from '@/router'
 import store from '@/store'
-import CommandManager from './CommandManager'
-import { Message } from 'element-ui'
-import { getLocaleManager } from '@/components/Locale'
-import { base64StringToBlob } from 'blob-util'
 import { buildFileList } from '@shared/utils'
 import { ADD_TASK_TYPE } from '@shared/constants'
+import { getLocaleManager } from '@/components/Locale'
+import CommandManager from './CommandManager'
 
 const commands = new CommandManager()
 const i18n = getLocaleManager().getI18n()
@@ -60,11 +61,11 @@ function showUnderDevelopmentMessage () {
 }
 
 function pauseTask () {
-  showUnderDevelopmentMessage()
+  store.dispatch('task/batchPauseSelectedTasks')
 }
 
 function resumeTask () {
-  showUnderDevelopmentMessage()
+  store.dispatch('task/batchResumeSelectedTasks')
 }
 
 function deleteTask () {

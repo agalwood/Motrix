@@ -48,7 +48,7 @@ export default {
   'remove-task-file-fail': '删除任务文件失败，请手动删除',
   'remove-task-config-file-fail': '删除任务配置文件失败，请手动删除',
   'move-task-up': '上移任务',
-  'move-task-down': '下载任务',
+  'move-task-down': '下移任务',
   'pause-all-task': '暂停所有任务',
   'pause-all-task-success': '暂停所有任务成功',
   'pause-all-task-fail': '暂停所有任务失败',
