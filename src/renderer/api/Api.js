@@ -96,7 +96,7 @@ export default class Api {
 
   savePreferenceToNativeStore (params = {}) {
     const { user, system, others } = separateConfig(params)
-    let config = {}
+    const config = {}
 
     if (!isEmpty(user)) {
       console.info('[Motrix] save user config: ', user)
@@ -182,10 +182,10 @@ export default class Api {
     const tasks = uris.map((uri, index) => {
       const kebabOptions = changeKeysToKebabCase(options)
       if (outs && outs[index]) {
-        kebabOptions['out'] = outs[index]
+        kebabOptions.out = outs[index]
       }
       const args = compactUndefined([[uri], kebabOptions])
-      return [ 'aria2.addUri', ...args ]
+      return ['aria2.addUri', ...args]
     })
     return this.client.multicall(tasks)
   }
@@ -216,8 +216,8 @@ export default class Api {
     const waitingArgs = compactUndefined([offset, num, keys])
     return new Promise((resolve, reject) => {
       this.client.multicall([
-        [ 'aria2.tellActive', ...activeArgs ],
-        [ 'aria2.tellWaiting', ...waitingArgs ]
+        ['aria2.tellActive', ...activeArgs],
+        ['aria2.tellWaiting', ...waitingArgs]
       ]).then((data) => {
         console.log('[Motrix] fetch downloading task list data:', data)
         const result = mergeTaskResult(data)
@@ -244,14 +244,14 @@ export default class Api {
   fetchTaskList (params = {}) {
     const { type } = params
     switch (type) {
-      case 'active':
-        return this.fetchDownloadingTaskList(params)
-      case 'waiting':
-        return this.fetchWaitingTaskList(params)
-      case 'stopped':
-        return this.fetchStoppedTaskList(params)
-      default:
-        return this.fetchDownloadingTaskList(params)
+    case 'active':
+      return this.fetchDownloadingTaskList(params)
+    case 'waiting':
+      return this.fetchWaitingTaskList(params)
+    case 'stopped':
+      return this.fetchStoppedTaskList(params)
+    default:
+      return this.fetchDownloadingTaskList(params)
     }
   }
 
@@ -330,7 +330,7 @@ export default class Api {
     const data = gids.map((gid, index) => {
       const kebabOptions = changeKeysToKebabCase(options)
       const args = compactUndefined([gid, kebabOptions])
-      return [ method, ...args ]
+      return [method, ...args]
     })
     return this.client.multicall(data)
   }

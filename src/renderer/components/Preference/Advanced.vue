@@ -563,7 +563,7 @@
 
           if (this.isRenderer) {
             this.$electron.ipcRenderer.send('command',
-              'application:setup-protocols-client', data.protocols)
+                                            'application:setup-protocols-client', data.protocols)
 
             if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')

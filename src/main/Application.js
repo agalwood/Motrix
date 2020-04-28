@@ -106,7 +106,7 @@ export default class Application extends EventEmitter {
     try {
       await this.engineClient.shutdown()
     } catch (err) {
-      logger.warn(`[Motrix] shutdown engine fail: `, err.message)
+      logger.warn('[Motrix] shutdown engine fail: ', err.message)
     } finally {
       this.engine.stop()
     }
@@ -306,7 +306,7 @@ export default class Application extends EventEmitter {
 
       await this.stopEngine()
     } catch (err) {
-      logger.warn(`[Motrix] stop error: `, err.message)
+      logger.warn('[Motrix] stop error: ', err.message)
     }
   }
 

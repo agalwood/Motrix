@@ -28,6 +28,7 @@ import appLocaleZhTW from '@shared/locales/zh-TW'
 import appLocaleUk from '@shared/locales/uk'
 
 // Please keep the locale key in alphabetical order.
+/* eslint-disable quote-props */
 const resources = {
   'ca': {
     translation: {
@@ -114,5 +115,6 @@ const resources = {
     }
   }
 }
+/* eslint-enable quote-props */
 
 export default resources

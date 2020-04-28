@@ -28,7 +28,7 @@ export default class TrayManager extends EventEmitter {
   }
 
   load () {
-    this.template = require(`../menus/tray.json`)
+    this.template = require('../menus/tray.json')
 
     let theme = APP_THEME.LIGHT
 
@@ -50,7 +50,7 @@ export default class TrayManager extends EventEmitter {
 
   build () {
     const keystrokesByCommand = {}
-    for (let item in this.keymap) {
+    for (const item in this.keymap) {
       keystrokesByCommand[this.keymap[item]] = item
     }
 

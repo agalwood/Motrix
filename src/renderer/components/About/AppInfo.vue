@@ -34,9 +34,11 @@
       },
       engine: {
         type: Object,
-        default: {
-          version: '',
-          enabledFeatures: []
+        default () {
+          return {
+            version: '',
+            enabledFeatures: []
+          }
         }
       }
     },

@@ -24,13 +24,13 @@ export default class MenuManager extends EventEmitter {
   }
 
   load () {
-    let template = require(`../menus/${process.platform}.json`)
-    this.template = template['menu']
+    const template = require(`../menus/${process.platform}.json`)
+    this.template = template.menu
   }
 
   build () {
     const keystrokesByCommand = {}
-    for (let item in this.keymap) {
+    for (const item in this.keymap) {
       keystrokesByCommand[this.keymap[item]] = item
     }
 

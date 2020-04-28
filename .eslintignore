@@ -1,0 +1,7 @@
+src/renderer/components/Icons/*.js
+
+src/shared/locales/*
+!src/shared/locales/all.js
+!src/shared/locales/app.js
+!src/shared/locales/index.js
+!src/shared/locales/LocalManager.js

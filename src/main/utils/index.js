@@ -32,12 +32,12 @@ export function getUserDownloadsPath () {
 }
 
 export function getEngineBin (platform) {
-  let result = engineBinMap.hasOwnProperty(platform) ? engineBinMap[platform] : ''
+  const result = engineBinMap[platform] || ''
   return result
 }
 
 export function transformConfig (config) {
-  let result = []
+  const result = []
   for (const [k, v] of Object.entries(config)) {
     if (v !== '') {
       result.push(`--${k}=${v}`)
@@ -87,7 +87,7 @@ export function splitArgv (argv) {
 }
 
 export function parseArgvAsUrl (argv) {
-  let arg = argv[1]
+  const arg = argv[1]
   if (!arg) {
     return
   }

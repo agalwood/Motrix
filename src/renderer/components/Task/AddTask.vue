@@ -167,275 +167,275 @@
 </template>
 
 <script>
-import is from 'electron-is'
-import { mapState } from 'vuex'
-import { isEmpty } from 'lodash'
-import SelectDirectory from '@/components/Native/SelectDirectory'
-import SelectTorrent from '@/components/Task/SelectTorrent'
-import { prettifyDir } from '@/components/Native/utils'
-import { ADD_TASK_TYPE, NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
-import { detectResource, splitTaskLinks } from '@shared/utils'
-import { buildOuts } from '@shared/utils/rename'
-import '@/components/Icons/inbox'
+  import is from 'electron-is'
+  import { mapState } from 'vuex'
+  import { isEmpty } from 'lodash'
+  import SelectDirectory from '@/components/Native/SelectDirectory'
+  import SelectTorrent from '@/components/Task/SelectTorrent'
+  import { prettifyDir } from '@/components/Native/utils'
+  import { ADD_TASK_TYPE, NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
+  import { detectResource, splitTaskLinks } from '@shared/utils'
+  import { buildOuts } from '@shared/utils/rename'
+  import '@/components/Icons/inbox'
 
-const initialForm = state => {
-  const { addTaskUrl, addTaskOptions } = state.app
-  const {
-    allProxy,
-    dir,
-    engineMaxConnectionPerServer,
-    maxConnectionPerServer,
-    newTaskShowDownloading
-  } = state.preference.config
-  const result = {
-    allProxy,
-    cookie: '',
-    dir,
-    engineMaxConnectionPerServer,
-    maxConnectionPerServer,
-    newTaskShowDownloading,
-    out: '',
-    referer: '',
-    selectFile: NONE_SELECTED_FILES,
-    torrent: '',
-    uris: addTaskUrl,
-    userAgent: '',
-    ...addTaskOptions
+  const initialForm = state => {
+    const { addTaskUrl, addTaskOptions } = state.app
+    const {
+      allProxy,
+      dir,
+      engineMaxConnectionPerServer,
+      maxConnectionPerServer,
+      newTaskShowDownloading
+    } = state.preference.config
+    const result = {
+      allProxy,
+      cookie: '',
+      dir,
+      engineMaxConnectionPerServer,
+      maxConnectionPerServer,
+      newTaskShowDownloading,
+      out: '',
+      referer: '',
+      selectFile: NONE_SELECTED_FILES,
+      torrent: '',
+      uris: addTaskUrl,
+      userAgent: '',
+      ...addTaskOptions
+    }
+    return result
   }
-  return result
-}
 
-export default {
-  name: 'mo-add-task',
-  components: {
-    [SelectDirectory.name]: SelectDirectory,
-    [SelectTorrent.name]: SelectTorrent
-  },
-  props: {
-    visible: {
-      type: Boolean,
-      default: false
+  export default {
+    name: 'mo-add-task',
+    components: {
+      [SelectDirectory.name]: SelectDirectory,
+      [SelectTorrent.name]: SelectTorrent
     },
-    type: {
-      type: String,
-      default: ADD_TASK_TYPE.URI
-    }
-  },
-  data () {
-    return {
-      formLabelWidth: '100px',
-      showAdvanced: false,
-      form: {},
-      rules: {}
-    }
-  },
-  computed: {
-    isRenderer () { return is.renderer() },
-    isMas () { return is.mas() },
-    taskType: function () {
-      return this.type
-    },
-    downloadDir: function () {
-      return prettifyDir(this.form.dir)
-    },
-    ...mapState('app', {
-      taskList: state => state.taskList
-    }),
-    ...mapState('preference', {
-      config: state => state.config
-    })
-  },
-  watch: {
-    taskType: function (current, previous) {
-      if (this.visible && previous === ADD_TASK_TYPE.URI) {
-        return
-      }
-
-      if (current === ADD_TASK_TYPE.URI) {
-        setTimeout(() => {
-          this.$refs.uri && this.$refs.uri.focus()
-        }, 50)
-      }
-    }
-  },
-  methods: {
-    handleOpen () {
-      this.form = initialForm(this.$store.state)
-      if (this.taskType === ADD_TASK_TYPE.URI) {
-        this.autofillResourceLink()
-        setTimeout(() => {
-          this.$refs.uri && this.$refs.uri.focus()
-        }, 50)
+    props: {
+      visible: {
+        type: Boolean,
+        default: false
+      },
+      type: {
+        type: String,
+        default: ADD_TASK_TYPE.URI
       }
     },
-    autofillResourceLink () {
-      const content = this.$electron.clipboard.readText()
-      const hasResource = detectResource(content)
-      if (!hasResource) {
-        return
-      }
-      if (isEmpty(this.form.uris)) {
-        this.form.uris = content
+    data () {
+      return {
+        formLabelWidth: '100px',
+        showAdvanced: false,
+        form: {},
+        rules: {}
       }
     },
-    handleOpened () {
-      this.detectThunderResource(this.form.uris)
-    },
-    handleClose (done) {
-      this.$store.dispatch('app/hideAddTaskDialog')
-      this.$store.dispatch('app/updateAddTaskOptions', {})
-    },
-    handleClosed () {
-      this.reset()
-    },
-    handleTabClick (tab, event) {
-      this.$store.dispatch('app/changeAddTaskType', tab.name)
-    },
-    handleUriPaste () {
-      setImmediate(() => {
-        const uris = this.$refs.uri.value
-        this.detectThunderResource(uris)
+    computed: {
+      isRenderer () { return is.renderer() },
+      isMas () { return is.mas() },
+      taskType: function () {
+        return this.type
+      },
+      downloadDir: function () {
+        return prettifyDir(this.form.dir)
+      },
+      ...mapState('app', {
+        taskList: state => state.taskList
+      }),
+      ...mapState('preference', {
+        config: state => state.config
       })
     },
-    detectThunderResource (uris = '') {
-      if (uris.includes('thunder://')) {
-        this.$msg({
-          type: 'warning',
-          message: this.$t('task.thunder-link-tips'),
-          duration: 6000
-        })
-      }
-    },
-    handleTorrentChange (torrent, selectedFileIndex) {
-      this.form.torrent = torrent
-      this.form.selectFile = selectedFileIndex
-    },
-    onDirectorySelected (dir) {
-      this.form.dir = dir
-    },
-    reset () {
-      this.showAdvanced = false
-      this.form = initialForm(this.$store.state)
-    },
-    handleCancel (formName) {
-      this.$store.dispatch('app/hideAddTaskDialog')
-    },
-    buildHeader (form) {
-      const { userAgent, referer, cookie } = form
-      const result = []
-
-      if (!isEmpty(userAgent)) {
-        result.push(`User-Agent: ${userAgent}`)
-      }
-      if (!isEmpty(referer)) {
-        result.push(`Referer: ${referer}`)
-      }
-      if (!isEmpty(cookie)) {
-        result.push(`Cookie: ${cookie}`)
-      }
-      return result
-    },
-    buildOption (type, form) {
-      const { allProxy, dir, out, selectFile } = form
-      const result = {}
-
-      if (!isEmpty(allProxy)) {
-        result.allProxy = allProxy
-      }
-
-      if (!isEmpty(dir)) {
-        result.dir = dir
-      }
-
-      if (!isEmpty(out)) {
-        result.out = out
-      }
-
-      if (type === ADD_TASK_TYPE.TORRENT) {
-        if (
-          selectFile !== SELECTED_ALL_FILES &&
-          selectFile !== NONE_SELECTED_FILES
-        ) {
-          result.selectFile = selectFile
-        }
-      }
-
-      const header = this.buildHeader(form)
-      if (!isEmpty(header)) {
-        result.header = header
-      }
-      return result
-    },
-    buildUriPayload (form) {
-      let { uris, out } = form
-      if (isEmpty(uris)) {
-        throw new Error(this.$t('task.new-task-uris-required'))
-      }
-      uris = splitTaskLinks(uris)
-      const outs = buildOuts(uris, out)
-
-      const options = this.buildOption(ADD_TASK_TYPE.URI, form)
-      const result = {
-        uris,
-        outs,
-        options
-      }
-      return result
-    },
-    buildTorrentPayload (form) {
-      const { torrent } = form
-      if (isEmpty(torrent)) {
-        throw new Error(this.$t('task.new-task-torrent-required'))
-      }
-      const options = this.buildOption(ADD_TASK_TYPE.TORRENT, form)
-      const result = {
-        torrent,
-        options
-      }
-      return result
-    },
-    addTask (type, form) {
-      let payload = null
-      if (type === ADD_TASK_TYPE.URI) {
-        payload = this.buildUriPayload(form)
-        this.$store.dispatch('task/addUri', payload).catch(err => {
-          this.$msg.error(err.message)
-        })
-      } else if (type === ADD_TASK_TYPE.TORRENT) {
-        payload = this.buildTorrentPayload(form)
-        this.$store.dispatch('task/addTorrent', payload).catch(err => {
-          this.$msg.error(err.message)
-        })
-      } else if (type === 'metalink') {
-        // @TODO addMetalink
-      } else {
-        console.error('addTask fail', form)
-      }
-    },
-    submitForm (formName) {
-      this.$refs[formName].validate(valid => {
-        if (!valid) {
-          return false
+    watch: {
+      taskType: function (current, previous) {
+        if (this.visible && previous === ADD_TASK_TYPE.URI) {
+          return
         }
 
-        try {
-          this.addTask(this.type, this.form)
+        if (current === ADD_TASK_TYPE.URI) {
+          setTimeout(() => {
+            this.$refs.uri && this.$refs.uri.focus()
+          }, 50)
+        }
+      }
+    },
+    methods: {
+      handleOpen () {
+        this.form = initialForm(this.$store.state)
+        if (this.taskType === ADD_TASK_TYPE.URI) {
+          this.autofillResourceLink()
+          setTimeout(() => {
+            this.$refs.uri && this.$refs.uri.focus()
+          }, 50)
+        }
+      },
+      autofillResourceLink () {
+        const content = this.$electron.clipboard.readText()
+        const hasResource = detectResource(content)
+        if (!hasResource) {
+          return
+        }
+        if (isEmpty(this.form.uris)) {
+          this.form.uris = content
+        }
+      },
+      handleOpened () {
+        this.detectThunderResource(this.form.uris)
+      },
+      handleClose (done) {
+        this.$store.dispatch('app/hideAddTaskDialog')
+        this.$store.dispatch('app/updateAddTaskOptions', {})
+      },
+      handleClosed () {
+        this.reset()
+      },
+      handleTabClick (tab, event) {
+        this.$store.dispatch('app/changeAddTaskType', tab.name)
+      },
+      handleUriPaste () {
+        setImmediate(() => {
+          const uris = this.$refs.uri.value
+          this.detectThunderResource(uris)
+        })
+      },
+      detectThunderResource (uris = '') {
+        if (uris.includes('thunder://')) {
+          this.$msg({
+            type: 'warning',
+            message: this.$t('task.thunder-link-tips'),
+            duration: 6000
+          })
+        }
+      },
+      handleTorrentChange (torrent, selectedFileIndex) {
+        this.form.torrent = torrent
+        this.form.selectFile = selectedFileIndex
+      },
+      onDirectorySelected (dir) {
+        this.form.dir = dir
+      },
+      reset () {
+        this.showAdvanced = false
+        this.form = initialForm(this.$store.state)
+      },
+      handleCancel (formName) {
+        this.$store.dispatch('app/hideAddTaskDialog')
+      },
+      buildHeader (form) {
+        const { userAgent, referer, cookie } = form
+        const result = []
 
-          this.$store.dispatch('app/hideAddTaskDialog')
-          if (this.form.newTaskShowDownloading) {
-            this.$router.push({
-              path: '/task/active'
-            }).catch(err => {
-              console.log(err)
-            })
+        if (!isEmpty(userAgent)) {
+          result.push(`User-Agent: ${userAgent}`)
+        }
+        if (!isEmpty(referer)) {
+          result.push(`Referer: ${referer}`)
+        }
+        if (!isEmpty(cookie)) {
+          result.push(`Cookie: ${cookie}`)
+        }
+        return result
+      },
+      buildOption (type, form) {
+        const { allProxy, dir, out, selectFile } = form
+        const result = {}
+
+        if (!isEmpty(allProxy)) {
+          result.allProxy = allProxy
+        }
+
+        if (!isEmpty(dir)) {
+          result.dir = dir
+        }
+
+        if (!isEmpty(out)) {
+          result.out = out
+        }
+
+        if (type === ADD_TASK_TYPE.TORRENT) {
+          if (
+            selectFile !== SELECTED_ALL_FILES &&
+            selectFile !== NONE_SELECTED_FILES
+          ) {
+            result.selectFile = selectFile
           }
-        } catch (err) {
-          this.$msg.error(err.message)
         }
-      })
+
+        const header = this.buildHeader(form)
+        if (!isEmpty(header)) {
+          result.header = header
+        }
+        return result
+      },
+      buildUriPayload (form) {
+        let { uris, out } = form
+        if (isEmpty(uris)) {
+          throw new Error(this.$t('task.new-task-uris-required'))
+        }
+        uris = splitTaskLinks(uris)
+        const outs = buildOuts(uris, out)
+
+        const options = this.buildOption(ADD_TASK_TYPE.URI, form)
+        const result = {
+          uris,
+          outs,
+          options
+        }
+        return result
+      },
+      buildTorrentPayload (form) {
+        const { torrent } = form
+        if (isEmpty(torrent)) {
+          throw new Error(this.$t('task.new-task-torrent-required'))
+        }
+        const options = this.buildOption(ADD_TASK_TYPE.TORRENT, form)
+        const result = {
+          torrent,
+          options
+        }
+        return result
+      },
+      addTask (type, form) {
+        let payload = null
+        if (type === ADD_TASK_TYPE.URI) {
+          payload = this.buildUriPayload(form)
+          this.$store.dispatch('task/addUri', payload).catch(err => {
+            this.$msg.error(err.message)
+          })
+        } else if (type === ADD_TASK_TYPE.TORRENT) {
+          payload = this.buildTorrentPayload(form)
+          this.$store.dispatch('task/addTorrent', payload).catch(err => {
+            this.$msg.error(err.message)
+          })
+        } else if (type === 'metalink') {
+        // @TODO addMetalink
+        } else {
+          console.error('addTask fail', form)
+        }
+      },
+      submitForm (formName) {
+        this.$refs[formName].validate(valid => {
+          if (!valid) {
+            return false
+          }
+
+          try {
+            this.addTask(this.type, this.form)
+
+            this.$store.dispatch('app/hideAddTaskDialog')
+            if (this.form.newTaskShowDownloading) {
+              this.$router.push({
+                path: '/task/active'
+              }).catch(err => {
+                console.log(err)
+              })
+            }
+          } catch (err) {
+            this.$msg.error(err.message)
+          }
+        })
+      }
     }
   }
-}
 </script>
 
 <style lang="scss">
