@@ -104,7 +104,7 @@ export default class Application extends EventEmitter {
 
   async stopEngine () {
     try {
-      await this.engineClient.shutdown()
+      await this.engineClient.shutdown({ force: true })
     } catch (err) {
       logger.warn('[Motrix] shutdown engine fail: ', err.message)
     } finally {
@@ -199,6 +199,15 @@ export default class Application extends EventEmitter {
         this.stopUPnPMapping()
       }
     })
+  }
+
+  async shutdownUPnPManager () {
+    const enable = this.configManager.getUserConfig('enable-upnp')
+    if (enable) {
+      await this.stopUPnPMapping()
+    }
+
+    this.upnp.destroy()
   }
 
   autoSyncTracker () {
@@ -298,11 +307,11 @@ export default class Application extends EventEmitter {
 
   async stop () {
     try {
+      await this.shutdownUPnPManager()
+
       this.energyManager.stopPowerSaveBlocker()
 
       this.trayManager.destroy()
-
-      await this.stopUPnPMapping()
 
       await this.stopEngine()
     } catch (err) {

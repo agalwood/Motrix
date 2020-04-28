@@ -3,6 +3,7 @@ import NatAPI from 'nat-api'
 import logger from './Logger'
 
 let client = null
+const mappingStatus = {}
 
 export default class UPnPManager {
   constructor (options = {}) {
@@ -24,6 +25,11 @@ export default class UPnPManager {
 
     return new Promise((resolve, reject) => {
       logger.info('[Motrix] UPnPManager port mapping: ', port)
+      if (!port) {
+        reject(new Error('[Motrix] port was not specified'))
+        return
+      }
+
       client.map(port, (err) => {
         if (err) {
           logger.warn(`[Motrix] UPnPManager map ${port} failed, error: `, err)
@@ -31,6 +37,7 @@ export default class UPnPManager {
           return
         }
 
+        mappingStatus[port] = true
         logger.info(`[Motrix] UPnPManager port ${port} mapping succeeded`)
         resolve()
       })
@@ -42,6 +49,16 @@ export default class UPnPManager {
 
     return new Promise((resolve, reject) => {
       logger.info('[Motrix] UPnPManager port unmapping: ', port)
+      if (!port) {
+        reject(new Error('[Motrix] port was not specified'))
+        return
+      }
+
+      if (!mappingStatus[port]) {
+        resolve()
+        return
+      }
+
       client.unmap(port, (err) => {
         if (err) {
           logger.warn(`[Motrix] UPnPManager unmap ${port} failed, error: `, err)
@@ -50,6 +67,7 @@ export default class UPnPManager {
         }
 
         logger.info(`[Motrix] UPnPManager port ${port} unmapping succeeded`)
+        mappingStatus[port] = false
         resolve()
       })
     })
