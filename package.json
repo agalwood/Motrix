@@ -148,7 +148,6 @@
       "target": [
         "AppImage",
         "deb",
-        "pacman",
         "rpm",
         "snap"
       ],

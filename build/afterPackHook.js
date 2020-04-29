@@ -67,7 +67,6 @@ const waitFor = async function (child) {
 const linuxTargets = [
   'AppImage',
   'deb',
-  'pacman',
   'rpm',
   'snap'
 ]
