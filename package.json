@@ -33,7 +33,8 @@
   "build": {
     "productName": "Motrix",
     "appId": "net.agalwood.Motrix",
-    "afterSign": "./build/afterSignHook.js",
+    "afterPack": "./build/afterPackHook.js",
+    "afterSign": "electron-builder-notarize",
     "fileAssociations": [
       {
         "ext": "torrent",
@@ -96,6 +97,7 @@
       ],
       "type": "distribution",
       "darkModeSupport": true,
+      "hardenedRuntime": true,
       "extraResources": {
         "from": "./extra/darwin/",
         "to": "./",
@@ -144,9 +146,11 @@
     "linux": {
       "category": "Network",
       "target": [
+        "AppImage",
         "deb",
-        "snap",
-        "AppImage"
+        "pacman",
+        "rpm",
+        "snap"
       ],
       "extraResources": {
         "from": "./extra/linux/",
@@ -214,6 +218,7 @@
     "devtron": "^1.4.0",
     "electron": "^8.2.3",
     "electron-builder": "^22.5.1",
+    "electron-builder-notarize": "^1.1.2",
     "electron-devtools-installer": "^3.0.0",
     "electron-notarize": "^0.3.0",
     "electron-osx-sign": "^0.4.15",
