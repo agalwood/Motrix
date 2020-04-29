@@ -17,6 +17,7 @@
   "scripts": {
     "release": "npm run build --publish onTagOrDraft",
     "build": "node .electron-vue/build.js && electron-builder",
+    "build:github": "node .electron-vue/build.js",
     "build:dir": "node .electron-vue/build.js && electron-builder --dir",
     "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
     "build:web": "cross-env BUILD_TARGET=web node .electron-vue/build.js",
