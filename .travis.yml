@@ -22,6 +22,7 @@ addons:
     packages:
     - libgnome-keyring-dev
     - icnsutils
+    - rpm
 
 before_install:
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install --no-install-recommends -y icnsutils graphicsmagick xz-utils; fi
