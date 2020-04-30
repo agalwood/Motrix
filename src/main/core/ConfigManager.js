@@ -10,11 +10,12 @@ import {
   getMaxConnectionPerServer
 } from '../utils/index'
 import {
+  APP_RUN_MODE,
   APP_THEME,
   EMPTY_STRING,
-  APP_RUN_MODE,
+  NGOSANG_TRACKERS_BEST_IP_URL,
   NGOSANG_TRACKERS_BEST_URL,
-  NGOSANG_TRACKERS_BEST_IP_URL
+  IP_VERSION
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
 
@@ -46,12 +47,12 @@ export default class ConfigManager {
       /* eslint-disable quote-props */
       defaults: {
         'all-proxy': EMPTY_STRING,
-        'allow-overwrite': true,
+        'allow-overwrite': false,
         'auto-file-renaming': true,
         'bt-tracker': EMPTY_STRING,
         'continue': true,
-        'dht-file-path': getDhtPath(4),
-        'dht-file-path6': getDhtPath(6),
+        'dht-file-path': getDhtPath(IP_VERSION.V4),
+        'dht-file-path6': getDhtPath(IP_VERSION.V6),
         'dht-listen-port': 26701,
         'dir': getUserDownloadsPath(),
         'listen-port': 21301,
@@ -59,7 +60,7 @@ export default class ConfigManager {
         'max-connection-per-server': getMaxConnectionPerServer(),
         'max-download-limit': 0,
         'max-overall-download-limit': 0,
-        'max-overall-upload-limit': '128K',
+        'max-overall-upload-limit': '256K',
         'min-split-size': '1M',
         'no-proxy': EMPTY_STRING,
         'pause': true,

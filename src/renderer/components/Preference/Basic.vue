@@ -303,6 +303,10 @@
             value: '128K'
           },
           {
+            label: '256 KB/s',
+            value: '256K'
+          },
+          {
             label: '512 KB/s',
             value: '512K'
           },

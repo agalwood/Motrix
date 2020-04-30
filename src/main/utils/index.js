@@ -4,8 +4,8 @@ import { resolve } from 'path'
 import { existsSync, lstatSync } from 'fs'
 
 import {
-  MAX_CONNECTION_PER_SERVER_MAC,
-  MAX_CONNECTION_PER_SERVER_OTHER
+  ENGINE_MAX_CONNECTION_PER_SERVER,
+  IP_VERSION
 } from '@shared/constants'
 import logger from '../core/Logger'
 import engineBinMap from '../configs/engine'
@@ -15,7 +15,7 @@ export function getLogPath () {
 }
 
 export function getDhtPath (protocol) {
-  const name = protocol === 6 ? 'dht6.dat' : 'dht.dat'
+  const name = protocol === IP_VERSION.V6 ? 'dht6.dat' : 'dht.dat'
   return resolve(app.getPath('userData'), `./${name}`)
 }
 
@@ -131,7 +131,5 @@ export function parseArgvAsFile (argv) {
 }
 
 export const getMaxConnectionPerServer = () => {
-  return is.macOS()
-    ? MAX_CONNECTION_PER_SERVER_MAC
-    : MAX_CONNECTION_PER_SERVER_OTHER
+  return ENGINE_MAX_CONNECTION_PER_SERVER
 }
