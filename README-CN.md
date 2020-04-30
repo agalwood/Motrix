@@ -8,7 +8,7 @@
 
 ## 一款全能的下载工具
 
-[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) [![Build Status](https://travis-ci.com/agalwood/Motrix.svg?branch=master)](https://travis-ci.com/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master) [![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)](https://github.com/agalwood/Motrix/releases) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
+[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) [![Build Status](https://travis-ci.com/agalwood/Motrix.svg?branch=master)](https://travis-ci.com/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master) [![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)](https://github.com/agalwood/Motrix/releases) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
 
 我是个兴趣使然的桌面应用开发者🤓，利用搬砖之余开发了 Motrix。
 
@@ -140,7 +140,7 @@ npm run build
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| ca    | Català              | 🚧 [@marcizhu](https://github.com/marcizhu) |
+| ca    | Català              | ✔️ [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
@@ -148,9 +148,9 @@ npm run build
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
-| ru    | Русский             | 🚧 [@bladeaweb](https://github.com/bladeaweb) |
+| ru    | Русский             | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
-| uk    | Українська          | 🚧 [@bladeaweb](https://github.com/bladeaweb) |
+| uk    | Українська          | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
 
