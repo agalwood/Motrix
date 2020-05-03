@@ -142,3 +142,11 @@ export function getSystemTheme () {
   result = remote.nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
   return result
 }
+
+export const openExternal = (url, options) => {
+  if (!url) {
+    return
+  }
+
+  remote.shell.openExternal(url, options)
+}
