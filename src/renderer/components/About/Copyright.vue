@@ -1,21 +1,21 @@
 <template>
   <el-row class="copyright">
     <el-col :span="6" class="copyright-left">
-      <a target="_blank" href="https://motrix.app/" rel="noopener noreferrer">
+      <a target="_blank" rel="noopener noreferrer" href="https://motrix.app/">
         &copy;2019 Motrix
       </a>
     </el-col>
     <el-col :span="18" class="copyright-right">
-      <a target="_blank" href="https://motrix.app/license" rel="noopener noreferrer">
+      <a target="_blank" rel="noopener noreferrer" href="https://motrix.app/license">
         {{ $t('about.license') }}
       </a>
-      <a target="_blank" href="https://motrix.app/about" rel="noopener noreferrer">
+      <a target="_blank" rel="noopener noreferrer" href="https://motrix.app/about">
         {{ $t('about.about') }}
       </a>
-      <a target="_blank" href="https://motrix.app/support" rel="noopener noreferrer">
+      <a target="_blank" rel="noopener noreferrer" href="https://motrix.app/support">
         {{ $t('about.support') }}
       </a>
-      <a target="_blank" href="https://motrix.app/release" rel="noopener noreferrer">
+      <a target="_blank" rel="noopener noreferrer" href="https://motrix.app/release">
         {{ $t('about.release') }}
       </a>
     </el-col>

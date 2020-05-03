@@ -12,7 +12,6 @@
 </template>
 
 <script>
-  import is from 'electron-is'
   import { mapState } from 'vuex'
   import AppInfo from '@/components/About/AppInfo'
   import Copyright from '@/components/About/Copyright'
@@ -41,8 +40,6 @@
       })
     },
     methods: {
-      isRenderer: is.renderer,
-      isMas: is.mas,
       handleOpen () {
         this.$store.dispatch('app/fetchEngineInfo')
       },

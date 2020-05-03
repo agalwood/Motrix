@@ -117,7 +117,6 @@
       }
     },
     methods: {
-      isRenderer: is.renderer,
       deleteTaskFiles (task) {
         try {
           const result = moveTaskFilesToTrash(task)
