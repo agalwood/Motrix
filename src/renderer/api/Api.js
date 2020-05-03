@@ -343,6 +343,10 @@ export default class Api {
     return this.multicall('aria2.remove', params)
   }
 
+  batchResumeTask (params = {}) {
+    return this.multicall('aria2.unpause', params)
+  }
+
   batchPauseTask (params = {}) {
     return this.multicall('aria2.pause', params)
   }

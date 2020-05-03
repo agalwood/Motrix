@@ -32,7 +32,6 @@ install:
 - source ~/.bashrc
 - npm install -g xvfb-maybe
 - npm install
-- npm rebuild node-sass
 
 script:
 - npm run release

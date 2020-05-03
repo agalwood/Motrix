@@ -48,7 +48,7 @@ export default {
   'remove-task-file-fail': '刪除任務檔案失敗，請手動刪除',
   'remove-task-config-file-fail': '刪除任務設定檔失敗，請手動刪除',
   'move-task-up': '上移任務',
-  'move-task-down': '下載任務',
+  'move-task-down': '下移任務',
   'pause-all-task': '暫停所有任務',
   'pause-all-task-success': '暫停所有任務成功',
   'pause-all-task-fail': '暫停所有任務失敗',

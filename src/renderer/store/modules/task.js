@@ -191,8 +191,27 @@ const actions = {
       return dispatch('resumeTask', task)
     }
   },
+  batchResumeSelectedTasks ({ state }) {
+    const gids = state.selectedGidList
+    if (gids.length === 0) {
+      return
+    }
+
+    return api.batchResumeTask({ gids })
+  },
+  batchPauseSelectedTasks ({ state }) {
+    const gids = state.selectedGidList
+    if (gids.length === 0) {
+      return
+    }
+
+    return api.batchPauseTask({ gids })
+  },
   batchForcePauseTask (_, gids) {
     return api.batchForcePauseTask({ gids })
+  },
+  batchResumeTask (_, gids) {
+    return api.batchResumeTask({ gids })
   },
   batchRemoveTask ({ dispatch }, gids) {
     return api.batchRemoveTask({ gids })

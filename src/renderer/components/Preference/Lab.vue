@@ -8,91 +8,36 @@
         class="hidden-sm-and-up"
       />
     </el-header>
-    <el-main class="panel-content">
-      <el-form
-        class="form-preference"
-        ref="labForm"
-        label-position="right"
-        size="mini"
-        :model="form"
-        :rules="rules">
-        <el-form-item :label-width="formLabelWidth">
-          <div class="el-form-item__error">
-            {{ $t('preferences.lab-warning') }}
-          </div>
-        </el-form-item>
-        <el-form-item
-          :label="`${$t('preferences.browser-extensions')}: `"
-          :label-width="formLabelWidth"
-        >
-          <el-col class="form-item-sub" :span="24">
-            <a target="_blank" href="https://motrix.app/release/BaiduExporter.zip" rel="noopener noreferrer">
-              {{ $t('preferences.baidu-exporter') }}
-              <mo-icon name="link" width="12" height="12" />
-            </a>
-            <div class="el-form-item__info" style="margin-top: 8px;">
-              {{ $t('preferences.browser-extensions-tips') }}
-              <a target="_blank" href="https://motrix.app/extensions/baidu" rel="noopener noreferrer">
-                {{ $t('preferences.baidu-exporter-help') }}
-              </a>
-            </div>
-          </el-col>
-        </el-form-item>
-      </el-form>
-      <div class="form-actions">
-        <el-button
-          type="primary"
-          @click="submitForm('labForm')"
-        >
-          {{ $t('preferences.save') }}
-        </el-button>
-        <el-button
-          @click="resetForm('labForm')"
-        >
-          {{ $t('preferences.discard') }}
-        </el-button>
-      </div>
-    </el-main>
+    <mo-browser
+      v-if="isRenderer"
+      class="lab-webview"
+      :src="src"
+    />
   </el-container>
 </template>
 
 <script>
   import is from 'electron-is'
   import { mapState } from 'vuex'
-  import { cloneDeep } from 'lodash'
-  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
-  import '@/components/Icons/info-square'
-  import {
-    calcFormLabelWidth,
-    diffConfig
-  } from '@shared/utils'
 
-  const initialForm = (config) => {
-    // const {
-    // } = config
-    const result = {
-    }
-    return result
-  }
+  import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
+  import Browser from '@/components/Browser'
+  import '@/components/Icons/info-square'
 
   export default {
     name: 'mo-preference-lab',
     components: {
-      [SubnavSwitcher.name]: SubnavSwitcher
+      [SubnavSwitcher.name]: SubnavSwitcher,
+      [Browser.name]: Browser
     },
     data () {
       const { locale } = this.$store.state.preference.config
-      const form = initialForm(this.$store.state.preference.config)
-      const formOriginal = cloneDeep(form)
-
       return {
-        form,
-        formLabelWidth: calcFormLabelWidth(locale),
-        formOriginal,
-        rules: {}
+        src: `https://motrix.app/lab?lite=true&lang=${locale}`
       }
     },
     computed: {
+      isRenderer: () => is.renderer(),
       title () {
         return this.$t('preferences.lab')
       },
@@ -118,49 +63,17 @@
       ...mapState('preference', {
         config: state => state.config
       })
-    },
-    methods: {
-      isRenderer: is.renderer,
-      syncFormConfig () {
-        this.$store.dispatch('preference/fetchPreference')
-          .then((config) => {
-            this.form = initialForm(config)
-            this.formOriginal = cloneDeep(this.form)
-          })
-      },
-      submitForm (formName) {
-        this.$refs[formName].validate((valid) => {
-          if (!valid) {
-            console.log('[Motrix] preference form valid ===>', valid)
-            return false
-          }
-
-          const changed = diffConfig(this.formOriginal, this.form)
-          const data = {
-            ...changed
-          }
-          console.log('[Motrix] preference changed data ===>', data)
-
-          this.$store.dispatch('preference/save', data)
-            .then(() => {
-              this.$store.dispatch('app/fetchEngineOptions')
-              this.syncFormConfig()
-              this.$msg.success(this.$t('preferences.save-success-message'))
-            })
-            .catch(() => {
-              this.$msg.success(this.$t('preferences.save-fail-message'))
-            })
-
-          if (this.isRenderer()) {
-          }
-        })
-      },
-      resetForm (formName) {
-        this.syncFormConfig()
-      }
     }
   }
 </script>
 
 <style lang="scss">
+.lab-webview {
+  display: inline-flex;;
+  flex: 1;
+  flex-basis: auto;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 0 0 0 36px;
+}
 </style>
