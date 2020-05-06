@@ -8,7 +8,7 @@
   import '@/components/Icons/folder'
   import {
     showItemInFolder
-  } from '@/components/Native/utils'
+  } from '@/utils/native'
 
   export default {
     name: 'mo-show-in-folder',

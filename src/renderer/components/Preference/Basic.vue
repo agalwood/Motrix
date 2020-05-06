@@ -209,7 +209,7 @@
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
-  import { prettifyDir } from '@/components/Native/utils'
+  import { prettifyDir } from '@/utils/native'
   import {
     calcFormLabelWidth,
     checkIsNeedRestart,

@@ -9,7 +9,7 @@
   import {
     showItemInFolder,
     addToRecentTask
-  } from '@/components/Native/utils'
+  } from '@/utils/native'
   import {
     bytesToSize,
     getTaskName,

@@ -21,7 +21,7 @@
     getTaskName
   } from '@shared/utils'
   import { TASK_STATUS } from '@shared/constants'
-  import { openItem } from '@/components/Native/utils'
+  import { openItem } from '@/utils/native'
   import TaskItemActions from './TaskItemActions'
   import TaskProgress from './TaskProgress'
   import TaskProgressInfo from './TaskProgressInfo'

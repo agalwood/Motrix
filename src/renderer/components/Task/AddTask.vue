@@ -172,7 +172,7 @@
   import { isEmpty } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
-  import { prettifyDir } from '@/components/Native/utils'
+  import { prettifyDir } from '@/utils/native'
   import { ADD_TASK_TYPE, NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
   import { detectResource, splitTaskLinks } from '@shared/utils'
   import { buildOuts } from '@shared/utils/rename'

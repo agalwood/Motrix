@@ -1,6 +1,6 @@
 import { ADD_TASK_TYPE } from '@shared/constants'
 import api from '@/api'
-import { getSystemTheme } from '@/components/Native/utils'
+import { getSystemTheme } from '@/utils/native'
 
 const BASE_INTERVAL = 1000
 const PER_INTERVAL = 100
