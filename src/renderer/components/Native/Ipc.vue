@@ -4,7 +4,6 @@
 
 <script>
   import is from 'electron-is'
-  import { mapState } from 'vuex'
   import {
     commands
   } from '@/components/Command/index'
@@ -12,9 +11,7 @@
   export default {
     name: 'mo-ipc',
     computed: {
-      ...mapState('preference', {
-        enableEggFeatures: state => state.config.enableEggFeatures
-      })
+      isMas: () => is.mas()
     },
     watch: {
     },
@@ -32,11 +29,9 @@
       this.bindIpcEvents()
       // id of the menu item
       const visibleStates = {}
-      if (is.mas()) {
+      if (this.isMas) {
         visibleStates['app.check-for-updates'] = false
-        if (!this.enableEggFeatures) {
-          visibleStates['task.new-bt-task'] = false
-        }
+        visibleStates['task.new-bt-task'] = false
       }
       this.$electron.ipcRenderer.send('command', 'application:change-menu-states', visibleStates, null, null)
     },
