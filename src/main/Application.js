@@ -207,7 +207,7 @@ export default class Application extends EventEmitter {
       await this.stopUPnPMapping()
     }
 
-    this.upnp.destroy()
+    this.upnp.closeClient()
   }
 
   autoSyncTracker () {
