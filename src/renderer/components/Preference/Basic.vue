@@ -176,6 +176,11 @@
               {{ $t('preferences.task-completed-notify') }}
             </el-checkbox>
           </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.noConfirmBeforeDeleteTask">
+              {{ $t('preferences.no-confirm-before-delete-task') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
       </el-form>
       <div class="form-actions">
@@ -225,6 +230,7 @@
       maxOverallDownloadLimit,
       maxOverallUploadLimit,
       newTaskShowDownloading,
+      noConfirmBeforeDeleteTask,
       openAtLogin,
       resumeAllWhenAppLaunched,
       runMode,
@@ -244,6 +250,7 @@
       maxOverallDownloadLimit,
       maxOverallUploadLimit,
       newTaskShowDownloading,
+      noConfirmBeforeDeleteTask,
       openAtLogin,
       resumeAllWhenAppLaunched,
       runMode,

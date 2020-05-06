@@ -102,6 +102,7 @@ export default class ConfigManager {
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
+        'no-confirm-before-delete-task': false,
         'open-at-login': false,
         'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,
