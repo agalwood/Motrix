@@ -39,32 +39,21 @@ export default class Application extends EventEmitter {
     this.localeManager = setupLocaleManager(this.locale)
     this.i18n = this.localeManager.getI18n()
 
-    this.menuManager = new MenuManager()
-    this.menuManager.setup(this.locale)
-
-    this.initTouchBarManager()
+    this.setupApplicationMenu()
 
     this.initWindowManager()
 
-    this.engine = new Engine({
-      systemConfig: this.configManager.getSystemConfig(),
-      userConfig: this.configManager.getUserConfig()
-    })
+    this.initUPnPManager()
+
     this.startEngine()
 
     this.initEngineClient()
 
-    this.initUPnPManager()
+    this.initTouchBarManager()
 
-    this.autoSyncTracker()
+    this.initTrayManager()
 
-    this.trayManager = new TrayManager({
-      theme: this.configManager.getUserConfig('tray-theme')
-    })
-
-    this.dockManager = new DockManager({
-      runMode: this.configManager.getUserConfig('run-mode')
-    })
+    this.initDockManager()
 
     this.autoLaunchManager = new AutoLaunchManager()
 
@@ -81,12 +70,34 @@ export default class Application extends EventEmitter {
     this.handleEvents()
 
     this.handleIpcMessages()
+
+    this.emit('application:initialized')
+  }
+
+  setupApplicationMenu () {
+    this.menuManager = new MenuManager()
+    this.menuManager.setup(this.locale)
+  }
+
+  adjustMenu () {
+    if (is.mas()) {
+      const visibleStates = {
+        'app.check-for-updates': false,
+        'task.new-bt-task': false
+      }
+      this.menuManager.updateMenuStates(visibleStates, null, null)
+      this.trayManager.updateMenuStates(visibleStates, null, null)
+    }
   }
 
   startEngine () {
     const self = this
 
     try {
+      this.engine = new Engine({
+        systemConfig: this.configManager.getSystemConfig(),
+        userConfig: this.configManager.getUserConfig()
+      })
       this.engine.start()
     } catch (err) {
       const { message } = err
@@ -118,6 +129,18 @@ export default class Application extends EventEmitter {
     this.engineClient = new EngineClient({
       port,
       secret
+    })
+  }
+
+  initTrayManager () {
+    this.trayManager = new TrayManager({
+      theme: this.configManager.getUserConfig('tray-theme')
+    })
+  }
+
+  initDockManager () {
+    this.dockManager = new DockManager({
+      runMode: this.configManager.getUserConfig('run-mode')
     })
   }
 
@@ -214,6 +237,7 @@ export default class Application extends EventEmitter {
     const enable = this.configManager.getUserConfig('auto-sync-tracker')
     const lastTime = this.configManager.getUserConfig('last-sync-tracker-time')
     const result = checkIsNeedRun(enable, lastTime, AUTO_SYNC_TRACKER_INTERVAL)
+    logger.info('[Motrix] auto sync tracker checkIsNeedRun:', result)
     if (!result) {
       return
     }
@@ -221,6 +245,7 @@ export default class Application extends EventEmitter {
     setTimeout(() => {
       const source = this.configManager.getUserConfig('tracker-source')
       fetchBtTrackerFromSource(source).then((data) => {
+        logger.warn('[Motrix] auto sync tracker data:', data)
         const tracker = convertTrackerDataToComma(data)
         this.savePreference({
           system: {
@@ -230,8 +255,19 @@ export default class Application extends EventEmitter {
             'last-sync-tracker-time': Date.now()
           }
         })
+      }).catch((err) => {
+        logger.warn('[Motrix] auto sync tracker failed:', err.message)
       })
-    }, 3000)
+    }, 500)
+  }
+
+  autoResumeTask () {
+    const enabled = this.configManager.getUserConfig('resume-all-when-app-launched')
+    if (!enabled) {
+      return
+    }
+
+    this.engineClient.call('unpauseAll')
   }
 
   initWindowManager () {
@@ -351,7 +387,7 @@ export default class Application extends EventEmitter {
     this.themeManager = new ThemeManager()
     this.themeManager.on('system-theme-changed', (theme) => {
       this.trayManager.changeIconTheme(theme)
-      this.sendCommandToAll('application:system-theme', theme)
+      this.sendCommandToAll('application:change-system-theme', theme)
     })
   }
 
@@ -359,6 +395,7 @@ export default class Application extends EventEmitter {
     if (!is.macOS()) {
       return
     }
+
     this.touchBarManager = new TouchBarManager()
   }
 
@@ -366,6 +403,7 @@ export default class Application extends EventEmitter {
     if (is.dev() || is.mas()) {
       return
     }
+
     const protocols = this.configManager.getUserConfig('protocols', {})
     this.protocolManager = new ProtocolManager({
       protocols
@@ -515,7 +553,7 @@ export default class Application extends EventEmitter {
 
     this.on('application:change-theme', (theme) => {
       this.themeManager.updateAppAppearance(theme)
-      this.sendCommandToAll('application:theme', theme)
+      this.sendCommandToAll('application:update-theme', theme)
     })
 
     this.on('application:change-locale', (locale) => {
@@ -601,10 +639,21 @@ export default class Application extends EventEmitter {
     })
   }
 
+  handleConfigChanged (configName) {
+    this.sendCommandToAll('application:update-preference-config', configName)
+  }
+
   handleEvents () {
-    // this.configManager.systemConfig.onDidAnyChange(() => {
-    //   this.engineClient.changeGlobalOption(this.configManager.getSystemConfig())
-    // })
+    this.once('application:initialized', () => {
+      this.autoSyncTracker()
+
+      this.autoResumeTask()
+
+      this.adjustMenu()
+    })
+
+    this.configManager.userConfig.onDidAnyChange(() => this.handleConfigChanged('user'))
+    this.configManager.systemConfig.onDidAnyChange(() => this.handleConfigChanged('system'))
 
     this.on('download-status-change', (downloading) => {
       this.trayManager.updateTrayByStatus(downloading)

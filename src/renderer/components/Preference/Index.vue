@@ -10,11 +10,8 @@
 <script>
   export default {
     name: 'mo-content-preference',
-    computed: {
-    },
-    components: {
-    },
-    methods: {
+    created () {
+      this.$store.dispatch('preference/fetchPreference')
     }
   }
 </script>
