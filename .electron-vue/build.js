@@ -28,7 +28,7 @@ if (process.env.BUILD_TARGET === 'clean') {
 }
 
 function clean () {
-  del.sync(['build/*', '!build/icons', '!build/icons/icon.*'])
+  del.sync(['release/*', '!.gitkeep'])
   console.log(`\n${doneLog}\n`)
   process.exit()
 }
