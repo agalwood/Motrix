@@ -54,19 +54,19 @@
       }
     },
     computed: {
-      taskFullName: function () {
+      taskFullName () {
         return getTaskName(this.task, {
           defaultName: this.$t('task.get-task-name'),
           maxLen: -1
         })
       },
-      taskName: function () {
+      taskName () {
         return getTaskName(this.task, {
           defaultName: this.$t('task.get-task-name'),
           maxLen: 32
         })
       },
-      dialogTitle: function () {
+      dialogTitle () {
         return this.$t('task.task-info-dialog-title', { title: this.taskName })
       }
     },

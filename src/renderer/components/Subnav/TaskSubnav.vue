@@ -47,12 +47,12 @@
       }
     },
     computed: {
-      title: function () {
+      title () {
         return this.$t('subnav.task-list')
       }
     },
     methods: {
-      nav: function (status = 'active') {
+      nav (status = 'active') {
         this.$router.push({
           path: `/task/${status}`
         }).catch(err => {

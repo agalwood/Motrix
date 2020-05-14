@@ -28,22 +28,22 @@
       }
     },
     computed: {
-      win: function () {
+      win () {
         return this.$electron.remote.getCurrentWindow()
       }
     },
     methods: {
-      handleMinimize: function () {
+      handleMinimize () {
         this.win.minimize()
       },
-      handleMaximize: function () {
+      handleMaximize () {
         if (this.win.isMaximized()) {
           this.win.unmaximize()
         } else {
           this.win.maximize()
         }
       },
-      handleClose: function () {
+      handleClose () {
         this.win.close()
       }
     }

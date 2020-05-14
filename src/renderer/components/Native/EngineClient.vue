@@ -18,7 +18,7 @@
 
   export default {
     name: 'mo-engine-client',
-    data: function () {
+    data () {
       return {
         downloading: false
       }

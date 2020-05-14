@@ -20,7 +20,7 @@
     computed: {
     },
     methods: {
-      onFolderClick: function () {
+      onFolderClick () {
         if (!this.path) {
           return
         }

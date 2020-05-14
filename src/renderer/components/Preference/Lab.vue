@@ -41,7 +41,7 @@
       title () {
         return this.$t('preferences.lab')
       },
-      subnavs: function () {
+      subnavs () {
         return [
           {
             key: 'basic',
