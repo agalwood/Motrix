@@ -94,6 +94,8 @@
                   <el-select
                     class="select-track-source"
                     v-model="form.trackerSource"
+                    allow-create
+                    filterable
                     multiple
                   >
                     <el-option-group
@@ -588,6 +590,9 @@
     margin-bottom: 16px;
     .select-track-source {
       width: 100%;
+    }
+    .el-select__tags {
+      overflow-x: auto;
     }
   }
 }
