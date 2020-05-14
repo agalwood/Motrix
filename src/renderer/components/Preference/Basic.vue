@@ -281,8 +281,8 @@
       }
     },
     computed: {
-      isRenderer () { return is.renderer() },
-      isMas () { return is.mas() },
+      isRenderer: () => is.renderer(),
+      isMas: () => is.mas(),
       isLinux () { return is.linux() },
       title () {
         return this.$t('preferences.basic')
@@ -331,7 +331,7 @@
           }
         ]
       },
-      subnavs: function () {
+      subnavs () {
         return [
           {
             key: 'basic',
@@ -369,6 +369,7 @@
       },
       handleThemeChange (theme) {
         this.form.theme = theme
+        // this.$store.dispatch('preference/changeThemeConfig', theme)
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
       },

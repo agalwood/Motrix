@@ -151,8 +151,8 @@ const actions = {
   changeAddTaskType ({ commit }, taskType) {
     commit('CHANGE_ADD_TASK_TYPE', taskType)
   },
-  updateAddTaskUrl ({ commit }, text = '') {
-    commit('CHANGE_ADD_TASK_URL', text)
+  updateAddTaskUrl ({ commit }, uri = '') {
+    commit('CHANGE_ADD_TASK_URL', uri)
   },
   addTaskAddTorrents ({ commit }, { fileList }) {
     commit('CHANGE_ADD_TASK_TORRENTS', fileList)

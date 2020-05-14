@@ -36,19 +36,15 @@
 </template>
 
 <script>
+  import { mapState } from 'vuex'
   import is from 'electron-is'
-  import * as clipboard from 'clipboard-polyfill'
-  import { ADD_TASK_TYPE, TASK_STATUS } from '@shared/constants'
-  import {
-    showItemInFolder,
-    moveTaskFilesToTrash
-  } from '@/components/Native/utils'
+
+  import { commands } from '@/components/CommandManager/instance'
+  import { TASK_STATUS } from '@shared/constants'
   import {
     checkTaskIsSeeder,
     getTaskFullPath,
-    getTaskName,
-    getTaskUri,
-    parseHeader
+    getTaskName
   } from '@shared/utils'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
@@ -84,6 +80,9 @@
       }
     },
     computed: {
+      ...mapState('preference', {
+        noConfirmBeforeDelete: state => state.config.noConfirmBeforeDeleteTask
+      }),
       taskName () {
         return getTaskName(this.task)
       },
@@ -117,206 +116,67 @@
       }
     },
     methods: {
-      deleteTaskFiles (task) {
-        try {
-          const result = moveTaskFilesToTrash(task)
-
-          if (!result) {
-            throw new Error('task.remove-task-file-fail')
-          }
-        } catch (err) {
-          this.$msg.error(this.$t(err.message))
-        }
-      },
-      removeTask (task, isRemoveWithFiles) {
-        this.$store.dispatch('task/forcePauseTask', task)
-          .finally(() => {
-            if (isRemoveWithFiles) {
-              this.deleteTaskFiles(task)
-            }
-
-            return this.removeTaskItem(task)
-          })
-      },
-      removeTaskItem (task) {
-        return this.$store.dispatch('task/removeTask', this.task)
-          .then(() => {
-            this.$msg.success(this.$t('task.delete-task-success', {
-              taskName: this.taskName
-            }))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.delete-task-fail', {
-                taskName: this.taskName
-              }))
-            }
-          })
-      },
-      removeTaskRecord (task, isRemoveWithFiles) {
-        this.$store.dispatch('task/forcePauseTask', task)
-          .finally(() => {
-            if (isRemoveWithFiles) {
-              this.deleteTaskFiles(task)
-            }
-
-            return this.removeTaskRecordItem(task)
-          })
-      },
-      removeTaskRecordItem (task) {
-        return this.$store.dispatch('task/removeTaskRecord', this.task)
-          .then(() => {
-            this.$msg.success(this.$t('task.remove-record-success', {
-              taskName: this.taskName
-            }))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.remove-record-fail', {
-                taskName: this.taskName
-              }))
-            }
-          })
-      },
       onResumeClick () {
-        this.$store.dispatch('task/resumeTask', this.task)
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.resume-task-fail', {
-                taskName: this.taskName
-              }))
-            }
-          })
+        const { task, taskName } = this
+        commands.emit('resume-task', {
+          task,
+          taskName
+        })
       },
       onRestartClick (event) {
         const { task, taskName } = this
-        const { gid, status } = task
-        const uri = getTaskUri(task)
-        const isNeedShowDialog = status === TASK_STATUS.COMPLETE || !!event.altKey
-        this.$store.dispatch('task/getTaskOption', gid)
-          .then((data) => {
-            console.log('[Motrix] get task option:', data)
-            const { dir, header, maxConnectionPerServer } = data
-            const options = {
-              dir,
-              header,
-              maxConnectionPerServer,
-              out: taskName
-            }
-
-            if (isNeedShowDialog) {
-              this.showAddTaskDialog(uri, options)
-            } else {
-              this.directAddTask(uri, options)
-              this.$store.dispatch('task/removeTaskRecord', task)
-            }
-          })
-      },
-      directAddTask (uri, options = {}) {
-        const uris = [uri]
-        const payload = {
-          uris,
-          options: {
-            ...options
-          }
-        }
-        this.$store.dispatch('task/addUri', payload)
-          .catch((err) => {
-            this.$msg.error(err.message)
-          })
-      },
-      showAddTaskDialog (uri, options = {}) {
-        const {
-          header,
-          ...rest
-        } = options
-
-        const headers = parseHeader(header)
-        const newOptions = {
-          ...rest,
-          ...headers
-        }
-
-        this.$store.dispatch('app/updateAddTaskUrl', uri)
-        this.$store.dispatch('app/updateAddTaskOptions', newOptions)
-        this.$store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.URI)
+        const { status } = task
+        const showDialog = status === TASK_STATUS.COMPLETE || !!event.altKey
+        commands.emit('restart-task', {
+          task,
+          taskName,
+          showDialog
+        })
       },
       onPauseClick () {
-        this.pauseTask()
+        const { task, taskName } = this
+        commands.emit('pause-task', {
+          task,
+          taskName
+        })
       },
       onStopClick () {
-        this.stopSeeding()
-      },
-      stopSeeding () {
         if (!this.isSeeder) {
           return
         }
-        this.$store.dispatch('task/stopSeeding', this.task)
-      },
-      pauseTask () {
-        const { taskName } = this
-        this.$msg.info(this.$t('task.download-pause-message', { taskName }))
-        this.$store.dispatch('task/pauseTask', this.task)
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.pause-task-fail', { taskName }))
-            }
-          })
+
+        const { task } = this
+        commands.emit('stop-task-seeding', { task })
       },
       onDeleteClick (event) {
-        const self = this
-        const { task } = this
-        const isChecked = !!event.shiftKey
-        this.$electron.remote.dialog.showMessageBox({
-          type: 'warning',
-          title: this.$t('task.delete-task'),
-          message: this.$t('task.delete-task-confirm', { taskName: this.taskName }),
-          buttons: [this.$t('app.yes'), this.$t('app.no')],
-          cancelId: 1,
-          checkboxLabel: this.$t('task.delete-task-label'),
-          checkboxChecked: isChecked
-        }).then(({ response, checkboxChecked }) => {
-          if (response === 0) {
-            self.removeTask(task, checkboxChecked)
-          }
+        const { task, taskName } = this
+        const deleteWithFiles = !!event.shiftKey
+        commands.emit('delete-task', {
+          task,
+          taskName,
+          deleteWithFiles
         })
       },
       onTrashClick (event) {
-        const self = this
-        const { task } = this
-        const isChecked = !!event.shiftKey
-        this.$electron.remote.dialog.showMessageBox({
-          type: 'warning',
-          title: this.$t('task.remove-record'),
-          message: this.$t('task.remove-record-confirm', { taskName: this.taskName }),
-          buttons: [this.$t('app.yes'), this.$t('app.no')],
-          cancelId: 1,
-          checkboxLabel: this.$t('task.remove-record-label'),
-          checkboxChecked: isChecked
-        }).then(({ response, checkboxChecked }) => {
-          if (response === 0) {
-            self.removeTaskRecord(task, checkboxChecked)
-          }
+        const { task, taskName } = this
+        const deleteWithFiles = !!event.shiftKey
+        commands.emit('delete-task-record', {
+          task,
+          taskName,
+          deleteWithFiles
         })
       },
       onFolderClick () {
-        showItemInFolder(this.path, {
-          errorMsg: this.$t('task.file-not-exist')
-        })
+        const { path } = this
+        commands.emit('reveal-in-folder', { path })
       },
       onLinkClick () {
-        this.$store.dispatch('app/fetchEngineOptions')
-          .then((data) => {
-            const { btTracker } = data
-            const uri = getTaskUri(this.task, btTracker)
-            clipboard.writeText(uri)
-              .then(() => {
-                this.$msg.success(this.$t('task.copy-link-success'))
-              })
-          })
+        const { task } = this
+        commands.emit('copy-task-link', { task })
       },
       onInfoClick () {
-        this.$store.dispatch('task/showTaskItemInfoDialog', this.task)
+        const { task } = this
+        commands.emit('show-task-info', { task })
       },
       onMoreClick () {
       }

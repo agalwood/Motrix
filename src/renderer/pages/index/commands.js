@@ -6,35 +6,34 @@ import store from '@/store'
 import { buildFileList } from '@shared/utils'
 import { ADD_TASK_TYPE } from '@shared/constants'
 import { getLocaleManager } from '@/components/Locale'
-import CommandManager from './CommandManager'
+import { commands } from '@/components/CommandManager/instance'
 
-const commands = new CommandManager()
 const i18n = getLocaleManager().getI18n()
 
-function updateSystemTheme (theme) {
+const updateSystemTheme = (theme) => {
   store.dispatch('app/updateSystemTheme', theme)
 }
 
-function updateTheme (theme) {
+const updateTheme = (theme) => {
   store.dispatch('preference/changeThemeConfig', theme)
 }
 
-function showAboutPanel () {
+const showAboutPanel = () => {
   store.dispatch('app/showAboutPanel')
 }
 
-function showAddTask (taskType = ADD_TASK_TYPE.URI, task = '') {
-  if (taskType === ADD_TASK_TYPE.URI && task) {
-    store.dispatch('app/updateAddTaskUrl', task)
+const showAddTask = (taskType = ADD_TASK_TYPE.URI, uri = '') => {
+  if (taskType === ADD_TASK_TYPE.URI && uri) {
+    store.dispatch('app/updateAddTaskUrl', uri)
   }
   store.dispatch('app/showAddTaskDialog', taskType)
 }
 
-function showAddBtTask () {
+const showAddBtTask = () => {
   store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.TORRENT)
 }
 
-function showAddBtTaskWithFile (fileName, base64Data = '') {
+const showAddBtTaskWithFile = (fileName, base64Data = '') => {
   const blob = base64StringToBlob(base64Data, 'application/x-bittorrent')
   const file = new File([blob], fileName, { type: 'application/x-bittorrent' })
   const fileList = buildFileList(file)
@@ -44,63 +43,67 @@ function showAddBtTaskWithFile (fileName, base64Data = '') {
   }, 200)
 }
 
-function navigateTaskList (status = 'active') {
+const navigateTaskList = (status = 'active') => {
   router.push({ path: `/task/${status}` }).catch(err => {
     console.log(err)
   })
 }
 
-function navigatePreferences () {
+const navigatePreferences = () => {
   router.push({ path: '/preference' }).catch(err => {
     console.log(err)
   })
 }
 
-function showUnderDevelopmentMessage () {
+const showUnderDevelopmentMessage = () => {
   Message.info(i18n.t('app.under-development-message'))
 }
 
-function pauseTask () {
+const pauseTask = () => {
   store.dispatch('task/batchPauseSelectedTasks')
 }
 
-function resumeTask () {
+const resumeTask = () => {
   store.dispatch('task/batchResumeSelectedTasks')
 }
 
-function deleteTask () {
+const deleteTask = () => {
+  commands.emit('batch-delete-task', {
+    deleteWithFiles: false
+  })
+}
+
+const moveTaskUp = () => {
   showUnderDevelopmentMessage()
 }
 
-function moveTaskUp () {
+const moveTaskDown = () => {
   showUnderDevelopmentMessage()
 }
 
-function moveTaskDown () {
-  showUnderDevelopmentMessage()
-}
-
-function pauseAllTask () {
+const pauseAllTask = () => {
   store.dispatch('task/pauseAllTask')
 }
 
-function resumeAllTask () {
+const resumeAllTask = () => {
   store.dispatch('task/resumeAllTask')
 }
 
-function selectAllTask () {
+const selectAllTask = () => {
   store.dispatch('task/selectAllTask')
 }
 
-commands.register('application:system-theme', updateSystemTheme)
-commands.register('application:theme', updateTheme)
+const fetchPreference = () => {
+  store.dispatch('preference/fetchPreference')
+}
+
+commands.register('application:task-list', navigateTaskList)
+commands.register('application:preferences', navigatePreferences)
 commands.register('application:about', showAboutPanel)
+
 commands.register('application:new-task', showAddTask)
 commands.register('application:new-bt-task', showAddBtTask)
 commands.register('application:new-bt-task-with-file', showAddBtTaskWithFile)
-commands.register('application:task-list', navigateTaskList)
-commands.register('application:preferences', navigatePreferences)
-
 commands.register('application:pause-task', pauseTask)
 commands.register('application:resume-task', resumeTask)
 commands.register('application:delete-task', deleteTask)
@@ -110,6 +113,6 @@ commands.register('application:pause-all-task', pauseAllTask)
 commands.register('application:resume-all-task', resumeAllTask)
 commands.register('application:select-all-task', selectAllTask)
 
-export {
-  commands
-}
+commands.register('application:update-preference-config', fetchPreference)
+commands.register('application:update-system-theme', updateSystemTheme)
+commands.register('application:update-theme', updateTheme)

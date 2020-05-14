@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'Maximum active tasks',
   'max-connection-per-server': 'Maximum connection per server',
   'new-task-show-downloading': 'Automatically show downloading after adding task',
+  'no-confirm-before-delete-task': 'No confirmation is required before deleting task',
   'continue': 'Continue',
   'task-completed-notify': 'Notification after download is complete',
   'auto-purge-record': 'Automatically purge download records when exiting app',
