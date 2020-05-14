@@ -41,7 +41,7 @@
       ...mapState('app', {
         currentPage: state => state.currentPage
       }),
-      asideDraggable: function () {
+      asideDraggable () {
         return is.macOS()
       }
     },

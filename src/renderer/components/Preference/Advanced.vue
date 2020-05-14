@@ -94,6 +94,8 @@
                   <el-select
                     class="select-track-source"
                     v-model="form.trackerSource"
+                    allow-create
+                    filterable
                     multiple
                   >
                     <el-option-group
@@ -169,10 +171,10 @@
           :label-width="formLabelWidth"
         >
           <el-row style="margin-bottom: 8px;">
-            <el-col class="form-item-sub" :span="10">
+            <el-col class="form-item-sub" :span="12">
               <el-switch
                 v-model="form.enableUpnp"
-                active-text="UPnP"
+                active-text="UPnP/NAT-PMP"
                 >
               </el-switch>
             </el-col>
@@ -407,11 +409,11 @@
       }
     },
     computed: {
-      isRenderer () { return is.renderer() },
+      isRenderer: () => is.renderer(),
       title () {
         return this.$t('preferences.advanced')
       },
-      subnavs: function () {
+      subnavs () {
         return [
           {
             key: 'basic',
@@ -588,6 +590,9 @@
     margin-bottom: 16px;
     .select-track-source {
       width: 100%;
+    }
+    .el-select__tags {
+      overflow-x: auto;
     }
   }
 }

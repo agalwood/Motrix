@@ -12,6 +12,7 @@ import store from '@/store'
 import { getLocaleManager } from '@/components/Locale'
 import Icon from '@/components/Icons/Icon'
 import Msg from '@/components/Msg'
+import { commands } from '@/components/CommandManager/instance'
 
 import '@/components/Theme/Index.scss'
 
@@ -36,23 +37,26 @@ function init (config) {
   Vue.use(Msg, Message, {
     showClose: true
   })
+  Vue.component('mo-icon', Icon)
 
   const loading = Loading.service({
     fullscreen: true,
     background: 'rgba(0, 0, 0, 0.1)'
   })
-  Vue.component('mo-icon', Icon)
 
   sync(store, router)
 
   /* eslint-disable no-new */
-  window.app = new Vue({
+  global.app = new Vue({
     components: { App },
     router,
     store,
     i18n,
     template: '<App/>'
   }).$mount('#app')
+
+  global.app.commands = commands
+  require('./commands')
 
   setTimeout(() => {
     loading.close()

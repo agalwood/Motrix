@@ -381,7 +381,7 @@ export const audioSuffix = [
 ]
 export const videoSuffix = [
   '.avi',
-  '.m4a',
+  '.m4v',
   '.mkv',
   '.mov',
   '.mp4',
@@ -391,9 +391,20 @@ export const videoSuffix = [
   '.wmv'
 ]
 
+export const subSuffix = [
+  '.ass',
+  '.idx',
+  '.smi',
+  '.srt',
+  '.ssa',
+  '.sst',
+  '.sub'
+]
+
 export function filterVideoFiles (files = []) {
+  const suffix = [...videoSuffix, ...subSuffix]
   return files.filter((item) => {
-    return videoSuffix.includes(item.extension)
+    return suffix.includes(item.extension)
   })
 }
 
@@ -557,7 +568,8 @@ export function formatOptionsForEngine (options) {
   const result = {}
 
   Object.keys(options).forEach((key) => {
-    result[key] = `${options[key]}`
+    const kebabCaseKey = kebabCase(key)
+    result[kebabCaseKey] = `${options[key]}`
   })
 
   return result

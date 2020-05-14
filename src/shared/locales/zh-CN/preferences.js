@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': '同时下载的最大任务数',
   'max-connection-per-server': '每个服务器最大连接数',
   'new-task-show-downloading': '新建任务后自动跳转到下载页面',
+  'no-confirm-before-delete-task': '删除任务前无需确认',
   'continue': '断点续传',
   'task-completed-notify': '下载完成后通知',
   'auto-purge-record': '当应用退出时自动清除下载记录',

@@ -129,25 +129,25 @@
       }
     },
     computed: {
-      ...mapState('preference', {
-        config: state => state.config
-      }),
       ...mapState('app', {
         torrents: state => state.addTaskTorrents
       }),
-      isTorrentsEmpty: function () {
+      ...mapState('preference', {
+        config: state => state.config
+      }),
+      isTorrentsEmpty () {
         return this.torrents.length === 0
       },
-      selectedFilesCount: function () {
+      selectedFilesCount () {
         return this.selectedFiles.length
       },
-      selectedFilesTotalSize: function () {
+      selectedFilesTotalSize () {
         const result = this.selectedFiles.reduce((acc, cur) => {
           return acc + cur.length
         }, 0)
         return bytesToSize(result)
       },
-      selectedFileIndex: function () {
+      selectedFileIndex () {
         const { files, selectedFiles } = this
         if (files.length === 0 || selectedFiles.length === 0) {
           return NONE_SELECTED_FILES

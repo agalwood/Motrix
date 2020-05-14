@@ -15,7 +15,7 @@
     props: {
     },
     methods: {
-      onFolderClick: function () {
+      onFolderClick () {
         const self = this
         this.$electron.remote.dialog.showOpenDialog({
           properties: ['openDirectory', 'createDirectory']

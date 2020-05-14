@@ -176,6 +176,11 @@
               {{ $t('preferences.task-completed-notify') }}
             </el-checkbox>
           </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.noConfirmBeforeDeleteTask">
+              {{ $t('preferences.no-confirm-before-delete-task') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
       </el-form>
       <div class="form-actions">
@@ -204,7 +209,7 @@
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
-  import { prettifyDir } from '@/components/Native/utils'
+  import { prettifyDir } from '@/utils/native'
   import {
     calcFormLabelWidth,
     checkIsNeedRestart,
@@ -225,6 +230,7 @@
       maxOverallDownloadLimit,
       maxOverallUploadLimit,
       newTaskShowDownloading,
+      noConfirmBeforeDeleteTask,
       openAtLogin,
       resumeAllWhenAppLaunched,
       runMode,
@@ -244,6 +250,7 @@
       maxOverallDownloadLimit,
       maxOverallUploadLimit,
       newTaskShowDownloading,
+      noConfirmBeforeDeleteTask,
       openAtLogin,
       resumeAllWhenAppLaunched,
       runMode,
@@ -274,8 +281,8 @@
       }
     },
     computed: {
-      isRenderer () { return is.renderer() },
-      isMas () { return is.mas() },
+      isRenderer: () => is.renderer(),
+      isMas: () => is.mas(),
       isLinux () { return is.linux() },
       title () {
         return this.$t('preferences.basic')
@@ -324,7 +331,7 @@
           }
         ]
       },
-      subnavs: function () {
+      subnavs () {
         return [
           {
             key: 'basic',
@@ -362,6 +369,7 @@
       },
       handleThemeChange (theme) {
         this.form.theme = theme
+        // this.$store.dispatch('preference/changeThemeConfig', theme)
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
       },

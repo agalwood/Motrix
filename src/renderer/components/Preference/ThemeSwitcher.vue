@@ -27,7 +27,7 @@
         default: APP_THEME.AUTO
       }
     },
-    data: function () {
+    data () {
       return {
         currentValue: this.value
       }
@@ -54,7 +54,7 @@
       }
     },
     watch: {
-      currentValue: function (val) {
+      currentValue (val) {
         this.$emit('change', val)
       }
     },

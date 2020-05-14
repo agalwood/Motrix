@@ -14,6 +14,7 @@ const userKeys = [
   'locale',
   'log-path',
   'new-task-show-downloading',
+  'no-confirm-before-delete-task',
   'open-at-login',
   'protocols',
   'resume-all-when-app-launched',

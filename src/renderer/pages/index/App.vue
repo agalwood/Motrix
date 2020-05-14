@@ -29,7 +29,7 @@
       [Ipc.name]: Ipc
     },
     computed: {
-      isRenderer () { return is.renderer() },
+      isRenderer: () => is.renderer(),
       ...mapState('app', {
         systemTheme: state => state.systemTheme
       }),
@@ -42,38 +42,38 @@
         locale: state => state.config.locale,
         dir: state => getLangDirection(state.config.locale)
       }),
-      themeClass: function () {
+      themeClass () {
         if (this.theme === APP_THEME.AUTO) {
           return `theme-${this.systemTheme}`
         } else {
           return `theme-${this.theme}`
         }
       },
-      i18nClass: function () {
+      i18nClass () {
         return `i18n-${this.locale}`
       },
-      dirClass: function () {
+      dirClass () {
         return `dir-${this.dir}`
       }
     },
     methods: {
-      updateRootClassName: function () {
+      updateRootClassName () {
         const { themeClass = '', i18nClass = '', dirClass = '' } = this
         const className = `${themeClass} ${i18nClass} ${dirClass}`
         document.documentElement.className = className
       }
     },
-    beforeMount: function () {
+    beforeMount () {
       this.updateRootClassName()
     },
     watch: {
-      themeClass: function (val, oldVal) {
+      themeClass (val, oldVal) {
         this.updateRootClassName()
       },
-      i18nClass: function (val, oldVal) {
+      i18nClass (val, oldVal) {
         this.updateRootClassName()
       },
-      dirClass: function (val, oldVal) {
+      dirClass (val, oldVal) {
         this.updateRootClassName()
       }
     }

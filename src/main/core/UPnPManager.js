@@ -3,6 +3,7 @@ import NatAPI from 'nat-api'
 import logger from './Logger'
 
 let client = null
+let timer = null
 const mappingStatus = {}
 
 export default class UPnPManager {
@@ -21,6 +22,7 @@ export default class UPnPManager {
   }
 
   map (port) {
+    this.clearCloseTimer()
     this.init()
 
     return new Promise((resolve, reject) => {
@@ -41,10 +43,13 @@ export default class UPnPManager {
         logger.info(`[Motrix] UPnPManager port ${port} mapping succeeded`)
         resolve()
       })
+    }).finally(() => {
+      this.delayCloseClient()
     })
   }
 
   unmap (port) {
+    this.clearCloseTimer()
     this.init()
 
     return new Promise((resolve, reject) => {
@@ -70,10 +75,24 @@ export default class UPnPManager {
         mappingStatus[port] = false
         resolve()
       })
+    }).finally(() => {
+      this.delayCloseClient()
     })
   }
 
-  destroy () {
+  delayCloseClient () {
+    console.log('delayCloseClient===>', timer)
+    timer = setTimeout(() => {
+      this.closeClient()
+    }, 30000)
+  }
+
+  clearCloseTimer () {
+    clearTimeout(timer)
+  }
+
+  closeClient () {
+    console.log('closeClient===>')
     if (!client) {
       return
     }

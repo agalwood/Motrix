@@ -14,7 +14,7 @@
 
   import {
     openExternal
-  } from '@/components/Native/utils'
+  } from '@/utils/native'
 
   export default {
     name: 'mo-browser',

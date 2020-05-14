@@ -21,6 +21,14 @@ export default class CommandManager extends EventEmitter {
     this.emit('commandRegistered', id)
   }
 
+  unregister (id) {
+    if (this.commands[id]) {
+      delete this.commands[id]
+
+      this.emit('commandUnregistered', id)
+    }
+  }
+
   execute (id, ...args) {
     var fn = this.commands[id]
     if (fn) {

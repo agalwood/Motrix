@@ -1,6 +1,6 @@
 import { ipcRenderer, remote } from 'electron'
 import is from 'electron-is'
-import { isEmpty } from 'lodash'
+import { isEmpty, clone } from 'lodash'
 import Aria2 from 'aria2'
 import {
   separateConfig,
@@ -18,13 +18,14 @@ export default class Api {
   constructor (options = {}) {
     this.options = options
 
-    this.client = null
     this.init()
   }
 
   init () {
-    this.loadConfig()
-    this.initClient()
+    this.config = this.loadConfig()
+
+    this.client = this.initClient()
+    this.client.open()
   }
 
   loadConfigFromLocalStorage () {
@@ -47,7 +48,7 @@ export default class Api {
       : this.loadConfigFromLocalStorage()
 
     result = changeKeysToCamelCase(result)
-    this.config = result
+    return result
   }
 
   initClient () {
@@ -56,12 +57,11 @@ export default class Api {
       rpcSecret: secret
     } = this.config
     const host = ENGINE_RPC_HOST
-    this.client = new Aria2({
+    return new Aria2({
       host,
       port,
       secret
     })
-    this.client.open()
   }
 
   closeClient () {
@@ -76,7 +76,7 @@ export default class Api {
 
   fetchPreference () {
     return new Promise((resolve) => {
-      this.loadConfig()
+      this.config = this.loadConfig()
       resolve(this.config)
     })
   }
@@ -160,11 +160,10 @@ export default class Api {
   }
 
   changeOption (params = {}) {
-    let { gid, options = {} } = params
-    options = formatOptionsForEngine(options)
+    const { gid, options = {} } = params
 
-    const kebabOptions = changeKeysToKebabCase(options)
-    const args = compactUndefined([gid, kebabOptions])
+    const engineOptions = formatOptionsForEngine(options)
+    const args = compactUndefined([gid, engineOptions])
 
     return this.client.call('changeOption', ...args)
   }
@@ -180,11 +179,11 @@ export default class Api {
       options
     } = params
     const tasks = uris.map((uri, index) => {
-      const kebabOptions = changeKeysToKebabCase(options)
+      const engineOptions = formatOptionsForEngine(options)
       if (outs && outs[index]) {
-        kebabOptions.out = outs[index]
+        engineOptions.out = outs[index]
       }
-      const args = compactUndefined([[uri], kebabOptions])
+      const args = compactUndefined([[uri], engineOptions])
       return ['aria2.addUri', ...args]
     })
     return this.client.multicall(tasks)
@@ -195,8 +194,8 @@ export default class Api {
       torrent,
       options
     } = params
-    const kebabOptions = changeKeysToKebabCase(options)
-    const args = compactUndefined([torrent, [], kebabOptions])
+    const engineOptions = formatOptionsForEngine(options)
+    const args = compactUndefined([torrent, [], engineOptions])
     return this.client.call('addTorrent', ...args)
   }
 
@@ -205,8 +204,8 @@ export default class Api {
       metalink,
       options
     } = params
-    const kebabOptions = changeKeysToKebabCase(options)
-    const args = compactUndefined([metalink, kebabOptions])
+    const engineOptions = formatOptionsForEngine(options)
+    const args = compactUndefined([metalink, engineOptions])
     return this.client.call('addMetalink', ...args)
   }
 
@@ -328,8 +327,8 @@ export default class Api {
     options = formatOptionsForEngine(options)
 
     const data = gids.map((gid, index) => {
-      const kebabOptions = changeKeysToKebabCase(options)
-      const args = compactUndefined([gid, kebabOptions])
+      const _options = clone(options)
+      const args = compactUndefined([gid, _options])
       return [method, ...args]
     })
     return this.client.multicall(data)

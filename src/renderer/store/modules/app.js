@@ -1,6 +1,6 @@
 import { ADD_TASK_TYPE } from '@shared/constants'
 import api from '@/api'
-import { getSystemTheme } from '@/components/Native/utils'
+import { getSystemTheme } from '@/utils/native'
 
 const BASE_INTERVAL = 1000
 const PER_INTERVAL = 100
@@ -151,8 +151,8 @@ const actions = {
   changeAddTaskType ({ commit }, taskType) {
     commit('CHANGE_ADD_TASK_TYPE', taskType)
   },
-  updateAddTaskUrl ({ commit }, text = '') {
-    commit('CHANGE_ADD_TASK_URL', text)
+  updateAddTaskUrl ({ commit }, uri = '') {
+    commit('CHANGE_ADD_TASK_URL', uri)
   },
   addTaskAddTorrents ({ commit }, { fileList }) {
     commit('CHANGE_ADD_TASK_TORRENTS', fileList)

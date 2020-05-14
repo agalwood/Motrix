@@ -49,6 +49,7 @@ export default class ConfigManager {
         'all-proxy': EMPTY_STRING,
         'allow-overwrite': false,
         'auto-file-renaming': true,
+        'bt-exclude-tracker': EMPTY_STRING,
         'bt-tracker': EMPTY_STRING,
         'continue': true,
         'dht-file-path': getDhtPath(IP_VERSION.V4),
@@ -68,7 +69,7 @@ export default class ConfigManager {
         'rpc-secret': EMPTY_STRING,
         'seed-ratio': 1,
         'seed-time': 60,
-        'split': 128,
+        'split': getMaxConnectionPerServer(),
         'user-agent': 'Transmission/2.94'
       }
       /* eslint-enable quote-props */
@@ -102,6 +103,7 @@ export default class ConfigManager {
         'locale': app.getLocale(),
         'log-path': getLogPath(),
         'new-task-show-downloading': true,
+        'no-confirm-before-delete-task': false,
         'open-at-login': false,
         'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,

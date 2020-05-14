@@ -49,7 +49,7 @@
             :label-width="formLabelWidth"
           >
             <el-input-number
-              v-model="form.maxConnectionPerServer"
+              v-model="form.split"
               controls-position="right"
               :min="1"
               :max="config.engineMaxConnectionPerServer"
@@ -172,7 +172,7 @@
   import { isEmpty } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
-  import { prettifyDir } from '@/components/Native/utils'
+  import { prettifyDir } from '@/utils/native'
   import { ADD_TASK_TYPE, NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
   import { detectResource, splitTaskLinks } from '@shared/utils'
   import { buildOuts } from '@shared/utils/rename'
@@ -185,7 +185,8 @@
       dir,
       engineMaxConnectionPerServer,
       maxConnectionPerServer,
-      newTaskShowDownloading
+      newTaskShowDownloading,
+      split
     } = state.preference.config
     const result = {
       allProxy,
@@ -197,6 +198,7 @@
       out: '',
       referer: '',
       selectFile: NONE_SELECTED_FILES,
+      split,
       torrent: '',
       uris: addTaskUrl,
       userAgent: '',
@@ -230,23 +232,23 @@
       }
     },
     computed: {
-      isRenderer () { return is.renderer() },
-      isMas () { return is.mas() },
-      taskType: function () {
-        return this.type
-      },
-      downloadDir: function () {
-        return prettifyDir(this.form.dir)
-      },
+      isRenderer: () => is.renderer(),
+      isMas: () => is.mas(),
       ...mapState('app', {
         taskList: state => state.taskList
       }),
       ...mapState('preference', {
         config: state => state.config
-      })
+      }),
+      taskType () {
+        return this.type
+      },
+      downloadDir () {
+        return prettifyDir(this.form.dir)
+      }
     },
     watch: {
-      taskType: function (current, previous) {
+      taskType (current, previous) {
         if (this.visible && previous === ADD_TASK_TYPE.URI) {
           return
         }
@@ -256,18 +258,16 @@
             this.$refs.uri && this.$refs.uri.focus()
           }, 50)
         }
+      },
+      visible (current) {
+        if (current === true) {
+          document.addEventListener('keydown', this.handleHotkey)
+        } else {
+          document.removeEventListener('keydown', this.handleHotkey)
+        }
       }
     },
     methods: {
-      handleOpen () {
-        this.form = initialForm(this.$store.state)
-        if (this.taskType === ADD_TASK_TYPE.URI) {
-          this.autofillResourceLink()
-          setTimeout(() => {
-            this.$refs.uri && this.$refs.uri.focus()
-          }, 50)
-        }
-      },
       autofillResourceLink () {
         const content = this.$electron.clipboard.readText()
         const hasResource = detectResource(content)
@@ -278,8 +278,20 @@
           this.form.uris = content
         }
       },
+      handleOpen () {
+        this.form = initialForm(this.$store.state)
+        if (this.taskType === ADD_TASK_TYPE.URI) {
+          this.autofillResourceLink()
+          setTimeout(() => {
+            this.$refs.uri && this.$refs.uri.focus()
+          }, 50)
+        }
+      },
       handleOpened () {
         this.detectThunderResource(this.form.uris)
+      },
+      handleCancel (formName) {
+        this.$store.dispatch('app/hideAddTaskDialog')
       },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
@@ -287,6 +299,13 @@
       },
       handleClosed () {
         this.reset()
+      },
+      handleHotkey (event) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault()
+
+          this.submitForm('taskForm')
+        }
       },
       handleTabClick (tab, event) {
         this.$store.dispatch('app/changeAddTaskType', tab.name)
@@ -317,9 +336,6 @@
         this.showAdvanced = false
         this.form = initialForm(this.$store.state)
       },
-      handleCancel (formName) {
-        this.$store.dispatch('app/hideAddTaskDialog')
-      },
       buildHeader (form) {
         const { userAgent, referer, cookie } = form
         const result = []
@@ -336,7 +352,13 @@
         return result
       },
       buildOption (type, form) {
-        const { allProxy, dir, out, selectFile } = form
+        const {
+          allProxy,
+          dir,
+          out,
+          selectFile,
+          split
+        } = form
         const result = {}
 
         if (!isEmpty(allProxy)) {
@@ -349,6 +371,10 @@
 
         if (!isEmpty(out)) {
           result.out = out
+        }
+
+        if (split > 0) {
+          result.split = split
         }
 
         if (type === ADD_TASK_TYPE.TORRENT) {

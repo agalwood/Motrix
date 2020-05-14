@@ -9,7 +9,7 @@
   import {
     showItemInFolder,
     addToRecentTask
-  } from '@/components/Native/utils'
+  } from '@/utils/native'
   import {
     bytesToSize,
     getTaskName,
@@ -18,7 +18,7 @@
 
   export default {
     name: 'mo-engine-client',
-    data: function () {
+    data () {
       return {
         downloading: false
       }

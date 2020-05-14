@@ -18,7 +18,7 @@ export default {
   'task-name': '任务名',
   'task-out': '重命名',
   'task-out-tips': '选填',
-  'task-split': '下载线程',
+  'task-split': '分片数',
   'task-dir': '存储路径',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
