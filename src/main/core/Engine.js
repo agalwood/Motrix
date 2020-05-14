@@ -63,7 +63,7 @@ export default class Engine {
     const sh = this.getStartSh()
     logger.info('[Motrix] Engine start sh:', sh)
     this.instance = forever.start(sh, {
-      max: is.dev() ? 1 : 100,
+      max: is.dev() ? 0 : 100,
       parser: function (command, args) {
         return {
           command: command,
@@ -118,6 +118,9 @@ export default class Engine {
       logger.error('[Motrix] Engine stop fail:', err.message)
       this.forceStop(pid)
     } finally {
+      this.instance.removeAllListeners('start')
+      this.instance.removeAllListeners('error')
+      this.instance.removeAllListeners('stop')
     }
   }
 
