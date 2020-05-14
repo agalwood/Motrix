@@ -49,6 +49,7 @@ export default class ConfigManager {
         'all-proxy': EMPTY_STRING,
         'allow-overwrite': false,
         'auto-file-renaming': true,
+        'bt-exclude-tracker': EMPTY_STRING,
         'bt-tracker': EMPTY_STRING,
         'continue': true,
         'dht-file-path': getDhtPath(IP_VERSION.V4),
