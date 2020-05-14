@@ -258,18 +258,16 @@
             this.$refs.uri && this.$refs.uri.focus()
           }, 50)
         }
+      },
+      visible (current) {
+        if (current === true) {
+          document.addEventListener('keydown', this.handleHotkey)
+        } else {
+          document.removeEventListener('keydown', this.handleHotkey)
+        }
       }
     },
     methods: {
-      handleOpen () {
-        this.form = initialForm(this.$store.state)
-        if (this.taskType === ADD_TASK_TYPE.URI) {
-          this.autofillResourceLink()
-          setTimeout(() => {
-            this.$refs.uri && this.$refs.uri.focus()
-          }, 50)
-        }
-      },
       autofillResourceLink () {
         const content = this.$electron.clipboard.readText()
         const hasResource = detectResource(content)
@@ -280,8 +278,20 @@
           this.form.uris = content
         }
       },
+      handleOpen () {
+        this.form = initialForm(this.$store.state)
+        if (this.taskType === ADD_TASK_TYPE.URI) {
+          this.autofillResourceLink()
+          setTimeout(() => {
+            this.$refs.uri && this.$refs.uri.focus()
+          }, 50)
+        }
+      },
       handleOpened () {
         this.detectThunderResource(this.form.uris)
+      },
+      handleCancel (formName) {
+        this.$store.dispatch('app/hideAddTaskDialog')
       },
       handleClose (done) {
         this.$store.dispatch('app/hideAddTaskDialog')
@@ -289,6 +299,13 @@
       },
       handleClosed () {
         this.reset()
+      },
+      handleHotkey (event) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault()
+
+          this.submitForm('taskForm')
+        }
       },
       handleTabClick (tab, event) {
         this.$store.dispatch('app/changeAddTaskType', tab.name)
@@ -318,9 +335,6 @@
       reset () {
         this.showAdvanced = false
         this.form = initialForm(this.$store.state)
-      },
-      handleCancel (formName) {
-        this.$store.dispatch('app/hideAddTaskDialog')
       },
       buildHeader (form) {
         const { userAgent, referer, cookie } = form
