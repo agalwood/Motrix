@@ -69,7 +69,7 @@ export default class ConfigManager {
         'rpc-secret': EMPTY_STRING,
         'seed-ratio': 1,
         'seed-time': 60,
-        'split': 128,
+        'split': getMaxConnectionPerServer(),
         'user-agent': 'Transmission/2.94'
       }
       /* eslint-enable quote-props */

@@ -261,11 +261,11 @@
         this.$store.dispatch('task/getTaskOption', gid)
           .then((data) => {
             console.log('[Motrix] get task option:', data)
-            const { dir, header, maxConnectionPerServer } = data
+            const { dir, header, split } = data
             const options = {
               dir,
               header,
-              maxConnectionPerServer,
+              split,
               out: taskName
             }
 

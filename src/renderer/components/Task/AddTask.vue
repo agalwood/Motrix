@@ -49,7 +49,7 @@
             :label-width="formLabelWidth"
           >
             <el-input-number
-              v-model="form.maxConnectionPerServer"
+              v-model="form.split"
               controls-position="right"
               :min="1"
               :max="config.engineMaxConnectionPerServer"
@@ -185,7 +185,8 @@
       dir,
       engineMaxConnectionPerServer,
       maxConnectionPerServer,
-      newTaskShowDownloading
+      newTaskShowDownloading,
+      split
     } = state.preference.config
     const result = {
       allProxy,
@@ -197,6 +198,7 @@
       out: '',
       referer: '',
       selectFile: NONE_SELECTED_FILES,
+      split,
       torrent: '',
       uris: addTaskUrl,
       userAgent: '',
@@ -230,23 +232,23 @@
       }
     },
     computed: {
-      isRenderer () { return is.renderer() },
-      isMas () { return is.mas() },
-      taskType: function () {
-        return this.type
-      },
-      downloadDir: function () {
-        return prettifyDir(this.form.dir)
-      },
+      isRenderer: () => is.renderer(),
+      isMas: () => is.mas(),
       ...mapState('app', {
         taskList: state => state.taskList
       }),
       ...mapState('preference', {
         config: state => state.config
-      })
+      }),
+      taskType () {
+        return this.type
+      },
+      downloadDir () {
+        return prettifyDir(this.form.dir)
+      }
     },
     watch: {
-      taskType: function (current, previous) {
+      taskType (current, previous) {
         if (this.visible && previous === ADD_TASK_TYPE.URI) {
           return
         }
@@ -336,7 +338,13 @@
         return result
       },
       buildOption (type, form) {
-        const { allProxy, dir, out, selectFile } = form
+        const {
+          allProxy,
+          dir,
+          out,
+          selectFile,
+          split
+        } = form
         const result = {}
 
         if (!isEmpty(allProxy)) {
@@ -349,6 +357,10 @@
 
         if (!isEmpty(out)) {
           result.out = out
+        }
+
+        if (split > 0) {
+          result.split = split
         }
 
         if (type === ADD_TASK_TYPE.TORRENT) {
