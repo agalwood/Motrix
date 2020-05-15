@@ -1,6 +1,6 @@
 {
   "name": "Motrix",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "description": "A full-featured download manager",
   "homepage": "https://motrix.app",
   "author": {
@@ -166,8 +166,7 @@
         },
         {
           "provider": "snapStore",
-          "channel": "edge",
-          "publishPolicy": "always"
+          "channel": "edge"
         }
       ]
     },
