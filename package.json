@@ -227,7 +227,7 @@
     "css-loader": "^3.5.3",
     "del": "^5.1.0",
     "devtron": "^1.4.0",
-    "electron": "^8.2.5",
+    "electron": "^8.3.0",
     "electron-builder": "^22.6.0",
     "electron-builder-notarize": "^1.1.2",
     "electron-devtools-installer": "^3.0.0",

@@ -62,6 +62,7 @@
       onDownloadStart (event) {
         this.$store.dispatch('task/fetchList')
         this.$store.dispatch('app/resetInterval')
+        this.$store.dispatch('task/saveSession')
         console.log('aria2 onDownloadStart', event)
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
@@ -128,12 +129,12 @@
           })
       },
       handleDownloadComplete (task, isBT) {
-        const path = getTaskFullPath(task)
-
-        this.showTaskCompleteNotify(task, isBT, path)
+        this.$store.dispatch('task/saveSession')
 
         addToRecentTask(task)
 
+        const path = getTaskFullPath(task)
+        this.showTaskCompleteNotify(task, isBT, path)
         this.$electron.ipcRenderer.send('event', 'task-download-complete', task, path)
       },
       showTaskCompleteNotify (task, isBT, path) {
