@@ -15,6 +15,7 @@
       effect="dark"
       placement="bottom"
       :content="$t('task.delete-selected-tasks')"
+      v-if="currentList !== 'stopped'"
     >
       <i
         class="task-action"
