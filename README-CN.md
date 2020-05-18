@@ -4,15 +4,15 @@
   <img src="https://cdn.nlark.com/yuque/0/2018/png/129147/1543735425232-a5d2c99f-d788-43e4-9781-558ff6d21027.png" width="256" alt="App Icon" />
 </a>
 
-[English](./README.md) | 简体中文
-
 ## 一款全能的下载工具
 
-[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) [![Build Status](https://travis-ci.com/agalwood/Motrix.svg?branch=master)](https://travis-ci.com/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master) [![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)](https://github.com/agalwood/Motrix/releases) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
+[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
+
+[English](./README.md) | 简体中文
 
 我是个兴趣使然的桌面应用开发者🤓，利用搬砖之余开发了 Motrix。
 
-Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链、某盘等资源。它的界面简洁易用，希望大家喜欢 👻。
+Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链等资源。它的界面简洁易用，希望大家喜欢 👻。
 
 ✈️ 去 [官网](https://motrix.app/zh-CN) 逛逛  |  📖 查看 [帮助手册](http://motrix.app/support/issues)
 
@@ -41,9 +41,16 @@ brew update && brew cask install motrix
 
 ### Linux
 
-你可以下载 AppImage（适用于所有 Linux 发行版）软件包或 snap 或从源代码构建安装 Motrix。
+你可以下载 AppImage（适用于所有 Linux 发行版）软件包或 snap 或从源代码构建安装 Motrix（构建请阅读 **编译打包** 部分）
 
-构建请阅读 **编译打包** 部分。
+Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix)，Ubuntu 用户推荐从 Snap 应用商店下载。
+
+Deepin 20 Beta 用户安装 Motrix 失败的问题，请按照以下方法处理：
+
+打开终端，黏贴运行如下命令之后再次安装 Motrix。
+```bash
+sudo apt --fix-broken install
+```
 
 对于 Arch Linux 用户，可以使用 [aur](https://aur.archlinux.org/packages/motrix/) 安装 Motrix，感谢维护者 [weearc](https://github.com/weearc)。
 
@@ -60,7 +67,8 @@ Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能�
 - 🕹 简洁明了的图形操作界面
 - 🦄 支持BT和磁力链任务
 - ☑️ 支持选择性下载BT部分文件
-- 💾 支持下载某盘资源
+- 📡 每天自动更新 Tracker 服务器列表
+- 🔌 UPnP & NAT-PMP 端口映射
 - 🎛 最高支持 10 个任务同时下载
 - 🚀 单任务最高支持 64 线程下载
 - 🚥 设置上传/下载限速

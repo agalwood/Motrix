@@ -6,7 +6,7 @@
 
 ## A full-featured download manager
 
-[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) [![Build Status](https://travis-ci.com/agalwood/Motrix.svg?branch=master)](https://travis-ci.com/agalwood/Motrix) [![Build status](https://ci.appveyor.com/api/projects/status/l11d5h05xwwcvoux/branch/master?svg=true)](https://ci.appveyor.com/project/agalwood/motrix/branch/master) [![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)](https://github.com/agalwood/Motrix/releases) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
+[![GitHub release](https://img.shields.io/github/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
 
 English | [简体中文](./README-CN.md)
 
@@ -41,9 +41,17 @@ brew update && brew cask install motrix
 
 ### Linux
 
-You can download the AppImage (for all Linux distributions) package or snap or just build from source code to install Motrix.
+You can download the AppImage (for all Linux distributions) package or snap or just build from source code to install Motrix (Please read the **Build** section).
 
-Please read the **Build** section.
+Motrix has been listed on [Snapcraft] (https://snapcraft.io/motrix), Ubuntu users recommend downloading from the Snap App Store.
+
+Deepin 20 Beta users failed to install Motrix, please follow the steps below:
+
+Open the `Terminal`, paste and run the following command to install Motrix again.
+
+```bash
+sudo apt --fix-broken install
+```
 
 For Arch Linux users, Motrix is available in [aur](https://aur.archlinux.org/packages/motrix/), thanks to the maintainer [weearc](https://github.com/weearc).
 
@@ -60,7 +68,8 @@ Motrix may need to run with `sudo` for the first time in Linux because there is 
 - 🕹 Simple and clear user interface
 - 🦄 Supports BitTorrent & Magnet
 - ☑️ BitTorrent selective download
-- 💾 Supports downloading BD Net Disk
+- 📡 Update tracker list every day automatically
+- 🔌 UPnP & NAT-PMP Port Mapping
 - 🎛 Up to 10 concurrent download tasks
 - 🚀 Supports 64 threads in a single task
 - 🚥 Supports speed limit
