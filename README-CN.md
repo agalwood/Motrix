@@ -43,7 +43,7 @@ brew update && brew cask install motrix
 
 你可以下载 AppImage（适用于所有 Linux 发行版）软件包或 snap 或从源代码构建安装 Motrix（构建请阅读 **编译打包** 部分）
 
-Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix)，Ubuntu 用户推荐从 Snap 应用商店下载。
+Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix) ，Ubuntu 用户推荐从 Snap 应用商店下载。
 
 Deepin 20 Beta 用户安装 Motrix 失败的问题，请按照以下方法处理：
 
@@ -83,7 +83,7 @@ Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能�
 
 ## 🖥 应用界面
 
-![motrix-screenshot-task-cn.png](https://cdn.nlark.com/yuque/0/2019/png/129147/1550151234585-e513bd4f-e127-402f-accb-1ebbba9b3c41.png)
+![motrix-screenshot-task-cn.png](https://cdn.nlark.com/yuque/0/2020/png/129147/1589782239990-fecb9065-19ac-4c35-938b-0be45621ca3a.png)
 
 ## ⌨️ 本地开发
 
@@ -165,3 +165,4 @@ npm run build
 ## 📜 开源许可
 
 基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
+
