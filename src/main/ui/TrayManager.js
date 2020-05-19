@@ -88,6 +88,11 @@ export default class TrayManager extends EventEmitter {
 
   handleTrayClick = (event) => {
     event.preventDefault()
+    if (is.linux()) {
+      tray.popUpContextMenu(this.menu)
+      return
+    }
+
     global.application.toggle()
   }
 
