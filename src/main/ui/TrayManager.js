@@ -150,6 +150,13 @@ export default class TrayManager extends EventEmitter {
   }
 
   destroy () {
+    if (tray) {
+      tray.removeListener('click', this.handleTrayClick)
+      tray.removeListener('double-click', this.handleTrayDbClick)
+      tray.removeListener('right-click', this.handleTrayRightClick)
+      tray.removeListener('drop-files', this.handleTrayDropFile)
+    }
+
     tray.destroy()
   }
 }
