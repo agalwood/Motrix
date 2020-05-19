@@ -43,7 +43,7 @@ brew update && brew cask install motrix
 
 You can download the AppImage (for all Linux distributions) package or snap or just build from source code to install Motrix (Please read the **Build** section).
 
-Motrix has been listed on [Snapcraft](https://snapcraft.io/motrix), Ubuntu users recommend downloading from the Snap App Store.
+Motrix has been listed on [Snapcraft](https://snapcraft.io/motrix) , Ubuntu users recommend downloading from the Snap Store.
 
 Deepin 20 Beta users failed to install Motrix, please follow the steps below:
 

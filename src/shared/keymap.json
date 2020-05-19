@@ -1,10 +1,10 @@
 {
-  "cmd-q": "application:quit",
-  "cmd-n": "application:new-task",
-  "cmd-shift-n": "application:new-bt-task",
-  "cmd-o": "application:open-file",
-  "cmd-,": "application:preferences",
-  "cmd-shift-p": "application:pause-all-task",
-  "cmd-shift-r": "application:resume-all-task",
+  "cmdctrl-q": "application:quit",
+  "cmdctrl-n": "application:new-task",
+  "cmdctrl-shift-n": "application:new-bt-task",
+  "cmdctrl-o": "application:open-file",
+  "cmdctrl-,": "application:preferences",
+  "cmdctrl-shift-p": "application:pause-all-task",
+  "cmdctrl-shift-r": "application:resume-all-task",
   "ctrl-shift-a": "application:select-all-task"
 }

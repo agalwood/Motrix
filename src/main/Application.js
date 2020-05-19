@@ -347,9 +347,9 @@ export default class Application extends EventEmitter {
 
       this.energyManager.stopPowerSaveBlocker()
 
-      this.trayManager.destroy()
-
       await this.stopEngine()
+
+      this.trayManager.destroy()
     } catch (err) {
       logger.warn('[Motrix] stop error: ', err.message)
     }
