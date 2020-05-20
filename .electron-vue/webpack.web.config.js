@@ -211,8 +211,8 @@ if (!devMode) {
   webConfig.plugins.push(
     new CopyWebpackPlugin({
       patterns: [{
-        from: '../static',
-        to: '../dist/electron/static',
+        from: path.join(__dirname, '../static'),
+        to: path.join(__dirname, '../dist/electron/static'),
         globOptions: { ignore: [ '.*' ] }
       }]
     }),
