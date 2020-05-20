@@ -116,10 +116,12 @@ export default class Application extends EventEmitter {
   async stopEngine () {
     try {
       await this.engineClient.shutdown({ force: true })
+      setImmediate(() => {
+        this.engine.stop()
+      })
     } catch (err) {
       logger.warn('[Motrix] shutdown engine fail: ', err.message)
     } finally {
-      this.engine.stop()
     }
   }
 
