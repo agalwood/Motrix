@@ -465,8 +465,9 @@
             const tracker = convertTrackerDataToLine(data)
             this.form.lastSyncTrackerTime = Date.now()
             this.form.btTracker = tracker
+            this.trackerSyncing = false
           })
-          .finally(() => {
+          .catch((_) => {
             this.trackerSyncing = false
           })
       },
