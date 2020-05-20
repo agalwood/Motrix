@@ -64,13 +64,7 @@ export default class TrayManager extends EventEmitter {
   setup () {
     this.build()
 
-    /**
-     * Linux requires setContextMenu to be called
-     * in order for the context menu to populate correctly
-     */
-    if (process.platform === 'linux') {
-      tray.setContextMenu(this.menu)
-    }
+    this.updateContextMenu()
   }
 
   init () {
@@ -79,20 +73,19 @@ export default class TrayManager extends EventEmitter {
   }
 
   handleEvents () {
+    // All OS
     tray.on('click', this.handleTrayClick)
+
+    // macOS, Windows
     tray.on('double-click', this.handleTrayDbClick)
     tray.on('right-click', this.handleTrayRightClick)
 
+    // macOS only
     tray.on('drop-files', this.handleTrayDropFile)
   }
 
   handleTrayClick = (event) => {
     event.preventDefault()
-    if (is.linux()) {
-      tray.popUpContextMenu(this.menu)
-      return
-    }
-
     global.application.toggle()
   }
 
@@ -119,6 +112,8 @@ export default class TrayManager extends EventEmitter {
   updateTray () {
     const icon = this.status ? this.activeIcon : this.normalIcon
     tray.setImage(icon)
+
+    this.updateContextMenu()
   }
 
   changeIconTheme (theme = APP_THEME.LIGHT) {
@@ -133,6 +128,8 @@ export default class TrayManager extends EventEmitter {
 
   updateMenuStates (visibleStates, enabledStates, checkedStates) {
     updateStates(this.items, visibleStates, enabledStates, checkedStates)
+
+    this.updateContextMenu()
   }
 
   updateMenuItemVisibleState (id, flag) {
@@ -147,6 +144,18 @@ export default class TrayManager extends EventEmitter {
       [id]: flag
     }
     this.updateMenuStates(null, enabledStates, null)
+  }
+
+  updateContextMenu () {
+    /**
+     * Linux requires setContextMenu to be called
+     * in order for the context menu to populate correctly
+     */
+    if (process.platform !== 'linux') {
+      return
+    }
+
+    tray.setContextMenu(this.menu)
   }
 
   destroy () {
