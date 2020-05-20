@@ -221,7 +221,7 @@
     "babel-plugin-component": "^1.1.1",
     "cfonts": "^2.8.2",
     "chalk": "^4.0.0",
-    "copy-webpack-plugin": "^6.0.1",
+    "copy-webpack-plugin": "^5.1.1",
     "cross-env": "^7.0.2",
     "css-loader": "^3.5.3",
     "del": "^5.1.0",
