@@ -237,13 +237,13 @@ if (!devMode) {
   rendererConfig.devtool = ''
 
   rendererConfig.plugins.push(
-    new CopyWebpackPlugin([
-      {
-        from: path.join(__dirname, '../static'),
-        to: path.join(__dirname, '../dist/electron/static'),
-        ignore: ['.*']
-      }
-    ]),
+    new CopyWebpackPlugin({
+      patterns: [{
+        from: '../static',
+        to: '../dist/electron/static',
+        globOptions: { ignore: [ '.*' ] }
+      }]
+    }),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"'
     }),
