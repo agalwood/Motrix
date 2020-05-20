@@ -127,7 +127,7 @@
           header,
           ...rest
         } = options
-        console.log('showAddTaskDialog.options====>', options)
+        console.log('[Motrix] show add task dialog options: ', options)
 
         const headers = parseHeader(header)
         const newOptions = {
@@ -214,7 +214,7 @@
       batchDeleteTaskFiles (taskList) {
         const promises = taskList.map((task, index) => delayDeleteTaskFiles(task, index * 200))
         Promise.all(promises).then(values => {
-          console.log(values)
+          console.log('[Motrix] batch delete task files: ', values)
         })
       },
       removeTaskItems (gids) {

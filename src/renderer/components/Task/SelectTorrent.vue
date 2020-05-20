@@ -174,7 +174,7 @@
 
         parseTorrent.remote(file.raw, (err, parsedTorrent) => {
           if (err) throw err
-          console.log(parsedTorrent)
+          console.log('[Motrix] parsed torrent: ', parsedTorrent)
           this.files = listTorrentFiles(parsedTorrent.files)
           this.$refs.torrentTable.toggleAllSelection()
 
