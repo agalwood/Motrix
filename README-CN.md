@@ -41,11 +41,11 @@ brew update && brew cask install motrix
 
 ### Linux
 
-你可以下载 AppImage（适用于所有 Linux 发行版）软件包或 snap 来安装 Motrix。
+你可以下载 `AppImage` （适用于所有 Linux 发行版）或 `snap` 来安装 Motrix。
 
 最新版的 Motrix AppImage 需要自己手动进执行桌面集成。
 
-> 桌面整合
+> 桌面集成
 > electron-builder v21 之后，桌面集成不再是 AppImage 文件的一部分。
 > 推荐使用 [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) 集成 AppImage。
 
@@ -87,7 +87,7 @@ Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能�
 - 🌑 深色模式
 - 🗑 移除任务时可同时删除相关文件
 - 🌍 国际化，[查看已可选的语言](#-国际化)
-- 🎏 ...
+- 🛠 更多特性开发中
 
 ## 🖥 应用界面
 
@@ -119,8 +119,6 @@ export SASS_BINARY_SITE='https://npm.taobao.org/mirrors/node-sass'
 > Error: Electron failed to install correctly, please delete node_modules/electron and try installing again
 
 `Electron` 下载安装失败的问题，解决方式请参考 https://github.com/electron/electron/issues/8466#issuecomment-571425574
-
-如果喜欢 [Yarn](https://yarnpkg.com/)，也可以使用 `yarn` 安装依赖
 
 ### 开发模式
 

@@ -41,7 +41,7 @@ brew update && brew cask install motrix
 
 ### Linux
 
-You can download the AppImage (for all Linux distributions) package or snap to install Motrix.
+You can download the `AppImage` (for all Linux distributions) or `snap` to install Motrix.
 
 The latest version of Motrix AppImage requires you to manually perform desktop integration.
 
@@ -88,7 +88,7 @@ If you want to build from source code, please read the **Build** section.
 - 🌑 Dark mode
 - 🗑 Delete related files when removing tasks (optional)
 - 🌍 I18n, [View supported languages](#-internationalization).
-- 🎏 ...
+- 🛠 More features in development
 
 ## 🖥 User Interface
 
@@ -112,8 +112,6 @@ npm install
 > Error: Electron failed to install correctly, please delete node_modules/electron and try installing again
 
 `Electron` failed to install correctly, please refer to https://github.com/electron/electron/issues/8466#issuecomment-571425574
-
-If you like [Yarn](https://yarnpkg.com/), you can also use `yarn` to install dependencies.
 
 ### Dev Mode
 
