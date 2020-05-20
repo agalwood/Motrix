@@ -81,7 +81,6 @@ export default class UPnPManager {
   }
 
   delayCloseClient () {
-    console.log('delayCloseClient===>', timer)
     timer = setTimeout(() => {
       this.closeClient()
     }, 30000)
@@ -92,7 +91,6 @@ export default class UPnPManager {
   }
 
   closeClient () {
-    console.log('closeClient===>')
     if (!client) {
       return
     }

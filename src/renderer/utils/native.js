@@ -27,7 +27,7 @@ export function showItemInFolder (fullPath, { errorMsg }) {
   }
 
   access(fullPath, constants.F_OK, (err) => {
-    console.log(`${fullPath} ${err ? 'does not exist' : 'exists'}`)
+    console.log(`[Motrix] ${fullPath} ${err ? 'does not exist' : 'exists'}`)
     if (err) {
       Message.error(errorMsg)
       return
@@ -67,7 +67,7 @@ export function moveTaskFilesToTrash (task) {
 
   let deleteResult1 = true
   access(path, constants.F_OK, (err) => {
-    console.log(`${path} ${err ? 'does not exist' : 'exists'}`)
+    console.log(`[Motrix] ${path} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
       deleteResult1 = remote.shell.moveItemToTrash(path)
     }
@@ -81,7 +81,7 @@ export function moveTaskFilesToTrash (task) {
   let deleteResult2 = true
   const extraFilePath = `${path}.aria2`
   access(extraFilePath, constants.F_OK, (err) => {
-    console.log(`${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
+    console.log(`[Motrix] ${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
       deleteResult2 = remote.shell.moveItemToTrash(extraFilePath)
     }
