@@ -41,7 +41,13 @@ brew update && brew cask install motrix
 
 ### Linux
 
-You can download the AppImage (for all Linux distributions) package or snap or just build from source code to install Motrix (Please read the **Build** section).
+You can download the AppImage (for all Linux distributions) package or snap to install Motrix.
+
+The latest version of Motrix AppImage requires you to manually perform desktop integration.
+
+> Desktop Integration
+> Since electron-builder 21 desktop integration is not a part of produced AppImage file.
+> [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) is the recommended way to integrate AppImages.
 
 Motrix has been listed on [Snapcraft](https://snapcraft.io/motrix) , Ubuntu users recommend downloading from the Snap Store.
 
@@ -62,6 +68,8 @@ yay motrix
 ```
 
 Motrix may need to run with `sudo` for the first time in Linux because there is no permission to create the download session file (`/var/cache/aria2.session`).
+
+If you want to build from source code, please read the **Build** section.
 
 ## ✨ Features
 

@@ -41,7 +41,13 @@ brew update && brew cask install motrix
 
 ### Linux
 
-你可以下载 AppImage（适用于所有 Linux 发行版）软件包或 snap 或从源代码构建安装 Motrix（构建请阅读 **编译打包** 部分）
+你可以下载 AppImage（适用于所有 Linux 发行版）软件包或 snap 来安装 Motrix。
+
+最新版的 Motrix AppImage 需要自己手动进执行桌面集成。
+
+> 桌面整合
+> electron-builder v21 之后，桌面集成不再是 AppImage 文件的一部分。
+> 推荐使用 [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) 集成 AppImage。
 
 Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix) ，Ubuntu 用户推荐从 Snap 商店下载。
 
@@ -61,6 +67,8 @@ yay motrix
 ```
 
 Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能没有创建下载会话文件的权限 (`/var/cache/aria2.session`)。
+
+如果你想自己通过编译源码来安装，请阅读 **编译打包** 部分。
 
 ## ✨ 特性
 
@@ -165,4 +173,3 @@ npm run build
 ## 📜 开源许可
 
 基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
-
