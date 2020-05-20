@@ -160,6 +160,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | uk    | Українська          | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
+| id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
 
 ## 📜 License
 
