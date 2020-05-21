@@ -64,6 +64,7 @@ sudo apt --fix-broken install
 Motrix has been listed on [Snapcraft](https://snapcraft.io/motrix) , Ubuntu users recommend downloading from the Snap Store.
 
 Tips for v1.5.10
+
 The tray may not display the indicator normally, which makes it inconvenient to exit the application.
 
 Please unchecked Preferences--Basic Settings--Hide App Menu (Windows & Linux Only), click Save & Apply. Then click "Exit" in the File menu to exit the application.

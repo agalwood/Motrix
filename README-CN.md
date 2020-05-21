@@ -63,6 +63,7 @@ sudo apt --fix-broken install
 Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix) ，Ubuntu 用户推荐从 Snap 商店下载。
 
 v1.5.10 提示
+
 系统托盘可能无法正常显示指示器，导致退出应用程序不方便。
 请取消勾选 偏好设置——基本设置——隐藏应用程序菜单（仅限Windows和Linux），点击保存并应用。然后点击 "文件 "菜单中的 "退出"，退出应用程序。
 
