@@ -41,23 +41,34 @@ brew update && brew cask install motrix
 
 ### Linux
 
-你可以下载 `AppImage` （适用于所有 Linux 发行版）或 `snap` 来安装 Motrix。
+你可以下载 `AppImage` （适用于所有 Linux 发行版）或 `snap` 来安装 Motrix，更多 Linux 安装包格式请查看 [GitHub/release](https://github.com/agalwood/Motrix/releases) 。
 
-最新版的 Motrix AppImage 需要自己手动进执行桌面集成。
+如果你想自己通过编译源码来安装，请阅读 **编译打包** 部分。
+
+#### AppImage
+最新版的 Motrix AppImage 需要自己手动进执行桌面集成。请查看 [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) 的文档进行操作。
 
 > 桌面集成
 > electron-builder v21 之后，桌面集成不再是 AppImage 文件的一部分。
 > 推荐使用 [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) 集成 AppImage。
 
-Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix) ，Ubuntu 用户推荐从 Snap 商店下载。
-
 Deepin 20 Beta 用户安装 Motrix 失败的问题，请按照以下方法处理：
 
-打开终端，黏贴运行如下命令之后再次安装 Motrix。
+打开`终端`，黏贴运行如下命令之后再次安装 Motrix。
 ```bash
 sudo apt --fix-broken install
 ```
 
+#### Snap
+Motrix 已经上架 [Snapcraft](https://snapcraft.io/motrix) ，Ubuntu 用户推荐从 Snap 商店下载。
+
+v1.5.10 提示
+系统托盘可能无法正常显示指示器，导致退出应用程序不方便。
+请取消勾选 偏好设置——基本设置——隐藏应用程序菜单（仅限Windows和Linux），点击保存并应用。然后点击 "文件 "菜单中的 "退出"，退出应用程序。
+
+请更新到 v1.5.12 及以上版本，可以使用键盘组合快捷键 <kbd>Ctrl</kbd> + <kbd>q</kbd> 快速退出应用。
+
+#### AUR
 对于 Arch Linux 用户，可以使用 [aur](https://aur.archlinux.org/packages/motrix/) 安装 Motrix，感谢维护者 [weearc](https://github.com/weearc)。
 
 运行以下命令进行安装：
@@ -67,8 +78,6 @@ yay motrix
 ```
 
 Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能没有创建下载会话文件的权限 (`/var/cache/aria2.session`)。
-
-如果你想自己通过编译源码来安装，请阅读 **编译打包** 部分。
 
 ## ✨ 特性
 
@@ -159,6 +168,7 @@ npm run build
 | en-US | English             | ✔️           |
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
 | fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
+| id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
@@ -167,7 +177,6 @@ npm run build
 | uk    | Українська          | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
-| id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
 
 ## 📜 开源许可
 

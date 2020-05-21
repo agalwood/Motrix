@@ -41,15 +41,16 @@ brew update && brew cask install motrix
 
 ### Linux
 
-You can download the `AppImage` (for all Linux distributions) or `snap` to install Motrix.
+You can download the `AppImage` (for all Linux distributions) or `snap` to install Motrix, see [GitHub/release](https://github.com/agalwood/Motrix/releases) for more Linux installation package formats.
 
-The latest version of Motrix AppImage requires you to manually perform desktop integration.
+If you want to build from source code, please read the **Build** section.
+
+#### AppImage
+The latest version of Motrix AppImage requires you to manually perform desktop integration. Please check the documentation of [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) .
 
 > Desktop Integration
 > Since electron-builder 21 desktop integration is not a part of produced AppImage file.
 > [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) is the recommended way to integrate AppImages.
-
-Motrix has been listed on [Snapcraft](https://snapcraft.io/motrix) , Ubuntu users recommend downloading from the Snap Store.
 
 Deepin 20 Beta users failed to install Motrix, please follow the steps below:
 
@@ -59,6 +60,17 @@ Open the `Terminal`, paste and run the following command to install Motrix again
 sudo apt --fix-broken install
 ```
 
+#### Snap
+Motrix has been listed on [Snapcraft](https://snapcraft.io/motrix) , Ubuntu users recommend downloading from the Snap Store.
+
+Tips for v1.5.10
+The tray may not display the indicator normally, which makes it inconvenient to exit the application.
+
+Please unchecked Preferences--Basic Settings--Hide App Menu (Windows & Linux Only), click Save & Apply. Then click "Exit" in the File menu to exit the application.
+
+Please update to v1.5.12 and above, you can use the keyboard shortcut <kbd>Ctrl</kbd> + <kbd>q</kbd> to quickly exit the application.
+
+#### AUR
 For Arch Linux users, Motrix is available in [aur](https://aur.archlinux.org/packages/motrix/), thanks to the maintainer [weearc](https://github.com/weearc).
 
 Run the following command to install:
@@ -68,8 +80,6 @@ yay motrix
 ```
 
 Motrix may need to run with `sudo` for the first time in Linux because there is no permission to create the download session file (`/var/cache/aria2.session`).
-
-If you want to build from source code, please read the **Build** section.
 
 ## ✨ Features
 
@@ -152,6 +162,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | en-US | English             | ✔️           |
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
 | fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
+| id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
@@ -160,7 +171,6 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | uk    | Українська          | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
-| id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
 
 ## 📜 License
 
