@@ -389,7 +389,7 @@ export default class Application extends EventEmitter {
     this.themeManager = new ThemeManager()
     this.themeManager.on('system-theme-changed', (theme) => {
       this.trayManager.changeIconTheme(theme)
-      this.sendCommandToAll('application:change-system-theme', theme)
+      this.sendCommandToAll('application:update-system-theme', theme)
     })
   }
 
