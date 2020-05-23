@@ -39,11 +39,11 @@
       })
     },
     watch: {
-      downloadSpeed (val, oldVal) {
+      downloadSpeed (val) {
         const speed = val > 0 ? `${bytesToSize(val)}/s` : ''
         this.$electron.ipcRenderer.send('event', 'download-speed-change', speed)
       },
-      numActive (val, oldVal) {
+      numActive (val) {
         this.downloading = val > 0
       },
       downloading (val, oldVal) {
