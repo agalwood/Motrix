@@ -29,7 +29,6 @@ export default class ThemeManager extends EventEmitter {
     }
 
     nativeTheme.on('updated', () => {
-      this.updateAppAppearance(theme)
       const theme = getSystemTheme()
       this.systemTheme = theme
       console.log('nativeTheme updated===>', theme)
