@@ -228,7 +228,8 @@ export default class Application extends EventEmitter {
       if (newValue) {
         this.startUPnPMapping()
       } else {
-        this.stopUPnPMapping()
+        await this.stopUPnPMapping()
+        this.upnp.closeClient()
       }
     })
   }
