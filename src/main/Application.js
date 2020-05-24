@@ -21,9 +21,16 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
-import { AUTO_SYNC_TRACKER_INTERVAL, AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
+import {
+  APP_RUN_MODE,
+  AUTO_SYNC_TRACKER_INTERVAL,
+  AUTO_CHECK_UPDATE_INTERVAL
+} from '@shared/constants'
 import { checkIsNeedRun } from '@shared/utils'
-import { convertTrackerDataToComma, fetchBtTrackerFromSource } from '@shared/utils/tracker'
+import {
+  convertTrackerDataToComma,
+  fetchBtTrackerFromSource
+} from '@shared/utils/tracker'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -280,11 +287,24 @@ export default class Application extends EventEmitter {
     this.windowManager.on('window-resized', (data) => {
       this.storeWindowState(data)
     })
+
     this.windowManager.on('window-moved', (data) => {
       this.storeWindowState(data)
     })
+
     this.windowManager.on('window-closed', (data) => {
       this.storeWindowState(data)
+    })
+
+    this.windowManager.on('enter-full-screen', (window) => {
+      this.dockManager.show()
+    })
+
+    this.windowManager.on('leave-full-screen', (window) => {
+      const mode = this.configManager.getUserConfig('run-mode')
+      if (mode !== APP_RUN_MODE.STANDARD) {
+        this.dockManager.hide()
+      }
     })
   }
 

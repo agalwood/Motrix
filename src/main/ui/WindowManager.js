@@ -105,6 +105,14 @@ export default class WindowManager extends EventEmitter {
       }
     })
 
+    window.on('enter-full-screen', () => {
+      this.emit('enter-full-screen', window)
+    })
+
+    window.on('leave-full-screen', () => {
+      this.emit('leave-full-screen', window)
+    })
+
     this.handleWindowState(page, window)
 
     this.handleWindowClose(pageOptions, page, window)
