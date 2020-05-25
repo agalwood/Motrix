@@ -47,7 +47,7 @@ export default class MenuManager extends EventEmitter {
     this.items = flattenMenuItems(menu)
   }
 
-  rebuild () {
+  handleLocaleChange (locale) {
     this.setup()
   }
 

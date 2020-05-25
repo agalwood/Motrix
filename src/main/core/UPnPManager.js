@@ -3,7 +3,6 @@ import NatAPI from 'nat-api'
 import logger from './Logger'
 
 let client = null
-let timer = null
 const mappingStatus = {}
 
 export default class UPnPManager {
@@ -18,11 +17,12 @@ export default class UPnPManager {
       return
     }
 
-    client = new NatAPI()
+    client = new NatAPI({
+      autoUpdate: true
+    })
   }
 
   map (port) {
-    this.clearCloseTimer()
     this.init()
 
     return new Promise((resolve, reject) => {
@@ -32,24 +32,25 @@ export default class UPnPManager {
         return
       }
 
-      client.map(port, (err) => {
-        if (err) {
-          logger.warn(`[Motrix] UPnPManager map ${port} failed, error: `, err)
-          reject(err.message)
-          return
-        }
+      try {
+        client.map(port, (err) => {
+          if (err) {
+            logger.warn(`[Motrix] UPnPManager map ${port} failed, error: `, err)
+            reject(err.message)
+            return
+          }
 
-        mappingStatus[port] = true
-        logger.info(`[Motrix] UPnPManager port ${port} mapping succeeded`)
-        resolve()
-      })
-    }).finally(() => {
-      this.delayCloseClient()
+          mappingStatus[port] = true
+          logger.info(`[Motrix] UPnPManager port ${port} mapping succeeded`)
+          resolve()
+        })
+      } catch (err) {
+        reject(err.message)
+      }
     })
   }
 
   unmap (port) {
-    this.clearCloseTimer()
     this.init()
 
     return new Promise((resolve, reject) => {
@@ -64,30 +65,22 @@ export default class UPnPManager {
         return
       }
 
-      client.unmap(port, (err) => {
-        if (err) {
-          logger.warn(`[Motrix] UPnPManager unmap ${port} failed, error: `, err)
-          reject(err.message)
-          return
-        }
+      try {
+        client.unmap(port, (err) => {
+          if (err) {
+            logger.warn(`[Motrix] UPnPManager unmap ${port} failed, error: `, err)
+            reject(err.message)
+            return
+          }
 
-        logger.info(`[Motrix] UPnPManager port ${port} unmapping succeeded`)
-        mappingStatus[port] = false
-        resolve()
-      })
-    }).finally(() => {
-      this.delayCloseClient()
+          logger.info(`[Motrix] UPnPManager port ${port} unmapping succeeded`)
+          mappingStatus[port] = false
+          resolve()
+        })
+      } catch (err) {
+        reject(err.message)
+      }
     })
-  }
-
-  delayCloseClient () {
-    timer = setTimeout(() => {
-      this.closeClient()
-    }, 30000)
-  }
-
-  clearCloseTimer () {
-    clearTimeout(timer)
   }
 
   closeClient () {
@@ -95,7 +88,12 @@ export default class UPnPManager {
       return
     }
 
-    client.destroy()
-    client = null
+    try {
+      client.destroy(() => {
+        client = null
+      })
+    } catch (err) {
+      logger.warn('[Motrix] close UPnP client fail', err)
+    }
   }
 }

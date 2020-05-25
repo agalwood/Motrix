@@ -3,9 +3,9 @@ import { access, constants } from 'fs'
 import { Message } from 'element-ui'
 
 import {
-  isMagnetTask,
+  bytesToSize,
   getTaskFullPath,
-  bytesToSize
+  isMagnetTask
 } from '@shared/utils'
 import { APP_THEME, TASK_STATUS } from '@shared/constants'
 

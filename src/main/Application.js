@@ -21,9 +21,16 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
-import { AUTO_SYNC_TRACKER_INTERVAL, AUTO_CHECK_UPDATE_INTERVAL } from '@shared/constants'
+import {
+  APP_RUN_MODE,
+  AUTO_SYNC_TRACKER_INTERVAL,
+  AUTO_CHECK_UPDATE_INTERVAL
+} from '@shared/constants'
 import { checkIsNeedRun } from '@shared/utils'
-import { convertTrackerDataToComma, fetchBtTrackerFromSource } from '@shared/utils/tracker'
+import {
+  convertTrackerDataToComma,
+  fetchBtTrackerFromSource
+} from '@shared/utils/tracker'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -51,6 +58,8 @@ export default class Application extends EventEmitter {
 
     this.initTouchBarManager()
 
+    this.initThemeManager()
+
     this.initTrayManager()
 
     this.initDockManager()
@@ -58,8 +67,6 @@ export default class Application extends EventEmitter {
     this.autoLaunchManager = new AutoLaunchManager()
 
     this.energyManager = new EnergyManager()
-
-    this.initThemeManager()
 
     this.initUpdaterManager()
 
@@ -221,7 +228,8 @@ export default class Application extends EventEmitter {
       if (newValue) {
         this.startUPnPMapping()
       } else {
-        this.stopUPnPMapping()
+        await this.stopUPnPMapping()
+        this.upnp.closeClient()
       }
     })
   }
@@ -280,11 +288,24 @@ export default class Application extends EventEmitter {
     this.windowManager.on('window-resized', (data) => {
       this.storeWindowState(data)
     })
+
     this.windowManager.on('window-moved', (data) => {
       this.storeWindowState(data)
     })
+
     this.windowManager.on('window-closed', (data) => {
       this.storeWindowState(data)
+    })
+
+    this.windowManager.on('enter-full-screen', (window) => {
+      this.dockManager.show()
+    })
+
+    this.windowManager.on('leave-full-screen', (window) => {
+      const mode = this.configManager.getUserConfig('run-mode')
+      if (mode !== APP_RUN_MODE.STANDARD) {
+        this.dockManager.hide()
+      }
     })
   }
 
@@ -387,7 +408,7 @@ export default class Application extends EventEmitter {
 
   initThemeManager () {
     this.themeManager = new ThemeManager()
-    this.themeManager.on('system-theme-changed', (theme) => {
+    this.themeManager.on('system-theme-change', (theme) => {
       this.trayManager.changeIconTheme(theme)
       this.sendCommandToAll('application:update-system-theme', theme)
     })
@@ -561,8 +582,8 @@ export default class Application extends EventEmitter {
     this.on('application:change-locale', (locale) => {
       this.localeManager.changeLanguageByLocale(locale)
         .then(() => {
-          this.menuManager.setup(locale)
           this.trayManager.setup(locale)
+          this.menuManager.handleLocaleChange(locale)
         })
     })
 
@@ -641,7 +662,7 @@ export default class Application extends EventEmitter {
     })
   }
 
-  handleConfigChanged (configName) {
+  handleConfigChange (configName) {
     this.sendCommandToAll('application:update-preference-config', configName)
   }
 
@@ -654,8 +675,8 @@ export default class Application extends EventEmitter {
       this.adjustMenu()
     })
 
-    this.configManager.userConfig.onDidAnyChange(() => this.handleConfigChanged('user'))
-    this.configManager.systemConfig.onDidAnyChange(() => this.handleConfigChanged('system'))
+    this.configManager.userConfig.onDidAnyChange(() => this.handleConfigChange('user'))
+    this.configManager.systemConfig.onDidAnyChange(() => this.handleConfigChange('system'))
 
     this.on('download-status-change', (downloading) => {
       this.trayManager.updateTrayByStatus(downloading)
