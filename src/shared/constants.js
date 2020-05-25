@@ -108,3 +108,10 @@ export const IP_VERSION = {
   V4: 4,
   V6: 6
 }
+
+export const LOGIN_SETTING_OPTIONS = {
+  // For Windows
+  args: [
+    '--opened-at-login=1'
+  ]
+}

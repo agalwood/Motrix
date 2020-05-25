@@ -1,19 +1,18 @@
 import { app } from 'electron'
 
+import { LOGIN_SETTING_OPTIONS } from '@shared/constants'
+
 export default class AutoLaunchManager {
   enable () {
     return new Promise((resolve, reject) => {
-      const enabled = app.getLoginItemSettings().openAtLogin
+      const enabled = app.getLoginItemSettings(LOGIN_SETTING_OPTIONS).openAtLogin
       if (enabled) {
         resolve()
       }
 
       app.setLoginItemSettings({
-        openAtLogin: true,
-        // For Windows
-        args: [
-          '--opened-at-login=1'
-        ]
+        ...LOGIN_SETTING_OPTIONS,
+        openAtLogin: true
       })
       resolve()
     })
@@ -28,7 +27,7 @@ export default class AutoLaunchManager {
 
   isEnabled () {
     return new Promise((resolve, reject) => {
-      const enabled = app.getLoginItemSettings().openAtLogin
+      const enabled = app.getLoginItemSettings(LOGIN_SETTING_OPTIONS).openAtLogin
       resolve(enabled)
     })
   }

@@ -13,9 +13,10 @@ import {
   APP_RUN_MODE,
   APP_THEME,
   EMPTY_STRING,
+  IP_VERSION,
+  LOGIN_SETTING_OPTIONS,
   NGOSANG_TRACKERS_BEST_IP_URL,
-  NGOSANG_TRACKERS_BEST_URL,
-  IP_VERSION
+  NGOSANG_TRACKERS_BEST_URL
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
 
@@ -140,7 +141,7 @@ export default class ConfigManager {
   fixUserConfig () {
     // Fix the value of open-at-login when the user delete
     // the Motrix self-starting item through startup management.
-    const openAtLogin = app.getLoginItemSettings().openAtLogin
+    const openAtLogin = app.getLoginItemSettings(LOGIN_SETTING_OPTIONS).openAtLogin
     if (this.getUserConfig('open-at-login') !== openAtLogin) {
       this.setUserConfig('open-at-login', openAtLogin)
     }
