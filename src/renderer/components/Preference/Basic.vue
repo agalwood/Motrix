@@ -411,11 +411,15 @@
             this.$electron.ipcRenderer.send('command',
                                             'application:open-at-login', openAtLogin)
 
-            this.$electron.ipcRenderer.send('command',
-                                            'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
+            if ('runMode' in changed) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
+            }
 
-            this.$electron.ipcRenderer.send('command',
-                                            'application:auto-hide-window', autoHideWindow)
+            if ('autoHideWindow' in changed) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:auto-hide-window', autoHideWindow)
+            }
 
             if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command',

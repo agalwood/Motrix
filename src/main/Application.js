@@ -350,7 +350,7 @@ export default class Application extends EventEmitter {
 
   hide (page) {
     if (page) {
-      this.windowManager.autoHideWindow(page)
+      this.windowManager.hideWindow(page)
     } else {
       this.windowManager.hideAllWindow()
     }
