@@ -200,7 +200,7 @@ export default class WindowManager extends EventEmitter {
     window.show()
   }
 
-  autoHideWindow (page) {
+  hideWindow (page) {
     const window = this.getWindow(page)
     if (!window) {
       return
