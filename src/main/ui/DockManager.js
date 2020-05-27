@@ -19,10 +19,18 @@ export default class DockManager extends EventEmitter {
   }
 
   show = isMac ? () => {
+    if (app.dock.isVisible()) {
+      return
+    }
+
     return app.dock.show()
   } : () => {}
 
   hide = isMac ? () => {
+    if (!app.dock.isVisible()) {
+      return
+    }
+
     app.dock.hide()
   } : () => {}
 

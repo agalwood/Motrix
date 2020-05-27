@@ -194,15 +194,16 @@ export default class WindowManager extends EventEmitter {
 
   showWindow (page) {
     const window = this.getWindow(page)
-    if (!window) {
+    if (!window || window.isVisible()) {
       return
     }
+
     window.show()
   }
 
   hideWindow (page) {
     const window = this.getWindow(page)
-    if (!window) {
+    if (!window || !window.isVisible()) {
       return
     }
     window.hide()
