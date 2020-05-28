@@ -196,7 +196,7 @@
     "forever-monitor": "1.7.2",
     "i18next": "^19.4.4",
     "lodash": "^4.17.15",
-    "nat-api": "^0.3.0",
+    "@motrix/nat-api": "^0.3.1",
     "node-fetch": "^2.6.0",
     "normalize.css": "^8.0.1",
     "parse-torrent": "^7.1.3",

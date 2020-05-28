@@ -1,4 +1,4 @@
-import NatAPI from 'nat-api'
+import NatAPI from '@motrix/nat-api'
 
 import logger from './Logger'
 
