@@ -251,7 +251,6 @@
     "style-loader": "^1.2.1",
     "terser-webpack-plugin": "^3.0.1",
     "url-loader": "^4.1.0",
-    "vue-html-loader": "^1.2.4",
     "vue-loader": "^15.9.2",
     "vue-style-loader": "^4.1.2",
     "vue-template-compiler": "^2.6.11",
