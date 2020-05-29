@@ -173,39 +173,14 @@
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
   import { prettifyDir } from '@/utils/native'
-  import { ADD_TASK_TYPE, NONE_SELECTED_FILES, SELECTED_ALL_FILES } from '@shared/constants'
-  import { detectResource, splitTaskLinks } from '@shared/utils'
-  import { buildOuts } from '@shared/utils/rename'
+  import {
+    initialForm,
+    buildUriPayload,
+    buildTorrentPayload
+  } from '@/utils/task'
+  import { ADD_TASK_TYPE } from '@shared/constants'
+  import { detectResource } from '@shared/utils'
   import '@/components/Icons/inbox'
-
-  const initialForm = state => {
-    const { addTaskUrl, addTaskOptions } = state.app
-    const {
-      allProxy,
-      dir,
-      engineMaxConnectionPerServer,
-      maxConnectionPerServer,
-      newTaskShowDownloading,
-      split
-    } = state.preference.config
-    const result = {
-      allProxy,
-      cookie: '',
-      dir,
-      engineMaxConnectionPerServer,
-      maxConnectionPerServer,
-      newTaskShowDownloading,
-      out: '',
-      referer: '',
-      selectFile: NONE_SELECTED_FILES,
-      split,
-      torrent: '',
-      uris: addTaskUrl,
-      userAgent: '',
-      ...addTaskOptions
-    }
-    return result
-  }
 
   export default {
     name: 'mo-add-task',
@@ -336,99 +311,15 @@
         this.showAdvanced = false
         this.form = initialForm(this.$store.state)
       },
-      buildHeader (form) {
-        const { userAgent, referer, cookie } = form
-        const result = []
-
-        if (!isEmpty(userAgent)) {
-          result.push(`User-Agent: ${userAgent}`)
-        }
-        if (!isEmpty(referer)) {
-          result.push(`Referer: ${referer}`)
-        }
-        if (!isEmpty(cookie)) {
-          result.push(`Cookie: ${cookie}`)
-        }
-        return result
-      },
-      buildOption (type, form) {
-        const {
-          allProxy,
-          dir,
-          out,
-          selectFile,
-          split
-        } = form
-        const result = {}
-
-        if (!isEmpty(allProxy)) {
-          result.allProxy = allProxy
-        }
-
-        if (!isEmpty(dir)) {
-          result.dir = dir
-        }
-
-        if (!isEmpty(out)) {
-          result.out = out
-        }
-
-        if (split > 0) {
-          result.split = split
-        }
-
-        if (type === ADD_TASK_TYPE.TORRENT) {
-          if (
-            selectFile !== SELECTED_ALL_FILES &&
-            selectFile !== NONE_SELECTED_FILES
-          ) {
-            result.selectFile = selectFile
-          }
-        }
-
-        const header = this.buildHeader(form)
-        if (!isEmpty(header)) {
-          result.header = header
-        }
-        return result
-      },
-      buildUriPayload (form) {
-        let { uris, out } = form
-        if (isEmpty(uris)) {
-          throw new Error(this.$t('task.new-task-uris-required'))
-        }
-        uris = splitTaskLinks(uris)
-        const outs = buildOuts(uris, out)
-
-        const options = this.buildOption(ADD_TASK_TYPE.URI, form)
-        const result = {
-          uris,
-          outs,
-          options
-        }
-        return result
-      },
-      buildTorrentPayload (form) {
-        const { torrent } = form
-        if (isEmpty(torrent)) {
-          throw new Error(this.$t('task.new-task-torrent-required'))
-        }
-        const options = this.buildOption(ADD_TASK_TYPE.TORRENT, form)
-        const result = {
-          torrent,
-          options
-        }
-        return result
-      },
       addTask (type, form) {
         let payload = null
         if (type === ADD_TASK_TYPE.URI) {
-          payload = this.buildUriPayload(form)
+          payload = buildUriPayload(form)
           this.$store.dispatch('task/addUri', payload).catch(err => {
             this.$msg.error(err.message)
           })
         } else if (type === ADD_TASK_TYPE.TORRENT) {
-          payload = this.buildTorrentPayload(form)
+          payload = buildTorrentPayload(form)
           this.$store.dispatch('task/addTorrent', payload).catch(err => {
             this.$msg.error(err.message)
           })
@@ -456,7 +347,7 @@
               })
             }
           } catch (err) {
-            this.$msg.error(err.message)
+            this.$msg.error(this.$t(err.message))
           }
         })
       }
