@@ -423,10 +423,6 @@ export default class Application extends EventEmitter {
   }
 
   initProtocolManager () {
-    if (is.dev() || is.mas()) {
-      return
-    }
-
     const protocols = this.configManager.getUserConfig('protocols', {})
     this.protocolManager = new ProtocolManager({
       protocols
@@ -434,10 +430,6 @@ export default class Application extends EventEmitter {
   }
 
   handleProtocol (url) {
-    if (is.dev() || is.mas()) {
-      return
-    }
-
     this.show()
 
     this.protocolManager.handle(url)

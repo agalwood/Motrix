@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { app } from 'electron'
+import is from 'electron-is'
 import { parse } from 'querystring'
 
 import logger from './Logger'
@@ -28,6 +29,10 @@ export default class ProtocolManager extends EventEmitter {
   }
 
   setup (protocols) {
+    if (is.dev() || is.mas()) {
+      return
+    }
+
     Object.keys(protocols).forEach((protocol) => {
       const enabled = protocols[protocol]
       if (enabled) {
