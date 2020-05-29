@@ -177,7 +177,7 @@ export default class Application extends EventEmitter {
       this.upnp.map(dhtPort)
     ]
     try {
-      await Promise.all(promises)
+      await Promise.allSettled(promises)
     } catch (e) {
       logger.warn('[Motrix] start UPnP mapping fail', e)
     }
@@ -192,7 +192,7 @@ export default class Application extends EventEmitter {
       this.upnp.unmap(dhtPort)
     ]
     try {
-      await Promise.all(promises)
+      await Promise.allSettled(promises)
     } catch (e) {
       logger.warn('[Motrix] stop UPnP mapping fail', e)
     }
@@ -214,7 +214,7 @@ export default class Application extends EventEmitter {
           this.upnp.map(newValue)
         ]
         try {
-          await Promise.all(promises)
+          await Promise.allSettled(promises)
         } catch (e) {
           logger.info('[Motrix] change UPnP port mapping failed:', e)
         }
