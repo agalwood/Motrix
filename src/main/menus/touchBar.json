@@ -1,6 +1,6 @@
 [
   {
-    "type": "button", "icon": "new-task", "id": "task.new-task", "command": "application:new-task", "command-arg": "uri", "command-after": "application:show,index"
+    "type": "button", "icon": "new-task", "id": "task.new-task", "command": "application:new-task", "command-after": "application:show?page=index"
   },
   {
     "type": "spacer", "size": "small"
@@ -10,13 +10,13 @@
     "id": "task.task-list",
     "items": [
       {
-        "type": "button", "icon": "task-active", "command": "application:task-list", "command-arg": "active"
+        "type": "button", "icon": "task-active", "command": "application:task-list", "command-arg": { "status": "active" }
       },
       {
-        "type": "button", "icon": "task-waiting", "command": "application:task-list", "command-arg": "waiting"
+        "type": "button", "icon": "task-waiting", "command": "application:task-list", "command-arg": { "status": "waiting" }
       },
       {
-        "type": "button", "icon": "task-stopped", "command": "application:task-list", "command-arg": "stopped"
+        "type": "button", "icon": "task-stopped", "command": "application:task-list", "command-arg": { "status": "stopped" }
       }
     ]
   },
@@ -30,6 +30,6 @@
     "type": "spacer", "size": "small"
   },
   {
-    "type": "button", "icon": "about", "id": "app.about", "command": "application:about", "command-before": "application:show,index"
+    "type": "button", "icon": "about", "id": "app.about", "command": "application:about", "command-before": "application:show?page=index"
   }
 ]

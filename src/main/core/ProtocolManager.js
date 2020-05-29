@@ -1,6 +1,6 @@
-
 import { EventEmitter } from 'events'
 import { app } from 'electron'
+import { parse } from 'querystring'
 
 import logger from './Logger'
 import protocolMap from '../configs/protocol'
@@ -63,12 +63,15 @@ export default class ProtocolManager extends EventEmitter {
       return
     }
 
-    global.application.sendCommandToAll('application:new-task', ADD_TASK_TYPE.URI, url)
+    global.application.sendCommandToAll('application:new-task', {
+      type: ADD_TASK_TYPE.URI,
+      url
+    })
   }
 
   handleMoProtocol (url) {
     const parsed = new URL(url)
-    const { host } = parsed
+    const { host, search } = parsed
     logger.info('[Motrix] protocol parsed:', parsed, host)
 
     const command = protocolMap[host]
@@ -76,10 +79,8 @@ export default class ProtocolManager extends EventEmitter {
       return
     }
 
-    // @TODO 没想明白怎么传参数好
-    // 如果按顺序传递，那 url 的 query string 就要求有序的了
-    // const query = queryString.parse(parsed.query)
-    const args = []
-    global.application.sendCommandToAll(command, ...args)
+    const query = search.startsWith('?') ? search.replace('?', '') : search
+    const args = parse(query)
+    global.application.sendCommandToAll(command, args)
   }
 }
