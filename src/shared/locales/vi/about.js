@@ -1,7 +1,7 @@
 export default {
-    'engine-version': 'Phiên bản Hệ thống',
+    'engine-version': 'Phiên bản Ứng dụng',
     'license': 'Giấy phép',
-    'about': 'Về',
+    'about': 'Về Motrix',
     'release': 'Phát hành',
     'support': 'Hỗ trợ'
   }
