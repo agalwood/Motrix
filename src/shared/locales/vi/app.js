@@ -1,6 +1,6 @@
 export default {
-    'task-list': 'Danh sách Nhiệm vụ',
-    'add-task': 'Thêm Nhiệm vụ',
+    'task-list': 'Danh sách Tác vụ',
+    'add-task': 'Thêm tác vụ',
     'about': 'Về Motrix',
     'preferences': 'Cài đặt...',
     'check-for-updates': 'Kiểm tra Cập nhật...',
