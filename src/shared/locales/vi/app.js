@@ -26,7 +26,7 @@ export default {
     'cancel': 'Huỷ',
     'submit': 'Tải về',
     'gt1d': '> 1 ngày',
-    'hour': 'giờ',
-    'minute': 'phút',
-    'second': 'giây'
+    'hour': ' giờ',
+    'minute': ' phút',
+    'second': ' giây'
   }

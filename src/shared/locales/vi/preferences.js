@@ -51,7 +51,7 @@ export default {
     'security': 'Bảo mật',
     'rpc-secret': 'RPC bí mật',
     'rpc-secret-tips': 'Xem RPC bí mật thủ công',
-    'developer': 'Dành cho Lập trình viên',
+    'developer': 'Lập trình viên',
     'mock-user-agent': 'Mock User-Agent',
     'app-log-path': 'Đường dẫn nhật ký ứng dụng',
     'download-session-path': 'Đường dẫn phiên tải về',
