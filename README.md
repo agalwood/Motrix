@@ -170,6 +170,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | ru    | Русский             | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
 | uk    | Українська          | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
+| vi    | Tiếng Việt          | ✔️ [@duythanhvn](https://github.com/duythanhvn) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
 
