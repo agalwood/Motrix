@@ -55,6 +55,10 @@ export const availableLanguages = [
     label: 'Türkçe'
   },
   {
+    value: 'vi',
+    label: 'Tiếng Việt'
+  },
+  {
     value: 'zh-CN',
     label: '简体中文'
   },
