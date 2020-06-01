@@ -2,7 +2,7 @@ export default {
   'app': 'Motrix',
   'file': 'Файл',
   'task': 'Задания',
-  'edit': 'Редктировать',
+  'edit': 'Редактировать',
   'window': 'Окно',
   'help': 'Помощь'
 }
