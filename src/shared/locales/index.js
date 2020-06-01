@@ -73,7 +73,7 @@ export const availableLanguages = [
   {
     value: 'uk',
     label: 'Українська'
-  },
+  }
 ]
 
 function checkLngIsAvailable (locale) {
