@@ -1,3 +1,4 @@
+import eleLocaleBg from 'element-ui/lib/locale/lang/bg'
 import eleLocaleCa from 'element-ui/lib/locale/lang/ca'
 import eleLocaleDe from 'element-ui/lib/locale/lang/de'
 import eleLocaleEn from 'element-ui/lib/locale/lang/en'
@@ -14,6 +15,7 @@ import eleLocaleVi from 'element-ui/lib/locale/lang/vi'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
 import eleLocaleUk from 'element-ui/lib/locale/lang/ua'
+import appLocaleBg from '@shared/locales/bg'
 import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
@@ -128,6 +130,12 @@ const resources = {
     translation: {
       ...eleLocaleUk,
       ...appLocaleUk
+    }
+  },
+  'bg': {
+    translation: {
+      ...eleLocaleBg,
+      ...appLocaleBg
     }
   }
 }

@@ -1,3 +1,4 @@
+import appLocaleBg from '@shared/locales/bg'
 import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
@@ -90,6 +91,11 @@ const resources = {
   'uk': {
     translation: {
       ...appLocaleUk
+    }
+  },
+  'bg': {
+    translation: {
+      ...appLocaleBg
     }
   }
 }

@@ -7,6 +7,10 @@
  */
 export const availableLanguages = [
   {
+    value: 'bg',
+    label: 'Българският език'
+  },
+  {
     value: 'ca',
     label: 'Català'
   },
