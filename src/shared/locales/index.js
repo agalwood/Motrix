@@ -7,6 +7,10 @@
  */
 export const availableLanguages = [
   {
+    value: 'bg',
+    label: 'Българският език'
+  },
+  {
     value: 'ca',
     label: 'Català'
   },
@@ -70,10 +74,6 @@ export const availableLanguages = [
     value: 'uk',
     label: 'Українська'
   },
-  {
-    value: 'bg',
-    label: 'Българският език'
-  }
 ]
 
 function checkLngIsAvailable (locale) {
