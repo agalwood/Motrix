@@ -13,6 +13,7 @@ import appLocaleVi from '@shared/locales/vi'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
 import appLocaleUk from '@shared/locales/uk'
+import appLocaleBg from '@shared/locales/bg'
 
 // Please keep the locale key in alphabetical order.
 /* eslint-disable quote-props */
@@ -90,6 +91,11 @@ const resources = {
   'uk': {
     translation: {
       ...appLocaleUk
+    }
+  },
+  'bg': {
+    translation: {
+      ...appLocaleBg
     }
   }
 }

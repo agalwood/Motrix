@@ -69,6 +69,10 @@ export const availableLanguages = [
   {
     value: 'uk',
     label: 'Українська'
+  },
+  {
+    value: 'bg',
+    label: 'Българският език'
   }
 ]
 
