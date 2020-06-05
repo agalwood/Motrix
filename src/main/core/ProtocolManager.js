@@ -44,10 +44,13 @@ export default class ProtocolManager extends EventEmitter {
     logger.info(`[Motrix] protocol url: ${url}`)
 
     if (
+      url.toLowerCase().startsWith('ftp:') ||
+      url.toLowerCase().startsWith('http:') ||
+      url.toLowerCase().startsWith('https:') ||
       url.toLowerCase().startsWith('magnet:') ||
       url.toLowerCase().startsWith('thunder:')
     ) {
-      return this.handleMagnetAndThunderProtocol(url)
+      return this.handleResourceProtocol(url)
     }
 
     if (
@@ -58,7 +61,7 @@ export default class ProtocolManager extends EventEmitter {
     }
   }
 
-  handleMagnetAndThunderProtocol (url) {
+  handleResourceProtocol (url) {
     if (!url) {
       return
     }
