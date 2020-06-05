@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': '최대 활성 작업',
   'max-connection-per-server': '서버당 최대 연결 수',
   'new-task-show-downloading': '작업 추가 후 다운로드 자동 표시',
+  'no-confirm-before-delete-task': '작업을 삭제하기 전에 확인이 필요하지 않습니다',
   'continue': '계속',
   'task-completed-notify': '다운로드 완료 후 알림',
   'auto-purge-record': '앱 종료 시 다운로드 기록 자동 삭제',

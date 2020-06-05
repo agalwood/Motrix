@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'حداکثر تسک‌های فعال',
   'max-connection-per-server': 'حداکثر اتصال‌ برای هر سرور',
   'new-task-show-downloading': 'بعد افزودن تسک به صورت اتوماتیک دانلود را نشان بده',
+  'no-confirm-before-delete-task': 'قبل از حذف کار نیازی به تأیید نیست',
   'continue': 'ادامه',
   'task-completed-notify': 'اعلان پس از اتمام دانلود',
   'auto-purge-record': 'سابقه‌ی دانلود را اتوماتیک هنگام خروج پاک کن',

@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': '最大同時タスク数',
   'max-connection-per-server': '最大サーバ接続数',
   'new-task-show-downloading': '新規タスクを作成後自動的にタスク画面に移る',
+  'no-confirm-before-delete-task': 'タスクを削除する前に確認は必要ありません',
   'continue': '続ける',
   'task-completed-notify': 'タスク完了後に通知する',
   'auto-purge-record': 'アプリケーション終了後自動的にタスク履歴を削除',

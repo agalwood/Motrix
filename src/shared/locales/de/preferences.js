@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'Maximal aktive Aufgaben',
   'max-connection-per-server': 'Maximale Verbindungen pro Server',
   'new-task-show-downloading': 'Nach hinzufügen einer Aufgabe zu aktiven Downloads wechseln',
+  'no-confirm-before-delete-task': 'Vor dem Löschen der Aufgabe ist keine Bestätigung erforderlich',
   'continue': 'HTTPS/FTP Downloads fortsetzen wenn bereits angefangen',
   'task-completed-notify': 'Benachrichtigung nach abgeschlossenen Download anzeigen',
   'auto-purge-record': 'Download Protokoll beim Schließen der App löschen',

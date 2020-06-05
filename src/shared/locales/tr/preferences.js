@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'Maksimum aktif görev',
   'max-connection-per-server': 'Sunucu başına maksimum bağlantı',
   'new-task-show-downloading': 'Görev ekledikten sonra indirmeyi otomatik göster',
+  'no-confirm-before-delete-task': 'Görevi silmeden önce onay gerekmez',
   'continue': 'Devamlı',
   'task-completed-notify': 'İndirme bittikten sonra bildirim göster',
   'auto-purge-record': 'Auto purge download record when app exit',

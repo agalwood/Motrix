@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'Максимум активних завдань',
   'max-connection-per-server': 'Максимум з\'єднання на сервер',
   'new-task-show-downloading': 'Автоматично відображати завантаження після додавання завдання',
+  'no-confirm-before-delete-task': 'Перед видаленням завдання не потрібно підтверджувати',
   'continue': 'Продовжити',
   'task-completed-notify': 'Повідомлення після завершення завантаження',
   'auto-purge-record': 'Автоматично чистити записи про завантаження перед закриттям додатка',

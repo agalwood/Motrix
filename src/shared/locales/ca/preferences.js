@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'Tasques màximes actives',
   'max-connection-per-server': 'Connexions màximes per servidor',
   'new-task-show-downloading': 'Mostrar automàticament la descàrrega després d\'afegir una tasca',
+  'no-confirm-before-delete-task': 'No cal confirmar abans de suprimir la tasca',
   'continue': 'Continuar',
   'task-completed-notify': 'Notificar després que la descàrrega finalitzi',
   'auto-purge-record': 'Purgar automàticament el registre de descàrregues en sortir',

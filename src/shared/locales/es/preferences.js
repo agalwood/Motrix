@@ -20,6 +20,7 @@ export default {
   'max-concurrent-downloads': 'Tareas máximas activas',
   'max-connection-per-server': 'Conexiones máximas por servidor',
   'new-task-show-downloading': 'Mostrar automáticamente la descarga después de añadir una tarea',
+  'no-confirm-before-delete-task': 'No se requiere confirmación antes de eliminar la tarea',
   'continue': 'Continuar',
   'task-completed-notify': 'Notificar después de que la descarga se complete',
   'auto-purge-record': 'Eliminar automáticamente el registro de descargas al salir',
