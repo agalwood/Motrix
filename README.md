@@ -158,6 +158,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
+| bg    | Българският език    | ✔️ [@null-none](https://github.com/null-none) |
 | ca    | Català              | ✔️ [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
 | en-US | English             | ✔️           |
