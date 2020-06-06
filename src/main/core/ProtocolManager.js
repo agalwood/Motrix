@@ -70,7 +70,7 @@ export default class ProtocolManager extends EventEmitter {
 
     global.application.sendCommandToAll('application:new-task', {
       type: ADD_TASK_TYPE.URI,
-      url
+      uri: url
     })
   }
 
