@@ -341,7 +341,7 @@
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
 
-  const initialForm = (config) => {
+  const initForm = (config) => {
     const {
       allProxy,
       allProxyBackup,
@@ -395,7 +395,7 @@
     },
     data () {
       const { locale } = this.$store.state.preference.config
-      const form = initialForm(this.$store.state.preference.config)
+      const form = initForm(this.$store.state.preference.config)
       const formOriginal = cloneDeep(form)
 
       return {
@@ -524,7 +524,7 @@
       syncFormConfig () {
         this.$store.dispatch('preference/fetchPreference')
           .then((config) => {
-            this.form = initialForm(config)
+            this.form = initForm(config)
             this.formOriginal = cloneDeep(this.form)
           })
       },

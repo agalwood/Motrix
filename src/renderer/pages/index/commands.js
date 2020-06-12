@@ -8,7 +8,7 @@ import { ADD_TASK_TYPE } from '@shared/constants'
 import { getLocaleManager } from '@/components/Locale'
 import { commands } from '@/components/CommandManager/instance'
 import {
-  initialForm,
+  initTaskForm,
   buildUriPayload,
   buildTorrentPayload
 } from '@/utils/task'
@@ -63,7 +63,7 @@ const addTaskSilent = (type) => {
 }
 
 const addTaskByType = (type) => {
-  const form = initialForm(store.state)
+  const form = initTaskForm(store.state)
 
   let payload = null
   if (type === ADD_TASK_TYPE.URI) {

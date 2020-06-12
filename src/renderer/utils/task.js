@@ -8,7 +8,7 @@ import {
 import { splitTaskLinks } from '@shared/utils'
 import { buildOuts } from '@shared/utils/rename'
 
-export const initialForm = state => {
+export const initTaskForm = state => {
   const { addTaskUrl, addTaskOptions } = state.app
   const {
     allProxy,

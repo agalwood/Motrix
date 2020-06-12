@@ -174,7 +174,7 @@
   import SelectTorrent from '@/components/Task/SelectTorrent'
   import { prettifyDir } from '@/utils/native'
   import {
-    initialForm,
+    initTaskForm,
     buildUriPayload,
     buildTorrentPayload
   } from '@/utils/task'
@@ -254,7 +254,7 @@
         }
       },
       handleOpen () {
-        this.form = initialForm(this.$store.state)
+        this.form = initTaskForm(this.$store.state)
         if (this.taskType === ADD_TASK_TYPE.URI) {
           this.autofillResourceLink()
           setTimeout(() => {
@@ -309,7 +309,7 @@
       },
       reset () {
         this.showAdvanced = false
-        this.form = initialForm(this.$store.state)
+        this.form = initTaskForm(this.$store.state)
       },
       addTask (type, form) {
         let payload = null
