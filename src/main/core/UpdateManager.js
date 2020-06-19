@@ -5,7 +5,7 @@ import is from 'electron-is'
 import { autoUpdater } from 'electron-updater'
 
 import logger from './Logger'
-import { getI18n } from '@/ui/Locale'
+import { getI18n } from '../ui/Locale'
 
 if (is.dev()) {
   autoUpdater.updateConfigPath = resolve(__dirname, '../../../app-update.yml')
