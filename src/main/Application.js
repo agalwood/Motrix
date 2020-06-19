@@ -7,7 +7,7 @@ import { isEmpty } from 'lodash'
 
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
-import { setupLocaleManager } from '@/ui/Locale'
+import { setupLocaleManager } from './ui/Locale'
 import Engine from './core/Engine'
 import EngineClient from './core/EngineClient'
 import UPnPManager from './core/UPnPManager'

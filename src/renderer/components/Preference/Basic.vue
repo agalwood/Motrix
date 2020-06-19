@@ -39,6 +39,7 @@
           </el-col>
         </el-form-item>
         <el-form-item
+          v-if="isMac"
           :label="`${$t('preferences.run-mode')}: `"
           :label-width="formLabelWidth"
         >
@@ -282,6 +283,7 @@
     },
     computed: {
       isRenderer: () => is.renderer(),
+      isMac: () => is.macOS(),
       isMas: () => is.mas(),
       isLinux () { return is.linux() },
       title () {

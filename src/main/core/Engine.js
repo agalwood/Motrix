@@ -5,7 +5,7 @@ import { resolve, join } from 'path'
 import forever from 'forever-monitor'
 
 import logger from './Logger'
-import { getI18n } from '@/ui/Locale'
+import { getI18n } from '../ui/Locale'
 import {
   getEngineBin,
   getSessionPath,

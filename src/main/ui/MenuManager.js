@@ -7,7 +7,7 @@ import {
   updateStates
 } from '../utils/menu'
 import keymap from '@shared/keymap'
-import { getI18n } from '@/ui/Locale'
+import { getI18n } from '../ui/Locale'
 
 export default class MenuManager extends EventEmitter {
   constructor (options) {
