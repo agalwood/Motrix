@@ -1,7 +1,7 @@
 # Motrix
 
 <a href="https://motrix.app">
-  <img src="https://cdn.nlark.com/yuque/0/2018/png/129147/1543735425232-a5d2c99f-d788-43e4-9781-558ff6d21027.png" width="256" alt="App Icon" />
+  <img src="./static/512x512.png" width="256" alt="App Icon" />
 </a>
 
 ## 一款全能的下载工具
