@@ -6,6 +6,7 @@ const state = {
   currentList: 'active',
   taskItemInfoVisible: false,
   currentTaskItem: null,
+  seedingList: [],
   taskList: [],
   selectedGidList: []
 }
@@ -14,6 +15,9 @@ const getters = {
 }
 
 const mutations = {
+  UPDATE_SEEDING_LIST (state, seedingList) {
+    state.seedingList = seedingList
+  },
   UPDATE_TASK_LIST (state, taskList) {
     state.taskList = taskList
   },
@@ -159,8 +163,29 @@ const actions = {
         dispatch('saveSession')
       })
   },
-  stopSeeding ({ dispatch }, task) {
-    const { gid } = task
+  addToSeedingList ({ state, commit }, gid) {
+    const { seedingList } = state
+    if (seedingList.includes(gid)) {
+      return
+    }
+
+    const list = [
+      ...seedingList,
+      gid
+    ]
+    commit('UPDATE_SEEDING_LIST', list)
+  },
+  removeFromSeedingList ({ state, commit }, gid) {
+    const { seedingList } = state
+    const idx = seedingList.indexOf(gid)
+    if (idx === -1) {
+      return
+    }
+
+    const list = [...seedingList.slice(0, idx), ...seedingList.slice(idx + 1)]
+    commit('UPDATE_SEEDING_LIST', list)
+  },
+  stopSeeding ({ dispatch }, gid) {
     const options = {
       seedTime: 0
     }

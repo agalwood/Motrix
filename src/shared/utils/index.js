@@ -11,7 +11,6 @@ import {
   parseInt,
   pick
 } from 'lodash'
-import { resolve } from 'path'
 
 import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
 import { ENGINE_RPC_HOST } from '@shared/constants'
@@ -142,38 +141,6 @@ export function getFileName (file) {
   }
 
   return path.substring(index + 1)
-}
-
-export function getTaskFullPath (task) {
-  const { dir, files, bittorrent } = task
-  let result = resolve(dir)
-
-  // Magnet link task
-  if (isMagnetTask(task)) {
-    return result
-  }
-
-  if (bittorrent && bittorrent.info && bittorrent.info.name) {
-    result = resolve(result, bittorrent.info.name)
-    return result
-  }
-
-  const [file] = files
-  const path = file.path ? resolve(file.path) : ''
-  let fileName = ''
-
-  if (path) {
-    result = path
-  } else {
-    if (files && files.length === 1) {
-      fileName = getFileName(file)
-      if (fileName) {
-        result = resolve(result, fileName)
-      }
-    }
-  }
-
-  return result
 }
 
 export function isMagnetTask (task) {

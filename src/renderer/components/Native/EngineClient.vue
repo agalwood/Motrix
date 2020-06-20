@@ -7,30 +7,26 @@
   import { mapState } from 'vuex'
   import api from '@/api'
   import {
-    showItemInFolder,
-    addToRecentTask
+    addToRecentTask,
+    getTaskFullPath,
+    showItemInFolder
   } from '@/utils/native'
-  import {
-    bytesToSize,
-    getTaskName,
-    getTaskFullPath
-  } from '@shared/utils'
+  import { getTaskName } from '@shared/utils'
 
   export default {
     name: 'mo-engine-client',
-    data () {
-      return {
-        downloading: false
-      }
-    },
     computed: {
       isRenderer: () => is.renderer(),
       ...mapState('app', {
+        uploadSpeed: state => state.stat.uploadSpeed,
         downloadSpeed: state => state.stat.downloadSpeed,
+        speed: state => state.stat.uploadSpeed + state.stat.downloadSpeed,
         interval: state => state.interval,
-        numActive: state => state.stat.numActive
+        downloading: state => state.stat.numActive > 0
       }),
       ...mapState('task', {
+        messages: state => state.messages,
+        seedingList: state => state.seedingList,
         taskItemInfoVisible: state => state.taskItemInfoVisible,
         currentTaskItem: state => state.currentTaskItem
       }),
@@ -39,12 +35,12 @@
       })
     },
     watch: {
-      downloadSpeed (val) {
-        const speed = val > 0 ? `${bytesToSize(val)}/s` : ''
-        this.$electron.ipcRenderer.send('event', 'download-speed-change', speed)
-      },
-      numActive (val) {
-        this.downloading = val > 0
+      speed (val) {
+        const { uploadSpeed, downloadSpeed } = this
+        this.$electron.ipcRenderer.send('event', 'speed-change', {
+          uploadSpeed,
+          downloadSpeed
+        })
       },
       downloading (val, oldVal) {
         if (val !== oldVal && this.isRenderer) {
@@ -65,6 +61,11 @@
         this.$store.dispatch('task/saveSession')
         console.log('aria2 onDownloadStart', event)
         const [{ gid }] = event
+        const { seedingList } = this
+        if (seedingList.includes(gid)) {
+          return
+        }
+
         this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
@@ -75,6 +76,11 @@
       onDownloadPause (event) {
         console.log('aria2 onDownloadPause')
         const [{ gid }] = event
+        const { seedingList } = this
+        if (seedingList.includes(gid)) {
+          return
+        }
+
         this.fetchTaskItem({ gid })
           .then((task) => {
             const taskName = getTaskName(task)
@@ -114,6 +120,8 @@
         console.log('aria2 onDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
+        this.$store.dispatch('task/removeFromSeedingList', gid)
+
         this.fetchTaskItem({ gid })
           .then((task) => {
             this.handleDownloadComplete(task, false)
@@ -123,6 +131,13 @@
         console.log('aria2 onBtDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
+        const { seedingList } = this
+        if (seedingList.includes(gid)) {
+          return
+        }
+
+        this.$store.dispatch('task/addToSeedingList', gid)
+
         this.fetchTaskItem({ gid })
           .then((task) => {
             this.handleDownloadComplete(task, true)

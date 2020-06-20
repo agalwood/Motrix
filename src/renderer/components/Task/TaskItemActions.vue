@@ -43,9 +43,9 @@
   import { TASK_STATUS } from '@shared/constants'
   import {
     checkTaskIsSeeder,
-    getTaskFullPath,
     getTaskName
   } from '@shared/utils'
+  import { getTaskFullPath } from '@/utils/native'
   import '@/components/Icons/task-start-line'
   import '@/components/Icons/task-pause-line'
   import '@/components/Icons/task-stop-line'
