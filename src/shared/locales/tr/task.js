@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': '{{taskName}} indirme tamamlandı, tohumlama...',
   'bt-download-complete-notify': 'BT Indirme tamamlandı, tohumlama...',
   'bt-download-complete-tips': 'Ipuçları: Eğer tohumlama sona erdirmek için görev durdurabilirsiniz',
+  'bt-stopping-seeding-tip': 'Ekim işlemini durdurmak, bağlantıyı kesmek biraz zaman alacak, lütfen bekleyin...',
   'download-fail-message': '{{taskName}} görevi indirilemedi',
   'download-fail-notify': 'İndirme başarısız'
 }

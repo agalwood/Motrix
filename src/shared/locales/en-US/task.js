@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': 'Completed downloading {{taskName}}, seeding',
   'bt-download-complete-notify': 'BT Download Completed, seeding...',
   'bt-download-complete-tips': 'Tips: You can stop a task to end its seeding',
+  'bt-stopping-seeding-tip': 'Stopping seeding, it will take some time to disconnect, please wait...',
   'download-fail-message': 'Failed to download {{taskName}}',
   'download-fail-notify': 'Download Failed'
 }

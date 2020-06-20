@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': '{{taskName}} download completado, propagação ...',
   'bt-download-complete-notify': 'Download do BT concluído, Propagação ...',
   'bt-download-complete-tips': 'Dicas: você pode parar a tarefa para terminar a propagação',
+  'bt-stopping-seeding-tip': 'Parando a propagação, levará algum tempo para desconectar, aguarde ...',
   'download-fail-message': '{{taskName}} falha no download',
   'download-fail-notify': 'Falha no Download'
 }

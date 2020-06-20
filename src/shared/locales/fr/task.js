@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': '{{taskName}} téléchargement terminé, ensemencement...',
   'bt-download-complete-notify': 'BT Télécharger Terminé, Ensemencement...',
   'bt-download-complete-tips': 'Astuces: Vous pouvez arrêter la tâche pour mettre fin à l\'ensemencement',
+  'bt-stopping-seeding-tip': 'Arrêt de l\'ensemencement, la déconnexion prendra un certain temps, veuillez patienter ...',
   'download-fail-message': '{{taskName}} téléchargement échoué',
   'download-fail-notify': 'Téléchargement Échoué'
 }

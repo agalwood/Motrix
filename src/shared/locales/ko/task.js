@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': '{{taskName}} 다운로드 완료, 시딩 중...',
   'bt-download-complete-notify': 'BT 다운로드 완료, 시딩 중...',
   'bt-download-complete-tips': '팁 : 당신은 시딩 작업을 중지할 수 있습니다.',
+  'bt-stopping-seeding-tip': '파종을 중지하면 연결을 끊는 데 시간이 걸립니다. 잠시만 기다려주십시오 ...',
   'download-fail-message': '{{taskName}} 다운로드 실패',
   'download-fail-notify': '다운로드 실패'
 }

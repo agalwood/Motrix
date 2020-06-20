@@ -88,6 +88,7 @@ export default {
   'BT-download-complete-message': 'завършено изтегляне {{TaskName}}, раздаване',
   'BT-download-complete-notify': 'BT изтеглянето приключи, раздаване...',
   'BT-download-complete-tips': 'съвет: можете да спрете задачата, за да спрете раздаването',
+  'bt-stopping-seeding-tip': 'Спирането на засяването ще отнеме известно време, за да прекъснете връзката, моля изчакайте...',
   'download-fail-message': 'не може да бъде изтеглено {{taskName}}',
   'download-fail-notify': 'грешка при зареждане'
 }
