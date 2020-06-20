@@ -213,8 +213,8 @@
       },
       batchDeleteTaskFiles (taskList) {
         const promises = taskList.map((task, index) => delayDeleteTaskFiles(task, index * 200))
-        Promise.all(promises).then(values => {
-          console.log('[Motrix] batch delete task files: ', values)
+        Promise.allSettled(promises).then(results => {
+          console.log('[Motrix] batch delete task files: ', results)
         })
       },
       removeTaskItems (gids) {

@@ -152,14 +152,13 @@ export const openExternal = (url, options) => {
 }
 
 export const delayDeleteTaskFiles = (task, delay) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     setTimeout(() => {
       try {
         const result = moveTaskFilesToTrash(task)
         resolve(result)
       } catch (err) {
-        console.log('[Motrix] batch delay delete task files fail', err)
-        resolve(false)
+        reject(err.message)
       }
     }, delay)
   })

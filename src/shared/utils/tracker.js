@@ -15,8 +15,9 @@ export const fetchBtTrackerFromSource = async (source) => {
     return axios.get(`${url}?t=${now}`).then((value) => value.data)
   })
 
-  const resp = await Promise.all(promises)
-  const result = [...new Set(resp)]
+  const results = await Promise.allSettled(promises)
+  const values = results.map((item) => item.value)
+  const result = [...new Set(values)]
   return result
 }
 

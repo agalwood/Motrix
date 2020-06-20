@@ -1,3 +1,5 @@
+import { parse } from 'querystring'
+
 export function concat (template, submenu, submenuToAdd) {
   submenuToAdd.forEach(sub => {
     let relativeItem = null
@@ -115,16 +117,18 @@ function handleCommandBefore (item) {
   if (!item['command-before']) {
     return
   }
-  const [command, ...args] = item['command-before'].split(',')
-  global.application.sendCommandToAll(command, ...args)
+  const [command, params] = item['command-before'].split('?')
+  const args = parse(params)
+  global.application.sendCommandToAll(command, args)
 }
 
 function handleCommandAfter (item) {
   if (!item['command-after']) {
     return
   }
-  const [command, ...args] = item['command-after'].split(',')
-  global.application.sendCommandToAll(command, ...args)
+  const [command, params] = item['command-after'].split('?')
+  const args = parse(params)
+  global.application.sendCommandToAll(command, args)
 }
 
 function acceleratorForCommand (command, keystrokesByCommand) {

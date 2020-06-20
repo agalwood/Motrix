@@ -177,7 +177,7 @@ export default class Application extends EventEmitter {
       this.upnp.map(dhtPort)
     ]
     try {
-      await Promise.all(promises)
+      await Promise.allSettled(promises)
     } catch (e) {
       logger.warn('[Motrix] start UPnP mapping fail', e)
     }
@@ -192,7 +192,7 @@ export default class Application extends EventEmitter {
       this.upnp.unmap(dhtPort)
     ]
     try {
-      await Promise.all(promises)
+      await Promise.allSettled(promises)
     } catch (e) {
       logger.warn('[Motrix] stop UPnP mapping fail', e)
     }
@@ -214,7 +214,7 @@ export default class Application extends EventEmitter {
           this.upnp.map(newValue)
         ]
         try {
-          await Promise.all(promises)
+          await Promise.allSettled(promises)
         } catch (e) {
           logger.info('[Motrix] change UPnP port mapping failed:', e)
         }
@@ -410,7 +410,7 @@ export default class Application extends EventEmitter {
     this.themeManager = new ThemeManager()
     this.themeManager.on('system-theme-change', (theme) => {
       this.trayManager.changeIconTheme(theme)
-      this.sendCommandToAll('application:update-system-theme', theme)
+      this.sendCommandToAll('application:update-system-theme', { theme })
     })
   }
 
@@ -423,10 +423,6 @@ export default class Application extends EventEmitter {
   }
 
   initProtocolManager () {
-    if (is.dev() || is.mas()) {
-      return
-    }
-
     const protocols = this.configManager.getUserConfig('protocols', {})
     this.protocolManager = new ProtocolManager({
       protocols
@@ -434,10 +430,6 @@ export default class Application extends EventEmitter {
   }
 
   handleProtocol (url) {
-    if (is.dev() || is.mas()) {
-      return
-    }
-
     this.show()
 
     this.protocolManager.handle(url)
@@ -454,15 +446,17 @@ export default class Application extends EventEmitter {
 
     this.show()
 
-    const fileName = basename(filePath)
+    const name = basename(filePath)
     readFile(filePath, (err, data) => {
       if (err) {
         logger.warn(`[Motrix] read file error: ${filePath}`, err.message)
         return
       }
-      const file = Buffer.from(data).toString('base64')
-      const args = [fileName, file]
-      this.sendCommandToAll('application:new-bt-task-with-file', ...args)
+      const dataURL = Buffer.from(data).toString('base64')
+      this.sendCommandToAll('application:new-bt-task-with-file', {
+        name,
+        dataURL
+      })
     })
   }
 
@@ -557,11 +551,11 @@ export default class Application extends EventEmitter {
       }
     })
 
-    this.on('application:show', (page) => {
+    this.on('application:show', ({ page }) => {
       this.show(page)
     })
 
-    this.on('application:hide', (page) => {
+    this.on('application:hide', ({ page }) => {
       this.hide(page)
     })
 
@@ -576,7 +570,7 @@ export default class Application extends EventEmitter {
 
     this.on('application:change-theme', (theme) => {
       this.themeManager.updateAppAppearance(theme)
-      this.sendCommandToAll('application:update-theme', theme)
+      this.sendCommandToAll('application:update-theme', { theme })
     })
 
     this.on('application:change-locale', (locale) => {
@@ -663,7 +657,7 @@ export default class Application extends EventEmitter {
   }
 
   handleConfigChange (configName) {
-    this.sendCommandToAll('application:update-preference-config', configName)
+    this.sendCommandToAll('application:update-preference-config', { configName })
   }
 
   handleEvents () {
