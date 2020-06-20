@@ -16,12 +16,9 @@
 </template>
 
 <script>
-  import {
-    getTaskFullPath,
-    getTaskName
-  } from '@shared/utils'
+  import { getTaskName } from '@shared/utils'
   import { TASK_STATUS } from '@shared/constants'
-  import { openItem } from '@/utils/native'
+  import { openItem, getTaskFullPath } from '@/utils/native'
   import TaskItemActions from './TaskItemActions'
   import TaskProgress from './TaskProgress'
   import TaskProgressInfo from './TaskProgressInfo'

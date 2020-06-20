@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': '{{taskName}} のダウンロードに成功、seedを作成中...',
   'bt-download-complete-notify': 'torrentタスクのダウンロードに成功，seedを作成中...',
   'bt-download-complete-tips': 'ヒント：タスクを停止しseedの作成を終了することができます',
+  'bt-stopping-seeding-tip': 'シードを停止しています。切断するにはしばらく時間がかかります。お待ちください...',
   'download-fail-message': '{{taskName}} のダウンロードに失敗',
   'download-fail-notify': 'ダウンロード失敗'
 }

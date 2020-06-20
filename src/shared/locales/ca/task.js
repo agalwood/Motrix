@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': 'Descàrrega completada {{taskName}}. Compartint...',
   'bt-download-complete-notify': 'Descàrrega BT completa. Compartint...',
   'bt-download-complete-tips': 'Tips: Pot detenir una tasca per deixar de compartir',
+  'bt-stopping-seeding-tip': 'Aturar la sembra, es necessitarà un temps per desconnectar-se, espereu...',
   'download-fail-message': 'No s\'ha pogut descarregar {{taskName}}',
   'download-fail-notify': 'Descàrrega fallida'
 }

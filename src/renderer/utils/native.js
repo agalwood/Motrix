@@ -1,10 +1,11 @@
 import is from 'electron-is'
 import { access, constants } from 'fs'
+import { resolve } from 'path'
 import { Message } from 'element-ui'
 
 import {
   bytesToSize,
-  getTaskFullPath,
+  getFileName,
   isMagnetTask
 } from '@shared/utils'
 import { APP_THEME, TASK_STATUS } from '@shared/constants'
@@ -45,6 +46,38 @@ export function openItem (fullPath, { errorMsg }) {
   if (!result && errorMsg) {
     Message.error(errorMsg)
   }
+  return result
+}
+
+export function getTaskFullPath (task) {
+  const { dir, files, bittorrent } = task
+  let result = resolve(dir)
+
+  // Magnet link task
+  if (isMagnetTask(task)) {
+    return result
+  }
+
+  if (bittorrent && bittorrent.info && bittorrent.info.name) {
+    result = resolve(result, bittorrent.info.name)
+    return result
+  }
+
+  const [file] = files
+  const path = file.path ? resolve(file.path) : ''
+  let fileName = ''
+
+  if (path) {
+    result = path
+  } else {
+    if (files && files.length === 1) {
+      fileName = getFileName(file)
+      if (fileName) {
+        result = resolve(result, fileName)
+      }
+    }
+  }
+
   return result
 }
 

@@ -86,8 +86,9 @@ export default {
   'download-complete-message': '{{taskName}} دانلود کامل شد',
   'download-complete-notify': 'دانلود کامل شد',
   'bt-download-complete-message': '{{taskName}} download completed, seeding',
-  'bt-download-complete-notify': 'BT Download Completed, Seeding...',
-  'bt-download-complete-tips': 'Tips: You can stop the task to end the seeding',
+  'bt-download-complete-notify': 'بارگیری BT به پایان رسید ، بذر ...',
+  'bt-download-complete-tips': 'نکات: می توانید کار را برای خاتمه دادن به بذر متوقف کنید.',
+  'bt-stopping-seeding-tip': 'متوقف کردن بذر ، قطع ارتباطی مدتی طول خواهد کشید ، لطفا صبر کنید ...',
   'download-fail-message': '{{taskName}} دانلود شکست خورد',
   'download-fail-notify': 'دانلود شکست خورد'
 }

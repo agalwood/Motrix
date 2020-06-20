@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': '{{taskName}} 下載完成，正在做種...',
   'bt-download-complete-notify': 'BT 任務下載完成，正在做種...',
   'bt-download-complete-tips': '提示：你可以停止任務結束做種',
+  'bt-stopping-seeding-tip': '停止做種中，需要些時間才能斷開連接，請稍候...',
   'download-fail-message': '{{taskName}} 下載失敗',
   'download-fail-notify': '下載失敗'
 }

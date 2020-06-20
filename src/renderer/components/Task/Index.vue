@@ -252,6 +252,10 @@
       handleStopTaskSeeding (payload) {
         const { task } = payload
         this.$store.dispatch('task/stopSeeding', task)
+        this.$msg.info({
+          message: this.$t('task.bt-stopping-seeding-tip'),
+          duration: 8000
+        })
       },
       handleRestartTask (payload) {
         const { task, taskName, showDialog } = payload

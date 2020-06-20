@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': 'Selesai mengunduh {{taskName}}, penyemaian',
   'bt-download-complete-notify': 'BT Unduh Selesai, penyemaian...',
   'bt-download-complete-tips': 'Tips: Anda dapat menghentikan tugas untuk mengakhiri penyemaian',
+  'bt-stopping-seeding-tip': 'Menghentikan penyemaian, perlu beberapa saat untuk memutuskan, harap tunggu...',
   'download-fail-message': 'Gagal mengunduh {{taskName}}',
   'download-fail-notify': 'Unduhan Gagal'
 }

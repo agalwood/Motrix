@@ -88,6 +88,7 @@ export default {
   'bt-download-complete-message': 'Виконане завантаження {{taskName}}, раздача',
   'bt-download-complete-notify': 'BT Виконане завантаження, роздача...',
   'bt-download-complete-tips': 'Порада: Ви можите зупинити завдання щоб зупинити роздачу',
+  'bt-stopping-seeding-tip': 'Припиняючи посів, потрібно буде трохи часу відключити, зачекайте, будь ласка ...',
   'download-fail-message': 'Не вдалося завантажити {{taskName}}',
   'download-fail-notify': 'Помилка завантаження'
 }
