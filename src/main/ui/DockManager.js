@@ -2,6 +2,8 @@ import is from 'electron-is'
 import { EventEmitter } from 'events'
 import { app } from 'electron'
 
+import { bytesToSize } from '@shared/utils'
+
 import {
   APP_RUN_MODE
 } from '@shared/constants'
@@ -36,6 +38,12 @@ export default class DockManager extends EventEmitter {
 
   setBadge = isMac ? (text) => {
     app.dock.setBadge(text)
+  } : (text) => {}
+
+  handleSpeedChange = isMac ? (speed) => {
+    const { downloadSpeed } = speed
+    const text = downloadSpeed > 0 ? `${bytesToSize(downloadSpeed)}/s` : ''
+    this.setBadge(text)
   } : (text) => {}
 
   openDock = isMac ? (path) => {
