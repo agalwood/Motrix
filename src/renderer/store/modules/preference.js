@@ -32,7 +32,7 @@ const actions = {
     commit('UPDATE_PREFERENCE_DATA', config)
     return api.savePreference(config)
   },
-  changeThemeConfig ({ commit }, theme) {
+  updateThemeConfig ({ commit }, theme) {
     commit('UPDATE_PREFERENCE_DATA', { theme })
   },
   fetchBtTracker (_, trackerSource = []) {

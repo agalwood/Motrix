@@ -141,3 +141,12 @@ export const getSystemTheme = () => {
   result = nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
   return result
 }
+
+export const convertArrayBufferToBuffer = (arrayBuffer) => {
+  const buffer = Buffer.alloc(arrayBuffer.byteLength)
+  const view = new Uint8Array(arrayBuffer)
+  for (var i = 0; i < buffer.length; ++i) {
+    buffer[i] = view[i]
+  }
+  return buffer
+}

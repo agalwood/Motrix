@@ -33,6 +33,13 @@ let rendererConfig = {
   module: {
     rules: [
       {
+        test: /\.worker\.js$/,
+        use: {
+          loader: 'worker-loader',
+          options: { name: '[name].js' }
+        }
+      },
+      {
         test: /\.(js|vue)$/,
         enforce: 'pre',
         exclude: /node_modules/,
@@ -194,7 +201,8 @@ let rendererConfig = {
   output: {
     filename: '[name].js',
     libraryTarget: 'commonjs2',
-    path: path.join(__dirname, '../dist/electron')
+    path: path.join(__dirname, '../dist/electron'),
+    globalObject: 'this'
   },
   resolve: {
     alias: {

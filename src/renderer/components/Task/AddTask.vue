@@ -172,7 +172,6 @@
   import { isEmpty } from 'lodash'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
-  import { prettifyDir } from '@/utils/native'
   import {
     initTaskForm,
     buildUriPayload,
@@ -217,9 +216,6 @@
       }),
       taskType () {
         return this.type
-      },
-      downloadDir () {
-        return prettifyDir(this.form.dir)
       }
     },
     watch: {

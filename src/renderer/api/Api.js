@@ -1,4 +1,4 @@
-import { ipcRenderer, remote } from 'electron'
+import { ipcRenderer } from 'electron'
 import is from 'electron-is'
 import { isEmpty, clone } from 'lodash'
 import Aria2 from 'aria2'
@@ -12,8 +12,6 @@ import {
 } from '@shared/utils'
 import { ENGINE_RPC_HOST } from '@shared/constants'
 
-const application = remote.getGlobal('application')
-
 export default class Api {
   constructor (options = {}) {
     this.options = options
@@ -21,8 +19,8 @@ export default class Api {
     this.init()
   }
 
-  init () {
-    this.config = this.loadConfig()
+  async init () {
+    this.config = await this.loadConfig()
 
     this.client = this.initClient()
     this.client.open()
@@ -34,17 +32,14 @@ export default class Api {
     return result
   }
 
-  loadConfigFromNativeStore () {
-    const systemConfig = application.configManager.getSystemConfig()
-    const userConfig = application.configManager.getUserConfig()
-
-    const result = { ...systemConfig, ...userConfig }
+  async loadConfigFromNativeStore () {
+    const result = await ipcRenderer.invoke('get-app-config')
     return result
   }
 
-  loadConfig () {
+  async loadConfig () {
     let result = is.renderer()
-      ? this.loadConfigFromNativeStore()
+      ? await this.loadConfigFromNativeStore()
       : this.loadConfigFromLocalStorage()
 
     result = changeKeysToCamelCase(result)

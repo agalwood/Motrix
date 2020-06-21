@@ -37,6 +37,11 @@
               {{ $t('preferences.auto-hide-window') }}
             </el-checkbox>
           </el-col>
+          <el-col v-if="isMac" class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.traySpeedometer">
+              {{ $t('preferences.tray-speedometer') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
         <el-form-item
           v-if="isMac"
@@ -210,7 +215,6 @@
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
-  import { prettifyDir } from '@/utils/native'
   import {
     calcFormLabelWidth,
     checkIsNeedRestart,
@@ -236,7 +240,8 @@
       resumeAllWhenAppLaunched,
       runMode,
       taskNotification,
-      theme
+      theme,
+      traySpeedometer
     } = config
     const result = {
       autoHideWindow,
@@ -256,7 +261,8 @@
       resumeAllWhenAppLaunched,
       runMode,
       taskNotification,
-      theme
+      theme,
+      traySpeedometer
     }
     return result
   }
@@ -355,9 +361,6 @@
       showHideAppMenuOption () {
         return is.windows() || is.linux()
       },
-      downloadDir () {
-        return prettifyDir(this.form.dir)
-      },
       ...mapState('preference', {
         config: state => state.config
       })
@@ -371,7 +374,6 @@
       },
       handleThemeChange (theme) {
         this.form.theme = theme
-        // this.$store.dispatch('preference/changeThemeConfig', theme)
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
       },

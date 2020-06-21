@@ -22,7 +22,12 @@ const updateSystemTheme = (payload = {}) => {
 
 const updateTheme = (payload = {}) => {
   const { theme } = payload
-  store.dispatch('preference/changeThemeConfig', theme)
+  store.dispatch('preference/updateThemeConfig', theme)
+}
+
+const updateTrayFocused = (payload = {}) => {
+  const { focused } = payload
+  store.dispatch('app/updateTrayFocused', focused)
 }
 
 const showAboutPanel = () => {
@@ -178,3 +183,4 @@ commands.register('application:select-all-task', selectAllTask)
 commands.register('application:update-preference-config', fetchPreference)
 commands.register('application:update-system-theme', updateSystemTheme)
 commands.register('application:update-theme', updateTheme)
+commands.register('application:update-tray-focused', updateTrayFocused)

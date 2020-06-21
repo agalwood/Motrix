@@ -115,3 +115,12 @@ export const LOGIN_SETTING_OPTIONS = {
     '--opened-at-login=1'
   ]
 }
+
+export const TRAY_CANVAS_CONFIG = {
+  WIDTH: 66,
+  HEIGHT: 16,
+  ICON_WIDTH: 16,
+  ICON_HEIGHT: 16,
+  TEXT_WIDTH: 46,
+  TEXT_FONT_SIZE: 8
+}
