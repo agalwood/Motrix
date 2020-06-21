@@ -37,6 +37,11 @@
               {{ $t('preferences.auto-hide-window') }}
             </el-checkbox>
           </el-col>
+          <el-col v-if="isMac" class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.traySpeedometer">
+              {{ $t('preferences.tray-speedometer') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
         <el-form-item
           v-if="isMac"
@@ -235,7 +240,8 @@
       resumeAllWhenAppLaunched,
       runMode,
       taskNotification,
-      theme
+      theme,
+      traySpeedometer
     } = config
     const result = {
       autoHideWindow,
@@ -255,7 +261,8 @@
       resumeAllWhenAppLaunched,
       runMode,
       taskNotification,
-      theme
+      theme,
+      traySpeedometer
     }
     return result
   }
@@ -367,7 +374,6 @@
       },
       handleThemeChange (theme) {
         this.form.theme = theme
-        // this.$store.dispatch('preference/changeThemeConfig', theme)
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
       },
