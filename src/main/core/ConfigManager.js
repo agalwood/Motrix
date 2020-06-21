@@ -117,6 +117,7 @@ export default class ConfigManager {
           NGOSANG_TRACKERS_BEST_URL
         ],
         'tray-theme': APP_THEME.AUTO,
+        'tray-speedometer': is.macOS(),
         'update-channel': 'latest',
         'use-proxy': false,
         'window-state': {}

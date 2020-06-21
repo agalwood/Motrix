@@ -33,6 +33,13 @@ let webConfig = {
   module: {
     rules: [
       {
+        test: /\.worker\.js$/,
+        use: {
+          loader: 'worker-loader',
+          options: { name: '[name].js' }
+        }
+      },
+      {
         test: /\.(js|vue)$/,
         enforce: 'pre',
         exclude: /node_modules/,
@@ -181,7 +188,8 @@ let webConfig = {
   ],
   output: {
     filename: '[name].js',
-    path: path.join(__dirname, '../dist/web')
+    path: path.join(__dirname, '../dist/web'),
+    globalObject: 'this'
   },
   resolve: {
     alias: {

@@ -145,7 +145,34 @@ export default class Application extends EventEmitter {
 
   initTrayManager () {
     this.trayManager = new TrayManager({
-      theme: this.configManager.getUserConfig('tray-theme')
+      theme: this.configManager.getUserConfig('tray-theme'),
+      systemTheme: this.themeManager.getSystemTheme(),
+      speedometer: this.configManager.getUserConfig('tray-speedometer')
+    })
+
+    this.watchTraySpeedometerEnabledChange()
+
+    this.trayManager.on('mouse-down', ({ focused }) => {
+      this.sendCommandToAll('application:update-tray-focused', { focused })
+    })
+
+    this.trayManager.on('mouse-up', ({ focused }) => {
+      this.sendCommandToAll('application:update-tray-focused', { focused })
+    })
+
+    this.trayManager.on('drop-files', (files = []) => {
+      this.handleFile(files[0])
+    })
+
+    this.trayManager.on('drop-text', (text) => {
+      this.handleProtocol(text)
+    })
+  }
+
+  watchTraySpeedometerEnabledChange () {
+    this.configManager.userConfig.onDidChange('tray-speedometer', async (newValue, oldValue) => {
+      logger.info('[Motrix] detected tray speedometer value change event:', newValue, oldValue)
+      this.trayManager.handleSpeedometerEnableChange(newValue)
     })
   }
 
@@ -411,7 +438,7 @@ export default class Application extends EventEmitter {
   initThemeManager () {
     this.themeManager = new ThemeManager()
     this.themeManager.on('system-theme-change', (theme) => {
-      this.trayManager.changeIconTheme(theme)
+      this.trayManager.handleSystemThemeChange(theme)
       this.sendCommandToAll('application:update-system-theme', { theme })
     })
   }
@@ -533,6 +560,10 @@ export default class Application extends EventEmitter {
   handleCommands () {
     this.on('application:save-preference', this.savePreference)
 
+    this.on('application:update-tray', (tray) => {
+      this.trayManager.updateTrayByImage(tray)
+    })
+
     this.on('application:relaunch', () => {
       this.relaunch()
     })
@@ -578,8 +609,8 @@ export default class Application extends EventEmitter {
     this.on('application:change-locale', (locale) => {
       this.localeManager.changeLanguageByLocale(locale)
         .then(() => {
-          this.trayManager.setup(locale)
           this.menuManager.handleLocaleChange(locale)
+          this.trayManager.handleLocaleChange(locale)
         })
     })
 
@@ -675,7 +706,7 @@ export default class Application extends EventEmitter {
     this.configManager.systemConfig.onDidAnyChange(() => this.handleConfigChange('system'))
 
     this.on('download-status-change', (downloading) => {
-      this.trayManager.updateTrayByStatus(downloading)
+      this.trayManager.handleDownloadStatusChange(downloading)
       if (downloading) {
         this.energyManager.startPowerSaveBlocker()
       } else {
@@ -683,8 +714,9 @@ export default class Application extends EventEmitter {
       }
     })
 
-    this.on('download-speed-change', (speed) => {
-      this.dockManager.setBadge(speed)
+    this.on('speed-change', (speed) => {
+      this.dockManager.handleSpeedChange(speed)
+      this.trayManager.handleSpeedChange(speed)
     })
 
     this.on('task-download-complete', (task, path) => {

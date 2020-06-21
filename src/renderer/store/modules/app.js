@@ -9,6 +9,7 @@ const MAX_INTERVAL = 6000
 
 const state = {
   systemTheme: getSystemTheme(),
+  trayFocused: false,
   aboutPanelVisible: false,
   engineInfo: {
     version: '',
@@ -36,6 +37,9 @@ const getters = {
 const mutations = {
   UPDATE_SYSTEM_THEME (state, theme) {
     state.systemTheme = theme
+  },
+  UPDATE_TRAY_FOCUSED (state, focused) {
+    state.trayFocused = focused
   },
   UPDATE_ABOUT_PANEL_VISIBLE (state, visible) {
     state.aboutPanelVisible = visible
@@ -94,6 +98,9 @@ const mutations = {
 const actions = {
   updateSystemTheme ({ commit }, theme) {
     commit('UPDATE_SYSTEM_THEME', theme)
+  },
+  updateTrayFocused ({ commit }, focused) {
+    commit('UPDATE_TRAY_FOCUSED', focused)
   },
   showAboutPanel ({ commit }) {
     commit('UPDATE_ABOUT_PANEL_VISIBLE', true)

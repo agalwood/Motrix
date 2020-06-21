@@ -13,11 +13,11 @@ import {
 } from 'lodash'
 
 import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
-import { ENGINE_RPC_HOST } from '@shared/constants'
+import { APP_THEME, ENGINE_RPC_HOST } from '@shared/constants'
 
 export function bytesToSize (bytes) {
   const b = parseInt(bytes, 10)
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   if (b === 0) { return '0 KB' }
   const i = parseInt(Math.floor(Math.log(b) / Math.log(1024)), 10)
   if (i === 0) { return `${b} ${sizes[i]}` }
@@ -592,4 +592,8 @@ export const intersection = (array1 = [], array2 = []) => {
   }
 
   return array1.filter(value => array2.includes(value))
+}
+
+export const getInverseTheme = (theme) => {
+  return (theme === APP_THEME.LIGHT) ? APP_THEME.DARK : APP_THEME.LIGHT
 }

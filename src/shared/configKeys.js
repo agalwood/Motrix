@@ -23,6 +23,7 @@ const userKeys = [
   'task-notification',
   'theme',
   'tracker-source',
+  'tray-speedometer',
   'use-proxy'
 ]
 

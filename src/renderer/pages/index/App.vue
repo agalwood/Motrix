@@ -9,6 +9,7 @@
       :secret="rpcSecret"
     />
     <mo-ipc v-if="isRenderer" />
+    <mo-dynamic-tray v-if="enableTraySpeedometer" />
   </div>
 </template>
 
@@ -17,18 +18,21 @@
   import { mapState } from 'vuex'
   import { getLangDirection } from '@shared/utils'
   import { APP_THEME } from '@shared/constants'
-  import TitleBar from '@/components/Native/TitleBar'
+  import DynamicTray from '@/components/Native/DynamicTray'
   import EngineClient from '@/components/Native/EngineClient'
   import Ipc from '@/components/Native/Ipc'
+  import TitleBar from '@/components/Native/TitleBar'
 
   export default {
     name: 'Motrix',
     components: {
-      [TitleBar.name]: TitleBar,
+      [DynamicTray.name]: DynamicTray,
       [EngineClient.name]: EngineClient,
-      [Ipc.name]: Ipc
+      [Ipc.name]: Ipc,
+      [TitleBar.name]: TitleBar
     },
     computed: {
+      isMac: () => is.macOS(),
       isRenderer: () => is.renderer(),
       ...mapState('app', {
         systemTheme: state => state.systemTheme
@@ -37,6 +41,7 @@
         showWindowActions: state => {
           return (is.windows() || is.linux()) && state.config.hideAppMenu
         },
+        traySpeedometer: state => state.config.traySpeedometer,
         rpcSecret: state => state.config.rpcSecret,
         theme: state => state.config.theme,
         locale: state => state.config.locale,
@@ -54,6 +59,10 @@
       },
       dirClass () {
         return `dir-${this.dir}`
+      },
+      enableTraySpeedometer () {
+        const { traySpeedometer, isMac, isRenderer } = this
+        return traySpeedometer && isMac && isRenderer
       }
     },
     methods: {
