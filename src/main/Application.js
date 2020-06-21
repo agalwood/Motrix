@@ -78,6 +78,8 @@ export default class Application extends EventEmitter {
 
     this.handleIpcMessages()
 
+    this.handleIpcInvokes()
+
     this.emit('application:initialized')
   }
 
@@ -699,6 +701,19 @@ export default class Application extends EventEmitter {
     ipcMain.on('event', (event, eventName, ...args) => {
       logger.log('[Motrix] ipc receive event', eventName, ...args)
       this.emit(eventName, ...args)
+    })
+  }
+
+  handleIpcInvokes () {
+    ipcMain.handle('get-app-config', async () => {
+      const systemConfig = this.configManager.getSystemConfig()
+      const userConfig = this.configManager.getUserConfig()
+
+      const result = {
+        ...systemConfig,
+        ...userConfig
+      }
+      return result
     })
   }
 }
