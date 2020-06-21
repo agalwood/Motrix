@@ -158,12 +158,12 @@ export default class Application extends EventEmitter {
   initUPnPManager () {
     this.upnp = new UPnPManager()
 
-    this.watchEnableUPnPChange()
+    this.watchUPnPEnabledChange()
 
-    this.watchPortsChange()
+    this.watchUPnPPortsChange()
 
-    const enable = this.configManager.getUserConfig('enable-upnp')
-    if (!enable) {
+    const enabled = this.configManager.getUserConfig('enable-upnp')
+    if (!enabled) {
       return
     }
 
@@ -200,7 +200,7 @@ export default class Application extends EventEmitter {
     }
   }
 
-  watchPortsChange () {
+  watchUPnPPortsChange () {
     const watchKeys = ['listen-port', 'dht-listen-port']
 
     watchKeys.map((key) => {
@@ -224,7 +224,7 @@ export default class Application extends EventEmitter {
     })
   }
 
-  watchEnableUPnPChange () {
+  watchUPnPEnabledChange () {
     this.configManager.userConfig.onDidChange('enable-upnp', async (newValue, oldValue) => {
       logger.info('[Motrix] detected enable-upnp value change event:', newValue, oldValue)
       if (newValue) {
@@ -467,10 +467,10 @@ export default class Application extends EventEmitter {
       return
     }
 
-    const enable = this.configManager.getUserConfig('auto-check-update')
+    const enabled = this.configManager.getUserConfig('auto-check-update')
     const lastTime = this.configManager.getUserConfig('last-check-update-time')
     this.updateManager = new UpdateManager({
-      autoCheck: checkIsNeedRun(enable, lastTime, AUTO_CHECK_UPDATE_INTERVAL)
+      autoCheck: checkIsNeedRun(enabled, lastTime, AUTO_CHECK_UPDATE_INTERVAL)
     })
     this.handleUpdaterEvents()
   }
