@@ -4,23 +4,12 @@ import { resolve } from 'path'
 import { Message } from 'element-ui'
 
 import {
-  bytesToSize,
   getFileName,
   isMagnetTask
 } from '@shared/utils'
 import { APP_THEME, TASK_STATUS } from '@shared/constants'
 
 const remote = is.renderer() ? require('electron').remote : {}
-
-export function getUserDownloadsPath () {
-  return remote.app.getPath('downloads')
-}
-
-export function prettifyDir (dir) {
-  const downloads = getUserDownloadsPath()
-  const result = dir === downloads ? 'Downloads' : dir
-  return result
-}
 
 export function showItemInFolder (fullPath, { errorMsg }) {
   if (!fullPath) {
@@ -128,21 +117,6 @@ export function openDownloadDock (path) {
     return
   }
   remote.app.dock.downloadFinished(path)
-}
-
-export function updateDockBadge (text) {
-  if (!is.macOS()) {
-    return
-  }
-  remote.app.dock.setBadge(text)
-}
-
-export function showDownloadSpeedInDock (downloadSpeed) {
-  if (!is.macOS()) {
-    return
-  }
-  const text = downloadSpeed > 0 ? `${bytesToSize(downloadSpeed)}/s` : ''
-  updateDockBadge(text)
 }
 
 export function addToRecentTask (task) {

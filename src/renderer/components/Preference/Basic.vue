@@ -210,7 +210,6 @@
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
-  import { prettifyDir } from '@/utils/native'
   import {
     calcFormLabelWidth,
     checkIsNeedRestart,
@@ -354,9 +353,6 @@
       },
       showHideAppMenuOption () {
         return is.windows() || is.linux()
-      },
-      downloadDir () {
-        return prettifyDir(this.form.dir)
       },
       ...mapState('preference', {
         config: state => state.config
