@@ -22,7 +22,7 @@ const updateSystemTheme = (payload = {}) => {
 
 const updateTheme = (payload = {}) => {
   const { theme } = payload
-  store.dispatch('preference/changeThemeConfig', theme)
+  store.dispatch('preference/updateThemeConfig', theme)
 }
 
 const showAboutPanel = () => {

@@ -34,10 +34,10 @@ const getters = {
 }
 
 const mutations = {
-  CHANGE_SYSTEM_THEME (state, theme) {
+  UPDATE_SYSTEM_THEME (state, theme) {
     state.systemTheme = theme
   },
-  CHANGE_ABOUT_PANEL_VISIBLE (state, visible) {
+  UPDATE_ABOUT_PANEL_VISIBLE (state, visible) {
     state.aboutPanelVisible = visible
   },
   UPDATE_ENGINE_INFO (state, engineInfo) {
@@ -49,16 +49,16 @@ const mutations = {
   UPDATE_GLOBAL_STAT (state, stat) {
     state.stat = stat
   },
-  CHANGE_ADD_TASK_VISIBLE (state, visible) {
+  UPDATE_ADD_TASK_VISIBLE (state, visible) {
     state.addTaskVisible = visible
   },
-  CHANGE_ADD_TASK_TYPE (state, taskType) {
+  UPDATE_ADD_TASK_TYPE (state, taskType) {
     state.addTaskType = taskType
   },
-  CHANGE_ADD_TASK_URL (state, text) {
+  UPDATE_ADD_TASK_URL (state, text) {
     state.addTaskUrl = text
   },
-  CHANGE_ADD_TASK_TORRENTS (state, fileList) {
+  UPDATE_ADD_TASK_TORRENTS (state, fileList) {
     state.addTaskTorrents = [...fileList]
   },
   UPDATE_ADD_TASK_OPTIONS (state, options) {
@@ -93,13 +93,13 @@ const mutations = {
 
 const actions = {
   updateSystemTheme ({ commit }, theme) {
-    commit('CHANGE_SYSTEM_THEME', theme)
+    commit('UPDATE_SYSTEM_THEME', theme)
   },
   showAboutPanel ({ commit }) {
-    commit('CHANGE_ABOUT_PANEL_VISIBLE', true)
+    commit('UPDATE_ABOUT_PANEL_VISIBLE', true)
   },
   hideAboutPanel ({ commit }) {
-    commit('CHANGE_ABOUT_PANEL_VISIBLE', false)
+    commit('UPDATE_ABOUT_PANEL_VISIBLE', false)
   },
   fetchEngineInfo ({ commit }) {
     api.getVersion()
@@ -140,22 +140,22 @@ const actions = {
     commit('INCREASE_INTERVAL', millisecond)
   },
   showAddTaskDialog ({ commit }, taskType) {
-    commit('CHANGE_ADD_TASK_TYPE', taskType)
-    commit('CHANGE_ADD_TASK_VISIBLE', true)
+    commit('UPDATE_ADD_TASK_TYPE', taskType)
+    commit('UPDATE_ADD_TASK_VISIBLE', true)
   },
   hideAddTaskDialog ({ commit }) {
-    commit('CHANGE_ADD_TASK_VISIBLE', false)
-    commit('CHANGE_ADD_TASK_URL', '')
-    commit('CHANGE_ADD_TASK_TORRENTS', [])
+    commit('UPDATE_ADD_TASK_VISIBLE', false)
+    commit('UPDATE_ADD_TASK_URL', '')
+    commit('UPDATE_ADD_TASK_TORRENTS', [])
   },
   changeAddTaskType ({ commit }, taskType) {
-    commit('CHANGE_ADD_TASK_TYPE', taskType)
+    commit('UPDATE_ADD_TASK_TYPE', taskType)
   },
   updateAddTaskUrl ({ commit }, uri = '') {
-    commit('CHANGE_ADD_TASK_URL', uri)
+    commit('UPDATE_ADD_TASK_URL', uri)
   },
   addTaskAddTorrents ({ commit }, { fileList }) {
-    commit('CHANGE_ADD_TASK_TORRENTS', fileList)
+    commit('UPDATE_ADD_TASK_TORRENTS', fileList)
   },
   updateAddTaskOptions ({ commit }, options = {}) {
     commit('UPDATE_ADD_TASK_OPTIONS', options)
