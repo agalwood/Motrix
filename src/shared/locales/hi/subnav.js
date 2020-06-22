@@ -1,4 +1,4 @@
 export default {
-  'task-list': 'Tasks',
-  'preferences': 'Preferences'
+  'task-list': 'कार्य',
+  'preferences': 'अधिमान'
 }
