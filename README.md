@@ -174,6 +174,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | vi    | Tiếng Việt          | ✔️ [@duythanhvn](https://github.com/duythanhvn) |
 | zh-CN | 简体中文             | ✔️           |
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) |
+| hi    | हिंदी                 | ✔️ [@rajendrayadav](https://github.com/rajendrakumaryadav/Motrix)|
 
 ## 📜 License
 
