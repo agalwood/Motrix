@@ -76,7 +76,7 @@ export const availableLanguages = [
   },
   {
     value: 'hi',
-    label : 'हिन्दी'
+    label: 'हिन्दी'
   }
 ]
 
@@ -131,7 +131,7 @@ export function getLanguage (locale = 'en-US') {
     return 'fr'
   }
 
-  if(locale.startsWith('hi')) {
+  if (locale.startsWith('hi')) {
     return 'hi'
   }
 }
