@@ -24,7 +24,7 @@ export default {
   'yes': 'हाँ',
   'no': 'नहीं',
   'cancel': 'रद्द करना',
-  'submit': 'रद्द करना',
+  'submit': 'स्वीकार करना',
   'gt1d': '> 1 दिन',
   'hour': 'h',
   'minute': 'm',

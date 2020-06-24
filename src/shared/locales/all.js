@@ -75,6 +75,12 @@ const resources = {
       ...appLocaleFr
     }
   },
+  'hi': {
+    translation: {
+      ...eleLocaleHi,
+      ...appLocaleHi
+    }
+  },
   'id': {
     translation: {
       ...eleLocaleId,
@@ -139,12 +145,6 @@ const resources = {
     translation: {
       ...eleLocaleBg,
       ...appLocaleBg
-    }
-  },
-  'hi': {
-    translation: {
-      ...eleLocaleHi,
-      ...appLocaleHi
     }
   }
 }
