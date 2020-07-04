@@ -47,6 +47,10 @@ export const availableLanguages = [
     label: '한국어'
   },
   {
+    value: 'pl',
+    label: 'Polski'
+  },
+  {
     value: 'pt-BR',
     label: 'Português (Brasil)'
   },

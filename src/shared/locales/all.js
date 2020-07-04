@@ -15,6 +15,7 @@ import eleLocaleVi from 'element-ui/lib/locale/lang/vi'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
 import eleLocaleUk from 'element-ui/lib/locale/lang/ua'
+import eleLocalePl from 'element-ui/lib/locale/lang/pl'
 import appLocaleBg from '@shared/locales/bg'
 import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
@@ -32,6 +33,7 @@ import appLocaleVi from '@shared/locales/vi'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
 import appLocaleUk from '@shared/locales/uk'
+import appLocalePl from '@shared/locales/pl'
 
 // Please keep the locale key in alphabetical order.
 /* eslint-disable quote-props */
@@ -88,6 +90,12 @@ const resources = {
     translation: {
       ...eleLocaleKo,
       ...appLocaleKo
+    }
+  },
+  'pl': {
+    translation: {
+      ...eleLocalePl,
+      ...appLocalePl
     }
   },
   'pt-BR': {
