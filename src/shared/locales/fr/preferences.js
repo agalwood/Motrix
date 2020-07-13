@@ -15,7 +15,7 @@ export default {
   'transfer-settings': 'Transmission',
   'transfer-speed-upload': 'Limite de téléversement',
   'transfer-speed-download': 'Limite de téléchargement',
-  'transfer-speed-unlimited': 'illimité',
+  'transfer-speed-unlimited': 'Illimité',
   'task-manage': 'Tâches',
   'max-concurrent-downloads': 'Nombre de tâches active au maximum',
   'max-connection-per-server': 'Nombre maximum de connexions par serveurs',
