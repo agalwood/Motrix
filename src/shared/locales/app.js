@@ -15,6 +15,7 @@ import appLocaleVi from '@shared/locales/vi'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
 import appLocaleUk from '@shared/locales/uk'
+import appLocaleHu from '@shared/locales/hu'
 
 // Please keep the locale key in alphabetical order.
 /* eslint-disable quote-props */
@@ -42,6 +43,11 @@ const resources = {
   'fr': {
     translation: {
       ...appLocaleFr
+    }
+  },
+  'hu': {
+    translation: {
+      ...appLocaleHu
     }
   },
   'id': {
