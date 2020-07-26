@@ -5,6 +5,7 @@ import eleLocaleEn from 'element-ui/lib/locale/lang/en'
 import eleLocaleEs from 'element-ui/lib/locale/lang/es'
 import eleLocaleFa from 'element-ui/lib/locale/lang/fa'
 import eleLocaleFr from 'element-ui/lib/locale/lang/fr'
+import eleLocaleHu from 'element-ui/lib/locale/lang/hu'
 import eleLocaleId from 'element-ui/lib/locale/lang/id'
 import eleLocaleJa from 'element-ui/lib/locale/lang/ja'
 import eleLocaleKo from 'element-ui/lib/locale/lang/ko'
@@ -23,6 +24,7 @@ import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleEs from '@shared/locales/es'
 import appLocaleFa from '@shared/locales/fa'
 import appLocaleFr from '@shared/locales/fr'
+import appLocaleHu from '@shared/locales/hu'
 import appLocaleId from '@shared/locales/id'
 import appLocaleJa from '@shared/locales/ja'
 import appLocaleKo from '@shared/locales/ko'
@@ -72,6 +74,12 @@ const resources = {
     translation: {
       ...eleLocaleFr,
       ...appLocaleFr
+    }
+  },
+  'hu': {
+    translation: {
+      ...eleLocaleHu,
+      ...appLocaleHu
     }
   },
   'id': {

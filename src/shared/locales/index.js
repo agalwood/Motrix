@@ -35,6 +35,10 @@ export const availableLanguages = [
     label: 'Français'
   },
   {
+    value: 'hu',
+    label: 'Hungarian'
+  },
+  {
     value: 'id',
     label: 'Indonesia'
   },
