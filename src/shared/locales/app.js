@@ -4,9 +4,11 @@ import appLocaleDe from '@shared/locales/de'
 import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleFa from '@shared/locales/fa'
 import appLocaleFr from '@shared/locales/fr'
+import appLocaleHu from '@shared/locales/hu'
 import appLocaleId from '@shared/locales/id'
 import appLocaleJa from '@shared/locales/ja'
 import appLocaleKo from '@shared/locales/ko'
+import appLocalePl from '@shared/locales/pl'
 import appLocalePtBR from '@shared/locales/pt-BR'
 import appLocaleRu from '@shared/locales/ru'
 import appLocaleTr from '@shared/locales/tr'
@@ -43,6 +45,11 @@ const resources = {
       ...appLocaleFr
     }
   },
+  'hu': {
+    translation: {
+      ...appLocaleHu
+    }
+  },
   'id': {
     translation: {
       ...appLocaleId
@@ -56,6 +63,11 @@ const resources = {
   'ko': {
     translation: {
       ...appLocaleKo
+    }
+  },
+  'pl': {
+    translation: {
+      ...appLocalePl
     }
   },
   'pt-BR': {

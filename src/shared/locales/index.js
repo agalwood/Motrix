@@ -35,6 +35,10 @@ export const availableLanguages = [
     label: 'Français'
   },
   {
+    value: 'hu',
+    label: 'Hungarian'
+  },
+  {
     value: 'id',
     label: 'Indonesia'
   },
@@ -45,6 +49,10 @@ export const availableLanguages = [
   {
     value: 'ko',
     label: '한국어'
+  },
+  {
+    value: 'pl',
+    label: 'Polski'
   },
   {
     value: 'pt-BR',

@@ -5,9 +5,11 @@ import eleLocaleEn from 'element-ui/lib/locale/lang/en'
 import eleLocaleEs from 'element-ui/lib/locale/lang/es'
 import eleLocaleFa from 'element-ui/lib/locale/lang/fa'
 import eleLocaleFr from 'element-ui/lib/locale/lang/fr'
+import eleLocaleHu from 'element-ui/lib/locale/lang/hu'
 import eleLocaleId from 'element-ui/lib/locale/lang/id'
 import eleLocaleJa from 'element-ui/lib/locale/lang/ja'
 import eleLocaleKo from 'element-ui/lib/locale/lang/ko'
+import eleLocalePl from 'element-ui/lib/locale/lang/pl'
 import eleLocalePtBR from 'element-ui/lib/locale/lang/pt-br'
 import eleLocaleRu from 'element-ui/lib/locale/lang/ru-RU'
 import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
@@ -24,9 +26,11 @@ import appLocaleEnUS from '@shared/locales/en-US'
 import appLocaleEs from '@shared/locales/es'
 import appLocaleFa from '@shared/locales/fa'
 import appLocaleFr from '@shared/locales/fr'
+import appLocaleHu from '@shared/locales/hu'
 import appLocaleId from '@shared/locales/id'
 import appLocaleJa from '@shared/locales/ja'
 import appLocaleKo from '@shared/locales/ko'
+import appLocalePl from '@shared/locales/pl'
 import appLocalePtBR from '@shared/locales/pt-BR'
 import appLocaleRu from '@shared/locales/ru'
 import appLocaleTr from '@shared/locales/tr'
@@ -81,6 +85,12 @@ const resources = {
       ...appLocaleHi
     }
   },
+  'hu': {
+    translation: {
+      ...eleLocaleHu,
+      ...appLocaleHu
+    }
+  },
   'id': {
     translation: {
       ...eleLocaleId,
@@ -97,6 +107,12 @@ const resources = {
     translation: {
       ...eleLocaleKo,
       ...appLocaleKo
+    }
+  },
+  'pl': {
+    translation: {
+      ...eleLocalePl,
+      ...appLocalePl
     }
   },
   'pt-BR': {
