@@ -15,12 +15,12 @@ export const availableLanguages = [
     label: 'Català'
   },
   {
-    value: 'el',
-    label: 'Ελληνικά'
-  },
-  {
     value: 'de',
     label: 'Deutsch'
+  },
+  {
+    value: 'el',
+    label: 'Ελληνικά'
   },
   {
     value: 'en-US',
