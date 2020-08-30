@@ -167,6 +167,7 @@ npm run build
 | bg    | Българският език    | ✔️ [@null-none](https://github.com/null-none) |
 | ca    | Català              | ✔️ [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
+| el    | Ελληνικά            |    [@Likecinema](https://github.com/Likecinema) |
 | en-US | English             | ✔️           |
 | es    | Español             | ✔️ [@Chofito](https://github.com/Chofito)|
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
