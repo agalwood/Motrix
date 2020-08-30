@@ -19,6 +19,10 @@ export const availableLanguages = [
     label: 'Deutsch'
   },
   {
+    value: 'el',
+    label: 'Ελληνικά'
+  },
+  {
     value: 'en-US',
     label: 'English'
   },
