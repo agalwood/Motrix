@@ -5,87 +5,90 @@
  *
  * Please keep the locale key in alphabetical order.
  */
-export const availableLanguages = [
-  {
-    value: 'bg',
-    label: 'Българският език'
-  },
-  {
-    value: 'ca',
-    label: 'Català'
-  },
-  {
-    value: 'de',
-    label: 'Deutsch'
-  },
-  {
-    value: 'el',
-    label: 'Ελληνικά'
-  },
-  {
-    value: 'en-US',
-    label: 'English'
-  },
-  {
-    value: 'es',
-    label: 'Español'
-  },
-  {
-    value: 'fa',
-    label: 'فارسی'
-  },
-  {
-    value: 'fr',
-    label: 'Français'
-  },
-  {
-    value: 'hu',
-    label: 'Hungarian'
-  },
-  {
-    value: 'id',
-    label: 'Indonesia'
-  },
-  {
-    value: 'ja',
-    label: '日本語'
-  },
-  {
-    value: 'ko',
-    label: '한국어'
-  },
-  {
-    value: 'pl',
-    label: 'Polski'
-  },
-  {
-    value: 'pt-BR',
-    label: 'Português (Brasil)'
-  },
-  {
-    value: 'ru',
-    label: 'Русский'
-  },
-  {
-    value: 'tr',
-    label: 'Türkçe'
-  },
-  {
-    value: 'vi',
-    label: 'Tiếng Việt'
-  },
-  {
-    value: 'zh-CN',
-    label: '简体中文'
-  },
-  {
-    value: 'zh-TW',
-    label: '繁體中文'
-  },
-  {
-    value: 'uk',
-    label: 'Українська'
-  }
+export const availableLanguages = [{
+  value: 'bg',
+  label: 'Българският език'
+},
+{
+  value: 'ca',
+  label: 'Català'
+},
+{
+  value: 'de',
+  label: 'Deutsch'
+},
+{
+  value: 'el',
+  label: 'Ελληνικά'
+},
+{
+  value: 'en-US',
+  label: 'English'
+},
+{
+  value: 'es',
+  label: 'Español'
+},
+{
+  value: 'fa',
+  label: 'فارسی'
+},
+{
+  value: 'fr',
+  label: 'Français'
+},
+{
+  value: 'hu',
+  label: 'Hungarian'
+},
+{
+  value: 'id',
+  label: 'Indonesia'
+},
+{
+  value: 'it',
+  label: 'Italiano'
+},
+{
+  value: 'ja',
+  label: '日本語'
+},
+{
+  value: 'ko',
+  label: '한국어'
+},
+{
+  value: 'pl',
+  label: 'Polski'
+},
+{
+  value: 'pt-BR',
+  label: 'Português (Brasil)'
+},
+{
+  value: 'ru',
+  label: 'Русский'
+},
+{
+  value: 'tr',
+  label: 'Türkçe'
+},
+{
+  value: 'vi',
+  label: 'Tiếng Việt'
+},
+{
+  value: 'zh-CN',
+  label: '简体中文'
+},
+{
+  value: 'zh-TW',
+  label: '繁體中文'
+},
+{
+  value: 'uk',
+  label: 'Українська'
+}
 ]
 
 function checkLngIsAvailable (locale) {
