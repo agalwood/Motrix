@@ -174,6 +174,7 @@ npm run build
 | fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
 | hu    | Hungarian           |     [@zalnaRs](https://github.com/zalnaRs) |
 | id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
+| it    | Italiano            |    [@blackcat-917](https://github.com/blackcat-917) |
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | pl    | Polski              |     [@KanarekLife](https://github.com/KanarekLife) |
