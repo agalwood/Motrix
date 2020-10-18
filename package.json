@@ -47,28 +47,19 @@
     "directories": {
       "output": "release"
     },
-    "files": [
-      "dist/electron/**/*"
-    ],
+    "files": ["dist/electron/**/*"],
     "protocols": [
       {
         "name": "Motrix Protocol",
-        "schemes": [
-          "mo",
-          "motrix"
-        ]
+        "schemes": ["mo", "motrix"]
       },
       {
         "name": "Magnet Protocol",
-        "schemes": [
-          "magnet"
-        ]
+        "schemes": ["magnet"]
       },
       {
         "name": "Thunder Protocol",
-        "schemes": [
-          "thunder"
-        ]
+        "schemes": ["thunder"]
       }
     ],
     "dmg": {
@@ -91,19 +82,14 @@
       ]
     },
     "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
+      "target": ["dmg", "zip"],
       "type": "distribution",
       "darkModeSupport": true,
       "hardenedRuntime": true,
       "extraResources": {
         "from": "./extra/darwin/",
         "to": "./",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       },
       "category": "public.app-category.utilities"
     },
@@ -111,32 +97,21 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
+          "arch": ["x64", "ia32"]
         },
         {
           "target": "zip",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
+          "arch": ["x64", "ia32"]
         },
         {
           "target": "portable",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
+          "arch": ["x64", "ia32"]
         }
       ],
       "extraResources": {
         "from": "./extra/win32/",
         "to": "./",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       }
     },
     "nsis": {
@@ -146,17 +121,27 @@
     "linux": {
       "category": "Network",
       "target": [
-        "AppImage",
-        "deb",
-        "rpm",
-        "snap"
+        {
+          "target": "AppImage",
+          "arch": ["x64", "ia32", "armv7l", "arm64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64", "ia32", "armv7l", "arm64"]
+        },
+        {
+          "target": "rpm",
+          "arch": ["x64", "ia32", "armv7l", "arm64"]
+        },
+        {
+          "target": "snap",
+          "arch": ["x64", "ia32", "armv7l", "arm64"]
+        }
       ],
       "extraResources": {
         "from": "./extra/linux/",
         "to": "./",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       }
     },
     "snap": {
