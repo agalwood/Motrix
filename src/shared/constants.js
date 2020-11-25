@@ -42,7 +42,7 @@ export const NGOSANG_TRACKERS_ALL_IP_URL = 'https://raw.githubusercontent.com/ng
  */
 export const XIU2_TRACKERS_BEST_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/best.txt'
 export const XIU2_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt'
-export const XIU2_TRACKERS_OTHER_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/other.txt'
+export const XIU2_TRACKERS_HTTP_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/http.txt'
 
 // For bt-exclude-tracker
 export const XIU2_TRACKERS_BLACK_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/blacklist.txt'
@@ -81,8 +81,8 @@ export const trackerSourceOptions = [
         label: 'all.txt'
       },
       {
-        value: XIU2_TRACKERS_OTHER_URL,
-        label: 'other.txt'
+        value: XIU2_TRACKERS_HTTP_URL,
+        label: 'http.txt'
       }
     ]
   }
