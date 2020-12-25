@@ -82,7 +82,11 @@ export default class WindowManager extends EventEmitter {
 
     window = new BrowserWindow({
       ...defaultBrowserOptions,
-      ...pageOptions.attrs
+      ...pageOptions.attrs,
+      webPreferences: {
+        enableRemoteModule: true,
+        nodeIntegration: true
+      }
     })
 
     const bounds = this.getPageBounds(page)

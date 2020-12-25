@@ -566,6 +566,7 @@ export function checkIsNeedRestart (changed = {}) {
       result = true
       return true
     }
+    return false
   })
 
   return result
