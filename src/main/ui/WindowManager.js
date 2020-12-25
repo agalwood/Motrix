@@ -85,7 +85,8 @@ export default class WindowManager extends EventEmitter {
       ...pageOptions.attrs,
       webPreferences: {
         enableRemoteModule: true,
-        nodeIntegration: true
+        nodeIntegration: true,
+        nodeIntegrationInWorker: true
       }
     })
 

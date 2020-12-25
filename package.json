@@ -269,6 +269,6 @@
     "webpack-dev-server": "^3.11.0",
     "webpack-hot-middleware": "^2.25.0",
     "webpack-merge": "^5.7.3",
-    "worker-loader": "^2.0.0"
+    "worker-loader": "^3.0.7"
   }
 }

@@ -36,7 +36,7 @@ let webConfig = {
         test: /\.worker\.js$/,
         use: {
           loader: 'worker-loader',
-          options: { name: '[name].js' }
+          options: { filename: '[name].js' }
         }
       },
       {

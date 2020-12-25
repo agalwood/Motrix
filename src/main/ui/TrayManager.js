@@ -192,23 +192,18 @@ export default class TrayManager extends EventEmitter {
   }
 
   handleTrayClick = (event) => {
-    event.preventDefault()
     global.application.toggle()
   }
 
   handleTrayDbClick = (event) => {
-    event.preventDefault()
     global.application.show()
   }
 
   handleTrayRightClick = (event) => {
-    event.preventDefault()
     tray.popUpContextMenu(this.menu)
   }
 
   handleTrayMouseDown = (event) => {
-    event.preventDefault()
-
     this.focused = true
     this.emit('mouse-down', {
       focused: true,
@@ -218,8 +213,6 @@ export default class TrayManager extends EventEmitter {
   }
 
   handleTrayMouseUp = (event) => {
-    event.preventDefault()
-
     this.focused = false
     this.emit('mouse-up', {
       focused: false,
@@ -229,12 +222,10 @@ export default class TrayManager extends EventEmitter {
   }
 
   handleTrayDropFiles = (event, files) => {
-    event.preventDefault()
     this.emit('drop-files', files)
   }
 
   handleTrayDropText = (event, text) => {
-    event.preventDefault()
     this.emit('drop-text', text)
   }
 
