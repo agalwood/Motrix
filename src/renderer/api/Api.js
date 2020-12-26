@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 import is from 'electron-is'
 import { isEmpty, clone } from 'lodash'
-import Aria2 from 'aria2'
+import { Aria2 } from '@shared/aria2'
 import {
   separateConfig,
   compactUndefined,

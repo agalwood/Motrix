@@ -196,7 +196,6 @@
     "@babel/runtime": "^7.12.5",
     "@motrix/nat-api": "^0.3.1",
     "@panter/vue-i18next": "^0.15.2",
-    "aria2": "^4.1.1",
     "axios": "^0.21.1",
     "blob-util": "^2.0.2",
     "clipboard-polyfill": "^3.0.1",
