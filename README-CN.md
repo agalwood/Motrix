@@ -36,7 +36,7 @@ scoop install motrix
 macOS 用户可以使用 `brew cask` 安装 Motrix，感谢 [Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。
 
 ```bash
-brew update && brew cask install motrix
+brew update && brew install --cask motrix
 ```
 
 ### Linux
