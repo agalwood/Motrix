@@ -217,7 +217,8 @@
     "vue-electron": "^1.0.6",
     "vue-router": "^3.4.9",
     "vuex": "^3.6.0",
-    "vuex-router-sync": "^5.0.0"
+    "vuex-router-sync": "^5.0.0",
+    "ws": "^7.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.12.10",
@@ -256,7 +257,7 @@
     "node-loader": "^1.0.2",
     "optimize-css-assets-webpack-plugin": "^5.0.4",
     "sass": "^1.30.0",
-    "sass-loader": "^8.0.2",
+    "sass-loader": "^10.1.0",
     "style-loader": "^2.0.0",
     "terser-webpack-plugin": "^5.0.3",
     "url-loader": "^4.1.1",

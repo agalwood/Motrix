@@ -48,7 +48,7 @@ let rendererConfig = {
             loader: 'sass-loader',
             options: {
               implementation: require('sass'),
-              prependData: '@import "@/components/Theme/Variables.scss";',
+              additionalData: '@import "@/components/Theme/Variables.scss";',
               sassOptions: {
                 includePaths:[__dirname, 'src']
               }
@@ -66,7 +66,7 @@ let rendererConfig = {
             options: {
               implementation: require('sass'),
               indentedSyntax: true,
-              prependData: '@import "@/components/Theme/Variables.scss";',
+              additionalData: '@import "@/components/Theme/Variables.scss";',
               sassOptions: {
                 includePaths:[__dirname, 'src']
               }
