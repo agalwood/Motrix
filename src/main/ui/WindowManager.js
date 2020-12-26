@@ -86,7 +86,8 @@ export default class WindowManager extends EventEmitter {
         enableRemoteModule: true,
         nodeIntegration: true,
         nodeIntegrationInWorker: true
-      }
+      },
+      hasShadow: !is.macOS()
     })
 
     const bounds = this.getPageBounds(page)

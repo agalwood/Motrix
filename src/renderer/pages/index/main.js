@@ -98,6 +98,7 @@ function init (config) {
 
   setTimeout(() => {
     loading.close()
+    require('electron').remote.getCurrentWindow().setHasShadow(true)
   }, 400)
 }
 
