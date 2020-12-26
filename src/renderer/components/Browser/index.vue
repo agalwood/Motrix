@@ -1,10 +1,10 @@
 <template>
   <div ref="webviewViewport" class="webview-viewport">
-    <webview
+    <iframe
       class="mo-webview"
-      ref="webview"
+      ref="iframe"
       :src="src"
-    ></webview>
+    ></iframe>
   </div>
 </template>
 
@@ -35,11 +35,11 @@
       isRenderer: () => is.renderer()
     },
     mounted () {
-      const { webview } = this.$refs
+      const { iframe } = this.$refs
 
-      webview.addEventListener('did-start-loading', this.loadStart.bind(this))
-      webview.addEventListener('did-stop-loading', this.loadStop.bind(this))
-      webview.addEventListener('dom-ready', this.ready.bind(this))
+      iframe.addEventListener('did-start-loading', this.loadStart.bind(this))
+      iframe.addEventListener('did-stop-loading', this.loadStop.bind(this))
+      iframe.addEventListener('dom-ready', this.ready.bind(this))
     },
     methods: {
       loadStart () {
@@ -54,9 +54,9 @@
         })
       },
       ready () {
-        const { webview } = this.$refs
+        const { iframe } = this.$refs
 
-        const webContents = this.$electron.remote.webContents.fromId(webview.getWebContentsId())
+        const webContents = this.$electron.remote.webContents.fromId(iframe.getWebContentsId())
         webContents.on('new-window', (event, url) => {
           event.preventDefault()
           openExternal(url)
