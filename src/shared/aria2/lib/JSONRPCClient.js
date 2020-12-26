@@ -1,8 +1,8 @@
 'use strict'
 
+import { JSONRPCError } from './JSONRPCError'
 const Deferred = require('./Deferred')
 const promiseEvent = require('./promiseEvent')
-const JSONRPCError = require('./JSONRPCError')
 
 const _WebSocket = require('ws')
 const _fetch = require('node-fetch')
