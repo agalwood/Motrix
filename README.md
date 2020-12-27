@@ -117,7 +117,7 @@ git clone git@github.com:agalwood/Motrix.git
 
 ```bash
 cd Motrix
-npm install
+yarn
 ```
 
 > Error: Electron failed to install correctly, please delete node_modules/electron and try installing again
@@ -127,13 +127,13 @@ npm install
 ### Dev Mode
 
 ```bash
-npm run dev
+yarn run dev
 ```
 
 ### Build Release
 
 ```bash
-npm run build
+yarn run build
 ```
 
 After building, the application will be found in the project's `release` directory.
