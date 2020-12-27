@@ -1,5 +1,15 @@
 import { APP_THEME, TRAY_CANVAS_CONFIG } from '@shared/constants'
-import { bytesToSize } from '@shared/utils'
+
+// Temp Fix: Cannot find module 'lodash'
+// import { bytesToSize } from '@shared/utils'
+const bytesToSize = (bytes) => {
+  const b = parseInt(bytes, 10)
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  if (b === 0) { return '0 KB' }
+  const i = parseInt(Math.floor(Math.log(b) / Math.log(1024)), 10)
+  if (i === 0) { return `${b} ${sizes[i]}` }
+  return `${(b / (1024 ** i)).toFixed(1)} ${sizes[i]}`
+}
 
 const lightTextColor = '#000'
 const darkTextColor = '#fff'
