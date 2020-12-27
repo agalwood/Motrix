@@ -12,6 +12,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const { VueLoaderPlugin } = require('vue-loader')
+const ESLintPlugin = require('eslint-webpack-plugin');
 
 /**
  * List of node_modules to include in webpack bundle
@@ -23,7 +24,6 @@ const { VueLoaderPlugin } = require('vue-loader')
 let whiteListedModules = ['vue']
 
 let webConfig = {
-  devtool: '#cheap-module-eval-source-map',
   entry: {
     index: path.join(__dirname, '../src/renderer/pages/index/main.js')
   },
@@ -36,18 +36,7 @@ let webConfig = {
         test: /\.worker\.js$/,
         use: {
           loader: 'worker-loader',
-          options: { name: '[name].js' }
-        }
-      },
-      {
-        test: /\.(js|vue)$/,
-        enforce: 'pre',
-        exclude: /node_modules/,
-        use: {
-          loader: 'eslint-loader',
-          options: {
-            formatter: require('eslint-friendly-formatter')
-          }
+          options: { filename: '[name].js' }
         }
       },
       {
@@ -59,7 +48,7 @@ let webConfig = {
             loader: 'sass-loader',
             options: {
               implementation: require('sass'),
-              prependData: '@import "@/components/Theme/Variables.scss";',
+              additionalData: '@import "@/components/Theme/Variables.scss";',
               sassOptions: {
                 includePaths:[__dirname, 'src']
               }
@@ -77,7 +66,7 @@ let webConfig = {
             options: {
               implementation: require('sass'),
               indentedSyntax: true,
-              prependData: '@import "@/components/Theme/Variables.scss";',
+              additionalData: '@import "@/components/Theme/Variables.scss";',
               sassOptions: {
                 includePaths:[__dirname, 'src']
               }
@@ -124,7 +113,7 @@ let webConfig = {
         test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
         use: {
           loader: 'url-loader',
-          query: {
+          options: {
             limit: 10000,
             name: 'imgs/[name].[ext]'
           }
@@ -134,7 +123,7 @@ let webConfig = {
         test: /\.(woff2?|eot|ttf|otf)(\?.*)?$/,
         use: {
           loader: 'url-loader',
-          query: {
+          options: {
             limit: 10000,
             name: 'fonts/[name].[ext]'
           }
@@ -184,12 +173,17 @@ let webConfig = {
       'process.env.IS_WEB': 'true'
     }),
     new webpack.HotModuleReplacementPlugin(),
-    new webpack.NoEmitOnErrorsPlugin()
+    new webpack.NoEmitOnErrorsPlugin(),
+    new ESLintPlugin({
+      extensions: ['js', 'vue'],
+      formatter: require('eslint-friendly-formatter')
+    })
   ],
   output: {
     filename: '[name].js',
     path: path.join(__dirname, '../dist/web'),
-    globalObject: 'this'
+    globalObject: 'this',
+    publicPath: ''
   },
   resolve: {
     alias: {
@@ -211,11 +205,16 @@ let webConfig = {
 }
 
 /**
+ * Adjust webConfig for development settings
+ */
+if (devMode) {
+  webConfig.devtool = 'eval-cheap-module-source-map'
+}
+
+/**
  * Adjust webConfig for production settings
  */
 if (!devMode) {
-  webConfig.devtool = ''
-
   webConfig.plugins.push(
     new CopyWebpackPlugin({
       patterns: [{

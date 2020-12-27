@@ -12,8 +12,7 @@ const defaultBrowserOptions = {
   width: 1024,
   height: 768,
   webPreferences: {
-    nodeIntegration: true,
-    webviewTag: true
+    nodeIntegration: true
   }
 }
 
@@ -82,7 +81,13 @@ export default class WindowManager extends EventEmitter {
 
     window = new BrowserWindow({
       ...defaultBrowserOptions,
-      ...pageOptions.attrs
+      ...pageOptions.attrs,
+      webPreferences: {
+        enableRemoteModule: true,
+        nodeIntegration: true,
+        nodeIntegrationInWorker: true
+      },
+      hasShadow: !is.macOS()
     })
 
     const bounds = this.getPageBounds(page)

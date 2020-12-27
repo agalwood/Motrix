@@ -20,33 +20,43 @@ export default class DockManager extends EventEmitter {
     }
   }
 
-  show = isMac ? () => {
-    if (app.dock.isVisible()) {
-      return
+  show = isMac
+    ? () => {
+      if (app.dock.isVisible()) {
+        return
+      }
+
+      return app.dock.show()
     }
+    : () => {}
 
-    return app.dock.show()
-  } : () => {}
+  hide = isMac
+    ? () => {
+      if (!app.dock.isVisible()) {
+        return
+      }
 
-  hide = isMac ? () => {
-    if (!app.dock.isVisible()) {
-      return
+      app.dock.hide()
     }
+    : () => {}
 
-    app.dock.hide()
-  } : () => {}
+  setBadge = isMac
+    ? (text) => {
+      app.dock.setBadge(text)
+    }
+    : (text) => {}
 
-  setBadge = isMac ? (text) => {
-    app.dock.setBadge(text)
-  } : (text) => {}
+  handleSpeedChange = isMac
+    ? (speed) => {
+      const { downloadSpeed } = speed
+      const text = downloadSpeed > 0 ? `${bytesToSize(downloadSpeed)}/s` : ''
+      this.setBadge(text)
+    }
+    : (text) => {}
 
-  handleSpeedChange = isMac ? (speed) => {
-    const { downloadSpeed } = speed
-    const text = downloadSpeed > 0 ? `${bytesToSize(downloadSpeed)}/s` : ''
-    this.setBadge(text)
-  } : (text) => {}
-
-  openDock = isMac ? (path) => {
-    app.dock.downloadFinished(path)
-  } : (path) => {}
+  openDock = isMac
+    ? (path) => {
+      app.dock.downloadFinished(path)
+    }
+    : (path) => {}
 }

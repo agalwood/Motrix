@@ -23,6 +23,7 @@ export const buildRule = (rule) => {
       operator = OPT
       return true
     }
+    return false
   })
 
   if (ruleArr) {

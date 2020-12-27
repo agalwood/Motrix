@@ -18,15 +18,17 @@ import TrayWorker from '@/workers/tray.worker'
 
 import '@/components/Theme/Index.scss'
 
-const updateTray = is.renderer() ? async (payload) => {
-  const { tray } = payload
-  if (!tray) {
-    return
-  }
+const updateTray = is.renderer()
+  ? async (payload) => {
+    const { tray } = payload
+    if (!tray) {
+      return
+    }
 
-  const ab = await tray.arrayBuffer()
-  ipcRenderer.send('command', 'application:update-tray', ab)
-} : () => {}
+    const ab = await tray.arrayBuffer()
+    ipcRenderer.send('command', 'application:update-tray', ab)
+  }
+  : () => {}
 
 function initTrayWorker () {
   const worker = new TrayWorker()
@@ -96,6 +98,7 @@ function init (config) {
 
   setTimeout(() => {
     loading.close()
+    require('electron').remote.getCurrentWindow().setHasShadow(true)
   }, 400)
 }
 

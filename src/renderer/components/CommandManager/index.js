@@ -30,7 +30,7 @@ export default class CommandManager extends EventEmitter {
   }
 
   execute (id, ...args) {
-    var fn = this.commands[id]
+    const fn = this.commands[id]
     if (fn) {
       try {
         this.emit('beforeExecuteCommand', id)

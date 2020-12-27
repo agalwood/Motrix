@@ -7,6 +7,7 @@ const path = require('path')
 const { dependencies, build } = require('../package.json')
 const webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin');
+const ESLintPlugin = require('eslint-webpack-plugin');
 
 let mainConfig = {
   entry: {
@@ -17,17 +18,6 @@ let mainConfig = {
   ],
   module: {
     rules: [
-      {
-        test: /\.(js)$/,
-        enforce: 'pre',
-        exclude: /node_modules/,
-        use: {
-          loader: 'eslint-loader',
-          options: {
-            formatter: require('eslint-friendly-formatter')
-          }
-        }
-      },
       {
         test: /\.js$/,
         use: 'babel-loader',
@@ -49,7 +39,10 @@ let mainConfig = {
     path: path.join(__dirname, '../dist/electron')
   },
   plugins: [
-    new webpack.NoEmitOnErrorsPlugin()
+    new webpack.NoEmitOnErrorsPlugin(),
+    new ESLintPlugin({
+      formatter: require('eslint-friendly-formatter')
+    })
   ],
   resolve: {
     alias: {

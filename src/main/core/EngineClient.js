@@ -1,6 +1,6 @@
 'use strict'
 
-import Aria2 from 'aria2'
+import { Aria2 } from '@shared/aria2'
 
 import logger from './Logger'
 import {
