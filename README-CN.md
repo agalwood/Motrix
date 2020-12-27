@@ -115,12 +115,13 @@ git clone git@github.com:agalwood/Motrix.git
 
 ```bash
 cd Motrix
-npm install
+yarn
 ```
 
 天朝大陆用户建议使用淘宝的 npm 源
 
 ```bash
+yarn config set registry 'https://registry.npm.taobao.org'
 npm config set registry 'https://registry.npm.taobao.org'
 export ELECTRON_MIRROR='https://npm.taobao.org/mirrors/electron/'
 export SASS_BINARY_SITE='https://npm.taobao.org/mirrors/node-sass'
@@ -133,13 +134,13 @@ export SASS_BINARY_SITE='https://npm.taobao.org/mirrors/node-sass'
 ### 开发模式
 
 ```bash
-npm run dev
+yarn run dev
 ```
 
 ### 编译打包
 
 ```bash
-npm run build
+yarn run build
 ```
 
 完成之后可以在项目的 `release` 目录看到编译打包好的应用文件
