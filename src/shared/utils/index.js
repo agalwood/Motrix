@@ -598,3 +598,8 @@ export const intersection = (array1 = [], array2 = []) => {
 export const getInverseTheme = (theme) => {
   return (theme === APP_THEME.LIGHT) ? APP_THEME.DARK : APP_THEME.LIGHT
 }
+
+export const getSystemMajorVersion = () => {
+  const version = require('os').release()
+  return parseInt(version.substr(0, version.indexOf('.')))
+}

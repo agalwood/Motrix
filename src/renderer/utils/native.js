@@ -5,7 +5,8 @@ import { Message } from 'element-ui'
 
 import {
   getFileName,
-  isMagnetTask
+  isMagnetTask,
+  getSystemMajorVersion
 } from '@shared/utils'
 import { APP_THEME, TASK_STATUS } from '@shared/constants'
 
@@ -148,6 +149,10 @@ export function getSystemTheme () {
   }
   result = remote.nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
   return result
+}
+
+export function isBigSur () {
+  return is.macOS() && getSystemMajorVersion() >= 20
 }
 
 export const openExternal = (url, options) => {
