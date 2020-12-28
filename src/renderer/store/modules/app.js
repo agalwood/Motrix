@@ -1,6 +1,6 @@
 import { ADD_TASK_TYPE } from '@shared/constants'
 import api from '@/api'
-import { getSystemTheme } from '@/utils/native'
+import { getSystemTheme, isBigSur } from '@/utils/native'
 
 const BASE_INTERVAL = 1000
 const PER_INTERVAL = 100
@@ -9,6 +9,7 @@ const MAX_INTERVAL = 6000
 
 const state = {
   systemTheme: getSystemTheme(),
+  bigSur: isBigSur(),
   trayFocused: false,
   aboutPanelVisible: false,
   engineInfo: {

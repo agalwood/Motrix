@@ -42,6 +42,7 @@
     },
     computed: {
       ...mapState('app', {
+        bigSur: state => state.bigSur,
         iconStatus: state => state.stat.numActive > 0 ? 'active' : 'normal',
         theme: state => state.systemTheme,
         focused: state => state.trayFocused,
@@ -61,8 +62,8 @@
         return focused ? getInverseTheme(theme) : theme
       },
       iconKey () {
-        const { iconStatus, currentTheme } = this
-        return `tray-icon-${currentTheme}-${iconStatus}`
+        const { bigSur, iconStatus, currentTheme } = this
+        return bigSur ? 'tray-icon-light-normal' : `tray-icon-${currentTheme}-${iconStatus}`
       }
     },
     watch: {
