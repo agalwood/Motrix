@@ -2,23 +2,19 @@
 <div style="display: none;">
   <img
     id="tray-icon-light-normal"
-    src="static/mo-tray-light-normal@1x.png"
-    srcset="static/mo-tray-light-normal@1x.png 1x, static/mo-tray-light-normal@2x.png"
+    src="static/mo-tray-light-normal@2x.png"
   >
   <img
     id="tray-icon-light-active"
-    src="static/mo-tray-light-active@1x.png"
-    srcset="static/mo-tray-light-active@1x.png 1x, static/mo-tray-light-active@2x.png"
+    src="static/mo-tray-light-active@2x.png"
   >
   <img
     id="tray-icon-dark-normal"
-    src="static/mo-tray-dark-normal@1x.png"
-    srcset="static/mo-tray-dark-normal@1x.png 1x, static/mo-tray-dark-normal@2x.png"
+    src="static/mo-tray-dark-normal@2x.png"
   >
   <img
     id="tray-icon-dark-active"
-    src="static/mo-tray-dark-active@1x.png"
-    srcset="static/mo-tray-dark-active@1x.png 1x, static/mo-tray-dark-active@2x.png"
+    src="static/mo-tray-dark-active@2x.png"
   >
 </div>
 </template>
@@ -33,13 +29,6 @@
 
   export default {
     name: 'mo-dynamic-tray',
-    data () {
-      return {
-        width: 66,
-        height: 16,
-        icon: null
-      }
-    },
     computed: {
       ...mapState('app', {
         bigSur: state => state.bigSur,
@@ -51,7 +40,7 @@
         speed: state => state.stat.uploadSpeed + state.stat.downloadSpeed
       }),
       scale () {
-        return window.devicePixelRatio > 1 ? 2 : 1
+        return 2
       },
       currentTheme () {
         const { theme, focused } = this
