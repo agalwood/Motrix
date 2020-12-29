@@ -87,6 +87,9 @@
     min-height: 14px;
     color: #9B9B9B;
     margin-top: 8px;
+    i {
+      font-style: normal;
+    }
   }
   .task-progress-info-left {
     min-height: 14px;
