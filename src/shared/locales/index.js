@@ -71,6 +71,10 @@ export const availableLanguages = [
     label: 'Русский'
   },
   {
+    value: 'ro',
+    label: 'Română'
+  },
+  {
     value: 'tr',
     label: 'Türkçe'
   },
