@@ -125,7 +125,7 @@ export class JSONRPCClient extends EventEmitter {
     return this.onrequest(method, params)
   }
 
-  _onnotification = ({ method, params }) => {
+  _onnotification ({ method, params }) {
     this.emit(method, params)
   }
 
