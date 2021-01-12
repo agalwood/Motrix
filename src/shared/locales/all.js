@@ -13,6 +13,7 @@ import eleLocaleJa from 'element-ui/lib/locale/lang/ja'
 import eleLocaleKo from 'element-ui/lib/locale/lang/ko'
 import eleLocalePl from 'element-ui/lib/locale/lang/pl'
 import eleLocalePtBR from 'element-ui/lib/locale/lang/pt-br'
+import eleLocaleRo from 'element-ui/lib/locale/lang/ro'
 import eleLocaleRu from 'element-ui/lib/locale/lang/ru-RU'
 import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
 import eleLocaleVi from 'element-ui/lib/locale/lang/vi'
@@ -34,6 +35,7 @@ import appLocaleJa from '@shared/locales/ja'
 import appLocaleKo from '@shared/locales/ko'
 import appLocalePl from '@shared/locales/pl'
 import appLocalePtBR from '@shared/locales/pt-BR'
+import appLocaleRo from '@shared/locales/ro'
 import appLocaleRu from '@shared/locales/ru'
 import appLocaleTr from '@shared/locales/tr'
 import appLocaleVi from '@shared/locales/vi'
@@ -126,6 +128,12 @@ const resources = {
     translation: {
       ...eleLocalePtBR,
       ...appLocalePtBR
+    }
+  },
+  'ro': {
+    translation: {
+      ...eleLocaleRo,
+      ...appLocaleRo
     }
   },
   'ru': {

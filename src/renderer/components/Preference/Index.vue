@@ -56,16 +56,13 @@
     }
   }
   .form-actions {
-    position: fixed;
+    position: sticky;
     bottom: 0;
     left: auto;
     z-index: 10;
     width: -webkit-fill-available;
     box-sizing: border-box;
-    padding: 24px 36px;
-    margin-left: -36px;
-    // aside.width + subnav.width + padding-left + scrollbar.width
-    margin-right: 322px;
+    padding: 24px 36px 24px 0;
   }
   .action-link {
     cursor: pointer;
