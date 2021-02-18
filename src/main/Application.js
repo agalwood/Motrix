@@ -282,10 +282,18 @@ export default class Application extends EventEmitter {
       return
     }
 
+    const source = this.configManager.getUserConfig('tracker-source')
+    if (isEmpty(source)) {
+      return
+    }
+
     setTimeout(() => {
-      const source = this.configManager.getUserConfig('tracker-source')
       fetchBtTrackerFromSource(source).then((data) => {
         logger.warn('[Motrix] auto sync tracker data:', data)
+        if (!data || data.length === 0) {
+          return
+        }
+
         const tracker = convertTrackerDataToComma(data)
         this.savePreference({
           system: {

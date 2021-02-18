@@ -107,7 +107,18 @@
                         v-for="item in group.options"
                         :key="item.value"
                         :label="item.label"
-                        :value="item.value">
+                        :value="item.value"
+                      >
+                        <span style="float: left">{{ item.label }}</span>
+                        <span style="float: right; margin-right: 24px">
+                          <el-tag
+                            type="success"
+                            size="mini"
+                            v-if="item.cdn"
+                          >
+                            CDN
+                          </el-tag>
+                        </span>
                       </el-option>
                     </el-option-group>
                   </el-select>

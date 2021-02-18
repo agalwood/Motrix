@@ -1,13 +1,9 @@
-import {
-  isEmpty
-} from 'lodash'
+import { isEmpty } from 'lodash'
 import axios from 'axios'
-
-import { EMPTY_STRING } from '@shared/constants'
 
 export const fetchBtTrackerFromSource = async (source) => {
   if (isEmpty(source)) {
-    return EMPTY_STRING
+    return []
   }
 
   const now = Date.now()
