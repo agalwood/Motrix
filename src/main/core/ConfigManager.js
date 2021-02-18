@@ -15,8 +15,8 @@ import {
   EMPTY_STRING,
   IP_VERSION,
   LOGIN_SETTING_OPTIONS,
-  NGOSANG_TRACKERS_BEST_IP_URL,
-  NGOSANG_TRACKERS_BEST_URL
+  NGOSANG_TRACKERS_BEST_IP_URL_CDN,
+  NGOSANG_TRACKERS_BEST_URL_CDN
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
 
@@ -113,8 +113,8 @@ export default class ConfigManager {
         'task-notification': true,
         'theme': APP_THEME.AUTO,
         'tracker-source': [
-          NGOSANG_TRACKERS_BEST_IP_URL,
-          NGOSANG_TRACKERS_BEST_URL
+          NGOSANG_TRACKERS_BEST_IP_URL_CDN,
+          NGOSANG_TRACKERS_BEST_URL_CDN
         ],
         'tray-theme': APP_THEME.AUTO,
         'tray-speedometer': is.macOS(),
@@ -149,8 +149,8 @@ export default class ConfigManager {
 
     if (this.getUserConfig('tracker-source').length === 0) {
       this.setUserConfig('tracker-source', [
-        NGOSANG_TRACKERS_BEST_IP_URL,
-        NGOSANG_TRACKERS_BEST_URL
+        NGOSANG_TRACKERS_BEST_IP_URL_CDN,
+        NGOSANG_TRACKERS_BEST_URL_CDN
       ])
     }
   }
