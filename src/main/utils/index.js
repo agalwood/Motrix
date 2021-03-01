@@ -25,6 +25,10 @@ export function getSessionPath () {
   return resolve(app.getPath('userData'), './download.session')
 }
 
+export function getEnginePidPath () {
+  return resolve(app.getPath('userData'), './engine.pid')
+}
+
 export function getUserDataPath () {
   return app.getPath('userData')
 }
