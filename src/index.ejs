@@ -23,9 +23,9 @@
       </section>
     </div>
     <!-- Set `__static` path to static files in production -->
-    <% if (!process.browser) { %>
+    <% if (!htmlWebpackPlugin.options.isBrowser && !htmlWebpackPlugin.options.isDev) { %>
       <script>
-        if (process.env.NODE_ENV !== 'development') window.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
+        window.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
       </script>
     <% } %>
 

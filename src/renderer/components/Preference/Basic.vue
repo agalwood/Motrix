@@ -330,12 +330,24 @@
             value: '1M'
           },
           {
+            label: '2 MB/s',
+            value: '2M'
+          },
+          {
+            label: '3 MB/s',
+            value: '3M'
+          },
+          {
             label: '5 MB/s',
             value: '5M'
           },
           {
             label: '10 MB/s',
             value: '10M'
+          },
+          {
+            label: '20 MB/s',
+            value: '20M'
           }
         ]
       },
