@@ -305,6 +305,9 @@
             </el-input>
           </el-col>
           <el-col class="form-item-sub" :span="24">
+            <el-button plain type="warning" @click="() => onSessionResetClick()">
+              {{ $t('preferences.session-reset') }}
+            </el-button>
             <el-button plain type="danger" @click="() => onFactoryResetClick()">
               {{ $t('preferences.factory-reset') }}
             </el-button>
@@ -518,6 +521,23 @@
         setTimeout(() => {
           this.hideRpcSecret = true
         }, 2000)
+      },
+      onSessionResetClick () {
+        this.$electron.remote.dialog.showMessageBox({
+          type: 'warning',
+          title: this.$t('preferences.session-reset'),
+          message: this.$t('preferences.session-reset-confirm'),
+          buttons: [this.$t('app.yes'), this.$t('app.no')],
+          cancelId: 1
+        }).then(({ response }) => {
+          if (response === 0) {
+            this.$store.dispatch('task/purgeTaskRecord')
+            this.$store.dispatch('task/pauseAllTask')
+              .then(() => {
+                this.$electron.ipcRenderer.send('command', 'application:reset-session')
+              })
+          }
+        })
       },
       onFactoryResetClick () {
         this.$electron.remote.dialog.showMessageBox({

@@ -56,6 +56,8 @@ export default {
   'mock-user-agent': 'Mock User-Agent',
   'app-log-path': 'App log path',
   'download-session-path': 'Download session path',
+  'session-reset': 'Reset download session',
+  'session-reset-confirm': 'Are you sure you want to reset download session?',
   'factory-reset': 'Factory Reset',
   'factory-reset-confirm': 'Are you sure you want to revert to factory settings?',
   'lab-warning': '⚠️ Enabling lab features may result in app crash or data loss, decide at you own risk!',
