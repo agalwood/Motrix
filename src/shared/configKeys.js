@@ -8,6 +8,7 @@ const userKeys = [
   'engine-bin-path',
   'engine-max-connection-per-server',
   'hide-app-menu',
+  'keep-seeding',
   'keep-window-state',
   'last-check-update-time',
   'last-sync-tracker-time',
