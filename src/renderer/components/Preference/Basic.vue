@@ -144,6 +144,44 @@
           </el-col>
         </el-form-item>
         <el-form-item
+          :label="`${$t('preferences.bt-settings')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.keepSeeding"
+              :active-text="$t('preferences.keep-seeding')"
+              @change="onKeepSeedingChange"
+            >
+            </el-switch>
+          </el-col>
+          <el-col class="form-item-sub" :span="24" v-if="!form.keepSeeding">
+            {{ $t('preferences.seed-ratio') }}
+            <el-input-number
+              v-model="form.seedRatio"
+              controls-position="right"
+              :min="1"
+              :max="100"
+              :step="0.1"
+              :label="$t('preferences.seed-ratio')">
+            </el-input-number>
+          </el-col>
+          <el-col class="form-item-sub" :span="24" v-if="!form.keepSeeding">
+            {{ $t('preferences.seed-time') }}
+            ({{ $t('preferences.seed-time-unit') }})
+            <el-input-number
+              v-model="form.seedTime"
+              controls-position="right"
+              :min="60"
+              :max="525600"
+              :step="1"
+              :label="$t('preferences.seed-time')">
+            </el-input-number>
+          </el-col>
+          <div class="el-form-item__info" style="margin-top: 8px;">
+          </div>
+        </el-form-item>
+        <el-form-item
           :label="`${$t('preferences.task-manage')}: `"
           :label-width="formLabelWidth"
         >
@@ -228,6 +266,7 @@
       dir,
       engineMaxConnectionPerServer,
       hideAppMenu,
+      keepSeeding,
       keepWindowState,
       locale,
       maxConcurrentDownloads,
@@ -239,6 +278,8 @@
       openAtLogin,
       resumeAllWhenAppLaunched,
       runMode,
+      seedRatio,
+      seedTime,
       taskNotification,
       theme,
       traySpeedometer
@@ -249,6 +290,7 @@
       dir,
       engineMaxConnectionPerServer,
       hideAppMenu,
+      keepSeeding,
       keepWindowState,
       locale,
       maxConcurrentDownloads,
@@ -260,6 +302,8 @@
       openAtLogin,
       resumeAllWhenAppLaunched,
       runMode,
+      seedRatio,
+      seedTime,
       taskNotification,
       theme,
       traySpeedometer
@@ -388,6 +432,10 @@
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
+      },
+      onKeepSeedingChange (enable) {
+        this.form.seedRatio = enable ? 0 : 1
+        this.form.seedTime = enable ? 525600 : 60
       },
       onDirectorySelected (dir) {
         this.form.dir = dir

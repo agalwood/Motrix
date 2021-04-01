@@ -1,10 +1,20 @@
 import { EventEmitter } from 'events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
-import { readFile } from 'fs'
+import { readFile, unlink } from 'fs'
 import { extname, basename } from 'path'
 import { isEmpty } from 'lodash'
 
+import {
+  APP_RUN_MODE,
+  AUTO_SYNC_TRACKER_INTERVAL,
+  AUTO_CHECK_UPDATE_INTERVAL
+} from '@shared/constants'
+import { checkIsNeedRun } from '@shared/utils'
+import {
+  convertTrackerDataToComma,
+  fetchBtTrackerFromSource
+} from '@shared/utils/tracker'
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from './ui/Locale'
@@ -21,16 +31,7 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
-import {
-  APP_RUN_MODE,
-  AUTO_SYNC_TRACKER_INTERVAL,
-  AUTO_CHECK_UPDATE_INTERVAL
-} from '@shared/constants'
-import { checkIsNeedRun } from '@shared/utils'
-import {
-  convertTrackerDataToComma,
-  fetchBtTrackerFromSource
-} from '@shared/utils/tracker'
+import { getSessionPath } from './utils'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -599,6 +600,21 @@ export default class Application extends EventEmitter {
 
     this.on('application:hide', ({ page }) => {
       this.hide(page)
+    })
+
+    this.on('application:reset-session', () => {
+      this.engine.stop()
+
+      app.clearRecentDocuments()
+
+      const sessionPath = this.configManager.getUserConfig('session-path') || getSessionPath()
+      setTimeout(() => {
+        unlink(sessionPath, function (err) {
+          logger.info('[Motrix] Removed the download seesion file:', err)
+        })
+
+        this.engine.start()
+      }, 3000)
     })
 
     this.on('application:reset', () => {
