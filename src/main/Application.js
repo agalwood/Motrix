@@ -693,25 +693,37 @@ export default class Application extends EventEmitter {
       this.protocolManager.setup(protocols)
     })
 
+    this.on('application:open-external', (url) => {
+      this.openExternal(url)
+    })
+
     this.on('help:official-website', () => {
       const url = 'https://motrix.app/'
-      shell.openExternal(url)
+      this.openExternal(url)
     })
 
     this.on('help:manual', () => {
       const url = 'https://motrix.app/manual'
-      shell.openExternal(url)
+      this.openExternal(url)
     })
 
     this.on('help:release-notes', () => {
       const url = 'https://motrix.app/release'
-      shell.openExternal(url)
+      this.openExternal(url)
     })
 
     this.on('help:report-problem', () => {
       const url = 'https://motrix.app/report'
-      shell.openExternal(url)
+      this.openExternal(url)
     })
+  }
+
+  openExternal (url) {
+    if (!url) {
+      return
+    }
+
+    shell.openExternal(url)
   }
 
   handleConfigChange (configName) {
@@ -746,6 +758,11 @@ export default class Application extends EventEmitter {
 
     this.on('task-download-complete', (task, path) => {
       this.dockManager.openDock(path)
+
+      if (is.linux()) {
+        return
+      }
+      app.addRecentDocument(path)
     })
   }
 
