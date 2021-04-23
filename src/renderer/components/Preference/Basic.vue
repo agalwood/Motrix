@@ -148,6 +148,11 @@
           :label-width="formLabelWidth"
         >
           <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.btSaveMetadata">
+              {{ $t('preferences.bt-save-metadata') }}
+            </el-checkbox>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.keepSeeding"
               :active-text="$t('preferences.keep-seeding')"
@@ -263,6 +268,7 @@
   const initForm = (config) => {
     const {
       autoHideWindow,
+      btSaveMetadata,
       dir,
       engineMaxConnectionPerServer,
       hideAppMenu,
@@ -286,6 +292,7 @@
     } = config
     const result = {
       autoHideWindow,
+      btSaveMetadata,
       continue: config.continue,
       dir,
       engineMaxConnectionPerServer,
