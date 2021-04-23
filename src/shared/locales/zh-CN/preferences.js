@@ -17,6 +17,7 @@ export default {
   'transfer-speed-download': '下载限速',
   'transfer-speed-unlimited': '不限速',
   'bt-settings': 'BT 设置',
+  'bt-save-metadata': '保存磁力链接元数据为种子文件',
   'keep-seeding': '持续做种，直到手动停止',
   'seed-ratio': '做种分享率',
   'seed-time': '做种时间',
