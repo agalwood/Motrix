@@ -33,6 +33,7 @@
 </template>
 
 <script>
+  import { dialog } from '@electron/remote'
   import { mapState } from 'vuex'
   import * as clipboard from 'clipboard-polyfill'
 
@@ -296,7 +297,7 @@
           return
         }
 
-        this.$electron.remote.dialog.showMessageBox({
+        dialog.showMessageBox({
           type: 'warning',
           title: this.$t('task.delete-task'),
           message: this.$t('task.delete-task-confirm', { taskName }),
@@ -319,7 +320,7 @@
           return
         }
 
-        this.$electron.remote.dialog.showMessageBox({
+        dialog.showMessageBox({
           type: 'warning',
           title: this.$t('task.remove-record'),
           message: this.$t('task.remove-record-confirm', { taskName }),
@@ -355,7 +356,7 @@
         }
 
         const count = `${selectedGidListCount}`
-        this.$electron.remote.dialog.showMessageBox({
+        dialog.showMessageBox({
           type: 'warning',
           title: this.$t('task.delete-selected-task'),
           message: this.$t('task.batch-delete-task-confirm', { count }),

@@ -9,11 +9,10 @@ import {
   IP_VERSION
 } from '@shared/constants'
 
-import logger from '../core/Logger'
 import engineBinMap from '../configs/engine'
 
 export function getLogPath () {
-  return logger.transports.file.file
+  return app.getPath('logs')
 }
 
 export function getDhtPath (protocol) {
