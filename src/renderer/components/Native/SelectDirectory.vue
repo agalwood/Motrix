@@ -8,6 +8,7 @@
 </template>
 
 <script>
+  import { dialog } from '@electron/remote'
   import '@/components/Icons/folder'
 
   export default {
@@ -17,7 +18,7 @@
     methods: {
       onFolderClick () {
         const self = this
-        this.$electron.remote.dialog.showOpenDialog({
+        dialog.showOpenDialog({
           properties: ['openDirectory', 'createDirectory']
         }).then(({ canceled, filePaths }) => {
           if (canceled || filePaths.length === 0) {

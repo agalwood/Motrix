@@ -16,6 +16,7 @@
 </template>
 
 <script>
+  import { getCurrentWindow } from '@electron/remote'
   import '@/components/Icons/win-minimize'
   import '@/components/Icons/win-maximize'
   import '@/components/Icons/win-close'
@@ -29,7 +30,7 @@
     },
     computed: {
       win () {
-        return this.$electron.remote.getCurrentWindow()
+        return getCurrentWindow()
       }
     },
     methods: {

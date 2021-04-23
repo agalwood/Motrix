@@ -1,5 +1,6 @@
 import is from 'electron-is'
 import { ipcRenderer } from 'electron'
+import { getCurrentWindow } from '@electron/remote'
 import Vue from 'vue'
 import VueI18Next from '@panter/vue-i18next'
 import { sync } from 'vuex-router-sync'
@@ -98,7 +99,7 @@ function init (config) {
 
   setTimeout(() => {
     loading.close()
-    require('electron').remote.getCurrentWindow().setHasShadow(true)
+    getCurrentWindow().setHasShadow(true)
   }, 400)
 }
 

@@ -15,6 +15,7 @@
   import { mapState } from 'vuex'
   import AppInfo from '@/components/About/AppInfo'
   import Copyright from '@/components/About/Copyright'
+  import { app } from '@electron/remote'
 
   export default {
     name: 'mo-about-panel',
@@ -29,7 +30,7 @@
       }
     },
     data () {
-      const version = this.$electron.remote.app.getVersion()
+      const version = app.getVersion()
       return {
         version
       }

@@ -10,11 +10,8 @@
 
 <script>
   import is from 'electron-is'
+  import { webContents } from '@electron/remote'
   import { Loading } from 'element-ui'
-
-  import {
-    openExternal
-  } from '@/utils/native'
 
   export default {
     name: 'mo-browser',
@@ -56,10 +53,10 @@
       ready () {
         const { iframe } = this.$refs
 
-        const webContents = this.$electron.remote.webContents.fromId(iframe.getWebContentsId())
-        webContents.on('new-window', (event, url) => {
+        const wc = webContents.fromId(iframe.getWebContentsId())
+        wc.setWindowOpenHandler((event, url) => {
           event.preventDefault()
-          openExternal(url)
+          this.$electron.ipcRenderer.send('command', 'application:open-external', url)
         })
       }
     }
