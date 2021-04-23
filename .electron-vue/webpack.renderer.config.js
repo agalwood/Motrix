@@ -9,7 +9,7 @@ const webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const { VueLoaderPlugin } = require('vue-loader')
 const ESLintPlugin = require('eslint-webpack-plugin');
@@ -152,12 +152,6 @@ let rendererConfig = {
       filename: '[name].css',
       chunkFilename: '[id].css'
     }),
-    new OptimizeCSSPlugin({
-      cssProcessorOptions: {
-        safe: true,
-        discardComments: { removeAll: true }
-      }
-    }),
     new HtmlWebpackPlugin({
       title: 'Motrix',
       filename: 'index.html',
@@ -202,7 +196,8 @@ let rendererConfig = {
     minimizer: [
       new TerserPlugin({
         extractComments: false,
-      })
+      }),
+      new CssMinimizerPlugin(),
     ],
   },
 }
