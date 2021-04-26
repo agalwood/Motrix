@@ -185,7 +185,7 @@ const actions = {
     const list = [...seedingList.slice(0, idx), ...seedingList.slice(idx + 1)]
     commit('UPDATE_SEEDING_LIST', list)
   },
-  stopSeeding ({ dispatch }, gid) {
+  stopSeeding ({ dispatch }, { gid }) {
     const options = {
       seedTime: 0
     }
