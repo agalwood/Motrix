@@ -117,14 +117,14 @@ export function getTaskName (task, options = {}) {
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
     result = ellipsis(bittorrent.info.name, maxLen)
   } else if (total === 1) {
-    result = getFileName(files[0])
+    result = getFileNameFromFile(files[0])
     result = ellipsis(result, maxLen)
   }
 
   return result
 }
 
-export function getFileName (file) {
+export function getFileNameFromFile (file) {
   if (!file) {
     return ''
   }

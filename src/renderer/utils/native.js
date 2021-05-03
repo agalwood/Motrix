@@ -5,7 +5,8 @@ import { resolve } from 'path'
 import { Message } from 'element-ui'
 
 import {
-  getFileName,
+  checkTaskIsBT,
+  getFileNameFromFile,
   isMagnetTask,
   getSystemMajorVersion
 } from '@shared/utils'
@@ -70,7 +71,7 @@ export function getTaskFullPath (task) {
     result = path
   } else {
     if (files && files.length === 1) {
-      fileName = getFileName(file)
+      fileName = getFileNameFromFile(file)
       if (fileName) {
         result = resolve(result, fileName)
       }
@@ -101,7 +102,9 @@ export function moveTaskFilesToTrash (task) {
   access(path, constants.F_OK, (err) => {
     console.log(`[Motrix] ${path} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
-      deleteResult1 = shell.trashItem(path)
+      // Electron >= 12.x
+      // deleteResult1 = shell.trashItem(path)
+      deleteResult1 = shell.moveItemToTrash(path)
     }
   })
 
@@ -115,7 +118,9 @@ export function moveTaskFilesToTrash (task) {
   access(extraFilePath, constants.F_OK, (err) => {
     console.log(`[Motrix] ${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
-      deleteResult2 = shell.trashItem(extraFilePath)
+      // Electron >= 12.x
+      // deleteResult2 = shell.trashItem(extraFilePath)
+      deleteResult2 = shell.moveItemToTrash(extraFilePath)
     }
   })
 
