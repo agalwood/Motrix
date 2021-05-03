@@ -53,6 +53,16 @@ export default class Engine {
         logger.warn(`[Motrix] Unlink engine process pid file failed: ${err}`)
       }
     })
+
+    if (is.dev()) {
+      this.instance.stdout.on('data', function (data) {
+        console.log('[Motrix] engine stdout===>', data.toString())
+      })
+
+      this.instance.stderr.on('data', function (data) {
+        console.log('[Motrix] engine stderr===>', data.toString())
+      })
+    }
   }
 
   stop () {
