@@ -1,6 +1,6 @@
 import api from '@/api'
 import { TASK_STATUS } from '@shared/constants'
-import { intersection } from '@shared/utils'
+import { checkTaskIsBT, intersection } from '@shared/utils'
 
 const state = {
   currentList: 'active',
