@@ -1,8 +1,10 @@
 # Motrix
 
-<a href="https://motrix.app">
-  <img src="./static/512x512.png" width="256" alt="App Icon" />
-</a>
+<p align="center">
+  <a href="https://motrix.app">
+    <img src="./static/512x512.png" width="256" alt="App Icon" />
+  </a>
+</p>
 
 ## 一款全能的下载工具
 
