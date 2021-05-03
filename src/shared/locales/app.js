@@ -1,3 +1,4 @@
+import appLocaleAr from '@shared/locales/ar'
 import appLocaleBg from '@shared/locales/bg'
 import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
@@ -23,6 +24,11 @@ import appLocaleUk from '@shared/locales/uk'
 // Please keep the locale key in alphabetical order.
 /* eslint-disable quote-props */
 const resources = {
+  'ar': {
+    translation: {
+      ...appLocaleAr
+    }
+  },
   'ca': {
     translation: {
       ...appLocaleCa

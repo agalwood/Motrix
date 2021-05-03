@@ -1,3 +1,4 @@
+import eleLocaleAr from 'element-ui/lib/locale/lang/ar'
 import eleLocaleBg from 'element-ui/lib/locale/lang/bg'
 import eleLocaleCa from 'element-ui/lib/locale/lang/ca'
 import eleLocaleDe from 'element-ui/lib/locale/lang/de'
@@ -20,6 +21,7 @@ import eleLocaleVi from 'element-ui/lib/locale/lang/vi'
 import eleLocaleZhCN from 'element-ui/lib/locale/lang/zh-CN'
 import eleLocaleZhTW from 'element-ui/lib/locale/lang/zh-TW'
 import eleLocaleUk from 'element-ui/lib/locale/lang/ua'
+import appLocaleAr from '@shared/locales/ar'
 import appLocaleBg from '@shared/locales/bg'
 import appLocaleCa from '@shared/locales/ca'
 import appLocaleDe from '@shared/locales/de'
@@ -46,6 +48,12 @@ import appLocaleUk from '@shared/locales/uk'
 // Please keep the locale key in alphabetical order.
 /* eslint-disable quote-props */
 const resources = {
+  'ar': {
+    translation: {
+      ...eleLocaleAr,
+      ...appLocaleAr
+    }
+  },
   'ca': {
     translation: {
       ...eleLocaleCa,
