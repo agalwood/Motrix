@@ -197,6 +197,7 @@
     "@motrix/nat-api": "^0.3.1",
     "@panter/vue-i18next": "^0.15.2",
     "axios": "^0.21.1",
+    "bittorrent-peerid": "^1.3.3",
     "blob-util": "^2.0.2",
     "clipboard-polyfill": "^3.0.3",
     "electron-debug": "^3.2.0",
