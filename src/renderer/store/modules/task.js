@@ -1,6 +1,6 @@
 import api from '@/api'
 import { TASK_STATUS } from '@shared/constants'
-import { intersection } from '@shared/utils'
+import { checkTaskIsBT, intersection } from '@shared/utils'
 
 const state = {
   currentList: 'active',
@@ -119,24 +119,27 @@ const actions = {
         dispatch('saveSession')
       })
   },
-  forcePauseTask (_, task) {
+  forcePauseTask ({ dispatch }, task) {
     const { gid, status } = task
     if (status !== TASK_STATUS.ACTIVE) {
       return Promise.resolve(true)
     }
 
     return api.forcePauseTask({ gid })
-  },
-  pauseTask ({ dispatch }, task) {
-    const { gid } = task
-    return api.pauseTask({ gid })
-      .catch(() => {
-        return api.forcePauseTask({ gid })
-      })
       .finally(() => {
         dispatch('fetchList')
         dispatch('saveSession')
       })
+  },
+  pauseTask ({ dispatch }, task) {
+    const { gid } = task
+    const isBT = checkTaskIsBT(task)
+    const promise = isBT ? api.forcePauseTask({ gid }) : api.pauseTask({ gid })
+    promise.finally(() => {
+      dispatch('fetchList')
+      dispatch('saveSession')
+    })
+    return promise
   },
   resumeTask ({ dispatch }, task) {
     const { gid } = task
@@ -185,7 +188,7 @@ const actions = {
     const list = [...seedingList.slice(0, idx), ...seedingList.slice(idx + 1)]
     commit('UPDATE_SEEDING_LIST', list)
   },
-  stopSeeding ({ dispatch }, gid) {
+  stopSeeding ({ dispatch }, { gid }) {
     const options = {
       seedTime: 0
     }

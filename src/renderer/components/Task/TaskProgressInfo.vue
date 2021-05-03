@@ -2,8 +2,8 @@
   <el-row class="task-progress-info">
     <el-col :span="8" class="task-progress-info-left">
       <div v-if="task.completedLength > 0 || task.totalLength > 0">
-      <span>{{ task.completedLength | bytesToSize }}</span>
-      <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize }}</span>
+        <span>{{ task.completedLength | bytesToSize }}</span>
+        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize }}</span>
       </div>
     </el-col>
     <el-col :span="16" class="task-progress-info-right">
@@ -29,6 +29,10 @@
             })
           }}
         </span>
+        <span class="task-speed-text" v-if="isBT">
+          <i><mo-icon name="magnet" width="10" height="10" /></i>
+          <i>{{ task.numSeeders }}</i>
+        </span>
         <span class="task-speed-text">
           <i><mo-icon name="node" width="10" height="10" /></i>
           <i>{{ task.connections }}</i>
@@ -50,6 +54,7 @@
   import '@/components/Icons/arrow-up'
   import '@/components/Icons/arrow-down'
   import '@/components/Icons/node'
+  import '@/components/Icons/magnet'
 
   export default {
     name: 'mo-task-progress-info',
@@ -81,30 +86,30 @@
 </script>
 
 <style lang="scss">
-  .task-progress-info {
-    font-size: 12px;
-    line-height: 14px;
-    min-height: 14px;
-    color: #9B9B9B;
-    margin-top: 8px;
-    i {
-      font-style: normal;
+.task-progress-info {
+  font-size: 12px;
+  line-height: 14px;
+  min-height: 14px;
+  color: #9B9B9B;
+  margin-top: 8px;
+  i {
+    font-style: normal;
+  }
+}
+.task-progress-info-left {
+  min-height: 14px;
+  text-align: left;
+}
+.task-progress-info-right {
+  min-height: 14px;
+  text-align: right;
+}
+.task-speed-info {
+  & > .task-speed-text {
+    margin-left: 8px;
+    & > i {
+      vertical-align: middle;
     }
   }
-  .task-progress-info-left {
-    min-height: 14px;
-    text-align: left;
-  }
-  .task-progress-info-right {
-    min-height: 14px;
-    text-align: right;
-  }
-  .task-speed-info {
-    & > .task-speed-text {
-      margin-left: 8px;
-      & > i {
-        vertical-align: middle;
-      }
-    }
-  }
+}
 </style>

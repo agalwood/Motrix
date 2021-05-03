@@ -58,13 +58,14 @@
           this.toggleTask()
         }
       },
-      openTask () {
+      async openTask () {
         const { taskName } = this
         this.$msg.info(this.$t('task.opening-task-message', { taskName }))
         const fullPath = getTaskFullPath(this.task)
-        openItem(fullPath, {
-          errorMsg: this.$t('task.file-not-exist')
-        })
+        const result = await openItem(fullPath)
+        if (result) {
+          this.$msg.error(this.$t('task.file-not-exist'))
+        }
       },
       toggleTask () {
         this.$store.dispatch('task/toggleTask', this.task)

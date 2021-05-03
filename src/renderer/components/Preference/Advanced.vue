@@ -333,6 +333,7 @@
 
 <script>
   import is from 'electron-is'
+  import { dialog } from '@electron/remote'
   import { mapState } from 'vuex'
   import { cloneDeep } from 'lodash'
   import randomize from 'randomatic'
@@ -523,7 +524,7 @@
         }, 2000)
       },
       onSessionResetClick () {
-        this.$electron.remote.dialog.showMessageBox({
+        dialog.showMessageBox({
           type: 'warning',
           title: this.$t('preferences.session-reset'),
           message: this.$t('preferences.session-reset-confirm'),
@@ -540,7 +541,7 @@
         })
       },
       onFactoryResetClick () {
-        this.$electron.remote.dialog.showMessageBox({
+        dialog.showMessageBox({
           type: 'warning',
           title: this.$t('preferences.factory-reset'),
           message: this.$t('preferences.factory-reset-confirm'),
