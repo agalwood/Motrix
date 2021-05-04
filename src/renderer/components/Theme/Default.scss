@@ -133,6 +133,10 @@ iframe {
   }
 }
 
+.el-drawer__container {
+  outline: none;
+}
+
 /* App Main
 -------------------------- */
 #app,
@@ -250,6 +254,17 @@ iframe {
   background: $--form-actions-background;
 }
 
+.mo-table-wrapper {
+  border: 1px solid $--table-border-color;
+  border-bottom: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin-bottom: 0.5rem;
+  .el-table th {
+    padding: 2px 0;
+  }
+}
+
 .graphic-box {
   padding: 0.5rem;
   margin-bottom: 1.5rem;
@@ -257,6 +272,11 @@ iframe {
   line-height: 0;
   border: 1px solid $--task-detail-box-border;
   border-radius: $--border-radius-base;
+}
+
+.form-static-value {
+  word-break: break-all;
+  color: $--input-font-color;
 }
 
 @media only screen and (max-width:567px) {

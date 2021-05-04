@@ -1,11 +1,15 @@
 import api from '@/api'
-import { TASK_STATUS } from '@shared/constants'
+import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
 import { checkTaskIsBT, intersection } from '@shared/utils'
 
 const state = {
   currentList: 'active',
-  taskItemInfoVisible: false,
+  taskDetailVisible: false,
+  currentTaskGid: EMPTY_STRING,
+  enabledFetchPeers: false,
   currentTaskItem: null,
+  currentTaskFiles: [],
+  currentTaskPeers: [],
   seedingList: [],
   taskList: [],
   selectedGidList: []
@@ -27,11 +31,23 @@ const mutations = {
   CHANGE_CURRENT_LIST (state, currentList) {
     state.currentList = currentList
   },
-  CHANGE_TASK_ITEM_INFO_VISIBLE (state, visible) {
-    state.taskItemInfoVisible = visible
+  CHANGE_TASK_DETAIL_VISIBLE (state, visible) {
+    state.taskDetailVisible = visible
+  },
+  UPDATE_CURRENT_TASK_GID (state, gid) {
+    state.currentTaskGid = gid
+  },
+  UPDATE_ENABLED_FETCH_PEERS (state, enabled) {
+    state.enabledFetchPeers = enabled
   },
   UPDATE_CURRENT_TASK_ITEM (state, task) {
     state.currentTaskItem = task
+  },
+  UPDATE_CURRENT_TASK_FILES (state, files) {
+    state.currentTaskFiles = files
+  },
+  UPDATE_CURRENT_TASK_PEERS (state, peers) {
+    state.currentTaskPeers = peers
   }
 }
 
@@ -65,15 +81,36 @@ const actions = {
         dispatch('updateCurrentTaskItem', data)
       })
   },
-  showTaskItemInfoDialog ({ commit, dispatch }, task) {
-    dispatch('updateCurrentTaskItem', task)
-    commit('CHANGE_TASK_ITEM_INFO_VISIBLE', true)
+  fetchItemWithPeers ({ dispatch }, gid) {
+    return api.fetchTaskItemWithPeers({ gid })
+      .then((data) => {
+        console.log('fetchItemWithPeers===>', data)
+        dispatch('updateCurrentTaskItem', data)
+      })
   },
-  hideTaskItemInfoDialog ({ commit }) {
-    commit('CHANGE_TASK_ITEM_INFO_VISIBLE', false)
+  showTaskDetail ({ commit, dispatch }, task) {
+    dispatch('updateCurrentTaskItem', task)
+    commit('UPDATE_CURRENT_TASK_GID', task.gid)
+    commit('CHANGE_TASK_DETAIL_VISIBLE', true)
+  },
+  hideTaskDetail ({ commit }) {
+    commit('CHANGE_TASK_DETAIL_VISIBLE', false)
+  },
+  toggleEnabledFetchPeers ({ commit }, enabled) {
+    commit('UPDATE_ENABLED_FETCH_PEERS', enabled)
   },
   updateCurrentTaskItem ({ commit }, task) {
     commit('UPDATE_CURRENT_TASK_ITEM', task)
+    if (task) {
+      commit('UPDATE_CURRENT_TASK_FILES', task.files)
+      commit('UPDATE_CURRENT_TASK_PEERS', task.peers)
+    } else {
+      commit('UPDATE_CURRENT_TASK_FILES', [])
+      commit('UPDATE_CURRENT_TASK_PEERS', [])
+    }
+  },
+  updateCurrentTaskGid ({ commit }, gid) {
+    commit('UPDATE_CURRENT_TASK_GID', gid)
   },
   addUri ({ dispatch }, data) {
     const { uris, outs, options } = data

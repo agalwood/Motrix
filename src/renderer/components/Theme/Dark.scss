@@ -59,6 +59,7 @@
   .form-actions {
     background: $--dk-form-actions-background;
   }
+
   .panel {
     background-color: $--dk-panel-background;
   }
@@ -98,11 +99,15 @@
 
   .mo-speedometer {
     background-color: $--dk-speedometer-background;
-    border-color: #5f5f5f;
+    border-color: $--dk-speedometer-border-color;
   }
 
   .no-task {
     color: $--dk-no-task-color;
+  }
+
+  .mo-table-wrapper {
+    border-color: $--dk-table-border-color;
   }
 
   .graphic-box {
@@ -112,6 +117,10 @@
 
   .graphic-atom-s1 {
     fill: $--dk-graphic-atom-color-1;
+  }
+
+  .form-static-value {
+    color: #e7e7e7;
   }
 
   /* Element UI
@@ -399,4 +408,14 @@
       }
     }
   }
+
+  /* Divider */
+  .el-divider {
+    background-color: #666;
+  }
+  .el-divider__text {
+    background-color: $--dk-panel-background;
+    color: #a7a7a7;
+  }
+
 }

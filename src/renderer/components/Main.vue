@@ -5,7 +5,13 @@
     <mo-speedometer />
     <mo-add-task :visible="addTaskVisible" :type="addTaskType" />
     <mo-about-panel :visible="aboutPanelVisible" />
-    <mo-task-item-info :visible="taskItemInfoVisible" :task="currentTaskItem" />
+    <mo-task-detail
+      :visible="taskDetailVisible"
+      :gid="currentTaskGid"
+      :task="currentTaskItem"
+      :files="currentTaskFiles"
+      :peers="currentTaskPeers"
+    />
     <mo-dragger />
   </el-container>
 </template>
@@ -16,7 +22,7 @@
   import Aside from '@/components/Aside/Index'
   import Speedometer from '@/components/Speedometer/Speedometer'
   import AddTask from '@/components/Task/AddTask'
-  import TaskItemInfo from '@/components/Task/TaskItemInfo'
+  import TaskDetail from '@/components/TaskDetail/Index'
   import Dragger from '@/components/Dragger/Index'
 
   export default {
@@ -26,7 +32,7 @@
       [Aside.name]: Aside,
       [Speedometer.name]: Speedometer,
       [AddTask.name]: AddTask,
-      [TaskItemInfo.name]: TaskItemInfo,
+      [TaskDetail.name]: TaskDetail,
       [Dragger.name]: Dragger
     },
     computed: {
@@ -36,8 +42,11 @@
         addTaskType: state => state.addTaskType
       }),
       ...mapState('task', {
-        taskItemInfoVisible: state => state.taskItemInfoVisible,
-        currentTaskItem: state => state.currentTaskItem
+        taskDetailVisible: state => state.taskDetailVisible,
+        currentTaskGid: state => state.currentTaskGid,
+        currentTaskItem: state => state.currentTaskItem,
+        currentTaskFiles: state => state.currentTaskFiles,
+        currentTaskPeers: state => state.currentTaskPeers
       })
     },
     methods: {

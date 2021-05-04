@@ -255,6 +255,30 @@ export default class Api {
     return this.client.call('tellStatus', ...args)
   }
 
+  fetchTaskItemWithPeers (params = {}) {
+    const { gid, keys } = params
+    const statusArgs = compactUndefined([gid, keys])
+    const peersArgs = compactUndefined([gid])
+    return new Promise((resolve, reject) => {
+      this.client.multicall([
+        ['aria2.tellStatus', ...statusArgs],
+        ['aria2.getPeers', ...peersArgs]
+      ]).then((data) => {
+        console.log('[Motrix] fetchTaskItemWithPeers:', data)
+        const result = data[0] && data[0][0]
+        const peers = data[1] && data[1][0]
+        result.peers = peers || []
+        console.log('[Motrix] fetchTaskItemWithPeers.result:', result)
+        console.log('[Motrix] fetchTaskItemWithPeers.peers:', peers)
+
+        resolve(result)
+      }).catch((err) => {
+        console.log('[Motrix] fetch downloading task list fail:', err)
+        reject(err)
+      })
+    })
+  }
+
   fetchTaskItemPeers (params = {}) {
     const { gid, keys } = params
     const args = compactUndefined([gid, keys])

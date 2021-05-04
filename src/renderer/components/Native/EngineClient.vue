@@ -10,7 +10,7 @@
     getTaskFullPath,
     showItemInFolder
   } from '@/utils/native'
-  import { getTaskName } from '@shared/utils'
+  import { checkTaskIsBT, getTaskName } from '@shared/utils'
 
   export default {
     name: 'mo-engine-client',
@@ -26,12 +26,17 @@
       ...mapState('task', {
         messages: state => state.messages,
         seedingList: state => state.seedingList,
-        taskItemInfoVisible: state => state.taskItemInfoVisible,
+        taskDetailVisible: state => state.taskDetailVisible,
+        enabledFetchPeers: state => state.enabledFetchPeers,
+        currentTaskGid: state => state.currentTaskGid,
         currentTaskItem: state => state.currentTaskItem
       }),
       ...mapState('preference', {
         taskNotification: state => state.config.taskNotification
-      })
+      }),
+      currentTaskIsBT () {
+        return checkTaskIsBT(this.currentTaskItem)
+      }
     },
     watch: {
       speed (val) {
@@ -219,8 +224,12 @@
         this.$store.dispatch('app/fetchGlobalStat')
         this.$store.dispatch('task/fetchList')
 
-        if (this.taskItemInfoVisible && this.currentTaskItem) {
-          this.$store.dispatch('task/fetchItem', this.currentTaskItem.gid)
+        if (this.taskDetailVisible && this.currentTaskGid) {
+          if (this.currentTaskIsBT && this.enabledFetchPeers) {
+            this.$store.dispatch('task/fetchItemWithPeers', this.currentTaskGid)
+          } else {
+            this.$store.dispatch('task/fetchItem', this.currentTaskGid)
+          }
         }
       },
       stopPolling () {
