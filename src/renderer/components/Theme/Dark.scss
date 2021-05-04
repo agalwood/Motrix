@@ -105,6 +105,15 @@
     color: $--dk-no-task-color;
   }
 
+  .graphic-box {
+    border-color: $--dk-task-detail-box-border;
+    background-color: $--dk-graphic-box-background;
+  }
+
+  .graphic-atom-s1 {
+    fill: $--dk-graphic-atom-color-1;
+  }
+
   /* Element UI
   -------------------------- */
   .el-progress-bar__outer {
