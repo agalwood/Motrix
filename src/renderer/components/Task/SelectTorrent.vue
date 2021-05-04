@@ -33,7 +33,7 @@
         </span>
       </el-col>
     </el-row>
-    <mo-file-list
+    <mo-task-files
       ref="torrentFileList"
       mode="add"
       :files="files"
@@ -45,7 +45,7 @@
 <script>
   import { mapState } from 'vuex'
   import parseTorrent from 'parse-torrent'
-  import FileList from '@/components/Task/FileList'
+  import TaskFiles from '@/components/TaskDetail/TaskFiles'
   import '@/components/Icons/inbox'
   import {
     EMPTY_STRING,
@@ -63,7 +63,7 @@
   export default {
     name: 'mo-select-torrent',
     components: {
-      [FileList.name]: FileList
+      [TaskFiles.name]: TaskFiles
     },
     filters: {
       bytesToSize,
@@ -137,7 +137,6 @@
         this.$store.dispatch('app/addTaskAddTorrents', { fileList: [] })
       },
       handleSelectionChange (val) {
-        console.log('handleSelectionChange===>', val)
         const { currentTorrent } = this
         this.$emit('change', currentTorrent, val)
       }

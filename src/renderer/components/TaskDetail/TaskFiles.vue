@@ -1,6 +1,6 @@
 <template>
-  <div class="file-list">
-    <div class="file-table-wrapper">
+  <div class="mo-task-files" v-if="files">
+    <div class="mo-table-wrapper">
       <el-table
         stripe
         ref="torrentTable"
@@ -16,6 +16,7 @@
         </el-table-column>
         <el-table-column
           :label="$t('task.file-name')"
+          min-width="250"
           show-overflow-tooltip>
           <template slot-scope="scope">{{ scope.row.name }}</template>
         </el-table-column>
@@ -26,12 +27,14 @@
         </el-table-column>
         <el-table-column
           :label="$t('task.file-size')"
+          align="right"
           width="90">
           <template slot-scope="scope">{{ scope.row.length | bytesToSize }}</template>
         </el-table-column>
         <el-table-column
           v-if="mode === 'detail'"
           :label="$t('task.file-completed-size')"
+          align="right"
           width="90">
           <template slot-scope="scope">{{ scope.row.completedLength | bytesToSize }}</template>
         </el-table-column>
@@ -76,7 +79,7 @@
   } from '@shared/utils'
 
   export default {
-    name: 'mo-file-list',
+    name: 'mo-task-files',
     components: {
     },
     filters: {
@@ -133,10 +136,6 @@
       }
     },
     watch: {
-      selectedFiles (val) {
-        console.log('this.files', this.files)
-        console.log('selectedFiles===>', val)
-      },
       selectedFileIndex () {
         const { selectedFileIndex } = this
         this.$emit('selection-change', selectedFileIndex)
@@ -191,16 +190,6 @@
 .file-filters {
   button {
     font-size: 0;
-  }
-}
-.file-table-wrapper {
-  border: 1px solid #ebeef5;
-  border-bottom: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  margin-bottom: 8px;
-  .el-table th {
-    padding: 2px 0;
   }
 }
 </style>
