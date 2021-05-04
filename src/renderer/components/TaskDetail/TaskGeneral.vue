@@ -128,7 +128,6 @@
     methods: {
       handleCopyClick () {
         const { task } = this
-        console.log('handleCopyClick===>', task)
         const uri = getTaskUri(task)
         clipboard.writeText(uri)
           .then(() => {

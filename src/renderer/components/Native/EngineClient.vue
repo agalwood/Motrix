@@ -63,7 +63,6 @@
         this.$store.dispatch('task/fetchList')
         this.$store.dispatch('app/resetInterval')
         this.$store.dispatch('task/saveSession')
-        console.log('aria2 onDownloadStart', event)
         const [{ gid }] = event
         const { seedingList } = this
         if (seedingList.includes(gid)) {
@@ -78,7 +77,6 @@
           })
       },
       onDownloadPause (event) {
-        console.log('aria2 onDownloadPause')
         const [{ gid }] = event
         const { seedingList } = this
         if (seedingList.includes(gid)) {
@@ -93,7 +91,6 @@
           })
       },
       onDownloadStop (event) {
-        console.log('aria2 onDownloadStop')
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
           .then((task) => {
@@ -121,7 +118,6 @@
           })
       },
       onDownloadComplete (event) {
-        console.log('aria2 onDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
         this.$store.dispatch('task/removeFromSeedingList', gid)
@@ -132,7 +128,6 @@
           })
       },
       onBtDownloadComplete (event) {
-        console.log('aria2 onBtDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
         const { seedingList } = this
