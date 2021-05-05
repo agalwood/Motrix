@@ -11,9 +11,10 @@ import {
   parseInt,
   pick
 } from 'lodash'
+import bitTorrentPeerId from 'bittorrent-peerid'
 
 import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
-import { APP_THEME, ENGINE_RPC_HOST } from '@shared/constants'
+import { APP_THEME, ENGINE_RPC_HOST, GRAPHIC, UNKNOWN_PEERID } from '@shared/constants'
 
 export function bytesToSize (bytes) {
   const b = parseInt(bytes, 10)
@@ -24,6 +25,49 @@ export function bytesToSize (bytes) {
   return `${(b / (1024 ** i)).toFixed(1)} ${sizes[i]}`
 }
 
+export function bitfieldToPercent (text) {
+  const len = text.length - 1
+  let p
+  let one = 0
+  for (let i = 0; i < len; i++) {
+    p = parseInt(text[i], 16)
+    for (let j = 0; j < 4; j++) {
+      one += (p & 1)
+      p >>= 1
+    }
+  }
+  return Math.floor(one / (4 * len) * 100).toString()
+}
+
+export function bitfieldToGraphic (text) {
+  const len = text.length
+  let result = ''
+  for (let i = 0; i < len; i++) {
+    result += GRAPHIC[Math.floor(parseInt(text[i], 16) / 4)] + ' '
+  }
+  return result
+}
+
+export function peerIdParser (str) {
+  str = unescape(str)
+  const buffer = Buffer.from(str, 'binary')
+
+  if (buffer === UNKNOWN_PEERID) {
+    return 'unknown'
+  }
+  let parsed = {}
+  try {
+    parsed = bitTorrentPeerId(buffer)
+  } catch (e) {
+    console.log('peerIdParser.fail', e)
+  }
+
+  const result = parsed.version
+    ? `${parsed.client} v${parsed.version}`
+    : parsed.client
+  return result
+}
+
 export function calcProgress (totalLength, completedLength) {
   const total = parseInt(totalLength, 10)
   const completed = parseInt(completedLength, 10)
@@ -32,6 +76,18 @@ export function calcProgress (totalLength, completedLength) {
   }
   const percentage = completed / total * 100
   const result = parseFloat(percentage.toFixed(2))
+  return result
+}
+
+export function calcRatio (totalLength, uploadLength) {
+  const total = parseInt(totalLength, 10)
+  const upload = parseInt(uploadLength, 10)
+  if (total === 0 || upload === 0) {
+    return 0
+  }
+
+  const percentage = upload / total
+  const result = parseFloat(percentage.toFixed(4))
   return result
 }
 
@@ -85,6 +141,25 @@ export function timeFormat (seconds, { prefix = '', suffix = '', i18n }) {
   return result ? `${prefix} ${result} ${suffix}` : result
 }
 
+export function localeDateTimeFormat (timestamp, locale) {
+  if (!timestamp) {
+    return ''
+  }
+
+  if (`${timestamp}`.length === 10) {
+    timestamp *= 1000
+  }
+  const date = new Date(timestamp)
+  return date.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric'
+  })
+}
+
 export function ellipsis (str = '', maxLen = 64) {
   const len = str.length
   let result = str
@@ -117,14 +192,14 @@ export function getTaskName (task, options = {}) {
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
     result = ellipsis(bittorrent.info.name, maxLen)
   } else if (total === 1) {
-    result = getFileName(files[0])
+    result = getFileNameFromFile(files[0])
     result = ellipsis(result, maxLen)
   }
 
   return result
 }
 
-export function getFileName (file) {
+export function getFileNameFromFile (file) {
   if (!file) {
     return ''
   }
@@ -153,11 +228,11 @@ export function checkTaskIsSeeder (task) {
   return !!bittorrent && seeder === 'true'
 }
 
-export function getTaskUri (task, btTracker = []) {
+export function getTaskUri (task, withTracker = false) {
   const { files } = task
   let result = ''
   if (checkTaskIsBT(task)) {
-    result = buildMagnetLink(task, btTracker)
+    result = buildMagnetLink(task, withTracker)
     return result
   }
 
@@ -169,10 +244,9 @@ export function getTaskUri (task, btTracker = []) {
   return result
 }
 
-export function buildMagnetLink (task, btTracker = []) {
+export function buildMagnetLink (task, withTracker = false, btTracker = []) {
   const { bittorrent, infoHash } = task
-  const { announceList, info } = bittorrent
-  const trackers = difference(announceList, btTracker)
+  const { info } = bittorrent
 
   const params = [
     `magnet:?xt=urn:btih:${infoHash}`
@@ -181,9 +255,12 @@ export function buildMagnetLink (task, btTracker = []) {
     params.push(`dn=${encodeURI(info.name)}`)
   }
 
-  trackers.forEach((tracker) => {
-    params.push(`tr=${encodeURI(tracker)}`)
-  })
+  if (withTracker) {
+    const trackers = difference(bittorrent.announceList, btTracker)
+    trackers.forEach((tracker) => {
+      params.push(`tr=${encodeURI(tracker)}`)
+    })
+  }
 
   const result = params.join('&')
 
@@ -201,7 +278,7 @@ export function checkTaskTitleIsEmpty (task) {
   return result === ''
 }
 
-export function checkTaskIsBT (task) {
+export function checkTaskIsBT (task = {}) {
   const { bittorrent } = task
   return !!bittorrent
 }
@@ -487,6 +564,11 @@ export function listTorrentFiles (files) {
     return item
   })
   return result
+}
+
+export function getFileName (fullPath) {
+  // eslint-disable-next-line
+  return fullPath.replace(/^.*[\\\/]/, '')
 }
 
 export function getFileExtension (filename) {

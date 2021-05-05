@@ -11,7 +11,7 @@
         { "id": "app.hide-others", "role": "hideothers" },
         { "id": "app.unhide", "role": "unhide" },
         { "type": "separator" },
-        { "id": "app.quit", "command": "application:quit" }
+        { "id": "app.quit", "role": "quit" }
       ]
     },
     {

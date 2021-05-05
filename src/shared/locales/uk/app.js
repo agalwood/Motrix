@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Список завдань',
+  'task-list': 'Завдання',
   'add-task': 'Додати завдання',
   'about': 'Про Motrix',
   'preferences': 'Налаштування...',

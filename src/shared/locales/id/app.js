@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Daftar Tugas',
+  'task-list': 'Tugas',
   'add-task': 'Tambah Tugas',
   'about': 'Tentang Motrix',
   'preferences': 'Preferensi...',

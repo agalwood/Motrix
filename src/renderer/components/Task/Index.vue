@@ -171,35 +171,33 @@
             return this.removeTaskRecordItem(task, taskName)
           })
       },
-      removeTaskItem (task, taskName) {
-        return this.$store.dispatch('task/removeTask', task)
-          .then(() => {
-            this.$msg.success(this.$t('task.delete-task-success', {
+      async removeTaskItem (task, taskName) {
+        try {
+          await this.$store.dispatch('task/removeTask', task)
+          this.$msg.success(this.$t('task.delete-task-success', {
+            taskName
+          }))
+        } catch ({ code }) {
+          if (code === 1) {
+            this.$msg.error(this.$t('task.delete-task-fail', {
               taskName
             }))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.delete-task-fail', {
-                taskName
-              }))
-            }
-          })
+          }
+        }
       },
-      removeTaskRecordItem (task, taskName) {
-        return this.$store.dispatch('task/removeTaskRecord', task)
-          .then(() => {
-            this.$msg.success(this.$t('task.remove-record-success', {
+      async removeTaskRecordItem (task, taskName) {
+        try {
+          await this.$store.dispatch('task/removeTaskRecord', task)
+          this.$msg.success(this.$t('task.remove-record-success', {
+            taskName
+          }))
+        } catch ({ code }) {
+          if (code === 1) {
+            this.$msg.error(this.$t('task.remove-record-fail', {
               taskName
             }))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.remove-record-fail', {
-                taskName
-              }))
-            }
-          })
+          }
+        }
       },
       removeTasks (taskList, isRemoveWithFiles = false) {
         const gids = taskList.map((task) => task.gid)
@@ -380,7 +378,7 @@
       },
       handleShowTaskInfo (payload) {
         const { task } = payload
-        this.$store.dispatch('task/showTaskItemInfoDialog', task)
+        this.$store.dispatch('task/showTaskDetail', task)
       }
     },
     created () {

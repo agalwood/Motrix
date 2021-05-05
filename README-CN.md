@@ -94,6 +94,7 @@ Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能�
 - 🔔 下载完成后通知
 - 💻 支持触控栏快捷键 (Mac 专享)
 - 🤖 常驻系统托盘，操作更加便捷
+- 📟 系统托盘速度仪表显示实时速度 (Mac 专享)
 - 🌑 深色模式
 - 🗑 移除任务时可同时删除相关文件
 - 🌍 国际化，[查看已可选的语言](#-国际化)
@@ -165,7 +166,7 @@ yarn run build
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| ar    | Arabic              |    [@hadialqattan](https://github.com/hadialqattan), [AhmedElTabarani](https://github.com/AhmedElTabarani) |
+| ar    | Arabic              |    [@hadialqattan](https://github.com/hadialqattan), [@AhmedElTabarani](https://github.com/AhmedElTabarani) |
 | bg    | Българският език    | ✔️ [@null-none](https://github.com/null-none) |
 | ca    | Català              | ✔️ [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |

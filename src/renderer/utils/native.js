@@ -5,7 +5,7 @@ import { resolve } from 'path'
 import { Message } from 'element-ui'
 
 import {
-  getFileName,
+  getFileNameFromFile,
   isMagnetTask,
   getSystemMajorVersion
 } from '@shared/utils'
@@ -36,18 +36,6 @@ export const openItem = async (fullPath) => {
   return result
 }
 
-// export const openItem = (fullPath, { errorMsg }) = {
-//   if (!fullPath) {
-//     return
-//   }
-//   const result = await shell.openPath(fullPath)
-
-//   if (!result && errorMsg) {
-//     Message.error(errorMsg)
-//   }
-//   return result
-// }
-
 export function getTaskFullPath (task) {
   const { dir, files, bittorrent } = task
   let result = resolve(dir)
@@ -70,7 +58,7 @@ export function getTaskFullPath (task) {
     result = path
   } else {
     if (files && files.length === 1) {
-      fileName = getFileName(file)
+      fileName = getFileNameFromFile(file)
       if (fileName) {
         result = resolve(result, fileName)
       }
@@ -101,7 +89,9 @@ export function moveTaskFilesToTrash (task) {
   access(path, constants.F_OK, (err) => {
     console.log(`[Motrix] ${path} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
-      deleteResult1 = shell.trashItem(path)
+      // Electron >= 12.x
+      // deleteResult1 = shell.trashItem(path)
+      deleteResult1 = shell.moveItemToTrash(path)
     }
   })
 
@@ -115,7 +105,9 @@ export function moveTaskFilesToTrash (task) {
   access(extraFilePath, constants.F_OK, (err) => {
     console.log(`[Motrix] ${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
-      deleteResult2 = shell.trashItem(extraFilePath)
+      // Electron >= 12.x
+      // deleteResult2 = shell.trashItem(extraFilePath)
+      deleteResult2 = shell.moveItemToTrash(extraFilePath)
     }
   })
 

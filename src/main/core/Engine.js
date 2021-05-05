@@ -56,11 +56,11 @@ export default class Engine {
 
     if (is.dev()) {
       this.instance.stdout.on('data', function (data) {
-        console.log('[Motrix] engine stdout===>', data.toString())
+        logger.log('[Motrix] engine stdout===>', data.toString())
       })
 
       this.instance.stderr.on('data', function (data) {
-        console.log('[Motrix] engine stderr===>', data.toString())
+        logger.log('[Motrix] engine stderr===>', data.toString())
       })
     }
   }

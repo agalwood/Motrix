@@ -563,7 +563,7 @@
       submitForm (formName) {
         this.$refs[formName].validate((valid) => {
           if (!valid) {
-            console.log('[Motrix] preference form valid:', valid)
+            console.error('[Motrix] preference form valid:', valid)
             return false
           }
 

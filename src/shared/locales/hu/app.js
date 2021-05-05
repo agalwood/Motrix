@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Feladat lista',
+  'task-list': 'Feladatok',
   'add-task': 'Feladat hozzáadasa',
   'about': 'Motrix névjegye',
   'preferences': 'Beálittasok...',

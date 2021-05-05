@@ -29,6 +29,9 @@ export const TASK_STATUS = {
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 
+export const UNKNOWN_PEERID = '%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00'
+export const GRAPHIC = '░▒▓█'
+
 /**
  * @see https://github.com/ngosang/trackerslist
  */

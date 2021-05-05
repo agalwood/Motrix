@@ -10,7 +10,7 @@
     getTaskFullPath,
     showItemInFolder
   } from '@/utils/native'
-  import { getTaskName } from '@shared/utils'
+  import { checkTaskIsBT, getTaskName } from '@shared/utils'
 
   export default {
     name: 'mo-engine-client',
@@ -26,12 +26,17 @@
       ...mapState('task', {
         messages: state => state.messages,
         seedingList: state => state.seedingList,
-        taskItemInfoVisible: state => state.taskItemInfoVisible,
+        taskDetailVisible: state => state.taskDetailVisible,
+        enabledFetchPeers: state => state.enabledFetchPeers,
+        currentTaskGid: state => state.currentTaskGid,
         currentTaskItem: state => state.currentTaskItem
       }),
       ...mapState('preference', {
         taskNotification: state => state.config.taskNotification
-      })
+      }),
+      currentTaskIsBT () {
+        return checkTaskIsBT(this.currentTaskItem)
+      }
     },
     watch: {
       speed (val) {
@@ -58,7 +63,6 @@
         this.$store.dispatch('task/fetchList')
         this.$store.dispatch('app/resetInterval')
         this.$store.dispatch('task/saveSession')
-        console.log('aria2 onDownloadStart', event)
         const [{ gid }] = event
         const { seedingList } = this
         if (seedingList.includes(gid)) {
@@ -73,7 +77,6 @@
           })
       },
       onDownloadPause (event) {
-        console.log('aria2 onDownloadPause')
         const [{ gid }] = event
         const { seedingList } = this
         if (seedingList.includes(gid)) {
@@ -88,7 +91,6 @@
           })
       },
       onDownloadStop (event) {
-        console.log('aria2 onDownloadStop')
         const [{ gid }] = event
         this.fetchTaskItem({ gid })
           .then((task) => {
@@ -116,7 +118,6 @@
           })
       },
       onDownloadComplete (event) {
-        console.log('aria2 onDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
         this.$store.dispatch('task/removeFromSeedingList', gid)
@@ -127,7 +128,6 @@
           })
       },
       onBtDownloadComplete (event) {
-        console.log('aria2 onBtDownloadComplete')
         this.$store.dispatch('task/fetchList')
         const [{ gid }] = event
         const { seedingList } = this
@@ -219,8 +219,12 @@
         this.$store.dispatch('app/fetchGlobalStat')
         this.$store.dispatch('task/fetchList')
 
-        if (this.taskItemInfoVisible && this.currentTaskItem) {
-          this.$store.dispatch('task/fetchItem', this.currentTaskItem.gid)
+        if (this.taskDetailVisible && this.currentTaskGid) {
+          if (this.currentTaskIsBT && this.enabledFetchPeers) {
+            this.$store.dispatch('task/fetchItemWithPeers', this.currentTaskGid)
+          } else {
+            this.$store.dispatch('task/fetchItem', this.currentTaskGid)
+          }
         }
       },
       stopPolling () {

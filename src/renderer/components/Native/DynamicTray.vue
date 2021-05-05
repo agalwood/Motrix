@@ -88,7 +88,6 @@
           scale,
           iconKey
         } = this
-        console.log('currentTheme====>', theme, iconKey)
 
         const icon = await this.getIcon(iconKey)
 
