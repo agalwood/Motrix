@@ -4,7 +4,7 @@
 
 ## 🌍 翻译指南
 
-首先你要确定一个语言的英文简写作为 **locale**，如 en-US，这个 locale 值请严格参考 [Electron 的 Locales 文档](https://electronjs.org/docs/api/locales)
+首先你要确定一个语言的英文简写作为 **locale**，如 en-US，这个 locale 值请严格参考 [Electron 的 Locales 文档](https://www.electronjs.org/docs/api/app#appgetlocale)
 
 Motrix 的国际化分两部分：
 
