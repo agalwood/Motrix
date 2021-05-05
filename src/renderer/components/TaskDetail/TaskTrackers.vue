@@ -11,8 +11,8 @@
     >
       <el-input
         readonly
+        autosize
         type="textarea"
-        :autosize="{ minRows: 12, maxRows: 24}"
         auto-complete="off"
         v-model="announceList">
       </el-input>

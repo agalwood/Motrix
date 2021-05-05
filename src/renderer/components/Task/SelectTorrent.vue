@@ -35,8 +35,9 @@
     </el-row>
     <mo-task-files
       ref="torrentFileList"
-      mode="add"
+      mode="ADD"
       :files="files"
+      :height="200"
       @selection-change="handleSelectionChange"
     />
   </div>

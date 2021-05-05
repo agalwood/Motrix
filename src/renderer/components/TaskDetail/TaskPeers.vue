@@ -5,12 +5,11 @@
         stripe
         ref="peerTable"
         style="width: 100%"
-        height="61.8vh"
         :data="peers"
       >
         <el-table-column
           :label="`${$t('task.task-peer-host')}: `"
-          min-width="150">
+          min-width="145">
           <template slot-scope="scope">
             {{ `${scope.row.ip}:${scope.row.port}` }}
           </template>
@@ -25,7 +24,7 @@
         <el-table-column
           :label="`%`"
           align="right"
-          width="50">
+          width="45">
           <template slot-scope="scope">
             {{ scope.row.bitfield | bitfieldToPercent }}%
           </template>
@@ -33,7 +32,7 @@
         <el-table-column
           :label="`↑`"
           align="right"
-          width="100">
+          width="95">
           <template slot-scope="scope">
             {{ scope.row.uploadSpeed | bytesToSize }}/s
           </template>
@@ -41,7 +40,7 @@
         <el-table-column
           :label="`↓`"
           align="right"
-          width="100">
+          width="95">
           <template slot-scope="scope">
             {{ scope.row.downloadSpeed | bytesToSize }}/s
           </template>

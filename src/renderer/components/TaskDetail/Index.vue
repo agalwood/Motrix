@@ -23,7 +23,7 @@
       </el-tab-pane>
       <el-tab-pane name="activity" lazy>
         <span class="task-detail-tab-label" slot="label"><i class="el-icon-s-grid"></i></span>
-        <mo-task-activity :task="task" />
+        <mo-task-activity ref="taskGraphic" :task="task" />
       </el-tab-pane>
       <el-tab-pane name="trackers" lazy v-if="isBT">
         <span class="task-detail-tab-label" slot="label"><i class="el-icon-discover"></i></span>
@@ -37,19 +37,21 @@
         <span class="task-detail-tab-label" slot="label"><i class="el-icon-files"></i></span>
         <mo-task-files
           ref="detailFileList"
-          mode="detail"
-          height="38.2vh"
+          mode="DETAIL"
           :files="fileList"
           @selection-change="handleSelectionChange"
         />
       </el-tab-pane>
     </el-tabs>
+    <div class="task-detail-actions">
+      <mo-task-item-actions mode="DETAIL" :task="task" />
+    </div>
   </el-drawer>
 </template>
 
 <script>
   import is from 'electron-is'
-  import { merge } from 'lodash'
+  import { debounce, merge } from 'lodash'
   import {
     calcFormLabelWidth,
     checkTaskIsBT,
@@ -58,6 +60,7 @@
     getFileExtension
   } from '@shared/utils'
   import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
+  import TaskItemActions from '@/components/Task/TaskItemActions'
   import TaskGeneral from './TaskGeneral'
   import TaskActivity from './TaskActivity'
   import TaskTrackers from './TaskTrackers'
@@ -71,6 +74,7 @@
   export default {
     name: 'mo-task-detail',
     components: {
+      [TaskItemActions.name]: TaskItemActions,
       [TaskGeneral.name]: TaskGeneral,
       [TaskActivity.name]: TaskActivity,
       [TaskTrackers.name]: TaskTrackers,
@@ -153,8 +157,17 @@
         return result
       }
     },
+    mounted () {
+      window.addEventListener('resize', debounce(() => {
+        console.log('resize===>', this.activeTab, this.$refs.taskGraphic)
+        if (this.activeTab === 'activity' && this.$refs.taskGraphic) {
+          this.$refs.taskGraphic.updateGraphicWidth()
+        }
+      }, 300))
+    },
     destroyed () {
       cached.files = []
+      window.removeEventListener('resize')
     },
     methods: {
       handleClose (done) {
@@ -165,6 +178,7 @@
         this.$store.dispatch('task/updateCurrentTaskItem', null)
       },
       handleTabBeforeLeave (activeName, oldActiveName) {
+        this.activeTab = activeName
         if (oldActiveName !== 'peers') {
           return
         }
@@ -204,6 +218,24 @@
   .el-drawer__header {
     margin-bottom: 0;
   }
+  .el-drawer__body {
+    position: relative;
+  }
+  .task-detail-actions {
+    position: sticky;
+    left: 0;
+    bottom: 1rem;
+    z-index: inherit;
+    width: 100%;
+    text-align: center;
+    font-size: 0;
+    .task-item-actions {
+      display: inline-block;
+      &> .task-item-action {
+        margin: 0 0.5rem;
+      }
+    }
+  }
   .task-detail-drawer-title {
     &> span, &> ul {
       vertical-align: middle;
@@ -213,18 +245,24 @@
 
 .task-detail-tab {
   height: 100%;
-  padding: 0.5rem 1.25rem;
+  padding: 0.5rem 1.25rem 3.125rem;
   display: flex;
   flex-direction: column;
   .task-detail-tab-label {
     padding: 0 0.75rem;
   }
   .el-tabs__content {
+    position: relative;
     height: 100%;
   }
   .el-tab-pane {
-    height: 100%;
+    overflow-x: hidden;
     overflow-y: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 }
 </style>

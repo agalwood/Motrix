@@ -4,5 +4,6 @@
   "paused": "#737373",
   "error": "#FF6157",
   "complete": "#2ACB42",
-  "removed": "#737373"
+  "removed": "#737373",
+  "seeding": "#2ACB42"
 }

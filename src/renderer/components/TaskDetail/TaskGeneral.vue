@@ -20,6 +20,11 @@
         />
       </el-input>
     </el-form-item>
+    <el-form-item :label="`${$t('task.task-status')}: `">
+      <div class="form-static-value">
+        <mo-task-status :theme="appTheme" :status="taskStatus" />
+      </div>
+    </el-form-item>
     <el-form-item :label="`${$t('task.task-error-info')}: `" v-if="task.errorCode && task.errorCode !== '0'">
       <div class="form-static-value">
         {{ task.errorCode }} {{ task.errorMessage }}
@@ -68,24 +73,29 @@
 
 <script>
   import is from 'electron-is'
+  import { mapState } from 'vuex'
   import * as clipboard from 'clipboard-polyfill'
   import {
     bytesToSize,
     calcFormLabelWidth,
     checkTaskIsBT,
+    checkTaskIsSeeder,
     getTaskName,
     getTaskUri,
     localeDateTimeFormat
   } from '@shared/utils'
+  import { TASK_STATUS } from '@shared/constants'
   import { getTaskFullPath } from '@/utils/native'
   import ShowInFolder from '@/components/Native/ShowInFolder'
+  import TaskStatus from '@/components/Task/TaskStatus'
   import '@/components/Icons/folder'
   import '@/components/Icons/link'
 
   export default {
     name: 'mo-task-general',
     components: {
-      [ShowInFolder.name]: ShowInFolder
+      [ShowInFolder.name]: ShowInFolder,
+      [TaskStatus.name]: TaskStatus
     },
     props: {
       task: {
@@ -101,6 +111,9 @@
       }
     },
     computed: {
+      ...mapState('preference', {
+        appTheme: state => state.config.theme
+      }),
       isRenderer: () => is.renderer(),
       taskFullName () {
         return getTaskName(this.task, {
@@ -113,6 +126,17 @@
           defaultName: this.$t('task.get-task-name'),
           maxLen: 32
         })
+      },
+      isSeeder () {
+        return checkTaskIsSeeder(this.task)
+      },
+      taskStatus () {
+        const { task, isSeeder } = this
+        if (isSeeder) {
+          return TASK_STATUS.SEEDING
+        } else {
+          return task.status
+        }
       },
       path () {
         return getTaskFullPath(this.task)

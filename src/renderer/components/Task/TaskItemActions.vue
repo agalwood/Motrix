@@ -72,7 +72,10 @@
     props: {
       mode: {
         type: String,
-        default: 'LIST'
+        default: 'LIST',
+        validator: function (value) {
+          return ['LIST', 'DETAIL'].indexOf(value) !== -1
+        }
       },
       task: {
         type: Object,
@@ -101,10 +104,17 @@
         }
       },
       taskCommonActions () {
-        let result = is.renderer() ? ['FOLDER'] : []
-        result = (this.mode === 'LIST')
-          ? [...result, 'LINK', 'INFO']
-          : [...result, 'LINK']
+        const { mode } = this
+        const result = is.renderer() ? ['FOLDER'] : []
+
+        switch (mode) {
+        case 'LIST':
+          result.push('LINK', 'INFO')
+          break
+        case 'DETAIL':
+          result.push('LINK')
+          break
+        }
 
         return result
       },
@@ -185,33 +195,36 @@
 </script>
 
 <style lang="scss">
-  .task-item-actions {
-    // width: 28px;
-    height: 24px;
-    padding: 0 10px;
-    margin: 0;
-    overflow: hidden;
-    user-select: none;
-    cursor: default;
-    text-align: right;
-    direction: rtl;
-    border: 1px solid $--task-item-action-border-color;
-    color: $--task-item-action-color;
-    background-color: $--task-item-action-background;
-    border-radius: 14px;
-    transition: $--all-transition;
-    &:hover {
-      border-color: $--task-item-action-hover-border-color;
-      color: $--task-item-action-hover-color;
-      background-color: $--task-item-action-hover-background;
-      width: auto;
-    }
-    &> .task-item-action {
+.task-item-actions {
+  // width: 28px;
+  height: 24px;
+  padding: 0 10px;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+  text-align: right;
+  direction: rtl;
+  border: 1px solid $--task-item-action-border-color;
+  color: $--task-item-action-color;
+  background-color: $--task-item-action-background;
+  border-radius: 14px;
+  transition: $--all-transition;
+  &:hover {
+    border-color: $--task-item-action-hover-border-color;
+    color: $--task-item-action-hover-color;
+    background-color: $--task-item-action-hover-background;
+    width: auto;
+  }
+  &> .task-item-action {
+    display: inline-block;
+    padding: 5px;
+    margin: 0 4px;
+    font-size: 0;
+    cursor: pointer;
+    i {
       display: inline-block;
-      padding: 5px;
-      margin: 0 4px;
-      font-size: 0;
-      cursor: pointer;
     }
   }
+}
 </style>

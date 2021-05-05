@@ -31,11 +31,11 @@
         </el-row>
       </div>
     </el-form-item>
-    <el-form-item :label="`${$t('task.task-file-size')}: `">
+    <el-form-item>
       <div class="form-static-value">
         <span>{{ task.completedLength | bytesToSize }}</span>
         <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize }}</span>
-        <span class="task-time-remaining" v-if="remaining > 0">
+        <span class="task-time-remaining" v-if="isActive && remaining > 0">
           {{
             remaining | timeFormat({
               prefix: $t('task.remaining-prefix'),
@@ -48,11 +48,6 @@
             })
           }}
         </span>
-      </div>
-    </el-form-item>
-    <el-form-item :label="`${$t('task.task-status')}: `">
-      <div class="form-static-value">
-        {{ task.status }}
       </div>
     </el-form-item>
     <el-form-item :label="`${$t('task.task-num-seeders')}: `" v-if="isBT">
@@ -159,6 +154,9 @@
           return task.status
         }
       },
+      isActive () {
+        return this.taskStatus === TASK_STATUS.ACTIVE
+      },
       percent () {
         const { totalLength, completedLength } = this.task
         const percent = calcProgress(totalLength, completedLength)
@@ -184,13 +182,17 @@
     },
     mounted () {
       setImmediate(() => {
-        if (!this.$refs.graphicBox) {
-          return
-        }
-        this.graphicWidth = this.calcInnerWidth(this.$refs.graphicBox)
+        this.updateGraphicWidth()
       })
     },
     methods: {
+      updateGraphicWidth () {
+        if (!this.$refs.graphicBox) {
+          return
+        }
+        console.log('updateGraphicWidth===>', this.$refs.graphicBox)
+        this.graphicWidth = this.calcInnerWidth(this.$refs.graphicBox)
+      },
       calcInnerWidth (ele) {
         if (!ele) {
           return 0
@@ -210,6 +212,6 @@
 }
 
 .task-time-remaining {
-  margin-left: 0.5rem;
+  margin-left: 1rem;
 }
 </style>

@@ -16,7 +16,7 @@
         </el-table-column>
         <el-table-column
           :label="$t('task.file-name')"
-          min-width="250"
+          min-width="200"
           show-overflow-tooltip>
           <template slot-scope="scope">{{ scope.row.name }}</template>
         </el-table-column>
@@ -28,20 +28,20 @@
         <el-table-column
           :label="$t('task.file-size')"
           align="right"
-          width="90">
+          width="85">
           <template slot-scope="scope">{{ scope.row.length | bytesToSize }}</template>
         </el-table-column>
         <el-table-column
-          v-if="mode === 'detail'"
+          v-if="mode === 'DETAIL'"
           :label="$t('task.file-completed-size')"
           align="right"
-          width="90">
+          width="95">
           <template slot-scope="scope">{{ scope.row.completedLength | bytesToSize }}</template>
         </el-table-column>
       </el-table>
     </div>
-    <el-row :gutter="12" v-if="mode === 'add'">
-      <el-col class="file-filters" :span="8">
+    <el-row class="file-filters" :gutter="12" v-if="mode === 'ADD'">
+      <el-col class="quick-filters" :span="8">
         <el-button-group>
           <el-button @click="toggleVideoSelection()">
             <mo-icon name="video" width="12" height="12" />
@@ -80,8 +80,6 @@
 
   export default {
     name: 'mo-task-files',
-    components: {
-    },
     filters: {
       bytesToSize,
       removeExtensionDot
@@ -89,16 +87,13 @@
     props: {
       mode: {
         type: String,
-        default: 'add',
+        default: 'ADD',
         validator: function (value) {
-          return ['add', 'detail'].indexOf(value) !== -1
+          return ['ADD', 'DETAIL'].indexOf(value) !== -1
         }
       },
       height: {
-        type: [Number, String],
-        default: function () {
-          return 200
-        }
+        type: [Number, String]
       },
       files: {
         type: Array,
@@ -188,8 +183,11 @@
 
 <style lang="scss">
 .file-filters {
-  button {
-    font-size: 0;
+  margin-top: 0.5rem;
+  .quick-filters {
+    button {
+      font-size: 0;
+    }
   }
 }
 </style>
