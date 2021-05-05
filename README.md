@@ -158,7 +158,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| ar    | Arabic            |    [@hadialqattan](https://github.com/hadialqattan) |
+| ar    | Arabic              |    [@hadialqattan](https://github.com/hadialqattan), [AhmedElTabarani](https://github.com/AhmedElTabarani) |
 | bg    | Българският език    | ✔️ [@null-none](https://github.com/null-none) |
 | ca    | Català              | ✔️ [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
@@ -167,14 +167,14 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | es    | Español             | ✔️ [@Chofito](https://github.com/Chofito)|
 | fa    | فارسی               | ✔️ [@Nima-Ra](https://github.com/Nima-Ra) |
 | fr    | Français            | ✔️ [@gpatarin](https://github.com/gpatarin) |
-| hu    | Hungarian           |     [@zalnaRs](https://github.com/zalnaRs) |
+| hu    | Hungarian           |    [@zalnaRs](https://github.com/zalnaRs) |
 | id    | Indonesia           | ✔️ [@aarestu](https://github.com/aarestu) |
 | it    | Italiano            |    [@blackcat-917](https://github.com/blackcat-917) |
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
-| pl    | Polski              |     [@KanarekLife](https://github.com/KanarekLife) |
+| pl    | Polski              |    [@KanarekLife](https://github.com/KanarekLife) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
-| ro    | Română             | ✔️ [@alyn3d](https://github.com/alyn3d) |
+| ro    | Română              | ✔️ [@alyn3d](https://github.com/alyn3d) |
 | ru    | Русский             | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
 | tr    | Türkçe              | ✔️ [@abdullah](https://github.com/abdullah) |
 | uk    | Українська          | ✔️ [@bladeaweb](https://github.com/bladeaweb) |
