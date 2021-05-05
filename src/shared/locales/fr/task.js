@@ -14,6 +14,7 @@ export default {
   'file-name': 'Nom de fichier',
   'file-extension': 'Ext',
   'file-size': 'Taille',
+  'file-completed-size': 'Téléchargé',
   'selected-files-sum': 'Sélectionné: {{selectedFilesCount}} fichiers, total {{selectedFilesTotalSize}}',
   'task-name': 'Nom de la tâche',
   'task-out': 'Renommer',

@@ -14,6 +14,7 @@ export default {
   'file-name': '파일 이름',
   'file-extension': '파일 확장자',
   'file-size': '파일 크기',
+  'file-completed-size': '완성 된 크기',
   'selected-files-sum': '선택됨: {{selectedFilesCount}} 개의 파일, 총 {{selectedFilesTotalSize}}',
   'task-name': '작업 이름',
   'task-out': '이름 변경',

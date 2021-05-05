@@ -14,6 +14,7 @@ export default {
   'file-name': 'اسم الملف',
   'file-extension': 'نوع الملف',
   'file-size': 'حجم الملف',
+  'file-completed-size': 'تم التنزيل',
   'selected-files-sum': 'الملف المختار: {{selectedFilesCount}} ملف, الحجم الكلي {{selectedFilesTotalSize}}',
   'task-name': 'اسم المهمة',
   'task-out': 'إعادة تسمية',

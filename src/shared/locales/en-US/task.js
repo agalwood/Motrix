@@ -14,7 +14,7 @@ export default {
   'file-name': 'Name',
   'file-extension': 'Extension',
   'file-size': 'Size',
-  'file-completed-size': 'Completed',
+  'file-completed-size': 'Downloaded',
   'selected-files-sum': 'Selected: {{selectedFilesCount}} files, total size {{selectedFilesTotalSize}}',
   'task-name': 'Task Name',
   'task-out': 'Rename',

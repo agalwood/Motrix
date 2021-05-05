@@ -14,6 +14,7 @@ export default {
   'file-name': 'Dosya Adı',
   'file-extension': 'uzantı',
   'file-size': 'Boyut',
+  'file-completed-size': 'İndirildi',
   'selected-files-sum': 'Seçildi: {{selectedFilesCount}} dosya sayısı, total {{selectedFilesTotalSize}}',
   'task-name': 'Görev Adı',
   'task-out': 'Dosya Adı',

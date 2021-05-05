@@ -14,6 +14,7 @@ export default {
   'file-name': 'نام فایل',
   'file-extension': 'امتداد',
   'file-size': 'اندازه',
+  'file-completed-size': 'بارگیری شد',
   'selected-files-sum': 'انتخاب شده: {{selectedFilesCount}} فایلها، مجموع {{selectedFilesTotalSize}}',
   'task-name': 'اسم تسک',
   'task-out': 'تغییرنام',

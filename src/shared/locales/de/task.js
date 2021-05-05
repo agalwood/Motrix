@@ -14,6 +14,7 @@ export default {
   'file-name': 'Dateiname',
   'file-extension': 'Dateityp',
   'file-size': 'Dateigröße',
+  'file-completed-size': 'Heruntergeladen',
   'selected-files-sum': 'Ausgewählt: {{selectedFilesCount}} Dateien, insgesamt {{selectedFilesTotalSize}}',
   'task-name': 'Aufgaben Name',
   'task-out': 'Dateiname',
