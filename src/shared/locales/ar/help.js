@@ -1,7 +1,7 @@
 export default {
-  'official-website': 'صفحة موتركس',
+  'official-website': 'موقع موتركس',
   'manual': 'دليل الاستخدام',
   'release-notes': 'ملاحظات الإصدار...',
-  'report-problem': 'أبلغ عن مشكلة',
+  'report-problem': 'الإبلاغ عن مشكلة',
   'toggle-dev-tools': 'تفعيل أدوات المطور'
 }
