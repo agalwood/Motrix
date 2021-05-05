@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Lista de tareas',
+  'task-list': 'Tareas',
   'add-task': 'Añadir tareas',
   'about': 'Acerca de Motrix',
   'preferences': 'Preferencias...',

@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Λίστα Εργασιών',
+  'task-list': 'Καθήκοντα',
   'add-task': 'Προσθήκη Εργασίας',
   'about': 'Σχετικά με το Motrix',
   'preferences': 'Προτιμήσεις...',

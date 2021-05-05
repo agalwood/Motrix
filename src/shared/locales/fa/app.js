@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'لیست تسک‌ها',
+  'task-list': 'وظایف',
   'add-task': 'اضافه کردن تسک',
   'about': 'درباره ماتریکس',
   'preferences': 'تنظیمات دلخواه',

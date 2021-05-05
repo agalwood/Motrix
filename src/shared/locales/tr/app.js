@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Görev Listesi',
+  'task-list': 'Görevler',
   'add-task': 'Görev Ekle',
   'about': 'Motrix Hakkında',
   'preferences': 'Ayarlar...',

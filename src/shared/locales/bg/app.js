@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Списък със задачи',
+  'task-list': 'Задачи',
   'add-task': 'Добавяне на задача',
   'about': 'О Motrix',
   'preferences': 'Меню...',

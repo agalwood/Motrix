@@ -1,5 +1,5 @@
 export default {
-  'task-list': 'Listă Sarcini',
+  'task-list': 'Sarcini',
   'add-task': 'Adaugă sarcină',
   'about': 'Despre Motrix',
   'preferences': 'Setări...',
