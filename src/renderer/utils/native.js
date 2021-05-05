@@ -5,7 +5,6 @@ import { resolve } from 'path'
 import { Message } from 'element-ui'
 
 import {
-  checkTaskIsBT,
   getFileNameFromFile,
   isMagnetTask,
   getSystemMajorVersion
@@ -36,18 +35,6 @@ export const openItem = async (fullPath) => {
   const result = await shell.openPath(fullPath)
   return result
 }
-
-// export const openItem = (fullPath, { errorMsg }) = {
-//   if (!fullPath) {
-//     return
-//   }
-//   const result = await shell.openPath(fullPath)
-
-//   if (!result && errorMsg) {
-//     Message.error(errorMsg)
-//   }
-//   return result
-// }
 
 export function getTaskFullPath (task) {
   const { dir, files, bittorrent } = task
