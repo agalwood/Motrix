@@ -96,6 +96,7 @@ Motrix may need to run with `sudo` for the first time in Linux because there is 
 - 🔔 Download completed Notification
 - 💻 Ready for Touch Bar (Mac only)
 - 🤖 Resident system tray for quick operation
+- 📟 Tray speed meter displays real-time speed (Mac only)
 - 🌑 Dark mode
 - 🗑 Delete related files when removing tasks (optional)
 - 🌍 I18n, [View supported languages](#-internationalization).
@@ -158,7 +159,7 @@ Translations into versions for other languages are welcome 🧐! Please read the
 
 | Key   | Name                | Status       |
 |-------|:--------------------|:-------------|
-| ar    | Arabic            |    [@hadialqattan](https://github.com/hadialqattan) |
+| ar    | Arabic              |    [@hadialqattan](https://github.com/hadialqattan), [@AhmedElTabarani](https://github.com/AhmedElTabarani) |
 | bg    | Българският език    | ✔️ [@null-none](https://github.com/null-none) |
 | ca    | Català              | ✔️ [@marcizhu](https://github.com/marcizhu) |
 | de    | Deutsch             | ✔️ [@Schloemicher](https://github.com/Schloemicher) |
