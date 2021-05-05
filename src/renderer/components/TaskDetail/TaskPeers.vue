@@ -9,7 +9,7 @@
       >
         <el-table-column
           :label="`${$t('task.task-peer-host')}: `"
-          min-width="145">
+          min-width="140">
           <template slot-scope="scope">
             {{ `${scope.row.ip}:${scope.row.port}` }}
           </template>
@@ -24,7 +24,7 @@
         <el-table-column
           :label="`%`"
           align="right"
-          width="45">
+          width="55">
           <template slot-scope="scope">
             {{ scope.row.bitfield | bitfieldToPercent }}%
           </template>
