@@ -52,6 +52,10 @@
   shape-rendering: geometricPrecision;
   outline-offset: -1px;
 }
+.graphic-atom-s0 {
+  fill: $--graphic-atom-color-0;
+  outline: 1px solid $--graphic-atom-outline-color;
+}
 .graphic-atom-s1 {
   fill: $--graphic-atom-color-1;
   outline: 1px solid $--graphic-atom-outline-color;

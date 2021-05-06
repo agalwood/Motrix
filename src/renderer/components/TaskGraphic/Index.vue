@@ -115,7 +115,7 @@
         rhIndex = rhIndex < 0 ? 0 : rhIndex
         const result = {
           id: `${hIndex}`,
-          status: Math.floor(parseInt(bitfield[index], 16) / 4) + 1,
+          status: Math.floor(parseInt(bitfield[index], 16) / 4),
           x: offset + chIndex * atomWG,
           y: offset + rhIndex * atomHG
         }
