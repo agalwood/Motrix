@@ -14,26 +14,29 @@ const mutations = {
 }
 
 const actions = {
-  fetchPreference ({ commit }) {
+  fetchPreference ({ dispatch }) {
     return new Promise((resolve) => {
       api.fetchPreference()
         .then((config) => {
-          commit('UPDATE_PREFERENCE_DATA', config)
+          dispatch('updatePreference', config)
           resolve(config)
         })
     })
   },
-  save ({ commit, dispatch }, config) {
+  save ({ dispatch }, config) {
     dispatch('task/saveSession', null, { root: true })
     if (isEmpty(config)) {
       return
     }
 
-    commit('UPDATE_PREFERENCE_DATA', config)
+    dispatch('updatePreference', config)
     return api.savePreference(config)
   },
-  updateThemeConfig ({ commit }, theme) {
-    commit('UPDATE_PREFERENCE_DATA', { theme })
+  updateThemeConfig ({ dispatch }, theme) {
+    dispatch('updatePreference', { theme })
+  },
+  updatePreference  ({ commit }, config) {
+    commit('UPDATE_PREFERENCE_DATA', config)
   },
   fetchBtTracker (_, trackerSource = []) {
     return fetchBtTrackerFromSource(trackerSource)

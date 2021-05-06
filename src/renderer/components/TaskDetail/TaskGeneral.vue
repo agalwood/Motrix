@@ -22,7 +22,7 @@
     </el-form-item>
     <el-form-item :label="`${$t('task.task-status')}: `">
       <div class="form-static-value">
-        <mo-task-status :theme="appTheme" :status="taskStatus" />
+        <mo-task-status :theme="currentTheme" :status="taskStatus" />
       </div>
     </el-form-item>
     <el-form-item :label="`${$t('task.task-error-info')}: `" v-if="task.errorCode && task.errorCode !== '0'">
@@ -84,7 +84,7 @@
     getTaskUri,
     localeDateTimeFormat
   } from '@shared/utils'
-  import { TASK_STATUS } from '@shared/constants'
+  import { APP_THEME, TASK_STATUS } from '@shared/constants'
   import { getTaskFullPath } from '@/utils/native'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import TaskStatus from '@/components/Task/TaskStatus'
@@ -111,9 +111,19 @@
       }
     },
     computed: {
-      ...mapState('preference', {
-        appTheme: state => state.config.theme
+      ...mapState('app', {
+        systemTheme: state => state.systemTheme
       }),
+      ...mapState('preference', {
+        theme: state => state.config.theme
+      }),
+      currentTheme () {
+        if (this.theme === APP_THEME.AUTO) {
+          return this.systemTheme
+        } else {
+          return this.theme
+        }
+      },
       isRenderer: () => is.renderer(),
       taskFullName () {
         return getTaskName(this.task, {
