@@ -1,6 +1,6 @@
 {
   "name": "Motrix",
-  "version": "1.6.6",
+  "version": "1.6.7",
   "description": "A full-featured download manager",
   "homepage": "https://motrix.app",
   "author": {
@@ -241,7 +241,7 @@
     "css-minimizer-webpack-plugin": "^2.0.0",
     "del": "^6.0.0",
     "electron": "^11.4.4",
-    "electron-builder": "^22.11.1",
+    "electron-builder": "^22.10.5",
     "electron-builder-notarize": "^1.2.0",
     "electron-devtools-installer": "^3.2.0",
     "electron-notarize": "^1.0.0",
