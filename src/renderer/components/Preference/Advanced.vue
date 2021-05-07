@@ -255,6 +255,7 @@
               v-model="form.userAgent">
             </el-input>
             <el-button-group class="ua-group">
+              <el-button @click="() => changeUA('aria2')">Aria2</el-button>
               <el-button @click="() => changeUA('transmission')">Transmission</el-button>
               <el-button @click="() => changeUA('chrome')">Chrome</el-button>
               <el-button @click="() => changeUA('du')">du</el-button>
