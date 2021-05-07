@@ -10,11 +10,7 @@
 
 <script>
   export default {
-    name: 'mo-logo-mini',
-    components: {
-    },
-    methods: {
-    }
+    name: 'mo-logo-mini'
   }
 </script>
 

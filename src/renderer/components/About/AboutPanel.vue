@@ -54,12 +54,12 @@
 </script>
 
 <style lang="scss">
-  .app-about-dialog {
-    max-width: 632px;
-    min-width: 380px;
-    .el-dialog__header {
-      padding-top: 0;
-      padding-bottom: 0;
-    }
+.app-about-dialog {
+  max-width: 632px;
+  min-width: 380px;
+  .el-dialog__header {
+    padding-top: 0;
+    padding-bottom: 0;
   }
+}
 </style>

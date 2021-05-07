@@ -19,8 +19,6 @@
 
   export default {
     name: 'mo-theme-switcher',
-    components: {
-    },
     props: {
       value: {
         type: String,
