@@ -75,41 +75,41 @@
 </script>
 
 <style lang="scss">
-  .task-item {
-    position: relative;
-    min-height: 88px;
-    padding: 16px 12px;
-    background-color: $--task-item-background;
-    border: 1px solid $--task-item-border-color;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    transition: $--border-transition-base;
-    &:hover {
-      border-color: $--task-item-hover-border-color;
-    }
-    .task-item-actions {
-      position: absolute;
-      top: 16px;
-      right: 12px;
-    }
-  }
-  .selected .task-item {
+.task-item {
+  position: relative;
+  min-height: 78px;
+  padding: 16px 12px;
+  background-color: $--task-item-background;
+  border: 1px solid $--task-item-border-color;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  transition: $--border-transition-base;
+  &:hover {
     border-color: $--task-item-hover-border-color;
   }
-  .task-name {
-    color: #505753;
-    margin-bottom: 1.5rem;
-    margin-right: 220px;
-    word-break: break-all;
-    min-height: 26px;
-    &> span {
-      font-size: 14px;
-      line-height: 26px;
-      overflow : hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
+  .task-item-actions {
+    position: absolute;
+    top: 16px;
+    right: 12px;
   }
+}
+.selected .task-item {
+  border-color: $--task-item-hover-border-color;
+}
+.task-name {
+  color: #505753;
+  margin-bottom: 1.5rem;
+  margin-right: 220px;
+  word-break: break-all;
+  min-height: 26px;
+  &> span {
+    font-size: 14px;
+    line-height: 26px;
+    overflow : hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
 </style>

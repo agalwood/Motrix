@@ -29,22 +29,22 @@
 </script>
 
 <style lang="scss">
-  .copyright {
-    width: 100%;
-    font-size: $--font-size-small;
-    a {
-      color: $--app-copyright-color;
-      text-decoration: none;
-    }
+.copyright {
+  width: 100%;
+  font-size: $--font-size-small;
+  a {
+    color: $--app-copyright-color;
+    text-decoration: none;
   }
-  .copyright-left {
-    text-align: left;
-  }
+}
+.copyright-left {
+  text-align: left;
+}
 
-  .copyright-right {
-    text-align: right;
-    a {
-      margin-left: 30px;
-    }
+.copyright-right {
+  text-align: right;
+  a {
+    margin-left: 30px;
   }
+}
 </style>

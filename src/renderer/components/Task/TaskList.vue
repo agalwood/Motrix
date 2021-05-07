@@ -68,24 +68,24 @@
 </script>
 
 <style lang="scss">
-  .task-list {
-    padding: 16px 0 64px 0;
-    min-height: 100%;
-    box-sizing: border-box;
-  }
-  .no-task {
-    display: flex;
-    height: 100%;
-    text-align: center;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    color: #555;
-    user-select: none;
-  }
-  .no-task-inner {
-    width: 100%;
-    padding-top: 360px;
-    background: transparent url('~@/assets/no-task.svg') top center no-repeat;
-  }
+.task-list {
+  padding: 16px 0 64px 0;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+.no-task {
+  display: flex;
+  height: 100%;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #555;
+  user-select: none;
+}
+.no-task-inner {
+  width: 100%;
+  padding-top: 360px;
+  background: transparent url('~@/assets/no-task.svg') top center no-repeat;
+}
 </style>

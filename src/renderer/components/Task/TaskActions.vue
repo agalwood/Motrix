@@ -160,31 +160,31 @@
 </script>
 
 <style lang="scss">
-  .task-actions {
-    position: absolute;
-    top: 44px;
-    right: 0;
-    height: 24px;
-    padding: 0;
-    overflow: hidden;
-    user-select: none;
-    cursor: default;
-    text-align: right;
-    color: $--task-action-color;
-    transition: all 0.25s;
-    .task-action {
-      display: inline-block;
-      padding: 5px;
-      margin: 0 4px;
-      font-size: 0;
-      cursor: pointer;
-      outline: none;
-      &:hover {
-        color: $--task-action-hover-color;
-      }
-      &.disabled {
-        color: $--task-action-disabled-color;
-      }
+.task-actions {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  height: 24px;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+  text-align: right;
+  color: $--task-action-color;
+  transition: all 0.25s;
+  .task-action {
+    display: inline-block;
+    padding: 5px;
+    margin: 0 4px;
+    font-size: 0;
+    cursor: pointer;
+    outline: none;
+    &:hover {
+      color: $--task-action-hover-color;
+    }
+    &.disabled {
+      color: $--task-action-disabled-color;
     }
   }
+}
 </style>

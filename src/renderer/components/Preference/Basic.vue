@@ -393,12 +393,20 @@
             value: '5M'
           },
           {
+            label: '8 MB/s',
+            value: '8M'
+          },
+          {
             label: '10 MB/s',
             value: '10M'
           },
           {
             label: '20 MB/s',
             value: '20M'
+          },
+          {
+            label: '30 MB/s',
+            value: '30M'
           }
         ]
       },
@@ -505,6 +513,3 @@
     }
   }
 </script>
-
-<style lang="scss">
-</style>
