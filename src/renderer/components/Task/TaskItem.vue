@@ -98,8 +98,8 @@
   }
   .task-name {
     color: #505753;
-    margin-bottom: 32px;
-    margin-right: 240px;
+    margin-bottom: 1.5rem;
+    margin-right: 220px;
     word-break: break-all;
     min-height: 26px;
     &> span {
