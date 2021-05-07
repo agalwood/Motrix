@@ -271,6 +271,7 @@ iframe {
   line-height: 0;
   border: 1px solid $--task-detail-box-border;
   border-radius: $--border-radius-base;
+  box-sizing: content-box;
 }
 
 .form-static-value {

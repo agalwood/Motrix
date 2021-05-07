@@ -25,7 +25,7 @@
               />
             </div>
           </el-col>
-          <el-col :span="4">
+          <el-col :span="5">
             {{ percent }}
           </el-col>
         </el-row>

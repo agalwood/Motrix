@@ -4,7 +4,7 @@
       <el-table
         stripe
         ref="peerTable"
-        style="width: 100%"
+        class="mo-peer-table"
         :data="peers"
       >
         <el-table-column
@@ -16,7 +16,7 @@
         </el-table-column>
         <el-table-column
           :label="`${$t('task.task-peer-client')}: `"
-          min-width="130">
+          min-width="125">
           <template slot-scope="scope">
             {{ scope.row.peerId | peerIdParser }}
           </template>
@@ -32,7 +32,7 @@
         <el-table-column
           :label="`↑`"
           align="right"
-          width="95">
+          width="90">
           <template slot-scope="scope">
             {{ scope.row.uploadSpeed | bytesToSize }}/s
           </template>
@@ -40,7 +40,7 @@
         <el-table-column
           :label="`↓`"
           align="right"
-          width="95">
+          width="90">
           <template slot-scope="scope">
             {{ scope.row.downloadSpeed | bytesToSize }}/s
           </template>
@@ -74,3 +74,10 @@
     }
   }
 </script>
+
+<style lang="scss">
+.el-table.mo-peer-table .cell {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+</style>
