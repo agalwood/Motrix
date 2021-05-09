@@ -111,6 +111,7 @@
       }
     },
     computed: {
+      isRenderer: () => is.renderer(),
       ...mapState('app', {
         systemTheme: state => state.systemTheme
       }),
@@ -124,7 +125,6 @@
           return this.theme
         }
       },
-      isRenderer: () => is.renderer(),
       taskFullName () {
         return getTaskName(this.task, {
           defaultName: this.$t('task.get-task-name'),
