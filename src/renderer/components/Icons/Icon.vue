@@ -1,5 +1,6 @@
 <template>
-  <svg version="1.1"
+  <svg
+    version="1.1"
     :class="klass"
     :role="label ? 'img' : 'presentation'"
     :aria-label="label"
@@ -8,60 +9,25 @@
     :width="width"
     :height="height"
     :viewBox="box"
-    :style="style">
+    :style="style"
+  >
     <slot>
       <template v-if="icon && icon.paths">
-        <path v-for="(path, i) in icon.paths" :key="`path-${i}`" v-bind="path"/>
+        <path v-for="(path, i) in icon.paths" :key="`path-${i}`" v-bind="path" />
       </template>
       <template v-if="icon && icon.polygons">
-        <polygon v-for="(polygon, i) in icon.polygons" :key="`polygon-${i}`" v-bind="polygon"/>
+        <polygon v-for="(polygon, i) in icon.polygons" :key="`polygon-${i}`" v-bind="polygon" />
       </template>
-      <template v-if="icon && icon.raw"><g v-html="raw" v-bind="icon.g"></g></template>
+      <template v-if="icon && icon.raw"><g v-bind="icon.g" v-html="raw" /></template>
     </slot>
   </svg>
 </template>
-
-<style>
-.fa-icon {
-  display: inline-block;
-  fill: currentColor;
-}
-
-.fa-flip-horizontal {
-  transform: scale(-1, 1);
-}
-
-.fa-flip-vertical {
-  transform: scale(1, -1);
-}
-
-.fa-spin {
-  animation: fa-spin 0.5s 0s infinite linear;
-}
-
-.fa-inverse {
-  color: #fff;
-}
-
-.fa-pulse {
-  animation: fa-spin 1s infinite steps(8);
-}
-
-@keyframes fa-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-</style>
 
 <script>
   const icons = {}
 
   export default {
-    name: 'fa-icon',
+    name: 'mo-icon',
     props: {
       name: {
         type: String,
@@ -106,12 +72,12 @@
       },
       klass () {
         return {
-          'fa-icon': true,
-          'fa-spin': this.spin,
-          'fa-flip-horizontal': this.flip === 'horizontal',
-          'fa-flip-vertical': this.flip === 'vertical',
-          'fa-inverse': this.inverse,
-          'fa-pulse': this.pulse,
+          'mo-icon': true,
+          'mo-spin': this.spin,
+          'mo-flip-horizontal': this.flip === 'horizontal',
+          'mo-flip-vertical': this.flip === 'vertical',
+          'mo-inverse': this.inverse,
+          'mo-pulse': this.pulse,
           [this.$options.name]: true
         }
       },
@@ -184,7 +150,7 @@
 
       let width = 0
       let height = 0
-      this.$children.forEach(child => {
+      this.$children.forEach((child) => {
         child.outerScale = this.normalizedScale
 
         width = Math.max(width, child.width)
@@ -192,7 +158,7 @@
       })
       this.childrenWidth = width
       this.childrenHeight = height
-      this.$children.forEach(child => {
+      this.$children.forEach((child) => {
         child.x = (width - child.width) / 2
         child.y = (height - child.height) / 2
       })
@@ -221,8 +187,44 @@
     icons
   }
 
-  let cursor = 0xd4937
+  let cursor = 0xD4937
   function getId () {
-    return `fa-${(cursor++).toString(16)}`
+    return `mo-${(cursor++).toString(16)}`
   }
 </script>
+
+<style>
+.mo-icon {
+  display: inline-block;
+  fill: currentColor;
+}
+
+.mo-flip-horizontal {
+  transform: scale(-1, 1);
+}
+
+.mo-flip-vertical {
+  transform: scale(1, -1);
+}
+
+.mo-spin {
+  animation: mo-spin 0.5s 0s infinite linear;
+}
+
+.mo-inverse {
+  color: #fff;
+}
+
+.mo-pulse {
+  animation: mo-spin 1s infinite steps(8);
+}
+
+@keyframes mo-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>
