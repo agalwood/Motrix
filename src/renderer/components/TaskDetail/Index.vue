@@ -216,6 +216,7 @@
 <style lang="scss">
 .task-detail-drawer {
   .el-drawer__header {
+    padding-top: 2rem;
     margin-bottom: 0;
   }
   .el-drawer__body {
