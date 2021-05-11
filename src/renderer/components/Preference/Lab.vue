@@ -11,7 +11,7 @@
     <mo-browser
       v-if="isRenderer"
       class="lab-webview"
-      :src="src"
+      :src="url"
     />
   </el-container>
 </template>
@@ -20,6 +20,7 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
 
+  import { APP_THEME } from '@shared/constants'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import Browser from '@/components/Browser'
   import '@/components/Icons/info-square'
@@ -33,11 +34,30 @@
     data () {
       const { locale } = this.$store.state.preference.config
       return {
-        src: `https://motrix.app/lab?lite=true&lang=${locale}`
+        locale
       }
     },
     computed: {
       isRenderer: () => is.renderer(),
+      ...mapState('app', {
+        systemTheme: state => state.systemTheme
+      }),
+      ...mapState('preference', {
+        config: state => state.config,
+        theme: state => state.config.theme
+      }),
+      currentTheme () {
+        if (this.theme === APP_THEME.AUTO) {
+          return this.systemTheme
+        } else {
+          return this.theme
+        }
+      },
+      url () {
+        const { currentTheme, locale } = this
+        const result = `https://motrix.app/lab?lite=true&theme=${currentTheme}&lang=${locale}`
+        return result
+      },
       title () {
         return this.$t('preferences.lab')
       },
@@ -59,10 +79,7 @@
             route: '/preference/lab'
           }
         ]
-      },
-      ...mapState('preference', {
-        config: state => state.config
-      })
+      }
     }
   }
 </script>
