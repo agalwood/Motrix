@@ -557,8 +557,9 @@ export default class Application extends EventEmitter {
       win.setProgressBar(0)
     })
 
-    this.updateManager.on('will-updated', (event) => {
+    this.updateManager.on('will-updated', async (event) => {
       this.windowManager.setWillQuit(true)
+      await this.stop()
     })
 
     this.updateManager.on('update-error', (event) => {
