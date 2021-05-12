@@ -17,8 +17,10 @@ export default class UpdateManager extends EventEmitter {
     this.options = options
     this.i18n = getI18n()
 
+    this.isChecking = false
     this.updater = autoUpdater
     this.updater.autoDownload = false
+    this.updater.autoInstallOnAppQuit = false
     this.updater.logger = logger
     this.autoCheckData = {
       checkEnable: this.options.autoCheck,
@@ -40,9 +42,10 @@ export default class UpdateManager extends EventEmitter {
     this.updater.on('update-not-available', this.updateNotAvailable.bind(this))
     this.updater.on('download-progress', this.updateDownloadProgress.bind(this))
     this.updater.on('update-downloaded', this.updateDownloaded.bind(this))
+    this.updater.on('update-cancelled', this.updateCancelled.bind(this))
     this.updater.on('error', this.updateError.bind(this))
 
-    if (this.autoCheckData.checkEnable) {
+    if (this.autoCheckData.checkEnable && !this.isChecking) {
       this.autoCheckData.userCheck = false
       this.updater.checkForUpdates()
     }
@@ -54,6 +57,7 @@ export default class UpdateManager extends EventEmitter {
   }
 
   checkingForUpdate () {
+    this.isChecking = true
     this.emit('checking')
   }
 
@@ -73,6 +77,7 @@ export default class UpdateManager extends EventEmitter {
   }
 
   updateNotAvailable (event, info) {
+    this.isChecking = false
     this.emit('update-not-available', info)
     if (this.autoCheckData.userCheck) {
       dialog.showMessageBox({
@@ -102,20 +107,26 @@ export default class UpdateManager extends EventEmitter {
       title: this.i18n.t('app.check-for-updates-title'),
       message: this.i18n.t('app.update-downloaded-message')
     }).then(_ => {
+      this.isChecking = false
       this.emit('will-updated')
-      setImmediate(() => {
+      setTimeout(() => {
         this.updater.quitAndInstall()
-      })
+      }, 200)
     })
   }
 
+  updateCancelled () {
+    this.isChecking = false
+  }
+
   updateError (event, error) {
+    this.isChecking = false
     this.emit('update-error', error)
     const msg = (error == null)
-      ? this.i18n.t('update-error-message')
+      ? this.i18n.t('app.update-error-message')
       : (error.stack || error).toString()
 
     this.updater.logger.warn(`[Motrix] update-error: ${msg}`)
-    dialog.showErrorBox(msg)
+    dialog.showErrorBox('Error', msg)
   }
 }

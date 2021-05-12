@@ -557,8 +557,9 @@ export default class Application extends EventEmitter {
       win.setProgressBar(0)
     })
 
-    this.updateManager.on('will-updated', (event) => {
+    this.updateManager.on('will-updated', async (event) => {
       this.windowManager.setWillQuit(true)
+      await this.stop()
     })
 
     this.updateManager.on('update-error', (event) => {
@@ -651,7 +652,7 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:change-theme', (theme) => {
-      this.themeManager.updateAppAppearance(theme)
+      this.themeManager.updateSystemTheme(theme)
       this.sendCommandToAll('application:update-theme', { theme })
     })
 

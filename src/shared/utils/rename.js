@@ -49,6 +49,10 @@ export const buildOuts = (uris = [], out = '') => {
     return result
   }
 
+  if (count === 1) {
+    return [out]
+  }
+
   const ruleStr = getRuleString(out)
   if (!ruleStr) {
     return result
