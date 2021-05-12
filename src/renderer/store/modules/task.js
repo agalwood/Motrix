@@ -148,8 +148,12 @@ const actions = {
     const { gid, options } = payload
     return api.changeOption({ gid, options })
   },
-  removeTask ({ dispatch }, task) {
+  removeTask ({ state, dispatch }, task) {
     const { gid } = task
+    if (gid === state.currentTaskGid) {
+      dispatch('hideTaskDetail')
+    }
+
     return api.removeTask({ gid })
       .finally(() => {
         dispatch('fetchList')
@@ -231,8 +235,12 @@ const actions = {
     }
     return dispatch('changeTaskOption', { gid, options })
   },
-  removeTaskRecord ({ dispatch }, task) {
+  removeTaskRecord ({ state, dispatch }, task) {
     const { gid, status } = task
+    if (gid === state.currentTaskGid) {
+      dispatch('hideTaskDetail')
+    }
+
     const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
     if ([ERROR, COMPLETE, REMOVED].indexOf(status) === -1) {
       return
