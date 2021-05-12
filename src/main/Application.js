@@ -652,7 +652,7 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:change-theme', (theme) => {
-      this.themeManager.updateAppAppearance(theme)
+      this.themeManager.updateSystemTheme(theme)
       this.sendCommandToAll('application:update-theme', { theme })
     })
 
