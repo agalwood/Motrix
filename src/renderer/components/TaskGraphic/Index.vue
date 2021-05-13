@@ -33,7 +33,7 @@
         type: String,
         default: ''
       },
-      width: {
+      outerWidth: {
         type: Number,
         default: 240
       },
@@ -65,8 +65,8 @@
         return this.atomHeight + this.atomGutter
       },
       columnCount () {
-        const { width, atomWidth, atomWG } = this
-        const result = parseInt((width - atomWidth) / atomWG, 10) + 1
+        const { outerWidth, atomWidth, atomWG } = this
+        const result = parseInt((outerWidth - atomWidth) / atomWG, 10) + 1
         return result
       },
       rowCount () {
@@ -75,9 +75,14 @@
         return result
       },
       offset () {
-        const { width, atomWidth, atomWG, columnCount } = this
+        const { outerWidth, atomWidth, atomWG, columnCount } = this
         const totalWidth = atomWG * (columnCount - 1) + atomWidth
-        const result = (width - totalWidth) / 2
+        const result = (outerWidth - totalWidth) / 2
+        return parseFloat(result.toFixed(2))
+      },
+      width () {
+        const { atomWidth, atomWG, columnCount } = this
+        const result = atomWG * (columnCount - 1) + atomWidth
         return parseInt(result, 10)
       },
       height () {
@@ -116,7 +121,7 @@
         const result = {
           id: `${hIndex}`,
           status: Math.floor(parseInt(bitfield[index], 16) / 4),
-          x: offset + chIndex * atomWG,
+          x: chIndex * atomWG,
           y: offset + rhIndex * atomHG
         }
 
