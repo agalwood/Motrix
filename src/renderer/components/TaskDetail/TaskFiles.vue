@@ -40,7 +40,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <el-row class="file-filters" :gutter="12" v-if="mode === 'ADD'">
+    <el-row class="file-filters" :gutter="12">
       <el-col class="quick-filters" :span="8">
         <el-button-group>
           <el-button @click="toggleVideoSelection()">
@@ -54,7 +54,7 @@
           </el-button>
         </el-button-group>
       </el-col>
-      <el-col :span="16" style="text-align: right">
+      <el-col :span="16" class="files-summary">
         {{ $t('task.selected-files-sum', { selectedFilesCount, selectedFilesTotalSize }) }}
       </el-col>
     </el-row>
@@ -113,7 +113,7 @@
       },
       selectedFilesTotalSize () {
         const result = this.selectedFiles.reduce((acc, cur) => {
-          return acc + cur.length
+          return acc + parseInt(cur.length, 10)
         }, 0)
         return bytesToSize(result)
       },
@@ -188,6 +188,12 @@
     button {
       font-size: 0;
     }
+  }
+  .files-summary {
+    text-align: right;
+    font-size: $--font-size-base;
+    color: $--color-text-regular;
+    line-height: 1.75rem;
   }
 }
 </style>
