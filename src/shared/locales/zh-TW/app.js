@@ -23,6 +23,8 @@ export default {
   'under-development-message': '該功能開發中...',
   'yes': '是',
   'no': '否',
+  'save': '儲存',
+  'reset': '捨棄',
   'cancel': '取 消',
   'submit': '送 出',
   'gt1d': '超過一天',

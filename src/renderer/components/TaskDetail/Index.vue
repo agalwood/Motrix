@@ -6,6 +6,7 @@
     :title="$t('task.task-detail-title')"
     :with-header="true"
     :show-close="true"
+    :destroy-on-close="true"
     :visible.sync="visible"
     :before-close="handleClose"
     @closed="handleClosed"
@@ -44,7 +45,19 @@
       </el-tab-pane>
     </el-tabs>
     <div class="task-detail-actions">
-      <mo-task-item-actions mode="DETAIL" :task="task" />
+      <div class="action-wrapper action-wrapper-left" v-if="optionsChanged">
+        <el-button @click="resetChanged">
+          {{$t('app.reset')}}
+        </el-button>
+      </div>
+      <div class="action-wrapper action-wrapper-center">
+        <mo-task-item-actions mode="DETAIL" :task="task" />
+      </div>
+      <div class="action-wrapper action-wrapper-right" v-if="optionsChanged">
+        <el-button type="primary" @click="saveChanged">
+          {{$t('app.save')}}
+        </el-button>
+      </div>
     </div>
   </el-drawer>
 </template>
@@ -59,7 +72,12 @@
     getFileName,
     getFileExtension
   } from '@shared/utils'
-  import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
+  import {
+    EMPTY_STRING,
+    NONE_SELECTED_FILES,
+    SELECTED_ALL_FILES,
+    TASK_STATUS
+  } from '@shared/constants'
   import TaskItemActions from '@/components/Task/TaskItemActions'
   import TaskGeneral from './TaskGeneral'
   import TaskActivity from './TaskActivity'
@@ -112,7 +130,10 @@
         formLabelWidth: calcFormLabelWidth(locale),
         locale,
         activeTab: 'general',
-        graphicWidth: 0
+        graphicWidth: 0,
+        optionsChanged: false,
+        filesSelection: EMPTY_STRING,
+        selectionChangedCount: 0
       }
     },
     computed: {
@@ -141,8 +162,8 @@
             selected: item.selected === 'true',
             path: item.path,
             name,
-            extension,
-            length: item.length,
+            extension: `.${extension}`,
+            length: parseInt(item.length, 10),
             completedLength: item.completedLength
           }
         })
@@ -158,35 +179,37 @@
       }
     },
     mounted () {
-      window.addEventListener('resize', debounce(() => {
-        console.log('resize===>', this.activeTab, this.$refs.taskGraphic)
-        if (this.activeTab === 'activity' && this.$refs.taskGraphic) {
-          this.$refs.taskGraphic.updateGraphicWidth()
-        }
-      }, 300))
+      window.addEventListener('resize', this.handleAppResize)
     },
     destroyed () {
+      window.removeEventListener('resize', this.handleAppResize)
       cached.files = []
-      window.removeEventListener('resize')
     },
     methods: {
       handleClose (done) {
+        window.removeEventListener('resize', this.handleAppResize)
         this.$store.dispatch('task/hideTaskDetail')
       },
       handleClosed (done) {
         this.$store.dispatch('task/updateCurrentTaskGid', EMPTY_STRING)
         this.$store.dispatch('task/updateCurrentTaskItem', null)
+        this.optionsChanged = false
+        this.resetFaskFilesSelection()
       },
       handleTabBeforeLeave (activeName, oldActiveName) {
         this.activeTab = activeName
-        if (oldActiveName !== 'peers') {
-          return
+        this.optionsChanged = false
+        switch (oldActiveName) {
+        case 'peers':
+          this.$store.dispatch('task/toggleEnabledFetchPeers', false)
+          break
+        case 'files':
+          this.resetFaskFilesSelection()
+          break
         }
-        this.$store.dispatch('task/toggleEnabledFetchPeers', false)
       },
       handleTabClick (tab) {
         const { name } = tab
-
         switch (name) {
         case 'peers':
           this.$store.dispatch('task/toggleEnabledFetchPeers', true)
@@ -198,6 +221,33 @@
           break
         }
       },
+      resetChanged () {
+        const { activeTab } = this
+        switch (activeTab) {
+        case 'files':
+          this.resetFaskFilesSelection()
+          this.updateFilesListSelection()
+          break
+        }
+        this.optionsChanged = false
+      },
+      saveChanged () {
+        const { activeTab } = this
+        switch (activeTab) {
+        case 'files':
+          this.saveFaskFilesSelection()
+          break
+        }
+        this.optionsChanged = false
+      },
+      handleAppResize () {
+        debounce(() => {
+          console.log('resize===>', this.activeTab, this.$refs.taskGraphic)
+          if (this.activeTab === 'activity' && this.$refs.taskGraphic) {
+            this.$refs.taskGraphic.updateGraphicWidth()
+          }
+        }, 250)
+      },
       updateFilesListSelection () {
         if (!this.$refs.detailFileList) {
           return
@@ -207,7 +257,27 @@
         this.$refs.detailFileList.toggleSelection(selectedFileList)
       },
       handleSelectionChange (val) {
-        console.log('task detail handleSelectionChange==>', val)
+        this.filesSelection = val
+        this.selectionChangedCount += 1
+        if (this.selectionChangedCount > 1) {
+          this.optionsChanged = true
+        }
+      },
+      resetFaskFilesSelection () {
+        this.filesSelection = EMPTY_STRING
+        this.selectionChangedCount = 0
+      },
+      saveFaskFilesSelection () {
+        const { gid, filesSelection } = this
+        if (filesSelection === NONE_SELECTED_FILES) {
+          this.$msg.warning(this.$t('task.select-at-least-one'))
+          return
+        }
+
+        const options = {
+          selectFile: filesSelection !== SELECTED_ALL_FILES ? filesSelection : EMPTY_STRING
+        }
+        this.$store.dispatch('task/changeTaskOption', { gid, options })
       }
     }
   }
@@ -230,6 +300,10 @@
     width: 100%;
     text-align: center;
     font-size: 0;
+    padding: 0 1.25rem;
+    display: flex;
+    align-content: space-between;
+    justify-content: space-between;
     .task-item-actions {
       display: inline-block;
       &> .task-item-action {
@@ -241,6 +315,21 @@
     &> span, &> ul {
       vertical-align: middle;
     }
+  }
+  .action-wrapper {
+    flex: 1;
+  }
+  .action-wrapper-left {
+    text-align: left;
+  }
+  .action-wrapper-center {
+    padding: 1px 0;
+    &> .task-item-actions {
+      margin: 0 auto;
+    }
+  }
+  .action-wrapper-right {
+    text-align: right;
   }
 }
 
@@ -265,5 +354,14 @@
     right: 0;
     bottom: 0;
   }
+}
+
+.tab-panel-actions {
+  display: flex;
+  justify-content: space-between;
+  position: absolute;
+  bottom: -28px;
+  left: 0;
+  width: 100%;
 }
 </style>

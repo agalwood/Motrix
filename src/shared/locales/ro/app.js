@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Scuze, această caracteristică este în curs de dezvoltare...',
   'yes': 'Da',
   'no': 'Nu',
+  'save': 'Salvați',
+  'reset': 'Aruncați',
   'cancel': 'Anuleaza',
   'submit': 'Trimite',
   'gt1d': '> 1 zi',

@@ -16,6 +16,7 @@ export default {
   'file-size': 'Dimensione',
   'file-completed-size': 'Completato',
   'selected-files-sum': 'Selezionati: {{selectedFilesCount}} files, dimensione totale {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Seleziona almeno un file',
   'task-name': 'Nome attività',
   'task-out': 'Rinomina',
   'task-out-tips': '(opzionale)',

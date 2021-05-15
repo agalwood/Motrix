@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Xin lỗi, tính năng này đang được phát triển...',
   'yes': 'Có',
   'no': 'Không',
+  'save': 'Tiết kiệm',
+  'reset': 'Loại bỏ',
   'cancel': 'Huỷ',
   'submit': 'Tải về',
   'gt1d': '> 1 ngày',

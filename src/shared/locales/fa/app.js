@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'ببخشید، این قابلیت در حال توسعه است...',
   'yes': 'بله',
   'no': 'خیر',
+  'save': 'صرفه جویی',
+  'reset': 'دور انداختن',
   'cancel': 'لغو',
   'submit': 'ثبت',
   'gt1d': '> یک روز',

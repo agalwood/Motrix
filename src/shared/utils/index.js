@@ -14,7 +14,14 @@ import {
 import bitTorrentPeerId from 'bittorrent-peerid'
 
 import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
-import { APP_THEME, ENGINE_RPC_HOST, GRAPHIC, UNKNOWN_PEERID } from '@shared/constants'
+import {
+  APP_THEME,
+  ENGINE_RPC_HOST,
+  GRAPHIC,
+  NONE_SELECTED_FILES,
+  SELECTED_ALL_FILES,
+  UNKNOWN_PEERID
+} from '@shared/constants'
 
 export function bytesToSize (bytes) {
   const b = parseInt(bytes, 10)
@@ -171,6 +178,25 @@ export function ellipsis (str = '', maxLen = 64) {
     result = `${result.substring(0, maxLen)}...`
   }
 
+  return result
+}
+
+export function getFileSelection (files = []) {
+  console.log('getFileSelection===>', files)
+  const selectedFiles = files.filter((file) => file.selected)
+  if (files.length === 0 || selectedFiles.length === 0) {
+    return NONE_SELECTED_FILES
+  }
+
+  if (files.length === selectedFiles.length) {
+    return SELECTED_ALL_FILES
+  }
+
+  const indexArr = []
+  files.forEach((_, index) => {
+    indexArr.push(index)
+  })
+  const result = indexArr.join(',')
   return result
 }
 

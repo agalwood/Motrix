@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Désolé, cette fonctionnalité est en cours de développement...',
   'yes': 'Oui',
   'no': 'Non',
+  'save': 'Sauvegarder',
+  'reset': 'Jeter',
   'cancel': 'Annuler',
   'submit': 'Envoyer',
   'gt1d': '> 1 jour',

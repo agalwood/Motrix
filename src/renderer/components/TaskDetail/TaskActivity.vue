@@ -8,7 +8,7 @@
   >
     <div class="graphic-box" ref="graphicBox">
       <mo-task-graphic
-        :width="graphicWidth"
+        :outerWidth="graphicWidth"
         :bitfield="task.bitfield"
         v-if="graphicWidth > 0"
       />
@@ -190,7 +190,6 @@
         if (!this.$refs.graphicBox) {
           return
         }
-        console.log('updateGraphicWidth===>', this.$refs.graphicBox)
         this.graphicWidth = this.calcInnerWidth(this.$refs.graphicBox)
       },
       calcInnerWidth (ele) {
@@ -199,8 +198,10 @@
         }
 
         const style = getComputedStyle(ele, null)
-        const width = style.getPropertyValue('width')
-        return parseInt(width, 10)
+        const width = parseInt(style.width, 10)
+        const paddingLeft = parseInt(style.paddingLeft, 10)
+        const paddingRight = parseInt(style.paddingRight, 10)
+        return width - paddingLeft - paddingRight
       }
     }
   }

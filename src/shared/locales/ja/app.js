@@ -22,6 +22,8 @@ export default {
   'under-development-message': 'この機能は開発中です...',
   'yes': 'はい',
   'no': 'いいえ',
+  'save': 'セーブ',
+  'reset': '放棄',
   'cancel': 'キャンセル',
   'submit': '確認',
   'gt1d': '一日を超える',

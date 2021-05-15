@@ -16,6 +16,7 @@ export default {
   'file-size': 'Kích thước tập tin',
   'file-completed-size': 'Đã hoàn thành',
   'selected-files-sum': 'Đã lựa chọn: {{selectedFilesCount}} tập tin, tổng kích thước {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Vui lòng chọn ít nhất một tệp',
   'task-name': 'Tên Tác vụ',
   'task-out': 'Đổi tên',
   'task-out-tips': 'Không bắt buộc',

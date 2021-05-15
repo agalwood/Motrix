@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Maaf, fitur ini dalam tahap development...',
   'yes': 'Ya',
   'no': 'Tidak',
+  'save': 'Menyimpan',
+  'reset': 'Membuang',
   'cancel': 'Batal',
   'submit': 'Kirim',
   'gt1d': '> 1 hari',

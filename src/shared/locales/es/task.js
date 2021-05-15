@@ -16,6 +16,7 @@ export default {
   'file-size': 'Tamaño',
   'file-completed-size': 'Terminado',
   'selected-files-sum': 'Seleccionado: {{selectedFilesCount}} files, total size {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Seleccione al menos un archivo',
   'task-name': 'Nombre de la tarea',
   'task-out': 'Renombrar',
   'task-out-tips': 'Opcional',

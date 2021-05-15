@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'عذراً، هذه الميزة قيد التطوير...',
   'yes': 'نعم',
   'no': 'لا',
+  'save': 'يحفظ',
+  'reset': 'ينبذ',
   'cancel': 'إلغاء',
   'submit': 'إرسال',
   'gt1d': 'أكثر من يوم',

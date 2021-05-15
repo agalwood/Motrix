@@ -266,13 +266,16 @@ iframe {
 }
 
 .graphic-box {
-  padding: 0.5rem;
+  padding: 0.5rem 0.375rem;
   margin-bottom: 1.5rem;
   font-size: 0;
   line-height: 0;
   border: 1px solid $--task-detail-box-border;
   border-radius: $--border-radius-base;
-  box-sizing: content-box;
+  &> svg {
+    display: block;
+    margin: 0 auto;
+  }
 }
 
 .form-static-value {

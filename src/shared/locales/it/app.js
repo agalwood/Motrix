@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Scusa, questa funzioe è in fase di sviluppo...',
   'yes': 'Si',
   'no': 'No',
+  'save': 'Salva',
+  'reset': 'Scartare',
   'cancel': 'Annulla',
   'submit': 'Invia',
   'gt1d': '> 1 giorno',

@@ -16,6 +16,7 @@ export default {
   'file-size': 'اندازه',
   'file-completed-size': 'بارگیری شد',
   'selected-files-sum': 'انتخاب شده: {{selectedFilesCount}} فایلها، مجموع {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'لطفا حداقل یک فایل را انتخاب کنید',
   'task-name': 'اسم تسک',
   'task-out': 'تغییرنام',
   'task-out-tips': 'اختیاری',

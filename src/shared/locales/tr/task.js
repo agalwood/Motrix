@@ -16,6 +16,7 @@ export default {
   'file-size': 'Boyut',
   'file-completed-size': 'İndirildi',
   'selected-files-sum': 'Seçildi: {{selectedFilesCount}} dosya sayısı, total {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Lütfen en az bir dosya seçin',
   'task-name': 'Görev Adı',
   'task-out': 'Dosya Adı',
   'task-out-tips': 'Opsiyonel',
