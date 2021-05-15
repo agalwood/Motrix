@@ -16,6 +16,7 @@ export default {
   'file-size': 'حجم الملف',
   'file-completed-size': 'تم التنزيل',
   'selected-files-sum': 'الملف المختار: {{selectedFilesCount}} ملف, الحجم الكلي {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'الرجاء تحديد ملف واحد على الأقل',
   'task-name': 'اسم التحميل',
   'task-out': 'إعادة تسمية',
   'task-out-tips': 'اختياري',

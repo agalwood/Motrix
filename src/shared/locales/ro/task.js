@@ -16,6 +16,7 @@ export default {
   'file-size': 'Dimensiune',
   'file-completed-size': 'Descărcat',
   'selected-files-sum': 'Selectate: {{selectedFilesCount}} fișiere, dimensiune totală {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Vă rugăm să selectați cel puțin un fișier',
   'task-name': 'Nume sarcină',
   'task-out': 'Redenumeşte',
   'task-out-tips': 'Opțional',

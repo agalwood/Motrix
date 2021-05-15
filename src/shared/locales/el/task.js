@@ -16,6 +16,7 @@ export default {
   'file-size': 'Μέγεθος αρχείου',
   'file-completed-size': 'Έγινε λήψη',
   'selected-files-sum': 'Επιλεγμένα: {{selectedFilesCount}} αρχεία, συνολικό μέγεθος {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Επιλέξτε τουλάχιστον ένα αρχείο',
   'task-name': 'Όνομα εργασίας',
   'task-out': 'Άλλο Όνομα',
   'task-out-tips': 'Προαιρετικό',

@@ -16,6 +16,7 @@ export default {
   'file-size': 'Dateigröße',
   'file-completed-size': 'Heruntergeladen',
   'selected-files-sum': 'Ausgewählt: {{selectedFilesCount}} Dateien, insgesamt {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Bitte wählen Sie mindestens eine Datei aus',
   'task-name': 'Aufgaben Name',
   'task-out': 'Dateiname',
   'task-out-tips': 'Optional',

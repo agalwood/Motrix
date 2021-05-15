@@ -16,6 +16,7 @@ export default {
   'file-size': 'Mida',
   'file-completed-size': 'Descarregat',
   'selected-files-sum': 'Seleccionat: {{selectedFilesCount}} arxius, mida total: {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Seleccioneu com a mínim un fitxer',
   'task-name': 'Nom de la tasca',
   'task-out': 'Canviar nom',
   'task-out-tips': 'Opcional',

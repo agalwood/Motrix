@@ -16,6 +16,7 @@ export default {
   'file-size': 'Rozmiar',
   'file-completed-size': 'Pobrano',
   'selected-files-sum': 'Wybrano: {{selectedFilesCount}} plików, Wspólny rozmiar {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Wybierz co najmniej jeden plik',
   'task-name': 'Nazwa zadania',
   'task-out': 'Zmień nazwę',
   'task-out-tips': 'Opcjonalne',

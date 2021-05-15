@@ -16,6 +16,7 @@ export default {
   'file-size': '大小',
   'file-completed-size': '已完成',
   'selected-files-sum': '已选：{{selectedFilesCount}}个文件，共 {{selectedFilesTotalSize}}',
+  'select-at-least-one': '请选择至少一个文件',
   'task-name': '任务名称',
   'task-out': '重命名',
   'task-out-tips': '选填',

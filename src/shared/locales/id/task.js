@@ -16,6 +16,7 @@ export default {
   'file-size': 'Ukuran',
   'file-completed-size': 'Ukuran domplet',
   'selected-files-sum': 'Terpilih: {{selectedFilesCount}} berkas, total ukuran {{selectedFilesTotalSize}}',
+  'select-at-least-one': 'Pilih setidaknya satu file',
   'task-name': 'Nama Tugas',
   'task-out': 'Ubah Nama',
   'task-out-tips': 'Opsional',
