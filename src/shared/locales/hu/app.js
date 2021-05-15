@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Sájnaljuk, de ez a funkció feljesztés allat...',
   'yes': 'Igen',
   'no': 'Nem',
+  'save': 'Mentés',
+  'reset': 'Eldobni',
   'cancel': 'Mégse',
   'submit': 'Beküldés',
   'gt1d': '> 1 nap',

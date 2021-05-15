@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Üzgünüz, bu özellik geliştirme aşamasında...',
   'yes': 'Evet',
   'no': 'Hayır',
+  'save': 'Kayıt etmek',
+  'reset': 'İptal Et',
   'cancel': 'İptal',
   'submit': 'Gönder',
   'gt1d': '> 1 gün',

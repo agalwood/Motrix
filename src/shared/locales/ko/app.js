@@ -23,6 +23,8 @@ export default {
   'under-development-message': '죄송합니다, 이 기능은 개발 중입니다...',
   'yes': '예',
   'no': '아니요',
+  'save': '저장',
+  'reset': '포기',
   'cancel': '취소',
   'submit': '제출',
   'gt1d': '> 1 일',

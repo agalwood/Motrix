@@ -23,6 +23,8 @@ export default {
   'under-development-message': 'Ho sentim, aquesta característica està en desenvolupament...',
   'yes': 'Sí',
   'no': 'No',
+  'save': 'Desa',
+  'reset': 'Descarta',
   'cancel': 'Cancel·lar',
   'submit': 'Enviar',
   'gt1d': '> 1 dia',
