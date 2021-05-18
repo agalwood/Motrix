@@ -63,6 +63,10 @@ export const availableLanguages = [
     label: '한국어'
   },
   {
+    value: 'nb',
+    label: 'Norsk Bokmål'
+  },
+  {
     value: 'pl',
     label: 'Polski'
   },
