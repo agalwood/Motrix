@@ -128,16 +128,16 @@ const resources = {
       ...appLocaleKo
     }
   },
-  'pl': {
-    translation: {
-      ...eleLocalePl,
-      ...appLocalePl
-    }
-  },
   'nb': {
     translation: {
       ...eleLocaleNb,
       ...appLocaleNb
+    }
+  },
+  'pl': {
+    translation: {
+      ...eleLocalePl,
+      ...appLocalePl
     }
   },
   'pt-BR': {
