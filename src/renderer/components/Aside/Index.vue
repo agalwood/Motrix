@@ -1,5 +1,5 @@
 <template>
-  <el-aside width="78px" :class="['aside', 'hidden-sm-and-down', { 'draggable': asideDraggable }]">
+  <el-aside width="78px" :class="['aside', 'hidden-sm-and-down', { 'draggable': asideDraggable }]" :style="vibrancy">
     <div class="aside-inner">
       <mo-logo-mini />
       <ul class="menu top-menu">
@@ -43,6 +43,13 @@
       }),
       asideDraggable () {
         return is.macOS()
+      },
+      vibrancy () {
+        return is.macOS()
+          ? {
+            backgroundColor: 'transparent'
+          }
+          : {}
       }
     },
     methods: {
