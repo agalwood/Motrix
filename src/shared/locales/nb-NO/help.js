@@ -1,5 +1,5 @@
 export default {
-  'official-website': 'Motrix' nettside',
+  'official-website': 'Motrix\' nettside',
   'manual': 'Brukerhåndbok',
   'release-notes': 'Utgivelsesnotater...',
   'report-problem': 'Rapporter problem',
