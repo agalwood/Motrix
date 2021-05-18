@@ -11,6 +11,9 @@ const defaultBrowserOptions = {
   show: false,
   width: 1024,
   height: 768,
+  vibrancy: 'ultra-dark',
+  visualEffectState: 'active',
+  backgroundColor: is.macOS() ? '#00000000' : '#FFF',
   webPreferences: {
     nodeIntegration: true
   }
@@ -87,8 +90,7 @@ export default class WindowManager extends EventEmitter {
         contextIsolation: false,
         nodeIntegration: true,
         nodeIntegrationInWorker: true
-      },
-      hasShadow: !is.macOS()
+      }
     })
 
     const bounds = this.getPageBounds(page)
