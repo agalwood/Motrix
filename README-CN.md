@@ -33,7 +33,7 @@ scoop install motrix
 
 ### macOS
 
-macOS 用户可以使用 `brew cask` 安装 Motrix，感谢 [Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。
+macOS 用户可以使用 `brew cask` 安装 Motrix，感谢 [@Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。
 
 ```bash
 brew update && brew install --cask motrix
@@ -42,6 +42,8 @@ brew update && brew install --cask motrix
 ### Linux
 
 你可以下载 `AppImage` （适用于所有 Linux 发行版）或 `snap` 来安装 Motrix，更多 Linux 安装包格式请查看 [GitHub/release](https://github.com/agalwood/Motrix/releases) 。
+
+Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能没有创建下载会话文件的权限 (`/var/cache/aria2.session`)。
 
 如果你想自己通过编译源码来安装，请阅读 **编译打包** 部分。
 
@@ -70,7 +72,7 @@ v1.5.10 提示
 请更新到 v1.5.12 及以上版本，可以使用键盘组合快捷键 <kbd>Ctrl</kbd> + <kbd>q</kbd> 快速退出应用。
 
 #### AUR
-对于 Arch Linux 用户，可以使用 [aur](https://aur.archlinux.org/packages/motrix/) 安装 Motrix，感谢维护者 [weearc](https://github.com/weearc)。
+对于 Arch Linux 用户，可以使用 [aur](https://aur.archlinux.org/packages/motrix/) 安装 Motrix，感谢维护者 [@weearc](https://github.com/weearc)。
 
 运行以下命令进行安装：
 
@@ -78,7 +80,16 @@ v1.5.10 提示
 yay motrix
 ```
 
-Motrix 在 Linux 中首次启动可能需要使用 `sudo` 运行，因为可能没有创建下载会话文件的权限 (`/var/cache/aria2.session`)。
+#### Flatpak
+感谢 [@proletarius101](https://github.com/proletarius101) 的 [PR](https://github.com/flathub/flathub/pull/2334)，Motrix 已经上架 [Flathub](https://flathub.org/apps/details/net.agalwood.Motrix)，喜欢 Flatpak 的 Linux 用户可以尝试。
+
+```bash
+# Install
+flatpak install flathub net.agalwood.Motrix
+
+# Run
+flatpak run net.agalwood.Motrix
+```
 
 ## ✨ 特性
 

@@ -33,7 +33,7 @@ scoop install motrix
 
 ### macOS
 
-The macOS users can install Motrix using `brew cask`, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [Mitscherlich](https://github.com/Mitscherlich).
+The macOS users can install Motrix using `brew cask`, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [@Mitscherlich](https://github.com/Mitscherlich).
 
 ```bash
 brew update && brew install --cask motrix
@@ -42,6 +42,8 @@ brew update && brew install --cask motrix
 ### Linux
 
 You can download the `AppImage` (for all Linux distributions) or `snap` to install Motrix, see [GitHub/release](https://github.com/agalwood/Motrix/releases) for more Linux installation package formats.
+
+Motrix may need to run with `sudo` for the first time in Linux because there is no permission to create the download session file (`/var/cache/aria2.session`).
 
 If you want to build from source code, please read the **Build** section.
 
@@ -72,7 +74,7 @@ Please unchecked Preferences--Basic Settings--Hide App Menu (Windows & Linux Onl
 Please update to v1.5.12 and above, you can use the keyboard shortcut <kbd>Ctrl</kbd> + <kbd>q</kbd> to quickly exit the application.
 
 #### AUR
-For Arch Linux users, Motrix is available in [aur](https://aur.archlinux.org/packages/motrix/), thanks to the maintainer [weearc](https://github.com/weearc).
+For Arch Linux users, Motrix is available in [aur](https://aur.archlinux.org/packages/motrix/), thanks to the maintainer [@weearc](https://github.com/weearc).
 
 Run the following command to install:
 
@@ -80,7 +82,16 @@ Run the following command to install:
 yay motrix
 ```
 
-Motrix may need to run with `sudo` for the first time in Linux because there is no permission to create the download session file (`/var/cache/aria2.session`).
+#### Flatpak
+Thanks to the [PR](https://github.com/flathub/flathub/pull/2334) of [@proletarius101](https://github.com/proletarius101), Motrix has been listed [Flathub](https://flathub.org/apps/details/net.agalwood.Motrix), Linux users who like the Flatpak can try it.
+
+```bash
+# Install
+flatpak install flathub net.agalwood.Motrix
+
+# Run
+flatpak run net.agalwood.Motrix
+```
 
 ## ✨ Features
 
