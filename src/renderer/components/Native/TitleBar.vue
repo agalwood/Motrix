@@ -62,6 +62,7 @@
   height: 36px;
   z-index: 5000;
   .title-bar-dragger {
+    margin: 5px 0 0 5px;
     flex: 1;
     user-select: none;
     -webkit-app-region: drag;
