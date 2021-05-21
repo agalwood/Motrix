@@ -24,6 +24,20 @@ Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 
 建议使用安装包（Motrix-Setup-x.y.z.exe）安装 Motrix 以确保完整的体验，例如关联 torrent 文件，捕获磁力链等。
 
+如果你在 Windows 是用包管理工具来管理应用，如 [Chocolatey](https://chocolatey.org)、[scoop](https://github.com/lukesampson/scoop)，你可以使用它们安装 Motrix。
+
+#### Chocolatey
+感谢 [Yato](https://github.com/iYato) 持续维护着 [Motrix Chocolatey](https://community.chocolatey.org/packages/motrix) 包。要安装 Motrix，请从 `命令行` 或 `PowerShell` 中运行以下命令：
+
+```bash
+# 安装
+choco install motrix
+
+# 升级
+choco upgrade motrix
+```
+
+#### scoop
 如果你更喜欢便携版，你可以使用 [scoop](https://github.com/lukesampson/scoop)（需要 Windows 7+，天朝用户可能需要设置 Git 代理）安装最新便携版本的 Motrix。
 
 ```bash
@@ -84,10 +98,10 @@ yay motrix
 感谢 [@proletarius101](https://github.com/proletarius101) 的 [PR](https://github.com/flathub/flathub/pull/2334)，Motrix 已经上架 [Flathub](https://flathub.org/apps/details/net.agalwood.Motrix)，喜欢 Flatpak 的 Linux 用户可以尝试。
 
 ```bash
-# Install
+# 安装
 flatpak install flathub net.agalwood.Motrix
 
-# Run
+# 运行
 flatpak run net.agalwood.Motrix
 ```
 
