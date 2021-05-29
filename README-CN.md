@@ -27,7 +27,7 @@ Motrix 是一款全能的下载工具，支持下载 HTTP、FTP、BT、磁力链
 如果你在 Windows 是用包管理工具来管理应用，如 [Chocolatey](https://chocolatey.org)、[scoop](https://github.com/lukesampson/scoop)，你可以使用它们安装 Motrix。
 
 #### Chocolatey
-感谢 [Yato](https://github.com/iYato) 持续维护着 [Motrix Chocolatey](https://community.chocolatey.org/packages/motrix) 包。要安装 Motrix，请从 `命令行` 或 `PowerShell` 中运行以下命令：
+感谢 [@Yato](https://github.com/iYato) 持续维护着 [Motrix Chocolatey](https://community.chocolatey.org/packages/motrix) 包。要安装 Motrix，请从 `命令行` 或 `PowerShell` 中运行以下命令：
 
 ```bash
 # 安装
