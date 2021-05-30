@@ -1,10 +1,18 @@
-import api from '@/api'
-import { fetchBtTrackerFromSource } from '@shared/utils/tracker'
 import { isEmpty } from 'lodash'
+
+import api from '@/api'
+import { getLangDirection } from '@shared/utils'
+import { fetchBtTrackerFromSource } from '@shared/utils/tracker'
 
 const state = {
   engineMode: 'MAX',
   config: {}
+}
+
+const getters = {
+  theme: state => state.config.theme,
+  locale: state => state.config.locale,
+  dir: state => getLangDirection(state.config.locale)
 }
 
 const mutations = {
@@ -49,6 +57,7 @@ const actions = {
 export default {
   namespaced: true,
   state,
+  getters,
   mutations,
   actions
 }

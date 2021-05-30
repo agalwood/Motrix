@@ -15,8 +15,7 @@
 
 <script>
   import is from 'electron-is'
-  import { mapState } from 'vuex'
-  import { getLangDirection } from '@shared/utils'
+  import { mapGetters, mapState } from 'vuex'
   import { APP_THEME } from '@shared/constants'
   import DynamicTray from '@/components/Native/DynamicTray'
   import EngineClient from '@/components/Native/EngineClient'
@@ -42,11 +41,13 @@
           return (is.windows() || is.linux()) && state.config.hideAppMenu
         },
         traySpeedometer: state => state.config.traySpeedometer,
-        rpcSecret: state => state.config.rpcSecret,
-        theme: state => state.config.theme,
-        locale: state => state.config.locale,
-        dir: state => getLangDirection(state.config.locale)
+        rpcSecret: state => state.config.rpcSecret
       }),
+      ...mapGetters('preference', [
+        'theme',
+        'locale',
+        'dir'
+      ]),
       themeClass () {
         if (this.theme === APP_THEME.AUTO) {
           return `theme-${this.systemTheme}`
