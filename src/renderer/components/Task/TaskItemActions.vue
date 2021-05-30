@@ -28,9 +28,6 @@
       <i v-if="action ==='INFO'" @click.stop="onInfoClick">
         <mo-icon name="info-circle" width="14" height="14" />
       </i>
-      <i v-if="action ==='MORE'" @click.stop="onMoreClick">
-        <mo-icon name="more" width="14" height="14" />
-      </i>
     </li>
   </ul>
 </template>
@@ -54,7 +51,6 @@
   import '@/components/Icons/folder'
   import '@/components/Icons/link'
   import '@/components/Icons/info-circle'
-  import '@/components/Icons/more'
   import '@/components/Icons/trash'
 
   const taskActionsMap = {
@@ -187,8 +183,6 @@
       onInfoClick () {
         const { task } = this
         commands.emit('show-task-info', { task })
-      },
-      onMoreClick () {
       }
     }
   }
