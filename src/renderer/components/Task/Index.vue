@@ -1,6 +1,6 @@
 <template>
   <el-container
-    class="content panel"
+    class="main panel"
     direction="horizontal"
   >
     <el-aside

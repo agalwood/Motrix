@@ -148,7 +148,7 @@ iframe {
 
 .draggable {
   -webkit-app-region: drag;
-  -webkit-user-select: none;
+  user-select: none;
 }
 
 .non-draggable {
@@ -163,6 +163,10 @@ iframe {
 .subnav {
   background-color: $--subnav-background;
   color: $--subnav-text-color;
+}
+
+.main {
+  background-color: $--main-background;
 }
 
 .subnav-inner {
