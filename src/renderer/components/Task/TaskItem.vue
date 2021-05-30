@@ -8,7 +8,7 @@
       <mo-task-progress
         :completed="Number(task.completedLength)"
         :total="Number(task.totalLength)"
-        :status="task.status"
+        :status="taskStatus"
       />
       <mo-task-progress-info :task="task" />
     </div>
@@ -16,7 +16,7 @@
 </template>
 
 <script>
-  import { getTaskName } from '@shared/utils'
+  import { checkTaskIsSeeder, getTaskName } from '@shared/utils'
   import { TASK_STATUS } from '@shared/constants'
   import { openItem, getTaskFullPath } from '@/utils/native'
   import TaskItemActions from './TaskItemActions'
@@ -46,6 +46,17 @@
         return getTaskName(this.task, {
           defaultName: this.$t('task.get-task-name')
         })
+      },
+      isSeeder () {
+        return checkTaskIsSeeder(this.task)
+      },
+      taskStatus () {
+        const { task, isSeeder } = this
+        if (isSeeder) {
+          return TASK_STATUS.SEEDING
+        } else {
+          return task.status
+        }
       }
     },
     methods: {
@@ -99,7 +110,7 @@
 .task-name {
   color: #505753;
   margin-bottom: 1.5rem;
-  margin-right: 220px;
+  margin-right: 200px;
   word-break: break-all;
   min-height: 26px;
   &> span {

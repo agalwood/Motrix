@@ -21,7 +21,7 @@
               <mo-task-progress
                 :completed="Number(task.completedLength)"
                 :total="Number(task.totalLength)"
-                :status="task.status"
+                :status="taskStatus"
               />
             </div>
           </el-col>
