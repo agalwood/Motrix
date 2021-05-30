@@ -33,8 +33,8 @@
     </el-form-item>
     <el-form-item>
       <div class="form-static-value">
-        <span>{{ task.completedLength | bytesToSize }}</span>
-        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize }}</span>
+        <span>{{ task.completedLength | bytesToSize(2) }}</span>
+        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize(2) }}</span>
         <span class="task-time-remaining" v-if="isActive && remaining > 0">
           {{
             remaining | timeFormat({

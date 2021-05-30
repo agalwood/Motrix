@@ -23,13 +23,13 @@ import {
   UNKNOWN_PEERID
 } from '@shared/constants'
 
-export function bytesToSize (bytes) {
+export function bytesToSize (bytes, precision = 1) {
   const b = parseInt(bytes, 10)
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   if (b === 0) { return '0 KB' }
   const i = parseInt(Math.floor(Math.log(b) / Math.log(1024)), 10)
   if (i === 0) { return `${b} ${sizes[i]}` }
-  return `${(b / (1024 ** i)).toFixed(1)} ${sizes[i]}`
+  return `${(b / (1024 ** i)).toFixed(precision)} ${sizes[i]}`
 }
 
 export function bitfieldToPercent (text) {

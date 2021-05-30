@@ -2,8 +2,8 @@
   <el-row class="task-progress-info">
     <el-col :span="6" class="task-progress-info-left">
       <div v-if="task.completedLength > 0 || task.totalLength > 0">
-        <span>{{ task.completedLength | bytesToSize }}</span>
-        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize }}</span>
+        <span>{{ task.completedLength | bytesToSize(2) }}</span>
+        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize(2) }}</span>
       </div>
     </el-col>
     <el-col :span="18" class="task-progress-info-right">
