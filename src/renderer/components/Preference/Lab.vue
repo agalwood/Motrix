@@ -91,6 +91,6 @@
   flex-basis: auto;
   overflow: auto;
   box-sizing: border-box;
-  padding: 0 0 0 36px;
+  padding: 0;
 }
 </style>

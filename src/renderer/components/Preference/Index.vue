@@ -18,7 +18,7 @@
 
 <style lang="scss">
 .form-preference {
-  padding: 16px 7% 64px 0;
+  padding: 16px 7% 64px 16px;
   .el-switch__label {
     font-weight: normal;
     color: $--color-text-regular;
@@ -62,7 +62,7 @@
   z-index: 10;
   width: -webkit-fill-available;
   box-sizing: border-box;
-  padding: 24px 36px 24px 0;
+  padding: 24px 16px;
 }
 .action-link {
   cursor: pointer;

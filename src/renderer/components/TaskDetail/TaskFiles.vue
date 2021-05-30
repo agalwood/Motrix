@@ -41,7 +41,13 @@
       </el-table>
     </div>
     <el-row class="file-filters" :gutter="12">
-      <el-col class="quick-filters" :span="8">
+      <el-col
+        class="quick-filters"
+        :xs="24"
+        :sm="8"
+        :md="8"
+        :lg="8"
+      >
         <el-button-group>
           <el-button @click="toggleVideoSelection()">
             <mo-icon name="video" width="12" height="12" />
@@ -54,7 +60,13 @@
           </el-button>
         </el-button-group>
       </el-col>
-      <el-col :span="16" class="files-summary">
+      <el-col
+        class="files-summary"
+        :xs="24"
+        :sm="16"
+        :md="16"
+        :lg="16"
+      >
         {{ $t('task.selected-files-sum', { selectedFilesCount, selectedFilesTotalSize }) }}
       </el-col>
     </el-row>

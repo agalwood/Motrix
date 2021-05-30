@@ -60,14 +60,26 @@
           v-if="form.useProxy"
           style="margin-top: -16px;"
         >
-          <el-col class="form-item-sub" :span="16">
+          <el-col
+            class="form-item-sub"
+            :xs="24"
+            :sm="20"
+            :md="16"
+            :lg="16"
+          >
             <el-input
               placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
               @change="onAllProxyBackupChange"
               v-model="form.allProxyBackup">
             </el-input>
           </el-col>
-          <el-col class="form-item-sub" :span="20">
+          <el-col
+            class="form-item-sub"
+            :xs="24"
+            :sm="24"
+            :md="20"
+            :lg="20"
+          >
             <el-input
               type="textarea"
               rows="2"
@@ -182,7 +194,13 @@
           :label-width="formLabelWidth"
         >
           <el-row style="margin-bottom: 8px;">
-            <el-col class="form-item-sub" :span="12">
+            <el-col
+              class="form-item-sub"
+              :xs="24"
+              :sm="18"
+              :md="12"
+              :lg="12"
+            >
               <el-switch
                 v-model="form.enableUpnp"
                 active-text="UPnP/NAT-PMP"
@@ -191,7 +209,12 @@
             </el-col>
           </el-row>
           <el-row style="margin-bottom: 8px;">
-            <el-col class="form-item-sub" :span="10">
+            <el-col class="form-item-sub"
+              :xs="24"
+              :sm="18"
+              :md="10"
+              :lg="10"
+            >
               {{ $t('preferences.bt-port') }}
               <el-input
                 placeholder="BT Port"
@@ -205,7 +228,13 @@
             </el-col>
           </el-row>
           <el-row>
-            <el-col class="form-item-sub" :span="10">
+            <el-col
+              class="form-item-sub"
+              :xs="24"
+              :sm="18"
+              :md="10"
+              :lg="10"
+            >
               {{ $t('preferences.dht-port') }}
               <el-input
                 placeholder="DHT Port"
@@ -261,7 +290,13 @@
               <el-button @click="() => changeUA('du')">du</el-button>
             </el-button-group>
           </el-col>
-          <el-col class="form-item-sub" :span="18">
+          <el-col
+            class="form-item-sub"
+            :xs="24"
+            :sm="18"
+            :md="18"
+            :lg="18"
+          >
             {{ $t('preferences.rpc-secret') }}
             <el-input
               :show-password="hideRpcSecret"

@@ -237,7 +237,7 @@ iframe {
   .panel-header {
     position: relative;
     padding: 44px 0 12px;
-    margin: 0 36px;
+    margin: 0 16px;
     border-bottom: 2px solid $--panel-border-color;
     user-select: none;
     h4 {
@@ -250,7 +250,7 @@ iframe {
   }
   .panel-content {
     position: relative;
-    padding: 0 36px 0;
+    padding: 0;
     height: 100%;
   }
 }
@@ -289,11 +289,30 @@ iframe {
 
 @media only screen and (max-width:567px) {
   .hidden-xs-only {
-    display:none!important
+    display:none !important
   }
 }
 
 @media only screen and (min-width: 568px) {
+  .panel {
+    .panel-header {
+      margin-left: 36px;
+      margin-right: 36px;
+    }
+  }
+  .task-list {
+    padding-left: 36px;
+    padding-right: 36px;
+  }
+  .form-preference {
+    padding-left: 36px;
+  }
+  .form-actions {
+    padding: 24px 36px;
+  }
+  .mo-speedometer {
+    right: 36px;
+  }
   .hidden-sm-and-up {
     display: none !important;
   }
