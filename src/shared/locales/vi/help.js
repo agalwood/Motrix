@@ -1,5 +1,5 @@
 export default {
-  'official-website': 'Trang thông tin chính thức của Motrix',
+  'official-website': 'Trang web của Motrix',
   'manual': 'Hướng dẫn sử dụng',
   'release-notes': 'Ghi chú Phát hành...',
   'report-problem': 'Báo cáo Vấn đề',
