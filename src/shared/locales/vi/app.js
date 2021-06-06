@@ -8,7 +8,7 @@ export default {
   'checking-for-updates': 'Đang kiểm tra cập nhật...',
   'check-for-updates-title': 'Kiểm tra Cập nhật',
   'update-available-message': 'Có một phiên bản mới của Motrix, cập nhật ngay?',
-  'update-not-available-message': 'Bạn đang dùng bản mới nhất.',
+  'update-not-available-message': 'Bạn đang dùng bản mới nhất!',
   'update-downloaded-message': 'Đã sẵn sàng để cài đặt...',
   'update-error-message': 'Cập nhật lỗi',
   'engine-damaged-message': 'Ứng dụng bị lỗi, vui lòng cài đặt lại : (',
