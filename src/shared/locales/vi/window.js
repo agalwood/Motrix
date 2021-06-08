@@ -2,7 +2,7 @@ export default {
   'reload': 'Tải lại',
   'close': 'Đóng',
   'minimize': 'Thu nhỏ',
-  'zoom': 'Zoom',
-  'toggle-fullscreen': 'Mở toàn màn hình',
+  'zoom': 'Thu phóng',
+  'toggle-fullscreen': 'Mở Toàn Màn Hình',
   'front': 'Đưa tất cả lên phía trước'
 }
