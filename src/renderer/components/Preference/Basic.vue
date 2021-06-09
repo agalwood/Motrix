@@ -183,6 +183,20 @@
               :label="$t('preferences.seed-time')">
             </el-input-number>
           </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.followMetalink"
+              :active-text="$t('preferences.no-auto-download-files-in-magnet-link')"
+            >
+            </el-switch>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.followTorrent"
+              :active-text="$t('preferences.auto-download-files-in-torrent-link')"
+            >
+            </el-switch>
+          </el-col>
           <div class="el-form-item__info" style="margin-top: 8px;">
           </div>
         </el-form-item>
@@ -288,7 +302,9 @@
       seedTime,
       taskNotification,
       theme,
-      traySpeedometer
+      traySpeedometer,
+      followMetalink,
+      followTorrent
     } = config
     const result = {
       autoHideWindow,
@@ -313,7 +329,9 @@
       seedTime,
       taskNotification,
       theme,
-      traySpeedometer
+      traySpeedometer,
+      followMetalink,
+      followTorrent
     }
     return result
   }

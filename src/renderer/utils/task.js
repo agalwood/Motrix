@@ -16,7 +16,9 @@ export const initTaskForm = state => {
     engineMaxConnectionPerServer,
     maxConnectionPerServer,
     newTaskShowDownloading,
-    split
+    split,
+    followTorrent,
+    followMetalink
   } = state.preference.config
   const result = {
     allProxy,
@@ -32,6 +34,8 @@ export const initTaskForm = state => {
     torrent: '',
     uris: addTaskUrl,
     userAgent: '',
+    notFollowMetalink: followMetalink,
+    followTorrent,
     ...addTaskOptions
   }
   return result
@@ -93,6 +97,9 @@ export const buildOption = (type, form) => {
   if (!isEmpty(header)) {
     result.header = header
   }
+
+  result.pauseMetadata = !!form.notFollowMetalink
+  result.followTorrent = !!form.followTorrent
   return result
 }
 
