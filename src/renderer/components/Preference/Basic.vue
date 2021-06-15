@@ -186,14 +186,14 @@
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.followMetalink"
-              :active-text="$t('preferences.no-auto-download-files-in-magnet-link')"
+              :active-text="$t('preferences.follow-metalink')"
             >
             </el-switch>
           </el-col>
           <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.followTorrent"
-              :active-text="$t('preferences.auto-download-files-in-torrent-link')"
+              :active-text="$t('preferences.follow-torrent')"
             >
             </el-switch>
           </el-col>
@@ -285,6 +285,8 @@
       btSaveMetadata,
       dir,
       engineMaxConnectionPerServer,
+      followMetalink,
+      followTorrent,
       hideAppMenu,
       keepSeeding,
       keepWindowState,
@@ -302,9 +304,7 @@
       seedTime,
       taskNotification,
       theme,
-      traySpeedometer,
-      followMetalink,
-      followTorrent
+      traySpeedometer
     } = config
     const result = {
       autoHideWindow,
@@ -312,6 +312,8 @@
       continue: config.continue,
       dir,
       engineMaxConnectionPerServer,
+      followMetalink,
+      followTorrent,
       hideAppMenu,
       keepSeeding,
       keepWindowState,
@@ -329,9 +331,7 @@
       seedTime,
       taskNotification,
       theme,
-      traySpeedometer,
-      followMetalink,
-      followTorrent
+      traySpeedometer
     }
     return result
   }
