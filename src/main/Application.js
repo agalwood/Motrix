@@ -13,7 +13,8 @@ import {
 import { checkIsNeedRun } from '@shared/utils'
 import {
   convertTrackerDataToComma,
-  fetchBtTrackerFromSource
+  fetchBtTrackerFromSource,
+  reduceTrackerString
 } from '@shared/utils/tracker'
 import logger from './core/Logger'
 import ConfigManager from './core/ConfigManager'
@@ -316,7 +317,8 @@ export default class Application extends EventEmitter {
           return
         }
 
-        const tracker = convertTrackerDataToComma(data)
+        let tracker = convertTrackerDataToComma(data)
+        tracker = reduceTrackerString(tracker)
         this.savePreference({
           system: {
             'bt-tracker': tracker

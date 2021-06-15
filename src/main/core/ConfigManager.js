@@ -19,6 +19,7 @@ import {
   NGOSANG_TRACKERS_BEST_URL_CDN
 } from '@shared/constants'
 import { separateConfig } from '@shared/utils'
+import { reduceTrackerString } from '@shared/utils/tracker'
 
 export default class ConfigManager {
   constructor () {
@@ -140,6 +141,10 @@ export default class ConfigManager {
     Object.keys(others).forEach(key => {
       this.systemConfig.delete(key)
     })
+
+    // Fix spawn ENAMETOOLONG on Windows
+    const tracker = reduceTrackerString(this.systemConfig.get('bt-tracker'))
+    this.setSystemConfig('bt-tracker', tracker)
   }
 
   fixUserConfig () {

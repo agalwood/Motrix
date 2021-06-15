@@ -387,7 +387,7 @@
     diffConfig,
     getRandomInt
   } from '@shared/utils'
-  import { convertTrackerDataToLine } from '@shared/utils/tracker'
+  import { convertTrackerDataToLine, reduceTrackerString } from '@shared/utils/tracker'
   import '@/components/Icons/dice'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
@@ -613,7 +613,7 @@
 
           const { btTracker, noProxy } = changed
           if (btTracker) {
-            data.btTracker = convertLineToComma(btTracker)
+            data.btTracker = reduceTrackerString(convertLineToComma(btTracker))
           }
 
           if (noProxy) {
