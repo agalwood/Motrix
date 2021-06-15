@@ -78,6 +78,6 @@ export default {
   'auto-update': '自动更新',
   'auto-check-update': '自动检查更新',
   'last-check-update-time': '上次检查更新时间',
-  'no-auto-download-files-in-magnet-link': '禁止自动下载磁力链接、种子内的文件',
-  'auto-download-files-in-torrent-link': '种子下载完后下载种子内容'
+  'follow-metalink': '自动开始下载磁力链接、种子内的文件',
+  'follow-torrent': '种子下载完后自动下载种子内容'
 }
