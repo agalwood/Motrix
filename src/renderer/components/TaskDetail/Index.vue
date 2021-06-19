@@ -168,7 +168,6 @@
           }
         })
         merge(cached.files, result)
-
         return cached.files
       },
       selectedFileList () {
@@ -184,6 +183,11 @@
     destroyed () {
       window.removeEventListener('resize', this.handleAppResize)
       cached.files = []
+    },
+    watch: {
+      gid () {
+        cached.files = []
+      }
     },
     methods: {
       handleClose (done) {

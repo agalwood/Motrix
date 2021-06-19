@@ -77,5 +77,7 @@ export default {
   'baidu-exporter-help': '点此查看使用说明',
   'auto-update': '自动更新',
   'auto-check-update': '自动检查更新',
-  'last-check-update-time': '上次检查更新时间'
+  'last-check-update-time': '上次检查更新时间',
+  'follow-metalink': '自动开始下载磁力链接、种子内的文件',
+  'follow-torrent': '种子下载完后自动下载种子内容'
 }

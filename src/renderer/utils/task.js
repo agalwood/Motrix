@@ -14,6 +14,8 @@ export const initTaskForm = state => {
     allProxy,
     dir,
     engineMaxConnectionPerServer,
+    followMetalink,
+    followTorrent,
     maxConnectionPerServer,
     newTaskShowDownloading,
     split
@@ -23,6 +25,8 @@ export const initTaskForm = state => {
     cookie: '',
     dir,
     engineMaxConnectionPerServer,
+    followMetalink,
+    followTorrent,
     maxConnectionPerServer,
     newTaskShowDownloading,
     out: '',
@@ -93,6 +97,9 @@ export const buildOption = (type, form) => {
   if (!isEmpty(header)) {
     result.header = header
   }
+
+  result.pauseMetadata = !form.followMetalink
+  result.followTorrent = !!form.followTorrent
   return result
 }
 

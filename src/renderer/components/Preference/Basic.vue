@@ -183,6 +183,20 @@
               :label="$t('preferences.seed-time')">
             </el-input-number>
           </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.followMetalink"
+              :active-text="$t('preferences.follow-metalink')"
+            >
+            </el-switch>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
+            <el-switch
+              v-model="form.followTorrent"
+              :active-text="$t('preferences.follow-torrent')"
+            >
+            </el-switch>
+          </el-col>
           <div class="el-form-item__info" style="margin-top: 8px;">
           </div>
         </el-form-item>
@@ -271,6 +285,8 @@
       btSaveMetadata,
       dir,
       engineMaxConnectionPerServer,
+      followMetalink,
+      followTorrent,
       hideAppMenu,
       keepSeeding,
       keepWindowState,
@@ -296,6 +312,8 @@
       continue: config.continue,
       dir,
       engineMaxConnectionPerServer,
+      followMetalink,
+      followTorrent,
       hideAppMenu,
       keepSeeding,
       keepWindowState,
