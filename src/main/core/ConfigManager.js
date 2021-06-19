@@ -71,6 +71,7 @@ export default class ConfigManager {
         'min-split-size': '1M',
         'no-proxy': EMPTY_STRING,
         'pause': true,
+        'pause-metadata': false,
         'rpc-listen-port': 16800,
         'rpc-secret': EMPTY_STRING,
         'seed-ratio': 1,
