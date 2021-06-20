@@ -20,7 +20,7 @@ export default {
   'task-name': 'Nome attività',
   'task-out': 'Rinomina',
   'task-out-tips': '(opzionale)',
-  'task-split': 'Splits',
+  'task-split': 'Dividi',
   'task-dir': 'Posizione file',
   'pause-task': 'Metti in pausa attività',
   'task-ua': 'UA',
