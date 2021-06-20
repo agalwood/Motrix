@@ -20,7 +20,7 @@ export default {
   'unhide': 'Mostra Tutto',
   'show': 'Mostra Motrix',
   'quit': 'Esci da Motrix',
-  'under-development-message': 'Scusa, questa funzioe è in fase di sviluppo...',
+  'under-development-message': 'Scusa, questa funzione è in fase di sviluppo...',
   'yes': 'Si',
   'no': 'No',
   'save': 'Salva',
