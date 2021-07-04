@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': '무제한',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': '토렌트 파일로 마그넷 링크 저장',
+  'bt-auto-download-content': '자동 다운로드 자석 및 토런트 콘텐츠를 다운로드합니다',
   'keep-seeding': '수동으로 멈출 때까지 계속 파종하십시오.',
   'seed-ratio': '종자 비율',
   'seed-time': '종자 시간',

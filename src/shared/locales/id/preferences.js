@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Tak Terbatas',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Simpan tautan magnet sebagai file torrent',
+  'bt-auto-download-content': 'Secara otomatis mengunduh magnet dan konten torrent',
   'keep-seeding': 'Terus lakukan penyemaian sampai menghentikannya secara manual',
   'seed-ratio': 'Rasio Benih',
   'seed-time': 'Waktu Benih',

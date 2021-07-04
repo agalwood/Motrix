@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Sınırsız',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Mıknatıs bağlantısını torrent dosyası olarak kaydedin',
+  'bt-auto-download-content': 'Magnet ve torrent içeriğini otomatik olarak indirin',
   'keep-seeding': 'Manuel olarak durdurana kadar tohumlamaya devam edin',
   'seed-ratio': 'Tohum Oranı',
   'seed-time': 'Tohum Zamanı',

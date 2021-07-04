@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Unbegrenzt',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Magnetlink als Torrent-Datei speichern',
+  'bt-auto-download-content': 'Laden Sie den Magneten- und Torrent-Inhalt automatisch herunter',
   'keep-seeding': 'Setzen Sie die Aussaat fort, bis Sie sie manuell stoppen',
   'seed-ratio': 'Samenverhältnis',
   'seed-time': 'Startzeit',
