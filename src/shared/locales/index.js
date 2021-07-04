@@ -75,16 +75,20 @@ export const availableLanguages = [
     label: 'Português (Brasil)'
   },
   {
-    value: 'ru',
-    label: 'Русский'
-  },
-  {
     value: 'ro',
     label: 'Română'
   },
   {
+    value: 'ru',
+    label: 'Русский'
+  },
+  {
     value: 'tr',
     label: 'Türkçe'
+  },
+  {
+    value: 'uk',
+    label: 'Українська'
   },
   {
     value: 'vi',
@@ -97,10 +101,6 @@ export const availableLanguages = [
   {
     value: 'zh-TW',
     label: '繁體中文'
-  },
-  {
-    value: 'uk',
-    label: 'Українська'
   }
 ]
 
