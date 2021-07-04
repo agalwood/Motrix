@@ -14,6 +14,8 @@ export const initTaskForm = state => {
     allProxy,
     dir,
     engineMaxConnectionPerServer,
+    followMetalink,
+    followTorrent,
     maxConnectionPerServer,
     newTaskShowDownloading,
     split
@@ -23,6 +25,8 @@ export const initTaskForm = state => {
     cookie: '',
     dir,
     engineMaxConnectionPerServer,
+    followMetalink,
+    followTorrent,
     maxConnectionPerServer,
     newTaskShowDownloading,
     out: '',
