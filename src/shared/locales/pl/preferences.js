@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Nieograniczona',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Zapisz link magnetyczny jako plik torrent',
+  'bt-auto-download-content': 'Automatycznie pobieraj zawartość magnesu i torrenta',
   'keep-seeding': 'Kontynuuj wysiew aż do zatrzymania go ręcznie',
   'seed-ratio': 'Stosunek nasion',
   'seed-time': 'Czas siewu',

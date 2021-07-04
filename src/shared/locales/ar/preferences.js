@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'غير محدود',
   'bt-settings': 'بت تورنت',
   'bt-save-metadata': 'احفظ البيانات الوصفية للرابط المغناطيسي كملف تورنت',
+  'bt-auto-download-content': 'قم تلقائيا بتنزيل محتوى المغناطيس والسيل',
   'keep-seeding': 'الحفاظ على البزرة حتى يتم ايقافها يدويًا',
   'seed-ratio': 'نسبة البذرة',
   'seed-time': 'وقت البذرة',

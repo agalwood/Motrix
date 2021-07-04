@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Безлімітно',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Зберегти магнітне посилання як торрент-файл',
+  'bt-auto-download-content': 'Автоматично завантажуйте вміст магніту та торрент',
   'keep-seeding': 'Продовжуйте висівати, поки не зупините його вручну',
   'seed-ratio': 'Співвідношення насіння',
   'seed-time': 'Час насіння',

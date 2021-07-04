@@ -1,13 +1,26 @@
 <template>
   <el-row class="task-progress-info">
-    <el-col :span="6" class="task-progress-info-left">
+    <el-col
+      class="task-progress-info-left"
+      :xs="12"
+      :sm="7"
+      :md="6"
+      :lg="6"
+    >
       <div v-if="task.completedLength > 0 || task.totalLength > 0">
-        <span>{{ task.completedLength | bytesToSize }}</span>
-        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize }}</span>
+        <span>{{ task.completedLength | bytesToSize(2) }}</span>
+        <span v-if="task.totalLength > 0"> / {{ task.totalLength | bytesToSize(2) }}</span>
       </div>
     </el-col>
-    <el-col :span="18" class="task-progress-info-right">
-      <div class="task-speed-info" v-if="isActive">
+    <el-col
+      class="task-progress-info-right"
+      v-if="isActive"
+      :xs="12"
+      :sm="17"
+      :md="18"
+      :lg="18"
+    >
+      <div class="task-speed-info">
         <div class="task-speed-text" v-if="isBT">
           <i><mo-icon name="arrow-up" width="10" height="14" /></i>
           <span>{{ task.uploadSpeed | bytesToSize }}/s</span>
@@ -16,7 +29,7 @@
           <i><mo-icon name="arrow-down" width="10" height="14" /></i>
           <span>{{ task.downloadSpeed | bytesToSize }}/s</span>
         </div>
-        <div class="task-speed-text" v-if="remaining > 0">
+        <div class="task-speed-text hidden-sm-and-down" v-if="remaining > 0">
           <span>
             {{
               remaining | timeFormat({
@@ -31,11 +44,11 @@
             }}
           </span>
         </div>
-        <div class="task-speed-text" v-if="isBT">
+        <div class="task-speed-text hidden-sm-and-down" v-if="isBT">
           <i><mo-icon name="magnet" width="10" height="14" /></i>
           <span>{{ task.numSeeders }}</span>
         </div>
-        <div class="task-speed-text">
+        <div class="task-speed-text hidden-sm-and-down">
           <i><mo-icon name="node" width="10" height="14" /></i>
           <span>{{ task.connections }}</span>
         </div>

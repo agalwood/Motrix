@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Illimité',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Enregistrer le lien de l\'aimant en tant que fichier torrent',
+  'bt-auto-download-content': 'Télécharger automatiquement l\'aimant et le contenu du torrent',
   'keep-seeding': 'Continuez à semer jusqu\'à ce que vous l\'arrêtiez manuellement',
   'seed-ratio': 'Ratio de semences',
   'seed-time': 'Temps de semence',

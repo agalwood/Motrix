@@ -16,10 +16,10 @@ import appLocalePtBR from '@shared/locales/pt-BR'
 import appLocaleRo from '@shared/locales/ro'
 import appLocaleRu from '@shared/locales/ru'
 import appLocaleTr from '@shared/locales/tr'
+import appLocaleUk from '@shared/locales/uk'
 import appLocaleVi from '@shared/locales/vi'
 import appLocaleZhCN from '@shared/locales/zh-CN'
 import appLocaleZhTW from '@shared/locales/zh-TW'
-import appLocaleUk from '@shared/locales/uk'
 
 // Please keep the locale key in alphabetical order.
 /* eslint-disable quote-props */
@@ -27,6 +27,11 @@ const resources = {
   'ar': {
     translation: {
       ...appLocaleAr
+    }
+  },
+  'bg': {
+    translation: {
+      ...appLocaleBg
     }
   },
   'ca': {
@@ -109,6 +114,11 @@ const resources = {
       ...appLocaleTr
     }
   },
+  'uk': {
+    translation: {
+      ...appLocaleUk
+    }
+  },
   'vi': {
     translation: {
       ...appLocaleVi
@@ -122,16 +132,6 @@ const resources = {
   'zh-TW': {
     translation: {
       ...appLocaleZhTW
-    }
-  },
-  'uk': {
-    translation: {
-      ...appLocaleUk
-    }
-  },
-  'bg': {
-    translation: {
-      ...appLocaleBg
     }
   }
 }

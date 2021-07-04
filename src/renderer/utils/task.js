@@ -98,8 +98,6 @@ export const buildOption = (type, form) => {
     result.header = header
   }
 
-  result.pauseMetadata = !form.followMetalink
-  result.followTorrent = !!form.followTorrent
   return result
 }
 

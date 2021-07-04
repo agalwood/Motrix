@@ -10,15 +10,42 @@
       </script>
     <% } %>
   </head>
+
+  <style>
+    .skeleton-aside {
+      background-color: rgba(0, 0, 0, 0.8);
+      width: 78px;
+    }
+    .skeleton-subnav {
+      background-color: #f4f5f7;
+      width: 200px;
+    }
+    .skeleton-main {
+      background-color: #fff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .skeleton-aside {
+        background-color: rgba(0, 0, 0, 0.9);
+      }
+      .skeleton-subnav {
+        background-color: #2D2D2D;
+      }
+      .skeleton-main {
+        background-color: #343434;
+      }
+    }
+  </style>
+
   <body>
     <div id="app">
       <div class="title-bar"></div>
       <section class="el-container" id="container">
-        <aside class="el-aside aside" style="width: 78px;">
+        <aside class="el-aside skeleton-aside hidden-sm-and-down">
         </aside>
-        <aside class="el-aside subnav" style="width: 200px;">
+        <aside class="el-aside skeleton-subnav hidden-xs-only">
         </aside>
-        <section class="el-container main">
+        <section class="el-container skeleton-main">
         </section>
       </section>
     </div>

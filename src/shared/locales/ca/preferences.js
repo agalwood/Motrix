@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Il·limitat',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Deseu l\'enllaç magnet com a fitxer torrent',
+  'bt-auto-download-content': 'Descarregueu automàticament el contingut de Magnet i Torrent',
   'keep-seeding': 'Seguiu sembrant fins aturar-lo manualment',
   'seed-ratio': 'Relació de llavors',
   'seed-time': 'Temps de llavors',

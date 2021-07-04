@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Χωρίς όριο',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Αποθηκεύστε το σύνδεσμο μαγνήτη ως αρχείο torrent',
+  'bt-auto-download-content': 'Αυτόματη λήψη περιεχομένου μαγνήτη και χείμαρξης',
   'keep-seeding': 'Συνεχίστε να σπέρνετε μέχρι να το σταματήσετε χειροκίνητα',
   'seed-ratio': 'Αναλογία σπόρου',
   'seed-time': 'Χρόνος σπόρου',

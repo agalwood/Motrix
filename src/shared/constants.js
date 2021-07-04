@@ -32,6 +32,8 @@ export const ENGINE_RPC_PORT = 16800
 export const UNKNOWN_PEERID = '%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00'
 export const GRAPHIC = '░▒▓█'
 
+export const MAX_BT_TRACKER_LENGTH = 6144
+
 /**
  * @see https://github.com/ngosang/trackerslist
  */

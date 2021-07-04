@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Unlimited',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Save magnet link as torrent file',
+  'bt-auto-download-content': 'Automatically download magnet and torrent content',
   'keep-seeding': 'Keep seeding until stop it manually',
   'seed-ratio': 'Seed Ratio',
   'seed-time': 'Seed Time',

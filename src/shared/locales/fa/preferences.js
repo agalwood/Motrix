@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'نامحدود',
   'bt-settings': 'بیت تورنت',
   'bt-save-metadata': 'ذخیره لینک آهنربا به عنوان فایل تورنت',
+  'bt-auto-download-content': 'به طور خودکار محتوای مغناطیسی و تورنت را دانلود کنید',
   'keep-seeding': 'بذر را ادامه دهید تا آن را دستی قطع کنید',
   'seed-ratio': 'نسبت بذر',
   'seed-time': 'زمان بذر',

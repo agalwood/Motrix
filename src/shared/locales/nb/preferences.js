@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Ubegrenset',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Lagre magnetkobling som torrentfil',
+  'bt-auto-download-content': 'Last ned Magnet og Torrent-innholdet automatisk',
   'keep-seeding': 'Fortsett seeding til du stopper manuelt',
   'seed-ratio': 'Seed-forhold',
   'seed-time': 'Seed-tid',

@@ -8,6 +8,11 @@
 </template>
 
 <script>
+  const getCoords = (e, containerRect) => ({
+    x: e.clientX - containerRect.left,
+    y: e.clientY - containerRect.top
+  })
+
   const getDimensions = (p1, p2) => ({
     width: Math.abs(p1.x - p2.x),
     height: Math.abs(p1.y - p2.y)
@@ -51,12 +56,6 @@
       const self = this
 
       let containerRect = container.getBoundingClientRect()
-
-      const getCoords = e => ({
-        x: e.clientX - containerRect.left,
-        y: e.clientY - containerRect.top
-      })
-
       const box = this.createBox()
       let start = { x: 0, y: 0 }
       let end = { x: 0, y: 0 }
@@ -74,7 +73,7 @@
       function startDrag (e) {
         containerRect = container.getBoundingClientRect()
         self.children = container.childNodes
-        start = getCoords(e)
+        start = getCoords(e, containerRect)
         end = start
         document.addEventListener('mousemove', drag)
         document.addEventListener('touchmove', touchMove)
@@ -87,7 +86,7 @@
       }
 
       function drag (e) {
-        end = getCoords(e)
+        end = getCoords(e, containerRect)
         const dimensions = getDimensions(start, end)
 
         if (end.x < start.x) {

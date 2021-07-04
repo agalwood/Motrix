@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited': 'Végtelen',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Mágneses link mentése torrent fájlként',
+  'bt-auto-download-content': 'A mágnes és a torrent tartalma automatikus letöltése',
   'keep-seeding': 'Addig folytassa a vetéset, amíg manuálisan le nem állítja',
   'seed-ratio': 'Magarány',
   'seed-time': 'Seed Time',

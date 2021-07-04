@@ -15,8 +15,8 @@
             <el-input
               ref="uri"
               type="textarea"
-              :autosize="{ minRows: 3, maxRows: 5 }"
               auto-complete="off"
+              :autosize="{ minRows: 3, maxRows: 5 }"
               :placeholder="$t('task.uri-task-tips')"
               @paste.native="handleUriPaste"
               v-model="form.uris"
@@ -82,8 +82,8 @@
         >
           <el-input
             type="textarea"
-            :autosize="{ minRows: 2, maxRows: 3 }"
             auto-complete="off"
+            :autosize="{ minRows: 2, maxRows: 3 }"
             :placeholder="$t('task.task-user-agent')"
             v-model="form.userAgent"
           >
@@ -95,8 +95,8 @@
         >
           <el-input
             type="textarea"
-            :autosize="{ minRows: 2, maxRows: 3 }"
             auto-complete="off"
+            :autosize="{ minRows: 2, maxRows: 3 }"
             :placeholder="$t('task.task-referer')"
             v-model="form.referer"
           >
@@ -108,8 +108,8 @@
         >
           <el-input
             type="textarea"
-            :autosize="{ minRows: 2, maxRows: 3 }"
             auto-complete="off"
+            :autosize="{ minRows: 2, maxRows: 3 }"
             :placeholder="$t('task.task-cookie')"
             v-model="form.cookie"
           >

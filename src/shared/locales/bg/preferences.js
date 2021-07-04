@@ -18,6 +18,7 @@ export default {
   'transfer-speed-unlimited':'Unlimited',
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Запазете магнитната връзка като торент файл',
+  'bt-auto-download-content': 'Автоматично изтегляне на магнит и торент съдържание',
   'keep-seeding': 'Продължавайте да засявате, докато не го спрете ръчно',
   'seed-ratio': 'Съотношение на семената',
   'seed-time': 'Време на семената',
