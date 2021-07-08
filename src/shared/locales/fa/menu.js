@@ -1,7 +1,7 @@
 export default {
   'app': 'ماتریکس',
-  'file': 'فایل',
-  'task': 'تسک',
+  'file': 'پرونده',
+  'task': 'وظیفه',
   'edit': 'ویرایش',
   'window': 'پنجره',
   'help': 'راهنما'
