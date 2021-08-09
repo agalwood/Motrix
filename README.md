@@ -7,7 +7,7 @@
 ## A full-featured download manager
 
 [![GitHub release](https://img.shields.io/github/v/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg) ![Support Platforms](https://camo.githubusercontent.com/a50c47295f350646d08f2e1ccd797ceca3840e52/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f706c6174666f726d2d6d61634f5325323025374325323057696e646f77732532302537432532304c696e75782d6c69676874677265792e737667)
-
+[![Maintainability](https://cloud.quality-gate.com/dashboard/api/badge?projectName=agalwood_Motrix&branchName=master)](https://cloud.quality-gate.com/dashboard/branches/508931#overview)
 English | [简体中文](./README-CN.md)
 
 Motrix is a full-featured download manager that supports downloading HTTP, FTP, BitTorrent, Magnet, etc.
