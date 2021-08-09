@@ -31,7 +31,6 @@
     name: 'mo-dynamic-tray',
     computed: {
       ...mapState('app', {
-        bigSur: state => state.bigSur,
         iconStatus: state => state.stat.numActive > 0 ? 'active' : 'normal',
         theme: state => state.systemTheme,
         focused: state => state.trayFocused,
