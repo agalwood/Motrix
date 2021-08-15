@@ -202,7 +202,7 @@ export default class WindowManager extends EventEmitter {
 
   showWindow (page) {
     const window = this.getWindow(page)
-    if (!window || window.isVisible()) {
+    if (!window || (window.isVisible() && !window.isMinimized())) {
       return
     }
 
