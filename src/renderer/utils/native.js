@@ -6,8 +6,7 @@ import { Message } from 'element-ui'
 
 import {
   getFileNameFromFile,
-  isMagnetTask,
-  getSystemMajorVersion
+  isMagnetTask
 } from '@shared/utils'
 import { APP_THEME, TASK_STATUS } from '@shared/constants'
 
@@ -121,10 +120,6 @@ export function getSystemTheme () {
   }
   result = nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
   return result
-}
-
-export function isBigSur () {
-  return is.macOS() && getSystemMajorVersion() >= 20
 }
 
 export const delayDeleteTaskFiles = (task, delay) => {
