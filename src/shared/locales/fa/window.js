@@ -1,8 +1,8 @@
 export default {
-  'reload': 'ریلود',
+  'reload': 'بارگزاری مجدد',
   'close': 'بستن',
-  'minimize': 'کوچک کردن',
-  'zoom': 'زوم',
-  'toggle-fullscreen': 'رفتن به حالت فول‌اسکرین',
+  'minimize': 'کمینه',
+  'zoom': 'بزرگنمایی',
+  'toggle-fullscreen': 'حالت تمام صفحه',
   'front': 'همه را جلو بیار'
 }
