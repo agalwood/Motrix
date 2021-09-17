@@ -144,7 +144,7 @@
         }
       ],
       "extraResources": {
-        "from": "./extra/win32/",
+        "from": "./extra/win/${arch}/",
         "to": "./",
         "filter": [
           "**/*"
