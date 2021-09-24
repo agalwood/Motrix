@@ -175,7 +175,7 @@ yarn run build
 
 - [Electron](https://electronjs.org/)
 - [Vue](https://vuejs.org/) + [VueX](https://vuex.vuejs.org/) + [Element](https://element.eleme.io)
-- [Aria2](https://aria2.github.io/) (注：macOS 和 Linux 版本使用的是 64 位的 aria2c，Windows 版使用的 32 位的）
+- [Aria2](https://aria2.github.io/)
 
 ## ☑️ TODO
 

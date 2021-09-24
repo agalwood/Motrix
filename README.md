@@ -168,7 +168,7 @@ After building, the application will be found in the project's `release` directo
 
 - [Electron](https://electronjs.org/)
 - [Vue](https://vuejs.org/) + [VueX](https://vuex.vuejs.org/) + [Element](https://element.eleme.io)
-- [Aria2](https://aria2.github.io/) (Note: macOS and Linux versions use 64-bit aria2c, Windows version uses 32-bit)
+- [Aria2](https://aria2.github.io/)
 
 ## ☑️ TODO
 
