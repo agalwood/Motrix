@@ -145,7 +145,9 @@ export default class TrayManager extends EventEmitter {
     tray = new Tray(icon)
     // tray.setPressedImage(inverseIcon)
 
-    tray.setToolTip('Motrix')
+    if (!this.macOS) {
+      tray.setToolTip('Motrix')
+    }
   }
 
   handleEvents () {
