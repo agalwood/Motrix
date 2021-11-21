@@ -371,16 +371,18 @@
   import is from 'electron-is'
   import { dialog } from '@electron/remote'
   import { mapState } from 'vuex'
-  import { cloneDeep } from 'lodash'
+  import { cloneDeep, extend, isEmpty } from 'lodash'
   import randomize from 'randomatic'
   import * as clipboard from 'clipboard-polyfill'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
-  import { trackerSourceOptions } from '@shared/constants'
+  import { APP_RUN_MODE, trackerSourceOptions } from '@shared/constants'
   import {
+    backupConfig,
     buildRpcUrl,
     calcFormLabelWidth,
+    changedConfig,
     checkIsNeedRestart,
     convertCommaToLine,
     convertLineToComma,
@@ -391,6 +393,8 @@
   import '@/components/Icons/dice'
   import '@/components/Icons/sync'
   import '@/components/Icons/refresh'
+  import { getLanguage } from '@shared/locales'
+  import { getLocaleManager } from '@/components/Locale'
 
   const initForm = (config) => {
     const {
@@ -446,8 +450,9 @@
     },
     data () {
       const { locale } = this.$store.state.preference.config
-      const form = initForm(this.$store.state.preference.config)
-      const formOriginal = cloneDeep(form)
+      const formOriginal = initForm(this.$store.state.preference.config)
+      let form = {}
+      form = initForm(extend(form, formOriginal, changedConfig.advanced))
 
       return {
         form,
@@ -594,6 +599,10 @@
           .then((config) => {
             this.form = initForm(config)
             this.formOriginal = cloneDeep(this.form)
+            if (changedConfig.basic.theme !== undefined) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:change-theme', changedConfig.basic.theme)
+            }
           })
       },
       submitForm (formName) {
@@ -603,15 +612,19 @@
             return false
           }
 
-          const changed = diffConfig(this.formOriginal, this.form)
           const data = {
-            ...changed,
-            protocols: {
-              ...this.form.protocols
-            }
+            ...diffConfig(this.formOriginal, this.form),
+            ...changedConfig.basic
           }
 
-          const { btTracker, noProxy } = changed
+          const { btAutoDownloadContent, runMode, openAtLogin, autoHideWindow, btTracker, noProxy } = data
+
+          if ('btAutoDownloadContent' in data) {
+            data.pauseMetadata = !btAutoDownloadContent
+            data.followMetalink = btAutoDownloadContent
+            data.followTorrent = btAutoDownloadContent
+          }
+
           if (btTracker) {
             data.btTracker = reduceTrackerString(convertLineToComma(btTracker))
           }
@@ -632,7 +645,28 @@
               this.$msg.success(this.$t('preferences.save-fail-message'))
             })
 
+          changedConfig.basic = {}
+          changedConfig.advanced = {}
+
           if (this.isRenderer) {
+            this.$electron.ipcRenderer.send('command',
+                                            'application:open-at-login', openAtLogin)
+
+            if ('runMode' in data) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
+            }
+
+            if ('autoHideWindow' in data) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:auto-hide-window', autoHideWindow)
+            }
+
+            if (checkIsNeedRestart(data)) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:relaunch')
+            }
+
             this.$electron.ipcRenderer.send('command',
                                             'application:setup-protocols-client', data.protocols)
 
@@ -644,6 +678,41 @@
       },
       resetForm (formName) {
         this.syncFormConfig()
+      }
+    },
+    beforeRouteLeave (to, from, next) {
+      changedConfig.advanced = diffConfig(this.formOriginal, this.form)
+      if (to.path === '/preference/basic') {
+        next()
+      } else {
+        if (isEmpty(changedConfig.basic) && isEmpty(changedConfig.advanced)) {
+          next()
+        } else {
+          dialog.showMessageBox({
+            type: 'warning',
+            title: this.$t('preferences.not-saved'),
+            message: this.$t('preferences.not-saved-confirm'),
+            buttons: [this.$t('app.yes'), this.$t('app.no')],
+            cancelId: 1
+          }).then(({ response }) => {
+            if (response === 0) {
+              if (changedConfig.basic.theme !== undefined) {
+                this.$electron.ipcRenderer.send('command',
+                                                'application:change-theme', backupConfig.theme)
+              }
+              if (changedConfig.basic.locale !== undefined) {
+                const lng = getLanguage(backupConfig.locale)
+                getLocaleManager().changeLanguage(lng)
+                this.$electron.ipcRenderer.send('command',
+                                                'application:change-locale', lng)
+              }
+              changedConfig.basic = {}
+              changedConfig.advanced = {}
+              backupConfig.theme = undefined
+              next()
+            }
+          })
+        }
       }
     }
   }

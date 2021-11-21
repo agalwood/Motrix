@@ -6,6 +6,7 @@ import {
   isEmpty,
   isFunction,
   isNaN,
+  isPlainObject,
   kebabCase,
   omitBy,
   parseInt,
@@ -608,7 +609,7 @@ export function removeExtensionDot (extension = '') {
 export function diffConfig (current = {}, next = {}) {
   const curr = pick(current, Object.keys(next))
   const result = omitBy(next, (val, key) => {
-    if (isArray(val)) {
+    if (isArray(val) || isPlainObject(val)) {
       return JSON.stringify(curr[key]) === JSON.stringify(val)
     }
     return curr[key] === val
@@ -706,3 +707,6 @@ export const intersection = (array1 = [], array2 = []) => {
 export const getInverseTheme = (theme) => {
   return (theme === APP_THEME.LIGHT) ? APP_THEME.DARK : APP_THEME.LIGHT
 }
+
+export const changedConfig = { basic: {}, advanced: {} }
+export const backupConfig = { theme: undefined, locale: undefined }

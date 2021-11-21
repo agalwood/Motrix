@@ -78,5 +78,7 @@ export default {
   'baidu-exporter-help': 'اضغط هنا لبدء الاستخدام',
   'auto-update': 'التحديث التلقائي',
   'auto-check-update': 'تحقق تلقائيًا من التحديث',
-  'last-check-update-time': 'آخر مرة تم التحقق من وجود تحديثات'
+  'last-check-update-time': 'آخر مرة تم التحقق من وجود تحديثات',
+  'not-saved': 'التفضيلات غير محفوظة',
+  'not-saved-confirm': 'ستفقد التفضيلات التي تم تغييرها ، هل أنت متأكد من المغادرة؟'
 }

@@ -76,5 +76,7 @@ export default {
   'baidu-exporter-help': '사용법을 보려면 여기를 클릭하십시오.',
   'auto-update': '자동 업데이트',
   'auto-check-update': '업데이트 자동 확인',
-  'last-check-update-time': '마지막 업데이트 확인 시간'
+  'last-check-update-time': '마지막 업데이트 확인 시간',
+  'not-saved': '환경설정이 저장되지 않았습니다',
+  'not-saved-confirm': '수정된 기본 설정이 손실됩니다. 나가시겠습니까?'
 }

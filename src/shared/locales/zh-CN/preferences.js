@@ -80,5 +80,7 @@ export default {
   'auto-check-update': '自动检查更新',
   'last-check-update-time': '上次检查更新时间',
   'follow-metalink': '自动开始下载磁力链接、种子内的文件',
-  'follow-torrent': '种子下载完后自动下载种子内容'
+  'follow-torrent': '种子下载完后自动下载种子内容',
+  'not-saved': '设置未保存',
+  'not-saved-confirm': '已修改的设置将会丢失，确定要离开吗?'
 }

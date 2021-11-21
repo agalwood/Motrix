@@ -76,5 +76,7 @@ export default {
   'baidu-exporter-help': 'Cliquez ici pour voir l\'utilisation',
   'auto-update': 'Mettre à jour',
   'auto-check-update': 'Mise à jour automatique',
-  'last-check-update-time': 'dernier contrôle la mise à jour du temps'
+  'last-check-update-time': 'dernier contrôle la mise à jour du temps',
+  'not-saved': 'Préférences non enregistrées',
+  'not-saved-confirm': 'Les préférences modifiées seront perdues, êtes-vous sûr de partir ?'
 }

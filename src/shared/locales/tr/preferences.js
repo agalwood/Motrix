@@ -76,5 +76,7 @@ export default {
   'baidu-exporter-help': 'Kullanım detayları için buraya tıklayın',
   'auto-update': 'Otomatik güncelleme',
   'auto-check-update': 'Otomatik Kontrol Güncellemesi',
-  'last-check-update-time': 'Son Kontrol Güncelleme Saati'
+  'last-check-update-time': 'Son Kontrol Güncelleme Saati',
+  'not-saved': 'Tercihler kaydedilmedi',
+  'not-saved-confirm': 'Değiştirilen tercihler kaybolacak, ayrılacağınızdan emin misiniz?'
 }
