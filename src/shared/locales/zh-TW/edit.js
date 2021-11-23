@@ -1,6 +1,6 @@
 export default {
-  'undo': '復原',
-  'redo': '取消復原',
+  'undo': '還原',
+  'redo': '取消還原',
   'cut': '剪下',
   'copy': '複製',
   'paste': '貼上',
