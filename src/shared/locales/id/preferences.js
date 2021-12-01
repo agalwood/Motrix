@@ -76,5 +76,7 @@ export default {
   'baidu-exporter-help': 'Klik di sini untuk penggunaan',
   'auto-update': 'Pembaruan Otomatis',
   'auto-check-update': 'Secara otomatis memeriksa pembaruan',
-  'last-check-update-time': 'Terakhir Kali Memeriksa Pembaruan'
+  'last-check-update-time': 'Terakhir Kali Memeriksa Pembaruan',
+  'not-saved': 'Preferensi tidak disimpan',
+  'not-saved-confirm': 'Preferensi yang dimodifikasi akan hilang, apakah Anda yakin untuk keluar?'
 }

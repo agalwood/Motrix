@@ -77,5 +77,7 @@ export default {
   'baidu-exporter-help': 'Nhấn vào đây để sử dụng',
   'auto-update': 'Tự động cập nhật',
   'auto-check-update': 'Tự động kiểm tra cập nhật',
-  'last-check-update-time': 'Kiểm tra cập nhật lần cuối'
+  'last-check-update-time': 'Kiểm tra cập nhật lần cuối',
+  'not-saved': 'Tùy chọn không được lưu',
+  'not-saved-confirm': 'Các tùy chọn đã sửa đổi sẽ bị mất, bạn có chắc chắn thoát không?'
 }

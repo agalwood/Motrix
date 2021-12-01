@@ -78,5 +78,7 @@ export default {
   'baidu-exporter-help': 'Klikk her for bruk',
   'auto-update': 'Automatisk oppdatering',
   'auto-check-update': 'Sjekk automatisk for oppdatering',
-  'last-check-update-time': 'Siste gang sjekket for oppdatering'
+  'last-check-update-time': 'Siste gang sjekket for oppdatering',
+  'not-saved': 'Preferansene er ikke lagret',
+  'not-saved-confirm': 'De endrede preferansene vil gå tapt, er du sikker på at du vil forlate?'
 }

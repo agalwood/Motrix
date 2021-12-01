@@ -76,5 +76,7 @@ export default {
   'baidu-exporter-help': 'Kattincs ide a hasznalati naplohoz',
   'auto-update': 'Automatikus frissités',
   'auto-check-update': 'Automatikus keresen frissitéseket',
-  'last-check-update-time': 'Legutolsó frissités:'
+  'last-check-update-time': 'Legutolsó frissités:',
+  'not-saved': 'A beállítások nincsenek mentve',
+  'not-saved-confirm': 'A megváltozott beállítások elvesznek. Biztosan kilép?'
 }

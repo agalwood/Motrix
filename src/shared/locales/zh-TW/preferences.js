@@ -76,5 +76,7 @@ export default {
   'baidu-exporter-help': '點此檢視使用說明',
   'auto-update': '自動更新',
   'auto-check-update': '自動檢查更新',
-  'last-check-update-time': '上次檢查更新時間'
+  'last-check-update-time': '上次檢查更新時間',
+  'not-saved': '設定未保存',
+  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎?'
 }

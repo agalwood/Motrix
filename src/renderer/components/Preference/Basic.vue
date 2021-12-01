@@ -25,6 +25,7 @@
             <mo-theme-switcher
               v-model="form.theme"
               @change="handleThemeChange"
+              ref="themeSwitcher"
             />
           </el-col>
           <el-col v-if="showHideAppMenuOption" class="form-item-sub" :span="16">
@@ -256,19 +257,24 @@
 
 <script>
   import is from 'electron-is'
+  import { dialog } from '@electron/remote'
   import { mapState } from 'vuex'
-  import { cloneDeep } from 'lodash'
+  import { cloneDeep, extend, isEmpty } from 'lodash'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
   import {
+    backupConfig,
     calcFormLabelWidth,
+    changedConfig,
     checkIsNeedRestart,
+    convertLineToComma,
     diffConfig
   } from '@shared/utils'
   import { APP_RUN_MODE } from '@shared/constants'
+  import { reduceTrackerString } from '@shared/utils/tracker'
 
   const initForm = (config) => {
     const {
@@ -338,8 +344,16 @@
     },
     data () {
       const { locale } = this.$store.state.preference.config
-      const form = initForm(this.$store.state.preference.config)
-      const formOriginal = cloneDeep(form)
+      const formOriginal = initForm(this.$store.state.preference.config)
+      let form = {}
+      form = initForm(extend(form, formOriginal, changedConfig.basic))
+
+      if (backupConfig.theme === undefined) {
+        backupConfig.theme = formOriginal.theme
+      } else {
+        formOriginal.theme = backupConfig.theme
+      }
+      backupConfig.locale = formOriginal.locale
 
       return {
         form,
@@ -480,16 +494,27 @@
             return false
           }
 
-          const { btAutoDownloadContent, runMode, openAtLogin, autoHideWindow } = this.form
-          const changed = diffConfig(this.formOriginal, this.form)
           const data = {
-            ...changed
+            ...diffConfig(this.formOriginal, this.form),
+            ...changedConfig.advanced
           }
-          if ('btAutoDownloadContent' in changed) {
+
+          const { btAutoDownloadContent, runMode, openAtLogin, autoHideWindow, btTracker, noProxy } = data
+
+          if ('btAutoDownloadContent' in data) {
             data.pauseMetadata = !btAutoDownloadContent
             data.followMetalink = btAutoDownloadContent
             data.followTorrent = btAutoDownloadContent
           }
+
+          if (btTracker) {
+            data.btTracker = reduceTrackerString(convertLineToComma(btTracker))
+          }
+
+          if (noProxy) {
+            data.noProxy = convertLineToComma(noProxy)
+          }
+
           console.log('[Motrix] preference changed data:', data)
 
           this.$store.dispatch('preference/save', data)
@@ -502,16 +527,19 @@
               this.$msg.success(this.$t('preferences.save-fail-message'))
             })
 
+          changedConfig.basic = {}
+          changedConfig.advanced = {}
+
           if (this.isRenderer) {
             this.$electron.ipcRenderer.send('command',
                                             'application:open-at-login', openAtLogin)
 
-            if ('runMode' in changed) {
+            if ('runMode' in data) {
               this.$electron.ipcRenderer.send('command',
                                               'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
             }
 
-            if ('autoHideWindow' in changed) {
+            if ('autoHideWindow' in data) {
               this.$electron.ipcRenderer.send('command',
                                               'application:auto-hide-window', autoHideWindow)
             }
@@ -520,11 +548,52 @@
               this.$electron.ipcRenderer.send('command',
                                               'application:relaunch')
             }
+
+            this.$electron.ipcRenderer.send('command',
+                                            'application:setup-protocols-client', data.protocols)
+
+            if (checkIsNeedRestart(data)) {
+              this.$electron.ipcRenderer.send('command', 'application:relaunch')
+            }
           }
         })
       },
       resetForm (formName) {
+        this.$refs.themeSwitcher.currentValue = backupConfig.theme
+        this.handleLocaleChange(this.formOriginal.locale)
         this.syncFormConfig()
+      }
+    },
+    beforeRouteLeave (to, from, next) {
+      changedConfig.basic = diffConfig(this.formOriginal, this.form)
+      if (to.path === '/preference/advanced') {
+        next()
+      } else {
+        if (isEmpty(changedConfig.basic) && isEmpty(changedConfig.advanced)) {
+          next()
+        } else {
+          dialog.showMessageBox({
+            type: 'warning',
+            title: this.$t('preferences.not-saved'),
+            message: this.$t('preferences.not-saved-confirm'),
+            buttons: [this.$t('app.yes'), this.$t('app.no')],
+            cancelId: 1
+          }).then(({ response }) => {
+            if (response === 0) {
+              if (changedConfig.basic.theme !== undefined) {
+                this.$electron.ipcRenderer.send('command',
+                                                'application:change-theme', backupConfig.theme)
+              }
+              if (changedConfig.basic.locale !== undefined) {
+                this.handleLocaleChange(this.formOriginal.locale)
+              }
+              changedConfig.basic = {}
+              changedConfig.advanced = {}
+              backupConfig.theme = undefined
+              next()
+            }
+          })
+        }
       }
     }
   }
