@@ -63,6 +63,8 @@ export default {
   'mock-user-agent': 'User-Agent simulieren',
   'app-log-path': 'Appprotokollpfad',
   'download-session-path': 'Downloadsitzungspfad',
+  'session-reset': 'Download-Session zurücksetzen',
+  'session-reset-confirm': 'Sind Sie sicher, dass Sie die Download-Session zurücksetzen wollen?',
   'factory-reset': 'Werkseinstellungen',
   'factory-reset-confirm': 'Sollen die Einstellungen auf die Werkseinstellungen unwiderruflich zurückgesetzt werden?',
   'lab-warning': '⚠️ Die Aktivierung von experimentellen Funktionen kann zu App-Abstürzen oder Datenverlust führen!',
