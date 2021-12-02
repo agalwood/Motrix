@@ -93,14 +93,16 @@ export default class WindowManager extends EventEmitter {
       }
     })
 
+    require('@electron/remote/main').enable(window.webContents)
+
     const bounds = this.getPageBounds(page)
     if (bounds) {
       window.setBounds(bounds)
     }
 
-    window.webContents.on('new-window', (e, url) => {
-      e.preventDefault()
+    window.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url)
+      return { action: 'deny' }
     })
 
     if (pageOptions.url) {
