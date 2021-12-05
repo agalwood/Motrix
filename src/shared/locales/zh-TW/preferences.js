@@ -38,8 +38,8 @@ export default {
   'theme-dark': '深色',
   'auto-hide-window': '自動隱藏視窗',
   'run-mode': '運行方式',
-  'run-mode-standard': '標準應用',
-  'run-mode-menu-bar': '選單欄應用',
+  'run-mode-standard': '標準應用程式',
+  'run-mode-menu-bar': '選單欄應用程式',
   'tray-speedometer': '選單欄托盤顯示即時速度',
   'language': '語言',
   'change-language': '更改語言',
@@ -63,6 +63,8 @@ export default {
   'mock-user-agent': '模擬使用者代理（UA）',
   'app-log-path': '應用程式記錄檔位置',
   'download-session-path': '下載工作階段路徑',
+  'session-reset': '重設下載工作階段',
+  'session-reset-confirm': '您確定要重設下載工作階段嗎？',
   'factory-reset': '還原出廠預設值',
   'factory-reset-confirm': '您確定要還原為出廠預設值嗎？',
   'lab-warning': '⚠️開啟實驗性功能可能會造成程式當機或資料遺失，請自己決定！',
@@ -77,6 +79,6 @@ export default {
   'auto-update': '自動更新',
   'auto-check-update': '自動檢查更新',
   'last-check-update-time': '上次檢查更新時間',
-  'not-saved': '設定未保存',
-  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎?'
+  'not-saved': '設定未儲存',
+  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎？'
 }
