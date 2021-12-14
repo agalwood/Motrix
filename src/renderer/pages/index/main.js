@@ -16,7 +16,13 @@ import Msg from '@/components/Msg'
 import { commands } from '@/components/CommandManager/instance'
 import TrayWorker from '@/workers/tray.worker'
 
+import express from 'express'
+import cors from 'cors'
+
 import '@/components/Theme/Index.scss'
+import api from '@/api'
+import { getTaskFullPath } from '@/utils/native'
+import { getTaskName } from '@shared/utils'
 
 const updateTray = is.renderer()
   ? async (payload) => {
@@ -99,6 +105,60 @@ function init (config) {
   setTimeout(() => {
     loading.close()
   }, 400)
+
+  // Initialize rest api
+  const app = express()
+  app.use(cors())
+  const port = 19888
+
+  app.get('/tasks', async (req, res) => {
+    const tasks = await api.fetchTaskList()
+    res.send(tasks)
+  })
+
+  app.get('/tasks/:type', async (req, res) => {
+    const tasks = await api.fetchTaskList({ type: req.params.type })
+    res.send(tasks)
+  })
+
+  app.get('/name/:id', async (req, res) => {
+    const task = await api.fetchTaskItem({ gid: req.params.id })
+    const name = getTaskName(task)
+    res.send(name)
+  })
+
+  app.get('/reveal/:id', async (req, res) => {
+    const task = await api.fetchTaskItem({ gid: req.params.id })
+    const path = getTaskFullPath(task)
+    commands.emit('reveal-in-folder', { path })
+
+    res.send()
+  })
+
+  app.get('/resume/:id', async (req, res) => {
+    const task = await api.fetchTaskItem({ gid: req.params.id })
+    await api.resumeTask(task)
+
+    res.send()
+  })
+
+  app.get('/stop/:id', async (req, res) => {
+    const task = await api.fetchTaskItem({ gid: req.params.id })
+    await api.removeTask(task)
+
+    res.send()
+  })
+
+  app.get('/pause/:id', async (req, res) => {
+    const task = await api.fetchTaskItem({ gid: req.params.id })
+    await api.pauseTask(task)
+
+    res.send()
+  })
+
+  app.listen(port, () => {
+    console.log(`[Motrix] listening at ${port}`)
+  })
 }
 
 store.dispatch('preference/fetchPreference')
