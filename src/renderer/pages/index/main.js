@@ -15,14 +15,14 @@ import Icon from '@/components/Icons/Icon'
 import Msg from '@/components/Msg'
 import { commands } from '@/components/CommandManager/instance'
 import TrayWorker from '@/workers/tray.worker'
+import api from '@/api'
+import { getTaskFullPath } from '@/utils/native'
+import { getTaskName } from '@shared/utils'
 
 import express from 'express'
 import cors from 'cors'
 
 import '@/components/Theme/Index.scss'
-import api from '@/api'
-import { getTaskFullPath } from '@/utils/native'
-import { getTaskName } from '@shared/utils'
 
 const updateTray = is.renderer()
   ? async (payload) => {
