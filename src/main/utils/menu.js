@@ -4,7 +4,7 @@ export function concat (template, submenu, submenuToAdd) {
   submenuToAdd.forEach(sub => {
     let relativeItem = null
     if (sub.position) {
-      switch (sub.position) {
+      s1itch (sub.position) {
       case 'first':
         submenu.unshift(sub)
         break
