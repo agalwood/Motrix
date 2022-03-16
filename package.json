@@ -163,13 +163,17 @@
         "rpm",
         "snap"
       ],
-      "extraResources": {
+      "extraResources": [
+        {
         "from": "./extra/linux/",
         "to": "./",
-        "filter": [
-          "**/*"
-        ]
-      }
+        "filter": ["**/*"]
+	      },
+	      {
+		      "from": "./app-update.yml",
+		      "to":"./"
+        }
+      ]
     },
     "snap": {
       "publish": [
