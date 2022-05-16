@@ -617,7 +617,7 @@
             ...changedConfig.basic
           }
 
-          const { btAutoDownloadContent, runMode, openAtLogin, autoHideWindow, btTracker, noProxy } = data
+          const { btAutoDownloadContent, runMode, autoHideWindow, btTracker, noProxy } = data
 
           if ('btAutoDownloadContent' in data) {
             data.pauseMetadata = !btAutoDownloadContent
@@ -649,9 +649,7 @@
           changedConfig.advanced = {}
 
           if (this.isRenderer) {
-            this.$electron.ipcRenderer.send('command',
-                                            'application:open-at-login', openAtLogin)
-
+           
             if ('runMode' in data) {
               this.$electron.ipcRenderer.send('command',
                                               'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
