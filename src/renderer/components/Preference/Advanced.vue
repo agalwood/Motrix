@@ -649,7 +649,6 @@
           changedConfig.advanced = {}
 
           if (this.isRenderer) {
-           
             if ('runMode' in data) {
               this.$electron.ipcRenderer.send('command',
                                               'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
