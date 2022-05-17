@@ -531,8 +531,10 @@
           changedConfig.advanced = {}
 
           if (this.isRenderer) {
-            this.$electron.ipcRenderer.send('command',
-                                            'application:open-at-login', openAtLogin)
+            if ('openAtLogin' in data) {
+              this.$electron.ipcRenderer.send('command',
+                                              'application:open-at-login', openAtLogin)
+            }
 
             if ('runMode' in data) {
               this.$electron.ipcRenderer.send('command',
@@ -548,9 +550,6 @@
               this.$electron.ipcRenderer.send('command',
                                               'application:relaunch')
             }
-
-            this.$electron.ipcRenderer.send('command',
-                                            'application:setup-protocols-client', data.protocols)
 
             if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')
