@@ -2,6 +2,9 @@ import { ipcRenderer } from 'electron'
 import is from 'electron-is'
 import { isEmpty, clone } from 'lodash'
 import { Aria2 } from '@shared/aria2'
+import { join } from 'path'
+import envPaths from 'env-paths'
+
 import {
   separateConfig,
   compactUndefined,
@@ -21,9 +24,31 @@ export default class Api {
 
   async init () {
     this.config = await this.loadConfig()
-
+    this.db = await this.initDb()
     this.client = this.initClient()
     this.client.open()
+  }
+
+  async initDb () {
+    const paths = envPaths('Motrix')
+    const dbDirName = paths.data
+    try {
+      const fs = require('fs')
+      fs.mkdirSync(dbDirName, { recursive: true })
+    } catch (err) {
+      if (err.code !== 'EEXIST') { // curDir already exists!
+        throw err
+      }
+    }
+    this.dbFile = join(dbDirName, 'db.json')
+    this.dbBuffer = undefined
+    const low = require('lowdb')
+    const FileSync = require('lowdb/adapters/FileSync')
+    const adapter = new FileSync(this.dbFile)
+    const db = low(adapter)
+
+    db.defaults({ completed: [] }).write()
+    return db
   }
 
   loadConfigFromLocalStorage () {
@@ -232,7 +257,43 @@ export default class Api {
   fetchStoppedTaskList (params = {}) {
     const { offset = 0, num = 20, keys } = params
     const args = compactUndefined([offset, num, keys])
-    return this.client.call('tellStopped', ...args)
+    return new Promise((resolve, reject) => {
+      this.client.call('tellStopped', ...args
+      ).then((data) => {
+        console.log('[Motrix] fetch stopped task list data:', data)
+        const fs = require('fs')
+        const mtime = fs.statSync(this.dbFile).mtime
+        if (this.dbBuffer === undefined || mtime > this.dbBuffer.lastReadTime) {
+          const t = new Date().getTime()
+          const persistedTasks = this.db.get('completed')
+          console.log('DateBase is newer than buffer, read again', t)
+          this.dbBuffer = {
+            lastReadTime: t,
+            persistedTasks: persistedTasks
+          }
+        }
+        const persistedTasks = this.dbBuffer.persistedTasks
+        const persistedTasksValue = persistedTasks.value()
+        const result = []
+        for (let i = persistedTasksValue.length - 1; i >= 0; --i) {
+          result.push(persistedTasksValue[i].content)
+        }
+        for (const res of data) {
+          const taskid = res.gid
+          if (undefined === persistedTasks.find({ id: taskid }).value()) {
+            console.log('[Motrix] new completed taskid is: ', taskid)
+            result.unshift(res)
+            const record = { id: taskid, content: res }
+            this.db.get('completed').push(record).write()
+          }
+        }
+        console.log('Returned: ', result)
+        resolve(result)
+      }).catch((err) => {
+        console.log('[Motrix] fetch stopped task list fail:', err)
+        reject(err)
+      })
+    })
   }
 
   fetchTaskList (params = {}) {
@@ -332,12 +393,14 @@ export default class Api {
   }
 
   purgeTaskRecord (params = {}) {
+    this.db.set('completed', []).write()
     return this.client.call('purgeDownloadResult')
   }
 
   removeTaskRecord (params = {}) {
     const { gid } = params
     const args = compactUndefined([gid])
+    this.db.get('completed').remove({ id: gid }).write()
     return this.client.call('removeDownloadResult', ...args)
   }
 
