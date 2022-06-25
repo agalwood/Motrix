@@ -208,7 +208,7 @@
     "element-ui": "^2.15.3",
     "i18next": "^20.3.2",
     "lodash": "^4.17.21",
-    "node-fetch": "^2.6.1",
+    "node-fetch": "^2.6.7",
     "normalize.css": "^8.0.1",
     "parse-torrent": "^9.1.3",
     "randomatic": "^3.1.1",
