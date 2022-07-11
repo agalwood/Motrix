@@ -36,13 +36,14 @@ export const initTaskForm = state => {
     torrent: '',
     uris: addTaskUrl,
     userAgent: '',
+    authorization: '',
     ...addTaskOptions
   }
   return result
 }
 
 export const buildHeader = (form) => {
-  const { userAgent, referer, cookie } = form
+  const { userAgent, referer, cookie, authorization } = form
   const result = []
 
   if (!isEmpty(userAgent)) {
@@ -53,6 +54,9 @@ export const buildHeader = (form) => {
   }
   if (!isEmpty(cookie)) {
     result.push(`Cookie: ${cookie}`)
+  }
+  if (!isEmpty(authorization)) {
+    result.push(`Authorization: ${authorization}`)
   }
 
   return result

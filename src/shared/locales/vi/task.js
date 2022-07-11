@@ -25,6 +25,7 @@ export default {
   'pause-task': 'Tạm dừng Tác vụ',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
+  'task-authorization': 'Authorization',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
   'task-proxy': 'Proxy',

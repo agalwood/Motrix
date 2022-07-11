@@ -90,6 +90,19 @@
           </el-input>
         </el-form-item>
         <el-form-item
+          :label="`${$t('task.task-authorization')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-input
+            type="textarea"
+            auto-complete="off"
+            :autosize="{ minRows: 2, maxRows: 3 }"
+            :placeholder="$t('task.task-authorization')"
+            v-model="form.authorization"
+          >
+          </el-input>
+        </el-form-item>
+        <el-form-item
           :label="`${$t('task.task-referer')}: `"
           :label-width="formLabelWidth"
         >

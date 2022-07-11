@@ -24,6 +24,7 @@ export default {
   'task-dir': '儲存資料夾',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
+  'task-authorization': 'Authorization',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
   'task-proxy': '代理伺服器',
