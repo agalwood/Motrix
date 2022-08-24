@@ -109,10 +109,10 @@ export default {
   'download-error-message': '{{taskName}} 다운로드 오류 발생',
   'download-complete-message': '{{taskName}} 다운로드 완료',
   'download-complete-notify': '다운로드 완료',
-  'bt-download-complete-message': '{{taskName}} 다운로드 완료, 시드 중',
-  'bt-download-complete-notify': 'BT 다운로드 완료, 시드 중...',
-  'bt-download-complete-tips': '도움말: 작업을 중지하여 시드를 종료할 수 있습니다',
-  'bt-stopping-seeding-tip': '시드를 중지하면 연결을 끊는 데 시간이 걸립니다. 잠시 기다려 주십시오...',
+  'bt-download-complete-message': '{{taskName}} 다운로드 완료, 배포 중',
+  'bt-download-complete-notify': 'BT 다운로드 완료, 배포 중...',
+  'bt-download-complete-tips': '도움말: 작업을 중지하여 배포를 종료할 수 있습니다',
+  'bt-stopping-seeding-tip': '배포를 중지하면 연결을 끊는 데 시간이 걸립니다. 잠시 기다려 주십시오...',
   'download-fail-message': '{{taskName}} 다운로드 실패',
   'download-fail-notify': '다운로드 실패'
 }
