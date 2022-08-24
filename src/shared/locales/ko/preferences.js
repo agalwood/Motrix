@@ -71,7 +71,7 @@ export default {
   'download-protocol': '프로토콜',
   'protocols-default-client': '다음 프로토콜의 기본 클라이언트로 설정',
   'protocols-magnet': '마그넷 [ magnet:// ]',
-  'protocols-thunder': '선더 [ thunder:// ]',
+  'protocols-thunder': '썬더 [ thunder:// ]',
   'browser-extensions': '확장 프로그램',
   'baidu-exporter': 'BaiduExporter',
   'browser-extensions-tips': '커뮤니티에서 제공하는, ',
