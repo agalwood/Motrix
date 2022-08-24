@@ -24,7 +24,7 @@ export default {
   'yes': '예',
   'no': '아니요',
   'save': '저장',
-  'reset': '포기',
+  'reset': '취소',
   'cancel': '취소',
   'submit': '확인',
   'gt1d': '> 1일',
