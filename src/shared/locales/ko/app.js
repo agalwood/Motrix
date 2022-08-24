@@ -14,7 +14,7 @@ export default {
   'engine-damaged-message': '엔진이 손상되었으므로 다시 설치하십시오: (',
   'engine-missing-message': '엔진이 누락되었으므로 다시 설치하십시오: (',
   'system-error-title': '시스템 오류',
-  'system-error-message': '응용 프로그램 시작 실패: {{message}}',
+  'system-error-message': '애플리케이션 시작 실패: {{message}}',
   'hide': 'Motrix 숨기기',
   'hide-others': '다른 항목 숨기기',
   'unhide': '모두 보기',
