@@ -2787,10 +2787,15 @@ core-js@^3.6.5:
   resolved "https://registry.npmjs.org/core-js/-/core-js-3.13.1.tgz#30303fabd53638892062d8b4e802cac7599e9fb7"
   integrity sha512-JqveUc4igkqwStL2RTRn/EPFGBOfEZHxJl/8ej1mXJR75V3go2mFF4bmUYkEIT1rveHKnkUlcJX/c+f1TyIovQ==
 
-core-util-is@1.0.2, core-util-is@~1.0.0:
+core-util-is@1.0.2:
   version "1.0.2"
   resolved "https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.2.tgz#b5fd54220aa2bc5ab57aab7140c940754503c1a7"
   integrity sha1-tf1UIgqivFq1eqtxQMlAdUUDwac=
+
+core-util-is@~1.0.0:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/core-util-is/-/core-util-is-1.0.3.tgz#a6042d3634c2b27e9328f837b965fac83808db85"
+  integrity sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==
 
 cosmiconfig@^7.0.0:
   version "7.0.0"
@@ -4846,8 +4851,8 @@ ignore@^5.1.1, ignore@^5.1.4:
 
 immediate@~3.0.5:
   version "3.0.6"
-  resolved "https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz#9db1dbd0faf8de6fbe0f5dd5e56bb606280de69b"
-  integrity sha1-nbHb0Pr43m++D13V5Wu2BigN5ps=
+  resolved "https://registry.yarnpkg.com/immediate/-/immediate-3.0.6.tgz#9db1dbd0faf8de6fbe0f5dd5e56bb606280de69b"
+  integrity sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==
 
 import-fresh@^3.0.0, import-fresh@^3.2.1:
   version "3.3.0"
@@ -5260,8 +5265,8 @@ is-yarn-global@^0.3.0:
 
 isarray@1.0.0, isarray@~1.0.0:
   version "1.0.0"
-  resolved "https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz#bb935d48582cba168c06834957a54a3e07124f11"
-  integrity sha1-u5NdSFgsuhaMBoNJV6VKPgcSTxE=
+  resolved "https://registry.yarnpkg.com/isarray/-/isarray-1.0.0.tgz#bb935d48582cba168c06834957a54a3e07124f11"
+  integrity sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ==
 
 isbinaryfile@^3.0.2:
   version "3.0.3"
@@ -5451,14 +5456,14 @@ jsprim@^1.2.2:
     verror "1.10.0"
 
 jszip@^3.1.0:
-  version "3.6.0"
-  resolved "https://registry.npmjs.org/jszip/-/jszip-3.6.0.tgz#839b72812e3f97819cc13ac4134ffced95dd6af9"
-  integrity sha512-jgnQoG9LKnWO3mnVNBnfhkh0QknICd1FGSrXcgrl67zioyJ4wgx25o9ZqwNtrROSflGBCGYnJfjrIyRIby1OoQ==
+  version "3.10.1"
+  resolved "https://registry.yarnpkg.com/jszip/-/jszip-3.10.1.tgz#34aee70eb18ea1faec2f589208a157d1feb091c2"
+  integrity sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==
   dependencies:
     lie "~3.3.0"
     pako "~1.0.2"
     readable-stream "~2.3.6"
-    set-immediate-shim "~1.0.1"
+    setimmediate "^1.0.5"
 
 keyboardevent-from-electron-accelerator@^2.0.0:
   version "2.0.0"
@@ -5533,7 +5538,7 @@ levn@^0.4.1:
 
 lie@~3.3.0:
   version "3.3.0"
-  resolved "https://registry.npmjs.org/lie/-/lie-3.3.0.tgz#dcf82dee545f46074daf200c7c1c5a08e0f40f6a"
+  resolved "https://registry.yarnpkg.com/lie/-/lie-3.3.0.tgz#dcf82dee545f46074daf200c7c1c5a08e0f40f6a"
   integrity sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==
   dependencies:
     immediate "~3.0.5"
@@ -6307,7 +6312,7 @@ package-json@^6.3.0:
 
 pako@~1.0.2:
   version "1.0.11"
-  resolved "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz#6c9599d340d54dfd3946380252a35705a6b992bf"
+  resolved "https://registry.yarnpkg.com/pako/-/pako-1.0.11.tgz#6c9599d340d54dfd3946380252a35705a6b992bf"
   integrity sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==
 
 param-case@^3.0.3:
@@ -6839,7 +6844,7 @@ pretty-error@^3.0.4:
 
 process-nextick-args@~2.0.0:
   version "2.0.1"
-  resolved "https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz#7820d9b16120cc55ca9ae7792680ae7dba6d7fe2"
+  resolved "https://registry.yarnpkg.com/process-nextick-args/-/process-nextick-args-2.0.1.tgz#7820d9b16120cc55ca9ae7792680ae7dba6d7fe2"
   integrity sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==
 
 progress@^2.0.0, progress@^2.0.3:
@@ -7355,7 +7360,7 @@ rusha@^0.8.13:
 
 safe-buffer@5.1.2, safe-buffer@~5.1.0, safe-buffer@~5.1.1:
   version "5.1.2"
-  resolved "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz#991ec69d296e0313747d59bdfd2b745c35f8828d"
+  resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.1.2.tgz#991ec69d296e0313747d59bdfd2b745c35f8828d"
   integrity sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==
 
 safe-buffer@>=5.1.0, safe-buffer@^5.0.1, safe-buffer@^5.1.0, safe-buffer@^5.1.1, safe-buffer@^5.1.2, safe-buffer@~5.2.0:
@@ -7543,11 +7548,6 @@ set-blocking@^2.0.0:
   resolved "https://registry.npmjs.org/set-blocking/-/set-blocking-2.0.0.tgz#045f9782d011ae9a6803ddd382b24392b3d890f7"
   integrity sha1-BF+XgtARrppoA93TgrJDkrPYkPc=
 
-set-immediate-shim@~1.0.1:
-  version "1.0.1"
-  resolved "https://registry.npmjs.org/set-immediate-shim/-/set-immediate-shim-1.0.1.tgz#4b2b1b27eb808a9f8dcc481a58e5e56f599f3f61"
-  integrity sha1-SysbJ+uAip+NzEgaWOXlb1mfP2E=
-
 set-value@^2.0.0, set-value@^2.0.1:
   version "2.0.1"
   resolved "https://registry.npmjs.org/set-value/-/set-value-2.0.1.tgz#a18d40530e6f07de4228c7defe4227af8cad005b"
@@ -7557,6 +7557,11 @@ set-value@^2.0.0, set-value@^2.0.1:
     is-extendable "^0.1.1"
     is-plain-object "^2.0.3"
     split-string "^3.0.1"
+
+setimmediate@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/setimmediate/-/setimmediate-1.0.5.tgz#290cbb232e306942d7d7ea9b83732ab7856f8285"
+  integrity sha512-MATJdZp8sLqDl/68LfQmbP8zKPLQNV6BIZoIgrscFDQ+RsvK/BxeDQOgyxKKoh0y/8h3BqVFnCqQ/gd+reiIXA==
 
 setprototypeof@1.1.0:
   version "1.1.0"
@@ -7907,7 +7912,7 @@ string_decoder@^1.1.1:
 
 string_decoder@~1.1.1:
   version "1.1.1"
-  resolved "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz#9cf1611ba62685d7030ae9e4ba34149c3af03fc8"
+  resolved "https://registry.yarnpkg.com/string_decoder/-/string_decoder-1.1.1.tgz#9cf1611ba62685d7030ae9e4ba34149c3af03fc8"
   integrity sha512-n/ShnvDi6FHbbVfviro+WojiFzv+s8MPMHBczVePfUpDJLwoLT0ht1l4YwBCbi8pJAveEEdnkHyPyTP/mzRfwg==
   dependencies:
     safe-buffer "~5.1.0"
