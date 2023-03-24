@@ -147,8 +147,8 @@ yarn
 天朝大陆用户建议使用淘宝的 npm 源
 
 ```bash
-yarn config set registry 'https://registry.npm.taobao.org'
-npm config set registry 'https://registry.npm.taobao.org'
+yarn config set registry 'https://registry.npmmirror.com'
+npm config set registry 'https://registry.npmmirror.com'
 export ELECTRON_MIRROR='https://npm.taobao.org/mirrors/electron/'
 export SASS_BINARY_SITE='https://npm.taobao.org/mirrors/node-sass'
 ```
