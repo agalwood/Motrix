@@ -66,7 +66,7 @@ export default {
   'session-reset': 'Đặt lại phiên tải xuống',
   'factory-reset': 'Khôi phục cài đặt gốc',
   'factory-reset-confirm': 'Bạn có chắc chắn muốn khôi phục cài đặt gốc?',
-  'lab-warning': '⚠️ Kích hoạt các tính năng trong phòng thí nghiệm có thể dẫn đến sự cố ứng dụng hoặc mất dữ liệu, bạn hãy cân nhắc cho quyết định của mình!',
+  'lab-warning': '⚠️ Kích hoạt các tính năng trong phòng thí nghiệm có thể dẫn đến sự cố ứng dụng hoặc mất dữ liệu, hãy cân nhắc cho quyết định của mình!',
   'download-protocol': 'Các giao thức',
   'protocols-default-client': 'Đặt làm máy khách mặc định cho các giao thức sau',
   'protocols-magnet': 'Magnet [ magnet:// ]',
@@ -78,6 +78,6 @@ export default {
   'auto-update': 'Tự động cập nhật',
   'auto-check-update': 'Tự động kiểm tra cập nhật',
   'last-check-update-time': 'Kiểm tra cập nhật lần cuối',
-  'not-saved': 'Tùy chọn không được lưu',
+  'not-saved': 'Tùy chọn chưa được lưu',
   'not-saved-confirm': 'Các tùy chọn đã sửa đổi sẽ bị mất, bạn có chắc chắn thoát không?'
 }
