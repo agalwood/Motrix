@@ -4,5 +4,5 @@ export default {
   'task': '작업',
   'edit': '편집',
   'window': '창',
-  'help': '?'
+  'help': '도움말'
 }
