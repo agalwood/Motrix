@@ -2,7 +2,7 @@
   <el-dialog
     custom-class="app-about-dialog"
     width="61.8vw"
-    :visible.sync="visible"
+    :visible="visible"
     @open="handleOpen"
     :before-close="handleClose"
     @closed="handleClosed">

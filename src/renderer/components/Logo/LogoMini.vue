@@ -25,6 +25,7 @@
     height: 28px;
     text-align: center;
     font-size: 0;
+    outline: none;
     padding: 2px;
     margin: 0 auto;
   }

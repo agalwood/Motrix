@@ -7,7 +7,7 @@
     :with-header="true"
     :show-close="true"
     :destroy-on-close="true"
-    :visible.sync="visible"
+    :visible="visible"
     :before-close="handleClose"
     @closed="handleClosed"
   >

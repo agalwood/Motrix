@@ -2,7 +2,7 @@
   <el-row class="copyright">
     <el-col :span="6" class="copyright-left">
       <a target="_blank" rel="noopener noreferrer" href="https://motrix.app/">
-        &copy;2021 Motrix
+        &copy;{{ year }} Motrix
       </a>
     </el-col>
     <el-col :span="18" class="copyright-right">
@@ -24,7 +24,13 @@
 
 <script>
   export default {
-    name: 'mo-copyright'
+    name: 'mo-copyright',
+    data () {
+      const year = new Date().getFullYear()
+      return {
+        year
+      }
+    }
   }
 </script>
 

@@ -35,7 +35,6 @@
 <script>
   import { dialog } from '@electron/remote'
   import { mapState } from 'vuex'
-  import * as clipboard from 'clipboard-polyfill'
 
   import { commands } from '@/components/CommandManager/instance'
   import { ADD_TASK_TYPE } from '@shared/constants'
@@ -371,7 +370,7 @@
       handleCopyTaskLink (payload) {
         const { task } = payload
         const uri = getTaskUri(task)
-        clipboard.writeText(uri)
+        navigator.clipboard.writeText(uri)
           .then(() => {
             this.$msg.success(this.$t('task.copy-link-success'))
           })

@@ -98,9 +98,9 @@ export default class WindowManager extends EventEmitter {
       window.setBounds(bounds)
     }
 
-    window.webContents.on('new-window', (e, url) => {
-      e.preventDefault()
+    window.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url)
+      return { action: 'deny' }
     })
 
     if (pageOptions.url) {

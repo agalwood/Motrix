@@ -2,7 +2,7 @@
   <el-dialog
     custom-class="tab-title-dialog add-task-dialog"
     width="64vw"
-    :visible.sync="visible"
+    :visible="visible"
     :before-close="handleClose"
     @open="handleOpen"
     @opened="handleOpened"
@@ -239,8 +239,8 @@
       }
     },
     methods: {
-      autofillResourceLink () {
-        const content = this.$electron.clipboard.readText()
+      autofillResourceLink: async () => {
+        const content = await navigator.clipboard.readText()
         const hasResource = detectResource(content)
         if (!hasResource) {
           return

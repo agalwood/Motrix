@@ -67,7 +67,7 @@ export function getTaskFullPath (task) {
   return result
 }
 
-export function moveTaskFilesToTrash (task) {
+export const moveTaskFilesToTrash = (task) => {
   /**
    * For magnet link tasks, there is bittorrent, but there is no bittorrent.info.
    * The path is not a complete path before it becomes a BT task.
@@ -85,12 +85,10 @@ export function moveTaskFilesToTrash (task) {
   }
 
   let deleteResult1 = true
-  access(path, constants.F_OK, (err) => {
+  access(path, constants.F_OK, async (err) => {
     console.log(`[Motrix] ${path} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
-      // Electron >= 12.x
-      // deleteResult1 = shell.trashItem(path)
-      deleteResult1 = shell.moveItemToTrash(path)
+      deleteResult1 = await shell.trashItem(path)
     }
   })
 
@@ -101,12 +99,10 @@ export function moveTaskFilesToTrash (task) {
 
   let deleteResult2 = true
   const extraFilePath = `${path}.aria2`
-  access(extraFilePath, constants.F_OK, (err) => {
+  access(extraFilePath, constants.F_OK, async (err) => {
     console.log(`[Motrix] ${extraFilePath} ${err ? 'does not exist' : 'exists'}`)
     if (!err) {
-      // Electron >= 12.x
-      // deleteResult2 = shell.trashItem(extraFilePath)
-      deleteResult2 = shell.moveItemToTrash(extraFilePath)
+      deleteResult2 = await shell.trashItem(extraFilePath)
     }
   })
 

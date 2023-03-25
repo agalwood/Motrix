@@ -209,7 +209,7 @@ export default class TrayManager extends EventEmitter {
   }
 
   async renderTray () {
-    if (this.speedometer) {
+    if (!tray || this.speedometer) {
       return
     }
 
@@ -248,7 +248,7 @@ export default class TrayManager extends EventEmitter {
      * Linux requires setContextMenu to be called
      * in order for the context menu to populate correctly
      */
-    if (process.platform !== 'linux') {
+    if (!tray || process.platform !== 'linux') {
       return
     }
 
@@ -316,6 +316,10 @@ export default class TrayManager extends EventEmitter {
   }
 
   async updateTrayByImage (ab) {
+    if (!tray) {
+      return
+    }
+
     const buffer = convertArrayBufferToBuffer(ab)
     const image = nativeImage.createFromBuffer(buffer, {
       scaleFactor: 2
