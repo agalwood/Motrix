@@ -28,7 +28,7 @@ export default class ProtocolManager extends EventEmitter {
     this.setup(protocols)
   }
 
-  setup (protocols) {
+  setup (protocols = {}) {
     if (is.dev() || is.mas()) {
       return
     }

@@ -357,11 +357,11 @@ export function changeKeysCase (obj, caseConverter) {
   return result
 }
 
-export function changeKeysToCamelCase (obj) {
+export function changeKeysToCamelCase (obj = {}) {
   return changeKeysCase(obj, camelCase)
 }
 
-export function changeKeysToKebabCase (obj) {
+export function changeKeysToKebabCase (obj = {}) {
   return changeKeysCase(obj, kebabCase)
 }
 
@@ -369,7 +369,7 @@ export function validateNumber (n) {
   return !isNaN(parseFloat(n)) && isFinite(n) && Number(n) === n
 }
 
-export function fixValue (obj) {
+export function fixValue (obj = {}) {
   const result = {}
   for (const [k, v] of Object.entries(obj)) {
     if (v === 'true') {
@@ -578,7 +578,7 @@ export function parseHeader (header = '') {
   return result
 }
 
-export function formatOptionsForEngine (options) {
+export function formatOptionsForEngine (options = {}) {
   const result = {}
 
   Object.keys(options).forEach((key) => {
@@ -589,7 +589,7 @@ export function formatOptionsForEngine (options) {
   return result
 }
 
-export function buildRpcUrl (options) {
+export function buildRpcUrl (options = {}) {
   const { port, secret } = options
   let result = `${ENGINE_RPC_HOST}:${port}/jsonrpc`
   if (secret) {
