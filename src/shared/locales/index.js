@@ -83,6 +83,10 @@ export const availableLanguages = [
     label: 'Русский'
   },
   {
+    value: 'th',
+    label: 'แบบไทย'
+  },
+  {
     value: 'tr',
     label: 'Türkçe'
   },
