@@ -5,7 +5,6 @@ import VueI18Next from '@panter/vue-i18next'
 import { sync } from 'vuex-router-sync'
 import Element, { Loading, Message } from 'element-ui'
 import axios from 'axios'
-import 'svg-innerhtml'
 
 import App from './App'
 import router from '@/router'

@@ -45,7 +45,7 @@
 
 <script>
   import { mapState } from 'vuex'
-  import parseTorrent from 'parse-torrent'
+  import { remote } from 'parse-torrent'
   import TaskFiles from '@/components/TaskDetail/TaskFiles'
   import '@/components/Icons/inbox'
   import {
@@ -103,7 +103,7 @@
           return
         }
 
-        parseTorrent.remote(file.raw, (err, parsedTorrent) => {
+        remote(file.raw, { timeout: 60 * 1000 }, (err, parsedTorrent) => {
           if (err) throw err
           console.log('[Motrix] parsed torrent: ', parsedTorrent)
           this.files = listTorrentFiles(parsedTorrent.files)

@@ -63,11 +63,18 @@ export default class Launcher extends EventEmitter {
   }
 
   handleAppEvents () {
+    this.handleRendererRemote()
     this.handleOpenUrl()
     this.handleOpenFile()
 
     this.handelAppReady()
     this.handleAppWillQuit()
+  }
+
+  handleRendererRemote () {
+    app.on('browser-window-created', (_, window) => {
+      require('@electron/remote/main').enable(window.webContents)
+    })
   }
 
   /**

@@ -373,7 +373,6 @@
   import { mapState } from 'vuex'
   import { cloneDeep, extend, isEmpty } from 'lodash'
   import randomize from 'randomatic'
-  import * as clipboard from 'clipboard-polyfill'
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
@@ -387,7 +386,7 @@
     convertCommaToLine,
     convertLineToComma,
     diffConfig,
-    getRandomInt
+    generateRandomInt
   } from '@shared/utils'
   import { convertTrackerDataToLine, reduceTrackerString } from '@shared/utils/tracker'
   import '@/components/Icons/dice'
@@ -500,7 +499,7 @@
           port: this.form.rpcListenPort,
           secret: val
         })
-        clipboard.writeText(url)
+        navigator.clipboard.writeText(url)
       }
     },
     methods: {
@@ -548,11 +547,11 @@
         this.form.userAgent = ua
       },
       onPortDiceClick () {
-        const port = getRandomInt(20000, 24999)
+        const port = generateRandomInt(20000, 24999)
         this.form.listenPort = port
       },
       onDhtPortDiceClick () {
-        const port = getRandomInt(25000, 29999)
+        const port = generateRandomInt(25000, 29999)
         this.form.dhtListenPort = port
       },
       onDiceClick () {

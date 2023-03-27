@@ -4,8 +4,9 @@ process.env.BABEL_ENV = 'main'
 
 const devMode = process.env.NODE_ENV !== 'production'
 const path = require('path')
-const { dependencies, build } = require('../package.json')
-const webpack = require('webpack')
+const { dependencies } = require('../package.json')
+const { appId } = require('../electron-builder.json')
+const Webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin');
 const ESLintPlugin = require('eslint-webpack-plugin');
 
@@ -39,7 +40,7 @@ let mainConfig = {
     path: path.join(__dirname, '../dist/electron')
   },
   plugins: [
-    new webpack.NoEmitOnErrorsPlugin(),
+    new Webpack.NoEmitOnErrorsPlugin(),
     new ESLintPlugin({
       formatter: require('eslint-friendly-formatter')
     })
@@ -67,9 +68,9 @@ let mainConfig = {
  */
 if (devMode) {
   mainConfig.plugins.push(
-    new webpack.DefinePlugin({
+    new Webpack.DefinePlugin({
       '__static': `"${path.join(__dirname, '../static').replace(/\\/g, '\\\\')}"`,
-      'appId': `"${build.appId}"`
+      'appId': `"${appId}"`
     })
   )
 }
@@ -79,9 +80,9 @@ if (devMode) {
  */
 if (!devMode) {
   mainConfig.plugins.push(
-    new webpack.DefinePlugin({
+    new Webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"',
-      'appId': `"${build.appId}"`
+      'appId': `"${appId}"`
     })
   )
 }

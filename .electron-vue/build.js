@@ -5,8 +5,7 @@ process.env.NODE_ENV = 'production'
 const { say } = require('cfonts')
 const chalk = require('chalk')
 const del = require('del')
-const { spawn } = require('child_process')
-const webpack = require('webpack')
+const Webpack = require('webpack')
 const Multispinner = require('@motrix/multispinner')
 
 const mainConfig = require('./webpack.main.config')
@@ -76,7 +75,7 @@ function build () {
 function pack (config) {
   return new Promise((resolve, reject) => {
     config.mode = 'production'
-    webpack(config, (err, stats) => {
+    Webpack(config, (err, stats) => {
       if (err) {
         reject(err.stack || err)
       } else if (stats.hasErrors()) {
@@ -103,9 +102,9 @@ function pack (config) {
 }
 
 function web () {
-  del.sync(['dist/web/*', '!.gitkeep'])
+  deleteSync(['dist/web/*', '!.gitkeep'])
   webConfig.mode = 'production'
-  webpack(webConfig, (err, stats) => {
+  Webpack(webConfig, (err, stats) => {
     if (err || stats.hasErrors()) console.log(err)
 
     console.log(stats.toString({

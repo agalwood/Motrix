@@ -30,7 +30,19 @@ export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 
 export const UNKNOWN_PEERID = '%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00'
+export const UNKNOWN_PEERID_NAME = 'unknown'
 export const GRAPHIC = '░▒▓█'
+
+export const ONE_SECOND = 1000
+export const ONE_MINUTE = ONE_SECOND * 60
+export const ONE_HOUR = ONE_MINUTE * 60
+export const ONE_DAY = ONE_HOUR * 24
+
+// 12 Hours
+export const AUTO_SYNC_TRACKER_INTERVAL = ONE_HOUR * 12
+
+// One Week
+export const AUTO_CHECK_UPDATE_INTERVAL = ONE_DAY * 7
 
 export const MAX_BT_TRACKER_LENGTH = 6144
 
@@ -144,17 +156,6 @@ export const trackerSourceOptions = [
   }
 ]
 
-export const ONE_SECOND = 1000
-export const ONE_MINUTE = ONE_SECOND * 60
-export const ONE_HOUR = ONE_MINUTE * 60
-export const ONE_DAY = ONE_HOUR * 24
-
-// 12 Hours
-export const AUTO_SYNC_TRACKER_INTERVAL = ONE_HOUR * 12
-
-// One Week
-export const AUTO_CHECK_UPDATE_INTERVAL = ONE_DAY * 7
-
 export const NONE_SELECTED_FILES = 'none'
 export const SELECTED_ALL_FILES = 'all'
 
@@ -180,3 +181,83 @@ export const TRAY_CANVAS_CONFIG = {
   TEXT_WIDTH: 46,
   TEXT_FONT_SIZE: 8
 }
+
+export const COMMON_RESOURCE_TAGS = ['http://', 'https://', 'ftp://', 'magnet:']
+export const THUNDER_RESOURCE_TAGS = ['thunder://']
+
+export const RESOURCE_TAGS = [
+  ...COMMON_RESOURCE_TAGS,
+  ...THUNDER_RESOURCE_TAGS
+]
+
+export const SUPPORT_RTL_LOCALES = [
+  /* 'العربية', Arabic */
+  'ar',
+  /* 'فارسی', Persian */
+  'fa',
+  /* 'עברית', Hebrew */
+  'he',
+  /* 'Kurdî / كوردی', Kurdish */
+  'ku',
+  /* 'پنجابی', Western Punjabi */
+  'pa',
+  /* 'پښتو', Pashto, */
+  'ps',
+  /* 'سنڌي', Sindhi */
+  'sd',
+  /* 'اردو', Urdu */
+  'ur',
+  /* 'ייִדיש', Yiddish */
+  'yi'
+]
+
+export const IMAGE_SUFFIXES = [
+  '.ai',
+  '.bmp',
+  '.eps',
+  '.gif',
+  '.icn',
+  '.ico',
+  '.jpeg',
+  '.jpg',
+  '.png',
+  '.psd',
+  '.raw',
+  '.sketch',
+  '.svg',
+  '.tif',
+  '.webp',
+  '.xd'
+]
+export const AUDIO_SUFFIXES = [
+  '.aac',
+  '.ape',
+  '.flac',
+  '.flav',
+  '.m4a',
+  '.mp3',
+  '.ogg',
+  '.wav',
+  '.wma'
+]
+export const VIDEO_SUFFIXES = [
+  '.avi',
+  '.m4v',
+  '.mkv',
+  '.mov',
+  '.mp4',
+  '.mpg',
+  '.rmvb',
+  '.vob',
+  '.wmv'
+]
+
+export const SUB_SUFFIXES = [
+  '.ass',
+  '.idx',
+  '.smi',
+  '.srt',
+  '.ssa',
+  '.sst',
+  '.sub'
+]

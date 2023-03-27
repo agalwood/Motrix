@@ -1,0 +1,144 @@
+{
+    "productName": "Motrix",
+    "appId": "app.motrix.desktop",
+    "afterPack": "./build/afterPackHook.js",
+    "afterSign": "electron-builder-notarize",
+    "fileAssociations": [
+      {
+        "ext": "torrent",
+        "mimeType": "application/x-bittorrent",
+        "name": "Torrent",
+        "role": "Viewer"
+      }
+    ],
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/electron/**/*"
+    ],
+    "protocols": [
+      {
+        "name": "Motrix Protocol",
+        "schemes": [
+          "mo",
+          "motrix"
+        ]
+      },
+      {
+        "name": "Magnet Protocol",
+        "schemes": [
+          "magnet"
+        ]
+      },
+      {
+        "name": "Thunder Protocol",
+        "schemes": [
+          "thunder"
+        ]
+      }
+    ],
+    "dmg": {
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 410,
+          "y": 230,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 230,
+          "type": "file"
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "type": "development",
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "extraResources": {
+        "from": "./extra/darwin/${arch}/",
+        "to": "./",
+        "filter": [
+          "**/*"
+        ]
+      },
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "extraResources": {
+        "from": "./extra/win32/${arch}/",
+        "to": "./",
+        "filter": [
+          "**/*"
+        ]
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "category": "Network",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "snap"
+      ],
+      "extraResources": {
+        "from": "./extra/linux/",
+        "to": "./",
+        "filter": [
+          "**/*"
+        ]
+      }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://dl.motrix.app/release/"
+      },
+      {
+        "provider": "github"
+      }
+    ]
+  }

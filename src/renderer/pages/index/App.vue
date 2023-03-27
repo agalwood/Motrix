@@ -23,7 +23,7 @@
   import TitleBar from '@/components/Native/TitleBar'
 
   export default {
-    name: 'Motrix',
+    name: 'motrix-app',
     components: {
       [DynamicTray.name]: DynamicTray,
       [EngineClient.name]: EngineClient,
