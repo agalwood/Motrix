@@ -9,7 +9,7 @@ exports.default = async function (context) {
   }
 
   const skipNotarize = process.env.SKIP_NOTARIZE
-  if (skipNotarize === 'yes') {
+  if (skipNotarize === 'true') {
     console.log('skipping notarize')
     return
   }
