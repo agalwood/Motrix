@@ -33,7 +33,7 @@ jobs:
           snapcraft_token: ${{ secrets.snapcraft_token }}
 
       - name: Prepare for app notarization (macOS)
-        if: startsWith(matrix.os, 'macos')
+        if: startsWith(matrix.os, 'macos') && startsWith(github.ref, 'refs/tags/v')
         # Import Apple API key for app notarization on macOS
         run: |
           mkdir -p ~/private_keys/
