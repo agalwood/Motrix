@@ -17,12 +17,12 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: 14
+          node-version: 18
 
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v1
@@ -33,7 +33,7 @@ jobs:
           snapcraft_token: ${{ secrets.snapcraft_token }}
 
       - name: Prepare for app notarization (macOS)
-        if: startsWith(matrix.os, 'macos')
+        if: startsWith(matrix.os, 'macos') && startsWith(github.ref, 'refs/tags/v')
         # Import Apple API key for app notarization on macOS
         run: |
           mkdir -p ~/private_keys/
