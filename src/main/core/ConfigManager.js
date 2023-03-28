@@ -77,7 +77,7 @@ export default class ConfigManager {
         'seed-ratio': 1,
         'seed-time': 60,
         'split': getMaxConnectionPerServer(),
-        'user-agent': 'Transmission/2.94'
+        'user-agent': 'Transmission/3.00'
       }
       /* eslint-enable quote-props */
     })
