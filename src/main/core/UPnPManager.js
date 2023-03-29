@@ -35,7 +35,7 @@ export default class UPnPManager {
       try {
         client.map(port, (err) => {
           if (err) {
-            logger.warn(`[Motrix] UPnPManager map ${port} failed, error: `, err)
+            logger.warn(`[Motrix] UPnPManager map ${port} failed, error: `, err.message)
             reject(err.message)
             return
           }

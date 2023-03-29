@@ -2,7 +2,7 @@
     "productName": "Motrix",
     "appId": "app.motrix.desktop",
     "afterPack": "./build/afterPackHook.js",
-    "afterSign": "electron-builder-notarize",
+    "afterSign": "./build/afterSignHook.js",
     "fileAssociations": [
       {
         "ext": "torrent",

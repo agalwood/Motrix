@@ -8,7 +8,7 @@ import {
   APP_RUN_MODE
 } from '@shared/constants'
 
-const isMac = is.macOS()
+const enabled = is.macOS()
 
 export default class DockManager extends EventEmitter {
   constructor (options) {
@@ -20,7 +20,7 @@ export default class DockManager extends EventEmitter {
     }
   }
 
-  show = isMac
+  show = enabled
     ? () => {
       if (app.dock.isVisible()) {
         return
@@ -30,7 +30,7 @@ export default class DockManager extends EventEmitter {
     }
     : () => {}
 
-  hide = isMac
+  hide = enabled
     ? () => {
       if (!app.dock.isVisible()) {
         return
@@ -40,13 +40,15 @@ export default class DockManager extends EventEmitter {
     }
     : () => {}
 
-  setBadge = isMac
+  // macOS setBadge not working
+  // @see https://github.com/electron/electron/issues/25745#issuecomment-702826143
+  setBadge = enabled
     ? (text) => {
       app.dock.setBadge(text)
     }
     : (text) => {}
 
-  handleSpeedChange = isMac
+  handleSpeedChange = enabled
     ? (speed) => {
       const { downloadSpeed } = speed
       const text = downloadSpeed > 0 ? `${bytesToSize(downloadSpeed)}/s` : ''
@@ -54,7 +56,7 @@ export default class DockManager extends EventEmitter {
     }
     : (text) => {}
 
-  openDock = isMac
+  openDock = enabled
     ? (path) => {
       app.dock.downloadFinished(path)
     }

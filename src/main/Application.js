@@ -229,7 +229,7 @@ export default class Application extends EventEmitter {
     try {
       await Promise.allSettled(promises)
     } catch (e) {
-      logger.warn('[Motrix] start UPnP mapping fail', e)
+      logger.warn('[Motrix] start UPnP mapping fail', e.message)
     }
   }
 

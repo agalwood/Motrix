@@ -1,6 +1,6 @@
 {
   "name": "Motrix",
-  "version": "1.7.0",
+  "version": "1.7.2",
   "description": "A full-featured download manager",
   "homepage": "https://motrix.app",
   "author": {
@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.21.0",
-    "@motrix/nat-api": "^0.3.2",
+    "@motrix/nat-api": "^0.3.3",
     "@panter/vue-i18next": "^0.15.2",
     "axios": "^1.3.4",
     "bittorrent-peerid": "^1.3.6",
@@ -63,6 +63,8 @@
     "@babel/plugin-transform-runtime": "^7.21.0",
     "@babel/preset-env": "^7.20.2",
     "@babel/register": "^7.21.0",
+    "@electron/notarize": "^1.2.3",
+    "@electron/osx-sign": "^1.0.4",
     "@electron/remote": "^2.0.9",
     "@motrix/multispinner": "^0.2.2",
     "@vue/eslint-config-standard": "^6.1.0",
@@ -79,10 +81,7 @@
     "del": "^6.1.1",
     "electron": "^22.3.3",
     "electron-builder": "^23.6.0",
-    "electron-builder-notarize": "^1.5.1",
     "electron-devtools-installer": "^3.2.0",
-    "electron-notarize": "^1.2.1",
-    "electron-osx-sign": "^0.6.0",
     "eslint": "^7.32.0",
     "eslint-friendly-formatter": "^4.0.1",
     "eslint-plugin-import": "^2.27.5",
