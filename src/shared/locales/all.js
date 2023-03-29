@@ -18,6 +18,7 @@ import eleLocalePl from 'element-ui/lib/locale/lang/pl'
 import eleLocalePtBR from 'element-ui/lib/locale/lang/pt-br'
 import eleLocaleRo from 'element-ui/lib/locale/lang/ro'
 import eleLocaleRu from 'element-ui/lib/locale/lang/ru-RU'
+import eleLocaleTh from 'element-ui/lib/locale/lang/th'
 import eleLocaleTr from 'element-ui/lib/locale/lang/tr-TR'
 import eleLocaleUk from 'element-ui/lib/locale/lang/ua'
 import eleLocaleVi from 'element-ui/lib/locale/lang/vi'
@@ -43,6 +44,7 @@ import appLocalePl from '@shared/locales/pl'
 import appLocalePtBR from '@shared/locales/pt-BR'
 import appLocaleRo from '@shared/locales/ro'
 import appLocaleRu from '@shared/locales/ru'
+import appLocaleTh from '@shared/locales/th'
 import appLocaleTr from '@shared/locales/tr'
 import appLocaleUk from '@shared/locales/uk'
 import appLocaleVi from '@shared/locales/vi'
@@ -170,6 +172,12 @@ const resources = {
     translation: {
       ...eleLocaleRu,
       ...appLocaleRu
+    }
+  },
+  'th': {
+    translation: {
+      ...eleLocaleTh,
+      ...appLocaleTh
     }
   },
   'tr': {

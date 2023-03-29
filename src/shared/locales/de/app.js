@@ -2,7 +2,7 @@ export default {
   'task-list': 'Aufgaben',
   'add-task': 'Aufgabe hinzufügen',
   'about': 'Über Motrix',
-  'preferences': 'Präferenzen...',
+  'preferences': 'Einstellungen...',
   'check-for-updates': 'Nach Updates suchen...',
   'check-updates-now': 'Jetzt prüfen',
   'checking-for-updates': 'Nach Updates suchen ...',

@@ -5,7 +5,7 @@ process.env.BABEL_ENV = 'web'
 const devMode = process.env.NODE_ENV !== 'production'
 const path = require('path')
 const { dependencies } = require('../package.json')
-const webpack = require('webpack')
+const Webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
@@ -111,23 +111,11 @@ let webConfig = {
       },
       {
         test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
-        use: {
-          loader: 'url-loader',
-          options: {
-            limit: 10000,
-            name: 'imgs/[name].[ext]'
-          }
-        }
+        type: 'asset/inline'
       },
       {
         test: /\.(woff2?|eot|ttf|otf)(\?.*)?$/,
-        use: {
-          loader: 'url-loader',
-          options: {
-            limit: 10000,
-            name: 'fonts/[name].[ext]'
-          }
-        }
+        type: 'asset/inline'
       }
     ]
   },
@@ -153,11 +141,11 @@ let webConfig = {
         ? path.resolve(__dirname, '../node_modules')
         : false
     }),
-    new webpack.DefinePlugin({
+    new Webpack.DefinePlugin({
       'process.env.IS_WEB': 'true'
     }),
-    new webpack.HotModuleReplacementPlugin(),
-    new webpack.NoEmitOnErrorsPlugin(),
+    new Webpack.HotModuleReplacementPlugin(),
+    new Webpack.NoEmitOnErrorsPlugin(),
     new ESLintPlugin({
       extensions: ['js', 'vue'],
       formatter: require('eslint-friendly-formatter')
@@ -208,10 +196,10 @@ if (!devMode) {
         globOptions: { ignore: [ '.*' ] }
       }]
     }),
-    new webpack.DefinePlugin({
+    new Webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"'
     }),
-    new webpack.LoaderOptionsPlugin({
+    new Webpack.LoaderOptionsPlugin({
       minimize: true
     })
   )

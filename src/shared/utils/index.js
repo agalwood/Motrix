@@ -21,7 +21,14 @@ import {
   GRAPHIC,
   NONE_SELECTED_FILES,
   SELECTED_ALL_FILES,
-  UNKNOWN_PEERID
+  RESOURCE_TAGS,
+  IMAGE_SUFFIXES,
+  AUDIO_SUFFIXES,
+  VIDEO_SUFFIXES,
+  SUB_SUFFIXES,
+  UNKNOWN_PEERID,
+  SUPPORT_RTL_LOCALES,
+  UNKNOWN_PEERID_NAME
 } from '@shared/constants'
 
 export function bytesToSize (bytes, precision = 1) {
@@ -57,17 +64,20 @@ export function bitfieldToGraphic (text) {
 }
 
 export function peerIdParser (str) {
-  str = unescape(str)
-  const buffer = Buffer.from(str, 'binary')
-
-  if (buffer === UNKNOWN_PEERID) {
-    return 'unknown'
+  if (!str || str === UNKNOWN_PEERID) {
+    return UNKNOWN_PEERID_NAME
   }
+
   let parsed = {}
+  let decodedStr
   try {
+    // decodeURI or decodeURIComponent cannot parse '%2DUT360W%2D%92%B6%EBh%1F%A1%DBfo%F6%D5I'
+    decodedStr = unescape(str)
+    const buffer = Buffer.from(decodedStr, 'binary')
     parsed = bitTorrentPeerId(buffer)
   } catch (e) {
-    console.log('peerIdParser.fail', e)
+    console.log('peerIdParser.fail', e, str, decodedStr)
+    return UNKNOWN_PEERID_NAME
   }
 
   const result = parsed.version
@@ -347,11 +357,11 @@ export function changeKeysCase (obj, caseConverter) {
   return result
 }
 
-export function changeKeysToCamelCase (obj) {
+export function changeKeysToCamelCase (obj = {}) {
   return changeKeysCase(obj, camelCase)
 }
 
-export function changeKeysToKebabCase (obj) {
+export function changeKeysToKebabCase (obj = {}) {
   return changeKeysCase(obj, kebabCase)
 }
 
@@ -359,7 +369,7 @@ export function validateNumber (n) {
   return !isNaN(parseFloat(n)) && isFinite(n) && Number(n) === n
 }
 
-export function fixValue (obj) {
+export function fixValue (obj = {}) {
   const result = {}
   for (const [k, v] of Object.entries(obj)) {
     if (v === 'true') {
@@ -421,59 +431,8 @@ export function convertLineToComma (text = '') {
   return result
 }
 
-export const imageSuffix = [
-  '.ai',
-  '.bmp',
-  '.eps',
-  '.gif',
-  '.icn',
-  '.ico',
-  '.jpeg',
-  '.jpg',
-  '.png',
-  '.psd',
-  '.raw',
-  '.sketch',
-  '.svg',
-  '.tif',
-  '.webp',
-  '.xd'
-]
-export const audioSuffix = [
-  '.aac',
-  '.ape',
-  '.flac',
-  '.flav',
-  '.m4a',
-  '.mp3',
-  '.ogg',
-  '.wav',
-  '.wma'
-]
-export const videoSuffix = [
-  '.avi',
-  '.m4v',
-  '.mkv',
-  '.mov',
-  '.mp4',
-  '.mpg',
-  '.rmvb',
-  '.vob',
-  '.wmv'
-]
-
-export const subSuffix = [
-  '.ass',
-  '.idx',
-  '.smi',
-  '.srt',
-  '.ssa',
-  '.sst',
-  '.sub'
-]
-
 export function filterVideoFiles (files = []) {
-  const suffix = [...videoSuffix, ...subSuffix]
+  const suffix = [...VIDEO_SUFFIXES, ...SUB_SUFFIXES]
   return files.filter((item) => {
     return suffix.includes(item.extension)
   })
@@ -481,18 +440,18 @@ export function filterVideoFiles (files = []) {
 
 export function filterAudioFiles (files = []) {
   return files.filter((item) => {
-    return audioSuffix.includes(item.extension)
+    return AUDIO_SUFFIXES.includes(item.extension)
   })
 }
 
 export function filterImageFiles (files = []) {
   return files.filter((item) => {
-    return imageSuffix.includes(item.extension)
+    return IMAGE_SUFFIXES.includes(item.extension)
   })
 }
 
 export function isAudioOrVideo (uri = '') {
-  const suffixs = [...audioSuffix, ...videoSuffix]
+  const suffixs = [...AUDIO_SUFFIXES, ...VIDEO_SUFFIXES]
   const result = suffixs.some((suffix) => {
     return uri.includes(suffix)
   })
@@ -529,9 +488,8 @@ export function splitTaskLinks (links = '') {
   return result
 }
 
-const resourceTag = ['http://', 'https://', 'ftp://', 'magnet:', 'thunder://']
 export function detectResource (content) {
-  return resourceTag.some((type) => {
+  return RESOURCE_TAGS.some((type) => {
     return content.includes(type)
   })
 }
@@ -550,28 +508,8 @@ export function buildFileList (rawFile) {
   return fileList
 }
 
-const supportRtlLocales = [
-  /* 'العربية', Arabic */
-  'ar',
-  /* 'فارسی', Persian */
-  'fa',
-  /* 'עברית', Hebrew */
-  'he',
-  /* 'Kurdî / كوردی', Kurdish */
-  'ku',
-  /* 'پنجابی', Western Punjabi */
-  'pa',
-  /* 'پښتو', Pashto, */
-  'ps',
-  /* 'سنڌي', Sindhi */
-  'sd',
-  /* 'اردو', Urdu */
-  'ur',
-  /* 'ייִדיש', Yiddish */
-  'yi'
-]
 export function isRTL (locale = 'en-US') {
-  return supportRtlLocales.includes(locale)
+  return SUPPORT_RTL_LOCALES.includes(locale)
 }
 
 export function getLangDirection (locale = 'en-US') {
@@ -640,7 +578,7 @@ export function parseHeader (header = '') {
   return result
 }
 
-export function formatOptionsForEngine (options) {
+export function formatOptionsForEngine (options = {}) {
   const result = {}
 
   Object.keys(options).forEach((key) => {
@@ -651,7 +589,7 @@ export function formatOptionsForEngine (options) {
   return result
 }
 
-export function buildRpcUrl (options) {
+export function buildRpcUrl (options = {}) {
   const { port, secret } = options
   let result = `${ENGINE_RPC_HOST}:${port}/jsonrpc`
   if (secret) {
@@ -689,7 +627,7 @@ export const checkIsNeedRun = (enable, lastTime, interval) => {
   return (Date.now() - lastTime > interval)
 }
 
-export const getRandomInt = (min = 0, max = 10000) => {
+export const generateRandomInt = (min = 0, max = 10000) => {
   let result = min
   const range = max - min
   result += Math.floor(Math.random() * Math.floor(range))

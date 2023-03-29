@@ -1,6 +1,6 @@
 require('dotenv').config()
 const { notarize } = require('electron-notarize')
-const pkg = require('../package.json')
+const { appId } = require('../electron-builder.json')
 
 exports.default = async function (context) {
   const { electronPlatformName, appOutDir } = context
@@ -9,12 +9,12 @@ exports.default = async function (context) {
   }
 
   const skipNotarize = process.env.SKIP_NOTARIZE
-  if (skipNotarize === 'yes') {
+  if (skipNotarize === 'true') {
     console.log('skipping notarize')
     return
   }
 
-  const appBundleId = pkg.build.appId
+  const appBundleId = appId
   const appName = context.packager.appInfo.productFilename
 
   return await notarize({

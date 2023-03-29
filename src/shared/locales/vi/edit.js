@@ -5,5 +5,5 @@ export default {
   'copy': 'Sao chép',
   'paste': 'Dán',
   'delete': 'Xóa',
-  'select-all': 'Chọn cả'
+  'select-all': 'Chọn tất cả'
 }

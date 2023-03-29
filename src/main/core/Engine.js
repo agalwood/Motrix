@@ -13,7 +13,7 @@ import {
   transformConfig
 } from '../utils/index'
 
-const { platform } = process
+const { platform, arch } = process
 
 export default class Engine {
   // ChildProcess | null
@@ -103,7 +103,10 @@ export default class Engine {
     let result = resolve(app.getAppPath(), '..')
 
     if (is.dev()) {
-      result = resolve(__dirname, `../../../extra/${platform}`)
+      const base = platform === 'linux'
+        ? `../../../extra/${platform}`
+        : `../../../extra/${platform}/${arch}`
+      result = resolve(__dirname, base)
     }
 
     return result
