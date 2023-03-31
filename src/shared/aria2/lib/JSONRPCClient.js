@@ -1,12 +1,12 @@
 'use strict'
 
+import { EventEmitter } from 'events'
+import _fetch from 'node-fetch'
+import _WebSocket from 'ws'
 import { JSONRPCError } from './JSONRPCError'
+
 const Deferred = require('./Deferred')
 const promiseEvent = require('./promiseEvent')
-
-const _WebSocket = require('ws')
-const _fetch = require('node-fetch')
-const EventEmitter = require('events')
 
 const WebSocket = global.WebSocket || _WebSocket
 const fetch = global.fetch ? global.fetch.bind(global) : _fetch
