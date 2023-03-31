@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events'
 import { nativeTheme } from 'electron'
-import is from 'electron-is'
 
 import { APP_THEME } from '@shared/constants'
 import logger from '../core/Logger'
@@ -25,10 +24,6 @@ export default class ThemeManager extends EventEmitter {
   }
 
   handleEvents () {
-    if (!is.macOS()) {
-      return
-    }
-
     nativeTheme.on('updated', () => {
       const theme = getSystemTheme()
       this.systemTheme = theme
