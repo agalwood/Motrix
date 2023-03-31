@@ -1,6 +1,6 @@
 'use strict'
 
-const { inspect } = require('util')
+import { inspect } from 'util'
 
 module.exports = (aria2) => {
   aria2.on('open', () => {

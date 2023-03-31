@@ -28,6 +28,8 @@ export const TASK_STATUS = {
 
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
+export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10
+export const ENGINE_MAX_CONNECTION_PER_SERVER = 64
 
 export const UNKNOWN_PEERID = '%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00'
 export const UNKNOWN_PEERID_NAME = 'unknown'
@@ -158,8 +160,6 @@ export const trackerSourceOptions = [
 
 export const NONE_SELECTED_FILES = 'none'
 export const SELECTED_ALL_FILES = 'all'
-
-export const ENGINE_MAX_CONNECTION_PER_SERVER = 64
 
 export const IP_VERSION = {
   V4: 4,

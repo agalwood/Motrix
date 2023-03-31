@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     custom-class="tab-title-dialog add-task-dialog"
-    width="64vw"
+    width="67vw"
     :visible="visible"
     :before-close="handleClose"
     @open="handleOpen"
@@ -129,7 +129,7 @@
           </el-input>
         </el-form-item>
         <el-row :gutter="12">
-          <el-col :span="15" :xs="24">
+          <el-col :span="16" :xs="24">
             <el-form-item
               :label="`${$t('task.task-proxy')}: `"
               :label-width="formLabelWidth"
@@ -140,7 +140,7 @@
               </el-input>
             </el-form-item>
           </el-col>
-          <el-col :span="9" :xs="24">
+          <el-col :span="8" :xs="24">
             <div class="help-link">
               <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/Proxy" rel="noopener noreferrer">
                 {{ $t('preferences.proxy-tips') }}
@@ -212,7 +212,7 @@
     },
     data () {
       return {
-        formLabelWidth: '100px',
+        formLabelWidth: '110px',
         showAdvanced: false,
         form: {},
         rules: {}

@@ -202,7 +202,7 @@
               v-model="form.maxConcurrentDownloads"
               controls-position="right"
               :min="1"
-              :max="10"
+              :max="maxConcurrentDownloads"
               :label="$t('preferences.max-concurrent-downloads')">
             </el-input-number>
           </el-col>
@@ -273,7 +273,7 @@
     convertLineToComma,
     diffConfig
   } from '@shared/utils'
-  import { APP_RUN_MODE } from '@shared/constants'
+  import { APP_RUN_MODE, ENGINE_MAX_CONCURRENT_DOWNLOADS } from '@shared/constants'
   import { reduceTrackerString } from '@shared/utils/tracker'
 
   const initForm = (config) => {
@@ -370,6 +370,9 @@
       isLinux () { return is.linux() },
       title () {
         return this.$t('preferences.basic')
+      },
+      maxConcurrentDownloads () {
+        return ENGINE_MAX_CONCURRENT_DOWNLOADS
       },
       runModes () {
         return [

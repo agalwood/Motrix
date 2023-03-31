@@ -1,4 +1,3 @@
-import is from 'electron-is'
 import { shell, nativeTheme } from '@electron/remote'
 import { access, constants } from 'fs'
 import { resolve } from 'path'
@@ -110,12 +109,7 @@ export const moveTaskFilesToTrash = (task) => {
 }
 
 export function getSystemTheme () {
-  let result = APP_THEME.LIGHT
-  if (!is.macOS()) {
-    return result
-  }
-  result = nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
-  return result
+  return nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
 }
 
 export const delayDeleteTaskFiles = (task, delay) => {
