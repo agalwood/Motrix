@@ -713,7 +713,7 @@ export default class Application extends EventEmitter {
     })
 
     this.on('application:setup-protocols-client', (protocols) => {
-      if (is.dev() || is.mas()) {
+      if (is.dev() || is.mas() || !protocols) {
         return
       }
       logger.info('[Motrix] setup protocols client:', protocols)
