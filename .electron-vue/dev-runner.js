@@ -128,17 +128,21 @@ function greeting () {
   const cols = process.stdout.columns
   let text = ''
 
-  if (cols > 104) text = 'electron-vue'
-  else if (cols > 76) text = 'electron-|vue'
-  else text = false
+  if (cols > 104) {
+    text = 'motrix-dev'
+  } else if (cols > 76) {
+    text = 'motrix-|dev'
+  } else {
+    text = false
+  }
 
   if (text) {
     say(text, {
-      colors: ['yellow'],
+      colors: ['magentaBright'],
       font: 'simple3d',
       space: false
     })
-  } else console.log(chalk.yellow.bold('\n  electron-vue'))
+  } else console.log(chalk.magentaBright.bold('\n  motrix-dev'))
   console.log(chalk.blue('  getting ready...') + '\n')
 }
 
