@@ -18,6 +18,7 @@ import {
   NGOSANG_TRACKERS_BEST_IP_URL_CDN,
   NGOSANG_TRACKERS_BEST_URL_CDN
 } from '@shared/constants'
+import { CHROME_UA } from '@shared/ua'
 import { separateConfig } from '@shared/utils'
 import { reduceTrackerString } from '@shared/utils/tracker'
 
@@ -77,7 +78,7 @@ export default class ConfigManager {
         'seed-ratio': 1,
         'seed-time': 60,
         'split': getMaxConnectionPerServer(),
-        'user-agent': 'Transmission/3.00'
+        'user-agent': CHROME_UA
       }
       /* eslint-enable quote-props */
     })
