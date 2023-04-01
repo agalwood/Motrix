@@ -298,7 +298,8 @@ export default class TrayManager extends EventEmitter {
   }
 
   handleRunModeChange (mode) {
-    console.log('handleRunModeChange===>', mode)
+    this.runMode = mode
+
     if (mode === APP_RUN_MODE.HIDE_TRAY) {
       this.destroy()
     } else {
