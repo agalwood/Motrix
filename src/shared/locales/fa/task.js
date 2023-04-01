@@ -25,6 +25,7 @@ export default {
   'pause-task': 'مکث',
   'task-ua': 'UA',
   'task-user-agent': 'عامل کاربر',
+  'task-authorization': 'مجوز',
   'task-referer': 'ارجاع دهنده',
   'task-cookie': 'کوکی',
   'task-proxy': 'پیشکار',

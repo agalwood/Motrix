@@ -67,6 +67,10 @@ export const availableLanguages = [
     label: 'Norsk Bokmål'
   },
   {
+    value: 'nl',
+    label: 'Nederlands'
+  },
+  {
     value: 'pl',
     label: 'Polski'
   },

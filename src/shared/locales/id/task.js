@@ -25,7 +25,7 @@ export default {
   'pause-task': 'Tunda Tugas',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
-  'task-authorization': 'Authorization',
+  'task-authorization': 'Otorisasi',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
   'task-proxy': 'Proxy',

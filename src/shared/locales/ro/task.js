@@ -25,7 +25,7 @@ export default {
   'pause-task': 'Întrerupeți sarcina',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
-  'task-authorization': 'Authorization',
+  'task-authorization': 'Autorizare',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
   'task-proxy': 'Proxy',

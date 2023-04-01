@@ -25,6 +25,7 @@ export default {
   'pause-task': '작업 일시정지',
   'task-ua': 'UA',
   'task-user-agent': '사용자 에이전트',
+  'task-authorization': '권한 부여',
   'task-referer': '리퍼러',
   'task-cookie': '쿠키',
   'task-proxy': '프록시',
