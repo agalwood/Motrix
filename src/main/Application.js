@@ -42,11 +42,9 @@ export default class Application extends EventEmitter {
   }
 
   init () {
-    this.configManager = this.initConfigManager()
+    this.initConfigManager()
 
-    this.locale = this.configManager.getLocale()
-    this.localeManager = setupLocaleManager(this.locale)
-    this.i18n = this.localeManager.getI18n()
+    this.initLocaleManager()
 
     this.setupApplicationMenu()
 
@@ -66,9 +64,9 @@ export default class Application extends EventEmitter {
 
     this.initDockManager()
 
-    this.autoLaunchManager = new AutoLaunchManager()
+    this.initAutoLaunchManager()
 
-    this.energyManager = new EnergyManager()
+    this.initEnergyManager()
 
     this.initUpdaterManager()
 
@@ -87,7 +85,7 @@ export default class Application extends EventEmitter {
 
   initConfigManager () {
     this.configListeners = {}
-    return new ConfigManager()
+    this.configManager = new ConfigManager()
   }
 
   offConfigListeners () {
@@ -99,6 +97,12 @@ export default class Application extends EventEmitter {
       logger.warn('[Motrix] offConfigListeners===>', e)
     }
     this.configListeners = {}
+  }
+
+  initLocaleManager () {
+    this.locale = this.configManager.getLocale()
+    this.localeManager = setupLocaleManager(this.locale)
+    this.i18n = this.localeManager.getI18n()
   }
 
   setupApplicationMenu () {
@@ -160,6 +164,14 @@ export default class Application extends EventEmitter {
       port,
       secret
     })
+  }
+
+  initAutoLaunchManager () {
+    this.autoLaunchManager = new AutoLaunchManager()
+  }
+
+  initEnergyManager () {
+    this.energyManager = new EnergyManager()
   }
 
   initTrayManager () {
@@ -393,6 +405,7 @@ export default class Application extends EventEmitter {
       this.isReady = true
       this.emit('ready')
     })
+
     if (is.macOS()) {
       this.touchBarManager.setup(page, win)
     }
