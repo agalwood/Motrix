@@ -25,7 +25,7 @@ export default {
   'pause-task': 'Metti in pausa attività',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
-  'task-authorization': 'Authorization',
+  'task-authorization': 'Autorizzazione',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
   'task-proxy': 'Proxy',

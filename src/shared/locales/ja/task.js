@@ -24,6 +24,7 @@ export default {
   'task-dir': 'タスク保存先',
   'task-ua': 'UA',
   'task-user-agent': 'ユーザーエージェント',
+  'task-authorization': '認可',
   'task-referer': 'リファラ',
   'task-cookie': 'クッキー',
   'task-proxy': 'プロキシ',

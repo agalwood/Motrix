@@ -25,6 +25,7 @@ export default {
   'pause-task': 'พักงาน',
   'task-ua': 'UA',
   'task-user-agent': 'ตัวแทนผู้ใช้',
+  'task-authorization': 'การอนุญาต',
   'task-referer': 'ผู้อ้างอิง',
   'task-cookie': 'คุ้กกี้',
   'task-proxy': 'พร็อกซี่',

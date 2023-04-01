@@ -375,16 +375,28 @@
         return ENGINE_MAX_CONCURRENT_DOWNLOADS
       },
       runModes () {
-        return [
+        let result = [
           {
             label: this.$t('preferences.run-mode-standard'),
-            value: 1
+            value: APP_RUN_MODE.STANDARD
           },
           {
-            label: this.$t('preferences.run-mode-menu-bar'),
-            value: 2
+            label: this.$t('preferences.run-mode-tray'),
+            value: APP_RUN_MODE.TRAY
           }
         ]
+
+        if (this.isMac) {
+          result = [
+            ...result,
+            {
+              label: this.$t('preferences.run-mode-hide-tray'),
+              value: APP_RUN_MODE.HIDE_TRAY
+            }
+          ]
+        }
+
+        return result
       },
       speedOptions () {
         return [
@@ -502,7 +514,7 @@
             ...changedConfig.advanced
           }
 
-          const { btAutoDownloadContent, runMode, openAtLogin, autoHideWindow, btTracker, noProxy } = data
+          const { btAutoDownloadContent, autoHideWindow, btTracker, noProxy } = data
 
           if ('btAutoDownloadContent' in data) {
             data.pauseMetadata = !btAutoDownloadContent
@@ -534,14 +546,6 @@
           changedConfig.advanced = {}
 
           if (this.isRenderer) {
-            this.$electron.ipcRenderer.send('command',
-                                            'application:open-at-login', openAtLogin)
-
-            if ('runMode' in data) {
-              this.$electron.ipcRenderer.send('command',
-                                              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
-            }
-
             if ('autoHideWindow' in data) {
               this.$electron.ipcRenderer.send('command',
                                               'application:auto-hide-window', autoHideWindow)
@@ -551,9 +555,6 @@
               this.$electron.ipcRenderer.send('command',
                                               'application:relaunch')
             }
-
-            this.$electron.ipcRenderer.send('command',
-                                            'application:setup-protocols-client', data.protocols)
 
             if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')

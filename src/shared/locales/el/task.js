@@ -25,7 +25,7 @@ export default {
   'pause-task': 'Παύση εργασίας',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
-  'task-authorization': 'Authorization',
+  'task-authorization': 'Εξουσιοδότηση',
   'task-referer': 'Referer',
   'task-cookie': 'Cookie',
   'task-proxy': 'Proxy',

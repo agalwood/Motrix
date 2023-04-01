@@ -1,22 +1,22 @@
 <template>
-<div style="display: none;">
-  <img
-    id="tray-icon-light-normal"
-    src="static/mo-tray-light-normal@2x.png"
-  >
-  <img
-    id="tray-icon-light-active"
-    src="static/mo-tray-light-active@2x.png"
-  >
-  <img
-    id="tray-icon-dark-normal"
-    src="static/mo-tray-dark-normal@2x.png"
-  >
-  <img
-    id="tray-icon-dark-active"
-    src="static/mo-tray-dark-active@2x.png"
-  >
-</div>
+  <div style="display: none;">
+    <img
+      id="tray-icon-light-normal"
+      src="static/mo-tray-light-normal@2x.png"
+    >
+    <img
+      id="tray-icon-light-active"
+      src="static/mo-tray-light-active@2x.png"
+    >
+    <img
+      id="tray-icon-dark-normal"
+      src="static/mo-tray-dark-normal@2x.png"
+    >
+    <img
+      id="tray-icon-dark-active"
+      src="static/mo-tray-dark-active@2x.png"
+    >
+  </div>
 </template>
 
 <script>
