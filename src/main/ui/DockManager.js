@@ -15,7 +15,7 @@ export default class DockManager extends EventEmitter {
     super()
     this.options = options
     const { runMode } = this.options
-    if (runMode !== APP_RUN_MODE.STANDARD) {
+    if (runMode === APP_RUN_MODE.TRAY) {
       this.hide()
     }
   }

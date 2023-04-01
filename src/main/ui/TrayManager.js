@@ -3,7 +3,7 @@ import { join } from 'path'
 import { Tray, Menu, nativeImage } from 'electron'
 import is from 'electron-is'
 
-import { APP_THEME } from '@shared/constants'
+import { APP_RUN_MODE, APP_THEME } from '@shared/constants'
 import { getInverseTheme } from '@shared/utils'
 import { getI18n } from './Locale'
 import {
@@ -29,6 +29,7 @@ export default class TrayManager extends EventEmitter {
     this.macOS = platform === 'darwin'
 
     this.speedometer = options.speedometer
+    this.runMode = options.runMode
 
     this.i18n = getI18n()
     this.menu = null
@@ -38,20 +39,23 @@ export default class TrayManager extends EventEmitter {
     this.downloadSpeed = 0
     this.status = false
     this.focused = false
+    this.initialized = false
 
     this.init()
   }
 
   init () {
+    if (tray || this.initialized || this.runMode === APP_RUN_MODE.HIDE_TRAY) {
+      return
+    }
+
     this.loadTemplate()
-
     this.loadImages()
-
     this.initTray()
-
     this.setupMenu()
+    this.bindEvents()
 
-    this.handleEvents()
+    this.initialized = true
   }
 
   loadTemplate () {
@@ -150,7 +154,7 @@ export default class TrayManager extends EventEmitter {
     }
   }
 
-  handleEvents () {
+  bindEvents () {
     // All OS
     tray.on('click', this.handleTrayClick)
 
@@ -164,6 +168,20 @@ export default class TrayManager extends EventEmitter {
     tray.setIgnoreDoubleClickEvents(true)
     tray.on('drop-files', this.handleTrayDropFiles)
     tray.on('drop-text', this.handleTrayDropText)
+  }
+
+  unbindEvents () {
+    // All OS
+    tray.removeListener('click', this.handleTrayClick)
+
+    // macOS, Windows
+    tray.removeListener('right-click', this.handleTrayRightClick)
+    tray.removeListener('mouse-down', this.handleTrayMouseDown)
+    tray.removeListener('mouse-up', this.handleTrayMouseUp)
+
+    // macOS only
+    tray.removeListener('drop-files', this.handleTrayDropFiles)
+    tray.removeListener('drop-text', this.handleTrayDropText)
   }
 
   handleTrayClick = (event) => {
@@ -279,6 +297,15 @@ export default class TrayManager extends EventEmitter {
     this.setupMenu()
   }
 
+  handleRunModeChange (mode) {
+    console.log('handleRunModeChange===>', mode)
+    if (mode === APP_RUN_MODE.HIDE_TRAY) {
+      this.destroy()
+    } else {
+      this.init()
+    }
+  }
+
   handleSpeedometerEnableChange (enabled) {
     this.toggleSpeedometer(enabled)
 
@@ -330,16 +357,11 @@ export default class TrayManager extends EventEmitter {
 
   destroy () {
     if (tray) {
-      tray.removeListener('click', this.handleTrayClick)
-      // tray.removeListener('double-click', this.handleTrayDbClick)
-      tray.removeListener('right-click', this.handleTrayRightClick)
-      tray.removeListener('mouse-down', this.handleTrayMouseDown)
-      tray.removeListener('mouse-up', this.handleTrayMouseUp)
-
-      tray.removeListener('drop-files', this.handleTrayDropFiles)
-      tray.removeListener('drop-text', this.handleTrayDropText)
+      this.unbindEvents()
     }
 
     tray.destroy()
+    tray = null
+    this.initialized = false
   }
 }

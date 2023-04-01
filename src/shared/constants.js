@@ -8,7 +8,8 @@ export const APP_THEME = {
 
 export const APP_RUN_MODE = {
   STANDARD: 1,
-  MENU_BAR: 2
+  TRAY: 2,
+  HIDE_TRAY: 3
 }
 
 export const ADD_TASK_TYPE = {

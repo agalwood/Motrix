@@ -376,7 +376,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
-  import { APP_RUN_MODE, trackerSourceOptions } from '@shared/constants'
+  import { trackerSourceOptions } from '@shared/constants'
   import {
     backupConfig,
     buildRpcUrl,
@@ -616,7 +616,7 @@
             ...changedConfig.basic
           }
 
-          const { btAutoDownloadContent, runMode, openAtLogin, autoHideWindow, btTracker, noProxy } = data
+          const { btAutoDownloadContent, autoHideWindow, btTracker, noProxy } = data
 
           if ('btAutoDownloadContent' in data) {
             data.pauseMetadata = !btAutoDownloadContent
@@ -648,14 +648,6 @@
           changedConfig.advanced = {}
 
           if (this.isRenderer) {
-            this.$electron.ipcRenderer.send('command',
-                                            'application:open-at-login', openAtLogin)
-
-            if ('runMode' in data) {
-              this.$electron.ipcRenderer.send('command',
-                                              'application:toggle-dock', runMode === APP_RUN_MODE.STANDARD)
-            }
-
             if ('autoHideWindow' in data) {
               this.$electron.ipcRenderer.send('command',
                                               'application:auto-hide-window', autoHideWindow)
@@ -665,9 +657,6 @@
               this.$electron.ipcRenderer.send('command',
                                               'application:relaunch')
             }
-
-            this.$electron.ipcRenderer.send('command',
-                                            'application:setup-protocols-client', data.protocols)
 
             if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')

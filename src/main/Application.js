@@ -3,7 +3,7 @@ import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
 import { readFile, unlink } from 'fs'
 import { extname, basename } from 'path'
-import { isEmpty } from 'lodash'
+import { isEmpty, isEqual } from 'lodash'
 
 import {
   APP_RUN_MODE,
@@ -178,7 +178,8 @@ export default class Application extends EventEmitter {
     this.trayManager = new TrayManager({
       theme: this.configManager.getUserConfig('tray-theme'),
       systemTheme: this.themeManager.getSystemTheme(),
-      speedometer: this.configManager.getUserConfig('tray-speedometer')
+      speedometer: this.configManager.getUserConfig('tray-speedometer'),
+      runMode: this.configManager.getUserConfig('run-mode')
     })
 
     this.watchTraySpeedometerEnabledChange()
@@ -203,8 +204,8 @@ export default class Application extends EventEmitter {
   watchTraySpeedometerEnabledChange () {
     const { userConfig } = this.configManager
     const key = 'tray-speedometer'
-    this.configListeners[key] = userConfig.onDidChange('tray-speedometer', async (newValue, oldValue) => {
-      logger.info('[Motrix] detected tray speedometer value change event:', newValue, oldValue)
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
       this.trayManager.handleSpeedometerEnableChange(newValue)
     })
   }
@@ -212,6 +213,55 @@ export default class Application extends EventEmitter {
   initDockManager () {
     this.dockManager = new DockManager({
       runMode: this.configManager.getUserConfig('run-mode')
+    })
+  }
+
+  watchOpenAtLoginChange () {
+    const { userConfig } = this.configManager
+    const key = 'open-at-login'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+      if (is.linux()) {
+        return
+      }
+
+      if (newValue) {
+        this.autoLaunchManager.enable()
+      } else {
+        this.autoLaunchManager.disable()
+      }
+    })
+  }
+
+  watchProtocolsChange () {
+    const { userConfig } = this.configManager
+    const key = 'protocols'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+
+      if (!newValue || isEqual(newValue, oldValue)) {
+        return
+      }
+
+      logger.info('[Motrix] setup protocols client:', newValue)
+      this.protocolManager.setup(newValue)
+    })
+  }
+
+  watchRunModeChange () {
+    const { userConfig } = this.configManager
+    const key = 'run-mode'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+      this.trayManager.handleRunModeChange(newValue)
+
+      if (newValue !== APP_RUN_MODE.TRAY) {
+        this.dockManager.show()
+      } else {
+        this.dockManager.hide()
+        // Hiding the dock icon will trigger the entire app to hide.
+        this.show()
+      }
     })
   }
 
@@ -377,7 +427,7 @@ export default class Application extends EventEmitter {
 
     this.windowManager.on('leave-full-screen', (window) => {
       const mode = this.configManager.getUserConfig('run-mode')
-      if (mode !== APP_RUN_MODE.STANDARD) {
+      if (mode === APP_RUN_MODE.TRAY) {
         this.dockManager.hide()
       }
     })
@@ -634,18 +684,6 @@ export default class Application extends EventEmitter {
       this.quit()
     })
 
-    this.on('application:open-at-login', (openAtLogin) => {
-      if (is.linux()) {
-        return
-      }
-
-      if (openAtLogin) {
-        this.autoLaunchManager.enable()
-      } else {
-        this.autoLaunchManager.disable()
-      }
-    })
-
     this.on('application:show', ({ page }) => {
       this.show(page)
     })
@@ -781,6 +819,10 @@ export default class Application extends EventEmitter {
 
     this.configManager.userConfig.onDidAnyChange(() => this.handleConfigChange('user'))
     this.configManager.systemConfig.onDidAnyChange(() => this.handleConfigChange('system'))
+
+    this.watchOpenAtLoginChange()
+    this.watchProtocolsChange()
+    this.watchRunModeChange()
 
     this.on('download-status-change', (downloading) => {
       this.trayManager.handleDownloadStatusChange(downloading)

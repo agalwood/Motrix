@@ -16,7 +16,7 @@
 <script>
   import is from 'electron-is'
   import { mapGetters, mapState } from 'vuex'
-  import { APP_THEME } from '@shared/constants'
+  import { APP_RUN_MODE, APP_THEME } from '@shared/constants'
   import DynamicTray from '@/components/Native/DynamicTray'
   import EngineClient from '@/components/Native/EngineClient'
   import Ipc from '@/components/Native/Ipc'
@@ -40,6 +40,7 @@
         showWindowActions: state => {
           return (is.windows() || is.linux()) && state.config.hideAppMenu
         },
+        runMode: state => state.config.runMode,
         traySpeedometer: state => state.config.traySpeedometer,
         rpcSecret: state => state.config.rpcSecret
       }),
@@ -62,8 +63,8 @@
         return `dir-${this.dir}`
       },
       enableTraySpeedometer () {
-        const { traySpeedometer, isMac, isRenderer } = this
-        return traySpeedometer && isMac && isRenderer
+        const { isMac, isRenderer, traySpeedometer, runMode } = this
+        return isMac && isRenderer && traySpeedometer && runMode !== APP_RUN_MODE.HIDE_TRAY
       }
     },
     methods: {
