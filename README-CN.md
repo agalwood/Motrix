@@ -206,6 +206,7 @@ yarn run build
 | ja    | 日本語               | ✔️ [@hbkrkzk](https://github.com/hbkrkzk) |
 | ko    | 한국어                | ✔️ [@KOZ39](https://github.com/KOZ39) |
 | nb    | Norsk Bokmål        | ✔️ [@rubjo](https://github.com/rubjo) |
+| nl    | Nederlands          | ✔️ [@nickbouwhuis](https://github.com/nickbouwhuis) |
 | pl    | Polski              | ✔️ [@KanarekLife](https://github.com/KanarekLife) |
 | pt-BR | Portuguese (Brazil) | ✔️ [@andrenoberto](https://github.com/andrenoberto) |
 | ro    | Română              | ✔️ [@alyn3d](https://github.com/alyn3d) |
