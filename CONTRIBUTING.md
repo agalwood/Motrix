@@ -4,7 +4,7 @@ Before you start contributing, make sure you already understand [GitHub flow](ht
 
 ## 🌍 Translation Guide
 
-First you need to determine the English abbreviation of a language as **locale**, such as en-US, this locale value should strictly refer to the [electron's documentation](https://www.electronjs.org/docs/api/app#appgetlocale).
+First you need to determine the English abbreviation of a language as **locale**, such as en-US, this locale value should strictly refer to the [Electron's Documentation](https://www.electronjs.org/docs/api/app#appgetlocale) and [Chromium Source Code](https://source.chromium.org/chromium/chromium/src/+/main:ui/base/l10n/l10n_util.cc).
 
 The internationalization of Motrix is divided into two parts:
 
