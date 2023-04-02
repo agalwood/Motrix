@@ -79,5 +79,6 @@ export default {
   'auto-check-update': '更新を自動で確認する',
   'last-check-update-time': '前回更新確認時間',
   'not-saved': '設定が保存されていません',
-  'not-saved-confirm': '変更された設定は失われます、よろしいですか？'
+  'not-saved-confirm': '変更された設定は失われます、よろしいですか？',
+  'speed-units': "Change Units"
 }

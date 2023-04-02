@@ -81,5 +81,6 @@ export default {
   'auto-check-update': 'Sjekk automatisk for oppdatering',
   'last-check-update-time': 'Siste gang sjekket for oppdatering',
   'not-saved': 'Preferansene er ikke lagret',
-  'not-saved-confirm': 'De endrede preferansene vil gå tapt, er du sikker på at du vil forlate?'
+  'not-saved-confirm': 'De endrede preferansene vil gå tapt, er du sikker på at du vil forlate?',
+  'speed-units': "Change Units"
 }

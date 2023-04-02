@@ -81,5 +81,6 @@ export default {
   'auto-check-update': 'Automatically check for updates',
   'last-check-update-time': 'Last checked for an update',
   'not-saved': 'Preferences not saved',
-  'not-saved-confirm': 'The modified preferences will be lost, are you sure you want to leave?'
+  'not-saved-confirm': 'The modified preferences will be lost, are you sure you want to leave?',
+  'speed-units': "Change Units"
 }

@@ -79,5 +79,6 @@ export default {
   'auto-check-update': 'Mise à jour automatique',
   'last-check-update-time': 'dernier contrôle la mise à jour du temps',
   'not-saved': 'Préférences non enregistrées',
-  'not-saved-confirm': 'Les préférences modifiées seront perdues, êtes-vous sûr de partir ?'
+  'not-saved-confirm': 'Les préférences modifiées seront perdues, êtes-vous sûr de partir ?',
+  'speed-units': "Change Units"
 }
