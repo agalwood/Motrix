@@ -413,7 +413,7 @@
           return parseInt(this.form.maxOverallUploadLimit)
         },
         set (value) {
-          this.form.maxOverallUploadLimit = value + this.form.downloadUnit
+          this.form.maxOverallUploadLimit = value + this.form.uploadUnit
         }
       },
       runModes () {
