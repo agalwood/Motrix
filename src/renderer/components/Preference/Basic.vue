@@ -132,7 +132,7 @@
               >
             </el-input-number>
             <el-select
-              v-model="form.uploadUnit"
+              v-model="uploadUnits"
               @change="handleUploadChange"
               :placeholder="$t('preferences.speed-units')">
               <el-option
@@ -154,7 +154,7 @@
               :label="$t('preferences.transfer-speed-download')">
             </el-input-number>
             <el-select
-              v-model="form.downloadUnit"
+              v-model="downloadUnits"
               @change="handleDownloadChange"
               :placeholder="$t('preferences.speed-units')">
               <el-option
@@ -314,8 +314,6 @@
       maxConnectionPerServer,
       maxOverallDownloadLimit,
       maxOverallUploadLimit,
-      uploadUnit,
-      downloadUnit,
       newTaskShowDownloading,
       noConfirmBeforeDeleteTask,
       openAtLogin,
@@ -345,8 +343,6 @@
       maxConnectionPerServer,
       maxOverallDownloadLimit,
       maxOverallUploadLimit,
-      uploadUnit,
-      downloadUnit,
       newTaskShowDownloading,
       noConfirmBeforeDeleteTask,
       openAtLogin,
@@ -405,7 +401,7 @@
           return parseInt(this.form.maxOverallDownloadLimit)
         },
         set (value) {
-          this.form.maxOverallDownloadLimit = value + this.form.downloadUnit
+          this.form.maxOverallDownloadLimit = value + this.downloadUnits
         }
       },
       maxOverallUploadLimitParsed: {
@@ -413,7 +409,29 @@
           return parseInt(this.form.maxOverallUploadLimit)
         },
         set (value) {
-          this.form.maxOverallUploadLimit = value + this.form.uploadUnit
+          this.form.maxOverallUploadLimit = value + this.uploadUnits
+        }
+      },
+      downloadUnits: {
+        get () {
+          const speedEnding = this.form.maxOverallDownloadLimit?.slice(-1)
+          // Fall back to KB if the downloadlimit doesnt have a unit
+          if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
+          return speedEnding
+        },
+        set (value) {
+          return value
+        }
+      },
+      uploadUnits: {
+        get () {
+          const speedEnding = this.form.maxOverallUploadLimit?.slice(-1)
+          // Fall back to KB if the downloadlimit doesnt have a unit
+          if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
+          return speedEnding
+        },
+        set (value) {
+          return value
         }
       },
       runModes () {
@@ -490,16 +508,15 @@
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
       },
-      handleDownloadChange () {
+      handleDownloadChange (value) {
         const speedLimit = parseInt(this.form.maxOverallDownloadLimit)
-        const unit = this.form.downloadUnit
-        console.log(this.form)
-        this.form.maxOverallDownloadLimit = `${speedLimit}${unit}`
+        this.downloadUnits = value
+        this.form.maxOverallDownloadLimit = `${speedLimit}${value}`
       },
-      handleUploadChange () {
+      handleUploadChange (value) {
         const speedLimit = parseInt(this.form.maxOverallUploadLimit)
-        const unit = this.form.uploadUnit
-        this.form.maxOverallUploadLimit = `${speedLimit}${unit}`
+        this.uploadUnits = value
+        this.form.maxOverallUploadLimit = `${speedLimit}${value}`
       },
       onKeepSeedingChange (enable) {
         this.form.seedRatio = enable ? 0 : 1

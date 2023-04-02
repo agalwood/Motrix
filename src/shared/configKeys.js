@@ -25,9 +25,7 @@ const userKeys = [
   'theme',
   'tracker-source',
   'tray-speedometer',
-  'use-proxy',
-  'download-unit',
-  'upload-unit'
+  'use-proxy'
 ]
 
 const systemKeys = [
