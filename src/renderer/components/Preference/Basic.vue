@@ -414,7 +414,10 @@
       },
       downloadUnits: {
         get () {
-          const speedEnding = this.form.maxOverallDownloadLimit?.slice(-1)
+          const speed = this.form.maxOverallDownloadLimit
+          // Fallback to K if Speed is 0 (previously unlimited)
+          if (!speed) return 'K'
+          const speedEnding = speed.slice(-1)
           // Fall back to KB if the downloadlimit doesnt have a unit
           if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
           return speedEnding
@@ -425,7 +428,10 @@
       },
       uploadUnits: {
         get () {
-          const speedEnding = this.form.maxOverallUploadLimit?.slice(-1)
+          const speed = this.form.maxOverallUploadLimit
+          // Fallback to K if Speed is 0 (previously unlimited)
+          if (!speed) return 'K'
+          const speedEnding = speed.slice(-1)
           // Fall back to KB if the downloadlimit doesnt have a unit
           if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
           return speedEnding
