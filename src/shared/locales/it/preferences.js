@@ -79,5 +79,6 @@ export default {
   'auto-check-update': 'Verifica automaticamente la disponibilità di aggiornamenti',
   'last-check-update-time': 'Ultima volta quando gli aggiornamenti sono stati verificati',
   'not-saved': 'Preferenze non salvate',
-  'not-saved-confirm': 'Le preferenze modificate andranno perse, sei sicuro di uscire?'
+  'not-saved-confirm': 'Le preferenze modificate andranno perse, sei sicuro di uscire?',
+  'speed-units': "Change Units"
 }

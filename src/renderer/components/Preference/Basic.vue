@@ -123,9 +123,20 @@
         >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-upload') }}
-            <el-select v-model="form.maxOverallUploadLimit">
+            <el-input-number v-model="maxOverallUploadLimitParsed"
+              controls-position="right"
+              :min="0"
+              :max="100000"
+              :step="50"
+              :label="$t('preferences.transfer-speed-download')"
+              >
+            </el-input-number>
+            <el-select
+              v-model="uploadUnits"
+              @change="handleUploadChange"
+              :placeholder="$t('preferences.speed-units')">
               <el-option
-                v-for="item in speedOptions"
+                v-for="item in speedUnits"
                 :key="item.value"
                 :label="item.label"
                 :value="item.value">
@@ -134,9 +145,20 @@
           </el-col>
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-download') }}
-            <el-select v-model="form.maxOverallDownloadLimit">
+            <el-input-number
+              v-model="maxOverallDownloadLimitParsed"
+              controls-position="right"
+              :min="0"
+              :max="100000"
+              :step="50"
+              :label="$t('preferences.transfer-speed-download')">
+            </el-input-number>
+            <el-select
+              v-model="downloadUnits"
+              @change="handleDownloadChange"
+              :placeholder="$t('preferences.speed-units')">
               <el-option
-                v-for="item in speedOptions"
+                v-for="item in speedUnits"
                 :key="item.value"
                 :label="item.label"
                 :value="item.value">
@@ -374,6 +396,44 @@
       maxConcurrentDownloads () {
         return ENGINE_MAX_CONCURRENT_DOWNLOADS
       },
+      maxOverallDownloadLimitParsed: {
+        get () {
+          return parseInt(this.form.maxOverallDownloadLimit)
+        },
+        set (value) {
+          this.form.maxOverallDownloadLimit = value + this.downloadUnits
+        }
+      },
+      maxOverallUploadLimitParsed: {
+        get () {
+          return parseInt(this.form.maxOverallUploadLimit)
+        },
+        set (value) {
+          this.form.maxOverallUploadLimit = value + this.uploadUnits
+        }
+      },
+      downloadUnits: {
+        get () {
+          const speedEnding = this.form.maxOverallDownloadLimit?.slice(-1)
+          // Fall back to KB if the downloadlimit doesnt have a unit
+          if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
+          return speedEnding
+        },
+        set (value) {
+          return value
+        }
+      },
+      uploadUnits: {
+        get () {
+          const speedEnding = this.form.maxOverallUploadLimit?.slice(-1)
+          // Fall back to KB if the downloadlimit doesnt have a unit
+          if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
+          return speedEnding
+        },
+        set (value) {
+          return value
+        }
+      },
       runModes () {
         let result = [
           {
@@ -398,55 +458,15 @@
 
         return result
       },
-      speedOptions () {
+      speedUnits () {
         return [
           {
-            label: this.$t('preferences.transfer-speed-unlimited'),
-            value: 0
+            label: 'KB/s',
+            value: 'K'
           },
           {
-            label: '128 KB/s',
-            value: '128K'
-          },
-          {
-            label: '256 KB/s',
-            value: '256K'
-          },
-          {
-            label: '512 KB/s',
-            value: '512K'
-          },
-          {
-            label: '1 MB/s',
-            value: '1M'
-          },
-          {
-            label: '2 MB/s',
-            value: '2M'
-          },
-          {
-            label: '3 MB/s',
-            value: '3M'
-          },
-          {
-            label: '5 MB/s',
-            value: '5M'
-          },
-          {
-            label: '8 MB/s',
-            value: '8M'
-          },
-          {
-            label: '10 MB/s',
-            value: '10M'
-          },
-          {
-            label: '20 MB/s',
-            value: '20M'
-          },
-          {
-            label: '30 MB/s',
-            value: '30M'
+            label: 'MB/s',
+            value: 'M'
           }
         ]
       },
@@ -487,6 +507,16 @@
         this.form.theme = theme
         this.$electron.ipcRenderer.send('command',
                                         'application:change-theme', theme)
+      },
+      handleDownloadChange (value) {
+        const speedLimit = parseInt(this.form.maxOverallDownloadLimit)
+        this.downloadUnits = value
+        this.form.maxOverallDownloadLimit = `${speedLimit}${value}`
+      },
+      handleUploadChange (value) {
+        const speedLimit = parseInt(this.form.maxOverallUploadLimit)
+        this.uploadUnits = value
+        this.form.maxOverallUploadLimit = `${speedLimit}${value}`
       },
       onKeepSeedingChange (enable) {
         this.form.seedRatio = enable ? 0 : 1

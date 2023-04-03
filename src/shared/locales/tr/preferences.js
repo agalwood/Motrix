@@ -79,5 +79,6 @@ export default {
   'auto-check-update': 'Otomatik Kontrol Güncellemesi',
   'last-check-update-time': 'Son Kontrol Güncelleme Saati',
   'not-saved': 'Tercihler kaydedilmedi',
-  'not-saved-confirm': 'Değiştirilen tercihler kaybolacak, ayrılacağınızdan emin misiniz?'
+  'not-saved-confirm': 'Değiştirilen tercihler kaybolacak, ayrılacağınızdan emin misiniz?',
+  'speed-units': "Change Units"
 }
