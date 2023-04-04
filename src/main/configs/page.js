@@ -12,6 +12,7 @@ export default {
       transparent: !is.windows()
     },
     bindCloseToHide: true,
+    openDevTools: is.dev(),
     url: is.dev() ? 'http://localhost:9080' : require('path').join('file://', __dirname, '/index.html')
   }
 }
