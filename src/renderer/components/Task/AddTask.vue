@@ -3,7 +3,8 @@
     custom-class="tab-title-dialog add-task-dialog"
     width="67vw"
     :visible="visible"
-    :before-close="handleClose"
+    :show-close="false"
+    :before-close="beforeClose"
     @open="handleOpen"
     @opened="handleOpened"
     @closed="handleClosed"
@@ -156,6 +157,14 @@
         </el-form-item>
       </div>
     </el-form>
+    <button
+      slot="title"
+      type="button"
+      class="el-dialog__headerbtn"
+      aria-label="Close"
+      @click="handleClose">
+      <i class="el-dialog__close el-icon el-icon-close"></i>
+    </button>
     <div slot="footer" class="dialog-footer">
       <el-row>
         <el-col :span="9" :xs="9">
@@ -262,6 +271,11 @@
           this.form.uris = content
         }
       },
+      beforeClose (done) {
+        if (isEmpty(this.form.uris) && isEmpty(this.form.torrent)) {
+          this.handleClose()
+        }
+      },
       handleOpen () {
         this.form = initTaskForm(this.$store.state)
         if (this.taskType === ADD_TASK_TYPE.URI) {
@@ -277,7 +291,7 @@
       handleCancel (formName) {
         this.$store.dispatch('app/hideAddTaskDialog')
       },
-      handleClose (done) {
+      handleClose () {
         this.$store.dispatch('app/hideAddTaskDialog')
         this.$store.dispatch('app/updateAddTaskOptions', {})
       },
