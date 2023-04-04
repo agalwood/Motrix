@@ -1,7 +1,7 @@
 export default {
   'active': 'Baixando',
   'waiting': 'Aguardando',
-  'stopped': 'Cancelado',
+  'stopped': 'Parou',
   'new-task': 'Nova Tarefa',
   'new-bt-task': 'Nova Tarefa BT',
   'open-file': 'Abra o arquivo Torrent...',
