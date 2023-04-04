@@ -61,6 +61,13 @@
     "mac": {
       "target": [
         {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
           "target": "zip",
           "arch": [
             "x64",
@@ -71,6 +78,7 @@
       "type": "development",
       "darkModeSupport": true,
       "hardenedRuntime": false,
+      "notarize": false,
       "extraResources": {
         "from": "./extra/darwin/${arch}/",
         "to": "./",
