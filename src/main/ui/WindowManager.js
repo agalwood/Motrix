@@ -98,6 +98,10 @@ export default class WindowManager extends EventEmitter {
       window.setBounds(bounds)
     }
 
+    if (is.dev() && pageOptions.openDevTools) {
+      window.webContents.openDevTools()
+    }
+
     window.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url)
       return { action: 'deny' }
@@ -131,6 +135,7 @@ export default class WindowManager extends EventEmitter {
     if (autoHideWindow) {
       this.handleWindowBlur()
     }
+
     return window
   }
 
