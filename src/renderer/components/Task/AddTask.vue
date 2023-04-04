@@ -261,17 +261,18 @@
       }
     },
     methods: {
-      autofillResourceLink: async () => {
+      async autofillResourceLink () {
         const content = await navigator.clipboard.readText()
         const hasResource = detectResource(content)
         if (!hasResource) {
           return
         }
+
         if (isEmpty(this.form.uris)) {
           this.form.uris = content
         }
       },
-      beforeClose (done) {
+      beforeClose () {
         if (isEmpty(this.form.uris) && isEmpty(this.form.torrent)) {
           this.handleClose()
         }
@@ -288,7 +289,7 @@
       handleOpened () {
         this.detectThunderResource(this.form.uris)
       },
-      handleCancel (formName) {
+      handleCancel () {
         this.$store.dispatch('app/hideAddTaskDialog')
       },
       handleClose () {
@@ -305,7 +306,7 @@
           this.submitForm('taskForm')
         }
       },
-      handleTabClick (tab, event) {
+      handleTabClick (tab) {
         this.$store.dispatch('app/changeAddTaskType', tab.name)
       },
       handleUriPaste () {
