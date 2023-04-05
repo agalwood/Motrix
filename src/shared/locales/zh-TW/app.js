@@ -14,7 +14,7 @@ export default {
   'engine-damaged-message': '引擎損壞，請重新安裝 : (',
   'engine-missing-message': '引擎缺失，請重新安裝 : (',
   'system-error-title': '系統錯誤',
-  'system-error-message': '應用啟動失敗: {{message}}',
+  'system-error-message': '應用程式啟動失敗: {{message}}',
   'hide': '隱藏 Motrix',
   'hide-others': '隱藏其它',
   'unhide': '顯示全部',
