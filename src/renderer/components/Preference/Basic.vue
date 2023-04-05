@@ -123,15 +123,17 @@
         >
           <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.transfer-speed-upload') }}
-            <el-input-number v-model="maxOverallUploadLimitParsed"
+            <el-input-number
+              v-model="maxOverallUploadLimitParsed"
               controls-position="right"
               :min="0"
-              :max="100000"
-              :step="50"
+              :max="65535"
+              :step="1"
               :label="$t('preferences.transfer-speed-download')"
               >
             </el-input-number>
             <el-select
+              style="width: 100px;"
               v-model="uploadUnits"
               @change="handleUploadChange"
               :placeholder="$t('preferences.speed-units')">
@@ -149,11 +151,12 @@
               v-model="maxOverallDownloadLimitParsed"
               controls-position="right"
               :min="0"
-              :max="100000"
-              :step="50"
+              :max="65535"
+              :step="1"
               :label="$t('preferences.transfer-speed-download')">
             </el-input-number>
             <el-select
+              style="width: 100px;"
               v-model="downloadUnits"
               @change="handleDownloadChange"
               :placeholder="$t('preferences.speed-units')">
