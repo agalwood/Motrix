@@ -1,0 +1,68 @@
+name: 🐛 [新] Bug 报告
+description: 在这里提交 Bug 报告
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您抽出时间来填写这份 Bug 报告 🤗
+        请确保此问题没有已存在的开放/关闭问题 😃
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug 描述
+      description: 给我们一个简短的描述，说明发生了什么以及应该发生什么。
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 环境
+      description: |
+        在项目的根目录下运行以下命令，并将结果粘贴到下方：
+
+        ```sh
+        npx envinfo --system --binaries --browsers
+        ```
+        在 macOS 中，如果您需要轻松复制粘贴，可以添加 `| pbcopy`。
+        或者，您也可以手动收集您的环境版本信息。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 复现步骤
+      description: 复现该问题的步骤。
+      placeholder: |
+        1. 前往 '...'
+        2. 点击 '...'
+        3. 滚动到 '...'
+        4. 查看错误
+        更多信息：[最小复现例子](https://stackoverflow.com/help/minimal-reproducible-example) 是必需的，否则该问题可能会被关闭而没有进一步的通知。[**为什么 & 如何？**](https://antfu.me/posts/why-reproductions-are-required)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: 额外信息
+      description: |
+        提供任何额外的信息，例如日志、截图、喜欢、发生该 Bug 的场景，以便有助于解决问题。
+
+  - type: checkboxes
+    id: checkboxes
+    attributes:
+      label: 验证
+      description: 在提交问题之前，请确保您完成了以下操作
+      options:
+        - label: 遵循我们的[行为准则](https：//github.com/agalwood/Motrix/blob/master/CODE_OF_CONDUCT.md)
+          required: true
+        - label: 确认是否已经有一个报告了相同的 Bug，以避免创建重复的问题。
+          required: true
+        - label: 确认此问题是一个具体的 Bug。若要进行问答，请开启 [GitHub 讨论](https://github.com/agalwood/Motrix/discussions)。
+          required: true
+        - label: 提供的复现是该 Bug 的 [最小复现例子](https://stackoverflow.com/help/minimal-reproducible-example)。
+          required: true

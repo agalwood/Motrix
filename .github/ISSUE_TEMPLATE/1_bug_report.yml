@@ -62,7 +62,7 @@ body:
           required: true
         - label: Check that there isn't already an issue that reports the same bug to avoid creating a duplicate.
           required: true
-        - label: Check that this is a concrete bug. For Q&A, please open a GitHub Discussion instead.
+        - label: Check that this is a concrete bug. For Q&A, please open a [GitHub Discussion](https://github.com/agalwood/Motrix/discussions) instead.
           required: true
         - label: The provided reproduction is a [minimal reproducible](https://stackoverflow.com/help/minimal-reproducible-example) of the bug.
           required: true
