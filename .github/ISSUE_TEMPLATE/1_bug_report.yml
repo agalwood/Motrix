@@ -1,0 +1,68 @@
+name: 🐛 [NEW] Bug Report
+description: File a bug report here
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report 🤗
+        Make sure there aren't any open/closed issues for this topic 😃
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Description of the bug
+      description: Give us a brief description of what happened and what should have happened
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Environment
+      description: |
+        Run this command in your project's root folder and paste the result:
+
+        ```sh
+        npx envinfo --system --binaries --browsers
+        ```
+        add `| pbcopy` if you're in macOS for easy copy paste.
+        Alternatively, you can manually gather the version information from your environment.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+        More info: A [minimal reproduction](https://stackoverflow.com/help/minimal-reproducible-example) is **required**, otherwise the issue might be closed without further notice. [**Why & How?**](https://antfu.me/posts/why-reproductions-are-required)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional Information
+      description: |
+        Provide any additional information such as logs, screenshots, likes, scenarios in which the bug occurs so that it facilitates resolving the issue.
+
+  - type: checkboxes
+    id: checkboxes
+    attributes:
+      label: Validations
+      description: Before submitting the issue, please make sure you do the following
+      options:
+        - label: Follow our [Code of Conduct](https://github.com/agalwood/Motrix/blob/master/CODE_OF_CONDUCT.md)
+          required: true
+        - label: Check that there isn't already an issue that reports the same bug to avoid creating a duplicate.
+          required: true
+        - label: Check that this is a concrete bug. For Q&A, please open a GitHub Discussion instead.
+          required: true
+        - label: The provided reproduction is a [minimal reproducible](https://stackoverflow.com/help/minimal-reproducible-example) of the bug.
+          required: true
