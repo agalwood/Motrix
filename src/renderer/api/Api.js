@@ -235,6 +235,12 @@ export default class Api {
     return this.client.call('tellStopped', ...args)
   }
 
+  fetchActiveTaskList (params = {}) {
+    const { keys } = params
+    const args = compactUndefined([keys])
+    return this.client.call('tellActive', ...args)
+  }
+
   fetchTaskList (params = {}) {
     const { type } = params
     switch (type) {

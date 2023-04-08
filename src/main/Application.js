@@ -846,6 +846,16 @@ export default class Application extends EventEmitter {
       }
       app.addRecentDocument(path)
     })
+
+    this.on('progress-change', (progress) => {
+      if (this.updateManager.isChecking) {
+        return
+      }
+      if (!is.windows() && progress === 2) {
+        progress = 0
+      }
+      this.windowManager.getWindow('index').setProgressBar(progress)
+    })
   }
 
   handleIpcMessages () {
