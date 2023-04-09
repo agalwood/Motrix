@@ -28,7 +28,8 @@ const state = {
   addTaskType: ADD_TASK_TYPE.URI,
   addTaskUrl: '',
   addTaskTorrents: [],
-  addTaskOptions: {}
+  addTaskOptions: {},
+  progress: 0
 }
 
 const getters = {
@@ -92,6 +93,9 @@ const mutations = {
     if (state.interval > MIN_INTERVAL) {
       state.interval -= millisecond
     }
+  },
+  UPDATE_PROGRESS (state, progress) {
+    state.progress = progress
   }
 }
 
@@ -172,6 +176,28 @@ const actions = {
   },
   resetInterval ({ commit }) {
     commit('UPDATE_INTERVAL', BASE_INTERVAL)
+  },
+  fetchProgress ({ commit }) {
+    api.fetchActiveTaskList()
+      .then((data) => {
+        let progress = -1
+        if (data.length !== 0) {
+          data.forEach((task) => {
+            task.totalLength = Number(task.totalLength)
+            task.completedLength = Number(task.completedLength)
+          })
+          const realTotal = data.reduce((total, task) => total + task.totalLength, 0)
+          if (realTotal === 0) {
+            progress = 2
+          } else {
+            const tasks = data.filter((task) => task.totalLength !== 0)
+            const completed = tasks.reduce((total, task) => total + task.completedLength, 0)
+            const total = tasks.reduce((total, task) => total + task.totalLength, 0)
+            progress = completed / total
+          }
+        }
+        commit('UPDATE_PROGRESS', progress)
+      })
   }
 }
 

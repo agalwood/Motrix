@@ -21,7 +21,8 @@
         downloadSpeed: state => state.stat.downloadSpeed,
         speed: state => state.stat.uploadSpeed + state.stat.downloadSpeed,
         interval: state => state.interval,
-        downloading: state => state.stat.numActive > 0
+        downloading: state => state.stat.numActive > 0,
+        progress: state => state.progress
       }),
       ...mapState('task', {
         messages: state => state.messages,
@@ -50,6 +51,9 @@
         if (val !== oldVal && this.isRenderer) {
           this.$electron.ipcRenderer.send('event', 'download-status-change', val)
         }
+      },
+      progress (val) {
+        this.$electron.ipcRenderer.send('event', 'progress-change', val)
       }
     },
     methods: {
@@ -217,6 +221,7 @@
       },
       polling () {
         this.$store.dispatch('app/fetchGlobalStat')
+        this.$store.dispatch('app/fetchProgress')
         this.$store.dispatch('task/fetchList')
 
         if (this.taskDetailVisible && this.currentTaskGid) {
