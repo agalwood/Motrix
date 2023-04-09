@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': '마그넷 링크를 토렌트 파일로 저장',
   'bt-auto-download-content': '마그넷 및 토렌트 내용 자동 다운로드',
+  'bt-force-encryption': 'BT 강제 암호화',
   'keep-seeding': '수동으로 멈출 때까지 계속 배포',
   'seed-ratio': '배포 비율',
   'seed-time': '배포 시간',

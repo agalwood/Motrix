@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BT 設定',
   'bt-save-metadata': '將磁力連結中繼資料儲存為種子檔案',
   'bt-auto-download-content': '自動開始下載磁力連結、種子的檔案',
+  'bt-force-encryption': '強制 BT 加密',
   'keep-seeding': '持續做種，直到手動停止',
   'seed-ratio': '做種分享率',
   'seed-time': '做種時間',

@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Αποθηκεύστε το σύνδεσμο μαγνήτη ως αρχείο torrent',
   'bt-auto-download-content': 'Αυτόματη λήψη περιεχομένου μαγνήτη και χείμαρξης',
+  'bt-force-encryption': 'Εξαναγκασμός κρυπτογράφησης BT',
   'keep-seeding': 'Συνεχίστε να σπέρνετε μέχρι να το σταματήσετε χειροκίνητα',
   'seed-ratio': 'Αναλογία σπόρου',
   'seed-time': 'Χρόνος σπόρου',

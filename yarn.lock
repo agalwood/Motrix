@@ -1197,12 +1197,12 @@
     lodash "^4.17.15"
     tmp-promise "^3.0.2"
 
-"@motrix/multispinner@^0.2.2":
-  version "0.2.2"
-  resolved "https://registry.npmjs.org/@motrix/multispinner/-/multispinner-0.2.2.tgz#9e1f4ae6306194928f9eb72ee57e012f6b296f88"
-  integrity sha512-N43p5TdOYg23UY6R0aW+B1Cip5sgkhOYmh1/s4LWY829Cd9vVhrGnexa2mETQZYoAijzwn6XNjaV2xfuh3K7hQ==
+"@motrix/multispinner@^0.2.4":
+  version "0.2.4"
+  resolved "https://registry.yarnpkg.com/@motrix/multispinner/-/multispinner-0.2.4.tgz#ca5ad2b723b59696e8243200cbe88d33d7e97924"
+  integrity sha512-eOyFraowbsYZCUrtJcyS7u/MpuObk4z8uaiycZvRyAb9U3oqcAGN2dsXGNbSoAtDAaM8VbQK0rFXKv3cDM/CiQ==
   dependencies:
-    chalk "^4.1.0"
+    chalk "^4.1.2"
     figures "^3.2.0"
     kind-of "^6.0.3"
     lodash.clonedeep "^4.5.0"
@@ -1876,10 +1876,10 @@ app-builder-bin@4.0.0:
   resolved "https://registry.npmjs.org/app-builder-bin/-/app-builder-bin-4.0.0.tgz#1df8e654bd1395e4a319d82545c98667d7eed2f0"
   integrity sha512-xwdG0FJPQMe0M0UA4Tz0zEB8rBJTRA5a476ZawAqiBkMv16GRK5xpXThOjMaEOFnZ6zabejjG4J3da0SXG63KA==
 
-app-builder-lib@24.1.2:
-  version "24.1.2"
-  resolved "https://registry.npmjs.org/app-builder-lib/-/app-builder-lib-24.1.2.tgz#750a1712856454475994ecd7d759fd1edce23757"
-  integrity sha512-OfP1KPRj3QO+OJzyY5pi59iJDt3KuzGmRbOzKYE4L3Z8SK1leum4wU/o6fxiEZ5XCpnRBK6sV3WnTbWRYi3vaQ==
+app-builder-lib@24.2.0:
+  version "24.2.0"
+  resolved "https://registry.yarnpkg.com/app-builder-lib/-/app-builder-lib-24.2.0.tgz#8d7c59225a02b9ccc2eea79bc3122a0c11f82e43"
+  integrity sha512-tR/5NAH0twXg9+83+HwqMbHntCFCpnYBYjKn45k8RuMZ2Z+Em4bkTCB0PqPpOyck3HJN2k9tjFtzF6BFjM4yxg==
   dependencies:
     "7zip-bin" "~5.1.1"
     "@develar/schema-utils" "~2.6.5"
@@ -2041,10 +2041,10 @@ available-typed-arrays@^1.0.5:
   resolved "https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.5.tgz#92f95616501069d07d10edb2fc37d3e1c65123b7"
   integrity sha512-DMD0KiN46eipeziST1LPP/STfDU0sufISXmjSgvVsoU2tqxctQeASejWcfNtxYKqETM1UxQ8sp2OrSBWpHY6sw==
 
-axios@^1.3.4:
-  version "1.3.4"
-  resolved "https://registry.npmjs.org/axios/-/axios-1.3.4.tgz#f5760cefd9cfb51fd2481acf88c05f67c4523024"
-  integrity sha512-toYm+Bsyl6VC5wSkfkbbNB6ROv7KY93PEBBL6xyDczaIHasAiv4wPqQ/c4RjoQzipxRD2W5g21cOqQulZ7rHwQ==
+axios@^1.3.5:
+  version "1.3.5"
+  resolved "https://registry.npmjs.org/axios/-/axios-1.3.5.tgz#e07209b39a0d11848e3e341fa087acd71dadc542"
+  integrity sha512-glL/PvG/E+xCWwV8S6nCHcrfg1exGx7vxyUIivIA1iL7BIh6bePylCfVHwp6k13ao7SATxB6imau2kqY+I67kw==
   dependencies:
     follow-redirects "^1.15.0"
     form-data "^4.0.0"
@@ -3058,12 +3058,12 @@ dir-glob@^3.0.1:
   dependencies:
     path-type "^4.0.0"
 
-dmg-builder@24.1.2:
-  version "24.1.2"
-  resolved "https://registry.npmjs.org/dmg-builder/-/dmg-builder-24.1.2.tgz#880315869365fcca7794dab1d96607fdf0fe4e2a"
-  integrity sha512-fIY5k8iQnWNNP6H3HPokwcxNiUE+LRqkrOq7nvuVSM/lBqMXJ89Nd0wKhLt3jWSukDDRJ7XLiHXcV6gkUADg/Q==
+dmg-builder@24.2.0:
+  version "24.2.0"
+  resolved "https://registry.yarnpkg.com/dmg-builder/-/dmg-builder-24.2.0.tgz#81c1f0009c93395addb0586b5e82f54296542837"
+  integrity sha512-AquMbvi/c6+yt6GaTUBlXn9BQlnv5QXT4G6JBuLZiBLxj0AN2uEDih5bYMNXaX22NEbYVfuzm9okmzXOGsHuVw==
   dependencies:
-    app-builder-lib "24.1.2"
+    app-builder-lib "24.2.0"
     builder-util "24.1.2"
     builder-util-runtime "9.2.0"
     fs-extra "^10.1.0"
@@ -3211,16 +3211,16 @@ ejs@^3.1.8:
   dependencies:
     jake "^10.8.5"
 
-electron-builder@^24.1.2:
-  version "24.1.2"
-  resolved "https://registry.npmjs.org/electron-builder/-/electron-builder-24.1.2.tgz#5dbcad857a78d21ab153af02e1918ca9ae399084"
-  integrity sha512-3GkaYJ9SFZvp4WaZeiG77ivIneNFykVBhLcfVTwF3UagcvhPMtflhuXsx3e6Z6hKtBZtWRooVwPqGE+3+QtGHw==
+electron-builder@^24.2.0:
+  version "24.2.0"
+  resolved "https://registry.yarnpkg.com/electron-builder/-/electron-builder-24.2.0.tgz#dbc1eb144fa931f7459f4d8649a2bcd66e9de97b"
+  integrity sha512-DLZJtpk6U9vO1o9uW63J8xalVfhamc4Kbq1eQgTPA5TwYp3KZH+JXubY6lZgld9OgonRmX5Cu7AHXRQzd9mRWg==
   dependencies:
-    app-builder-lib "24.1.2"
+    app-builder-lib "24.2.0"
     builder-util "24.1.2"
     builder-util-runtime "9.2.0"
     chalk "^4.1.2"
-    dmg-builder "24.1.2"
+    dmg-builder "24.2.0"
     fs-extra "^10.1.0"
     is-ci "^3.0.0"
     lazy-val "^1.0.5"
@@ -3296,9 +3296,9 @@ electron-updater@^5.3.0:
     semver "^7.3.5"
     typed-emitter "^2.1.0"
 
-electron@^22.3.3:
+electron@^22.3.5:
   version "22.3.5"
-  resolved "https://registry.npmjs.org/electron/-/electron-22.3.5.tgz#a53a318cbb25a44914dfedd30a9ad6120632197f"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-22.3.5.tgz#a53a318cbb25a44914dfedd30a9ad6120632197f"
   integrity sha512-CTdnoTbO3sDiMv47TX3ZO640Ca57v1qpiqGChFF8oZbtfHuQjTPPaE4hsoynf22wwnBiyJNL41DpB/pfp9USnA==
   dependencies:
     "@electron/get" "^2.0.0"
@@ -6618,10 +6618,10 @@ sass-loader@^12.6.0:
     klona "^2.0.4"
     neo-async "^2.6.2"
 
-sass@1.59.3:
-  version "1.59.3"
-  resolved "https://registry.npmjs.org/sass/-/sass-1.59.3.tgz#a1ddf855d75c70c26b4555df4403e1bbf8e4403f"
-  integrity sha512-QCq98N3hX1jfTCoUAsF3eyGuXLsY7BCnCEg9qAact94Yc21npG2/mVOqoDvE0fCbWDqiM4WlcJQla0gWG2YlxQ==
+sass@1.61.0:
+  version "1.61.0"
+  resolved "https://registry.yarnpkg.com/sass/-/sass-1.61.0.tgz#d1f6761bb833887b8fdab32a24e052c40531d02b"
+  integrity sha512-PDsN7BrVkNZK2+dj/dpKQAWZavbAQ87IXqVvw2+oEYI+GwlTWkvbQtL7F2cCNbMqJEYKPh1EcjSxsnqIb/kyaQ==
   dependencies:
     chokidar ">=3.0.0 <4.0.0"
     immutable "^4.0.0"
@@ -7631,10 +7631,10 @@ webpack-sources@^3.2.3:
   resolved "https://registry.npmjs.org/webpack-sources/-/webpack-sources-3.2.3.tgz#2d4daab8451fd4b240cc27055ff6a0c2ccea0cde"
   integrity sha512-/DyMEOrDgLKKIG0fmvtz+4dUX/3Ghozwgm6iPp8KRhvn+eQf9+Q7GWxVNMk3+uCPWfdXYC4ExGBckIXdFEfH1w==
 
-webpack@^5.77.0:
-  version "5.77.0"
-  resolved "https://registry.npmjs.org/webpack/-/webpack-5.77.0.tgz#dea3ad16d7ea6b84aa55fa42f4eac9f30e7eb9b4"
-  integrity sha512-sbGNjBr5Ya5ss91yzjeJTLKyfiwo5C628AFjEa6WSXcZa4E+F57om3Cc8xLb1Jh0b243AWuSYRf3dn7HVeFQ9Q==
+webpack@^5.78.0:
+  version "5.78.0"
+  resolved "https://registry.yarnpkg.com/webpack/-/webpack-5.78.0.tgz#836452a12416af2a7beae906b31644cb2562f9e6"
+  integrity sha512-gT5DP72KInmE/3azEaQrISjTvLYlSM0j1Ezhht/KLVkrqtv10JoP/RXhwmX/frrutOPuSq3o5Vq0ehR/4Vmd1g==
   dependencies:
     "@types/eslint-scope" "^3.7.3"
     "@types/estree" "^0.0.51"

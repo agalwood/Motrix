@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'マグネットリンクをトレントファイルとして保存',
   'bt-auto-download-content': '自動的に磁石と急流のコンテンツをダウンロードします',
+  'bt-force-encryption': 'BT 強制暗号化',
   'keep-seeding': '手動で停止するまでシードを続けます',
   'seed-ratio': 'シード比率',
   'seed-time': 'シードタイム',

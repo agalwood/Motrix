@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Lưu liên kết magnet dưới dạng tệp torrent',
   'bt-auto-download-content': 'Tự động tải xuống nam châm và nội dung torrent',
+  'bt-force-encryption': 'Bắt BT mã hóa đầy đủ',
   'keep-seeding': 'Tiếp tục seed cho đến khi dừng lại theo cách thủ công',
   'seed-ratio': 'Tỷ lệ seed',
   'seed-time': 'Thời gian seed',

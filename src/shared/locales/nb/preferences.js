@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Lagre magnetkobling som torrentfil',
   'bt-auto-download-content': 'Last ned Magnet og Torrent-innholdet automatisk',
+  'bt-force-encryption': 'TVANGSKRYPTERING AV BT',
   'keep-seeding': 'Fortsett seeding til du stopper manuelt',
   'seed-ratio': 'Seed-forhold',
   'seed-time': 'Seed-tid',

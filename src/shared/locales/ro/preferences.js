@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Salvați linkul magnet ca fișier torrent',
   'bt-auto-download-content': 'Descărcați automat magnetul și conținutul torrent',
+  'bt-force-encryption': 'Criptare forţată BT',
   'keep-seeding': 'Păstrați însămânțarea până când o opriți manual',
   'seed-ratio': 'Raportul semințelor',
   'seed-time': 'Timpul semințelor',

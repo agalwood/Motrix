@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Deseu l\'enllaç magnet com a fitxer torrent',
   'bt-auto-download-content': 'Descarregueu automàticament el contingut de Magnet i Torrent',
+  'bt-force-encryption': 'Forçar xifratge de BT',
   'keep-seeding': 'Seguiu sembrant fins aturar-lo manualment',
   'seed-ratio': 'Relació de llavors',
   'seed-time': 'Temps de llavors',
