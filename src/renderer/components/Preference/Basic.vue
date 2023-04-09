@@ -186,6 +186,13 @@
             </el-checkbox>
           </el-col>
           <el-col class="form-item-sub" :span="24">
+            <el-checkbox
+              v-model="form.btForceEncryption"
+            >
+              {{ $t('preferences.bt-force-encryption') }}
+            </el-checkbox>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
             <el-switch
               v-model="form.keepSeeding"
               :active-text="$t('preferences.keep-seeding')"
@@ -305,6 +312,7 @@
     const {
       autoHideWindow,
       btSaveMetadata,
+      btForceEncryption,
       dir,
       engineMaxConnectionPerServer,
       followMetalink,
@@ -333,6 +341,7 @@
       autoHideWindow,
       btAutoDownloadContent: !pauseMetadata,
       btSaveMetadata,
+      btForceEncryption,
       continue: config.continue,
       dir,
       engineMaxConnectionPerServer,

@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'بت تورنت',
   'bt-save-metadata': 'احفظ البيانات الوصفية للرابط المغناطيسي كملف تورنت',
   'bt-auto-download-content': 'قم تلقائيا بتنزيل محتوى المغناطيس والسيل',
+  'bt-force-encryption': 'تشفير BT الإجباري',
   'keep-seeding': 'الحفاظ على البزرة حتى يتم ايقافها يدويًا',
   'seed-ratio': 'نسبة البذرة',
   'seed-time': 'وقت البذرة',

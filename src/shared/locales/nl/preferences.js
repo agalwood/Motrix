@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Magnetlink opslaan als torrent bestand',
   'bt-auto-download-content': 'Automatisch magnet en torrent content downloaden',
+  'bt-force-encryption': 'BT dwngwyrddysgu gorfodol',
   'keep-seeding': 'Blijf seeden tot het het handmatig wordt gestopt',
   'seed-ratio': 'Seed ratio',
   'seed-time': 'Starttijd',

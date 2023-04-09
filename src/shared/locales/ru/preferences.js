@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Сохранить магнитную ссылку как торрент-файл',
   'bt-auto-download-content': 'Автоматически загружать магнит и торрент',
+  'bt-force-encryption': 'Принудительное шифрование BT',
   'keep-seeding': 'Продолжайте посев, пока не остановите его вручную',
   'seed-ratio': 'Соотношение семян',
   'seed-time': 'Время посева',

@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'บันทึกลิงก์แม่เหล็กเป็นไฟล์ทอร์เรนต์',
   'bt-auto-download-content': 'ดาวน์โหลดเนื้อหาแม่เหล็กและทอร์เรนต์โดยอัตโนมัติ',
+  'bt-force-encryption': 'บังคับการเข้ารหัส BT',
   'keep-seeding': 'เก็บ Seed ไว้จนกว่าจะหยุดเอง',
   'seed-ratio': 'เวลาแบ่งปัน BT',
   'seed-time': 'อัตราส่วนแบ่ง BT',

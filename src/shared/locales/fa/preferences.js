@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'بیت‌تورنت',
   'bt-save-metadata': 'ذخیره پیوند مگنت به عنوان پرونده تورنت',
   'bt-auto-download-content': 'بارگیری خودکار مگنت و محتوای تورنت',
+  'bt-force-encryption': 'رمزگذاری اجباری ب‌ت',
   'keep-seeding': 'بذرپاشی را تا هنگامی که به صورت دستی قطع نشده، ادامه بده',
   'seed-ratio': 'نسبت دانه',
   'seed-time': 'زمان دانه',

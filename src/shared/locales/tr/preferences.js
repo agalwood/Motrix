@@ -19,6 +19,7 @@ export default {
   'bt-settings': 'BitTorrent',
   'bt-save-metadata': 'Mıknatıs bağlantısını torrent dosyası olarak kaydedin',
   'bt-auto-download-content': 'Magnet ve torrent içeriğini otomatik olarak indirin',
+  'bt-force-encryption': 'BT Zorunlu Şifreleme',
   'keep-seeding': 'Manuel olarak durdurana kadar tohumlamaya devam edin',
   'seed-ratio': 'Tohum Oranı',
   'seed-time': 'Tohum Zamanı',

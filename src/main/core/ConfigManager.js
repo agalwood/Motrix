@@ -52,6 +52,7 @@ export default class ConfigManager {
         'all-proxy': EMPTY_STRING,
         'allow-overwrite': false,
         'auto-file-renaming': true,
+        'bt-force-encryption': false,
         'bt-exclude-tracker': EMPTY_STRING,
         'bt-load-saved-metadata': true,
         'bt-save-metadata': true,
