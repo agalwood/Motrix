@@ -124,6 +124,7 @@ const systemKeys = [
   'no-file-allocation-limit',
   'no-netrc',
   'no-proxy',
+  'no-want-digest-header',
   'out',
   'parameterized-uri',
   'pause-metadata',
