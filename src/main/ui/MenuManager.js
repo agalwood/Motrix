@@ -1,12 +1,12 @@
 import { EventEmitter } from 'events'
 import { Menu } from 'electron'
 
+import keymap from '@shared/keymap'
 import {
   translateTemplate,
   flattenMenuItems,
   updateStates
 } from '../utils/menu'
-import keymap from '@shared/keymap'
 import { getI18n } from '../ui/Locale'
 
 export default class MenuManager extends EventEmitter {
