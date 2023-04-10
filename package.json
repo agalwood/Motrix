@@ -30,6 +30,9 @@
     "pack:renderer": "webpack --node-env production --progress --color --config .electron-vue/webpack.renderer.config.js",
     "postinstall": "electron-builder install-app-deps && npm run lint:fix"
   },
+  "engines": {
+    "node" : ">=18.0.0"
+  },
   "dependencies": {
     "node-fetch": "^2.6.1",
     "ws": "^8.13.0"
