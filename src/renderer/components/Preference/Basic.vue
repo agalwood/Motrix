@@ -134,7 +134,7 @@
             </el-input-number>
             <el-select
               style="width: 100px;"
-              v-model="uploadUnits"
+              v-model="uploadUnit"
               @change="handleUploadChange"
               :placeholder="$t('preferences.speed-units')">
               <el-option
@@ -157,7 +157,7 @@
             </el-input-number>
             <el-select
               style="width: 100px;"
-              v-model="downloadUnits"
+              v-model="downloadUnit"
               @change="handleDownloadChange"
               :placeholder="$t('preferences.speed-units')">
               <el-option
@@ -303,7 +303,8 @@
     changedConfig,
     checkIsNeedRestart,
     convertLineToComma,
-    diffConfig
+    diffConfig,
+    extractSpeedUnit
   } from '@shared/utils'
   import { APP_RUN_MODE, ENGINE_MAX_CONCURRENT_DOWNLOADS } from '@shared/constants'
   import { reduceTrackerString } from '@shared/utils/tracker'
@@ -413,7 +414,8 @@
           return parseInt(this.form.maxOverallDownloadLimit)
         },
         set (value) {
-          this.form.maxOverallDownloadLimit = value + this.downloadUnits
+          const limit = value > 0 ? `${value}${this.downloadUnit}` : 0
+          this.form.maxOverallDownloadLimit = limit
         }
       },
       maxOverallUploadLimitParsed: {
@@ -421,32 +423,23 @@
           return parseInt(this.form.maxOverallUploadLimit)
         },
         set (value) {
-          this.form.maxOverallUploadLimit = value + this.uploadUnits
+          const limit = value > 0 ? `${value}${this.uploadUnit}` : 0
+          this.form.maxOverallUploadLimit = limit
         }
       },
-      downloadUnits: {
+      downloadUnit: {
         get () {
-          const speed = this.form.maxOverallDownloadLimit
-          // Fallback to K if Speed is 0 (previously unlimited)
-          if (!speed) return 'K'
-          const speedEnding = speed.slice(-1)
-          // Fall back to KB if the downloadlimit doesnt have a unit
-          if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
-          return speedEnding
+          const { maxOverallDownloadLimit } = this.form
+          return extractSpeedUnit(maxOverallDownloadLimit)
         },
         set (value) {
           return value
         }
       },
-      uploadUnits: {
+      uploadUnit: {
         get () {
-          const speed = this.form.maxOverallUploadLimit
-          // Fallback to K if Speed is 0 (previously unlimited)
-          if (!speed) return 'K'
-          const speedEnding = speed.slice(-1)
-          // Fall back to KB if the downloadlimit doesnt have a unit
-          if (!speedEnding || !isNaN(parseInt(speedEnding))) return 'K'
-          return speedEnding
+          const { maxOverallUploadLimit } = this.form
+          return extractSpeedUnit(maxOverallUploadLimit)
         },
         set (value) {
           return value
@@ -528,13 +521,15 @@
       },
       handleDownloadChange (value) {
         const speedLimit = parseInt(this.form.maxOverallDownloadLimit)
-        this.downloadUnits = value
-        this.form.maxOverallDownloadLimit = `${speedLimit}${value}`
+        this.downloadUnit = value
+        const limit = speedLimit > 0 ? `${speedLimit}${value}` : 0
+        this.form.maxOverallDownloadLimit = limit
       },
       handleUploadChange (value) {
         const speedLimit = parseInt(this.form.maxOverallUploadLimit)
-        this.uploadUnits = value
-        this.form.maxOverallUploadLimit = `${speedLimit}${value}`
+        this.uploadUnit = value
+        const limit = speedLimit > 0 ? `${speedLimit}${value}` : 0
+        this.form.maxOverallUploadLimit = limit
       },
       onKeepSeedingChange (enable) {
         this.form.seedRatio = enable ? 0 : 1
