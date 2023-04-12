@@ -584,8 +584,8 @@ export function parseHeader (header = '') {
   const headers = splitTextRows(header)
   headers.forEach((line) => {
     const index = line.indexOf(':')
-    const name = line.substr(0, index)
-    const value = line.substr(index + 1).trim()
+    const name = line.substring(0, index)
+    const value = line.substring(index + 1).trim()
     result[name] = value
   })
   result = changeKeysToCamelCase(result)
