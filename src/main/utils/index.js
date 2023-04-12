@@ -8,7 +8,6 @@ import {
   ENGINE_MAX_CONNECTION_PER_SERVER,
   IP_VERSION
 } from '@shared/constants'
-
 import engineBinMap from '../configs/engine'
 
 export function getLogPath () {

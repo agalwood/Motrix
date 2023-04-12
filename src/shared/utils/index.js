@@ -40,6 +40,21 @@ export function bytesToSize (bytes, precision = 1) {
   return `${(b / (1024 ** i)).toFixed(precision)} ${sizes[i]}`
 }
 
+export const extractSpeedUnit = (speed = '') => {
+  if (parseInt(speed) === 0) {
+    return 'K'
+  }
+
+  const regex = /^(\d+\.?\d*)([KMG])$/
+  const match = regex.exec(speed)
+
+  if (!match) {
+    return 'K'
+  }
+
+  return match[2]
+}
+
 export function bitfieldToPercent (text) {
   const len = text.length - 1
   let p

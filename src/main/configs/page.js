@@ -8,8 +8,7 @@ export default {
       height: 768,
       minWidth: 478,
       minHeight: 420,
-      // backgroundColor: '#FFFFFF',
-      transparent: !is.windows()
+      transparent: is.macOS()
     },
     bindCloseToHide: true,
     openDevTools: is.dev(),
