@@ -4,6 +4,7 @@ const userKeys = [
   'auto-hide-window',
   'auto-sync-tracker',
   'cookie',
+  'dir-history',
   'enable-upnp',
   'engine-bin-path',
   'engine-max-connection-per-server',
