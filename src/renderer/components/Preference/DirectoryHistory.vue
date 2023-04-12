@@ -2,9 +2,9 @@
   <div class="dir-history">
     <el-popover
       popper-class="dir-history-popper"
-      placement="bottom-start"
-      width="310"
       trigger="manual"
+      :placement="placement"
+      :width="width"
       v-model="visible"
     >
       <ul class="dir-history-list">
@@ -34,7 +34,7 @@
     props: {
       width: {
         type: Number,
-        default: 200
+        default: 310
       },
       placement: {
         type: String,
