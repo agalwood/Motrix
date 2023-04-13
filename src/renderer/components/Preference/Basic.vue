@@ -107,10 +107,14 @@
           :label-width="formLabelWidth"
         >
           <el-input placeholder="" v-model="form.dir" :readonly="isMas">
+            <mo-history-directory
+              slot="prepend"
+              @selected="handleHistoryDirectorySelected"
+            />
             <mo-select-directory
               v-if="isRenderer"
               slot="append"
-              @selected="onDirectorySelected"
+              @selected="handleNativeDirectorySelected"
             />
           </el-input>
           <div class="el-form-item__info" v-if="isMas" style="margin-top: 8px;">
@@ -293,6 +297,7 @@
   import { mapState } from 'vuex'
   import { cloneDeep, extend, isEmpty } from 'lodash'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
+  import HistoryDirectory from '@/components/Preference/HistoryDirectory'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import ThemeSwitcher from '@/components/Preference/ThemeSwitcher'
   import { availableLanguages, getLanguage } from '@shared/locales'
@@ -374,6 +379,7 @@
     name: 'mo-preference-basic',
     components: {
       [SubnavSwitcher.name]: SubnavSwitcher,
+      [HistoryDirectory.name]: HistoryDirectory,
       [SelectDirectory.name]: SelectDirectory,
       [ThemeSwitcher.name]: ThemeSwitcher
     },
@@ -534,6 +540,13 @@
       onKeepSeedingChange (enable) {
         this.form.seedRatio = enable ? 0 : 1
         this.form.seedTime = enable ? 525600 : 60
+      },
+      handleHistoryDirectorySelected (dir) {
+        this.form.dir = dir
+      },
+      handleNativeDirectorySelected (dir) {
+        this.form.dir = dir
+        this.$store.dispatch('preference/recordHistoryDirectory', dir)
       },
       onDirectorySelected (dir) {
         this.form.dir = dir

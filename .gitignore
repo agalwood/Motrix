@@ -1,12 +1,25 @@
+!.gitkeep
 .DS_Store
-dist/electron/*
-dist/web/*
+.env
+.idea/
+.vs/
+.vscode/
+*.log
+node_modules/
+thumbs.db
+
+# npm package
+.npmrc
+npm-debug.log.*
+
+# Eslint Cache
+.eslintcache*
+
+# electron builder
 *.provisionprofile
 build/*.plist
-node_modules/
-npm-debug.log
-npm-debug.log.*
-thumbs.db
-!.gitkeep
+dist/electron/*
+dist/web/*
+
+# release
 release/*
-.idea/

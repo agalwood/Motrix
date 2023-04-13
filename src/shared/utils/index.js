@@ -584,8 +584,8 @@ export function parseHeader (header = '') {
   const headers = splitTextRows(header)
   headers.forEach((line) => {
     const index = line.indexOf(':')
-    const name = line.substr(0, index)
-    const value = line.substr(index + 1).trim()
+    const name = line.substring(0, index)
+    const value = line.substring(index + 1).trim()
     result[name] = value
   })
   result = changeKeysToCamelCase(result)
@@ -655,6 +655,35 @@ export const intersection = (array1 = [], array2 = []) => {
   }
 
   return array1.filter(value => array2.includes(value))
+}
+
+export const cloneArray = (arr = [], reversed = false) => {
+  if (!Array.isArray(arr)) {
+    return arr
+  }
+
+  const result = [...arr]
+  return reversed ? result.reverse() : result
+}
+
+export const pushItemToFixedLengthArray = (arr = [], maxLength, item) => {
+  const result = arr.length >= maxLength
+    ? [...arr.slice(1, maxLength - 1), item]
+    : [...arr, item]
+  return result
+}
+
+export const removeArrayItem = (arr = [], item) => {
+  const idx = arr.indexOf(item)
+  if (idx === -1) {
+    return [...arr]
+  }
+
+  const result = [
+    ...arr.slice(0, idx),
+    ...arr.slice(idx + 1)
+  ]
+  return result
 }
 
 export const getInverseTheme = (theme) => {

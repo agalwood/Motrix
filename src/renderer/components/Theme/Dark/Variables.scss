@@ -1,7 +1,13 @@
+/* Color
+-------------------------- */
+$--dk-border-color-base: #555;
+$--dk-font-color-base: #eee;
+$--dk-action-color-base: #eee;
+
 /* App
 -------------------------- */
 $--dk-app-background: transparent !default;
-$--dk-titlebar-actions-color: #eee !default;
+$--dk-titlebar-actions-color: $--dk-action-color-base !default;
 $--dk-titlebar-close-active-color: #fff !default;
 $--dk-titlebar-actions-active-background: rgba(0, 0, 0, 0.9) !default;
 $--dk-titlebar-close-active-background: #fd0007 !default;
@@ -42,10 +48,10 @@ $--dk-form-actions-background: #343434 !default;
 
 /* Task
 -------------------------- */
-$--dk-task-action-color: #eee !default;
+$--dk-task-action-color: $--dk-action-color-base !default;
 $--dk-task-action-hover-color: $--color-primary !default;
 $--dk-task-item-backgroud: #2d2d2d !default;
-$--dk-task-item-border-color: #555 !default;
+$--dk-task-item-border-color: $--dk-border-color-base !default;
 $--dk-task-item-hover-border-color: $--color-primary !default;
 $--dk-task-item-hover-background: $--color-primary !default;
 $--dk-task-item-text-color: #eee !default;
@@ -53,7 +59,7 @@ $--dk-task-item-action-background: #4a4a4a !default;
 $--dk-task-item-action-hover-background: $--color-primary !default;
 $--dk-task-item-action-border-color: #5f5f5f !default;
 $--dk-task-item-action-hover-border-color: $--color-primary !default;
-$--dk-task-item-action-color: #eee !default;
+$--dk-task-item-action-color: $--dk-action-color-base !default;
 $--dk-task-item-action-hover-color: #fff !default;
 $--dk-no-task-color: #aaa !default;
 $--dk-add-task-dialog-footer-background: #4a4a4a !default;
@@ -91,3 +97,5 @@ $--dk-table-hover-background: #565656 !default;
 $--dk-table-th-background: #1f2122 !default;
 $--dk-table-text-color: #9b9b9b !default;
 $--dk-table-border-color: #565656 !default;
+$--dk-popover-background: #3d3d3d !default;
+$--dk-popover-border-color: $--dk-border-color-base !default;
