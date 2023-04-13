@@ -47,7 +47,7 @@
       ...mapGetters('preference', [
         'theme',
         'locale',
-        'dir'
+        'direction'
       ]),
       themeClass () {
         if (this.theme === APP_THEME.AUTO) {
@@ -59,8 +59,8 @@
       i18nClass () {
         return `i18n-${this.locale}`
       },
-      dirClass () {
-        return `dir-${this.dir}`
+      directionClass () {
+        return `dir-${this.direction}`
       },
       enableTraySpeedometer () {
         const { isMac, isRenderer, traySpeedometer, runMode } = this
@@ -69,8 +69,8 @@
     },
     methods: {
       updateRootClassName () {
-        const { themeClass = '', i18nClass = '', dirClass = '' } = this
-        const className = `${themeClass} ${i18nClass} ${dirClass}`
+        const { themeClass = '', i18nClass = '', directionClass = '' } = this
+        const className = `${themeClass} ${i18nClass} ${directionClass}`
         document.documentElement.className = className
       }
     },
@@ -84,7 +84,7 @@
       i18nClass (val, oldVal) {
         this.updateRootClassName()
       },
-      dirClass (val, oldVal) {
+      directionClass (val, oldVal) {
         this.updateRootClassName()
       }
     }

@@ -12,7 +12,7 @@ const state = {
 const getters = {
   theme: state => state.config.theme,
   locale: state => state.config.locale,
-  dir: state => getLangDirection(state.config.locale)
+  direction: state => getLangDirection(state.config.locale)
 }
 
 const mutations = {
