@@ -657,6 +657,35 @@ export const intersection = (array1 = [], array2 = []) => {
   return array1.filter(value => array2.includes(value))
 }
 
+export const cloneArray = (arr = [], reversed = false) => {
+  if (!Array.isArray(arr)) {
+    return arr
+  }
+
+  const result = [...arr]
+  return reversed ? result.reverse() : result
+}
+
+export const pushItemToFixedLengthArray = (arr = [], maxLength, item) => {
+  const result = arr.length >= maxLength
+    ? [...arr.slice(1, maxLength - 1), item]
+    : [...arr, item]
+  return result
+}
+
+export const removeArrayItem = (arr = [], item) => {
+  const idx = arr.indexOf(item)
+  if (idx === -1) {
+    return [...arr]
+  }
+
+  const result = [
+    ...arr.slice(0, idx),
+    ...arr.slice(idx + 1)
+  ]
+  return result
+}
+
 export const getInverseTheme = (theme) => {
   return (theme === APP_THEME.LIGHT) ? APP_THEME.DARK : APP_THEME.LIGHT
 }

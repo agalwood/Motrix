@@ -439,4 +439,10 @@
     color: #a7a7a7;
   }
 
+  /* Popover */
+  .el-popover {
+    background-color: $--dk-popover-background;
+    border-color: $--dk-popover-border-color;
+  }
+
 }

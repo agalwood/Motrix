@@ -27,6 +27,8 @@ export const TASK_STATUS = {
   SEEDING: 'seeding'
 }
 
+export const MAX_NUM_OF_DIRECTORIES = 5
+
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10

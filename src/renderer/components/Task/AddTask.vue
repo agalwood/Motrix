@@ -69,14 +69,14 @@
           v-model="form.dir"
           :readonly="isMas"
         >
-          <mo-directory-history
+          <mo-history-directory
             slot="prepend"
-            @selected="onDirectorySelected"
+            @selected="handleHistoryDirectorySelected"
           />
           <mo-select-directory
             v-if="isRenderer"
             slot="append"
-            @selected="onDirectorySelected"
+            @selected="handleNativeDirectorySelected"
           />
         </el-input>
       </el-form-item>
@@ -196,7 +196,7 @@
   import is from 'electron-is'
   import { mapState } from 'vuex'
   import { isEmpty } from 'lodash'
-  import DirectoryHistory from '@/components/Preference/DirectoryHistory'
+  import HistoryDirectory from '@/components/Preference/HistoryDirectory'
   import SelectDirectory from '@/components/Native/SelectDirectory'
   import SelectTorrent from '@/components/Task/SelectTorrent'
   import {
@@ -211,7 +211,7 @@
   export default {
     name: 'mo-add-task',
     components: {
-      [DirectoryHistory.name]: DirectoryHistory,
+      [HistoryDirectory.name]: HistoryDirectory,
       [SelectDirectory.name]: SelectDirectory,
       [SelectTorrent.name]: SelectTorrent
     },
@@ -334,9 +334,12 @@
         this.form.torrent = torrent
         this.form.selectFile = selectedFileIndex
       },
-      onDirectorySelected (dir) {
-        console.log('[Motrix] Add task onDirectorySelected', dir)
+      handleHistoryDirectorySelected (dir) {
         this.form.dir = dir
+      },
+      handleNativeDirectorySelected (dir) {
+        this.form.dir = dir
+        this.$store.dispatch('preference/recordHistoryDirectory', dir)
       },
       reset () {
         this.showAdvanced = false

@@ -57,7 +57,7 @@
       }
     },
     methods: {
-      fetchTaskItem ({ gid }) {
+      async fetchTaskItem ({ gid }) {
         return api.fetchTaskItem({ gid })
           .catch((e) => {
             console.warn(`fetchTaskItem fail: ${e.message}`)
@@ -75,6 +75,8 @@
 
         this.fetchTaskItem({ gid })
           .then((task) => {
+            const { dir } = task
+            this.$store.dispatch('preference/recordHistoryDirectory', dir)
             const taskName = getTaskName(task)
             const message = this.$t('task.download-start-message', { taskName })
             this.$msg.info(message)
