@@ -1,7 +1,21 @@
 import * as curlParser from '@bany/curl-to-json'
 
 export const buildUrisFromCurl = (uris = []) => {
-  return uris.map((uri) => uri.startsWith('curl') ? curlParser(uri).url : uri)
+  return uris.map((uri) => {
+    if (uri.startsWith('curl')) {
+      const parsedUri = curlParser(uri)
+      uri = parsedUri.url
+      if (parsedUri.params && Object.keys(parsedUri.params).length > 0) {
+        const paramsStr = Object.keys(parsedUri.params)
+          .map((k) => `${k}=${parsedUri.params[k]}`)
+          .join('&')
+        uri = `${uri}?${paramsStr}`
+      }
+      return uri
+    } else {
+      return uri
+    }
+  })
 }
 
 export const buildHeadersFromCurl = (uris = []) => {
@@ -11,10 +25,10 @@ export const buildHeadersFromCurl = (uris = []) => {
 export const buildDefaultOptionsFromCurl = (form, headers = []) => {
   const firstNonNullHeader = headers.find((elem) => elem)
   if (firstNonNullHeader) {
-    form.cookie = !form.cookie ? firstNonNullHeader.cookie : form.cookie
-    form.referer = !form.referer ? firstNonNullHeader.referer : form.referer
-    form.userAgent = !form.userAgent ? firstNonNullHeader['user-agent'] : form.userAgent
-    form.authorization = !form.authorization ? firstNonNullHeader.authorization : form.authorization
+    form.cookie = !form.cookie && firstNonNullHeader.cookie ? firstNonNullHeader.cookie : form.cookie
+    form.referer = !form.referer && firstNonNullHeader.referer ? firstNonNullHeader.referer : form.referer
+    form.userAgent = !form.userAgent && firstNonNullHeader['user-agent'] ? firstNonNullHeader['user-agent'] : form.userAgent
+    form.authorization = !form.authorization && firstNonNullHeader.authorization ? firstNonNullHeader.authorization : form.authorization
   }
   return form
 }
