@@ -962,10 +962,9 @@
     "@babel/helper-validator-identifier" "^7.19.1"
     to-fast-properties "^2.0.0"
 
-"@bany/curl-to-json@^1.0.6":
+"@bany/curl-to-json@git+https://github.com/9bany/curl-to-json.git#67818b4":
   version "1.2.4"
-  resolved "https://registry.yarnpkg.com/@bany/curl-to-json/-/curl-to-json-1.2.4.tgz#e409bb5ae5b8c944389c9304c0a46b440beb0f9b"
-  integrity sha512-OtPwj7ALEGaqhfb830gYA/Vna+4PCOOgc+r05uP9+ku8IhBK1FT3Odc/IQGW1HXIF6EzPv+3zHratDPVwzOmpg==
+  resolved "git+https://github.com/9bany/curl-to-json.git#67818b4a98c6390958f8d4127da1a2391602bb49"
   dependencies:
     mocha "^10.0.0"
     yargs "^17.5.1"
