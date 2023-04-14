@@ -161,6 +161,11 @@ yarn run dev
 ```bash
 yarn run build
 ```
+#### Build for Apple Silicon
+
+```bash
+yarn run build:applesilicon
+```
 
 After building, the application will be found in the project's `release` directory.
 
