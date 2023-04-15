@@ -26,6 +26,12 @@ export const buildHeadersFromCurl = (uris = []) => {
       if (parsed.cookie) {
         header.cookie = parsed.cookie
       }
+      if (parsed['user-agent']) {
+        header['user-agent'] = parsed['user-agent']
+      }
+      if (parsed.referer) {
+        header.referer = parsed.referer
+      }
       return header
     } else {
       return undefined
