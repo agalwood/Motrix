@@ -3,6 +3,7 @@
   "cmdctrl-n": "application:new-task",
   "cmdctrl-shift-n": "application:new-bt-task",
   "cmdctrl-o": "application:open-file",
+  "cmdctrl-l": "application:task-list",
   "cmdctrl-,": "application:preferences",
   "cmdctrl-shift-p": "application:pause-all-task",
   "cmdctrl-shift-r": "application:resume-all-task",

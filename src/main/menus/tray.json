@@ -7,6 +7,7 @@
   { "id": "help.manual", "command": "help:manual" },
   { "id": "app.check-for-updates", "command": "application:check-for-updates" },
   { "type": "separator" },
+  { "id": "app.task-list", "command": "application:task-list", "command-before": "application:show?page=index" },
   { "id": "app.preferences", "command": "application:preferences", "command-before": "application:show?page=index" },
   { "id": "app.quit", "command": "application:quit" }
 ]
