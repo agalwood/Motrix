@@ -19,7 +19,18 @@ export const buildUrisFromCurl = (uris = []) => {
 }
 
 export const buildHeadersFromCurl = (uris = []) => {
-  return uris.map((uri) => uri.startsWith('curl') ? curlParser(uri).header : undefined)
+  return uris.map((uri) => {
+    if (uri.startsWith('curl')) {
+      const parsed = curlParser(uri)
+      const header = parsed.header ?? {}
+      if (parsed.cookie) {
+        header.cookie = parsed.cookie
+      }
+      return header
+    } else {
+      return undefined
+    }
+  })
 }
 
 export const buildDefaultOptionsFromCurl = (form, headers = []) => {
