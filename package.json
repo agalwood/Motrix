@@ -45,7 +45,7 @@
     "@babel/preset-env": "^7.21.4",
     "@babel/register": "^7.21.0",
     "@babel/runtime": "^7.21.0",
-    "@bany/curl-to-json": "git+https://github.com/CW-B-W/curl-to-json.git#73568ab",
+    "@bany/curl-to-json": "git+https://github.com/CW-B-W/curl-to-json.git#ed88d03",
     "@electron/notarize": "^1.2.3",
     "@electron/osx-sign": "^1.0.4",
     "@electron/remote": "^2.0.9",
