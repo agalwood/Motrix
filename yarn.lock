@@ -962,9 +962,10 @@
     "@babel/helper-validator-identifier" "^7.19.1"
     to-fast-properties "^2.0.0"
 
-"@bany/curl-to-json@git+https://github.com/CW-B-W/curl-to-json.git#ed88d03":
-  version "1.2.6"
-  resolved "git+https://github.com/CW-B-W/curl-to-json.git#ed88d03e783a89d38674fdf73064ce18780d15ef"
+"@bany/curl-to-json@^1.2.7":
+  version "1.2.7"
+  resolved "https://registry.yarnpkg.com/@bany/curl-to-json/-/curl-to-json-1.2.7.tgz#bb1973af03948ec1c2adc31eb237b5a27a0b5daa"
+  integrity sha512-NC5tfGOl0e826g9jbDptBhO0c/YrjtCTBfsk5exg8uzh+H4EGXSLPPsMxXyU6G+7hKfZl9lsURIoSE0XCEJrJQ==
   dependencies:
     minimist "^1.2.8"
 
