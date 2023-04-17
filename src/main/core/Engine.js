@@ -8,6 +8,7 @@ import logger from './Logger'
 import { getI18n } from '../ui/Locale'
 import {
   getEngineBin,
+  getEngineArch,
   getEnginePidPath,
   getSessionPath,
   transformConfig
@@ -100,15 +101,17 @@ export default class Engine {
   }
 
   getBasePath () {
-    let result = resolve(app.getAppPath(), '..')
+    const result = is.dev()
+      ? this.getDevBasePath()
+      : resolve(app.getAppPath(), '..')
 
-    if (is.dev()) {
-      const base = platform === 'linux'
-        ? `../../../extra/${platform}`
-        : `../../../extra/${platform}/${arch}`
-      result = resolve(__dirname, base)
-    }
+    return result
+  }
 
+  getDevBasePath () {
+    const ah = getEngineArch(platform, arch)
+    const base = `../../../extra/${platform}/${ah}`
+    const result = resolve(__dirname, base)
     return result
   }
 

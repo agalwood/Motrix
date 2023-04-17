@@ -127,13 +127,37 @@
     "linux": {
       "category": "Network",
       "target": [
-        "AppImage",
-        "deb",
-        "rpm",
-        "snap"
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64",
+            "armv7l"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64",
+            "armv7l"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "snap",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "extraResources": {
-        "from": "./extra/linux/",
+        "from": "./extra/linux/${arch}/",
         "to": "./",
         "filter": [
           "**/*"
