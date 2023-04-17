@@ -8,7 +8,7 @@ import {
   ENGINE_MAX_CONNECTION_PER_SERVER,
   IP_VERSION
 } from '@shared/constants'
-import engineBinMap from '../configs/engine'
+import { engineBinMap, engineArchMap } from '../configs/engine'
 
 export function getLogPath () {
   return app.getPath('logs')
@@ -37,6 +37,15 @@ export function getUserDownloadsPath () {
 
 export function getEngineBin (platform) {
   const result = engineBinMap[platform] || ''
+  return result
+}
+
+export function getEngineArch (platform, arch) {
+  if (!['darwin', 'win32', 'linux'].includes(platform)) {
+    return ''
+  }
+
+  const result = engineArchMap[platform][arch]
   return result
 }
 
