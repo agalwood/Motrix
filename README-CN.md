@@ -168,7 +168,11 @@ yarn run dev
 ```bash
 yarn run build
 ```
+#### 编译 Apple Silicon 版本
 
+```bash
+yarn run build:applesilicon
+```
 完成之后可以在项目的 `release` 目录看到编译打包好的应用文件
 
 ## 🛠 技术栈

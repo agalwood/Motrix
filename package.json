@@ -17,6 +17,7 @@
   "scripts": {
     "release": "npm run build --publish onTagOrDraft",
     "build": "node .electron-vue/build.js && electron-builder",
+    "build:applesilicon": "node .electron-vue/build.js && electron-builder --arm64 --mac",
     "build:github": "node .electron-vue/build.js",
     "build:dir": "node .electron-vue/build.js && electron-builder --dir",
     "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
@@ -44,6 +45,7 @@
     "@babel/preset-env": "^7.21.4",
     "@babel/register": "^7.21.0",
     "@babel/runtime": "^7.21.0",
+    "@bany/curl-to-json": "^1.2.7",
     "@electron/notarize": "^1.2.3",
     "@electron/osx-sign": "^1.0.4",
     "@electron/remote": "^2.0.9",
