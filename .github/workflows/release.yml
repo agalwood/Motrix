@@ -13,7 +13,7 @@ jobs:
     # Platforms to build on/for
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, ubuntu-arm64, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
       - name: Check out Git repository
@@ -39,24 +39,7 @@ jobs:
           mkdir -p ~/private_keys/
           echo '${{ secrets.api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
 
-      - name: Build/release ARM Linux app
-        if: startsWith(matrix.os, 'ubuntu-arm64')
-        uses: samuelmeuli/action-electron-builder@v1
-        with:
-          build_script_name: 'build:github'
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          github_token: ${{ secrets.github_token }}
-
-          # If the commit is tagged with a version (e.g. "v1.0.0"),
-          # release the app after building
-          release: ${{ secrets.force_release == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-        env:
-          USE_SYSTEM_FPM: true
-          SNAPCRAFT_BUILD_ENVIRONMENT: host
-
       - name: Build/release Electron app
-        if: "!startsWith(matrix.os, 'ubuntu-arm64')"
         uses: samuelmeuli/action-electron-builder@v1
         with:
           build_script_name: 'build:github'
