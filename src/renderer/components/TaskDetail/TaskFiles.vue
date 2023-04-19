@@ -26,17 +26,24 @@
           <template slot-scope="scope">{{ scope.row.extension | removeExtensionDot }}</template>
         </el-table-column>
         <el-table-column
+          v-if="mode === 'DETAIL'"
+          :label="`%`"
+          align="right"
+          width="50">
+          <template slot-scope="scope">{{ calcProgress(scope.row.length, scope.row.completedLength, 1) }}</template>
+        </el-table-column>
+        <el-table-column
+          v-if="mode === 'DETAIL'"
+          :label="`✓`"
+          align="right"
+          width="85">
+          <template slot-scope="scope">{{ scope.row.completedLength | bytesToSize }}</template>
+        </el-table-column>
+        <el-table-column
           :label="$t('task.file-size')"
           align="right"
           width="85">
           <template slot-scope="scope">{{ scope.row.length | bytesToSize }}</template>
-        </el-table-column>
-        <el-table-column
-          v-if="mode === 'DETAIL'"
-          :label="$t('task.file-completed-size')"
-          align="right"
-          width="95">
-          <template slot-scope="scope">{{ scope.row.completedLength | bytesToSize }}</template>
         </el-table-column>
       </el-table>
     </div>
@@ -84,6 +91,7 @@
   } from '@shared/constants'
   import {
     bytesToSize,
+    calcProgress,
     filterVideoFiles,
     filterAudioFiles,
     filterImageFiles,
@@ -149,6 +157,7 @@
       }
     },
     methods: {
+      calcProgress,
       toggleAllSelection () {
         if (!this.$refs.torrentTable) {
           return

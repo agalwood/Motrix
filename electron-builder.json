@@ -126,6 +126,10 @@
     },
     "linux": {
       "category": "Network",
+      "mimeTypes": [
+        "application/x-bittorrent",
+        "x-scheme-handler/magnet"
+      ],
       "target": [
         {
           "target": "AppImage",

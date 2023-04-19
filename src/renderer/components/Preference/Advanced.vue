@@ -190,6 +190,59 @@
           </div>
         </el-form-item>
         <el-form-item
+          :label="`${$t('preferences.rpc')}: `"
+          :label-width="formLabelWidth"
+        >
+          <el-row style="margin-bottom: 8px;">
+            <el-col
+              class="form-item-sub"
+              :xs="24"
+              :sm="18"
+              :md="10"
+              :lg="10"
+            >
+              {{ $t('preferences.rpc-listen-port') }}
+              <el-input
+                :placeholder="rpcDefaultPort"
+                :maxlength="8"
+                v-model="form.rpcListenPort"
+                @change="onRpcListenPortChange"
+              >
+                <i slot="append" @click.prevent="onRpcPortDiceClick">
+                  <mo-icon name="dice" width="12" height="12" />
+                </i>
+              </el-input>
+            </el-col>
+          </el-row>
+          <el-row style="margin-bottom: 8px;">
+            <el-col
+              class="form-item-sub"
+              :xs="24"
+              :sm="18"
+              :md="18"
+              :lg="18"
+            >
+              {{ $t('preferences.rpc-secret') }}
+              <el-input
+                :show-password="hideRpcSecret"
+                placeholder="RPC Secret"
+                :maxlength="24"
+                v-model="form.rpcSecret"
+              >
+                <i slot="append" @click.prevent="onRpcSecretDiceClick">
+                  <mo-icon name="dice" width="12" height="12" />
+                </i>
+              </el-input>
+              <div class="el-form-item__info" style="margin-top: 8px;">
+                <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/RPC" rel="noopener noreferrer">
+                  {{ $t('preferences.rpc-secret-tips') }}
+                  <mo-icon name="link" width="12" height="12" />
+                </a>
+              </div>
+            </el-col>
+          </el-row>
+        </el-form-item>
+        <el-form-item
           :label="`${$t('preferences.port')}: `"
           :label-width="formLabelWidth"
         >
@@ -221,7 +274,7 @@
                 :maxlength="8"
                 v-model="form.listenPort"
               >
-                <i slot="append" @click.prevent="onPortDiceClick">
+                <i slot="append" @click.prevent="onBtPortDiceClick">
                   <mo-icon name="dice" width="12" height="12" />
                 </i>
               </el-input>
@@ -271,7 +324,7 @@
           </el-col>
         </el-form-item>
         <el-form-item
-          :label="`${$t('preferences.security')}: `"
+          :label="`${$t('preferences.user-agent')}: `"
           :label-width="formLabelWidth"
         >
           <el-col class="form-item-sub" :span="24">
@@ -289,31 +342,6 @@
               <el-button @click="() => changeUA('chrome')">Chrome</el-button>
               <el-button @click="() => changeUA('du')">du</el-button>
             </el-button-group>
-          </el-col>
-          <el-col
-            class="form-item-sub"
-            :xs="24"
-            :sm="18"
-            :md="18"
-            :lg="18"
-          >
-            {{ $t('preferences.rpc-secret') }}
-            <el-input
-              :show-password="hideRpcSecret"
-              placeholder="RPC Secret"
-              :maxlength="24"
-              v-model="form.rpcSecret"
-            >
-              <i slot="append" @click.prevent="onDiceClick">
-                <mo-icon name="dice" width="12" height="12" />
-              </i>
-            </el-input>
-            <div class="el-form-item__info" style="margin-top: 8px;">
-              <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/RPC" rel="noopener noreferrer">
-                {{ $t('preferences.rpc-secret-tips') }}
-                <mo-icon name="link" width="12" height="12" />
-              </a>
-            </div>
           </el-col>
         </el-form-item>
         <el-form-item
@@ -376,7 +404,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
-  import { trackerSourceOptions } from '@shared/constants'
+  import { trackerSourceOptions, ENGINE_RPC_PORT, EMPTY_STRING } from '@shared/constants'
   import {
     backupConfig,
     buildRpcUrl,
@@ -487,6 +515,9 @@
           }
         ]
       },
+      rpcDefaultPort () {
+        return ENGINE_RPC_PORT
+      },
       ...mapState('preference', {
         config: state => state.config,
         logPath: state => state.config.logPath,
@@ -494,6 +525,13 @@
       })
     },
     watch: {
+      'form.rpcListenPort' (val) {
+        const url = buildRpcUrl({
+          port: this.form.rpcListenPort,
+          secret: val
+        })
+        navigator.clipboard.writeText(url)
+      },
       'form.rpcSecret' (val) {
         const url = buildRpcUrl({
           port: this.form.rpcListenPort,
@@ -546,7 +584,7 @@
         }
         this.form.userAgent = ua
       },
-      onPortDiceClick () {
+      onBtPortDiceClick () {
         const port = generateRandomInt(20000, 24999)
         this.form.listenPort = port
       },
@@ -554,7 +592,17 @@
         const port = generateRandomInt(25000, 29999)
         this.form.dhtListenPort = port
       },
-      onDiceClick () {
+      onRpcListenPortChange (value) {
+        console.log('onRpcListenPortChange===>', value)
+        if (EMPTY_STRING === value) {
+          this.form.rpcListenPort = this.rpcDefaultPort
+        }
+      },
+      onRpcPortDiceClick () {
+        const port = generateRandomInt(ENGINE_RPC_PORT, 20000)
+        this.form.rpcListenPort = port
+      },
+      onRpcSecretDiceClick () {
         this.hideRpcSecret = false
         const rpcSecret = randomize('Aa0', 12)
         this.form.rpcSecret = rpcSecret
@@ -616,7 +664,13 @@
             ...changedConfig.basic
           }
 
-          const { btAutoDownloadContent, autoHideWindow, btTracker, noProxy } = data
+          const {
+            btAutoDownloadContent,
+            autoHideWindow,
+            btTracker,
+            noProxy,
+            rpcListenPort
+          } = data
 
           if ('btAutoDownloadContent' in data) {
             data.pauseMetadata = !btAutoDownloadContent
@@ -630,6 +684,10 @@
 
           if (noProxy) {
             data.noProxy = convertLineToComma(noProxy)
+          }
+
+          if (rpcListenPort === EMPTY_STRING) {
+            data.rpcListenPort = this.rpcDefaultPort
           }
 
           console.log('[Motrix] preference changed data:', data)
