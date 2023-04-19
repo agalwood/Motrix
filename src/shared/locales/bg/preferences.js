@@ -59,6 +59,8 @@ export default {
   'bt-port':'пристанище на слушане BT',
   'dht-port':'DHT слушане Порт',
   'security':'сигурност',
+  'rpc': 'RPC',
+  'rpc-listen-port': 'RPC слушащ порт',
   'rpc-secret': 'RPC Secret',
   'rpc-secret-tips': 'Гледайте инструкцията RPC Secret',
   'developer':'developer',
