@@ -101,14 +101,14 @@ export function peerIdParser (str) {
   return result
 }
 
-export function calcProgress (totalLength, completedLength) {
+export function calcProgress (totalLength, completedLength, decimal = 2) {
   const total = parseInt(totalLength, 10)
   const completed = parseInt(completedLength, 10)
   if (total === 0 || completed === 0) {
     return 0
   }
   const percentage = completed / total * 100
-  const result = parseFloat(percentage.toFixed(2))
+  const result = parseFloat(percentage.toFixed(decimal))
   return result
 }
 
