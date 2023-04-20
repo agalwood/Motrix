@@ -217,5 +217,10 @@ Translations into versions for other languages are welcome 🧐! Please read the
 | zh-TW | 繁體中文             | ✔️ [@Yukaii](https://github.com/Yukaii) [@5idereal](https://github.com/5idereal) |
 
 ## 📜 License
+   Copyright [2023] [Dr_rOot]
 
-[MIT](https://opensource.org/licenses/MIT) Copyright (c) 2018-present Dr_rOot
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+APLv2(http://www.apache.org/licenses/LICENSE-2.0)
