@@ -1,6 +1,6 @@
 {
     "productName": "Motrix",
-    "appId": "app.motrix.desktop",
+    "appId": "app.motrix.native",
     "afterPack": "./build/afterPackHook.js",
     "afterSign": "./build/afterSignHook.js",
     "fileAssociations": [
@@ -92,6 +92,13 @@
       "target": [
         {
           "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "appx",
           "arch": [
             "x64",
             "ia32"
