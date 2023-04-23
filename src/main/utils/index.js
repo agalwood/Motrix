@@ -49,6 +49,33 @@ export function getEngineArch (platform, arch) {
   return result
 }
 
+export const getDevEnginePath = (platform, arch) => {
+  const ah = getEngineArch(platform, arch)
+  const base = `../../../extra/${platform}/${ah}/engine`
+  const result = resolve(__dirname, base)
+  return result
+}
+
+export const getProdEnginePath = () => {
+  return resolve(app.getAppPath(), '../engine')
+}
+
+export const getEnginePath = (platform, arch) => {
+  return is.dev() ? getDevEnginePath(platform, arch) : getProdEnginePath()
+}
+
+export const getAria2BinPath = (platform, arch) => {
+  const base = getEnginePath(platform, arch)
+  const binName = getEngineBin(platform)
+  const result = resolve(base, `./${binName}`)
+  return result
+}
+
+export const getAria2ConfPath = (platform, arch) => {
+  const base = getEnginePath(platform, arch)
+  return resolve(base, './aria2.conf')
+}
+
 export function transformConfig (config) {
   const result = []
   for (const [k, v] of Object.entries(config)) {

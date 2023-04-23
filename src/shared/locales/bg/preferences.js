@@ -65,6 +65,7 @@ export default {
   'rpc-secret-tips': 'Гледайте инструкцията RPC Secret',
   'developer':'developer',
   'Mock-user-agent':'оформление User-Agent',
+  'aria2-conf-path': 'Вграден път за aria2.conf',
   'app-log-path': 'път към дневника на приложението',
   'download-session-path': 'качване на пътя на сесията',
   'factory-reset': 'Настройки по подразбиране',

@@ -66,6 +66,7 @@ export default {
   'developer': 'Developer',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Mock User-Agent',
+  'aria2-conf-path': 'Jalur aria2.conf Bawaan',
   'app-log-path': 'Lokasi Log Aplikasi',
   'download-session-path': 'Lokasi Session Unduhan',
   'factory-reset': 'Reset Pabrik',

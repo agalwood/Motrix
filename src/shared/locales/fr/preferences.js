@@ -66,6 +66,7 @@ export default {
   'developer': 'Développeur',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Mock User-Agent',
+  'aria2-conf-path': 'Chemin intégré de aria2.conf',
   'app-log-path': 'Chemin des logs',
   'download-session-path': 'Chemin de la session de téléchargement',
   'factory-reset': 'Réinitialisation',

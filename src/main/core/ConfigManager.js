@@ -4,8 +4,6 @@ import Store from 'electron-store'
 
 import {
   getDhtPath,
-  getLogPath,
-  getSessionPath,
   getUserDownloadsPath,
   getMaxConnectionPerServer
 } from '../utils/index'
@@ -70,7 +68,7 @@ export default class ConfigManager {
         'max-connection-per-server': getMaxConnectionPerServer(),
         'max-download-limit': 0,
         'max-overall-download-limit': 0,
-        'max-overall-upload-limit': '1M',
+        'max-overall-upload-limit': 0,
         'no-proxy': EMPTY_STRING,
         'pause-metadata': false,
         'pause': true,
@@ -113,14 +111,12 @@ export default class ConfigManager {
         'last-check-update-time': 0,
         'last-sync-tracker-time': 0,
         'locale': app.getLocale(),
-        'log-path': getLogPath(),
         'new-task-show-downloading': true,
         'no-confirm-before-delete-task': false,
         'open-at-login': false,
         'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,
         'run-mode': APP_RUN_MODE.STANDARD,
-        'session-path': getSessionPath(),
         'task-notification': true,
         'theme': APP_THEME.AUTO,
         'tracker-source': [

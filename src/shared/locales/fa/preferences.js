@@ -66,6 +66,7 @@ export default {
   'developer': 'توسعه‌دهنده',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'جعل عامل کاربر',
+  'aria2-conf-path': 'مسیر aria2.conf درونی',
   'app-log-path': 'مسیر گزارش برنامه',
   'download-session-path': 'مسیر نشست بارگیری',
   'session-reset': 'بازنشانی نشست بارگیری',

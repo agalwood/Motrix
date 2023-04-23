@@ -1,15 +1,13 @@
-import { app } from 'electron'
 import is from 'electron-is'
 import { existsSync, writeFile, unlink } from 'fs'
-import { resolve, join } from 'path'
 import { spawn } from 'child_process'
 
 import logger from './Logger'
 import { getI18n } from '../ui/Locale'
 import {
-  getEngineBin,
-  getEngineArch,
   getEnginePidPath,
+  getAria2BinPath,
+  getAria2ConfPath,
   getSessionPath,
   transformConfig
 } from '../utils/index'
@@ -26,7 +24,6 @@ export default class Engine {
     this.i18n = getI18n()
     this.systemConfig = options.systemConfig
     this.userConfig = options.userConfig
-    this.basePath = this.getBasePath()
   }
 
   start () {
@@ -37,7 +34,7 @@ export default class Engine {
       return
     }
 
-    const binPath = this.getBinPath()
+    const binPath = this.getEngineBinPath()
     const args = this.getStartArgs()
     this.instance = spawn(binPath, args, {
       windowsHide: false,
@@ -84,13 +81,8 @@ export default class Engine {
     })
   }
 
-  getBinPath () {
-    const binName = getEngineBin(platform)
-    if (!binName) {
-      throw new Error(this.i18n.t('app.engine-damaged-message'))
-    }
-
-    const result = join(this.basePath, `/engine/${binName}`)
+  getEngineBinPath () {
+    const result = getAria2BinPath(platform, arch)
     const binIsExist = existsSync(result)
     if (!binIsExist) {
       logger.error('[Motrix] engine bin is not exist:', result)
@@ -100,25 +92,10 @@ export default class Engine {
     return result
   }
 
-  getBasePath () {
-    const result = is.dev()
-      ? this.getDevBasePath()
-      : resolve(app.getAppPath(), '..')
-
-    return result
-  }
-
-  getDevBasePath () {
-    const ah = getEngineArch(platform, arch)
-    const base = `../../../extra/${platform}/${ah}`
-    const result = resolve(__dirname, base)
-    return result
-  }
-
   getStartArgs () {
-    const confPath = join(this.basePath, '/engine/aria2.conf')
+    const confPath = getAria2ConfPath(platform, arch)
 
-    const sessionPath = this.userConfig['session-path'] || getSessionPath()
+    const sessionPath = getSessionPath()
     const sessionIsExist = existsSync(sessionPath)
 
     let result = [`--conf-path=${confPath}`, `--save-session=${sessionPath}`]

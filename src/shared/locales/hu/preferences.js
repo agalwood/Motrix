@@ -66,6 +66,7 @@ export default {
   'developer': 'feljesztö',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'User-Agent-t',
+  'aria2-conf-path': 'Beépített aria2.conf útvonal',
   'app-log-path': 'Alkalmazásnapló helye',
   'download-session-path': 'Letöltés folyamat helye',
   'factory-reset': 'Gyári viszaálitas',

@@ -66,6 +66,7 @@ export default {
   'developer': 'المطور',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'وكيل مستخدم وهمي',
+  'aria2-conf-path': 'مسار aria2.conf المدمج',
   'app-log-path': 'مسار سجلات التطبيق',
   'download-session-path': 'مسار التحميلات',
   'session-reset': 'إعادة التحميل',

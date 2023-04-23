@@ -66,6 +66,7 @@ export default {
   'developer': 'Розробник',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Макет User-Agent',
+  'aria2-conf-path': 'Вбудований шлях до aria2.conf',
   'app-log-path': 'Шлях до журналу додатка',
   'download-session-path': 'Завантажити шлях сесії',
   'factory-reset': 'Налаштування за замовчуванням',

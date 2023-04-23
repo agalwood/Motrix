@@ -66,6 +66,7 @@ export default {
   'developer': 'Προγραμματιστής',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Πλαστό User-Agent',
+  'aria2-conf-path': 'Ενσωματωμένη διαδρομή aria2.conf',
   'app-log-path': 'Διαδρομή για το αρχείο log της εφαρμογής',
   'download-session-path': 'Διαδρομή λήψεων για αυτή τη συνεδρία',
   'factory-reset': 'Επαναφορά στις εργοστασιακές ρυθμίσεις',
