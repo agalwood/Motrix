@@ -17,6 +17,7 @@ import {
   reduceTrackerString
 } from '@shared/utils/tracker'
 import logger from './core/Logger'
+import Context from './core/Context'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from './ui/Locale'
 import Engine from './core/Engine'
@@ -32,7 +33,6 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
-import { getSessionPath } from './utils'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -42,6 +42,8 @@ export default class Application extends EventEmitter {
   }
 
   init () {
+    this.initContext()
+
     this.initConfigManager()
 
     this.initLocaleManager()
@@ -81,6 +83,10 @@ export default class Application extends EventEmitter {
     this.handleIpcInvokes()
 
     this.emit('application:initialized')
+  }
+
+  initContext () {
+    this.context = new Context()
   }
 
   initConfigManager () {
@@ -644,7 +650,7 @@ export default class Application extends EventEmitter {
 
     app.clearRecentDocuments()
 
-    const sessionPath = this.configManager.getUserConfig('session-path') || getSessionPath()
+    const sessionPath = this.context.get('session-path')
     setTimeout(() => {
       unlink(sessionPath, function (err) {
         logger.info('[Motrix] Removed the download seesion file:', err)
@@ -874,10 +880,12 @@ export default class Application extends EventEmitter {
     ipcMain.handle('get-app-config', async () => {
       const systemConfig = this.configManager.getSystemConfig()
       const userConfig = this.configManager.getUserConfig()
+      const context = this.context.get()
 
       const result = {
         ...systemConfig,
-        ...userConfig
+        ...userConfig,
+        ...context
       }
       return result
     })

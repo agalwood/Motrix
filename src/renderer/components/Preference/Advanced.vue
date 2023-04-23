@@ -349,6 +349,16 @@
           :label-width="formLabelWidth"
         >
           <el-col class="form-item-sub" :span="24">
+            {{ $t('preferences.aria2-conf-path') }}
+            <el-input placeholder="" disabled v-model="aria2ConfPath">
+              <mo-show-in-folder
+                slot="append"
+                v-if="isRenderer"
+                :path="aria2ConfPath"
+              />
+            </el-input>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.app-log-path') }}
             <el-input placeholder="" disabled v-model="logPath">
               <mo-show-in-folder
@@ -520,6 +530,7 @@
       },
       ...mapState('preference', {
         config: state => state.config,
+        aria2ConfPath: state => state.config.aria2ConfPath,
         logPath: state => state.config.logPath,
         sessionPath: state => state.config.sessionPath
       })
