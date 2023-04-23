@@ -66,6 +66,7 @@ export default {
   'developer': 'Utvikler',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Mock User-Agent',
+  'aria2-conf-path': 'Innebygd aria2.conf-sti',
   'app-log-path': 'Apploggbane',
   'download-session-path': 'Last ned øktstien',
   'session-reset': 'Tilbakestill nedlastingsøkten',

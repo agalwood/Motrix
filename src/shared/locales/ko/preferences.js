@@ -66,6 +66,7 @@ export default {
   'developer': '개발자',
   'user-agent': 'User-Agent',
   'mock-user-agent': '모의 사용자 에이전트',
+  'aria2-conf-path': '내장 된 aria2.conf 경로',
   'app-log-path': '앱 로그 경로',
   'download-session-path': '다운로드 세션 경로',
   'session-reset': '다운로드 세션 초기화',

@@ -66,6 +66,7 @@ export default {
   'developer': '開發者',
   'user-agent': 'User-Agent',
   'mock-user-agent': '偽裝 User Agent',
+  'aria2-conf-path': '內建的 aria2.conf 路徑',
   'app-log-path': '應用程式記錄檔位置',
   'download-session-path': '下載工作階段路徑',
   'session-reset': '重設下載工作階段',

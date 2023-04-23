@@ -66,6 +66,7 @@ export default {
   'developer': 'Lập trình viên',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Mock User-Agent',
+  'aria2-conf-path': 'Đường dẫn aria2.conf tích hợp sẵn',
   'app-log-path': 'Đường dẫn nhật ký ứng dụng',
   'download-session-path': 'Đường dẫn phiên tải về',
   'session-reset': 'Đặt lại phiên tải xuống',

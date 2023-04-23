@@ -66,6 +66,7 @@ export default {
   'developer': 'Geliştirici',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Sahte Kullanıcı Kimliği (User-Agent)',
+  'aria2-conf-path': 'Dahili aria2.conf yolu',
   'app-log-path': 'Uygulama log yolu',
   'download-session-path': 'Oturum yolunu indir',
   'factory-reset': 'Fabrika ayarlarına dön',

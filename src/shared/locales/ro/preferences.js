@@ -66,6 +66,7 @@ export default {
   'developer': 'Dezvoltator',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Mock User-Agent',
+  'aria2-conf-path': 'Calea aria2.conf încorporată',
   'app-log-path': 'Calea jurnalului aplicației',
   'download-session-path': 'Calea sesiunii de download',
   'factory-reset': 'Resetare la setări din fabrică',

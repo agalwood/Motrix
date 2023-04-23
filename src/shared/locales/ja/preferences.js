@@ -66,6 +66,7 @@ export default {
   'developer': '開発者',
   'user-agent': 'User-Agent',
   'mock-user-agent': '偽装ユーザーエージェント（UA）',
+  'aria2-conf-path': '組み込みの aria2.conf パス',
   'app-log-path': 'ログディレクトリを適用',
   'download-session-path': 'セッションパスをダウンロード',
   'factory-reset': '初期設定に戻す',

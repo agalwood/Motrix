@@ -66,6 +66,7 @@ export default {
   'developer': 'Desenvolupador',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'Mock User-Agent',
+  'aria2-conf-path': 'Ruta incorporada per al fitxer aria2.conf',
   'app-log-path': 'Ruta del log',
   'download-session-path': 'Ruta de descàrrega de la sessió',
   'factory-reset': 'Reseteig de fàbrica',

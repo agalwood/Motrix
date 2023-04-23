@@ -66,6 +66,7 @@ export default {
   'developer': 'Ontwikkelaar',
   'user-agent': 'User-Agent',
   'mock-user-agent': 'User-Agent nabootsen',
+  'aria2-conf-path': 'Ingebed pad voor aria2.conf',
   'app-log-path': 'Applicatie log pad',
   'download-session-path': 'Downloadsessie pad',
   'session-reset': 'Reset download sessie',
