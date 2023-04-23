@@ -68,7 +68,7 @@ export default class ConfigManager {
         'max-connection-per-server': getMaxConnectionPerServer(),
         'max-download-limit': 0,
         'max-overall-download-limit': 0,
-        'max-overall-upload-limit': '1M',
+        'max-overall-upload-limit': 0,
         'no-proxy': EMPTY_STRING,
         'pause-metadata': false,
         'pause': true,
