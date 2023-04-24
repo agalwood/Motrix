@@ -28,9 +28,13 @@ jobs:
         uses: samuelmeuli/action-snapcraft@v2
         # Only install Snapcraft on Ubuntu
         if: startsWith(matrix.os, 'ubuntu')
-        with:
-          # Log in to Snap Store
-          snapcraft_token: ${{ secrets.snapcraft_token }}
+        env:
+          # Snapcraft
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.snapcraft_token }}
+
+      - name: Test Snapcraft
+        if: startsWith(matrix.os, 'ubuntu')
+        run: snapcraft --help
 
       - name: Prepare for app notarization (macOS)
         if: startsWith(matrix.os, 'macos') && startsWith(github.ref, 'refs/tags/v')
