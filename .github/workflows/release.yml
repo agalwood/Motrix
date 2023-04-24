@@ -63,3 +63,9 @@ jobs:
           API_KEY_ID: ${{ secrets.api_key_id }}
           API_KEY_ISSUER_ID: ${{ secrets.api_key_issuer_id }}
           SKIP_NOTARIZE: ${{ secrets.skip_notarize == 'true' || !startsWith(github.ref, 'refs/tags/v') }}
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        with:
+          name: motrix-release
+          path: release
