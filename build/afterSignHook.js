@@ -21,8 +21,10 @@ exports.default = async function (context) {
 
   try {
     await notarize({
+      tool: 'notarytool',
       appBundleId,
       appPath,
+      teamId: process.env.TEAM_ID,
       appleId: process.env.APPLE_ID,
       appleIdPassword: process.env.APPLE_ID_PASSWORD
     })
