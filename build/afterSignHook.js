@@ -1,5 +1,5 @@
 require('dotenv').config()
-const { join } = require('path');
+const { join } = require('path')
 const { notarize } = require('@electron/notarize')
 const { appId } = require('../electron-builder.json')
 
@@ -17,7 +17,7 @@ exports.default = async function (context) {
 
   const appBundleId = appId
   const appName = context.packager.appInfo.productFilename
-  const appPath = join(appOutDir, `${appName}.app`);
+  const appPath = join(appOutDir, `${appName}.app`)
 
   try {
     await notarize({
@@ -27,8 +27,8 @@ exports.default = async function (context) {
       appleIdPassword: process.env.APPLE_ID_PASSWORD
     })
   } catch (error) {
-    console.error(error);
+    console.error(error)
   }
 
-  console.log(`Done notarizing ${appId}`);
+  console.log(`Done notarizing ${appId}`)
 }
