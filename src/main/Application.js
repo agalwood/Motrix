@@ -271,6 +271,20 @@ export default class Application extends EventEmitter {
     })
   }
 
+  watchShowProgressBarChange () {
+    const { userConfig } = this.configManager
+    const key = 'show-progress-bar'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+
+      if (newValue) {
+        this.bindProgressChange()
+      } else {
+        this.unbindProgressChange()
+      }
+    })
+  }
+
   initUPnPManager () {
     this.upnp = new UPnPManager()
 
@@ -829,6 +843,7 @@ export default class Application extends EventEmitter {
     this.watchOpenAtLoginChange()
     this.watchProtocolsChange()
     this.watchRunModeChange()
+    this.watchShowProgressBarChange()
 
     this.on('download-status-change', (downloading) => {
       this.trayManager.handleDownloadStatusChange(downloading)
@@ -853,15 +868,36 @@ export default class Application extends EventEmitter {
       app.addRecentDocument(path)
     })
 
-    this.on('progress-change', (progress) => {
-      if (this.updateManager.isChecking) {
-        return
-      }
-      if (!is.windows() && progress === 2) {
-        progress = 0
-      }
-      this.windowManager.getWindow('index').setProgressBar(progress)
-    })
+    if (this.configManager.userConfig.get('show-progress-bar')) {
+      this.bindProgressChange()
+    }
+  }
+
+  handleProgressChange (progress) {
+    if (this.updateManager.isChecking) {
+      return
+    }
+    if (!is.windows() && progress === 2) {
+      progress = 0
+    }
+    this.windowManager.getWindow('index').setProgressBar(progress)
+  }
+
+  bindProgressChange () {
+    if (this.listeners('progress-change').length > 0) {
+      return
+    }
+
+    this.on('progress-change', this.handleProgressChange)
+  }
+
+  unbindProgressChange () {
+    if (this.listeners('progress-change').length === 0) {
+      return
+    }
+
+    this.off('progress-change', this.handleProgressChange)
+    this.windowManager.getWindow('index').setProgressBar(-1)
   }
 
   handleIpcMessages () {

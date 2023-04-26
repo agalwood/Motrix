@@ -23,6 +23,7 @@ const userKeys = [
   'resume-all-when-app-launched',
   'run-mode',
   'session-path',
+  'show-progress-bar',
   'task-notification',
   'theme',
   'tracker-source',

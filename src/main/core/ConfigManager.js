@@ -117,6 +117,7 @@ export default class ConfigManager {
         'protocols': { 'magnet': true, 'thunder': false },
         'resume-all-when-app-launched': false,
         'run-mode': APP_RUN_MODE.STANDARD,
+        'show-progress-bar': true,
         'task-notification': true,
         'theme': APP_THEME.AUTO,
         'tracker-source': [
