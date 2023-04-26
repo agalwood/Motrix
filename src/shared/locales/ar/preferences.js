@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'تطبيق العلبة',
   'run-mode-hide-tray': 'إخفاء تطبيق العلبة',
   'tray-speedometer': 'يعرض درج شريط القوائم السرعة في الوقت الفعلي',
+  'show-progress-bar': 'عرض شريط تقدم التنزيل',
   'language': 'اللغة',
   'change-language': 'تغيير اللغة',
   'hide-app-menu': 'إخفاء قائمة التطبيقات (Windows و Linux فقط)',

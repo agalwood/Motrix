@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Приложение в трее',
   'run-mode-hide-tray': 'Скрыть приложение в трее',
   'tray-speedometer': 'Панель меню отображает скорость в реальном времени',
+  'show-progress-bar': 'Показать индикатор загрузки',
   'language': 'Язык',
   'change-language': 'Сменить язык',
   'hide-app-menu': 'Скрыть меню приложения (только для Windows и Linux)',

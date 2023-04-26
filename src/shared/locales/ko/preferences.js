@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': '트레이 애플리케이션',
   'run-mode-hide-tray': '트레이 응용 프로그램 숨기기',
   'tray-speedometer': '메뉴 막대 트레이에 실시간 속도가 표시됩니다',
+  'show-progress-bar': '다운로드 진행률 막대기 보이기',
   'language': '언어',
   'change-language': '언어 변경',
   'hide-app-menu': '앱 메뉴 숨기기 (Windows 및 Linux)',

@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Aplicație pentru tava',
   'run-mode-hide-tray': 'Ascundeți aplicația tăvii',
   'tray-speedometer': 'Iconița din bară arată viteza în timp real',
+  'show-progress-bar': 'Afișează bara de progres a descărcării',
   'language': 'Limba',
   'change-language': 'Schimbă limba',
   'hide-app-menu': 'Ascundeți meniul aplicației (numai Windows și Linux)',

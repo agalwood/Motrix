@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Application de la zone de notification',
   'run-mode-hide-tray': 'Masquer l\'application de la barre d\'état système',
   'tray-speedometer': 'La barre de menus affiche la vitesse en temps réel',
+  'show-progress-bar': 'Afficher la barre de progression du téléchargement',
   'language': 'Langues',
   'change-language': 'Changer la langue',
   'hide-app-menu': 'Cacher le menu de l\'application (Windows & Linux uniquement)',

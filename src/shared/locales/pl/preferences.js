@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Aplikacja z paska powiadomień',
   'run-mode-hide-tray': 'Ukryj aplikację zasobnika',
   'tray-speedometer': 'Pasek zadań będzie pokazywać aktualną prędkość',
+  'show-progress-bar': 'Pokaż pasek postępu pobierania',
   'language': 'Język',
   'change-language': 'Zmień język',
   'hide-app-menu': 'Schowaj menu aplikacji (Tylko Windows i Linux)',

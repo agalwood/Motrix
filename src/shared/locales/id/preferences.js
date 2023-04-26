@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Aplikasi Tray',
   'run-mode-hide-tray': 'Sembunyikan Aplikasi Tray',
   'tray-speedometer': 'Baki menu bar menunjukkan kecepatan waktu-nyata',
+  'show-progress-bar': 'Tampilkan bilah kemajuan unduhan',
   'language': 'Bahasa',
   'change-language': 'Ubah Bahasa',
   'hide-app-menu': 'Sembunyikan Menu Aplikasi (hanya: Windows & Linux)',

@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Toepassing voor systeemvak',
   'run-mode-hide-tray': 'Toepassing in systeemvak verbergen',
   'tray-speedometer': 'Menubalk toon real-time snelheid',
+  'show-progress-bar': 'Downloadvoortgangsbalk weergeven',
   'language': 'Taal',
   'change-language': 'Taal veranderen',
   'hide-app-menu': 'App menu verbergen (alleen Windows & Linux)',

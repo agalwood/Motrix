@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Ứng dụng khay thông báo',
   'run-mode-hide-tray': 'Ẩn ứng dụng khay hệ thống',
   'tray-speedometer': 'Thanh menu hiển thị tốc độ thời gian thực',
+  'show-progress-bar': 'Hiển thị thanh tiến trình tải xuống',
   'language': 'Ngôn ngữ',
   'change-language': 'Thay đổi Ngôn ngữ',
   'hide-app-menu': 'Ẩn thanh Menu (Chỉ Windows & Linux)',

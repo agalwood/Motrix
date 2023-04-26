@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Εφαρμογή περιοχής ειδοποιήσεων',
   'run-mode-hide-tray': 'Απόκρυψη εφαρμογής της περιοχής ειδοποιήσεων',
   'tray-speedometer': 'Δείξε τη ταχύτητα στο μενου',
+  'show-progress-bar': 'Εμφάνιση μπάρας προόδου λήψης',
   'language': 'Γλώσσα',
   'change-language': 'Αλλαγή Γλώσσας',
   'hide-app-menu': 'Κρύψε το μενού της εφαρμογής (μόνο για Windows & Linux)',

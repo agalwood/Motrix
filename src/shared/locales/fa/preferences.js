@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'برنامه سینی',
   'run-mode-hide-tray': 'مخفی کردن برنامه سینی',
   'tray-speedometer': 'سینی نوار منو سرعت زمان واقعی را نشان می‌دهد',
+  'show-progress-bar': 'نمایش نوار پیشرفت دانلود',
   'language': 'زبان',
   'change-language': 'تغییر زبان',
   'hide-app-menu': 'پنهان کردن منوی برنامه (تنها در ویندوز و لینوکس)',

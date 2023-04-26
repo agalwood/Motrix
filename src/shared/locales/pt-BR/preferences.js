@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Aplicativo de bandeja',
   'run-mode-hide-tray': 'Ocultar aplicativo da bandeja',
   'tray-speedometer': 'A bandeja da barra de menus mostra a velocidade em tempo real',
+  'show-progress-bar': 'Mostrar barra de progresso de download',
   'language': 'Idioma',
   'change-language': 'Mudar o Idioma',
   'hide-app-menu': 'Ocultar o Menu do App (Windows & Linux apenas)',

@@ -43,6 +43,11 @@
               {{ $t('preferences.tray-speedometer') }}
             </el-checkbox>
           </el-col>
+          <el-col class="form-item-sub" :span="16">
+            <el-checkbox v-model="form.showProgressBar">
+              {{ $t('preferences.show-progress-bar') }}
+            </el-checkbox>
+          </el-col>
         </el-form-item>
         <el-form-item
           v-if="isMac"
@@ -339,6 +344,7 @@
       runMode,
       seedRatio,
       seedTime,
+      showProgressBar,
       taskNotification,
       theme,
       traySpeedometer
@@ -368,6 +374,7 @@
       runMode,
       seedRatio,
       seedTime,
+      showProgressBar,
       taskNotification,
       theme,
       traySpeedometer

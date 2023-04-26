@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Додаток у лотку',
   'run-mode-hide-tray': 'Приховати програму лотка',
   'tray-speedometer': 'Лоток панелі меню показує швидкість у режимі реального часу',
+  'show-progress-bar': 'Показати панель завантаження',
   'language': 'Мова',
   'change-language': 'Змінити мову',
   'hide-app-menu': 'Сховати меню додатка (Тільки для Windows та Linux)',

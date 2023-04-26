@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Infobereichsanwendung',
   'run-mode-hide-tray': 'Infobereichsanwendung ausblenden',
   'tray-speedometer': 'Das Menüleistenfach zeigt die Echtzeitgeschwindigkeit an',
+  'show-progress-bar': 'Fortschrittsbalken anzeigen',
   'language': 'Sprache',
   'change-language': 'Sprache ändern',
   'hide-app-menu': 'App Menü ausblenden (nur auf Windows & Linux)',
