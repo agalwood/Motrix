@@ -77,9 +77,7 @@
       "type": "development",
       "darkModeSupport": true,
       "hardenedRuntime": false,
-      "notarize": {
-        "tool": "notarytool"
-      },
+      "notarize": true,
       "extraResources": {
         "from": "./extra/darwin/${arch}/",
         "to": "./",
