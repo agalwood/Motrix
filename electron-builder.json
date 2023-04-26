@@ -133,7 +133,10 @@
       "allowToChangeInstallationDirectory": true
     },
     "appx": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "identityName": "59744DrrOot.Motrix",
+      "publisher": "5BB4961D-30D8-4993-9ADF-05E1E1F5A395",
+      "publisherDisplayName": "Dr_rOot"
     },
     "portable": {
       "artifactName": "${productName}-${version}-${arch}.${ext}"
