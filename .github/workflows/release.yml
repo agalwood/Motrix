@@ -52,6 +52,8 @@ jobs:
           # release the app after building
           release: ${{ vars.skip_publish != 'true' }}
         env:
+          # Snapcraft
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.snapcraft_token }}
           # macOS notarization API key
           API_KEY_ID: ${{ secrets.api_key_id }}
           API_KEY_ISSUER_ID: ${{ secrets.api_key_issuer_id }}
