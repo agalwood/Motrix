@@ -1,13 +1,13 @@
 {
   "name": "Motrix",
-  "version": "1.8.7",
+  "version": "1.8.8",
   "description": "A full-featured download manager",
   "homepage": "https://motrix.app",
   "author": {
-    "name": "AGALWOOD",
+    "name": "Dr_rOot",
     "email": "agalwood.net@gmail.com"
   },
-  "copyright": "Copyright© AGALWOOD",
+  "copyright": "Copyright© Dr_rOot",
   "license": "MIT",
   "main": "./dist/electron/main.js",
   "repository": {
