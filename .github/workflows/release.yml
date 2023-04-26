@@ -37,7 +37,7 @@ jobs:
         run: snapcraft --help
 
       - name: Prepare for app notarization (macOS)
-        if: startsWith(matrix.os, 'macos') && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(matrix.os, 'macos')
         # Import Apple API key for app notarization on macOS
         run: |
           mkdir -p ~/private_keys/
@@ -57,9 +57,9 @@ jobs:
 
           # If the commit is tagged with a version (e.g. "v1.0.0"),
           # release the app after building
-          release: ${{ secrets.force_release == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+          release: ${{ secrets.skip_release != 'true' }}
         env:
           # macOS notarization API key
           API_KEY_ID: ${{ secrets.api_key_id }}
           API_KEY_ISSUER_ID: ${{ secrets.api_key_issuer_id }}
-          SKIP_NOTARIZE: ${{ secrets.skip_notarize == 'true' || !startsWith(github.ref, 'refs/tags/v') }}
+          SKIP_NOTARIZE: ${{ secrets.skip_notarize == 'true' }}
