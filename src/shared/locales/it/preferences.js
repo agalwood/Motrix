@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Applicazione della barra delle applicazioni',
   'run-mode-hide-tray': 'Nascondi applicazione della barra delle applicazioni',
   'tray-speedometer': 'La barra dei menu mostra la velocità in tempo reale',
+  'show-progress-bar': 'Mostra la barra di progresso del download',
   'language': 'Lingua',
   'change-language': 'Cambia lingua',
   'hide-app-menu': 'Nascondi dal menu delle app (Solo Windows & Linux)',

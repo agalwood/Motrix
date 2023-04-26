@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Aplicació de la safata',
   'run-mode-hide-tray': 'Amagar l\'aplicació de la safata',
   'tray-speedometer': 'La safata de barres de menús mostra la velocitat en temps real',
+  'show-progress-bar': 'Mostra la barra de progrés de la descàrrega',
   'language': 'Idioma',
   'change-language': 'Cambiar idioma',
   'hide-app-menu': 'Ocultar el menú (només Windows i Linux)',

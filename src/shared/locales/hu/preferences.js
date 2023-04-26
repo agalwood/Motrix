@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Tálcás alkalmazás',
   'run-mode-hide-tray': 'Tálca alkalmazás elrejtése',
   'tray-speedometer': 'Menu csik mutasa a letöltés és feltöltés sebbeséget',
+  'show-progress-bar': 'Letöltési előrehaladási sáv megjelenítése',
   'language': 'Nyelv',
   'change-language': 'Nyelv váltas',
   'hide-app-menu': 'Alkalmazás csik elrejtése (csak Windows és Linux)',

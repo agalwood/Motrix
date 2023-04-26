@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'แถบแจ้งเตือนแอปพลิเคชัน',
   'run-mode-hide-tray': 'ซ่อนแอปพลิเคชันถาด',
   'tray-speedometer': 'ถาดแถบเมนูแสดงความเร็วแบบเรียลไทม์',
+  'show-progress-bar': 'แสดงแถบความคืบหน้าการดาวน์โหลด',
   'language': 'ภาษา',
   'change-language': 'เปลี่ยนภาษา',
   'hide-app-menu': 'ซ่อนเมนูแอป (Windows & Linux เท่านั้น)',

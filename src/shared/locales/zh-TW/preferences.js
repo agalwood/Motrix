@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': '托盤應用程式',
   'run-mode-hide-tray': '隱藏托盤應用程式',
   'tray-speedometer': '托盤顯示即時速度',
+  'show-progress-bar': '顯示下載進度條',
   'language': '語言',
   'change-language': '更改語言',
   'hide-app-menu': '隱藏選單列（僅支援 Windows 和 Linux）',

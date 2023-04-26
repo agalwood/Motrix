@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'トレイアプリケーション',
   'run-mode-hide-tray': 'トレイアプリケーションを非表示にする',
   'tray-speedometer': 'メニューバートレイは、リアルタイムの速度を示します',
+  'show-progress-bar': 'ダウンロード進行状況の表示',
   'language': '言語',
   'change-language': '言語を切り替え',
   'hide-app-menu': 'メニューバーを隠す（Windows と Linux のみサポート）',

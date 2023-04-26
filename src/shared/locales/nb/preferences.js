@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': 'Tray-applikasjon',
   'run-mode-hide-tray': 'Skjul statusfeltprogram',
   'tray-speedometer': 'Menylinje viser sanntidshastighet',
+  'show-progress-bar': 'Vis fremgangslinjen for nedlastning',
   'language': 'Språk',
   'change-language': 'Skifte språk',
   'hide-app-menu': 'Skjul appmeny (kun Windows og Linux)',

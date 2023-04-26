@@ -43,6 +43,7 @@ export default {
   'run-mode-tray': '托盘应用',
   'run-mode-hide-tray': '隐藏托盘应用',
   'tray-speedometer': '托盘显示实时速度',
+  'show-progress-bar': '显示下载进度条',
   'language': '语言',
   'change-language': '切换语言',
   'hide-app-menu': '隐藏菜单栏（仅支持 Windows 和 Linux）',

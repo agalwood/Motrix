@@ -43,6 +43,7 @@ export default {
   'theme-dark': 'Koyu',
   'run-mode-hide-tray': 'Tepsi uygulamasını gizle',
   'tray-speedometer': 'Menü çubuğu tepsisi gerçek zamanlı hızı gösterir',
+  'show-progress-bar': 'İndirme ilerleme çubuğunu göster',
   'language': 'Dil',
   'change-language': 'Dil değiştir',
   'hide-app-menu': 'Uygulama menüsünü göster (Windows & Linux için)',
