@@ -2,7 +2,6 @@
     "productName": "Motrix",
     "appId": "app.motrix.native",
     "afterPack": "./build/afterPackHook.js",
-    "afterSign": "./build/afterSignHook.js",
     "fileAssociations": [
       {
         "ext": "torrent",
@@ -78,7 +77,9 @@
       "type": "development",
       "darkModeSupport": true,
       "hardenedRuntime": false,
-      "notarize": false,
+      "notarize": {
+        "tool": "notarytool"
+      },
       "extraResources": {
         "from": "./extra/darwin/${arch}/",
         "to": "./",

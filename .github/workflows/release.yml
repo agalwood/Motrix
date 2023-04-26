@@ -36,13 +36,6 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: snapcraft --help
 
-      - name: Prepare for app notarization (macOS)
-        if: startsWith(matrix.os, 'macos')
-        # Import Apple API key for app notarization on macOS
-        run: |
-          mkdir -p ~/private_keys/
-          echo '${{ secrets.api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
-
       - name: Build/release Electron app
         uses: motrixapp/action-electron-builder@v2
         with:
@@ -57,9 +50,10 @@ jobs:
 
           # If the commit is tagged with a version (e.g. "v1.0.0"),
           # release the app after building
-          release: ${{ secrets.skip_release != 'true' }}
+          release: ${{ vars.skip_publish != 'true' }}
         env:
           # macOS notarization API key
           API_KEY_ID: ${{ secrets.api_key_id }}
           API_KEY_ISSUER_ID: ${{ secrets.api_key_issuer_id }}
-          SKIP_NOTARIZE: ${{ secrets.skip_notarize == 'true' }}
+          APPLE_ID: ${{ secrets.apple_id }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.apple_app_specific_password }}
