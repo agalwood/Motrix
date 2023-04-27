@@ -46,6 +46,8 @@ export default class Application extends EventEmitter {
 
     this.initConfigManager()
 
+    this.setupLogger()
+
     this.initLocaleManager()
 
     this.setupApplicationMenu()
@@ -103,6 +105,18 @@ export default class Application extends EventEmitter {
       logger.warn('[Motrix] offConfigListeners===>', e)
     }
     this.configListeners = {}
+  }
+
+  setupLogger () {
+    const { userConfig } = this.configManager
+    const key = 'log-level'
+    const logLevel = userConfig.get(key)
+    logger.transports.file.level = logLevel
+
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+      logger.transports.file.level = newValue
+    })
   }
 
   initLocaleManager () {

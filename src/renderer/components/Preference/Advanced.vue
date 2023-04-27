@@ -359,16 +359,6 @@
             </el-input>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            {{ $t('preferences.app-log-path') }}
-            <el-input placeholder="" disabled v-model="logPath">
-              <mo-show-in-folder
-                slot="append"
-                v-if="isRenderer"
-                :path="logPath"
-              />
-            </el-input>
-          </el-col>
-          <el-col class="form-item-sub" :span="24">
             {{ $t('preferences.download-session-path') }}
             <el-input placeholder="" disabled v-model="sessionPath">
               <mo-show-in-folder
@@ -377,6 +367,30 @@
                 :path="sessionPath"
               />
             </el-input>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
+            {{ $t('preferences.app-log-path') }}
+            <el-row :gutter="16">
+              <el-col :span="18">
+                <el-input placeholder="" disabled v-model="logPath">
+                  <mo-show-in-folder
+                  slot="append"
+                  v-if="isRenderer"
+                  :path="logPath"
+                  />
+                </el-input>
+              </el-col>
+              <el-col :span="6">
+                <el-select v-model="form.logLevel">
+                  <el-option
+                    v-for="item in logLevels"
+                    :key="item"
+                    :label="item"
+                    :value="item">
+                  </el-option>
+                </el-select>
+              </el-col>
+            </el-row>
           </el-col>
           <el-col class="form-item-sub" :span="24">
             <el-button plain type="warning" @click="() => onSessionResetClick()">
@@ -414,7 +428,7 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
-  import { trackerSourceOptions, ENGINE_RPC_PORT, EMPTY_STRING } from '@shared/constants'
+  import { trackerSourceOptions, ENGINE_RPC_PORT, EMPTY_STRING, LOG_LEVELS } from '@shared/constants'
   import {
     backupConfig,
     buildRpcUrl,
@@ -446,6 +460,7 @@
       lastCheckUpdateTime,
       lastSyncTrackerTime,
       listenPort,
+      logLevel,
       noProxy,
       protocols,
       rpcListenPort,
@@ -466,6 +481,7 @@
       lastCheckUpdateTime,
       lastSyncTrackerTime,
       listenPort,
+      logLevel,
       noProxy: convertCommaToLine(noProxy),
       protocols: {
         ...protocols
@@ -527,6 +543,9 @@
       },
       rpcDefaultPort () {
         return ENGINE_RPC_PORT
+      },
+      logLevels () {
+        return LOG_LEVELS
       },
       ...mapState('preference', {
         config: state => state.config,
