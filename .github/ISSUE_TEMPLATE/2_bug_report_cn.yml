@@ -18,6 +18,14 @@ body:
       required: true
 
   - type: textarea
+    id: app-version
+    attributes:
+      label: Motrix 版本
+      description: 请提供详细的版本信息以及安装的方式，如 macOS Apple silicon dmg、Windows Universal 安装文件等
+    validations:
+      required: true
+
+  - type: textarea
     attributes:
       label: 环境
       description: |

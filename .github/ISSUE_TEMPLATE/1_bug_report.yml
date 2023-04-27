@@ -18,6 +18,14 @@ body:
       required: true
 
   - type: textarea
+    id: app-version
+    attributes:
+      label: Motrix Version
+      description: Please provide detailed version information and installation method, such as macOS Apple silicon dmg, Windows Universal installation file, etc.
+    validations:
+      required: true
+
+  - type: textarea
     attributes:
       label: Environment
       description: |
