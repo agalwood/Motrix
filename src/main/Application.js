@@ -663,6 +663,13 @@ export default class Application extends EventEmitter {
       win.setProgressBar(0)
     })
 
+    this.updateManager.on('update-cancelled', (event) => {
+      this.menuManager.updateMenuItemEnabledState('app.check-for-updates', true)
+      this.trayManager.updateMenuItemEnabledState('app.check-for-updates', true)
+      const win = this.windowManager.getWindow('index')
+      win.setProgressBar(-1)
+    })
+
     this.updateManager.on('will-updated', async (event) => {
       this.windowManager.setWillQuit(true)
       await this.stopAllSettled()

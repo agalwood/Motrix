@@ -72,6 +72,8 @@ export default class UpdateManager extends EventEmitter {
     }).then(({ response }) => {
       if (response === 0) {
         this.updater.downloadUpdate()
+      } else {
+        this.emit('update-cancelled', info)
       }
     })
   }
