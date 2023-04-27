@@ -191,7 +191,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://dl.motrix.app/release/"
+        "url": "https://dl.motrix.app/releases/"
       },
       {
         "provider": "github"
