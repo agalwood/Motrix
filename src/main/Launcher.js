@@ -183,6 +183,7 @@ export default class Launcher extends EventEmitter {
     app.on('will-quit', () => {
       logger.info('[Motrix] will-quit')
       if (global.application) {
+        logger.info('[Motrix] will-quit.application.stop')
         global.application.stop()
       }
     })

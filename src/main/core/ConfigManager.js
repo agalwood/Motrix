@@ -111,6 +111,7 @@ export default class ConfigManager {
         'last-check-update-time': 0,
         'last-sync-tracker-time': 0,
         'locale': app.getLocale(),
+        'log-level': 'warn',
         'new-task-show-downloading': true,
         'no-confirm-before-delete-task': false,
         'open-at-login': false,

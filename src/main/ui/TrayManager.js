@@ -5,6 +5,7 @@ import is from 'electron-is'
 
 import { APP_RUN_MODE, APP_THEME } from '@shared/constants'
 import { getInverseTheme } from '@shared/utils'
+import logger from '../core/Logger'
 import { getI18n } from './Locale'
 import {
   translateTemplate,
@@ -12,7 +13,6 @@ import {
   updateStates
 } from '../utils/menu'
 import { convertArrayBufferToBuffer } from '../utils/index'
-// import logger from '../core/Logger'
 
 let tray = null
 const { platform } = process
@@ -357,6 +357,7 @@ export default class TrayManager extends EventEmitter {
   }
 
   destroy () {
+    logger.info('[Motrix] TrayManager.destroy')
     if (tray) {
       this.unbindEvents()
     }

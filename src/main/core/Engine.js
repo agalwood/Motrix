@@ -67,6 +67,7 @@ export default class Engine {
   }
 
   stop () {
+    logger.info('[Motrix] engine.stop.instance')
     if (this.instance) {
       this.instance.kill()
       this.instance = null

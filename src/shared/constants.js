@@ -27,6 +27,15 @@ export const TASK_STATUS = {
   SEEDING: 'seeding'
 }
 
+export const LOG_LEVELS = [
+  'error',
+  'warn',
+  'info',
+  'verbose',
+  'debug',
+  'silly'
+]
+
 export const MAX_NUM_OF_DIRECTORIES = 5
 
 export const ENGINE_RPC_HOST = '127.0.0.1'
