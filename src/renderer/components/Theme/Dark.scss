@@ -84,6 +84,10 @@
     }
   }
 
+  .selected .task-item {
+    border-color: $--dk-task-item-hover-border-color;
+  }
+
   .task-name {
     color: $--dk-task-item-text-color;
   }
