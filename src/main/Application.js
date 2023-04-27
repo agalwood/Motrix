@@ -151,8 +151,10 @@ export default class Application extends EventEmitter {
   }
 
   async stopEngine () {
+    logger.info('[Motrix] stopEngine===>')
     try {
       await this.engineClient.shutdown({ force: true })
+      logger.info('[Motrix] stopEngine.setImmediate===>')
       setImmediate(() => {
         this.engine.stop()
       })
@@ -509,22 +511,27 @@ export default class Application extends EventEmitter {
     this.windowManager.destroyWindow(page)
   }
 
-  async stop () {
+  stop () {
     try {
-      await this.shutdownUPnPManager()
+      const promises = [
+        this.stopEngine(),
+        this.shutdownUPnPManager(),
+        this.energyManager.stopPowerSaveBlocker(),
+        this.trayManager.destroy()
+      ]
 
-      this.energyManager.stopPowerSaveBlocker()
-
-      await this.stopEngine()
-
-      this.trayManager.destroy()
+      return promises
     } catch (err) {
       logger.warn('[Motrix] stop error: ', err.message)
     }
   }
 
+  async stopAllSettled () {
+    await Promise.allSettled(this.stop())
+  }
+
   async quit () {
-    await this.stop()
+    await this.stopAllSettled()
     app.exit()
   }
 
@@ -644,7 +651,7 @@ export default class Application extends EventEmitter {
 
     this.updateManager.on('will-updated', async (event) => {
       this.windowManager.setWillQuit(true)
-      await this.stop()
+      await this.stopAllSettled()
     })
 
     this.updateManager.on('update-error', (event) => {
@@ -654,7 +661,7 @@ export default class Application extends EventEmitter {
   }
 
   async relaunch () {
-    await this.stop()
+    await this.stopAllSettled()
     app.relaunch()
     app.exit()
   }
