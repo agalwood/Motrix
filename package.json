@@ -32,7 +32,7 @@
     "postinstall": "electron-builder install-app-deps && npm run lint:fix"
   },
   "engines": {
-    "node" : ">=18.0.0"
+    "node" : ">=16.0.0"
   },
   "dependencies": {
     "node-fetch": "^2.6.1",
