@@ -93,7 +93,7 @@ For Arch Linux users, Motrix is available in [aur](https://aur.archlinux.org/pac
 Run the following command to install:
 
 ```bash
-yay motrix
+yay -S motrix
 ```
 
 #### Flatpak

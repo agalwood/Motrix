@@ -91,7 +91,7 @@ v1.5.10 提示
 运行以下命令进行安装：
 
 ```bash
-yay motrix
+yay -S motrix
 ```
 
 #### Flatpak
