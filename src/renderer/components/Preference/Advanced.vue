@@ -742,11 +742,6 @@
             }
 
             if (checkIsNeedRestart(data)) {
-              this.$electron.ipcRenderer.send('command',
-                                              'application:relaunch')
-            }
-
-            if (checkIsNeedRestart(data)) {
               this.$electron.ipcRenderer.send('command', 'application:relaunch')
             }
           }
