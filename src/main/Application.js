@@ -660,7 +660,7 @@ export default class Application extends EventEmitter {
       this.menuManager.updateMenuItemEnabledState('app.check-for-updates', true)
       this.trayManager.updateMenuItemEnabledState('app.check-for-updates', true)
       const win = this.windowManager.getWindow('index')
-      win.setProgressBar(0)
+      win.setProgressBar(1)
     })
 
     this.updateManager.on('update-cancelled', (event) => {
