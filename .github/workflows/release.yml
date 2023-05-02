@@ -54,9 +54,7 @@ jobs:
         env:
           # Snapcraft
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.snapcraft_token }}
-          # macOS notarization API key
-          API_KEY_ID: ${{ secrets.api_key_id }}
-          API_KEY_ISSUER_ID: ${{ secrets.api_key_issuer_id }}
+          # macOS notarization
           TEAM_ID: ${{ secrets.team_id }}
           APPLE_ID: ${{ secrets.apple_id }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.apple_app_specific_password }}
