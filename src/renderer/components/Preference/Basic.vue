@@ -316,14 +316,18 @@
     diffConfig,
     extractSpeedUnit
   } from '@shared/utils'
-  import { APP_RUN_MODE, ENGINE_MAX_CONCURRENT_DOWNLOADS } from '@shared/constants'
+  import {
+    APP_RUN_MODE,
+    EMPTY_STRING,
+    ENGINE_MAX_CONCURRENT_DOWNLOADS
+  } from '@shared/constants'
   import { reduceTrackerString } from '@shared/utils/tracker'
 
   const initForm = (config) => {
     const {
       autoHideWindow,
-      btSaveMetadata,
       btForceEncryption,
+      btSaveMetadata,
       dir,
       engineMaxConnectionPerServer,
       followMetalink,
@@ -349,11 +353,16 @@
       theme,
       traySpeedometer
     } = config
+
+    const btAutoDownloadContent = followTorrent &&
+      followMetalink &&
+      !pauseMetadata
+
     const result = {
       autoHideWindow,
-      btAutoDownloadContent: !pauseMetadata,
-      btSaveMetadata,
+      btAutoDownloadContent,
       btForceEncryption,
+      btSaveMetadata,
       continue: config.continue,
       dir,
       engineMaxConnectionPerServer,
@@ -370,6 +379,7 @@
       newTaskShowDownloading,
       noConfirmBeforeDeleteTask,
       openAtLogin,
+      pauseMetadata,
       resumeAllWhenAppLaunched,
       runMode,
       seedRatio,
@@ -577,12 +587,18 @@
             ...changedConfig.advanced
           }
 
-          const { btAutoDownloadContent, autoHideWindow, btTracker, noProxy } = data
+          const {
+            btAutoDownloadContent,
+            autoHideWindow,
+            btTracker,
+            noProxy,
+            rpcListenPort
+          } = data
 
           if ('btAutoDownloadContent' in data) {
-            data.pauseMetadata = !btAutoDownloadContent
-            data.followMetalink = btAutoDownloadContent
             data.followTorrent = btAutoDownloadContent
+            data.followMetalink = btAutoDownloadContent
+            data.pauseMetadata = !btAutoDownloadContent
           }
 
           if (btTracker) {
@@ -591,6 +607,10 @@
 
           if (noProxy) {
             data.noProxy = convertLineToComma(noProxy)
+          }
+
+          if (rpcListenPort === EMPTY_STRING) {
+            data.rpcListenPort = this.rpcDefaultPort
           }
 
           console.log('[Motrix] preference changed data:', data)
@@ -644,7 +664,8 @@
             if (response === 0) {
               if (changedConfig.basic.theme !== undefined) {
                 this.$electron.ipcRenderer.send('command',
-                                                'application:change-theme', backupConfig.theme)
+                                                'application:change-theme',
+                                                backupConfig.theme)
               }
               if (changedConfig.basic.locale !== undefined) {
                 this.handleLocaleChange(this.formOriginal.locale)
