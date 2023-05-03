@@ -428,7 +428,12 @@
   import ShowInFolder from '@/components/Native/ShowInFolder'
   import SubnavSwitcher from '@/components/Subnav/SubnavSwitcher'
   import userAgentMap from '@shared/ua'
-  import { trackerSourceOptions, ENGINE_RPC_PORT, EMPTY_STRING, LOG_LEVELS } from '@shared/constants'
+  import {
+    EMPTY_STRING,
+    ENGINE_RPC_PORT,
+    LOG_LEVELS,
+    trackerSourceOptions
+  } from '@shared/constants'
   import {
     backupConfig,
     buildRpcUrl,
@@ -483,9 +488,7 @@
       listenPort,
       logLevel,
       noProxy: convertCommaToLine(noProxy),
-      protocols: {
-        ...protocols
-      },
+      protocols: { ...protocols },
       rpcListenPort,
       rpcSecret,
       trackerSource,
@@ -571,6 +574,12 @@
       }
     },
     methods: {
+      handleLocaleChange (locale) {
+        const lng = getLanguage(locale)
+        getLocaleManager().changeLanguage(lng)
+        this.$electron.ipcRenderer.send('command',
+                                        'application:change-locale', lng)
+      },
       onCheckUpdateClick () {
         this.$electron.ipcRenderer.send('command', 'application:check-for-updates')
         this.$msg.info(this.$t('app.checking-for-updates'))
@@ -703,9 +712,9 @@
           } = data
 
           if ('btAutoDownloadContent' in data) {
-            data.pauseMetadata = !btAutoDownloadContent
-            data.followMetalink = btAutoDownloadContent
             data.followTorrent = btAutoDownloadContent
+            data.followMetalink = btAutoDownloadContent
+            data.pauseMetadata = !btAutoDownloadContent
           }
 
           if (btTracker) {
@@ -769,13 +778,11 @@
             if (response === 0) {
               if (changedConfig.basic.theme !== undefined) {
                 this.$electron.ipcRenderer.send('command',
-                                                'application:change-theme', backupConfig.theme)
+                                                'application:change-theme',
+                                                backupConfig.theme)
               }
               if (changedConfig.basic.locale !== undefined) {
-                const lng = getLanguage(backupConfig.locale)
-                getLocaleManager().changeLanguage(lng)
-                this.$electron.ipcRenderer.send('command',
-                                                'application:change-locale', lng)
+                this.handleLocaleChange(backupConfig.locale)
               }
               changedConfig.basic = {}
               changedConfig.advanced = {}
