@@ -1,8 +1,10 @@
 # Motrix
 
-<a href="https://motrix.app">
-  <img src="./static/512x512.png" width="256" alt="App Icon" />
-</a>
+<p>
+  <a href="https://motrix.app">
+    <img src="./static/512x512.png" width="256" alt="Motrix App Icon" />
+  </a>
+</p>
 
 ## A full-featured download manager
 
@@ -47,11 +49,21 @@ scoop install motrix
 
 ### macOS
 
-The macOS users can install Motrix using `brew cask`, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [@Mitscherlich](https://github.com/Mitscherlich).
+The macOS users can install Motrix using `brew`, thanks to [PR](https://github.com/Homebrew/homebrew-cask/pull/59494) of [@Mitscherlich](https://github.com/Mitscherlich).
 
 ```bash
-brew update && brew install --cask motrix
+brew update && brew install motrix
 ```
+
+#### Auto Update
+
+Since Motrix v1.8.0 and later versions changed the App BundleID ( `net.agalwood.Motrix` => `app.motrix.native` ), the automatic update of Motrix v1.6.11 will fail. [Motrix Install Assistant](https://github.com/motrixapp/motrix-install-assistant) will help you install the latest Motrix application.
+
+<p>
+  <a href="https://github.com/motrixapp/motrix-install-assistant">
+    <img src="https://raw.githubusercontent.com/motrixapp/motrix-install-assistant/main/build/256x256.png" width="192" alt="Motrix Install Assistant Icon" />
+  </a>
+</p>
 
 ### Linux
 

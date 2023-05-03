@@ -1,8 +1,10 @@
 # Motrix
 
-<a href="https://motrix.app">
-  <img src="./static/512x512.png" width="256" alt="App Icon" />
-</a>
+<p>
+  <a href="https://motrix.app">
+    <img src="./static/512x512.png" width="256" alt="Motrix App Icon" />
+  </a>
+</p>
 
 ## 一款全能的下载工具
 
@@ -47,11 +49,20 @@ scoop install motrix
 
 ### macOS
 
-macOS 用户可以使用 `brew cask` 安装 Motrix，感谢 [@Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。
+macOS 用户可以使用 `brew` 安装 Motrix，感谢 [@Mitscherlich](https://github.com/Mitscherlich) 的 [PR](https://github.com/Homebrew/homebrew-cask/pull/59494)。
 
 ```bash
-brew update && brew install --cask motrix
+brew update && brew install motrix
 ```
+
+#### 自动更新
+Motrix v1.8.0+ 版本更改了应用 BundleID ( `net.agalwood.Motrix` => `app.motrix.native` ), Motrix v1.6.11 的自动更新会因为签名不一致而失败。[Motrix 安装助手](https://github.com/motrixapp/motrix-install-assistant)将帮助您安装最新的 Motrix 应用程序。
+
+<p>
+  <a href="https://github.com/motrixapp/motrix-install-assistant">
+    <img src="https://raw.githubusercontent.com/motrixapp/motrix-install-assistant/main/build/256x256.png" width="192" alt="Motrix Install Assistant Icon" />
+  </a>
+</p>
 
 ### Linux
 
