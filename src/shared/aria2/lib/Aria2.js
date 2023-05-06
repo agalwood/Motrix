@@ -65,7 +65,7 @@ export class Aria2 extends JSONRPCClient {
   defaultOptions = Object.assign({}, JSONRPCClient.defaultOptions, {
     secure: false,
     host: 'localhost',
-    port: 6800,
+    port: 16800,
     secret: '',
     path: '/jsonrpc'
   })

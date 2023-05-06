@@ -11,6 +11,7 @@ import {
   APP_RUN_MODE,
   APP_THEME,
   EMPTY_STRING,
+  ENGINE_RPC_PORT,
   IP_VERSION,
   LOGIN_SETTING_OPTIONS,
   NGOSANG_TRACKERS_BEST_IP_URL_CDN,
@@ -34,13 +35,10 @@ export default class ConfigManager {
   }
 
   /**
-   * Some aria2 conf
+   * Aria2 Configuration Priority
+   * system.json > built-in aria2.conf
    * https://aria2.github.io/manual/en/html/aria2c.html
    *
-   * Best bt trackers
-   * @see https://github.com/ngosang/trackerslist
-   *
-   * @see https://github.com/XIU2/TrackersListCollection
    */
   initSystemConfig () {
     this.systemConfig = new Store({
@@ -72,7 +70,7 @@ export default class ConfigManager {
         'no-proxy': EMPTY_STRING,
         'pause-metadata': false,
         'pause': true,
-        'rpc-listen-port': 16800,
+        'rpc-listen-port': ENGINE_RPC_PORT,
         'rpc-secret': EMPTY_STRING,
         'seed-ratio': 1,
         'seed-time': 60,
