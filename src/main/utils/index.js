@@ -1,7 +1,7 @@
-import { app, nativeTheme } from 'electron'
+import { resolve } from 'node:path'
+import { access, constants, existsSync, lstatSync } from 'node:fs'
+import { app, nativeTheme, shell } from 'electron'
 import is from 'electron-is'
-import { resolve } from 'path'
-import { existsSync, lstatSync } from 'fs'
 
 import {
   APP_THEME,
@@ -9,6 +9,7 @@ import {
   IP_VERSION
 } from '@shared/constants'
 import { engineBinMap, engineArchMap } from '../configs/engine'
+import logger from '../core/Logger'
 
 export function getLogPath () {
   return app.getPath('logs')
@@ -187,4 +188,19 @@ export const convertArrayBufferToBuffer = (arrayBuffer) => {
     buffer[i] = view[i]
   }
   return buffer
+}
+
+export function showItemInFolder (fullPath) {
+  if (!fullPath) {
+    return
+  }
+
+  access(fullPath, constants.F_OK, (err) => {
+    if (err) {
+      logger.error(`[Motrix] ${fullPath} ${err ? 'does not exist' : 'exists'}`)
+      return
+    }
+
+    shell.showItemInFolder(fullPath)
+  })
 }

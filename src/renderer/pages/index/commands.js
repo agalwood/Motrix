@@ -160,6 +160,14 @@ const selectAllTask = () => {
   store.dispatch('task/selectAllTask')
 }
 
+const showTaskDetail = (payload = {}) => {
+  const { gid } = payload
+  navigateTaskList()
+  if (gid) {
+    store.dispatch('task/showTaskDetailByGid', gid)
+  }
+}
+
 const fetchPreference = () => {
   store.dispatch('preference/fetchPreference')
 }
@@ -179,6 +187,7 @@ commands.register('application:move-task-down', moveTaskDown)
 commands.register('application:pause-all-task', pauseAllTask)
 commands.register('application:resume-all-task', resumeAllTask)
 commands.register('application:select-all-task', selectAllTask)
+commands.register('application:show-task-detail', showTaskDetail)
 
 commands.register('application:update-preference-config', fetchPreference)
 commands.register('application:update-system-theme', updateSystemTheme)
