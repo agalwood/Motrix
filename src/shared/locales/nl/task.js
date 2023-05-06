@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'Gedownload',
   'selected-files-sum': 'Geselecteerd: {{selectedFilesCount}} bestanden, totale grootte {{selectedFilesTotalSize}}',
   'select-at-least-one': 'Kies a.u.b. ten minste 1 bestand',
+  'task-gid': 'GID',
   'task-name': 'Taak naam',
   'task-out': 'Hernoemen',
   'task-out-tips': 'Optioneel',

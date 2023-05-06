@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'Изтеглено',
   'selected-files-sum': 'избрано: {{selectedFilesCount}} файлове, общ размер {{selectedFilesTotalSize}}',
   'select-at-least-one': 'Моля, изберете поне един файл',
+  'task-gid': 'GID',
   'task-name':'Име на изтегляне',
   'task-out': 'Преименуване',
   'task-out-tips':'незадължителен',

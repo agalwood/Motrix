@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'Letöltött',
   'selected-files-sum': 'Kijelölve: {{selectedFilesCount}} fájl, teljes méret {{selectedFilesTotalSize}}',
   'select-at-least-one': 'Válasszon legalább egy fájlt',
+  'task-gid': 'GID',
   'task-name': 'Feladat név',
   'task-out': 'Átnevezés',
   'task-out-tips': 'Opcionális',

@@ -17,6 +17,7 @@ export default {
   'file-completed-size': '完成サイズ',
   'selected-files-sum': '選択済み：{{selectedFilesCount}}ファイル、合計{{selectedFilesTotalSize}}',
   'select-at-least-one': '少なくとも1つのファイルを選択してください',
+  'task-gid': 'GID',
   'task-name': 'タスク名',
   'task-out': '名前を変更',
   'task-out-tips': 'オプション',
