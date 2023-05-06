@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events'
-import { resolve } from 'path'
+import { EventEmitter } from 'node:events'
+import { resolve } from 'node:path'
 import { dialog } from 'electron'
 import is from 'electron-is'
 import { autoUpdater } from 'electron-updater'

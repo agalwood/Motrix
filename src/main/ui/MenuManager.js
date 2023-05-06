@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import { Menu } from 'electron'
 
 import keymap from '@shared/keymap'

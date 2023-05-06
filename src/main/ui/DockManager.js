@@ -1,5 +1,5 @@
 import is from 'electron-is'
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import { app } from 'electron'
 
 import { bytesToSize } from '@shared/utils'

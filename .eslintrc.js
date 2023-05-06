@@ -18,17 +18,17 @@ module.exports = {
   rules: {
     'no-console': 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
-    'indent': ['error', 2],
+    indent: ['error', 2],
     'vue/script-indent': ['error', 2, {
-      'baseIndent': 1
-    }],
+      baseIndent: 1
+    }]
   },
   overrides: [
     {
-      'files': ['*.vue'],
-      'rules': {
-        'indent': 'off'
+      files: ['*.vue'],
+      rules: {
+        indent: 'off'
       }
     }
   ]
-};
+}

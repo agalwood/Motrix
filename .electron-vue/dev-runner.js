@@ -1,10 +1,10 @@
 'use strict'
 
-const chalk = require('chalk')
-const electron = require('electron')
-const path = require('path')
+const path = require('node:path')
+const { spawn } = require('node:child_process')
 const { say } = require('cfonts')
-const { spawn } = require('child_process')
+const electron = require('electron')
+const chalk = require('chalk')
 const Webpack = require('webpack')
 const WebpackDevServer = require('webpack-dev-server')
 

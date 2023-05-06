@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events'
-import { join } from 'path'
+import { EventEmitter } from 'node:events'
+import { join } from 'node:path'
 import { Tray, Menu, nativeImage } from 'electron'
 import is from 'electron-is'
 

@@ -29,9 +29,9 @@
 // TODO: Remove script once https://github.com/electron/electron/issues/17972 is solved by
 // `electron-builder`
 
-const fs = require('fs')
-const { spawn } = require('child_process')
-const { chdir } = require('process')
+const fs = require('node:fs')
+const { spawn } = require('node:child_process')
+const { chdir } = require('node:process')
 
 const pkg = require('../package.json')
 const binName = `${pkg.name}`.toLowerCase()

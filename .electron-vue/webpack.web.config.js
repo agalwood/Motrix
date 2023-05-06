@@ -2,17 +2,17 @@
 
 process.env.BABEL_ENV = 'web'
 
-const devMode = process.env.NODE_ENV !== 'production'
-const path = require('path')
+const path = require('node:path')
 const { dependencies } = require('../package.json')
 const Webpack = require('webpack')
-const TerserPlugin = require('terser-webpack-plugin');
-const CopyWebpackPlugin = require('copy-webpack-plugin')
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin')
 const { VueLoaderPlugin } = require('vue-loader')
-const ESLintPlugin = require('eslint-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const ESLintPlugin = require('eslint-webpack-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
+const devMode = process.env.NODE_ENV !== 'production'
 
 /**
  * List of node_modules to include in webpack bundle
@@ -48,7 +48,7 @@ let webConfig = {
             loader: 'sass-loader',
             options: {
               implementation: require('sass'),
-              additionalData: '@import "@/components/Theme/Variables.scss";',
+              additionalData: '@import "@/components/Theme/Variables.scss"',
               sassOptions: {
                 includePaths:[__dirname, 'src']
               }
@@ -66,7 +66,7 @@ let webConfig = {
             options: {
               implementation: require('sass'),
               indentedSyntax: true,
-              additionalData: '@import "@/components/Theme/Variables.scss";',
+              additionalData: '@import "@/components/Theme/Variables.scss"',
               sassOptions: {
                 includePaths:[__dirname, 'src']
               }

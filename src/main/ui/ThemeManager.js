@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import { nativeTheme } from 'electron'
 
 import { APP_THEME } from '@shared/constants'

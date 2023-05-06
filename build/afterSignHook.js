@@ -1,5 +1,5 @@
 require('dotenv').config()
-const { join } = require('path')
+const { join } = require('node:path')
 const { notarize } = require('@electron/notarize')
 const { appId } = require('../electron-builder.json')
 

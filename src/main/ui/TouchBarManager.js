@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events'
-import { join } from 'path'
+import { EventEmitter } from 'node:events'
+import { join } from 'node:path'
 import { TouchBar, nativeImage } from 'electron'
 
 import { handleCommand } from '../utils/menu'
