@@ -14,8 +14,9 @@ export function showItemInFolder (fullPath, { errorMsg }) {
     return
   }
 
+  fullPath = resolve(fullPath)
   access(fullPath, constants.F_OK, (err) => {
-    console.log(`[Motrix] ${fullPath} ${err ? 'does not exist' : 'exists'}`)
+    console.warn(`[Motrix] ${fullPath} ${err ? 'does not exist' : 'exists'}`)
     if (err && errorMsg) {
       Message.error(errorMsg)
       return
