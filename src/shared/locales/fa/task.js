@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'تکمیل شده',
   'selected-files-sum': 'گزیده: {{selectedFilesCount}} پرونده، اندازه کل {{selectedFilesTotalSize}}',
   'select-at-least-one': 'لطفاً حداقل یک پرونده را انتخاب کنید',
+  'task-gid': 'GID',
   'task-name': 'نام وظیفه',
   'task-out': 'تغییرنام',
   'task-out-tips': 'اختیاری',

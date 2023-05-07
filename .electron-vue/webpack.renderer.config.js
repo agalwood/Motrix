@@ -2,17 +2,17 @@
 
 process.env.BABEL_ENV = 'renderer'
 
-const devMode = process.env.NODE_ENV !== 'production'
-const path = require('path')
-const { dependencies } = require('../package.json')
+const path = require('node:path')
 const Webpack = require('webpack')
-const TerserPlugin = require('terser-webpack-plugin');
-const CopyWebpackPlugin = require('copy-webpack-plugin')
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin')
 const { VueLoaderPlugin } = require('vue-loader')
-const ESLintPlugin = require('eslint-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const ESLintPlugin = require('eslint-webpack-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
+const { dependencies } = require('../package.json')
+const devMode = process.env.NODE_ENV !== 'production'
 
 /**
  * List of node_modules to include in webpack bundle

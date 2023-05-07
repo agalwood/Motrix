@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'Завершенный',
   'selected-files-sum': 'Выбрано: {{selectedFilesCount}} файлов, общий размер {{selectedFilesTotalSize}}',
   'select-at-least-one': 'Пожалуйста, выберите хотя бы один файл',
+  'task-gid': 'GID',
   'task-name': 'Имя загрузки',
   'task-out': 'Переименовать',
   'task-out-tips': 'Необязательный',

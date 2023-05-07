@@ -1,6 +1,6 @@
 import { shell, nativeTheme } from '@electron/remote'
-import { access, constants } from 'fs'
-import { resolve } from 'path'
+import { access, constants } from 'node:fs'
+import { resolve } from 'node:path'
 import { Message } from 'element-ui'
 
 import {
@@ -14,9 +14,10 @@ export function showItemInFolder (fullPath, { errorMsg }) {
     return
   }
 
+  fullPath = resolve(fullPath)
   access(fullPath, constants.F_OK, (err) => {
-    console.log(`[Motrix] ${fullPath} ${err ? 'does not exist' : 'exists'}`)
-    if (err) {
+    console.warn(`[Motrix] ${fullPath} ${err ? 'does not exist' : 'exists'}`)
+    if (err && errorMsg) {
       Message.error(errorMsg)
       return
     }

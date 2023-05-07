@@ -6,6 +6,11 @@
     :label-width="formLabelWidth"
     v-if="task"
   >
+    <el-form-item :label="`${$t('task.task-gid')}: `">
+      <div class="form-static-value">
+        {{ task.gid }}
+      </div>
+    </el-form-item>
     <el-form-item :label="`${$t('task.task-name')}: `">
       <div class="form-static-value">
         {{ taskFullName }}

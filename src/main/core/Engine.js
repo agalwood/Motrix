@@ -1,6 +1,6 @@
+import { spawn } from 'node:child_process'
+import { existsSync, writeFile, unlink } from 'node:fs'
 import is from 'electron-is'
-import { existsSync, writeFile, unlink } from 'fs'
-import { spawn } from 'child_process'
 
 import logger from './Logger'
 import { getI18n } from '../ui/Locale'

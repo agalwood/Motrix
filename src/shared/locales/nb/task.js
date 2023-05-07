@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'Fullført',
   'selected-files-sum': 'Valgt: {{selectedFilesCount}} filer, total størrelse {{selectedFilesTotalSize}}',
   'select-at-least-one': 'Velg minst én fil',
+  'task-gid': 'GID',
   'task-name': 'Oppgavenavn',
   'task-out': 'Gi nytt navn',
   'task-out-tips': 'Valgfri',

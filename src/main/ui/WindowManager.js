@@ -1,5 +1,5 @@
-import { join } from 'path'
-import { EventEmitter } from 'events'
+import { join } from 'node:path'
+import { EventEmitter } from 'node:events'
 import { debounce } from 'lodash'
 import { app, shell, screen, BrowserWindow } from 'electron'
 import is from 'electron-is'

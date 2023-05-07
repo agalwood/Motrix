@@ -88,6 +88,14 @@ const actions = {
         dispatch('updateCurrentTaskItem', data)
       })
   },
+  showTaskDetailByGid ({ commit, dispatch }, gid) {
+    api.fetchTaskItem({ gid })
+      .then((task) => {
+        dispatch('updateCurrentTaskItem', task)
+        commit('UPDATE_CURRENT_TASK_GID', task.gid)
+        commit('CHANGE_TASK_DETAIL_VISIBLE', true)
+      })
+  },
   showTaskDetail ({ commit, dispatch }, task) {
     dispatch('updateCurrentTaskItem', task)
     commit('UPDATE_CURRENT_TASK_GID', task.gid)

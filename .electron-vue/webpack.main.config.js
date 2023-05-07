@@ -2,13 +2,13 @@
 
 process.env.BABEL_ENV = 'main'
 
-const devMode = process.env.NODE_ENV !== 'production'
-const path = require('path')
+const path = require('node:path')
+const Webpack = require('webpack')
+const ESLintPlugin = require('eslint-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
 const { dependencies } = require('../package.json')
 const { appId } = require('../electron-builder.json')
-const Webpack = require('webpack')
-const TerserPlugin = require('terser-webpack-plugin');
-const ESLintPlugin = require('eslint-webpack-plugin');
+const devMode = process.env.NODE_ENV !== 'production'
 
 let mainConfig = {
   entry: {

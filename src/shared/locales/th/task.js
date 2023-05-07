@@ -17,6 +17,7 @@ export default {
   'file-completed-size': 'สำเร็จ',
   'selected-files-sum': 'เลือกแล้ว: {{selectedFilesCount}} ไฟล์, ขนามรวม {{selectedFilesTotalSize}}',
   'select-at-least-one': 'โปรดเลือกอย่างน้อยหนึ่งไฟล์',
+  'task-gid': 'GID',
   'task-name': 'ชื่องาน',
   'task-out': 'เปลี่ยนชื่อ',
   'task-out-tips': 'ไม่จำเป็น',

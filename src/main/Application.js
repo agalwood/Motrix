@@ -1,8 +1,8 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 import { app, shell, dialog, ipcMain } from 'electron'
 import is from 'electron-is'
-import { readFile, unlink } from 'fs'
-import { extname, basename } from 'path'
+import { readFile, unlink } from 'node:fs'
+import { extname, basename } from 'node:path'
 import { isEmpty, isEqual } from 'lodash'
 
 import {
@@ -16,6 +16,7 @@ import {
   fetchBtTrackerFromSource,
   reduceTrackerString
 } from '@shared/utils/tracker'
+import { showItemInFolder } from './utils'
 import logger from './core/Logger'
 import Context from './core/Context'
 import ConfigManager from './core/ConfigManager'
@@ -821,6 +822,17 @@ export default class Application extends EventEmitter {
 
     this.on('application:open-external', (url) => {
       this.openExternal(url)
+    })
+
+    this.on('application:reveal-in-folder', (data) => {
+      const { gid, path } = data
+      logger.info('[Motrix] application:reveal-in-folder===>', path)
+      if (path) {
+        showItemInFolder(path)
+      }
+      if (gid) {
+        this.sendCommandToAll('application:show-task-detail', { gid })
+      }
     })
 
     this.on('help:official-website', () => {
