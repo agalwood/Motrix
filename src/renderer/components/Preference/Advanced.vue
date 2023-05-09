@@ -226,7 +226,7 @@
               <el-input
                 :show-password="hideRpcSecret"
                 placeholder="RPC Secret"
-                :maxlength="24"
+                :maxlength="64"
                 v-model="form.rpcSecret"
               >
                 <i slot="append" @click.prevent="onRpcSecretDiceClick">
@@ -643,7 +643,7 @@
       },
       onRpcSecretDiceClick () {
         this.hideRpcSecret = false
-        const rpcSecret = randomize('Aa0', 12)
+        const rpcSecret = randomize('Aa0', 16)
         this.form.rpcSecret = rpcSecret
 
         setTimeout(() => {
