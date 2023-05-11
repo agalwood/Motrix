@@ -43,9 +43,9 @@ export default class Engine {
     const pid = this.instance.pid.toString()
     this.writePidFile(pidPath, pid)
 
-    this.instance.once('close', function () {
+    this.instance.once('close', () => {
       try {
-        unlink(pidPath, function (err) {
+        unlink(pidPath, (err) => {
           if (err) {
             logger.warn(`[Motrix] Unlink engine process pid file failed: ${err}`)
           }
@@ -56,11 +56,11 @@ export default class Engine {
     })
 
     if (is.dev()) {
-      this.instance.stdout.on('data', function (data) {
+      this.instance.stdout.on('data', (data) => {
         logger.log('[Motrix] engine stdout===>', data.toString())
       })
 
-      this.instance.stderr.on('data', function (data) {
+      this.instance.stderr.on('data', (data) => {
         logger.log('[Motrix] engine stderr===>', data.toString())
       })
     }

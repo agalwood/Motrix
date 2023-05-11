@@ -5,20 +5,20 @@ const localeManager = new LocaleManager({
   resources
 })
 
-export function getLocaleManager () {
+export const getLocaleManager = () => {
   return localeManager
 }
 
-export function setupLocaleManager (locale) {
+export const setupLocaleManager = (locale) => {
   localeManager.changeLanguageByLocale(locale)
 
   return localeManager
 }
 
-export function getI18n () {
+export const getI18n = () => {
   return localeManager.getI18n()
 }
 
-export function getI18nTranslator () {
+export const getI18nTranslator = () => {
   return localeManager.getI18n().t
 }

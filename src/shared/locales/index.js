@@ -112,7 +112,7 @@ export const availableLanguages = [
   }
 ]
 
-function checkLngIsAvailable (locale) {
+const checkLngIsAvailable = (locale) => {
   return availableLanguages.some(lng => lng.value === locale)
 }
 
@@ -133,7 +133,7 @@ function checkLngIsAvailable (locale) {
  * pt, pt-BR, pt-PT
  * zh, zh-CN, zh-HK, zh-TW
  */
-export function getLanguage (locale = 'en-US') {
+export const getLanguage = (locale = 'en-US') => {
   if (checkLngIsAvailable(locale)) {
     return locale
   }

@@ -43,12 +43,12 @@ export const getDhtPath = (protocol) => {
   return resolve(getUserDataPath(), `./${name}`)
 }
 
-export function getEngineBin (platform) {
+export const getEngineBin = (platform) => {
   const result = engineBinMap[platform] || ''
   return result
 }
 
-export function getEngineArch (platform, arch) {
+export const getEngineArch = (platform, arch) => {
   if (!['darwin', 'win32', 'linux'].includes(platform)) {
     return ''
   }
@@ -84,7 +84,7 @@ export const getAria2ConfPath = (platform, arch) => {
   return resolve(base, './aria2.conf')
 }
 
-export function transformConfig (config) {
+export const transformConfig = (config) => {
   const result = []
   for (const [k, v] of Object.entries(config)) {
     if (v !== '') {
@@ -94,7 +94,7 @@ export function transformConfig (config) {
   return result
 }
 
-export function isRunningInDmg () {
+export const isRunningInDmg = () => {
   if (!is.macOS() || is.dev()) {
     return false
   }
@@ -103,7 +103,7 @@ export function isRunningInDmg () {
   return result
 }
 
-export function moveAppToApplicationsFolder (errorMsg = '') {
+export const moveAppToApplicationsFolder = (errorMsg = '') => {
   return new Promise((resolve, reject) => {
     try {
       const result = app.moveToApplicationsFolder()
@@ -118,7 +118,7 @@ export function moveAppToApplicationsFolder (errorMsg = '') {
   })
 }
 
-export function splitArgv (argv) {
+export const splitArgv = (argv) => {
   const args = []
   const extra = {}
   for (const arg of argv) {
@@ -134,7 +134,7 @@ export function splitArgv (argv) {
   return { args, extra }
 }
 
-export function parseArgvAsUrl (argv) {
+export const parseArgvAsUrl = (argv) => {
   const arg = argv[1]
   if (!arg) {
     return
@@ -145,7 +145,7 @@ export function parseArgvAsUrl (argv) {
   }
 }
 
-export function checkIsSupportedSchema (url = '') {
+export const checkIsSupportedSchema = (url = '') => {
   const str = url.toLowerCase()
   if (
     str.startsWith('ftp:') ||
@@ -162,11 +162,11 @@ export function checkIsSupportedSchema (url = '') {
   }
 }
 
-export function isDirectory (path) {
+export const isDirectory = (path) => {
   return existsSync(path) && lstatSync(path).isDirectory()
 }
 
-export function parseArgvAsFile (argv) {
+export const parseArgvAsFile = (argv) => {
   let arg = argv[1]
   if (!arg || isDirectory(arg)) {
     return
@@ -197,7 +197,7 @@ export const convertArrayBufferToBuffer = (arrayBuffer) => {
   return buffer
 }
 
-export function showItemInFolder (fullPath) {
+export const showItemInFolder = (fullPath) => {
   if (!fullPath) {
     return
   }

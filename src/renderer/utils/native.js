@@ -1,6 +1,6 @@
-import { shell, nativeTheme } from '@electron/remote'
 import { access, constants } from 'node:fs'
 import { resolve } from 'node:path'
+import { shell, nativeTheme } from '@electron/remote'
 import { Message } from 'element-ui'
 
 import {
@@ -9,7 +9,7 @@ import {
 } from '@shared/utils'
 import { APP_THEME, TASK_STATUS } from '@shared/constants'
 
-export function showItemInFolder (fullPath, { errorMsg }) {
+export const showItemInFolder = (fullPath, { errorMsg }) => {
   if (!fullPath) {
     return
   }
@@ -35,7 +35,7 @@ export const openItem = async (fullPath) => {
   return result
 }
 
-export function getTaskFullPath (task) {
+export const getTaskFullPath = (task) => {
   const { dir, files, bittorrent } = task
   let result = resolve(dir)
 
@@ -109,7 +109,7 @@ export const moveTaskFilesToTrash = (task) => {
   return deleteResult1 && deleteResult2
 }
 
-export function getSystemTheme () {
+export const getSystemTheme = () => {
   return nativeTheme.shouldUseDarkColors ? APP_THEME.DARK : APP_THEME.LIGHT
 }
 
