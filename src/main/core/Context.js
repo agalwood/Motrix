@@ -3,7 +3,6 @@ import {
   getEnginePath,
   getAria2BinPath,
   getAria2ConfPath,
-  getLogPath,
   getSessionPath
 } from '../utils'
 
@@ -14,12 +13,17 @@ export default class Context {
     this.init()
   }
 
+  getLogPath () {
+    const { path } = logger.transports.file.getFile()
+    return path
+  }
+
   init () {
     // The key of Context cannot be the same as that of userConfig and systemConfig.
     this.context = {
       platform: platform,
       arch: arch,
-      'log-path': getLogPath(),
+      'log-path': this.getLogPath(),
       'session-path': getSessionPath(),
       'engine-path': getEnginePath(platform, arch),
       'aria2-bin-path': getAria2BinPath(platform, arch),

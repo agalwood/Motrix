@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events'
-import { app, shell, dialog, ipcMain } from 'electron'
-import is from 'electron-is'
 import { readFile, unlink } from 'node:fs'
 import { extname, basename } from 'node:path'
+import { app, shell, dialog, ipcMain } from 'electron'
+import is from 'electron-is'
 import { isEmpty, isEqual } from 'lodash'
 
 import {
@@ -695,7 +695,7 @@ export default class Application extends EventEmitter {
 
     const sessionPath = this.context.get('session-path')
     setTimeout(() => {
-      unlink(sessionPath, function (err) {
+      unlink(sessionPath, (err) => {
         logger.info('[Motrix] Removed the download seesion file:', err)
       })
 

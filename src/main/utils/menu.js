@@ -1,6 +1,6 @@
 import { parse } from 'querystring'
 
-export function concat (template, submenu, submenuToAdd) {
+export const concat = (template, submenu, submenuToAdd) => {
   submenuToAdd.forEach(sub => {
     let relativeItem = null
     if (sub.position) {
@@ -37,7 +37,7 @@ export function concat (template, submenu, submenuToAdd) {
   })
 }
 
-export function merge (template, item) {
+export const merge = (template, item) => {
   if (item.id) {
     const matched = findById(template, item.id)
     if (matched) {
@@ -73,7 +73,7 @@ function findById (template, id) {
   return null
 }
 
-export function translateTemplate (template, keystrokesByCommand, i18n) {
+export const translateTemplate = (template, keystrokesByCommand, i18n) => {
   for (const i in template) {
     const item = template[i]
     if (item.command) {
@@ -101,7 +101,7 @@ export function translateTemplate (template, keystrokesByCommand, i18n) {
   return template
 }
 
-export function handleCommand (item) {
+export const handleCommand = (item) => {
   handleCommandBefore(item)
 
   const args = item['command-arg']
@@ -158,7 +158,7 @@ function acceleratorForCommand (command, keystrokesByCommand) {
   return null
 }
 
-export function flattenMenuItems (menu) {
+export const flattenMenuItems = (menu) => {
   const flattenItems = {}
   menu.items.forEach(item => {
     if (item.id) {
@@ -171,7 +171,7 @@ export function flattenMenuItems (menu) {
   return flattenItems
 }
 
-export function updateStates (itemsById, visibleStates, enabledStates, checkedStates) {
+export const updateStates = (itemsById, visibleStates, enabledStates, checkedStates) => {
   if (visibleStates) {
     for (const command in visibleStates) {
       const item = itemsById[command]

@@ -3,9 +3,10 @@ import is from 'electron-is'
 import Store from 'electron-store'
 
 import {
+  getConfigBasePath,
   getDhtPath,
-  getUserDownloadsPath,
-  getMaxConnectionPerServer
+  getMaxConnectionPerServer,
+  getUserDownloadsPath
 } from '../utils/index'
 import {
   APP_RUN_MODE,
@@ -43,6 +44,7 @@ export default class ConfigManager {
   initSystemConfig () {
     this.systemConfig = new Store({
       name: 'system',
+      cwd: getConfigBasePath(),
       /* eslint-disable quote-props */
       defaults: {
         'all-proxy': EMPTY_STRING,
@@ -85,6 +87,7 @@ export default class ConfigManager {
   initUserConfig () {
     this.userConfig = new Store({
       name: 'user',
+      cwd: getConfigBasePath(),
       // Schema need electron-store upgrade to 3.x.x,
       // but it will cause the application build to fail.
       // schema: {
