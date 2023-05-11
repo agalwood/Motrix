@@ -6,34 +6,41 @@ import is from 'electron-is'
 import {
   APP_THEME,
   ENGINE_MAX_CONNECTION_PER_SERVER,
-  IP_VERSION
+  IP_VERSION,
+  IS_PORTABLE,
+  PORTABLE_EXECUTABLE_DIR
 } from '@shared/constants'
 import { engineBinMap, engineArchMap } from '../configs/engine'
 import logger from '../core/Logger'
 
-export function getLogPath () {
+export const getUserDataPath = () => {
+  return IS_PORTABLE ? PORTABLE_EXECUTABLE_DIR : app.getPath('userData')
+}
+
+export const getSystemLogPath = () => {
   return app.getPath('logs')
 }
 
-export function getDhtPath (protocol) {
-  const name = protocol === IP_VERSION.V6 ? 'dht6.dat' : 'dht.dat'
-  return resolve(app.getPath('userData'), `./${name}`)
-}
-
-export function getSessionPath () {
-  return resolve(app.getPath('userData'), './download.session')
-}
-
-export function getEnginePidPath () {
-  return resolve(app.getPath('userData'), './engine.pid')
-}
-
-export function getUserDataPath () {
-  return app.getPath('userData')
-}
-
-export function getUserDownloadsPath () {
+export const getUserDownloadsPath = () => {
   return app.getPath('downloads')
+}
+
+export const getConfigBasePath = () => {
+  const path = getUserDataPath()
+  return path
+}
+
+export const getSessionPath = () => {
+  return resolve(getUserDataPath(), './download.session')
+}
+
+export const getEnginePidPath = () => {
+  return resolve(getUserDataPath(), './engine.pid')
+}
+
+export const getDhtPath = (protocol) => {
+  const name = protocol === IP_VERSION.V6 ? 'dht6.dat' : 'dht.dat'
+  return resolve(getUserDataPath(), `./${name}`)
 }
 
 export function getEngineBin (platform) {
