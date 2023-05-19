@@ -65,6 +65,9 @@
           <el-button @click="toggleImageSelection()">
             <mo-icon name="image" width="12" height="12" />
           </el-button>
+          <el-button @click="toggleDocumentSelection()">
+            <mo-icon name="document" width="12" height="12" />
+          </el-button>
         </el-button-group>
       </el-col>
       <el-col
@@ -85,6 +88,7 @@
   import '@/components/Icons/video'
   import '@/components/Icons/audio'
   import '@/components/Icons/image'
+  import '@/components/Icons/document'
   import {
     NONE_SELECTED_FILES,
     SELECTED_ALL_FILES
@@ -92,9 +96,10 @@
   import {
     bytesToSize,
     calcProgress,
-    filterVideoFiles,
     filterAudioFiles,
+    filterDocumentFiles,
     filterImageFiles,
+    filterVideoFiles,
     removeExtensionDot
   } from '@shared/utils'
 
@@ -190,6 +195,10 @@
       },
       toggleImageSelection () {
         const filtered = filterImageFiles(this.files)
+        this.toggleSelection(filtered)
+      },
+      toggleDocumentSelection () {
+        const filtered = filterDocumentFiles(this.files)
         this.toggleSelection(filtered)
       },
       handleRowDbClick (row, column, event) {

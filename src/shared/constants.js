@@ -229,7 +229,9 @@ export const IMAGE_SUFFIXES = [
   '.ai',
   '.bmp',
   '.eps',
+  '.fig',
   '.gif',
+  '.heic',
   '.icn',
   '.ico',
   '.jpeg',
@@ -243,6 +245,7 @@ export const IMAGE_SUFFIXES = [
   '.webp',
   '.xd'
 ]
+
 export const AUDIO_SUFFIXES = [
   '.aac',
   '.ape',
@@ -254,6 +257,7 @@ export const AUDIO_SUFFIXES = [
   '.wav',
   '.wma'
 ]
+
 export const VIDEO_SUFFIXES = [
   '.avi',
   '.m4v',
@@ -274,4 +278,22 @@ export const SUB_SUFFIXES = [
   '.ssa',
   '.sst',
   '.sub'
+]
+
+export const DOCUMENT_SUFFIXES = [
+  '.azw3',
+  '.csv',
+  '.doc',
+  '.docx',
+  '.epub',
+  '.key',
+  '.mobi',
+  '.numbers',
+  '.pages',
+  '.pdf',
+  '.ppt',
+  '.pptx',
+  '.txt',
+  '.xsl',
+  '.xslx'
 ]
