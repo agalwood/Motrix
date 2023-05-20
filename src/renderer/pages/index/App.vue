@@ -78,13 +78,13 @@
       this.updateRootClassName()
     },
     watch: {
-      themeClass (val, oldVal) {
+      themeClass () {
         this.updateRootClassName()
       },
-      i18nClass (val, oldVal) {
+      i18nClass () {
         this.updateRootClassName()
       },
-      directionClass (val, oldVal) {
+      directionClass () {
         this.updateRootClassName()
       }
     }

@@ -89,7 +89,7 @@ export const XIU2_TRACKERS_HTTP_URL_CDN = 'https://fastly.jsdelivr.net/gh/XIU2/T
 // For bt-exclude-tracker
 export const XIU2_TRACKERS_BLACK_URL = 'https://fastly.jsdelivr.net/gh/XIU2/TrackersListCollection/blacklist.txt'
 
-export const trackerSourceOptions = [
+export const TRACKER_SOURCE_OPTIONS = [
   {
     label: 'ngosang/trackerslist',
     options: [

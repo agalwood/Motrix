@@ -31,8 +31,8 @@ export default class ConfigManager {
   }
 
   init () {
-    this.initSystemConfig()
     this.initUserConfig()
+    this.initSystemConfig()
   }
 
   /**
@@ -140,13 +140,12 @@ export default class ConfigManager {
   fixSystemConfig () {
     // Remove aria2c unrecognized options
     const { others } = separateConfig(this.systemConfig.store)
-    if (!others) {
-      return
+    if (others && Object.keys(others).length > 0) {
+      Object.keys(others).forEach(key => {
+        this.systemConfig.delete(key)
+      })
     }
 
-    Object.keys(others).forEach(key => {
-      this.systemConfig.delete(key)
-    })
 
     // Fix spawn ENAMETOOLONG on Windows
     const tracker = reduceTrackerString(this.systemConfig.get('bt-tracker'))

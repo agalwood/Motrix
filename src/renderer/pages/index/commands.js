@@ -22,7 +22,7 @@ const updateSystemTheme = (payload = {}) => {
 
 const updateTheme = (payload = {}) => {
   const { theme } = payload
-  store.dispatch('preference/updateThemeConfig', theme)
+  store.dispatch('preference/updateAppTheme', theme)
 }
 
 const updateTrayFocused = (payload = {}) => {

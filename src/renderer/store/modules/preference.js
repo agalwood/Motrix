@@ -114,7 +114,7 @@ const actions = {
       favoriteDirectories: favorite
     })
   },
-  updateThemeConfig ({ dispatch }, theme) {
+  updateAppTheme ({ dispatch }, theme) {
     dispatch('updatePreference', { theme })
   },
   updatePreference  ({ commit }, config) {

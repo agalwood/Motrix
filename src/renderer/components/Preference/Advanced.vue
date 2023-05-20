@@ -432,7 +432,7 @@
     EMPTY_STRING,
     ENGINE_RPC_PORT,
     LOG_LEVELS,
-    trackerSourceOptions
+    TRACKER_SOURCE_OPTIONS,
   } from '@shared/constants'
   import {
     backupConfig,
@@ -516,7 +516,7 @@
         formOriginal,
         hideRpcSecret: true,
         rules: {},
-        trackerSourceOptions,
+        trackerSourceOptions: TRACKER_SOURCE_OPTIONS,
         trackerSyncing: false
       }
     },
