@@ -88,6 +88,5 @@ export default {
   'auto-check-update': 'Verificați automat dacă sunt disponibile actualizări',
   'last-check-update-time': 'Ultima dată când au fost verificate actualizările disponibile',
   'not-saved': 'Preferințele nu au fost salvate',
-  'not-saved-confirm': 'Preferințele modificate se vor pierde, sunteți sigur că plecați?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Preferințele modificate se vor pierde, sunteți sigur că plecați?'
 }

@@ -90,6 +90,5 @@ export default {
   'auto-check-update': 'Automatisch auf Updates prüfen',
   'last-check-update-time': 'letzte kontrolle update - zeit',
   'not-saved': 'Einstellungen nicht gespeichert',
-  'not-saved-confirm': 'Die geänderten Einstellungen gehen verloren. Möchten Sie wirklich gehen?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Die geänderten Einstellungen gehen verloren. Möchten Sie wirklich gehen?'
 }

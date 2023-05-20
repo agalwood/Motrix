@@ -88,6 +88,5 @@ export default {
   'auto-check-update': 'Automatikus keresen frissitéseket',
   'last-check-update-time': 'Legutolsó frissités:',
   'not-saved': 'A beállítások nincsenek mentve',
-  'not-saved-confirm': 'A megváltozott beállítások elvesznek. Biztosan kilép?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'A megváltozott beállítások elvesznek. Biztosan kilép?'
 }

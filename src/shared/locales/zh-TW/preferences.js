@@ -90,6 +90,5 @@ export default {
   'auto-check-update': '自動檢查更新',
   'last-check-update-time': '上次檢查更新時間',
   'not-saved': '設定未儲存',
-  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎？',
-  'speed-units': "Change Units"
+  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎？'
 }

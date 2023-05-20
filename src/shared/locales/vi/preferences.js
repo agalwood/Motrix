@@ -89,6 +89,5 @@ export default {
   'auto-check-update': 'Tự động kiểm tra cập nhật',
   'last-check-update-time': 'Kiểm tra cập nhật lần cuối',
   'not-saved': 'Tùy chọn chưa được lưu',
-  'not-saved-confirm': 'Các tùy chọn đã sửa đổi sẽ bị mất, bạn có chắc chắn thoát không?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Các tùy chọn đã sửa đổi sẽ bị mất, bạn có chắc chắn thoát không?'
 }

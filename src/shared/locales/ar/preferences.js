@@ -90,6 +90,5 @@ export default {
   'auto-check-update': 'تحقق تلقائيًا من التحديث',
   'last-check-update-time': 'آخر مرة تم التحقق من وجود تحديثات',
   'not-saved': 'التفضيلات غير محفوظة',
-  'not-saved-confirm': 'ستفقد التفضيلات التي تم تغييرها ، هل أنت متأكد من المغادرة؟',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'ستفقد التفضيلات التي تم تغييرها ، هل أنت متأكد من المغادرة؟'
 }

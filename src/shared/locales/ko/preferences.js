@@ -90,6 +90,5 @@ export default {
   'auto-check-update': '자동으로 업데이트 확인',
   'last-check-update-time': '마지막 업데이트 확인 시간',
   'not-saved': '설정이 저장되지 않았습니다',
-  'not-saved-confirm': '수정된 설정이 손실됩니다. 나가시겠습니까?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': '수정된 설정이 손실됩니다. 나가시겠습니까?'
 }

@@ -88,6 +88,5 @@ export default {
   'auto-check-update': 'Revisar actualitzacions automàticament',
   'last-check-update-time': 'Última revisió d\'actualitzacions',
   'not-saved': 'Preferències no desades',
-  'not-saved-confirm': 'Les preferències modificades es perdran, esteu segur que marxareu?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Les preferències modificades es perdran, esteu segur que marxareu?'
 }

@@ -143,8 +143,7 @@
             <el-select
               style="width: 100px;"
               v-model="uploadUnit"
-              @change="handleUploadChange"
-              :placeholder="$t('preferences.speed-units')">
+              @change="handleUploadChange">
               <el-option
                 v-for="item in speedUnits"
                 :key="item.value"
@@ -166,8 +165,7 @@
             <el-select
               style="width: 100px;"
               v-model="downloadUnit"
-              @change="handleDownloadChange"
-              :placeholder="$t('preferences.speed-units')">
+              @change="handleDownloadChange">
               <el-option
                 v-for="item in speedUnits"
                 :key="item.value"

@@ -88,6 +88,5 @@ export default {
   'auto-check-update': 'Revisar automáticamente por actualizaciones',
   'last-check-update-time': 'Última revisión de actualizaciones',
   'not-saved': 'Preferencias no guardadas',
-  'not-saved-confirm': 'Las preferencias cambiadas se perderán, ¿está seguro de irse?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Las preferencias cambiadas se perderán, ¿está seguro de irse?'
 }
