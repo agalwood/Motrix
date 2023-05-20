@@ -676,7 +676,7 @@
           cancelId: 1
         }).then(({ response }) => {
           if (response === 0) {
-            this.$electron.ipcRenderer.send('command', 'application:reset')
+            this.$electron.ipcRenderer.send('command', 'application:factory-reset')
           }
         })
       },

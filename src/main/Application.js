@@ -743,7 +743,7 @@ export default class Application extends EventEmitter {
 
     this.on('application:reset-session', () => this.resetSession())
 
-    this.on('application:reset', () => {
+    this.on('application:factory-reset', () => {
       this.offConfigListeners()
       this.configManager.reset()
       this.relaunch()
