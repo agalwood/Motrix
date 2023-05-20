@@ -8,8 +8,7 @@ export const convertToAxiosProxy = (proxyServer = '') => {
   }
 
   const url = new URL(proxyServer)
-  const { username, password, protocol = 'http:', host, hostname, port } = url
-  console.log(username, password, protocol, host, hostname, port)
+  const { username, password, protocol = 'http:', hostname, port } = url
 
   let result = {
     protocol: protocol.replace(':', ''),
@@ -45,7 +44,6 @@ export const fetchBtTrackerFromSource = async (source, proxyConfig = {}) => {
     ? convertToAxiosProxy(server)
     : undefined
 
-  console.log('fetchBtTrackerFromSource===>', source, proxy)
   // Axios's config.proxy is Node.js only
   const promises = source.map(async (url) => {
     return axios.get(`${url}?t=${now}`, {
