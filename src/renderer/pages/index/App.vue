@@ -21,6 +21,8 @@
   import EngineClient from '@/components/Native/EngineClient'
   import Ipc from '@/components/Native/Ipc'
   import TitleBar from '@/components/Native/TitleBar'
+  import { getLanguage } from '@shared/locales'
+  import { getLocaleManager } from '@/components/Locale'
 
   export default {
     name: 'motrix-app',
@@ -78,13 +80,17 @@
       this.updateRootClassName()
     },
     watch: {
-      themeClass (val, oldVal) {
+      locale (val) {
+        const lng = getLanguage(val)
+        getLocaleManager().changeLanguage(lng)
+      },
+      themeClass () {
         this.updateRootClassName()
       },
-      i18nClass (val, oldVal) {
+      i18nClass () {
         this.updateRootClassName()
       },
-      directionClass (val, oldVal) {
+      directionClass () {
         this.updateRootClassName()
       }
     }

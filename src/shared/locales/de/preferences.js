@@ -48,8 +48,11 @@ export default {
   'change-language': 'Sprache ändern',
   'hide-app-menu': 'App Menü ausblenden (nur auf Windows & Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Proxy aktivieren',
-  'no-proxy-input-tips': 'Proxy-Einstellungen für diese Hosts und Domänen umgehen, eine pro Zeile',
+  'enable-proxy': 'Proxy aktivieren',
+  'proxy-bypass-input-tips': 'Proxy-Einstellungen für diese Hosts und Domänen umgehen, eine pro Zeile',
+  'proxy-scope-download': 'Herunterladen',
+  'proxy-scope-update-app': 'Anwendung aktualisieren',
+  'proxy-scope-update-trackers': 'Tracker aktualisieren',
   'proxy-tips': 'Proxy-Handbuch anzeigen',
   'bt-tracker': 'Tracker-Server',
   'bt-tracker-input-tips': 'Tracker-Server, einer pro Zeile',
@@ -87,6 +90,5 @@ export default {
   'auto-check-update': 'Automatisch auf Updates prüfen',
   'last-check-update-time': 'letzte kontrolle update - zeit',
   'not-saved': 'Einstellungen nicht gespeichert',
-  'not-saved-confirm': 'Die geänderten Einstellungen gehen verloren. Möchten Sie wirklich gehen?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Die geänderten Einstellungen gehen verloren. Möchten Sie wirklich gehen?'
 }

@@ -48,8 +48,11 @@ export default {
   'change-language': 'Skifte språk',
   'hide-app-menu': 'Skjul appmeny (kun Windows og Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Aktiver proxy',
-  'no-proxy-input-tips': 'Omgå proxy-innstillinger for disse vertene og domenene, en per linje',
+  'enable-proxy': 'Aktiver proxy',
+  'proxy-bypass-input-tips': 'Omgå proxy-innstillinger for disse vertene og domenene, en per linje',
+  'proxy-scope-download': 'Nedlasting',
+  'proxy-scope-update-app': 'Oppdater applikasjonen',
+  'proxy-scope-update-trackers': 'Oppdater sporingskapsler',
   'proxy-tips': 'Se Proxy Manual',
   'bt-tracker': 'Tracker-servere',
   'bt-tracker-input-tips': 'Tracker-servere, en per linje',
@@ -87,6 +90,5 @@ export default {
   'auto-check-update': 'Sjekk automatisk for oppdatering',
   'last-check-update-time': 'Siste gang sjekket for oppdatering',
   'not-saved': 'Preferansene er ikke lagret',
-  'not-saved-confirm': 'De endrede preferansene vil gå tapt, er du sikker på at du vil forlate?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'De endrede preferansene vil gå tapt, er du sikker på at du vil forlate?'
 }

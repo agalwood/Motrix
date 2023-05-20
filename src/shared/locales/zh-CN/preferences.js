@@ -48,8 +48,11 @@ export default {
   'change-language': '切换语言',
   'hide-app-menu': '隐藏菜单栏（仅支持 Windows 和 Linux）',
   'proxy': '代理',
-  'use-proxy': '使用代理服务器',
-  'no-proxy-input-tips': '忽略这些主机与域的代理设置，一行一个',
+  'enable-proxy': '使用代理服务器',
+  'proxy-bypass-input-tips': '忽略这些主机与域的代理设置，一行一个',
+  'proxy-scope-download': '下载',
+  'proxy-scope-update-app': '更新应用程序',
+  'proxy-scope-update-trackers': '更新 Tracker 列表',
   'proxy-tips': '查看代理配置说明',
   'bt-tracker': 'Tracker 服务器',
   'bt-tracker-input-tips': 'Tracker 服务器，一行一个',
@@ -89,6 +92,5 @@ export default {
   'follow-metalink': '自动开始下载磁力链接、种子内的文件',
   'follow-torrent': '种子下载完后自动下载种子内容',
   'not-saved': '设置未保存',
-  'not-saved-confirm': '已修改的设置将会丢失，确定要离开吗?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': '已修改的设置将会丢失，确定要离开吗?'
 }

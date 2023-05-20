@@ -48,8 +48,11 @@ export default {
   'change-language': 'تغییر زبان',
   'hide-app-menu': 'پنهان کردن منوی برنامه (تنها در ویندوز و لینوکس)',
   'proxy': 'پیشکار',
-  'use-proxy': 'فعال کردن پیشکار',
-  'no-proxy-input-tips': 'تنظیمات پیشکار را برای این میزبان‌ها و دامنه‌ها استفاده نکن، یکی در هر خط',
+  'enable-proxy': 'فعال کردن پیشکار',
+  'proxy-bypass-input-tips': 'تنظیمات پیشکار را برای این میزبان‌ها و دامنه‌ها استفاده نکن، یکی در هر خط',
+  'proxy-scope-download': 'دانلود',
+  'proxy-scope-update-app': 'به‌روزرسانی برنامه',
+  'proxy-scope-update-trackers': 'به‌روزرسانی پیگیر‌ها',
   'proxy-tips': 'مشاهده راهنمای پیشکار',
   'bt-tracker': 'سرورهای ردیاب',
   'bt-tracker-input-tips': 'سرورهای ردیاب، یکی در هر خط',
@@ -87,6 +90,5 @@ export default {
   'auto-check-update': 'به صورت خودکار برای به‌روز رسانی بررسی کن',
   'last-check-update-time': 'آخرین زمان بررسی برای به‌روز رسانی',
   'not-saved': 'تنظیمات برگزیده ذخیره نشد',
-  'not-saved-confirm': 'تنظیمات برگزیده تغییر یافته از بین خواهند رفت، آیا مطمئن هستید که می روید؟',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'تنظیمات برگزیده تغییر یافته از بین خواهند رفت، آیا مطمئن هستید که می روید؟'
 }

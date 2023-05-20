@@ -48,8 +48,11 @@ export default {
   'change-language': 'Αλλαγή Γλώσσας',
   'hide-app-menu': 'Κρύψε το μενού της εφαρμογής (μόνο για Windows & Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Χρησιμοίησε  Proxy',
-  'no-proxy-input-tips': 'Μη χρησιμοποιήσεις  ρυθμίσεις proxy για αυτούς τους Hosts και τα Domains, ένα ανά γραμμή',
+  'enable-proxy': 'Χρησιμοίησε  Proxy',
+  'proxy-bypass-input-tips': 'Μη χρησιμοποιήσεις  ρυθμίσεις proxy για αυτούς τους Hosts και τα Domains, ένα ανά γραμμή',
+  'proxy-scope-download': 'Λήψη',
+  'proxy-scope-update-app': 'Ενημέρωση εφαρμογής',
+  'proxy-scope-update-trackers': 'Ενημέρωση Trackers',
   'proxy-tips': 'Εμφάνιση εγχειριδίου Proxy',
   'bt-tracker': 'Tracker Servers',
   'bt-tracker-input-tips': 'Tracker servers, ένα ανά γραμμή',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Αυτόματος έλεγχος για ενημερώσεις',
   'last-check-update-time': 'Τελευταία φορά που έγινε έλεγχος για Ενημερώσεις',
   'not-saved': 'Οι προτιμήσεις δεν αποθηκεύτηκαν',
-  'not-saved-confirm': 'Οι αλλαγμένες προτιμήσεις θα χαθούν, είστε σίγουροι ότι θα φύγετε;',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Οι αλλαγμένες προτιμήσεις θα χαθούν, είστε σίγουροι ότι θα φύγετε;'
 }

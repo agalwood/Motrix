@@ -48,8 +48,11 @@ export default {
   'change-language': '言語を切り替え',
   'hide-app-menu': 'メニューバーを隠す（Windows と Linux のみサポート）',
   'proxy': 'プロキシ',
-  'use-proxy': 'プロキシを使う',
-  'no-proxy-input-tips': 'これらのホストおよびドメインのプロキシ設定を1行に1つずつバイパスします',
+  'enable-proxy': 'プロキシを使う',
+  'proxy-bypass-input-tips': 'これらのホストおよびドメインのプロキシ設定を1行に1つずつバイパスします',
+  'proxy-scope-download': 'ダウンロード',
+  'proxy-scope-update-app': 'アプリケーションの更新',
+  'proxy-scope-update-trackers': 'トラッカーを更新する',
   'proxy-tips': 'プロキシマニュアルを表示',
   'bt-tracker': 'トラッカーサーバー',
   'bt-tracker-input-tips': 'トラッカーサーバ、一行に一つ',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': '更新を自動で確認する',
   'last-check-update-time': '前回更新確認時間',
   'not-saved': '設定が保存されていません',
-  'not-saved-confirm': '変更された設定は失われます、よろしいですか？',
-  'speed-units': "Change Units"
+  'not-saved-confirm': '変更された設定は失われます、よろしいですか？'
 }

@@ -48,8 +48,11 @@ export default {
   'change-language': '更改語言',
   'hide-app-menu': '隱藏選單列（僅支援 Windows 和 Linux）',
   'proxy': 'Proxy',
-  'use-proxy': '使用 Proxy',
-  'no-proxy-input-tips': '忽略這些主機與網域的 Proxy 設定，一列一個',
+  'enable-proxy': '使用 Proxy',
+  'proxy-bypass-input-tips': '忽略這些主機與網域的 Proxy 設定，一列一個',
+  'proxy-scope-download': '下載',
+  'proxy-scope-update-app': '更新應用程式',
+  'proxy-scope-update-trackers': '更新 Tracker 列表',
   'proxy-tips': '查看 Proxy 配置手冊',
   'bt-tracker': 'Tracker 伺服器',
   'bt-tracker-input-tips': 'Tracker 伺服器，一列一個',
@@ -87,6 +90,5 @@ export default {
   'auto-check-update': '自動檢查更新',
   'last-check-update-time': '上次檢查更新時間',
   'not-saved': '設定未儲存',
-  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎？',
-  'speed-units': "Change Units"
+  'not-saved-confirm': '已修改的設定將會丟失，確定要離開嗎？'
 }

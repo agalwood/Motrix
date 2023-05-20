@@ -47,8 +47,11 @@ export default {
   'change-language': 'промяна на езика',
   'hide-app-menu': 'Скриване на менюто на приложението (само за Windows и Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'използване на Proxy',
-  'no-proxy-input-tips': 'заобикаляне на настройките на прокси за тези хостове и домейни, един по един на ред',
+  'enable-proxy': 'използване на Proxy',
+  'proxy-bypass-input-tips': 'заобикаляне на настройките на прокси за тези хостове и домейни, един по един на ред',
+  'proxy-scope-download': 'Изтегляне',
+  'proxy-scope-update-app': 'Актуализиране на приложението',
+  'proxy-scope-update-trackers': 'Актуализиране на трекери',
   'proxy-tips': 'преглед на ръководството за прокси',
   'bt-tracker':'Tracker сървър',
   'bt-tracker-input-tips': 'Tracker сървър, един на ред',
@@ -83,6 +86,5 @@ export default {
   'auto-check-update':'автоматична проверка на актуализациите',
   'last-check-update-time': 'последната актуализация е проверена',
   'not-saved': 'Предпочитанията не са запазени',
-  'not-saved-confirm': 'Променените предпочитания ще бъдат загубени, сигурни ли сте, че ще напуснете?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Променените предпочитания ще бъдат загубени, сигурни ли сте, че ще напуснете?'
 }

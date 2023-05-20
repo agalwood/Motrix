@@ -48,8 +48,11 @@ export default {
   'change-language': 'Cambiar idioma',
   'hide-app-menu': 'Ocultar el menú (només Windows i Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Activar proxy',
-  'no-proxy-input-tips': 'Eviteu la configuració del servidor intermediari per a aquests amfitrions i dominis, un per línia',
+  'enable-proxy': 'Activar proxy',
+  'proxy-bypass-input-tips': 'Eviteu la configuració del servidor intermediari per a aquests amfitrions i dominis, un per línia',
+  'proxy-scope-download': 'Descàrrega',
+  'proxy-scope-update-app': 'Actualització de l\'aplicació',
+  'proxy-scope-update-trackers': 'Actualitza els rastrejadors',
   'proxy-tips': 'Consulteu el manual del servidor intermediari',
   'bt-tracker': 'Seguir servidors',
   'bt-tracker-input-tips': 'Seguir servidors, un per línia',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Revisar actualitzacions automàticament',
   'last-check-update-time': 'Última revisió d\'actualitzacions',
   'not-saved': 'Preferències no desades',
-  'not-saved-confirm': 'Les preferències modificades es perdran, esteu segur que marxareu?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Les preferències modificades es perdran, esteu segur que marxareu?'
 }

@@ -48,8 +48,11 @@ export default {
   'change-language': 'Ubah Bahasa',
   'hide-app-menu': 'Sembunyikan Menu Aplikasi (hanya: Windows & Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Aktifkan Proxy',
-  'no-proxy-input-tips': 'Abaikan pengaturan proxy untuk Host dan Domain ini, satu per baris',
+  'enable-proxy': 'Aktifkan Proxy',
+  'proxy-bypass-input-tips': 'Abaikan pengaturan proxy untuk Host dan Domain ini, satu per baris',
+  'proxy-scope-download': 'Unduh',
+  'proxy-scope-update-app': 'Perbarui Aplikasi',
+  'proxy-scope-update-trackers': 'Perbarui Pelacak',
   'proxy-tips': 'Lihat Manual Proxy',
   'bt-tracker': 'Server Pelacak',
   'bt-tracker-input-tips': 'Server pelacak, satu per baris',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Secara otomatis memeriksa pembaruan',
   'last-check-update-time': 'Terakhir Kali Memeriksa Pembaruan',
   'not-saved': 'Preferensi tidak disimpan',
-  'not-saved-confirm': 'Preferensi yang dimodifikasi akan hilang, apakah Anda yakin untuk keluar?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Preferensi yang dimodifikasi akan hilang, apakah Anda yakin untuk keluar?'
 }

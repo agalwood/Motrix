@@ -16,7 +16,9 @@ import {
   IP_VERSION,
   LOGIN_SETTING_OPTIONS,
   NGOSANG_TRACKERS_BEST_IP_URL_CDN,
-  NGOSANG_TRACKERS_BEST_URL_CDN
+  NGOSANG_TRACKERS_BEST_URL_CDN,
+  PROXY_SCOPES,
+  PROXY_SCOPE_OPTIONS
 } from '@shared/constants'
 import { CHROME_UA } from '@shared/ua'
 import { separateConfig } from '@shared/utils'
@@ -31,8 +33,8 @@ export default class ConfigManager {
   }
 
   init () {
-    this.initSystemConfig()
     this.initUserConfig()
+    this.initSystemConfig()
   }
 
   /**
@@ -98,7 +100,6 @@ export default class ConfigManager {
       // },
       /* eslint-disable quote-props */
       defaults: {
-        'all-proxy-backup': EMPTY_STRING,
         'auto-check-update': is.macOS(),
         'auto-hide-window': false,
         'auto-sync-tracker': true,
@@ -117,6 +118,12 @@ export default class ConfigManager {
         'no-confirm-before-delete-task': false,
         'open-at-login': false,
         'protocols': { 'magnet': true, 'thunder': false },
+        'proxy': {
+          'enable': false,
+          'server': EMPTY_STRING,
+          'bypass': EMPTY_STRING,
+          'scope': PROXY_SCOPE_OPTIONS
+        },
         'resume-all-when-app-launched': false,
         'run-mode': APP_RUN_MODE.STANDARD,
         'show-progress-bar': true,
@@ -129,7 +136,6 @@ export default class ConfigManager {
         'tray-theme': APP_THEME.AUTO,
         'tray-speedometer': is.macOS(),
         'update-channel': 'latest',
-        'use-proxy': false,
         'window-state': {}
       }
       /* eslint-enable quote-props */
@@ -140,13 +146,18 @@ export default class ConfigManager {
   fixSystemConfig () {
     // Remove aria2c unrecognized options
     const { others } = separateConfig(this.systemConfig.store)
-    if (!others) {
-      return
+    if (others && Object.keys(others).length > 0) {
+      Object.keys(others).forEach(key => {
+        this.systemConfig.delete(key)
+      })
     }
 
-    Object.keys(others).forEach(key => {
-      this.systemConfig.delete(key)
-    })
+    const proxy = this.getUserConfig('proxy', { enable: false })
+    const { enable, server, bypass, scope = [] } = proxy
+    if (enable && server && scope.includes(PROXY_SCOPES.DOWNLOAD)) {
+      this.setSystemConfig('all-proxy', server)
+      this.setSystemConfig('no-proxy', bypass)
+    }
 
     // Fix spawn ENAMETOOLONG on Windows
     const tracker = reduceTrackerString(this.systemConfig.get('bt-tracker'))

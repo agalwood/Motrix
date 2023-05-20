@@ -72,7 +72,6 @@
           <el-col class="form-item-sub" :span="16">
             <el-select
               v-model="form.locale"
-              @change="handleLocaleChange"
               :placeholder="$t('preferences.change-language')">
               <el-option
                 v-for="item in locales"
@@ -144,8 +143,7 @@
             <el-select
               style="width: 100px;"
               v-model="uploadUnit"
-              @change="handleUploadChange"
-              :placeholder="$t('preferences.speed-units')">
+              @change="handleUploadChange">
               <el-option
                 v-for="item in speedUnits"
                 :key="item.value"
@@ -167,8 +165,7 @@
             <el-select
               style="width: 100px;"
               v-model="downloadUnit"
-              @change="handleDownloadChange"
-              :placeholder="$t('preferences.speed-units')">
+              @change="handleDownloadChange">
               <el-option
                 v-for="item in speedUnits"
                 :key="item.value"
@@ -308,7 +305,6 @@
   import { availableLanguages, getLanguage } from '@shared/locales'
   import { getLocaleManager } from '@/components/Locale'
   import {
-    backupConfig,
     calcFormLabelWidth,
     changedConfig,
     checkIsNeedRestart,
@@ -319,7 +315,8 @@
   import {
     APP_RUN_MODE,
     EMPTY_STRING,
-    ENGINE_MAX_CONCURRENT_DOWNLOADS
+    ENGINE_MAX_CONCURRENT_DOWNLOADS,
+    ENGINE_RPC_PORT
   } from '@shared/constants'
   import { reduceTrackerString } from '@shared/utils/tracker'
 
@@ -405,13 +402,6 @@
       const formOriginal = initForm(this.$store.state.preference.config)
       let form = {}
       form = initForm(extend(form, formOriginal, changedConfig.basic))
-
-      if (backupConfig.theme === undefined) {
-        backupConfig.theme = formOriginal.theme
-      } else {
-        formOriginal.theme = backupConfig.theme
-      }
-      backupConfig.locale = formOriginal.locale
 
       return {
         form,
@@ -526,6 +516,9 @@
       showHideAppMenuOption () {
         return is.windows() || is.linux()
       },
+      rpcDefaultPort () {
+        return ENGINE_RPC_PORT
+      },
       ...mapState('preference', {
         config: state => state.config
       })
@@ -534,22 +527,18 @@
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
-        this.$electron.ipcRenderer.send('command',
-                                        'application:change-locale', lng)
       },
       handleThemeChange (theme) {
         this.form.theme = theme
-        this.$electron.ipcRenderer.send('command',
-                                        'application:change-theme', theme)
       },
       handleDownloadChange (value) {
-        const speedLimit = parseInt(this.form.maxOverallDownloadLimit)
+        const speedLimit = parseInt(this.form.maxOverallDownloadLimit, 10)
         this.downloadUnit = value
         const limit = speedLimit > 0 ? `${speedLimit}${value}` : 0
         this.form.maxOverallDownloadLimit = limit
       },
       handleUploadChange (value) {
-        const speedLimit = parseInt(this.form.maxOverallUploadLimit)
+        const speedLimit = parseInt(this.form.maxOverallUploadLimit, 10)
         this.uploadUnit = value
         const limit = speedLimit > 0 ? `${speedLimit}${value}` : 0
         this.form.maxOverallUploadLimit = limit
@@ -588,10 +577,9 @@
           }
 
           const {
-            btAutoDownloadContent,
             autoHideWindow,
+            btAutoDownloadContent,
             btTracker,
-            noProxy,
             rpcListenPort
           } = data
 
@@ -603,10 +591,6 @@
 
           if (btTracker) {
             data.btTracker = reduceTrackerString(convertLineToComma(btTracker))
-          }
-
-          if (noProxy) {
-            data.noProxy = convertLineToComma(noProxy)
           }
 
           if (rpcListenPort === EMPTY_STRING) {
@@ -641,8 +625,6 @@
         })
       },
       resetForm (formName) {
-        this.$refs.themeSwitcher.currentValue = backupConfig.theme
-        this.handleLocaleChange(this.formOriginal.locale)
         this.syncFormConfig()
       }
     },
@@ -662,17 +644,8 @@
             cancelId: 1
           }).then(({ response }) => {
             if (response === 0) {
-              if (changedConfig.basic.theme !== undefined) {
-                this.$electron.ipcRenderer.send('command',
-                                                'application:change-theme',
-                                                backupConfig.theme)
-              }
-              if (changedConfig.basic.locale !== undefined) {
-                this.handleLocaleChange(this.formOriginal.locale)
-              }
               changedConfig.basic = {}
               changedConfig.advanced = {}
-              backupConfig.theme = undefined
               next()
             }
           })

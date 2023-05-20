@@ -48,8 +48,11 @@ export default {
   'change-language': 'تغيير اللغة',
   'hide-app-menu': 'إخفاء قائمة التطبيقات (Windows و Linux فقط)',
   'proxy': 'الخادم الوسيط',
-  'use-proxy': 'تفعيل الخادم الوسيط',
-  'no-proxy-input-tips': 'تخطي إعدادات الخادم الوسيط لهذه المضيفات والمجالات، واحدة لكل سطر',
+  'enable-proxy': 'تفعيل الخادم الوسيط',
+  'proxy-bypass-input-tips': 'تخطي إعدادات الخادم الوسيط لهذه المضيفات والمجالات، واحدة لكل سطر',
+  'proxy-scope-download': 'تنزيل',
+  'proxy-scope-update-app': 'تحديث التطبيق',
+  'proxy-scope-update-trackers': 'تحديث المتتبعات',
   'proxy-tips': 'عرض دليل الخادم الوسيط',
   'bt-tracker': 'خوادم التعقب',
   'bt-tracker-input-tips': 'خوادم التعقب، واحدة لكل سطر',
@@ -87,6 +90,5 @@ export default {
   'auto-check-update': 'تحقق تلقائيًا من التحديث',
   'last-check-update-time': 'آخر مرة تم التحقق من وجود تحديثات',
   'not-saved': 'التفضيلات غير محفوظة',
-  'not-saved-confirm': 'ستفقد التفضيلات التي تم تغييرها ، هل أنت متأكد من المغادرة؟',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'ستفقد التفضيلات التي تم تغييرها ، هل أنت متأكد من المغادرة؟'
 }

@@ -48,8 +48,11 @@ export default {
   'change-language': 'Nyelv váltas',
   'hide-app-menu': 'Alkalmazás csik elrejtése (csak Windows és Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Proxy engedélyezése',
-  'no-proxy-input-tips': 'Proxy beálitassok elvetése ezek url és domain-nél (/sor)',
+  'enable-proxy': 'Proxy engedélyezése',
+  'proxy-bypass-input-tips': 'Proxy beálitassok elvetése ezek url és domain-nél (/sor)',
+  'proxy-scope-download': 'Letöltés',
+  'proxy-scope-update-app': 'Alkalmazás frissítése',
+  'proxy-scope-update-trackers': 'Nyomkövetők frissítése',
   'proxy-tips': 'Proxy kéziköny megnyitasa',
   'bt-tracker': 'Lekövetö szerverek',
   'bt-tracker-input-tips': 'Lekövetö szerverek (/sor)',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Automatikus keresen frissitéseket',
   'last-check-update-time': 'Legutolsó frissités:',
   'not-saved': 'A beállítások nincsenek mentve',
-  'not-saved-confirm': 'A megváltozott beállítások elvesznek. Biztosan kilép?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'A megváltozott beállítások elvesznek. Biztosan kilép?'
 }

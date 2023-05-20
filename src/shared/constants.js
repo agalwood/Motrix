@@ -70,10 +70,10 @@ export const NGOSANG_TRACKERS_BEST_IP_URL = 'https://raw.githubusercontent.com/n
 export const NGOSANG_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt'
 export const NGOSANG_TRACKERS_ALL_IP_URL = 'https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all_ip.txt'
 
-export const NGOSANG_TRACKERS_BEST_URL_CDN = 'https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt'
-export const NGOSANG_TRACKERS_BEST_IP_URL_CDN = 'https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_best_ip.txt'
-export const NGOSANG_TRACKERS_ALL_URL_CDN = 'https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_all.txt'
-export const NGOSANG_TRACKERS_ALL_IP_URL_CDN = 'https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_all_ip.txt'
+export const NGOSANG_TRACKERS_BEST_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt'
+export const NGOSANG_TRACKERS_BEST_IP_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best_ip.txt'
+export const NGOSANG_TRACKERS_ALL_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_all.txt'
+export const NGOSANG_TRACKERS_ALL_IP_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_all_ip.txt'
 
 /**
  * @see https://github.com/XIU2/TrackersListCollection
@@ -82,14 +82,14 @@ export const XIU2_TRACKERS_BEST_URL = 'https://raw.githubusercontent.com/XIU2/Tr
 export const XIU2_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt'
 export const XIU2_TRACKERS_HTTP_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/http.txt'
 
-export const XIU2_TRACKERS_BEST_URL_CDN = 'https://fastly.jsdelivr.net/gh/XIU2/TrackersListCollection/best.txt'
-export const XIU2_TRACKERS_ALL_URL_CDN = 'https://fastly.jsdelivr.net/gh/XIU2/TrackersListCollection/all.txt'
-export const XIU2_TRACKERS_HTTP_URL_CDN = 'https://fastly.jsdelivr.net/gh/XIU2/TrackersListCollection/http.txt'
+export const XIU2_TRACKERS_BEST_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/best.txt'
+export const XIU2_TRACKERS_ALL_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/all.txt'
+export const XIU2_TRACKERS_HTTP_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/http.txt'
 
 // For bt-exclude-tracker
-export const XIU2_TRACKERS_BLACK_URL = 'https://fastly.jsdelivr.net/gh/XIU2/TrackersListCollection/blacklist.txt'
+export const XIU2_TRACKERS_BLACK_URL = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/blacklist.txt'
 
-export const trackerSourceOptions = [
+export const TRACKER_SOURCE_OPTIONS = [
   {
     label: 'ngosang/trackerslist',
     options: [
@@ -170,6 +170,18 @@ export const trackerSourceOptions = [
       }
     ]
   }
+]
+
+export const PROXY_SCOPES = {
+  DOWNLOAD: 'download',
+  UPDATE_APP: 'update-app',
+  UPDATE_TRACKERS: 'update-trackers'
+}
+
+export const PROXY_SCOPE_OPTIONS = [
+  PROXY_SCOPES.DOWNLOAD,
+  PROXY_SCOPES.UPDATE_APP,
+  PROXY_SCOPES.UPDATE_TRACKERS
 ]
 
 export const NONE_SELECTED_FILES = 'none'

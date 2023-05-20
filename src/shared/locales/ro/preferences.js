@@ -48,8 +48,11 @@ export default {
   'change-language': 'Schimbă limba',
   'hide-app-menu': 'Ascundeți meniul aplicației (numai Windows și Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Activați Proxy',
-  'no-proxy-input-tips': 'Ignorați setările proxy pentru aceste gazde și domenii, câte una pe fiecare linie',
+  'enable-proxy': 'Activați Proxy',
+  'proxy-bypass-input-tips': 'Ignorați setările proxy pentru aceste gazde și domenii, câte una pe fiecare linie',
+  'proxy-scope-download': 'Descărcare',
+  'proxy-scope-update-app': 'Actualizare aplicație',
+  'proxy-scope-update-trackers': 'Actualizare Trackere',
   'proxy-tips': 'Vizualizați manualul proxy',
   'bt-tracker': 'Severe tracker (Torrent Tracker)',
   'bt-tracker-input-tips': 'Severe tracker, câte unul pe fiecare linie',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Verificați automat dacă sunt disponibile actualizări',
   'last-check-update-time': 'Ultima dată când au fost verificate actualizările disponibile',
   'not-saved': 'Preferințele nu au fost salvate',
-  'not-saved-confirm': 'Preferințele modificate se vor pierde, sunteți sigur că plecați?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Preferințele modificate se vor pierde, sunteți sigur că plecați?'
 }

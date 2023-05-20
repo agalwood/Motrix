@@ -8,7 +8,8 @@ import { isEmpty, isEqual } from 'lodash'
 import {
   APP_RUN_MODE,
   AUTO_SYNC_TRACKER_INTERVAL,
-  AUTO_CHECK_UPDATE_INTERVAL
+  AUTO_CHECK_UPDATE_INTERVAL,
+  PROXY_SCOPES
 } from '@shared/constants'
 import { checkIsNeedRun } from '@shared/utils'
 import {
@@ -61,11 +62,11 @@ export default class Application extends EventEmitter {
 
     this.initEngineClient()
 
-    this.initTouchBarManager()
-
     this.initThemeManager()
 
     this.initTrayManager()
+
+    this.initTouchBarManager()
 
     this.initDockManager()
 
@@ -73,9 +74,9 @@ export default class Application extends EventEmitter {
 
     this.initEnergyManager()
 
-    this.initUpdaterManager()
-
     this.initProtocolManager()
+
+    this.initUpdaterManager()
 
     this.handleCommands()
 
@@ -288,6 +289,49 @@ export default class Application extends EventEmitter {
     })
   }
 
+  watchProxyChange () {
+    const { userConfig } = this.configManager
+    const key = 'proxy'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+      this.updateManager.setupProxy(newValue)
+
+      const { enable, server, bypass, scope = [] } = newValue
+      const system = enable && server && scope.includes(PROXY_SCOPES.DOWNLOAD)
+        ? {
+          'all-proxy': server,
+          'no-proxy': bypass
+        }
+        : {}
+      this.configManager.setSystemConfig(system)
+      this.engineClient.call('changeGlobalOption', system)
+    })
+  }
+
+  watchLocaleChange () {
+    const { userConfig } = this.configManager
+    const key = 'locale'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+      this.localeManager.changeLanguageByLocale(newValue)
+        .then(() => {
+          this.menuManager.handleLocaleChange(newValue)
+          this.trayManager.handleLocaleChange(newValue)
+        })
+      this.sendCommandToAll('application:update-locale', { locale: newValue })
+    })
+  }
+
+  watchThemeChange () {
+    const { userConfig } = this.configManager
+    const key = 'theme'
+    this.configListeners[key] = userConfig.onDidChange(key, async (newValue, oldValue) => {
+      logger.info(`[Motrix] detected ${key} value change event:`, newValue, oldValue)
+      this.themeManager.updateSystemTheme(newValue)
+      this.sendCommandToAll('application:update-theme', { theme: newValue })
+    })
+  }
+
   watchShowProgressBarChange () {
     const { userConfig } = this.configManager
     const key = 'show-progress-bar'
@@ -395,22 +439,13 @@ export default class Application extends EventEmitter {
     this.upnp.closeClient()
   }
 
-  autoSyncTracker () {
-    const enable = this.configManager.getUserConfig('auto-sync-tracker')
-    const lastTime = this.configManager.getUserConfig('last-sync-tracker-time')
-    const result = checkIsNeedRun(enable, lastTime, AUTO_SYNC_TRACKER_INTERVAL)
-    logger.info('[Motrix] auto sync tracker checkIsNeedRun:', result)
-    if (!result) {
-      return
-    }
-
-    const source = this.configManager.getUserConfig('tracker-source')
+  syncTrackers (source, proxy) {
     if (isEmpty(source)) {
       return
     }
 
     setTimeout(() => {
-      fetchBtTrackerFromSource(source).then((data) => {
+      fetchBtTrackerFromSource(source, proxy).then((data) => {
         logger.warn('[Motrix] auto sync tracker data:', data)
         if (!data || data.length === 0) {
           return
@@ -430,6 +465,21 @@ export default class Application extends EventEmitter {
         logger.warn('[Motrix] auto sync tracker failed:', err.message)
       })
     }, 500)
+  }
+
+  autoSyncTrackers () {
+    const enable = this.configManager.getUserConfig('auto-sync-tracker')
+    const lastTime = this.configManager.getUserConfig('last-sync-tracker-time')
+    const result = checkIsNeedRun(enable, lastTime, AUTO_SYNC_TRACKER_INTERVAL)
+    logger.info('[Motrix] auto sync tracker checkIsNeedRun:', result)
+    if (!result) {
+      return
+    }
+
+    const source = this.configManager.getUserConfig('tracker-source')
+    const proxy = this.configManager.getUserConfig('proxy', { enable: false })
+
+    this.syncTrackers(source, proxy)
   }
 
   autoResumeTask () {
@@ -633,9 +683,12 @@ export default class Application extends EventEmitter {
     }
 
     const enabled = this.configManager.getUserConfig('auto-check-update')
+    const proxy = this.configManager.getSystemConfig('all-proxy')
     const lastTime = this.configManager.getUserConfig('last-check-update-time')
+    const autoCheck = checkIsNeedRun(enabled, lastTime, AUTO_CHECK_UPDATE_INTERVAL)
     this.updateManager = new UpdateManager({
-      autoCheck: checkIsNeedRun(enabled, lastTime, AUTO_CHECK_UPDATE_INTERVAL)
+      autoCheck,
+      proxy
     })
     this.handleUpdaterEvents()
   }
@@ -743,7 +796,7 @@ export default class Application extends EventEmitter {
 
     this.on('application:reset-session', () => this.resetSession())
 
-    this.on('application:reset', () => {
+    this.on('application:factory-reset', () => {
       this.offConfigListeners()
       this.configManager.reset()
       this.relaunch()
@@ -870,7 +923,7 @@ export default class Application extends EventEmitter {
 
   handleEvents () {
     this.once('application:initialized', () => {
-      this.autoSyncTracker()
+      this.autoSyncTrackers()
 
       this.autoResumeTask()
 
@@ -884,6 +937,9 @@ export default class Application extends EventEmitter {
     this.watchProtocolsChange()
     this.watchRunModeChange()
     this.watchShowProgressBarChange()
+    this.watchProxyChange()
+    this.watchLocaleChange()
+    this.watchThemeChange()
 
     this.on('download-status-change', (downloading) => {
       this.trayManager.handleDownloadStatusChange(downloading)

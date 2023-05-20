@@ -114,14 +114,19 @@ const actions = {
       favoriteDirectories: favorite
     })
   },
-  updateThemeConfig ({ dispatch }, theme) {
+  updateAppTheme ({ dispatch }, theme) {
     dispatch('updatePreference', { theme })
+  },
+  updateAppLocale ({ dispatch }, locale) {
+    dispatch('updatePreference', { locale })
   },
   updatePreference  ({ commit }, config) {
     commit('UPDATE_PREFERENCE_DATA', config)
   },
   fetchBtTracker (_, trackerSource = []) {
-    return fetchBtTrackerFromSource(trackerSource)
+    const { proxy = { enable: false } } = state.config
+    console.log('fetchBtTracker', trackerSource, proxy)
+    return fetchBtTrackerFromSource(trackerSource, proxy)
   },
   toggleEngineMode () {
 

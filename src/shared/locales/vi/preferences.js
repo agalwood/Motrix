@@ -48,8 +48,11 @@ export default {
   'change-language': 'Thay đổi Ngôn ngữ',
   'hide-app-menu': 'Ẩn thanh Menu (Chỉ Windows & Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Bật Proxy',
-  'no-proxy-input-tips': 'Bỏ qua cài đặt proxy cho các Máy chủ và tên miền này, mỗi cái một dòng',
+  'enable-proxy': 'Bật Proxy',
+  'proxy-bypass-input-tips': 'Bỏ qua cài đặt proxy cho các Máy chủ và tên miền này, mỗi cái một dòng',
+  'proxy-scope-download': 'Tải về',
+  'proxy-scope-update-app': 'Cập nhật ứng dụng',
+  'proxy-scope-update-trackers': 'Cập nhật theo dõi',
   'proxy-tips': 'Xem Proxy Thủ Công',
   'bt-tracker': 'Máy Chủ Tracker',
   'bt-tracker-input-tips': 'Máy chủ theo dõi, mỗi thông tin trên một dòng',
@@ -86,6 +89,5 @@ export default {
   'auto-check-update': 'Tự động kiểm tra cập nhật',
   'last-check-update-time': 'Kiểm tra cập nhật lần cuối',
   'not-saved': 'Tùy chọn chưa được lưu',
-  'not-saved-confirm': 'Các tùy chọn đã sửa đổi sẽ bị mất, bạn có chắc chắn thoát không?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Các tùy chọn đã sửa đổi sẽ bị mất, bạn có chắc chắn thoát không?'
 }

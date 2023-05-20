@@ -48,8 +48,11 @@ export default {
   'change-language': '언어 변경',
   'hide-app-menu': '앱 메뉴 숨기기 (Windows 및 Linux)',
   'proxy': '프록시',
-  'use-proxy': '프록시 사용',
-  'no-proxy-input-tips': '프록시 설정을 우회할 호스트 및 도메인 (한 줄에 하나)',
+  'enable-proxy': '프록시 사용',
+  'proxy-bypass-input-tips': '프록시 설정을 우회할 호스트 및 도메인 (한 줄에 하나)',
+  'proxy-scope-download': '다운로드',
+  'proxy-scope-update-app': '애플리케이션 업데이트',
+  'proxy-scope-update-trackers': '추적기 업데이트',
   'proxy-tips': '프록시 매뉴얼 보기',
   'bt-tracker': '트래커 서버',
   'bt-tracker-input-tips': '트래커 서버 (한 줄에 하나)',
@@ -87,6 +90,5 @@ export default {
   'auto-check-update': '자동으로 업데이트 확인',
   'last-check-update-time': '마지막 업데이트 확인 시간',
   'not-saved': '설정이 저장되지 않았습니다',
-  'not-saved-confirm': '수정된 설정이 손실됩니다. 나가시겠습니까?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': '수정된 설정이 손실됩니다. 나가시겠습니까?'
 }

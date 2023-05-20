@@ -48,8 +48,11 @@ export default {
   'change-language': 'Dil değiştir',
   'hide-app-menu': 'Uygulama menüsünü göster (Windows & Linux için)',
   'proxy': 'Proxy',
-  'use-proxy': 'Proxy etkinleştir',
-  'no-proxy-input-tips': 'Her bir satırda bir tane olacak şekilde bu Ana Bilgisayarlar ve Alanlar için proxy ayarlarını atlayın',
+  'enable-proxy': 'Proxy etkinleştir',
+  'proxy-bypass-input-tips': 'Her bir satırda bir tane olacak şekilde bu Ana Bilgisayarlar ve Alanlar için proxy ayarlarını atlayın',
+  'proxy-scope-download': 'İndirme',
+  'proxy-scope-update-app': 'Uygulamayı Güncelle',
+  'proxy-scope-update-trackers': 'İzleyicileri Güncelle',
   'proxy-tips': 'Proxy Kılavuzunu Görüntüle',
   'bt-tracker': 'İzleyici Sunucular',
   'bt-tracker-input-tips': 'İzleyici sunucusu, her satıra bir tane',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Otomatik Kontrol Güncellemesi',
   'last-check-update-time': 'Son Kontrol Güncelleme Saati',
   'not-saved': 'Tercihler kaydedilmedi',
-  'not-saved-confirm': 'Değiştirilen tercihler kaybolacak, ayrılacağınızdan emin misiniz?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Değiştirilen tercihler kaybolacak, ayrılacağınızdan emin misiniz?'
 }

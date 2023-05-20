@@ -48,8 +48,11 @@ export default {
   'change-language': 'Сменить язык',
   'hide-app-menu': 'Скрыть меню приложения (только для Windows и Linux)',
   'proxy': 'Proxy',
-  'use-proxy': 'Использовать Proxy',
-  'no-proxy-input-tips': 'Обойти настройки прокси для этих хостов и доменов, по одному в строке',
+  'enable-proxy': 'Использовать Proxy',
+  'proxy-bypass-input-tips': 'Обойти настройки прокси для этих хостов и доменов, по одному в строке',
+  'proxy-scope-download': 'Скачать',
+  'proxy-scope-update-app': 'Обновить приложение',
+  'proxy-scope-update-trackers': 'Обновить трекеры',
   'proxy-tips': 'Посмотреть руководство по прокси',
   'bt-tracker': 'Tracker Сервер',
   'bt-tracker-input-tips': 'Tracker сервера, один в строку',
@@ -85,6 +88,5 @@ export default {
   'auto-check-update': 'Автоматически проверять обновления',
   'last-check-update-time': 'Последняя проверка на обновления прошла в',
   'not-saved': 'Настройки не сохранены',
-  'not-saved-confirm': 'Измененные настройки будут потеряны, вы обязательно уйдете?',
-  'speed-units': "Change Units"
+  'not-saved-confirm': 'Измененные настройки будут потеряны, вы обязательно уйдете?'
 }
