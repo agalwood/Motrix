@@ -25,6 +25,11 @@ const updateTheme = (payload = {}) => {
   store.dispatch('preference/updateAppTheme', theme)
 }
 
+const updateLocale = (payload = {}) => {
+  const { locale } = payload
+  store.dispatch('preference/updateAppLocale', locale)
+}
+
 const updateTrayFocused = (payload = {}) => {
   const { focused } = payload
   store.dispatch('app/updateTrayFocused', focused)
@@ -192,4 +197,5 @@ commands.register('application:show-task-detail', showTaskDetail)
 commands.register('application:update-preference-config', fetchPreference)
 commands.register('application:update-system-theme', updateSystemTheme)
 commands.register('application:update-theme', updateTheme)
+commands.register('application:update-locale', updateLocale)
 commands.register('application:update-tray-focused', updateTrayFocused)

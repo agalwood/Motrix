@@ -172,6 +172,18 @@ export const TRACKER_SOURCE_OPTIONS = [
   }
 ]
 
+export const PROXY_SCOPES = {
+  DOWNLOAD: 'download',
+  UPDATE_APP: 'update-app',
+  UPDATE_TRACKERS: 'update-trackers'
+}
+
+export const PROXY_SCOPE_OPTIONS = [
+  PROXY_SCOPES.DOWNLOAD,
+  PROXY_SCOPES.UPDATE_APP,
+  PROXY_SCOPES.UPDATE_TRACKERS
+]
+
 export const NONE_SELECTED_FILES = 'none'
 export const SELECTED_ALL_FILES = 'all'
 

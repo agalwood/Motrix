@@ -1,15 +1,57 @@
 import { isEmpty } from 'lodash'
 import axios from 'axios'
-import { MAX_BT_TRACKER_LENGTH } from '@shared/constants'
+import { MAX_BT_TRACKER_LENGTH, ONE_SECOND, PROXY_SCOPES } from '@shared/constants'
 
-export const fetchBtTrackerFromSource = async (source) => {
+export const convertToAxiosProxy = (proxyServer = '') => {
+  if (!proxyServer) {
+    return
+  }
+
+  const url = new URL(proxyServer)
+  const { username, password, protocol = 'http:', host, hostname, port } = url
+  console.log(username, password, protocol, host, hostname, port)
+
+  let result = {
+    protocol: protocol.replace(':', ''),
+    host: hostname,
+    port
+  }
+
+  const auth = username || password
+    ? {
+      username,
+      password
+    }
+    : undefined
+
+  if (auth) {
+    result = {
+      ...result,
+      auth
+    }
+  }
+
+  return result
+}
+
+export const fetchBtTrackerFromSource = async (source, proxyConfig = {}) => {
   if (isEmpty(source)) {
     return []
   }
 
   const now = Date.now()
-  const promises = source.map((url) => {
-    return axios.get(`${url}?t=${now}`).then((value) => value.data)
+  const { enable, server, scope = [] } = proxyConfig
+  const proxy = enable && server && scope.includes(PROXY_SCOPES.UPDATE_TRACKERS)
+    ? convertToAxiosProxy(server)
+    : undefined
+
+  console.log('fetchBtTrackerFromSource===>', source, proxy)
+  // Axios's config.proxy is Node.js only
+  const promises = source.map(async (url) => {
+    return axios.get(`${url}?t=${now}`, {
+      timeout: 30 * ONE_SECOND,
+      proxy
+    }).then((value) => value.data)
   })
 
   const results = await Promise.allSettled(promises)

@@ -49,15 +49,15 @@
           :label-width="formLabelWidth"
         >
           <el-switch
-            v-model="form.useProxy"
-            :active-text="$t('preferences.use-proxy')"
-            @change="onUseProxyChange"
+            v-model="form.proxy.enable"
+            :active-text="$t('preferences.enable-proxy')"
+            @change="onProxyEnableChange"
             >
           </el-switch>
         </el-form-item>
         <el-form-item
           :label-width="formLabelWidth"
-          v-if="form.useProxy"
+          v-if="form.proxy.enable"
           style="margin-top: -16px;"
         >
           <el-col
@@ -69,8 +69,8 @@
           >
             <el-input
               placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
-              @change="onAllProxyBackupChange"
-              v-model="form.allProxyBackup">
+              @change="onProxyServerChange"
+              v-model="form.proxy.server">
             </el-input>
           </el-col>
           <el-col
@@ -84,9 +84,30 @@
               type="textarea"
               rows="2"
               auto-complete="off"
-              :placeholder="`${$t('preferences.no-proxy-input-tips')}`"
-              v-model="form.noProxy">
+              @change="handleProxyBypassChange"
+              :placeholder="`${$t('preferences.proxy-bypass-input-tips')}`"
+              v-model="form.proxy.bypass">
             </el-input>
+          </el-col>
+          <el-col
+            class="form-item-sub"
+            :xs="24"
+            :sm="24"
+            :md="20"
+            :lg="20"
+          >
+            <el-select
+              class="proxy-scope"
+              v-model="form.proxy.scope"
+              multiple
+            >
+              <el-option
+                v-for="item in proxyScopeOptions"
+                :key="item"
+                :label="$t(`preferences.proxy-scope-${item}`)"
+                :value="item"
+              />
+            </el-select>
             <div class="el-form-item__info" style="margin-top: 8px;">
               <a target="_blank" href="https://github.com/agalwood/Motrix/wiki/Proxy" rel="noopener noreferrer">
                 {{ $t('preferences.proxy-tips') }}
@@ -433,9 +454,9 @@
     ENGINE_RPC_PORT,
     LOG_LEVELS,
     TRACKER_SOURCE_OPTIONS,
+    PROXY_SCOPE_OPTIONS
   } from '@shared/constants'
   import {
-    backupConfig,
     buildRpcUrl,
     calcFormLabelWidth,
     changedConfig,
@@ -454,8 +475,6 @@
 
   const initForm = (config) => {
     const {
-      allProxy,
-      allProxyBackup,
       autoCheckUpdate,
       autoSyncTracker,
       btTracker,
@@ -466,8 +485,8 @@
       lastSyncTrackerTime,
       listenPort,
       logLevel,
-      noProxy,
       protocols,
+      proxy,
       rpcListenPort,
       rpcSecret,
       trackerSource,
@@ -475,8 +494,6 @@
       userAgent
     } = config
     const result = {
-      allProxy,
-      allProxyBackup,
       autoCheckUpdate,
       autoSyncTracker,
       btTracker: convertCommaToLine(btTracker),
@@ -487,7 +504,7 @@
       lastSyncTrackerTime,
       listenPort,
       logLevel,
-      noProxy: convertCommaToLine(noProxy),
+      proxy: cloneDeep(proxy),
       protocols: { ...protocols },
       rpcListenPort,
       rpcSecret,
@@ -515,6 +532,7 @@
         formLabelWidth: calcFormLabelWidth(locale),
         formOriginal,
         hideRpcSecret: true,
+        proxyScopeOptions: PROXY_SCOPE_OPTIONS,
         rules: {},
         trackerSourceOptions: TRACKER_SOURCE_OPTIONS,
         trackerSyncing: false
@@ -577,8 +595,6 @@
       handleLocaleChange (locale) {
         const lng = getLanguage(locale)
         getLocaleManager().changeLanguage(lng)
-        this.$electron.ipcRenderer.send('command',
-                                        'application:change-locale', lng)
       },
       onCheckUpdateClick () {
         this.$electron.ipcRenderer.send('command', 'application:check-for-updates')
@@ -610,11 +626,29 @@
           [protocol]: enabled
         }
       },
-      onUseProxyChange (flag) {
-        this.form.allProxy = flag ? this.form.allProxyBackup : ''
+      onProxyEnableChange (enable) {
+        this.form.proxy = {
+          ...this.form.proxy,
+          enable
+        }
       },
-      onAllProxyBackupChange (value) {
-        this.form.allProxy = value
+      onProxyServerChange (server) {
+        this.form.proxy = {
+          ...this.form.proxy,
+          server
+        }
+      },
+      handleProxyBypassChange (bypass) {
+        this.form.proxy = {
+          ...this.form.proxy,
+          bypass: convertLineToComma(bypass)
+        }
+      },
+      onProxyScopeChange (scope) {
+        this.form.proxy = {
+          ...this.form.proxy,
+          scope: [...scope]
+        }
       },
       changeUA (type) {
         const ua = userAgentMap[type]
@@ -685,10 +719,6 @@
           .then((config) => {
             this.form = initForm(config)
             this.formOriginal = cloneDeep(this.form)
-            if (changedConfig.basic.theme !== undefined) {
-              this.$electron.ipcRenderer.send('command',
-                                              'application:change-theme', changedConfig.basic.theme)
-            }
           })
       },
       submitForm (formName) {
@@ -704,10 +734,9 @@
           }
 
           const {
-            btAutoDownloadContent,
             autoHideWindow,
+            btAutoDownloadContent,
             btTracker,
-            noProxy,
             rpcListenPort
           } = data
 
@@ -719,10 +748,6 @@
 
           if (btTracker) {
             data.btTracker = reduceTrackerString(convertLineToComma(btTracker))
-          }
-
-          if (noProxy) {
-            data.noProxy = convertLineToComma(noProxy)
           }
 
           if (rpcListenPort === EMPTY_STRING) {
@@ -776,17 +801,8 @@
             cancelId: 1
           }).then(({ response }) => {
             if (response === 0) {
-              if (changedConfig.basic.theme !== undefined) {
-                this.$electron.ipcRenderer.send('command',
-                                                'application:change-theme',
-                                                backupConfig.theme)
-              }
-              if (changedConfig.basic.locale !== undefined) {
-                this.handleLocaleChange(backupConfig.locale)
-              }
               changedConfig.basic = {}
               changedConfig.advanced = {}
-              backupConfig.theme = undefined
               next()
             }
           })
@@ -797,6 +813,9 @@
 </script>
 
 <style lang="scss">
+.proxy-scope {
+  width: 100%;
+}
 .bt-tracker {
   position: relative;
   .sync-tracker-btn {
