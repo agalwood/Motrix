@@ -3,6 +3,7 @@
     custom-class="tab-title-dialog add-task-dialog"
     width="67vw"
     :visible="visible"
+    :top="dialogTop"
     :show-close="false"
     :before-close="beforeClose"
     @open="handleOpen"
@@ -244,6 +245,9 @@
       }),
       taskType () {
         return this.type
+      },
+      dialogTop () {
+        return this.showAdvanced ? '8vh' : '15vh'
       }
     },
     watch: {

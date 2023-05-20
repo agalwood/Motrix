@@ -237,6 +237,11 @@
     }
   }
 
+  .el-select-dropdown.is-multiple .el-select-dropdown__item.selected {
+    background-color: #3d3d3d;
+    color: $--color-primary;
+  }
+
   .el-upload-dragger {
     background-color: #2d2d2d;
     border-color: #606060;
@@ -449,4 +454,13 @@
     border-color: $--dk-popover-border-color;
   }
 
+  .el-tag.el-tag--info.el-tag--light {
+    background-color: #5b5b5b;
+    border-color: #606060;
+    color: #e6e6e6;
+  }
+
+  .el-tag__close.el-icon-close {
+    color: #2d2d2d;
+  }
 }

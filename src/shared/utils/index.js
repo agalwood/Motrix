@@ -28,7 +28,8 @@ import {
   SUB_SUFFIXES,
   UNKNOWN_PEERID,
   SUPPORT_RTL_LOCALES,
-  UNKNOWN_PEERID_NAME
+  UNKNOWN_PEERID_NAME,
+  DOCUMENT_SUFFIXES
 } from '@shared/constants'
 
 export const bytesToSize = (bytes, precision = 1) => {
@@ -429,6 +430,7 @@ export const compactUndefined = (arr = []) => {
 }
 
 export const splitTextRows = (text = '') => {
+  text = `${text}`
   let result = text
     .replace(/(?:\\\r\\\n|\\\r|\\\n)/g, ' ')
     .replace(/(?:\r\n|\r|\n)/g, '\n')
@@ -438,6 +440,7 @@ export const splitTextRows = (text = '') => {
 }
 
 export const convertCommaToLine = (text = '') => {
+  text = `${text}`
   let arr = text.split(',')
   arr = arr.map((row) => row.trim())
   const result = arr.join('\n').trim()
@@ -465,6 +468,12 @@ export const filterAudioFiles = (files = []) => {
 export const filterImageFiles = (files = []) => {
   return files.filter((item) => {
     return IMAGE_SUFFIXES.includes(item.extension)
+  })
+}
+
+export const filterDocumentFiles = (files = []) => {
+  return files.filter((item) => {
+    return DOCUMENT_SUFFIXES.includes(item.extension)
   })
 }
 
@@ -570,6 +579,7 @@ export const diffConfig = (current = {}, next = {}) => {
     }
     return curr[key] === val
   })
+
   return result
 }
 
