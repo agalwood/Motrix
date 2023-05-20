@@ -52,7 +52,7 @@ export default {
   'proxy-bypass-input-tips': '忽略這些主機與網域的 Proxy 設定，一列一個',
   'proxy-scope-download': '下載',
   'proxy-scope-update-app': '更新應用程式',
-  'proxy-scope-update-trackers': '更新追蹤器',
+  'proxy-scope-update-trackers': '更新 Tracker 列表',
   'proxy-tips': '查看 Proxy 配置手冊',
   'bt-tracker': 'Tracker 伺服器',
   'bt-tracker-input-tips': 'Tracker 伺服器，一列一個',

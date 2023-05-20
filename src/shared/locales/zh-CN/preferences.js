@@ -52,7 +52,7 @@ export default {
   'proxy-bypass-input-tips': '忽略这些主机与域的代理设置，一行一个',
   'proxy-scope-download': '下载',
   'proxy-scope-update-app': '更新应用程序',
-  'proxy-scope-update-trackers': '更新跟踪器',
+  'proxy-scope-update-trackers': '更新 Tracker 列表',
   'proxy-tips': '查看代理配置说明',
   'bt-tracker': 'Tracker 服务器',
   'bt-tracker-input-tips': 'Tracker 服务器，一行一个',
