@@ -76,8 +76,8 @@ export default class ConfigManager {
         'pause': true,
         'rpc-listen-port': ENGINE_RPC_PORT,
         'rpc-secret': EMPTY_STRING,
-        'seed-ratio': 1,
-        'seed-time': 60,
+        'seed-ratio': 2,
+        'seed-time': 2880,
         'split': getMaxConnectionPerServer(),
         'user-agent': CHROME_UA
       }
