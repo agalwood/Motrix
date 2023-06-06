@@ -43,7 +43,7 @@ export default {
   'run-mode-tray': 'Tray Application',
   'run-mode-hide-tray': 'Hide Tray Application',
   'tray-speedometer': 'Show the real-time speed in the menu bar tray',
-  'show-progress-bar': 'Show download prgress bar',
+  'show-progress-bar': 'Show download progress bar',
   'language': 'Language',
   'change-language': 'Change language',
   'hide-app-menu': 'Hide App Menu (Windows & Linux Only)',
