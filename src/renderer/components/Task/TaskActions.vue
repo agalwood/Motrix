@@ -1,6 +1,19 @@
 <template>
   <div class="task-actions">
     <el-tooltip
+      effect="dark"
+      class="item"
+      placement="bottom"
+      :content="$t('task.all-task')"
+    >
+      <el-checkbox
+        class="my-checkbox"
+        :indeterminate="indeterminate"
+        v-model="checkAll"
+        @change="handleCheckAllChange"
+      ></el-checkbox>
+    </el-tooltip>
+    <el-tooltip
       class="item hidden-md-and-up"
       effect="dark"
       placement="bottom"
@@ -20,7 +33,8 @@
       <i
         class="task-action"
         :class="{ disabled: selectedGidListCount === 0 }"
-        @click="onBatchDeleteClick">
+        @click="onBatchDeleteClick"
+      >
         <mo-icon name="delete" width="14" height="14" />
       </i>
     </el-tooltip>
@@ -69,94 +83,119 @@
 </template>
 
 <script>
-  import { mapState } from 'vuex'
+import { mapState } from "vuex";
 
-  import { commands } from '@/components/CommandManager/instance'
-  import { ADD_TASK_TYPE } from '@shared/constants'
-  import { bytesToSize, timeFormat } from '@shared/utils'
-  import '@/components/Icons/menu-add'
-  import '@/components/Icons/refresh'
-  import '@/components/Icons/task-start-line'
-  import '@/components/Icons/task-pause-line'
-  import '@/components/Icons/delete'
-  import '@/components/Icons/purge'
-  import '@/components/Icons/more'
+import { commands } from "@/components/CommandManager/instance";
+import { ADD_TASK_TYPE } from "@shared/constants";
+import { bytesToSize, timeFormat } from "@shared/utils";
+import "@/components/Icons/menu-add";
+import "@/components/Icons/refresh";
+import "@/components/Icons/task-start-line";
+import "@/components/Icons/task-pause-line";
+import "@/components/Icons/delete";
+import "@/components/Icons/purge";
+import "@/components/Icons/more";
 
-  export default {
-    name: 'mo-task-actions',
-    components: {
+export default {
+  name: "mo-task-actions",
+  components: {},
+  props: ["task"],
+  data() {
+    return {
+      refreshing: false,
+      indeterminate: false,
+      checkAll: false,
+    };
+  },
+  computed: {
+    ...mapState("task", {
+      currentList: (state) => state.currentList,
+      selectedGidListCount: (state) => state.selectedGidList.length,
+      taskList: (state) => state.taskList,
+    }),
+  },
+  filters: {
+    bytesToSize,
+    timeFormat,
+  },
+  methods: {
+    refreshSpin() {
+      this.t && clearTimeout(this.t);
+
+      this.refreshing = true;
+      this.t = setTimeout(() => {
+        this.refreshing = false;
+      }, 500);
     },
-    props: ['task'],
-    data () {
-      return {
-        refreshing: false
+    onBatchDeleteClick(event) {
+      const deleteWithFiles = !!event.shiftKey;
+      commands.emit("batch-delete-task", { deleteWithFiles });
+    },
+    onRefreshClick() {
+      this.refreshSpin();
+      this.$store.dispatch("task/fetchList");
+    },
+    onResumeAllClick() {
+      this.$store
+        .dispatch("task/resumeAllTask")
+        .then(() => {
+          this.$msg.success(this.$t("task.resume-all-task-success"));
+        })
+        .catch(({ code }) => {
+          if (code === 1) {
+            this.$msg.error(this.$t("task.resume-all-task-fail"));
+          }
+        });
+    },
+    onPauseAllClick() {
+      this.$store
+        .dispatch("task/pauseAllTask")
+        .then(() => {
+          this.$msg.success(this.$t("task.pause-all-task-success"));
+        })
+        .catch(({ code }) => {
+          if (code === 1) {
+            this.$msg.error(this.$t("task.pause-all-task-fail"));
+          }
+        });
+    },
+    onPurgeRecordClick() {
+      this.$store
+        .dispatch("task/purgeTaskRecord")
+        .then(() => {
+          this.$msg.success(this.$t("task.purge-record-success"));
+        })
+        .catch(({ code }) => {
+          if (code === 1) {
+            this.$msg.error(this.$t("task.purge-record-fail"));
+          }
+        });
+    },
+    onAddClick() {
+      this.$store.dispatch("app/showAddTaskDialog", ADD_TASK_TYPE.URI);
+    },
+    handleCheckAllChange() {
+      this.checkAll
+        ? this.$store.dispatch("task/selectAllTask")
+        : this.$store.dispatch("task/selectTasks", []);
+      this.indeterminate = false;
+    },
+  },
+  watch: {
+    selectedGidListCount(val) {
+      console.log("val", val);
+      console.log("taskList", this.taskList.length);
+      if (val === this.taskList.length && val !== 0) {
+        this.checkAll = true;
+      } else if (val > 0) {
+        this.indeterminate = true;
+      } else {
+        this.indeterminate = false;
+        this.checkAll = false;
       }
     },
-    computed: {
-      ...mapState('task', {
-        currentList: state => state.currentList,
-        selectedGidListCount: state => state.selectedGidList.length
-      })
-    },
-    filters: {
-      bytesToSize,
-      timeFormat
-    },
-    methods: {
-      refreshSpin () {
-        this.t && clearTimeout(this.t)
-
-        this.refreshing = true
-        this.t = setTimeout(() => {
-          this.refreshing = false
-        }, 500)
-      },
-      onBatchDeleteClick (event) {
-        const deleteWithFiles = !!event.shiftKey
-        commands.emit('batch-delete-task', { deleteWithFiles })
-      },
-      onRefreshClick () {
-        this.refreshSpin()
-        this.$store.dispatch('task/fetchList')
-      },
-      onResumeAllClick () {
-        this.$store.dispatch('task/resumeAllTask')
-          .then(() => {
-            this.$msg.success(this.$t('task.resume-all-task-success'))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.resume-all-task-fail'))
-            }
-          })
-      },
-      onPauseAllClick () {
-        this.$store.dispatch('task/pauseAllTask')
-          .then(() => {
-            this.$msg.success(this.$t('task.pause-all-task-success'))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.pause-all-task-fail'))
-            }
-          })
-      },
-      onPurgeRecordClick () {
-        this.$store.dispatch('task/purgeTaskRecord')
-          .then(() => {
-            this.$msg.success(this.$t('task.purge-record-success'))
-          })
-          .catch(({ code }) => {
-            if (code === 1) {
-              this.$msg.error(this.$t('task.purge-record-fail'))
-            }
-          })
-      },
-      onAddClick () {
-        this.$store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.URI)
-      }
-    }
-  }
+  },
+};
 </script>
 
 <style lang="scss">
@@ -185,6 +224,15 @@
     &.disabled {
       color: $--task-action-disabled-color;
     }
+  }
+  .my-checkbox {
+    display: inline-block;
+    padding: 5px;
+    margin: 0 4px;
+    cursor: pointer;
+    outline: none;
+    position: relative;
+    top: -2.1px;
   }
 }
 </style>
