@@ -3,7 +3,7 @@ export default {
   'redo': 'Refazer',
   'cut': 'Recortar',
   'copy': 'Copiar',
-  'paste': 'Copiar',
-  'delete': 'Apagar',
-  'select-all': 'Selecionar Tudo'
+  'paste': 'Colar',
+  'delete': 'Excluir',
+  'select-all': 'Selecionar tudo'
 }
