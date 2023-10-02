@@ -3,6 +3,6 @@ export default {
   'close': 'Fechar',
   'minimize': 'Minimizar',
   'zoom': 'Zoom',
-  'toggle-fullscreen': 'Modo Full Screen',
-  'front': 'Trazer Tudo Para a Frente'
+  'toggle-fullscreen': 'Alternar tela cheia',
+  'front': 'Trazer tudo para a frente'
 }
