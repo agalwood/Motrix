@@ -3394,10 +3394,10 @@ electron-updater@^6.1.0:
     semver "^7.3.8"
     typed-emitter "^2.1.0"
 
-electron@^22.3.9:
-  version "22.3.9"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-22.3.9.tgz#8b4551f9bcea436a0110e5680ba23df56819a4e2"
-  integrity sha512-C+ws4LnGxd+BQGVbKRgR9L1hfslk1L6FHYBm3a7dWL6xcobVm4dLyqShT/5N8lNRXlN1BhIYsWmrAisdd537Tw==
+electron@^22.3.25:
+  version "22.3.25"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-22.3.25.tgz#a9a70b63a6712c658cd7fab343129b2a78450f80"
+  integrity sha512-AjrP7bebMs/IPsgmyowptbA7jycTkrJC7jLZTb5JoH30PkBC6pZx/7XQ0aDok82SsmSiF4UJDOg+HoLrEBiqmg==
   dependencies:
     "@electron/get" "^2.0.0"
     "@types/node" "^16.11.26"
