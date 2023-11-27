@@ -1,4 +1,4 @@
-# Motrix
+# Metrix cub
 
 <p>
   <a href="https://motrix.app">
