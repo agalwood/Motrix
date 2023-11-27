@@ -19,8 +19,8 @@ install:
 build_script:
   - npm run release
 
-test: off
+test: on
 
 branches:
   only:
-    - master
+    - iran-chiefpriest
