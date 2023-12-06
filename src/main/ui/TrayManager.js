@@ -92,8 +92,8 @@ export default class TrayManager extends EventEmitter {
   loadImagesForLinux () {
     const { theme } = this
     if (theme === APP_THEME.AUTO) {
-      this.normalIcon = this.getFromCacheOrCreateImage('mo-tray-dark-normal.png')
-      this.activeIcon = this.getFromCacheOrCreateImage('mo-tray-dark-active.png')
+      this.normalIcon = this.getFromCacheOrCreateImage('mo-tray-colorful-normal.png')
+      this.activeIcon = this.getFromCacheOrCreateImage('mo-tray-colorful-active.png')
     } else {
       this.normalIcon = this.getFromCacheOrCreateImage(`mo-tray-${theme}-normal.png`)
       this.activeIcon = this.getFromCacheOrCreateImage(`mo-tray-${theme}-active.png`)
