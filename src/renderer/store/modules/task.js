@@ -12,7 +12,8 @@ const state = {
   currentTaskPeers: [],
   seedingList: [],
   taskList: [],
-  selectedGidList: []
+  selectedGidList: [],
+  sortMode: 'desc'
 }
 
 const getters = {
@@ -48,6 +49,9 @@ const mutations = {
   },
   UPDATE_CURRENT_TASK_PEERS (state, peers) {
     state.currentTaskPeers = peers
+  },
+  SWITCH_SORT_MODE (state) {
+    state.sortMode = state.sortMode === 'asc' ? 'desc' : 'asc'
   }
 }
 
@@ -300,6 +304,9 @@ const actions = {
         dispatch('fetchList')
         dispatch('saveSession')
       })
+  },
+  switchSortMode ({ commit }) {
+    commit('SWITCH_SORT_MODE')
   }
 }
 

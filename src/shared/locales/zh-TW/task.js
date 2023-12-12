@@ -50,6 +50,7 @@ export default {
   'task-peer-host': '伺服器',
   'task-peer-ip': 'IP',
   'task-peer-client': '客戶端',
+  'task-switch-sort-mode': '切換排序模式',
   'navigate-to-downloading': '前往下載頁面',
   'show-advanced-options': '進階選項',
   'copyright-warning': '版權警告',

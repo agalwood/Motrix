@@ -1,6 +1,18 @@
 <template>
   <div class="task-actions">
     <el-tooltip
+      class="item"
+      effect="dark"
+      placement="bottom"
+      :content="$t('task.task-switch-sort-mode')"
+    >
+      <i
+        class="task-action"
+        @click="onSwitchSortModeClick">
+        <mo-icon :name="`task-sort-${sortMode}`" width="14" height="14" />
+      </i>
+    </el-tooltip>
+    <el-tooltip
       class="item hidden-md-and-up"
       effect="dark"
       placement="bottom"
@@ -81,6 +93,7 @@
   import '@/components/Icons/delete'
   import '@/components/Icons/purge'
   import '@/components/Icons/more'
+  import '@/components/Icons/task-sort'
 
   export default {
     name: 'mo-task-actions',
@@ -95,7 +108,8 @@
     computed: {
       ...mapState('task', {
         currentList: state => state.currentList,
-        selectedGidListCount: state => state.selectedGidList.length
+        selectedGidListCount: state => state.selectedGidList.length,
+        sortMode: state => state.sortMode
       })
     },
     filters: {
@@ -154,6 +168,9 @@
       },
       onAddClick () {
         this.$store.dispatch('app/showAddTaskDialog', ADD_TASK_TYPE.URI)
+      },
+      onSwitchSortModeClick () {
+        this.$store.dispatch('task/switchSortMode')
       }
     }
   }
