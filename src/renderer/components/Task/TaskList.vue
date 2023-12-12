@@ -43,8 +43,9 @@
     },
     computed: {
       ...mapState('task', {
-        taskList: state => state.taskList,
-        selectedGidList: state => state.selectedGidList
+        taskList: state => state.sortMode === 'asc' ? state.taskList : [...state.taskList].reverse(),
+        selectedGidList: state => state.selectedGidList,
+        sortMode: state => state.sortMode
       })
     },
     methods: {

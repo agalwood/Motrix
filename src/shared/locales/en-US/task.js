@@ -51,6 +51,7 @@ export default {
   'task-peer-host': 'Host',
   'task-peer-ip': 'IP',
   'task-peer-client': 'Client',
+  'task-switch-sort-mode': 'Switch sort mode',
   'navigate-to-downloading': 'Navigate to Downloading',
   'show-advanced-options': 'Advanced Options',
   'copyright-warning': 'Copyright Warning',
