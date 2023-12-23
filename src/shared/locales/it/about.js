@@ -1,7 +1,7 @@
 export default {
   'engine-version': 'Versione Engine',
   'license': 'Licenza',
-  'about': 'Chi siamo',
+  'about': 'Info programma',
   'release': 'Rilasci',
   'support': 'Supporto'
 }

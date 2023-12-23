@@ -1,8 +1,8 @@
 export default {
   'reload': 'Ricarica',
   'close': 'Chiudi',
-  'minimize': 'Riduci a icona',
-  'zoom': 'Zoo',
+  'minimize': 'Riduci ad icona',
+  'zoom': 'Zoom',
   'toggle-fullsmcreen': 'Modalità a schermo intero',
-  'front': 'Riporta tutto davanti'
+  'front': 'Porta tutto in primo piano'
 }
