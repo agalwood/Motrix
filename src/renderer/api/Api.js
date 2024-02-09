@@ -26,10 +26,19 @@ export default class Api {
     this.client.open()
   }
 
-  loadConfigFromLocalStorage () {
-    // TODO
-    const result = {}
-    return result
+  loadConfigFromLocalStorage() {
+    // Load config from localStorage
+    let config = null
+    try {
+      const serializedConfig = localStorage.getItem('config')
+      if (serializedConfig) {
+        config = JSON.parse(serializedConfig)
+      }
+    } catch (error) {
+      console.error('Error loading config from localStorage', error)
+    }
+
+    return config
   }
 
   async loadConfigFromNativeStore () {
@@ -85,8 +94,8 @@ export default class Api {
     }
   }
 
-  savePreferenceToLocalStorage () {
-    // TODO
+  savePreferenceToLocalStorage() {
+    localStorage.setItem('preference', JSON.stringify(this.preference))
   }
 
   savePreferenceToNativeStore (params = {}) {
