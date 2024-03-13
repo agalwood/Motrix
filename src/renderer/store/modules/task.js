@@ -3,7 +3,7 @@ import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
 import { checkTaskIsBT, intersection } from '@shared/utils'
 
 const state = {
-  currentList: 'active',
+  currentList: 'all-tasks',
   taskDetailVisible: false,
   currentTaskGid: EMPTY_STRING,
   enabledFetchPeers: false,

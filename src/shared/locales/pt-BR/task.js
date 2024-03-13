@@ -1,4 +1,5 @@
 export default {
+  'all-tasks': 'Todas Tarefas',
   'active': 'Baixando',
   'waiting': 'Aguardando',
   'stopped': 'Parou',

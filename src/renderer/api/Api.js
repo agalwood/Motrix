@@ -143,7 +143,7 @@ export default class Api {
   }
 
   updateActiveTaskOption (options) {
-    this.fetchTaskList({ type: 'active' })
+    this.fetchTaskList({ type: 'all-tasks' })
       .then((data) => {
         if (isEmpty(data)) {
           return
@@ -223,6 +223,26 @@ export default class Api {
     })
   }
 
+  fetchUnfilteredTaskList (params = {}) {
+    const { offset = 0, num = 20, keys } = params
+    const activeArgs = compactUndefined([keys])
+    const waitingArgs = compactUndefined([offset, num, keys])
+    return new Promise((resolve, reject) => {
+      this.client.multicall([
+        ['aria2.tellActive', ...activeArgs],
+        ['aria2.tellWaiting', ...waitingArgs],
+        ['aria2.tellStopped', ...waitingArgs]
+      ]).then((data) => {
+        console.log('[Motrix] fetch downloading task list data:', data)
+        const result = mergeTaskResult(data)
+        resolve(result)
+      }).catch((err) => {
+        console.log('[Motrix] fetch downloading task list fail:', err)
+        reject(err)
+      })
+    })
+  }
+
   fetchWaitingTaskList (params = {}) {
     const { offset = 0, num = 20, keys } = params
     const args = compactUndefined([offset, num, keys])
@@ -244,6 +264,8 @@ export default class Api {
   fetchTaskList (params = {}) {
     const { type } = params
     switch (type) {
+    case 'all-tasks':
+      return this.fetchUnfilteredTaskList(params)
     case 'active':
       return this.fetchDownloadingTaskList(params)
     case 'waiting':
@@ -251,7 +273,7 @@ export default class Api {
     case 'stopped':
       return this.fetchStoppedTaskList(params)
     default:
-      return this.fetchDownloadingTaskList(params)
+      return this.fetchUnfilteredTaskList(params)
     }
   }
 

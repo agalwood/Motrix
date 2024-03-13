@@ -10,6 +10,9 @@
     "id": "task.task-list",
     "items": [
       {
+        "type": "button", "icon": "task-history", "command": "application:task-list", "command-arg": { "status": "all-tasks" }
+      },
+      {
         "type": "button", "icon": "task-active", "command": "application:task-list", "command-arg": { "status": "active" }
       },
       {
