@@ -3,6 +3,15 @@
     <h3>{{ title }}</h3>
     <ul>
       <li
+        @click="() => nav('all-tasks')"
+        :class="[ current === 'all-tasks' ? 'active' : '' ]"
+      >
+        <i class="subnav-icon">
+          <mo-icon name="menu-task" width="20" height="20" />
+        </i>
+        <span>{{ $t('task.all-tasks') }}</span>
+      </li>
+      <li
         @click="() => nav('active')"
         :class="[ current === 'active' ? 'active' : '' ]"
       >
@@ -34,6 +43,7 @@
 </template>
 
 <script>
+  import '@/components/Icons/task-history'
   import '@/components/Icons/task-start'
   import '@/components/Icons/task-pause'
   import '@/components/Icons/task-stop'
@@ -43,7 +53,7 @@
     props: {
       current: {
         type: String,
-        default: 'active'
+        default: 'all-tasks'
       }
     },
     computed: {
@@ -52,7 +62,7 @@
       }
     },
     methods: {
-      nav (status = 'active') {
+      nav (status = 'all-tasks') {
         this.$router.push({
           path: `/task/${status}`
         }).catch(err => {
