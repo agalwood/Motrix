@@ -143,7 +143,7 @@ export default class Api {
   }
 
   updateActiveTaskOption (options) {
-    this.fetchTaskList({ type: 'active' })
+    this.fetchTaskList({ type: 'all-tasks' })
       .then((data) => {
         if (isEmpty(data)) {
           return
@@ -273,7 +273,7 @@ export default class Api {
     case 'stopped':
       return this.fetchStoppedTaskList(params)
     default:
-      return this.fetchDownloadingTaskList(params)
+      return this.fetchUnfilteredTaskList(params)
     }
   }
 
