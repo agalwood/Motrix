@@ -69,6 +69,7 @@
 </template>
 
 <script>
+  import { ipcRenderer } from 'electron'
   import { mapState } from 'vuex'
 
   import { commands } from '@/components/CommandManager/instance'
@@ -145,6 +146,7 @@
         this.$store.dispatch('task/purgeTaskRecord')
           .then(() => {
             this.$msg.success(this.$t('task.purge-record-success'))
+            ipcRenderer.send('command', 'application:clear-recent-tasks')
           })
           .catch(({ code }) => {
             if (code === 1) {
