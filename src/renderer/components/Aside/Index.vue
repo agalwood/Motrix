@@ -71,6 +71,12 @@
 </script>
 
 <style lang="scss">
+.aside {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
 .aside-inner {
   display: flex;
   height: 100%;
@@ -78,6 +84,15 @@
 }
 .logo-mini {
   margin-top: 40px;
+
+  svg path {
+    fill: rgba(0, 0, 0, 0.8);
+    transition: fill 0.3s ease;
+  }
+
+  a:hover svg path {
+    fill: rgba(0, 0, 0, 0.95);
+  }
 }
 .menu {
   list-style: none;
@@ -91,20 +106,65 @@
     margin-top: 24px;
     cursor: pointer;
     border-radius: 16px;
-    transition: background-color 0.25s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(0, 0, 0, 0.06);
     &:hover {
-      background-color: rgba(255, 255, 255, 0.15);
+      background-color: rgba(0, 0, 0, 0.12);
+      transform: scale(1.08);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    &:active {
+      transform: scale(0.98);
+      background-color: rgba(0, 0, 0, 0.18);
     }
   }
   svg {
     padding: 6px;
-    color: #fff;
+    color: rgba(0, 0, 0, 0.85);
+    transition: color 0.3s ease;
+  }
+  > li:hover svg {
+    color: rgba(0, 0, 0, 0.95);
   }
 }
 .top-menu {
   flex: 1;
+
+  > li {
+    svg {
+      color: rgba(0, 0, 0, 0.85);
+    }
+
+    &:hover svg {
+      color: rgba(0, 0, 0, 0.95);
+    }
+  }
 }
 .bottom-menu {
   margin-bottom: 24px;
+
+  > li {
+    background-color: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+
+    svg {
+      color: rgba(0, 0, 0, 0.85);
+    }
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.16);
+      border-color: rgba(0, 0, 0, 0.18);
+
+      svg {
+        color: rgba(0, 0, 0, 0.95);
+      }
+    }
+
+    &:active {
+      background-color: rgba(0, 0, 0, 0.22);
+    }
+  }
 }
 </style>

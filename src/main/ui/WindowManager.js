@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events'
 import { debounce } from 'lodash'
 import { app, shell, screen, BrowserWindow } from 'electron'
 import is from 'electron-is'
+import { enable as enableRemote } from '@electron/remote/main'
 
 import pageConfig from '../configs/page'
 import logger from '../core/Logger'
@@ -97,12 +98,15 @@ export default class WindowManager extends EventEmitter {
       ...defaultBrowserOptions,
       ...pageOptions.attrs,
       webPreferences: {
-        enableRemoteModule: true,
         contextIsolation: false,
         nodeIntegration: true,
-        nodeIntegrationInWorker: true
+        nodeIntegrationInWorker: true,
+        sandbox: false
       }
     })
+
+    // Enable remote module for this window
+    enableRemote(window.webContents)
 
     const bounds = this.getPageBounds(page)
     if (bounds) {

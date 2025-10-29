@@ -31,7 +31,55 @@
   }
 
   .aside {
-    background-color: $--dk-aside-background;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(30, 30, 30, 0.85) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    
+    .logo-mini {
+      svg path {
+        fill: rgba(255, 255, 255, 0.9);
+      }
+      
+      a:hover svg path {
+        fill: rgba(255, 255, 255, 1);
+      }
+    }
+    
+    .menu > li {
+      background-color: rgba(255, 255, 255, 0.08);
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.18);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      }
+      
+      &:active {
+        background-color: rgba(255, 255, 255, 0.25);
+      }
+    }
+    
+    .menu svg {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .menu > li:hover svg {
+      color: rgba(255, 255, 255, 1);
+    }
+    
+    .bottom-menu > li {
+      background-color: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.22);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      
+      &:active {
+        background-color: rgba(255, 255, 255, 0.3);
+      }
+    }
   }
 
   .subnav {
@@ -316,10 +364,35 @@
     color: #fff;
   }
 
-  /* Message */
+  /* Message - macOS Style */
+  .el-message-box {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45),
+                0 12px 24px rgba(0, 0, 0, 0.35),
+                0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  }
+
   .el-message {
     background-color: #2d2d2d;
     border-color: #606060;
+    border-radius: 10px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25),
+                0 3px 8px rgba(0, 0, 0, 0.18),
+                0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  }
+
+  .el-popover,
+  .el-select-dropdown,
+  .el-dropdown-menu {
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35),
+                0 5px 15px rgba(0, 0, 0, 0.25),
+                0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  }
+
+  .el-tooltip__popper {
+    border-radius: 6px;
   }
 
   .el-message__closeBtn {
@@ -354,12 +427,25 @@
     }
   }
 
-  /* Dialog */
+  /* Dialog - macOS Style */
   .el-dialog {
     background-color: $--dk-dialog-background;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45),
+                0 12px 24px rgba(0, 0, 0, 0.35),
+                0 0 0 0.5px rgba(255, 255, 255, 0.08);
     .el-dialog__body {
       color: $--dk-dialog-text-color;
     }
+  }
+
+  .el-dialog__header {
+    border-radius: 12px 12px 0 0;
+  }
+
+  .el-dialog__body {
+    border-radius: 0 0 12px 12px;
   }
 
   .add-task-dialog .el-dialog__footer {

@@ -89,12 +89,54 @@ iframe {
   outline: none;
 }
 
+.el-message-box {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18),
+              0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+.el-message {
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12),
+              0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.el-popover,
+.el-select-dropdown,
+.el-dropdown-menu {
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15),
+              0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.el-tooltip__popper {
+  border-radius: 6px;
+}
+
 .el-message__content {
   line-height: 18px;
   word-break: break-all;
   a {
     color: $--link-color;
   }
+}
+
+/* Dialog - macOS Style
+-------------------------- */
+.el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18),
+              0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+.el-dialog__header {
+  border-radius: 12px 12px 0 0;
+}
+
+.el-dialog__body {
+  border-radius: 0 0 12px 12px;
 }
 
 .tab-title-dialog {
