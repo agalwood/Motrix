@@ -15,7 +15,7 @@
       effect="dark"
       placement="bottom"
       :content="$t('task.delete-selected-tasks')"
-      v-if="currentList !== 'stopped'"
+      v-if="!['stopped', 'history'].includes(currentList)"
     >
       <i
         class="task-action"
@@ -59,7 +59,7 @@
       effect="dark"
       placement="bottom"
       :content="$t('task.purge-record')"
-      v-if="currentList === 'stopped'"
+      v-if="['stopped', 'history'].includes(currentList)"
     >
       <i class="task-action" @click="onPurgeRecordClick">
         <mo-icon name="purge" width="14" height="14" />

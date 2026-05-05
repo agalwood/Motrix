@@ -250,9 +250,24 @@ export default class Api {
       return this.fetchWaitingTaskList(params)
     case 'stopped':
       return this.fetchStoppedTaskList(params)
+    case 'history':
+      return this.fetchHistoryTaskList(params)
     default:
       return this.fetchDownloadingTaskList(params)
     }
+  }
+
+  fetchHistoryTaskList (params = {}) {
+    return ipcRenderer.invoke('history:get-list')
+  }
+
+  removeHistoryTask (params = {}) {
+    const { gid } = params
+    return ipcRenderer.invoke('history:remove', gid)
+  }
+
+  clearHistoryTaskList (params = {}) {
+    return ipcRenderer.invoke('history:clear')
   }
 
   fetchTaskItem (params = {}) {

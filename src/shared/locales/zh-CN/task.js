@@ -2,6 +2,7 @@ export default {
   'active': '下载中',
   'waiting': '等待中',
   'stopped': '已停止',
+  'history': '历史记录',
   'new-task': '新建任务',
   'new-bt-task': '新建 BT 任务',
   'open-file': '打开种子文件...',

@@ -23,6 +23,7 @@ import Context from './core/Context'
 import ConfigManager from './core/ConfigManager'
 import { setupLocaleManager } from './ui/Locale'
 import Engine from './core/Engine'
+import HistoryManager from './core/HistoryManager'
 import EngineClient from './core/EngineClient'
 import UPnPManager from './core/UPnPManager'
 import AutoLaunchManager from './core/AutoLaunchManager'
@@ -57,6 +58,8 @@ export default class Application extends EventEmitter {
     this.initWindowManager()
 
     this.initUPnPManager()
+
+    this.initHistoryManager()
 
     this.startEngine()
 
@@ -188,6 +191,10 @@ export default class Application extends EventEmitter {
       port,
       secret
     })
+  }
+
+  initHistoryManager () {
+    this.historyManager = new HistoryManager()
   }
 
   initAutoLaunchManager () {
@@ -956,6 +963,7 @@ export default class Application extends EventEmitter {
     })
 
     this.on('task-download-complete', (task, path) => {
+      this.historyManager.add(task)
       this.dockManager.openDock(path)
 
       if (is.linux()) {
@@ -1020,6 +1028,18 @@ export default class Application extends EventEmitter {
         ...context
       }
       return result
+    })
+
+    ipcMain.handle('history:get-list', async () => {
+      return this.historyManager.getAll()
+    })
+
+    ipcMain.handle('history:remove', async (event, gid) => {
+      return this.historyManager.remove(gid)
+    })
+
+    ipcMain.handle('history:clear', async () => {
+      return this.historyManager.clear()
     })
   }
 }

@@ -29,6 +29,15 @@
         </i>
         <span>{{ $t('task.stopped') }}</span>
       </li>
+      <li
+        @click="() => nav('history')"
+        :class="[ current === 'history' ? 'active' : '' ]"
+      >
+        <i class="subnav-icon">
+          <mo-icon name="task-history" width="20" height="20" />
+        </i>
+        <span>{{ $t('task.history') }}</span>
+      </li>
     </ul>
   </nav>
 </template>
@@ -37,6 +46,7 @@
   import '@/components/Icons/task-start'
   import '@/components/Icons/task-pause'
   import '@/components/Icons/task-stop'
+  import '@/components/Icons/task-history'
 
   export default {
     name: 'mo-task-subnav',

@@ -162,7 +162,11 @@ const actions = {
       dispatch('hideTaskDetail')
     }
 
-    return api.removeTask({ gid })
+    const promise = state.currentList === 'history'
+      ? api.removeHistoryTask({ gid })
+      : api.removeTask({ gid })
+
+    return promise
       .finally(() => {
         dispatch('fetchList')
         dispatch('saveSession')
@@ -250,17 +254,26 @@ const actions = {
     }
 
     const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
-    if ([ERROR, COMPLETE, REMOVED].indexOf(status) === -1) {
+    if ([ERROR, COMPLETE, REMOVED].indexOf(status) === -1 && state.currentList !== 'history') {
       return
     }
-    return api.removeTaskRecord({ gid })
+
+    const promise = state.currentList === 'history'
+      ? api.removeHistoryTask({ gid })
+      : api.removeTaskRecord({ gid })
+
+    return promise
       .finally(() => dispatch('fetchList'))
   },
   saveSession () {
     api.saveSession()
   },
-  purgeTaskRecord ({ dispatch }) {
-    return api.purgeTaskRecord()
+  purgeTaskRecord ({ state, dispatch }) {
+    const promise = state.currentList === 'history'
+      ? api.clearHistoryTaskList()
+      : api.purgeTaskRecord()
+
+    return promise
       .finally(() => dispatch('fetchList'))
   },
   toggleTask ({ dispatch }, task) {

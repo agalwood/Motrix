@@ -2,6 +2,7 @@ export default {
   'active': 'Downloading',
   'waiting': 'Waiting',
   'stopped': 'Stopped',
+  'history': 'History',
   'new-task': 'New Task',
   'new-bt-task': 'New BT Task',
   'open-file': 'Open Torrent File...',

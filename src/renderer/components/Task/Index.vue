@@ -91,6 +91,11 @@
             key: 'stopped',
             title: this.$t('task.stopped'),
             route: '/task/stopped'
+          },
+          {
+            key: 'history',
+            title: this.$t('task.history'),
+            route: '/task/history'
           }
         ]
       },
