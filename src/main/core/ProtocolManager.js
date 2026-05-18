@@ -7,6 +7,37 @@ import logger from './Logger'
 import protocolMap from '../configs/protocol'
 import { ADD_TASK_TYPE } from '@shared/constants'
 
+// Commands that are safe to invoke via protocol URL without arguments
+const SAFE_COMMANDS = new Set([
+  'application:task-list',
+  'application:pause-all-task',
+  'application:resume-all-task',
+  'application:preferences',
+  'application:about'
+])
+
+// Commands that accept arguments but need validation
+const ARGS_ALLOWED_COMMANDS = new Set([
+  'application:new-task',
+  'application:new-bt-task'
+])
+
+function sanitizeNewTaskArgs (args) {
+  const sanitized = {}
+  if (args.uri && typeof args.uri === 'string') {
+    // Only allow http(s), ftp, magnet, thunder URIs
+    const uri = args.uri.trim()
+    if (/^(https?|ftp|magnet|thunder):/i.test(uri)) {
+      sanitized.uri = uri
+      sanitized.type = ADD_TASK_TYPE.URI
+    } else {
+      logger.warn('[Motrix] protocol handler rejected uri:', uri)
+      return null
+    }
+  }
+  return sanitized
+}
+
 export default class ProtocolManager extends EventEmitter {
   constructor (options = {}) {
     super()
@@ -87,8 +118,31 @@ export default class ProtocolManager extends EventEmitter {
       return
     }
 
+    // Safe commands can be invoked without arguments
+    if (SAFE_COMMANDS.has(command)) {
+      global.application.sendCommandToAll(command, {})
+      return
+    }
+
+    // Commands that accept arguments require validation
+    if (!ARGS_ALLOWED_COMMANDS.has(command)) {
+      logger.warn('[Motrix] protocol handler blocked command:', command)
+      return
+    }
+
     const query = search.startsWith('?') ? search.replace('?', '') : search
     const args = parse(query)
-    global.application.sendCommandToAll(command, args)
+
+    let sanitizedArgs = null
+    if (command === 'application:new-task' || command === 'application:new-bt-task') {
+      sanitizedArgs = sanitizeNewTaskArgs(args)
+    }
+
+    if (!sanitizedArgs) {
+      logger.warn('[Motrix] protocol handler rejected args for command:', command, args)
+      return
+    }
+
+    global.application.sendCommandToAll(command, sanitizedArgs)
   }
 }
