@@ -25,7 +25,7 @@ let whiteListedModules = ['vue']
 
 let rendererConfig = {
   entry: {
-    index: path.join(__dirname, '../src/renderer/pages/index/main.js')
+    index: path.join(__dirname, '../src/renderer/pages/index/main.ts')
   },
   externals: [
     ...Object.keys(dependencies || {}).filter(d => !whiteListedModules.includes(d))
@@ -33,7 +33,7 @@ let rendererConfig = {
   module: {
     rules: [
       {
-        test: /\.worker\.js$/,
+        test: /\.worker\.[jt]s$/,
         use: {
           loader: 'worker-loader',
           options: { filename: '[name].js' }
@@ -90,7 +90,7 @@ let rendererConfig = {
         ]
       },
       {
-        test: /\.js$/,
+        test: /\.[jt]s$/,
         use: 'babel-loader',
         exclude: /node_modules/
       },
@@ -155,7 +155,7 @@ let rendererConfig = {
     new Webpack.HotModuleReplacementPlugin(),
     new Webpack.NoEmitOnErrorsPlugin(),
     new ESLintPlugin({
-      extensions: ['js', 'vue'],
+      extensions: ['js', 'ts', 'vue'],
       formatter: require('eslint-friendly-formatter')
     })
   ],
@@ -172,7 +172,7 @@ let rendererConfig = {
       '@shared': path.join(__dirname, '../src/shared'),
       'vue$': 'vue/dist/vue.esm.js'
     },
-    extensions: ['.js', '.vue', '.json', '.css', '.node']
+    extensions: ['.ts', '.js', '.vue', '.json', '.css', '.node']
   },
   target: 'electron-renderer',
   optimization: {

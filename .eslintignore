@@ -1,4 +1,5 @@
 src/renderer/components/Icons/*.js
+**/*.d.ts
 
 src/shared/locales/*
 !src/shared/locales/all.js

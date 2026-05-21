@@ -25,7 +25,7 @@ let whiteListedModules = ['vue']
 
 let webConfig = {
   entry: {
-    index: path.join(__dirname, '../src/renderer/pages/index/main.js')
+    index: path.join(__dirname, '../src/renderer/pages/index/main.ts')
   },
   externals: [
     ...Object.keys(dependencies || {}).filter(d => !whiteListedModules.includes(d))
@@ -33,7 +33,7 @@ let webConfig = {
   module: {
     rules: [
       {
-        test: /\.worker\.js$/,
+        test: /\.worker\.[jt]s$/,
         use: {
           loader: 'worker-loader',
           options: { filename: '[name].js' }
@@ -90,7 +90,7 @@ let webConfig = {
         ]
       },
       {
-        test: /\.js$/,
+        test: /\.[jt]s$/,
         use: 'babel-loader',
         include: [ path.resolve(__dirname, '../src/renderer') ],
         exclude: /node_modules/
@@ -147,7 +147,7 @@ let webConfig = {
     new Webpack.HotModuleReplacementPlugin(),
     new Webpack.NoEmitOnErrorsPlugin(),
     new ESLintPlugin({
-      extensions: ['js', 'vue'],
+      extensions: ['js', 'ts', 'vue'],
       formatter: require('eslint-friendly-formatter')
     })
   ],
@@ -163,7 +163,7 @@ let webConfig = {
       '@shared': path.join(__dirname, '../src/shared'),
       'vue$': 'vue/dist/vue.esm.js'
     },
-    extensions: ['.js', '.vue', '.json', '.css']
+    extensions: ['.ts', '.js', '.vue', '.json', '.css']
   },
   target: 'web',
   optimization: {

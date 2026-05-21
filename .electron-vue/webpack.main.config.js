@@ -12,7 +12,7 @@ const devMode = process.env.NODE_ENV !== 'production'
 
 let mainConfig = {
   entry: {
-    main: path.join(__dirname, '../src/main/index.js')
+    main: path.join(__dirname, '../src/main/index.ts')
   },
   externals: [
     ...Object.keys(dependencies || {})
@@ -20,7 +20,7 @@ let mainConfig = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.[jt]s$/,
         use: 'babel-loader',
         exclude: /node_modules/
       },
@@ -42,6 +42,7 @@ let mainConfig = {
   plugins: [
     new Webpack.NoEmitOnErrorsPlugin(),
     new ESLintPlugin({
+      extensions: ['js', 'ts'],
       formatter: require('eslint-friendly-formatter')
     })
   ],
@@ -50,7 +51,7 @@ let mainConfig = {
       '@': path.join(__dirname, '../src/main'),
       '@shared': path.join(__dirname, '../src/shared')
     },
-    extensions: ['.js', '.json', '.node']
+    extensions: ['.ts', '.js', '.json', '.node']
   },
   target: 'electron-main',
   optimization: {

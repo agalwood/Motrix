@@ -9,7 +9,8 @@ module.exports = {
     '@vue/standard'
   ],
   parserOptions: {
-    parser: 'babel-eslint'
+    parser: 'babel-eslint',
+    sourceType: 'module'
   },
   globals: {
     appId: true,
@@ -24,6 +25,10 @@ module.exports = {
     }]
   },
   overrides: [
+    {
+      files: ['*.ts'],
+      parser: '@typescript-eslint/parser'
+    },
     {
       files: ['*.vue'],
       rules: {

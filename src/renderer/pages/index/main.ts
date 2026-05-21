@@ -6,16 +6,17 @@ import { sync } from 'vuex-router-sync'
 import Element, { Loading, Message } from 'element-ui'
 import axios from 'axios'
 
-import App from './App'
+import App from './App.vue'
 import router from '@/router'
 import store from '@/store'
 import { getLocaleManager } from '@/components/Locale'
-import Icon from '@/components/Icons/Icon'
+import Icon from '@/components/Icons/Icon.vue'
 import Msg from '@/components/Msg'
 import { commands } from '@/components/CommandManager/instance'
-import TrayWorker from '@/workers/tray.worker'
 
 import '@/components/Theme/Index.scss'
+
+const TrayWorker = require('@/workers/tray.worker')
 
 const updateTray = is.renderer()
   ? async (payload) => {
@@ -56,7 +57,8 @@ function init (config) {
     Vue.use(require('vue-electron'))
   }
 
-  Vue.http = Vue.prototype.$http = axios
+  const VueWithHttp = Vue as typeof Vue & { http: typeof axios }
+  VueWithHttp.http = Vue.prototype.$http = axios
   Vue.config.productionTip = false
 
   const { locale } = config

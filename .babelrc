@@ -2,11 +2,12 @@
   "comments": false,
   "env": {
     "main": {
-      "presets": ["@babel/preset-env"]
+      "presets": ["@babel/preset-env", "@babel/preset-typescript"]
     },
     "renderer": {
       "presets": [
-        "@babel/preset-env"
+        "@babel/preset-env",
+        "@babel/preset-typescript"
       ],
       "plugins": [
         [
@@ -19,7 +20,7 @@
       ]
     },
     "web": {
-      "presets": ["@babel/preset-env"],
+      "presets": ["@babel/preset-env", "@babel/preset-typescript"],
       "plugins": [
         [
           "component",
