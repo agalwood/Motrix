@@ -6,6 +6,13 @@ declare module '*.vue' {
   export default Vue
 }
 
+declare module '*.worker' {
+  const WorkerConstructor: {
+    new (): Worker
+  }
+  export default WorkerConstructor
+}
+
 declare module 'vue/types/vue' {
   interface Vue {
     $http: import('axios').AxiosStatic
