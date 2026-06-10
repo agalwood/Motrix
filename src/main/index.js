@@ -23,4 +23,8 @@ if (is.windows()) {
   app.setAppUserModelId(appId)
 }
 
+if (is.windows()) {
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
+}
+
 global.launcher = new Launcher()
