@@ -175,6 +175,11 @@ export const parseArgvAsFile = (argv) => {
   if (is.linux()) {
     arg = arg.replace('file://', '')
   }
+
+  if (!arg.toLowerCase().endsWith('.torrent')) {
+    return
+  }
+
   return arg
 }
 
