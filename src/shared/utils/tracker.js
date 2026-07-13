@@ -44,8 +44,19 @@ export const fetchBtTrackerFromSource = async (source, proxyConfig = {}) => {
     ? convertToAxiosProxy(server)
     : undefined
 
+  const ALLOWED_PROTOCOLS = ['http:', 'https:']
+  const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|0\.0\.0\.0|::1)/i
+  const isValidTrackerUrl = (u) => {
+    try {
+      const { protocol, hostname } = new URL(u)
+      return ALLOWED_PROTOCOLS.includes(protocol) && !PRIVATE_HOST_RE.test(hostname)
+    } catch {
+      return false
+    }
+  }
+
   // Axios's config.proxy is Node.js only
-  const promises = source.map(async (url) => {
+  const promises = source.filter(isValidTrackerUrl).map(async (url) => {
     return axios.get(`${url}?t=${now}`, {
       timeout: 30 * ONE_SECOND,
       proxy
