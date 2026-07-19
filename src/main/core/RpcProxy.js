@@ -39,15 +39,37 @@ export default class RpcProxy {
               if (r.method === 'aria2.addUri') {
                 intercepted = true
                 const params = r.params || []
-                const uris = Array.isArray(params[0]) ? params[0] : (Array.isArray(params[1]) ? params[1] : null)
-                if (uris && uris.length > 0) {
-                  const uri = uris[0]
-                  logger.info('[RpcProxy] Intercepted aria2.addUri, triggering Motrix UI for', uri)
-                  global.application.sendCommandToAll('application:new-task', {
-                    type: ADD_TASK_TYPE.URI,
-                    uri: uri
-                  })
-                  global.application.show()
+                const urisIndex = Array.isArray(params[0]) ? 0 : (Array.isArray(params[1]) ? 1 : -1)
+                if (urisIndex !== -1) {
+                  const uris = params[urisIndex]
+                  const options = params[urisIndex + 1] || {}
+
+                  if (uris && uris.length > 0) {
+                    const uri = uris[0]
+
+                    const taskOptions = {}
+                    if (options.out) taskOptions.out = options.out
+
+                    if (options.header) {
+                      const headers = Array.isArray(options.header) ? options.header : [options.header]
+                      headers.forEach(h => {
+                        if (h.toLowerCase().startsWith('referer:')) {
+                          taskOptions.referer = h.substring(8).trim()
+                        }
+                        if (h.toLowerCase().startsWith('user-agent:')) {
+                          taskOptions.userAgent = h.substring(11).trim()
+                        }
+                      })
+                    }
+
+                    logger.info('[RpcProxy] Intercepted aria2.addUri, triggering Motrix UI for', uri)
+                    global.application.sendCommandToAll('application:new-task', {
+                      type: ADD_TASK_TYPE.URI,
+                      uri: uri,
+                      ...taskOptions
+                    })
+                    global.application.show()
+                  }
                 }
               }
             }
