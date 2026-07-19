@@ -109,7 +109,7 @@ export default class WindowManager extends EventEmitter {
       window.setBounds(bounds)
     }
 
-    if (is.dev() && pageOptions.openDevTools) {
+    if (pageOptions.openDevTools) {
       window.webContents.openDevTools()
     }
 

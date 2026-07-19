@@ -60,10 +60,11 @@ const actions = {
   fetchList ({ commit, state }) {
     return api.fetchTaskList({ type: state.currentList })
       .then((data) => {
-        commit('UPDATE_TASK_LIST', data)
+        const listData = Array.isArray(data) ? data : []
+        commit('UPDATE_TASK_LIST', listData)
 
         const { selectedGidList } = state
-        const gids = data.map((task) => task.gid)
+        const gids = listData.map((task) => task.gid)
         const list = intersection(selectedGidList, gids)
         commit('UPDATE_SELECTED_GID_LIST', list)
       })

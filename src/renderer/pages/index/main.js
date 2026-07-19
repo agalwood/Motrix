@@ -59,6 +59,10 @@ function init (config) {
   Vue.http = Vue.prototype.$http = axios
   Vue.config.productionTip = false
 
+  Vue.config.errorHandler = (err, vm, info) => {
+    alert(`Error: ${err.toString()}\nInfo: ${info}\nStack: ${err.stack}`)
+  }
+
   const { locale } = config
   const localeManager = getLocaleManager()
   localeManager.changeLanguageByLocale(locale)
