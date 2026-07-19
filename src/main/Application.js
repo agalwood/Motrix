@@ -36,6 +36,7 @@ import TouchBarManager from './ui/TouchBarManager'
 import TrayManager from './ui/TrayManager'
 import DockManager from './ui/DockManager'
 import ThemeManager from './ui/ThemeManager'
+import RpcProxy from './core/RpcProxy'
 
 export default class Application extends EventEmitter {
   constructor () {
@@ -45,51 +46,35 @@ export default class Application extends EventEmitter {
   }
 
   init () {
-    this.initContext()
-
-    this.initConfigManager()
-
-    this.setupLogger()
-
-    this.initLocaleManager()
-
-    this.setupApplicationMenu()
-
-    this.initWindowManager()
-
-    this.initUPnPManager()
-
-    this.initHistoryManager()
-
-    this.startEngine()
-
-    this.initEngineClient()
-
-    this.initThemeManager()
-
-    this.initTrayManager()
-
-    this.initTouchBarManager()
-
-    this.initDockManager()
-
-    this.initAutoLaunchManager()
-
-    this.initEnergyManager()
-
-    this.initProtocolManager()
-
-    this.initUpdaterManager()
-
-    this.handleCommands()
-
-    this.handleEvents()
-
-    this.handleIpcMessages()
-
-    this.handleIpcInvokes()
-
-    this.emit('application:initialized')
+    try {
+      this.initContext()
+      this.initConfigManager()
+      this.setupLogger()
+      this.initLocaleManager()
+      this.setupApplicationMenu()
+      this.initWindowManager()
+      this.initUPnPManager()
+      this.initHistoryManager()
+      this.startEngine()
+      this.initEngineClient()
+      this.startRpcProxy()
+      this.initThemeManager()
+      this.initTrayManager()
+      this.initTouchBarManager()
+      this.initDockManager()
+      this.initAutoLaunchManager()
+      this.initEnergyManager()
+      this.initProtocolManager()
+      this.initUpdaterManager()
+      this.handleCommands()
+      this.handleEvents()
+      this.handleIpcMessages()
+      this.handleIpcInvokes()
+      this.emit('application:initialized')
+    } catch (err) {
+      const fs = require('node:fs')
+      fs.writeFileSync('/home/alhassan/Motrix/MOTRIX_CRASH.log', err.stack)
+    }
   }
 
   initContext () {
@@ -191,6 +176,13 @@ export default class Application extends EventEmitter {
       port,
       secret
     })
+  }
+
+  startRpcProxy () {
+    const port = this.configManager.getSystemConfig('rpc-listen-port')
+    const secret = this.configManager.getSystemConfig('rpc-secret')
+    this.rpcProxy = new RpcProxy({ port, secret })
+    this.rpcProxy.start()
   }
 
   initHistoryManager () {
@@ -591,6 +583,10 @@ export default class Application extends EventEmitter {
         this.energyManager.stopPowerSaveBlocker(),
         this.trayManager.destroy()
       ]
+
+      if (this.rpcProxy) {
+        this.rpcProxy.stop()
+      }
 
       return promises
     } catch (err) {

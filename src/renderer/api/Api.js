@@ -1,5 +1,3 @@
-import { ipcRenderer } from 'electron'
-import is from 'electron-is'
 import { isEmpty, clone } from 'lodash'
 import { Aria2 } from '@shared/aria2'
 import {
@@ -11,6 +9,8 @@ import {
   changeKeysToKebabCase
 } from '@shared/utils'
 import { ENGINE_RPC_HOST } from '@shared/constants'
+const { ipcRenderer } = require('electron')
+const is = require('electron-is')
 
 export default class Api {
   constructor (options = {}) {
@@ -54,7 +54,7 @@ export default class Api {
     const host = ENGINE_RPC_HOST
     return new Aria2({
       host,
-      port,
+      port: Number(port) + 2,
       secret
     })
   }

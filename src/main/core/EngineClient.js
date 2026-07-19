@@ -41,7 +41,7 @@ export default class EngineClient {
     const { host, port, secret } = this.options
     this.client = new Aria2({
       host,
-      port,
+      port: Number(port) + 2,
       secret
     })
   }

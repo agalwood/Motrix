@@ -107,6 +107,12 @@ export default class Engine {
     const extraConfig = {
       ...this.systemConfig
     }
+
+    // Shift the real aria2 listen port by 2 so RpcProxy can take the configured port
+    if (extraConfig['rpc-listen-port']) {
+      extraConfig['rpc-listen-port'] = Number(extraConfig['rpc-listen-port']) + 2
+    }
+
     const keepSeeding = this.userConfig['keep-seeding']
     const seedRatio = this.systemConfig['seed-ratio']
     if (keepSeeding || seedRatio === 0) {
