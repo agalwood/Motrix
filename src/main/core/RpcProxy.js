@@ -48,7 +48,13 @@ export default class RpcProxy {
                     const uri = uris[0]
 
                     const taskOptions = {}
-                    if (options.out) taskOptions.out = options.out
+                    if (options.out) {
+                      taskOptions.out = options.out
+                      logger.info('[RpcProxy] Found options.out =', options.out)
+                    } else {
+                      logger.info('[RpcProxy] options.out is MISSING from params! options object:', JSON.stringify(options))
+                    }
+                    if (options.dir) taskOptions.dir = options.dir
 
                     if (options.header) {
                       const headers = Array.isArray(options.header) ? options.header : [options.header]
@@ -62,7 +68,7 @@ export default class RpcProxy {
                       })
                     }
 
-                    logger.info('[RpcProxy] Intercepted aria2.addUri, triggering Motrix UI for', uri)
+                    logger.info('[RpcProxy] Intercepted aria2.addUri, triggering Motrix UI for', uri, 'with taskOptions:', JSON.stringify(taskOptions))
                     global.application.sendCommandToAll('application:new-task', {
                       type: ADD_TASK_TYPE.URI,
                       uri: uri,

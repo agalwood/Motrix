@@ -51,6 +51,8 @@ const addTask = (payload = {}) => {
     ...rest
   }
 
+  console.log('[Motrix-Commands] Received application:new-task', { type, uri, silent, options })
+
   if (type === ADD_TASK_TYPE.URI && uri) {
     store.dispatch('app/updateAddTaskUrl', uri)
   }
