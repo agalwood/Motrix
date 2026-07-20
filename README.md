@@ -18,6 +18,12 @@ Motrix has a clean and easy to use interface. I hope you will like it 👻.
 
 ✈️ [Official Website](https://motrix.app) | 📖 [Manual](https://github.com/agalwood/Motrix/wiki)
 
+## ✨ What's New (Recent Improvements)
+
+- **Performance & Stability Enhancements**: Drastically improved application stability by fixing memory leaks and UI freezes during heavy tasks. Optimized the bitfield parsing algorithm for large torrents, preventing the renderer thread from locking up.
+- **Robust Network Recovery**: Improved WebSocket connection management with `aria2c`. Added graceful failure handling for unexpected engine crashes and network disconnections, eliminating the "white screen of death" and infinite UI loading issues.
+- **Browser Extension Integration**: Implemented smart video title resolution for intercepted media downloads (e.g., YouTube), ensuring videos are downloaded with their actual titles instead of generic names like `videoplayback`.
+
 ## 💽 Installation
 
 Download from [GitHub Releases](https://github.com/agalwood/Motrix/releases) and install it.
