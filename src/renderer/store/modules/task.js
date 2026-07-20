@@ -62,11 +62,17 @@ const actions = {
       .then((data) => {
         const listData = Array.isArray(data) ? data : []
         commit('UPDATE_TASK_LIST', listData)
+        if (listData.length === 0) {
+          commit('app/UPDATE_PROGRESS', -1, { root: true })
+        }
 
         const { selectedGidList } = state
         const gids = listData.map((task) => task.gid)
         const list = intersection(selectedGidList, gids)
         commit('UPDATE_SELECTED_GID_LIST', list)
+      })
+      .catch((err) => {
+        console.warn('fetchTaskList failed:', err.message)
       })
   },
   selectTasks ({ commit }, list) {

@@ -57,17 +57,17 @@ export const extractSpeedUnit = (speed = '') => {
 }
 
 export const bitfieldToPercent = (text) => {
-  const len = text.length - 1
-  let p
+  if (!text) return '0'
+  const len = text.length
   let one = 0
+  const bits = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4]
   for (let i = 0; i < len; i++) {
-    p = parseInt(text[i], 16)
-    for (let j = 0; j < 4; j++) {
-      one += (p & 1)
-      p >>= 1
+    const p = parseInt(text[i], 16)
+    if (!isNaN(p)) {
+      one += bits[p]
     }
   }
-  return Math.floor(one / (4 * len) * 100).toString()
+  return Math.floor((one / (4 * len)) * 100).toString()
 }
 
 export const bitfieldToGraphic = (text) => {

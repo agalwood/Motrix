@@ -26,6 +26,8 @@ export default class RpcProxy {
       }
 
       let body = ''
+      req.on('error', (err) => logger.warn('[RpcProxy] req error:', err.message))
+      res.on('error', (err) => logger.warn('[RpcProxy] res error:', err.message))
       req.on('data', chunk => {
         body += chunk.toString()
       })
@@ -110,8 +112,20 @@ export default class RpcProxy {
     this.server.on('upgrade', (req, socket, head) => {
       const targetWs = new WebSocket(`ws://127.0.0.1:${this.realPort}${req.url}`)
 
+      targetWs.on('error', (err) => {
+        logger.warn('[RpcProxy] targetWs error:', err.message)
+        if (socket.writable) {
+          socket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n')
+        }
+        socket.destroy()
+      })
+
       targetWs.on('open', () => {
         wss.handleUpgrade(req, socket, head, (clientWs) => {
+          clientWs.on('error', (err) => {
+            logger.warn('[RpcProxy] clientWs error:', err.message)
+          })
+
           clientWs.on('message', (data) => {
             try {
               const parsed = JSON.parse(data.toString())
@@ -148,6 +162,9 @@ export default class RpcProxy {
           targetWs.on('close', () => clientWs.close())
         })
       })
+    })
+    this.server.on('error', (err) => {
+      logger.warn('[RpcProxy] server error:', err.message)
     })
 
     this.server.listen(this.port, '127.0.0.1', () => {

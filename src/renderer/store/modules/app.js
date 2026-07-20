@@ -198,6 +198,10 @@ const actions = {
         }
         commit('UPDATE_PROGRESS', progress)
       })
+      .catch((err) => {
+        // Ignore network errors when aria2 drops connection
+        console.warn('fetchActiveTaskList failed:', err.message)
+      })
   }
 }
 

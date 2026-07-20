@@ -48,14 +48,20 @@ export class JSONRPCClient extends EventEmitter {
   }
 
   async http (message) {
-    const response = await fetch(this.url('http'), {
-      method: 'POST',
-      body: JSON.stringify(message),
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json'
-      }
-    })
+    let response
+    try {
+      response = await fetch(this.url('http'), {
+        method: 'POST',
+        body: JSON.stringify(message),
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        }
+      })
+    } catch (err) {
+      this.emit('error', err)
+      return
+    }
 
     response
       .json()
