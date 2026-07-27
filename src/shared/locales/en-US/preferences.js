@@ -30,6 +30,7 @@ export default {
   'new-task-show-downloading': 'Automatically show downloading after adding task',
   'no-confirm-before-delete-task': 'No confirmation is required before deleting task',
   'continue': 'Continue',
+  'check-integrity': 'Verify existing files and re-download only the damaged parts (BitTorrent and checksummed downloads)',
   'task-completed-notify': 'Notify after download is complete',
   'auto-purge-record': 'Automatically purge download records when exiting app',
   'ui': 'UI',

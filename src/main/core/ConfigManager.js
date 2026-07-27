@@ -57,6 +57,7 @@ export default class ConfigManager {
         'bt-load-saved-metadata': true,
         'bt-save-metadata': true,
         'bt-tracker': EMPTY_STRING,
+        'check-integrity': false,
         'continue': true,
         'dht-file-path': getDhtPath(IP_VERSION.V4),
         'dht-file-path6': getDhtPath(IP_VERSION.V6),
