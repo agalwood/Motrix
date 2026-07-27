@@ -25,6 +25,7 @@ export default {
   'task-dir': 'Сохранить как',
   'pause-task': 'Приостановить задание',
   'task-ua': 'UA',
+  'task-check-integrity': 'Проверить файлы на диске перед загрузкой',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Авторизация',
   'task-referer': 'Реферал',

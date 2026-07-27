@@ -25,6 +25,7 @@ export default {
   'task-dir': 'Save to',
   'pause-task': 'Pause Task',
   'task-ua': 'UA',
+  'task-check-integrity': 'Verify files already on disk before downloading',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Authorization',
   'task-referer': 'Referer',

@@ -24,6 +24,7 @@ export default {
   'task-split': '分片数',
   'task-dir': '存储路径',
   'task-ua': 'UA',
+  'task-check-integrity': '下载前校验磁盘上已存在的文件',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Authorization',
   'task-referer': 'Referer',

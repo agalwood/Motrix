@@ -82,6 +82,11 @@
         </el-input>
       </el-form-item>
       <div class="task-advanced-options" v-if="showAdvanced">
+        <el-form-item :label-width="formLabelWidth">
+          <el-checkbox class="chk" v-model="form.checkIntegrity">
+            {{ $t('task.task-check-integrity') }}
+          </el-checkbox>
+        </el-form-item>
         <el-form-item
           :label="`${$t('task.task-user-agent')}: `"
           :label-width="formLabelWidth"

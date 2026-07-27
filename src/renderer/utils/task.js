@@ -18,6 +18,7 @@ export const initTaskForm = state => {
   const { addTaskUrl, addTaskOptions } = state.app
   const {
     allProxy,
+    checkIntegrity,
     dir,
     engineMaxConnectionPerServer,
     followMetalink,
@@ -28,6 +29,7 @@ export const initTaskForm = state => {
   } = state.preference.config
   const result = {
     allProxy,
+    checkIntegrity: !!checkIntegrity,
     cookie: '',
     dir,
     engineMaxConnectionPerServer,
@@ -71,12 +73,22 @@ export const buildHeader = (form) => {
 export const buildOption = (type, form) => {
   const {
     allProxy,
+    checkIntegrity,
     dir,
     out,
     selectFile,
     split
   } = form
   const result = {}
+
+  /**
+   * Always sent, unlike the options below: aria2 lets a per-download value
+   * override the global one, and only an explicit false keeps a task out of
+   * the hash-check queue while another task is being verified. Hash checks
+   * run one at a time, so a task that joins that queue waits for the whole
+   * check ahead of it before it transfers anything.
+   */
+  result.checkIntegrity = !!checkIntegrity
 
   if (!isEmpty(allProxy)) {
     result.allProxy = allProxy
