@@ -13,6 +13,8 @@
   import { checkTaskIsBT, getTaskName } from '@shared/utils'
 
   const ERROR_WIKI_URL = 'https://github.com/agalwood/Motrix/wiki/Error'
+  // aria2 exit code 13: the file existed but its control file did not
+  const ERROR_FILE_ALREADY_EXISTS = '13'
 
   export default {
     name: 'mo-engine-client',
@@ -130,10 +132,22 @@
               }, `#${errorCode}`))
             }
 
+            /**
+             * aria2 refuses to change options on a download that already
+             * failed, so this one cannot be recovered in place — the task has
+             * to be added again after the setting is changed.
+             */
+            if (`${errorCode}` === ERROR_FILE_ALREADY_EXISTS) {
+              const tips = this.$t('task.download-error-file-exists-tips')
+              content.push(h('span', {
+                style: 'display: block; margin-top: 4px;'
+              }, tips))
+            }
+
             this.$msg({
               type: 'error',
               showClose: true,
-              duration: 5000,
+              duration: 8000,
               message: h('p', { class: 'el-message__content' }, content)
             })
           })

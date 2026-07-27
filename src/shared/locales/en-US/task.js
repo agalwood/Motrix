@@ -109,6 +109,7 @@ export default {
   'download-pause-message': 'Paused downloading {{taskName}}',
   'download-stop-message': 'Stopped downloading {{taskName}}',
   'download-error-message': 'Error occurred when downloading {{taskName}}',
+  'download-error-file-exists-tips': 'The file already exists. Adjust how existing files are handled in Preferences, then add the task again.',
   'download-complete-message': 'Completed downloading {{taskName}}',
   'download-complete-notify': 'Download Completed',
   'bt-download-complete-message': 'Completed downloading {{taskName}}, seeding',

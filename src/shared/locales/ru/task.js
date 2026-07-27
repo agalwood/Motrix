@@ -108,6 +108,7 @@ export default {
   'download-pause-message': 'Приостановить загрузку {{taskName}}',
   'download-stop-message': 'Остановить загрузку {{taskName}}',
   'download-error-message': 'Ошибка во время загрузки {{taskName}}',
+  'download-error-file-exists-tips': 'Файл уже существует. Измените обработку существующих файлов в настройках и добавьте задачу заново.',
   'download-complete-message': 'Завершена загрузка {{taskName}}',
   'download-complete-notify': 'Загрузка завершена',
   'bt-download-complete-message': 'Завершена загрузка {{taskName}}, раздача',
