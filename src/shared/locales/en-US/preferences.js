@@ -31,6 +31,7 @@ export default {
   'no-confirm-before-delete-task': 'No confirmation is required before deleting task',
   'continue': 'Continue',
   'check-integrity': 'Verify existing files and re-download only the damaged parts (BitTorrent and checksummed downloads)',
+  'allow-overwrite': 'Do not stop the task when the target file already exists',
   'task-completed-notify': 'Notify after download is complete',
   'auto-purge-record': 'Automatically purge download records when exiting app',
   'ui': 'UI',

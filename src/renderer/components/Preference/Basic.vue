@@ -265,6 +265,11 @@
             </el-checkbox>
           </el-col>
           <el-col class="form-item-sub" :span="24">
+            <el-checkbox v-model="form.allowOverwrite">
+              {{ $t('preferences.allow-overwrite') }}
+            </el-checkbox>
+          </el-col>
+          <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.newTaskShowDownloading">
               {{ $t('preferences.new-task-show-downloading') }}
             </el-checkbox>
@@ -327,6 +332,7 @@
 
   const initForm = (config) => {
     const {
+      allowOverwrite,
       autoHideWindow,
       btForceEncryption,
       btSaveMetadata,
@@ -362,6 +368,7 @@
       !pauseMetadata
 
     const result = {
+      allowOverwrite,
       autoHideWindow,
       btAutoDownloadContent,
       btForceEncryption,

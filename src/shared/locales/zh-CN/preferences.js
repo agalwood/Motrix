@@ -31,6 +31,7 @@ export default {
   'no-confirm-before-delete-task': '删除任务前无需确认',
   'continue': '断点续传',
   'check-integrity': '校验已存在的文件，仅重新下载损坏的部分（仅对 BT 和带校验和的下载生效）',
+  'allow-overwrite': '目标文件已存在时不要中止任务',
   'task-completed-notify': '下载完成后通知',
   'auto-purge-record': '当应用退出时自动清除下载记录',
   'ui': '界面',
