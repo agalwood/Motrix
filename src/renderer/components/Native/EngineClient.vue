@@ -12,6 +12,8 @@
   } from '@/utils/native'
   import { checkTaskIsBT, getTaskName } from '@shared/utils'
 
+  const ERROR_WIKI_URL = 'https://github.com/agalwood/Motrix/wiki/Error'
+
   export default {
     name: 'mo-engine-client',
     computed: {
@@ -112,14 +114,27 @@
             const taskName = getTaskName(task)
             const { errorCode, errorMessage } = task
             console.error(`[Motrix] download error gid: ${gid}, #${errorCode}, ${errorMessage}`)
-            const message = this.$t('task.download-error-message', { taskName })
-            const link = `<a target="_blank" href="https://github.com/agalwood/Motrix/wiki/Error#${errorCode}" rel="noopener noreferrer">${errorCode}</a>`
+
+            const h = this.$createElement
+            const content = [this.$t('task.download-error-message', { taskName })]
+            if (errorMessage) {
+              content.push(`: ${errorMessage}`)
+            }
+            if (errorCode) {
+              content.push(' ', h('a', {
+                attrs: {
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                  href: `${ERROR_WIKI_URL}#${encodeURIComponent(errorCode)}`
+                }
+              }, `#${errorCode}`))
+            }
+
             this.$msg({
               type: 'error',
               showClose: true,
               duration: 5000,
-              dangerouslyUseHTMLString: true,
-              message: `${message} ${link}`
+              message: h('p', { class: 'el-message__content' }, content)
             })
           })
       },
