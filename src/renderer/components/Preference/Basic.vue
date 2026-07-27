@@ -260,11 +260,6 @@
             </el-checkbox>
           </el-col>
           <el-col class="form-item-sub" :span="24">
-            <el-checkbox v-model="form.checkIntegrity">
-              {{ $t('preferences.check-integrity') }}
-            </el-checkbox>
-          </el-col>
-          <el-col class="form-item-sub" :span="24">
             <el-checkbox v-model="form.allowOverwrite">
               {{ $t('preferences.allow-overwrite') }}
             </el-checkbox>
@@ -336,7 +331,6 @@
       autoHideWindow,
       btForceEncryption,
       btSaveMetadata,
-      checkIntegrity,
       dir,
       engineMaxConnectionPerServer,
       followMetalink,
@@ -373,7 +367,6 @@
       btAutoDownloadContent,
       btForceEncryption,
       btSaveMetadata,
-      checkIntegrity,
       continue: config.continue,
       dir,
       engineMaxConnectionPerServer,

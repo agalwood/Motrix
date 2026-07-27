@@ -30,7 +30,6 @@ export default {
   'new-task-show-downloading': '新增任務後自動顯示下載頁面',
   'no-confirm-before-delete-task': '刪除任務之前無需確認',
   'continue': '斷點續傳',
-  'check-integrity': '校驗已存在的檔案，僅重新下載損壞的部分（僅對 BT 和帶校驗和的下載生效）',
   'allow-overwrite': '目標檔案已存在時不要中止任務',
   'task-completed-notify': '下載完成後通知',
   'auto-purge-record': '當結束程式時自動清除下載紀錄',
