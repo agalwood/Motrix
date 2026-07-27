@@ -3,7 +3,7 @@ export default {
   'waiting': '等待中',
   'stopped': '已停止',
   'verify-active': '正在校验已存在的文件',
-  'verify-pending': '等待校验已存在的文件',
+  'verify-pending': '排队等待校验',
   'new-task': '新建任务',
   'new-bt-task': '新建 BT 任务',
   'open-file': '打开种子文件...',

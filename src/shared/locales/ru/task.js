@@ -3,7 +3,7 @@ export default {
   'waiting': 'Ожидание',
   'stopped': 'Остановлено',
   'verify-active': 'Проверка существующих файлов',
-  'verify-pending': 'Ожидание проверки существующих файлов',
+  'verify-pending': 'Ожидание проверки',
   'new-task': 'Новое задание',
   'new-bt-task': 'Новое BT задание',
   'open-file': 'Открыть Torrent файл...',
