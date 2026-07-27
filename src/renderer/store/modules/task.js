@@ -210,8 +210,14 @@ const actions = {
   },
   pauseTask ({ dispatch }, task) {
     const { gid } = task
-    const isBT = checkTaskIsBT(task)
-    const promise = isBT ? api.forcePauseTask({ gid }) : api.pauseTask({ gid })
+    /**
+     * aria2 rejects forcePause outright while a hash check is running or
+     * queued ("GID#... cannot be paused now"), which is why pausing a
+     * verifying torrent fails. The graceful pause is accepted in that state,
+     * and it costs nothing here: there is no peer traffic left to wind down.
+     */
+    const useForce = checkTaskIsBT(task) && !checkTaskIsVerifying(task)
+    const promise = useForce ? api.forcePauseTask({ gid }) : api.pauseTask({ gid })
     promise.finally(() => {
       dispatch('fetchList')
       dispatch('saveSession')
