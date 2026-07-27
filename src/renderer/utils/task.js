@@ -18,7 +18,6 @@ export const initTaskForm = state => {
   const { addTaskUrl, addTaskOptions } = state.app
   const {
     allProxy,
-    checkIntegrity,
     dir,
     engineMaxConnectionPerServer,
     followMetalink,
@@ -29,7 +28,13 @@ export const initTaskForm = state => {
   } = state.preference.config
   const result = {
     allProxy,
-    checkIntegrity: !!checkIntegrity,
+    /**
+     * Off for every new task, not inherited from the stored config: hash
+     * checks run one at a time, so a task that asks for one it does not need
+     * blocks the others. It is a repair, chosen per task when a download has
+     * data on disk but no control file to resume from.
+     */
+    checkIntegrity: false,
     cookie: '',
     dir,
     engineMaxConnectionPerServer,
