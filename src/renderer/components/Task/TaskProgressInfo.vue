@@ -14,7 +14,22 @@
     </el-col>
     <el-col
       class="task-progress-info-right"
-      v-if="isActive"
+      v-if="isVerifying"
+      :xs="12"
+      :sm="17"
+      :md="18"
+      :lg="18"
+    >
+      <div class="task-speed-info">
+        <div class="task-speed-text task-verify-text">
+          <span v-if="verifyPending">{{ $t('task.verify-pending') }}</span>
+          <span v-else>{{ $t('task.verify-active') }} {{ verifyPercent }}%</span>
+        </div>
+      </div>
+    </el-col>
+    <el-col
+      class="task-progress-info-right"
+      v-else-if="isActive"
       :xs="12"
       :sm="17"
       :md="18"
@@ -60,6 +75,7 @@
 <script>
   import {
     bytesToSize,
+    calcProgress,
     checkTaskIsBT,
     checkTaskIsSeeder,
     timeFormat,
@@ -84,6 +100,20 @@
       },
       isBT () {
         return checkTaskIsBT(this.task)
+      },
+      /**
+       * aria2 only reports these two keys while a hash check is queued or
+       * running, so their presence is what marks the verifying phase.
+       */
+      isVerifying () {
+        const { verifiedLength, verifyIntegrityPending } = this.task
+        return verifiedLength !== undefined || verifyIntegrityPending !== undefined
+      },
+      verifyPending () {
+        return `${this.task.verifyIntegrityPending}` === 'true'
+      },
+      verifyPercent () {
+        return calcProgress(this.task.totalLength, this.task.verifiedLength, 1)
       },
       isSeeder () {
         return checkTaskIsSeeder(this.task)
@@ -118,6 +148,9 @@
 .task-progress-info-right {
   min-height: 0.875rem;
   text-align: right;
+}
+.task-verify-text > span {
+  font-size: 0.75rem;
 }
 .task-speed-info {
   font-size: 0;

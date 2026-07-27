@@ -2,6 +2,8 @@ export default {
   'active': '下載中',
   'waiting': '等待中',
   'stopped': '已停止',
+  'verify-active': '正在校驗已存在的檔案',
+  'verify-pending': '等待校驗已存在的檔案',
   'new-task': '新增任務',
   'new-bt-task': '新增 BT 任務',
   'open-file': '開啟種子檔案...',

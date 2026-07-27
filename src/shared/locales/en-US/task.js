@@ -2,6 +2,8 @@ export default {
   'active': 'Downloading',
   'waiting': 'Waiting',
   'stopped': 'Stopped',
+  'verify-active': 'Verifying existing files',
+  'verify-pending': 'Waiting to verify existing files',
   'new-task': 'New Task',
   'new-bt-task': 'New BT Task',
   'open-file': 'Open Torrent File...',
