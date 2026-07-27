@@ -336,6 +336,16 @@ export const checkTaskIsBT = (task = {}) => {
   return !!bittorrent
 }
 
+/**
+ * aria2 reports verifiedLength only while a hash check is running and
+ * verifyIntegrityPending only while one is queued, so the presence of either
+ * key is what identifies the verifying phase.
+ */
+export const checkTaskIsVerifying = (task = {}) => {
+  const { verifiedLength, verifyIntegrityPending } = task
+  return verifiedLength !== undefined || verifyIntegrityPending !== undefined
+}
+
 export const isTorrent = (file) => {
   const { name, type } = file
   return name.endsWith('.torrent') || type === 'application/x-bittorrent'

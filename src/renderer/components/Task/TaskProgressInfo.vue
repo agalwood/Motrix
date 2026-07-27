@@ -78,6 +78,7 @@
     calcProgress,
     checkTaskIsBT,
     checkTaskIsSeeder,
+    checkTaskIsVerifying,
     timeFormat,
     timeRemaining
   } from '@shared/utils'
@@ -101,13 +102,8 @@
       isBT () {
         return checkTaskIsBT(this.task)
       },
-      /**
-       * aria2 only reports these two keys while a hash check is queued or
-       * running, so their presence is what marks the verifying phase.
-       */
       isVerifying () {
-        const { verifiedLength, verifyIntegrityPending } = this.task
-        return verifiedLength !== undefined || verifyIntegrityPending !== undefined
+        return checkTaskIsVerifying(this.task)
       },
       verifyPending () {
         return `${this.task.verifyIntegrityPending}` === 'true'

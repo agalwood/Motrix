@@ -1,6 +1,6 @@
 import api from '@/api'
 import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
-import { checkTaskIsBT, intersection } from '@shared/utils'
+import { checkTaskIsBT, checkTaskIsVerifying, intersection } from '@shared/utils'
 
 const state = {
   currentList: 'active',
@@ -57,7 +57,11 @@ const actions = {
     commit('UPDATE_SELECTED_GID_LIST', [])
     dispatch('fetchList')
   },
-  fetchList ({ commit, state }) {
+  fetchList ({ commit, dispatch, state }) {
+    const verifyingGids = state.taskList
+      .filter(checkTaskIsVerifying)
+      .map((task) => task.gid)
+
     return api.fetchTaskList({ type: state.currentList })
       .then((data) => {
         commit('UPDATE_TASK_LIST', data)
@@ -66,7 +70,31 @@ const actions = {
         const gids = data.map((task) => task.gid)
         const list = intersection(selectedGidList, gids)
         commit('UPDATE_SELECTED_GID_LIST', list)
+
+        if (verifyingGids.length > 0) {
+          dispatch('disableCheckIntegrity', { verifyingGids, tasks: data })
+        }
       })
+  },
+  /**
+   * A hash check is a one-off repair, but aria2 keeps check-integrity in the
+   * download's own option set and writes it into the session file, so the
+   * task would be verified again from scratch on every engine start. Clear it
+   * once the check is done.
+   */
+  disableCheckIntegrity ({ dispatch }, { verifyingGids, tasks }) {
+    tasks.forEach((task) => {
+      if (!verifyingGids.includes(task.gid) || checkTaskIsVerifying(task)) {
+        return
+      }
+
+      dispatch('changeTaskOption', {
+        gid: task.gid,
+        options: { checkIntegrity: false }
+      }).catch((err) => {
+        console.warn(`[Motrix] disable check-integrity fail: ${err.message}`)
+      })
+    })
   },
   selectTasks ({ commit }, list) {
     commit('UPDATE_SELECTED_GID_LIST', list)
