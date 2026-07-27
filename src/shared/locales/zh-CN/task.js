@@ -109,7 +109,7 @@ export default {
   'download-pause-message': '暂停下载 {{taskName}}',
   'download-stop-message': '{{taskName}} 下载中止',
   'download-error-message': '{{taskName}} 下载发生错误',
-  'download-error-file-exists-tips': '文件已存在。请在偏好设置中调整已存在文件的处理方式，然后重新添加该任务。',
+  'download-error-file-exists-tips': '文件已存在。请重新添加该任务并启用文件校验，以保留已下载的部分。',
   'download-complete-message': '{{taskName}} 下载完成',
   'download-complete-notify': '下载完成',
   'bt-download-complete-message': '{{taskName}} 下载完成，正在做种...',
