@@ -1,0 +1,26 @@
+{
+  "repo": "motrixapp/builtin-plugins",
+  "plugins": {
+    "motrix.filename-template": {
+      "tag": "motrix.filename-template@1.1.1",
+      "version": "1.1.1",
+      "file": "motrix.filename-template-1.1.1.moext",
+      "sha256": "3b88e4b79ae3a019f1efec08ccd69bf6f83088887f7c13205f1d58ea22bfc4da",
+      "size": 5673
+    },
+    "motrix.scraper-hook": {
+      "tag": "motrix.scraper-hook@1.0.0",
+      "version": "1.0.0",
+      "file": "motrix.scraper-hook-1.0.0.moext",
+      "sha256": "2b6d1771fa0ccbd21e3a3da1284a589bd8f93d3a2ad6c6813fba6f21d2cfcb25",
+      "size": 2218
+    },
+    "motrix.url-resolver": {
+      "tag": "motrix.url-resolver@1.0.0",
+      "version": "1.0.0",
+      "file": "motrix.url-resolver-1.0.0.moext",
+      "sha256": "308dfd0ce86332f43aeb6ee84fad36a37d71f8fb7ef1eb1b79a0e6beb58e4a9e",
+      "size": 3161
+    }
+  }
+}

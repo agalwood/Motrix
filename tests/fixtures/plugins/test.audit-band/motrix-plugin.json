@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "id": "test.audit-band",
+  "name": "Audit Test",
+  "version": "1.0.0",
+  "description": "Audit-role attempt to mutate",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onTaskType:http"],
+  "contributes": {
+    "hooks": { "beforeCreate": { "role": "audit" } }
+  }
+}

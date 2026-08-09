@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "id": "test.resolve-band-throws",
+  "name": "Resolve Throws",
+  "version": "1.0.0",
+  "description": "Resolve-role plugin that throws (chain must abort)",
+  "categories": ["site-resolver"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onTaskType:http"],
+  "contributes": {
+    "hooks": { "beforeCreate": { "role": "resolve" } }
+  }
+}

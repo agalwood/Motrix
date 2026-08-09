@@ -1,0 +1,1450 @@
+import { execFile } from 'node:child_process'
+import { access, rm } from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
+import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
+import type { EngineSupervisor } from '@core/engine/engine-supervisor'
+import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
+import type { EventBus } from '@core/events/event-bus'
+import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
+import { getLogger } from '@core/logger'
+import type { NatManager } from '@core/nat/nat-manager'
+import type { CapabilityHost } from '@core/plugin/capabilities/interface'
+import type { GrantsManager } from '@core/plugin/grants/grants-manager'
+import { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
+import type { PluginHost } from '@core/plugin/host/plugin-host'
+import {
+  downloadGithubMoext,
+  parseGithubSpec,
+} from '@core/plugin/install/github-fetcher'
+import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
+import {
+  buildRegistryExpectation,
+  type RegistryExpectation,
+} from '@core/plugin/install/registry-expectation'
+import type { SourceInput } from '@core/plugin/install/source-resolver'
+import type { PluginRegistry } from '@core/plugin/plugin-registry'
+import type { RegistryClient } from '@core/plugin/registry/registry-client'
+import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
+import { scanForUpdates } from '@core/plugin/registry/update-scan'
+import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
+import type { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
+import type { MotrixDatabase } from '@core/session/motrix-database'
+import type { SessionManager } from '@core/session/session-manager'
+import type { SettingsManager } from '@core/settings/settings-manager'
+import {
+  pauseTask,
+  reAddTask,
+  removeTask,
+  resumeTask,
+  runBulkTaskAction,
+  stopSeedingTask,
+  toBulkTaskCommandResult,
+} from '@core/task/actions'
+import type {
+  TaskActionDeps,
+  TaskTransitionRecordInput,
+} from '@core/task/actions/shared'
+import { handleCreateTask } from '@core/task/create-task-handler'
+import type { FileCleanupService } from '@core/task/file-cleanup-service'
+import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import type { TaskManager } from '@core/task/task-manager'
+import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
+import type { MagnetTracker } from '@core/torrent/magnet-tracker'
+import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-bt'
+import type { TorrentParser } from '@core/torrent/torrent-parser'
+import type { TrackerManager } from '@core/tracker'
+import { AppError, ErrorCode } from '@shared/errors'
+import { EXTERNAL_URLS } from '@shared/external-urls'
+import { Commands } from '@shared/protocol/commands'
+import { Events } from '@shared/protocol/events'
+import type { CommandHandlerMap } from '@shared/protocol/handler-types'
+import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import {
+  removeTasksPayloadSchema,
+  taskIdsPayloadSchema,
+} from '@shared/schemas/bulk-task-command'
+import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
+import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
+import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
+import {
+  CLI_INSTALL_PACKAGE_MANAGERS,
+  type CliInstallRequest,
+} from '@shared/types/cli-tool'
+import { EngineRecoveryAction } from '@shared/types/engine'
+import type { ProxySettings } from '@shared/types/settings'
+import type { DownloadTask } from '@shared/types/task'
+import type { TaskActivityRecorder } from '@shared/types/task-activity'
+import type { TaskOccurrence } from '@shared/types/task-occurrence'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { z } from 'zod'
+import type { BridgeManager } from '../bridge/bridge-manager'
+import type { CliToolService } from '../cli/cli-tool-service'
+import { MenuContextPatchSchema } from '../commands/context-schema'
+import type { ContextStore } from '../commands/context-store'
+import type { UpdateManager } from '../core/update-manager'
+import { syncAutoLaunch } from '../platform/auto-launch'
+import type { createProtocolManager } from '../platform/protocol-manager'
+import type { createMainProxyApplier } from '../proxy/wiring'
+import type { WindowManager } from '../window/window-manager'
+import { createRevealInFolderHandler } from './commands/reveal-in-folder'
+import { createSetSelectedFilesHandler } from './commands/set-selected-files'
+import { createUpdateGeoIPDatabaseHandler } from './commands/update-geo-ip-database'
+import { NatCommandHandlers } from './nat-commands'
+import { applyNatPrivacyGate } from './nat-settings-gate'
+
+const execFileAsync = promisify(execFile)
+
+const TORRENT_MIME_TYPE = 'application/x-bittorrent'
+const cliInstallRequestSchema = z
+  .object({ packageManager: z.enum(CLI_INSTALL_PACKAGE_MANAGERS) })
+  .strict()
+
+// .desktop ID is non-deterministic across electron-builder versions / linux
+// distros (productName / executableName / appId all map to it differently).
+// Probe a small list of likely names against the standard application
+// directories so we only call xdg-mime with a real handler.
+const LINUX_DESKTOP_CANDIDATES = [
+  'motrix.desktop',
+  'motrix-turbo.desktop',
+  'app.motrix.native.desktop',
+]
+
+async function findInstalledMotrixDesktopFile(): Promise<string | null> {
+  const home = process.env.HOME
+  const dirs = [
+    '/usr/share/applications',
+    '/usr/local/share/applications',
+    home ? path.join(home, '.local/share/applications') : null,
+  ].filter((d): d is string => Boolean(d))
+
+  for (const dir of dirs) {
+    for (const name of LINUX_DESKTOP_CANDIDATES) {
+      try {
+        await access(path.join(dir, name))
+        return name
+      } catch {
+        // not in this dir, keep probing
+      }
+    }
+  }
+  return null
+}
+
+async function setLinuxDefaultTorrentHandler(): Promise<void> {
+  const desktopId = await findInstalledMotrixDesktopFile()
+  if (!desktopId) {
+    throw new Error('motrix .desktop file not found in known locations')
+  }
+  await execFileAsync('xdg-mime', ['default', desktopId, TORRENT_MIME_TYPE])
+}
+
+export interface CommandContext {
+  cliToolService: Pick<CliToolService, 'install'>
+  supervisor: EngineSupervisor
+  sessionManager: SessionManager
+  settingsManager: SettingsManager
+  protocolManager: ReturnType<typeof createProtocolManager>
+  windowManager: WindowManager
+  natManager: NatManager
+  torrentParser: TorrentParser
+  adapter: EngineAdapter
+  taskManager: TaskManager
+  updateManager: UpdateManager
+  /** Set the quit handler's force flag so the install quit skips the
+   *  confirmation dialog (an interrupted install would be left half-applied). */
+  markForceQuit: () => void
+  /**
+   * Startup barrier: resolves once engine start + session restore have
+   * settled (success or failure). createTask awaits it (after engine-ready)
+   * before dispatching, so a create racing restore() can't be wiped by its
+   * clear() + orphan re-adopt. Optional for back-compat with test contexts.
+   */
+  waitForTasksReady?: () => Promise<void>
+  trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
+  trackerManager: TrackerManager
+  contextStore: ContextStore
+  finalNamePicker: FinalNamePicker
+  torrentMetaStore: TorrentMetaStore
+  fileCleanupService: FileCleanupService
+  eventBus: EventBus
+  motrixDatabase: MotrixDatabase
+  geoipManager: GeoIPManager
+  proxyApplier: ReturnType<typeof createMainProxyApplier>
+  pluginRegistry: PluginRegistry
+  pluginStateStore: PluginStateStore
+  pluginHost: PluginHost
+  pluginInstaller: PluginInstaller
+  registryClient: RegistryClient
+  hostVersion: string
+  builtinUpdater: BuiltinUpdater
+  overlayDir: string
+  pluginGrants: GrantsManager
+  capabilityHost: CapabilityHost
+  userDataDir: string
+  pluginsDir: string
+  pluginActivation: ActivationDispatcher
+  bridgeManager: BridgeManager
+  magnetTracker: MagnetTracker
+  activityRecorder: TaskActivityRecorder
+  persistTask: NonNullable<TaskActionDeps['persistTask']>
+  /**
+   * Persist a task and (when non-null) its terminal occurrence in a single
+   * durable transaction — used INSTEAD OF `persistTask` whenever a status
+   * transition qualifies for one. Optional; absence degrades every task
+   * action below to plain `persistTask` (no occurrence emitted).
+   */
+  persistTaskWithOccurrence?: (
+    task: DownloadTask,
+    occurrence: TaskOccurrence | null
+  ) => Promise<void>
+  /** Delivers a just-committed terminal occurrence to in-process consumers. */
+  occurrenceDispatcher?: Pick<OccurrenceDispatcher, 'dispatch'>
+  recordTransition: (input: TaskTransitionRecordInput) => void | Promise<void>
+  deleteParentTasks: NonNullable<TaskActionDeps['deleteParentTasks']>
+  runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
+  parentTaskCreated: (
+    task: DownloadTask,
+    persistParent: () => void | Promise<void>
+  ) => Promise<void>
+  /** Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher). */
+  publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
+  publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
+}
+
+function sendToAddTaskWindow(
+  windowManager: WindowManager,
+  channel: string,
+  ...args: unknown[]
+): void {
+  windowManager.open('add-task')
+  const win = windowManager.get('add-task')
+  if (win && !win.isDestroyed()) {
+    // Delay to ensure window renderer has attached event listeners
+    setTimeout(() => {
+      win.webContents.send(channel, ...args)
+    }, 100)
+  }
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: sender is typed at registration
+type WebContents = any
+
+export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
+  const {
+    cliToolService,
+    supervisor,
+    sessionManager,
+    settingsManager,
+    protocolManager,
+    windowManager,
+    natManager,
+    torrentParser,
+    magnetTracker,
+    adapter,
+    taskManager,
+    updateManager,
+    markForceQuit,
+    waitForTasksReady,
+    trackerManager,
+    contextStore,
+    finalNamePicker,
+    torrentMetaStore,
+    fileCleanupService,
+    eventBus,
+    motrixDatabase,
+    geoipManager,
+    proxyApplier,
+    pluginRegistry,
+    pluginStateStore,
+    pluginHost,
+    pluginInstaller,
+    registryClient,
+    hostVersion,
+    builtinUpdater,
+    overlayDir,
+    pluginGrants,
+    capabilityHost,
+    userDataDir,
+    pluginsDir,
+    pluginActivation,
+    bridgeManager,
+    activityRecorder,
+    persistTask,
+    persistTaskWithOccurrence,
+    occurrenceDispatcher,
+    recordTransition,
+    deleteParentTasks,
+    runTaskMutation,
+    parentTaskCreated,
+    publishTaskUpdate,
+    publishTaskUpdateNow,
+  } = ctx
+
+  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
+  // once and feed them into createDeps so handleCreateTask's beforeCreate
+  // chain fires. Without this, every plugin's beforeCreate hook is silently
+  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
+  const hookAuditLog = new HookAuditLog(
+    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
+  )
+  const hookOrchestrator = new HookOrchestrator({
+    host: pluginHost,
+    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
+    pluginsDir,
+    pluginStorageRootFor: (pluginId) =>
+      path.join(pluginsDir, pluginId, 'storage'),
+    auditLog: hookAuditLog,
+  })
+
+  const createDeps = {
+    adapter,
+    settingsManager,
+    finalNamePicker,
+    torrentMetaStore,
+    taskManager,
+    eventBus,
+    publishTaskUpdate,
+    activityRecorder,
+    orchestrator: hookOrchestrator,
+    auditLog: hookAuditLog,
+    db: motrixDatabase.database,
+    persistTask,
+    parentTaskCreated,
+    rollbackTaskCreation: (taskId: string) =>
+      sessionManager.runExclusivePersistence(() =>
+        deleteParentTasks([taskId], () => {
+          motrixDatabase.deleteTask(taskId)
+        })
+      ),
+    runTaskMutation,
+    // Cold-start gate: engine ready AND startup restore settled. A create
+    // racing SessionManager.restore() gets wiped by its clear() and the gid
+    // re-adopted as an engine orphan — see startupTasksSettled in main/index.
+    waitForEngineReady: async () => {
+      await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
+      await waitForTasksReady?.()
+    },
+    // Lazy closures over bridgeManager.current so command-registration order
+    // vs bridge bootstrap order never matters. When the bridge is disabled or
+    // not yet started, resolveToMux returns null → HTTP fallback; dispatchMux
+    // is only called when resolveToMux returns non-null (seam gates on both).
+    // By design the desktop path passes NO cookie header (2nd arg omitted):
+    // the app has no browser bilibili session, so desktop paste stays ≤480p.
+    // Bilibili HD comes via the extension submit path, which carries cookies.
+    resolveToMux: (url: string) =>
+      bridgeManager.current?.resolveToMux(url) ?? Promise.resolve(null),
+    // A resolver can produce a mux pair WITHOUT ffmpeg (it only queries APIs),
+    // but actually downloading it needs the MuxPipeline, which exists only when
+    // ffmpeg is available. Throw a clear, actionable error instead of a
+    // TypeError when the pipeline is absent (bridge disabled / no ffmpeg) —
+    // mirrors the extension path's "ffmpeg unavailable" guard in BridgeReceiver.
+    dispatchMux: (adapted: AdaptedMux) => {
+      const mux = bridgeManager.current?.muxPipeline
+      if (!mux) {
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'ffmpeg is required to download this video: its video and audio are separate streams that must be muxed. Install ffmpeg (or set MOTRIX_FFMPEG_BIN) and restart Motrix.'
+        )
+      }
+      return mux.dispatch(adapted)
+    },
+  }
+
+  // Lazy closure over bridgeManager.current, mirroring resolveToMux/dispatchMux:
+  // a media task (Mux/Hls) has engineTaskId '' and no aria2 handle, so pause/
+  // resume act on the coordinator's live segment gids instead. Returns [] when
+  // the bridge/coordinator is absent — pause/resume then reports a clear
+  // "can't be paused" error rather than crashing on an empty gid.
+  const getMediaSegmentGids = (taskId: string): string[] =>
+    bridgeManager.current?.getMediaSegmentGids(taskId) ?? []
+
+  const log = getLogger('commands')
+
+  // Shared by the singular AND plural task command handlers below — one
+  // deps bundle per action family so the two arities cannot drift.
+  const pauseResumeDeps = {
+    taskManager,
+    adapter,
+    eventBus,
+    log,
+    getMediaSegmentGids,
+    persistTask,
+    persistTaskWithOccurrence,
+    occurrenceDispatcher,
+    recordTransition,
+    runTaskMutation,
+    publishTaskUpdate,
+    publishTaskUpdateNow,
+  }
+  const stopSeedingDeps = {
+    taskManager,
+    adapter,
+    eventBus,
+    log,
+    persist: persistTask,
+    persistTaskWithOccurrence,
+    occurrenceDispatcher,
+    recordTransition,
+    runTaskMutation,
+    publishTaskUpdate,
+    publishTaskUpdateNow,
+  }
+  const reAddDeps = {
+    taskManager,
+    adapter,
+    eventBus,
+    log,
+    torrentMetaStore,
+    persistTask,
+    recordTransition,
+    runTaskMutation,
+    publishTaskUpdate,
+    publishTaskUpdateNow,
+  }
+  const removeDeps = {
+    taskManager,
+    adapter,
+    log,
+    fileCleanupService,
+    torrentMetaStore,
+    eventBus,
+    db: motrixDatabase,
+    magnetTracker,
+    taskPersistence: sessionManager,
+    publishTaskUpdate,
+    publishTaskUpdateNow,
+    // Tear down the coordinator run for a media task (engineTaskId '') so
+    // removing it never orphans the segment downloaders + ffmpeg.
+    cancelMedia: (id: string) =>
+      bridgeManager.current?.cancelMedia(id) ?? Promise.resolve(),
+    deleteParentTasks,
+    runTaskMutation,
+  }
+
+  const updatePluginConfigSchema = z.object({
+    pluginId: z.string().min(1),
+    patch: z.record(z.string(), z.unknown()),
+  })
+  const engineRecoverySchema = z.object({
+    action: z.enum(EngineRecoveryAction),
+    expectedPid: z.number().int().positive().optional(),
+  })
+
+  const installPluginPayloadSchema = z.discriminatedUnion('sourceType', [
+    z.object({ sourceType: z.literal('github'), spec: z.string().min(1) }),
+    z.object({ sourceType: z.literal('url'), url: z.string().min(1) }),
+    z.object({
+      sourceType: z.literal('local'),
+      absPath: z.string().min(1),
+      fileHash: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+    z.object({
+      sourceType: z.literal('registry'),
+      pluginId: z.string().regex(REGISTRY_PLUGIN_ID_RE),
+    }),
+  ])
+  type InstallPluginPayload = z.infer<typeof installPluginPayloadSchema>
+  type FetchedInstallPayload = Exclude<
+    InstallPluginPayload,
+    { sourceType: 'registry' }
+  >
+
+  const checkPluginUpdatesPayloadSchema = z
+    .object({ force: z.boolean().optional() })
+    .optional()
+
+  const confirmPluginInstallPayloadSchema = z.object({
+    stagingId: z.string().min(1),
+    grants: z.record(z.string(), z.enum(['granted', 'denied'])),
+  })
+
+  const builtinUpdatePayloadSchema = z.object({
+    pluginId: z.string().regex(REGISTRY_PLUGIN_ID_RE),
+  })
+  const builtinStagingPayloadSchema = z.object({
+    stagingId: z.string().min(1),
+  })
+
+  // deactivate → rescan → reactivate; a failed reactivation is NOT an
+  // install failure — the overlay is on disk and effective next launch.
+  //
+  // knownWasActive lets a caller that must deactivate BEFORE calling this
+  // function (RevertBuiltinToBundled — deactivate has to happen before the
+  // overlay `rm` so the running worker isn't holding overlay files open)
+  // pass in the pre-deactivate activity state. Sampling pluginRegistry.list()
+  // in here would otherwise always see the caller's own deactivate and treat
+  // the plugin as never having been active. `??` is deliberate: a real
+  // `false` override is honored as-is, only `undefined` falls through to
+  // sampling the registry.
+  async function hotSwapBuiltin(
+    pluginId: string,
+    knownWasActive?: boolean
+  ): Promise<boolean> {
+    const wasActive =
+      knownWasActive ?? pluginRegistry.get(pluginId)?.state.status === 'active'
+    await pluginHost.deactivate(pluginId).catch(() => {})
+    await pluginRegistry.discover()
+    if (!wasActive) return false
+    try {
+      await pluginHost.activate(pluginId)
+      return false
+    } catch {
+      return true // restartRequired
+    }
+  }
+
+  function toSourceInput(p: InstallPluginPayload): SourceInput {
+    switch (p.sourceType) {
+      case 'github':
+        return { type: 'github', spec: p.spec }
+      case 'url':
+        return { type: 'url', url: p.url }
+      case 'local':
+        return { type: 'local', absPath: p.absPath, fileHash: p.fileHash }
+      case 'registry':
+        return { type: 'registry', pluginId: p.pluginId }
+    }
+  }
+
+  async function materializeMoext(p: FetchedInstallPayload): Promise<string> {
+    const downloadDir = path.join(userDataDir, 'plugin-downloads')
+    switch (p.sourceType) {
+      case 'github': {
+        const spec = parseGithubSpec(p.spec)
+        const target = path.join(
+          downloadDir,
+          `${spec.owner}-${spec.repo}-${Date.now()}.moext`
+        )
+        await downloadGithubMoext(spec, target)
+        return target
+      }
+      case 'url': {
+        const target = path.join(downloadDir, `download-${Date.now()}.moext`)
+        // Streaming via undici keeps the install boundary uniform with github.
+        // undici v8 moved redirect handling out of request() options into a
+        // composed dispatcher; follow redirects so a 30x URL yields the bytes.
+        const { Agent, interceptors, request } = await import('undici')
+        const dispatcher = new Agent().compose(
+          interceptors.redirect({ maxRedirections: 5 })
+        )
+        const res = await request(p.url, { dispatcher })
+        if (res.statusCode !== 200) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            `plugin.install.url_download_failed: ${res.statusCode}`
+          )
+        }
+        const { createWriteStream } = await import('node:fs')
+        const { mkdir } = await import('node:fs/promises')
+        await mkdir(downloadDir, { recursive: true })
+        await new Promise<void>((resolve, reject) => {
+          const ws = createWriteStream(target)
+          res.body.on('error', reject)
+          ws.on('error', reject)
+          ws.on('finish', () => resolve())
+          res.body.pipe(ws)
+        })
+        return target
+      }
+      case 'local':
+        return p.absPath
+    }
+  }
+
+  /**
+   * Create a task, then await a debounced session save so that
+   * - the IPC return implies durability (a crash *after* form submit
+   *   commits won't lose the task's identity row in motrix.db),
+   * - bursty bulk creates (e.g. paste 100 URLs) collapse into a
+   *   single SQLite transaction via requestSave coalescing,
+   * - polling's `syncTaskFilesIfMissing` no longer races the 15s
+   *   auto-save window — by the time the next poll tick fires, the
+   *   parent task_metadata row exists and the FK constraint passes.
+   */
+  async function createAndPersist(
+    request: Parameters<typeof handleCreateTask>[0]
+  ): Promise<{ gid: string }> {
+    const result = await handleCreateTask(request, createDeps)
+    try {
+      await sessionManager.requestSave()
+    } catch (err) {
+      log.warn({ err }, 'post-create session save failed')
+    }
+    return result
+  }
+
+  // Plan C: plugins with `onTaskType:*` / `onProtocol:*` activation events
+  // are *not* activated at startup (the only dispatch fired there is
+  // `{kind:'startup'}`). They MUST be activated just-in-time when a task
+  // arrives — otherwise their beforeCreate hooks never see the request.
+  // Resolver plugins rely on this.
+  async function activatePluginsForTask(
+    taskType: 'http' | 'bt' | 'magnet',
+    url: string
+  ): Promise<void> {
+    try {
+      await pluginActivation.dispatch({ kind: 'taskAdded', taskType, url })
+    } catch (err) {
+      log.warn(
+        { err, taskType, url },
+        'plugin taskAdded dispatch failed; continuing'
+      )
+    }
+  }
+
+  // NAT handlers — rate-limited via TokenBucket
+  const natHandlers = new NatCommandHandlers(natManager, {
+    dialogConfirm: async (opts) => {
+      const res = await dialog.showMessageBox({
+        type: 'warning',
+        title: opts.title,
+        message: opts.message,
+        detail: opts.detail,
+        buttons: ['Cancel', 'Enable'],
+        defaultId: 0,
+        cancelId: 0,
+      })
+      return res.response === 1
+    },
+  })
+
+  return {
+    [Commands.InstallCliTool]: async (payload: unknown) =>
+      cliToolService.install(
+        cliInstallRequestSchema.parse(payload) as CliInstallRequest
+      ),
+
+    [Commands.CreateDownload]: async (params: {
+      uris: string[] | string
+      saveDir?: string
+    }) => {
+      const uris = Array.isArray(params.uris) ? params.uris : [params.uris]
+      log.info(
+        {
+          uris,
+          activePluginIds: pluginHost.allActive().map((p) => p.id),
+        },
+        'Commands.CreateDownload received'
+      )
+      await activatePluginsForTask('http', uris[0] ?? '')
+      return createAndPersist({
+        type: 'http',
+        uris,
+        saveDir: params.saveDir || settingsManager.getApp().defaultSaveDir,
+        headers: [],
+      })
+    },
+
+    [Commands.ParseTorrent]: async ({ base64 }: { base64: string }) => {
+      return torrentParser.parse(base64)
+    },
+
+    [Commands.AddTorrentTask]: async (params: {
+      base64: string
+      selectedFiles: number[]
+      saveDir: string
+    }) => {
+      await activatePluginsForTask('bt', '')
+      return createAndPersist({
+        type: 'bt',
+        payload: { kind: 'torrent-base64', base64: params.base64 },
+        selectedFiles: params.selectedFiles,
+        saveDir: params.saveDir || settingsManager.getApp().defaultSaveDir,
+      })
+    },
+
+    [Commands.AddMagnetTask]: async (params: {
+      uri: string
+      selectedFiles: number[]
+      saveDir: string
+    }) => {
+      await activatePluginsForTask('magnet', params.uri)
+      return createAndPersist({
+        type: 'bt',
+        payload: { kind: 'magnet', uri: params.uri },
+        selectedFiles: params.selectedFiles,
+        saveDir: params.saveDir || settingsManager.getApp().defaultSaveDir,
+      })
+    },
+
+    [Commands.HandleDroppedTorrent]: async ({
+      base64,
+      name,
+    }: {
+      base64: string
+      name: string
+    }) => {
+      const meta = await torrentParser.parse(base64)
+      sendToAddTaskWindow(windowManager, Events.ProtocolTorrentFile, {
+        payload: { name, dataBase64: base64 },
+        meta,
+      })
+      return { ok: true }
+    },
+
+    [Commands.PauseTask]: async (taskId: string) => {
+      await pauseTask(taskId, pauseResumeDeps)
+      return { ok: true }
+    },
+
+    [Commands.ResumeTask]: async (taskId: string) => {
+      await resumeTask(taskId, pauseResumeDeps)
+      return { ok: true }
+    },
+
+    // Plural task commands (option C): one IPC request per multi-select
+    // action. Per-task outcomes come back IPC-safe; the bulk close inside
+    // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.PauseTasks]: async (rawPayload: unknown) => {
+      const taskIds = taskIdsPayloadSchema.parse(rawPayload)
+      return toBulkTaskCommandResult(
+        await runBulkTaskAction(taskIds, pauseResumeDeps, pauseTask)
+      )
+    },
+
+    [Commands.ResumeTasks]: async (rawPayload: unknown) => {
+      const taskIds = taskIdsPayloadSchema.parse(rawPayload)
+      return toBulkTaskCommandResult(
+        await runBulkTaskAction(taskIds, pauseResumeDeps, resumeTask)
+      )
+    },
+
+    [Commands.StopSeedingTasks]: async (rawPayload: unknown) => {
+      const taskIds = taskIdsPayloadSchema.parse(rawPayload)
+      return toBulkTaskCommandResult(
+        await runBulkTaskAction(taskIds, stopSeedingDeps, (id) =>
+          stopSeedingTask(id, stopSeedingDeps)
+        )
+      )
+    },
+
+    [Commands.ReAddTasks]: async (rawPayload: unknown) => {
+      const taskIds = taskIdsPayloadSchema.parse(rawPayload)
+      return toBulkTaskCommandResult(
+        await runBulkTaskAction(taskIds, reAddDeps, (id) =>
+          reAddTask(id, reAddDeps)
+        )
+      )
+    },
+
+    [Commands.RemoveTasks]: async (rawPayload: unknown) => {
+      const { taskIds, deleteWithFiles } =
+        removeTasksPayloadSchema.parse(rawPayload)
+      return toBulkTaskCommandResult(
+        await runBulkTaskAction(taskIds, removeDeps, (id) =>
+          removeTask(id, { deleteWithFiles }, removeDeps)
+        )
+      )
+    },
+
+    [Commands.RemoveTask]: async (rawPayload: unknown) => {
+      const { taskId, deleteWithFiles } =
+        removeTaskPayloadSchema.parse(rawPayload)
+      await removeTask(taskId, { deleteWithFiles }, removeDeps)
+      return { ok: true }
+    },
+
+    [Commands.StopSeedingTask]: async (taskId: string) => {
+      await stopSeedingTask(taskId, stopSeedingDeps)
+      return { ok: true }
+    },
+
+    [Commands.ReAddTask]: async (taskId: string) => {
+      await reAddTask(taskId, reAddDeps)
+      return { ok: true }
+    },
+
+    [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
+      taskManager,
+      engine: adapter,
+      db: motrixDatabase,
+      eventBus,
+    }),
+
+    [Commands.ReopenMagnetFileSelection]: async (taskId: string) => {
+      await magnetTracker.reopenFileSelection(taskId)
+      return { ok: true }
+    },
+
+    [Commands.CreateTask]: async (request: unknown) => {
+      // Schema validation happens inside handleCreateTask; createAndPersist
+      // forwards the raw request unchanged. Activate plugins JIT first so
+      // beforeCreate hooks see the request (Plan C: onTaskType/onProtocol
+      // resolvers don't activate at startup).
+      const parsed = taskCreateRequestSchema.safeParse(request)
+      if (parsed.success) {
+        const req = parsed.data
+        if (req.type === 'http') {
+          await activatePluginsForTask('http', req.uris[0] ?? '')
+        } else if (req.payload.kind === 'magnet') {
+          await activatePluginsForTask('magnet', req.payload.uri)
+          if (
+            req.selectedFiles.length === 0 &&
+            settingsManager.getApp().magnetFileSelection
+          ) {
+            await magnetTracker.submit(
+              req.payload.uri,
+              req.saveDir || settingsManager.getApp().defaultSaveDir
+            )
+            return { ok: true }
+          }
+        } else {
+          await activatePluginsForTask('bt', '')
+          // Plan B Task 3: user confirmed file selection for a magnet
+          // whose metadata resolved while a `magnet_metadata_resolution`
+          // task already exists in DB. Swap the instance in place so
+          // the task identity, name, and Downloads list position
+          // survive — instead of creating a duplicate task.
+          if (req.payload.kind === 'torrent-base64' && req.existingTaskId) {
+            return swapMagnetMetadataForBt(
+              {
+                taskId: req.existingTaskId,
+                base64: req.payload.base64,
+                selectedFiles: req.selectedFiles,
+                saveDir: req.saveDir,
+                name: req.displayName,
+              },
+              {
+                db: motrixDatabase,
+                taskManager,
+                adapter,
+                magnetTracker,
+                finalNamePicker,
+                torrentMetaStore,
+                publishTaskUpdate,
+                publishTaskUpdateNow,
+                recordTransition,
+                runTaskMutation,
+                runExclusivePersistence: (operation) =>
+                  sessionManager.runExclusivePersistence(operation),
+              }
+            )
+          }
+        }
+      }
+      return createAndPersist(request as Parameters<typeof handleCreateTask>[0])
+    },
+
+    [Commands.UpdateSettings]: async (partial: unknown) => {
+      const oldFull = settingsManager.get()
+
+      // Apply privacy gate on the incoming partial before merging.
+      const simulated = mergePartialForGate(oldFull, partial)
+      const gated = await applyNatPrivacyGate({
+        oldSettings: oldFull,
+        newSettings: simulated,
+        dialogConfirm: async (opts) => {
+          const r = await dialog.showMessageBox({
+            type: 'warning',
+            title: opts.title,
+            message: opts.message,
+            detail: opts.detail,
+            buttons: ['Cancel', 'Enable'],
+            defaultId: 0,
+            cancelId: 0,
+          })
+          return r.response === 1
+        },
+      })
+
+      // Build a patched partial that reflects the user's dialog choice.
+      const partialObj = partial as Record<string, unknown> | null | undefined
+      const patched = {
+        ...partialObj,
+        nat: {
+          ...((partialObj?.nat as object | undefined) ?? {}),
+          natTypeDetectionEnabled: gated.nat.natTypeDetectionEnabled,
+          portReachabilityCheckEnabled: gated.nat.portReachabilityCheckEnabled,
+        },
+      }
+
+      const result = await settingsManager.update(patched)
+      const newFull = settingsManager.get()
+
+      if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
+        updateManager.setChannel(newFull.app.updateChannel)
+      }
+
+      if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
+        syncAutoLaunch(newFull.app.launchAtStartup)
+      }
+      if (
+        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
+      ) {
+        await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
+      }
+      if (oldFull.app.protocols.magnet !== newFull.app.protocols.magnet) {
+        protocolManager.register()
+      }
+
+      if (proxyChanged(oldFull.proxy, newFull.proxy)) {
+        await proxyApplier.apply(oldFull.proxy, newFull.proxy)
+      }
+
+      if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
+        await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
+      }
+
+      if (
+        oldFull.tracker.blacklistEnabled !== newFull.tracker.blacklistEnabled
+      ) {
+        await trackerManager.applyBlacklistChange(
+          newFull.tracker.blacklistEnabled
+        )
+      }
+
+      if (
+        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
+      ) {
+        trackerManager.applySyncScheduleChange()
+      }
+
+      if (result.requiresRestart) {
+        await supervisor.restart()
+      }
+
+      return result
+    },
+
+    [Commands.RestartEngine]: async () => {
+      await supervisor.restart()
+      return { ok: true }
+    },
+
+    [Commands.RecoverEngine]: async (payload: unknown) => {
+      return supervisor.recover(engineRecoverySchema.parse(payload))
+    },
+
+    [Commands.ConfirmPortSwitch]: async (newPort: number) => {
+      await settingsManager.update({ engine: { rpcPort: newPort } })
+      return { ok: true }
+    },
+
+    [Commands.NextTorrent]: async () => {
+      protocolManager.nextTorrent()
+      return { ok: true }
+    },
+
+    [Commands.DownloadAllTorrents]: async () => {
+      protocolManager.downloadAllTorrents()
+      return { ok: true }
+    },
+
+    // CloseCurrentWindow needs event.sender — the wrapper in registerCommandHandlers
+    // passes sender as the first arg so this handler can resolve the window id.
+    [Commands.CloseCurrentWindow]: async (
+      sender: WebContents,
+      rawOptions?: unknown
+    ) => {
+      const options = closeCurrentWindowSchema.parse(rawOptions ?? {})
+      const id = windowManager.getWindowIdBySender(sender)
+      if (id) {
+        if (id === 'add-task') {
+          protocolManager.resetDialogState()
+        }
+        windowManager.closeAndRecycle(id)
+        if (options.showMain) {
+          windowManager.show('main')
+        }
+        if (options.navigateMainTo) {
+          // Events.NavigateTo is forwarded to the main window only — see
+          // src/main/ipc/events.ts. Emitting after closeAndRecycle/show
+          // lets the closing child window atomically hand off the route
+          // to the main React Router tree.
+          eventBus.emit(Events.NavigateTo, options.navigateMainTo)
+        }
+      }
+      return { ok: true }
+    },
+
+    [Commands.PickSaveDir]: async (params: { defaultPath?: string }) => {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        defaultPath: params.defaultPath,
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+      return { path: result.filePaths[0] }
+    },
+
+    // ResizeWindow needs event.sender — the wrapper in registerCommandHandlers
+    // passes sender as the first arg so this handler can resolve the BrowserWindow.
+    [Commands.ResizeWindow]: async (
+      sender: WebContents,
+      params: { width: number; height: number }
+    ) => {
+      const win = BrowserWindow.fromWebContents(sender)
+      if (win && !win.isDestroyed()) {
+        const [currentWidth, currentHeight] = win.getSize()
+        if (currentWidth !== params.width || currentHeight !== params.height) {
+          win.setSize(params.width, params.height, true)
+        }
+      }
+      return { ok: true }
+    },
+
+    [Commands.ShowMainWindow]: async () => {
+      windowManager.show('main')
+      return { ok: true }
+    },
+
+    [Commands.ShowAddTaskWindow]: async (rawPayload: unknown) => {
+      const { prefill } = showAddTaskWindowSchema.parse(rawPayload ?? {})
+      const win = windowManager.open('add-task')
+      if (prefill) {
+        win.webContents.once('did-finish-load', () => {
+          win.webContents.send(Events.SetAddTaskMode, prefill)
+        })
+      }
+      return { ok: true }
+    },
+
+    [Commands.OpenExternal]: async (url: string) => {
+      if (/^(https?|mailto):/i.test(url)) {
+        await shell.openExternal(url)
+      }
+      return { ok: true }
+    },
+
+    [Commands.RequestDefaultTorrentHandler]: async () => {
+      if (process.platform === 'darwin') {
+        // macOS has no central default-apps panel. The previous implementation
+        // opened the General preference pane, which is unrelated to file
+        // associations. Pending evaluation of native LSSetDefaultRoleHandler
+        // bindings; for now we keep the (suboptimal) jump so the button does
+        // something rather than nothing.
+        await shell.openExternal(
+          'x-apple.systempreferences:com.apple.preference.general'
+        )
+        return { ok: true, action: 'opened-settings' as const }
+      }
+      if (process.platform === 'win32') {
+        try {
+          await shell.openExternal('ms-settings:defaultapps')
+          return { ok: true, action: 'opened-settings' as const }
+        } catch {
+          await shell.openExternal(
+            EXTERNAL_URLS.motrix.manual.defaultApplication
+          )
+          return { ok: true, action: 'opened-fallback' as const }
+        }
+      }
+      try {
+        await setLinuxDefaultTorrentHandler()
+        return { ok: true, action: 'set' as const }
+      } catch {
+        await shell.openExternal(EXTERNAL_URLS.motrix.manual.defaultApplication)
+        return { ok: true, action: 'opened-fallback' as const }
+      }
+    },
+
+    [Commands.RevealInFolder]: createRevealInFolderHandler({ shell }),
+
+    [Commands.EnableNat]: async () => natHandlers.enable(),
+    [Commands.DisableNat]: async () => natHandlers.disable(),
+    [Commands.ForceRemapNat]: async () => natHandlers.forceRemap(),
+    [Commands.RunNatDiagnostic]: async () => natHandlers.runDiagnostic(),
+    [Commands.ExportNatBundle]: async () => natHandlers.exportBundle(),
+
+    [Commands.CheckForUpdates]: async () => {
+      await updateManager.check()
+      return { ok: true }
+    },
+
+    [Commands.DownloadUpdate]: async () => {
+      await updateManager.download()
+      return { ok: true }
+    },
+
+    [Commands.InstallUpdate]: async () => {
+      updateManager.install(markForceQuit)
+      return { ok: true }
+    },
+
+    [Commands.SyncTrackers]: async () => {
+      log.info('syncTrackers: invoked')
+      try {
+        const result = await trackerManager.syncAndCurate()
+        log.info(
+          {
+            totalFetched: result.totalFetched,
+            totalHealthy: result.totalHealthy,
+            totalCurated: result.totalCurated,
+          },
+          'syncTrackers: ok'
+        )
+        return result
+      } catch (err) {
+        log.error({ err }, 'syncTrackers: failed')
+        throw err
+      }
+    },
+
+    [Commands.SetTaskBtTracker]: async (params: {
+      engineGid: string
+      trackers: string[]
+    }) => {
+      const task = taskManager.getByEngineTaskId(params.engineGid)
+      if (!task) return
+      await trackerManager.setBtTracker(
+        task.id,
+        params.engineGid,
+        params.trackers
+      )
+    },
+
+    [Commands.SyncTaskBtTracker]: async (params: { engineGid: string }) => {
+      const task = taskManager.getByEngineTaskId(params.engineGid)
+      if (!task) return
+      const pair = motrixDatabase.getTask(task.id)
+      const isPrivate = pair?.task.isPrivate ?? false
+      await trackerManager.syncBtTracker(task.id, params.engineGid, isPrivate)
+    },
+
+    [Commands.UpdateMenuContext]: async (raw: unknown) => {
+      const patch = MenuContextPatchSchema.parse(raw)
+      contextStore.merge(patch)
+      return { ok: true }
+    },
+
+    [Commands.UpdateGeoIPDatabase]: createUpdateGeoIPDatabaseHandler({
+      geoipManager,
+    }),
+
+    [Commands.EnablePlugin]: async (id: string) => {
+      pluginStateStore.setEnabled(id, true)
+      // Sync the in-memory IndexedPlugin.state so Queries.ListPlugins and
+      // downstream gating (PluginHost.activate, ActivationDispatcher,
+      // CrossPluginInvoker) see the new enabled flag without a process
+      // restart.
+      pluginRegistry.refreshState(id)
+      const state = pluginStateStore.get(id)
+      eventBus.emit(Events.PluginStatusChanged, {
+        id,
+        status: state?.status ?? 'inactive',
+        enabled: true,
+      })
+      eventBus.emit(Events.ContributionIndexChanged)
+      return { ok: true }
+    },
+
+    [Commands.DisablePlugin]: async (id: string) => {
+      await pluginHost.deactivate(id)
+      pluginStateStore.setEnabled(id, false)
+      pluginRegistry.refreshState(id)
+      const state = pluginStateStore.get(id)
+      eventBus.emit(Events.PluginStatusChanged, {
+        id,
+        status: state?.status ?? 'disabled',
+        enabled: false,
+      })
+      eventBus.emit(Events.ContributionIndexChanged)
+      return { ok: true }
+    },
+
+    [Commands.UpdatePluginConfig]: async (payload: unknown) => {
+      const parsed = updatePluginConfigSchema.parse(payload)
+      const indexed = pluginRegistry.get(parsed.pluginId)
+      if (!indexed) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          `unknown plugin: ${parsed.pluginId}`
+        )
+      }
+
+      // Walk schema to collect secret-flagged field names.
+      const schema = indexed.manifest.contributes?.configuration?.schema
+      const properties =
+        schema &&
+        typeof schema === 'object' &&
+        'properties' in schema &&
+        schema.properties &&
+        typeof schema.properties === 'object'
+          ? (schema.properties as Record<string, unknown>)
+          : {}
+      const secretFields = new Set<string>()
+      for (const [key, prop] of Object.entries(properties)) {
+        if (
+          prop &&
+          typeof prop === 'object' &&
+          (prop as { secret?: boolean }).secret === true
+        ) {
+          secretFields.add(key)
+        }
+      }
+
+      // Build effective patch with secrets encrypted.
+      const prior = settingsManager.get().plugins[parsed.pluginId] ?? {}
+      const effective: Record<string, unknown> = {}
+      const changes: Array<{ key: string; value: unknown; previous: unknown }> =
+        []
+      for (const [key, value] of Object.entries(parsed.patch)) {
+        let stored: unknown = value
+        if (secretFields.has(key) && typeof value === 'string') {
+          if (!capabilityHost.secrets.available()) {
+            throw new AppError(
+              ErrorCode.PluginRuntimeFault,
+              'secret store unavailable; cannot persist secret field'
+            )
+          }
+          stored = await capabilityHost.secrets.encrypt(value)
+        }
+        effective[key] = stored
+        changes.push({ key, value: stored, previous: prior[key] })
+      }
+
+      const nextConfig = { ...prior, ...effective }
+      // Spec §7 L2319-2333 — appSettings.plugins[id] carries `config` ONLY.
+      // Never write `enabled` here; that field lives exclusively in
+      // plugin_state (managed by PluginStateStore). Co-locating them would
+      // race with the circuit breaker and the user-driven enable/disable
+      // toggle.
+      await settingsManager.update({
+        plugins: { [parsed.pluginId]: nextConfig },
+      })
+
+      // Emit + fire in-VM listeners.
+      eventBus.emit(Events.PluginConfigChanged, {
+        pluginId: parsed.pluginId,
+        changes,
+      })
+      capabilityHost.configFor(parsed.pluginId).applyExternalChange(changes)
+
+      return { ok: true }
+    },
+
+    [Commands.InstallPlugin]: async (payload: unknown) => {
+      const parsed = installPluginPayloadSchema.parse(payload)
+      let moextPath: string
+      let expect: RegistryExpectation | undefined
+      if (parsed.sourceType === 'registry') {
+        const entry = await registryClient.get(parsed.pluginId, hostVersion)
+        if (!entry) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.registry_entry_missing'
+          )
+        }
+        // The UI disables the button; main still enforces the gate
+        // (viewable-but-not-installable is a contract, not a style).
+        if (!entry.compatible) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.registry_incompatible'
+          )
+        }
+        moextPath = path.join(
+          userDataDir,
+          'plugin-downloads',
+          `registry-${parsed.pluginId}-${Date.now()}.moext`
+        )
+        await downloadRegistryMoext(entry, moextPath)
+        expect = buildRegistryExpectation(entry)
+      } else {
+        moextPath = await materializeMoext(parsed)
+      }
+      const result = await pluginInstaller.stage(
+        moextPath,
+        toSourceInput(parsed),
+        { expect }
+      )
+      eventBus.emit(Events.PluginInstallConsentRequested, {
+        stagingId: result.stagingId,
+        consent: result.consent,
+      })
+      return result
+    },
+
+    [Commands.CheckPluginUpdates]: async (payload: unknown) => {
+      const parsed = checkPluginUpdatesPayloadSchema.parse(payload)
+      if (parsed?.force) await registryClient.refresh()
+      const entries = await registryClient.list(hostVersion)
+      return scanForUpdates(pluginRegistry.list(), entries)
+    },
+
+    [Commands.InstallBuiltinUpdate]: async (payload: unknown) => {
+      const parsed = builtinUpdatePayloadSchema.parse(payload)
+      const entry = await registryClient.get(parsed.pluginId, hostVersion)
+      if (entry?.origin !== 'builtin') {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.update.builtin_entry_missing'
+        )
+      }
+      const effective = pluginRegistry.get(parsed.pluginId)?.manifest
+      if (!effective) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.update.builtin_entry_missing'
+        )
+      }
+      const staged = await builtinUpdater.stage(entry, effective)
+      if (staged.trustChanged) {
+        return { needsConsent: true, ...staged }
+      }
+      await builtinUpdater.commit(staged.stagingId)
+      const restartRequired = await hotSwapBuiltin(parsed.pluginId)
+      // Same event ConfirmPluginInstall emits after a community install
+      // commits: usePlugins.onLifecycle refetches ListPlugins so the
+      // plugin's version/status/source.type (builtin -> builtin-update)
+      // update live, without a remount. Only on the committed path — a
+      // needsConsent return above has not touched disk yet.
+      eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
+      return { ok: true, restartRequired }
+    },
+
+    [Commands.ConfirmBuiltinUpdate]: async (payload: unknown) => {
+      const parsed = builtinStagingPayloadSchema.parse(payload)
+      const { pluginId } = await builtinUpdater.commit(parsed.stagingId)
+      const restartRequired = await hotSwapBuiltin(pluginId)
+      eventBus.emit(Events.PluginInstalled, { pluginId })
+      return { ok: true, restartRequired }
+    },
+
+    [Commands.CancelBuiltinUpdate]: async (payload: unknown) => {
+      const parsed = builtinStagingPayloadSchema.parse(payload)
+      await builtinUpdater.cancel(parsed.stagingId)
+      return { ok: true }
+    },
+
+    [Commands.RevertBuiltinToBundled]: async (payload: unknown) => {
+      const parsed = builtinUpdatePayloadSchema.parse(payload)
+      // Sample activity BEFORE deactivating — hotSwapBuiltin's own sampling
+      // would otherwise always see this handler's deactivate and think the
+      // plugin was never active, so revert never reactivates it.
+      const wasActive =
+        pluginRegistry.list().find((p) => p.id === parsed.pluginId)?.status ===
+        'active'
+      await pluginHost.deactivate(parsed.pluginId).catch(() => {})
+      await rm(path.join(overlayDir, parsed.pluginId), {
+        recursive: true,
+        force: true,
+      })
+      const restartRequired = await hotSwapBuiltin(parsed.pluginId, wasActive)
+      eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
+      return { ok: true, restartRequired }
+    },
+
+    [Commands.ConfirmPluginInstall]: async (payload: unknown) => {
+      const parsed = confirmPluginInstallPayloadSchema.parse(payload)
+      const { pluginId } = await pluginInstaller.commit(
+        parsed.stagingId,
+        parsed.grants
+      )
+      eventBus.emit(Events.PluginInstalled, { pluginId })
+      return { ok: true, pluginId }
+    },
+
+    [Commands.CancelPluginInstall]: async (payload: unknown) => {
+      const parsed = z.object({ stagingId: z.string().min(1) }).parse(payload)
+      await pluginInstaller.cancel(parsed.stagingId)
+      return { ok: true }
+    },
+
+    [Commands.UpdatePluginGrants]: async (payload: unknown) => {
+      const parsed = z
+        .object({
+          pluginId: z.string().min(1),
+          patch: z.record(z.string(), z.enum(['granted', 'denied'])),
+        })
+        .parse(payload)
+      const grants = await pluginGrants.updateGrants(
+        parsed.pluginId,
+        parsed.patch
+      )
+      // GrantsManager emits internally; commands.ts does not double-emit.
+      return { ok: true, grants }
+    },
+
+    [Commands.UninstallPlugin]: async (payload: unknown) => {
+      const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
+      await pluginInstaller.uninstall(parsed.pluginId)
+      eventBus.emit(Events.PluginUninstalled, { pluginId: parsed.pluginId })
+      return { ok: true }
+    },
+
+    [Commands.ClearPluginLogs]: async (payload: unknown) => {
+      const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
+      capabilityHost.clearLog(parsed.pluginId)
+      return { ok: true }
+    },
+
+    [Commands.SetPluginLogVerbose]: async (payload: unknown) => {
+      const parsed = z
+        .object({ pluginId: z.string().min(1), verbose: z.boolean() })
+        .parse(payload)
+      capabilityHost.setLogVerbose(parsed.pluginId, parsed.verbose)
+      return { ok: true }
+    },
+  }
+}
+
+export function registerCommandHandlers(ctx: CommandContext): () => void {
+  const handlers = buildCommandHandlers(ctx)
+  const channels = Object.keys(handlers)
+  const invoke = (operation: () => unknown): Promise<unknown> =>
+    ctx.trackAsyncWork
+      ? ctx.trackAsyncWork(async () => operation())
+      : Promise.resolve().then(operation)
+
+  for (const [channel, handler] of Object.entries(handlers)) {
+    // CloseCurrentWindow and ResizeWindow need event.sender — pass it as first arg
+    if (
+      channel === Commands.CloseCurrentWindow ||
+      channel === Commands.ResizeWindow
+    ) {
+      ipcMain.handle(channel, (event, ...args) =>
+        invoke(() =>
+          // biome-ignore lint/suspicious/noExplicitAny: sender forwarded explicitly
+          (handler as any)(event.sender, ...args)
+        )
+      )
+    } else {
+      ipcMain.handle(channel, async (_event, ...args) =>
+        invoke(() => handler(...args))
+      )
+    }
+  }
+  return () => {
+    for (const channel of channels) {
+      ipcMain.removeHandler(channel)
+    }
+  }
+}
+
+function proxyChanged(a: ProxySettings, b: ProxySettings): boolean {
+  return JSON.stringify(a) !== JSON.stringify(b)
+}
+
+function mergePartialForGate<T>(base: T, partial: unknown): T {
+  if (!partial || typeof partial !== 'object') return base
+  const p = partial as Record<string, unknown>
+  const merged = { ...base } as Record<string, unknown>
+  if (p.nat && typeof p.nat === 'object') {
+    merged.nat = {
+      ...((base as Record<string, unknown>).nat as object),
+      ...(p.nat as object),
+    }
+  }
+  if (p.engine && typeof p.engine === 'object') {
+    merged.engine = {
+      ...((base as Record<string, unknown>).engine as object),
+      ...(p.engine as object),
+    }
+  }
+  if (p.app && typeof p.app === 'object') {
+    merged.app = {
+      ...((base as Record<string, unknown>).app as object),
+      ...(p.app as object),
+    }
+  }
+  return merged as T
+}

@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "Motrix Bridge E2E Test",
+  "version": "0.0.1",
+  "permissions": ["nativeMessaging"],
+  "background": { "service_worker": "background.js" }
+}

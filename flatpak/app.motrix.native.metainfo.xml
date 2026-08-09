@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>app.motrix.native</id>
+
+  <name>Motrix</name>
+  <summary>Full-featured download manager</summary>
+
+  <developer id="app.motrix">
+    <name>Motrix Project</name>
+  </developer>
+
+  <project_license>MIT</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </recommends>
+
+  <categories>
+    <category>Network</category>
+    <category>FileTransfer</category>
+  </categories>
+
+  <description>
+    <p>
+      Motrix is a full-featured download manager that supports HTTP, FTP,
+      BitTorrent and Magnet downloads.
+    </p>
+    <ul>
+      <li>Simple and clear user interface</li>
+      <li>BitTorrent and Magnet support with selective file download</li>
+      <li>Daily automatic tracker list refresh</li>
+      <li>UPnP and NAT-PMP port mapping</li>
+      <li>Up to 10 concurrent tasks, up to 64 threads per task</li>
+      <li>User-Agent spoofing</li>
+      <li>System tray for quick operation</li>
+      <li>Light and dark themes</li>
+      <li>Optional removal of files when removing tasks</li>
+      <li>Internationalization</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">app.motrix.native.desktop</launchable>
+
+  <!-- TODO(maintainer): replace placeholder URLs once the public repo and
+       site for motrix-turbo are finalized. The bugtracker URL must be
+       reachable for Flathub review. -->
+  <url type="homepage">https://motrix.app/</url>
+  <url type="bugtracker">https://github.com/TODO-ORG/motrix-turbo/issues</url>
+  <url type="help">https://motrix.app/manual/</url>
+  <url type="vcs-browser">https://github.com/TODO-ORG/motrix-turbo</url>
+
+  <content_rating type="oars-1.1"/>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#34d058</color>
+    <color type="primary" scheme_preference="dark">#1f6f3a</color>
+  </branding>
+
+  <!-- TODO(maintainer): replace screenshot URLs once motrix-turbo ships its
+       own screenshots. Flathub requires at least one screenshot at 1248x720
+       or larger; PNG is preferred over JPEG. -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>Active downloads view</caption>
+      <image>https://raw.githubusercontent.com/TODO-ORG/motrix-turbo/main/docs/screenshots/downloads-light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Active downloads view (dark theme)</caption>
+      <image>https://raw.githubusercontent.com/TODO-ORG/motrix-turbo/main/docs/screenshots/downloads-dark.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <!-- Update this list on every release; Flathub linter requires the most
+         recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0" date="2026-05-07">
+      <description>
+        <p>
+          Initial Motrix Turbo release. Rewritten on Electron 43, Vite 8,
+          React 19, TypeScript 7 and Zod 4. Hardened native module ABI
+          handling and sqlite-backed session persistence replace the legacy
+          aria2 control file.
+        </p>
+      </description>
+    </release>
+  </releases>
+</component>

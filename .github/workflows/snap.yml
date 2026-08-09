@@ -1,0 +1,418 @@
+# Motrix — strict Snap build and edge publication
+#
+# Snap is deliberately independent from the GitHub Release workflow:
+#   - amd64 and arm64 are built on matching native Ubuntu runners;
+#   - pull requests and manual runs never receive Store credentials;
+#   - protected release tags publish a complete two-architecture build set to
+#     latest/edge only;
+#   - candidate and stable receive that exact build set through snap-promote.yml.
+
+name: Snap
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.cargo/**'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/snap.yml'
+      - 'build/256x256.png'
+      - 'build/snap/**'
+      - 'electron-builder.json'
+      - 'extra/aria2.conf'
+      - 'extra/tray/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'packages/native-host/**'
+      - 'resources/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'THIRD_PARTY_LICENSES/**'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'THIRD_PARTY_NOTICES.zh-CN.md'
+      - 'tests/scripts/snap*.test.ts'
+      - 'tests/scripts/workflow-*.test.ts'
+      - 'tsconfig*.json'
+      - 'vite.*.ts'
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Store-changing workflows share one non-cancelling lock. Pull-request builds
+# retain their usual per-ref cancellation without blocking Store operations.
+concurrency:
+  group: >-
+    ${{
+      github.event_name == 'push'
+      && 'snap-store-publication'
+      || format('snap-{0}-{1}', github.event_name, github.ref)
+    }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+jobs:
+  preflight:
+    name: Validate Snap source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate release metadata
+        id: metadata
+        env:
+          # Pull requests and manual runs validate package SemVer but cannot
+          # satisfy the tag-only publication branch below.
+          RELEASE_EVENT_NAME: >-
+            ${{
+              github.event_name == 'push'
+              && 'push'
+              || 'workflow_dispatch'
+            }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
+        run: >-
+          node scripts/release-metadata.mjs
+          --package-json package.json
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify tag commit is on main
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor \
+            "$GITHUB_SHA" refs/remotes/origin/main
+
+  build:
+    name: Build Snap / ${{ matrix.snap_arch }}
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - snap_arch: amd64
+            electron_arch: x64
+            os: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-musl
+            app_dir: release/linux-unpacked
+          - snap_arch: arm64
+            electron_arch: arm64
+            os: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-musl
+            app_dir: release/linux-arm64-unpacked
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.18.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes musl-tools squashfs-tools
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+          targets: ${{ matrix.rust_target }}
+
+      - name: Test native host target
+        run: >-
+          cargo test
+          --manifest-path packages/native-host/Cargo.toml
+          --locked
+          --target ${{ matrix.rust_target }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+
+      - name: Fetch target aria2
+        run: >-
+          pnpm run fetch:engine
+          --platform linux
+          --arch ${{ matrix.electron_arch }}
+
+      - name: Third-party notice contract
+        run: pnpm run check:third-party-notices
+
+      - name: Build package inputs
+        run: |
+          pnpm run build:builtin
+          pnpm run build:native-host -- \
+            --platform linux \
+            --arch ${{ matrix.electron_arch }}
+          pnpm run build:electron
+
+      - name: Build unpacked Electron application
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder
+          --linux
+          --dir
+          --${{ matrix.electron_arch }}
+          --publish never
+
+      - name: Prepare isolated Snapcraft project
+        run: >-
+          node scripts/prepare-snap-project.mjs
+          --arch ${{ matrix.snap_arch }}
+          --version "${{ needs.preflight.outputs.version }}"
+          --app-dir "${{ matrix.app_dir }}"
+          --output-dir "release/snap-${{ matrix.snap_arch }}"
+
+      - name: Build strict Snap
+        id: snapcraft
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
+        with:
+          path: release/snap-${{ matrix.snap_arch }}
+          build-info: true
+          snapcraft-channel: 9.x/stable
+
+      - name: Verify Snap artifact
+        run: >-
+          node scripts/verify-snap-artifact.mjs
+          --snap "${{ steps.snapcraft.outputs.snap }}"
+          --arch ${{ matrix.snap_arch }}
+          --version "${{ needs.preflight.outputs.version }}"
+
+      - name: Upload verified Snap
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snap-input-${{ matrix.snap_arch }}
+          path: ${{ steps.snapcraft.outputs.snap }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish-edge:
+    name: Publish complete build set to edge
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      github.ref_protected == true
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    # Bounded pre-mutation steps plus a 45-minute release/rollback window.
+    timeout-minutes: 180
+    environment:
+      name: snap-store-edge
+    env:
+      SNAP_REVISION_FILE: >-
+        ${{ github.workspace }}/release/motrix-snap-revisions.json
+    steps:
+      - name: Checkout verification tools
+        timeout-minutes: 10
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download both architecture artifacts
+        timeout-minutes: 10
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: snap-input-*
+          path: release/snap-upload
+          merge-multiple: true
+
+      - name: Install artifact inspection tools
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes squashfs-tools
+
+      - name: Verify complete upload set
+        timeout-minutes: 5
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          snaps=(release/snap-upload/*.snap)
+          if (( ${#snaps[@]} != 2 )); then
+            echo "Expected exactly two Snap artifacts, found ${#snaps[@]}" >&2
+            exit 1
+          fi
+          for arch in amd64 arm64; do
+            matches=(release/snap-upload/*_"${arch}".snap)
+            if (( ${#matches[@]} != 1 )); then
+              echo "Expected exactly one ${arch} Snap artifact" >&2
+              exit 1
+            fi
+            node scripts/verify-snap-artifact.mjs \
+              --snap "${matches[0]}" \
+              --arch "$arch" \
+              --version "$EXPECTED_VERSION"
+          done
+
+      - name: Install Snapcraft 9
+        timeout-minutes: 10
+        run: sudo snap install snapcraft --classic --channel=9.x/stable
+
+      - name: Validate scoped Store credential
+        timeout-minutes: 5
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]]; then
+            echo "Missing snap-store-edge SNAPCRAFT_STORE_CREDENTIALS" >&2
+            exit 1
+          fi
+          snapcraft whoami
+          snapcraft status motrix
+
+      # Upload first without releasing. Only the exact revisions returned by
+      # these two uploads may cross the latest/edge boundary.
+      - name: Upload complete build set
+        timeout-minutes: 20
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          snaps=(release/snap-upload/*.snap)
+          declare -A revisions
+          for snap in "${snaps[@]}"; do
+            case "$(basename "$snap")" in
+              *_amd64.snap) arch='amd64' ;;
+              *_arm64.snap) arch='arm64' ;;
+              *)
+                echo "Cannot determine architecture from $snap" >&2
+                exit 1
+                ;;
+            esac
+            upload_log="${RUNNER_TEMP}/snap-upload-${arch}.log"
+            LC_ALL=C.UTF-8 snapcraft upload "$snap" 2>&1 | tee "$upload_log"
+            revisions["$arch"]="$(
+              # JavaScript source must not be expanded by Bash.
+              # shellcheck disable=SC2016
+              node --input-type=module -e '
+                import { readFileSync } from "node:fs"
+                const output = readFileSync(process.argv[1], "utf8")
+                const found = new Set(
+                  [...output.matchAll(/\bRevision\s+([1-9]\d*)\b/gi)]
+                    .map((match) => match[1])
+                )
+                if (found.size !== 1) {
+                  throw new Error(
+                    `Expected one uploaded revision, found ${found.size}`
+                  )
+                }
+                process.stdout.write([...found][0])
+              ' "$upload_log"
+            )"
+          done
+          # JavaScript source must not be expanded by Bash.
+          # shellcheck disable=SC2016
+          REVISION_AMD64="${revisions[amd64]}" \
+          REVISION_ARM64="${revisions[arm64]}" \
+          node --input-type=module -e '
+            import { writeFileSync } from "node:fs"
+            const revisions = {
+              amd64: process.env.REVISION_AMD64,
+              arm64: process.env.REVISION_ARM64,
+            }
+            for (const [arch, revision] of Object.entries(revisions)) {
+              if (!/^[1-9]\d*$/.test(revision ?? "")) {
+                throw new Error(`Invalid ${arch} revision: ${revision}`)
+              }
+            }
+            writeFileSync(
+              process.env.SNAP_REVISION_FILE,
+              `${JSON.stringify(revisions)}\n`,
+              { encoding: "utf8", mode: 0o600 }
+            )
+          '
+
+      # Snapcraft's "promote" command re-reads a mutable source channel and
+      # releases each architecture separately. This compensating release
+      # helper instead binds the captured revisions, closes the target before
+      # mutation, and restores the previous mapping after a normal failure.
+      - name: Release exact build set to edge
+        timeout-minutes: 45
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          EXPECTED_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          revisions="$(
+            # JavaScript source must not be expanded by Bash.
+            # shellcheck disable=SC2016
+            node --input-type=module -e '
+              import { readFileSync } from "node:fs"
+              const value = JSON.parse(readFileSync(process.argv[1], "utf8"))
+              for (const arch of ["amd64", "arm64"]) {
+                if (!/^[1-9]\d*$/.test(value[arch] ?? "")) {
+                  throw new Error(`Invalid ${arch} revision`)
+                }
+              }
+              process.stdout.write(`${value.amd64} ${value.arm64}`)
+            ' "$SNAP_REVISION_FILE"
+          )"
+          read -r amd64_revision arm64_revision <<< "$revisions"
+          node scripts/release-snap-build-set.mjs \
+            --snap motrix \
+            --channel latest/edge \
+            --version "$EXPECTED_VERSION" \
+            --amd64-revision "$amd64_revision" \
+            --arm64-revision "$arm64_revision" \
+            --snapcraft /snap/bin/snapcraft \
+            --snapcraft-timeout-ms 120000 \
+            --attempts 12 \
+            --delay-ms 10000
+
+      - name: Verify public edge channel
+        timeout-minutes: 10
+        env:
+          EXPECTED_VERSION: ${{ needs.preflight.outputs.version }}
+        run: >-
+          node scripts/verify-snap-store-channel.mjs
+          --snap motrix
+          --channel latest/edge
+          --version "$EXPECTED_VERSION"
+          --architectures amd64,arm64
+          --expected-revisions "$SNAP_REVISION_FILE"
+          --attempts 12
+          --delay-ms 10000
+
+      # This immutable, run-associated artifact is the only trusted revision
+      # provenance accepted by snap-promote.yml.
+      - name: Preserve trusted revision record
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snap-release-revisions-${{ github.run_attempt }}
+          path: ${{ env.SNAP_REVISION_FILE }}
+          if-no-files-found: error
+          retention-days: 90

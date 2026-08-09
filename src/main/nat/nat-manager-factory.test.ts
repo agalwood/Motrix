@@ -1,0 +1,232 @@
+import { Events } from '@shared/protocol/events'
+import { EngineState } from '@shared/types/engine'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const state = vi.hoisted(() => ({
+  networkInterfaces: vi.fn(),
+  snapshot: vi.fn(),
+  udpFactory: vi.fn(),
+  httpClient: { request: vi.fn() },
+  natOptions: undefined as unknown,
+  upnpOptions: undefined as unknown,
+  pmpOptions: undefined as unknown,
+  stunOptions: undefined as unknown,
+  settingsManager: undefined as unknown,
+  managerInstance: undefined as unknown,
+  networkMonitorInstance: undefined as unknown,
+  upnpInstance: undefined as unknown,
+  pmpInstance: undefined as unknown,
+  stunInstance: undefined as unknown,
+  portCheckerInstance: undefined as unknown,
+  settingsProviderInstance: undefined as unknown,
+}))
+
+vi.mock('node:os', () => ({
+  default: { networkInterfaces: state.networkInterfaces },
+  networkInterfaces: state.networkInterfaces,
+}))
+
+vi.mock('@core/nat/net/http-client', () => ({
+  nodeHttpClient: state.httpClient,
+}))
+
+vi.mock('@core/nat/net/udp-socket', () => ({
+  nodeUdpSocketFactory: state.udpFactory,
+}))
+
+vi.mock('@core/nat/clients/upnp-client', () => ({
+  UpnpClient: class UpnpClient {
+    constructor(options: unknown) {
+      state.upnpOptions = options
+      state.upnpInstance = this
+    }
+  },
+}))
+
+vi.mock('@core/nat/clients/pmp-pcp-client', () => ({
+  PmpPcpClient: class PmpPcpClient {
+    constructor(options: unknown) {
+      state.pmpOptions = options
+      state.pmpInstance = this
+    }
+  },
+}))
+
+vi.mock('@core/nat/clients/stun-client', () => ({
+  StunClient: class StunClient {
+    constructor(options: unknown) {
+      state.stunOptions = options
+      state.stunInstance = this
+    }
+  },
+}))
+
+vi.mock('@core/nat/network-monitor', () => ({
+  NetworkMonitor: class NetworkMonitor {
+    snapshot = state.snapshot
+
+    constructor() {
+      state.networkMonitorInstance = this
+    }
+  },
+}))
+
+vi.mock('@core/nat/port-checker', () => ({
+  PortChecker: class PortChecker {
+    constructor() {
+      state.portCheckerInstance = this
+    }
+  },
+}))
+
+vi.mock('@core/nat/settings-nat-provider', () => ({
+  SettingsNatProvider: class SettingsNatProvider {
+    constructor(settingsManager: unknown) {
+      state.settingsManager = settingsManager
+      state.settingsProviderInstance = this
+    }
+  },
+}))
+
+vi.mock('@core/nat/nat-manager', () => ({
+  NatManager: class NatManager {
+    constructor(options: unknown) {
+      state.natOptions = options
+      state.managerInstance = this
+    }
+  },
+}))
+
+import { createNatManager } from './nat-manager-factory'
+
+interface CapturedNatOptions {
+  hooks: {
+    onReady(listener: () => void): () => void
+    onConfigChanged(listener: () => void): () => void
+  }
+  onEvent(event: { type: string; [key: string]: unknown }): void
+  settingsProvider: unknown
+  upnpClient: unknown
+  pmpPcpClient: unknown
+  stunClient: unknown
+  portChecker: unknown
+  networkMonitor: unknown
+}
+
+describe('createNatManager', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    state.natOptions = undefined
+    state.snapshot.mockReturnValue({ gatewayIp: '192.168.50.1' })
+    state.networkInterfaces.mockReturnValue({
+      lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+      en0: [{ family: 'IPv4', internal: false, address: '10.0.0.8' }],
+    })
+  })
+
+  it('assembles the NAT stack with the detected gateway and client IP', () => {
+    const eventBus = { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
+    const settingsManager = { getNat: vi.fn() }
+
+    const result = createNatManager({
+      eventBus: eventBus as never,
+      settingsManager: settingsManager as never,
+    })
+    const options = state.natOptions as CapturedNatOptions
+    const pmpOptions = state.pmpOptions as {
+      udpFactory: unknown
+      gatewayIp: string
+      clientIp: Buffer
+    }
+
+    expect(result).toEqual({
+      manager: state.managerInstance,
+      networkMonitor: state.networkMonitorInstance,
+    })
+    expect(state.upnpOptions).toEqual({
+      udpFactory: state.udpFactory,
+      http: state.httpClient,
+    })
+    expect(pmpOptions.gatewayIp).toBe('192.168.50.1')
+    expect(pmpOptions.udpFactory).toBe(state.udpFactory)
+    expect([...pmpOptions.clientIp]).toEqual([
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 0, 0, 8,
+    ])
+    expect(state.stunOptions).toEqual({ udpFactory: state.udpFactory })
+    expect(options.settingsProvider).toBe(state.settingsProviderInstance)
+    expect(options.upnpClient).toBe(state.upnpInstance)
+    expect(options.pmpPcpClient).toBe(state.pmpInstance)
+    expect(options.stunClient).toBe(state.stunInstance)
+    expect(options.portChecker).toBe(state.portCheckerInstance)
+    expect(options.networkMonitor).toBe(state.networkMonitorInstance)
+    expect(state.settingsManager).toBe(settingsManager)
+  })
+
+  it('bridges lifecycle hooks and NAT events through the app EventBus', () => {
+    const eventBus = { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
+    createNatManager({
+      eventBus: eventBus as never,
+      settingsManager: {} as never,
+    })
+    const options = state.natOptions as CapturedNatOptions
+    const onReady = vi.fn()
+    const unsubscribeReady = options.hooks.onReady(onReady)
+    const readyHandler = eventBus.on.mock.calls[0]?.[1] as (
+      engineState: EngineState
+    ) => void
+
+    readyHandler(EngineState.Starting)
+    readyHandler(EngineState.Ready)
+    expect(onReady).toHaveBeenCalledOnce()
+    unsubscribeReady()
+    expect(eventBus.off).toHaveBeenCalledWith(
+      Events.EngineStateChanged,
+      readyHandler
+    )
+
+    const onConfigChanged = vi.fn()
+    const unsubscribeSettings = options.hooks.onConfigChanged(onConfigChanged)
+    expect(eventBus.on).toHaveBeenCalledWith(
+      Events.SettingsChanged,
+      onConfigChanged
+    )
+    unsubscribeSettings()
+    expect(eventBus.off).toHaveBeenCalledWith(
+      Events.SettingsChanged,
+      onConfigChanged
+    )
+
+    const cases = [
+      ['state-changed', 'state', Events.NatStateChanged],
+      ['error', 'error', Events.NatError],
+      ['gateway-changed', 'info', Events.NatGatewayChanged],
+      ['mapping-updated', 'mappings', Events.NatMappingUpdated],
+      ['diagnostic-completed', 'result', Events.NatDiagnosticCompleted],
+    ] as const
+    for (const [type, key, event] of cases) {
+      const payload = { type }
+      options.onEvent({ type, [key]: payload })
+      expect(eventBus.emit).toHaveBeenCalledWith(event, payload)
+    }
+    const callsBeforeUnknown = eventBus.emit.mock.calls.length
+    options.onEvent({ type: 'unknown' })
+    expect(eventBus.emit).toHaveBeenCalledTimes(callsBeforeUnknown)
+  })
+
+  it('falls back to loopback and the default gateway when discovery is empty', () => {
+    state.networkInterfaces.mockReturnValue({})
+    state.snapshot.mockReturnValue({ gatewayIp: null })
+
+    createNatManager({
+      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() } as never,
+      settingsManager: {} as never,
+    })
+    const pmpOptions = state.pmpOptions as {
+      gatewayIp: string
+      clientIp: Buffer
+    }
+
+    expect(pmpOptions.gatewayIp).toBe('192.168.1.1')
+    expect([...pmpOptions.clientIp.slice(12)]).toEqual([127, 0, 0, 1])
+  })
+})

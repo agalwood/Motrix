@@ -1,0 +1,73 @@
+name: NAT Integration Tests
+
+# Security note: this workflow does not consume any GitHub event payload
+# (issue titles, PR bodies, commit messages) in run: steps, so there is
+# no injection surface. All inputs are static config.
+
+on:
+  push:
+    branches: [main, 'feature/nat_**']
+    paths:
+      - 'src/core/nat/**'
+      - 'tests/docker/**'
+      - 'tests/integration/**'
+      - '.github/workflows/nat-integration.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/core/nat/**'
+      - 'tests/docker/**'
+
+jobs:
+  nat-docker-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.18.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build docker matrix
+        working-directory: tests/docker
+        run: make build
+
+      - name: Run NAT integration tests
+        run: pnpm exec vitest run tests/integration/nat-docker.test.ts
+        env:
+          CI: 'true'
+          NAT_DOCKER_MATRIX: '1'
+
+      - name: Compose logs on failure
+        if: failure()
+        working-directory: tests/docker
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        working-directory: tests/docker
+        run: make down
+
+  nat-fuzz-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 5-minute codec fuzz
+        run: pnpm run fuzz:nat:ci

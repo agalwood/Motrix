@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "id": "test.enrich-band",
+  "name": "Enrich Test",
+  "version": "1.0.0",
+  "description": "Adds enrichment header",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onTaskType:http"],
+  "contributes": {
+    "hooks": { "beforeCreate": { "role": "enrich" } }
+  }
+}

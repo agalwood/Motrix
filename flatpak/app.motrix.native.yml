@@ -1,0 +1,328 @@
+# Flathub manifest for Motrix Turbo.
+#
+# The canonical application source remains a placeholder until motrix-turbo
+# has a public, tagged release. PR CI derives a temporary manifest from this
+# file and replaces only that source with a git archive of the checked-out
+# commit. Every dependency used after flatpak-builder enters its offline build
+# phase is declared below or in the two committed generated source manifests.
+
+app-id: app.motrix.native
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node24
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: start-motrix
+
+# The default destination is the user's XDG Downloads directory. Other
+# directories are granted explicitly through the file chooser portal.
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --share=network
+  - --filesystem=xdg-download
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+
+# aria2 is staged before the Electron package is assembled. Keep only the
+# copy under resources/extra/linux/<arch>, which is the application runtime
+# contract shared with deb/rpm releases.
+cleanup:
+  - /libexec/motrix-build
+
+modules:
+  # c-ares and libssh2 are not exported by Freedesktop Platform 25.08.
+  # Building them explicitly prevents aria2 from silently dropping Async DNS
+  # or SFTP support during configure.
+  - name: c-ares
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCARES_SHARED=ON
+      - -DCARES_STATIC=OFF
+      - -DCARES_BUILD_TESTS=OFF
+      - -DCARES_BUILD_TOOLS=OFF
+    cleanup:
+      - /include
+      - /lib/cmake
+      - /lib/pkgconfig
+    sources:
+      - type: archive
+        url: https://github.com/c-ares/c-ares/releases/download/v1.34.6/c-ares-1.34.6.tar.gz
+        sha256: 912dd7cc3b3e8a79c52fd7fb9c0f4ecf0aaa73e45efda880266a2d6e26b84ef5
+
+  - name: libssh2
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+      - --enable-shared
+      - --with-crypto=openssl
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - '*.la'
+    sources:
+      - type: archive
+        url: https://github.com/libssh2/libssh2/releases/download/libssh2-1.11.1/libssh2-1.11.1.tar.xz
+        sha256: 9954cb54c4f548198a7cbebad248bdc87dd64bd26185708a294b2b50771e3769
+
+  - name: aria2
+    buildsystem: autotools
+    config-opts:
+      - --disable-libaria2
+      - --disable-nls
+      - --enable-ssl
+      - --enable-bittorrent
+      - --enable-metalink
+      - --enable-websocket
+      - --enable-epoll
+      - --with-openssl
+      - --without-gnutls
+      - --without-appletls
+      - --without-wintls
+      - --without-libnettle
+      - --without-libgcrypt
+      - --without-libgmp
+      - --without-libuv
+      - --without-libxml2
+      - --with-libexpat
+      - --with-libcares
+      - --with-sqlite3
+      - --with-libz
+      - --with-libssh2
+      - --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt
+    no-make-install: true
+    post-install:
+      - |
+        output="$(src/aria2c --version)"
+        printf '%s\n' "$output"
+        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.3'
+        for feature in \
+          'Async DNS' \
+          'BitTorrent' \
+          'Firefox3 Cookie' \
+          'GZip' \
+          'HTTPS' \
+          'Message Digest' \
+          'Metalink' \
+          'SFTP' \
+          'SQLite3-Persistence' \
+          'WebSocket' \
+          'XML-RPC'
+        do
+          printf '%s\n' "$output" | grep -qF "$feature"
+        done
+      - install -Dm755 src/aria2c $FLATPAK_DEST/libexec/motrix-build/aria2c
+    sources:
+      - type: git
+        url: https://github.com/motrixapp/aria2.git
+        tag: v1.37.0-motrix.3
+        commit: 4368a461cc765758a533b8cd4b30d74601310cd1
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+-motrix\.\d+)$
+
+      # The release tree has configure.ac but no generated configure or
+      # autogen.sh. Keep the Motrix release suffix and provide the autotools
+      # bootstrap expected by flatpak-builder.
+      - type: shell
+        commands:
+          - |
+            sed -i -E \
+              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.3]/' \
+              configure.ac
+            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.3]' configure.ac
+      - type: script
+        dest-filename: autogen.sh
+        commands:
+          - autoreconf -fi
+          - exec ./configure "$@"
+
+  # Keep the application last: beforePack validates the source-built aria2
+  # and browser-facing native-host binaries before electron-builder can
+  # package anything. The browser-facing host is removed from the Flatpak
+  # payload below; only the private in-sandbox broker is exported.
+  - name: motrix
+    buildsystem: simple
+    build-options:
+      prepend-path: /run/build/motrix/flatpak-node/pnpm-cli/bin
+      append-path: /usr/lib/sdk/node24/bin:/usr/lib/sdk/rust-stable/bin
+      env:
+        XDG_CACHE_HOME: /run/build/motrix/flatpak-node/cache
+        npm_config_cache: /run/build/motrix/flatpak-node/npm-cache
+        npm_config_loglevel: warn
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.2.0
+        npm_config_offline: 'true'
+        CARGO_HOME: /run/build/motrix/cargo
+        CARGO_NET_OFFLINE: 'true'
+        MOTRIX_BUILTIN_ARTIFACT_DIR: /run/build/motrix/flatpak-builtins
+        MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+        MOTRIX_SKIP_ENGINE_FETCH: '1'
+        ADBLOCK: '1'
+        DISABLE_OPENCOLLECTIVE: '1'
+      arch:
+        x86_64:
+          env:
+            npm_config_arch: x64
+            npm_config_target_arch: x64
+            MOTRIX_RUST_TARGET: x86_64-unknown-linux-gnu
+        aarch64:
+          env:
+            npm_config_arch: arm64
+            npm_config_target_arch: arm64
+            MOTRIX_RUST_TARGET: aarch64-unknown-linux-gnu
+
+    build-commands:
+      - npm install -g
+        --prefix=/run/build/motrix/flatpak-node/pnpm-cli
+        ./flatpak-node/pnpm/pnpm-11.18.0.tgz
+        --offline
+      - pnpm install --offline --frozen-lockfile --ignore-scripts
+
+      # The root postinstall is intentionally suppressed. Extract only the
+      # locked Electron runtime from generated-sources.
+      - node node_modules/electron/install.js
+
+      # pnpm 11 otherwise repairs an --ignore-scripts install before run/exec,
+      # changing the audited build graph. All later invocations disable it.
+      - pnpm --config.verify-deps-before-run=false
+        run check:third-party-notices
+      - pnpm --config.verify-deps-before-run=false
+        exec electron-rebuild
+        --force
+        --only better-sqlite3
+        --arch=$npm_config_target_arch
+
+      - install -Dm755 /app/libexec/motrix-build/aria2c
+        extra/linux/$npm_config_target_arch/aria2c
+
+      # rust-stable//25.08 supplies native GNU targets, not musl targets.
+      # Build directly instead of invoking the release-oriented build.mjs.
+      # --bins also produces the browser-facing host required transiently by
+      # electron-builder. It is stripped before the unpacked app is copied to
+      # $FLATPAK_DEST; the broker is the only native-host binary exported.
+      - cargo build
+        --manifest-path packages/native-host/Cargo.toml
+        --bins
+        --release
+        --locked
+        --offline
+        --target=$MOTRIX_RUST_TARGET
+        --target-dir=/run/build/motrix/native-target
+      - install -Dm755
+        /run/build/motrix/native-target/$MOTRIX_RUST_TARGET/release/motrix-native-host
+        packages/native-host/dist/linux-$npm_config_target_arch/motrix-native-host
+
+      - pnpm --config.verify-deps-before-run=false run build:builtin
+      - pnpm --config.verify-deps-before-run=false run build:electron
+      - pnpm --config.verify-deps-before-run=false exec electron-builder
+        --linux dir
+        --$npm_config_arch
+        -c.linux.target=dir
+        --publish=never
+
+      - |
+        unpacked=release/linux-unpacked
+        if [ "$npm_config_target_arch" = arm64 ]; then
+          unpacked=release/linux-arm64-unpacked
+        fi
+        test -x "$unpacked/resources/extra/linux/$npm_config_target_arch/aria2c"
+        test -x "$unpacked/resources/bin/motrix-native-host"
+        rm "$unpacked/resources/bin/motrix-native-host"
+        test ! -e "$unpacked/resources/bin/motrix-native-host"
+        rm "$unpacked/chrome-sandbox"
+        cp -a "$unpacked" "$FLATPAK_DEST/motrix"
+
+      # The public command is a fixed wrapper around the private broker. The
+      # host-side companion translates Browser Native Messaging frames into
+      # the versioned broker protocol before invoking this command.
+      - install -Dm755
+        /run/build/motrix/native-target/$MOTRIX_RUST_TARGET/release/motrix-native-host-broker
+        $FLATPAK_DEST/libexec/motrix-native-host-broker
+      - install -Dm755 native-host-broker-flatpak.sh
+        $FLATPAK_DEST/bin/motrix-native-host-broker
+
+      - patch-desktop-filename $FLATPAK_DEST/motrix/resources/app.asar
+      - install -Dm644 build/256x256.png
+        /app/share/icons/hicolor/256x256/apps/$FLATPAK_ID.png
+      - install -Dm644 app.motrix.native.metainfo.xml
+        $FLATPAK_DEST/share/metainfo/$FLATPAK_ID.metainfo.xml
+      - install -Dm644 app.motrix.native.desktop
+        $FLATPAK_DEST/share/applications/$FLATPAK_ID.desktop
+      - install -Dm755 start-motrix.sh $FLATPAK_DEST/bin/start-motrix
+
+    sources:
+      # TODO(maintainer): replace this source with the public release URL,
+      # tag, and peeled commit before Flathub submission. CI structurally
+      # replaces only this item with the checked-out commit's git archive.
+      - type: git
+        url: https://github.com/TODO-ORG/motrix-turbo.git
+        tag: TODO-RELEASE-TAG
+        commit: TODO-RELEASE-COMMIT-SHA
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
+
+      # Generated from the lockfiles in the exact application source commit.
+      # Flathub fetches these sources before its offline build phase.
+      - generated-sources.json
+      - cargo-sources.json
+
+      # The Node generator prepares a pnpm store but not the pnpm CLI.
+      - type: file
+        url: https://registry.npmjs.org/pnpm/-/pnpm-11.18.0.tgz
+        sha256: 29c35ca8d2a287988fdee3e0f36e07d9b93783f567b579b7fd5b798a4563dd81
+        dest: flatpak-node/pnpm
+
+      # Signed builtin plugins. fetch-builtins.mjs rechecks every locked
+      # artifact digest and detached Ed25519 signature before unpacking.
+      - type: file
+        url: https://github.com/motrixapp/builtin-plugins/releases/download/motrix.filename-template%401.1.1/motrix.filename-template-1.1.1.moext
+        sha256: 3b88e4b79ae3a019f1efec08ccd69bf6f83088887f7c13205f1d58ea22bfc4da
+        dest: flatpak-builtins
+      - type: file
+        url: https://github.com/motrixapp/builtin-plugins/releases/download/motrix.filename-template%401.1.1/motrix.filename-template-1.1.1.moext.sig
+        sha256: 5b6bfcc74e0d923ed37c4f2340bfdc4cdac30f64191a15ce5c46ddc86590bc6d
+        dest: flatpak-builtins
+      - type: file
+        url: https://github.com/motrixapp/builtin-plugins/releases/download/motrix.scraper-hook%401.0.0/motrix.scraper-hook-1.0.0.moext
+        sha256: 2b6d1771fa0ccbd21e3a3da1284a589bd8f93d3a2ad6c6813fba6f21d2cfcb25
+        dest: flatpak-builtins
+      - type: file
+        url: https://github.com/motrixapp/builtin-plugins/releases/download/motrix.scraper-hook%401.0.0/motrix.scraper-hook-1.0.0.moext.sig
+        sha256: 7403d5ec5f61819370bcf153fe955e0736109b844c1eb53f959e6ebd0790be78
+        dest: flatpak-builtins
+      - type: file
+        url: https://github.com/motrixapp/builtin-plugins/releases/download/motrix.url-resolver%401.0.0/motrix.url-resolver-1.0.0.moext
+        sha256: 308dfd0ce86332f43aeb6ee84fad36a37d71f8fb7ef1eb1b79a0e6beb58e4a9e
+        dest: flatpak-builtins
+      - type: file
+        url: https://github.com/motrixapp/builtin-plugins/releases/download/motrix.url-resolver%401.0.0/motrix.url-resolver-1.0.0.moext.sig
+        sha256: 716af87eb2adbb4796ed6ac600c9b14840cb8354eb9ccebfe6122615ba88c17c
+        dest: flatpak-builtins
+
+      - type: script
+        dest-filename: start-motrix.sh
+        commands:
+          - unset SNAP SNAP_NAME SNAP_INSTANCE_NAME SNAP_REAL_HOME
+          - export GTK_USE_PORTAL=1
+          - export MOTRIX_BRIDGE_DATA_DIR="${XDG_CONFIG_HOME:?}/motrix/bridge"
+          - export TMPDIR="${XDG_RUNTIME_DIR:?}/app/${FLATPAK_ID:?}"
+          - mkdir -p "$TMPDIR"
+          - exec zypak-wrapper /app/motrix/motrix
+            --ozone-platform-hint=auto
+            "$@"
+
+      - type: script
+        dest-filename: native-host-broker-flatpak.sh
+        commands:
+          - unset SNAP SNAP_NAME SNAP_INSTANCE_NAME SNAP_REAL_HOME
+          - exec /app/libexec/motrix-native-host-broker "$@"
+
+      - type: file
+        path: app.motrix.native.metainfo.xml
+      - type: file
+        path: app.motrix.native.desktop

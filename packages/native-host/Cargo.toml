@@ -1,0 +1,31 @@
+[package]
+name = "motrix-native-host"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+default-run = "motrix-native-host"
+
+[[bin]]
+name = "motrix-native-host"
+path = "src/main.rs"
+
+[[bin]]
+name = "motrix-native-host-broker"
+path = "src/bin/motrix-native-host-broker.rs"
+
+[[bin]]
+name = "motrix-flatpak-native-host"
+path = "src/bin/motrix-flatpak-native-host.rs"
+
+[dependencies]
+home = "0.5"
+humantime = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true

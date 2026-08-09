@@ -1,0 +1,239 @@
+// src/shared/protocol/bridge.ts
+
+/** Browser families the bridge pairs with. Canonical home for the union. */
+export type Browser = 'chromium' | 'firefox'
+
+/**
+ * Compose the session/index key shared by the pairing store, the trusted
+ * registry, and the live WebSocket session map. The wire shape is
+ * `${browser}:${extensionId}`; keep every call site funneled through here so
+ * the three subsystems can never drift apart.
+ */
+export function makeSessionKey(browser: Browser, extensionId: string): string {
+  return `${browser}:${extensionId}`
+}
+
+/**
+ * Client identity primitive for the bridge. Generalizes the historically
+ * browser-coupled `(browser, extensionId)` pair so non-extension clients are
+ * first-class. The `kind` discriminant keeps the extension path byte-identical
+ * while admitting a `cli` principal (Spec 3) for the unary `POST /mdxp`
+ * surface; later specs widen it further (e.g. persisted device-code clients).
+ */
+export type ClientIdentity =
+  | {
+      readonly kind: 'extension'
+      readonly browser: Browser
+      readonly extensionId: string
+    }
+  | { readonly kind: 'cli'; readonly id: string }
+
+/**
+ * Stable session/index key for a {@link ClientIdentity}. For the `extension`
+ * kind this is byte-identical to {@link makeSessionKey}
+ * (`${browser}:${extensionId}`), so the live session map, persisted pairing
+ * keys, and task `sourceMeta.sessionKey` are all unchanged. The `cli` kind is
+ * namespaced under a `cli:` prefix so it can never collide with an extension
+ * key (`${browser}:${extensionId}`), even for an adversarial cli id.
+ */
+export function clientKey(identity: ClientIdentity): string {
+  switch (identity.kind) {
+    case 'extension':
+      return makeSessionKey(identity.browser, identity.extensionId)
+    case 'cli':
+      return `cli:${identity.id}`
+  }
+}
+
+export const BridgeCommands = {
+  RevokePair: 'bridge:revokePair',
+  AddTrusted: 'bridge:addTrusted',
+  RemoveTrusted: 'bridge:removeTrusted',
+  ResolvePair: 'bridge:resolvePair',
+} as const
+
+export const BridgeQueries = {
+  ListPaired: 'bridge:listPaired',
+  ListTrusted: 'bridge:listTrusted',
+  ProbeUrl: 'bridge:probeUrl',
+  ResolveUrl: 'bridge:resolveUrl',
+  CancelResolveUrl: 'bridge:cancelResolveUrl',
+  ListPendingPairRequests: 'bridge:listPendingPairRequests',
+} as const
+
+export const BridgeEvents = {
+  PairRequested: 'bridge:pairRequested',
+  Paired: 'bridge:paired',
+  Revoked: 'bridge:revoked',
+  Error: 'bridge:error',
+  /** A pending pair request (cli or extension) reached a final decision. */
+  PairRequestSettled: 'bridge:pairRequestSettled',
+  /** A pending pair request lapsed past its TTL without a decision. */
+  PairRequestExpired: 'bridge:pairRequestExpired',
+} as const
+
+export type BridgeCommand = (typeof BridgeCommands)[keyof typeof BridgeCommands]
+export type BridgeQuery = (typeof BridgeQueries)[keyof typeof BridgeQueries]
+export type BridgeEvent = (typeof BridgeEvents)[keyof typeof BridgeEvents]
+
+/**
+ * Renderer-facing paired-client DTO (the token is never exposed). Discriminated
+ * on `kind`, mirroring {@link ClientIdentity}: an `extension` carries its
+ * `browser`; a `cli` (device-code paired, Spec 7b) does not. `id` is the
+ * extension id or the cli id respectively.
+ */
+export type PairedClientInfo =
+  | {
+      kind: 'extension'
+      id: string
+      browser: Browser
+      name: string
+      pairedAt: number
+      lastActiveAt: number | null
+    }
+  | {
+      kind: 'cli'
+      id: string
+      name: string
+      pairedAt: number
+      lastActiveAt: number | null
+    }
+
+export interface TrustedExtensionInfo {
+  id: string
+  browser: Browser
+  source: 'builtin' | 'user-added' | 'imported'
+  label?: string
+  addedAt: number
+}
+
+/**
+ * Renderer-facing pairing-approval prompt payload. Discriminated on `kind`:
+ * an `extension` pairing (the browser `/pair` handshake) vs a `cli` device-code
+ * pairing (Spec 7b). The approval toast branches on `kind` — a `cli` request
+ * carries the human-verifiable `userCode` instead of a browser/extensionId.
+ */
+export type PairRequestPayload =
+  | {
+      kind: 'extension'
+      pairingNonce: string
+      extensionId: string
+      extensionName: string
+      extensionVersion: string
+      browser: Browser
+    }
+  | {
+      kind: 'cli'
+      requestId: string
+      userCode: string
+      clientName: string
+      clientVersion: string
+    }
+
+/**
+ * Renderer → main/server decision for a pairing prompt. Mirrors
+ * {@link PairRequestPayload}'s discriminant: an `extension` decision settles the
+ * blocked `/pair` WebSocket; a `cli` decision approves/denies a device-code
+ * request by its `requestId`.
+ */
+export type ResolvePairParams =
+  | {
+      kind: 'extension'
+      pairingNonce: string
+      extensionId: string
+      browser: Browser
+      decision: 'allow' | 'deny'
+      addToRegistry: boolean
+    }
+  | {
+      kind: 'cli'
+      requestId: string
+      decision: 'allow' | 'deny'
+    }
+
+/**
+ * Renderer-safe DTO for a pending pairing request, shown in the approval
+ * inbox. Discriminated on `kind`, mirroring {@link PairRequestPayload}: a
+ * `cli` device-code request (token-free by construction, mirrors
+ * {@link getPending}'s projection; `deviceId` — identity-keying material — is
+ * deliberately excluded) vs an `extension` `/pair` handshake still awaiting a
+ * decision. Both add `createdAt`/`expiresAt` for ordering + the TTL countdown.
+ */
+export type PendingPairRequestInfo =
+  | {
+      kind: 'cli'
+      requestId: string
+      userCode: string
+      clientName: string
+      clientVersion: string
+      createdAt: number
+      expiresAt: number
+    }
+  | {
+      kind: 'extension'
+      pairingNonce: string
+      extensionId: string
+      extensionName: string
+      extensionVersion: string
+      browser: Browser
+      createdAt: number
+      expiresAt: number
+    }
+
+/**
+ * Stable identity for prompt isolation and lifecycle routing. Mirrors the two
+ * kinds a pending request can have: `cli:${requestId}` for a device-code
+ * request (namespaced under `cli:`, matching {@link clientKey}'s cli prefix,
+ * so the two spaces cannot collide) and `${browser}:${extensionId}:${pairingNonce}`
+ * for an extension request — byte-identical to
+ * {@link PairingDialogController}'s existing map key.
+ */
+export function pairRequestKey(
+  info:
+    | Pick<
+        Extract<PendingPairRequestInfo, { kind: 'cli' }>,
+        'kind' | 'requestId'
+      >
+    | Pick<
+        Extract<PendingPairRequestInfo, { kind: 'extension' }>,
+        'kind' | 'pairingNonce' | 'extensionId' | 'browser'
+      >
+): string {
+  return info.kind === 'cli'
+    ? `cli:${info.requestId}`
+    : `${info.browser}:${info.extensionId}:${info.pairingNonce}`
+}
+
+/** Payload for {@link BridgeEvents.PairRequestSettled}: a pending pair
+ *  request (identified by {@link pairRequestKey}) reached a final decision. */
+export interface PairRequestSettledPayload {
+  key: string
+  outcome: 'allowed' | 'denied'
+}
+
+/** Payload for {@link BridgeEvents.PairRequestExpired}: a pending pair
+ *  request (identified by {@link pairRequestKey}) lapsed past its TTL without
+ *  a decision. */
+export interface PairRequestExpiredPayload {
+  key: string
+}
+
+/**
+ * Result of a cli `ResolvePair`. A discriminated RETURN VALUE rather than a
+ * thrown error: a thrown MDXP error loses its `code`/`data.appCode` over the
+ * web `/rpc` transport (it becomes a generic 500 message), whereas a return
+ * value round-trips intact over both Electron IPC and HTTP. `'unavailable'`
+ * means the request was no longer pending (expired / denied-elsewhere /
+ * already approved).
+ */
+export type ResolvePairResult =
+  | { ok: true }
+  | { ok: false; reason: 'unavailable' }
+
+/** appCodes attached to device-code pairing errors (DeviceCodeService). Shared
+ *  so the per-shell ResolvePair handlers match the same string the service
+ *  throws — never re-type the literal. */
+export const PairAppCodes = {
+  Unavailable: 'pair.request.unavailable',
+  RateLimited: 'pair.request.rateLimited',
+} as const

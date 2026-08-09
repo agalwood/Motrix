@@ -1,0 +1,804 @@
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
+import { stripHopByHopHeaders } from '@core/bridge-receiver/header-replay'
+import { ensureMediaExtension } from '@core/bridge-receiver/pipelines/media-final-name'
+import {
+  type AdaptedMux,
+  sanitizeFilename,
+} from '@core/bridge-receiver/submit-download-adapter'
+import type {
+  AddTorrentParams,
+  CreateDownloadParams,
+  EngineAdapter,
+} from '@core/engine/engine-adapter'
+import { newEngineTaskId, newTaskId } from '@core/lib/ids'
+import { getLogger } from '@core/logger'
+import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { SettingsManager } from '@core/settings/settings-manager'
+import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
+import { AppError, ErrorCode } from '@shared/errors'
+import type { TaskCreateRequest } from '@shared/schemas/add-task'
+import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import type { BeforeCreateHttpContextDTO } from '@shared/types/plugin-hooks'
+import type {
+  DownloadTask,
+  SourceMeta,
+  TaskInstance,
+  TaskSource,
+} from '@shared/types/task'
+import {
+  makeDefaultBtExtension,
+  makeDownloadTask,
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
+import { isTorrentLikeType } from '@shared/types/task-actions'
+import type { TaskActivityRecorder } from '@shared/types/task-activity'
+import type Database from 'better-sqlite3'
+import parseTorrent from 'parse-torrent'
+import type { FinalNamePicker } from './final-name-picker'
+import { toTempPath } from './paths'
+import type { TaskManager } from './task-manager'
+import type { TorrentMetaStore } from './torrent-meta-store'
+
+const log = getLogger('create-task')
+
+export interface CreateTaskDeps {
+  adapter: EngineAdapter
+  settingsManager: SettingsManager
+  finalNamePicker: FinalNamePicker
+  torrentMetaStore: TorrentMetaStore
+  taskManager: TaskManager
+  activityRecorder: TaskActivityRecorder
+  eventBus: { emit(event: string, payload: unknown): void }
+  /**
+   * Coalesced TaskUpdated publication (TaskUpdatePublisher.publish). Both
+   * create-side broadcasts are non-terminal (announce a new owned task /
+   * republish after a rolled-back create), so they ride the trailing window.
+   */
+  publishTaskUpdate: () => void
+  // Optional plugin-hook plumbing (Plan C / T15). All three must be present
+  // for the chain to fire; absence is a clean no-op for backward compat.
+  orchestrator?: HookOrchestrator
+  auditLog?: HookAuditLog
+  db?: Database.Database
+  /** Optional engine-readiness gate. Awaited immediately before each engine
+   *  adapter call so a cold-start request waits for aria2 instead of hitting
+   *  a not-yet-connected RPC socket. Absent ⇒ no gate (back-compat / tests). */
+  waitForEngineReady?: () => Promise<void>
+  /** Rejecting parent-row durability barrier, invoked before publication. */
+  persistTask?: (task: DownloadTask) => Promise<void>
+  /**
+   * Inspector Activity parent/Added barrier. The runtime invokes
+   * `persistParent`, ensures the activity parent, and records Added before
+   * returning.
+   */
+  parentTaskCreated?: (
+    task: DownloadTask,
+    persistParent: () => void | Promise<void>
+  ) => Promise<void>
+  /**
+   * Compensating delete for a parent row whose durable create intent must be
+   * rolled back. Production implementations must include the Inspector
+   * Activity parent/timeline in the same serialized deletion.
+   */
+  rollbackTaskCreation?: (taskId: string) => Promise<void>
+  /** Deterministic seam for tests; defaults to a random aria2-compatible GID. */
+  createEngineTaskId?: () => string
+  /** Serialize publication/removal races for the newly allocated public ID. */
+  runTaskMutation?: <T>(
+    taskIds: readonly string[],
+    operation: () => Promise<T>
+  ) => Promise<T>
+  /**
+   * Optional YouTube/bilibili pre-resolver. When present and the HTTP URL
+   * resolves to a mux pair (video + audio), the download is routed to the
+   * MuxPipeline instead of the normal HTTP engine path. Both deps must be
+   * present for the seam to fire; absence of either → unchanged HTTP path.
+   * Errors are owned by the factory (returns null → HTTP fallback).
+   * The optional cookieHeader arg is for bilibili HD (desktop Add-Task path
+   * passes no cookies — only the extension submit path forwards them).
+   */
+  resolveToMux?: (
+    url: string,
+    cookieHeader?: string
+  ) => Promise<{
+    videoUrl: string
+    audioUrl: string
+    container: 'mp4' | 'mkv'
+    headers?: Record<string, string>
+    title?: string
+  } | null>
+  /** Dispatch an AdaptedMux to the shared MuxPipeline. Must be paired with
+   *  resolveToMux — both present or both absent. */
+  dispatchMux?: (adapted: AdaptedMux) => Promise<{ taskId: string }>
+}
+
+export interface CreateTaskOptions {
+  source?: TaskSource // default 'user'
+  sourceMeta?: SourceMeta // default null
+  /** Engine option dictionary merged into the engine call: header
+   *  (repeated), load-cookies, referer. createTaskHandler forwards these
+   *  via CreateDownloadParams.extraEngineOptions; the adapter honors the
+   *  keys it understands. */
+  extraEngineOptions?: Record<string, string | string[]>
+}
+
+/**
+ * Create a new download task. Side effects, in order:
+ *   1. Resolve `finalName` via FinalNamePicker (collision-safe).
+ *   2. Persist torrent bytes (BT torrent-base64 only) via TorrentMetaStore.
+ *   3. Build engine-agnostic create params with path overrides so on-disk
+ *      artifacts land at `diskPath` (the `.motrix` in-flight location).
+ *   4. Call the EngineAdapter to obtain the engine gid.
+ *   5. Register the fully-populated DownloadTask with TaskManager so
+ *      subsequent polling updates merge onto an already-present record
+ *      (preserving diskPath / finalPath / finalName / transitionPhase /
+ *      torrentMetaPath).
+ *
+ * The legacy IPC contract returned only `{ gid }`; the result now also
+ * carries the freshly-minted `taskId` (== DownloadTask.id) so callers
+ * that need the stable public identifier (notably the MDXP bridge, where
+ * gid can rotate across instance swaps) don't have to reach into
+ * TaskManager to look it up. Renderer-facing IPC paths still narrow to
+ * `{ gid }` structurally — the extra field is harmless excess.
+ */
+export async function handleCreateTask(
+  rawRequest: unknown,
+  deps: CreateTaskDeps,
+  opts: CreateTaskOptions = {}
+): Promise<{ gid: string; taskId: string }> {
+  const parsed = taskCreateRequestSchema.safeParse(rawRequest)
+  if (!parsed.success) {
+    throw new AppError(
+      ErrorCode.IpcInvalidPayload,
+      `Invalid task create request: ${parsed.error.message}`
+    )
+  }
+
+  const req = parsed.data
+  const appSettings = deps.settingsManager.getApp()
+  const engineSettings = deps.settingsManager.getEngine()
+
+  const effectiveSaveDir = req.saveDir || appSettings.defaultSaveDir
+
+  log.info(
+    {
+      type: req.type,
+      payloadKind: req.type === 'bt' ? req.payload.kind : 'http',
+      saveDir: effectiveSaveDir,
+      selectedFiles: req.type === 'bt' ? req.selectedFiles.length : undefined,
+    },
+    'createTask received'
+  )
+
+  // Decode torrent bytes once — needed for both name extraction (info.name)
+  // and TorrentMetaStore persistence. Bencode parsing lets us honor the
+  // torrent's self-declared name instead of falling back to the literal
+  // 'torrent' when neither displayName nor magnet dn= is provided.
+  let torrentBytes: Uint8Array | null = null
+  let torrentInfoName: string | null = null
+  let isPrivateFromTorrent = false
+  if (req.type === 'bt' && req.payload.kind === 'torrent-base64') {
+    torrentBytes = req.torrentBytes ?? decodeBase64ToBytes(req.payload.base64)
+    try {
+      const meta = await parseTorrent(torrentBytes)
+      if (typeof meta.name === 'string' && meta.name.trim()) {
+        torrentInfoName = meta.name.trim()
+      }
+      isPrivateFromTorrent = meta.private === true
+    } catch (err) {
+      log.warn(
+        { err },
+        'failed to parse torrent for name extraction; falling back'
+      )
+    }
+  }
+
+  // 1. Decide final on-disk name (handles collisions).
+  const desiredName = deriveDesiredName(req, torrentInfoName)
+  const finalName = await deps.finalNamePicker.pick(
+    effectiveSaveDir,
+    desiredName
+  )
+
+  const taskType = deriveTaskType(req)
+  const finalPath = path.join(effectiveSaveDir, finalName)
+  const diskPath = toTempPath(finalPath)
+
+  const taskId = newTaskId()
+  // Anchor "now" early so the hook DTO's requestedAt and the persisted
+  // task row share a clock — they are written in the same SQLite
+  // transaction when plugin metadata is staged.
+  const now = Date.now()
+
+  // 2. Persist torrent bytes for the re-seed dance (BT with raw .torrent).
+  let torrentMetaPath: string | null = null
+  if (torrentBytes) {
+    try {
+      torrentMetaPath = await deps.torrentMetaStore.persist(
+        taskId,
+        torrentBytes
+      )
+    } catch (cause) {
+      throw new AppError(
+        ErrorCode.TaskCreateTorrentMetaFailed,
+        'Failed to persist torrent metadata',
+        cause
+      )
+    }
+  }
+
+  // 2.5. Pre-create the on-disk slot before handing off to aria2.
+  // Both task families keep a `.motrix` suffix during download, but
+  // `diskPath` means different things:
+  //   - BT/Magnet: `diskPath` IS a container directory aria2 populates
+  //     (`dir = diskPath`, `out` dropped). Pre-creating it also
+  //     guarantees `aria2.addTorrent`'s metadata write
+  //     (`<diskPath>/<sha1>.torrent`) succeeds at add time. Without
+  //     this dir, the save fails silently; the resulting task gets a
+  //     data-only `MetadataInfo` and the sqlite3 `task` row is never
+  //     written, so the next pause hits a FOREIGN KEY violation when
+  //     `task_progress` is upserted.
+  //   - HTTP/FTP: `diskPath` IS the file aria2 will create
+  //     (`dir = saveDir`, `out = <finalName>.motrix`). mkdir'ing it
+  //     would race with aria2's open(2) for write — the path becomes
+  //     a directory and aria2 fails the task with EISDIR. Pre-create
+  //     `saveDir` instead so aria2's `dir` option is reachable.
+  // aria2_motrix has the matching mkdirs on its side, so an mkdir
+  // error here is logged but not fatal — defence-in-depth, not
+  // single point of failure.
+  const ensureDir = isTorrentLikeType(taskType) ? diskPath : effectiveSaveDir
+  try {
+    await mkdir(ensureDir, { recursive: true })
+  } catch (cause) {
+    log.warn(
+      { err: cause, ensureDir, taskType },
+      'pre-create disk slot failed; relying on aria2 to mkdirs'
+    )
+  }
+
+  // 3. Build engine-agnostic create params per task family and dispatch
+  // through the EngineAdapter. Path options always point at `diskPath`
+  // (the `.motrix` in-flight location): for HTTP that means
+  // dir=saveDir + filename=<name>.motrix; for BT/magnet dir=diskPath
+  // with no `out`. The adapter is responsible for the aria2 wire shape.
+  let pluginStaged: { commit: (cb: () => void) => void } | undefined
+  let dispatchEngine: (reservedGid: string) => Promise<string>
+  // Shared by the HTTP and magnet branches — both dispatch through
+  // createDownload with an identical log line; only their params differ.
+  const dispatchCreateDownload =
+    (params: CreateDownloadParams) =>
+    async (reservedGid: string): Promise<string> => {
+      params.gid = reservedGid
+      log.info(
+        { method: 'createDownload', uriCount: params.uris.length, params },
+        'dispatching to engine'
+      )
+      return deps.adapter.createDownload(params)
+    }
+
+  if (req.type === 'http') {
+    const clampedConnections =
+      req.connections !== undefined
+        ? Math.min(req.connections, engineSettings.maxConnectionPerServer)
+        : undefined
+    const headersRecord =
+      req.headers.length > 0
+        ? Object.fromEntries(req.headers.map((h) => [h.name, h.value]))
+        : undefined
+
+    const params: CreateDownloadParams = {
+      uris: [...req.uris],
+      // applyPathOverrides HTTP equivalent: dir = saveDir, out = <name>.motrix
+      saveDir: effectiveSaveDir,
+      filename: `${finalName}${INCOMPLETE_SUFFIX}`,
+      connections: clampedConnections,
+      headers: headersRecord,
+      proxy: req.proxy,
+      // Bridge cookie jar / referer; createDownload merges these raw AFTER
+      // dir/out so a shell-supplied option can override (matches old order).
+      extraEngineOptions: opts.extraEngineOptions,
+    }
+
+    // 3.4. Mux pre-resolve seam (desktop Add-Task path).
+    // When both resolveToMux and dispatchMux are wired (bridge enabled +
+    // youtube/bilibili URL), call the resolver BEFORE beforeCreate fires.
+    // On a non-null mux pair, build an AdaptedMux reusing the already-computed
+    // taskId/saveDir/finalName, then delegate to MuxPipeline and return — the
+    // entire HTTP/beforeCreate/engine path is bypassed for this URL.
+    // On null (non-resolver URL, bridge disabled, plugin not enabled) → fall
+    // through to the unchanged HTTP path. No try/catch here: the factory owns
+    // error handling (returns null on failure).
+    if (deps.resolveToMux && deps.dispatchMux) {
+      const uri = params.uris[0]
+      if (uri) {
+        const muxResult = await deps.resolveToMux(uri)
+        if (muxResult) {
+          const sanitizedHeaders = muxResult.headers
+            ? stripHopByHopHeaders(muxResult.headers)
+            : {}
+          // DIAGNOSTIC: confirm the resolver returned distinct upos hosts and
+          // that the gatekeeper header (Referer) survives sanitize into the
+          // MediaJob. Logs HOSTS + header KEY presence only — never values.
+          log.info(
+            {
+              taskId,
+              videoHost: safeHost(muxResult.videoUrl),
+              audioHost: safeHost(muxResult.audioUrl),
+              sameUrl: muxResult.videoUrl === muxResult.audioUrl,
+              container: muxResult.container,
+              rawHeaderKeys: Object.keys(muxResult.headers ?? {}),
+              hasReferer: 'Referer' in sanitizedHeaders,
+              hasUserAgent: 'User-Agent' in sanitizedHeaders,
+            },
+            'mux resolve result'
+          )
+          // Prefer the resolver's human title over the URL-derived name (the
+          // bvid BV1xxx is meaningless). Sanitize, append the container
+          // extension, THEN dedup — the pick must run on the on-disk name.
+          const titleBase = muxResult.title
+            ? sanitizeFilename(muxResult.title).trim()
+            : ''
+          const muxFinalName = titleBase
+            ? await deps.finalNamePicker.pick(
+                effectiveSaveDir,
+                ensureMediaExtension(titleBase, muxResult.container)
+              )
+            : finalName
+          const adaptedMux: AdaptedMux = {
+            kind: 'mux',
+            taskId,
+            saveDir: effectiveSaveDir,
+            finalName: muxFinalName,
+            videoUrl: muxResult.videoUrl,
+            audioUrl: muxResult.audioUrl,
+            sanitizedHeaders,
+            container: muxResult.container,
+            // Desktop path: no extension session context; sourceMeta is null.
+            // MediaTaskCoordinator accepts SourceMeta (= BridgeSourceMeta | null).
+            sourceMeta: null,
+          }
+          const muxDispatchResult = await deps.dispatchMux(adaptedMux)
+          return {
+            gid: muxDispatchResult.taskId,
+            taskId: muxDispatchResult.taskId,
+          }
+        }
+      }
+    }
+
+    // 3.5. Plan C plugin-hook chain (HTTP only — BT/magnet beforeCreate is
+    // out of scope for T15; the orchestrator currently exposes only
+    // `runBeforeCreateHttp`). When the orchestrator is wired we let eligible
+    // plugins mutate the create params (uris, headers, proxy) and stage
+    // metadata that will be committed in the same SQLite transaction as the
+    // task row. Aborted chains skip the engine call entirely and surface
+    // PluginRuntimeFault to the IPC caller.
+    log.info(
+      {
+        taskId,
+        hasOrchestrator: Boolean(deps.orchestrator),
+        reqType: req.type,
+        uris: req.uris,
+      },
+      'beforeCreate hook chain pre-check'
+    )
+    if (deps.orchestrator) {
+      const ctxDto: BeforeCreateHttpContextDTO = {
+        type: 'http',
+        sourceUrl: params.uris[0] ?? '',
+        uris: [...params.uris],
+        saveDir: effectiveSaveDir,
+        filename: desiredName,
+        connections: req.connections,
+        headers: req.headers.map((h) => ({ name: h.name, value: h.value })),
+        proxy: req.proxy,
+        createdBy: 'user',
+        requestedAt: now,
+      }
+      const result = await deps.orchestrator.runBeforeCreateHttp(ctxDto, taskId)
+      log.info(
+        {
+          taskId,
+          aborted: result.aborted === true,
+          rewrittenUris: result.aborted ? undefined : result.final.uris,
+          contributors: result.aborted ? undefined : result.contributors,
+        },
+        'beforeCreate hook chain result'
+      )
+      if (result.aborted) {
+        await deps.auditLog?.log({
+          type: 'chain.abort',
+          hook: 'beforeCreate',
+          taskId,
+          reason: result.reason,
+        })
+        throw new AppError(
+          ErrorCode.PluginRuntimeFault,
+          `plugin chain aborted: ${result.reason}`
+        )
+      }
+      // Apply merged outputs back to the create params. mergeChain is
+      // well-defined for the slot keys we care about; absent keys keep
+      // the user's input intact. Conditionality matches the old code:
+      //   - uris: ALWAYS overwritten (the chain always produces a final set)
+      //   - headers: only when the chain produced headers (else keep req)
+      //   - proxy: TRUTHY check (an empty-string proxy must NOT overwrite)
+      params.uris = [...result.final.uris]
+      if (result.final.headers.length > 0) {
+        params.headers = Object.fromEntries(
+          result.final.headers.map((h) => [h.name, h.value])
+        )
+      }
+      if (result.final.proxy) {
+        params.proxy = result.final.proxy
+      }
+      // Always emit chain.commit on a successful chain — a chain that
+      // mutates only uris or proxy (no headers) still completes and
+      // deserves an audit trail. Matches the sibling site in finalizeTask.
+      await deps.auditLog?.log({
+        type: 'chain.commit',
+        hook: 'beforeCreate',
+        taskId,
+        headerContributors: result.contributors.headers,
+        proxyContributor: result.contributors.proxy,
+        uriContributor: result.contributors.uris,
+        finalHeaderCount: result.final.headers.length,
+      })
+      if (deps.db) {
+        const db = deps.db
+        pluginStaged = {
+          commit: (cb: () => void) =>
+            result.staged.commitMetadata(db, taskId, cb),
+        }
+      }
+    }
+
+    dispatchEngine = dispatchCreateDownload(params)
+  } else if (req.payload.kind === 'torrent-base64') {
+    // Torrent bytes were decoded earlier for name/private extraction; they
+    // are always present on the torrent-base64 path.
+    const params: AddTorrentParams = {
+      metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
+      // applyPathOverrides BT equivalent: dir = diskPath, out dropped.
+      saveDir: diskPath,
+      // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
+      // 1-based, and addTorrent serializes selectedFiles with a raw join.
+      selectedFiles: req.selectedFiles.map((i) => i + 1),
+      dlLimit: req.dlLimit,
+      ulLimit: req.ulLimit,
+      seedRatio: req.seedRatio,
+      // Replaces the old inline `options['bt-tracker'] = ''` set.
+      isPrivate: isPrivateFromTorrent,
+    }
+    dispatchEngine = async (reservedGid) => {
+      params.gid = reservedGid
+      // Never log `params.metadata` itself: pino would expand the whole
+      // torrent byte array into a multi-megabyte JSON line.
+      const { metadata, ...loggableParams } = params
+      log.info(
+        {
+          method: 'addTorrent',
+          metadataBytes: metadata.length,
+          params: loggableParams,
+        },
+        'dispatching to engine'
+      )
+      return deps.adapter.addTorrent(params)
+    }
+  } else {
+    // Magnet: BT-typed but no metadata bytes, so it CANNOT use addTorrent.
+    // Reproduce the old `toBt` magnet wire (addUri with a BT-ish option map +
+    // dir=diskPath, no out) through createDownload + extraEngineOptions.
+    const magnetEngineOpts: Record<string, string> = {}
+    if (req.selectedFiles.length > 0) {
+      magnetEngineOpts['select-file'] = req.selectedFiles
+        .map((i) => i + 1)
+        .join(',')
+    }
+    if (req.dlLimit !== undefined) {
+      magnetEngineOpts['max-download-limit'] = `${req.dlLimit}K`
+    }
+    if (req.ulLimit !== undefined) {
+      magnetEngineOpts['max-upload-limit'] = `${req.ulLimit}K`
+    }
+    if (req.seedRatio !== undefined) {
+      magnetEngineOpts['seed-ratio'] = String(req.seedRatio)
+    }
+    const params: CreateDownloadParams = {
+      uris: [req.payload.uri],
+      // dir = diskPath; NO filename → createDownload emits no `out`.
+      saveDir: diskPath,
+      // Spread order: magnet opts first, then shell-supplied opts (which
+      // merged LAST in the old code and could override). createDownload then
+      // merges extraEngineOptions after `dir`, so the final aria2 map is
+      // { dir: diskPath, ...magnetEngineOpts, ...opts.extraEngineOptions } —
+      // byte-identical to the old toBt + applyPathOverrides + opts merge.
+      extraEngineOptions: {
+        ...magnetEngineOpts,
+        ...(opts.extraEngineOptions ?? {}),
+      },
+    }
+    dispatchEngine = dispatchCreateDownload(params)
+  }
+
+  // Resolve readiness before publishing a durable create intent. A rejected
+  // cold-start gate must not leave a queued task that was never dispatched.
+  if (deps.waitForEngineReady) {
+    await deps.waitForEngineReady()
+  }
+
+  const gid = newEngineTaskId(deps.createEngineTaskId, 'createTask')
+  // 5. Build a fully-populated durable owner before engine dispatch.
+  const isBtLike = isTorrentLikeType(taskType)
+  const taskKind: TaskKind = isBtLike ? TaskKind.Bt : TaskKind.Direct
+  const phase: TaskInstancePhase = isBtLike
+    ? TaskInstancePhase.BtDownload
+    : TaskInstancePhase.HttpDownload
+  const primaryInstance: TaskInstance = {
+    instanceId: `primary:${taskId}`,
+    motrixId: taskId,
+    gid,
+    phase,
+    status: TaskStatus.Queued,
+    progress: 0,
+    totalBytes: 0,
+    downloadedBytes: 0,
+    uploadedBytes: 0,
+    diskPath,
+    transitionPhase: TransitionPhase.Idle,
+    uris: deriveUris(req),
+    uriHash: null,
+    payload: {},
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  const task: DownloadTask = makeDownloadTask({
+    id: taskId,
+    engineTaskId: gid,
+    name: finalName,
+    kind: taskKind,
+    type: taskType,
+    saveDir: effectiveSaveDir,
+    createdAt: now,
+    updatedAt: now,
+    uris: deriveUris(req),
+    dlLimit: req.type === 'bt' ? (req.dlLimit ?? 0) : 0,
+    ulLimit: req.type === 'bt' ? (req.ulLimit ?? 0) : 0,
+    filename: finalName,
+    diskPath,
+    finalPath,
+    finalName,
+    torrentMetaPath,
+    // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
+    // persists is_private to db. Other bt fields are filled in by the next poll
+    // cycle via translateBtExtension; mergeTask preserves isPrivate via the
+    // saved.isPrivate injection wired in Task 4.
+    bt: isBtLike
+      ? makeDefaultBtExtension({ isPrivate: isPrivateFromTorrent })
+      : undefined,
+    // Provenance: defaults to 'user'. Bridge receiver passes 'bridge' +
+    // BridgeSourceMeta via CreateTaskOptions to attribute rows correctly.
+    source: opts.source ?? 'user',
+    sourceMeta: opts.sourceMeta ?? null,
+    instances: [primaryInstance],
+  })
+  const createReservedTask = async (): Promise<{
+    gid: string
+    taskId: string
+  }> => {
+    deps.taskManager.reserveEngineTaskId(gid)
+
+    const persistParent = async (): Promise<void> => {
+      await deps.persistTask?.(task)
+    }
+    const hasDurableIntent = Boolean(
+      deps.persistTask || deps.parentTaskCreated || pluginStaged
+    )
+    const rollbackDurableIntent = async (): Promise<boolean> => {
+      if (!hasDurableIntent) return true
+      if (!deps.rollbackTaskCreation) return false
+      try {
+        await deps.rollbackTaskCreation(task.id)
+        return true
+      } catch (rollbackError) {
+        log.error(
+          { err: rollbackError, taskId: task.id },
+          'failed to roll back durable create intent'
+        )
+        return false
+      }
+    }
+    const announceOwnedTask = (): void => {
+      deps.activityRecorder.recordSubmitted({
+        taskId: task.id,
+        occurredAt: task.createdAt,
+      })
+      deps.publishTaskUpdate()
+    }
+
+    try {
+      if (deps.parentTaskCreated) {
+        await deps.parentTaskCreated(task, persistParent)
+      } else {
+        await persistParent()
+      }
+      // Plugin metadata must be durable before engine dispatch too. The parent
+      // row already crossed its rejecting barrier above; this synchronous
+      // transaction flushes only the staged hook metadata.
+      pluginStaged?.commit(() => {})
+    } catch (cause) {
+      const rolledBack = await rollbackDurableIntent()
+      if (rolledBack) {
+        deps.taskManager.releaseEngineTaskIdReservation(gid)
+      } else {
+        // A side-effect-then-throw persistence implementation may have left a
+        // recoverable parent. Keep an in-process owner instead of an unbounded
+        // ownerless reservation.
+        deps.taskManager.add(task)
+        announceOwnedTask()
+      }
+      throw cause
+    }
+
+    // Silent reservation owner: SessionManager snapshots now see the durable
+    // intent, while isEngineTaskIdRetired(gid) continues to block poll merges
+    // until the adapter confirms the caller-reserved GID.
+    deps.taskManager.setReservedEngineTaskOwner(task.id, task, gid)
+
+    try {
+      const actualGid = await dispatchEngine(gid)
+      if (actualGid.toLowerCase() !== gid.toLowerCase()) {
+        throw new Error(
+          `Engine returned gid ${actualGid} instead of reserved gid ${gid}`
+        )
+      }
+      // Ordinary set claims the reservation and opens authoritative polling.
+      deps.taskManager.add(task)
+      log.info({ gid, taskId, finalName }, 'engine accepted task')
+    } catch (cause) {
+      log.error({ err: cause, taskId, finalName }, 'engine rejected task')
+
+      try {
+        await deps.adapter.forceRemoveTask(gid)
+      } catch (cleanupError) {
+        log.warn(
+          { err: cleanupError, gid, taskId },
+          'create compensation force-remove failed'
+        )
+      }
+      let cleanupComplete = false
+      try {
+        await deps.adapter.removeDownloadResult(gid)
+        cleanupComplete = true
+      } catch (cleanupError) {
+        cleanupComplete = false
+        log.error(
+          { err: cleanupError, gid, taskId },
+          'create compensation result cleanup failed'
+        )
+      }
+
+      if (cleanupComplete) {
+        // remove() moves the indexed provisional owner into the retired shield;
+        // consume the still-live reservation before awaiting parent rollback.
+        deps.taskManager.remove(task.id)
+        deps.taskManager.retireEngineTaskIdReservation(gid)
+        const rolledBack = await rollbackDurableIntent()
+        if (rolledBack) {
+          deps.publishTaskUpdate()
+          throw cause
+        }
+      }
+
+      // The engine outcome or durable rollback is uncertain. Promote the silent
+      // candidate to an ordinary owner so every live GID has the same public
+      // task identity and recovery can reconcile it after restart.
+      deps.taskManager.add(task)
+      announceOwnedTask()
+      throw cause
+    }
+
+    announceOwnedTask()
+
+    // Push the new snapshot so the renderer's UI shows the task
+    // immediately — without this, the new task is invisible until the
+    // next polling tick (and even then, if the polled fields match the
+    // initial Queued/zero state, handlePolledTasks's dirty guard might
+    // not emit either).
+
+    return { gid, taskId }
+  }
+
+  return deps.runTaskMutation
+    ? deps.runTaskMutation([taskId], createReservedTask)
+    : createReservedTask()
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+function deriveTaskType(req: TaskCreateRequest): TaskType {
+  if (req.type === 'http') return TaskType.Http
+  return req.payload.kind === 'magnet' ? TaskType.Magnet : TaskType.Bt
+}
+
+function deriveUris(req: TaskCreateRequest): string[] {
+  if (req.type === 'http') return [...req.uris]
+  if (req.payload.kind === 'magnet') return [req.payload.uri]
+  return []
+}
+
+function deriveDesiredName(
+  req: TaskCreateRequest,
+  torrentInfoName: string | null
+): string {
+  if (req.type === 'http') {
+    const fname = req.filename?.trim()
+    if (fname) return fname
+    const fromUri = uriBasename(req.uris[0])
+    if (fromUri) return fromUri
+    return 'download'
+  }
+  // BT / magnet priority: explicit displayName > torrent info.name >
+  // magnet dn= > infoHash > literal fallback.
+  const display = req.displayName?.trim()
+  if (display) return display
+  if (torrentInfoName) return torrentInfoName
+  if (req.payload.kind === 'magnet') {
+    const fromMagnet = extractMagnetDn(req.payload.uri)
+    if (fromMagnet) return fromMagnet
+    return extractMagnetInfoHash(req.payload.uri) ?? 'magnet'
+  }
+  return 'torrent'
+}
+
+function uriBasename(uri: string | undefined): string | null {
+  if (!uri) return null
+  try {
+    const url = new URL(uri)
+    const parts = url.pathname.split('/').filter(Boolean)
+    const last = parts[parts.length - 1]
+    if (!last) return null
+    try {
+      return decodeURIComponent(last)
+    } catch {
+      return last
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Host of a URL for diagnostics, or a marker if it doesn't parse. */
+function safeHost(u: string): string {
+  try {
+    return new URL(u).host
+  } catch {
+    return '<unparseable>'
+  }
+}
+
+function extractMagnetDn(uri: string): string | null {
+  const match = uri.match(/[?&]dn=([^&]+)/)
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1].replace(/\+/g, ' '))
+  } catch {
+    return match[1]
+  }
+}
+
+function extractMagnetInfoHash(uri: string): string | null {
+  const match = uri.match(/xt=urn:btih:([A-Za-z0-9]+)/)
+  return match ? match[1] : null
+}
+
+function decodeBase64ToBytes(b64: string): Uint8Array {
+  return Uint8Array.from(Buffer.from(b64, 'base64'))
+}

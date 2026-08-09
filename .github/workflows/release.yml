@@ -1,0 +1,668 @@
+# Motrix — native multi-platform build and release
+#
+# A tag push builds each platform on a native runner, assembles the five
+# independently produced artifact sets, validates their updater metadata, and
+# publishes exactly once. A manual dispatch exercises the same build and
+# assembly path without signing or publishing.
+#
+# Release-enabled targets are the current intersection of:
+#   - a locked scripts/engine.lock.json aria2 asset;
+#   - an Electron 43 / electron-builder package target;
+#   - a native GitHub-hosted runner;
+#   - a packages/native-host/build.mjs Rust target.
+#
+# AppImage is intentionally excluded until its transient mount can persist a
+# browser native-messaging host that remains launchable after the app exits.
+# Snap has its own strict-confinement build and Store promotion workflows.
+# 32-bit targets remain unsupported. Windows arm64 remains reserved until the
+# aria2 lock supplies that architecture.
+
+name: Build/Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate release source
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      channel: ${{ steps.metadata.outputs.channel }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate release metadata
+        id: metadata
+        env:
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
+        run: >-
+          node scripts/release-metadata.mjs
+          --package-json package.json
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify tag commit is on main
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor \
+            "$GITHUB_SHA" refs/remotes/origin/main
+
+  build:
+    name: Build / ${{ matrix.target }}
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    environment:
+      name: >-
+        ${{
+          github.event_name == 'push' && matrix.platform == 'darwin'
+          && 'macos-release-signing'
+          || github.event_name == 'push' && matrix.platform == 'win32'
+          && 'windows-release-signing'
+          || 'release-build'
+        }}
+      deployment: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            os: macos-26
+            platform: darwin
+            arch: arm64
+            rust_target: aarch64-apple-darwin
+            electron_builder_args: --mac --arm64
+            resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
+            app_path: release/mac-arm64/Motrix.app
+          - target: darwin-x64
+            os: macos-26-intel
+            platform: darwin
+            arch: x64
+            rust_target: x86_64-apple-darwin
+            electron_builder_args: --mac --x64
+            resources_dir: release/mac/Motrix.app/Contents/Resources
+            app_path: release/mac/Motrix.app
+          - target: linux-x64
+            os: ubuntu-22.04
+            platform: linux
+            arch: x64
+            rust_target: x86_64-unknown-linux-musl
+            electron_builder_args: --linux deb rpm --x64
+            resources_dir: release/linux-unpacked/resources
+          - target: linux-arm64
+            os: ubuntu-22.04-arm
+            platform: linux
+            arch: arm64
+            rust_target: aarch64-unknown-linux-musl
+            electron_builder_args: --linux deb rpm --arm64
+            resources_dir: release/linux-arm64-unpacked/resources
+          - target: win32-x64
+            os: windows-2025
+            platform: win32
+            arch: x64
+            rust_target: x86_64-pc-windows-msvc
+            electron_builder_args: --win --x64
+            resources_dir: release/win-unpacked/resources
+
+    env:
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+      # Electron 43 requires macOS 12 even though the locked aria2 binaries
+      # themselves are built with an 11.0 deployment target.
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.18.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Linux packaging tools
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes musl-tools rpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+          targets: ${{ matrix.rust_target }}
+
+      - name: Test native host target
+        run: >-
+          cargo test
+          --manifest-path packages/native-host/Cargo.toml
+          --locked
+          --target ${{ matrix.rust_target }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          # Fetching the package target is explicit in the next step.
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+
+      - name: Fetch target aria2
+        run: >-
+          pnpm run fetch:engine
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+
+      - name: Third-party notice contract
+        run: pnpm run check:third-party-notices
+
+      - name: Validate macOS release credentials
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          matrix.platform == 'darwin'
+        shell: bash
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          API_KEY: ${{ secrets.API_KEY }}
+          API_KEY_ID: ${{ secrets.API_KEY_ID }}
+          API_KEY_ISSUER_ID: ${{ secrets.API_KEY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in \
+            MAC_CERTS \
+            MAC_CERTS_PASSWORD \
+            API_KEY \
+            API_KEY_ID \
+            API_KEY_ISSUER_ID
+          do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required macOS release secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Validate Windows release credentials
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          matrix.platform == 'win32'
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK)) {
+            $missing += 'WIN_CSC_LINK'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) {
+            $missing += 'WIN_CSC_KEY_PASSWORD'
+          }
+          if ($missing.Count -gt 0) {
+            throw "Missing required Windows release secrets: $($missing -join ', ')"
+          }
+
+      # Build each target on a runner with the same native CPU architecture.
+      # This also ensures better-sqlite3 is rebuilt for the packaged Electron.
+      - name: Build
+        run: |
+          pnpm run build:builtin
+          pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+          pnpm run build:electron
+
+      # Materialize the private key only after all project-controlled build
+      # scripts have completed. The path is passed through a step output so the
+      # notarization variables exist only in the macOS electron-builder process.
+      - name: Prepare Apple API Key
+        id: apple-api-key
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          matrix.platform == 'darwin'
+        shell: bash
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.API_KEY }}
+          APPLE_API_KEY_ID_VALUE: ${{ secrets.API_KEY_ID }}
+        run: |
+          set -euo pipefail
+          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID_VALUE}.p8"
+          printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$key_path"
+          chmod 600 "$key_path"
+          echo "path=${key_path}" >> "$GITHUB_OUTPUT"
+
+      # Keep signing credentials scoped to their platform. electron-builder
+      # 26 checks Apple ID before API Key, so the production path injects only
+      # the API Key variables prepared above.
+      - name: Electron Builder (macOS)
+        if: matrix.platform == 'darwin'
+        env:
+          CSC_LINK: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.MAC_CERTS || '' }}
+          CSC_KEY_PASSWORD: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.MAC_CERTS_PASSWORD || '' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
+          APPLE_API_KEY: ${{ steps.apple-api-key.outputs.path }}
+          APPLE_API_KEY_ID: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.API_KEY_ISSUER_ID || '' }}
+        run: >-
+          pnpm exec electron-builder
+          ${{ matrix.electron_builder_args }}
+          --publish never
+
+      - name: Electron Builder (Linux)
+        if: matrix.platform == 'linux'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder
+          ${{ matrix.electron_builder_args }}
+          --publish never
+
+      - name: Electron Builder (Windows)
+        if: matrix.platform == 'win32'
+        env:
+          CSC_LINK: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder
+          ${{ matrix.electron_builder_args }}
+          --publish never
+
+      - name: Verify Windows native host runtime imports
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: >-
+          ./scripts/verify-windows-native-host-dependencies.ps1
+          -Binary
+          "${{ matrix.resources_dir }}/bin/motrix-native-host.exe"
+
+      - name: Remove Apple API Key
+        if: >-
+          always() &&
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          matrix.platform == 'darwin'
+        shell: bash
+        env:
+          APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
+        run: |
+          if [[ -n "${APPLE_API_KEY_PATH:-}" ]]; then
+            rm -f "$APPLE_API_KEY_PATH"
+          fi
+
+      - name: Verify packaged resources
+        shell: node {0}
+        env:
+          PACKAGED_RESOURCES: ${{ matrix.resources_dir }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const host =
+            process.env.TARGET_PLATFORM === 'win32'
+              ? 'motrix-native-host.exe'
+              : 'motrix-native-host'
+          const engine =
+            process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+          const resources = process.env.PACKAGED_RESOURCES
+          const required = [
+            'app.asar',
+            'THIRD_PARTY_NOTICES.md',
+            'THIRD_PARTY_NOTICES.zh-CN.md',
+            path.join('THIRD_PARTY_LICENSES', 'aria2-COPYING'),
+            path.join('legal', 'THIRD_PARTY_DEPENDENCIES.md'),
+            path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
+            path.join('legal', 'sbom.spdx.json'),
+            path.join('bin', host),
+            path.join(
+              'extra',
+              process.env.TARGET_PLATFORM,
+              process.env.TARGET_ARCH,
+              engine
+            ),
+          ]
+          for (const relative of required) {
+            const file = path.join(resources, relative)
+            const info = fs.statSync(file)
+            if (!info.isFile()) throw new Error(`not a file: ${file}`)
+            if (
+              process.env.TARGET_PLATFORM !== 'win32' &&
+              relative !== 'app.asar' &&
+              !relative.startsWith('THIRD_PARTY_') &&
+              !relative.startsWith(`legal${path.sep}`)
+            ) {
+              fs.accessSync(file, fs.constants.X_OK)
+            }
+          }
+
+      - name: Verify Linux package formats
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          debs=(release/*.deb)
+          rpms=(release/*.rpm)
+          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 )); then
+            echo "Expected one deb and rpm for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+          dpkg-deb --info "${debs[0]}"
+          rpm -qip "${rpms[0]}"
+
+      - name: Package Flatpak native host companion
+        if: matrix.platform == 'linux'
+        env:
+          COMPANION_ARCH: ${{ matrix.arch }}
+          COMPANION_VERSION: ${{ needs.preflight.outputs.version }}
+          SOURCE_DATE_EPOCH: '0'
+        run: >-
+          pnpm run package:flatpak-native-host --
+          --version "$COMPANION_VERSION"
+          --arch "$COMPANION_ARCH"
+          --output-dir release
+
+      - name: Verify Flatpak native host companion archive
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          COMPANION_ARCH: ${{ matrix.arch }}
+          COMPANION_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          archives=(release/Motrix-Native-Host-*.tar.gz)
+          if (( ${#archives[@]} != 1 )); then
+            echo "Expected exactly one Flatpak companion archive for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+          root="Motrix-Native-Host-${COMPANION_VERSION}-linux-${COMPANION_ARCH}"
+          archive="release/${root}.tar.gz"
+          if [[ "${archives[0]}" != "$archive" ]]; then
+            echo "Unexpected Flatpak companion archive: ${archives[0]}" >&2
+            exit 1
+          fi
+          expected=(
+            "${root}/"
+            "${root}/motrix-flatpak-native-host"
+            "${root}/README.md"
+            "${root}/README.zh-CN.md"
+            "${root}/LICENSE"
+            "${root}/THIRD_PARTY_NOTICES.md"
+            "${root}/THIRD_PARTY_NOTICES.zh-CN.md"
+            "${root}/THIRD_PARTY_LICENSES/"
+            "${root}/THIRD_PARTY_LICENSES/MPL-2.0"
+            "${root}/THIRD_PARTY_LICENSES/aria2-COPYING"
+            "${root}/THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL"
+            "${root}/THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE"
+            "${root}/THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"
+            "${root}/THIRD_PARTY_LICENSES/rust-humantime-LICENSE-MIT"
+            "${root}/THIRD_PARTY_LICENSES/rust-memchr-COPYING"
+            "${root}/THIRD_PARTY_LICENSES/rust-memchr-LICENSE-MIT"
+            "${root}/THIRD_PARTY_LICENSES/rust-memchr-UNLICENSE"
+            "${root}/THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE"
+            "${root}/THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT"
+          )
+          mapfile -t actual < <(tar -tzf "$archive")
+          if [[ "${actual[*]}" != "${expected[*]}" ]]; then
+            echo "Unexpected Flatpak companion archive contents" >&2
+            printf '  %s\n' "${actual[@]}" >&2
+            exit 1
+          fi
+
+      - name: Verify macOS signatures
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          matrix.platform == 'darwin'
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --verify --deep --strict --verbose=2 "${{ matrix.app_path }}"
+          codesign --verify --strict --verbose=2 \
+            "${{ matrix.resources_dir }}/bin/motrix-native-host"
+          xcrun stapler validate "${{ matrix.app_path }}"
+
+      - name: Verify Windows signatures
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          $files = @(
+            'release/win-unpacked/Motrix.exe',
+            'release/win-unpacked/resources/bin/motrix-native-host.exe'
+          )
+          $files += @(
+            Get-ChildItem -Path release -Filter '*.exe' -File |
+              ForEach-Object { $_.FullName }
+          )
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature -FilePath $file
+            if ($signature.Status -ne 'Valid') {
+              throw "Invalid Authenticode signature for ${file}: $($signature.StatusMessage)"
+            }
+            if ($null -eq $signature.TimeStamperCertificate) {
+              throw "Missing Authenticode timestamp for ${file}"
+            }
+          }
+
+      - name: Upload target release input
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-input-${{ matrix.target }}
+          path: |
+            release/*.blockmap
+            release/beta*.yml
+            release/*.deb
+            release/*.dmg
+            release/*.exe
+            release/*.rpm
+            release/*.tar.gz
+            release/latest*.yml
+            release/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-diagnostics-${{ matrix.target }}
+          path: |
+            release/
+            dist/
+            .vite/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  assemble:
+    name: Assemble and validate release
+    needs: [preflight, build]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.18.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install validation dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download target release inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-input-*
+          path: release-input
+
+      - name: Assemble release artifacts
+        run: >-
+          node scripts/assemble-release-artifacts.mjs
+          --input release-input
+          --output release
+          --version "$RELEASE_VERSION"
+          --channel "$RELEASE_CHANNEL"
+
+      - name: Verify update artifacts
+        run: >-
+          pnpm --config.verify-deps-before-run=false run check:update-artifacts
+          -- --version "$RELEASE_VERSION"
+          --dir release
+          --channel "$RELEASE_CHANNEL"
+          --require-all
+
+      - name: Upload validated release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-bundle
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish validated GitHub Release
+    needs: [preflight, assemble]
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    environment: github-release
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated release
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-bundle
+          path: release
+
+      - name: Publish validated GitHub Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          prerelease: ${{ needs.preflight.outputs.prerelease }}
+          files: release/*
+
+  publish-feed:
+    name: Publish dl.motrix.app update feed
+    needs: [preflight, assemble, publish]
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    environment: app-update-feed
+    permissions:
+      contents: read
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - name: Download validated release
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-bundle
+          path: release
+
+      - name: Validate update feed credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in \
+            AWS_ACCESS_KEY_ID \
+            AWS_SECRET_ACCESS_KEY \
+            R2_ACCOUNT_ID \
+            R2_BUCKET
+          do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required app-update-feed secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+          aws --version
+
+      # The generic provider cannot publish itself. GitHub Release is the
+      # archive; this R2 prefix is the sole feed embedded in app-update.yml.
+      # Upload versioned assets first and mutable channel manifests last so a
+      # manifest never references an asset that is not already available.
+      - name: Upload versioned update assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp release "s3://${R2_BUCKET}/releases/" \
+            --recursive \
+            --exclude '*.yml' \
+            --cache-control 'public,max-age=31536000,immutable' \
+            --endpoint-url "$endpoint"
+
+      - name: Publish channel manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp release "s3://${R2_BUCKET}/releases/" \
+            --recursive \
+            --exclude '*' \
+            --include 'latest*.yml' \
+            --include 'beta*.yml' \
+            --content-type 'application/yaml' \
+            --cache-control 'no-cache, no-store, must-revalidate' \
+            --endpoint-url "$endpoint"

@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "id": "test.toplevel-http",
+  "name": "Top-level HTTP",
+  "version": "0.1.0",
+  "description": "fixture",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": ["http"],
+  "activationEvents": ["onStartup"],
+  "contributes": {}
+}

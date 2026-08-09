@@ -1,0 +1,20 @@
+{
+  "manifestVersion": 1,
+  "id": "test.allcaps",
+  "name": "Test All Caps",
+  "version": "1.0.0",
+  "description": "Fixture exercising every Phase 1A capability",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": ["http", "fs.storage", "storage"],
+  "optionalPermissions": ["notify", "ffmpeg"],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onCommand:test.allcaps.echoAll"],
+  "contributes": {
+    "commands": [
+      { "id": "test.allcaps.echoAll", "title": "Echo all", "public": false }
+    ],
+    "hooks": { "beforeCreate": { "role": "audit" } }
+  }
+}

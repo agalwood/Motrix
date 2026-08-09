@@ -1,0 +1,5 @@
+[target.'cfg(all(windows, target_env = "msvc"))']
+# The browser launches the native-messaging host directly, outside Electron's
+# process tree. Keep every current and future Windows MSVC host independent of
+# the separately installed Visual C++ Redistributable.
+rustflags = ['-C', 'target-feature=+crt-static']

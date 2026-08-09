@@ -1,0 +1,401 @@
+# Motrix Turbo — reproducible Flatpak validation and native builds.
+#
+# The canonical manifest keeps the application source pointed at a future
+# public release. CI replaces only that source with a git archive of the
+# checked-out commit; every third-party source remains pinned and is fetched by
+# flatpak-builder before the offline build starts.
+
+name: Flatpak
+
+on:
+  pull_request:
+    paths:
+      - '.npmrc'
+      - '.cargo/**'
+      - '.github/workflows/flatpak.yml'
+      - 'build/**'
+      - 'extra/**'
+      - 'flatpak/**'
+      - 'packages/native-host/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'THIRD_PARTY_LICENSES/**'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'THIRD_PARTY_NOTICES.zh-CN.md'
+      - 'electron-builder.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - 'vite*.config.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.npmrc'
+      - '.cargo/**'
+      - '.github/workflows/flatpak.yml'
+      - 'build/**'
+      - 'extra/**'
+      - 'flatpak/**'
+      - 'packages/native-host/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'THIRD_PARTY_LICENSES/**'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'THIRD_PARTY_NOTICES.zh-CN.md'
+      - 'electron-builder.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - 'vite*.config.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint manifest, AppStream, and desktop entry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flatpak validation tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            appstream desktop-file-utils flatpak
+          flatpak --user remote-add --if-not-exists \
+            flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install -y --noninteractive \
+            flathub org.flatpak.Builder
+
+      - name: Validate desktop entry
+        run: desktop-file-validate flatpak/app.motrix.native.desktop
+
+      - name: Validate AppStream metainfo
+        # Public repository and screenshot URLs are still maintainer-owned
+        # submission blockers, so URL reachability is intentionally excluded.
+        run: appstreamcli validate --no-net flatpak/app.motrix.native.metainfo.xml
+
+      - name: Lint Flatpak manifest
+        run: |
+          flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
+            manifest flatpak/app.motrix.native.yml
+
+  sources:
+    name: Verify locked offline sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.18.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install musl toolchain for the x86_64 host companion smoke
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends musl-tools
+
+      - name: Setup Rust for the x86_64 host companion smoke
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+          targets: x86_64-unknown-linux-musl
+
+      - name: Build and package x86_64 Flatpak host companion
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+          SOURCE_DATE_EPOCH: '0'
+        run: |
+          node packages/native-host/build.mjs --platform linux --arch x64
+          node packages/native-host/package-flatpak-companion.mjs \
+            --version 0.0.0-ci \
+            --arch x64 \
+            --output-dir "${{ runner.temp }}/flatpak-host-companion"
+
+      - name: Upload x86_64 Flatpak host companion
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: flatpak-host-companion-x86_64
+          path: ${{ runner.temp }}/flatpak-host-companion/Motrix-Native-Host-0.0.0-ci-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Third-party notice contract
+        run: pnpm --config.verify-deps-before-run=false run check:third-party-notices
+
+      - name: Install pinned Flatpak source generators
+        env:
+          FLATPAK_BUILDER_TOOLS_COMMIT: 737c0085912f9f7dabf9341d4608e2a77a51a73a
+        run: |
+          python3 -m venv "$RUNNER_TEMP/flatpak-builder-tools"
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/pip" \
+            install --disable-pip-version-check \
+            "git+https://github.com/flatpak/flatpak-builder-tools.git@$FLATPAK_BUILDER_TOOLS_COMMIT#subdirectory=node" \
+            "tomlkit==0.15.1"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --output "$RUNNER_TEMP/flatpak-cargo-generator.py" \
+            "https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/$FLATPAK_BUILDER_TOOLS_COMMIT/cargo/flatpak-cargo-generator.py"
+
+      - name: Generate Flatpak npm sources
+        run: |
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/flatpak-node-generator" \
+            pnpm pnpm-lock.yaml \
+            --pnpm-store-version v11 \
+            --electron-node-headers \
+            --node-sdk-extension org.freedesktop.Sdk.Extension.node24//25.08 \
+            --output "$RUNNER_TEMP/generated-sources.json"
+          node scripts/normalize-flatpak-node-sources.mjs \
+            "$RUNNER_TEMP/generated-sources.json"
+          cmp flatpak/generated-sources.json \
+            "$RUNNER_TEMP/generated-sources.json"
+
+      - name: Generate Flatpak Cargo sources
+        run: |
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
+            "$RUNNER_TEMP/flatpak-cargo-generator.py" \
+            packages/native-host/Cargo.lock \
+            --output "$RUNNER_TEMP/cargo-sources.json"
+          cmp flatpak/cargo-sources.json \
+            "$RUNNER_TEMP/cargo-sources.json"
+
+      - name: Verify Flatpak packaging contract
+        run: |
+          pnpm --config.verify-deps-before-run=false run check:flatpak
+          pnpm --config.verify-deps-before-run=false exec vitest run \
+            tests/scripts/flatpak-native-host.test.ts \
+            tests/scripts/flatpak-packaging.test.ts \
+            tests/scripts/flatpak-project.test.ts \
+            tests/scripts/normalize-flatpak-node-sources.test.ts
+
+      - name: Prepare checked-out source for Flatpak
+        run: node scripts/prepare-flatpak-project.mjs
+
+      - name: Upload prepared Flatpak source
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: flatpak-source
+          path: |
+            flatpak/app.motrix.native.ci.yml
+            flatpak/motrix-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    name: Build Flatpak (${{ matrix.flatpak_arch }})
+    needs: [lint, sources]
+    runs-on: ${{ matrix.runner }}
+    # Official builder image matching the manifest runtime. The immutable
+    # multi-arch digest contains both amd64 and arm64 images.
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08@sha256:e3d9fbd75c7e5ce6241fb9114f59dce2156315f5977b594ea75fc97c3d364dfa
+      options: --privileged
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flatpak_arch: x86_64
+            electron_arch: x64
+            runner: ubuntu-24.04
+          - flatpak_arch: aarch64
+            electron_arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download prepared Flatpak source
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-source
+          path: flatpak
+
+      - name: Download x86_64 Flatpak host companion
+        if: matrix.flatpak_arch == 'x86_64'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-host-companion-x86_64
+          path: ${{ runner.temp }}/flatpak-host-companion
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb # v6.7
+        with:
+          arch: ${{ matrix.flatpak_arch }}
+          bundle: app.motrix.native-${{ matrix.flatpak_arch }}.flatpak
+          manifest-path: flatpak/app.motrix.native.ci.yml
+          cache-key: flatpak-${{ matrix.flatpak_arch }}-${{ hashFiles('flatpak/app.motrix.native.yml', 'flatpak/generated-sources.json', 'flatpak/cargo-sources.json', 'pnpm-lock.yaml', 'packages/native-host/Cargo.lock') }}
+          upload-artifact: true
+
+      - name: Smoke-test installed payload
+        env:
+          MOTRIX_FLATPAK_ARCH: ${{ matrix.electron_arch }}
+          MOTRIX_SMOKE_HOME: ${{ runner.temp }}/flatpak-smoke-home
+          MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
+          MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
+        run: |
+          export HOME="$MOTRIX_SMOKE_HOME"
+          export XDG_DATA_HOME="$MOTRIX_SMOKE_DATA"
+          export XDG_CONFIG_HOME="$MOTRIX_SMOKE_CONFIG"
+          mkdir -p "$HOME" "$XDG_DATA_HOME" "$XDG_CONFIG_HOME"
+          flatpak --user install -y --noninteractive \
+            "./app.motrix.native-${{ matrix.flatpak_arch }}.flatpak"
+          # The single-quoted payload is expanded by sh inside the Flatpak.
+          # shellcheck disable=SC2016
+          flatpak run \
+            --command=sh \
+            --env=MOTRIX_EXPECTED_ARCH="$MOTRIX_FLATPAK_ARCH" \
+            app.motrix.native \
+            -eu -c '
+              aria2c="/app/motrix/resources/extra/linux/$MOTRIX_EXPECTED_ARCH/aria2c"
+              test -x "$aria2c"
+              test ! -e /app/motrix/resources/bin/motrix-native-host
+              test ! -e /app/motrix/resources/bin/motrix-native-host-broker
+              test -x /app/bin/motrix-native-host-broker
+              test -x /app/libexec/motrix-native-host-broker
+              test -z "$(find /app -type f \( \
+                -name "motrix-native-host" -o \
+                -name "motrix-flatpak-native-host" \
+              \) -print -quit)"
+              test -z "$(find /app -type f \( \
+                -path "*/NativeMessagingHosts/*" -o \
+                -path "*/native-messaging-hosts/*" \
+              \) -print -quit)"
+              output="$("$aria2c" --version)"
+              printf "%s\n" "$output" | grep -qF "aria2 version 1.37.0-motrix.3"
+              printf "%s\n" "$output" | grep -qF "Async DNS"
+              printf "%s\n" "$output" | grep -qF "BitTorrent"
+              printf "%s\n" "$output" | grep -qF "HTTPS"
+              printf "%s\n" "$output" | grep -qF "SFTP"
+              printf "%s\n" "$output" | grep -qF "WebSocket"
+            '
+          broker_hex="$(
+            printf 'MXBR\001\000\000\000\025\000\000\000%s' \
+              '{"operation":"probe"}' |
+              flatpak run \
+                --command=motrix-native-host-broker \
+                app.motrix.native |
+              od -An -tx1 -v |
+              tr -d ' \n'
+          )"
+          test "$broker_hex" = \
+            '4d584252010000001e0000007b226572726f72223a226d6f747269782d6e6f742d72756e6e696e67227d'
+
+      - name: Smoke-test Browser Native Messaging through the host companion
+        if: matrix.flatpak_arch == 'x86_64'
+        env:
+          MOTRIX_SMOKE_HOME: ${{ runner.temp }}/flatpak-smoke-home
+          MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
+          MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
+        run: |
+          export HOME="$MOTRIX_SMOKE_HOME"
+          export XDG_DATA_HOME="$MOTRIX_SMOKE_DATA"
+          export XDG_CONFIG_HOME="$MOTRIX_SMOKE_CONFIG"
+          companion_payload="$RUNNER_TEMP/flatpak-host-companion-payload"
+          mkdir -p "$companion_payload"
+          tar -xzf \
+            "$RUNNER_TEMP/flatpak-host-companion/Motrix-Native-Host-0.0.0-ci-linux-x64.tar.gz" \
+            --strip-components=1 \
+            -C "$companion_payload"
+          archive_companion="$companion_payload/motrix-flatpak-native-host"
+          installed_companion="${XDG_DATA_HOME:-$HOME/.local/share}/motrix/native-messaging/motrix-flatpak-native-host"
+          "$archive_companion" install --flatpak-bin /usr/bin/flatpak
+          "$installed_companion" status
+
+          ready_file="$RUNNER_TEMP/flatpak-nonce-server.ready"
+          nonce_server_pid=''
+          cleanup() {
+            if [ -n "$nonce_server_pid" ]; then
+              kill "$nonce_server_pid" 2>/dev/null || true
+            fi
+            "$installed_companion" uninstall || true
+            # shellcheck disable=SC2016
+            /usr/bin/flatpak run --command=sh app.motrix.native -c '
+              rm -f "${XDG_CONFIG_HOME:?}/motrix/bridge/endpoint.json"
+            ' || true
+            rm -f "$ready_file"
+          }
+          trap cleanup EXIT
+
+          rm -f "$ready_file"
+          # The payload is expanded by sh inside the Flatpak.
+          # shellcheck disable=SC2016
+          /usr/bin/flatpak run --command=sh app.motrix.native -eu -c '
+            bridge_dir="${XDG_CONFIG_HOME:?}/motrix/bridge"
+            mkdir -p "$bridge_dir"
+            printf "%s\n" "{\"port\":55809}" > "$bridge_dir/endpoint.json"
+          '
+
+          python3 - "$ready_file" <<'PY' &
+          import sys
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+          from pathlib import Path
+
+          body = b'{"nonce":"AbCdEfGhIjKlMnOpQrStUv"}'
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path != '/nonce':
+                      self.send_error(404)
+                      return
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.send_header('Content-Length', str(len(body)))
+                  self.end_headers()
+                  self.wfile.write(body)
+
+              def log_message(self, *_args):
+                  pass
+
+          server = HTTPServer(('127.0.0.1', 55809), Handler)
+          Path(sys.argv[1]).write_text('ready', encoding='utf-8')
+          server.handle_request()
+          PY
+          nonce_server_pid=$!
+
+          attempt=0
+          while [ ! -f "$ready_file" ] && [ "$attempt" -lt 100 ]; do
+            attempt=$((attempt + 1))
+            sleep 0.05
+          done
+          test -f "$ready_file"
+
+          native_host_hex="$(
+            printf '\025\000\000\000%s' '{"allowLaunch":false}' |
+              "$installed_companion" \
+                'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/' |
+              od -An -tx1 -v |
+              tr -d ' \n'
+          )"
+          test "$native_host_hex" = \
+            '460000007b22616374696f6e223a227265717565737450616972222c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
+
+          wait "$nonce_server_pid"
+          nonce_server_pid=''
+          cleanup
+          trap - EXIT

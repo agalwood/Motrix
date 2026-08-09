@@ -1,0 +1,258 @@
+import type { DownloadTask } from '@shared/types/task'
+import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
+import { describe, expect, it, vi } from 'vitest'
+import { createGetTaskFilesHandler } from './get-task-files'
+
+const mkTask = (over: Partial<DownloadTask> = {}): DownloadTask =>
+  makeDownloadTask({
+    id: 't1',
+    engineTaskId: 'gid1',
+    name: 'x',
+    kind: TaskKind.Bt,
+    type: TaskType.Bt,
+    ...over,
+  })
+
+describe('getTaskFiles handler', () => {
+  it('merges db structure with engine completedBytes when active', async () => {
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        { fileIndex: 0, path: 'a.bin', size: 100, selected: true },
+        { fileIndex: 1, path: 'b.bin', size: 200, selected: false },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() => mkTask({ status: TaskStatus.Downloading })),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: 'a.bin',
+          size: 100,
+          completedBytes: 30,
+          selected: true,
+        },
+        {
+          index: 1,
+          path: 'b.bin',
+          size: 200,
+          completedBytes: 50,
+          selected: false,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result[0]?.completedBytes).toBe(30)
+    expect(result[1]?.completedBytes).toBe(50)
+  })
+
+  it('returns 0 completedBytes when paused', async () => {
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        { fileIndex: 0, path: 'a.bin', size: 100, selected: true },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() => mkTask({ status: TaskStatus.Paused })),
+    }
+    const engine = { getTaskFiles: vi.fn() }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result[0]?.completedBytes).toBe(0)
+    expect(engine.getTaskFiles).not.toHaveBeenCalled()
+  })
+
+  it('returns size as completedBytes when completed', async () => {
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        { fileIndex: 0, path: 'a.bin', size: 100, selected: true },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() => mkTask({ status: TaskStatus.Completed })),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine: { getTaskFiles: vi.fn() },
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result[0]?.completedBytes).toBe(100)
+  })
+
+  it('degrades to 0 if engine.getTaskFiles throws', async () => {
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        { fileIndex: 0, path: 'a.bin', size: 100, selected: true },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() => mkTask({ status: TaskStatus.Downloading })),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => {
+        throw new Error('rpc down')
+      }),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result[0]?.completedBytes).toBe(0)
+  })
+
+  it('skips the engine call for a coordinator-managed media task (empty engineTaskId)', async () => {
+    // A Mux/Hls task has engineTaskId '' (no aria2 handle). Calling
+    // engine.getTaskFiles('') just fails and logs a warning every time the
+    // Files tab opens — same "never touch the engine with ''" rule as pause.
+    const db = { getTaskFiles: vi.fn(() => []) }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          engineTaskId: '',
+          kind: TaskKind.Mux,
+          type: TaskType.Http,
+          status: TaskStatus.Downloading,
+        })
+      ),
+    }
+    const engine = { getTaskFiles: vi.fn() }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+    const result = await handler('m1')
+
+    expect(result).toEqual([])
+    expect(engine.getTaskFiles).not.toHaveBeenCalled()
+  })
+
+  it('synthesizes full structure from engine when db is empty (active task)', async () => {
+    // Regression: before this fix, GetTaskFiles returned an empty array
+    // when task_files hadn't been auto-synced yet, even though the engine
+    // had the file list. Header would render "1 file selected · 0 B"
+    // (from task.bt.selectedFiles) but no rows.
+    const db = {
+      getTaskFiles: vi.fn(() => []),
+    }
+    const taskManager = {
+      getById: vi.fn(() => mkTask({ status: TaskStatus.Downloading })),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: 'ubuntu-25.10-desktop-amd64.iso',
+          size: 6_500_000_000,
+          completedBytes: 1_000_000_000,
+          selected: true,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result).toHaveLength(1)
+    expect(result[0]?.path).toBe('ubuntu-25.10-desktop-amd64.iso')
+    expect(result[0]?.size).toBe(6_500_000_000)
+    expect(result[0]?.completedBytes).toBe(1_000_000_000)
+    expect(result[0]?.selected).toBe(true)
+  })
+
+  it('relativizes absolute file path against task.diskPath (single-file BT)', async () => {
+    // aria2 returns the absolute disk path including the .motrix container.
+    // Provider must strip the diskPath prefix so the UI shows just the
+    // torrent-internal name (the demo Ubuntu single-file scenario).
+    const absolutePath =
+      '/Users/x/Downloads/ubuntu-25.10-desktop-amd64.iso.motrix/ubuntu-25.10-desktop-amd64.iso'
+    const diskPath = '/Users/x/Downloads/ubuntu-25.10-desktop-amd64.iso.motrix'
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        {
+          fileIndex: 0,
+          path: absolutePath,
+          size: 6_500_000_000,
+          selected: true,
+        },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          status: TaskStatus.Downloading,
+          diskPath,
+          saveDir: '/Users/x/Downloads',
+        })
+      ),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: absolutePath,
+          size: 6_500_000_000,
+          completedBytes: 1_000_000_000,
+          selected: true,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result[0]?.path).toBe('ubuntu-25.10-desktop-amd64.iso')
+  })
+
+  it('relativizes absolute file path preserving subdirs (multi-file BT)', async () => {
+    const absolutePath = '/Users/x/Downloads/Album.motrix/CD1/track01.flac'
+    const diskPath = '/Users/x/Downloads/Album.motrix'
+    const db = { getTaskFiles: vi.fn(() => []) }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          status: TaskStatus.Downloading,
+          diskPath,
+          saveDir: '/Users/x/Downloads',
+        })
+      ),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: absolutePath,
+          size: 50_000_000,
+          completedBytes: 0,
+          selected: true,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+    const result = await handler('t1')
+    expect(result[0]?.path).toBe('CD1/track01.flac')
+  })
+})

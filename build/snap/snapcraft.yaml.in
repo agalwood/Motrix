@@ -1,0 +1,80 @@
+name: motrix
+title: Motrix
+summary: Full-featured download manager
+description: |
+  Motrix is a full-featured download manager that supports HTTP, FTP,
+  BitTorrent, Magnet, and Metalink downloads.
+license: MIT
+website: https://motrix.app
+source-code: https://gitlab.com/agalwood/motrix-turbo
+issues: https://gitlab.com/agalwood/motrix-turbo/-/issues
+version: '@MOTRIX_VERSION@'
+base: core24
+grade: stable
+confinement: strict
+assumes:
+  - snapd2.46
+
+platforms:
+  @SNAP_ARCH@:
+    build-on:
+      - @SNAP_ARCH@
+    build-for:
+      - @SNAP_ARCH@
+
+plugs:
+  browser-support:
+    interface: browser-support
+    allow-sandbox: false
+  browser-native-messaging:
+    interface: personal-files
+    write:
+      - $HOME/.config/google-chrome/NativeMessagingHosts/app.motrix.bridge.json
+      - $HOME/.config/microsoft-edge/NativeMessagingHosts/app.motrix.bridge.json
+      - $HOME/.mozilla/native-messaging-hosts/app.motrix.bridge.json
+
+apps:
+  motrix:
+    command: app/motrix --no-sandbox
+    desktop: meta/gui/motrix.desktop
+    extensions:
+      - gnome
+    environment:
+      MOTRIX_BRIDGE_DATA_DIR: $SNAP_USER_COMMON/bridge
+      TMPDIR: $XDG_RUNTIME_DIR
+    plugs:
+      - audio-playback
+      - browser-native-messaging
+      - browser-support
+      - home
+      - network
+      - network-bind
+      - removable-media
+      - screen-inhibit-control
+      - unity7
+  native-host:
+    command: app/resources/bin/motrix-native-host
+    environment:
+      MOTRIX_BRIDGE_DATA_DIR: $SNAP_USER_COMMON/bridge
+    plugs:
+      - desktop
+      - network
+
+parts:
+  motrix:
+    plugin: nil
+    source: app
+    override-build: |
+      craftctl default
+      mkdir -p "$CRAFT_PART_INSTALL/app"
+      cp --archive "$CRAFT_PART_SRC"/. "$CRAFT_PART_INSTALL/app/"
+    stage-packages:
+      - libayatana-appindicator3-1
+      - libnspr4
+      - libnss3
+      - libnotify4
+      - libsecret-1-0
+      - libxss1
+      - util-linux
+    prime:
+      - -app/chrome-sandbox

@@ -1,0 +1,92 @@
+.cubic-glass-fallback {
+  --cubic-glass-cell-rgb: 251 252 255;
+  --cubic-glass-blue-rgb: 88 145 255;
+  --cubic-glass-cyan-rgb: 94 189 245;
+  --cubic-glass-violet-rgb: 190 168 250;
+  --cubic-glass-pink-rgb: 255 165 228;
+  --cubic-glass-warm-rgb: 247 224 174;
+  background:
+    radial-gradient(
+      ellipse 34% 48% at 36% 82%,
+      rgb(var(--cubic-glass-blue-rgb) / 0.8),
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 30% 46% at 51% 83%,
+      rgb(var(--cubic-glass-violet-rgb) / 0.58),
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 35% 48% at 66% 83%,
+      rgb(var(--cubic-glass-pink-rgb) / 0.72),
+      transparent 73%
+    );
+}
+
+.dark .cubic-glass-fallback {
+  --cubic-glass-cell-rgb: 43 44 50;
+  --cubic-glass-blue-rgb: 70 99 176;
+  --cubic-glass-cyan-rgb: 54 119 159;
+  --cubic-glass-violet-rgb: 104 80 160;
+  --cubic-glass-pink-rgb: 164 94 146;
+  --cubic-glass-warm-rgb: 127 108 68;
+}
+
+.cubic-glass-fallback[data-preset="dual-wave"] {
+  background:
+    radial-gradient(
+      ellipse 44% 58% at 24% 106%,
+      rgb(var(--cubic-glass-blue-rgb) / 0.82),
+      transparent 76%
+    ),
+    radial-gradient(
+      ellipse 29% 39% at 74% 108%,
+      rgb(var(--cubic-glass-blue-rgb) / 0.7),
+      transparent 73%
+    ),
+    radial-gradient(
+      ellipse 34% 43% at 92% 108%,
+      rgb(var(--cubic-glass-pink-rgb) / 0.76),
+      transparent 75%
+    );
+}
+
+.cubic-glass-fallback[data-renderer="webgl2"] {
+  background: none;
+}
+
+.cubic-glass-motion[data-effect-load-fade="true"][data-reveal-ready="false"] {
+  opacity: 0;
+}
+
+.cubic-glass-motion[data-effect-load-fade="true"][data-reveal-ready="true"] {
+  opacity: 1;
+  transition: opacity 520ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.cubic-glass-motion[data-effect-breathing="true"] canvas[data-ready="true"] {
+  animation: cubic-glass-breathe 9s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes cubic-glass-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.968;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cubic-glass-motion[data-effect-load-fade="true"] {
+    opacity: 1;
+    transition: none;
+  }
+
+  .cubic-glass-motion[data-effect-breathing="true"] canvas[data-ready="true"] {
+    animation: none;
+  }
+}

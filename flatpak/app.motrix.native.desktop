@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Motrix
+GenericName=Download Manager
+Comment=Full-featured download manager
+Categories=Network;FileTransfer;
+Keywords=download;bittorrent;magnet;aria2;
+Exec=start-motrix %U
+Icon=app.motrix.native
+Terminal=false
+StartupNotify=true
+StartupWMClass=Motrix
+MimeType=application/x-bittorrent;x-scheme-handler/magnet;x-scheme-handler/mo;x-scheme-handler/motrix;

@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "id": "test.resolve-band",
+  "name": "Resolve Test",
+  "version": "1.0.0",
+  "description": "Resolves uris for tests",
+  "categories": ["site-resolver"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onTaskType:http"],
+  "contributes": {
+    "hooks": { "beforeCreate": { "role": "resolve" } }
+  }
+}

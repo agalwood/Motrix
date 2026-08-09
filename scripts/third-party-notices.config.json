@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "allowedLicenseExpressions": [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BlueOak-1.0.0",
+    "CC-BY-4.0",
+    "EPL-2.0 OR GPL-3.0-or-later",
+    "GPL-2.0-or-later",
+    "ISC",
+    "MIT",
+    "MIT AND ISC",
+    "MPL-2.0",
+    "NOASSERTION",
+    "OFL-1.1",
+    "Python-2.0"
+  ],
+  "reviewedRepositoryLicenseFiles": {
+    "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
+    "THIRD_PARTY_LICENSES/aria2-COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f"
+  },
+  "packageOverrides": {
+    "@resvg/resvg-wasm@2.6.2": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/MPL-2.0"],
+      "attribution": "Copyright (c) 2021-present, yisibl (一丝)"
+    },
+    "abstract-logging@2.0.1": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
+      "attribution": "James Sumners <james.sumners@gmail.com>"
+    },
+    "cross-fetch-ponyfill@1.0.3": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
+      "attribution": "ThaUnknown"
+    },
+    "data-uri-to-buffer@4.0.1": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
+      "attribution": "Copyright (c) 2014 Nathan Rajlich <nathan@tootallnate.net>"
+    },
+    "lazy-val@1.0.5": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
+      "attribution": "Vladimir Krivosheev"
+    },
+    "react-remove-scroll-bar@2.3.8": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
+      "attribution": "Copyright (c) 2017 Anton Korzunov"
+    },
+    "uint8-util@2.3.2": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
+      "attribution": "ThaUnknown"
+    },
+    "victory-vendor@37.3.6": {
+      "packageLicenseFiles": [
+        "lib-vendor/d3-array/LICENSE",
+        "lib-vendor/d3-color/LICENSE",
+        "lib-vendor/d3-ease/LICENSE",
+        "lib-vendor/d3-format/LICENSE",
+        "lib-vendor/d3-interpolate/LICENSE",
+        "lib-vendor/d3-path/LICENSE",
+        "lib-vendor/d3-scale/LICENSE",
+        "lib-vendor/d3-shape/LICENSE",
+        "lib-vendor/d3-time-format/LICENSE",
+        "lib-vendor/d3-time/LICENSE",
+        "lib-vendor/d3-timer/LICENSE",
+        "lib-vendor/d3-voronoi/LICENSE",
+        "lib-vendor/internmap/LICENSE"
+      ],
+      "attribution": "Vendored D3 modules; individual notices are preserved from the package."
+    }
+  },
+  "externalComponents": [
+    {
+      "id": "aria2",
+      "name": "aria2",
+      "scope": "bundled desktop engine",
+      "metadataFile": "scripts/engine.lock.json",
+      "nameField": "engine",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "licenseFiles": [
+        "THIRD_PARTY_LICENSES/aria2-COPYING",
+        "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL"
+      ],
+      "noticeMarkers": [
+        "aria2",
+        "{version}",
+        "{licenseDeclared}",
+        "{repository}"
+      ]
+    },
+    {
+      "id": "electron",
+      "name": "Electron",
+      "scope": "desktop runtime",
+      "package": "electron",
+      "licenseDeclared": "MIT",
+      "packageLicenseFiles": ["dist/LICENSE", "dist/LICENSES.chromium.html"],
+      "requiredRuntimeNoticeFiles": ["dist/LICENSES.chromium.html"]
+    },
+    {
+      "id": "builtin-filename-template",
+      "name": "motrix.filename-template",
+      "scope": "bundled first-party extension; standalone license pending upstream",
+      "metadataFile": "scripts/builtins.lock.json",
+      "metadataPath": ["plugins", "motrix.filename-template"],
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarkers": ["motrix.filename-template"]
+    },
+    {
+      "id": "builtin-scraper-hook",
+      "name": "motrix.scraper-hook",
+      "scope": "bundled first-party extension; standalone license pending upstream",
+      "metadataFile": "scripts/builtins.lock.json",
+      "metadataPath": ["plugins", "motrix.scraper-hook"],
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarkers": ["motrix.scraper-hook"]
+    },
+    {
+      "id": "builtin-url-resolver",
+      "name": "motrix.url-resolver",
+      "scope": "bundled first-party extension; standalone license pending upstream",
+      "metadataFile": "scripts/builtins.lock.json",
+      "metadataPath": ["plugins", "motrix.url-resolver"],
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarkers": ["motrix.url-resolver"]
+    }
+  ],
+  "manualAssets": [
+    {
+      "id": "iconly-pro-settings-icons",
+      "name": "Iconly Pro settings icons",
+      "scope": "renderer assets",
+      "licenseDeclared": "LicenseRef-UI8-Standard-License",
+      "noticeMarker": "Iconly Pro",
+      "paths": [
+        "src/renderer/routes/settings/icons/icon-about@1x.png",
+        "src/renderer/routes/settings/icons/icon-about@2x.png",
+        "src/renderer/routes/settings/icons/icon-advanced@1x.png",
+        "src/renderer/routes/settings/icons/icon-advanced@2x.png",
+        "src/renderer/routes/settings/icons/icon-appearance@1x.png",
+        "src/renderer/routes/settings/icons/icon-appearance@2x.png",
+        "src/renderer/routes/settings/icons/icon-bittorrent@1x.png",
+        "src/renderer/routes/settings/icons/icon-bittorrent@2x.png",
+        "src/renderer/routes/settings/icons/icon-download@1x.png",
+        "src/renderer/routes/settings/icons/icon-download@2x.png",
+        "src/renderer/routes/settings/icons/icon-general@1x.png",
+        "src/renderer/routes/settings/icons/icon-general@2x.png",
+        "src/renderer/routes/settings/icons/icon-integration@1x.png",
+        "src/renderer/routes/settings/icons/icon-integration@2x.png",
+        "src/renderer/routes/settings/icons/icon-network@1x.png",
+        "src/renderer/routes/settings/icons/icon-network@2x.png"
+      ]
+    },
+    {
+      "id": "apple-sfns-tray-font",
+      "name": "Apple San Francisco tray font",
+      "scope": "macOS tray renderer",
+      "licenseDeclared": "LicenseRef-Apple-San-Francisco-Font-License",
+      "noticeMarker": "SFNS-Regular.ttf",
+      "paths": ["extra/tray/SFNS-Regular.ttf"]
+    }
+  ]
+}

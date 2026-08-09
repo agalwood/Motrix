@@ -1,0 +1,68 @@
+packages:
+  - '.'
+  - 'packages/*'
+
+# Packages allowed to run install/build lifecycle scripts. electron and
+# better-sqlite3 are native modules that must compile against the pinned
+# Electron/Node ABI. Moved here from package.json's "pnpm" field, which
+# pnpm 11 no longer reads.
+onlyBuiltDependencies:
+  - electron
+  - better-sqlite3
+
+# Build scripts we deliberately skip (silences ERR_PNPM_IGNORED_BUILDS):
+#   - electron-winstaller: Windows-only installer tooling, not built here.
+#   - esbuild: ships prebuilt platform binaries via @esbuild/* optional
+#     deps, so its install script is unnecessary.
+ignoredBuiltDependencies:
+  - electron-winstaller
+  - esbuild
+
+allowBuilds:
+  better-sqlite3: true
+  electron-winstaller: true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - i18next@26.3.6
+  - lucide-react@1.24.0
+  - react-i18next@17.0.9
+  - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0'
+  - '@motrix/cli@0.1.0'
+  - '@motrix/plugin-manifest-schema@2.0.0'
+  - '@hookform/resolvers@5.5.7'
+  - jsdom@30.0.0
+  - magnet-uri@7.0.10
+  - parse-torrent@11.0.24
+  - mmdb-lib@3.0.3
+  - '@testing-library/user-event@14.6.3'
+  - fastify@5.11.2 || 5.11.3
+  - undici@8.10.0
+  - ws@8.21.2
+  - '@esbuild/aix-ppc64@0.28.2'
+  - '@esbuild/android-arm64@0.28.2'
+  - '@esbuild/android-arm@0.28.2'
+  - '@esbuild/android-x64@0.28.2'
+  - '@esbuild/darwin-arm64@0.28.2'
+  - '@esbuild/darwin-x64@0.28.2'
+  - '@esbuild/freebsd-arm64@0.28.2'
+  - '@esbuild/freebsd-x64@0.28.2'
+  - '@esbuild/linux-arm64@0.28.2'
+  - '@esbuild/linux-arm@0.28.2'
+  - '@esbuild/linux-ia32@0.28.2'
+  - '@esbuild/linux-loong64@0.28.2'
+  - '@esbuild/linux-mips64el@0.28.2'
+  - '@esbuild/linux-ppc64@0.28.2'
+  - '@esbuild/linux-riscv64@0.28.2'
+  - '@esbuild/linux-s390x@0.28.2'
+  - '@esbuild/linux-x64@0.28.2'
+  - '@esbuild/netbsd-arm64@0.28.2'
+  - '@esbuild/netbsd-x64@0.28.2'
+  - '@esbuild/openbsd-arm64@0.28.2'
+  - '@esbuild/openbsd-x64@0.28.2'
+  - '@esbuild/openharmony-arm64@0.28.2'
+  - '@esbuild/sunos-x64@0.28.2'
+  - '@esbuild/win32-arm64@0.28.2'
+  - '@esbuild/win32-ia32@0.28.2'
+  - '@esbuild/win32-x64@0.28.2'
+  - esbuild@0.28.2

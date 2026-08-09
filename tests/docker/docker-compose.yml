@@ -1,0 +1,42 @@
+# NAT integration test matrix.
+# On Linux CI this runs with network_mode: host (required for SSDP multicast).
+# On macOS/Windows, SSDP tests use direct unicast to the exposed TCP ports.
+
+name: motrix-nat-test
+
+services:
+  upnp-v1:
+    image: motrix-test/upnp-v1:latest
+    cap_add: [NET_ADMIN]
+    network_mode: host
+    restart: unless-stopped
+
+  upnp-v2:
+    image: motrix-test/upnp-v2:latest
+    cap_add: [NET_ADMIN]
+    network_mode: host
+    restart: unless-stopped
+
+  natpmp:
+    image: motrix-test/natpmp:latest
+    cap_add: [NET_ADMIN]
+    network_mode: host
+    restart: unless-stopped
+
+  pcp-fake:
+    image: motrix-test/pcp-fake:latest
+    network_mode: host
+    restart: unless-stopped
+
+  hostile:
+    image: motrix-test/hostile:latest
+    ports:
+      - "49154:49154/tcp"
+    restart: unless-stopped
+
+  broken:
+    image: motrix-test/broken:latest
+    ports:
+      - "49155:49155/tcp"
+      - "5353:5353/udp"
+    restart: unless-stopped

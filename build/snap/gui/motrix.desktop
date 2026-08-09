@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Motrix
+GenericName=Download Manager
+Comment=Full-featured download manager
+Keywords=download;bittorrent;magnet;aria2;
+Exec=motrix %U
+Terminal=false
+Type=Application
+Icon=${SNAP}/meta/gui/icon.png
+StartupWMClass=Motrix
+Categories=Network;FileTransfer;P2P;
+MimeType=application/x-bittorrent;x-scheme-handler/magnet;x-scheme-handler/motrix;
+X-GNOME-UsesNotifications=true

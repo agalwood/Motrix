@@ -1,0 +1,54 @@
+import type { BrowserWindowConstructorOptions } from 'electron'
+
+export interface PlatformOptionsInput {
+  vibrancy?: boolean
+  liquidGlass?: boolean
+  windowControlsSymbolColor?: string
+}
+
+export function buildPlatformOptions(
+  platform: string = process.platform,
+  {
+    vibrancy = true,
+    liquidGlass = false,
+    windowControlsSymbolColor = '#ffffff',
+  }: PlatformOptionsInput = {}
+): BrowserWindowConstructorOptions {
+  switch (platform) {
+    case 'darwin':
+      if (liquidGlass) {
+        return {
+          titleBarStyle: 'hiddenInset',
+          transparent: true,
+          backgroundColor: '#00000000',
+          trafficLightPosition: { x: 20, y: 20 },
+        }
+      }
+      return vibrancy
+        ? {
+            titleBarStyle: 'hiddenInset',
+            vibrancy: 'under-window',
+            visualEffectState: 'active',
+            backgroundColor: '#00000000',
+            trafficLightPosition: { x: 20, y: 20 },
+          }
+        : {
+            titleBarStyle: 'hiddenInset',
+            backgroundColor: '#ffffff',
+            trafficLightPosition: { x: 20, y: 20 },
+          }
+    case 'win32':
+      return {
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+          color: '#00000000',
+          symbolColor: windowControlsSymbolColor,
+          height: 36,
+        },
+      }
+    default:
+      return {
+        titleBarStyle: 'hidden',
+      }
+  }
+}

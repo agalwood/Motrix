@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "id": "test.echo",
+  "name": "Echo",
+  "version": "0.1.0",
+  "description": "fixture",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "activationEvents": ["onStartup"],
+  "contributes": {}
+}

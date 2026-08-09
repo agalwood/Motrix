@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Chromium V8 JIT — required by every Electron app (V8 writes
+         executable pages at runtime; without these two, the renderer
+         crashes on startup under hardened runtime). -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Required to load better-sqlite3's native .node module (and any
+         other native module served from asar.unpacked). Without this,
+         dyld rejects the library because Motrix's Developer ID differs
+         from the module's signature identity. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- Required to spawn the aria2c subprocess with custom env vars
+         (e.g., DYLD_LIBRARY_PATH or LD_LIBRARY_PATH). -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+
+    <!-- aria2 both makes outbound connections (HTTP/FTP/BT trackers)
+         and listens on local ports (BT peers, RPC WebSocket). -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Users pick custom download directories via the system open-dialog. -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- Default download directory is ~/Downloads; this entitlement
+         grants access without prompting per-file. -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+</dict>
+</plist>

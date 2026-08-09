@@ -1,0 +1,105 @@
+{
+  "$comment": "Shared registry v2 wire fixture. Copy byte-for-byte into motrix-turbo and motrix-website.",
+  "version": 2,
+  "generatedAt": "2026-08-02T00:00:00.000Z",
+  "plugins": [
+    {
+      "id": "example.archive-unpacker",
+      "listing": {
+        "defaultLocale": "en-US",
+        "localizations": {
+          "en-US": {
+            "name": "Example Archive Unpacker",
+            "description": "Unpacks finished archive downloads into a folder next to the file.",
+            "features": [
+              "Unpacks zip, tar and 7z archives",
+              "Optional completion notification"
+            ],
+            "keywords": ["archive", "extract"]
+          },
+          "zh-CN": {
+            "name": "示例压缩包解压器",
+            "description": "下载完成后将压缩包解压到同级目录。",
+            "features": ["支持 zip、tar、7z 压缩包", "可选的完成通知"],
+            "keywords": ["压缩包", "解压"]
+          },
+          "ja-JP": {
+            "name": "サンプル・アーカイブ展開",
+            "features": []
+          }
+        }
+      },
+      "version": "2.1.0",
+      "author": {
+        "name": "Example Dev",
+        "url": "https://github.com/example/archive-unpacker"
+      },
+      "origin": "community",
+      "categories": ["post-action", "automation"],
+      "engines": { "motrix": ">=2.1.0 <3.0.0" },
+      "permissions": ["fs.task.write"],
+      "optionalPermissions": ["notifications"],
+      "hostPermissions": [],
+      "package": {
+        "url": "https://github.com/example/archive-unpacker/releases/download/v2.1.0/archive-unpacker-2.1.0.zip",
+        "sha256": "4f2d8c1a9b6e3705d4c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a098765432",
+        "size": 48213
+      },
+      "repository": "https://github.com/example/archive-unpacker",
+      "homepage": "https://example.dev/archive-unpacker",
+      "icon": "https://dl.motrix.app/registry/assets/example.archive-unpacker/icon.png",
+      "screenshots": [
+        "https://dl.motrix.app/registry/assets/example.archive-unpacker/shot-1.png"
+      ],
+      "updatedAt": "2026-07-08",
+      "featured": true
+    },
+    {
+      "id": "example.minimal",
+      "listing": {
+        "defaultLocale": "en-US",
+        "localizations": {
+          "en-US": {
+            "name": "Example Minimal",
+            "description": "The smallest default-only listing in the fixture."
+          }
+        }
+      },
+      "version": "0.1.0",
+      "author": { "name": "Example Dev" },
+      "origin": "community",
+      "categories": ["integration"],
+      "engines": { "motrix": ">=2.0.0" },
+      "package": {
+        "url": "https://github.com/example/minimal/releases/download/v0.1.0/minimal.zip",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "size": 1024
+      },
+      "updatedAt": "2026-07-01"
+    },
+    {
+      "id": "motrix.url-resolver",
+      "listing": {
+        "defaultLocale": "en-US",
+        "localizations": {
+          "en-US": {
+            "name": "URL Resolver",
+            "description": "Resolves obfuscated download URLs before submission."
+          }
+        }
+      },
+      "version": "1.0.0",
+      "author": { "name": "Motrix" },
+      "origin": "builtin",
+      "categories": ["integration"],
+      "engines": { "motrix": "^2.0.0" },
+      "package": {
+        "url": "https://github.com/motrixapp/builtin-plugins/releases/download/motrix.url-resolver%401.0.0/motrix.url-resolver-1.0.0.moext",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size": 12345,
+        "signature": "c2lnbmF0dXJl"
+      },
+      "updatedAt": "2026-07-18"
+    }
+  ]
+}

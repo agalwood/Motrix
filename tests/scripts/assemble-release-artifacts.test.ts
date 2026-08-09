@@ -1,0 +1,673 @@
+import { createHash } from 'node:crypto'
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  unlink,
+  writeFile,
+} from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { dump, load } from 'js-yaml'
+import { afterEach, describe, expect, it } from 'vitest'
+import { assembleReleaseArtifacts } from '../../scripts/assemble-release-artifacts.mjs'
+import { verifyUpdateArtifacts } from '../../scripts/verify-update-artifacts.mjs'
+
+const VERSION = '2.0.0'
+const tempDirs: string[] = []
+
+afterEach(async () => {
+  await Promise.all(
+    tempDirs.splice(0).map((dir) => rm(dir, { recursive: true }))
+  )
+})
+
+describe('assembleReleaseArtifacts', () => {
+  it('flattens five targets and merges both macOS updater files', async () => {
+    const fixture = await createFixture()
+
+    const result = await assembleReleaseArtifacts({
+      inputDirectory: fixture.input,
+      outputDirectory: fixture.output,
+      version: VERSION,
+    })
+
+    expect(result.targets).toEqual([
+      'darwin-arm64',
+      'darwin-x64',
+      'linux-x64',
+      'linux-arm64',
+      'win32-x64',
+    ])
+    expect(result.manifests).toHaveLength(8)
+    expect(await readdir(fixture.output)).toEqual(
+      expect.arrayContaining([
+        'Motrix-2.0.0.aarch64.rpm',
+        'Motrix-2.0.0.x86_64.rpm',
+        'Motrix-Native-Host-2.0.0-linux-arm64.tar.gz',
+        'Motrix-Native-Host-2.0.0-linux-x64.tar.gz',
+        'Motrix_2.0.0_amd64.deb',
+        'Motrix_2.0.0_arm64.deb',
+        'beta-linux-arm64.yml',
+        'beta-linux.yml',
+        'beta-mac.yml',
+        'beta.yml',
+        'latest-linux-arm64.yml',
+        'latest-linux.yml',
+        'latest-mac.yml',
+        'latest.yml',
+      ])
+    )
+
+    const macManifest = load(
+      await readFile(path.join(fixture.output, 'latest-mac.yml'), 'utf8')
+    ) as {
+      files: Array<{ url: string; sha512: string }>
+      path: string
+      sha512: string
+    }
+    expect(macManifest.files.map((file) => file.url)).toEqual([
+      fixture.names.macX64Zip,
+      fixture.names.macArm64Zip,
+    ])
+    expect(macManifest.path).toBe(fixture.names.macX64Zip)
+    expect(macManifest.sha512).toBe(macManifest.files[0].sha512)
+
+    await expect(
+      verifyUpdateArtifacts({
+        directory: fixture.output,
+        version: VERSION,
+      })
+    ).resolves.toMatchObject({
+      manifests: [
+        'latest.yml',
+        'latest-mac.yml',
+        'latest-linux.yml',
+        'latest-linux-arm64.yml',
+        'beta.yml',
+        'beta-mac.yml',
+        'beta-linux.yml',
+        'beta-linux-arm64.yml',
+      ],
+    })
+    await expect(access(fixture.paths.macArm64Zip)).resolves.toBeUndefined()
+  })
+
+  it('publishes beta manifests without creating stable channel metadata', async () => {
+    const version = '2.1.0-beta.1'
+    const fixture = await createFixture(version)
+    for (const target of [
+      'darwin-arm64',
+      'darwin-x64',
+      'linux-x64',
+      'linux-arm64',
+      'win32-x64',
+    ]) {
+      const directory = path.join(
+        fixture.input,
+        `release-input-${target}`,
+        'release'
+      )
+      for (const name of await readdir(directory)) {
+        if (name.startsWith('latest') && name.endsWith('.yml')) {
+          await unlink(path.join(directory, name))
+        }
+      }
+    }
+
+    const result = await assembleReleaseArtifacts({
+      inputDirectory: fixture.input,
+      outputDirectory: fixture.output,
+      version,
+      channel: 'beta',
+    })
+
+    expect(result.manifests.sort()).toEqual(
+      [
+        'beta.yml',
+        'beta-mac.yml',
+        'beta-linux.yml',
+        'beta-linux-arm64.yml',
+      ].sort()
+    )
+    expect(
+      (await readdir(fixture.output)).some((name) => name.startsWith('latest'))
+    ).toBe(false)
+    await expect(
+      verifyUpdateArtifacts({
+        directory: fixture.output,
+        version,
+        channel: 'beta',
+        requireAll: true,
+      })
+    ).resolves.toMatchObject({
+      manifests: expect.arrayContaining(result.manifests),
+    })
+  })
+
+  it('rejects malformed prerelease versions outside workflow preflight', async () => {
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: '.',
+        outputDirectory: '.',
+        version: '2.1.0-beta..1',
+        channel: 'beta',
+      })
+    ).rejects.toThrow('release version must be strict SemVer')
+  })
+
+  it('requires every package format for every target', async () => {
+    const fixture = await createFixture()
+    await unlink(fixture.paths.linuxArm64Rpm)
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-arm64: required release asset Motrix-2.0.0.aarch64.rpm is missing'
+    )
+  })
+
+  it('requires one architecture-specific Flatpak companion per Linux target', async () => {
+    const fixture = await createFixture()
+    await unlink(fixture.paths.linuxX64Companion)
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-x64: required release asset Motrix-Native-Host-2.0.0-linux-x64.tar.gz is missing'
+    )
+  })
+
+  it('rejects a target manifest with a different version', async () => {
+    const fixture = await createFixture()
+    await writeManifest(
+      fixture.paths.windowsManifest,
+      '2.0.1',
+      [
+        {
+          name: fixture.names.windowsExe,
+          content: fixture.contents.windowsExe,
+        },
+      ],
+      fixture.names.windowsExe
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow('version 2.0.1 does not match 2.0.0')
+  })
+
+  it('rejects the wrong architecture-specific manifest name', async () => {
+    const fixture = await createFixture()
+    await rename(
+      fixture.paths.linuxArm64Manifest,
+      path.join(
+        path.dirname(fixture.paths.linuxArm64Manifest),
+        'latest-linux.yml'
+      )
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'unexpected update manifest latest-linux.yml; expected latest-linux-arm64.yml, beta-linux-arm64.yml'
+    )
+  })
+
+  it('requires the arm64 marker used by the macOS updater', async () => {
+    const fixture = await createFixture()
+    const content = Buffer.from('macOS arm64 ZIP without architecture marker')
+    const name = 'Motrix-2.0.0-ARM64.zip'
+    await unlink(fixture.paths.macArm64Zip)
+    await writeAsset(path.dirname(fixture.paths.macArm64Zip), name, content)
+    await writeManifest(
+      path.join(path.dirname(fixture.paths.macArm64Zip), 'latest-mac.yml'),
+      VERSION,
+      [{ name, content }],
+      name
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(`unexpected release asset ${name}`)
+  })
+
+  it('rejects missing and unsafe manifest references', async () => {
+    const missing = await createFixture()
+    await unlink(missing.paths.windowsExe)
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: missing.input,
+        outputDirectory: missing.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'required release asset Motrix-Setup-2.0.0.exe is missing'
+    )
+
+    const unsafe = await createFixture()
+    const checksum = sha512(Buffer.from('unsafe'))
+    await writeFile(
+      unsafe.paths.windowsManifest,
+      dump({
+        version: VERSION,
+        files: [
+          {
+            url: '../unsafe.exe',
+            sha512: checksum,
+            size: 6,
+          },
+        ],
+        path: '../unsafe.exe',
+        sha512: checksum,
+      })
+    )
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: unsafe.input,
+        outputDirectory: unsafe.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow('files[0].url is not a safe name')
+  })
+
+  it('rejects release assets outside the exact target basename contract', async () => {
+    const fixture = await createFixture()
+    await writeFile(
+      path.join(path.dirname(fixture.paths.windowsZip), 'Motrix-2.0.0.exe'),
+      Buffer.from('unexpected executable')
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow('win32-x64: unexpected release asset Motrix-2.0.0.exe')
+  })
+
+  it('allows only blockmaps belonging to exact target assets', async () => {
+    const accepted = await createFixture()
+    const expectedBlockmap = `${accepted.names.macArm64Zip}.blockmap`
+    await writeFile(
+      path.join(path.dirname(accepted.paths.macArm64Zip), expectedBlockmap),
+      'blockmap'
+    )
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: accepted.input,
+        outputDirectory: accepted.output,
+        version: VERSION,
+      })
+    ).resolves.toMatchObject({
+      assets: expect.arrayContaining([expectedBlockmap]),
+    })
+
+    const rejected = await createFixture()
+    await writeFile(
+      path.join(
+        path.dirname(rejected.paths.linuxX64Deb),
+        'Motrix-2.0.0-x64.AppImage.blockmap'
+      ),
+      'orphaned AppImage blockmap'
+    )
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: rejected.input,
+        outputDirectory: rejected.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-x64: unexpected release asset Motrix-2.0.0-x64.AppImage.blockmap'
+    )
+
+    const companionBlockmap = await createFixture()
+    await writeFile(
+      `${companionBlockmap.paths.linuxX64Companion}.blockmap`,
+      'Flatpak companion blockmap'
+    )
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: companionBlockmap.input,
+        outputDirectory: companionBlockmap.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-x64: unexpected release asset Motrix-Native-Host-2.0.0-linux-x64.tar.gz.blockmap'
+    )
+  })
+
+  it('rejects AppImage inputs from the GitHub release bundle', async () => {
+    const fixture = await createFixture()
+    await writeFile(
+      path.join(
+        path.dirname(fixture.paths.linuxArm64Deb),
+        'Motrix-2.0.0-arm64.AppImage'
+      ),
+      'AppImage'
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-arm64: unexpected release asset Motrix-2.0.0-arm64.AppImage'
+    )
+  })
+
+  it('rejects Linux artifacts swapped between x64 and arm64 inputs', async () => {
+    const fixture = await createFixture()
+    await rename(
+      fixture.paths.linuxX64Deb,
+      path.join(
+        path.dirname(fixture.paths.linuxX64Deb),
+        fixture.names.linuxArm64Deb
+      )
+    )
+    await rename(
+      fixture.paths.linuxArm64Deb,
+      path.join(
+        path.dirname(fixture.paths.linuxArm64Deb),
+        fixture.names.linuxX64Deb
+      )
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(/linux-x64: unexpected release asset .*arm64\.deb/)
+  })
+
+  it('rejects a legacy path that is not the target updater asset', async () => {
+    const fixture = await createFixture()
+    await writeManifest(
+      fixture.paths.linuxX64Manifest,
+      VERSION,
+      [
+        {
+          name: fixture.names.linuxX64Deb,
+          content: fixture.contents.linuxX64Deb,
+        },
+        {
+          name: fixture.names.linuxX64Rpm,
+          content: fixture.contents.linuxX64Rpm,
+        },
+      ],
+      fixture.names.linuxX64Rpm
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-x64/latest-linux.yml: legacy path must reference Motrix_2.0.0_amd64.deb'
+    )
+  })
+
+  it('does not delete or overwrite a non-empty output directory', async () => {
+    const fixture = await createFixture()
+    await mkdir(fixture.output)
+    const marker = path.join(fixture.output, 'keep.txt')
+    await writeFile(marker, 'keep')
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow('must be empty')
+    await expect(readFile(marker, 'utf8')).resolves.toBe('keep')
+  })
+})
+
+async function createFixture(version = VERSION) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-release-inputs-'))
+  tempDirs.push(root)
+  const input = path.join(root, 'input')
+  const output = path.join(root, 'output')
+  await mkdir(input)
+
+  const names = {
+    linuxArm64Deb: `Motrix_${version}_arm64.deb`,
+    linuxArm64Companion: `Motrix-Native-Host-${version}-linux-arm64.tar.gz`,
+    linuxArm64Rpm: `Motrix-${version}.aarch64.rpm`,
+    linuxX64Deb: `Motrix_${version}_amd64.deb`,
+    linuxX64Companion: `Motrix-Native-Host-${version}-linux-x64.tar.gz`,
+    linuxX64Rpm: `Motrix-${version}.x86_64.rpm`,
+    macArm64Zip: `Motrix-${version}-arm64.zip`,
+    macX64Zip: `Motrix-${version}-x64.zip`,
+    windowsExe: `Motrix-Setup-${version}.exe`,
+  }
+  const contents = {
+    linuxArm64Deb: Buffer.from('Linux arm64 deb'),
+    linuxArm64Companion: Buffer.from('Linux arm64 Flatpak companion'),
+    linuxArm64Rpm: Buffer.from('Linux arm64 rpm'),
+    linuxX64Deb: Buffer.from('Linux x64 deb'),
+    linuxX64Companion: Buffer.from('Linux x64 Flatpak companion'),
+    linuxX64Rpm: Buffer.from('Linux x64 rpm'),
+    macArm64Zip: Buffer.from('macOS arm64 ZIP'),
+    macX64Zip: Buffer.from('macOS x64 ZIP'),
+    windowsExe: Buffer.from('Windows x64 installer'),
+  }
+
+  const darwinArm64 = await makeTarget(input, 'darwin-arm64')
+  await writeAsset(darwinArm64, `Motrix-${version}-arm64.dmg`)
+  const macArm64Zip = await writeAsset(
+    darwinArm64,
+    names.macArm64Zip,
+    contents.macArm64Zip
+  )
+  await writeManifest(
+    path.join(darwinArm64, 'latest-mac.yml'),
+    version,
+    [{ name: names.macArm64Zip, content: contents.macArm64Zip }],
+    names.macArm64Zip
+  )
+  await writeManifest(
+    path.join(darwinArm64, 'beta-mac.yml'),
+    version,
+    [{ name: names.macArm64Zip, content: contents.macArm64Zip }],
+    names.macArm64Zip
+  )
+
+  const darwinX64 = await makeTarget(input, 'darwin-x64')
+  await writeAsset(darwinX64, `Motrix-${version}-x64.dmg`)
+  await writeAsset(darwinX64, names.macX64Zip, contents.macX64Zip)
+  await writeManifest(
+    path.join(darwinX64, 'latest-mac.yml'),
+    version,
+    [{ name: names.macX64Zip, content: contents.macX64Zip }],
+    names.macX64Zip
+  )
+  await writeManifest(
+    path.join(darwinX64, 'beta-mac.yml'),
+    version,
+    [{ name: names.macX64Zip, content: contents.macX64Zip }],
+    names.macX64Zip
+  )
+
+  const linuxX64 = await makeTarget(input, 'linux-x64')
+  const linuxX64Deb = await writeAsset(
+    linuxX64,
+    names.linuxX64Deb,
+    contents.linuxX64Deb
+  )
+  const linuxX64Companion = await writeAsset(
+    linuxX64,
+    names.linuxX64Companion,
+    contents.linuxX64Companion
+  )
+  await writeAsset(linuxX64, names.linuxX64Rpm, contents.linuxX64Rpm)
+  const linuxX64Manifest = path.join(linuxX64, 'latest-linux.yml')
+  await writeManifest(
+    linuxX64Manifest,
+    version,
+    [
+      { name: names.linuxX64Deb, content: contents.linuxX64Deb },
+      { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
+    ],
+    names.linuxX64Deb
+  )
+  await writeManifest(
+    path.join(linuxX64, 'beta-linux.yml'),
+    version,
+    [
+      { name: names.linuxX64Deb, content: contents.linuxX64Deb },
+      { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
+    ],
+    names.linuxX64Deb
+  )
+
+  const linuxArm64 = await makeTarget(input, 'linux-arm64')
+  const linuxArm64Deb = await writeAsset(
+    linuxArm64,
+    names.linuxArm64Deb,
+    contents.linuxArm64Deb
+  )
+  const linuxArm64Rpm = await writeAsset(
+    linuxArm64,
+    names.linuxArm64Rpm,
+    contents.linuxArm64Rpm
+  )
+  const linuxArm64Companion = await writeAsset(
+    linuxArm64,
+    names.linuxArm64Companion,
+    contents.linuxArm64Companion
+  )
+  const linuxArm64Manifest = path.join(linuxArm64, 'latest-linux-arm64.yml')
+  await writeManifest(
+    linuxArm64Manifest,
+    version,
+    [
+      { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
+      { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
+    ],
+    names.linuxArm64Deb
+  )
+  await writeManifest(
+    path.join(linuxArm64, 'beta-linux-arm64.yml'),
+    version,
+    [
+      { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
+      { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
+    ],
+    names.linuxArm64Deb
+  )
+
+  const windows = await makeTarget(input, 'win32-x64')
+  await writeAsset(windows, names.windowsExe, contents.windowsExe)
+  const windowsZip = await writeAsset(windows, `Motrix-${version}-win.zip`)
+  const windowsManifest = path.join(windows, 'latest.yml')
+  await writeManifest(
+    windowsManifest,
+    version,
+    [{ name: names.windowsExe, content: contents.windowsExe }],
+    names.windowsExe
+  )
+  await writeManifest(
+    path.join(windows, 'beta.yml'),
+    version,
+    [{ name: names.windowsExe, content: contents.windowsExe }],
+    names.windowsExe
+  )
+
+  return {
+    contents,
+    input,
+    names,
+    output,
+    paths: {
+      linuxArm64Deb: linuxArm64Deb.path,
+      linuxArm64Companion: linuxArm64Companion.path,
+      linuxArm64Manifest,
+      linuxArm64Rpm: linuxArm64Rpm.path,
+      linuxX64Deb: linuxX64Deb.path,
+      linuxX64Companion: linuxX64Companion.path,
+      linuxX64Manifest,
+      macArm64Zip: macArm64Zip.path,
+      windowsExe: path.join(windows, names.windowsExe),
+      windowsManifest,
+      windowsZip: windowsZip.path,
+    },
+  }
+}
+
+async function makeTarget(input: string, target: string) {
+  const directory = path.join(input, `release-input-${target}`, 'release')
+  await mkdir(directory, { recursive: true })
+  return directory
+}
+
+async function writeAsset(
+  directory: string,
+  name: string,
+  content = Buffer.from(name)
+) {
+  const file = path.join(directory, name)
+  await writeFile(file, content)
+  return { content, path: file }
+}
+
+async function writeManifest(
+  file: string,
+  version: string,
+  assets: Array<{ name: string; content: Buffer }>,
+  legacyName: string
+) {
+  const legacy = assets.find((asset) => asset.name === legacyName)
+  if (!legacy) throw new Error(`Missing legacy fixture ${legacyName}`)
+  const checksum = sha512(legacy.content)
+  await writeFile(
+    file,
+    dump({
+      version,
+      files: assets.map((asset) => ({
+        url: asset.name,
+        sha512: sha512(asset.content),
+        size: asset.content.length,
+      })),
+      path: legacyName,
+      sha512: checksum,
+      releaseDate: '2026-07-31T00:00:00.000Z',
+    })
+  )
+}
+
+function sha512(content: Buffer) {
+  return createHash('sha512').update(content).digest('base64')
+}

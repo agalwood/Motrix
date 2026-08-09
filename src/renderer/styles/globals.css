@@ -1,0 +1,526 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Compact-header state: viewport below md OR sidebar collapsed
+ * (sidebar-wrapper reports data-state="collapsed"; mobile is folded into
+ * the same state by SidebarProvider). Style-only adaptation uses this
+ * variant; structural adaptation uses useCompactHeader() — keep both in
+ * sync. See docs/superpowers/specs/2026-06-05-compact-header-design.md.
+ */
+@custom-variant compact-header {
+  @media (width < 48rem) {
+    @slot;
+  }
+  &:where(.group\/sidebar-wrapper[data-state="collapsed"] *) {
+    @slot;
+  }
+}
+
+/*
+ * Electron frameless-window drag regions.
+ *
+ * `-webkit-app-region` is a non-standard, Electron-only CSS property and is
+ * absent from React's CSSProperties type (csstype), which is why inline
+ * `style={{ WebkitAppRegion }}` previously needed an `as React.CSSProperties`
+ * cast at every call site. Expose it as Tailwind utilities so consumers use
+ * `className="app-drag" / "app-no-drag"` instead — one definition, no cast,
+ * composes with cn().
+ *
+ *   app-drag    → the strip is draggable (move the window)
+ *   app-no-drag → carve a clickable hole in a draggable strip (buttons, menus)
+ */
+@utility app-drag {
+  -webkit-app-region: drag;
+}
+@utility app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@utility drag-none {
+  user-select: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-inset: var(--sidebar-inset);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-tab-background: var(--tab-background);
+  --font-heading: var(--font-sans);
+  --font-sans: "Inter Variable", sans-serif;
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.625rem;
+  --dashboard-tile-radius: 18px;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  /* Dashboard chart palette (HSL components — recharts/shadcn convention). */
+  --chart-1: 193 83% 50%; /* cyan, used for download */
+  --chart-2: 243 96% 66%; /* blue-violet, used for upload */
+  --chart-3: 142 70% 50%;
+  --chart-4: 35 90% 60%;
+  --chart-5: 340 80% 60%;
+
+  /* Semantic aliases consumed by SpeedTile / TransferTile. */
+  --color-down: hsl(var(--chart-1));
+  --color-down-fill: #e6f8fc;
+  --color-up: hsl(var(--chart-2));
+  --color-up-fill: #f1f0ff;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-inset: oklch(1 0 0 / 0.88);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --tab-background: oklch(0.95 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  /* Dashboard chart palette — dark mode overrides. */
+  --chart-1: 193 83% 55%;
+  --chart-2: 243 92% 72%;
+  --chart-3: 142 60% 50%;
+  --chart-4: 35 80% 60%;
+  --chart-5: 340 70% 60%;
+  --color-down-fill: oklch(0.62 0.13 218 / 0.18);
+  --color-up-fill: oklch(0.62 0.2 285 / 0.18);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-inset: oklch(0.145 0 0 / 0.65);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --tab-background: oklch(0.269 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+      sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  .platform-darwin.window-main body {
+    background: transparent;
+  }
+  .platform-darwin.window-onboarding body {
+    background: transparent;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/*
+ * The native Liquid Glass view sits behind the onboarding renderer. Keep the
+ * legal card opaque for contrast and use one quiet tint across the window.
+ */
+.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
+  background-color: rgb(247 247 248 / 72%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
+    background-color: #f7f7f8;
+  }
+}
+
+/*
+ * macOS main window: let vibrancy show through the sidebar area.
+ * These rules MUST stay UNLAYERED (outside @layer base) so they win
+ * over Tailwind's `bg-sidebar` utility, which lives in the utilities
+ * layer. Inside @layer base they would lose regardless of specificity.
+ *
+ * Targets the desktop sidebar only — mobile Sheet uses
+ * [data-slot="sidebar"][data-mobile="true"] and stays opaque, which
+ * is required because it slides in as a dialog over content.
+ */
+
+/* Variant A: fully transparent — pure vibrancy, no tint. */
+/* .platform-darwin.window-main [data-slot="sidebar-wrapper"],
+.platform-darwin.window-main [data-slot="sidebar-inner"] {
+  background-color: transparent;
+} */
+
+/* Variant B: low-alpha tint — closer to native Finder/Music feel.
+   Uncomment to A/B test, and comment out Variant A above.
+   */
+.platform-darwin.window-main [data-slot="sidebar-wrapper"] {
+  background-color: oklch(1 0 0 / 0.55);
+}
+.dark.platform-darwin.window-main [data-slot="sidebar-wrapper"] {
+  background-color: oklch(0.205 0 0 / 0.55);
+}
+.platform-darwin.window-main [data-slot="sidebar-inner"] {
+  background-color: transparent;
+}
+
+.dashboard-tile {
+  border-color: oklch(0 0 0 / 0.07);
+  border-radius: var(--dashboard-tile-radius);
+  background:
+    linear-gradient(180deg, oklch(1 0 0 / 0.98), oklch(1 0 0 / 0.93)),
+    var(--card);
+  /* box-shadow:
+    0 1px 1px oklch(1 0 0 / 0.72) inset,
+    0 1px 2px oklch(0 0 0 / 0.08),; */
+}
+
+.dark .dashboard-tile {
+  border-color: oklch(1 0 0 / 0.1);
+  background:
+    linear-gradient(180deg, oklch(0.24 0 0 / 0.95), oklch(0.2 0 0 / 0.9)),
+    var(--card);
+  /* box-shadow:
+    0 1px 1px oklch(1 0 0 / 0.08) inset,
+    0 1px 2px oklch(0 0 0 / 0.32),; */
+}
+
+.status-dot {
+  position: relative;
+}
+
+.status-dot[data-pulse="true"]::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: inherit;
+  content: "";
+  pointer-events: none;
+  transform-origin: center;
+  animation:
+    status-dot-expand 1.5s linear infinite,
+    status-dot-fade 1.5s linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes status-dot-expand {
+  0% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(4);
+  }
+}
+
+@keyframes status-dot-fade {
+  0% {
+    opacity: 0.1;
+  }
+
+  25% {
+    opacity: 0.16;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot[data-pulse="true"]::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+body.is-dashboard-dragging,
+body.is-dashboard-dragging * {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.is-dashboard-resizing,
+body.is-dashboard-resizing * {
+  cursor: nwse-resize;
+  user-select: none;
+}
+
+/*
+ * macOS main window: sidebar menu item hover/active color.
+ * Overrides --sidebar-accent, which is referenced by BOTH hover
+ * (sidebar.tsx:485) and data-[active=true] (sidebar.tsx:489) in
+ * the menu button. Scoping to .platform-darwin.window-main means
+ * non-darwin platforms keep their solid #ebebf2 / #3d4056 fallback.
+ *
+ * Custom-property overrides aren't subject to the @layer ordering
+ * trap that bit us earlier — properties are resolved at use site,
+ * so utility classes like bg-sidebar-accent pick up our value
+ * regardless of where this block lives.
+ *
+ * Estimated to match macOS 26 Finder focused-selection tint.
+ * Verify with Digital Color Meter (⇧⌘C) and tune alpha if needed.
+ */
+
+/* Pair A: macOS 26 Finder style — neutral grey fill + system-blue label.
+   The label (text + icon) shifts to accent blue, while the fill stays
+   neutral. This is the Liquid Glass design language: fill carries the
+   "selected" signal, accent color carries the "emphasized" signal. */
+.platform-darwin.window-main {
+  --sidebar-accent: oklch(0 0 0 / 0.06);
+}
+.dark.platform-darwin.window-main {
+  --sidebar-accent: oklch(1 0 0 / 0.1);
+}
+
+/* Pair B: neutral fill only — keeps default foreground (near-black /
+   near-white). Use if the blue label feels too loud, or if you've
+   customized the system accent color away from blue.
+   Comment out Pair A above and uncomment this block to switch.
+.platform-darwin.window-main {
+  --sidebar-accent: oklch(0 0 0 / 0.06);
+}
+.dark.platform-darwin.window-main {
+  --sidebar-accent: oklch(1 0 0 / 0.1);
+}
+*/
+
+@keyframes drawer-slide-in-from-bottom {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.drawer-slide-in {
+  animation: drawer-slide-in-from-bottom 300ms cubic-bezier(0.32, 0.72, 0, 1)
+    both;
+}
+
+/*
+ * Blur Highlight: the paragraph resolves from blur before marked phrases get
+ * a directional ink sweep. Separate glyph and fill layers keep the copy
+ * readable throughout the transition.
+ */
+.blur-highlight {
+  opacity: 0;
+  filter: blur(var(--blur-highlight-blur));
+  transition:
+    filter var(--blur-highlight-blur-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--blur-highlight-blur-delay),
+    opacity var(--blur-highlight-blur-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--blur-highlight-blur-delay);
+  will-change: filter, opacity;
+}
+
+.blur-highlight[data-ready="true"] {
+  opacity: var(--blur-highlight-inactive-opacity);
+  filter: blur(var(--blur-highlight-blur));
+}
+
+.blur-highlight[data-in-view="true"] {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.blur-highlight-bit {
+  display: inline;
+  margin-inline: 0.04em;
+  padding: 0.125em 0.25em;
+  border-radius: 5px;
+  white-space: nowrap;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text, border-box;
+  background-clip: text, border-box;
+  -webkit-text-fill-color: transparent;
+  transition:
+    background-position var(--blur-highlight-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--blur-highlight-delay),
+    background-size var(--blur-highlight-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--blur-highlight-delay);
+}
+
+.blur-highlight[data-highlight-direction="left"] .blur-highlight-bit {
+  background-image:
+    linear-gradient(to right, white 0 50%, currentColor 50% 100%),
+    linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
+  background-position:
+    100% center,
+    left center;
+  background-size:
+    200% 100%,
+    0% 100%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="left"]
+  .blur-highlight-bit {
+  background-position:
+    0% center,
+    left center;
+  background-size:
+    200% 100%,
+    100% 100%;
+}
+
+.blur-highlight[data-highlight-direction="right"] .blur-highlight-bit {
+  background-image:
+    linear-gradient(to right, currentColor 0 50%, white 50% 100%),
+    linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
+  background-position:
+    0% center,
+    right center;
+  background-size:
+    200% 100%,
+    0% 100%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="right"]
+  .blur-highlight-bit {
+  background-position:
+    100% center,
+    right center;
+  background-size:
+    200% 100%,
+    100% 100%;
+}
+
+.blur-highlight[data-highlight-direction="top"] .blur-highlight-bit {
+  background-image:
+    linear-gradient(to bottom, white 0 50%, currentColor 50% 100%),
+    linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
+  background-position:
+    center 100%,
+    center top;
+  background-size:
+    100% 200%,
+    100% 0%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="top"]
+  .blur-highlight-bit {
+  background-position:
+    center 0%,
+    center top;
+  background-size:
+    100% 200%,
+    100% 100%;
+}
+
+.blur-highlight[data-highlight-direction="bottom"] .blur-highlight-bit {
+  background-image:
+    linear-gradient(to bottom, currentColor 0 50%, white 50% 100%),
+    linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
+  background-position:
+    center 0%,
+    center bottom;
+  background-size:
+    100% 200%,
+    100% 0%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="bottom"]
+  .blur-highlight-bit {
+  background-position:
+    center 100%,
+    center bottom;
+  background-size:
+    100% 200%,
+    100% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blur-highlight {
+    opacity: 1;
+    filter: none;
+    transition: none;
+  }
+
+  .blur-highlight-bit {
+    transition: none;
+  }
+}

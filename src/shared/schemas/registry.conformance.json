@@ -1,0 +1,565 @@
+{
+  "$comment": "Shared registry v2 three-channel conformance corpus. wireExpected runs in all tolerant wire parsers; authoringExpected runs only in plugin-registry strict source validation; resolverExpected runs in consumers.",
+  "version": 2,
+  "baseFile": {
+    "version": 2,
+    "generatedAt": "2026-08-02T00:00:00.000Z",
+    "plugins": [
+      {
+        "id": "example.contract",
+        "listing": {
+          "defaultLocale": "en-US",
+          "localizations": {
+            "en-US": {
+              "name": "Default name",
+              "description": "Default description",
+              "features": ["Default feature"],
+              "keywords": ["default"]
+            }
+          }
+        },
+        "version": "1.0.0",
+        "author": { "name": "Example" },
+        "origin": "builtin",
+        "categories": ["integration"],
+        "engines": { "motrix": ">=2.0.0" },
+        "updatedAt": "2026-08-02"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "valid-baseline",
+      "operations": [],
+      "wireExpected": { "accepted": true },
+      "authoringExpected": { "accepted": true },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "en-US",
+        "resolved": {
+          "name": "Default name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "v1-root-version-is-rejected",
+      "operations": [
+        { "op": "set", "path": ["version"], "value": 1 }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "legacy-only-localized-root-fields-are-rejected",
+      "operations": [
+        { "op": "delete", "path": ["plugins", 0, "listing"] },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "name"],
+          "value": { "en": "Legacy name", "zh": "旧名称" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "description"],
+          "value": { "en": "Legacy description" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "features"],
+          "value": { "en": ["Legacy feature"], "zh": ["旧功能"] }
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "mixed-legacy-localized-root-fields-are-rejected",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "name"],
+          "value": { "en": "Legacy name", "zh": "旧名称" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "description"],
+          "value": { "en": "Legacy description" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "features"],
+          "value": { "en": ["Legacy feature"], "zh": ["旧功能"] }
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "future-plugin-root-field-is-preserved",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "futureMetadata"],
+          "value": { "tagline": "Future metadata" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [["plugins", 0, "futureMetadata"]]
+      },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "thirty-three-locales-are-wire-open-authoring-limited",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "fr-FR"],
+          "value": { "name": "fr-FR" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "de-DE"],
+          "value": { "name": "de-DE" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "es-ES"],
+          "value": { "name": "es-ES" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "it-IT"],
+          "value": { "name": "it-IT" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "pt-BR"],
+          "value": { "name": "pt-BR" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "nl-NL"],
+          "value": { "name": "nl-NL" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "sv-SE"],
+          "value": { "name": "sv-SE" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "da-DK"],
+          "value": { "name": "da-DK" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "fi-FI"],
+          "value": { "name": "fi-FI" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "no-NO"],
+          "value": { "name": "no-NO" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "pl-PL"],
+          "value": { "name": "pl-PL" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "cs-CZ"],
+          "value": { "name": "cs-CZ" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "sk-SK"],
+          "value": { "name": "sk-SK" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "hu-HU"],
+          "value": { "name": "hu-HU" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "ro-RO"],
+          "value": { "name": "ro-RO" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "bg-BG"],
+          "value": { "name": "bg-BG" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "uk-UA"],
+          "value": { "name": "uk-UA" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "ru-RU"],
+          "value": { "name": "ru-RU" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "el-GR"],
+          "value": { "name": "el-GR" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "tr-TR"],
+          "value": { "name": "tr-TR" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "ar-SA"],
+          "value": { "name": "ar-SA" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "he-IL"],
+          "value": { "name": "he-IL" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "hi-IN"],
+          "value": { "name": "hi-IN" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "bn-BD"],
+          "value": { "name": "bn-BD" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "th-TH"],
+          "value": { "name": "th-TH" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "vi-VN"],
+          "value": { "name": "vi-VN" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "id-ID"],
+          "value": { "name": "id-ID" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "ms-MY"],
+          "value": { "name": "ms-MY" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "ja-JP"],
+          "value": { "name": "ja-JP" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "ko-KR"],
+          "value": { "name": "ko-KR" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "zh-CN"],
+          "value": { "name": "zh-CN" }
+        },
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "zh-TW"],
+          "value": { "name": "zh-TW" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [
+          ["plugins", 0, "listing", "localizations", "zh-TW"]
+        ]
+      },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "future-only-localization-field",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "fr"],
+          "value": { "tagline": "Future field" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [
+          ["plugins", 0, "listing", "localizations", "fr", "tagline"]
+        ]
+      },
+      "authoringExpected": { "accepted": false },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "fr-FR",
+        "resolved": {
+          "name": "Default name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "known-field-plus-authoring-typo",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "zh-CN"],
+          "value": { "name": "中文名称", "descripton": "拼错字段" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [
+          ["plugins", 0, "listing", "localizations", "zh-CN", "descripton"]
+        ]
+      },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "unknown-category-is-wire-open",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "categories"],
+          "value": ["future-category"]
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [["plugins", 0, "categories"]]
+      },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "noncanonical-alias-is-wire-safe",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "iw-IL"],
+          "value": { "name": "Alias name" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [
+          ["plugins", 0, "listing", "localizations", "iw-IL"]
+        ]
+      },
+      "authoringExpected": { "accepted": false },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "iw-IL",
+        "resolved": {
+          "name": "Default name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "icu-unknown-tag-is-preserved",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "abcd"],
+          "value": { "name": "Future language" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [
+          ["plugins", 0, "listing", "localizations", "abcd"]
+        ]
+      },
+      "authoringExpected": { "accepted": false },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "abcd",
+        "resolved": {
+          "name": "Default name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "und-record-is-preserved-but-not-matched",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "und"],
+          "value": { "name": "Undefined language" }
+        }
+      ],
+      "wireExpected": {
+        "accepted": true,
+        "preservedPaths": [
+          ["plugins", 0, "listing", "localizations", "und"]
+        ]
+      },
+      "authoringExpected": { "accepted": false },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "und-Cyrl",
+        "resolved": {
+          "name": "Default name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "underscore-tag-is-malformed",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "zh_cn"],
+          "value": { "name": "Bad" }
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "extension-tag-is-malformed-for-wire",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "en-US-u-ca-gregory"],
+          "value": { "name": "Bad" }
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "empty-sparse-record",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "fr"],
+          "value": {}
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "missing-default-record",
+      "operations": [
+        {
+          "op": "delete",
+          "path": ["plugins", 0, "listing", "localizations", "en-US"]
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "duplicate-plugin-id",
+      "operations": [
+        {
+          "op": "appendCopy",
+          "path": ["plugins"],
+          "from": ["plugins", 0]
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "oversized-default-name",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "en-US", "name"],
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "wireExpected": { "accepted": false },
+      "authoringExpected": { "accepted": false }
+    },
+    {
+      "id": "inferred-script-and-empty-array-override",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "zh-Hant"],
+          "value": { "description": "繁體說明", "features": [] }
+        }
+      ],
+      "wireExpected": { "accepted": true },
+      "authoringExpected": { "accepted": true },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "zh-TW",
+        "resolved": {
+          "name": "Default name",
+          "description": "繁體說明",
+          "features": [],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "no-arbitrary-sibling-region",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "zh-CN"],
+          "value": { "name": "简体名称", "description": "简体说明" }
+        }
+      ],
+      "wireExpected": { "accepted": true },
+      "authoringExpected": { "accepted": true },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "zh-TW",
+        "resolved": {
+          "name": "Default name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    },
+    {
+      "id": "multi-variant-right-to-left-parent",
+      "operations": [
+        {
+          "op": "set",
+          "path": ["plugins", 0, "listing", "localizations", "sl-1994-biske"],
+          "value": { "name": "Biske name" }
+        }
+      ],
+      "wireExpected": { "accepted": true },
+      "authoringExpected": { "accepted": true },
+      "resolverExpected": {
+        "pluginId": "example.contract",
+        "requestedLocale": "sl-1994-biske-rozaj",
+        "resolved": {
+          "name": "Biske name",
+          "description": "Default description",
+          "features": ["Default feature"],
+          "keywords": ["default"]
+        }
+      }
+    }
+  ]
+}

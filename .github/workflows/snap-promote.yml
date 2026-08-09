@@ -1,0 +1,285 @@
+# Promote, never rebuild, a verified two-architecture Snap build set.
+#
+# Run this workflow only from protected main. Separate environment credentials
+# constrain candidate and stable releases independently.
+
+name: Promote Snap
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Exact version already present in the source channel
+        required: true
+        type: string
+      source_run_id:
+        description: Successful protected-tag Snap workflow run ID
+        required: true
+        type: string
+      source_run_attempt:
+        description: Successful Snap workflow run attempt
+        required: true
+        type: string
+      target:
+        description: Destination channel
+        required: true
+        type: choice
+        options:
+          - candidate
+          - stable
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: snap-store-publication
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate promotion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      amd64_revision: ${{ steps.revisions.outputs.amd64_revision }}
+      arm64_revision: ${{ steps.revisions.outputs.arm64_revision }}
+      source_channel: ${{ steps.channels.outputs.source_channel }}
+      target_channel: ${{ steps.channels.outputs.target_channel }}
+    steps:
+      - name: Checkout verification tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate protected main and channels
+        id: channels
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          PROMOTION_TARGET: ${{ inputs.target }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_REF" != 'refs/heads/main' ]]; then
+            echo "Snap promotion must run from main" >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_REF_PROTECTED" != 'true' ]]; then
+            echo "Snap promotion requires protected main" >&2
+            exit 1
+          fi
+          node --input-type=module -e '
+            import {
+              parseStrictSemVer,
+            } from "./scripts/release-metadata.mjs"
+            const metadata = parseStrictSemVer(
+              process.env.EXPECTED_VERSION,
+              "expected version"
+            )
+            if (
+              process.env.PROMOTION_TARGET === "stable" &&
+              metadata.prerelease
+            ) {
+              throw new Error("Prerelease versions cannot enter stable")
+            }
+          '
+          if [[ "$PROMOTION_TARGET" == 'candidate' ]]; then
+            source_channel='latest/edge'
+          elif [[ "$PROMOTION_TARGET" == 'stable' ]]; then
+            source_channel='latest/candidate'
+          else
+            echo "Unsupported promotion target: $PROMOTION_TARGET" >&2
+            exit 1
+          fi
+          echo "source_channel=${source_channel}" >> "$GITHUB_OUTPUT"
+          echo "target_channel=latest/${PROMOTION_TARGET}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate trusted source workflow run
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "source_run_id must be a positive integer" >&2
+            exit 1
+          fi
+          if [[ ! "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "source_run_attempt must be a positive integer" >&2
+            exit 1
+          fi
+          run_json="$(
+            gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}"
+          )"
+          workflow_json="$(
+            gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/snap.yml"
+          )"
+          expected_workflow_id="$(
+            jq -er '.id | select(type == "number" and . > 0)' \
+              <<< "$workflow_json"
+          )"
+          test "$(jq -r '.event' <<< "$run_json")" = 'push'
+          test "$(jq -r '.status' <<< "$run_json")" = 'completed'
+          test "$(jq -r '.conclusion' <<< "$run_json")" = 'success'
+          test "$(jq -r '.workflow_id' <<< "$run_json")" = \
+            "$expected_workflow_id"
+          workflow_path="$(jq -er '.path | select(type == "string")' \
+            <<< "$run_json")"
+          if [[ ! "$workflow_path" =~ ^\.github/workflows/snap\.yml@.+$ ]]; then
+            echo "Source run did not execute the trusted Snap workflow" >&2
+            exit 1
+          fi
+          test "$(jq -r '.run_attempt' <<< "$run_json")" = \
+            "$SOURCE_RUN_ATTEMPT"
+          test "$(jq -r '.head_repository.full_name' <<< "$run_json")" = \
+            "$GITHUB_REPOSITORY"
+          head_sha="$(jq -r '.head_sha' <<< "$run_json")"
+          if [[ ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Source workflow returned an invalid head SHA" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin \
+            refs/heads/main:refs/remotes/origin/main
+          git fetch --no-tags --force origin \
+            "refs/tags/v${EXPECTED_VERSION}:refs/remotes/origin/snap-source-tag"
+          test "$(
+            git rev-parse "refs/remotes/origin/snap-source-tag^{commit}"
+          )" = "$head_sha"
+          git merge-base --is-ancestor \
+            "$head_sha" refs/remotes/origin/main
+
+      - name: Download trusted revision record
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: snap-release-revisions-${{ inputs.source_run_attempt }}
+          path: release/snap-source
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify trusted source revisions
+        id: revisions
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          REVISION_FILE: >-
+            ${{ github.workspace }}/release/snap-source/motrix-snap-revisions.json
+          SOURCE_CHANNEL: ${{ steps.channels.outputs.source_channel }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-snap-store-channel.mjs \
+            --snap motrix \
+            --channel "$SOURCE_CHANNEL" \
+            --version "$EXPECTED_VERSION" \
+            --architectures amd64,arm64 \
+            --expected-revisions "$REVISION_FILE" \
+            --attempts 3 \
+            --delay-ms 5000
+          # JavaScript source must not be expanded by Bash.
+          # shellcheck disable=SC2016
+          node --input-type=module -e '
+            import { appendFileSync } from "node:fs"
+            import { readRevisionFile } from "./scripts/verify-snap-store-channel.mjs"
+            const value = await readRevisionFile(
+              process.env.REVISION_FILE,
+              ["amd64", "arm64"]
+            )
+            appendFileSync(
+              process.env.GITHUB_OUTPUT,
+              `amd64_revision=${value.amd64}\narm64_revision=${value.arm64}\n`
+            )
+          '
+
+  promote:
+    name: Promote to ${{ inputs.target }}
+    needs: preflight
+    runs-on: ubuntu-24.04
+    # Every step is individually bounded. The mutation helper gets 45 minutes
+    # for its <=37.5-minute computed release plus worst-case rollback path.
+    timeout-minutes: 120
+    environment:
+      name: snap-store-${{ inputs.target }}
+    steps:
+      - name: Checkout verification tools
+        timeout-minutes: 10
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Snapcraft 9
+        timeout-minutes: 10
+        run: sudo snap install snapcraft --classic --channel=9.x/stable
+
+      - name: Validate scoped Store credential
+        timeout-minutes: 5
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          PROMOTION_TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]]; then
+            echo "Missing snap-store-${PROMOTION_TARGET} credential" >&2
+            exit 1
+          fi
+          snapcraft whoami
+          snapcraft status motrix
+
+      - name: Reverify approved source revisions
+        timeout-minutes: 5
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          SOURCE_CHANNEL: ${{ needs.preflight.outputs.source_channel }}
+        run: >-
+          node scripts/verify-snap-store-channel.mjs
+          --snap motrix
+          --channel "$SOURCE_CHANNEL"
+          --version "$EXPECTED_VERSION"
+          --architectures amd64,arm64
+          --expected-amd64-revision
+          "${{ needs.preflight.outputs.amd64_revision }}"
+          --expected-arm64-revision
+          "${{ needs.preflight.outputs.arm64_revision }}"
+          --attempts 3
+          --delay-ms 5000
+
+      - name: Release approved build set
+        timeout-minutes: 45
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          TARGET_CHANNEL: ${{ needs.preflight.outputs.target_channel }}
+        run: >-
+          node scripts/release-snap-build-set.mjs
+          --snap motrix
+          --channel "$TARGET_CHANNEL"
+          --version "$EXPECTED_VERSION"
+          --amd64-revision
+          "${{ needs.preflight.outputs.amd64_revision }}"
+          --arm64-revision
+          "${{ needs.preflight.outputs.arm64_revision }}"
+          --snapcraft /snap/bin/snapcraft
+          --snapcraft-timeout-ms 120000
+          --attempts 12
+          --delay-ms 10000
+
+      - name: Verify public destination channel
+        timeout-minutes: 10
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          TARGET_CHANNEL: ${{ needs.preflight.outputs.target_channel }}
+        run: >-
+          node scripts/verify-snap-store-channel.mjs
+          --snap motrix
+          --channel "$TARGET_CHANNEL"
+          --version "$EXPECTED_VERSION"
+          --architectures amd64,arm64
+          --expected-amd64-revision
+          "${{ needs.preflight.outputs.amd64_revision }}"
+          --expected-arm64-revision
+          "${{ needs.preflight.outputs.arm64_revision }}"
+          --attempts 12
+          --delay-ms 10000
