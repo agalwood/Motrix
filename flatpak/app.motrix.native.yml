@@ -154,7 +154,10 @@ modules:
         XDG_CACHE_HOME: /run/build/motrix/flatpak-node/cache
         npm_config_cache: /run/build/motrix/flatpak-node/npm-cache
         npm_config_loglevel: warn
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.2.0
+        # Must track the electron version in package.json — generated-sources
+        # unpacks that release's headers here, and electron-rebuild's gyp run
+        # fails on a dangling path.
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.3.0
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
