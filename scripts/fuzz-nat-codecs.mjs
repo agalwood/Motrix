@@ -87,11 +87,17 @@ async function main() {
     },
   ].filter((t) => !CODEC_FILTER || t.name.includes(CODEC_FILTER))
 
+  // --duration is the TOTAL wall-clock budget. Callers size job timeouts to
+  // it (nat-integration.yml budgets a "5-minute fuzz run"), so divide it
+  // across the selected targets — granting each target the full window
+  // silently turned 300s into a 35-minute run that outlived every timeout.
+  const perTargetMs = (DURATION_SEC * 1000) / targets.length
+
   for (const t of targets) {
     const start = performance.now()
     let iters = 0
     let crashed = false
-    const endTime = start + DURATION_SEC * 1000
+    const endTime = start + perTargetMs
     while (performance.now() < endTime) {
       try {
         t.run()
