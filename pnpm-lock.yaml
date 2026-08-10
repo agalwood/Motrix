@@ -26,6 +26,9 @@ importers:
       '@motrix/mdxp':
         specifier: ^0.4.0
         version: 0.4.0
+      '@motrix/nat':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@motrix/plugin-manifest-schema':
         specifier: ^2.1.0
         version: 2.1.0
@@ -168,9 +171,6 @@ importers:
       '@electron/rebuild':
         specifier: ^4.2.0
         version: 4.2.0(supports-color@7.2.0)
-      '@fast-check/vitest':
-        specifier: ^0.4.1
-        version: 0.4.1(vitest@4.1.10)
       '@motrix/cli':
         specifier: ^0.4.0
         version: 0.4.0
@@ -738,11 +738,6 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@fast-check/vitest@0.4.1':
-    resolution: {integrity: sha512-OX6TecB+ZzRfPc49jcPChcV1cf5aDu77CdDU8liecWVam7eD7mPvJNP50b9bBSTxVoGN5wzxrX9PIcCnqgC8bg==}
-    peerDependencies:
-      vitest: ^4.1.0
-
   '@fastify/accept-negotiator@2.1.0':
     resolution: {integrity: sha512-F3EVbzWt+xcnVaOHmWyIlpuFtbxOln7HDZQsh09MtMmMm/CipMayNt8hnIL8VQi54u2ZociDbf+iluGYkf7B1A==}
 
@@ -939,6 +934,10 @@ packages:
 
   '@motrix/mdxp@0.4.0':
     resolution: {integrity: sha512-Hg/qVVC2+ajJDpXIDfPvMKS42bEJN1d3xlcJMi7xZ7j3xmdJONp28/3IediyMyZhxJqygz4lziaZQyr886odJQ==}
+
+  '@motrix/nat@0.1.0':
+    resolution: {integrity: sha512-zyIsKtTyTQi7/Qr0WpM94QdB3WsYjtkwFA9SD5YX52qrf60B/jN43FKA+9aSs17Rg0TCHi6JP74RNYwBQPA6fQ==}
+    engines: {node: '>=22'}
 
   '@motrix/plugin-manifest-schema@2.1.0':
     resolution: {integrity: sha512-S6p1uhoQzYbepVkYV86dmmD+7xLagto7ft3vWcLK4Fg8KtvEikV1b+ZPyE5OjgpZO3WEFcMe8uuc/Iymai0fmw==}
@@ -2504,10 +2503,6 @@ packages:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
     engines: {node: '>= 18'}
 
-  fast-check@4.9.0:
-    resolution: {integrity: sha512-7ms6T7SybUev/PQITciI0yLM2pOSFy5zpG8Ty7tQofcVaQUvrMXp6CBwqF6fThLCLOrfBtuHAtwq6Yu4XPCllg==}
-    engines: {node: '>=12.17.0'}
-
   fast-copy@4.0.4:
     resolution: {integrity: sha512-eVAiWVNPSEGIzDl5yPuLrx8fNMogScXvD9xp1Kzd41FjRIz2I3sSIcxsFeM5EzFfHAfobdvs8ZySffUopljvIA==}
 
@@ -3693,9 +3688,6 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
-
-  pure-rand@8.4.2:
-    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
   pvtsutils@1.3.6:
     resolution: {integrity: sha512-PLgQXQ6H2FWCaeRak8vvk1GW462lMxB5s3Jm673N82zI4vqtVUPuZdffdZbPDFRoU8kAhItWFtPCWiPpp4/EDg==}
@@ -5135,11 +5127,6 @@ snapshots:
     optionalDependencies:
       '@noble/hashes': 2.3.0
 
-  '@fast-check/vitest@0.4.1(vitest@4.1.10)':
-    dependencies:
-      fast-check: 4.9.0
-      vitest: 4.1.10(@types/node@26.2.0)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1(@noble/hashes@2.3.0))(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.11))
-
   '@fastify/accept-negotiator@2.1.0': {}
 
   '@fastify/ajv-compiler@4.0.6':
@@ -5311,6 +5298,8 @@ snapshots:
     dependencies:
       vscode-jsonrpc: 9.0.1
       zod: 4.4.3
+
+  '@motrix/nat@0.1.0': {}
 
   '@motrix/plugin-manifest-schema@2.1.0':
     dependencies:
@@ -6838,10 +6827,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  fast-check@4.9.0:
-    dependencies:
-      pure-rand: 8.4.2
-
   fast-copy@4.0.4: {}
 
   fast-decode-uri-component@1.0.1: {}
@@ -7942,8 +7927,6 @@ snapshots:
       once: 1.4.0
 
   punycode@2.3.1: {}
-
-  pure-rand@8.4.2: {}
 
   pvtsutils@1.3.6:
     dependencies:

@@ -1,5 +1,4 @@
-import type { NatManager } from '@core/nat/nat-manager'
-import { TokenBucket } from '@core/nat/rate-limiter'
+import { type NatManager, TokenBucket } from '@motrix/nat'
 import { ErrorCode } from '@shared/errors'
 
 export interface PrivacyDialog {

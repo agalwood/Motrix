@@ -1,5 +1,5 @@
 import type { SettingsManager } from '@core/settings/settings-manager'
-import type { NatSettingsProvider } from './nat-manager'
+import type { NatSettingsProvider } from '@motrix/nat'
 
 export class SettingsNatProvider implements NatSettingsProvider {
   constructor(private settings: SettingsManager) {}

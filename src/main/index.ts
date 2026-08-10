@@ -31,7 +31,6 @@ import {
 } from '@core/inspector-activity'
 import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
-import type { NatManager } from '@core/nat/nat-manager'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
@@ -91,6 +90,7 @@ import {
   TrackerStore,
   TrackerSyncer,
 } from '@core/tracker'
+import type { NatManager } from '@motrix/nat'
 import { APP_ID, RunMode } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
 import { Events } from '@shared/protocol/events'
