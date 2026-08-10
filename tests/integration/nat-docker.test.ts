@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   composeDown,
   composeUp,
+  containerIp,
   dockerMatrixAvailable,
 } from './helpers/docker-harness'
 
@@ -23,7 +24,9 @@ describe.skipIf(SKIP)('NAT docker matrix', () => {
   }, 30_000)
 
   describe('UPnP IGD v1', () => {
-    it('discovers miniupnpd', async () => {
+    // Test timeout must exceed the client's own discovery timeout so a silent
+    // router surfaces as `r.ok === false`, not as an opaque vitest timeout.
+    it('discovers miniupnpd', { timeout: 10_000 }, async () => {
       const { UpnpClient } = await import('@core/nat/clients')
       const client = new UpnpClient({
         udpFactory: nodeUdpSocketFactory,
@@ -40,6 +43,10 @@ describe.skipIf(SKIP)('NAT docker matrix', () => {
   describe('PCP fake server', () => {
     it('accepts MAP and echoes nonce', async () => {
       const { PmpPcpClient } = await import('@core/nat/clients')
+      // The client hardcodes the standard port 5351 and its transport rejects
+      // loopback gateways, so target the fake server's own bridge address
+      // where it owns 5351 in its private namespace.
+      const gatewayIp = await containerIp('pcp-fake')
       const clientIp = Buffer.concat([
         Buffer.alloc(10),
         Buffer.from([0xff, 0xff]),
@@ -47,7 +54,7 @@ describe.skipIf(SKIP)('NAT docker matrix', () => {
       ])
       const client = new PmpPcpClient({
         udpFactory: nodeUdpSocketFactory,
-        gatewayIp: '127.0.0.1',
+        gatewayIp,
         clientIp,
       })
       const r = await client.pcpMap({
@@ -63,10 +70,13 @@ describe.skipIf(SKIP)('NAT docker matrix', () => {
   })
 
   describe('Hostile router', () => {
+    // nodeHttpClient's SSRF guard admits only private/link-local hosts, so
+    // 127.0.0.1:published-port is unreachable by design — always target the
+    // container's RFC1918 bridge address.
     it('rejects XXE response', async () => {
       const res = await nodeHttpClient.request({
         method: 'GET',
-        host: '127.0.0.1',
+        host: await containerIp('hostile'),
         port: 49154,
         path: '/xxe',
         timeoutMs: 3000,
@@ -84,12 +94,17 @@ describe.skipIf(SKIP)('NAT docker matrix', () => {
     it('rejects 302 redirect', async () => {
       const res = await nodeHttpClient.request({
         method: 'GET',
-        host: '127.0.0.1',
+        host: await containerIp('hostile'),
         port: 49154,
         path: '/redirect',
         timeoutMs: 3000,
       })
       expect(res.ok).toBe(false)
+      if (!res.ok) {
+        // Reaching the router and refusing its redirect is the behavior under
+        // test; an unreachable router would also report ok=false.
+        expect(res.detail).toMatch(/redirect/i)
+      }
     })
   })
 
@@ -97,7 +112,7 @@ describe.skipIf(SKIP)('NAT docker matrix', () => {
     it('parser handles malformed HTTP without crashing', async () => {
       const res = await nodeHttpClient.request({
         method: 'GET',
-        host: '127.0.0.1',
+        host: await containerIp('broken'),
         port: 49155,
         path: '/',
         timeoutMs: 3000,

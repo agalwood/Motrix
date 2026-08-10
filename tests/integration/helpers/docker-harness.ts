@@ -92,6 +92,27 @@ async function dumpMatrixEvidence(): Promise<void> {
   }
 }
 
+// Resolve a bridge-network service's container IP. Tests target this address
+// directly: the NAT clients' SSRF guards reject loopback by design, so a
+// 127.0.0.1:published-port route can never be exercised — the RFC1918 bridge
+// address is the reachable-and-allowed path on the Linux CI runner.
+export async function containerIp(service: string): Promise<string> {
+  const id = (
+    await runOutput('docker', ['compose', 'ps', '-q', service])
+  ).trim()
+  if (!id) throw new Error(`no container for compose service: ${service}`)
+  const ip = (
+    await runOutput('docker', [
+      'inspect',
+      '--format',
+      '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}',
+      id,
+    ])
+  ).trim()
+  if (!ip) throw new Error(`no bridge IP for compose service: ${service}`)
+  return ip
+}
+
 export async function isMatrixUp(): Promise<boolean> {
   try {
     const out = await runOutput('docker', ['compose', 'ps', '--format', 'json'])
