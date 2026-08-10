@@ -11,12 +11,16 @@ on:
       - 'src/core/nat/**'
       - 'tests/docker/**'
       - 'tests/integration/**'
+      - 'scripts/fuzz-nat-codecs.mjs'
       - '.github/workflows/nat-integration.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/core/nat/**'
       - 'tests/docker/**'
+      - 'tests/integration/**'
+      - 'scripts/fuzz-nat-codecs.mjs'
+      - '.github/workflows/nat-integration.yml'
 
 jobs:
   nat-docker-matrix:
