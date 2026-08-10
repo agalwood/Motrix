@@ -156,6 +156,12 @@ jobs:
         env:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
+      # Same side-effects-cache guard as the ci job: pnpm can reuse an
+      # electron store entry recorded while its build script was blocked,
+      # leaving dist/ absent. The notice contract needs dist/LICENSE.
+      - name: Ensure Electron runtime payload
+        run: node node_modules/electron/install.js
+
       - name: Fetch target aria2
         run: >-
           pnpm run fetch:engine
