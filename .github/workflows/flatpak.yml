@@ -145,6 +145,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      # The install above is --ignore-scripts by design (offline-source
+      # verification), so electron's postinstall never runs here. The notice
+      # contract needs electron's dist/ payload (dist/LICENSE +
+      # dist/LICENSES.chromium.html) — fetch it explicitly.
+      - name: Fetch Electron runtime for the notice contract
+        run: node node_modules/electron/install.js
+
       - name: Third-party notice contract
         run: pnpm --config.verify-deps-before-run=false run check:third-party-notices
 
@@ -180,6 +187,8 @@ jobs:
             "$RUNNER_TEMP/flatpak-cargo-generator.py" \
             packages/native-host/Cargo.lock \
             --output "$RUNNER_TEMP/cargo-sources.json"
+          node scripts/normalize-flatpak-cargo-sources.mjs \
+            "$RUNNER_TEMP/cargo-sources.json"
           cmp flatpak/cargo-sources.json \
             "$RUNNER_TEMP/cargo-sources.json"
 
@@ -190,6 +199,7 @@ jobs:
             tests/scripts/flatpak-native-host.test.ts \
             tests/scripts/flatpak-packaging.test.ts \
             tests/scripts/flatpak-project.test.ts \
+            tests/scripts/normalize-flatpak-cargo-sources.test.ts \
             tests/scripts/normalize-flatpak-node-sources.test.ts
 
       - name: Prepare checked-out source for Flatpak

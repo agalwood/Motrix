@@ -137,10 +137,12 @@ mod tests {
     use std::ffi::OsStr;
     use std::path::{Path, PathBuf};
 
+    #[cfg(unix)]
+    use super::resolve_flatpak_bridge_data_dir;
     use super::resolve_native_host_user_data_dir_from_optional_home;
     use super::{
         NativeHostPlatform, bridge_endpoint_path, endpoint_path, resolve_bridge_data_dir,
-        resolve_flatpak_bridge_data_dir, resolve_native_host_user_data_dir,
+        resolve_native_host_user_data_dir,
     };
 
     #[test]
@@ -239,6 +241,7 @@ mod tests {
         assert_eq!(resolve_bridge_data_dir(None, None), None);
     }
 
+    #[cfg(unix)]
     #[test]
     fn flatpak_bridge_requires_the_exact_app_id_and_absolute_xdg_config_home() {
         assert_eq!(

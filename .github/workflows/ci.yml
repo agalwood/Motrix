@@ -45,6 +45,13 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
+      # pnpm's side-effects cache (default on) can reuse an electron store
+      # entry recorded while its build script was still blocked, leaving
+      # dist/ absent after install. The notice contract needs dist/LICENSE;
+      # this is idempotent and near-instant when dist/ already matches.
+      - name: Ensure Electron runtime payload
+        run: node node_modules/electron/install.js
+
       - name: i18n catalog and translation contract
         run: pnpm run check:i18n
 
@@ -257,6 +264,10 @@ jobs:
       # rust_target. Tests therefore execute the target binary directly; no
       # Rosetta, QEMU, Wine, or compile-only result is presented as a test.
       - name: Tests (native target)
+        # A SIGSEGV on x86_64-musl (run 31322798699) did not reproduce in a
+        # CI-equivalent container; keep full backtraces on until root-caused.
+        env:
+          RUST_BACKTRACE: full
         run: >-
           cargo test
           --manifest-path packages/native-host/Cargo.toml
@@ -268,6 +279,11 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+
+      # Same side-effects-cache guard as the ci job: build:legal and the
+      # electron-builder smoke both need electron's dist/ payload.
+      - name: Ensure Electron runtime payload
+        run: node node_modules/electron/install.js
 
       - name: Fetch target aria2
         run: >-

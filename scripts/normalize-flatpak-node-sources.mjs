@@ -1,11 +1,28 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
 const PLAYWRIGHT_CACHE_PREFIX = 'flatpak-node/cache/ms-playwright/'
+
+// The CI contract compares the committed file byte-for-byte against a fresh
+// generator run piped through this script, so the byte format must have a
+// single authority. That authority is biome (the repo-wide formatter) — not
+// JSON.stringify, whose array layout differs from biome's, and not the
+// generator, whose format varies across versions.
+export function biomeFormatJson(filePath) {
+  const result = spawnSync(
+    'pnpm',
+    ['exec', 'biome', 'format', '--write', filePath],
+    { stdio: 'inherit' }
+  )
+  if (result.status !== 0) {
+    throw new Error(`biome format failed for ${filePath}`)
+  }
+}
 
 export function normalizeFlatpakNodeSources(sources) {
   if (!Array.isArray(sources)) {
@@ -27,7 +44,8 @@ export function normalizeFlatpakNodeSources(sources) {
 export async function normalizeFlatpakNodeSourcesFile(filePath) {
   const source = JSON.parse(await readFile(filePath, 'utf8'))
   const normalized = normalizeFlatpakNodeSources(source)
-  await writeFile(filePath, `${JSON.stringify(normalized, null, 4)}\n`, 'utf8')
+  await writeFile(filePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8')
+  biomeFormatJson(filePath)
   return {
     before: source.length,
     after: normalized.length,

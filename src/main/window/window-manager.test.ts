@@ -140,6 +140,7 @@ describe('WindowManager', () => {
       preloadPath: '/fake/preload.cjs',
       loadUrl: vi.fn(),
       liquidGlass,
+      platform: 'darwin',
     })
 
     const win = wm.open('main')
@@ -163,6 +164,7 @@ describe('WindowManager', () => {
       preloadPath: '/fake/preload.cjs',
       loadUrl: vi.fn(),
       liquidGlass,
+      platform: 'darwin',
     })
 
     const win = wm.open('onboarding')

@@ -2,30 +2,30 @@ packages:
   - '.'
   - 'packages/*'
 
-# Packages allowed to run install/build lifecycle scripts. electron and
-# better-sqlite3 are native modules that must compile against the pinned
-# Electron/Node ABI. Moved here from package.json's "pnpm" field, which
-# pnpm 11 no longer reads.
-onlyBuiltDependencies:
-  - electron
-  - better-sqlite3
+# pnpm 11 reads project settings from this file, not .npmrc — node-linker
+# moved here. The hoisted (flat) node_modules layout is required by
+# electron-builder and native-module rebuild tooling (see
+# .claude/rules/electron-vite.md).
+nodeLinker: hoisted
 
-# Build scripts we deliberately skip (silences ERR_PNPM_IGNORED_BUILDS):
-#   - electron-winstaller: Windows-only installer tooling, not built here.
-#   - esbuild: ships prebuilt platform binaries via @esbuild/* optional
-#     deps, so its install script is unnecessary.
-ignoredBuiltDependencies:
-  - electron-winstaller
-  - esbuild
-
+# pnpm 11 build-script gate (replaces onlyBuiltDependencies /
+# ignoredBuiltDependencies — packages not listed have their scripts skipped):
+#   - electron: postinstall downloads dist/ — the runtime binary plus
+#     dist/LICENSE and dist/LICENSES.chromium.html, required by build:legal,
+#     check:third-party-notices, and electron-builder.
+#   - better-sqlite3: native module rebuilt against the pinned ABI.
+#   - electron-winstaller / esbuild: harmless arch-selection scripts, allowed
+#     to keep installs warning-free (esbuild binaries ship via @esbuild/*
+#     optional deps either way).
 allowBuilds:
+  electron: true
   better-sqlite3: true
   electron-winstaller: true
   esbuild: true
 
 minimumReleaseAgeExclude:
   - i18next@26.3.6
-  - lucide-react@1.24.0
+  - lucide-react@1.24.0 || 1.31.0
   - react-i18next@17.0.9
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0'
   - '@motrix/cli@0.1.0'
@@ -66,3 +66,4 @@ minimumReleaseAgeExclude:
   - '@esbuild/win32-ia32@0.28.2'
   - '@esbuild/win32-x64@0.28.2'
   - esbuild@0.28.2
+  - '@testing-library/jest-dom@7.0.1'

@@ -1342,13 +1342,14 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::{
-        BrowserCaller, CompanionCommand, CompanionError, FlatpakRuntime, ManifestFamily,
-        companion_status, embedded_allowlist, install_companion, parse_companion_command,
-        resolve_companion_paths, resolve_flatpak_request, uninstall_companion,
-        validate_browser_caller,
+        BrowserCaller, CompanionError, FlatpakRuntime, ManifestFamily, companion_status,
+        embedded_allowlist, install_companion, resolve_companion_paths, resolve_flatpak_request,
+        uninstall_companion, validate_browser_caller,
     };
     #[cfg(unix)]
-    use super::{FlatpakProcessRuntime, load_companion_config};
+    use super::{
+        CompanionCommand, FlatpakProcessRuntime, load_companion_config, parse_companion_command,
+    };
     use crate::broker_protocol::BrokerOperation;
     #[cfg(unix)]
     use crate::broker_protocol::encode_broker_message;
@@ -1486,6 +1487,7 @@ mod tests {
         assert_eq!(empty_xdg.config, fallback.config);
     }
 
+    #[cfg(unix)]
     #[test]
     fn parses_only_the_documented_management_cli() {
         assert_eq!(

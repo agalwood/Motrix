@@ -113,6 +113,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     cargoLock,
     builtinLockText,
     workflow,
+    packageManifestText,
   ] = await Promise.all([
     readFile(path.join(root, 'flatpak/app.motrix.native.yml'), 'utf8'),
     readFile(path.join(root, 'flatpak/generated-sources.json'), 'utf8'),
@@ -120,6 +121,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     readFile(path.join(root, 'packages/native-host/Cargo.lock'), 'utf8'),
     readFile(path.join(root, 'scripts/builtins.lock.json'), 'utf8'),
     readFile(path.join(root, '.github/workflows/flatpak.yml'), 'utf8'),
+    readFile(path.join(root, 'package.json'), 'utf8'),
   ])
   const engineLockText = await readFile(
     path.join(root, 'scripts/engine.lock.json'),
@@ -378,11 +380,25 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     ),
     'unused Playwright browser payloads must be removed'
   )
+  // Derive the expected Electron version from package.json instead of
+  // hardcoding it, so an Electron bump only has to regenerate the sources.
+  const packageManifest = record(
+    JSON.parse(packageManifestText),
+    'package.json'
+  )
+  const electronVersion =
+    packageManifest.devDependencies?.electron ??
+    packageManifest.dependencies?.electron
+  invariant(
+    typeof electronVersion === 'string' &&
+      /^\d+\.\d+\.\d+$/.test(electronVersion),
+    'package.json must pin an exact electron version'
+  )
   for (const [flatpakArch, electronArch] of [
     ['x86_64', 'x64'],
     ['aarch64', 'arm64'],
   ]) {
-    const suffix = `electron-v43.2.0-linux-${electronArch}.zip`
+    const suffix = `electron-v${electronVersion}-linux-${electronArch}.zip`
     const source = generatedSources.find((candidate) =>
       String(candidate?.url).endsWith(suffix)
     )
@@ -395,10 +411,11 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   invariant(
     generatedSources.some(
       (source) =>
-        String(source?.url).endsWith('node-v43.2.0-headers.tar.gz') &&
-        typeof source.sha256 === 'string'
+        String(source?.url).endsWith(
+          `node-v${electronVersion}-headers.tar.gz`
+        ) && typeof source.sha256 === 'string'
     ),
-    'Electron 43 headers are missing'
+    `Electron ${electronVersion} headers are missing`
   )
 
   const cargoSources = array(

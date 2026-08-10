@@ -46,10 +46,15 @@ jobs:
           CI: 'true'
           NAT_DOCKER_MATRIX: '1'
 
-      - name: Compose logs on failure
+      # Fallback only: the harness dumps ps/logs itself before its afterAll
+      # teardown removes the containers (this step runs after that teardown,
+      # so it usually sees an empty project).
+      - name: Compose state and logs on failure
         if: failure()
         working-directory: tests/docker
-        run: docker compose logs
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color
 
       - name: Tear down
         if: always()
@@ -58,7 +63,9 @@ jobs:
 
   nat-fuzz-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Must fit checkout + cold-cache pnpm install + the 5-minute fuzz run;
+    # 10 minutes was cancelled at 10m16s on the first cache-less run.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9

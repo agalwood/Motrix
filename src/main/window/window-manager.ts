@@ -16,6 +16,11 @@ export interface WindowManagerDeps {
   preloadPath: string
   loadUrl: (win: BrowserWindow, route: string) => void
   liquidGlass?: LiquidGlassController
+  /**
+   * Platform for window chrome decisions; defaults to process.platform.
+   * Injected by tests so platform-specific chrome is verifiable on any host.
+   */
+  platform?: string
   /** Central legal/startup gate for every window-opening entry point. */
   resolveOpenTarget?: (requested: WindowId) => WindowId
   /** Invoked when the OS signals session end (Windows window 'session-end'). */
@@ -285,7 +290,7 @@ export class WindowManager {
     const liquidGlass =
       config.liquidGlass &&
       this.deps.liquidGlass?.shouldUseLiquidGlass() === true
-    const platformOpts = buildPlatformOptions(undefined, {
+    const platformOpts = buildPlatformOptions(this.deps.platform, {
       vibrancy: config.vibrancy && !liquidGlass,
       liquidGlass,
       windowControlsSymbolColor: config.windowControlsSymbolColor,
