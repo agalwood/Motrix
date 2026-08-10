@@ -99,9 +99,9 @@ jobs:
     needs: preflight
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    env:
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+    # rustc's musl std is self-contained; overriding the linker with Ubuntu's
+    # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
+    # ci.yml package-targets).
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +136,7 @@ jobs:
       - name: Install native build tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes musl-tools squashfs-tools
+          sudo apt-get install --yes squashfs-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable

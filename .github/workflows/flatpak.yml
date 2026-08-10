@@ -115,20 +115,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Install musl toolchain for the x86_64 host companion smoke
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends musl-tools
-
       - name: Setup Rust for the x86_64 host companion smoke
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.94.1
           targets: x86_64-unknown-linux-musl
 
+      # rustc's musl std is self-contained; overriding the linker with
+      # Ubuntu's musl-gcc mixes CRTs and produces load-time SIGSEGVs (see
+      # ci.yml package-targets).
       - name: Build and package x86_64 Flatpak host companion
         env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
           SOURCE_DATE_EPOCH: '0'
         run: |
           node packages/native-host/build.mjs --platform linux --arch x64
