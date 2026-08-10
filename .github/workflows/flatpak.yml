@@ -262,9 +262,12 @@ jobs:
       - name: Smoke-test installed payload
         env:
           MOTRIX_FLATPAK_ARCH: ${{ matrix.electron_arch }}
-          MOTRIX_SMOKE_HOME: ${{ runner.temp }}/flatpak-smoke-home
-          MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
-          MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
+          # Container-local /tmp, not runner.temp: the workspace mount (/__w)
+          # is owned by neither the container user nor root, and the host
+          # companion refuses install trees under such ancestors by design.
+          MOTRIX_SMOKE_HOME: /tmp/flatpak-smoke-home
+          MOTRIX_SMOKE_DATA: /tmp/flatpak-smoke-data
+          MOTRIX_SMOKE_CONFIG: /tmp/flatpak-smoke-config
         run: |
           set -x
           export HOME="$MOTRIX_SMOKE_HOME"
@@ -320,9 +323,12 @@ jobs:
       - name: Smoke-test Browser Native Messaging through the host companion
         if: matrix.flatpak_arch == 'x86_64'
         env:
-          MOTRIX_SMOKE_HOME: ${{ runner.temp }}/flatpak-smoke-home
-          MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
-          MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
+          # Container-local /tmp, not runner.temp: the workspace mount (/__w)
+          # is owned by neither the container user nor root, and the host
+          # companion refuses install trees under such ancestors by design.
+          MOTRIX_SMOKE_HOME: /tmp/flatpak-smoke-home
+          MOTRIX_SMOKE_DATA: /tmp/flatpak-smoke-data
+          MOTRIX_SMOKE_CONFIG: /tmp/flatpak-smoke-config
         run: |
           set -x
           export HOME="$MOTRIX_SMOKE_HOME"
@@ -331,7 +337,7 @@ jobs:
           # The flathub infra container does not ship flatpak at /usr/bin —
           # resolve it from PATH like every other step in this job does.
           flatpak_bin="$(command -v flatpak)"
-          companion_payload="$RUNNER_TEMP/flatpak-host-companion-payload"
+          companion_payload=/tmp/flatpak-host-companion-payload
           mkdir -p "$companion_payload"
           tar -xzf \
             "$RUNNER_TEMP/flatpak-host-companion/Motrix-Native-Host-0.0.0-ci-linux-x64.tar.gz" \
