@@ -1,0 +1,5 @@
+# Reviewed license texts are hash-pinned byte-for-byte in
+# scripts/third-party-notices.config.json (verified by
+# scripts/generate-third-party-notices.mjs). Disable line-ending conversion so
+# Windows checkouts (autocrlf) stay byte-identical to the committed blobs.
+THIRD_PARTY_LICENSES/** -text
