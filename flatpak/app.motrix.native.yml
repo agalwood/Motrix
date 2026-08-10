@@ -189,7 +189,9 @@ modules:
       # same lockfile already passed it online in the "Verify locked offline
       # sources" job, and every sandbox input is sha256-pinned in
       # generated-sources.json.
-      - printf '\nminimumReleaseAge: 0\n' >> pnpm-workspace.yaml
+      # (Quoted: the colon inside would otherwise turn this YAML scalar into
+      # a mapping and the command would silently never run.)
+      - "echo 'minimumReleaseAge: 0' >> pnpm-workspace.yaml"
       - pnpm install --offline --frozen-lockfile --ignore-scripts
 
       # The root postinstall is intentionally suppressed. Extract only the
