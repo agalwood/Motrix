@@ -40,8 +40,12 @@ export function classifyRebuildResult(result) {
 }
 
 function runElectronRebuild() {
+  // On Windows the .bin entry is a `electron-builder.cmd` shim, which Node
+  // refuses to spawn directly (ENOENT/EINVAL since CVE-2024-27980); route it
+  // through cmd.exe. The argv is a fixed literal, so shell quoting is moot.
   const result = spawnSync('electron-builder', ['install-app-deps'], {
     stdio: 'inherit',
+    shell: process.platform === 'win32',
   })
   const { code, reason } = classifyRebuildResult(result)
   if (reason) console.error(`[postinstall] electron-builder ${reason}`)
