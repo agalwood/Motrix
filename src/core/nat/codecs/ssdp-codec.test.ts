@@ -75,6 +75,19 @@ describe('parseMSearchResponse happy path', () => {
     const r = parseMSearchResponse(raw)
     expect(r.ok).toBe(true)
   })
+
+  it('accepts the dotted UPnP 1.1 headers every compliant IGD sends', () => {
+    // UDA 1.1 §1.2.2 mandates BOOTID.UPNP.ORG / CONFIGID.UPNP.ORG; miniupnpd
+    // also emits OPT/01-NLS. Rejecting the dot rejected every real router.
+    const raw = buildSsdpResponse({
+      OPT: '"http://schemas.upnp.org/upnp/1/0/"; ns=01',
+      '01-NLS': '1786330815',
+      'BOOTID.UPNP.ORG': '1786330815',
+      'CONFIGID.UPNP.ORG': '1337',
+    })
+    const r = parseMSearchResponse(raw)
+    expect(r.ok).toBe(true)
+  })
 })
 
 describe('parseMSearchResponse security', () => {

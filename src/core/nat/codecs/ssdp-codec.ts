@@ -96,7 +96,10 @@ export function parseMSearchResponse(raw: Buffer): ParseResult<SsdpResponse> {
     if (value.length > SSDP_HEADER_VALUE_MAX) {
       return parseErr(ErrorCode.NatSecurityViolation, 'header value too long')
     }
-    if (!/^[A-Za-z0-9-]+$/.test(name)) {
+    // Dot is required: UPnP 1.1 (UDA §1.2.2) mandates BOOTID.UPNP.ORG /
+    // CONFIGID.UPNP.ORG on every advertisement, and '.' is a legal RFC 9110
+    // token character — without it every spec-compliant IGD is rejected.
+    if (!/^[A-Za-z0-9.-]+$/.test(name)) {
       return parseErr(ErrorCode.NatParseError, 'invalid header name')
     }
     headers[name] = value
