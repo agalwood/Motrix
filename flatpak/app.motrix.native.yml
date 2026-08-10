@@ -233,10 +233,15 @@ modules:
 
       - pnpm --config.verify-deps-before-run=false run build:builtin
       - pnpm --config.verify-deps-before-run=false run build:electron
+      # electronDist reuses the runtime install.js already extracted from
+      # generated-sources; without it electron-builder re-downloads the dist
+      # zip and its SHASUMS256.txt from GitHub, which the offline sandbox
+      # cannot reach (the SHASUMS file has no URL-keyed cache entry).
       - pnpm --config.verify-deps-before-run=false exec electron-builder
         --linux dir
         --$npm_config_arch
         -c.linux.target=dir
+        -c.electronDist=node_modules/electron/dist
         --publish=never
 
       - |
