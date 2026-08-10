@@ -104,7 +104,7 @@ describe('Flatpak native-host boundary', () => {
     )
     expect(workflow).toContain('--strip-components=1')
     expect(workflow).toContain(
-      '"$archive_companion" install --flatpak-bin /usr/bin/flatpak'
+      '"$archive_companion" install --flatpak-bin "$flatpak_bin"'
     )
     expect(workflow).toContain('"$installed_companion" status')
     expect(workflow).toContain('"$installed_companion" uninstall')

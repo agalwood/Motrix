@@ -324,9 +324,13 @@ jobs:
           MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
           MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
         run: |
+          set -x
           export HOME="$MOTRIX_SMOKE_HOME"
           export XDG_DATA_HOME="$MOTRIX_SMOKE_DATA"
           export XDG_CONFIG_HOME="$MOTRIX_SMOKE_CONFIG"
+          # The flathub infra container does not ship flatpak at /usr/bin —
+          # resolve it from PATH like every other step in this job does.
+          flatpak_bin="$(command -v flatpak)"
           companion_payload="$RUNNER_TEMP/flatpak-host-companion-payload"
           mkdir -p "$companion_payload"
           tar -xzf \
@@ -335,7 +339,7 @@ jobs:
             -C "$companion_payload"
           archive_companion="$companion_payload/motrix-flatpak-native-host"
           installed_companion="${XDG_DATA_HOME:-$HOME/.local/share}/motrix/native-messaging/motrix-flatpak-native-host"
-          "$archive_companion" install --flatpak-bin /usr/bin/flatpak
+          "$archive_companion" install --flatpak-bin "$flatpak_bin"
           "$installed_companion" status
 
           ready_file="$RUNNER_TEMP/flatpak-nonce-server.ready"
@@ -346,7 +350,7 @@ jobs:
             fi
             "$installed_companion" uninstall || true
             # shellcheck disable=SC2016
-            /usr/bin/flatpak run --command=sh app.motrix.native -c '
+            "$flatpak_bin" run --command=sh app.motrix.native -c '
               rm -f "${XDG_CONFIG_HOME:?}/motrix/bridge/endpoint.json"
             ' || true
             rm -f "$ready_file"
@@ -356,7 +360,7 @@ jobs:
           rm -f "$ready_file"
           # The payload is expanded by sh inside the Flatpak.
           # shellcheck disable=SC2016
-          /usr/bin/flatpak run --command=sh app.motrix.native -eu -c '
+          "$flatpak_bin" run --command=sh app.motrix.native -eu -c '
             bridge_dir="${XDG_CONFIG_HOME:?}/motrix/bridge"
             mkdir -p "$bridge_dir"
             printf "%s\n" "{\"port\":55809}" > "$bridge_dir/endpoint.json"
