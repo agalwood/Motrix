@@ -180,13 +180,17 @@ modules:
         --prefix=/run/build/motrix/flatpak-node/pnpm-cli
         ./flatpak-node/pnpm/pnpm-11.18.0.tgz
         --offline
-      # minimum-release-age=0: pnpm's supply-chain cooldown check fetches
-      # per-package publish times from the registry even under --offline, and
-      # the sandbox has no network — the same lockfile already passed the
-      # policy online in the "Verify locked offline sources" job, and every
-      # sandbox input is sha256-pinned in generated-sources.json.
+      # pnpm's supply-chain cooldown check fetches per-package publish times
+      # from the registry even under --offline, and the sandbox has no
+      # network. pnpm treats the setting as workspace-file-only (a
+      # --config.minimum-release-age=0 CLI override is silently ignored), so
+      # disable it by appending to the sandbox's own copy of
+      # pnpm-workspace.yaml — the committed file keeps the policy on, the
+      # same lockfile already passed it online in the "Verify locked offline
+      # sources" job, and every sandbox input is sha256-pinned in
+      # generated-sources.json.
+      - printf '\nminimumReleaseAge: 0\n' >> pnpm-workspace.yaml
       - pnpm install --offline --frozen-lockfile --ignore-scripts
-        --config.minimum-release-age=0
 
       # The root postinstall is intentionally suppressed. Extract only the
       # locked Electron runtime from generated-sources.
