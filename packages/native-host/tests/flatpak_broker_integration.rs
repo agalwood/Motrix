@@ -52,12 +52,18 @@ fn run_broker(config_home: &std::path::Path, flatpak_id: &str, wire: &[u8]) -> O
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn Flatpak broker");
-    child
-        .stdin
-        .take()
-        .expect("broker stdin")
-        .write_all(wire)
-        .expect("write broker input");
+    // The broker validates FLATPAK_ID and XDG_CONFIG_HOME before reading any
+    // stdin, so on a rejected environment it may exit without ever consuming
+    // input; losing that race surfaces here as EPIPE. That early exit is part
+    // of the contract under test — every case still asserts on exit status and
+    // stdout — so only a BrokenPipe write failure is tolerated.
+    if let Err(error) = child.stdin.take().expect("broker stdin").write_all(wire) {
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::BrokenPipe,
+            "write broker input: {error}"
+        );
+    }
     child.wait_with_output().expect("wait for broker")
 }
 

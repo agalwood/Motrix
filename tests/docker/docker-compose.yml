@@ -23,9 +23,12 @@ services:
     network_mode: host
     restart: unless-stopped
 
+  # Bridge network on purpose: in its own namespace the fake server owns the
+  # standard PCP port 5351 (no clash with natpmp's host-mode miniupnpd), and
+  # tests reach it via its RFC1918 bridge address — the loopback route is
+  # rejected by the NAT clients' SSRF guards.
   pcp-fake:
     image: motrix-test/pcp-fake:latest
-    network_mode: host
     restart: unless-stopped
 
   hostile:

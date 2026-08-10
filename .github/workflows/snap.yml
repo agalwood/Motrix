@@ -99,9 +99,9 @@ jobs:
     needs: preflight
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    env:
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+    # rustc's musl std is self-contained; overriding the linker with Ubuntu's
+    # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
+    # ci.yml package-targets).
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +136,7 @@ jobs:
       - name: Install native build tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes musl-tools squashfs-tools
+          sudo apt-get install --yes squashfs-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -155,6 +155,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+
+      # Same side-effects-cache guard as the ci job: pnpm can reuse an
+      # electron store entry recorded while its build script was blocked,
+      # leaving dist/ absent. The notice contract needs dist/LICENSE.
+      - name: Ensure Electron runtime payload
+        run: node node_modules/electron/install.js
 
       - name: Fetch target aria2
         run: >-

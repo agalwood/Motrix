@@ -520,7 +520,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       workflow.includes('--strip-components=1') &&
       workflow.includes(FLATPAK_COMPANION_COMMAND) &&
       workflow.includes(
-        '"$archive_companion" install --flatpak-bin /usr/bin/flatpak'
+        '"$archive_companion" install --flatpak-bin "$flatpak_bin"'
       ) &&
       workflow.includes('"$installed_companion" status') &&
       workflow.includes('"$installed_companion" uninstall') &&

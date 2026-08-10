@@ -125,9 +125,10 @@ jobs:
             electron_builder_args: --win --x64
             resources_dir: release/win-unpacked/resources
 
+    # rustc's musl std is self-contained; overriding the linker with Ubuntu's
+    # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
+    # ci.yml package-targets).
     env:
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
       # Electron 43 requires macOS 12 even though the locked aria2 binaries
       # themselves are built with an 11.0 deployment target.
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
@@ -152,7 +153,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes musl-tools rpm
+          sudo apt-get install --yes rpm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable

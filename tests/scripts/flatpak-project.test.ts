@@ -16,7 +16,11 @@ const manifest = parseYaml(
     'utf8'
   )
 ) as {
-  modules: Array<{ name: string; sources: unknown[] }>
+  modules: Array<{
+    name: string
+    sources: unknown[]
+    'build-options'?: { env?: Record<string, string> }
+  }>
 }
 
 describe('prepare-flatpak-project', () => {
@@ -62,6 +66,24 @@ describe('prepare-flatpak-project', () => {
         'source.tar.gz'
       )
     ).toThrow('exactly one git source')
+  })
+
+  it('pins the sandbox node-gyp headers to the packaged electron version', () => {
+    // generated-sources unpacks the electron release headers under
+    // flatpak-node/cache/node-gyp/<electron version>; a stale nodedir makes
+    // electron-rebuild's gyp fail on a dangling include path (run
+    // 31363983647 shipped 43.3.0 sources against a 43.2.0 nodedir).
+    const electronVersion = (
+      JSON.parse(
+        readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')
+      ) as { devDependencies: Record<string, string> }
+    ).devDependencies.electron.replace(/^[~^]/, '')
+    const motrix = manifest.modules.find(
+      (candidate) => candidate.name === 'motrix'
+    )
+    expect(motrix?.['build-options']?.env?.npm_config_nodedir).toBe(
+      `/run/build/motrix/flatpak-node/cache/node-gyp/${electronVersion}`
+    )
   })
 
   it('parses explicit workflow paths and rejects unknown flags', () => {

@@ -192,9 +192,13 @@ jobs:
     name: Package smoke / ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    # No CARGO_TARGET_*_MUSL_LINKER override: rustc's musl std is
+    # self-contained (bundled musl CRT + libc.a, linked via the host cc as
+    # `-static-pie`). Forcing Ubuntu's musl-gcc wrapper mixed its older musl
+    # CRT into the link and emitted a dynamic-loader INTERP, so every x86_64
+    # musl binary segfaulted at load (runs 31322798699 / 31324102504 /
+    # 31349513764).
     env:
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
     strategy:
       fail-fast: false
@@ -248,12 +252,6 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install musl toolchain
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes musl-tools
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
@@ -264,8 +262,6 @@ jobs:
       # rust_target. Tests therefore execute the target binary directly; no
       # Rosetta, QEMU, Wine, or compile-only result is presented as a test.
       - name: Tests (native target)
-        # A SIGSEGV on x86_64-musl (run 31322798699) did not reproduce in a
-        # CI-equivalent container; keep full backtraces on until root-caused.
         env:
           RUST_BACKTRACE: full
         run: >-

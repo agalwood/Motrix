@@ -115,20 +115,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Install musl toolchain for the x86_64 host companion smoke
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends musl-tools
-
       - name: Setup Rust for the x86_64 host companion smoke
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.94.1
           targets: x86_64-unknown-linux-musl
 
+      # rustc's musl std is self-contained; overriding the linker with
+      # Ubuntu's musl-gcc mixes CRTs and produces load-time SIGSEGVs (see
+      # ci.yml package-targets).
       - name: Build and package x86_64 Flatpak host companion
         env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
           SOURCE_DATE_EPOCH: '0'
         run: |
           node packages/native-host/build.mjs --platform linux --arch x64
@@ -265,10 +262,14 @@ jobs:
       - name: Smoke-test installed payload
         env:
           MOTRIX_FLATPAK_ARCH: ${{ matrix.electron_arch }}
-          MOTRIX_SMOKE_HOME: ${{ runner.temp }}/flatpak-smoke-home
-          MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
-          MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
+          # Container-local /tmp, not runner.temp: the workspace mount (/__w)
+          # is owned by neither the container user nor root, and the host
+          # companion refuses install trees under such ancestors by design.
+          MOTRIX_SMOKE_HOME: /tmp/flatpak-smoke-home
+          MOTRIX_SMOKE_DATA: /tmp/flatpak-smoke-data
+          MOTRIX_SMOKE_CONFIG: /tmp/flatpak-smoke-config
         run: |
+          set -x
           export HOME="$MOTRIX_SMOKE_HOME"
           export XDG_DATA_HOME="$MOTRIX_SMOKE_DATA"
           export XDG_CONFIG_HOME="$MOTRIX_SMOKE_CONFIG"
@@ -282,6 +283,7 @@ jobs:
             --env=MOTRIX_EXPECTED_ARCH="$MOTRIX_FLATPAK_ARCH" \
             app.motrix.native \
             -eu -c '
+              set -x
               aria2c="/app/motrix/resources/extra/linux/$MOTRIX_EXPECTED_ARCH/aria2c"
               test -x "$aria2c"
               test ! -e /app/motrix/resources/bin/motrix-native-host
@@ -302,7 +304,9 @@ jobs:
               printf "%s\n" "$output" | grep -qF "BitTorrent"
               printf "%s\n" "$output" | grep -qF "HTTPS"
               printf "%s\n" "$output" | grep -qF "SFTP"
-              printf "%s\n" "$output" | grep -qF "WebSocket"
+              # aria2c --version never lists WebSocket; assert the wslay RPC
+              # handshake path is compiled in by scanning the binary itself.
+              grep -qa "Sec-WebSocket-Accept" "$aria2c"
             '
           broker_hex="$(
             printf 'MXBR\001\000\000\000\025\000\000\000%s' \
@@ -319,14 +323,21 @@ jobs:
       - name: Smoke-test Browser Native Messaging through the host companion
         if: matrix.flatpak_arch == 'x86_64'
         env:
-          MOTRIX_SMOKE_HOME: ${{ runner.temp }}/flatpak-smoke-home
-          MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
-          MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
+          # Container-local /tmp, not runner.temp: the workspace mount (/__w)
+          # is owned by neither the container user nor root, and the host
+          # companion refuses install trees under such ancestors by design.
+          MOTRIX_SMOKE_HOME: /tmp/flatpak-smoke-home
+          MOTRIX_SMOKE_DATA: /tmp/flatpak-smoke-data
+          MOTRIX_SMOKE_CONFIG: /tmp/flatpak-smoke-config
         run: |
+          set -x
           export HOME="$MOTRIX_SMOKE_HOME"
           export XDG_DATA_HOME="$MOTRIX_SMOKE_DATA"
           export XDG_CONFIG_HOME="$MOTRIX_SMOKE_CONFIG"
-          companion_payload="$RUNNER_TEMP/flatpak-host-companion-payload"
+          # The flathub infra container does not ship flatpak at /usr/bin —
+          # resolve it from PATH like every other step in this job does.
+          flatpak_bin="$(command -v flatpak)"
+          companion_payload=/tmp/flatpak-host-companion-payload
           mkdir -p "$companion_payload"
           tar -xzf \
             "$RUNNER_TEMP/flatpak-host-companion/Motrix-Native-Host-0.0.0-ci-linux-x64.tar.gz" \
@@ -334,7 +345,7 @@ jobs:
             -C "$companion_payload"
           archive_companion="$companion_payload/motrix-flatpak-native-host"
           installed_companion="${XDG_DATA_HOME:-$HOME/.local/share}/motrix/native-messaging/motrix-flatpak-native-host"
-          "$archive_companion" install --flatpak-bin /usr/bin/flatpak
+          "$archive_companion" install --flatpak-bin "$flatpak_bin"
           "$installed_companion" status
 
           ready_file="$RUNNER_TEMP/flatpak-nonce-server.ready"
@@ -345,7 +356,7 @@ jobs:
             fi
             "$installed_companion" uninstall || true
             # shellcheck disable=SC2016
-            /usr/bin/flatpak run --command=sh app.motrix.native -c '
+            "$flatpak_bin" run --command=sh app.motrix.native -c '
               rm -f "${XDG_CONFIG_HOME:?}/motrix/bridge/endpoint.json"
             ' || true
             rm -f "$ready_file"
@@ -355,7 +366,7 @@ jobs:
           rm -f "$ready_file"
           # The payload is expanded by sh inside the Flatpak.
           # shellcheck disable=SC2016
-          /usr/bin/flatpak run --command=sh app.motrix.native -eu -c '
+          "$flatpak_bin" run --command=sh app.motrix.native -eu -c '
             bridge_dir="${XDG_CONFIG_HOME:?}/motrix/bridge"
             mkdir -p "$bridge_dir"
             printf "%s\n" "{\"port\":55809}" > "$bridge_dir/endpoint.json"

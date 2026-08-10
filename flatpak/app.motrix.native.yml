@@ -97,6 +97,9 @@ modules:
     no-make-install: true
     post-install:
       - |
+        # set -e is load-bearing: without it the for-loop's exit status is
+        # only the LAST grep, and any earlier missing feature is swallowed.
+        set -e
         output="$(src/aria2c --version)"
         printf '%s\n' "$output"
         printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.3'
@@ -110,11 +113,13 @@ modules:
           'Metalink' \
           'SFTP' \
           'SQLite3-Persistence' \
-          'WebSocket' \
           'XML-RPC'
         do
           printf '%s\n' "$output" | grep -qF "$feature"
         done
+        # aria2c --version never lists WebSocket support; assert the wslay
+        # RPC handshake path is compiled in by scanning the binary itself.
+        grep -qa 'Sec-WebSocket-Accept' src/aria2c
       - install -Dm755 src/aria2c $FLATPAK_DEST/libexec/motrix-build/aria2c
     sources:
       - type: git
@@ -154,7 +159,10 @@ modules:
         XDG_CACHE_HOME: /run/build/motrix/flatpak-node/cache
         npm_config_cache: /run/build/motrix/flatpak-node/npm-cache
         npm_config_loglevel: warn
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.2.0
+        # Must track the electron version in package.json — generated-sources
+        # unpacks that release's headers here, and electron-rebuild's gyp run
+        # fails on a dangling path.
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.3.0
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
@@ -180,6 +188,18 @@ modules:
         --prefix=/run/build/motrix/flatpak-node/pnpm-cli
         ./flatpak-node/pnpm/pnpm-11.18.0.tgz
         --offline
+      # pnpm's supply-chain cooldown check fetches per-package publish times
+      # from the registry even under --offline, and the sandbox has no
+      # network. pnpm treats the setting as workspace-file-only (a
+      # --config.minimum-release-age=0 CLI override is silently ignored), so
+      # disable it by appending to the sandbox's own copy of
+      # pnpm-workspace.yaml — the committed file keeps the policy on, the
+      # same lockfile already passed it online in the "Verify locked offline
+      # sources" job, and every sandbox input is sha256-pinned in
+      # generated-sources.json.
+      # (Quoted: the colon inside would otherwise turn this YAML scalar into
+      # a mapping and the command would silently never run.)
+      - "echo 'minimumReleaseAge: 0' >> pnpm-workspace.yaml"
       - pnpm install --offline --frozen-lockfile --ignore-scripts
 
       # The root postinstall is intentionally suppressed. Extract only the
@@ -218,10 +238,15 @@ modules:
 
       - pnpm --config.verify-deps-before-run=false run build:builtin
       - pnpm --config.verify-deps-before-run=false run build:electron
+      # electronDist reuses the runtime install.js already extracted from
+      # generated-sources; without it electron-builder re-downloads the dist
+      # zip and its SHASUMS256.txt from GitHub, which the offline sandbox
+      # cannot reach (the SHASUMS file has no URL-keyed cache entry).
       - pnpm --config.verify-deps-before-run=false exec electron-builder
         --linux dir
         --$npm_config_arch
         -c.linux.target=dir
+        -c.electronDist=node_modules/electron/dist
         --publish=never
 
       - |
