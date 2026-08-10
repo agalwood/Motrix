@@ -266,6 +266,7 @@ jobs:
           MOTRIX_SMOKE_DATA: ${{ runner.temp }}/flatpak-smoke-data
           MOTRIX_SMOKE_CONFIG: ${{ runner.temp }}/flatpak-smoke-config
         run: |
+          set -x
           export HOME="$MOTRIX_SMOKE_HOME"
           export XDG_DATA_HOME="$MOTRIX_SMOKE_DATA"
           export XDG_CONFIG_HOME="$MOTRIX_SMOKE_CONFIG"
@@ -279,6 +280,7 @@ jobs:
             --env=MOTRIX_EXPECTED_ARCH="$MOTRIX_FLATPAK_ARCH" \
             app.motrix.native \
             -eu -c '
+              set -x
               aria2c="/app/motrix/resources/extra/linux/$MOTRIX_EXPECTED_ARCH/aria2c"
               test -x "$aria2c"
               test ! -e /app/motrix/resources/bin/motrix-native-host
@@ -299,7 +301,9 @@ jobs:
               printf "%s\n" "$output" | grep -qF "BitTorrent"
               printf "%s\n" "$output" | grep -qF "HTTPS"
               printf "%s\n" "$output" | grep -qF "SFTP"
-              printf "%s\n" "$output" | grep -qF "WebSocket"
+              # aria2c --version never lists WebSocket; assert the wslay RPC
+              # handshake path is compiled in by scanning the binary itself.
+              grep -qa "Sec-WebSocket-Accept" "$aria2c"
             '
           broker_hex="$(
             printf 'MXBR\001\000\000\000\025\000\000\000%s' \

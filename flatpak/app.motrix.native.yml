@@ -97,6 +97,9 @@ modules:
     no-make-install: true
     post-install:
       - |
+        # set -e is load-bearing: without it the for-loop's exit status is
+        # only the LAST grep, and any earlier missing feature is swallowed.
+        set -e
         output="$(src/aria2c --version)"
         printf '%s\n' "$output"
         printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.3'
@@ -110,11 +113,13 @@ modules:
           'Metalink' \
           'SFTP' \
           'SQLite3-Persistence' \
-          'WebSocket' \
           'XML-RPC'
         do
           printf '%s\n' "$output" | grep -qF "$feature"
         done
+        # aria2c --version never lists WebSocket support; assert the wslay
+        # RPC handshake path is compiled in by scanning the binary itself.
+        grep -qa 'Sec-WebSocket-Accept' src/aria2c
       - install -Dm755 src/aria2c $FLATPAK_DEST/libexec/motrix-build/aria2c
     sources:
       - type: git
