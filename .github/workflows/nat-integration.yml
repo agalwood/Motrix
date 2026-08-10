@@ -25,7 +25,9 @@ on:
 jobs:
   nat-docker-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Observed ~2 min end-to-end (image build + compose up + 5 tests);
+    # 10 minutes flags a hang quickly instead of idling out a runner.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -67,9 +69,9 @@ jobs:
 
   nat-fuzz-regression:
     runs-on: ubuntu-latest
-    # Must fit checkout + cold-cache pnpm install + the 5-minute fuzz run;
-    # 10 minutes was cancelled at 10m16s on the first cache-less run.
-    timeout-minutes: 20
+    # Worst case observed: ~1 min setup + the 5-minute main-branch fuzz
+    # budget. Anything past 10 minutes is a hang, not a slow run.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -80,5 +82,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: 5-minute codec fuzz
-        run: pnpm run fuzz:nat:ci
+      # PRs get a 60s smoke (per-codec throughput is ~10^4..10^6 iters/sec,
+      # so every codec still sees millions of inputs); each main push keeps
+      # the full 5-minute budget.
+      - name: Codec fuzz
+        run: >-
+          pnpm exec node --import tsx scripts/fuzz-nat-codecs.mjs
+          --duration=${{ github.event_name == 'pull_request' && '60' || '300' }}
