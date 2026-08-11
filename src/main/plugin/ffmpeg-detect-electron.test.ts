@@ -100,6 +100,22 @@ describe('makeElectronFfmpegDetect', () => {
     expect(arg.envPath).toBe('/opt/ff')
   })
 
+  it('passes the Electron host platform and normalizes an unset env path', async () => {
+    const { manager } = makeSettingsManager({
+      ffmpegBinaryPath: '',
+      ffmpegStagingMB: 4096,
+      ffmpegOpTimeoutSec: 1800,
+    })
+    const detect = makeElectronFfmpegDetect({
+      settingsManager: manager,
+      userDataDir: '/tmp/userdata',
+    })
+    await detect()
+    const arg = mockedDetectInOrder.mock.calls[0][0]
+    expect(arg.platform).toBe(process.platform)
+    expect(arg.envPath).toBeNull()
+  })
+
   it('re-reads settings on each invocation (live SettingsManager read)', async () => {
     const { manager, setMedia } = makeSettingsManager({
       ffmpegBinaryPath: '/a',

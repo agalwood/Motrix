@@ -30,6 +30,7 @@ export function makeElectronFfmpegDetect(
     detectInOrder({
       manualPath: opts.settingsManager.get().media.ffmpegBinaryPath,
       userDataBinariesDir,
-      envPath: process.env.MOTRIX_FFMPEG_PATH,
+      platform: process.platform,
+      envPath: process.env.MOTRIX_FFMPEG_PATH ?? null,
     })
 }

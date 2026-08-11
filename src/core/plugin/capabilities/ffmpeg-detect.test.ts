@@ -6,7 +6,7 @@
 // shell script — overkill for a one-liner regex. The happy-path is covered
 // when MOTRIX_TEST_FFMPEG is set.
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   detectFromCandidates,
   detectInOrder,
@@ -73,18 +73,6 @@ function makeProbe(map: Record<string, FfmpegDetection>) {
 }
 
 describe('detectInOrder', () => {
-  let originalEnv: string | undefined
-
-  beforeEach(() => {
-    originalEnv = process.env.MOTRIX_FFMPEG_PATH
-    delete process.env.MOTRIX_FFMPEG_PATH
-  })
-
-  afterEach(() => {
-    if (originalEnv === undefined) delete process.env.MOTRIX_FFMPEG_PATH
-    else process.env.MOTRIX_FFMPEG_PATH = originalEnv
-  })
-
   it('manual path wins when present and probes succeed', async () => {
     const probe = makeProbe({
       '/u/bin/ffmpeg': {
@@ -100,7 +88,12 @@ describe('detectInOrder', () => {
       },
     })
     const r = await detectInOrder(
-      { manualPath: '/u/bin/ffmpeg', userDataBinariesDir: '/data/binaries' },
+      {
+        manualPath: '/u/bin/ffmpeg',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'linux',
+        envPath: null,
+      },
       probe
     )
     expect(r.active).toEqual({ path: '/u/bin/ffmpeg', version: '6.0.1' })
@@ -135,7 +128,12 @@ describe('detectInOrder', () => {
       },
     })
     const r = await detectInOrder(
-      { manualPath: '', userDataBinariesDir: '/data/binaries' },
+      {
+        manualPath: '',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'linux',
+        envPath: null,
+      },
       probe
     )
     expect(r.active?.path).toBe('/data/binaries/ffmpeg')
@@ -147,10 +145,15 @@ describe('detectInOrder', () => {
     expect(r.candidates[1]).toMatchObject({ kind: 'userData', state: 'active' })
   })
 
-  it('env candidate is unconfigured when both envPath and process env are unset', async () => {
+  it('env candidate is unconfigured when the host provides no path', async () => {
     const probe = makeProbe({})
     const r = await detectInOrder(
-      { manualPath: '', userDataBinariesDir: '/data/binaries' },
+      {
+        manualPath: '',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'linux',
+        envPath: null,
+      },
       probe
     )
     expect(r.candidates[2]).toMatchObject({
@@ -160,7 +163,7 @@ describe('detectInOrder', () => {
     })
   })
 
-  it('reads envPath from process.env when not in input', async () => {
+  it('uses the environment candidate supplied by the host', async () => {
     const probe = makeProbe({
       '/env/ffmpeg': {
         available: true,
@@ -168,9 +171,13 @@ describe('detectInOrder', () => {
         binaryPath: '/env/ffmpeg',
       },
     })
-    process.env.MOTRIX_FFMPEG_PATH = '/env/ffmpeg'
     const r = await detectInOrder(
-      { manualPath: '', userDataBinariesDir: '/data/binaries' },
+      {
+        manualPath: '',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'linux',
+        envPath: '/env/ffmpeg',
+      },
       probe
     )
     expect(r.candidates[2]).toMatchObject({
@@ -183,13 +190,36 @@ describe('detectInOrder', () => {
   it('returns active: null and 4 candidates when all miss', async () => {
     const probe = makeProbe({})
     const r = await detectInOrder(
-      { manualPath: '', userDataBinariesDir: '/data/binaries' },
+      {
+        manualPath: '',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'linux',
+        envPath: null,
+      },
       probe
     )
     expect(r.active).toBeNull()
     expect(r.candidates).toHaveLength(4)
     expect(r.candidates[0].state).toBe('unconfigured')
     expect(r.candidates[1].state).toBe('missing')
+  })
+
+  it('derives the Windows userData candidate from the supplied platform', async () => {
+    const probe = makeProbe({})
+    const r = await detectInOrder(
+      {
+        manualPath: '',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'win32',
+        envPath: null,
+      },
+      probe
+    )
+    expect(r.candidates[1]).toMatchObject({
+      kind: 'userData',
+      path: '/data/binaries/ffmpeg.exe',
+      state: 'missing',
+    })
   })
 })
 

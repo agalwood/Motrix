@@ -18,7 +18,6 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import process from 'node:process'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -132,8 +131,10 @@ export interface FfmpegDetectionInput {
   manualPath: string
   /** userData binaries directory (required; the candidate path is derived). */
   userDataBinariesDir: string
-  /** Override for MOTRIX_FFMPEG_PATH; defaults to `process.env` lookup. */
-  envPath?: string
+  /** Host platform snapshot used to derive the userData binary name. */
+  platform: string
+  /** Host-provided environment candidate; `null` means unconfigured. */
+  envPath: string | null
 }
 
 export type CandidateKind = 'manual' | 'userData' | 'env' | 'path'
@@ -155,8 +156,8 @@ export interface FfmpegDetectionResult {
   }>
 }
 
-function ffmpegBinName(): string {
-  return process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+function ffmpegBinName(platform: string): string {
+  return platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
 }
 
 /**
@@ -185,13 +186,12 @@ export async function detectInOrder(
 ): Promise<FfmpegDetectionResult> {
   const userDataCandidate = path.join(
     input.userDataBinariesDir,
-    ffmpegBinName()
+    ffmpegBinName(input.platform)
   )
-  const envCandidate = input.envPath ?? process.env.MOTRIX_FFMPEG_PATH ?? null
   const order: Array<{ kind: CandidateKind; path: string | null }> = [
     { kind: 'manual', path: input.manualPath || null },
     { kind: 'userData', path: userDataCandidate },
-    { kind: 'env', path: envCandidate },
+    { kind: 'env', path: input.envPath },
     { kind: 'path', path: 'ffmpeg' },
   ]
 

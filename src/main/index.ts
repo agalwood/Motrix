@@ -1950,9 +1950,8 @@ async function initializeMainProcess(): Promise<void> {
     const ff = await locateFfmpeg({
       manualPath: settingsManager.getMedia().ffmpegBinaryPath,
       userDataBinariesDir: ffmpegBinariesDir,
-      ...(process.env.MOTRIX_FFMPEG_BIN
-        ? { envPath: process.env.MOTRIX_FFMPEG_BIN }
-        : {}),
+      platform: process.platform,
+      envPath: process.env.MOTRIX_FFMPEG_BIN ?? null,
     })
     const segmentAria2Client = new Aria2SegmentClient(rpcClient)
     segmentClient = segmentAria2Client
