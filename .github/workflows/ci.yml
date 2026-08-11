@@ -143,7 +143,13 @@ jobs:
           tests/scripts/snap-project.test.ts
           tests/scripts/snap-store-channel.test.ts
           tests/scripts/stage-electron-app.test.ts
+          tests/scripts/audit-server-runtime.test.ts
+          tests/scripts/docker-server-runtime.test.ts
+          tests/scripts/server-runtime-workflow.test.ts
+          tests/scripts/smoke-server-package.test.ts
+          tests/scripts/stage-server-app.test.ts
           tests/scripts/verify-electron-package.test.ts
+          tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
           tests/scripts/workflow-release-matrix.test.ts
           tests/scripts/workflow-snap.test.ts
@@ -160,6 +166,55 @@ jobs:
         # Remove continue-on-error once each is resolved.
         continue-on-error: true
         run: pnpm test
+
+  server-runtime:
+    name: Server runtime / ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64-musl
+            os: ubuntu-22.04
+            docker_arch: amd64
+          - target: linux-arm64-musl
+            os: ubuntu-22.04-arm
+            docker_arch: arm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Build staged Server image
+        run: >-
+          docker build
+          --platform linux/${{ matrix.docker_arch }}
+          --tag motrix-server-ci:${{ matrix.target }}
+          .
+
+      - name: Export Server size report
+        run: >-
+          docker build
+          --platform linux/${{ matrix.docker_arch }}
+          --target server-size-report
+          --output type=local,dest=release/size-reports
+          .
+
+      - name: Smoke staged Server image
+        run: >-
+          node scripts/smoke-server-image.mjs
+          --image motrix-server-ci:${{ matrix.target }}
+
+      - name: Upload Server size report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: server-size-report-${{ matrix.target }}
+          path: release/size-reports/server-${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 14
 
   rust-quality:
     name: Rust / fmt, clippy, test

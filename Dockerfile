@@ -28,6 +28,9 @@ RUN --mount=type=cache,id=motrix-builtins,target=/app/node_modules/.cache/motrix
  && node scripts/stage-server-app.mjs --platform linux --arch "${TARGETARCH}" --libc musl --strict \
  && node scripts/verify-server-package.mjs --app-dir dist/server-app --platform linux --arch "${TARGETARCH}" --libc musl
 
+FROM scratch AS server-size-report
+COPY --from=build /app/release/size-reports/ /
+
 FROM node:24-alpine AS runtime
 RUN apk add --no-cache aria2 ca-certificates \
  && rm -rf /usr/local/lib/node_modules/npm \
