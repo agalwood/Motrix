@@ -18,6 +18,7 @@ describe('integration: ext ↔ Motrix end-to-end (MDXP spec appendix B.2)', () =
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'test-token',
     })

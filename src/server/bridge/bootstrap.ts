@@ -143,6 +143,7 @@ export async function bootstrapBridgeForServer(
     // the device-code flow below, approved in the web UI.
     onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
     motrixVersion: opts.motrixVersion,
+    runtime: 'server',
     ffmpegAvailable: false,
     localToken,
     deviceCode,

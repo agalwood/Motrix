@@ -61,6 +61,7 @@ export interface BridgeServerOptions {
   registry: TrustedExtensionRegistry
   onPairRequest: (args: PairRequestArgs) => Promise<PairDecision>
   motrixVersion: string
+  runtime: 'electron' | 'server'
   ffmpegAvailable: boolean
   /**
    * Machine-owner Bearer token for the unary `POST /mdxp` transport. Generated
@@ -169,6 +170,7 @@ export class WebSocketBridgeServer {
       InitializeParamsSchema,
       createInitializeHandler({
         motrixVersion: opts.motrixVersion,
+        runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
         pairing: opts.pairing,
         registry: opts.registry,

@@ -11,6 +11,7 @@ import type { PairDecision, PairRequestArgs } from '../web-socket-bridge-server'
 
 export interface InitializeHandlerDeps {
   motrixVersion: string
+  runtime: 'electron' | 'server'
   ffmpegAvailable: boolean
   pairing: PairingService
   registry: TrustedExtensionRegistry
@@ -105,7 +106,7 @@ function buildResult(
     server: {
       name: 'motrix',
       version: deps.motrixVersion,
-      runtime: 'electron',
+      runtime: deps.runtime,
     },
     capabilities: {
       ffmpegAvailable: deps.ffmpegAvailable,

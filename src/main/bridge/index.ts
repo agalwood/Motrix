@@ -562,6 +562,7 @@ export async function bootstrapBridge(args: {
       pairing,
       registry,
       motrixVersion: args.motrixVersion,
+      runtime: 'electron',
       ffmpegAvailable: args.ffmpegAvailable,
       onPairRequest,
       localToken,

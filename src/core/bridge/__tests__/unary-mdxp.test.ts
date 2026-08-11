@@ -68,6 +68,7 @@ describe('unary POST /mdxp', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: LOCAL_TOKEN,
     })
@@ -265,6 +266,7 @@ describe('unary POST /mdxp — AppError normalization', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: LOCAL_TOKEN,
     })
@@ -329,6 +331,7 @@ describe('unary POST /mdxp — paired-token auth (device-code)', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: LOCAL_TOKEN,
     })
