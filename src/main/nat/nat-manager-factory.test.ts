@@ -1,9 +1,13 @@
+import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
   networkInterfaces: vi.fn(),
+  getLogger: vi.fn(),
+  setNatLogger: vi.fn(),
+  appLogger: {},
   snapshot: vi.fn(),
   udpFactory: vi.fn(),
   httpClient: { request: vi.fn() },
@@ -26,42 +30,44 @@ vi.mock('node:os', () => ({
   networkInterfaces: state.networkInterfaces,
 }))
 
-vi.mock('@core/nat/net/http-client', () => ({
+vi.mock('@core/logger', () => ({
+  getLogger: state.getLogger,
+}))
+
+vi.mock('@motrix/nat', () => ({
+  NatErrorCode: {
+    DiscoveryFailed: 'NAT_DISCOVERY_FAILED',
+    MappingFailed: 'NAT_MAPPING_FAILED',
+    MappingConflict: 'NAT_MAPPING_CONFLICT',
+    ProtocolRejected: 'NAT_PROTOCOL_REJECTED',
+    ParseError: 'NAT_PARSE_ERROR',
+    SecurityViolation: 'NAT_SECURITY_VIOLATION',
+    Timeout: 'NAT_TIMEOUT',
+    NetworkChanged: 'NAT_NETWORK_CHANGED',
+    GatewayUnreachable: 'NAT_GATEWAY_UNREACHABLE',
+    StunDetectionFailed: 'STUN_DETECTION_FAILED',
+  },
   nodeHttpClient: state.httpClient,
-}))
-
-vi.mock('@core/nat/net/udp-socket', () => ({
   nodeUdpSocketFactory: state.udpFactory,
-}))
-
-vi.mock('@core/nat/clients/upnp-client', () => ({
+  setNatLogger: state.setNatLogger,
   UpnpClient: class UpnpClient {
     constructor(options: unknown) {
       state.upnpOptions = options
       state.upnpInstance = this
     }
   },
-}))
-
-vi.mock('@core/nat/clients/pmp-pcp-client', () => ({
   PmpPcpClient: class PmpPcpClient {
     constructor(options: unknown) {
       state.pmpOptions = options
       state.pmpInstance = this
     }
   },
-}))
-
-vi.mock('@core/nat/clients/stun-client', () => ({
   StunClient: class StunClient {
     constructor(options: unknown) {
       state.stunOptions = options
       state.stunInstance = this
     }
   },
-}))
-
-vi.mock('@core/nat/network-monitor', () => ({
   NetworkMonitor: class NetworkMonitor {
     snapshot = state.snapshot
 
@@ -69,12 +75,15 @@ vi.mock('@core/nat/network-monitor', () => ({
       state.networkMonitorInstance = this
     }
   },
-}))
-
-vi.mock('@core/nat/port-checker', () => ({
   PortChecker: class PortChecker {
     constructor() {
       state.portCheckerInstance = this
+    }
+  },
+  NatManager: class NatManager {
+    constructor(options: unknown) {
+      state.natOptions = options
+      state.managerInstance = this
     }
   },
 }))
@@ -84,15 +93,6 @@ vi.mock('@core/nat/settings-nat-provider', () => ({
     constructor(settingsManager: unknown) {
       state.settingsManager = settingsManager
       state.settingsProviderInstance = this
-    }
-  },
-}))
-
-vi.mock('@core/nat/nat-manager', () => ({
-  NatManager: class NatManager {
-    constructor(options: unknown) {
-      state.natOptions = options
-      state.managerInstance = this
     }
   },
 }))
@@ -117,6 +117,7 @@ describe('createNatManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     state.natOptions = undefined
+    state.getLogger.mockReturnValue(state.appLogger)
     state.snapshot.mockReturnValue({ gatewayIp: '192.168.50.1' })
     state.networkInterfaces.mockReturnValue({
       lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
@@ -143,6 +144,8 @@ describe('createNatManager', () => {
       manager: state.managerInstance,
       networkMonitor: state.networkMonitorInstance,
     })
+    expect(state.getLogger).toHaveBeenCalledWith('nat')
+    expect(state.setNatLogger).toHaveBeenCalledWith(state.appLogger)
     expect(state.upnpOptions).toEqual({
       udpFactory: state.udpFactory,
       http: state.httpClient,
@@ -198,7 +201,6 @@ describe('createNatManager', () => {
 
     const cases = [
       ['state-changed', 'state', Events.NatStateChanged],
-      ['error', 'error', Events.NatError],
       ['gateway-changed', 'info', Events.NatGatewayChanged],
       ['mapping-updated', 'mappings', Events.NatMappingUpdated],
       ['diagnostic-completed', 'result', Events.NatDiagnosticCompleted],
@@ -208,6 +210,27 @@ describe('createNatManager', () => {
       options.onEvent({ type, [key]: payload })
       expect(eventBus.emit).toHaveBeenCalledWith(event, payload)
     }
+
+    options.onEvent({
+      type: 'error',
+      error: { code: 'NAT_DISCOVERY_FAILED', message: 'not found' },
+    })
+    expect(eventBus.emit).toHaveBeenCalledWith(Events.NatError, {
+      code: ErrorCode.NatDiscoveryFailed,
+      message: 'not found',
+    })
+
+    options.onEvent({
+      type: 'error',
+      error: {
+        code: 'NAT_SECURITY_WARNING',
+        message: 'unauthenticated protocol',
+      },
+    })
+    expect(eventBus.emit).toHaveBeenCalledWith(Events.NatError, {
+      code: 'NAT_SECURITY_WARNING',
+      message: 'unauthenticated protocol',
+    })
     const callsBeforeUnknown = eventBus.emit.mock.calls.length
     options.onEvent({ type: 'unknown' })
     expect(eventBus.emit).toHaveBeenCalledTimes(callsBeforeUnknown)

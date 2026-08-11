@@ -1,17 +1,38 @@
 import { networkInterfaces } from 'node:os'
 import type { EventBus } from '@core/events/event-bus'
-import { PmpPcpClient } from '@core/nat/clients/pmp-pcp-client'
-import { StunClient } from '@core/nat/clients/stun-client'
-import { UpnpClient } from '@core/nat/clients/upnp-client'
-import { NatManager, type NatManagerHooks } from '@core/nat/nat-manager'
-import { nodeHttpClient } from '@core/nat/net/http-client'
-import { nodeUdpSocketFactory } from '@core/nat/net/udp-socket'
-import { NetworkMonitor } from '@core/nat/network-monitor'
-import { PortChecker } from '@core/nat/port-checker'
+import { getLogger } from '@core/logger'
 import { SettingsNatProvider } from '@core/nat/settings-nat-provider'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import {
+  NatErrorCode,
+  type NatEvent,
+  NatManager,
+  type NatManagerHooks,
+  NetworkMonitor,
+  nodeHttpClient,
+  nodeUdpSocketFactory,
+  PmpPcpClient,
+  PortChecker,
+  StunClient,
+  setNatLogger,
+  UpnpClient,
+} from '@motrix/nat'
+import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
+
+const NAT_ERROR_CODE_MAP = {
+  [NatErrorCode.DiscoveryFailed]: ErrorCode.NatDiscoveryFailed,
+  [NatErrorCode.MappingFailed]: ErrorCode.NatMappingFailed,
+  [NatErrorCode.MappingConflict]: ErrorCode.NatMappingConflict,
+  [NatErrorCode.ProtocolRejected]: ErrorCode.NatProtocolRejected,
+  [NatErrorCode.ParseError]: ErrorCode.NatParseError,
+  [NatErrorCode.SecurityViolation]: ErrorCode.NatSecurityViolation,
+  [NatErrorCode.Timeout]: ErrorCode.NatTimeout,
+  [NatErrorCode.NetworkChanged]: ErrorCode.NatNetworkChanged,
+  [NatErrorCode.GatewayUnreachable]: ErrorCode.NatGatewayUnreachable,
+  [NatErrorCode.StunDetectionFailed]: ErrorCode.StunDetectionFailed,
+} satisfies Record<NatErrorCode, ErrorCode>
 
 export interface NatStack {
   manager: NatManager
@@ -23,6 +44,7 @@ export function createNatManager(args: {
   settingsManager: SettingsManager
 }): NatStack {
   const { eventBus, settingsManager } = args
+  setNatLogger(getLogger('nat'))
 
   // Derive client internal IP (16-byte v4-mapped IPv6) for PCP requests.
   // Best-effort: first non-internal IPv4 address. If none, fall back to loopback.
@@ -66,13 +88,16 @@ export function createNatManager(args: {
     },
   }
 
-  const onEvent = (event: { type: string; [key: string]: unknown }) => {
+  const onEvent = (event: NatEvent) => {
     switch (event.type) {
       case 'state-changed':
         eventBus.emit(Events.NatStateChanged, event.state)
         break
       case 'error':
-        eventBus.emit(Events.NatError, event.error)
+        eventBus.emit(Events.NatError, {
+          ...event.error,
+          code: mapNatErrorCode(event.error.code),
+        })
         break
       case 'gateway-changed':
         eventBus.emit(Events.NatGatewayChanged, event.info)
@@ -98,6 +123,10 @@ export function createNatManager(args: {
   })
 
   return { manager, networkMonitor }
+}
+
+function mapNatErrorCode(code: string): ErrorCode | string {
+  return NAT_ERROR_CODE_MAP[code as NatErrorCode] ?? code
 }
 
 function detectInternalIp(): string {

@@ -4,7 +4,6 @@ import { recommend } from '@core/engine/aria2/aria2-tuning'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
-import type { NatManager } from '@core/nat/nat-manager'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
@@ -30,6 +29,7 @@ import type {
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
+import type { NatManager } from '@motrix/nat'
 import {
   assertTaskInspectorActivityArguments,
   makeProtocolFailure,

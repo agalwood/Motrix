@@ -1,4 +1,4 @@
-import type { NatManager } from '@core/nat/nat-manager'
+import type { NatManager } from '@motrix/nat'
 import { ErrorCode } from '@shared/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NatCommandHandlers } from './nat-commands'
