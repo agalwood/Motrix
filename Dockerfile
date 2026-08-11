@@ -73,6 +73,7 @@ COPY --from=build --chown=node:node /app/build/legal/sbom.spdx.json ./legal/sbom
 ENV YARN_VERSION= \
     NODE_ENV=production \
     MOTRIX_DATA_DIR=/data \
+    MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
     MOTRIX_DEFAULT_SAVE_DIR=/downloads \
@@ -99,6 +100,7 @@ COPY --from=build --chown=node:node /app/dist/server-app/ ./
 ENV YARN_VERSION= \
     NODE_ENV=production \
     MOTRIX_DATA_DIR=/data \
+    MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
     MOTRIX_DEFAULT_SAVE_DIR=/downloads \

@@ -35,12 +35,16 @@ import { getLogger, initLogger } from '@core/logger'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
+import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
+import { pluginSecretFields } from '@core/plugin/configuration-schema'
+import { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
   PluginHost,
   parsePluginIdleDisposeMs,
 } from '@core/plugin/host/plugin-host'
+import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
@@ -110,8 +114,15 @@ import { buildServerQueryHandlers } from './ipc/queries'
 import { provisionOperatorToken } from './operator-token'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
+import {
+  createServerCommunityPluginPolicy,
+  parseAllowUnmanagedPlugins,
+} from './plugin/community-policy'
 import { startDevWatcher } from './plugin/dev-watcher'
+import { makeServerFfmpegDetect } from './plugin/ffmpeg-detect-server'
+import { ServerPluginInstallService } from './plugin/install-service'
 import { resolveServerPluginsDir } from './plugin/plugins-dir'
+import { serverBootstrapInstall } from './plugin/server-bootstrap-installer'
 import { createServerProxyApplier } from './proxy/wiring'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
 import {
@@ -393,9 +404,8 @@ async function main() {
   }
 
   // ─── Plugin runtime ─────────────────────────────────────────
-  const { pluginsDir, builtinDir } = await resolveServerPluginsDir(
-    platform.userDataDir
-  )
+  const { pluginsDir, builtinDir, pluginImportRoots } =
+    await resolveServerPluginsDir(platform.userDataDir)
   if (!shellAsyncWork.isAccepting()) return
   const pluginStateStore = new PluginStateStore(db.database)
   const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
@@ -406,6 +416,11 @@ async function main() {
     hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     hostLanguage,
     devPath,
+    communityDirectoryPolicy: createServerCommunityPluginPolicy({
+      allowUnmanagedPlugins: parseAllowUnmanagedPlugins(
+        process.env.MOTRIX_ALLOW_UNMANAGED_PLUGINS
+      ),
+    }),
   })
   await pluginRegistry.discover()
   if (!shellAsyncWork.isAccepting()) return
@@ -416,16 +431,19 @@ async function main() {
     userDataDir: platform.userDataDir,
     pluginsDir,
     settingsManager,
-    // TODO Task 22: wire settingsManager config lookup
-    configReader: (_pluginId) => ({}),
-    // TODO Plan F: derive from manifest contributes.configuration schema
-    secretFieldsFor: (_pluginId) => new Set(),
+    configReader: (pluginId) => settingsManager.get().plugins[pluginId] ?? {},
+    secretFieldsFor: (pluginId) =>
+      pluginSecretFields(pluginRegistry.get(pluginId)?.manifest),
     manifestCommandIdsFor: (pluginId) => {
       const cmds = pluginRegistry.get(pluginId)?.manifest.contributes.commands
       return new Set(cmds?.map((c) => c.id) ?? [])
     },
     localeSnapshotFor: (pluginId) =>
       pluginRegistry.getLocaleDictionaries(pluginId),
+  })
+  const pluginGrants = new GrantsManager({
+    registry: pluginRegistry,
+    eventBus,
   })
   pluginLocaleTargets = {
     registry: pluginRegistry,
@@ -445,21 +463,74 @@ async function main() {
     appVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     runtime: 'server',
     hostLanguage,
+    pluginGrants,
     idleDisposeMs: parsePluginIdleDisposeMs(
       process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
     ),
   })
   shutdownActions.drainPluginHost = () => pluginHost.shutdown()
+  eventBus.on(Events.PluginGrantsChanged, (...args: unknown[]) => {
+    const payload = args[0] as { pluginId?: string } | undefined
+    if (payload?.pluginId && pluginHost.isActive(payload.pluginId)) {
+      void pluginHost.deactivate(payload.pluginId)
+    }
+  })
   // Wire Plan D: cross-plugin command safeguards (schema cache + rate limit
   // + caller throttle + chain depth + audit) and bind the invoker to the
   // capability host. Must run AFTER registry.discover() so manifest schemas
   // can be compiled at install time.
-  wireCommandSystem({
+  const commandSystem = wireCommandSystem({
     registry: pluginRegistry,
     host: pluginHost,
     capabilityHost: pluginCapHost,
     pluginsDir,
   })
+
+  const hostVersion = process.env.MOTRIX_APP_VERSION ?? '2.0.0'
+  const registryClient = new RegistryClient({
+    cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
+  })
+  const pluginInstaller = new PluginInstaller({
+    pluginsDir,
+    registry: pluginRegistry,
+    stateStore: pluginStateStore,
+    capabilityHost: pluginCapHost,
+    hostVersion,
+    schemaCache: commandSystem.schemas,
+    ffmpegDetect: async () =>
+      projectActiveToLegacy(
+        await makeServerFfmpegDetect({
+          settingsManager,
+          userDataDir: platform.userDataDir,
+        })()
+      ),
+  })
+  const pluginInstallService = new ServerPluginInstallService({
+    installer: pluginInstaller,
+    registryClient,
+    hostVersion,
+    pluginsDir,
+    allowedLocalRoots: pluginImportRoots,
+  })
+  const bootstrapInstalls = await serverBootstrapInstall(
+    pluginInstallService,
+    pluginInstaller,
+    process.env
+  )
+  if (bootstrapInstalls.rejected.length > 0) {
+    throw new Error(
+      `Declarative plugin installation failed: ${bootstrapInstalls.rejected
+        .map(({ source, reason }) => `${source}: ${reason}`)
+        .join('; ')}`
+    )
+  }
+  if (bootstrapInstalls.accepted.length > 0) {
+    log.info(
+      { pluginIds: bootstrapInstalls.accepted },
+      'declarative plugin installation complete'
+    )
+  }
+  if (!shellAsyncWork.isAccepting()) return
 
   const pluginActivation = new ActivationDispatcher(pluginRegistry, pluginHost)
   let devWatcherHandle: { close(): Promise<void> } | null = null
@@ -753,6 +824,9 @@ async function main() {
     pluginRegistry,
     pluginStateStore,
     pluginHost,
+    pluginInstaller,
+    pluginInstallService,
+    pluginGrants,
     capabilityHost: pluginCapHost,
     userDataDir: platform.userDataDir,
     pluginsDir,
@@ -774,9 +848,6 @@ async function main() {
     publishTaskUpdateNow,
     downloadPathPolicy,
   })
-  const registryClient = new RegistryClient({
-    cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
-  })
   const queryHandlers = buildServerQueryHandlers({
     taskManager,
     statsAggregator,
@@ -791,9 +862,10 @@ async function main() {
     engineAdapter: adapter,
     notificationCenter,
     pluginRegistry,
+    pluginGrants,
     registryClient,
     pluginsDir,
-    hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
+    hostVersion,
     userDataDir: platform.userDataDir,
     speedLimitController,
     downloadPathPolicy,

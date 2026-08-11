@@ -72,6 +72,33 @@ describe('PluginRegistry', () => {
     expect(reg.list().map((p) => p.id)).toEqual(['alice.one'])
   })
 
+  it('applies the host community-directory policy before indexing', async () => {
+    plant(path.join(dir, 'community'), 'alice.one')
+    const policy = vi.fn(async () => ({
+      ok: false,
+      reason: 'plugin.lifecycle.install_record_required',
+    }))
+    const guarded = new PluginRegistry({
+      pluginsDir: path.join(dir, 'community'),
+      builtinDir: path.join(dir, 'builtin'),
+      stateStore: store,
+      hostVersion: '2.5.0',
+      communityDirectoryPolicy: policy,
+    })
+
+    await guarded.discover()
+
+    expect(guarded.list()).toEqual([])
+    expect(guarded.loadErrors()).toEqual([
+      expect.objectContaining({
+        message: 'plugin.lifecycle.install_record_required',
+      }),
+    ])
+    expect(policy).toHaveBeenCalledWith(
+      path.join(dir, 'community', 'alice.one')
+    )
+  })
+
   it('discover() removes orphan ffmpeg staging dirs before scanning plugins', async () => {
     // Seed an orphan staging dir from a previous (crashed) run.
     const orphanRoot = path.join(dir, 'community', 'alice', 'staging', 't-old')

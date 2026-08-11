@@ -14,6 +14,7 @@
 // row → purge plugin_storage + plugin_task_metadata + plugin_cookie_jar →
 // remove the install directory → refresh registry.
 
+import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { FALLBACK_LOCALE } from '@shared/constants/locales'
@@ -110,6 +111,10 @@ interface StagedInstall {
 export interface StageResult {
   stagingId: string
   consent: ConsentPayload
+  /** True when a trust-equivalent upgrade committed without another prompt. */
+  committed: boolean
+  /** Present when `committed` is true. */
+  pluginId?: string
 }
 
 export interface StageOptions {
@@ -169,6 +174,22 @@ export class PluginInstaller {
       moextPath,
       stagingDir
     )
+    const localFileHash =
+      sourceInput.type === 'local'
+        ? createHash('sha256')
+            .update(await readFile(moextPath))
+            .digest('hex')
+        : null
+    if (
+      sourceInput.type === 'local' &&
+      sourceInput.fileHash !== localFileHash
+    ) {
+      await rm(stagingDir, { recursive: true, force: true })
+      throw new AppError(
+        ErrorCode.PluginManifestInvalid,
+        'plugin.install.local_file_hash_mismatch'
+      )
+    }
 
     let parsedManifest: PluginManifest
     try {
@@ -305,9 +326,15 @@ export class PluginInstaller {
     this.pending.set(stagingId, staged)
 
     if (!needConsent) {
-      await this.commit(stagingId, prev?.grants ?? {})
+      const committed = await this.commit(stagingId, prev?.grants ?? {})
+      return {
+        stagingId,
+        consent,
+        committed: true,
+        pluginId: committed.pluginId,
+      }
     }
-    return { stagingId, consent }
+    return { stagingId, consent, committed: false }
   }
 
   async commit(

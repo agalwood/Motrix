@@ -44,6 +44,10 @@ export interface PluginRegistryOptions {
   signingPubkeys?: ReadonlyArray<string>
   /** Injectable locale reader for deterministic prepare/commit race tests. */
   readLocaleFile?: (filePath: string) => Promise<string>
+  /** Host-owned gate for writable community plugin directories. */
+  communityDirectoryPolicy?: (
+    pluginDir: string
+  ) => Promise<{ ok: boolean; reason?: string }>
   /** Shell-provided plugin development directory; omitted outside dev mode. */
   devPath?: string
 }
@@ -457,8 +461,20 @@ export class PluginRegistry {
       throw e
     }
     for (const name of entries) {
+      if (origin === 'community' && name.startsWith('_')) continue
       const dir = path.join(root, name)
       try {
+        if (origin === 'community' && this.opts.communityDirectoryPolicy) {
+          const policy = await this.opts.communityDirectoryPolicy(dir)
+          if (!policy.ok) {
+            this.errors.push({
+              pluginDir: dir,
+              code: ErrorCode.PluginManifestInvalid,
+              message: policy.reason ?? 'plugin.lifecycle.unsigned_not_allowed',
+            })
+            continue
+          }
+        }
         const raw = await readFile(path.join(dir, 'motrix-plugin.json'), 'utf8')
         const { manifest } = parseManifest(raw, {
           hostVersion: this.opts.hostVersion,

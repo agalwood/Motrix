@@ -1256,10 +1256,14 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         toSourceInput(parsed),
         { expect }
       )
-      eventBus.emit(Events.PluginInstallConsentRequested, {
-        stagingId: result.stagingId,
-        consent: result.consent,
-      })
+      if (result.committed && result.pluginId) {
+        eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
+      } else {
+        eventBus.emit(Events.PluginInstallConsentRequested, {
+          stagingId: result.stagingId,
+          consent: result.consent,
+        })
+      }
       return result
     },
 

@@ -18,6 +18,7 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain('apk add --no-cache aria2 ca-certificates')
     expect(runtime).toContain('MOTRIX_ARIA2_BIN=/usr/bin/aria2c')
     expect(runtime).toContain('MOTRIX_DATA_DIR=/data')
+    expect(runtime).toContain('MOTRIX_PLUGIN_DIR=/data/plugins')
     expect(runtime).toContain('MOTRIX_DEFAULT_SAVE_DIR=/downloads')
     expect(runtime).toContain('MOTRIX_ALLOWED_SAVE_DIRS=/downloads')
     expect(runtime).toContain('mkdir -p /data /downloads')

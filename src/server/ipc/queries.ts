@@ -4,6 +4,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
+import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import {
   buildContributionIndex,
@@ -92,6 +93,7 @@ export interface ServerQueryContext {
   engineAdapter: EngineAdapter
   notificationCenter: NotificationCenter
   pluginRegistry: PluginRegistry
+  pluginGrants: GrantsManager
   registryClient: RegistryClient
   pluginsDir: string
   hostVersion: string
@@ -117,6 +119,7 @@ export function buildServerQueryHandlers(
     engineAdapter,
     notificationCenter,
     pluginRegistry,
+    pluginGrants,
     registryClient,
     pluginsDir,
     hostVersion,
@@ -207,6 +210,11 @@ export function buildServerQueryHandlers(
 
     [Queries.GetPluginConfig]: async (pluginId: string) =>
       readPluginConfig(settingsManager.get(), pluginId),
+
+    [Queries.GetPluginGrants]: async (pluginId: string) =>
+      pluginGrants.getGrants(pluginId),
+
+    [Queries.ListPluginGrants]: async () => pluginGrants.listAllGrants(),
 
     [Queries.GetContributionIndex]: async () =>
       buildContributionIndex(pluginRegistry.entries()),

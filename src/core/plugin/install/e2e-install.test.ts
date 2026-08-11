@@ -269,10 +269,11 @@ describe('PluginInstaller e2e', () => {
       manifestJSON()
     )
 
-    const { stagingId, consent } = await installer.stage(moext, {
+    const { stagingId, consent, committed } = await installer.stage(moext, {
       type: 'github',
       spec: 'example/test',
     })
+    expect(committed).toBe(false)
     expect(consent.manifest.id).toBe('example.test')
     expect(consent.diff).toBeNull()
 
@@ -303,7 +304,14 @@ describe('PluginInstaller e2e', () => {
       manifestJSON({ version: '1.0.1' }),
       Buffer.from('console.log(2);', 'utf8')
     )
-    await installer.stage(v2, { type: 'github', spec: 'example/test' })
+    const staged = await installer.stage(v2, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    expect(staged).toMatchObject({
+      committed: true,
+      pluginId: 'example.test',
+    })
 
     const onDisk = await readFile(
       path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
@@ -430,6 +438,23 @@ describe('PluginInstaller e2e', () => {
     ).rejects.toMatchObject({ message: 'plugin.install.zip_slip' })
     expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(false)
     void readdir
+  })
+
+  it('rejects a local package when the claimed file hash differs', async () => {
+    const moext = await writeMoext(
+      path.join(inputDir, 'hash-mismatch.moext'),
+      manifestJSON()
+    )
+
+    await expect(
+      installer.stage(moext, {
+        type: 'local',
+        absPath: moext,
+        fileHash: '0'.repeat(64),
+      })
+    ).rejects.toMatchObject({
+      message: 'plugin.install.local_file_hash_mismatch',
+    })
   })
 
   it('id immutable: stage with a different prior pluginId rejected', async () => {
