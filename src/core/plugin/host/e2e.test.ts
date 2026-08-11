@@ -49,7 +49,10 @@ describe('Plugin runtime end-to-end (real QuickJS)', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     // Cast: this test only exercises Plan A surfaces; Plan B fields are unused.

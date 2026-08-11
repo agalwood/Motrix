@@ -1,9 +1,11 @@
-import { resolveSupportedLocale } from '@shared/constants/locales'
 import type { AppCapabilitySnapshot } from './interface'
 
 export interface AppCapabilityHostOptions {
   appVersion: string
+  platform: AppCapabilitySnapshot['platform']
   runtime: 'electron' | 'server'
+  locale: string
+  arch: AppCapabilitySnapshot['arch']
 }
 
 export class AppCapabilityHost {
@@ -11,10 +13,10 @@ export class AppCapabilityHost {
   snapshot(): AppCapabilitySnapshot {
     return {
       version: this.opts.appVersion,
-      platform: process.platform as 'darwin' | 'win32' | 'linux',
+      platform: this.opts.platform,
       runtime: this.opts.runtime,
-      locale: resolveSupportedLocale(process.env.LANG),
-      arch: process.arch as 'x64' | 'arm64',
+      locale: this.opts.locale,
+      arch: this.opts.arch,
     }
   }
 }

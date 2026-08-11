@@ -212,7 +212,12 @@ describe('createServerCapabilityHost', () => {
     host.setLocale('zh-CN')
 
     expect(changed).toHaveBeenCalledWith('zh-CN')
-    expect(host.appSnapshot().locale).toBe('zh-CN')
+    expect(host.appSnapshot()).toMatchObject({
+      runtime: 'server',
+      platform: process.platform,
+      arch: process.arch,
+      locale: 'zh-CN',
+    })
     expect(host.i18nSnapshot('alice.demo')).toEqual({
       language: 'zh-CN',
       dir: 'ltr',

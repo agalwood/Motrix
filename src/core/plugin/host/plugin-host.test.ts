@@ -127,7 +127,10 @@ describe('PluginHost', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     // Cast: these tests only exercise Plan A surfaces; Plan B fields are unused.
@@ -397,7 +400,10 @@ describe('PluginHost.deactivate — lifecycle wiring', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     capHost = {
@@ -623,7 +629,10 @@ describe('PluginHost locale change propagation', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     const capHost = {
@@ -689,7 +698,10 @@ describe('PluginHost locale change propagation', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const capHost = {
       createLog: (id: string) => log.create(id),
@@ -742,7 +754,10 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     capHost = {
@@ -914,7 +929,10 @@ describe('PluginHost.activate — builtin overlay bundle read path', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     capHost = {

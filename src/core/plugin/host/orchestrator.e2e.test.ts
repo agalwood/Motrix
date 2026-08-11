@@ -47,7 +47,10 @@ function buildCapHost(rootDir: string): CapabilityHost {
   })
   const app = new AppCapabilityHost({
     appVersion: '2.5.0',
+    platform: 'linux',
     runtime: 'server',
+    locale: 'en-US',
+    arch: 'x64',
   })
   const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
   // Plan A surface only: the role-band fixtures call ctx.update which is
