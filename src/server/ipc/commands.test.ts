@@ -48,6 +48,7 @@ function makeFakeCtx() {
     settingsManager: {
       get: vi.fn(),
       update: vi.fn(),
+      removePluginConfig: vi.fn().mockResolvedValue(undefined),
       getApp: vi.fn(() => ({
         defaultSaveDir: '/tmp',
         magnetFileSelection: true,
@@ -823,6 +824,9 @@ describe('server plugin lifecycle commands', () => {
 
     expect(ctx.pluginInstaller.cancel).toHaveBeenCalledWith('s1')
     expect(ctx.pluginInstaller.uninstall).toHaveBeenCalledWith('test.plugin')
+    expect(ctx.settingsManager.removePluginConfig).toHaveBeenCalledWith(
+      'test.plugin'
+    )
     expect(ctx.eventBus.emit).toHaveBeenCalledWith(Events.PluginUninstalled, {
       pluginId: 'test.plugin',
     })

@@ -1371,6 +1371,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     [Commands.UninstallPlugin]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
       await pluginInstaller.uninstall(parsed.pluginId)
+      await settingsManager.removePluginConfig(parsed.pluginId)
       eventBus.emit(Events.PluginUninstalled, { pluginId: parsed.pluginId })
       return { ok: true }
     },
