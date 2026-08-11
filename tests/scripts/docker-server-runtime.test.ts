@@ -53,4 +53,30 @@ describe('Docker Server runtime staging contract', () => {
       '!tests/generate-third-party-notices.test.ts'
     )
   })
+
+  it('keeps a corrected full-root comparison target without changing the final target', async () => {
+    const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
+    const baselineStart = dockerfile.indexOf(
+      'FROM node:24-alpine AS server-full-root-baseline'
+    )
+    const runtimeStart = dockerfile.indexOf('FROM node:24-alpine AS runtime')
+    const baseline = dockerfile.slice(baselineStart, runtimeStart)
+
+    expect(baselineStart).toBeGreaterThanOrEqual(0)
+    expect(runtimeStart).toBeGreaterThan(baselineStart)
+    expect(dockerfile).toContain(
+      'FROM node:24-alpine AS full-root-production-deps'
+    )
+    expect(dockerfile).toContain(
+      'pnpm install --prod --frozen-lockfile --ignore-scripts'
+    )
+    expect(baseline).toContain(
+      'COPY --from=full-root-production-deps --chown=node:node /app/node_modules ./node_modules'
+    )
+    expect(baseline).toContain('/app/dist/core/plugin/host')
+    expect(baseline).toContain('/app/build/legal/sbom.spdx.json')
+    expect(
+      dockerfile.trimEnd().endsWith('CMD ["node", "dist/server/index.mjs"]')
+    ).toBe(true)
+  })
 })
