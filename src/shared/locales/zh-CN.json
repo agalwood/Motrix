@@ -1581,7 +1581,9 @@
       },
       "checkAriaLabel": "检查该插件",
       "install": "安装插件",
-      "localUnavailable": "本地文件安装仅在桌面应用中可用。",
+      "pickLocal": "选择本地 .moext 文件",
+      "localUnavailable": "当前宿主不支持本地文件安装。",
+      "localPrepareFailed": "无法准备此插件文件：{{detail}}",
       "dropHint": "将 .moext 文件拖至此处以检查该插件",
       "dragDisabledHint": "当前环境不支持拖拽。请使用 GitHub 地址或链接。",
       "warning": "安装前请注意:只有信任作者并预期它会使用上述权限时,才继续安装。"

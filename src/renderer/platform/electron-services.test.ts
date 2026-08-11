@@ -2,14 +2,34 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { electronServices } from './electron-services'
+import { sha256File } from './plugin-install-file'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn() },
+}))
+vi.mock('./plugin-install-file', () => ({
+  sha256File: vi.fn(async () => 'a'.repeat(64)),
 }))
 
 describe('electronServices', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.motrix = {
+      getPathForFile: vi.fn(() => '/host/plugin.moext'),
+    } as never
+  })
+
+  it('converts a selected file through the Electron host capability', async () => {
+    const file = new File(['plugin'], 'plugin.moext')
+    await expect(
+      electronServices.pluginInstallFile?.prepare(file)
+    ).resolves.toEqual({
+      sourceType: 'local',
+      absPath: '/host/plugin.moext',
+      fileHash: 'a'.repeat(64),
+    })
+    expect(window.motrix?.getPathForFile).toHaveBeenCalledWith(file)
+    expect(sha256File).toHaveBeenCalledWith(file)
   })
 
   it('pickSaveDir returns path on user confirm', async () => {

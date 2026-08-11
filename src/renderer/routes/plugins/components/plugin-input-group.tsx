@@ -13,6 +13,10 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { useDragDepth } from '@renderer/hooks/use-drag-depth'
 import { cn } from '@renderer/lib/utils'
+import {
+  type PluginInstallFileReference,
+  useOptionalPlatformServices,
+} from '@renderer/platform/services'
 import { Paperclip, Search } from 'lucide-react'
 import { type ChangeEvent, useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,64 +32,49 @@ const OPTIONAL_TONE = getAudienceTone('optional')
 export type CheckArgs =
   | { sourceType: 'github'; spec: string }
   | { sourceType: 'url'; url: string }
-  | { sourceType: 'local'; absPath: string; fileHash: string }
+  | PluginInstallFileReference
 
 interface Props {
   onCheck: (args: CheckArgs) => void | Promise<void>
   checking: boolean
 }
 
-async function sha256Hex(file: File): Promise<string> {
-  const buf = await file.arrayBuffer()
-  const digest = await crypto.subtle.digest('SHA-256', buf)
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 export function PluginInputGroup({ onCheck, checking }: Props) {
   const { t } = useTranslation()
+  const platform = useOptionalPlatformServices()
+  const fileCapability = platform?.pluginInstallFile
   const [input, setInput] = useState('')
-  const [localPath, setLocalPath] = useState<string | null>(null)
-  const [localFile, setLocalFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const detected: DetectedSource = detectInstallSource(input)
-  const isElectron = typeof window.motrix?.getPathForFile === 'function'
-  const canCheck =
-    !!detected &&
-    !checking &&
-    (detected !== 'local' || (!!localPath && !!localFile))
+  const canCheck = !!detected && !checking && detected !== 'local'
 
   const acceptFile = useCallback(
     async (file: File) => {
-      if (checking) return
-      const resolved = window.motrix?.getPathForFile?.(file)
-      if (!resolved) return
-      setLocalPath(resolved)
-      setLocalFile(file)
+      if (checking || !fileCapability) return
+      setFileError(null)
       setInput(file.name)
-      const fileHash = await sha256Hex(file)
-      await onCheck({
-        sourceType: 'local',
-        absPath: resolved,
-        fileHash,
-      })
+      try {
+        await onCheck(await fileCapability.prepare(file))
+      } catch (cause) {
+        setFileError(cause instanceof Error ? cause.message : String(cause))
+      }
     },
-    [onCheck, checking]
+    [onCheck, checking, fileCapability]
   )
 
   const onFilesDrop = useCallback(
     (files: FileList) => {
-      if (!isElectron || checking) return
+      if (!fileCapability || checking) return
       const file = files[0]
       if (file) void acceptFile(file)
     },
-    [isElectron, acceptFile, checking]
+    [fileCapability, acceptFile, checking]
   )
 
   const { isDragging, dragHandlers } = useDragDepth<HTMLElement>(onFilesDrop)
-  const showDragOverlay = isDragging && isElectron
+  const showDragOverlay = isDragging && Boolean(fileCapability)
 
   function onLocalChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -98,13 +87,6 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
       await onCheck({ sourceType: 'github', spec: input.trim() })
     } else if (detected === 'url') {
       await onCheck({ sourceType: 'url', url: input.trim() })
-    } else if (detected === 'local' && localPath && localFile) {
-      const fileHash = await sha256Hex(localFile)
-      await onCheck({
-        sourceType: 'local',
-        absPath: localPath,
-        fileHash,
-      })
     }
   }
 
@@ -147,16 +129,20 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
                         variant="ghost"
                         size="icon-xs"
                         className="rounded-full"
-                        disabled={!isElectron || checking}
+                        disabled={!fileCapability || checking}
                         onClick={() => fileInputRef.current?.click()}
-                        aria-label={t('plugins.install.localUnavailable')}
+                        aria-label={t(
+                          fileCapability
+                            ? 'plugins.install.pickLocal'
+                            : 'plugins.install.localUnavailable'
+                        )}
                       >
                         <Paperclip className="size-4" />
                       </Button>
                     </span>
                   }
                 />
-                {!isElectron && (
+                {!fileCapability && (
                   <TooltipContent>
                     {t('plugins.install.localUnavailable')}
                   </TooltipContent>
@@ -207,7 +193,7 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
               type: t(`plugins.install.detected.${detected}`),
             })}
           </Badge>
-          {isElectron && (
+          {fileCapability && (
             <Badge
               variant="outline"
               className={cn(
@@ -220,6 +206,11 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
             </Badge>
           )}
         </div>
+      )}
+      {fileError && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {t('plugins.install.localPrepareFailed', { detail: fileError })}
+        </p>
       )}
     </section>
   )

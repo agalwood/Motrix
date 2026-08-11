@@ -1,5 +1,6 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
+import { sha256File } from './plugin-install-file'
 import type { PlatformServices } from './services'
 
 type PickRequest = { defaultPath?: string }
@@ -44,9 +45,56 @@ export function __setWebCloseHandler(fn: (() => void) | null): void {
   __webCloseHandler = fn
 }
 
-export function createWebServices(): PlatformServices {
+export interface WebServicesOptions {
+  fetchImpl?: typeof fetch
+  baseUrl?: string
+}
+
+export function createWebServices(
+  options: WebServicesOptions = {}
+): PlatformServices {
+  const fetchImpl = options.fetchImpl ?? fetch.bind(globalThis)
+  const baseUrl = options.baseUrl ?? globalThis.location?.origin ?? ''
   return {
     kind: 'web',
+
+    pluginInstallFile: {
+      mode: 'upload',
+      async prepare(file) {
+        const fileHash = await sha256File(file)
+        const response = await fetchImpl(`${baseUrl}/api/plugins/uploads`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'content-type': 'application/vnd.motrix.moext',
+            'x-motrix-file-name': encodeURIComponent(file.name),
+            'x-motrix-file-sha256': fileHash,
+          },
+          body: file,
+        })
+        if (!response.ok) {
+          const detail = await response.text()
+          throw new Error(
+            `Plugin upload failed (${response.status}): ${detail}`
+          )
+        }
+        const reference = (await response.json()) as {
+          uploadId?: unknown
+          fileHash?: unknown
+        }
+        if (
+          typeof reference.uploadId !== 'string' ||
+          reference.fileHash !== fileHash
+        ) {
+          throw new Error('Plugin upload returned an invalid reference')
+        }
+        return {
+          sourceType: 'upload',
+          uploadId: reference.uploadId,
+          fileHash,
+        }
+      },
+    },
 
     pickSaveDir(defaultPath) {
       return __webPathPickerBus.request({ defaultPath })

@@ -11,6 +11,7 @@ export type InstallSource =
   | { sourceType: 'github'; spec: string }
   | { sourceType: 'url'; url: string }
   | { sourceType: 'local'; absPath: string; fileHash: string }
+  | { sourceType: 'upload'; uploadId: string; fileHash: string }
   | { sourceType: 'registry'; pluginId: string }
 
 interface InstallResult {

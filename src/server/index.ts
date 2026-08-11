@@ -123,7 +123,9 @@ import { makeServerFfmpegDetect } from './plugin/ffmpeg-detect-server'
 import { ServerPluginInstallService } from './plugin/install-service'
 import { resolveServerPluginsDir } from './plugin/plugins-dir'
 import { serverBootstrapInstall } from './plugin/server-bootstrap-installer'
+import { PluginUploadStore } from './plugin/upload-store'
 import { createServerProxyApplier } from './proxy/wiring'
+import { registerPluginUploadRoute } from './routes/plugin-uploads'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
 import {
   createServerExitCoordinator,
@@ -505,12 +507,16 @@ async function main() {
         })()
       ),
   })
+  const pluginUploadStore = new PluginUploadStore(
+    path.join(pluginsDir, '_uploads')
+  )
   const pluginInstallService = new ServerPluginInstallService({
     installer: pluginInstaller,
     registryClient,
     hostVersion,
     pluginsDir,
     allowedLocalRoots: pluginImportRoots,
+    uploadStore: pluginUploadStore,
   })
   const bootstrapInstalls = await serverBootstrapInstall(
     pluginInstallService,
@@ -908,6 +914,8 @@ async function main() {
     await app.close()
     return
   }
+
+  registerPluginUploadRoute(app, pluginUploadStore)
 
   registerTasksBulkRoutes(app, {
     taskManager,

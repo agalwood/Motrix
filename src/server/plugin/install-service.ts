@@ -19,6 +19,7 @@ import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
 import { AppError, ErrorCode } from '@shared/errors'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { z } from 'zod'
+import type { PluginUploadStore } from './upload-store'
 
 const MAX_PLUGIN_PACKAGE_BYTES = 5 * 1024 * 1024
 
@@ -30,6 +31,11 @@ export const serverInstallPluginPayloadSchema = z.discriminatedUnion(
     z.object({
       sourceType: z.literal('local'),
       absPath: z.string().min(1),
+      fileHash: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+    z.object({
+      sourceType: z.literal('upload'),
+      uploadId: z.string().uuid(),
       fileHash: z.string().regex(/^[0-9a-f]{64}$/),
     }),
     z.object({
@@ -49,6 +55,7 @@ export interface ServerPluginInstallServiceOptions {
   hostVersion: string
   pluginsDir: string
   allowedLocalRoots?: readonly string[]
+  uploadStore?: PluginUploadStore
   fetchImpl?: typeof fetch
 }
 
@@ -176,6 +183,27 @@ export class ServerPluginInstallService {
             fileHash: payload.fileHash,
           },
           temporary: false,
+        }
+      }
+      case 'upload': {
+        if (!this.options.uploadStore) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.upload_unavailable'
+          )
+        }
+        const moextPath = await this.options.uploadStore.resolve(
+          payload.uploadId,
+          payload.fileHash
+        )
+        return {
+          moextPath,
+          source: {
+            type: 'local',
+            absPath: moextPath,
+            fileHash: payload.fileHash,
+          },
+          temporary: true,
         }
       }
       case 'registry': {

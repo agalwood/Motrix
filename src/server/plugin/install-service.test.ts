@@ -85,6 +85,33 @@ describe('ServerPluginInstallService', () => {
     })
   })
 
+  it('resolves an opaque upload reference and removes it after staging', async () => {
+    const uploadedPath = path.join(pluginsDir, '_uploads', 'u.moext')
+    await mkdir(path.dirname(uploadedPath), { recursive: true })
+    await writeFile(uploadedPath, 'fixture')
+    const uploadStore = {
+      resolve: vi.fn(async () => uploadedPath),
+    }
+    const { service, stage } = makeService({ uploadStore })
+
+    await service.stage({
+      sourceType: 'upload',
+      uploadId: '123e4567-e89b-42d3-a456-426614174000',
+      fileHash: 'a'.repeat(64),
+    })
+
+    expect(uploadStore.resolve).toHaveBeenCalledWith(
+      '123e4567-e89b-42d3-a456-426614174000',
+      'a'.repeat(64)
+    )
+    expect(stage).toHaveBeenCalledWith(
+      uploadedPath,
+      expect.objectContaining({ type: 'local', fileHash: 'a'.repeat(64) }),
+      { expect: undefined }
+    )
+    await expect(readdir(path.dirname(uploadedPath))).resolves.toEqual([])
+  })
+
   it('downloads a URL package into the persistent work root and cleans it after staging', async () => {
     const fetchImpl = vi.fn(async () =>
       Promise.resolve(new Response('plugin-bytes', { status: 200 }))

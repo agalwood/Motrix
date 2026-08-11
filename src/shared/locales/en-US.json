@@ -1596,7 +1596,9 @@
       },
       "checkAriaLabel": "Check this plugin",
       "install": "Install plugin",
-      "localUnavailable": "Local file install is only available in the desktop app.",
+      "pickLocal": "Choose a local .moext file",
+      "localUnavailable": "Local file install is unavailable in this host.",
+      "localPrepareFailed": "Could not prepare this plugin file: {{detail}}",
       "dropHint": "Drop a .moext file here to check this plugin",
       "dragDisabledHint": "Drag-and-drop is not supported in this environment. Use a GitHub address or a URL.",
       "warning": "Before installing: only continue if you trust the author and expect it to use the access listed above."
