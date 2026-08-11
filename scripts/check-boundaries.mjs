@@ -33,6 +33,11 @@ const rules = [
     dir: 'src/server/',
   },
   {
+    label: 'production source must not reference deployment staging contracts',
+    pattern: String.raw`(electron|server)-runtime-dependencies\.json|\.motrix-(package|server)-stage\.json|dist/(electron|server)-app`,
+    dir: 'src/',
+  },
+  {
     label:
       'add-task UI must not import transport or protocol commands (except the IPC-aware hook/dialog/form)',
     pattern: `from ['"](@renderer/lib/transport|@shared/protocol/commands)['"]`,
