@@ -108,6 +108,7 @@ import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
 } from './download-path-policy'
+import { parseServerPort } from './environment'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
@@ -125,8 +126,11 @@ import { resolveServerPluginsDir } from './plugin/plugins-dir'
 import { serverBootstrapInstall } from './plugin/server-bootstrap-installer'
 import { PluginUploadStore } from './plugin/upload-store'
 import { createServerProxyApplier } from './proxy/wiring'
+import { registerServerDiagnosticsRoute } from './routes/diagnostics'
 import { registerPluginUploadRoute } from './routes/plugin-uploads'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
+import { prepareServerRuntimeDirectories } from './runtime-directories'
+import { serverHealthSnapshot } from './runtime-health'
 import {
   createServerExitCoordinator,
   createServerShutdown,
@@ -147,7 +151,15 @@ async function main() {
 
   // ─── Platform ─────────────────────────────────────────────────
   const platform = createNodePlatformServices()
-  log.info({ platform }, 'boot')
+  const runtimeDirectories = await prepareServerRuntimeDirectories({
+    dataDir: platform.userDataDir,
+    tempDirValue: process.env.MOTRIX_TEMP_DIR,
+  })
+  process.env.TMPDIR = runtimeDirectories.tempDir
+  log.info(
+    { platform, tempDir: runtimeDirectories.tempDir },
+    'runtime directories ready'
+  )
 
   // The cleanup coordinator exists before the first fallible acquisition.
   // Each resource replaces its no-op slot immediately when ownership is
@@ -763,7 +775,7 @@ async function main() {
     exists: pathExists,
   })
   const torrentMetaStore = new TorrentMetaStoreImpl(
-    path.join(platform.userDataDir, 'torrents')
+    runtimeDirectories.torrentsDir
   )
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
@@ -792,7 +804,7 @@ async function main() {
         taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       runExclusivePersistence: (operation) =>
         sessionManager.runExclusivePersistence(operation),
-      torrentMetaDir: path.join(platform.userDataDir, 'torrents'),
+      torrentMetaDir: runtimeDirectories.torrentsDir,
       occurrenceDispatcher,
     }
   )
@@ -908,6 +920,11 @@ async function main() {
     eventBus,
     rendererDir,
     operatorAuth: { operatorToken: operator.token },
+    healthCheck: () =>
+      serverHealthSnapshot({
+        accepting: shellAsyncWork.isAccepting(),
+        engine: supervisor.getStatus(),
+      }),
   })
   shutdownActions.closeIngress = () => app.close()
   if (!shellAsyncWork.isAccepting()) {
@@ -916,6 +933,46 @@ async function main() {
   }
 
   registerPluginUploadRoute(app, pluginUploadStore)
+  registerServerDiagnosticsRoute(app, async () => ({
+    generatedAt: Date.now(),
+    health: serverHealthSnapshot({
+      accepting: shellAsyncWork.isAccepting(),
+      engine: supervisor.getStatus(),
+    }),
+    engine: await supervisor.diagnose(),
+    media: {
+      ffmpeg: await makeServerFfmpegDetect({
+        settingsManager,
+        userDataDir: runtimeDirectories.dataDir,
+      })(),
+      tempDir: runtimeDirectories.tempDir,
+    },
+    process: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      uid: process.getuid?.() ?? null,
+    },
+    storage: {
+      dataDir: runtimeDirectories.dataDir,
+      tempDir: runtimeDirectories.tempDir,
+      torrentsDir: runtimeDirectories.torrentsDir,
+      homeDir: runtimeDirectories.homeDir,
+      settingsFile: path.join(runtimeDirectories.dataDir, 'settings.json'),
+      databaseFile: path.join(runtimeDirectories.dataDir, 'motrix.db'),
+      aria2SessionFile: path.join(runtimeDirectories.dataDir, 'aria2.session'),
+      defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+      allowedSaveDirs: downloadPathPolicy.allowedSaveDirs,
+    },
+    plugins: {
+      directory: pluginsDir,
+      builtinDirectory: builtinDir,
+      importRoots: pluginImportRoots,
+      secretStoreAvailable: pluginCapHost.secrets.available(),
+      installAvailable: true,
+    },
+    operatorAuth: { source: operator.source },
+  }))
 
   registerTasksBulkRoutes(app, {
     taskManager,
@@ -1231,7 +1288,7 @@ async function main() {
     // Do not expose command/query ingress until restore, transition recovery,
     // and recovered Activity anchors have settled. Otherwise an early request
     // can observe an empty/partial TaskManager or a false TaskNotFound.
-    const port = Number(process.env.PORT ?? 8080)
+    const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
       await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
@@ -1325,21 +1382,12 @@ async function main() {
         publishTaskUpdate,
         publishTaskUpdateNow,
       }
-      // Validate the port so a typo in MOTRIX_MDXP_PORT falls back loudly to the
-      // default rather than NaN → ERR_SOCKET_BAD_PORT → swallowed by the catch
-      // below (silently no bridge on a headless host).
-      const rawPort = process.env.MOTRIX_MDXP_PORT
-      const parsedPort = rawPort === undefined ? 16801 : Number(rawPort)
-      const mdxpPort =
-        Number.isInteger(parsedPort) && parsedPort >= 0 && parsedPort < 65536
-          ? parsedPort
-          : 16801
-      if (parsedPort !== mdxpPort) {
-        log.warn(
-          { MOTRIX_MDXP_PORT: rawPort },
-          'invalid MOTRIX_MDXP_PORT — falling back to 16801'
-        )
-      }
+      const mdxpPort = parseServerPort(
+        process.env.MOTRIX_MDXP_PORT,
+        'MOTRIX_MDXP_PORT',
+        16801,
+        { allowZero: true }
+      )
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1',

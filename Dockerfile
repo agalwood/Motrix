@@ -54,8 +54,8 @@ RUN apk add --no-cache aria2 ca-certificates \
            /opt/yarn-v1.22.22 \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
           /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
- && mkdir -p /data /downloads \
- && chown node:node /data /downloads
+ && mkdir -p /data/home /data/tmp /downloads \
+ && chown -R node:node /data /downloads
 WORKDIR /app
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/dist/server ./dist/server
@@ -73,6 +73,7 @@ COPY --from=build --chown=node:node /app/build/legal/sbom.spdx.json ./legal/sbom
 ENV YARN_VERSION= \
     NODE_ENV=production \
     MOTRIX_DATA_DIR=/data \
+    MOTRIX_TEMP_DIR=/data/tmp \
     MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
@@ -80,10 +81,14 @@ ENV YARN_VERSION= \
     MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
     MOTRIX_RENDERER_DIR=/app/dist/renderer-web \
     MOTRIX_BUILTIN_PLUGIN_DIR=/app/builtin-plugins \
+    HOME=/data/home \
+    TMPDIR=/data/tmp \
     PORT=8080
 VOLUME ["/data", "/downloads"]
 EXPOSE 8080
 USER node
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||'8080')+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "dist/server/index.mjs"]
 
 FROM node:24-alpine AS runtime
@@ -93,13 +98,14 @@ RUN apk add --no-cache aria2 ca-certificates \
            /opt/yarn-v1.22.22 \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
           /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
- && mkdir -p /data /downloads \
- && chown node:node /data /downloads
+ && mkdir -p /data/home /data/tmp /downloads \
+ && chown -R node:node /data /downloads
 WORKDIR /app
 COPY --from=build --chown=node:node /app/dist/server-app/ ./
 ENV YARN_VERSION= \
     NODE_ENV=production \
     MOTRIX_DATA_DIR=/data \
+    MOTRIX_TEMP_DIR=/data/tmp \
     MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
@@ -107,8 +113,12 @@ ENV YARN_VERSION= \
     MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
     MOTRIX_RENDERER_DIR=/app/dist/renderer-web \
     MOTRIX_BUILTIN_PLUGIN_DIR=/app/builtin-plugins \
+    HOME=/data/home \
+    TMPDIR=/data/tmp \
     PORT=8080
 VOLUME ["/data", "/downloads"]
 EXPOSE 8080
 USER node
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||'8080')+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "dist/server/index.mjs"]

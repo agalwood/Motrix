@@ -36,6 +36,7 @@ export interface AppOptions {
   bridgeQueryHandlers?: Record<string, Handler>
   eventBus?: EventBus
   rendererDir?: string
+  healthCheck?: () => { ok: boolean } | Promise<{ ok: boolean }>
 }
 
 export async function createApp(
@@ -51,7 +52,10 @@ export async function createApp(
   const bridgeCommands = opts.bridgeCommandHandlers ?? {}
   const bridgeQueries = opts.bridgeQueryHandlers ?? {}
 
-  app.get('/healthz', async () => ({ ok: true }))
+  app.get('/healthz', async (_request, reply) => {
+    const health = opts.healthCheck ? await opts.healthCheck() : { ok: true }
+    return reply.code(health.ok ? 200 : 503).send(health)
+  })
 
   app.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>(
     '/rpc/command/:channel',

@@ -7,6 +7,8 @@ export class Aria2ConfigBuilder {
   private readonly userConfPath: string
   private readonly defaultDbPath: string
   private readonly saveSessionPath: string
+  private readonly dhtFilePath: string
+  private readonly dht6FilePath: string
 
   constructor(
     private templatePath: string,
@@ -15,6 +17,8 @@ export class Aria2ConfigBuilder {
     this.userConfPath = path.join(userConfigDir, 'aria2.conf')
     this.defaultDbPath = path.join(userConfigDir, 'aria2.db')
     this.saveSessionPath = path.join(userConfigDir, 'aria2.session')
+    this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
+    this.dht6FilePath = path.join(userConfigDir, 'dht6.dat')
   }
 
   async ensureUserConfig(): Promise<string> {
@@ -74,6 +78,8 @@ export class Aria2ConfigBuilder {
       `--dht-listen-port=${settings.dhtListenPort}`,
       `--enable-dht=${settings.dhtEnabled}`,
       `--enable-dht6=${settings.dhtEnabled}`,
+      `--dht-file-path=${this.dhtFilePath}`,
+      `--dht-file-path6=${this.dht6FilePath}`,
       `--save-session=${this.saveSessionPath}`
     )
     if (hasSqlitePersistence) {
