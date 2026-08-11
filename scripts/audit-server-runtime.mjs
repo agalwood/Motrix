@@ -1,4 +1,11 @@
-import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  readdir,
+  readFile,
+  realpath,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -64,7 +71,10 @@ async function auditInputs(repoRoot, inputs, collectExternals) {
   const specifiers = new Set()
   for (const input of inputs) {
     const source = path.join(repoRoot, input.source)
-    const info = await stat(source).catch(() => null)
+    const info = await lstat(source).catch(() => null)
+    if (info?.isSymbolicLink()) {
+      throw new Error(`top-level audit input is a symlink: ${input.source}`)
+    }
     if (
       !info ||
       (input.type === 'file' ? !info.isFile() : !info.isDirectory())

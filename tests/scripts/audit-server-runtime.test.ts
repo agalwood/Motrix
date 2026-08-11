@@ -204,6 +204,12 @@ describe('Server package contracts', () => {
     expect(() => validateServerRuntimeContract(unsafe)).toThrow(
       'must stay within its root'
     )
+    const duplicateDestination = fixtureContract()
+    duplicateDestination.resourceInputs[0].destination =
+      duplicateDestination.buildInputs[0].destination
+    expect(() => validateServerRuntimeContract(duplicateDestination)).toThrow(
+      'duplicate input destinations'
+    )
   })
 
   it('requires exact non-negative size budgets', () => {

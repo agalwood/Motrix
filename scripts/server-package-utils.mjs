@@ -165,6 +165,13 @@ export function validateServerRuntimeContract(value) {
     'resourceInputs',
     false
   )
+  const destinations = [
+    ...contract.buildInputs.map((input) => input.destination),
+    ...contract.resourceInputs.map((input) => input.destination),
+  ]
+  if (new Set(destinations).size !== destinations.length) {
+    throw new Error('server runtime contract has duplicate input destinations')
+  }
   return contract
 }
 
