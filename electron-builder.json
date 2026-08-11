@@ -6,15 +6,20 @@
   "asar": true,
   "asarUnpack": [
     "**/node_modules/{better-sqlite3,bindings,file-uri-to-path}/**",
-    "**/node_modules/@resvg/resvg-wasm/**/*.wasm",
     "dist/renderer/**"
   ],
   "directories": {
+    "app": "dist/electron-app",
     "output": "release",
     "buildResources": "build"
   },
   "files": [
-    "dist/**/*",
+    ".motrix-package-stage.json",
+    "dist/core/plugin/host/**",
+    "dist/main/**",
+    "dist/preload/**",
+    "dist/renderer/**",
+    "node_modules/**",
     "package.json",
     "!**/*.map",
     "!**/*.ts",

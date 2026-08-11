@@ -724,6 +724,7 @@ function parseArguments(argv) {
   const values = new Map()
   for (let index = 0; index < argv.length; index += 1) {
     const option = argv[index]
+    if (option === '--' && index === 0) continue
     if (option === '--strict') {
       values.set(option, true)
       continue

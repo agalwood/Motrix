@@ -24,6 +24,50 @@ async function readJson(relativePath: string): Promise<unknown> {
 }
 
 describe('Electron package contracts', () => {
+  it('packages only the generated staged application', async () => {
+    const config = (await readJson('electron-builder.json')) as {
+      asarUnpack?: string[]
+      directories?: Record<string, string>
+      files?: string[]
+    }
+    const manifest = (await readJson('package.json')) as {
+      scripts?: Record<string, string>
+    }
+
+    expect(config.directories).toMatchObject({
+      app: 'dist/electron-app',
+      output: 'release',
+      buildResources: 'build',
+    })
+    expect(config.files?.filter((pattern) => !pattern.startsWith('!'))).toEqual(
+      [
+        '.motrix-package-stage.json',
+        'dist/core/plugin/host/**',
+        'dist/main/**',
+        'dist/preload/**',
+        'dist/renderer/**',
+        'node_modules/**',
+        'package.json',
+      ]
+    )
+    expect(config.files).not.toContain('dist/**/*')
+    expect(config.asarUnpack).toContain('dist/renderer/**')
+    expect(config.asarUnpack).not.toContain(
+      '**/node_modules/@resvg/resvg-wasm/**/*.wasm'
+    )
+
+    expect(manifest.scripts?.['stage:electron']).toBe(
+      'node scripts/stage-electron-app.mjs'
+    )
+    for (const name of ['pack:mac', 'dist:mac', 'release:mac']) {
+      const command = manifest.scripts?.[name] ?? ''
+      expect(command).toMatch(
+        /build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && .*electron-builder/
+      )
+    }
+    expect(manifest.scripts?.['build:electron']).not.toContain('stage:electron')
+  })
+
   it('declares the exact supported runtime roots and targets', async () => {
     const contract = validateRuntimeDependencyContract(
       await readJson('scripts/electron-runtime-dependencies.json')
