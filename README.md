@@ -94,13 +94,20 @@ You can also install it from Settings → Integration → Command-line tools in 
 
 ### Headless server with Docker
 
-The repository includes a `Dockerfile` that builds an image with the web UI and aria2 included:
+The repository includes a production `Dockerfile` and `compose.yaml` with
+separate persistent mounts for Server state and downloaded resources:
 
 ```bash
-docker build -t motrix-turbo:dev .
+mkdir -p motrix-data downloads
+docker compose up --build -d
 ```
 
-Remote clients such as the CLI and browser extensions pair with the server through a device-code flow. See the `Dockerfile` and related documentation for details.
+The runtime is non-root, supports a read-only root filesystem, validates mount
+permissions before accepting work, and preserves downloads, sessions, and
+installed plugins across container replacement. Remote clients such as the CLI
+and browser extensions pair through a device-code flow. See the
+[Docker Server deployment guide](./docs/docker-server.md) for ownership setup,
+ports, environment variables, diagnostics, and backup/upgrade instructions.
 
 ## 🛠 Development
 
