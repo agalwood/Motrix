@@ -1,10 +1,29 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { resolveSmokeContainerIdentity } from '../../scripts/smoke-server-identity.mjs'
 
 const ROOT = process.cwd()
 
 describe('Docker Server runtime staging contract', () => {
+  it('maps smoke containers to a portable non-root host identity', () => {
+    expect(resolveSmokeContainerIdentity(1001, 121)).toEqual({
+      uid: 1001,
+      gid: 121,
+      user: '1001:121',
+    })
+    expect(resolveSmokeContainerIdentity(0, 0)).toEqual({
+      uid: 1000,
+      gid: 1000,
+      user: '1000:1000',
+    })
+    expect(resolveSmokeContainerIdentity(Number.NaN, Number.NaN)).toEqual({
+      uid: 1000,
+      gid: 1000,
+      user: '1000:1000',
+    })
+  })
+
   it('copies only the verified stage into a non-root Node 24 runtime', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const runtime = dockerfile.slice(
@@ -72,7 +91,7 @@ describe('Docker Server runtime staging contract', () => {
     )
 
     expect(imageSmoke).toContain("'--read-only'")
-    expect(imageSmoke).toContain("'1000:1000'")
+    expect(imageSmoke).toContain('identity.user')
     expect(imageSmoke).toContain("'command:createTask'")
     expect(imageSmoke).toContain("'command:setTaskBtTracker'")
     expect(imageSmoke).toContain("'command:installPlugin'")

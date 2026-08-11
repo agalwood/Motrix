@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
+import { resolveSmokeContainerIdentity } from './smoke-server-identity.mjs'
 
 const execFileAsync = promisify(execFile)
 const DEFAULT_TIMEOUT_MS = 120_000
@@ -387,7 +388,15 @@ async function prepareHostVolumes(root) {
 }
 
 async function startServerContainer(options) {
-  const { name, network, image, dataDir, downloadsDir, operatorToken } = options
+  const {
+    name,
+    network,
+    image,
+    dataDir,
+    downloadsDir,
+    operatorToken,
+    identity,
+  } = options
   await docker([
     'run',
     '--detach',
@@ -401,7 +410,7 @@ async function startServerContainer(options) {
     '--security-opt',
     'no-new-privileges:true',
     '--user',
-    '1000:1000',
+    identity.user,
     '--env',
     `MOTRIX_OPERATOR_TOKEN=${operatorToken}`,
     '--env',
@@ -420,7 +429,7 @@ async function startServerContainer(options) {
   return url
 }
 
-async function assertRuntimeContract(name, url, token, timeoutMs) {
+async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
   await assertOperatorAuth(url, token)
   const diagnostics = await requestJson(`${url}/api/diagnostics`, {
     headers: { authorization: `Bearer ${token}` },
@@ -428,7 +437,7 @@ async function assertRuntimeContract(name, url, token, timeoutMs) {
   if (
     diagnostics.health?.ok !== true ||
     diagnostics.engine?.state !== 'ready' ||
-    diagnostics.process?.uid !== 1000 ||
+    diagnostics.process?.uid !== identity.uid ||
     diagnostics.storage?.dataDir !== '/data' ||
     diagnostics.storage?.tempDir !== '/data/tmp' ||
     diagnostics.storage?.homeDir !== '/data/home' ||
@@ -450,8 +459,8 @@ async function assertRuntimeContract(name, url, token, timeoutMs) {
     'sh',
     '-ec',
     [
-      '[ "$(id -u)" = 1000 ]',
-      '[ "$(id -g)" = 1000 ]',
+      `[ "$(id -u)" = "${identity.uid}" ]`,
+      `[ "$(id -g)" = "${identity.gid}" ]`,
       'test -w /data',
       'test -w /downloads',
       'test -w /data/tmp',
@@ -611,7 +620,7 @@ async function assertPermissionFailure(options) {
       name,
       '--read-only',
       '--user',
-      '1000:1000',
+      options.identity.user,
       '--env',
       'MOTRIX_OPERATOR_TOKEN=permission-smoke-token',
       '--env',
@@ -644,6 +653,7 @@ export async function smokeServerImage(options) {
     throw new Error('Server image smoke timeout must be at least 30000ms')
   }
   const image = options.image
+  const identity = resolveSmokeContainerIdentity()
   const prefix = `motrix-server-smoke-${process.pid}-${Date.now()}`
   const appName = `${prefix}-app`
   const seedName = `${prefix}-seed`
@@ -724,6 +734,7 @@ export async function smokeServerImage(options) {
       image,
       ...volumes,
       operatorToken,
+      identity,
       timeoutMs,
     })
     appCreated = true
@@ -731,6 +742,7 @@ export async function smokeServerImage(options) {
       appName,
       url,
       operatorToken,
+      identity,
       timeoutMs
     )
 
@@ -878,6 +890,7 @@ export async function smokeServerImage(options) {
       image,
       ...volumes,
       operatorToken,
+      identity,
       timeoutMs,
     })
     appCreated = true
@@ -949,6 +962,7 @@ export async function smokeServerImage(options) {
       image,
       dataDir: volumes.deniedDataDir,
       downloadsDir: volumes.downloadsDir,
+      identity,
       timeoutMs,
     })
 
@@ -960,6 +974,7 @@ export async function smokeServerImage(options) {
         entry.startsWith('NODE_VERSION=')
       )?.slice('NODE_VERSION='.length),
       nonRootUid: diagnostics.process.uid,
+      nonRootGid: identity.gid,
       readOnlyRootfs: true,
       health: true,
       operatorAuth: true,
