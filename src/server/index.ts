@@ -36,7 +36,10 @@ import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
-import { PluginHost } from '@core/plugin/host/plugin-host'
+import {
+  PluginHost,
+  parsePluginIdleDisposeMs,
+} from '@core/plugin/host/plugin-host'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
@@ -406,6 +409,9 @@ async function main() {
     appVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     runtime: 'server',
     hostLanguage,
+    idleDisposeMs: parsePluginIdleDisposeMs(
+      process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
+    ),
   })
   shutdownActions.drainPluginHost = () => pluginHost.shutdown()
   // Wire Plan D: cross-plugin command safeguards (schema cache + rate limit

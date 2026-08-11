@@ -118,12 +118,8 @@ export class PluginHost {
   constructor(private readonly opts: PluginHostOptions) {
     this.maxActivePlugins = opts.maxActivePlugins ?? DEFAULT_MAX_ACTIVE_PLUGINS
     // Spec §7 L2149 — Plugin Active → 5 min no hook/capability/timer activity
-    // → dispose VM → Inactive. Env override exists for ops tuning (e.g. a
-    // long-running server with rare hooks may want a higher value).
-    this.idleDisposeMs =
-      opts.idleDisposeMs ??
-      parsePositiveInt(process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS) ??
-      5 * 60_000
+    // → dispose VM → Inactive. Shells may inject an operations override.
+    this.idleDisposeMs = opts.idleDisposeMs ?? 5 * 60_000
     this.activationTimeoutMs = opts.activationTimeoutMs ?? 5_000
     this.deactivateBudgetMs = opts.deactivateBudgetMs ?? 2_000
     this.idleTimer = setInterval(() => this.sweepIdle(), 30_000)
@@ -572,7 +568,9 @@ export class PluginHost {
   }
 }
 
-function parsePositiveInt(raw: string | undefined): number | undefined {
+export function parsePluginIdleDisposeMs(
+  raw: string | undefined
+): number | undefined {
   if (!raw) return undefined
   const n = Number.parseInt(raw, 10)
   return Number.isFinite(n) && n > 0 ? n : undefined
