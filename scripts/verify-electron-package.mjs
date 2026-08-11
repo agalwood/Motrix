@@ -741,7 +741,12 @@ async function main() {
   console.log(
     `[verify-electron-package] ${prefix} ${target.key}: ${report.sizes.payloadBytes} bytes`
   )
-  if (!report.passed) process.exitCode = 1
+  if (!report.passed) {
+    for (const error of report.errors) {
+      console.error(`[verify-electron-package] ${error}`)
+    }
+    process.exitCode = 1
+  }
 }
 
 if (
