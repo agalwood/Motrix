@@ -134,12 +134,16 @@ jobs:
           src/main/bridge/snap-environment.test.ts
           tests/scripts/assemble-release-artifacts.test.ts
           tests/scripts/before-pack-verify.test.ts
+          tests/scripts/electron-package-contract.test.ts
           tests/scripts/flatpak-native-host.test.ts
+          tests/scripts/native-binary-target.test.ts
           tests/scripts/release-metadata.test.ts
           tests/scripts/snap-artifact.test.ts
           tests/scripts/snap-build-set-release.test.ts
           tests/scripts/snap-project.test.ts
           tests/scripts/snap-store-channel.test.ts
+          tests/scripts/stage-electron-app.test.ts
+          tests/scripts/verify-electron-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
           tests/scripts/workflow-release-matrix.test.ts
           tests/scripts/workflow-snap.test.ts
@@ -211,6 +215,7 @@ jobs:
             rust_target: aarch64-apple-darwin
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
+            app_path: release/mac-arm64/Motrix.app
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -218,6 +223,7 @@ jobs:
             rust_target: x86_64-apple-darwin
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
+            app_path: release/mac/Motrix.app
           - target: linux-x64
             os: ubuntu-22.04
             platform: linux
@@ -225,6 +231,7 @@ jobs:
             rust_target: x86_64-unknown-linux-musl
             electron_builder_args: --linux --x64
             resources_dir: release/linux-unpacked/resources
+            app_path: release/linux-unpacked
           - target: linux-arm64
             os: ubuntu-22.04-arm
             platform: linux
@@ -232,6 +239,7 @@ jobs:
             rust_target: aarch64-unknown-linux-musl
             electron_builder_args: --linux --arm64
             resources_dir: release/linux-arm64-unpacked/resources
+            app_path: release/linux-arm64-unpacked
           - target: win32-x64
             os: windows-2025
             platform: win32
@@ -239,6 +247,7 @@ jobs:
             rust_target: x86_64-pc-windows-msvc
             electron_builder_args: --win --x64
             resources_dir: release/win-unpacked/resources
+            app_path: release/win-unpacked
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -293,6 +302,12 @@ jobs:
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:electron
 
+      - name: Stage Electron application
+        run: >-
+          pnpm run stage:electron --
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+
       - name: Package Flatpak native host companion smoke
         if: matrix.platform == 'linux'
         shell: bash
@@ -321,6 +336,14 @@ jobs:
           ${{ matrix.electron_builder_args }}
           --dir
           --publish never
+
+      - name: Verify Electron package
+        run: >-
+          node scripts/verify-electron-package.mjs
+          --app-dir "${{ matrix.app_path }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --report "release/size-reports/${{ matrix.target }}.json"
 
       - name: Verify Windows native host runtime imports
         if: matrix.platform == 'win32'
@@ -387,3 +410,11 @@ jobs:
               throw new Error(`Flatpak-only native host leaked into package: ${file}`)
             }
           }
+
+      - name: Upload Electron size report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: electron-size-report-${{ matrix.target }}-${{ github.run_attempt }}
+          path: release/size-reports/${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 14

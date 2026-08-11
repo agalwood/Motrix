@@ -266,7 +266,12 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   const brokerBinary = motrixCommands.indexOf(
     '/release/motrix-native-host-broker'
   )
+  const electronBuild = motrixCommands.indexOf('run build:electron')
+  const electronStage = motrixCommands.indexOf('run stage:electron')
   const electronBuilder = motrixCommands.indexOf('electron-builder')
+  const electronPackageVerification = motrixCommands.indexOf(
+    'verify-electron-package.mjs'
+  )
   invariant(
     aria2Copy >= 0 && aria2Copy < electronBuilder,
     'aria2 must be staged before electron-builder'
@@ -274,6 +279,19 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   invariant(
     nativeHostCopy >= 0 && nativeHostCopy < electronBuilder,
     'browser-facing native host must be staged transiently before electron-builder'
+  )
+  invariant(
+    electronBuild >= 0 &&
+      electronStage > electronBuild &&
+      electronBuilder > electronStage &&
+      electronPackageVerification > electronBuilder &&
+      motrixCommands.includes('--platform linux') &&
+      motrixCommands.includes('--arch $npm_config_target_arch') &&
+      motrixCommands.includes('--app-dir "$unpacked"') &&
+      motrixCommands.includes(
+        '--report "release/size-reports/linux-$npm_config_target_arch.json"'
+      ),
+    'offline Flatpak build must stage and verify the explicit Electron target'
   )
   invariant(
     brokerBinary >= 0 &&
@@ -327,7 +345,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   )
   invariant(
     (motrixCommands.match(/pnpm --config\.verify-deps-before-run=false/g) ?? [])
-      .length === 5,
+      .length === 6,
     'every pnpm run/exec after --ignore-scripts must disable dependency repair'
   )
   const flatpakScripts = new Map(
@@ -538,6 +556,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     cargoSources: cargoSources.length,
     builtinSources: builtinSources.length,
     brokerCommand: FLATPAK_BROKER_COMMAND,
+    electronPackageVerification: true,
     privateProtocolVersion: 1,
   }
 }

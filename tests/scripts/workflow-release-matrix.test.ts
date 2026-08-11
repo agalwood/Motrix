@@ -131,6 +131,13 @@ const EXPECTED_TARGETS: ExpectedTarget[] = [
     rustTarget: 'x86_64-pc-windows-msvc',
   },
 ]
+const EXPECTED_APP_PATHS = new Map([
+  ['darwin-arm64', 'release/mac-arm64/Motrix.app'],
+  ['darwin-x64', 'release/mac/Motrix.app'],
+  ['linux-arm64', 'release/linux-arm64-unpacked'],
+  ['linux-x64', 'release/linux-unpacked'],
+  ['win32-x64', 'release/win-unpacked'],
+])
 
 const ciSource = readFileSync(
   path.join(ROOT, '.github/workflows/ci.yml'),
@@ -215,6 +222,88 @@ describe('CI and release target matrix contract', () => {
       }
     }
   })
+
+  it.each([
+    ['CI', ciWorkflow],
+    ['release', releaseWorkflow],
+  ] as const)(
+    '%s stages and verifies every Electron target before artifacts leave the job',
+    (label, workflow) => {
+      const { entries, job } = targetMatrix(workflow)
+      const steps = jobSteps(job)
+      const buildIndex = steps.findIndex((step) =>
+        stringField(step, 'run', '').includes('build:electron')
+      )
+      const stageIndex = steps.findIndex((step) =>
+        stringField(step, 'run', '').includes('stage:electron')
+      )
+      const builderIndices = steps
+        .map((step, index) =>
+          stringField(step, 'run', '').includes('electron-builder') ? index : -1
+        )
+        .filter((index) => index >= 0)
+      const verifierIndex = steps.findIndex((step) =>
+        stringField(step, 'run', '').includes('verify-electron-package.mjs')
+      )
+      const resourceIndex = steps.findIndex(
+        (step) => step.name === 'Verify packaged resources'
+      )
+
+      expect(buildIndex).toBeGreaterThanOrEqual(0)
+      expect(stageIndex).toBeGreaterThanOrEqual(buildIndex)
+      expect(builderIndices.length).toBeGreaterThan(0)
+      for (const builderIndex of builderIndices) {
+        expect(builderIndex).toBeGreaterThan(stageIndex)
+        expect(
+          stringField(steps[builderIndex] as LooseRecord, 'run')
+        ).toContain('--publish never')
+      }
+      expect(verifierIndex).toBeGreaterThan(Math.max(...builderIndices))
+      expect(resourceIndex).toBeGreaterThan(verifierIndex)
+
+      const buildCommand = stringField(steps[buildIndex] as LooseRecord, 'run')
+      const stageCommand = stringField(steps[stageIndex] as LooseRecord, 'run')
+      expect(stageCommand).toContain(`\${{ matrix.platform }}`)
+      expect(stageCommand).toContain(`\${{ matrix.arch }}`)
+      if (buildIndex === stageIndex) {
+        expect(stageCommand.indexOf('stage:electron')).toBeGreaterThan(
+          buildCommand.indexOf('build:electron')
+        )
+      }
+
+      const verifier = stringField(steps[verifierIndex] as LooseRecord, 'run')
+      expect(verifier).toContain(`--app-dir "\${{ matrix.app_path }}"`)
+      expect(verifier).toContain(`--platform \${{ matrix.platform }}`)
+      expect(verifier).toContain(`--arch \${{ matrix.arch }}`)
+      expect(verifier).toContain(
+        `--report "release/size-reports/\${{ matrix.target }}.json"`
+      )
+
+      for (const entry of entries) {
+        const key = `${stringField(entry, 'platform')}-${stringField(
+          entry,
+          'arch'
+        )}`
+        expect(stringField(entry, 'app_path'), `${label} ${key}`).toBe(
+          EXPECTED_APP_PATHS.get(key)
+        )
+      }
+
+      const upload = steps.find((step) =>
+        label === 'CI'
+          ? step.name === 'Upload Electron size report'
+          : step.name === 'Upload target release input'
+      )
+      const uploadInputs = asRecord(upload?.with, `${label} report upload`)
+      expect(stringField(uploadInputs, 'path')).toContain(
+        `release/size-reports/\${{ matrix.target }}.json`
+      )
+      expect(stringField(uploadInputs, 'if-no-files-found')).toBe('error')
+      expect(steps.indexOf(upload as LooseRecord)).toBeGreaterThan(
+        verifierIndex
+      )
+    }
+  )
 
   it('keeps the release assembler on the same target set', () => {
     expect(
@@ -340,6 +429,14 @@ describe('general CI native-host split contract', () => {
     expect(contractCommand).toContain(
       'tests/scripts/flatpak-native-host.test.ts'
     )
+    for (const test of [
+      'tests/scripts/electron-package-contract.test.ts',
+      'tests/scripts/native-binary-target.test.ts',
+      'tests/scripts/stage-electron-app.test.ts',
+      'tests/scripts/verify-electron-package.test.ts',
+    ]) {
+      expect(contractCommand).toContain(test)
+    }
   })
 
   it('compiles every declared native-host binary on host and target runners', () => {

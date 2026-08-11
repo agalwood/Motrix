@@ -238,6 +238,7 @@ function parseArguments(argv) {
   const options = {}
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]
+    if (index === 0 && argument === '--') continue
     if (!argument.startsWith('--'))
       throw new Error(`unknown argument: ${argument}`)
     const key = argument.slice(2)
