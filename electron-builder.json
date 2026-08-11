@@ -19,8 +19,20 @@
     "dist/main/**",
     "dist/preload/**",
     "dist/renderer/**",
-    "node_modules/**",
     "package.json",
+    {
+      "from": "node_modules",
+      "to": "node_modules",
+      "filter": [
+        "**/*",
+        "!**/*.map",
+        "!**/*.ts",
+        "!**/*.tsx",
+        "!**/tsconfig*.json",
+        "!**/biome.json",
+        "!**/vite*.config.*"
+      ]
+    },
     "!**/*.map",
     "!**/*.ts",
     "!**/*.tsx",
@@ -207,6 +219,7 @@
     "artifactName": "${productName}-${version}.${arch}.${ext}"
   },
   "beforePack": "./scripts/before-pack-verify.mjs",
+  "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",
   "detectUpdateChannel": true,
   "generateUpdatesFilesForAllChannels": true,
   "publish": {

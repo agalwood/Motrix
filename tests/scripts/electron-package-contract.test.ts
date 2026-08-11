@@ -27,8 +27,9 @@ describe('Electron package contracts', () => {
   it('packages only the generated staged application', async () => {
     const config = (await readJson('electron-builder.json')) as {
       asarUnpack?: string[]
+      beforeBuild?: string
       directories?: Record<string, string>
-      files?: string[]
+      files?: Array<string | { filter?: string[]; from?: string; to?: string }>
     }
     const manifest = (await readJson('package.json')) as {
       scripts?: Record<string, string>
@@ -39,21 +40,38 @@ describe('Electron package contracts', () => {
       output: 'release',
       buildResources: 'build',
     })
-    expect(config.files?.filter((pattern) => !pattern.startsWith('!'))).toEqual(
-      [
-        '.motrix-package-stage.json',
-        'dist/core/plugin/host/**',
-        'dist/main/**',
-        'dist/preload/**',
-        'dist/renderer/**',
-        'node_modules/**',
-        'package.json',
-      ]
-    )
+    expect(
+      config.files?.filter(
+        (pattern) => typeof pattern === 'string' && !pattern.startsWith('!')
+      )
+    ).toEqual([
+      '.motrix-package-stage.json',
+      'dist/core/plugin/host/**',
+      'dist/main/**',
+      'dist/preload/**',
+      'dist/renderer/**',
+      'package.json',
+    ])
+    expect(config.files).toContainEqual({
+      from: 'node_modules',
+      to: 'node_modules',
+      filter: [
+        '**/*',
+        '!**/*.map',
+        '!**/*.ts',
+        '!**/*.tsx',
+        '!**/tsconfig*.json',
+        '!**/biome.json',
+        '!**/vite*.config.*',
+      ],
+    })
     expect(config.files).not.toContain('dist/**/*')
     expect(config.asarUnpack).toContain('dist/renderer/**')
     expect(config.asarUnpack).not.toContain(
       '**/node_modules/@resvg/resvg-wasm/**/*.wasm'
+    )
+    expect(config.beforeBuild).toBe(
+      './scripts/before-build-use-staged-dependencies.mjs'
     )
 
     expect(manifest.scripts?.['stage:electron']).toBe(
