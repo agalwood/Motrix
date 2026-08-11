@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import {
   chmod,
   cp,
@@ -22,6 +23,7 @@ import {
   stringifySortedJson,
   validateRuntimeDependencyContract,
 } from './electron-package-utils.mjs'
+import { assertNativeBinaryTarget } from './native-binary-target.mjs'
 
 const BUILD_OUTPUTS = [
   { directory: 'dist/core/plugin/host', entry: 'quick-js-worker.cjs' },
@@ -73,6 +75,20 @@ async function assertBuildOutputs(repoRoot) {
       throw new Error(`missing Electron build output: ${entry}`)
     }
   }
+}
+
+async function fingerprintBuildOutputs(repoRoot) {
+  const fingerprints = []
+  for (const output of BUILD_OUTPUTS) {
+    const relativePath = path.posix.join(output.directory, output.entry)
+    const bytes = await readFile(path.join(repoRoot, relativePath))
+    fingerprints.push({
+      path: relativePath,
+      bytes: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    })
+  }
+  return fingerprints.sort((left, right) => left.path.localeCompare(right.path))
 }
 
 function targetList(contract, target) {
@@ -247,15 +263,79 @@ async function copyTree(source, destination, canonicalRepoRoot, options = {}) {
     recursive: true,
     dereference: true,
     filter: (candidate) => {
-      if (!options.skipNodeModules) return true
       const relative = path.relative(source, candidate)
-      return (
-        relative !== 'node_modules' &&
-        !relative.startsWith(`node_modules${path.sep}`)
-      )
+      if (
+        options.skipNodeModules &&
+        (relative === 'node_modules' ||
+          relative.startsWith(`node_modules${path.sep}`))
+      ) {
+        return false
+      }
+      return options.filter ? options.filter(relative) : true
     },
   })
   await normalizeModes(destination)
+}
+
+function packageCopyFilter(name, target) {
+  if (name === 'better-sqlite3') {
+    const selected = path.join('prebuilds', `${target.key}.node`)
+    return (relative) => {
+      if (relative.length === 0) return true
+      const portable = relative.replaceAll(path.sep, '/')
+      return (
+        portable === 'package.json' ||
+        /^LICENSE(?:\..*)?$/i.test(portable) ||
+        portable === 'lib' ||
+        portable.startsWith('lib/') ||
+        portable === 'prebuilds' ||
+        relative === selected
+      )
+    }
+  }
+  if (name === '@resvg/resvg-wasm') {
+    return (relative) => relative.replaceAll(path.sep, '/') !== 'index_bg.wasm'
+  }
+  if (name === 'electron-liquid-glass') {
+    return (relative) => {
+      const portable = relative.replaceAll(path.sep, '/')
+      if (portable === 'prebuilds' || !portable.startsWith('prebuilds/')) {
+        return true
+      }
+      return (
+        portable === `prebuilds/${target.key}` ||
+        portable.startsWith(`prebuilds/${target.key}/`)
+      )
+    }
+  }
+  return undefined
+}
+
+async function collectNativeModules(directory) {
+  const files = []
+  async function walk(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const entryPath = path.join(current, entry.name)
+      if (entry.isDirectory()) await walk(entryPath)
+      else if (entry.name.endsWith('.node')) files.push(entryPath)
+    }
+  }
+  await walk(directory)
+  return files.sort()
+}
+
+async function validateStagedNativeModules(directory, target, packageName) {
+  const nativeModules = await collectNativeModules(directory)
+  for (const file of nativeModules) {
+    await assertNativeBinaryTarget(file, target.platform, target.arch, {
+      label: `${packageName} native module`,
+    })
+  }
+  if (packageName === 'better-sqlite3' && nativeModules.length !== 1) {
+    throw new Error(
+      `better-sqlite3 must stage exactly one ${target.key} prebuild`
+    )
+  }
 }
 
 function readStaticString(source, start) {
@@ -451,6 +531,7 @@ export async function stageElectronApp(options = {}) {
   }
   const stageRoot = path.join(canonicalRepoRoot, stageRelative)
   await assertBuildOutputs(repoRoot)
+  const buildOutputs = await fingerprintBuildOutputs(repoRoot)
 
   const rootManifest = await readJson(
     path.join(repoRoot, 'package.json'),
@@ -582,11 +663,17 @@ export async function stageElectronApp(options = {}) {
     for (const placement of [...placements.values()].sort((left, right) =>
       left.destination.localeCompare(right.destination)
     )) {
+      const packageFilter = packageCopyFilter(placement.manifest.name, target)
       await copyTree(
         placement.sourceRoot,
         path.join(temporaryRoot, placement.destination),
         canonicalRepoRoot,
-        { skipNodeModules: true }
+        { filter: packageFilter, skipNodeModules: true }
+      )
+      await validateStagedNativeModules(
+        path.join(temporaryRoot, placement.destination),
+        target,
+        placement.manifest.name
       )
     }
 
@@ -597,14 +684,29 @@ export async function stageElectronApp(options = {}) {
       )
     )
     const inventory = await inventoryTree(temporaryRoot)
+    const resvgPlacement = [...placements.values()].find(
+      (placement) => placement.manifest.name === '@resvg/resvg-wasm'
+    )
+    let resvgWasmSha256
+    if (resvgPlacement) {
+      const resourcePath = path.join(repoRoot, 'extra/tray/resvg.wasm')
+      const resource = await readFile(resourcePath).catch((error) => {
+        throw new Error(`missing macOS resvg resource: ${resourcePath}`, {
+          cause: error,
+        })
+      })
+      resvgWasmSha256 = createHash('sha256').update(resource).digest('hex')
+    }
     const stageManifest = {
       schemaVersion: 1,
       target,
       rootVersion: rootManifest.version,
+      buildOutputs,
       externals,
       packages: packageRecords,
       optionalOmissions,
       inventory,
+      ...(resvgWasmSha256 ? { resvgWasmSha256 } : {}),
     }
     await writeFile(
       path.join(temporaryRoot, '.motrix-package-stage.json'),

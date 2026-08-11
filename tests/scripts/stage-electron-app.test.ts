@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto'
 import {
   chmod,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
   stat,
@@ -68,6 +70,112 @@ function fixtureContract() {
       darwin: { optional: ['optional-darwin'], required: [] },
       linux: { optional: [], required: [] },
       win32: { optional: [], required: [] },
+    },
+  }
+}
+
+function nativeHeader(platform: string, arch: string): Buffer {
+  if (platform === 'win32') {
+    const header = Buffer.alloc(72)
+    header.write('MZ')
+    header.writeUInt32LE(64, 0x3c)
+    header.set([0x50, 0x45, 0, 0], 64)
+    header.writeUInt16LE(arch === 'arm64' ? 0xaa64 : 0x8664, 68)
+    return header
+  }
+  if (platform === 'linux') {
+    const header = Buffer.alloc(20)
+    header.set([0x7f, 0x45, 0x4c, 0x46])
+    header[4] = 2
+    header[5] = 1
+    header.writeUInt16LE(arch === 'arm64' ? 183 : 62, 18)
+    return header
+  }
+  const header = Buffer.alloc(8)
+  header.set([0xcf, 0xfa, 0xed, 0xfe])
+  header.writeUInt32LE(arch === 'arm64' ? 0x0100000c : 0x01000007, 4)
+  return header
+}
+
+async function createNativeFixture(): Promise<string> {
+  const root = await createFixture()
+  const rootManifestPath = path.join(root, 'package.json')
+  const rootManifest = JSON.parse(await readFile(rootManifestPath, 'utf8'))
+  rootManifest.dependencies['@resvg/resvg-wasm'] = '2.6.2'
+  rootManifest.dependencies['better-sqlite3'] = '13.0.3'
+  await writeFile(
+    rootManifestPath,
+    `${JSON.stringify(rootManifest, null, 2)}\n`
+  )
+
+  await writePackage(root, 'node_modules/better-sqlite3', {
+    name: 'better-sqlite3',
+    version: '13.0.3',
+  })
+  const sqliteManifestPath = path.join(
+    root,
+    'node_modules/better-sqlite3/package.json'
+  )
+  const sqliteManifest = JSON.parse(await readFile(sqliteManifestPath, 'utf8'))
+  sqliteManifest.main = 'lib/index.js'
+  await writeFile(
+    sqliteManifestPath,
+    `${JSON.stringify(sqliteManifest, null, 2)}\n`
+  )
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/LICENSE', 'MIT')
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/lib/index.js')
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/src/leak.cc')
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/deps/leak.c')
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/binding.gyp')
+  for (const target of [
+    'darwin-arm64',
+    'darwin-x64',
+    'linux-arm64',
+    'linux-x64',
+    'win32-x64',
+  ]) {
+    const separator = target.lastIndexOf('-')
+    const platform = target.slice(0, separator)
+    const arch = target.slice(separator + 1)
+    await writeFixtureFile(
+      root,
+      `node_modules/better-sqlite3/prebuilds/${target}.node`,
+      nativeHeader(platform, arch).toString('binary')
+    )
+    await writeFile(
+      path.join(root, `node_modules/better-sqlite3/prebuilds/${target}.node`),
+      nativeHeader(platform, arch)
+    )
+  }
+  await writePackage(root, 'node_modules/@resvg/resvg-wasm', {
+    name: '@resvg/resvg-wasm',
+    version: '2.6.2',
+  })
+  await writeFixtureFile(
+    root,
+    'node_modules/@resvg/resvg-wasm/index_bg.wasm',
+    'package-copy'
+  )
+  await writeFixtureFile(root, 'extra/tray/resvg.wasm', 'resource-copy')
+  await writeFixtureFile(
+    root,
+    'dist/main/index.cjs',
+    "require('alpha/subpath')\nrequire('better-sqlite3')\n"
+  )
+  return root
+}
+
+function nativeContract() {
+  const contract = fixtureContract()
+  return {
+    ...contract,
+    common: ['@scope/pkg', 'alpha', 'better-sqlite3', 'gamma'],
+    platforms: {
+      ...contract.platforms,
+      darwin: {
+        optional: ['optional-darwin'],
+        required: ['@resvg/resvg-wasm'],
+      },
     },
   }
 }
@@ -338,5 +446,71 @@ describe('stageElectronApp', () => {
       path.join(root, 'dist/electron-app/node_modules/alpha/tool')
     )
     expect(copied.mode & 0o111).not.toBe(0)
+  })
+
+  it.each([
+    ['darwin', 'arm64'],
+    ['darwin', 'x64'],
+    ['linux', 'arm64'],
+    ['linux', 'x64'],
+    ['win32', 'x64'],
+  ])('filters native and WASM content for %s-%s', async (platform, arch) => {
+    const root = await createNativeFixture()
+    const result = await stageElectronApp({
+      repoRoot: root,
+      platform,
+      arch,
+      strict: true,
+      contract: nativeContract(),
+    })
+    const sqliteRoot = path.join(
+      root,
+      'dist/electron-app/node_modules/better-sqlite3'
+    )
+    expect(await readdir(path.join(sqliteRoot, 'prebuilds'))).toEqual([
+      `${platform}-${arch}.node`,
+    ])
+    await expect(stat(path.join(sqliteRoot, 'src'))).rejects.toThrow()
+    await expect(stat(path.join(sqliteRoot, 'deps'))).rejects.toThrow()
+    await expect(stat(path.join(sqliteRoot, 'binding.gyp'))).rejects.toThrow()
+
+    const resvgRoot = path.join(
+      root,
+      'dist/electron-app/node_modules/@resvg/resvg-wasm'
+    )
+    if (platform === 'darwin') {
+      await expect(
+        stat(path.join(resvgRoot, 'index.js'))
+      ).resolves.toBeDefined()
+      await expect(
+        stat(path.join(resvgRoot, 'index_bg.wasm'))
+      ).rejects.toThrow()
+      expect(result.manifest.resvgWasmSha256).toBe(
+        createHash('sha256').update('resource-copy').digest('hex')
+      )
+    } else {
+      await expect(stat(resvgRoot)).rejects.toThrow()
+      expect(result.manifest.resvgWasmSha256).toBeUndefined()
+    }
+  })
+
+  it('rejects a filename-matched SQLite prebuild with the wrong header', async () => {
+    const root = await createNativeFixture()
+    await writeFile(
+      path.join(
+        root,
+        'node_modules/better-sqlite3/prebuilds/darwin-arm64.node'
+      ),
+      nativeHeader('darwin', 'x64')
+    )
+    await expect(
+      stageElectronApp({
+        repoRoot: root,
+        platform: 'darwin',
+        arch: 'arm64',
+        strict: true,
+        contract: nativeContract(),
+      })
+    ).rejects.toThrow('expected darwin-arm64')
   })
 })
