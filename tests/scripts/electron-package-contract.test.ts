@@ -11,6 +11,11 @@ import {
   validateRuntimeDependencyContract,
   validateSizeBudgetContract,
 } from '../../scripts/electron-package-utils.mjs'
+import {
+  parseSmokeArguments,
+  resolvePackagedLayout,
+  scanRuntimeLog,
+} from '../../scripts/smoke-electron-package.mjs'
 
 const REPOSITORY_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -195,5 +200,62 @@ describe('Electron package contracts', () => {
         '/Users/example',
       ])
     ).toBe('failed at <home>/project')
+  })
+
+  it('defines an explicit host-native packaged runtime smoke contract', async () => {
+    const manifest = (await readJson('package.json')) as {
+      scripts?: Record<string, string>
+    }
+
+    expect(manifest.scripts?.['smoke:electron-package']).toBe(
+      'node scripts/smoke-electron-package.mjs'
+    )
+    expect(
+      parseSmokeArguments([
+        '--',
+        '--app-dir',
+        'release/mac-arm64/Motrix.app',
+        '--platform',
+        'darwin',
+        '--arch',
+        'arm64',
+        '--ad-hoc-sign',
+      ])
+    ).toMatchObject({
+      adHocSign: true,
+      appDir: 'release/mac-arm64/Motrix.app',
+      key: 'darwin-arm64',
+    })
+    expect(() =>
+      parseSmokeArguments([
+        '--app-dir',
+        'release/mac-arm64/Motrix.app',
+        '--platform',
+        'darwin',
+      ])
+    ).toThrow('requires both --platform and --arch')
+  })
+
+  it('resolves packaged layouts and detects startup dependency failures', () => {
+    expect(resolvePackagedLayout('/tmp/Motrix.app', 'darwin')).toEqual({
+      appDir: '/tmp/Motrix.app',
+      executable: '/tmp/Motrix.app/Contents/MacOS/Motrix',
+      resources: '/tmp/Motrix.app/Contents/Resources',
+    })
+    expect(resolvePackagedLayout('/tmp/motrix-unpacked', 'linux')).toEqual({
+      appDir: '/tmp/motrix-unpacked',
+      executable: '/tmp/motrix-unpacked/motrix',
+      resources: '/tmp/motrix-unpacked/resources',
+    })
+    expect(scanRuntimeLog('ready')).toEqual({
+      moduleResolutionError: false,
+      nativeAbiError: false,
+    })
+    expect(scanRuntimeLog("Error: Cannot find module 'zod'")).toMatchObject({
+      moduleResolutionError: true,
+    })
+    expect(
+      scanRuntimeLog('was compiled against a different Node.js version')
+    ).toMatchObject({ nativeAbiError: true })
   })
 })
