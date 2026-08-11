@@ -7,10 +7,10 @@
 //
 // Runs on plain Node 20 with NO loader and NO TypeScript — it is wired into
 // `postinstall`, which executes before any build tooling exists. The path
-// logic below is therefore an INLINE copy of `@shared/platform/aria2.ts`
-// (a `.mjs` cannot import the `@shared` alias or a `.ts` source at runtime).
-// `tests/scripts/fetch-engine-path-parity.test.ts` guards this copy against
-// drift.
+// logic below mirrors the host-owned resource layout and the pure binary-name
+// rule in `@shared/platform/aria2.ts` (a `.mjs` cannot import the `@shared`
+// alias or a `.ts` source at runtime). The path-parity test guards this copy
+// against drift.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
@@ -80,7 +80,7 @@ export function binaryName(platform) {
   return platform === 'win32' ? 'aria2c.exe' : 'aria2c'
 }
 
-// INLINE copy of `@shared/platform/aria2.ts::bundledAria2Path` — see header.
+// Host-owned resource layout mirror — see file header.
 export function bundledPath(extraDir, platform, arch) {
   return path.join(extraDir, platform, arch, binaryName(platform))
 }

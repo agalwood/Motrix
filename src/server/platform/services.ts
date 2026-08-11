@@ -1,7 +1,7 @@
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { bundledAria2Path } from '@shared/platform/aria2'
+import { aria2BinaryName } from '@shared/platform/aria2'
 import type { PlatformServices } from '@shared/platform/services'
 import { RunHost } from '@shared/platform/services'
 
@@ -49,7 +49,7 @@ function defaultAria2Path(
   if (platform !== 'darwin' && platform !== 'win32') {
     return '/usr/bin/aria2c'
   }
-  return bundledAria2Path(extraResourceDir, platform, arch)
+  return path.join(extraResourceDir, platform, arch, aria2BinaryName(platform))
 }
 
 export function createNodePlatformServices(

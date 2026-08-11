@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { bundledAria2Path } from '@shared/platform/aria2'
+import { aria2BinaryName } from '@shared/platform/aria2'
 import { type PlatformServices, RunHost } from '@shared/platform/services'
 import { app } from 'electron'
 
@@ -24,7 +24,12 @@ export function createElectronPlatformServices(): PlatformServices {
     host: RunHost.Electron,
     userDataDir: app.getPath('userData'),
     extraResourceDir: extraDir,
-    aria2BinaryPath: bundledAria2Path(extraDir, process.platform, process.arch),
+    aria2BinaryPath: path.join(
+      extraDir,
+      process.platform,
+      process.arch,
+      aria2BinaryName(process.platform)
+    ),
     isDev,
   }
 }

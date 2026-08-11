@@ -13,6 +13,11 @@ const rules = [
     dir: 'src/core/',
   },
   {
+    label: 'shared must not use Node-specific APIs or globals',
+    pattern: `from ['"]node:|require\\(['"]node:|import\\(['"]node:|(^|[^[:alnum:]_$])process\\.|(^|[^[:alnum:]_$])NodeJS\\.`,
+    dir: 'src/shared/',
+  },
+  {
     label: 'renderer must not import core or main',
     pattern: `from ['"][^'"]*(core|main)/`,
     dir: 'src/renderer/',

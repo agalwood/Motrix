@@ -9,7 +9,7 @@
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
 import { accessSync } from 'node:fs'
 import path from 'node:path'
-import { bundledAria2Path } from '@shared/platform/aria2'
+import { aria2BinaryName } from '@shared/platform/aria2'
 import { Aria2Adapter } from '../core/engine/aria2/aria2-adapter'
 import { Aria2RpcClient } from '../core/engine/aria2/aria2-rpc-client'
 import { JsonRpcProtocol } from '../core/engine/aria2/json-rpc-protocol'
@@ -38,7 +38,12 @@ export function bundledAria2ExtraDir(): string {
 }
 
 export function resolveBundledAria2(): string {
-  return bundledAria2Path(EXTRA_DIR, process.platform, process.arch)
+  return path.join(
+    EXTRA_DIR,
+    process.platform,
+    process.arch,
+    aria2BinaryName(process.platform)
+  )
 }
 
 /** Returns true iff the bundled aria2 binary for the current platform exists. */
