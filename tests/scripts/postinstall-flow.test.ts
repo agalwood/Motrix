@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 // @ts-expect-error — .mjs without types
-import { classifyRebuildResult, main } from '../../scripts/postinstall.mjs'
+import {
+  classifyRebuildResult,
+  main,
+  runElectronRebuild,
+} from '../../scripts/postinstall.mjs'
 
 // Stage A (electron rebuild) and Stage B (aria2 fetch) are injected so the
-// test observes control flow without spawning electron-builder or hitting the
+// test observes control flow without spawning the rebuild tool or hitting the
 // network. These assertions codify rev-2 constraint 5 plus the code-review
 // fixes: the two SKIP guards are independent, but a Stage A FAILURE
 // short-circuits with its real exit code and never starts the network Stage B.
@@ -35,6 +39,30 @@ describe('classifyRebuildResult', () => {
     const r = classifyRebuildResult({ error: new Error('ENOENT') })
     expect(r.code).not.toBe(0)
     expect(r.reason).toMatch(/spawn error/)
+  })
+})
+
+describe('runElectronRebuild', () => {
+  it('rebuilds root dependencies without loading the staged app config', () => {
+    const spawn = vi.fn(() => ({ status: 0 }))
+
+    expect(runElectronRebuild(spawn, 'linux')).toBe(0)
+    expect(spawn).toHaveBeenCalledWith(
+      'electron-rebuild',
+      ['--module-dir', '.', '--sequential', '--disable-pre-gyp-copy'],
+      { stdio: 'inherit', shell: false }
+    )
+  })
+
+  it('uses the command shell for the Windows shim', () => {
+    const spawn = vi.fn(() => ({ status: 0 }))
+
+    expect(runElectronRebuild(spawn, 'win32')).toBe(0)
+    expect(spawn).toHaveBeenCalledWith(
+      'electron-rebuild',
+      ['--module-dir', '.', '--sequential', '--disable-pre-gyp-copy'],
+      { stdio: 'inherit', shell: true }
+    )
   })
 })
 
