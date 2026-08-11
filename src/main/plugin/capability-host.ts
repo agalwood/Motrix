@@ -105,6 +105,7 @@ export async function createElectronCapabilityHost(
   const notify = new ElectronNotifyHost()
   const secrets = await LibsodiumSecretStore.create({
     userDataDir: opts.userDataDir,
+    envSeed: process.env.MOTRIX_SECRETS_SEED,
   })
   const detectFfmpeg = makeElectronFfmpegDetect({
     settingsManager: opts.settingsManager,

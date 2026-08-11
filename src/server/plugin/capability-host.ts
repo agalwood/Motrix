@@ -106,6 +106,7 @@ export async function createServerCapabilityHost(
   // secrets: prefer env seed, fall back to lockbox file, else FailingSecretStore
   const secrets = await LibsodiumSecretStore.create({
     userDataDir: opts.userDataDir,
+    envSeed: process.env.MOTRIX_SECRETS_SEED,
   })
   const detectFfmpeg = makeServerFfmpegDetect({
     settingsManager: opts.settingsManager,
