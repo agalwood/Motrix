@@ -1,44 +1,46 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY packages/native-host/package.json ./packages/native-host/package.json
 COPY scripts/postinstall.mjs ./scripts/postinstall.mjs
 COPY scripts/fetch-engine.mjs ./scripts/fetch-engine.mjs
-# Server/Node image: no Electron rebuild, and no bundled aria2 either — the
-# runtime stage installs system aria2 (apk) and points MOTRIX_ARIA2_BIN at it,
-# so postinstall must skip BOTH stages (keeps the deps layer offline/hermetic).
+# The Server image uses system aria2 and never rebuilds for Electron. Electron's
+# locked install script is invoked explicitly in the build stage because the
+# legal inventory requires its license payload.
 ENV MOTRIX_SKIP_ELECTRON_REBUILD=1 \
     MOTRIX_SKIP_ENGINE_FETCH=1
-RUN corepack enable \
+RUN --mount=type=cache,id=motrix-pnpm-store,target=/pnpm/store \
+    corepack enable \
  && corepack prepare pnpm@11.18.0 --activate \
+ && pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
 FROM deps AS build
+ARG TARGETARCH
 WORKDIR /app
 COPY . .
-RUN pnpm rebuild better-sqlite3 \
- && pnpm run check:third-party-notices \
- && pnpm build:server
+RUN node node_modules/electron/install.js
+RUN --mount=type=cache,id=motrix-builtins,target=/app/node_modules/.cache/motrix-builtins \
+    pnpm run check:third-party-notices \
+ && pnpm run build:server \
+ && node scripts/stage-server-app.mjs --platform linux --arch "${TARGETARCH}" --libc musl --strict \
+ && node scripts/verify-server-package.mjs --app-dir dist/server-app --platform linux --arch "${TARGETARCH}" --libc musl
 
-FROM build AS runtime-deps
-RUN pnpm prune --prod --ignore-scripts
-
-FROM node:22-alpine AS runtime
-RUN apk add --no-cache aria2 ca-certificates
+FROM node:24-alpine AS runtime
+RUN apk add --no-cache aria2 ca-certificates \
+ && rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/lib/node_modules/corepack \
+           /opt/yarn-v1.22.22 \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+          /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && mkdir -p /data \
+ && chown node:node /data
 WORKDIR /app
-COPY --from=build /app/dist/server ./dist/server
-COPY --from=build /app/dist/renderer-web ./dist/renderer-web
-COPY --from=runtime-deps /app/node_modules ./node_modules
-COPY --from=build /app/extra/aria2.conf ./extra/aria2.conf
-COPY --from=build /app/dist/builtin-plugins ./builtin-plugins
-COPY --from=build /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
-COPY --from=build /app/THIRD_PARTY_NOTICES.zh-CN.md ./THIRD_PARTY_NOTICES.zh-CN.md
-COPY --from=build /app/THIRD_PARTY_LICENSES ./THIRD_PARTY_LICENSES
-COPY --from=build /app/build/legal/THIRD_PARTY_DEPENDENCIES.md ./legal/THIRD_PARTY_DEPENDENCIES.md
-COPY --from=build /app/build/legal/THIRD_PARTY_LICENSES.txt ./legal/THIRD_PARTY_LICENSES.txt
-COPY --from=build /app/build/legal/sbom.spdx.json ./legal/sbom.spdx.json
-ENV NODE_ENV=production \
+COPY --from=build --chown=node:node /app/dist/server-app/ ./
+ENV YARN_VERSION= \
+    NODE_ENV=production \
     MOTRIX_DATA_DIR=/data \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
@@ -47,4 +49,5 @@ ENV NODE_ENV=production \
     PORT=8080
 VOLUME /data
 EXPOSE 8080
+USER node
 CMD ["node", "dist/server/index.mjs"]

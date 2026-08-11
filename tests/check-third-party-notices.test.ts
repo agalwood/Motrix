@@ -344,32 +344,50 @@ describe('third-party graph dependency notices', () => {
     ).toBe(true)
   })
 
-  it('copies notices, licenses, and generated compliance files into the Docker runtime image', async () => {
+  it('delivers the verified staged legal payload into the Docker runtime image', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
 
     expect(dockerfile).toContain(
-      'COPY --from=build /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md'
-    )
-    expect(dockerfile).toContain(
-      'COPY --from=build /app/THIRD_PARTY_NOTICES.zh-CN.md ./THIRD_PARTY_NOTICES.zh-CN.md'
-    )
-    expect(dockerfile).toContain(
-      'COPY --from=build /app/THIRD_PARTY_LICENSES ./THIRD_PARTY_LICENSES'
+      'COPY --from=build --chown=node:node /app/dist/server-app/ ./'
     )
     for (const artifact of LEGAL_ARTIFACTS) {
-      expect(dockerfile).toContain(
-        `COPY --from=build /app/build/legal/${artifact} ./legal/${artifact}`
-      )
+      const contract = JSON.parse(
+        await readFile(
+          path.join(ROOT, 'scripts/server-runtime-dependencies.json'),
+          'utf8'
+        )
+      ) as { resourceInputs?: Array<{ destination?: string }> }
+      expect(
+        contract.resourceInputs?.map((input) => input.destination)
+      ).toContain(`legal/${artifact}`)
     }
-    expect(dockerfile).not.toContain(
-      'COPY --from=build /app/build/legal ./legal'
-    )
+    for (const destination of [
+      'THIRD_PARTY_NOTICES.md',
+      'THIRD_PARTY_NOTICES.zh-CN.md',
+      'THIRD_PARTY_LICENSES',
+    ]) {
+      const contract = JSON.parse(
+        await readFile(
+          path.join(ROOT, 'scripts/server-runtime-dependencies.json'),
+          'utf8'
+        )
+      ) as { resourceInputs?: Array<{ destination?: string }> }
+      expect(
+        contract.resourceInputs?.map((input) => input.destination)
+      ).toContain(destination)
+    }
     expect(dockerfile).toContain(
+      'node scripts/verify-server-package.mjs --app-dir dist/server-app'
+    )
+    expect(dockerfile).not.toMatch(
+      /COPY --from=build \/app\/(?:THIRD_PARTY|build\/legal)/
+    )
+    expect(dockerfile).not.toContain(
       'COPY --from=runtime-deps /app/node_modules ./node_modules'
     )
   })
 
-  it('gates the canonical Docker build before build:server', async () => {
+  it('gates and stages the canonical Docker build before runtime delivery', async () => {
     const [dockerfile, manifestSource] = await Promise.all([
       readFile(path.join(ROOT, 'Dockerfile'), 'utf8'),
       readFile(path.join(ROOT, 'package.json'), 'utf8'),
@@ -379,30 +397,48 @@ describe('third-party graph dependency notices', () => {
     }
     const depsCommands = dockerStageRunCommands(dockerfile, 'deps')
     const buildCommands = dockerStageRunCommands(dockerfile, 'build')
-    const runtimeDependencyCommands = dockerStageRunCommands(
-      dockerfile,
-      'runtime-deps'
-    )
     const installCommand = depsCommands.find((command) =>
       /^pnpm install(?:\s|$)/.test(command)
     )
-    const gateIndex = buildCommands.indexOf(NOTICE_GATE_COMMAND)
+    const electronInstallIndex = buildCommands.indexOf(
+      'node node_modules/electron/install.js'
+    )
+    const gateIndex = buildCommands.findIndex((command) =>
+      command.endsWith(NOTICE_GATE_COMMAND)
+    )
     const buildIndex = buildCommands.findIndex((command) =>
       /^pnpm (?:run )?build:server(?:\s|$)/.test(command)
+    )
+    const stageIndex = buildCommands.findIndex((command) =>
+      command.startsWith('node scripts/stage-server-app.mjs ')
+    )
+    const verifyIndex = buildCommands.findIndex((command) =>
+      command.startsWith('node scripts/verify-server-package.mjs ')
     )
 
     expect(manifest.devDependencies?.vitest).toBeDefined()
     expect(installCommand).toBeDefined()
     expect(isProductionOnlyInstall(installCommand ?? '')).toBe(false)
-    expect(
-      dockerfile.slice(0, dockerfile.indexOf('FROM node:22-alpine AS runtime'))
-    ).not.toMatch(/ENV\s+NODE_ENV=production/)
-    expect(gateIndex).toBeGreaterThanOrEqual(0)
+    expect(dockerfile).toContain('FROM node:24-alpine AS deps')
+    expect(dockerfile).toContain('FROM node:24-alpine AS runtime')
+    expect(electronInstallIndex).toBeGreaterThanOrEqual(0)
+    expect(gateIndex).toBeGreaterThan(electronInstallIndex)
     expect(buildIndex).toBeGreaterThan(gateIndex)
-    expect(dockerfile).toContain('FROM build AS runtime-deps')
-    expect(runtimeDependencyCommands).toContain(
-      'pnpm prune --prod --ignore-scripts'
+    expect(stageIndex).toBeGreaterThan(buildIndex)
+    expect(verifyIndex).toBeGreaterThan(stageIndex)
+    expect(dockerfile).not.toContain('pnpm prune --prod')
+    expect(dockerfile).not.toContain('FROM build AS runtime-deps')
+    expect(dockerfile).toContain(
+      'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./'
     )
+    expect(dockerfile).toContain(
+      'COPY packages/native-host/package.json ./packages/native-host/package.json'
+    )
+    expect(dockerfile).toContain(
+      'node scripts/stage-server-app.mjs --platform linux --arch "${' +
+        'TARGETARCH}" --libc musl --strict'
+    )
+    expect(dockerfile).toContain('USER node')
   })
 
   it('gates the canonical Flatpak build before rebuild and packaging', async () => {
