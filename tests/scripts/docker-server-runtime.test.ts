@@ -65,6 +65,22 @@ describe('Docker Server runtime staging contract', () => {
     )
   })
 
+  it('exercises deployment behavior instead of only process startup', async () => {
+    const imageSmoke = await readFile(
+      path.join(ROOT, 'scripts/smoke-server-image.mjs'),
+      'utf8'
+    )
+
+    expect(imageSmoke).toContain("'--read-only'")
+    expect(imageSmoke).toContain("'1000:1000'")
+    expect(imageSmoke).toContain("'command:createTask'")
+    expect(imageSmoke).toContain("'command:setTaskBtTracker'")
+    expect(imageSmoke).toContain("'command:installPlugin'")
+    expect(imageSmoke).toContain("'command:uninstallPlugin'")
+    expect(imageSmoke).toContain('Save directory is not writable: /downloads')
+    expect(imageSmoke).toContain('did not survive container restart')
+  })
+
   it('keeps a corrected full-root comparison target without changing the final target', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const baselineStart = dockerfile.indexOf(
