@@ -820,12 +820,7 @@ export async function smokeServerImage(options) {
     const pluginInstall = await installPlugin(url, operatorToken)
     const installRecord = JSON.parse(
       await readFile(
-        path.join(
-          volumes.dataDir,
-          'plugins',
-          PLUGIN_ID,
-          '_install.json'
-        ),
+        path.join(volumes.dataDir, 'plugins', PLUGIN_ID, '_install.json'),
         'utf8'
       )
     )
