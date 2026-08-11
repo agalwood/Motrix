@@ -69,6 +69,7 @@ async function makeServer(): Promise<{
     registry,
     onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
     motrixVersion: '0.0.0-test',
+    runtime: 'electron',
     ffmpegAvailable: false,
     localToken: 'test-local-token',
   })

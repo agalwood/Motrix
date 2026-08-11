@@ -70,7 +70,10 @@ export async function createServerCapabilityHost(
   })
   const appCap = new AppCapabilityHost({
     appVersion: opts.appVersion,
+    platform: process.platform as 'darwin' | 'win32' | 'linux',
     runtime: 'server',
+    locale: opts.hostLanguage,
+    arch: process.arch as 'x64' | 'arm64',
   })
   const i18nCap = new I18nCapabilityHost({ hostLanguage: opts.hostLanguage })
 
@@ -103,6 +106,7 @@ export async function createServerCapabilityHost(
   // secrets: prefer env seed, fall back to lockbox file, else FailingSecretStore
   const secrets = await LibsodiumSecretStore.create({
     userDataDir: opts.userDataDir,
+    envSeed: process.env.MOTRIX_SECRETS_SEED,
   })
   const detectFfmpeg = makeServerFfmpegDetect({
     settingsManager: opts.settingsManager,

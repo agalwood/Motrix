@@ -34,6 +34,7 @@ describe('WebSocketBridgeServer (JSON-RPC)', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'test-token',
     })
@@ -269,6 +270,7 @@ describe('WebSocketBridgeServer.start() bind guard', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken,
     })
@@ -411,6 +413,7 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
       } as unknown as TrustedExtensionRegistry,
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'test-token',
     })

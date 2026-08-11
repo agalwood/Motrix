@@ -1,34 +1,22 @@
-import { DEFAULT_LOCALE } from '@shared/constants/locales'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { AppCapabilityHost } from './app'
 
-const originalLang = process.env.LANG
-
-afterEach(() => {
-  if (originalLang === undefined) delete process.env.LANG
-  else process.env.LANG = originalLang
-})
-
-describe('AppCapabilityHost locale', () => {
-  it('resolves platform locale syntax through the shared catalog', () => {
-    process.env.LANG = 'zh_CN.UTF-8'
-
+describe('AppCapabilityHost', () => {
+  it('returns the runtime snapshot supplied by the host adapter', () => {
     const snapshot = new AppCapabilityHost({
       appVersion: '2.0.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'zh-CN',
+      arch: 'arm64',
     }).snapshot()
 
-    expect(snapshot.locale).toBe('zh-CN')
-  })
-
-  it('uses the shared default for unsupported environment locales', () => {
-    process.env.LANG = 'fr_FR.UTF-8'
-
-    const snapshot = new AppCapabilityHost({
-      appVersion: '2.0.0',
+    expect(snapshot).toEqual({
+      version: '2.0.0',
+      platform: 'linux',
       runtime: 'server',
-    }).snapshot()
-
-    expect(snapshot.locale).toBe(DEFAULT_LOCALE)
+      locale: 'zh-CN',
+      arch: 'arm64',
+    })
   })
 })

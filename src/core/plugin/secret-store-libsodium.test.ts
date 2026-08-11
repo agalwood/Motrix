@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { FailingSecretStore } from '@core/plugin/capabilities/secret-store'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LibsodiumSecretStore } from './secret-store-libsodium'
 
 // Deterministic env seed for tests (64 hex chars = 32 bytes).
@@ -38,6 +38,7 @@ describe('LibsodiumSecretStore', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
@@ -51,6 +52,15 @@ describe('LibsodiumSecretStore', () => {
     })
     expect(store).toBeInstanceOf(FailingSecretStore)
     expect(store.available()).toBe(false)
+  })
+
+  it('does not read a secret seed from the ambient process environment', async () => {
+    vi.stubEnv('MOTRIX_SECRETS_SEED', TEST_SEED)
+    const store = await LibsodiumSecretStore.create({
+      userDataDir: '/proc/non-existent-dir-that-cannot-be-created',
+      envSeed: undefined,
+    })
+    expect(store).toBeInstanceOf(FailingSecretStore)
   })
 
   // Test 2: create with valid env seed returns LibsodiumSecretStore.

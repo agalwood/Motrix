@@ -100,6 +100,22 @@ describe('makeServerFfmpegDetect', () => {
     )
   })
 
+  it('passes the Server host platform and normalizes an unset env path', async () => {
+    const { manager } = makeSettingsManager({
+      ffmpegBinaryPath: '',
+      ffmpegStagingMB: 4096,
+      ffmpegOpTimeoutSec: 1800,
+    })
+    const detect = makeServerFfmpegDetect({
+      settingsManager: manager,
+      userDataDir: '/srv/motrix',
+    })
+    await detect()
+    const arg = mockedDetectInOrder.mock.calls[0][0]
+    expect(arg.platform).toBe(process.platform)
+    expect(arg.envPath).toBeNull()
+  })
+
   it('re-reads settings on each invocation (live SettingsManager read)', async () => {
     const { manager, setMedia } = makeSettingsManager({
       ffmpegBinaryPath: '/a',

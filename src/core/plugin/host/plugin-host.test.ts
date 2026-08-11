@@ -15,7 +15,20 @@ import type { CapabilityHost } from '../capabilities/interface'
 import { LogCapabilityHost } from '../capabilities/log'
 import { PluginRegistry } from '../plugin-registry'
 import { PluginStateStore } from '../state/plugin-state-store'
-import { PluginHost } from './plugin-host'
+import { PluginHost, parsePluginIdleDisposeMs } from './plugin-host'
+
+describe('parsePluginIdleDisposeMs', () => {
+  it.each([
+    [undefined, undefined],
+    ['', undefined],
+    ['0', undefined],
+    ['-1', undefined],
+    ['invalid', undefined],
+    ['1234', 1234],
+  ])('maps %j to %j', (input, expected) => {
+    expect(parsePluginIdleDisposeMs(input)).toBe(expected)
+  })
+})
 
 function writeStubWorker(dir: string): string {
   const file = path.join(dir, 'StubWorker.cjs')
@@ -127,7 +140,10 @@ describe('PluginHost', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     // Cast: these tests only exercise Plan A surfaces; Plan B fields are unused.
@@ -397,7 +413,10 @@ describe('PluginHost.deactivate — lifecycle wiring', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     capHost = {
@@ -623,7 +642,10 @@ describe('PluginHost locale change propagation', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     const capHost = {
@@ -689,7 +711,10 @@ describe('PluginHost locale change propagation', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const capHost = {
       createLog: (id: string) => log.create(id),
@@ -742,7 +767,10 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     capHost = {
@@ -914,7 +942,10 @@ describe('PluginHost.activate — builtin overlay bundle read path', () => {
     })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     capHost = {

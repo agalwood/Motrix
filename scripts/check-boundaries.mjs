@@ -13,6 +13,11 @@ const rules = [
     dir: 'src/core/',
   },
   {
+    label: 'shared must not use Node-specific APIs or globals',
+    pattern: `from ['"]node:|require\\(['"]node:|import\\(['"]node:|(^|[^[:alnum:]_$])process\\.|(^|[^[:alnum:]_$])NodeJS\\.`,
+    dir: 'src/shared/',
+  },
+  {
     label: 'renderer must not import core or main',
     pattern: `from ['"][^'"]*(core|main)/`,
     dir: 'src/renderer/',
@@ -26,6 +31,11 @@ const rules = [
     label: 'server must not import src/main',
     pattern: `from ['"]@main/|from ['"][^'"]*src/main/`,
     dir: 'src/server/',
+  },
+  {
+    label: 'production source must not reference deployment staging contracts',
+    pattern: String.raw`(electron|server)-runtime-dependencies\.json|\.motrix-(package|server)-stage\.json|dist/(electron|server)-app`,
+    dir: 'src/',
   },
   {
     label:

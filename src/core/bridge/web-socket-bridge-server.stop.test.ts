@@ -55,6 +55,7 @@ async function makeServer(): Promise<WebSocketBridgeServer> {
     registry,
     onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
     motrixVersion: '0.0.0-test',
+    runtime: 'electron',
     ffmpegAvailable: false,
     localToken: 'test-local-token',
   })

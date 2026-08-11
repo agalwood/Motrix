@@ -10,7 +10,7 @@
 // Token format: "box:<base64(nonce 24 bytes)>:<base64(crypto_secretbox_easy ct)>"
 //
 // Key source priority (resolved by static factory LibsodiumSecretStore.create):
-//   1. envSeed option or MOTRIX_SECRETS_SEED env var — 64 hex chars (32 bytes)
+//   1. shell-provided envSeed option — 64 hex chars (32 bytes)
 //   2. <userDataDir>/secrets.lockbox file — 32 raw bytes
 //   3. If userDataDir is writable, generate and write a new lockbox (chmod 0600)
 //   4. Otherwise return FailingSecretStore (no encrypt/decrypt possible)
@@ -40,7 +40,7 @@ const LOCKBOX_FILE = 'secrets.lockbox'
 
 export interface LibsodiumSecretStoreOptions {
   userDataDir: string
-  /** Optional override for process.env.MOTRIX_SECRETS_SEED (64 hex chars). */
+  /** Shell-provided secret seed (64 hex chars); omitted to use the lockbox. */
   envSeed?: string
 }
 
@@ -57,7 +57,7 @@ export class LibsodiumSecretStore implements SecretStore {
   ): Promise<LibsodiumSecretStore | FailingSecretStore> {
     await sodium.ready
 
-    const rawSeed = opts.envSeed ?? process.env.MOTRIX_SECRETS_SEED
+    const rawSeed = opts.envSeed
 
     // Priority 1: env seed (64 hex chars = 32 bytes)
     if (rawSeed) {

@@ -37,7 +37,13 @@ function makeBridge(opts?: { workerPath?: string }): {
   const workerPath = opts?.workerPath ?? writeReadyOnlyStubWorker(dir)
   const logsDir = path.join(dir, 'plugin-logs')
   const log = new LogCapabilityHost({ pluginLogsDir: logsDir })
-  const app = new AppCapabilityHost({ appVersion: '2.5.0', runtime: 'server' })
+  const app = new AppCapabilityHost({
+    appVersion: '2.5.0',
+    platform: 'linux',
+    runtime: 'server',
+    locale: 'en-US',
+    arch: 'x64',
+  })
   const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
   const capHost: CapabilityHost = {
     createLog: (id: string) => log.create(id),
@@ -97,7 +103,10 @@ describe('CapabilityBridge', () => {
     const log = new LogCapabilityHost({ pluginLogsDir: logsDir })
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
+      platform: 'linux',
       runtime: 'server',
+      locale: 'en-US',
+      arch: 'x64',
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
 

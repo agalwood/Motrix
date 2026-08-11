@@ -67,6 +67,7 @@ describe('device-code HTTP endpoints', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'local',
       deviceCode,
@@ -165,6 +166,7 @@ describe('device-code verificationUri', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'local',
       deviceCode: new DeviceCodeService(makeStatefulFakePairing()),
@@ -190,6 +192,7 @@ describe('device-code endpoints disabled when no DeviceCodeService', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'local',
     })

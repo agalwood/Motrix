@@ -89,6 +89,7 @@ describe('SSE GET /mdxp/events', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: LOCAL_TOKEN,
     })
@@ -169,6 +170,7 @@ describe('SSE revocation closes live streams', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: LOCAL_TOKEN,
     })
@@ -262,6 +264,7 @@ describe('SSE rotation on device-code re-pair (end-to-end)', () => {
       registry: makeFakeRegistry(),
       onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       localToken: LOCAL_TOKEN,
       deviceCode,

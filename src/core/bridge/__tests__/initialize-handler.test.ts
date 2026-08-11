@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const baseCapabilities = {
   motrixVersion: '2.0',
+  runtime: 'electron' as const,
   ffmpegAvailable: true,
 }
 
@@ -79,6 +80,23 @@ describe('initialize handler', () => {
     expect(onPairRequest).toHaveBeenCalledWith(fakePairArgs)
     // Approval authorizes the session for control-plane / download methods.
     expect(markAuthorized).toHaveBeenCalledOnce()
+  })
+
+  it('reports the runtime injected by the Server composition root', async () => {
+    const handler = createInitializeHandler({
+      ...baseCapabilities,
+      runtime: 'server',
+      pairing: { issueToken: vi.fn() } as never,
+      registry: { has: () => true } as never,
+      onPairRequest: vi.fn(),
+    })
+
+    const result = await handler(
+      validClientInfo as never,
+      makeCtx({ pendingPair: null })
+    )
+
+    expect(result.server.runtime).toBe('server')
   })
 
   it('first-pair deny: does NOT authorize the session', async () => {
@@ -210,6 +228,7 @@ describe('initialize handler', () => {
       .mockResolvedValue({ decision: 'allow', addToRegistry: false })
     const handler = createInitializeHandler({
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: false,
       pairing: {
         issueToken: vi.fn().mockResolvedValue({ token: 'tok' }),
@@ -230,6 +249,7 @@ describe('initialize handler', () => {
       .mockResolvedValue({ decision: 'allow', addToRegistry: false })
     const handler = createInitializeHandler({
       motrixVersion: '2.0',
+      runtime: 'electron',
       ffmpegAvailable: true,
       pairing: {
         issueToken: vi.fn().mockResolvedValue({ token: 'tok' }),

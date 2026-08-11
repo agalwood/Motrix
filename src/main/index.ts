@@ -37,7 +37,10 @@ import { createNotificationOccurrenceConsumer } from '@core/notifications/occurr
 import { wireCommandSystem } from '@core/plugin/commands/wire'
 import { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
-import { PluginHost } from '@core/plugin/host/plugin-host'
+import {
+  PluginHost,
+  parsePluginIdleDisposeMs,
+} from '@core/plugin/host/plugin-host'
 import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
@@ -1496,6 +1499,7 @@ async function initializeMainProcess(): Promise<void> {
   // down) because PluginRegistry needs it immediately for overlay-aware
   // manifest resolution.
   const overlayDir = path.join(platform.userDataDir, 'builtin-updates')
+  const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   const pluginRegistry = new PluginRegistry({
     pluginsDir,
     builtinDir,
@@ -1503,6 +1507,7 @@ async function initializeMainProcess(): Promise<void> {
     stateStore: pluginStateStore,
     hostVersion: app.getVersion(),
     hostLanguage: pluginBootstrapLocale,
+    devPath,
   })
   await pluginRegistry.discover()
   if (!mainProcessWork.isAccepting()) return
@@ -1549,6 +1554,9 @@ async function initializeMainProcess(): Promise<void> {
     runtime: 'electron',
     hostLanguage: resolvedApplicationLocale,
     pluginGrants,
+    idleDisposeMs: parsePluginIdleDisposeMs(
+      process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
+    ),
   })
   pluginHost = activePluginHost
   // Spec §I30 — real-time grant revocation. On a grants change, deactivate
@@ -1591,7 +1599,6 @@ async function initializeMainProcess(): Promise<void> {
     return
   }
 
-  const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   if (devPath) {
     runShellAsyncWork('dev watcher start', async () => {
       const handle = await startDevWatcher(
@@ -1950,9 +1957,8 @@ async function initializeMainProcess(): Promise<void> {
     const ff = await locateFfmpeg({
       manualPath: settingsManager.getMedia().ffmpegBinaryPath,
       userDataBinariesDir: ffmpegBinariesDir,
-      ...(process.env.MOTRIX_FFMPEG_BIN
-        ? { envPath: process.env.MOTRIX_FFMPEG_BIN }
-        : {}),
+      platform: process.platform,
+      envPath: process.env.MOTRIX_FFMPEG_BIN ?? null,
     })
     const segmentAria2Client = new Aria2SegmentClient(rpcClient)
     segmentClient = segmentAria2Client

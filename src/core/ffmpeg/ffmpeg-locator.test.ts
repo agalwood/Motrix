@@ -9,7 +9,12 @@ describe('locateFfmpeg', () => {
         : { available: false }
     )
     const r = await locateFfmpeg(
-      { manualPath: '', userDataBinariesDir: '/x', envPath: undefined },
+      {
+        manualPath: '',
+        userDataBinariesDir: '/x',
+        platform: 'linux',
+        envPath: null,
+      },
       probe
     )
     expect(r.available).toBe(true)
@@ -20,7 +25,12 @@ describe('locateFfmpeg', () => {
   it('reports unavailable when nothing probes', async () => {
     const probe = vi.fn(async () => ({ available: false }))
     const r = await locateFfmpeg(
-      { manualPath: '', userDataBinariesDir: '/x' },
+      {
+        manualPath: '',
+        userDataBinariesDir: '/x',
+        platform: 'linux',
+        envPath: null,
+      },
       probe
     )
     expect(r.available).toBe(false)
