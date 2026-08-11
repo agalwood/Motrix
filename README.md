@@ -74,15 +74,15 @@ Plugins run inside a QuickJS sandbox. Each plugin declares the host capabilities
 
 ### Desktop app
 
-Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
+Download Motrix from [motrix.app](https://motrix.app/) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
 
 Available package formats:
 
-| Platform | Formats | Recommendation |
-|----------|---------|----------------|
-| macOS | `.dmg` / `.zip` | The Apple Silicon `.dmg` is recommended; use the Intel build only on an Intel-based Mac |
-| Windows | `.exe` (NSIS installer) / `.zip` | The `.exe` installer is the best choice for most users; use `.zip` for a manually extracted copy |
-| Linux | `.AppImage` / `.deb` / `.rpm`, plus Flatpak and Snap | Use `.deb` on Debian or Ubuntu, `.rpm` on Fedora or openSUSE, or `.AppImage` to run Motrix without installing it |
+| **Platform** | **Formats**                                          | **Recommendation**                                                                                                |
+| ------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| macOS        | `.dmg` / `.zip`                                      | The Apple Silicon `.dmg` is recommended; use the Intel build only on an Intel-based Mac.                          |
+| Windows      | `.exe` (NSIS installer) / `.zip`                     | The `.exe` installer is the best choice for most users; use `.zip` for a manually extracted copy.                 |
+| Linux        | `.AppImage` / `.deb` / `.rpm`, plus Flatpak and Snap | Use `.deb` on Debian or Ubuntu, `.rpm` on Fedora or openSUSE, or `.AppImage` to run Motrix without installing it. |
 
 ### Command-line client
 
@@ -90,17 +90,18 @@ Available package formats:
 npm install -g @motrix/cli
 ```
 
-You can also install it from Settings → Integration → Command-line tools in the desktop app.
+You can also install the command-line client from **Settings → Integration → Command-line tools** in the desktop app.
 
 ### Headless server with Docker
 
-The repository includes a `Dockerfile` that builds an image with the web UI and aria2 included:
+The repository includes a `Dockerfile` that builds an image containing the web UI and aria2:
 
 ```bash
 docker build -t motrix-turbo:dev .
 ```
 
-Remote clients such as the CLI and browser extensions pair with the server through a device-code flow. See the `Dockerfile` and related documentation for details.
+Remote clients, such as the CLI and browser extensions, pair with the server through a device-code flow. See the `Dockerfile` and related documentation for more details.
+
 
 ## 🛠 Development
 
