@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "artifactBytes": 83886080,
+  "dependencyBytes": 54525952,
+  "packageInstances": 130,
+  "unexpectedRuntimeRoots": 0,
+  "unresolvedExternals": 0,
+  "foreignNativeBinaries": 0,
+  "betterSqlite3Prebuilds": 1
+}
