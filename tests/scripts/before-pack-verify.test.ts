@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -11,6 +12,7 @@ describe('before-pack-verify', () => {
 
   beforeEach(async () => {
     projectDir = await mkdtemp(join(tmpdir(), 'motrix-before-pack-'))
+    await writeStage()
   })
 
   afterEach(async () => {
@@ -40,6 +42,48 @@ describe('before-pack-verify', () => {
       'dist',
       `${platform}-${arch}`,
       binaryName
+    )
+  }
+
+  async function writeStage(
+    platform = 'darwin',
+    arch = 'x64',
+    version = '1.2.3'
+  ) {
+    await writeFile(
+      join(projectDir, 'package.json'),
+      `${JSON.stringify({ version })}\n`
+    )
+    const buildOutputs = []
+    for (const relativePath of [
+      'dist/core/plugin/host/quick-js-worker.cjs',
+      'dist/main/index.cjs',
+      'dist/preload/preload.cjs',
+      'dist/renderer/index.html',
+    ]) {
+      const target = join(projectDir, relativePath)
+      const content = Buffer.from(relativePath)
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, content)
+      buildOutputs.push({
+        path: relativePath,
+        bytes: content.length,
+        sha256: createHash('sha256').update(content).digest('hex'),
+      })
+    }
+    const manifestPath = join(
+      projectDir,
+      'dist/electron-app/.motrix-package-stage.json'
+    )
+    await mkdir(dirname(manifestPath), { recursive: true })
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        target: { platform, arch, key: `${platform}-${arch}` },
+        rootVersion: version,
+        buildOutputs,
+      })}\n`
     )
   }
 
@@ -167,6 +211,7 @@ describe('before-pack-verify', () => {
   })
 
   it('accepts Windows .exe files without Unix execute bits', async () => {
+    await writeStage('win32')
     await writeBinary(enginePath('win32'), 0o644, 'win32')
     await writeBinary(hostPath('win32'), 0o644, 'win32')
 
@@ -174,6 +219,7 @@ describe('before-pack-verify', () => {
   })
 
   it('accepts Windows arm64 PE files for the reserved target contract', async () => {
+    await writeStage('win32', 'arm64')
     await writeBinary(enginePath('win32', 'arm64'), 0o644, 'win32', 'arm64')
     await writeBinary(hostPath('win32', 'arm64'), 0o644, 'win32', 'arm64')
 
@@ -181,6 +227,7 @@ describe('before-pack-verify', () => {
   })
 
   it('rejects an MZ-only Windows file without a PE/COFF target header', async () => {
+    await writeStage('win32')
     await writeBinary(enginePath('win32'), 0o644, 'win32')
     await mkdir(dirname(hostPath('win32')), { recursive: true })
     await writeFile(hostPath('win32'), Buffer.from('MZ-not-a-PE-file'))
@@ -191,6 +238,7 @@ describe('before-pack-verify', () => {
   })
 
   it('accepts executable Linux ELF files', async () => {
+    await writeStage('linux')
     await writeBinary(enginePath('linux'), 0o755, 'linux')
     await writeBinary(hostPath('linux'), 0o755, 'linux')
 
@@ -198,6 +246,7 @@ describe('before-pack-verify', () => {
   })
 
   it('accepts executable Linux arm64 ELF files', async () => {
+    await writeStage('linux', 'arm64')
     await writeBinary(enginePath('linux', 'arm64'), 0o755, 'linux', 'arm64')
     await writeBinary(hostPath('linux', 'arm64'), 0o755, 'linux', 'arm64')
 
@@ -205,6 +254,7 @@ describe('before-pack-verify', () => {
   })
 
   it('accepts a universal Mach-O containing the requested target slice', async () => {
+    await writeStage('darwin', 'arm64')
     await writeBinary(enginePath('darwin', 'arm64'), 0o755, 'darwin', 'arm64')
     await writeUniversalMachBinary(hostPath('darwin', 'arm64'), [
       'x64',
@@ -212,5 +262,41 @@ describe('before-pack-verify', () => {
     ])
 
     await expect(beforePack(context('darwin', 3))).resolves.toBeUndefined()
+  })
+
+  it('rejects a missing package stage before checking external resources', async () => {
+    await rm(join(projectDir, 'dist/electron-app/.motrix-package-stage.json'))
+
+    await expect(beforePack(context())).rejects.toThrow(
+      'missing or invalid Electron package stage manifest'
+    )
+  })
+
+  it('rejects a target-mismatched package stage', async () => {
+    await writeStage('linux')
+
+    await expect(beforePack(context())).rejects.toThrow(
+      'stage target does not match darwin-x64'
+    )
+  })
+
+  it('rejects a stale package stage', async () => {
+    await writeFile(join(projectDir, 'dist/main/index.cjs'), 'changed')
+
+    await expect(beforePack(context())).rejects.toThrow(
+      'stage is stale for dist/main/index.cjs'
+    )
+  })
+
+  it('rejects a package stage for another application version', async () => {
+    await writeStage('darwin', 'x64', '1.2.2')
+    await writeFile(
+      join(projectDir, 'package.json'),
+      `${JSON.stringify({ version: '1.2.3' })}\n`
+    )
+
+    await expect(beforePack(context())).rejects.toThrow(
+      'stage version 1.2.2 does not match root version 1.2.3'
+    )
   })
 })

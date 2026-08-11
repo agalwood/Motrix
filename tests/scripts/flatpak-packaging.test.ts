@@ -8,6 +8,7 @@ describe('Flatpak packaging contract', () => {
       modules: 4,
       builtinSources: 6,
       brokerCommand: 'motrix-native-host-broker',
+      electronPackageVerification: true,
       privateProtocolVersion: 1,
     })
   })

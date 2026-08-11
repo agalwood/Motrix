@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "supportedTargets": [
+    "darwin-arm64",
+    "darwin-x64",
+    "linux-arm64",
+    "linux-x64",
+    "win32-x64"
+  ],
+  "common": [
+    "@motrix/mdxp",
+    "@motrix/nat",
+    "@motrix/plugin-manifest-schema",
+    "ajv",
+    "better-sqlite3",
+    "chokidar",
+    "electron-updater",
+    "i18next",
+    "libsodium-wrappers",
+    "mmdb-lib",
+    "quickjs-emscripten",
+    "undici",
+    "uuid",
+    "vscode-jsonrpc",
+    "write-file-atomic",
+    "ws",
+    "yauzl",
+    "zod"
+  ],
+  "platforms": {
+    "darwin": {
+      "optional": ["electron-liquid-glass"],
+      "required": ["@resvg/resvg-wasm"]
+    },
+    "linux": {
+      "optional": [],
+      "required": []
+    },
+    "win32": {
+      "optional": [],
+      "required": []
+    }
+  }
+}

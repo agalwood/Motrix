@@ -2,8 +2,8 @@
 // scripts/postinstall.mjs
 //
 // Two independent, per-step env-guarded stages with NO early process.exit:
-//   Stage A — `electron-builder install-app-deps` (rebuilds native modules
-//             such as better-sqlite3), skipped only by
+//   Stage A — `@electron/rebuild` (rebuilds native modules such as
+//             better-sqlite3), skipped only by
 //             MOTRIX_SKIP_ELECTRON_REBUILD=1.
 //   Stage B — fetch the bundled aria2 binary for the host
 //             (fetch-engine.mjs, default host mode), skipped only by
@@ -39,16 +39,26 @@ export function classifyRebuildResult(result) {
   return { code: result.status ?? 1, reason: null }
 }
 
-function runElectronRebuild() {
-  // On Windows the .bin entry is a `electron-builder.cmd` shim, which Node
+export function runElectronRebuild(
+  spawn = spawnSync,
+  platform = process.platform
+) {
+  // On Windows the .bin entry is an `electron-rebuild.cmd` shim, which Node
   // refuses to spawn directly (ENOENT/EINVAL since CVE-2024-27980); route it
   // through cmd.exe. The argv is a fixed literal, so shell quoting is moot.
-  const result = spawnSync('electron-builder', ['install-app-deps'], {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  })
+  // Invoke @electron/rebuild directly so the install-time rebuild targets the
+  // repository root instead of loading electron-builder's staged appDir. The
+  // staged app does not exist until after the build completes.
+  const result = spawn(
+    'electron-rebuild',
+    ['--module-dir', '.', '--sequential', '--disable-pre-gyp-copy'],
+    {
+      stdio: 'inherit',
+      shell: platform === 'win32',
+    }
+  )
   const { code, reason } = classifyRebuildResult(result)
-  if (reason) console.error(`[postinstall] electron-builder ${reason}`)
+  if (reason) console.error(`[postinstall] @electron/rebuild ${reason}`)
   return code
 }
 
@@ -63,7 +73,7 @@ export async function main(env, deps = defaultDeps) {
   // Stage A — electron rebuild (independent SKIP guard).
   if (env.MOTRIX_SKIP_ELECTRON_REBUILD === '1') {
     deps.log(
-      '[postinstall] Stage A: skipping electron-builder install-app-deps ' +
+      '[postinstall] Stage A: skipping @electron/rebuild ' +
         '(MOTRIX_SKIP_ELECTRON_REBUILD=1)'
     )
   } else {

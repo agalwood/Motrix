@@ -238,6 +238,9 @@ modules:
 
       - pnpm --config.verify-deps-before-run=false run build:builtin
       - pnpm --config.verify-deps-before-run=false run build:electron
+      - pnpm --config.verify-deps-before-run=false run stage:electron --
+        --platform linux
+        --arch $npm_config_target_arch
       # electronDist reuses the runtime install.js already extracted from
       # generated-sources; without it electron-builder re-downloads the dist
       # zip and its SHASUMS256.txt from GitHub, which the offline sandbox
@@ -254,6 +257,11 @@ modules:
         if [ "$npm_config_target_arch" = arm64 ]; then
           unpacked=release/linux-arm64-unpacked
         fi
+        node scripts/verify-electron-package.mjs \
+          --app-dir "$unpacked" \
+          --platform linux \
+          --arch "$npm_config_target_arch" \
+          --report "release/size-reports/linux-$npm_config_target_arch.json"
         test -x "$unpacked/resources/extra/linux/$npm_config_target_arch/aria2c"
         test -x "$unpacked/resources/bin/motrix-native-host"
         rm "$unpacked/resources/bin/motrix-native-host"

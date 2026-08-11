@@ -179,6 +179,12 @@ jobs:
             --arch ${{ matrix.electron_arch }}
           pnpm run build:electron
 
+      - name: Stage Electron application
+        run: >-
+          pnpm run stage:electron --
+          --platform linux
+          --arch ${{ matrix.electron_arch }}
+
       - name: Build unpacked Electron application
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -188,6 +194,14 @@ jobs:
           --dir
           --${{ matrix.electron_arch }}
           --publish never
+
+      - name: Verify Electron package
+        run: >-
+          node scripts/verify-electron-package.mjs
+          --app-dir "${{ matrix.app_dir }}"
+          --platform linux
+          --arch ${{ matrix.electron_arch }}
+          --report "release/size-reports/linux-${{ matrix.electron_arch }}.json"
 
       - name: Prepare isolated Snapcraft project
         run: >-
@@ -216,7 +230,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: snap-input-${{ matrix.snap_arch }}
-          path: ${{ steps.snapcraft.outputs.snap }}
+          path: |
+            ${{ steps.snapcraft.outputs.snap }}
+            release/size-reports/linux-${{ matrix.electron_arch }}.json
           if-no-files-found: error
           compression-level: 0
           retention-days: 7

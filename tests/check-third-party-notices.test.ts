@@ -227,6 +227,16 @@ function registryPackagesFromCargoLock(
 }
 
 describe('third-party graph dependency notices', () => {
+  it('keeps the root manifest as the legal dependency source of truth', async () => {
+    const generator = await readFile(
+      path.join(ROOT, 'scripts/generate-third-party-notices.mjs'),
+      'utf8'
+    )
+
+    expect(generator).toContain("path.join(resolvedProjectDir, 'package.json')")
+    expect(generator).not.toContain('dist/electron-app/package.json')
+  })
+
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
     '%s documents the generated runtime inventory',
     async (noticeFile) => {

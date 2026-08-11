@@ -74,16 +74,53 @@ describe('Snap build workflow contract', () => {
 
   it('builds an unpacked app and never lets electron-builder publish', () => {
     const steps = jobSteps(workflowJob(snapWorkflow, 'build'))
+    const stage = steps.find((step) =>
+      stringField(step, 'run', '').includes('stage:electron')
+    )
     const builder = steps.find((step) =>
       stringField(step, 'run', '').includes('electron-builder')
     )
+    const verifier = steps.find((step) =>
+      stringField(step, 'run', '').includes('verify-electron-package.mjs')
+    )
+    const prepare = steps.find(
+      (step) => step.name === 'Prepare isolated Snapcraft project'
+    )
+    expect(stage).toBeDefined()
     expect(builder).toBeDefined()
+    expect(verifier).toBeDefined()
 
     const command = stringField(builder as LooseRecord, 'run')
     expect(command).toContain('--linux')
     expect(command).toContain('--dir')
     expect(command).toContain(`--\${{ matrix.electron_arch }}`)
     expect(command).toContain('--publish never')
+    const stageCommand = stringField(stage as LooseRecord, 'run')
+    expect(stageCommand).toContain('--platform linux')
+    expect(stageCommand).toContain(`--arch \${{ matrix.electron_arch }}`)
+    const verifyCommand = stringField(verifier as LooseRecord, 'run')
+    expect(verifyCommand).toContain(`--app-dir "\${{ matrix.app_dir }}"`)
+    expect(verifyCommand).toContain('--platform linux')
+    expect(verifyCommand).toContain(`--arch \${{ matrix.electron_arch }}`)
+    expect(verifyCommand).toContain(
+      `--report "release/size-reports/linux-\${{ matrix.electron_arch }}.json"`
+    )
+    expect(steps.indexOf(stage as LooseRecord)).toBeLessThan(
+      steps.indexOf(builder as LooseRecord)
+    )
+    expect(steps.indexOf(builder as LooseRecord)).toBeLessThan(
+      steps.indexOf(verifier as LooseRecord)
+    )
+    expect(steps.indexOf(verifier as LooseRecord)).toBeLessThan(
+      steps.indexOf(prepare as LooseRecord)
+    )
+
+    const upload = steps.find((step) => step.name === 'Upload verified Snap')
+    const uploadInputs = asRecord(upload?.with, 'Snap upload inputs')
+    expect(stringField(uploadInputs, 'path')).toContain(
+      `release/size-reports/linux-\${{ matrix.electron_arch }}.json`
+    )
+    expect(stringField(uploadInputs, 'if-no-files-found')).toBe('error')
 
     const snapcraft = steps.find((step) =>
       stringField(step, 'uses', '').startsWith('snapcore/action-build@')
