@@ -201,6 +201,29 @@ export function serverTargetKey(platform, arch, libc) {
     : `${platform}-${arch}`
 }
 
+export function betterSqlite3PrebuildName(target) {
+  if (!target || typeof target !== 'object') {
+    throw new Error('Server package target is required')
+  }
+  if (target.platform === 'linux') {
+    if (
+      !SUPPORTED_ARCHES.has(target.arch) ||
+      !SUPPORTED_LIBCS.has(target.libc)
+    ) {
+      throw new Error('invalid Linux target for better-sqlite3')
+    }
+    const prefix = target.libc === 'musl' ? 'linuxmusl' : 'linux'
+    return `${prefix}-${target.arch}.node`
+  }
+  if (
+    !SUPPORTED_PLATFORMS.has(target.platform) ||
+    !SUPPORTED_ARCHES.has(target.arch)
+  ) {
+    throw new Error('invalid target for better-sqlite3')
+  }
+  return `${target.platform}-${target.arch}.node`
+}
+
 export function parseServerTarget(options = {}) {
   const strict = options.strict === true || options.ci === true
   const platform = options.platform ?? (strict ? undefined : process.platform)

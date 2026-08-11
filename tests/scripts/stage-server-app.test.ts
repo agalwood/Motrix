@@ -25,12 +25,84 @@ afterEach(async () => {
 async function writeFixtureFile(
   root: string,
   relativePath: string,
-  content = relativePath
+  content: string | Buffer = relativePath
 ): Promise<void> {
   const target = path.join(root, relativePath)
   await mkdir(path.dirname(target), { recursive: true })
   await writeFile(target, content)
 }
+
+function nativeHeader(platform: string, arch: string): Buffer {
+  if (platform === 'win32') {
+    const header = Buffer.alloc(72)
+    header.write('MZ')
+    header.writeUInt32LE(64, 0x3c)
+    header.set([0x50, 0x45, 0, 0], 64)
+    header.writeUInt16LE(arch === 'arm64' ? 0xaa64 : 0x8664, 68)
+    return header
+  }
+  if (platform === 'linux') {
+    const header = Buffer.alloc(20)
+    header.set([0x7f, 0x45, 0x4c, 0x46])
+    header[4] = 2
+    header[5] = 1
+    header.writeUInt16LE(arch === 'arm64' ? 183 : 62, 18)
+    return header
+  }
+  const header = Buffer.alloc(8)
+  header.set([0xcf, 0xfa, 0xed, 0xfe])
+  header.writeUInt32LE(arch === 'arm64' ? 0x0100000c : 0x01000007, 4)
+  return header
+}
+
+const nativeTargets = [
+  {
+    key: 'darwin-arm64',
+    platform: 'darwin',
+    arch: 'arm64',
+    prebuild: 'darwin-arm64.node',
+  },
+  {
+    key: 'darwin-x64',
+    platform: 'darwin',
+    arch: 'x64',
+    prebuild: 'darwin-x64.node',
+  },
+  {
+    key: 'linux-arm64-gnu',
+    platform: 'linux',
+    arch: 'arm64',
+    libc: 'gnu',
+    prebuild: 'linux-arm64.node',
+  },
+  {
+    key: 'linux-arm64-musl',
+    platform: 'linux',
+    arch: 'arm64',
+    libc: 'musl',
+    prebuild: 'linuxmusl-arm64.node',
+  },
+  {
+    key: 'linux-x64-gnu',
+    platform: 'linux',
+    arch: 'x64',
+    libc: 'gnu',
+    prebuild: 'linux-x64.node',
+  },
+  {
+    key: 'linux-x64-musl',
+    platform: 'linux',
+    arch: 'x64',
+    libc: 'musl',
+    prebuild: 'linuxmusl-x64.node',
+  },
+  {
+    key: 'win32-x64',
+    platform: 'win32',
+    arch: 'x64',
+    prebuild: 'win32-x64.node',
+  },
+] as const
 
 async function writePackage(
   root: string,
@@ -219,6 +291,58 @@ async function createFixture(): Promise<string> {
   return root
 }
 
+async function addBetterSqliteFixture(root: string): Promise<void> {
+  const rootManifestPath = path.join(root, 'package.json')
+  const rootManifest = JSON.parse(await readFile(rootManifestPath, 'utf8'))
+  rootManifest.dependencies['better-sqlite3'] = '13.0.3'
+  await writeFile(
+    rootManifestPath,
+    `${JSON.stringify(rootManifest, null, 2)}\n`
+  )
+  await writePackage(root, 'node_modules/better-sqlite3', {
+    name: 'better-sqlite3',
+    version: '13.0.3',
+  })
+  const packageManifestPath = path.join(
+    root,
+    'node_modules/better-sqlite3/package.json'
+  )
+  const packageManifest = JSON.parse(
+    await readFile(packageManifestPath, 'utf8')
+  )
+  packageManifest.main = 'lib/index.js'
+  await writeFile(
+    packageManifestPath,
+    `${JSON.stringify(packageManifest, null, 2)}\n`
+  )
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/LICENSE', 'MIT')
+  await writeFixtureFile(
+    root,
+    'node_modules/better-sqlite3/lib/index.js',
+    'module.exports = true\n'
+  )
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/src/leak.cc')
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/deps/leak.c')
+  await writeFixtureFile(root, 'node_modules/better-sqlite3/binding.gyp')
+  for (const target of nativeTargets) {
+    await writeFixtureFile(
+      root,
+      `node_modules/better-sqlite3/prebuilds/${target.prebuild}`,
+      nativeHeader(target.platform, target.arch)
+    )
+  }
+  await writeFixtureFile(
+    root,
+    'dist/server/index.mjs',
+    [
+      'import alpha from "alpha/subpath";',
+      'import Database from "better-sqlite3";',
+      'import gamma from "gamma";',
+      'export { alpha, Database, gamma };',
+    ].join('\n')
+  )
+}
+
 async function listSymlinks(root: string): Promise<string[]> {
   const result: string[] = []
   async function walk(directory: string): Promise<void> {
@@ -234,6 +358,38 @@ async function listSymlinks(root: string): Promise<string[]> {
 }
 
 describe('stageServerApp', () => {
+  it.each(nativeTargets)(
+    'keeps only the $key better-sqlite3 prebuild',
+    async (target) => {
+      const root = await createFixture()
+      await addBetterSqliteFixture(root)
+      const contract = fixtureContract()
+      contract.runtimeRoots.splice(2, 0, 'better-sqlite3')
+      await stageServerApp({
+        repoRoot: root,
+        platform: target.platform,
+        arch: target.arch,
+        ...('libc' in target ? { libc: target.libc } : {}),
+        strict: true,
+        contract,
+        budgets: fixtureBudgets(),
+      })
+
+      const packageRoot = path.join(
+        root,
+        'dist/server-app/node_modules/better-sqlite3'
+      )
+      expect(await readdir(path.join(packageRoot, 'prebuilds'))).toEqual([
+        target.prebuild,
+      ])
+      await expect(stat(path.join(packageRoot, 'src'))).rejects.toThrow()
+      await expect(stat(path.join(packageRoot, 'deps'))).rejects.toThrow()
+      await expect(
+        stat(path.join(packageRoot, 'binding.gyp'))
+      ).rejects.toThrow()
+    }
+  )
+
   it('creates an atomic minimal Server app with the exact dependency closure', async () => {
     const root = await createFixture()
     const sourceTimestamp = (await stat(path.join(root, 'node_modules/alpha')))

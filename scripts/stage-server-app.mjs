@@ -19,7 +19,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { auditServerRuntime } from './audit-server-runtime.mjs'
+import { assertNativeBinaryTarget } from './native-binary-target.mjs'
 import {
+  betterSqlite3PrebuildName,
   normalizeRelativePath,
   parseServerTarget,
   stringifySortedJson,
@@ -222,15 +224,69 @@ async function copyPath(source, destination, canonicalRepoRoot, options = {}) {
     dereference: true,
     filter: (candidate) => {
       const relative = path.relative(source, candidate)
-      return !(
+      if (
         options.skipNodeModules &&
         (relative === 'node_modules' ||
           relative.startsWith(`node_modules${path.sep}`))
-      )
+      ) {
+        return false
+      }
+      return options.filter ? options.filter(relative) : true
     },
   })
   await chmod(destination, 0o755)
   await normalizeDirectoryModes(destination)
+}
+
+function packageCopyFilter(name, target) {
+  if (name !== 'better-sqlite3') return undefined
+  const selected = `prebuilds/${betterSqlite3PrebuildName(target)}`
+  return (relative) => {
+    if (relative.length === 0) return true
+    const portable = relative.replaceAll(path.sep, '/')
+    return (
+      portable === 'package.json' ||
+      /^LICENSE(?:\..*)?$/i.test(portable) ||
+      portable === 'lib' ||
+      portable.startsWith('lib/') ||
+      portable === 'prebuilds' ||
+      portable === selected
+    )
+  }
+}
+
+async function collectNativeModules(directory) {
+  const files = []
+  async function walk(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const entryPath = path.join(current, entry.name)
+      if (entry.isDirectory()) await walk(entryPath)
+      else if (entry.name.endsWith('.node')) files.push(entryPath)
+    }
+  }
+  await walk(directory)
+  return files.sort()
+}
+
+async function validateStagedNativeModules(directory, target, packageName) {
+  const nativeModules = await collectNativeModules(directory)
+  for (const file of nativeModules) {
+    await assertNativeBinaryTarget(file, target.platform, target.arch, {
+      label: `${packageName} native module`,
+    })
+  }
+  if (packageName === 'better-sqlite3') {
+    const expected = path.join(
+      directory,
+      'prebuilds',
+      betterSqlite3PrebuildName(target)
+    )
+    if (nativeModules.length !== 1 || nativeModules[0] !== expected) {
+      throw new Error(
+        `better-sqlite3 must stage exactly one ${target.key} prebuild`
+      )
+    }
+  }
 }
 
 async function fingerprintInput(repoRoot, input) {
@@ -289,7 +345,7 @@ async function inventoryTree(directory) {
   return { bytes, files }
 }
 
-async function assertStageResolves(stageRoot, specifiers) {
+export async function assertServerExternalsResolve(stageRoot, specifiers) {
   const script = [
     `const specifiers = ${JSON.stringify(specifiers)}`,
     'for (const specifier of specifiers) {',
@@ -513,15 +569,22 @@ export async function stageServerApp(options = {}) {
       version: placement.manifest.version,
     }))
     for (const placement of sortedPlacements) {
-      await copyPath(
-        placement.sourceRoot,
-        path.join(temporaryRoot, placement.destination),
-        canonicalRepoRoot,
-        { skipNodeModules: true }
+      const destination = path.join(temporaryRoot, placement.destination)
+      await copyPath(placement.sourceRoot, destination, canonicalRepoRoot, {
+        filter: packageCopyFilter(placement.manifest.name, target),
+        skipNodeModules: true,
+      })
+      await validateStagedNativeModules(
+        destination,
+        target,
+        placement.manifest.name
       )
     }
 
-    await assertStageResolves(temporaryRoot, audit.externals.specifiers)
+    await assertServerExternalsResolve(
+      temporaryRoot,
+      audit.externals.specifiers
+    )
     optionalOmissions.sort((left, right) =>
       `${left.name}\0${left.requestedBy}`.localeCompare(
         `${right.name}\0${right.requestedBy}`
