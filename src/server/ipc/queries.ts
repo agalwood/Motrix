@@ -34,6 +34,7 @@ import {
 } from '@shared/types/cli-tool'
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
+import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
@@ -96,6 +97,7 @@ export interface ServerQueryContext {
   hostVersion: string
   userDataDir: string
   speedLimitController: SpeedLimitController
+  downloadPathPolicy: ServerDownloadPathPolicy
 }
 
 export function buildServerQueryHandlers(
@@ -120,6 +122,7 @@ export function buildServerQueryHandlers(
     hostVersion,
     userDataDir,
     speedLimitController,
+    downloadPathPolicy,
   } = ctx
 
   const detectFfmpeg = makeServerFfmpegDetect({
@@ -173,12 +176,7 @@ export function buildServerQueryHandlers(
       settingsManager.get().tracker.sources,
 
     [Queries.ListAllowedSaveDirs]: async () => {
-      const raw = process.env.MOTRIX_ALLOWED_SAVE_DIRS ?? ''
-      const paths = raw
-        .split(':')
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .map((path) => ({ path }))
+      const paths = downloadPathPolicy.allowedSaveDirs.map((path) => ({ path }))
       return {
         paths,
         defaultPath: settingsManager.getApp().defaultSaveDir,

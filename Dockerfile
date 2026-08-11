@@ -54,8 +54,8 @@ RUN apk add --no-cache aria2 ca-certificates \
            /opt/yarn-v1.22.22 \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
           /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
- && mkdir -p /data \
- && chown node:node /data
+ && mkdir -p /data /downloads \
+ && chown node:node /data /downloads
 WORKDIR /app
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/dist/server ./dist/server
@@ -75,10 +75,12 @@ ENV YARN_VERSION= \
     MOTRIX_DATA_DIR=/data \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
+    MOTRIX_DEFAULT_SAVE_DIR=/downloads \
+    MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
     MOTRIX_RENDERER_DIR=/app/dist/renderer-web \
     MOTRIX_BUILTIN_PLUGIN_DIR=/app/builtin-plugins \
     PORT=8080
-VOLUME /data
+VOLUME ["/data", "/downloads"]
 EXPOSE 8080
 USER node
 CMD ["node", "dist/server/index.mjs"]
@@ -90,8 +92,8 @@ RUN apk add --no-cache aria2 ca-certificates \
            /opt/yarn-v1.22.22 \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
           /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
- && mkdir -p /data \
- && chown node:node /data
+ && mkdir -p /data /downloads \
+ && chown node:node /data /downloads
 WORKDIR /app
 COPY --from=build --chown=node:node /app/dist/server-app/ ./
 ENV YARN_VERSION= \
@@ -99,10 +101,12 @@ ENV YARN_VERSION= \
     MOTRIX_DATA_DIR=/data \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/usr/bin/aria2c \
+    MOTRIX_DEFAULT_SAVE_DIR=/downloads \
+    MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
     MOTRIX_RENDERER_DIR=/app/dist/renderer-web \
     MOTRIX_BUILTIN_PLUGIN_DIR=/app/builtin-plugins \
     PORT=8080
-VOLUME /data
+VOLUME ["/data", "/downloads"]
 EXPOSE 8080
 USER node
 CMD ["node", "dist/server/index.mjs"]

@@ -54,6 +54,7 @@ import type { DownloadTask } from '@shared/types/task'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import { z } from 'zod'
+import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import type { createServerProxyApplier } from '../proxy/wiring'
 
 export interface ServerCommandContext {
@@ -104,6 +105,7 @@ export interface ServerCommandContext {
   /** Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher). */
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
+  downloadPathPolicy: ServerDownloadPathPolicy
 }
 
 export function buildServerCommandHandlers(
@@ -142,6 +144,7 @@ export function buildServerCommandHandlers(
     parentTaskCreated: injectedParentTaskCreated,
     publishTaskUpdate,
     publishTaskUpdateNow,
+    downloadPathPolicy,
   } = ctx
 
   const persistTask =
@@ -199,6 +202,8 @@ export function buildServerCommandHandlers(
     runTaskMutation,
     waitForEngineReady: () =>
       supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+    prepareSaveDir: (requested: string) =>
+      downloadPathPolicy.prepareSaveDir(requested),
   }
 
   const log = getLogger('server:commands')
@@ -337,10 +342,10 @@ export function buildServerCommandHandlers(
             req.selectedFiles.length === 0 &&
             settingsManager.getApp().magnetFileSelection
           ) {
-            await magnetTracker.submit(
-              req.payload.uri,
+            const saveDir = await downloadPathPolicy.prepareSaveDir(
               req.saveDir || settingsManager.getApp().defaultSaveDir
             )
+            await magnetTracker.submit(req.payload.uri, saveDir)
             return { ok: true }
           }
         } else {
@@ -351,12 +356,13 @@ export function buildServerCommandHandlers(
           // instance in place so task identity / Downloads list slot
           // survive (no duplicate row appears).
           if (req.payload.kind === 'torrent-base64' && req.existingTaskId) {
+            const saveDir = await downloadPathPolicy.prepareSaveDir(req.saveDir)
             return swapMagnetMetadataForBt(
               {
                 taskId: req.existingTaskId,
                 base64: req.payload.base64,
                 selectedFiles: req.selectedFiles,
-                saveDir: req.saveDir,
+                saveDir,
                 name: req.displayName,
               },
               {
@@ -461,9 +467,31 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
+      const saveDirPatch = z
+        .object({
+          app: z
+            .object({ defaultSaveDir: z.string().optional() })
+            .passthrough()
+            .optional(),
+        })
+        .passthrough()
+        .safeParse(partial)
+      let validatedPartial = partial
+      if (
+        saveDirPatch.success &&
+        saveDirPatch.data.app?.defaultSaveDir !== undefined
+      ) {
+        const defaultSaveDir = await downloadPathPolicy.prepareSaveDir(
+          saveDirPatch.data.app.defaultSaveDir
+        )
+        validatedPartial = {
+          ...saveDirPatch.data,
+          app: { ...saveDirPatch.data.app, defaultSaveDir },
+        }
+      }
       const oldFull = settingsManager.get()
       const result = await settingsManager.update(
-        partial as Parameters<typeof settingsManager.update>[0]
+        validatedPartial as Parameters<typeof settingsManager.update>[0]
       )
       const newFull = settingsManager.get()
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
@@ -99,6 +100,10 @@ import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
 } from './bridge/bootstrap'
+import {
+  createServerDownloadPathPolicy,
+  resolveServerDefaultSaveDir,
+} from './download-path-policy'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
@@ -229,9 +234,14 @@ async function main() {
   // are visible here.
   let speedLimitController: SpeedLimitController | undefined
 
+  const configuredDefaultSaveDir = resolveServerDefaultSaveDir(
+    process.env,
+    path.join(os.homedir(), 'Downloads')
+  )
   const settingsManager = new SettingsManager(
     path.join(platform.userDataDir, 'settings.json'),
     {
+      defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
         if (
@@ -244,6 +254,32 @@ async function main() {
     }
   )
   await settingsManager.load()
+  if (!shellAsyncWork.isAccepting()) return
+  const hasDefaultSaveDirOverride = Boolean(
+    process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim()
+  )
+  const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
+    ? configuredDefaultSaveDir
+    : settingsManager.getApp().defaultSaveDir
+  const downloadPathPolicy = await createServerDownloadPathPolicy({
+    defaultSaveDir: effectiveDefaultSaveDir,
+    allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
+  })
+  if (
+    hasDefaultSaveDirOverride &&
+    settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
+  ) {
+    await settingsManager.update({
+      app: { defaultSaveDir: effectiveDefaultSaveDir },
+    })
+  }
+  log.info(
+    {
+      defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+      allowedSaveDirs: downloadPathPolicy.allowedSaveDirs,
+    },
+    'download path contract ready'
+  )
   if (!shellAsyncWork.isAccepting()) return
   const resolveServerLocale = (settingsLanguage: string) =>
     resolveSupportedLocale(
@@ -736,6 +772,7 @@ async function main() {
       taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
     publishTaskUpdate,
     publishTaskUpdateNow,
+    downloadPathPolicy,
   })
   const registryClient = new RegistryClient({
     cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
@@ -759,6 +796,7 @@ async function main() {
     hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     userDataDir: platform.userDataDir,
     speedLimitController,
+    downloadPathPolicy,
   })
 
   const rendererDir =
@@ -1187,6 +1225,8 @@ async function main() {
         ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
         waitForEngineReady: () =>
           supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+        prepareSaveDir: (requested: string) =>
+          downloadPathPolicy.prepareSaveDir(requested),
       }
       const taskActionDeps = {
         taskManager,

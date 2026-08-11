@@ -118,6 +118,10 @@ function makeFakeCtx() {
       async (_taskIds: readonly string[], operation: () => Promise<unknown>) =>
         operation()
     ),
+    downloadPathPolicy: {
+      allowedSaveDirs: ['/downloads'],
+      prepareSaveDir: vi.fn(async (requested: string) => requested),
+    },
   }
 }
 
@@ -283,6 +287,33 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.trackerManager.applySourcesChange).not.toHaveBeenCalled()
     expect(ctx.trackerManager.applyBlacklistChange).not.toHaveBeenCalled()
   })
+
+  it('validates a default save directory before persisting settings', async () => {
+    const ctx = makeFakeCtx()
+    ;(
+      ctx.downloadPathPolicy.prepareSaveDir as ReturnType<typeof vi.fn>
+    ).mockResolvedValue('/downloads/media-canonical')
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeSettings(PROXY_OFF)
+    )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { defaultSaveDir: '/downloads/media' },
+    })
+
+    expect(ctx.downloadPathPolicy.prepareSaveDir).toHaveBeenCalledWith(
+      '/downloads/media'
+    )
+    expect(ctx.settingsManager.update).toHaveBeenCalledWith({
+      app: { defaultSaveDir: '/downloads/media-canonical' },
+    })
+  })
 })
 
 describe('server Commands.CreateTask magnet metadata selection', () => {
@@ -302,6 +333,9 @@ describe('server Commands.CreateTask magnet metadata selection', () => {
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
       'magnet:?xt=urn:btih:abc',
+      '/downloads'
+    )
+    expect(ctx.downloadPathPolicy.prepareSaveDir).toHaveBeenCalledWith(
       '/downloads'
     )
   })

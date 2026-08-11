@@ -125,9 +125,36 @@ function makeCtx(over: Record<string, unknown> = {}) {
     hostVersion: '2.0',
     userDataDir: '',
     speedLimitController: { getState: vi.fn() },
+    downloadPathPolicy: {
+      allowedSaveDirs: [],
+      prepareSaveDir: vi.fn(),
+    },
     ...over,
   }
 }
+
+describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('publishes the validated path policy instead of reparsing the environment', async () => {
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        settingsManager: {
+          get: vi.fn(() => ({ tracker: { sources: [] } })),
+          getApp: vi.fn(() => ({ defaultSaveDir: '/downloads' })),
+        },
+        downloadPathPolicy: {
+          allowedSaveDirs: ['/downloads', '/media'],
+          prepareSaveDir: vi.fn(),
+        },
+      }) as never
+    )
+
+    await expect(handlers[Queries.ListAllowedSaveDirs]?.()).resolves.toEqual({
+      paths: [{ path: '/downloads' }, { path: '/media' }],
+      defaultPath: '/downloads',
+      allowCustom: false,
+    })
+  })
+})
 
 describe('buildServerQueryHandlers — GetTransferStats parity', () => {
   it('exposes CLI installation as an unsupported web query', async () => {

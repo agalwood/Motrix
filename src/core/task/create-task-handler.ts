@@ -70,6 +70,12 @@ export interface CreateTaskDeps {
    *  adapter call so a cold-start request waits for aria2 instead of hitting
    *  a not-yet-connected RPC socket. Absent ⇒ no gate (back-compat / tests). */
   waitForEngineReady?: () => Promise<void>
+  /**
+   * Host-owned save-directory preflight. Server injects containment and
+   * writability enforcement; Electron may omit it because its native picker
+   * and shell own that policy.
+   */
+  prepareSaveDir?: (requested: string) => Promise<string>
   /** Rejecting parent-row durability barrier, invoked before publication. */
   persistTask?: (task: DownloadTask) => Promise<void>
   /**
@@ -164,7 +170,10 @@ export async function handleCreateTask(
   const appSettings = deps.settingsManager.getApp()
   const engineSettings = deps.settingsManager.getEngine()
 
-  const effectiveSaveDir = req.saveDir || appSettings.defaultSaveDir
+  const requestedSaveDir = req.saveDir || appSettings.defaultSaveDir
+  const effectiveSaveDir = deps.prepareSaveDir
+    ? await deps.prepareSaveDir(requestedSaveDir)
+    : requestedSaveDir
 
   log.info(
     {

@@ -75,6 +75,7 @@ interface DepOverrides {
   persist?: (id: string, bytes: Uint8Array) => Promise<string>
   defaultSaveDir?: string
   waitForEngineReady?: () => Promise<void>
+  prepareSaveDir?: (requested: string) => Promise<string>
 }
 
 function httpRequest() {
@@ -208,6 +209,7 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
   }
   if (overrides.waitForEngineReady)
     deps.waitForEngineReady = overrides.waitForEngineReady
+  if (overrides.prepareSaveDir) deps.prepareSaveDir = overrides.prepareSaveDir
   return deps
 }
 
@@ -242,6 +244,21 @@ describe('handleCreateTask', () => {
       ['https://a/b'],
       expect.objectContaining({ dir: '/d' })
     )
+  })
+
+  it('uses the host-prepared save directory for task and aria2 paths', async () => {
+    const prepareSaveDir = vi.fn(async () => '/downloads/canonical')
+    const deps = makeDeps({ prepareSaveDir })
+
+    await handleCreateTask(httpRequest(), deps)
+
+    expect(prepareSaveDir).toHaveBeenCalledWith('/d')
+    expect(deps.pick).toHaveBeenCalledWith('/downloads/canonical', 'b')
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://a/b'],
+      expect.objectContaining({ dir: '/downloads/canonical' })
+    )
+    expect(lastAddedTask(deps).saveDir).toBe('/downloads/canonical')
   })
 
   it('records one submitted event after canonical registration and before TaskUpdated', async () => {
