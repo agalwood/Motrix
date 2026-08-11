@@ -34,17 +34,22 @@ describe('PluginRegistry', () => {
   let store: PluginStateStore
   let reg: PluginRegistry
 
+  function makeRegistry(devPath?: string): PluginRegistry {
+    return new PluginRegistry({
+      pluginsDir: path.join(dir, 'community'),
+      builtinDir: path.join(dir, 'builtin'),
+      stateStore: store,
+      hostVersion: '2.5.0',
+      devPath,
+    })
+  }
+
   beforeEach(() => {
     dir = mkdtempSync(path.join(tmpdir(), 'mreg-'))
     const db = new Database(':memory:')
     migrate(db)
     store = new PluginStateStore(db)
-    reg = new PluginRegistry({
-      pluginsDir: path.join(dir, 'community'),
-      builtinDir: path.join(dir, 'builtin'),
-      stateStore: store,
-      hostVersion: '2.5.0',
-    })
+    reg = makeRegistry()
   })
 
   afterEach(() => {
@@ -163,12 +168,6 @@ describe('PluginRegistry', () => {
   // M7 — MOTRIX_PLUGIN_DEV_PATH bypasses installer / consent (spec §7 L2418)
   // -------------------------------------------------------------------------
   describe('MOTRIX_PLUGIN_DEV_PATH', () => {
-    const ORIGINAL = process.env.MOTRIX_PLUGIN_DEV_PATH
-    afterEach(() => {
-      if (ORIGINAL === undefined) delete process.env.MOTRIX_PLUGIN_DEV_PATH
-      else process.env.MOTRIX_PLUGIN_DEV_PATH = ORIGINAL
-    })
-
     it('indexes a dev plugin and tags its source as type: "dev"', async () => {
       const devDir = path.join(dir, 'dev')
       mkdirSync(path.join(devDir, 'dist'), { recursive: true })
@@ -177,7 +176,7 @@ describe('PluginRegistry', () => {
         JSON.stringify(minimalManifest('alice.dev'))
       )
       writeFileSync(path.join(devDir, 'dist', 'plugin.js'), 'export default {}')
-      process.env.MOTRIX_PLUGIN_DEV_PATH = devDir
+      reg = makeRegistry(devDir)
       await reg.discover()
       const entry = reg.list().find((p) => p.id === 'alice.dev')
       expect(entry).toBeDefined()
@@ -193,7 +192,7 @@ describe('PluginRegistry', () => {
         JSON.stringify(minimalManifest('alice.dev2'))
       )
       writeFileSync(path.join(devDir, 'dist', 'plugin.js'), 'export default {}')
-      process.env.MOTRIX_PLUGIN_DEV_PATH = devDir
+      reg = makeRegistry(devDir)
       await reg.discover()
       // Dev path bypasses the installer entirely — registry.discover() reads
       // the manifest directly. The install dir must remain free of host-
@@ -603,10 +602,6 @@ describe('PluginRegistry', () => {
   })
 
   describe('MOTRIX_PLUGIN_DEV_PATH', () => {
-    afterEach(() => {
-      delete process.env.MOTRIX_PLUGIN_DEV_PATH
-    })
-
     it('adds a dev plugin from the env-var path', async () => {
       const devDir = path.join(dir, 'dev-plugin')
       mkdirSync(path.join(devDir, 'dist'), { recursive: true })
@@ -615,7 +610,7 @@ describe('PluginRegistry', () => {
         JSON.stringify(minimalManifest('dev.plugin'))
       )
       writeFileSync(path.join(devDir, 'dist', 'plugin.js'), 'export default {}')
-      process.env.MOTRIX_PLUGIN_DEV_PATH = devDir
+      reg = makeRegistry(devDir)
       await reg.discover()
       expect(reg.list().map((p) => p.id)).toContain('dev.plugin')
     })
@@ -628,7 +623,7 @@ describe('PluginRegistry', () => {
         JSON.stringify(minimalManifest('dev.plugin'))
       )
       writeFileSync(path.join(devDir, 'dist', 'plugin.js'), 'export default {}')
-      process.env.MOTRIX_PLUGIN_DEV_PATH = devDir
+      reg = makeRegistry(devDir)
       await reg.discover()
       const indexed = reg.get('dev.plugin')
       expect(indexed?.rootDir).toBe(devDir)
@@ -636,7 +631,7 @@ describe('PluginRegistry', () => {
     })
 
     it('silently skips dev path if manifest is missing', async () => {
-      process.env.MOTRIX_PLUGIN_DEV_PATH = path.join(dir, 'nonexistent')
+      reg = makeRegistry(path.join(dir, 'nonexistent'))
       await reg.discover()
       expect(reg.list()).toHaveLength(0)
       expect(reg.loadErrors()).toHaveLength(0)
@@ -646,7 +641,7 @@ describe('PluginRegistry', () => {
       const devDir = path.join(dir, 'dev-bad')
       mkdirSync(devDir, { recursive: true })
       writeFileSync(path.join(devDir, 'motrix-plugin.json'), '{ broken json')
-      process.env.MOTRIX_PLUGIN_DEV_PATH = devDir
+      reg = makeRegistry(devDir)
       await reg.discover()
       expect(reg.list()).toHaveLength(0)
       // Dev-path failures are logged, not pushed to loadErrors().
@@ -662,7 +657,7 @@ describe('PluginRegistry', () => {
         JSON.stringify(minimalManifest('dev.plugin'))
       )
       writeFileSync(path.join(devDir, 'dist', 'plugin.js'), 'export default {}')
-      process.env.MOTRIX_PLUGIN_DEV_PATH = devDir
+      reg = makeRegistry(devDir)
       await reg.discover()
       expect(
         reg

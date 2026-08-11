@@ -359,12 +359,14 @@ async function main() {
   )
   if (!shellAsyncWork.isAccepting()) return
   const pluginStateStore = new PluginStateStore(db.database)
+  const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   const pluginRegistry = new PluginRegistry({
     pluginsDir,
     builtinDir,
     stateStore: pluginStateStore,
     hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     hostLanguage,
+    devPath,
   })
   await pluginRegistry.discover()
   if (!shellAsyncWork.isAccepting()) return
@@ -420,7 +422,6 @@ async function main() {
   const pluginActivation = new ActivationDispatcher(pluginRegistry, pluginHost)
   let devWatcherHandle: { close(): Promise<void> } | null = null
   shutdownActions.drainDevWatcher = () => devWatcherHandle?.close()
-  const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
 
   // ─── Engine + Session ─────────────────────────────────────────
   const engineSettings = settingsManager.getEngine()

@@ -1496,6 +1496,7 @@ async function initializeMainProcess(): Promise<void> {
   // down) because PluginRegistry needs it immediately for overlay-aware
   // manifest resolution.
   const overlayDir = path.join(platform.userDataDir, 'builtin-updates')
+  const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   const pluginRegistry = new PluginRegistry({
     pluginsDir,
     builtinDir,
@@ -1503,6 +1504,7 @@ async function initializeMainProcess(): Promise<void> {
     stateStore: pluginStateStore,
     hostVersion: app.getVersion(),
     hostLanguage: pluginBootstrapLocale,
+    devPath,
   })
   await pluginRegistry.discover()
   if (!mainProcessWork.isAccepting()) return
@@ -1591,7 +1593,6 @@ async function initializeMainProcess(): Promise<void> {
     return
   }
 
-  const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   if (devPath) {
     runShellAsyncWork('dev watcher start', async () => {
       const handle = await startDevWatcher(

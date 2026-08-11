@@ -44,6 +44,8 @@ export interface PluginRegistryOptions {
   signingPubkeys?: ReadonlyArray<string>
   /** Injectable locale reader for deterministic prepare/commit race tests. */
   readLocaleFile?: (filePath: string) => Promise<string>
+  /** Shell-provided plugin development directory; omitted outside dev mode. */
+  devPath?: string
 }
 
 export interface IndexedPlugin {
@@ -227,7 +229,7 @@ export class PluginRegistry {
       await this.scanInto(this.opts.builtinDir, 'builtin')
       if (this.opts.overlayDir) await this.applyOverlay(this.opts.overlayDir)
       await this.scanInto(this.opts.pluginsDir, 'community')
-      const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
+      const devPath = this.opts.devPath
       if (devPath) {
         try {
           const raw = await readFile(
