@@ -13,10 +13,13 @@ import os from 'node:os'
 import path from 'node:path'
 import { createPackageWithOptions } from '@electron/asar'
 import { afterEach, describe, expect, it } from 'vitest'
-import { verifyElectronPackage } from '../../scripts/verify-electron-package.mjs'
+import {
+  normalizeArchiveEntry,
+  verifyElectronPackage,
+} from '../../scripts/verify-electron-package.mjs'
 
 type Target = {
-  platform: 'darwin' | 'linux'
+  platform: 'darwin' | 'linux' | 'win32'
   arch: 'arm64' | 'x64'
 }
 
@@ -73,6 +76,14 @@ function nativeHeader(target: Target): Buffer {
     header[4] = 2
     header[5] = 1
     header.writeUInt16LE(target.arch === 'arm64' ? 183 : 62, 18)
+    return header
+  }
+  if (target.platform === 'win32') {
+    const header = Buffer.alloc(72)
+    header.write('MZ')
+    header.writeUInt32LE(64, 0x3c)
+    header.set([0x50, 0x45, 0, 0], 64)
+    header.writeUInt16LE(target.arch === 'arm64' ? 0xaa64 : 0x8664, 68)
     return header
   }
   const header = Buffer.alloc(8)
@@ -286,6 +297,14 @@ function failedCheck(report: Awaited<ReturnType<typeof verify>>, id: string) {
 }
 
 describe('post-package Electron verification', () => {
+  it('normalizes Windows ASAR listings to portable archive paths', () => {
+    expect(
+      normalizeArchiveEntry(
+        '\\node_modules\\better-sqlite3\\prebuilds\\win32-x64.node'
+      )
+    ).toBe('node_modules/better-sqlite3/prebuilds/win32-x64.node')
+  })
+
   it('accepts a target-matched ASAR, stage, dependencies, and resources', async () => {
     const fixture = await createFixture()
     const report = await verify(fixture)
@@ -476,6 +495,11 @@ describe('post-package Electron verification', () => {
 
     const linux = await createFixture({ platform: 'linux', arch: 'arm64' })
     expect((await verify(linux)).passed).toBe(true)
+  })
+
+  it('accepts Windows PE binaries and resources', async () => {
+    const windows = await createFixture({ platform: 'win32', arch: 'x64' })
+    expect((await verify(windows)).passed).toBe(true)
   })
 
   it.each([

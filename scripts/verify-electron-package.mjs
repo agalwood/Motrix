@@ -66,6 +66,14 @@ function portable(value) {
   return value.split(path.sep).join('/')
 }
 
+export function normalizeArchiveEntry(value) {
+  return path.posix.normalize(value.replaceAll('\\', '/')).replace(/^\/+/, '')
+}
+
+function archiveLookupPath(value) {
+  return value.split('/').join(path.sep)
+}
+
 function uniqueSorted(values) {
   return [...new Set(values)].sort()
 }
@@ -186,12 +194,16 @@ function resolveExternal(external, packages, archivePaths) {
 }
 
 async function archiveFileBytes(asarPath, relativePath) {
-  return extractFile(asarPath, relativePath)
+  return extractFile(asarPath, archiveLookupPath(relativePath))
 }
 
 async function archiveLogicalBytes(asarPath, relativePath) {
-  const info = await statFile(asarPath, relativePath)
+  const info = await statFile(asarPath, archiveLookupPath(relativePath))
   return info.size ?? 0
+}
+
+async function archiveFileInfo(asarPath, relativePath) {
+  return statFile(asarPath, archiveLookupPath(relativePath))
 }
 
 function nativeTargetMatches(detected, platform, arch, allowUniversal = false) {
@@ -324,7 +336,7 @@ export async function verifyElectronPackage(options) {
     asarBytes = info.size
     archiveEntries = await listPackage(asarPath)
     for (const entry of archiveEntries)
-      archivePaths.add(entry.replace(/^\//, ''))
+      archivePaths.add(normalizeArchiveEntry(entry))
     unpackedFiles = await walkFiles(unpackedPath)
     return `${archiveEntries.length} archive entries`
   })
@@ -463,7 +475,7 @@ export async function verifyElectronPackage(options) {
     for (const entry of [...archivePaths]
       .filter((candidate) => candidate.startsWith(`${root}/`))
       .sort()) {
-      const entryInfo = await statFile(asarPath, entry)
+      const entryInfo = await archiveFileInfo(asarPath, entry)
       if (!entryInfo.files) files.push(entry)
     }
     const leaked = files.filter(
