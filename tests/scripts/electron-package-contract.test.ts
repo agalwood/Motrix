@@ -77,6 +77,9 @@ describe('Electron package contracts', () => {
     expect(manifest.scripts?.['stage:electron']).toBe(
       'node scripts/stage-electron-app.mjs'
     )
+    expect(manifest.scripts?.['verify:electron-package']).toBe(
+      'node scripts/verify-electron-package.mjs'
+    )
     for (const name of ['pack:mac', 'dist:mac', 'release:mac']) {
       const command = manifest.scripts?.[name] ?? ''
       expect(command).toMatch(
