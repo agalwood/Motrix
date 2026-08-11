@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "supportedTargets": [
+    "darwin-arm64",
+    "darwin-x64",
+    "linux-arm64-gnu",
+    "linux-arm64-musl",
+    "linux-x64-gnu",
+    "linux-x64-musl",
+    "win32-x64"
+  ],
+  "runtimeRoots": [
+    "@fastify/static",
+    "@fastify/websocket",
+    "@motrix/mdxp",
+    "@motrix/plugin-manifest-schema",
+    "ajv",
+    "better-sqlite3",
+    "bittorrent-peerid",
+    "chokidar",
+    "fastify",
+    "libsodium-wrappers",
+    "parse-torrent",
+    "pino",
+    "quickjs-emscripten",
+    "undici",
+    "uuid",
+    "vscode-jsonrpc",
+    "write-file-atomic",
+    "ws",
+    "yauzl",
+    "zod"
+  ],
+  "buildInputs": [
+    {
+      "source": "dist/core/plugin/host/quick-js-worker.cjs",
+      "destination": "dist/core/plugin/host/quick-js-worker.cjs",
+      "type": "file",
+      "entry": null,
+      "scanExternals": true
+    },
+    {
+      "source": "dist/renderer-web",
+      "destination": "dist/renderer-web",
+      "type": "directory",
+      "entry": "index.html",
+      "scanExternals": false
+    },
+    {
+      "source": "dist/server",
+      "destination": "dist/server",
+      "type": "directory",
+      "entry": "index.mjs",
+      "scanExternals": true
+    }
+  ],
+  "resourceInputs": [
+    {
+      "source": "THIRD_PARTY_LICENSES",
+      "destination": "THIRD_PARTY_LICENSES",
+      "type": "directory"
+    },
+    {
+      "source": "THIRD_PARTY_NOTICES.md",
+      "destination": "THIRD_PARTY_NOTICES.md",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_NOTICES.zh-CN.md",
+      "destination": "THIRD_PARTY_NOTICES.zh-CN.md",
+      "type": "file"
+    },
+    {
+      "source": "build/legal/THIRD_PARTY_DEPENDENCIES.md",
+      "destination": "legal/THIRD_PARTY_DEPENDENCIES.md",
+      "type": "file"
+    },
+    {
+      "source": "build/legal/THIRD_PARTY_LICENSES.txt",
+      "destination": "legal/THIRD_PARTY_LICENSES.txt",
+      "type": "file"
+    },
+    {
+      "source": "build/legal/sbom.spdx.json",
+      "destination": "legal/sbom.spdx.json",
+      "type": "file"
+    },
+    {
+      "source": "dist/builtin-plugins",
+      "destination": "builtin-plugins",
+      "type": "directory"
+    },
+    {
+      "source": "extra/aria2.conf",
+      "destination": "extra/aria2.conf",
+      "type": "file"
+    }
+  ]
+}
