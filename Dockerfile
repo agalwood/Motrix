@@ -1,5 +1,6 @@
-# syntax=docker/dockerfile:1.7
-FROM node:24-alpine AS deps
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+ARG NODE_IMAGE=node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+FROM ${NODE_IMAGE} AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -17,7 +18,7 @@ RUN --mount=type=cache,id=motrix-pnpm-store,target=/pnpm/store \
  && pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
-FROM node:24-alpine AS full-root-production-deps
+FROM ${NODE_IMAGE} AS full-root-production-deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -47,7 +48,7 @@ RUN --mount=type=cache,id=motrix-builtins,target=/app/node_modules/.cache/motrix
 FROM scratch AS server-size-report
 COPY --from=build /app/release/size-reports/ /
 
-FROM node:24-alpine AS server-full-root-baseline
+FROM ${NODE_IMAGE} AS server-full-root-baseline
 RUN apk add --no-cache aria2 ca-certificates \
  && rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/lib/node_modules/corepack \
@@ -91,7 +92,7 @@ STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||'8080')+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "dist/server/index.mjs"]
 
-FROM node:24-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 ARG OCI_REVISION=unknown
 ARG OCI_VERSION=0.0.0-local
 RUN apk add --no-cache aria2 ca-certificates \

@@ -117,6 +117,16 @@ function main() {
   appendOutput(options.githubOutput, 'container_version', metadata.version)
   appendOutput(
     options.githubOutput,
+    'container_dockerhub_repository',
+    CONTAINER_REPOSITORIES.dockerHub
+  )
+  appendOutput(
+    options.githubOutput,
+    'container_ghcr_repository',
+    CONTAINER_REPOSITORIES.ghcr
+  )
+  appendOutput(
+    options.githubOutput,
     'container_prerelease',
     metadata.prerelease
   )

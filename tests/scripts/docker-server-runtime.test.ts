@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { resolveSmokeContainerIdentity } from '../../scripts/smoke-server-identity.mjs'
 
 const ROOT = process.cwd()
+const NODE_IMAGE_REFERENCE = '$' + '{NODE_IMAGE}'
 
 describe('Docker Server runtime staging contract', () => {
   it('maps smoke containers to a portable non-root host identity', () => {
@@ -27,9 +28,15 @@ describe('Docker Server runtime staging contract', () => {
   it('copies only the verified stage into a non-root Node 24 runtime', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const runtime = dockerfile.slice(
-      dockerfile.indexOf('FROM node:24-alpine AS runtime')
+      dockerfile.indexOf(`FROM ${NODE_IMAGE_REFERENCE} AS runtime`)
     )
 
+    expect(dockerfile).toMatch(
+      /^# syntax=docker\/dockerfile:1\.7@sha256:[0-9a-f]{64}$/m
+    )
+    expect(dockerfile).toMatch(
+      /^ARG NODE_IMAGE=node:24-alpine@sha256:[0-9a-f]{64}$/m
+    )
     expect(runtime).toContain(
       'COPY --from=build --chown=node:node /app/dist/server-app/ ./'
     )
@@ -117,15 +124,17 @@ describe('Docker Server runtime staging contract', () => {
   it('keeps a corrected full-root comparison target without changing the final target', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const baselineStart = dockerfile.indexOf(
-      'FROM node:24-alpine AS server-full-root-baseline'
+      `FROM ${NODE_IMAGE_REFERENCE} AS server-full-root-baseline`
     )
-    const runtimeStart = dockerfile.indexOf('FROM node:24-alpine AS runtime')
+    const runtimeStart = dockerfile.indexOf(
+      `FROM ${NODE_IMAGE_REFERENCE} AS runtime`
+    )
     const baseline = dockerfile.slice(baselineStart, runtimeStart)
 
     expect(baselineStart).toBeGreaterThanOrEqual(0)
     expect(runtimeStart).toBeGreaterThan(baselineStart)
     expect(dockerfile).toContain(
-      'FROM node:24-alpine AS full-root-production-deps'
+      `FROM ${NODE_IMAGE_REFERENCE} AS full-root-production-deps`
     )
     expect(dockerfile).toContain(
       'pnpm install --prod --frozen-lockfile --ignore-scripts'
