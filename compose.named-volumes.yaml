@@ -5,7 +5,7 @@ services:
     image: "${MOTRIX_IMAGE:-agalwood/motrix-server:latest}"
     init: true
     read_only: true
-    user: "${MOTRIX_UID:-1000}:${MOTRIX_GID:-1000}"
+    user: "1000:1000"
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
@@ -25,5 +25,9 @@ services:
       - "${MOTRIX_BIND_IP:-0.0.0.0}:${MOTRIX_HTTP_PORT:-8080}:8080"
       - "${MOTRIX_BIND_IP:-0.0.0.0}:${MOTRIX_MDXP_PUBLIC_PORT:-16801}:16801"
     volumes:
-      - ./motrix-data:/data
-      - ./downloads:/downloads
+      - motrix-data:/data
+      - motrix-downloads:/downloads
+
+volumes:
+  motrix-data:
+  motrix-downloads:
