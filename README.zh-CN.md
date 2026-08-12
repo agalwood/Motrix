@@ -94,18 +94,23 @@ npm install -g @motrix/cli
 
 ### Headless server（Docker）
 
-仓库提供生产用途的 `Dockerfile` 和 `compose.yaml`，分别挂载 Server 状态与用户
-下载资源：
+带 tag 的正式版本会把多架构 Server 镜像发布到 Docker Hub 和 GHCR。仓库的
+`compose.yaml` 默认从 Docker Hub 拉取，并分别持久化 Server 状态与用户下载
+资源：
 
 ```bash
 mkdir -p motrix-data downloads
-docker compose up --build -d
+sudo chown 1000:1000 motrix-data downloads
+export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
+docker compose pull server
+docker compose up -d --wait
 ```
 
 runtime 以非 root 用户运行，支持只读根文件系统，在接受任务前检查挂载权限，
 并在替换容器后保留下载、session 和已安装插件。CLI、浏览器扩展等远程客户端
-可通过 device-code 与服务器配对。目录所有权、端口、环境变量、诊断与备份/
-升级说明见 [Docker Server 部署指南](./docs/docker-server.zh-CN.md)。
+可通过 device-code 与服务器配对。Docker Hub/GHCR 镜像与 tag 选择、群晖
+DSM 7 和飞牛 fnOS 安装、目录所有权、端口、诊断与备份/升级说明见
+[Docker Server 部署指南](./docs/docker-server.zh-CN.md)。
 
 ## 🛠 开发与构建
 

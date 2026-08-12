@@ -137,6 +137,7 @@ jobs:
           tests/scripts/compose-server.test.ts
           tests/scripts/container-publication-state.test.ts
           tests/scripts/container-release-metadata.test.ts
+          tests/scripts/docker-server-docs.test.ts
           tests/scripts/electron-package-contract.test.ts
           tests/scripts/flatpak-native-host.test.ts
           tests/scripts/native-binary-target.test.ts
