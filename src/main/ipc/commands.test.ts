@@ -90,6 +90,7 @@ function fakeCtx() {
     settingsManager: {
       getApp: () => ({ defaultSaveDir: '/tmp', magnetFileSelection: true }),
       getEngine: () => ({ maxConnectionPerServer: 5 }),
+      removePluginConfig: vi.fn().mockResolvedValue(undefined),
       update: vi.fn().mockResolvedValue({
         ok: true,
         requiresRestart: false,

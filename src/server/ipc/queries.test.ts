@@ -121,13 +121,44 @@ function makeCtx(over: Record<string, unknown> = {}) {
       unreadCount: vi.fn(() => 0),
     },
     pluginRegistry: { list: vi.fn(() => []), entries: vi.fn(() => []) },
+    pluginGrants: {
+      getGrants: vi.fn(async () => ({})),
+      listAllGrants: vi.fn(async () => ({})),
+    },
     pluginsDir: '',
     hostVersion: '2.0',
     userDataDir: '',
     speedLimitController: { getState: vi.fn() },
+    downloadPathPolicy: {
+      allowedSaveDirs: [],
+      prepareSaveDir: vi.fn(),
+    },
     ...over,
   }
 }
+
+describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('publishes the validated path policy instead of reparsing the environment', async () => {
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        settingsManager: {
+          get: vi.fn(() => ({ tracker: { sources: [] } })),
+          getApp: vi.fn(() => ({ defaultSaveDir: '/downloads' })),
+        },
+        downloadPathPolicy: {
+          allowedSaveDirs: ['/downloads', '/media'],
+          prepareSaveDir: vi.fn(),
+        },
+      }) as never
+    )
+
+    await expect(handlers[Queries.ListAllowedSaveDirs]?.()).resolves.toEqual({
+      paths: [{ path: '/downloads' }, { path: '/media' }],
+      defaultPath: '/downloads',
+      allowCustom: false,
+    })
+  })
+})
 
 describe('buildServerQueryHandlers — GetTransferStats parity', () => {
   it('exposes CLI installation as an unsupported web query', async () => {
@@ -327,6 +358,27 @@ describe('buildServerQueryHandlers — notification center', () => {
     await expect(
       handlers[Queries.GetUnreadNotificationCount]?.()
     ).resolves.toBe(1)
+  })
+})
+
+describe('buildServerQueryHandlers — plugin grants', () => {
+  it('exposes persisted grants through both query shapes', async () => {
+    const pluginGrants = {
+      getGrants: vi.fn(async () => ({ notify: 'granted' })),
+      listAllGrants: vi.fn(async () => ({
+        'test.plugin': { notify: 'granted' },
+      })),
+    }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ pluginGrants }) as unknown as ServerQueryContext
+    )
+
+    await expect(
+      handlers[Queries.GetPluginGrants]?.('test.plugin')
+    ).resolves.toEqual({ notify: 'granted' })
+    await expect(handlers[Queries.ListPluginGrants]?.()).resolves.toEqual({
+      'test.plugin': { notify: 'granted' },
+    })
   })
 })
 

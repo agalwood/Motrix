@@ -123,6 +123,19 @@ describe('Aria2ConfigBuilder', () => {
       )
     })
 
+    it('keeps DHT state inside the writable user config directory', () => {
+      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+        download: 0,
+        upload: 0,
+      })
+      expect(args).toContain(
+        '--dht-file-path=/home/user/.config/motrix/dht.dat'
+      )
+      expect(args).toContain(
+        '--dht-file-path6=/home/user/.config/motrix/dht6.dat'
+      )
+    })
+
     it('uses custom settings values', () => {
       const custom: EngineSettings = {
         ...DEFAULT_ENGINE_SETTINGS,

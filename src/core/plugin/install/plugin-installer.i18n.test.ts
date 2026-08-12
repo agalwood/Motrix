@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -121,7 +122,9 @@ describe('PluginInstaller manifest i18n', () => {
     const staged = await installer.stage(moext, {
       type: 'local',
       absPath: moext,
-      fileHash: 'a'.repeat(64),
+      fileHash: createHash('sha256')
+        .update(await readFile(moext))
+        .digest('hex'),
     })
 
     expect(staged.consent.manifest.name).toBe('Localized Plugin')

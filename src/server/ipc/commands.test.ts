@@ -5,8 +5,10 @@ import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import type { EventBus } from '@core/events/event-bus'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
+import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
+import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { MotrixDatabase } from '@core/session/motrix-database'
@@ -21,6 +23,7 @@ import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { ServerCommandContext } from './commands'
 import { buildServerCommandHandlers } from './commands'
 
@@ -45,6 +48,7 @@ function makeFakeCtx() {
     settingsManager: {
       get: vi.fn(),
       update: vi.fn(),
+      removePluginConfig: vi.fn().mockResolvedValue(undefined),
       getApp: vi.fn(() => ({
         defaultSaveDir: '/tmp',
         magnetFileSelection: true,
@@ -92,12 +96,23 @@ function makeFakeCtx() {
     pluginHost: {
       deactivate: vi.fn().mockResolvedValue(undefined),
     } as unknown as PluginHost,
+    pluginInstaller: {
+      commit: vi.fn(),
+      cancel: vi.fn(),
+      uninstall: vi.fn(),
+    } as unknown as PluginInstaller,
+    pluginInstallService: {
+      stage: vi.fn(),
+    } as unknown as ServerPluginInstallService,
+    pluginGrants: { updateGrants: vi.fn() } as unknown as GrantsManager,
     capabilityHost: {
       secrets: {
         available: vi.fn(() => false),
         encrypt: vi.fn(),
       },
       configFor: vi.fn(() => ({ applyExternalChange: vi.fn() })),
+      clearLog: vi.fn(),
+      setLogVerbose: vi.fn(),
     } as unknown as CapabilityHost,
     userDataDir: '/tmp/userdata',
     pluginsDir: '/tmp/userdata/plugins',
@@ -118,6 +133,10 @@ function makeFakeCtx() {
       async (_taskIds: readonly string[], operation: () => Promise<unknown>) =>
         operation()
     ),
+    downloadPathPolicy: {
+      allowedSaveDirs: ['/downloads'],
+      prepareSaveDir: vi.fn(async (requested: string) => requested),
+    },
   }
 }
 
@@ -283,6 +302,33 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.trackerManager.applySourcesChange).not.toHaveBeenCalled()
     expect(ctx.trackerManager.applyBlacklistChange).not.toHaveBeenCalled()
   })
+
+  it('validates a default save directory before persisting settings', async () => {
+    const ctx = makeFakeCtx()
+    ;(
+      ctx.downloadPathPolicy.prepareSaveDir as ReturnType<typeof vi.fn>
+    ).mockResolvedValue('/downloads/media-canonical')
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeSettings(PROXY_OFF)
+    )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { defaultSaveDir: '/downloads/media' },
+    })
+
+    expect(ctx.downloadPathPolicy.prepareSaveDir).toHaveBeenCalledWith(
+      '/downloads/media'
+    )
+    expect(ctx.settingsManager.update).toHaveBeenCalledWith({
+      app: { defaultSaveDir: '/downloads/media-canonical' },
+    })
+  })
 })
 
 describe('server Commands.CreateTask magnet metadata selection', () => {
@@ -302,6 +348,9 @@ describe('server Commands.CreateTask magnet metadata selection', () => {
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
       'magnet:?xt=urn:btih:abc',
+      '/downloads'
+    )
+    expect(ctx.downloadPathPolicy.prepareSaveDir).toHaveBeenCalledWith(
       '/downloads'
     )
   })
@@ -703,6 +752,84 @@ describe('server plugin enable/disable commands', () => {
         }
       ).refreshState
     ).toHaveBeenCalledWith('test-plugin')
+  })
+})
+
+describe('server plugin lifecycle commands', () => {
+  it('stages an install and publishes the consent request', async () => {
+    const ctx = makeFakeCtx()
+    ;(
+      ctx.pluginInstallService.stage as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      stagingId: 's1',
+      consent: { manifest: { id: 'test.plugin' } },
+      committed: false,
+    })
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await expect(
+      handlers[Commands.InstallPlugin]?.({
+        sourceType: 'registry',
+        pluginId: 'test.plugin',
+      })
+    ).resolves.toMatchObject({ stagingId: 's1', committed: false })
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(
+      Events.PluginInstallConsentRequested,
+      expect.objectContaining({ stagingId: 's1' })
+    )
+  })
+
+  it('commits consent grants and publishes installation', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.pluginInstaller.commit as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { pluginId: 'test.plugin' }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await expect(
+      handlers[Commands.ConfirmPluginInstall]?.({
+        stagingId: 's1',
+        grants: { notify: 'denied' },
+      })
+    ).resolves.toEqual({ ok: true, pluginId: 'test.plugin' })
+    expect(ctx.pluginInstaller.commit).toHaveBeenCalledWith('s1', {
+      notify: 'denied',
+    })
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(Events.PluginInstalled, {
+      pluginId: 'test.plugin',
+    })
+  })
+
+  it('cancels staging, updates grants, and uninstalls through the installer', async () => {
+    const ctx = makeFakeCtx()
+    ;(
+      ctx.pluginGrants.updateGrants as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({ notify: 'granted' })
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.CancelPluginInstall]?.({ stagingId: 's1' })
+    await expect(
+      handlers[Commands.UpdatePluginGrants]?.({
+        pluginId: 'test.plugin',
+        patch: { notify: 'granted' },
+      })
+    ).resolves.toEqual({ ok: true, grants: { notify: 'granted' } })
+    await handlers[Commands.UninstallPlugin]?.({ pluginId: 'test.plugin' })
+
+    expect(ctx.pluginInstaller.cancel).toHaveBeenCalledWith('s1')
+    expect(ctx.pluginInstaller.uninstall).toHaveBeenCalledWith('test.plugin')
+    expect(ctx.settingsManager.removePluginConfig).toHaveBeenCalledWith(
+      'test.plugin'
+    )
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(Events.PluginUninstalled, {
+      pluginId: 'test.plugin',
+    })
   })
 })
 

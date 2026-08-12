@@ -1,168 +1,109 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
-import type { InstallRecord } from '@shared/types/plugin-install'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { serverBootstrapInstall } from './server-bootstrap-installer'
 
-let tmp: string
-let pluginsDir: string
-
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'motrix-srv-bootstrap-'))
-  pluginsDir = path.join(tmp, 'plugins')
-  await mkdir(pluginsDir, { recursive: true })
-})
-
-afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true })
-})
-
-function stubInstaller(): PluginInstaller {
-  return {
-    stage: vi.fn().mockResolvedValue({
-      stagingId: 'sx',
-      consent: {} as never,
-    }),
-  } as unknown as PluginInstaller
-}
-
-function makeRecord(id: string, sourceUrl: string): InstallRecord {
-  return {
-    version: 1,
-    pluginId: id,
-    source: {
-      type: 'github',
-      url: sourceUrl,
-      bundleSha256: 'a'.repeat(64),
-      recordedAt: 0,
-    },
-    grants: {},
-    consentSnapshot: {
-      permissions: [],
-      optionalPermissions: [],
-      invokesCommands: [],
-      publicCommands: {},
-      requestedHeapMB: 32,
-      enginesMotrix: '^2.0.0',
-      hostPermissions: [],
-    },
-  }
+const consent = {
+  trustSurface: {
+    optionalPermissions: [{ name: 'notify' }, { name: 'ffmpeg' }],
+  },
 }
 
 describe('serverBootstrapInstall', () => {
-  it('returns {accepted:[], rejected:[]} when pluginsDir is missing', async () => {
-    const installer = stubInstaller()
-    const result = await serverBootstrapInstall(
-      installer,
-      path.join(tmp, 'does-not-exist'),
-      {},
-      { blanketBypass: false }
-    )
-    expect(result).toEqual({ accepted: [], rejected: [] })
+  it('returns an empty result when no declarative sources are configured', async () => {
+    const service = { stage: vi.fn() }
+    const installer = { commit: vi.fn() }
+    await expect(
+      serverBootstrapInstall(service as never, installer as never, {})
+    ).resolves.toEqual({ accepted: [], rejected: [] })
   })
 
-  it('accepts a volume-mounted plugin whose source URL is on the allowlist', async () => {
-    const dir = path.join(pluginsDir, 'example.widget')
-    await mkdir(dir, { recursive: true })
-    const rec = makeRecord(
-      'example.widget',
-      'https://github.com/example/widget'
-    )
-    await writeFile(
-      path.join(dir, '_install.json'),
-      JSON.stringify(rec, null, 2)
-    )
+  it('routes GitHub, registry, and URL sources through the install service', async () => {
+    const service = {
+      stage: vi
+        .fn()
+        .mockResolvedValueOnce({
+          stagingId: 's1',
+          consent,
+          committed: false,
+        })
+        .mockResolvedValueOnce({
+          stagingId: 's2',
+          consent,
+          committed: true,
+          pluginId: 'registry.plugin',
+        })
+        .mockResolvedValueOnce({
+          stagingId: 's3',
+          consent,
+          committed: false,
+        }),
+    }
+    const installer = {
+      commit: vi
+        .fn()
+        .mockResolvedValueOnce({ pluginId: 'github.plugin' })
+        .mockResolvedValueOnce({ pluginId: 'url.plugin' }),
+    }
 
     const result = await serverBootstrapInstall(
-      stubInstaller(),
-      pluginsDir,
-      { MOTRIX_PLUGIN_ALLOWLIST: 'https://github.com/example' },
-      { blanketBypass: false }
-    )
-    expect(result.accepted).toContain('example.widget')
-    expect(result.rejected).toEqual([])
-  })
-
-  it('rejects a volume-mounted plugin missing an install record under default policy', async () => {
-    const dir = path.join(pluginsDir, 'shady.plugin')
-    await mkdir(dir, { recursive: true })
-    const result = await serverBootstrapInstall(
-      stubInstaller(),
-      pluginsDir,
-      {},
-      { blanketBypass: false }
-    )
-    expect(result.rejected).toEqual([
-      { id: 'shady.plugin', reason: 'plugin.lifecycle.unsigned_not_allowed' },
-    ])
-    expect(result.accepted).toEqual([])
-  })
-
-  it('accepts everything under --allow-unsigned-plugins blanket bypass', async () => {
-    const dir = path.join(pluginsDir, 'shady.plugin')
-    await mkdir(dir, { recursive: true })
-    const result = await serverBootstrapInstall(
-      stubInstaller(),
-      pluginsDir,
-      {},
-      { blanketBypass: true }
-    )
-    expect(result.accepted).toEqual(['shady.plugin'])
-    expect(result.rejected).toEqual([])
-  })
-
-  it('skips entries prefixed with _ (staging, downloads)', async () => {
-    await mkdir(path.join(pluginsDir, '_staging'), { recursive: true })
-    await mkdir(path.join(pluginsDir, '_dl'), { recursive: true })
-    const result = await serverBootstrapInstall(
-      stubInstaller(),
-      pluginsDir,
-      {},
-      { blanketBypass: true }
-    )
-    expect(result.accepted).toEqual([])
-    expect(result.rejected).toEqual([])
-  })
-
-  it('rejects an env URL that is neither github: nor a .moext URL', async () => {
-    const result = await serverBootstrapInstall(
-      stubInstaller(),
-      pluginsDir,
-      { MOTRIX_PLUGIN_INSTALL_URLS: 'https://example.com/index.html' },
-      { blanketBypass: false }
-    )
-    expect(result.rejected).toEqual([
+      service as never,
+      installer as never,
       {
-        id: 'https://example.com/index.html',
-        reason: 'plugin.install.invalid_env_url',
-      },
-    ])
+        MOTRIX_PLUGIN_INSTALL_URLS:
+          'github:acme/widget,registry:acme.registry,https://example.com/widget.moext',
+      }
+    )
+
+    expect(service.stage).toHaveBeenNthCalledWith(1, {
+      sourceType: 'github',
+      spec: 'acme/widget',
+    })
+    expect(service.stage).toHaveBeenNthCalledWith(2, {
+      sourceType: 'registry',
+      pluginId: 'acme.registry',
+    })
+    expect(service.stage).toHaveBeenNthCalledWith(3, {
+      sourceType: 'url',
+      url: 'https://example.com/widget.moext',
+    })
+    expect(installer.commit).toHaveBeenNthCalledWith(1, 's1', {
+      notify: 'denied',
+      ffmpeg: 'denied',
+    })
+    expect(installer.commit).toHaveBeenCalledTimes(2)
+    expect(result).toEqual({
+      accepted: ['github.plugin', 'registry.plugin', 'url.plugin'],
+      rejected: [],
+    })
   })
 
-  it('threads a github: env URL through stage() unattended', async () => {
-    const installer = stubInstaller()
-    // Bypass the actual download by mocking github-fetcher.
-    const { downloadGithubMoext } = await import(
-      '@core/plugin/install/github-fetcher'
-    )
-    vi.spyOn(
-      { downloadGithubMoext } as {
-        downloadGithubMoext: typeof downloadGithubMoext
-      },
-      'downloadGithubMoext'
-    ).mockResolvedValue({ tag: 'v1', assetName: 'x.moext' })
-    // Note: we can't easily intercept the dynamic import; instead, accept that
-    // the test will reject when the download fails. We assert the env URL is
-    // attempted (i.e. ended up in rejected) — proves the dispatcher routes it.
-    const result = await serverBootstrapInstall(
-      installer,
-      pluginsDir,
-      { MOTRIX_PLUGIN_INSTALL_URLS: 'github:acme/widget' },
-      { blanketBypass: false }
-    )
-    const ids = [...result.accepted, ...result.rejected.map((r) => r.id)]
-    expect(ids).toContain('github:acme/widget')
+  it('reports every rejected source without hiding successful installs', async () => {
+    const service = {
+      stage: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('download failed'))
+        .mockResolvedValueOnce({
+          stagingId: 's2',
+          consent,
+          committed: false,
+        }),
+    }
+    const installer = {
+      commit: vi.fn().mockResolvedValue({ pluginId: 'good.plugin' }),
+    }
+
+    await expect(
+      serverBootstrapInstall(service as never, installer as never, {
+        MOTRIX_PLUGIN_INSTALL_URLS:
+          '["https://bad.example/a.moext","https://good.example/b.moext"]',
+      })
+    ).resolves.toEqual({
+      accepted: ['good.plugin'],
+      rejected: [
+        {
+          source: 'https://bad.example/a.moext',
+          reason: 'download failed',
+        },
+      ],
+    })
   })
 })

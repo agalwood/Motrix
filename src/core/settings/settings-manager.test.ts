@@ -776,6 +776,34 @@ describe('SettingsManager', () => {
       // Other tracker fields retain defaults
       expect(manager.get().tracker.autoSync).toBe(true)
     })
+
+    it('atomically removes only the uninstalled plugin configuration', async () => {
+      await manager.update({
+        plugins: {
+          'plugin.remove': { apiKey: 'box:encrypted-secret' },
+          'plugin.keep': { quality: '1080p' },
+        },
+      })
+
+      const result = await manager.removePluginConfig('plugin.remove')
+
+      expect(result.saved).toBe(true)
+      expect(manager.get().plugins).toEqual({
+        'plugin.keep': { quality: '1080p' },
+      })
+      const persisted = JSON.parse(
+        mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+      )
+      expect(persisted.plugins).toEqual({
+        'plugin.keep': { quality: '1080p' },
+      })
+
+      const writes = mockedFs.writeFile.mock.calls.length
+      await expect(
+        manager.removePluginConfig('plugin.remove')
+      ).resolves.toMatchObject({ saved: false })
+      expect(mockedFs.writeFile).toHaveBeenCalledTimes(writes)
+    })
   })
 
   describe('save', () => {

@@ -4,6 +4,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
+import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import {
   buildContributionIndex,
@@ -34,6 +35,7 @@ import {
 } from '@shared/types/cli-tool'
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
+import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
@@ -91,11 +93,13 @@ export interface ServerQueryContext {
   engineAdapter: EngineAdapter
   notificationCenter: NotificationCenter
   pluginRegistry: PluginRegistry
+  pluginGrants: GrantsManager
   registryClient: RegistryClient
   pluginsDir: string
   hostVersion: string
   userDataDir: string
   speedLimitController: SpeedLimitController
+  downloadPathPolicy: ServerDownloadPathPolicy
 }
 
 export function buildServerQueryHandlers(
@@ -115,11 +119,13 @@ export function buildServerQueryHandlers(
     engineAdapter,
     notificationCenter,
     pluginRegistry,
+    pluginGrants,
     registryClient,
     pluginsDir,
     hostVersion,
     userDataDir,
     speedLimitController,
+    downloadPathPolicy,
   } = ctx
 
   const detectFfmpeg = makeServerFfmpegDetect({
@@ -173,12 +179,7 @@ export function buildServerQueryHandlers(
       settingsManager.get().tracker.sources,
 
     [Queries.ListAllowedSaveDirs]: async () => {
-      const raw = process.env.MOTRIX_ALLOWED_SAVE_DIRS ?? ''
-      const paths = raw
-        .split(':')
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .map((path) => ({ path }))
+      const paths = downloadPathPolicy.allowedSaveDirs.map((path) => ({ path }))
       return {
         paths,
         defaultPath: settingsManager.getApp().defaultSaveDir,
@@ -209,6 +210,11 @@ export function buildServerQueryHandlers(
 
     [Queries.GetPluginConfig]: async (pluginId: string) =>
       readPluginConfig(settingsManager.get(), pluginId),
+
+    [Queries.GetPluginGrants]: async (pluginId: string) =>
+      pluginGrants.getGrants(pluginId),
+
+    [Queries.ListPluginGrants]: async () => pluginGrants.listAllGrants(),
 
     [Queries.GetContributionIndex]: async () =>
       buildContributionIndex(pluginRegistry.entries()),

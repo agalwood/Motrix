@@ -324,6 +324,35 @@ export class SettingsManager {
     return this.enqueueMutation(() => this.persistUpdate(patch))
   }
 
+  /**
+   * Remove the durable configuration namespace owned by an uninstalled
+   * plugin. A normal partial update cannot express deletion because plugin
+   * settings are merge-patched, so uninstall uses this explicit atomic
+   * operation instead of leaving encrypted secrets and stale configuration
+   * behind forever.
+   */
+  async removePluginConfig(pluginId: string): Promise<UpdateResult> {
+    return this.enqueueMutation(async () => {
+      if (!Object.hasOwn(this.settings.plugins, pluginId)) {
+        return this.unchangedResult()
+      }
+
+      const old = structuredClone(this.settings)
+      const next = structuredClone(this.settings)
+      delete next.plugins[pluginId]
+      await this.saveSettings(next)
+      this.settings = next
+      this.onChange?.(old, this.settings)
+      return {
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      }
+    })
+  }
+
   private async persistUpdate(
     partial: DeepPartial<AppSettings>
   ): Promise<UpdateResult> {

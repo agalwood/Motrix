@@ -4,8 +4,7 @@
 // We don't read the manifest here — that happens later in `extractMoext`.
 // We just provide a clean tarball-style "bring me the bytes" boundary.
 
-import { createWriteStream } from 'node:fs'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Agent, interceptors, request } from 'undici'
@@ -39,6 +38,7 @@ export interface DownloadResult {
 }
 
 const USER_AGENT = 'motrix-plugin-installer'
+const MAX_MOEXT_BYTES = 5 * 1024 * 1024
 
 export async function downloadGithubMoext(
   spec: GhReleaseSpec,
@@ -87,12 +87,24 @@ export async function downloadGithubMoext(
       `plugin.install.gh_asset_download_failed: ${dl.statusCode}`
     )
   }
-  await new Promise<void>((res, rej) => {
-    const ws = createWriteStream(destFile)
-    dl.body.on('error', rej)
-    ws.on('error', rej)
-    ws.on('finish', () => res())
-    dl.body.pipe(ws)
-  })
+  const chunks: Buffer[] = []
+  let total = 0
+  try {
+    for await (const chunk of dl.body) {
+      const bytes = Buffer.from(chunk)
+      total += bytes.byteLength
+      if (total > MAX_MOEXT_BYTES) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.install.package_too_large'
+        )
+      }
+      chunks.push(bytes)
+    }
+    await writeFile(destFile, Buffer.concat(chunks, total), { mode: 0o600 })
+  } catch (cause) {
+    await rm(destFile, { force: true }).catch(() => undefined)
+    throw cause
+  }
   return { tag: body.tag_name, assetName: asset.name }
 }

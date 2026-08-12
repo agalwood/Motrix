@@ -7,10 +7,13 @@ import type { EventBus } from '@core/events/event-bus'
 import { getLogger } from '@core/logger'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
+import { pluginSecretFields } from '@core/plugin/configuration-schema'
+import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
+import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import type { MotrixDatabase } from '@core/session/motrix-database'
@@ -54,6 +57,8 @@ import type { DownloadTask } from '@shared/types/task'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import { z } from 'zod'
+import type { ServerDownloadPathPolicy } from '../download-path-policy'
+import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { createServerProxyApplier } from '../proxy/wiring'
 
 export interface ServerCommandContext {
@@ -75,6 +80,9 @@ export interface ServerCommandContext {
   pluginRegistry: PluginRegistry
   pluginStateStore: PluginStateStore
   pluginHost: PluginHost
+  pluginInstaller: PluginInstaller
+  pluginInstallService: ServerPluginInstallService
+  pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
   userDataDir: string
   pluginsDir: string
@@ -104,6 +112,7 @@ export interface ServerCommandContext {
   /** Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher). */
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
+  downloadPathPolicy: ServerDownloadPathPolicy
 }
 
 export function buildServerCommandHandlers(
@@ -127,6 +136,9 @@ export function buildServerCommandHandlers(
     pluginRegistry,
     pluginStateStore,
     pluginHost,
+    pluginInstaller,
+    pluginInstallService,
+    pluginGrants,
     capabilityHost,
     userDataDir,
     pluginsDir,
@@ -142,6 +154,7 @@ export function buildServerCommandHandlers(
     parentTaskCreated: injectedParentTaskCreated,
     publishTaskUpdate,
     publishTaskUpdateNow,
+    downloadPathPolicy,
   } = ctx
 
   const persistTask =
@@ -199,6 +212,8 @@ export function buildServerCommandHandlers(
     runTaskMutation,
     waitForEngineReady: () =>
       supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+    prepareSaveDir: (requested: string) =>
+      downloadPathPolicy.prepareSaveDir(requested),
   }
 
   const log = getLogger('server:commands')
@@ -337,10 +352,10 @@ export function buildServerCommandHandlers(
             req.selectedFiles.length === 0 &&
             settingsManager.getApp().magnetFileSelection
           ) {
-            await magnetTracker.submit(
-              req.payload.uri,
+            const saveDir = await downloadPathPolicy.prepareSaveDir(
               req.saveDir || settingsManager.getApp().defaultSaveDir
             )
+            await magnetTracker.submit(req.payload.uri, saveDir)
             return { ok: true }
           }
         } else {
@@ -351,12 +366,13 @@ export function buildServerCommandHandlers(
           // instance in place so task identity / Downloads list slot
           // survive (no duplicate row appears).
           if (req.payload.kind === 'torrent-base64' && req.existingTaskId) {
+            const saveDir = await downloadPathPolicy.prepareSaveDir(req.saveDir)
             return swapMagnetMetadataForBt(
               {
                 taskId: req.existingTaskId,
                 base64: req.payload.base64,
                 selectedFiles: req.selectedFiles,
-                saveDir: req.saveDir,
+                saveDir,
                 name: req.displayName,
               },
               {
@@ -461,9 +477,31 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
+      const saveDirPatch = z
+        .object({
+          app: z
+            .object({ defaultSaveDir: z.string().optional() })
+            .passthrough()
+            .optional(),
+        })
+        .passthrough()
+        .safeParse(partial)
+      let validatedPartial = partial
+      if (
+        saveDirPatch.success &&
+        saveDirPatch.data.app?.defaultSaveDir !== undefined
+      ) {
+        const defaultSaveDir = await downloadPathPolicy.prepareSaveDir(
+          saveDirPatch.data.app.defaultSaveDir
+        )
+        validatedPartial = {
+          ...saveDirPatch.data,
+          app: { ...saveDirPatch.data.app, defaultSaveDir },
+        }
+      }
       const oldFull = settingsManager.get()
       const result = await settingsManager.update(
-        partial as Parameters<typeof settingsManager.update>[0]
+        validatedPartial as Parameters<typeof settingsManager.update>[0]
       )
       const newFull = settingsManager.get()
 
@@ -561,26 +599,7 @@ export function buildServerCommandHandlers(
         )
       }
 
-      // Walk schema to collect secret-flagged field names.
-      const schema = indexed.manifest.contributes?.configuration?.schema
-      const properties =
-        schema &&
-        typeof schema === 'object' &&
-        'properties' in schema &&
-        schema.properties &&
-        typeof schema.properties === 'object'
-          ? (schema.properties as Record<string, unknown>)
-          : {}
-      const secretFields = new Set<string>()
-      for (const [key, prop] of Object.entries(properties)) {
-        if (
-          prop &&
-          typeof prop === 'object' &&
-          (prop as { secret?: boolean }).secret === true
-        ) {
-          secretFields.add(key)
-        }
-      }
+      const secretFields = pluginSecretFields(indexed.manifest)
 
       // Build effective patch with secrets encrypted.
       const prior = settingsManager.get().plugins[parsed.pluginId] ?? {}
@@ -614,6 +633,76 @@ export function buildServerCommandHandlers(
       })
       capabilityHost.configFor(parsed.pluginId).applyExternalChange(changes)
 
+      return { ok: true }
+    },
+
+    [Commands.InstallPlugin]: async (payload: unknown) => {
+      const result = await pluginInstallService.stage(payload)
+      if (result.committed && result.pluginId) {
+        eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
+      } else {
+        eventBus.emit(Events.PluginInstallConsentRequested, {
+          stagingId: result.stagingId,
+          consent: result.consent,
+        })
+      }
+      return result
+    },
+
+    [Commands.ConfirmPluginInstall]: async (payload: unknown) => {
+      const parsed = z
+        .object({
+          stagingId: z.string().min(1),
+          grants: z.record(z.string(), z.enum(['granted', 'denied'])),
+        })
+        .parse(payload)
+      const { pluginId } = await pluginInstaller.commit(
+        parsed.stagingId,
+        parsed.grants
+      )
+      eventBus.emit(Events.PluginInstalled, { pluginId })
+      return { ok: true, pluginId }
+    },
+
+    [Commands.CancelPluginInstall]: async (payload: unknown) => {
+      const parsed = z.object({ stagingId: z.string().min(1) }).parse(payload)
+      await pluginInstaller.cancel(parsed.stagingId)
+      return { ok: true }
+    },
+
+    [Commands.UpdatePluginGrants]: async (payload: unknown) => {
+      const parsed = z
+        .object({
+          pluginId: z.string().min(1),
+          patch: z.record(z.string(), z.enum(['granted', 'denied'])),
+        })
+        .parse(payload)
+      const grants = await pluginGrants.updateGrants(
+        parsed.pluginId,
+        parsed.patch
+      )
+      return { ok: true, grants }
+    },
+
+    [Commands.UninstallPlugin]: async (payload: unknown) => {
+      const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
+      await pluginInstaller.uninstall(parsed.pluginId)
+      await settingsManager.removePluginConfig(parsed.pluginId)
+      eventBus.emit(Events.PluginUninstalled, { pluginId: parsed.pluginId })
+      return { ok: true }
+    },
+
+    [Commands.ClearPluginLogs]: async (payload: unknown) => {
+      const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
+      capabilityHost.clearLog(parsed.pluginId)
+      return { ok: true }
+    },
+
+    [Commands.SetPluginLogVerbose]: async (payload: unknown) => {
+      const parsed = z
+        .object({ pluginId: z.string().min(1), verbose: z.boolean() })
+        .parse(payload)
+      capabilityHost.setLogVerbose(parsed.pluginId, parsed.verbose)
       return { ok: true }
     },
 

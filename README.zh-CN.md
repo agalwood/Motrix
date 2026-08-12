@@ -94,13 +94,18 @@ npm install -g @motrix/cli
 
 ### Headless server（Docker）
 
-仓库根目录提供了 `Dockerfile`。构建得到的镜像已包含 Web 界面和 aria2：
+仓库提供生产用途的 `Dockerfile` 和 `compose.yaml`，分别挂载 Server 状态与用户
+下载资源：
 
 ```bash
-docker build -t motrix-turbo:dev .
+mkdir -p motrix-data downloads
+docker compose up --build -d
 ```
 
-CLI、浏览器扩展等远程客户端可通过 device-code 与服务器配对。详细说明请参阅 `Dockerfile` 和相关文档。
+runtime 以非 root 用户运行，支持只读根文件系统，在接受任务前检查挂载权限，
+并在替换容器后保留下载、session 和已安装插件。CLI、浏览器扩展等远程客户端
+可通过 device-code 与服务器配对。目录所有权、端口、环境变量、诊断与备份/
+升级说明见 [Docker Server 部署指南](./docs/docker-server.zh-CN.md)。
 
 ## 🛠 开发与构建
 

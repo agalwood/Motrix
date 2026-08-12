@@ -1,10 +1,29 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { resolveSmokeContainerIdentity } from '../../scripts/smoke-server-identity.mjs'
 
 const ROOT = process.cwd()
 
 describe('Docker Server runtime staging contract', () => {
+  it('maps smoke containers to a portable non-root host identity', () => {
+    expect(resolveSmokeContainerIdentity(1001, 121)).toEqual({
+      uid: 1001,
+      gid: 121,
+      user: '1001:121',
+    })
+    expect(resolveSmokeContainerIdentity(0, 0)).toEqual({
+      uid: 1000,
+      gid: 1000,
+      user: '1000:1000',
+    })
+    expect(resolveSmokeContainerIdentity(Number.NaN, Number.NaN)).toEqual({
+      uid: 1000,
+      gid: 1000,
+      user: '1000:1000',
+    })
+  })
+
   it('copies only the verified stage into a non-root Node 24 runtime', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const runtime = dockerfile.slice(
@@ -18,7 +37,18 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain('apk add --no-cache aria2 ca-certificates')
     expect(runtime).toContain('MOTRIX_ARIA2_BIN=/usr/bin/aria2c')
     expect(runtime).toContain('MOTRIX_DATA_DIR=/data')
+    expect(runtime).toContain('MOTRIX_PLUGIN_DIR=/data/plugins')
+    expect(runtime).toContain('MOTRIX_DEFAULT_SAVE_DIR=/downloads')
+    expect(runtime).toContain('MOTRIX_ALLOWED_SAVE_DIRS=/downloads')
+    expect(runtime).toContain('mkdir -p /data/home /data/tmp /downloads')
+    expect(runtime).toContain('chown -R node:node /data /downloads')
+    expect(runtime).toContain('VOLUME ["/data", "/downloads"]')
+    expect(runtime).toContain('MOTRIX_TEMP_DIR=/data/tmp')
+    expect(runtime).toContain('TMPDIR=/data/tmp')
+    expect(runtime).toContain('HOME=/data/home')
     expect(runtime).toContain('USER node')
+    expect(runtime).toContain('STOPSIGNAL SIGTERM')
+    expect(runtime).toContain('HEALTHCHECK --interval=30s')
     expect(runtime).toContain('CMD ["node", "dist/server/index.mjs"]')
     expect(runtime).toContain('rm -rf /usr/local/lib/node_modules/npm')
     expect(runtime).toContain('/usr/local/lib/node_modules/corepack')
@@ -52,6 +82,22 @@ describe('Docker Server runtime staging contract', () => {
     expect(dockerignore).toContain(
       '!tests/generate-third-party-notices.test.ts'
     )
+  })
+
+  it('exercises deployment behavior instead of only process startup', async () => {
+    const imageSmoke = await readFile(
+      path.join(ROOT, 'scripts/smoke-server-image.mjs'),
+      'utf8'
+    )
+
+    expect(imageSmoke).toContain("'--read-only'")
+    expect(imageSmoke).toContain('identity.user')
+    expect(imageSmoke).toContain("'command:createTask'")
+    expect(imageSmoke).toContain("'command:setTaskBtTracker'")
+    expect(imageSmoke).toContain("'command:installPlugin'")
+    expect(imageSmoke).toContain("'command:uninstallPlugin'")
+    expect(imageSmoke).toContain('Save directory is not writable: /downloads')
+    expect(imageSmoke).toContain('did not survive container restart')
   })
 
   it('keeps a corrected full-root comparison target without changing the final target', async () => {

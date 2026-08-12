@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
@@ -34,12 +35,16 @@ import { getLogger, initLogger } from '@core/logger'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
+import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
+import { pluginSecretFields } from '@core/plugin/configuration-schema'
+import { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
   PluginHost,
   parsePluginIdleDisposeMs,
 } from '@core/plugin/host/plugin-host'
+import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
@@ -99,16 +104,33 @@ import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
 } from './bridge/bootstrap'
+import {
+  createServerDownloadPathPolicy,
+  resolveServerDefaultSaveDir,
+} from './download-path-policy'
+import { parseServerPort } from './environment'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
 import { provisionOperatorToken } from './operator-token'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
+import {
+  createServerCommunityPluginPolicy,
+  parseAllowUnmanagedPlugins,
+} from './plugin/community-policy'
 import { startDevWatcher } from './plugin/dev-watcher'
+import { makeServerFfmpegDetect } from './plugin/ffmpeg-detect-server'
+import { ServerPluginInstallService } from './plugin/install-service'
 import { resolveServerPluginsDir } from './plugin/plugins-dir'
+import { serverBootstrapInstall } from './plugin/server-bootstrap-installer'
+import { PluginUploadStore } from './plugin/upload-store'
 import { createServerProxyApplier } from './proxy/wiring'
+import { registerServerDiagnosticsRoute } from './routes/diagnostics'
+import { registerPluginUploadRoute } from './routes/plugin-uploads'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
+import { prepareServerRuntimeDirectories } from './runtime-directories'
+import { serverHealthSnapshot } from './runtime-health'
 import {
   createServerExitCoordinator,
   createServerShutdown,
@@ -129,7 +151,15 @@ async function main() {
 
   // ─── Platform ─────────────────────────────────────────────────
   const platform = createNodePlatformServices()
-  log.info({ platform }, 'boot')
+  const runtimeDirectories = await prepareServerRuntimeDirectories({
+    dataDir: platform.userDataDir,
+    tempDirValue: process.env.MOTRIX_TEMP_DIR,
+  })
+  process.env.TMPDIR = runtimeDirectories.tempDir
+  log.info(
+    { platform, tempDir: runtimeDirectories.tempDir },
+    'runtime directories ready'
+  )
 
   // The cleanup coordinator exists before the first fallible acquisition.
   // Each resource replaces its no-op slot immediately when ownership is
@@ -229,9 +259,14 @@ async function main() {
   // are visible here.
   let speedLimitController: SpeedLimitController | undefined
 
+  const configuredDefaultSaveDir = resolveServerDefaultSaveDir(
+    process.env,
+    path.join(os.homedir(), 'Downloads')
+  )
   const settingsManager = new SettingsManager(
     path.join(platform.userDataDir, 'settings.json'),
     {
+      defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
         if (
@@ -244,6 +279,32 @@ async function main() {
     }
   )
   await settingsManager.load()
+  if (!shellAsyncWork.isAccepting()) return
+  const hasDefaultSaveDirOverride = Boolean(
+    process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim()
+  )
+  const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
+    ? configuredDefaultSaveDir
+    : settingsManager.getApp().defaultSaveDir
+  const downloadPathPolicy = await createServerDownloadPathPolicy({
+    defaultSaveDir: effectiveDefaultSaveDir,
+    allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
+  })
+  if (
+    hasDefaultSaveDirOverride &&
+    settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
+  ) {
+    await settingsManager.update({
+      app: { defaultSaveDir: effectiveDefaultSaveDir },
+    })
+  }
+  log.info(
+    {
+      defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+      allowedSaveDirs: downloadPathPolicy.allowedSaveDirs,
+    },
+    'download path contract ready'
+  )
   if (!shellAsyncWork.isAccepting()) return
   const resolveServerLocale = (settingsLanguage: string) =>
     resolveSupportedLocale(
@@ -357,9 +418,8 @@ async function main() {
   }
 
   // ─── Plugin runtime ─────────────────────────────────────────
-  const { pluginsDir, builtinDir } = await resolveServerPluginsDir(
-    platform.userDataDir
-  )
+  const { pluginsDir, builtinDir, pluginImportRoots } =
+    await resolveServerPluginsDir(platform.userDataDir)
   if (!shellAsyncWork.isAccepting()) return
   const pluginStateStore = new PluginStateStore(db.database)
   const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
@@ -370,6 +430,11 @@ async function main() {
     hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     hostLanguage,
     devPath,
+    communityDirectoryPolicy: createServerCommunityPluginPolicy({
+      allowUnmanagedPlugins: parseAllowUnmanagedPlugins(
+        process.env.MOTRIX_ALLOW_UNMANAGED_PLUGINS
+      ),
+    }),
   })
   await pluginRegistry.discover()
   if (!shellAsyncWork.isAccepting()) return
@@ -380,16 +445,19 @@ async function main() {
     userDataDir: platform.userDataDir,
     pluginsDir,
     settingsManager,
-    // TODO Task 22: wire settingsManager config lookup
-    configReader: (_pluginId) => ({}),
-    // TODO Plan F: derive from manifest contributes.configuration schema
-    secretFieldsFor: (_pluginId) => new Set(),
+    configReader: (pluginId) => settingsManager.get().plugins[pluginId] ?? {},
+    secretFieldsFor: (pluginId) =>
+      pluginSecretFields(pluginRegistry.get(pluginId)?.manifest),
     manifestCommandIdsFor: (pluginId) => {
       const cmds = pluginRegistry.get(pluginId)?.manifest.contributes.commands
       return new Set(cmds?.map((c) => c.id) ?? [])
     },
     localeSnapshotFor: (pluginId) =>
       pluginRegistry.getLocaleDictionaries(pluginId),
+  })
+  const pluginGrants = new GrantsManager({
+    registry: pluginRegistry,
+    eventBus,
   })
   pluginLocaleTargets = {
     registry: pluginRegistry,
@@ -409,21 +477,78 @@ async function main() {
     appVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
     runtime: 'server',
     hostLanguage,
+    pluginGrants,
     idleDisposeMs: parsePluginIdleDisposeMs(
       process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
     ),
   })
   shutdownActions.drainPluginHost = () => pluginHost.shutdown()
+  eventBus.on(Events.PluginGrantsChanged, (...args: unknown[]) => {
+    const payload = args[0] as { pluginId?: string } | undefined
+    if (payload?.pluginId && pluginHost.isActive(payload.pluginId)) {
+      void pluginHost.deactivate(payload.pluginId)
+    }
+  })
   // Wire Plan D: cross-plugin command safeguards (schema cache + rate limit
   // + caller throttle + chain depth + audit) and bind the invoker to the
   // capability host. Must run AFTER registry.discover() so manifest schemas
   // can be compiled at install time.
-  wireCommandSystem({
+  const commandSystem = wireCommandSystem({
     registry: pluginRegistry,
     host: pluginHost,
     capabilityHost: pluginCapHost,
     pluginsDir,
   })
+
+  const hostVersion = process.env.MOTRIX_APP_VERSION ?? '2.0.0'
+  const registryClient = new RegistryClient({
+    cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
+  })
+  const pluginInstaller = new PluginInstaller({
+    pluginsDir,
+    registry: pluginRegistry,
+    stateStore: pluginStateStore,
+    capabilityHost: pluginCapHost,
+    hostVersion,
+    schemaCache: commandSystem.schemas,
+    ffmpegDetect: async () =>
+      projectActiveToLegacy(
+        await makeServerFfmpegDetect({
+          settingsManager,
+          userDataDir: platform.userDataDir,
+        })()
+      ),
+  })
+  const pluginUploadStore = new PluginUploadStore(
+    path.join(pluginsDir, '_uploads')
+  )
+  const pluginInstallService = new ServerPluginInstallService({
+    installer: pluginInstaller,
+    registryClient,
+    hostVersion,
+    pluginsDir,
+    allowedLocalRoots: pluginImportRoots,
+    uploadStore: pluginUploadStore,
+  })
+  const bootstrapInstalls = await serverBootstrapInstall(
+    pluginInstallService,
+    pluginInstaller,
+    process.env
+  )
+  if (bootstrapInstalls.rejected.length > 0) {
+    throw new Error(
+      `Declarative plugin installation failed: ${bootstrapInstalls.rejected
+        .map(({ source, reason }) => `${source}: ${reason}`)
+        .join('; ')}`
+    )
+  }
+  if (bootstrapInstalls.accepted.length > 0) {
+    log.info(
+      { pluginIds: bootstrapInstalls.accepted },
+      'declarative plugin installation complete'
+    )
+  }
+  if (!shellAsyncWork.isAccepting()) return
 
   const pluginActivation = new ActivationDispatcher(pluginRegistry, pluginHost)
   let devWatcherHandle: { close(): Promise<void> } | null = null
@@ -650,7 +775,7 @@ async function main() {
     exists: pathExists,
   })
   const torrentMetaStore = new TorrentMetaStoreImpl(
-    path.join(platform.userDataDir, 'torrents')
+    runtimeDirectories.torrentsDir
   )
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
@@ -679,7 +804,7 @@ async function main() {
         taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       runExclusivePersistence: (operation) =>
         sessionManager.runExclusivePersistence(operation),
-      torrentMetaDir: path.join(platform.userDataDir, 'torrents'),
+      torrentMetaDir: runtimeDirectories.torrentsDir,
       occurrenceDispatcher,
     }
   )
@@ -717,6 +842,9 @@ async function main() {
     pluginRegistry,
     pluginStateStore,
     pluginHost,
+    pluginInstaller,
+    pluginInstallService,
+    pluginGrants,
     capabilityHost: pluginCapHost,
     userDataDir: platform.userDataDir,
     pluginsDir,
@@ -736,9 +864,7 @@ async function main() {
       taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
     publishTaskUpdate,
     publishTaskUpdateNow,
-  })
-  const registryClient = new RegistryClient({
-    cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
+    downloadPathPolicy,
   })
   const queryHandlers = buildServerQueryHandlers({
     taskManager,
@@ -754,11 +880,13 @@ async function main() {
     engineAdapter: adapter,
     notificationCenter,
     pluginRegistry,
+    pluginGrants,
     registryClient,
     pluginsDir,
-    hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
+    hostVersion,
     userDataDir: platform.userDataDir,
     speedLimitController,
+    downloadPathPolicy,
   })
 
   const rendererDir =
@@ -792,12 +920,59 @@ async function main() {
     eventBus,
     rendererDir,
     operatorAuth: { operatorToken: operator.token },
+    healthCheck: () =>
+      serverHealthSnapshot({
+        accepting: shellAsyncWork.isAccepting(),
+        engine: supervisor.getStatus(),
+      }),
   })
   shutdownActions.closeIngress = () => app.close()
   if (!shellAsyncWork.isAccepting()) {
     await app.close()
     return
   }
+
+  registerPluginUploadRoute(app, pluginUploadStore)
+  registerServerDiagnosticsRoute(app, async () => ({
+    generatedAt: Date.now(),
+    health: serverHealthSnapshot({
+      accepting: shellAsyncWork.isAccepting(),
+      engine: supervisor.getStatus(),
+    }),
+    engine: await supervisor.diagnose(),
+    media: {
+      ffmpeg: await makeServerFfmpegDetect({
+        settingsManager,
+        userDataDir: runtimeDirectories.dataDir,
+      })(),
+      tempDir: runtimeDirectories.tempDir,
+    },
+    process: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      uid: process.getuid?.() ?? null,
+    },
+    storage: {
+      dataDir: runtimeDirectories.dataDir,
+      tempDir: runtimeDirectories.tempDir,
+      torrentsDir: runtimeDirectories.torrentsDir,
+      homeDir: runtimeDirectories.homeDir,
+      settingsFile: path.join(runtimeDirectories.dataDir, 'settings.json'),
+      databaseFile: path.join(runtimeDirectories.dataDir, 'motrix.db'),
+      aria2SessionFile: path.join(runtimeDirectories.dataDir, 'aria2.session'),
+      defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+      allowedSaveDirs: downloadPathPolicy.allowedSaveDirs,
+    },
+    plugins: {
+      directory: pluginsDir,
+      builtinDirectory: builtinDir,
+      importRoots: pluginImportRoots,
+      secretStoreAvailable: pluginCapHost.secrets.available(),
+      installAvailable: true,
+    },
+    operatorAuth: { source: operator.source },
+  }))
 
   registerTasksBulkRoutes(app, {
     taskManager,
@@ -1113,7 +1288,7 @@ async function main() {
     // Do not expose command/query ingress until restore, transition recovery,
     // and recovered Activity anchors have settled. Otherwise an early request
     // can observe an empty/partial TaskManager or a false TaskNotFound.
-    const port = Number(process.env.PORT ?? 8080)
+    const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
       await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
@@ -1187,6 +1362,8 @@ async function main() {
         ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
         waitForEngineReady: () =>
           supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+        prepareSaveDir: (requested: string) =>
+          downloadPathPolicy.prepareSaveDir(requested),
       }
       const taskActionDeps = {
         taskManager,
@@ -1205,21 +1382,12 @@ async function main() {
         publishTaskUpdate,
         publishTaskUpdateNow,
       }
-      // Validate the port so a typo in MOTRIX_MDXP_PORT falls back loudly to the
-      // default rather than NaN → ERR_SOCKET_BAD_PORT → swallowed by the catch
-      // below (silently no bridge on a headless host).
-      const rawPort = process.env.MOTRIX_MDXP_PORT
-      const parsedPort = rawPort === undefined ? 16801 : Number(rawPort)
-      const mdxpPort =
-        Number.isInteger(parsedPort) && parsedPort >= 0 && parsedPort < 65536
-          ? parsedPort
-          : 16801
-      if (parsedPort !== mdxpPort) {
-        log.warn(
-          { MOTRIX_MDXP_PORT: rawPort },
-          'invalid MOTRIX_MDXP_PORT — falling back to 16801'
-        )
-      }
+      const mdxpPort = parseServerPort(
+        process.env.MOTRIX_MDXP_PORT,
+        'MOTRIX_MDXP_PORT',
+        16801,
+        { allowZero: true }
+      )
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1',

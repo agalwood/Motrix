@@ -11,11 +11,14 @@ export type InstallSource =
   | { sourceType: 'github'; spec: string }
   | { sourceType: 'url'; url: string }
   | { sourceType: 'local'; absPath: string; fileHash: string }
+  | { sourceType: 'upload'; uploadId: string; fileHash: string }
   | { sourceType: 'registry'; pluginId: string }
 
 interface InstallResult {
   stagingId: string
   consent: ConsentPayload
+  committed: boolean
+  pluginId?: string
 }
 
 export function usePluginInstall() {
@@ -32,8 +35,13 @@ export function usePluginInstall() {
         Commands.InstallPlugin,
         input
       )) as InstallResult
-      setStagingId(r.stagingId)
-      setConsent(r.consent)
+      if (r.committed) {
+        setStagingId(null)
+        setConsent(null)
+      } else {
+        setStagingId(r.stagingId)
+        setConsent(r.consent)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
