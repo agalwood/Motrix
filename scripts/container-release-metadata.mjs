@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url'
 import { parseStrictSemVer } from './release-metadata.mjs'
 
 export const CONTAINER_REPOSITORIES = Object.freeze({
-  dockerHub: 'docker.io/agalwood/motrix-server',
+  dockerHub: 'docker.io/motrixapp/motrix-server',
   ghcr: 'ghcr.io/agalwood/motrix-server',
 })
 

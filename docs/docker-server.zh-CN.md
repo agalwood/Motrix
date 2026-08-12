@@ -3,7 +3,7 @@
 Motrix Server 将 Web 界面和 aria2 打包为非 root、多架构容器镜像，适合 NAS
 与家庭服务器。带 tag 的正式发布会把同一镜像发布到两个 registry：
 
-- Docker Hub：`docker.io/agalwood/motrix-server`
+- Docker Hub：`docker.io/motrixapp/motrix-server`
 - GitHub Container Registry：`ghcr.io/agalwood/motrix-server`
 
 仓库 Compose 默认使用 Docker Hub，因为多数 NAS 界面无需额外配置即可搜索和
@@ -33,7 +33,7 @@ ARM。
 如需最高可复现性，请使用 release 或 registry 显示的 digest：
 
 ```bash
-export MOTRIX_IMAGE='agalwood/motrix-server@sha256:<manifest-digest>'
+export MOTRIX_IMAGE='motrixapp/motrix-server@sha256:<manifest-digest>'
 docker buildx imagetools inspect "$MOTRIX_IMAGE"
 ```
 
@@ -47,7 +47,7 @@ DIGEST='sha256:<manifest-digest>'
 cosign verify \
   --certificate-identity "https://github.com/agalwood/Motrix/.github/workflows/release.yml@refs/tags/v${VERSION}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  "docker.io/agalwood/motrix-server@${DIGEST}"
+  "docker.io/motrixapp/motrix-server@${DIGEST}"
 ```
 
 ## 持久化契约
@@ -128,7 +128,7 @@ volumes。需要让下载文件同时出现在 NAS 共享文件夹时，bind mou
    例如 `http://nas-name:8080`。端口或 UID/GID 有变化时，可在项目环境变量中
    设置，或在导入前把对应值替换为字面量。
 5. 构建/启动项目。Container Manager 应直接拉取
-   `agalwood/motrix-server:latest`，不应显示本地镜像 build。
+   `motrixapp/motrix-server:latest`，不应显示本地镜像 build。
 6. 等服务变为 healthy 后打开 Web URL，并在管理员 shell 中读取
    `motrix-data/operator-token` 解锁。
 
@@ -147,7 +147,7 @@ volumes。需要让下载文件同时出现在 NAS 共享文件夹时，bind mou
 3. 使用 [`compose.yaml`](../compose.yaml) 新建 Compose 项目。相对挂载会解析到
    选定的项目目录。如果 fnOS 只接受粘贴 YAML，可把 `${...}` 替换为实际字面
    值，或在环境变量编辑器中添加同名值。
-4. 如需自动接收稳定升级，使用 `agalwood/motrix-server:latest`；如需受控升级，
+4. 如需自动接收稳定升级，使用 `motrixapp/motrix-server:latest`；如需受控升级，
    使用不可变 SemVer tag。Docker 会从 manifest 中自动选择 `amd64` 或 `arm64`。
 5. 设置 `MOTRIX_PUBLIC_URL`，确认 8080 和 16801 未被占用，启动项目，并等待
    health 状态正常后再打开 Web 界面。
@@ -180,7 +180,7 @@ docker run -d \
   -p 16801:16801 \
   -v "$PWD/motrix-data:/data" \
   -v "$PWD/downloads:/downloads" \
-  agalwood/motrix-server:latest
+  motrixapp/motrix-server:latest
 ```
 
 镜像已经定义 healthcheck、非 root 用户、数据路径和优雅 `SIGTERM` 行为。

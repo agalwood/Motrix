@@ -663,7 +663,7 @@ jobs:
             exit 1
           fi
           curl --fail --silent --show-error \
-            https://hub.docker.com/v2/repositories/agalwood/motrix-server/ \
+            https://hub.docker.com/v2/repositories/motrixapp/motrix-server/ \
             > /dev/null
 
       - name: Login to Docker Hub
@@ -958,7 +958,7 @@ jobs:
             --header "Authorization: JWT ${dockerhub_jwt}" \
             --header 'Content-Type: application/json' \
             --data "$dockerhub_description" \
-            https://hub.docker.com/v2/repositories/agalwood/motrix-server/ \
+            https://hub.docker.com/v2/repositories/motrixapp/motrix-server/ \
             > /dev/null
 
   publish-feed:

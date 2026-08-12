@@ -248,7 +248,7 @@ describe('container publication verifier', () => {
 
   it('keeps the expected public registry coordinates in the verified labels', () => {
     expect(CONTAINER_REPOSITORIES).toEqual({
-      dockerHub: 'docker.io/agalwood/motrix-server',
+      dockerHub: 'docker.io/motrixapp/motrix-server',
       ghcr: 'ghcr.io/agalwood/motrix-server',
     })
   })

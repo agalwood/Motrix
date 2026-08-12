@@ -11,7 +11,7 @@ const ROOT = process.cwd()
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
 const interpolation = (value: string) => ['$', `{${value}}`].join('')
-const IMAGE = interpolation('MOTRIX_IMAGE:-agalwood/motrix-server:latest')
+const IMAGE = interpolation('MOTRIX_IMAGE:-motrixapp/motrix-server:latest')
 const BIND_IP = interpolation('MOTRIX_BIND_IP:-0.0.0.0')
 const HTTP_PORT = interpolation('MOTRIX_HTTP_PORT:-8080')
 const MDXP_PORT = interpolation('MOTRIX_MDXP_PUBLIC_PORT:-16801')

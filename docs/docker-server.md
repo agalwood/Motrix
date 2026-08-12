@@ -4,7 +4,7 @@ Motrix Server packages the Web UI and aria2 in a non-root, multi-architecture
 container image for NAS and home-server deployments. Tagged releases publish
 the same image to both registries:
 
-- Docker Hub: `docker.io/agalwood/motrix-server`
+- Docker Hub: `docker.io/motrixapp/motrix-server`
 - GitHub Container Registry: `ghcr.io/agalwood/motrix-server`
 
 Docker Hub is the default in the included Compose files because NAS interfaces
@@ -35,7 +35,7 @@ digest before any floating tag is advanced.
 For maximum reproducibility, pin the digest shown by the release or registry:
 
 ```bash
-export MOTRIX_IMAGE='agalwood/motrix-server@sha256:<manifest-digest>'
+export MOTRIX_IMAGE='motrixapp/motrix-server@sha256:<manifest-digest>'
 docker buildx imagetools inspect "$MOTRIX_IMAGE"
 ```
 
@@ -49,7 +49,7 @@ DIGEST='sha256:<manifest-digest>'
 cosign verify \
   --certificate-identity "https://github.com/agalwood/Motrix/.github/workflows/release.yml@refs/tags/v${VERSION}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  "docker.io/agalwood/motrix-server@${DIGEST}"
+  "docker.io/motrixapp/motrix-server@${DIGEST}"
 ```
 
 ## Persistent storage contract
@@ -140,7 +140,7 @@ deployment model is the same:
    changed ports or UID/GID values in the Project environment or substitute
    literal values before import.
 5. Build/start the Project. Container Manager should pull
-   `agalwood/motrix-server:latest`; it must not display a local image build.
+   `motrixapp/motrix-server:latest`; it must not display a local image build.
 6. Wait for the service to become healthy, open the Web URL, and read
    `motrix-data/operator-token` from an administrator shell to unlock it.
 
@@ -164,7 +164,7 @@ On fnOS, install Docker from the app store, then use its Compose/Project view:
    mounts resolve below the selected project directory. If fnOS only accepts
    pasted YAML, replace `${...}` entries with the desired literal values or add
    the same values through its environment editor.
-4. Use `agalwood/motrix-server:latest` for stable automatic upgrades, or an
+4. Use `motrixapp/motrix-server:latest` for stable automatic upgrades, or an
    immutable SemVer tag for controlled upgrades. Docker chooses `amd64` or
    `arm64` from the manifest.
 5. Set `MOTRIX_PUBLIC_URL`, verify ports 8080 and 16801 are not already used,
@@ -199,7 +199,7 @@ docker run -d \
   -p 16801:16801 \
   -v "$PWD/motrix-data:/data" \
   -v "$PWD/downloads:/downloads" \
-  agalwood/motrix-server:latest
+  motrixapp/motrix-server:latest
 ```
 
 The image already defines its health check, non-root user, data paths, and

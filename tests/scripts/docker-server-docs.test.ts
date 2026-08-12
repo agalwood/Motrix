@@ -15,7 +15,7 @@ describe('public Docker Server documentation', () => {
       const document = await text(file)
 
       for (const required of [
-        'docker.io/agalwood/motrix-server',
+        'docker.io/motrixapp/motrix-server',
         'ghcr.io/agalwood/motrix-server',
         'linux/amd64',
         'linux/arm64',

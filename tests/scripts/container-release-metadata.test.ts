@@ -41,6 +41,13 @@ describe('container release metadata', () => {
     ])
   })
 
+  it('publishes Docker Hub images from the Motrix project namespace', () => {
+    expect(CONTAINER_REPOSITORIES.dockerHub).toBe(
+      'docker.io/motrixapp/motrix-server'
+    )
+    expect(CONTAINER_REPOSITORIES.ghcr).toBe('ghcr.io/agalwood/motrix-server')
+  })
+
   it('emits complete OCI source identity labels', () => {
     const revision = 'a'.repeat(40)
     expect(resolveContainerLabels({ revision, version: '2.3.4' })).toEqual({

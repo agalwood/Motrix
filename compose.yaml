@@ -2,7 +2,7 @@ name: motrix
 
 services:
   server:
-    image: "${MOTRIX_IMAGE:-agalwood/motrix-server:latest}"
+    image: "${MOTRIX_IMAGE:-motrixapp/motrix-server:latest}"
     init: true
     read_only: true
     user: "${MOTRIX_UID:-1000}:${MOTRIX_GID:-1000}"
