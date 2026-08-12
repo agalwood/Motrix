@@ -2,11 +2,30 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolveSmokeContainerIdentity } from '../../scripts/smoke-server-identity.mjs'
+// @ts-expect-error -- JavaScript smoke helper intentionally has no declarations
+import {
+  resolveSmokeMode,
+  resolveSmokePlatform,
+} from '../../scripts/smoke-server-platform.mjs'
 
 const ROOT = process.cwd()
 const NODE_IMAGE_REFERENCE = '$' + '{NODE_IMAGE}'
 
 describe('Docker Server runtime staging contract', () => {
+  it('limits explicit publication smoke to supported Linux architectures', () => {
+    expect(resolveSmokePlatform(undefined)).toBeUndefined()
+    expect(resolveSmokePlatform('linux/amd64')).toBe('linux/amd64')
+    expect(resolveSmokePlatform('linux/arm64')).toBe('linux/arm64')
+    expect(() => resolveSmokePlatform('linux/386')).toThrow(/unsupported/)
+  })
+
+  it('defaults image smoke to full and accepts a cross-architecture health mode', () => {
+    expect(resolveSmokeMode(undefined)).toBe('full')
+    expect(resolveSmokeMode('full')).toBe('full')
+    expect(resolveSmokeMode('health')).toBe('health')
+    expect(() => resolveSmokeMode('package-only')).toThrow(/unsupported/)
+  })
+
   it('maps smoke containers to a portable non-root host identity', () => {
     expect(resolveSmokeContainerIdentity(1001, 121)).toEqual({
       uid: 1001,

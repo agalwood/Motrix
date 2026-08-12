@@ -694,12 +694,45 @@ describe('release workflow publication contract', () => {
     expect(stepIndex('Verify immutable publication state')).toBeLessThan(
       stepIndex('Sign immutable digests with GitHub OIDC')
     )
+    expect(stepIndex('Sign immutable digests with GitHub OIDC')).toBeLessThan(
+      stepIndex('Prepare anonymous registry client')
+    )
     expect(stepIndex('Verify immutable signatures')).toBeLessThan(
+      stepIndex('Verify anonymous multi-architecture artifacts')
+    )
+    expect(
+      stepIndex('Verify anonymous multi-architecture artifacts')
+    ).toBeLessThan(stepIndex('Smoke anonymous published architectures'))
+    expect(stepIndex('Smoke anonymous published architectures')).toBeLessThan(
       stepIndex('Promote stable container aliases')
     )
     expect(stepIndex('Promote stable container aliases')).toBeLessThan(
       stepIndex('Update Docker Hub description')
     )
+
+    const publicVerification = steps[
+      stepIndex('Verify anonymous multi-architecture artifacts')
+    ] as LooseRecord
+    expect(
+      stringField(
+        asRecord(publicVerification.env, 'anonymous env'),
+        'DOCKER_CONFIG'
+      )
+    ).toContain('anonymous-docker')
+    const publicCommand = stringField(publicVerification, 'run')
+    expect(publicCommand).toContain("--format '{{json .SBOM}}'")
+    expect(publicCommand).toContain("--format '{{json .Provenance}}'")
+    expect(publicCommand).toContain('verify-container-publication.mjs')
+    const smokeCommand = stringField(
+      steps[
+        stepIndex('Smoke anonymous published architectures')
+      ] as LooseRecord,
+      'run'
+    )
+    expect(smokeCommand).toContain('--platform linux/amd64')
+    expect(smokeCommand).toContain('--platform linux/arm64')
+    expect(smokeCommand).toContain('--mode health')
+    expect(smokeCommand).toContain('smoke-server-image.mjs')
 
     const allOtherJobs = Object.entries(jobs).filter(
       ([name]) => name !== 'publish-container'

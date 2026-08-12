@@ -820,9 +820,19 @@ jobs:
             cosign sign --yes "${repository}@${PUBLISHED_DIGEST}"
           done
 
+      - name: Prepare anonymous registry client
+        shell: bash
+        env:
+          ANONYMOUS_DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANONYMOUS_DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$ANONYMOUS_DOCKER_CONFIG/config.json"
+
       - name: Verify immutable signatures
         shell: bash
         env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
           PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
         run: |
           set -euo pipefail
@@ -834,6 +844,69 @@ jobs:
                 'https://token.actions.githubusercontent.com' \
               "${repository}@${PUBLISHED_DIGEST}" > /dev/null
           done
+
+      - name: Verify anonymous multi-architecture artifacts
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
+          SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-publication
+        run: |
+          set -euo pipefail
+          mkdir -p "$SNAPSHOT_DIRECTORY"
+          snapshot_artifact() {
+            local name="$1"
+            local reference="$2"
+            docker buildx imagetools inspect "$reference" \
+              --format '{{json .}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-inspect.json"
+            docker buildx imagetools inspect "$reference" --raw \
+              > "$SNAPSHOT_DIRECTORY/${name}-index.json"
+            docker buildx imagetools inspect "$reference" \
+              --format '{{json .SBOM}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-sbom.json"
+            docker buildx imagetools inspect "$reference" \
+              --format '{{json .Provenance}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-provenance.json"
+          }
+          snapshot_artifact \
+            docker-hub "${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
+          snapshot_artifact ghcr "${GHCR_REPOSITORY}@${PUBLISHED_DIGEST}"
+          node scripts/verify-container-publication.mjs \
+            --docker-hub-inspect \
+              "$SNAPSHOT_DIRECTORY/docker-hub-inspect.json" \
+            --docker-hub-index \
+              "$SNAPSHOT_DIRECTORY/docker-hub-index.json" \
+            --docker-hub-sbom \
+              "$SNAPSHOT_DIRECTORY/docker-hub-sbom.json" \
+            --docker-hub-provenance \
+              "$SNAPSHOT_DIRECTORY/docker-hub-provenance.json" \
+            --ghcr-inspect "$SNAPSHOT_DIRECTORY/ghcr-inspect.json" \
+            --ghcr-index "$SNAPSHOT_DIRECTORY/ghcr-index.json" \
+            --ghcr-sbom "$SNAPSHOT_DIRECTORY/ghcr-sbom.json" \
+            --ghcr-provenance "$SNAPSHOT_DIRECTORY/ghcr-provenance.json" \
+            --builder-id-prefix \
+              'https://github.com/docker/buildx/actions/runs/' \
+            --version "$CONTAINER_VERSION" \
+            --revision "$GITHUB_SHA"
+
+      - name: Smoke anonymous published architectures
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
+        run: |
+          set -euo pipefail
+          public_image="${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
+          node scripts/smoke-server-image.mjs \
+            --image "$public_image" \
+            --platform linux/amd64 \
+            --timeout-ms 180000
+          node scripts/smoke-server-image.mjs \
+            --image "$public_image" \
+            --platform linux/arm64 \
+            --mode health \
+            --timeout-ms 180000
 
       - name: Promote stable container aliases
         if: needs.preflight.outputs.container_prerelease != 'true'

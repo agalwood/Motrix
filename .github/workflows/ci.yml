@@ -151,6 +151,7 @@ jobs:
           tests/scripts/smoke-server-package.test.ts
           tests/scripts/stage-server-app.test.ts
           tests/scripts/verify-electron-package.test.ts
+          tests/scripts/verify-container-publication.test.ts
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
           tests/scripts/workflow-release-matrix.test.ts

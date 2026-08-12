@@ -17,6 +17,10 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 import { resolveSmokeContainerIdentity } from './smoke-server-identity.mjs'
+import {
+  resolveSmokeMode,
+  resolveSmokePlatform,
+} from './smoke-server-platform.mjs'
 
 const execFileAsync = promisify(execFile)
 const DEFAULT_TIMEOUT_MS = 120_000
@@ -40,6 +44,10 @@ const TORRENT_DATA_FILE = path.join(TORRENT_DATA_ROOT, 'test.bin')
 const HTTP_FIXTURE = Buffer.from(
   'Motrix Docker Server persistent HTTP fixture\n'.repeat(16_384)
 )
+
+function platformArgs(platform) {
+  return platform ? ['--platform', platform] : []
+}
 
 async function docker(args, options = {}) {
   const result = await execFileAsync('docker', args, {
@@ -360,7 +368,7 @@ function parseArguments(argv) {
     if (!argument.startsWith('--'))
       throw new Error(`unknown argument: ${argument}`)
     const key = argument.slice(2)
-    if (!['image', 'timeout-ms'].includes(key)) {
+    if (!['image', 'mode', 'platform', 'timeout-ms'].includes(key)) {
       throw new Error(`unknown option: --${key}`)
     }
     const value = argv[index + 1]
@@ -371,6 +379,8 @@ function parseArguments(argv) {
     index += 1
   }
   if (!options.image) throw new Error('--image is required')
+  resolveSmokeMode(options.mode)
+  resolveSmokePlatform(options.platform)
   return options
 }
 
@@ -396,9 +406,11 @@ async function startServerContainer(options) {
     downloadsDir,
     operatorToken,
     identity,
+    platform,
   } = options
   await docker([
     'run',
+    ...platformArgs(platform),
     '--detach',
     '--name',
     name,
@@ -407,6 +419,8 @@ async function startServerContainer(options) {
     '--add-host',
     'host.docker.internal:host-gateway',
     '--read-only',
+    '--tmpfs',
+    '/tmp:rw,noexec,nosuid,size=64m',
     '--security-opt',
     'no-new-privileges:true',
     '--user',
@@ -467,8 +481,10 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
       'test ! -w /app',
       'test -s /data/motrix.db',
       'pidof aria2c',
-      "tr '\\0' '\\n' </proc/$(pidof aria2c)/cmdline | grep -Fx -- '--dht-file-path=/data/dht.dat'",
-      "tr '\\0' '\\n' </proc/$(pidof aria2c)/cmdline | grep -Fx -- '--dht-file-path6=/data/dht6.dat'",
+      "aria2_pid=$(for pid in $(pidof aria2c); do tr '\\0' '\\n' </proc/$pid/cmdline | grep -Fxq -- '--conf-path=/data/aria2.conf' && { echo $pid; break; }; done)",
+      'test -n "$aria2_pid"',
+      "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path=/data/dht.dat'",
+      "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path6=/data/dht6.dat'",
     ].join('; '),
   ])
   const hostConfig = JSON.parse(
@@ -615,10 +631,13 @@ async function assertPermissionFailure(options) {
   try {
     await docker([
       'run',
+      ...platformArgs(options.platform),
       '--detach',
       '--name',
       name,
       '--read-only',
+      '--tmpfs',
+      '/tmp:rw,noexec,nosuid,size=64m',
       '--user',
       options.identity.user,
       '--env',
@@ -647,12 +666,36 @@ async function assertPermissionFailure(options) {
   }
 }
 
+function imageSmokeSummary(metadata, diagnostics, identity, startedAt) {
+  return {
+    imageId: metadata.Id,
+    imageBytes: metadata.Size,
+    architecture: metadata.Architecture,
+    node: metadata.Config.Env.find((entry) =>
+      entry.startsWith('NODE_VERSION=')
+    )?.slice('NODE_VERSION='.length),
+    nonRootUid: diagnostics.process.uid,
+    nonRootGid: identity.gid,
+    readOnlyRootfs: true,
+    health: true,
+    operatorAuth: true,
+    diagnostics: true,
+    sqlite: true,
+    systemAria2: true,
+    defaultSaveDir: '/downloads',
+    shutdown: 'SIGTERM',
+    durationMs: Date.now() - startedAt,
+  }
+}
+
 export async function smokeServerImage(options) {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 30_000) {
     throw new Error('Server image smoke timeout must be at least 30000ms')
   }
   const image = options.image
+  const mode = resolveSmokeMode(options.mode)
+  const platform = resolveSmokePlatform(options.platform)
   const identity = resolveSmokeContainerIdentity()
   const prefix = `motrix-server-smoke-${process.pid}-${Date.now()}`
   const appName = `${prefix}-app`
@@ -667,7 +710,10 @@ export async function smokeServerImage(options) {
   let seedCreated = false
   let networkCreated = false
   try {
-    const metadata = JSON.parse(await docker(['image', 'inspect', image]))[0]
+    if (platform) await docker(['pull', '--platform', platform, image])
+    const metadata = JSON.parse(
+      await docker(['image', 'inspect', ...platformArgs(platform), image])
+    )[0]
     if (metadata.Config.User !== 'node') {
       throw new Error(
         `Server image default user is ${metadata.Config.User || 'root'}`
@@ -675,6 +721,11 @@ export async function smokeServerImage(options) {
     }
     if (!metadata.Config.Healthcheck) {
       throw new Error('Server image has no Docker HEALTHCHECK')
+    }
+    if (platform && metadata.Architecture !== platform.split('/')[1]) {
+      throw new Error(
+        `Server image architecture is ${metadata.Architecture}, expected ${platform}`
+      )
     }
 
     await docker(['network', 'create', network])
@@ -693,6 +744,7 @@ export async function smokeServerImage(options) {
     await writeFile(localTorrentPath, torrentBytes)
     await docker([
       'run',
+      ...platformArgs(platform),
       '--detach',
       '--name',
       seedName,
@@ -700,6 +752,8 @@ export async function smokeServerImage(options) {
       network,
       '--add-host',
       'host.docker.internal:host-gateway',
+      '--tmpfs',
+      '/tmp:rw,noexec,nosuid,size=64m',
       '--mount',
       `type=bind,source=${seedRoot},target=/seed,readonly`,
       image,
@@ -735,6 +789,7 @@ export async function smokeServerImage(options) {
       ...volumes,
       operatorToken,
       identity,
+      platform,
       timeoutMs,
     })
     appCreated = true
@@ -745,6 +800,16 @@ export async function smokeServerImage(options) {
       identity,
       timeoutMs
     )
+
+    if (mode === 'health') {
+      await stopServer(appName, timeoutMs)
+      await docker(['rm', appName])
+      appCreated = false
+      return {
+        ...imageSmokeSummary(metadata, diagnostics, identity, startedAt),
+        mode,
+      }
+    }
 
     const settings = await rpc(url, operatorToken, 'query', 'query:getSettings')
     const allowed = await rpc(
@@ -891,6 +956,7 @@ export async function smokeServerImage(options) {
       ...volumes,
       operatorToken,
       identity,
+      platform,
       timeoutMs,
     })
     appCreated = true
@@ -963,33 +1029,19 @@ export async function smokeServerImage(options) {
       dataDir: volumes.deniedDataDir,
       downloadsDir: volumes.downloadsDir,
       identity,
+      platform,
       timeoutMs,
     })
 
     return {
-      imageId: metadata.Id,
-      imageBytes: metadata.Size,
-      architecture: metadata.Architecture,
-      node: metadata.Config.Env.find((entry) =>
-        entry.startsWith('NODE_VERSION=')
-      )?.slice('NODE_VERSION='.length),
-      nonRootUid: diagnostics.process.uid,
-      nonRootGid: identity.gid,
-      readOnlyRootfs: true,
-      health: true,
-      operatorAuth: true,
-      diagnostics: true,
-      sqlite: true,
-      systemAria2: true,
-      defaultSaveDir: '/downloads',
+      ...imageSmokeSummary(metadata, diagnostics, identity, startedAt),
+      mode,
       httpDownload: sha256(HTTP_FIXTURE),
       btDownload: sha256(await readFile(TORRENT_DATA_FILE)),
       restartPersistence: true,
       pluginLifecycle: 'install-enable-restart-uninstall',
       pluginSecretLockbox: true,
       permissionFailure: true,
-      shutdown: 'SIGTERM',
-      durationMs: Date.now() - startedAt,
     }
   } catch (error) {
     const appLogs = appCreated
@@ -1031,6 +1083,8 @@ if (
   const raw = parseArguments(process.argv.slice(2))
   smokeServerImage({
     image: raw.image,
+    mode: raw.mode,
+    platform: raw.platform,
     timeoutMs: raw['timeout-ms']
       ? Number.parseInt(raw['timeout-ms'], 10)
       : undefined,

@@ -7,7 +7,10 @@ import {
 } from './container-release-metadata.mjs'
 
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/
-const REQUIRED_PLATFORMS = ['linux/amd64', 'linux/arm64']
+export const REQUIRED_CONTAINER_PLATFORMS = Object.freeze([
+  'linux/amd64',
+  'linux/arm64',
+])
 
 function inspectedImage(snapshot, repository, revision, version) {
   if (snapshot === null || snapshot === undefined) return undefined
@@ -19,7 +22,7 @@ function inspectedImage(snapshot, repository, revision, version) {
   if (typeof digest !== 'string' || !DIGEST_PATTERN.test(digest)) {
     throw new Error(`${repository} immutable tag has no valid index digest`)
   }
-  for (const platform of REQUIRED_PLATFORMS) {
+  for (const platform of REQUIRED_CONTAINER_PLATFORMS) {
     const image = snapshot.image?.[platform]
     if (!image || typeof image !== 'object') {
       throw new Error(`${repository} immutable tag is missing ${platform}`)
