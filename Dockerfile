@@ -92,6 +92,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["nod
 CMD ["node", "dist/server/index.mjs"]
 
 FROM node:24-alpine AS runtime
+ARG OCI_REVISION=unknown
+ARG OCI_VERSION=0.0.0-local
 RUN apk add --no-cache aria2 ca-certificates \
  && rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/lib/node_modules/corepack \
@@ -102,6 +104,14 @@ RUN apk add --no-cache aria2 ca-certificates \
  && chown -R node:node /data /downloads
 WORKDIR /app
 COPY --from=build --chown=node:node /app/dist/server-app/ ./
+LABEL org.opencontainers.image.title="Motrix Server" \
+      org.opencontainers.image.description="Motrix Server web download manager for persistent NAS deployments" \
+      org.opencontainers.image.url="https://motrix.app" \
+      org.opencontainers.image.documentation="https://github.com/agalwood/Motrix/blob/main/docs/docker-server.md" \
+      org.opencontainers.image.source="https://github.com/agalwood/Motrix" \
+      org.opencontainers.image.revision="${OCI_REVISION}" \
+      org.opencontainers.image.version="${OCI_VERSION}" \
+      org.opencontainers.image.licenses="MIT"
 ENV YARN_VERSION= \
     NODE_ENV=production \
     MOTRIX_DATA_DIR=/data \

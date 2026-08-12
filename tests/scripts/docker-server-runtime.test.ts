@@ -50,6 +50,20 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain('STOPSIGNAL SIGTERM')
     expect(runtime).toContain('HEALTHCHECK --interval=30s')
     expect(runtime).toContain('CMD ["node", "dist/server/index.mjs"]')
+    expect(runtime).toContain('ARG OCI_REVISION=unknown')
+    expect(runtime).toContain('ARG OCI_VERSION=0.0.0-local')
+    for (const label of [
+      'org.opencontainers.image.title',
+      'org.opencontainers.image.description',
+      'org.opencontainers.image.url',
+      'org.opencontainers.image.documentation',
+      'org.opencontainers.image.source',
+      'org.opencontainers.image.revision',
+      'org.opencontainers.image.version',
+      'org.opencontainers.image.licenses',
+    ]) {
+      expect(runtime).toContain(label)
+    }
     expect(runtime).toContain('rm -rf /usr/local/lib/node_modules/npm')
     expect(runtime).toContain('/usr/local/lib/node_modules/corepack')
     expect(runtime).toContain('/opt/yarn-v1.22.22')
