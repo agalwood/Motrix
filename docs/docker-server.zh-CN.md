@@ -1,69 +1,217 @@
 # Docker Server 部署
 
-Motrix Server 镜像包含 Web 界面和 aria2，并以非 root 用户运行。容器根文件
-系统可保持只读。可用的部署必须挂载两个相互独立的可写位置：
+Motrix Server 将 Web 界面和 aria2 打包为非 root、多架构容器镜像，适合 NAS
+与家庭服务器。带 tag 的正式发布会把同一镜像发布到两个 registry：
+
+- Docker Hub：`docker.io/motrixapp/motrix-server`
+- GitHub Container Registry：`ghcr.io/agalwood/motrix-server`
+
+仓库 Compose 默认使用 Docker Hub，因为多数 NAS 界面无需额外配置即可搜索和
+拉取；GHCR 是内容相同的 GitHub 原生镜像源，也可作为备用。首个包含容器镜像
+的版本发布前若返回 404 或 `manifest unknown`，表示公开镜像尚未发布；不要因此
+改用 fork 提供的未验证镜像。
+
+## 镜像、架构与 tag 选择
+
+每个发布镜像均包含 `linux/amd64` 和 `linux/arm64`，Docker 会自动选择匹配的
+manifest。Intel/AMD NAS 使用 `amd64`，ARMv8 NAS 使用 `arm64`；不支持 32 位
+ARM。
+
+| 引用 | 行为 | 建议用途 |
+| --- | --- | --- |
+| `:2.3.4` | 不可变正式版本 | 生产与回滚 |
+| `:2.3` | 2.3 系列最新稳定补丁 | 自动接收补丁升级 |
+| `:2` | 主版本 2 的最新稳定版本 | 自动接收次版本和补丁升级 |
+| `:stable` | 最新稳定版本 | 明确选择稳定通道的用户 |
+| `:latest` | 与 `stable` 指向同一 digest | NAS 界面默认值 |
+| `:2.3.4-beta.2` | 不可变预发布版本 | 仅用于评估 |
+
+预发布版本不会更新 `2.3`、`2`、`stable` 或 `latest`。项目不发布 `edge` 或
+`nightly` 镜像。只有两个 registry 的不可变 manifest digest 一致后，发布流程
+才会推进 floating tag。
+
+如需最高可复现性，请使用 release 或 registry 显示的 digest：
+
+```bash
+export MOTRIX_IMAGE='motrixapp/motrix-server@sha256:<manifest-digest>'
+docker buildx imagetools inspect "$MOTRIX_IMAGE"
+```
+
+manifest 包含 OCI source、revision、version、license、documentation labels，
+以及 SPDX SBOM 和 SLSA provenance。带 tag 的 digest 使用 GitHub Actions OIDC
+签名，例如：
+
+```bash
+VERSION=2.3.4
+DIGEST='sha256:<manifest-digest>'
+cosign verify \
+  --certificate-identity "https://github.com/agalwood/Motrix/.github/workflows/release.yml@refs/tags/v${VERSION}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "docker.io/motrixapp/motrix-server@${DIGEST}"
+```
+
+## 持久化契约
+
+可用的部署必须有两个相互独立的可写挂载；容器根文件系统可以且应当保持
+只读。
 
 | 容器路径 | 用途 | 是否备份 |
 | --- | --- | --- |
 | `/data` | SQLite 数据库、设置、aria2 session 与 DHT 状态、种子元数据、operator token、插件包/状态/日志和插件 secret lockbox | 必须 |
 | `/downloads` | HTTP、BT 和 magnet 任务正在下载及最终完成的用户资源 | 按数据策略决定 |
 
-不要让这些数据只写入容器层。重新创建未挂载持久卷的容器会丢失数据库、
-插件状态和下载文件。
+不要让这些数据只写入容器层。重新创建没有这两个挂载的容器会丢失状态或下载
+文件。分开挂载还能让体积小、要求一致性的 `/data` 独立于大量下载内容备份。
 
-## 使用 Docker Compose 启动
+## 通用 Docker Compose：bind mount
 
-仓库提供的 [`compose.yaml`](../compose.yaml) 会构建生产 runtime，以非 root
-用户运行，启用只读根文件系统，并发布 Web 与 MDXP 端口。
+仓库的 [`compose.yaml`](../compose.yaml) 直接拉取 Docker Hub 镜像，适用于标准
+Docker Compose 和 NAS 的“项目”导入。它不包含本地 build、固定 container
+name、privileged 模式或特定主机行为。
 
-启动前先创建 bind mount 目录。在 Linux 上，可以把它们交给镜像默认的
-UID/GID 1000，也可以让容器使用当前的非 root UID/GID：
+先创建目录，并让它们的数字 owner 与容器使用的非 root 用户一致：
 
 ```bash
 mkdir -p motrix-data downloads
 
-# 方案 A：保留镜像默认用户。
-sudo chown 1000:1000 motrix-data downloads
-
-# 方案 B：使用当前 Linux 非 root 用户。
+# 使用专用非 root 账户；以下命令使用当前账户。
 export MOTRIX_UID="$(id -u)"
 export MOTRIX_GID="$(id -g)"
-```
+chown "$MOTRIX_UID:$MOTRIX_GID" motrix-data downloads
 
-Docker Desktop 通常会自动处理 bind mount 所有权，无需执行 Linux 的
-`chown` 步骤。不要为了绕过权限问题把 runtime UID 设为 `0`。
-
-如果要从其他设备访问，请在启动前配置 Web 公网/局域网地址：
-
-```bash
-export MOTRIX_PUBLIC_URL="http://motrix.example.lan:8080"
-docker compose up --build -d
+export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
+docker compose pull server
+docker compose up -d --wait
 docker compose ps
 ```
 
-在浏览器中打开 `MOTRIX_PUBLIC_URL`。首次启动时，Motrix 会生成随机的
-operator token，以 `0600` 权限保存在 `motrix-data/operator-token`。在解锁
-界面输入它：
+若当前管理员不是目录 owner，可使用 `sudo chown`。不要为了绕过挂载权限错误而
+把 runtime UID 设为 `0` 或开启 privileged 模式。Docker Desktop 通常会自动
+处理 bind mount 所有权，不需要显式 `chown`。
+
+无需修改 Compose 文件即可用 `MOTRIX_IMAGE` 选择 GHCR、SemVer tag 或 digest：
+
+```bash
+export MOTRIX_IMAGE='ghcr.io/agalwood/motrix-server:2.3.4'
+docker compose up -d --wait
+```
+
+## 通用 Docker Compose：named volume
+
+如果希望由 NAS 管理存储位置和备份，可使用
+[`compose.named-volumes.yaml`](../compose.named-volumes.yaml)。Docker 会按镜像
+UID/GID 1000 的所有权初始化两个 volume：
+
+```bash
+export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
+docker compose -f compose.named-volumes.yaml pull server
+docker compose -f compose.named-volumes.yaml up -d --wait
+```
+
+执行 `docker compose down` 时不要添加 `--volumes`，该参数会删除 named
+volumes。需要让下载文件同时出现在 NAS 共享文件夹时，bind mount 通常更合适。
+
+## 群晖 DSM 7 Container Manager
+
+不同版本的 Container Manager 界面名称可能略有区别，但部署模型相同：
+
+1. 从套件中心安装 **Container Manager**。
+2. 在 File Station 中创建项目目录，例如 `/volume1/docker/motrix`，并在其下
+   分别创建 `motrix-data` 和 `downloads`。也可把 `downloads` 建成独立共享
+   文件夹，并在 `compose.yaml` 中把该挂载左侧改成绝对路径。
+3. 选择专用的非管理员 DSM 账户。在管理员 SSH 会话中用 `id <账户>` 获取其
+   数字 UID/GID，然后让这两个目录的数字 owner 拥有写权限，并把相同数字设置
+   为 `MOTRIX_UID` 与 `MOTRIX_GID`。仅有 DSM ACL 并不保证所有容器环境都能
+   绕过 Unix owner 不匹配。
+4. 在 **Container Manager > 项目** 中，使用该目录新建项目并导入或粘贴
+   `compose.yaml`。把 `MOTRIX_PUBLIC_URL` 设为其他设备实际访问的浏览器 URL，
+   例如 `http://nas-name:8080`。端口或 UID/GID 有变化时，可在项目环境变量中
+   设置，或在导入前把对应值替换为字面量。
+5. 构建/启动项目。Container Manager 应直接拉取
+   `motrixapp/motrix-server:latest`，不应显示本地镜像 build。
+6. 等服务变为 healthy 后打开 Web URL，并在管理员 shell 中读取
+   `motrix-data/operator-token` 解锁。
+
+不要启用“高权限”、挂载 Docker socket 或授权访问整个 NAS 文件系统。若 DSM
+反向代理是 Web 的唯一入口，仅当代理的网络环境可访问主机 loopback 时才设置
+`MOTRIX_BIND_IP=127.0.0.1`；否则监听 NAS 地址，并通过 DSM 防火墙限制端口。
+
+## 飞牛 fnOS Docker/Compose
+
+在 fnOS 应用商店安装 Docker，然后使用 Compose/项目视图：
+
+1. 在文件管理中创建应用目录，并分别创建 `motrix-data` 与 `downloads`；不要
+   把它们放在容器临时存储中。
+2. 让两个目录属于专用非 root 数字 UID/GID，并把相同数字用于
+   `MOTRIX_UID` 与 `MOTRIX_GID`；不要用 root 运行来掩盖 owner 不匹配。
+3. 使用 [`compose.yaml`](../compose.yaml) 新建 Compose 项目。相对挂载会解析到
+   选定的项目目录。如果 fnOS 只接受粘贴 YAML，可把 `${...}` 替换为实际字面
+   值，或在环境变量编辑器中添加同名值。
+4. 如需自动接收稳定升级，使用 `motrixapp/motrix-server:latest`；如需受控升级，
+   使用不可变 SemVer tag。Docker 会从 manifest 中自动选择 `amd64` 或 `arm64`。
+5. 设置 `MOTRIX_PUBLIC_URL`，确认 8080 和 16801 未被占用，启动项目，并等待
+   health 状态正常后再打开 Web 界面。
+
+fnOS 的共享目录权限和容器 Unix UID/GID 必须同时允许写入。如果容器中能看到
+下载、文件管理中却没有，请检查 bind mount 左侧是否确实指向目标存储池。
+
+## Docker run
+
+以下命令与 bind-mount Compose 部署等价：
+
+```bash
+mkdir -p motrix-data downloads
+MOTRIX_UID="$(id -u)"
+MOTRIX_GID="$(id -g)"
+chown "$MOTRIX_UID:$MOTRIX_GID" motrix-data downloads
+
+docker run -d \
+  --name motrix-server \
+  --init \
+  --restart unless-stopped \
+  --stop-timeout 120 \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m,mode=1777 \
+  --security-opt no-new-privileges:true \
+  --user "$MOTRIX_UID:$MOTRIX_GID" \
+  -e MOTRIX_PUBLIC_URL='http://nas.example.lan:8080' \
+  -e MOTRIX_MDXP_HOST=0.0.0.0 \
+  -p 8080:8080 \
+  -p 16801:16801 \
+  -v "$PWD/motrix-data:/data" \
+  -v "$PWD/downloads:/downloads" \
+  motrixapp/motrix-server:latest
+```
+
+镜像已经定义 healthcheck、非 root 用户、数据路径和优雅 `SIGTERM` 行为。
+
+## Web、MDXP、token 与 HTTPS 边界
+
+以下默认地址属于两个不同服务：
+
+| 地址 | 用途 |
+| --- | --- |
+| `http://NAS_HOST:8080` | Web 界面、operator RPC/API 与 `GET /healthz` |
+| `http://NAS_HOST:16801` | MDXP 客户端基址；单次调用 `POST /mdxp`、事件流 `GET /mdxp/events` 与 device-code 配对 |
+
+`MOTRIX_PUBLIC_URL` 是 device-code 客户端收到的、外部可访问的 **Web 审批
+URL**，不要把它设置为 MDXP 端口。首次启动时，Motrix 会以 `0600` 权限生成
+`/data/operator-token`。使用 bind mount 时可这样读取：
 
 ```bash
 cat motrix-data/operator-token
 ```
 
-也可以设置 `MOTRIX_OPERATOR_TOKEN`，但环境变量可从容器元数据中看到。
-对单机部署而言，自动生成并持久化的 token 文件是更安全的默认方案。
+重启或替换镜像时会继续使用同一 token。也可以设置 `MOTRIX_OPERATOR_TOKEN`，
+但环境变量能从容器元数据中看到；单机部署默认使用生成文件更安全。
 
-Compose 默认在所有网卡发布以下端口：
+不要把明文 HTTP 直接暴露到公网。应在可信反向代理终止 HTTPS，并用防火墙
+限制源端口。把 8080 作为 Web upstream，并保留 cookie、Authorization header
+和流式响应。MDXP 是独立的 HTTP/SSE 服务：远程 MDXP 客户端需要另一个启用
+TLS、指向 16801 的代理/upstream。只转发 8080 不会发布 MDXP，只转发 16801
+也不会提供审批界面。
 
-| 端口 | 服务 |
-| --- | --- |
-| `8080` | Web 界面、operator RPC/API 与健康检查 |
-| `16801` | 已配对 CLI 和浏览器扩展使用的 MDXP endpoint |
-
-如果只允许本机反向代理访问，设置 `MOTRIX_BIND_IP=127.0.0.1`。跨越不可信
-网络时应在反向代理终止 TLS。operator 控制面虽然默认拒绝未认证请求，但仍
-需用 TLS 保护传输中的凭据。
-
-## 存储与下载路径契约
+## 下载路径与插件
 
 镜像默认值如下：
 
@@ -77,16 +225,12 @@ HOME=/data/home
 TMPDIR=/data/tmp
 ```
 
-Server 会在接受请求前创建并实际写入测试 data、临时文件、种子元数据、
-home、插件和允许下载目录。挂载缺失、只读或 UID 所有权错误时，启动会失败
-并指出具体绝对路径。创建每个任务时还会再次检查该任务的保存目录。
+启动过程会创建并实际写入测试 data、临时文件、种子、home、插件和下载目录。
+挂载缺失、只读或 owner 错误时会携带受影响的绝对路径启动失败。创建每个任务
+时还会再次检查保存目录。`MOTRIX_ALLOWED_SAVE_DIRS` 是以冒号分隔的已挂载绝对
+根目录；canonical path 检查会拒绝路径穿越和符号链接越界。
 
-Linux 镜像中的 `MOTRIX_ALLOWED_SAVE_DIRS` 使用冒号分隔。每一项都必须是
-已挂载、可写的绝对路径，且 `MOTRIX_DEFAULT_SAVE_DIR` 必须位于其中。Server
-会拒绝允许根目录之外的请求，也会通过 canonical path 检查拒绝符号链接
-越界。
-
-增加另一个下载根目录时，必须同时挂载并更新变量：
+增加 archive 根目录时，必须同时挂载并允许：
 
 ```yaml
 services:
@@ -100,41 +244,56 @@ services:
       - /srv/archive:/archive
 ```
 
-Web 路径选择器只提供允许根目录；Server 仍会独立执行同一套约束，不依赖
-UI 保证安全。
+内置插件以只读方式存放在 `/app/builtin-plugins`。用户安装的包、来源记录、
+授权、配置、日志、加密 secret 和启用状态都持久化在 `/data`；通过 Web 上传
+`.moext`，以及正常的 registry/URL 安装都会在替换容器后保留。
 
-## 插件
+operator 可用的管理选项包括：
 
-内置插件以只读方式存放在 `/app/builtin-plugins`。用户安装的插件、来源记录、
-授权、日志、配置、加密 secret 和启用状态都通过 `/data` 持久化。安装流程在
-`/data/plugins` 下使用临时目录；启动时会清除遗留的上传、下载和 staging
-数据，但不会删除已安装插件。
+- `MOTRIX_PLUGIN_IMPORT_DIRS`：以冒号分隔、显式挂载为只读的本地包根目录。
+- `MOTRIX_PLUGIN_INSTALL_URLS`：以逗号分隔或 JSON 数组形式提供 HTTPS、
+  `github:owner/repository` 或 `registry:plugin.id` 启动安装源；任一来源失败都会
+  携带原因终止启动。
+- `MOTRIX_ALLOW_UNMANAGED_PLUGINS=true`：允许手动复制的插件目录；默认关闭，
+  正常 `.moext`、URL 或 registry 安装不需要开启。
+- `MOTRIX_SECRETS_SEED`：可选的 64 位十六进制 secret，应来自编排器 secret
+  store；否则会生成并持久化 `/data/secrets.lockbox`。
 
-Web 界面会先把本地 `.moext` 包上传到 Server，再显示授权界面，因此不依赖
-Electron 的 `File.path`。只要保留 `/data`，替换容器后插件仍会恢复。卸载
-插件会同时清除包、启用状态、配置和加密 secret 值。
+官方镜像不包含 FFmpeg。依赖 FFmpeg 的插件需要基于官方镜像安装 Alpine
+`ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。
 
-还可以使用以下 operator 管理方式：
+## 升级、回滚、备份与恢复
 
-- `MOTRIX_PLUGIN_IMPORT_DIRS`：以冒号分隔的容器内只读根目录，可从中按绝对
-  路径安装包；必须显式挂载每个根目录。
-- `MOTRIX_PLUGIN_INSTALL_URLS`：以逗号分隔或 JSON 数组形式提供启动安装源。
-  每项可为 HTTPS URL、`github:owner/repository` 或 `registry:plugin.id`。设置
-  此变量代表 operator 明确同意安装；任何来源失败都会携带原因终止启动。
-- `MOTRIX_ALLOW_UNMANAGED_PLUGINS=true`：允许没有安装记录、由管理员手动复制
-  的插件目录。默认值为 `false`；通过 Web、registry、URL 或启动安装时不需要
-  开启。
+升级前记录当前镜像 digest 并备份 `/data`。做文件系统级备份前先停止服务，
+确保 SQLite 与 aria2 session 一致：
 
-插件 secret 默认使用 `/data/secrets.lockbox`，Motrix 会自动创建并持久化它。
-编排环境也可以通过 `MOTRIX_SECRETS_SEED` 提供恰好 64 个十六进制字符；应把
-该值保存在编排平台的 secret store 中。
+```bash
+docker compose stop server
+tar -C . -czf "motrix-data-$(date +%Y%m%d).tar.gz" motrix-data
+docker compose start server
+```
 
-## 健康检查与诊断
+然后只拉取并替换容器：
 
-公开的 `GET /healthz` 只有在 Server 正在接受请求且 aria2 已就绪时才返回成功。
-Docker 也使用此接口判断容器健康状态。
+```bash
+docker compose pull server
+docker compose up -d --wait
+docker compose ps
+```
 
-详细诊断接口受 operator 认证保护：
+两个挂载、生成的 operator token、下载、aria2 状态和已安装插件都会保留。如需
+受控升级，拉取前把 `MOTRIX_IMAGE` 设置为不可变 SemVer tag 或 digest。新的
+主版本属于兼容性边界，应先阅读 release notes。
+
+回滚时选择之前的不可变 tag/digest 并重建服务。如果新版本迁移过持久状态，
+应停止 Motrix，并在启动旧镜像前恢复与其匹配的 `/data` 备份；不要假定旧二进制
+一定能读取新版本写入的状态。只有下载备份策略要求时才恢复 `/downloads`。
+数据库、operator token 与 `secrets.lockbox` 应来自同一代备份。
+
+## 健康检查、诊断与故障排查
+
+公开的 `GET /healthz` 只有在 HTTP 服务和 aria2 均就绪时才成功。详细诊断需要
+operator token：
 
 ```bash
 TOKEN="$(cat motrix-data/operator-token)"
@@ -142,24 +301,22 @@ curl --fail http://127.0.0.1:8080/healthz
 curl --fail \
   --header "Authorization: Bearer ${TOKEN}" \
   http://127.0.0.1:8080/api/diagnostics
+docker compose logs --tail=200 server
 ```
 
-诊断信息包含引擎状态、生效的存储路径、允许下载根目录、runtime UID、插件
-安装/secret store 可用性以及 FFmpeg 探测结果。官方镜像不安装 FFmpeg。若
-插件需要它，可基于官方镜像安装 Alpine `ffmpeg` 包，并设置
-`MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`；诊断接口会确认最终使用的二进制。媒体
-临时文件使用 `/data/tmp`，不会写入只读镜像层。
+诊断信息包含引擎状态、生效存储路径、允许下载根目录、runtime UID、插件安装/
+secret-store 状态和 FFmpeg 探测结果。
 
-常用运维命令：
-
-```bash
-docker compose logs --follow server
-docker compose stop                 # 发送 SIGTERM 并等待干净退出
-docker compose up --build -d        # 重建/升级，同时保留两个挂载
-```
-
-对 `/data` 做文件系统级备份前应先停止服务，确保 SQLite 数据库和 aria2
-session 一致。operator token、secret lockbox 与数据库应一并保留。
+| 现象 | 检查与修复 |
+| --- | --- |
+| 拉取返回 404 或 `manifest unknown` | 检查 repository/tag 拼写以及是否已经有包含镜像的 release。可在另一个 registry 尝试相同不可变 tag；不要改用名称相似的第三方镜像。 |
+| `no matching manifest` | 用 `docker info` 确认 NAS 是 64 位 `amd64` 或 `arm64`；不支持 32 位 ARM。 |
+| 启动报告 `EACCES`、只读或路径失败 | 对比 `docker inspect ... .Config.User` 与两个挂载的数字 owner。修正 owner/ACL；不要改用 privileged 或 root。 |
+| 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
+| Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为 base64url 文本且权限为 `0600`。 |
+| 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
+| 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
+| 升级后容器 unhealthy | 检查日志、诊断和两个挂载，然后回滚到已记录的不可变镜像及其配套 `/data` 备份。 |
 
 ## 环境变量参考
 
@@ -179,10 +336,10 @@ session 一致。operator token、secret lockbox 与数据库应一并保留。
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
 | `MOTRIX_MDXP_HOST` | `127.0.0.1`（Compose 为 `0.0.0.0`） | MDXP 监听地址 |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP 监听端口；`0` 表示不使用固定发布端口 |
-| `MOTRIX_PUBLIC_URL` | 未设置 | device-code 配对时显示的浏览器地址 |
+| `MOTRIX_PUBLIC_URL` | 未设置 | 外部可访问的 Web 审批 URL，不是 MDXP URL |
 | `MOTRIX_FFMPEG_PATH` | 自动探测 | 可选的 FFmpeg 绝对路径 |
 | `MOTRIX_HOST_LANGUAGE` | 系统设置 | Server/插件语言覆盖值 |
 | `LOG_LEVEL` | `info` | 输出到容器 stdout 的 Pino 日志级别 |
 
 `MOTRIX_ARIA2_BIN`、`MOTRIX_EXTRA_DIR` 和 `MOTRIX_RENDERER_DIR` 由官方镜像
-固定。只有自定义镜像同时提供了对应 artifact 时才应覆盖它们。
+固定。只有自定义镜像同时提供对应 artifact 时才应覆盖它们。

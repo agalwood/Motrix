@@ -92,6 +92,41 @@ const EXPECTED_ACTION_PINS = new Map([
       comment: 'v6.7',
     },
   ],
+  [
+    'docker/setup-qemu-action',
+    {
+      sha: '96fe6ef7f33517b61c61be40b68a1882f3264fb8',
+      comment: 'v4.2.0',
+    },
+  ],
+  [
+    'docker/setup-buildx-action',
+    {
+      sha: 'bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+      comment: 'v4.2.0',
+    },
+  ],
+  [
+    'docker/login-action',
+    {
+      sha: 'dbcb813823bdd20940b903addbd779551569679f',
+      comment: 'v4.6.0',
+    },
+  ],
+  [
+    'docker/build-push-action',
+    {
+      sha: '53b7df96c91f9c12dcc8a07bcb9ccacbed38856a',
+      comment: 'v7.3.0',
+    },
+  ],
+  [
+    'sigstore/cosign-installer',
+    {
+      sha: '6f9f17788090df1f26f669e9d70d6ae9567deba6',
+      comment: 'v4.1.2',
+    },
+  ],
 ])
 
 const EXPECTED_TARGETS: ExpectedTarget[] = [
@@ -511,6 +546,9 @@ describe('release workflow publication contract', () => {
     )
     const preflightSteps = jobSteps(preflightJob)
     const metadataStep = preflightSteps.find((step) => step.id === 'metadata')
+    const containerMetadataStep = preflightSteps.find(
+      (step) => step.id === 'container'
+    )
     const ancestryStep = preflightSteps.find((step) =>
       stringField(step, 'run', '').includes('git merge-base --is-ancestor')
     )
@@ -535,6 +573,23 @@ describe('release workflow publication contract', () => {
     expect(stringField(preflightOutputs, 'channel')).toContain(
       'steps.metadata.outputs.channel'
     )
+    expect(containerMetadataStep).toBeDefined()
+    expect(stringField(containerMetadataStep as LooseRecord, 'run')).toContain(
+      'scripts/container-release-metadata.mjs'
+    )
+    for (const output of [
+      'container_version',
+      'container_prerelease',
+      'container_dockerhub_repository',
+      'container_ghcr_repository',
+      'container_immutable_tags',
+      'container_floating_tags',
+      'container_labels',
+    ]) {
+      expect(stringField(preflightOutputs, output)).toContain(
+        `steps.container.outputs.${output}`
+      )
+    }
     expect(ancestryStep).toBeDefined()
     expect(stringField(ancestryStep as LooseRecord, 'if')).toContain(
       "github.event_name == 'push'"
@@ -581,6 +636,109 @@ describe('release workflow publication contract', () => {
     expect(stringField(publishInputs, 'prerelease')).toContain(
       'needs.preflight.outputs.prerelease'
     )
+  })
+
+  it('publishes resumable signed multi-architecture containers only from release tags', () => {
+    const jobs = workflowJobs(releaseWorkflow)
+    const containerJob = asRecord(
+      jobs['publish-container'],
+      'publish-container job'
+    )
+    expect(jobNeeds(containerJob)).toEqual(
+      expect.arrayContaining(['preflight', 'publish'])
+    )
+    const condition = stringField(containerJob, 'if')
+    expect(condition).toContain("github.event_name == 'push'")
+    expect(condition).toContain("startsWith(github.ref, 'refs/tags/v')")
+    expect(stringField(containerJob, 'environment')).toBe('container-release')
+    expect(asRecord(containerJob.permissions, 'container permissions')).toEqual(
+      {
+        contents: 'read',
+        'id-token': 'write',
+        packages: 'write',
+      }
+    )
+
+    const steps = jobSteps(containerJob)
+    const stepIndex = (name: string) =>
+      steps.findIndex((step) => step.name === name)
+    const build =
+      steps[stepIndex('Build and stage immutable multi-architecture image')]
+    expect(build).toBeDefined()
+    const buildInputs = asRecord(build?.with, 'container build inputs')
+    expect(stringField(buildInputs, 'platforms')).toBe(
+      'linux/amd64,linux/arm64'
+    )
+    expect(buildInputs.push).toBe(true)
+    expect(buildInputs.sbom).toBe(true)
+    expect(stringField(buildInputs, 'provenance')).toBe('mode=max')
+    expect(stringField(buildInputs, 'cache-from')).toContain('type=gha')
+    expect(stringField(buildInputs, 'cache-to')).toContain('mode=max')
+
+    const qemu = steps.find((step) => step.name === 'Set up pinned QEMU')
+    expect(stringField(asRecord(qemu?.with, 'QEMU inputs'), 'image')).toMatch(
+      /^tonistiigi\/binfmt@sha256:[0-9a-f]{64}$/
+    )
+    expect(stringField(asRecord(qemu?.with, 'QEMU inputs'), 'platforms')).toBe(
+      'arm64'
+    )
+
+    const inspectCommand = stringField(
+      steps[stepIndex('Inspect existing immutable tags')] as LooseRecord,
+      'run'
+    )
+    expect(inspectCommand).not.toContain('pull access denied')
+    expect(stepIndex('Resolve immutable publication state')).toBeLessThan(
+      stepIndex('Build and stage immutable multi-architecture image')
+    )
+    expect(stepIndex('Verify immutable publication state')).toBeLessThan(
+      stepIndex('Sign immutable digests with GitHub OIDC')
+    )
+    expect(stepIndex('Sign immutable digests with GitHub OIDC')).toBeLessThan(
+      stepIndex('Prepare anonymous registry client')
+    )
+    expect(stepIndex('Verify immutable signatures')).toBeLessThan(
+      stepIndex('Verify anonymous multi-architecture artifacts')
+    )
+    expect(
+      stepIndex('Verify anonymous multi-architecture artifacts')
+    ).toBeLessThan(stepIndex('Smoke anonymous published architectures'))
+    expect(stepIndex('Smoke anonymous published architectures')).toBeLessThan(
+      stepIndex('Promote stable container aliases')
+    )
+    expect(stepIndex('Promote stable container aliases')).toBeLessThan(
+      stepIndex('Update Docker Hub description')
+    )
+
+    const publicVerification = steps[
+      stepIndex('Verify anonymous multi-architecture artifacts')
+    ] as LooseRecord
+    expect(
+      stringField(
+        asRecord(publicVerification.env, 'anonymous env'),
+        'DOCKER_CONFIG'
+      )
+    ).toContain('anonymous-docker')
+    const publicCommand = stringField(publicVerification, 'run')
+    expect(publicCommand).toContain("--format '{{json .SBOM}}'")
+    expect(publicCommand).toContain("--format '{{json .Provenance}}'")
+    expect(publicCommand).toContain('verify-container-publication.mjs')
+    const smokeCommand = stringField(
+      steps[
+        stepIndex('Smoke anonymous published architectures')
+      ] as LooseRecord,
+      'run'
+    )
+    expect(smokeCommand).toContain('--platform linux/amd64')
+    expect(smokeCommand).toContain('--platform linux/arm64')
+    expect(smokeCommand).toContain('--mode health')
+    expect(smokeCommand).toContain('smoke-server-image.mjs')
+
+    const allOtherJobs = Object.entries(jobs).filter(
+      ([name]) => name !== 'publish-container'
+    )
+    expect(JSON.stringify(allOtherJobs)).not.toContain('DOCKERHUB_TOKEN')
+    expect(JSON.stringify(allOtherJobs)).not.toContain('packages":"write')
   })
 
   it('assembles all target artifacts before publication', () => {

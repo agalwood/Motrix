@@ -94,12 +94,16 @@ You can also install it from Settings → Integration → Command-line tools in 
 
 ### Headless server with Docker
 
-The repository includes a production `Dockerfile` and `compose.yaml` with
-separate persistent mounts for Server state and downloaded resources:
+Tagged releases publish a multi-architecture Server image to Docker Hub and
+GHCR. The included `compose.yaml` pulls Docker Hub by default and keeps Server
+state separate from downloaded resources:
 
 ```bash
 mkdir -p motrix-data downloads
-docker compose up --build -d
+sudo chown 1000:1000 motrix-data downloads
+export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
+docker compose pull server
+docker compose up -d --wait
 ```
 
 The runtime is non-root, supports a read-only root filesystem, validates mount
@@ -107,7 +111,8 @@ permissions before accepting work, and preserves downloads, sessions, and
 installed plugins across container replacement. Remote clients such as the CLI
 and browser extensions pair through a device-code flow. See the
 [Docker Server deployment guide](./docs/docker-server.md) for ownership setup,
-ports, environment variables, diagnostics, and backup/upgrade instructions.
+Docker Hub/GHCR image and tag selection, DSM 7 and fnOS installation, ports,
+diagnostics, and backup/upgrade instructions.
 
 ## 🛠 Development
 

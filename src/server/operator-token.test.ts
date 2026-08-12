@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -33,5 +33,40 @@ describe('provisionOperatorToken', () => {
     expect(await readFile(r.path as string, 'utf-8')).toBe(r.token)
     // …and only the owner can.
     expect((await stat(r.path as string)).mode & 0o777).toBe(0o600)
+  })
+
+  it('reuses the generated file across restarts and repairs its mode', async () => {
+    const path = join(dir, 'operator-token')
+    const token = 'a'.repeat(43)
+    await writeFile(path, token, { mode: 0o644 })
+    await chmod(path, 0o644)
+
+    await expect(
+      provisionOperatorToken({ dataDir: dir, env: {} })
+    ).resolves.toEqual({ token, source: 'file', path })
+    expect(await readFile(path, 'utf8')).toBe(token)
+    expect((await stat(path)).mode & 0o777).toBe(0o600)
+  })
+
+  it('converges concurrent first-start provisioning on one token', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        provisionOperatorToken({ dataDir: dir, env: {} })
+      )
+    )
+    expect(new Set(results.map((result) => result.token)).size).toBe(1)
+    expect(await readFile(join(dir, 'operator-token'), 'utf8')).toBe(
+      results[0]?.token
+    )
+  })
+
+  it('refuses to rotate an invalid persistent token silently', async () => {
+    const path = join(dir, 'operator-token')
+    await writeFile(path, 'not-a-valid-generated-token', { mode: 0o600 })
+
+    await expect(
+      provisionOperatorToken({ dataDir: dir, env: {} })
+    ).rejects.toThrow(/Operator token file is invalid/)
+    expect(await readFile(path, 'utf8')).toBe('not-a-valid-generated-token')
   })
 })

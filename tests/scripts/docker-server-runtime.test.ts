@@ -2,10 +2,30 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolveSmokeContainerIdentity } from '../../scripts/smoke-server-identity.mjs'
+// @ts-expect-error -- JavaScript smoke helper intentionally has no declarations
+import {
+  resolveSmokeMode,
+  resolveSmokePlatform,
+} from '../../scripts/smoke-server-platform.mjs'
 
 const ROOT = process.cwd()
+const NODE_IMAGE_REFERENCE = '$' + '{NODE_IMAGE}'
 
 describe('Docker Server runtime staging contract', () => {
+  it('limits explicit publication smoke to supported Linux architectures', () => {
+    expect(resolveSmokePlatform(undefined)).toBeUndefined()
+    expect(resolveSmokePlatform('linux/amd64')).toBe('linux/amd64')
+    expect(resolveSmokePlatform('linux/arm64')).toBe('linux/arm64')
+    expect(() => resolveSmokePlatform('linux/386')).toThrow(/unsupported/)
+  })
+
+  it('defaults image smoke to full and accepts a cross-architecture health mode', () => {
+    expect(resolveSmokeMode(undefined)).toBe('full')
+    expect(resolveSmokeMode('full')).toBe('full')
+    expect(resolveSmokeMode('health')).toBe('health')
+    expect(() => resolveSmokeMode('package-only')).toThrow(/unsupported/)
+  })
+
   it('maps smoke containers to a portable non-root host identity', () => {
     expect(resolveSmokeContainerIdentity(1001, 121)).toEqual({
       uid: 1001,
@@ -27,9 +47,15 @@ describe('Docker Server runtime staging contract', () => {
   it('copies only the verified stage into a non-root Node 24 runtime', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const runtime = dockerfile.slice(
-      dockerfile.indexOf('FROM node:24-alpine AS runtime')
+      dockerfile.indexOf(`FROM ${NODE_IMAGE_REFERENCE} AS runtime`)
     )
 
+    expect(dockerfile).toMatch(
+      /^# syntax=docker\/dockerfile:1\.7@sha256:[0-9a-f]{64}$/m
+    )
+    expect(dockerfile).toMatch(
+      /^ARG NODE_IMAGE=node:24-alpine@sha256:[0-9a-f]{64}$/m
+    )
     expect(runtime).toContain(
       'COPY --from=build --chown=node:node /app/dist/server-app/ ./'
     )
@@ -50,6 +76,20 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain('STOPSIGNAL SIGTERM')
     expect(runtime).toContain('HEALTHCHECK --interval=30s')
     expect(runtime).toContain('CMD ["node", "dist/server/index.mjs"]')
+    expect(runtime).toContain('ARG OCI_REVISION=unknown')
+    expect(runtime).toContain('ARG OCI_VERSION=0.0.0-local')
+    for (const label of [
+      'org.opencontainers.image.title',
+      'org.opencontainers.image.description',
+      'org.opencontainers.image.url',
+      'org.opencontainers.image.documentation',
+      'org.opencontainers.image.source',
+      'org.opencontainers.image.revision',
+      'org.opencontainers.image.version',
+      'org.opencontainers.image.licenses',
+    ]) {
+      expect(runtime).toContain(label)
+    }
     expect(runtime).toContain('rm -rf /usr/local/lib/node_modules/npm')
     expect(runtime).toContain('/usr/local/lib/node_modules/corepack')
     expect(runtime).toContain('/opt/yarn-v1.22.22')
@@ -103,15 +143,17 @@ describe('Docker Server runtime staging contract', () => {
   it('keeps a corrected full-root comparison target without changing the final target', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const baselineStart = dockerfile.indexOf(
-      'FROM node:24-alpine AS server-full-root-baseline'
+      `FROM ${NODE_IMAGE_REFERENCE} AS server-full-root-baseline`
     )
-    const runtimeStart = dockerfile.indexOf('FROM node:24-alpine AS runtime')
+    const runtimeStart = dockerfile.indexOf(
+      `FROM ${NODE_IMAGE_REFERENCE} AS runtime`
+    )
     const baseline = dockerfile.slice(baselineStart, runtimeStart)
 
     expect(baselineStart).toBeGreaterThanOrEqual(0)
     expect(runtimeStart).toBeGreaterThan(baselineStart)
     expect(dockerfile).toContain(
-      'FROM node:24-alpine AS full-root-production-deps'
+      `FROM ${NODE_IMAGE_REFERENCE} AS full-root-production-deps`
     )
     expect(dockerfile).toContain(
       'pnpm install --prod --frozen-lockfile --ignore-scripts'

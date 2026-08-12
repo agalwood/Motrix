@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { chmod, mkdir, writeFile } from 'node:fs/promises'
+import { chmod, lstat, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+
+const FILE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43,128}$/
 
 export interface ProvisionedOperatorToken {
   token: string
@@ -31,10 +33,39 @@ export async function provisionOperatorToken(opts: {
   if (typeof fromEnv === 'string' && fromEnv.length > 0) {
     return { token: fromEnv, source: 'env' }
   }
-  const token = randomBytes(32).toString('base64url')
   const path = join(opts.dataDir, 'operator-token')
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, token, { mode: 0o600 })
+  const existing = await readExistingToken(path)
+  if (existing) return { token: existing, source: 'file', path }
+
+  const token = randomBytes(32).toString('base64url')
+  try {
+    await writeFile(path, token, { flag: 'wx', mode: 0o600 })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    const concurrent = await readExistingToken(path)
+    if (concurrent) return { token: concurrent, source: 'file', path }
+    throw error
+  }
   await chmod(path, 0o600)
   return { token, source: 'file', path }
+}
+
+async function readExistingToken(path: string): Promise<string | undefined> {
+  let metadata: Awaited<ReturnType<typeof lstat>>
+  try {
+    metadata = await lstat(path)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+  if (!metadata.isFile()) {
+    throw new Error(`Operator token path is not a regular file: ${path}`)
+  }
+  const token = await readFile(path, 'utf8')
+  if (!FILE_TOKEN_PATTERN.test(token)) {
+    throw new Error(`Operator token file is invalid: ${path}`)
+  }
+  await chmod(path, 0o600)
+  return token
 }
