@@ -29,6 +29,7 @@ describe('public Docker Server documentation', () => {
         'MOTRIX_UID',
         'MOTRIX_GID',
         'operator-token',
+        'motrix-admin pairing approve ABCD-EFGH',
         'MOTRIX_PUBLIC_URL',
         'MOTRIX_WEB_BIND_IP',
         'MOTRIX_MDXP_BIND_IP',
@@ -54,6 +55,7 @@ describe('public Docker Server documentation', () => {
       const document = await text(file)
       expect(document).toContain('docker compose pull server')
       expect(document).toContain('docker compose up -d --wait')
+      expect(document).toContain('motrix-admin pairing approve ABCD-EFGH')
       expect(document).not.toContain('docker compose up --build')
     }
   )

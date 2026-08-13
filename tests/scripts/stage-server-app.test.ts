@@ -164,7 +164,7 @@ function fixtureContract() {
         source: 'dist/server',
         destination: 'dist/server',
         type: 'directory',
-        entry: 'index.mjs',
+        entry: ['index.mjs', 'motrix-admin.mjs'],
         scanExternals: true,
       },
     ],
@@ -228,6 +228,11 @@ async function createFixture(): Promise<string> {
       'import gamma from "gamma";',
       'export { alpha, gamma };',
     ].join('\n')
+  )
+  await writeFixtureFile(
+    root,
+    'dist/server/motrix-admin.mjs',
+    'import path from "node:path"; export default path.sep;\n'
   )
   await writeFixtureFile(
     root,
@@ -340,6 +345,11 @@ async function addBetterSqliteFixture(root: string): Promise<void> {
       'import gamma from "gamma";',
       'export { alpha, Database, gamma };',
     ].join('\n')
+  )
+  await writeFixtureFile(
+    root,
+    'dist/server/motrix-admin.mjs',
+    'import path from "node:path"; export default path.sep;\n'
   )
 }
 

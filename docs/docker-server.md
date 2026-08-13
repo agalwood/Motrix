@@ -294,6 +294,27 @@ The same token is reused across restart and image replacement. You may set
 `MOTRIX_OPERATOR_TOKEN` instead, but environment variables are visible in
 container metadata; the generated file is the safer single-host default.
 
+If the Web approval URL is unavailable, an operator connected over SSH can
+approve the exact device code from inside the running container. The command
+uses the existing operator credential over container loopback; it never prints
+that credential or the client token:
+
+```bash
+docker compose exec server motrix-admin pairing pending
+docker compose exec server motrix-admin pairing approve ABCD-EFGH
+```
+
+To reject a request instead:
+
+```bash
+docker compose exec server motrix-admin pairing deny ABCD-EFGH
+```
+
+Start pairing on the client first, then enter the code shown by that client.
+The command intentionally has no approve-latest, approve-all, remote endpoint,
+or token argument. Web approval remains available and is the normal path; this
+is an optional local operator path for headless or recovery deployments.
+
 Plain HTTP can be appropriate for a trusted LAN; Motrix does not force HTTPS.
 For Internet or untrusted-LAN access, TLS termination at a trusted reverse
 proxy **and** firewall protection for the origin ports are required. Proxy port

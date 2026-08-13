@@ -97,6 +97,11 @@ async function createFixture(): Promise<{
   )
   await writeFixtureFile(
     stageRoot,
+    'dist/server/motrix-admin.mjs',
+    "console.log('motrix-admin pairing pending')\n"
+  )
+  await writeFixtureFile(
+    stageRoot,
     'dist/renderer-web/index.html',
     '<main>ok</main>'
   )
@@ -123,6 +128,7 @@ describe('smokeServerPackage', () => {
         quickJsWorker: true,
         health: true,
         operatorAuth: true,
+        operatorCli: true,
         shutdown: 'SIGTERM',
       })
     )

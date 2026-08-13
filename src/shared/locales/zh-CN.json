@@ -6,6 +6,57 @@
     "error": "operator token 无效。请核对 host 上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
     "submit": "解锁"
   },
+  "operatorAdmin": {
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
+    "errorPrefix": "motrix-admin：{{message}}",
+    "usageHint": "运行“motrix-admin --help”查看用法。",
+    "pending": {
+      "none": "没有待处理的配对请求。",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  剩余 {{ttl}}",
+      "ttl": "{{minutes}} 分 {{seconds}} 秒"
+    },
+    "decision": {
+      "approve": "已允许 {{clientName}}（{{clientVersion}}）使用配对码 {{userCode}}。",
+      "deny": "已拒绝 {{clientName}}（{{clientVersion}}）使用配对码 {{userCode}}。"
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json 只能指定一次。",
+        "unknownOption": "未知的命令行选项。",
+        "pairingCommandRequired": "需要使用 pairing 命令。",
+        "pairingOperationRequired": "需要使用 pairing pending、pairing approve 配对码或 pairing deny 配对码。",
+        "pairingCodeInvalid": "配对码必须包含 8 个 ASCII 字符，且不能使用 I、O、0 或 1。",
+        "portInvalid": "PORT 必须是 1 到 65535 之间的整数。"
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN 不能用于 HTTP 请求头。",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR 必须是绝对路径。",
+        "unavailable": "Operator 凭据不可用。请设置 MOTRIX_OPERATOR_TOKEN，或确保数据目录中存在 operator-token 文件。",
+        "notFile": "Operator 凭据路径不是普通文件。",
+        "unreadable": "无法读取 Operator 凭据。",
+        "invalid": "Operator 凭据文件无效。",
+        "rejected": "Motrix 拒绝了 Operator 凭据。"
+      },
+      "server": {
+        "responseUnreadable": "无法读取 Motrix 返回的响应。",
+        "responseOversized": "Motrix 返回的响应过大。",
+        "responseInvalidJson": "Motrix 返回了无效的 JSON 响应。",
+        "rpcHttp": "Motrix 配对 RPC 请求失败，HTTP 状态码为 {{status}}。",
+        "approvalUnavailable": "正在运行的 Motrix 服务器不支持配对审批。",
+        "pendingResponseInvalid": "Motrix 返回了无效的待处理配对响应。",
+        "decisionOutcomeUnknown": "配对决定的结果未知。请先运行 pairing pending，再决定是否重试。",
+        "decisionResponseInvalid": "Motrix 返回了无效的配对决定响应。",
+        "requestNoLongerPending": "配对请求已不再处于待处理状态。",
+        "noMatchingRequest": "没有待处理的配对请求与 {{userCode}} 匹配。",
+        "ambiguousRequest": "有多个待处理的配对请求与 {{userCode}} 匹配，因此未执行任何决定。",
+        "unexpected": "motrix-admin 遇到意外故障。"
+      },
+      "unavailable": {
+        "loopback": "无法通过容器内的本机回环地址连接正在运行的 Motrix 服务器。",
+        "approvalNotReady": "正在运行的 Motrix 服务器尚未准备好配对审批。"
+      }
+    }
+  },
   "common": {
     "download": "下载",
     "cancel": "取消",

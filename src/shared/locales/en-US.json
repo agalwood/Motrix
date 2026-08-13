@@ -6,6 +6,57 @@
     "error": "Invalid operator token. Check MOTRIX_OPERATOR_TOKEN or <dataDir>/operator-token on the host and try again.",
     "submit": "Unlock"
   },
+  "operatorAdmin": {
+    "help": "Usage:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nThe command talks only to the running Motrix server over container loopback.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "Run 'motrix-admin --help' for usage.",
+    "pending": {
+      "none": "No pending pairing requests.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  expires in {{ttl}}",
+      "ttl": "{{minutes}}m {{seconds}}s"
+    },
+    "decision": {
+      "approve": "Approved {{userCode}} for {{clientName}} ({{clientVersion}}).",
+      "deny": "Denied {{userCode}} for {{clientName}} ({{clientVersion}})."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json may only be specified once.",
+        "unknownOption": "Unknown command-line option.",
+        "pairingCommandRequired": "Expected the pairing command.",
+        "pairingOperationRequired": "Expected pairing pending, pairing approve CODE, or pairing deny CODE.",
+        "pairingCodeInvalid": "Pairing code must contain eight ASCII characters and cannot use I, O, 0, or 1.",
+        "portInvalid": "PORT must be an integer between 1 and 65535."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN cannot be used in an HTTP header.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR must be an absolute path.",
+        "unavailable": "Operator credential is unavailable. Set MOTRIX_OPERATOR_TOKEN or ensure operator-token exists in the data directory.",
+        "notFile": "Operator credential path is not a regular file.",
+        "unreadable": "Operator credential could not be read.",
+        "invalid": "Operator credential file is invalid.",
+        "rejected": "Operator credential was rejected by Motrix."
+      },
+      "server": {
+        "responseUnreadable": "Motrix returned an unreadable response.",
+        "responseOversized": "Motrix returned an oversized response.",
+        "responseInvalidJson": "Motrix returned an invalid JSON response.",
+        "rpcHttp": "Motrix pairing RPC failed with HTTP {{status}}.",
+        "approvalUnavailable": "Pairing approval is not available in the running Motrix server.",
+        "pendingResponseInvalid": "Motrix returned an invalid pending-pairing response.",
+        "decisionOutcomeUnknown": "The pairing decision outcome is unknown. Run pairing pending before trying again.",
+        "decisionResponseInvalid": "Motrix returned an invalid pairing-decision response.",
+        "requestNoLongerPending": "Pairing request is no longer pending.",
+        "noMatchingRequest": "No pending pairing request matches {{userCode}}.",
+        "ambiguousRequest": "More than one pending pairing request matches {{userCode}}; no decision was applied.",
+        "unexpected": "Unexpected motrix-admin failure."
+      },
+      "unavailable": {
+        "loopback": "The running Motrix server is unavailable on container loopback.",
+        "approvalNotReady": "Pairing approval is not ready in the running Motrix server."
+      }
+    }
+  },
   "common": {
     "download": "Download",
     "cancel": "Cancel",

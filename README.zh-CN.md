@@ -112,6 +112,14 @@ runtime 以非 root 用户运行，支持只读根文件系统，在接受任务
 `MOTRIX_PUBLIC_URL` 设为远程客户端实际可访问的 Web 审批 URL；Compose 文件不会
 为它填入会误导远程客户端的 localhost URL。
 
+如果 Web 审批 URL 暂时不可用，SSH operator 无需开放额外端口即可列出请求，
+并批准客户端显示的指定验证码：
+
+```bash
+docker compose exec server motrix-admin pairing pending
+docker compose exec server motrix-admin pairing approve ABCD-EFGH
+```
+
 远程 CLI 和 agent 客户端通过 device-code flow 配对。浏览器扩展通过 native messaging
 与桌面应用配对；headless server 不提供浏览器扩展的首次配对。只应在可信 LAN 上
 直接使用 HTTP；通过公网或不可信 LAN 访问时，必须配置 TLS 反向代理，并用防火墙保护

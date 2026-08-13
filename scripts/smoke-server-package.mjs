@@ -89,6 +89,41 @@ async function assertDirectRootsResolve(stageRoot, dependencies) {
   )
 }
 
+async function assertOperatorCli(stageRoot, timeoutMs) {
+  const executable = path.join(stageRoot, 'dist/server/motrix-admin.mjs')
+  await withTimeout(
+    new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [executable, '--help'], {
+        cwd: stageRoot,
+        env: { ...process.env, NODE_PATH: undefined },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (chunk) => {
+        stdout = `${stdout}${chunk}`.slice(-MAX_LOG_BYTES)
+      })
+      child.stderr.on('data', (chunk) => {
+        stderr = `${stderr}${chunk}`.slice(-MAX_LOG_BYTES)
+      })
+      child.once('error', reject)
+      child.once('exit', (code) => {
+        if (code === 0 && stdout.includes('motrix-admin pairing pending')) {
+          resolve()
+          return
+        }
+        reject(
+          new Error(
+            `operator CLI help failed: code=${code} stderr=${stderr.trim()}`
+          )
+        )
+      })
+    }),
+    timeoutMs,
+    'operator CLI help'
+  )
+}
+
 function assertSqlite(stageRoot, scratchRoot) {
   const require = createRequire(path.join(stageRoot, 'package.json'))
   const Database = require('better-sqlite3')
@@ -318,6 +353,7 @@ export async function smokeServerPackage(options) {
     await assertDirectRootsResolve(stageRoot, dependencies)
     assertSqlite(stageRoot, scratchRoot)
     await assertQuickJsWorker(stageRoot, timeoutMs)
+    await assertOperatorCli(stageRoot, timeoutMs)
 
     const port = await availablePort()
     const systemRoot = path.join(scratchRoot, 'system')
@@ -383,6 +419,7 @@ export async function smokeServerPackage(options) {
       quickJsWorker: true,
       health: true,
       operatorAuth: true,
+      operatorCli: true,
       databaseBytes: database.size,
       shutdown: 'SIGTERM',
       durationMs: Date.now() - startedAt,

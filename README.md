@@ -113,6 +113,14 @@ publishes the Web service on port 8080 and MDXP on port 16801. Set
 `MOTRIX_PUBLIC_URL` to the Web approval URL that remote clients can actually
 reach; the Compose files do not substitute a misleading localhost URL.
 
+If the Web approval URL is temporarily unavailable, an SSH operator can list
+and approve the exact client code without exposing another port:
+
+```bash
+docker compose exec server motrix-admin pairing pending
+docker compose exec server motrix-admin pairing approve ABCD-EFGH
+```
+
 Remote CLI and agent clients pair through the device-code flow. Browser
 extensions pair with the desktop app through native messaging; first-time
 extension pairing is not provided by the headless server. Direct HTTP is

@@ -261,6 +261,25 @@ cat motrix-data/operator-token
 重启或替换镜像时会继续使用同一 token。也可以设置 `MOTRIX_OPERATOR_TOKEN`，
 但环境变量能从容器元数据中看到；单机部署默认使用生成文件更安全。
 
+当 Web 审批 URL 暂时不可用时，通过 SSH 连接的 operator 可以在运行中的容器
+里批准指定的 device code。该命令只通过容器 loopback 使用现有 operator
+credential，不会输出该 credential 或客户端 token：
+
+```bash
+docker compose exec server motrix-admin pairing pending
+docker compose exec server motrix-admin pairing approve ABCD-EFGH
+```
+
+如果需要拒绝请求：
+
+```bash
+docker compose exec server motrix-admin pairing deny ABCD-EFGH
+```
+
+先在客户端发起 pairing，再输入该客户端显示的验证码。该命令刻意不提供
+approve-latest、approve-all、远程 endpoint 或 token 参数。Web 审批仍是正常
+路径；这个入口只用于 headless 或恢复场景下的本机 operator 操作。
+
 在可信 LAN 中可以使用明文 HTTP，Motrix 不会强制 HTTPS。通过公网或不可信 LAN 访问时，
 必须同时使用可信反向代理终止 TLS，并用防火墙保护 origin 端口。把 8080 作为 Web
 origin，并保留 cookie、Authorization header 和流式响应。MDXP 是独立的 HTTP/SSE 服务：

@@ -59,6 +59,10 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain(
       'COPY --from=build --chown=node:node /app/dist/server-app/ ./'
     )
+    expect(runtime).toContain(
+      'exec node /app/dist/server/motrix-admin.mjs "$@"'
+    )
+    expect(runtime).toContain('chmod 0755 /usr/local/bin/motrix-admin')
     expect(runtime.match(/^COPY /gm)).toHaveLength(1)
     expect(runtime).toContain('apk add --no-cache aria2 ca-certificates')
     expect(runtime).toContain('MOTRIX_ARIA2_BIN=/usr/bin/aria2c')
@@ -136,6 +140,9 @@ describe('Docker Server runtime staging contract', () => {
     expect(imageSmoke).toContain("'command:setTaskBtTracker'")
     expect(imageSmoke).toContain("'command:installPlugin'")
     expect(imageSmoke).toContain("'command:uninstallPlugin'")
+    expect(imageSmoke).toContain("'motrix-admin'")
+    expect(imageSmoke).toContain("'pairing'")
+    expect(imageSmoke).toContain("'pending'")
     expect(imageSmoke).toContain('Save directory is not writable: /downloads')
     expect(imageSmoke).toContain('did not survive container restart')
   })

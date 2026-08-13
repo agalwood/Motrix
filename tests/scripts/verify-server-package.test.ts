@@ -85,7 +85,7 @@ function fixtureContract() {
         source: 'dist/server',
         destination: 'dist/server',
         type: 'directory',
-        entry: 'index.mjs',
+        entry: ['index.mjs', 'motrix-admin.mjs'],
         scanExternals: true,
       },
     ],
@@ -138,6 +138,11 @@ async function createStagedFixture(): Promise<{
     root,
     'dist/server/index.mjs',
     'import Database from "better-sqlite3"; export default Database\n'
+  )
+  await writeFixtureFile(
+    root,
+    'dist/server/motrix-admin.mjs',
+    'import path from "node:path"; export default path.sep;\n'
   )
   await writeFixtureFile(
     root,
@@ -241,6 +246,13 @@ describe('verifyServerPackage', () => {
     expect(report.checks).toContainEqual(
       expect.objectContaining({ id: 'input-fingerprints', passed: false })
     )
+  })
+
+  it('rejects a missing operator CLI bundle', async () => {
+    const fixture = await createStagedFixture()
+    await rm(path.join(fixture.stageRoot, 'dist/server/motrix-admin.mjs'))
+
+    await expect(verifyFixture(fixture)).rejects.toThrow()
   })
 
   it('rejects target drift and foreign native binaries', async () => {

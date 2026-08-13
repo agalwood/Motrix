@@ -127,10 +127,24 @@ function validateInputList(value, keys, label, withEntry) {
     sources.push(input.source)
     if (withEntry) {
       if (input.type === 'directory') {
-        input.entry = normalizeRelativePath(
-          input.entry,
-          `${label}[${index}].entry`
-        )
+        const entries = Array.isArray(input.entry)
+          ? input.entry.map((entry, entryIndex) =>
+              normalizeRelativePath(
+                entry,
+                `${label}[${index}].entry[${entryIndex}]`
+              )
+            )
+          : [normalizeRelativePath(input.entry, `${label}[${index}].entry`)]
+        if (
+          entries.length === 0 ||
+          !isDeepStrictEqual(entries, [...new Set(entries)].sort())
+        ) {
+          throw new Error(
+            `${label}[${index}].entry must contain unique paths in sorted order`
+          )
+        }
+        if (Array.isArray(input.entry)) input.entry = entries
+        else input.entry = entries[0]
       } else if (input.entry !== null) {
         throw new Error(`${label}[${index}].entry must be null for a file`)
       }
