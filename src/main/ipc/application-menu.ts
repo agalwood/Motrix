@@ -76,19 +76,19 @@ export function registerApplicationMenuIpc(
   deps: ApplicationMenuIpcDeps
 ): () => void {
   registerTrustedIpcHandler(Queries.GetApplicationMenu, async (event) => {
-    requireMainWindow(event, deps)
-    return runTracked(deps, () =>
-      applicationMenuSnapshotSchema.parse(
+    return runTracked(deps, () => {
+      requireMainWindow(event, deps)
+      return applicationMenuSnapshotSchema.parse(
         deps.menuManager.getApplicationMenuSnapshot()
       )
-    )
+    })
   })
 
   registerTrustedIpcHandler(
     Commands.ExecuteApplicationMenuItem,
     async (event, input: unknown) => {
-      const mainWindow = requireMainWindow(event, deps)
       return runTracked(deps, async () => {
+        const mainWindow = requireMainWindow(event, deps)
         const request = executeApplicationMenuItemRequestSchema.parse(input)
         await deps.menuManager.executeApplicationMenuItem(request, mainWindow)
         return { ok: true }

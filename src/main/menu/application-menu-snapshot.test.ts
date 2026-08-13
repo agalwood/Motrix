@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CommandRegistry } from '../commands/command-registry'
 import { ContextStore } from '../commands/context-store'
 import { KeybindingRegistry } from '../commands/keybindings/keybinding-registry'
-import type { CommandDeps } from '../commands/types'
+import type { CommandDeps, CommandExecContext } from '../commands/types'
 import { i18n } from '../lib/i18n'
 import { MenuIds, MenuItemIds } from './menu-ids'
 import { MenuManager } from './menu-manager'
@@ -103,7 +103,11 @@ vi.mock('electron', () => ({
   },
 }))
 
-function createManager() {
+function createManager(
+  options: {
+    trackAsyncWork?: (operation: () => Promise<void>) => Promise<void>
+  } = {}
+) {
   const commandRegistry = new CommandRegistry()
   const menuRegistry = new MenuRegistry()
   const contextStore = new ContextStore()
@@ -111,7 +115,7 @@ function createManager() {
 
   let onAboutRun = (): void => {}
   const aboutRun = vi.fn(async () => onAboutRun())
-  const protectedRun = vi.fn(async () => {})
+  const protectedRun = vi.fn(async (_context: CommandExecContext) => {})
   const hiddenRun = vi.fn(async () => {})
   const nestedRun = vi.fn(async () => {})
   let compactMode = true
@@ -235,6 +239,7 @@ function createManager() {
     commandDeps: {
       log: { error: vi.fn() },
     } as unknown as CommandDeps,
+    trackAsyncWork: options.trackAsyncWork,
     onApplicationMenuSet,
   })
   return {
@@ -458,6 +463,40 @@ describe('MenuManager application-menu snapshot', () => {
       },
       targetWindow,
       targetWindow.webContents
+    )
+  })
+
+  it('captures the authorized task context before tracked work can be retargeted', async () => {
+    const queuedOperations: Array<() => Promise<void>> = []
+    const { manager, contextStore, protectedRun } = createManager({
+      trackAsyncWork: (operation) => {
+        queuedOperations.push(operation)
+        return Promise.resolve()
+      },
+    })
+    contextStore.merge({ selectedTaskId: 'task-a' })
+    manager.install()
+    const targetWindow = { webContents: {} } as Electron.BrowserWindow
+
+    manager.executeApplicationMenuItem(
+      {
+        itemId: MenuItemIds.TaskPause,
+        revision: manager.getApplicationMenuSnapshot().revision,
+        trigger: 'menu',
+        selectedTaskId: 'task-a',
+      },
+      targetWindow
+    )
+    expect(queuedOperations).toHaveLength(1)
+
+    // Simulate another IPC operation already queued ahead of the accepted
+    // command's microtask. The command must still operate on task-a.
+    contextStore.merge({ selectedTaskId: 'task-b' })
+    await queuedOperations[0]?.()
+
+    expect(protectedRun).toHaveBeenCalledOnce()
+    expect(protectedRun.mock.calls[0]?.[0].menuContext.selectedTaskId).toBe(
+      'task-a'
     )
   })
 

@@ -1,5 +1,6 @@
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { Commands } from '@shared/protocol/commands'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WindowChrome } from './window-chrome'
@@ -28,6 +29,7 @@ function setPlatform(platform: NodeJS.Platform) {
 
 beforeEach(() => {
   setPlatform('darwin')
+  vi.mocked(window.motrix?.invoke).mockClear()
 })
 
 describe('WindowChrome', () => {
@@ -126,6 +128,23 @@ describe('WindowChrome', () => {
     expect(controls).toHaveClass('ml-auto')
     expect(actions?.compareDocumentPosition(controls as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
+    )
+  })
+
+  it('routes Linux caption controls to sender-bound window commands', () => {
+    setPlatform('linux')
+    render(<WindowChrome variant="overlay" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+      1,
+      Commands.MinimizeCurrentWindow
+    )
+    expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+      2,
+      Commands.CloseCurrentWindow
     )
   })
 

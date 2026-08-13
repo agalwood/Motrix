@@ -7,10 +7,10 @@ import { useTranslation } from 'react-i18next'
 function LinuxWindowControls({ pushToEnd }: { pushToEnd: boolean }) {
   const { t } = useTranslation()
   const minimize = () => {
-    transport.invoke(Commands.ShowMainWindow)
+    void transport.invoke(Commands.MinimizeCurrentWindow)
   }
   const close = () => {
-    transport.invoke(Commands.CloseCurrentWindow)
+    void transport.invoke(Commands.CloseCurrentWindow)
   }
 
   return (

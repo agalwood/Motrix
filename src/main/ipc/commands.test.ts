@@ -15,7 +15,7 @@ import type { CommandContext } from './commands'
 import { buildCommandHandlers, registerCommandHandlers } from './commands'
 
 // Mock electron so BrowserWindow.fromWebContents can be stubbed in the
-// ResizeWindow test. ipcMain/dialog are not invoked by buildCommandHandlers,
+// Window-bound command tests. ipcMain/dialog are not invoked by buildCommandHandlers,
 // but we stub them for safety.
 const fromWebContentsMock = vi.fn()
 const ipcHandleMock = vi.fn()
@@ -652,6 +652,25 @@ describe('buildCommandHandlers', () => {
     expect(result).toEqual({ ok: true })
   })
 
+  it('MinimizeCurrentWindow minimizes only its sender window', async () => {
+    const minimize = vi.fn()
+    fromWebContentsMock.mockReturnValueOnce({
+      isDestroyed: vi.fn(() => false),
+      isMinimizable: vi.fn(() => true),
+      minimize,
+    })
+    const ctx = fakeCtx()
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+    const fakeSender = {} as never
+
+    await expect(
+      handlers[Commands.MinimizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+    expect(fromWebContentsMock).toHaveBeenCalledWith(fakeSender)
+    expect(minimize).toHaveBeenCalledOnce()
+  })
+
   it('routes direct shell commands to their owning collaborators', async () => {
     const ctx = fakeCtx()
     // @ts-expect-error partial ctx
@@ -669,7 +688,9 @@ describe('buildCommandHandlers', () => {
     await handlers[Commands.CheckForUpdates]?.()
     await handlers[Commands.DownloadUpdate]?.()
     await handlers[Commands.InstallUpdate]?.()
-    await handlers[Commands.UpdateMenuContext]?.({
+    const mainSender = {} as never
+    ctx.windowManager.getWindowIdBySender.mockReturnValue('main')
+    await handlers[Commands.UpdateMenuContext]?.(mainSender, {
       currentRoute: '/downloads',
     })
 
@@ -687,6 +708,20 @@ describe('buildCommandHandlers', () => {
     expect(ctx.contextStore.merge).toHaveBeenCalledWith({
       currentRoute: '/downloads',
     })
+  })
+
+  it('rejects menu-context updates from auxiliary windows', async () => {
+    const ctx = fakeCtx()
+    ctx.windowManager.getWindowIdBySender.mockReturnValue('add-task')
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+
+    await expect(
+      handlers[Commands.UpdateMenuContext]?.({} as never, {
+        selectedTaskId: 'victim-task',
+      })
+    ).rejects.toThrow('non-main window')
+    expect(ctx.contextStore.merge).not.toHaveBeenCalled()
   })
 
   it('returns a picked save directory and handles cancellation', async () => {
@@ -785,22 +820,44 @@ describe('buildCommandHandlers', () => {
     const closeRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.CloseCurrentWindow
     )
+    const minimizeRegistration = ipcHandleMock.mock.calls.find(
+      ([channel]) => channel === Commands.MinimizeCurrentWindow
+    )
+    const menuContextRegistration = ipcHandleMock.mock.calls.find(
+      ([channel]) => channel === Commands.UpdateMenuContext
+    )
     const restartRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.RestartEngine
     )
     expect(closeRegistration).toBeDefined()
+    expect(minimizeRegistration).toBeDefined()
+    expect(menuContextRegistration).toBeDefined()
     expect(restartRegistration).toBeDefined()
 
     await closeRegistration?.[1]({ sender }, { showMain: true })
+    fromWebContentsMock.mockReturnValueOnce({
+      isDestroyed: () => false,
+      isMinimizable: () => true,
+      minimize: vi.fn(),
+    })
+    await minimizeRegistration?.[1]({ sender })
+    await menuContextRegistration?.[1]({ sender }, { currentRoute: '/tasks' })
     await restartRegistration?.[1]({})
 
     expect(ctx.windowManager.getWindowIdBySender).toHaveBeenCalledWith(sender)
     expect(ctx.windowManager.closeAndRecycle).toHaveBeenCalledWith('main')
+    expect(fromWebContentsMock).toHaveBeenCalledWith(sender)
+    expect(ctx.contextStore.merge).toHaveBeenCalledWith({
+      currentRoute: '/tasks',
+    })
     expect(ctx.supervisor.restart).toHaveBeenCalledOnce()
 
     dispose()
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(
       Commands.CloseCurrentWindow
+    )
+    expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(
+      Commands.MinimizeCurrentWindow
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(Commands.RestartEngine)
   })

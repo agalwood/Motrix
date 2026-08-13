@@ -303,9 +303,13 @@ export class MenuManager {
 
   private executeCommand(commandId: string): Promise<void> {
     if (!this.enabled) return Promise.resolve()
+    // AsyncWorkTracker intentionally defers accepted work to a microtask.
+    // Capture the exact context authorized by this click before yielding so a
+    // queued renderer context update cannot retarget a destructive command.
+    const menuContext = { ...this.deps.contextStore.get() }
     const execute = () =>
       this.deps.commandRegistry.execute(commandId, undefined, {
-        menuContext: this.deps.contextStore.get(),
+        menuContext,
         deps: this.deps.commandDeps,
       })
     const execution = this.deps.trackAsyncWork

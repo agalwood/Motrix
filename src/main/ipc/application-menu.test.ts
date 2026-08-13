@@ -244,6 +244,34 @@ describe('application-menu IPC', () => {
     expect(trackedOperations).toHaveLength(2)
   })
 
+  it('revalidates the current main window after tracked work is admitted', async () => {
+    const { deps, mainWindow, menuManager } = createDeps()
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    deps.trackAsyncWork = async (operation) => {
+      await gate
+      return operation()
+    }
+    registerApplicationMenuIpc(deps)
+    const execution = registeredHandler(Commands.ExecuteApplicationMenuItem)(
+      { sender: mainWindow.webContents },
+      {
+        itemId: 'task.pause',
+        revision: 1,
+        trigger: 'menu',
+        selectedTaskId: null,
+      }
+    )
+
+    mainWindow.isDestroyed.mockReturnValue(true)
+    release?.()
+
+    await expect(execution).rejects.toThrow('non-main window')
+    expect(menuManager.executeApplicationMenuItem).not.toHaveBeenCalled()
+  })
+
   it('removes both handlers and the menu listener on dispose', () => {
     const { deps, offMenuChanged } = createDeps()
     const dispose = registerApplicationMenuIpc(deps)
