@@ -1,10 +1,18 @@
+import {
+  BridgeCommands,
+  BridgeEvents,
+  BridgeQueries,
+} from '@shared/protocol/bridge'
+import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type IpcListener = (event: unknown, ...args: unknown[]) => void
 
 const mocks = vi.hoisted(() => ({
   exposed: undefined as Window['motrix'] | undefined,
+  invoke: vi.fn(),
   listeners: new Map<string, Set<IpcListener>>(),
   on: vi.fn((channel: string, listener: IpcListener) => {
     let channelListeners = mocks.listeners.get(channel)
@@ -26,7 +34,7 @@ vi.mock('electron', () => ({
     }),
   },
   ipcRenderer: {
-    invoke: vi.fn(),
+    invoke: mocks.invoke,
     on: mocks.on,
     removeListener: mocks.removeListener,
   },
@@ -124,5 +132,70 @@ describe('preload wrapperMap (F10: same callback on two channels)', () => {
     expect(mocks.removeListener).toHaveBeenCalledTimes(2)
     expect(mocks.listeners.get(channelA)?.size).toBe(0)
     expect(mocks.listeners.get(channelB)?.size).toBe(0)
+  })
+})
+
+describe('preload IPC channel allowlist', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.exposed = undefined
+    mocks.listeners.clear()
+    await import('./preload')
+  })
+
+  it('forwards every declared command and query, including CLI install', () => {
+    const channels = [
+      ...Object.values(Commands),
+      ...Object.values(Queries),
+      ...Object.values(BridgeCommands),
+      ...Object.values(BridgeQueries),
+    ]
+
+    for (const channel of channels) {
+      mocks.exposed?.invoke(channel, 'argument')
+    }
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(channels.length)
+    expect(mocks.invoke).toHaveBeenCalledWith(
+      Commands.InstallCliTool,
+      'argument'
+    )
+  })
+
+  it('blocks undeclared invoke channels before Electron sees them', () => {
+    expect(() => mocks.exposed?.invoke('command:notDeclared' as never)).toThrow(
+      'undeclared IPC invoke channel'
+    )
+    expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+
+  it('registers every declared app and bridge event', () => {
+    const callback = vi.fn()
+    const channels = [...Object.values(Events), ...Object.values(BridgeEvents)]
+
+    for (const channel of channels) {
+      mocks.exposed?.on(channel, callback)
+    }
+
+    for (const channel of channels) {
+      expect(mocks.listeners.get(channel)?.size).toBeGreaterThan(0)
+    }
+  })
+
+  it('allows valid plugin log channels and rejects malformed events', () => {
+    const callback = vi.fn()
+
+    mocks.exposed?.on(`${Events.PluginLog}:example.contract`, callback)
+    expect(
+      mocks.listeners.get(`${Events.PluginLog}:example.contract`)?.size
+    ).toBe(1)
+
+    expect(() =>
+      mocks.exposed?.on('event:notDeclared' as never, callback)
+    ).toThrow('undeclared IPC event channel')
+    expect(() =>
+      mocks.exposed?.on(`${Events.PluginLog}:not-namespaced` as never, callback)
+    ).toThrow('undeclared IPC event channel')
   })
 })

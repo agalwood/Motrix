@@ -97,6 +97,7 @@ import { createSetSelectedFilesHandler } from './commands/set-selected-files'
 import { createUpdateGeoIPDatabaseHandler } from './commands/update-geo-ip-database'
 import { NatCommandHandlers } from './nat-commands'
 import { applyNatPrivacyGate } from './nat-settings-gate'
+import { registerTrustedIpcHandler } from './trusted-ipc'
 
 const execFileAsync = promisify(execFile)
 
@@ -1046,7 +1047,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     },
 
-    [Commands.RevealInFolder]: createRevealInFolderHandler({ shell }),
+    [Commands.RevealInFolder]: createRevealInFolderHandler({
+      shell,
+      getTask: (taskId) => taskManager.getById(taskId),
+    }),
 
     [Commands.EnableNat]: async () => natHandlers.enable(),
     [Commands.DisableNat]: async () => natHandlers.disable(),
@@ -1406,14 +1410,14 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.CloseCurrentWindow ||
       channel === Commands.ResizeWindow
     ) {
-      ipcMain.handle(channel, (event, ...args) =>
+      registerTrustedIpcHandler(channel, (event, ...args) =>
         invoke(() =>
           // biome-ignore lint/suspicious/noExplicitAny: sender forwarded explicitly
           (handler as any)(event.sender, ...args)
         )
       )
     } else {
-      ipcMain.handle(channel, async (_event, ...args) =>
+      registerTrustedIpcHandler(channel, async (_event, ...args) =>
         invoke(() => handler(...args))
       )
     }

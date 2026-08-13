@@ -6,6 +6,10 @@ import type { WindowBounds } from '@shared/types/settings'
 import { BrowserWindow, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { buildPlatformOptions } from './platform-options'
+import {
+  getRendererUrlPolicy,
+  type RendererUrlPolicy,
+} from './renderer-url-policy'
 import type { WindowId } from './window-configs'
 import { WINDOW_CONFIGS } from './window-configs'
 
@@ -25,6 +29,8 @@ export interface WindowManagerDeps {
   resolveOpenTarget?: (requested: WindowId) => WindowId
   /** Invoked when the OS signals session end (Windows window 'session-end'). */
   onSessionEnd?: () => void
+  /** Frozen renderer trust policy shared with IPC sender validation. */
+  rendererUrlPolicy?: RendererUrlPolicy
 }
 
 export class WindowManager {
@@ -32,6 +38,7 @@ export class WindowManager {
   private deps: WindowManagerDeps
   private willQuit = false
   private boundsTimers = new Map<WindowId, ReturnType<typeof setTimeout>>()
+  private rendererUrlPolicy: RendererUrlPolicy
   // The window the user most recently asked to be brought to the
   // foreground. Read by each window's `ready-to-show` handler: a window
   // that finishes loading after this changes (e.g. main rendering after
@@ -41,6 +48,7 @@ export class WindowManager {
 
   constructor(deps: WindowManagerDeps) {
     this.deps = deps
+    this.rendererUrlPolicy = deps.rendererUrlPolicy ?? getRendererUrlPolicy()
   }
 
   open(id: WindowId, options: { show?: boolean } = {}): BrowserWindow {
@@ -308,6 +316,9 @@ export class WindowManager {
       ...platformOpts,
       webPreferences: {
         preload: this.deps.preloadPath,
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
       },
     })
 
@@ -324,6 +335,17 @@ export class WindowManager {
       }
       return { action: 'deny' }
     })
+
+    const preventUntrustedNavigation = (
+      event: Electron.Event,
+      url: string
+    ): void => {
+      if (this.rendererUrlPolicy.isTrustedUrl(url)) return
+      event.preventDefault()
+      log.warn({ url }, 'blocked renderer navigation outside trusted entry')
+    }
+    win.webContents.on('will-navigate', preventUntrustedNavigation)
+    win.webContents.on('will-redirect', preventUntrustedNavigation)
 
     if (show) {
       win.once('ready-to-show', () => {

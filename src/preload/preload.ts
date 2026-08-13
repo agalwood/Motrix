@@ -1,5 +1,11 @@
+import {
+  BridgeCommands,
+  BridgeEvents,
+  BridgeQueries,
+} from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { MotrixAPI } from './api'
 
@@ -23,6 +29,32 @@ interface CallbackSubscription {
 // no-op — wrong function reference), and then deleted the only entry left
 // in the map — leaking BOTH real ipcRenderer listeners.
 const wrapperMap = new WeakMap<Callback, Map<string, CallbackSubscription>>()
+
+const INVOKE_CHANNELS = new Set<string>([
+  ...Object.values(Commands),
+  ...Object.values(Queries),
+  ...Object.values(BridgeCommands),
+  ...Object.values(BridgeQueries),
+])
+const EVENT_CHANNELS = new Set<string>([
+  ...Object.values(Events),
+  ...Object.values(BridgeEvents),
+])
+const PLUGIN_LOG_CHANNEL_RE = new RegExp(
+  `^${Events.PluginLog}:[a-z0-9-]+(?:\\.[a-z0-9-]+)+$`
+)
+
+function assertInvokeChannel(channel: string): void {
+  if (!INVOKE_CHANNELS.has(channel)) {
+    throw new Error(`Blocked undeclared IPC invoke channel: ${channel}`)
+  }
+}
+
+function assertEventChannel(channel: string): void {
+  if (!EVENT_CHANNELS.has(channel) && !PLUGIN_LOG_CHANNEL_RE.test(channel)) {
+    throw new Error(`Blocked undeclared IPC event channel: ${channel}`)
+  }
+}
 
 // Eager replay buffer for cold-start protocol/file events.
 //
@@ -72,8 +104,12 @@ for (const channel of BUFFERED_CHANNELS) {
 }
 
 const api: MotrixAPI = {
-  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  invoke: (channel, ...args) => {
+    assertInvokeChannel(channel)
+    return ipcRenderer.invoke(channel, ...args)
+  },
   on: (channel, callback) => {
+    assertEventChannel(channel)
     let active = true
     let receivedLiveEvent = false
     const wrapper = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => {
@@ -115,6 +151,7 @@ const api: MotrixAPI = {
     }
   },
   off: (channel, callback) => {
+    assertEventChannel(channel)
     const channelMap = wrapperMap.get(callback)
     const subscription = channelMap?.get(channel)
     if (subscription) {

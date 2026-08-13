@@ -51,6 +51,7 @@ import { createGetTaskBtTrackerHandler } from './queries/get-task-bt-tracker'
 import { createGetTaskFilesHandler } from './queries/get-task-files'
 import { createGetTaskPeersHandler } from './queries/get-task-peers'
 import { createGetTaskPiecesHandler } from './queries/get-task-pieces'
+import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface QueryContext {
   cliToolService: Pick<CliToolService, 'getStatus'>
@@ -296,7 +297,7 @@ export function registerQueryHandlers(ctx: QueryContext): () => void {
   const channels = Object.keys(handlers)
 
   for (const [channel, handler] of Object.entries(handlers)) {
-    ipcMain.handle(channel, async (_event, ...args) => {
+    registerTrustedIpcHandler(channel, async (_event, ...args) => {
       const invoke = () =>
         ctx.trackAsyncWork
           ? ctx.trackAsyncWork(async () => handler(...args))

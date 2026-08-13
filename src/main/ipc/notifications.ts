@@ -3,6 +3,7 @@ import { Commands } from '@shared/protocol/commands'
 import type { Handler } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { ipcMain } from 'electron'
+import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface NotificationIpcDeps {
   notificationCenter: Pick<
@@ -36,7 +37,7 @@ export function registerNotificationIpc(deps: NotificationIpcDeps): () => void {
   const channels = Object.keys(handlers)
 
   for (const [channel, handler] of Object.entries(handlers)) {
-    ipcMain.handle(channel, async (_event, ...args) =>
+    registerTrustedIpcHandler(channel, async (_event, ...args) =>
       deps.trackAsyncWork
         ? deps.trackAsyncWork(async () => handler(...args))
         : handler(...args)

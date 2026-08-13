@@ -132,7 +132,7 @@ function FinalizingActionBar({
           size="xs"
           variant="outline"
           onClick={() =>
-            transport.invoke(Commands.RevealInFolder, { path: task.diskPath })
+            transport.invoke(Commands.RevealInFolder, { taskId: task.id })
           }
         >
           <FolderOpen />
@@ -295,7 +295,7 @@ export function TaskInspectorActionBar({
               variant="outline"
               onClick={() =>
                 transport.invoke(Commands.RevealInFolder, {
-                  path: single.diskPath,
+                  taskId: single.id,
                 })
               }
             >

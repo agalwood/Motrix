@@ -40,6 +40,15 @@ vi.mock('electron', () => ({
   },
 }))
 
+// Sender trust is covered by trusted-ipc.test.ts. Keep these handler tests
+// focused on command dispatch while preserving the same registration seam.
+vi.mock('./trusted-ipc', () => ({
+  registerTrustedIpcHandler: (
+    channel: string,
+    listener: (...args: unknown[]) => unknown
+  ) => ipcHandleMock(channel, listener),
+}))
+
 function fakeCtx() {
   // Build the rpc spies first, then wrap them in a real Aria2Adapter so the
   // create path (handleCreateTask → adapter.createDownload/addTorrent)

@@ -158,6 +158,7 @@ import {
   LiquidGlassController,
   shouldEnableLiquidGlassByDefault,
 } from './window/liquid-glass'
+import { initializeRendererUrlPolicy } from './window/renderer-url-policy'
 import { WindowManager } from './window/window-manager'
 
 // ─── Platform Early Setup ───────────────────────────────
@@ -184,6 +185,11 @@ if (process.platform === 'linux') {
 }
 
 const platform = createElectronPlatformServices()
+const rendererUrlPolicy = initializeRendererUrlPolicy({
+  isPackaged: app.isPackaged,
+  appPath: app.getAppPath(),
+  devServerUrl: app.isPackaged ? null : process.env.VITE_DEV_SERVER_URL,
+})
 
 // ─── Logger ─────────────────────────────────────────────
 
@@ -481,13 +487,7 @@ function loadWindowUrl(win: BrowserWindow, route: string) {
   const params = new URLSearchParams(query)
   params.set('locale', resolvedApplicationLocale)
   const localizedRoute = `${pathname}?${params.toString()}`
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL
-  if (devServerUrl) {
-    win.loadURL(`${devServerUrl}${localizedRoute}`)
-  } else {
-    const search = `?${params.toString()}`
-    win.loadFile(path.join(__dirname, '../renderer/index.html'), { search })
-  }
+  rendererUrlPolicy.loadWindow(win, localizedRoute)
 }
 
 // Send an IPC event to the add-task window without racing the renderer
@@ -1334,6 +1334,7 @@ async function initializeMainProcess(): Promise<void> {
     preloadPath: path.join(__dirname, '../preload/preload.cjs'),
     loadUrl: loadWindowUrl,
     liquidGlass,
+    rendererUrlPolicy,
     resolveOpenTarget: (requested) =>
       !gate.isAccepted() && requested !== 'onboarding'
         ? 'onboarding'
@@ -2316,7 +2317,7 @@ const requestForcedQuit = (reason: string) => {
 }
 
 registerTerminationSignalHandlers(requestForcedQuit)
-if (process.env.VITE_DEV_SERVER_URL) {
+if (rendererUrlPolicy.isDevelopmentServer) {
   registerDevShutdownHandler(() => requestForcedQuit('dev-runner'))
 }
 
