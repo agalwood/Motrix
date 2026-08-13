@@ -154,7 +154,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.18.0
+          version: 11.21.0
           run_install: false
 
       - name: Setup Node.js
@@ -454,7 +454,7 @@ jobs:
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
             app_path: release/mac-arm64/Motrix.app
-            electron_sha256: ee939d1564d83d61032b3b3cb23af4e46005a4900c91f0695f7ed793f0ce6e83
+            electron_sha256: 827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -463,7 +463,7 @@ jobs:
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
             app_path: release/mac/Motrix.app
-            electron_sha256: 7347bbd5fb529eea64f9c2d148bb1c19222d98946ff234ffe27953a1bbcb9dae
+            electron_sha256: 7ab39ec1b0bcf5463f2dc0040142fbc1c30cd7bc3f99086066f588c717b11e24
           - target: win32-x64
             os: windows-2025
             platform: win32
@@ -472,7 +472,7 @@ jobs:
             electron_builder_args: --win --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
-            electron_sha256: 18528bedc6a9b04bdc5efb7b803cbc3cb0e5ea6415d54046e23d464d89a00da9
+            electron_sha256: ef0709cfa719739acce73de6f9b684304baf38c6454376638a70d34a7cecffe0
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -747,7 +747,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: fa26b0c2cfde003c5f0605f0f5a123f372f8b1ac5a8dce3c0700c4a2039e7b6c
+          VERIFIER_SHA256: ef9db8b8e669233c44077791ae7672462fcc5153463fb304287be69411c9a809
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -810,7 +810,7 @@ jobs:
           cp \
             signing-input/signing-policy/installer.nsh \
             signing-input/trusted/installer.nsh
-          url="https://github.com/electron/electron/releases/download/v43.3.0/electron-v43.3.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v43.4.0/electron-v43.4.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
             "$url" --output signing-input/trusted/electron.zip
           node - <<'NODE'
@@ -990,7 +990,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.18.0
+          version: 11.21.0
           run_install: false
 
       - name: Setup Node.js

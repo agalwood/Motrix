@@ -27,9 +27,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '11.18.0'
+const PNPM_VERSION = '11.21.0'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c'
+  'pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1'
 const EXPECTED_ACTION_PINS = new Map([
   [
     'actions/checkout',
@@ -1025,7 +1025,7 @@ describe('release workflow publication contract', () => {
     expect(config.extends).toBeNull()
     expect(config.npmRebuild).toBe(false)
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('43.3.0')
+    expect(stringField(config, 'electronVersion')).toBe('43.4.0')
     for (const hook of [
       'afterAllArtifactBuild',
       'afterExtract',
@@ -1082,7 +1082,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('43.3.0')
+    expect(version).toBe('43.4.0')
     expect(
       stringField(
         asRecord(
@@ -1201,7 +1201,11 @@ describe('workflow action supply-chain contract', () => {
     )
 
     const dockerfile = readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8')
-    expect(dockerfile).toContain(`corepack prepare pnpm@${PNPM_VERSION}`)
+    expect(
+      dockerfile.match(
+        new RegExp(`corepack prepare pnpm@${PNPM_VERSION}`, 'g')
+      )
+    ).toHaveLength(2)
     expect(dockerfile).not.toMatch(/pnpm@(?:latest|9(?:\D|$))/)
 
     let setupCount = 0

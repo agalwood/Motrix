@@ -20,7 +20,7 @@ const REPOSITORY_ROOT = path.resolve(
 )
 const SCHEMA_VERSION = 2
 const ELECTRON_BUILDER_VERSION = '26.15.7'
-const ELECTRON_VERSION = '43.3.0'
+const ELECTRON_VERSION = '43.4.0'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
 
@@ -35,7 +35,7 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
   'electron-builder.signing.json':
-    '9bae9c7366f9666e2c7fae705a99fc3e160ba20582d665e9074e3133e684a3c8',
+    '38edb9d207e1ad8f13d0b93b94ff664f742a3a8e64f789d036fa2dd0661dc68c',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':

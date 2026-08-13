@@ -22,8 +22,8 @@ export const ARIA2_SOURCE = Object.freeze({
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.18.0.tgz',
-  sha256: '29c35ca8d2a287988fdee3e0f36e07d9b93783f567b579b7fd5b798a4563dd81',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.21.0.tgz',
+  sha256: '87237d37eadb79dc626a0576eb3a52d23d70422c323ae5e00fc05c91f4323780',
 })
 
 const FLATPAK_BUILDER_ACTION_COMMIT = '401fe28a8384095fc1531b9d320b292f0ee45adb'

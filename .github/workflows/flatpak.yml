@@ -110,7 +110,7 @@ jobs:
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.18.0
+          version: 11.21.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts

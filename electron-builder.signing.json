@@ -166,7 +166,7 @@
     "perMachine": false
   },
   "electronDist": "trusted/electron.zip",
-  "electronVersion": "43.3.0",
+  "electronVersion": "43.4.0",
   "npmRebuild": false,
   "detectUpdateChannel": true,
   "generateUpdatesFilesForAllChannels": true,

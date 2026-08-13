@@ -4,7 +4,7 @@
   "productName": "Motrix",
   "homepage": "https://motrix.app",
   "version": "2.0.0",
-  "packageManager": "pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c",
+  "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1",
   "description": "A full-featured download manager",
   "keywords": [],
   "author": {
@@ -77,14 +77,14 @@
     "release:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && pnpm exec electron-builder --mac --arm64 --publish never"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7",
+    "@biomejs/biome": "^2.5.8",
     "@electron/notarize": "^3.1.1",
     "@electron/rebuild": "^4.2.0",
     "@motrix/cli": "^0.4.0",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.3",
+    "@testing-library/user-event": "^14.6.4",
     "@types/better-sqlite3": "^9.6.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
@@ -92,13 +92,13 @@
     "@types/ws": "^8.18.1",
     "@types/yauzl": "^3.4.0",
     "@vitest/coverage-v8": "^4.1.10",
-    "electron": "43.3.0",
+    "electron": "43.4.0",
     "electron-builder": "^26.15.7",
     "esbuild": "^0.28.2",
     "js-yaml": "^5.2.3",
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
-    "tsx": "^4.23.11",
+    "tsx": "^4.23.12",
     "typescript": "~7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10"
@@ -115,7 +115,7 @@
     "@resvg/resvg-wasm": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-virtual": "^3.14.9",
-    "@xyflow/react": "^12.11.2",
+    "@xyflow/react": "^12.11.3",
     "ajv": "^8.20.0",
     "better-sqlite3": "^13.0.3",
     "bittorrent-peerid": "^2.0.2",
@@ -141,7 +141,7 @@
     "react-i18next": "^17.0.11",
     "react-router": "^8.3.0",
     "recharts": "^3.10.1",
-    "shadcn": "^4.16.2",
+    "shadcn": "^4.17.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "tslib": "^2.8.1",
@@ -154,7 +154,7 @@
     "ws": "^8.21.3",
     "yauzl": "^3.4.0",
     "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "optionalDependencies": {
     "electron-liquid-glass": "^1.1.1"

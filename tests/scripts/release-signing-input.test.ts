@@ -69,7 +69,7 @@ describe('isolated release signing input', () => {
     await expect(verify(directory)).resolves.toMatchObject({
       commit: COMMIT,
       target: { key: 'win32-x64', platform: 'win32', arch: 'x64' },
-      tools: { electronBuilder: '26.15.7', electron: '43.3.0' },
+      tools: { electronBuilder: '26.15.7', electron: '43.4.0' },
       limits: SIGNING_ARCHIVE_LIMITS,
     })
   })
@@ -250,7 +250,7 @@ async function refreshManifest(directory: string) {
     schemaVersion: 2,
     commit: COMMIT,
     target: { key: 'win32-x64', platform: 'win32', arch: 'x64' },
-    tools: { electronBuilder: '26.15.7', electron: '43.3.0' },
+    tools: { electronBuilder: '26.15.7', electron: '43.4.0' },
     limits: SIGNING_ARCHIVE_LIMITS,
     files: await inventory(directory),
   }
