@@ -122,6 +122,7 @@ import { KeybindingRegistry } from './commands/keybindings/keybinding-registry'
 import type { CommandDeps } from './commands/types'
 import { UpdateManager } from './core/update-manager'
 import { setupExceptionHandler } from './exception-handler'
+import { registerApplicationMenuIpc } from './ipc/application-menu'
 import { registerCommandHandlers } from './ipc/commands'
 import { registerDisclaimerIpc } from './ipc/disclaimer'
 import { setupEventForwarding } from './ipc/events'
@@ -1839,7 +1840,7 @@ async function initializeMainProcess(): Promise<void> {
   }
 
   registerAllCommands(commandRegistry, commandDeps)
-  installAllMenubarContributions(menuRegistry, process.platform)
+  installAllMenubarContributions(menuRegistry)
 
   menuManager = new MenuManager({
     commandRegistry,
@@ -1851,6 +1852,13 @@ async function initializeMainProcess(): Promise<void> {
     onCommandError: (err) => {
       if (!mainProcessWork.isAccepting()) return
       log.warn({ err }, 'menu command tracking failed')
+    },
+    onApplicationMenuSet: () => {
+      if (process.platform !== 'win32' && process.platform !== 'linux') return
+      for (const win of windowManager.getAllWindows()) {
+        win.setAutoHideMenuBar(false)
+        win.setMenuBarVisibility(false)
+      }
     },
   })
   menuManager.install()
@@ -2085,6 +2093,15 @@ async function initializeMainProcess(): Promise<void> {
     trackAsyncWork: (operation) => mainProcessWork.run(operation),
   })
 
+  // The main window can mount before the full IPC ingress is ready. The
+  // application-menu bridge subscribes and immediately publishes the current
+  // snapshot so an early renderer query is reconciled without losing state.
+  const disposeApplicationMenuIpc = registerApplicationMenuIpc({
+    menuManager: menuManager as MenuManager,
+    windowManager,
+    trackAsyncWork: (operation) => mainProcessWork.run(operation),
+  })
+
   const disposeCommandHandlers = registerCommandHandlers({
     cliToolService,
     supervisor,
@@ -2178,6 +2195,7 @@ async function initializeMainProcess(): Promise<void> {
     disposeCommandHandlers()
     disposeQueryHandlers()
     disposeNotificationIpc()
+    disposeApplicationMenuIpc()
   }
 
   // Plugin log stream: forward every ring-buffer entry to renderers as

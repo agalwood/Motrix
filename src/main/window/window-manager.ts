@@ -295,10 +295,11 @@ export class WindowManager {
     config: (typeof WINDOW_CONFIGS)[WindowId],
     show: boolean
   ): BrowserWindow {
+    const platform = this.deps.platform ?? process.platform
     const liquidGlass =
       config.liquidGlass &&
       this.deps.liquidGlass?.shouldUseLiquidGlass() === true
-    const platformOpts = buildPlatformOptions(this.deps.platform, {
+    const platformOpts = buildPlatformOptions(platform, {
       vibrancy: config.vibrancy && !liquidGlass,
       liquidGlass,
       windowControlsSymbolColor: config.windowControlsSymbolColor,
@@ -321,6 +322,11 @@ export class WindowManager {
         sandbox: true,
       },
     })
+
+    if (platform === 'win32' || platform === 'linux') {
+      win.setAutoHideMenuBar(false)
+      win.setMenuBarVisibility(false)
+    }
 
     if (config.minWidth && config.minHeight) {
       win.setMinimumSize(config.minWidth, config.minHeight)

@@ -96,6 +96,7 @@ export const Events = {
   // Payload: EngineFailurePayload (Task 13). NOT included in
   // ForwardableEvents — internal main-process producer signal only.
   EngineFailureOccurred: 'event:engineFailureOccurred',
+  ApplicationMenuChanged: 'event:applicationMenuChanged',
 } as const
 
 export type EventChannel = (typeof Events)[keyof typeof Events]

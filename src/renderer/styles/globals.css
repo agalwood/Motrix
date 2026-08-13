@@ -97,6 +97,8 @@
 :root {
   --radius: 0.625rem;
   --dashboard-tile-radius: 18px;
+  --window-chrome-safe-area-leading: 77px;
+  --window-chrome-safe-area-trailing: 24px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -137,6 +139,20 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --tab-background: oklch(0.95 0 0);
+}
+
+.platform-darwin.window-main .electron-window-chrome,
+.platform-linux.window-main .electron-window-chrome,
+.platform-win32.window-main .electron-window-chrome {
+  --window-chrome-safe-area-leading: 160px;
+}
+
+.platform-win32.window-main .electron-window-chrome {
+  --window-chrome-safe-area-trailing: 148px;
+}
+
+.platform-linux.window-main .electron-window-chrome {
+  --window-chrome-safe-area-trailing: 88px;
 }
 
 .dark {

@@ -58,6 +58,8 @@ vi.mock('electron', () => {
       }
     )
     setMinimumSize = vi.fn()
+    setAutoHideMenuBar = vi.fn()
+    setMenuBarVisibility = vi.fn()
     center = vi.fn()
     on = vi.fn().mockReturnThis()
     onceListeners: Record<string, ((...args: unknown[]) => void)[]> = {}
@@ -153,6 +155,59 @@ describe('WindowManager', () => {
       sandbox: true,
     })
   })
+
+  it.each(['win32', 'linux'])(
+    'keeps the native menu bar hidden for every new %s window',
+    (platform) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+        platform,
+      })
+
+      wm.open('main')
+      wm.precreate('add-task')
+      wm.recreate('main')
+
+      const instances = (
+        BrowserWindow as unknown as {
+          instances: Array<{
+            setAutoHideMenuBar: ReturnType<typeof vi.fn>
+            setMenuBarVisibility: ReturnType<typeof vi.fn>
+          }>
+        }
+      ).instances
+      expect(instances).toHaveLength(3)
+      for (const win of instances) {
+        expect(win.setAutoHideMenuBar).toHaveBeenCalledExactlyOnceWith(false)
+        expect(win.setMenuBarVisibility).toHaveBeenCalledExactlyOnceWith(false)
+        expect(win.setAutoHideMenuBar.mock.invocationCallOrder[0]).toBeLessThan(
+          win.setMenuBarVisibility.mock.invocationCallOrder[0]
+        )
+      }
+    }
+  )
+
+  it.each(['darwin', 'web'])(
+    'does not configure native menu bar visibility on %s',
+    (platform) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+        platform,
+      })
+
+      const win = wm.open('main') as unknown as {
+        setAutoHideMenuBar: ReturnType<typeof vi.fn>
+        setMenuBarVisibility: ReturnType<typeof vi.fn>
+      }
+
+      expect(win.setAutoHideMenuBar).not.toHaveBeenCalled()
+      expect(win.setMenuBarVisibility).not.toHaveBeenCalled()
+    }
+  )
 
   it('blocks navigation and redirects outside the trusted renderer URL', () => {
     const wm = new WindowManager({

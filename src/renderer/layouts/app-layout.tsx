@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider } from '@renderer/components/ui/sidebar'
 import { Toaster } from '@renderer/components/ui/toast'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { AddTaskTriggerButton } from '@renderer/components/window-chrome/add-task-trigger-button'
+import { MotrixMenuButton } from '@renderer/components/window-chrome/motrix-menu-button'
 import { SidebarTriggerButton } from '@renderer/components/window-chrome/sidebar-trigger-button'
 import { WindowChrome } from '@renderer/components/window-chrome/window-chrome'
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
@@ -50,8 +51,13 @@ export function AppLayout() {
             wrapper's built-in has-data-[variant=inset]:bg-sidebar stops
             matching and transparent-inset pages would fall through to the
             white body background. */}
-        <SidebarProvider className="h-svh overflow-hidden bg-sidebar">
-          <WindowChrome variant="overlay">
+        <SidebarProvider
+          className={cn(
+            'h-svh overflow-hidden bg-sidebar',
+            __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome'
+          )}
+        >
+          <WindowChrome variant="overlay" leading={<MotrixMenuButton />}>
             <div className="pt-3.5 flex items-center gap-1.5">
               <SidebarTriggerButton />
               <AddTaskTriggerButton />

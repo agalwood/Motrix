@@ -81,6 +81,7 @@ export const Commands = {
   RevealInFolder: 'command:revealInFolder',
   // Menu
   UpdateMenuContext: 'command:updateMenuContext',
+  ExecuteApplicationMenuItem: 'command:executeApplicationMenuItem',
   // Task creation (engine-neutral)
   CreateTask: 'command:createTask',
   // GeoIP

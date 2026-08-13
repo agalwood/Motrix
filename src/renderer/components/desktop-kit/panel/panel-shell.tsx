@@ -1,5 +1,4 @@
 import { Input } from '@renderer/components/ui/input'
-import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import type React from 'react'
 
@@ -33,10 +32,6 @@ export function PanelShell({
   headerClassName,
   contentClassName,
 }: PanelShellProps) {
-  const platform = transport.platform
-
-  const isMac = platform === 'darwin'
-  const showTrafficLight = __MOTRIX_TARGET__ === 'electron' && isMac
   return (
     <div className="relative flex h-full flex-col">
       {/* PanelShell header */}
@@ -49,10 +44,8 @@ export function PanelShell({
           // down (m-2), so 5px top padding centers a 28px row at
           // 8 + 5 + 14 = 27 — same line as the traffic lights ({x:20,y:20}).
           'compact-header:py-[5px]',
-          headerClassName,
-          showTrafficLight
-            ? 'compact-header:pl-[160px]'
-            : 'compact-header:pl-[77px]'
+          'compact-header:pl-[var(--window-chrome-safe-area-leading)] compact-header:pr-[var(--window-chrome-safe-area-trailing)]',
+          headerClassName
         )}
       >
         {typeof title === 'string' ? (

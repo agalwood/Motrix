@@ -161,6 +161,14 @@ describe('preload IPC channel allowlist', () => {
       Commands.InstallCliTool,
       'argument'
     )
+    expect(mocks.invoke).toHaveBeenCalledWith(
+      Commands.ExecuteApplicationMenuItem,
+      'argument'
+    )
+    expect(mocks.invoke).toHaveBeenCalledWith(
+      Queries.GetApplicationMenu,
+      'argument'
+    )
   })
 
   it('blocks undeclared invoke channels before Electron sees them', () => {
@@ -181,6 +189,9 @@ describe('preload IPC channel allowlist', () => {
     for (const channel of channels) {
       expect(mocks.listeners.get(channel)?.size).toBeGreaterThan(0)
     }
+    expect(
+      mocks.listeners.get(Events.ApplicationMenuChanged)?.size
+    ).toBeGreaterThan(0)
   })
 
   it('allows valid plugin log channels and rejects malformed events', () => {

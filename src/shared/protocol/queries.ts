@@ -71,6 +71,7 @@ export const Queries = {
   // GetUnreadNotificationCount returns the unread badge count as a number.
   GetUnreadNotificationCount: 'query:getUnreadNotificationCount',
   GetCliToolStatus: 'query:getCliToolStatus',
+  GetApplicationMenu: 'query:getApplicationMenu',
 } as const
 
 export type QueryChannel = (typeof Queries)[keyof typeof Queries]
