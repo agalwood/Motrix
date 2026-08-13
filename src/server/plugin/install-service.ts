@@ -7,6 +7,7 @@ import {
 } from '@core/plugin/install/github-fetcher'
 import type {
   PluginInstaller,
+  PluginRuntimeHostLike,
   StageResult,
 } from '@core/plugin/install/plugin-installer'
 import {
@@ -120,14 +121,17 @@ export class ServerPluginInstallService {
     this.fetchImpl = options.fetchImpl ?? fetch
   }
 
-  async stage(rawPayload: unknown): Promise<StageResult> {
+  async stage(
+    rawPayload: unknown,
+    runtimeHost?: PluginRuntimeHostLike
+  ): Promise<StageResult> {
     const payload = serverInstallPluginPayloadSchema.parse(rawPayload)
     const materialized = await this.materialize(payload)
     try {
       return await this.options.installer.stage(
         materialized.moextPath,
         materialized.source,
-        { expect: materialized.expect }
+        { expect: materialized.expect, runtimeHost }
       )
     } finally {
       if (materialized.temporary) {

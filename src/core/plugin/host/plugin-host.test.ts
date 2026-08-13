@@ -86,6 +86,22 @@ parentPort.on('message', (msg) => {
   return file
 }
 
+function writeStubWorkerNeverReady(dir: string): string {
+  const file = path.join(dir, 'StubWorkerNeverReady.cjs')
+  writeFileSync(
+    file,
+    `
+const { parentPort } = require('worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'event' && msg.event === 'deactivate') {
+    parentPort.postMessage({ type: 'event', event: 'deactivateComplete', ok: true })
+  }
+})
+`
+  )
+  return file
+}
+
 function plantPlugin(
   parent: string,
   id: string,
@@ -185,6 +201,27 @@ describe('PluginHost', () => {
     await host.shutdown()
   })
 
+  it('uses an injected bundle reader for a community plugin', async () => {
+    const readBundleSource = vi.fn(async () => 'export default {}')
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      readBundleSource,
+    })
+
+    await host.activate('alice.demo')
+
+    expect(readBundleSource).toHaveBeenCalledWith(
+      path.join(root, 'plugins', 'alice.demo', 'dist', 'plugin.js')
+    )
+    await host.shutdown()
+  })
+
   it('throws PluginActivationCapExceeded when over soft cap', async () => {
     const host = new PluginHost({
       registry,
@@ -277,6 +314,88 @@ describe('PluginHost', () => {
     expect(getCallsForAlice).toBe(1)
     expect(host.activeIds()).toEqual(['alice.demo'])
     getSpy.mockRestore()
+    await host.shutdown()
+  })
+
+  it('cancels activation blocked on bundle read without a late worker', async () => {
+    let markReadStarted!: () => void
+    const readStarted = new Promise<void>((resolve) => {
+      markReadStarted = resolve
+    })
+    let releaseRead!: (source: string) => void
+    const blockedRead = new Promise<string>((resolve) => {
+      releaseRead = resolve
+    })
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      readBundleSource: () => {
+        markReadStarted()
+        return blockedRead
+      },
+    })
+
+    const activation = host.activate('alice.demo')
+    const activationRejected = expect(activation).rejects.toThrow(
+      /plugin\.activation\.superseded/
+    )
+    await readStarted
+    await host.deactivate('alice.demo')
+    await activationRejected
+
+    expect(host.isQuiescent('alice.demo')).toBe(true)
+    expect(host.bridgeFor('alice.demo')).toBeUndefined()
+    expect(host.workerFor('alice.demo')).toBeUndefined()
+
+    // Completing the underlying filesystem operation after deactivate() has
+    // returned must not resume the superseded activation continuation.
+    releaseRead('export default {}')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(host.isQuiescent('alice.demo')).toBe(true)
+    expect(host.workerFor('alice.demo')).toBeUndefined()
+    await host.shutdown()
+  })
+
+  it('deactivate terminates a not-ready worker and rejects replacement activation', async () => {
+    const neverReadyWorker = writeStubWorkerNeverReady(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: neverReadyWorker,
+      activationTimeoutMs: 10_000,
+      deactivateBudgetMs: 200,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+
+    const activation = host.activate('alice.demo')
+    const activationRejected = expect(activation).rejects.toThrow(
+      /plugin\.activation\.superseded/
+    )
+    await vi.waitFor(() => expect(host.workerFor('alice.demo')).toBeDefined())
+    const oldWorker = host.workerFor('alice.demo')!
+    const terminate = vi.spyOn(oldWorker, 'terminate')
+
+    const deactivation = host.deactivate('alice.demo')
+    await expect(host.activate('alice.demo')).rejects.toThrow(
+      /plugin\.activation\.superseded/
+    )
+    await deactivation
+    await activationRejected
+
+    expect(terminate).toHaveBeenCalledOnce()
+    expect(host.isQuiescent('alice.demo')).toBe(true)
+    expect(host.isActive('alice.demo')).toBe(false)
+    expect(host.allActive()).toEqual([])
+    expect(host.bridgeFor('alice.demo')).toBeUndefined()
+    expect(host.workerFor('alice.demo')).toBeUndefined()
     await host.shutdown()
   })
 
@@ -454,6 +573,70 @@ describe('PluginHost.deactivate — lifecycle wiring', () => {
     expect(host.isActive('alice.demo')).toBe(true)
     await host.deactivate('alice.demo')
     expect(host.isActive('alice.demo')).toBe(false)
+  })
+
+  it('falls back to direct worker termination when bridge disposal fails', async () => {
+    const workerPath = writeStubWorker(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    await host.activate('alice.demo')
+    const bridge = host.bridgeFor('alice.demo')!
+    const worker = bridge.getWorker()
+    const realTerminate = worker.terminate.bind(worker)
+    const dispose = vi.spyOn(bridge, 'dispose')
+    const terminate = vi
+      .spyOn(worker, 'terminate')
+      .mockRejectedValueOnce(new Error('dispose terminate failed'))
+      .mockImplementation(realTerminate)
+
+    await host.deactivate('alice.demo')
+
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(terminate).toHaveBeenCalledTimes(2)
+    expect(host.isQuiescent('alice.demo')).toBe(true)
+    expect(stateStore.get('alice.demo')?.status).toBe('inactive')
+  })
+
+  it('does not cache a rejected teardown and retries the terminate backstop', async () => {
+    const workerPath = writeStubWorker(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    await host.activate('alice.demo')
+    const bridge = host.bridgeFor('alice.demo')!
+    const worker = bridge.getWorker()
+    const realTerminate = worker.terminate.bind(worker)
+    const dispose = vi.spyOn(bridge, 'dispose')
+    const terminate = vi
+      .spyOn(worker, 'terminate')
+      .mockRejectedValueOnce(new Error('dispose terminate failed'))
+      .mockRejectedValueOnce(new Error('terminate failed'))
+      .mockImplementation(realTerminate)
+
+    await expect(host.deactivate('alice.demo')).rejects.toThrow(
+      'terminate failed'
+    )
+    expect(host.isQuiescent('alice.demo')).toBe(false)
+
+    await host.deactivate('alice.demo')
+
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(terminate).toHaveBeenCalledTimes(3)
+    expect(host.isQuiescent('alice.demo')).toBe(true)
+    expect(stateStore.get('alice.demo')?.status).toBe('inactive')
   })
 
   it('deactivate completes (with logged warning) when worker reports error', async () => {

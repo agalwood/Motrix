@@ -14,12 +14,14 @@ export interface RegistryExpectation {
   permissions: ReadonlyArray<string>
   optionalPermissions: ReadonlyArray<string>
   hostPermissions: ReadonlyArray<string>
+  /** Complete .moext digest verified by the registry download boundary. */
+  packageSha256?: string
 }
 
 export function buildRegistryExpectation(
   entry: RegistryPlugin
 ): RegistryExpectation {
-  return {
+  const expectation: RegistryExpectation = {
     id: entry.id,
     version: entry.version,
     enginesMotrix: entry.engines.motrix,
@@ -27,6 +29,8 @@ export function buildRegistryExpectation(
     optionalPermissions: entry.optionalPermissions,
     hostPermissions: entry.hostPermissions,
   }
+  if (entry.package?.sha256) expectation.packageSha256 = entry.package.sha256
+  return expectation
 }
 
 function isSubset(

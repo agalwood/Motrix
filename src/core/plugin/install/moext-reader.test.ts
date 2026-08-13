@@ -1,10 +1,16 @@
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { extractMoext, readMoextEntry } from './moext-reader'
+import {
+  extractLoadedMoext,
+  extractMoext,
+  loadMoext,
+  readMoextEntry,
+} from './moext-reader'
 
 // Minimal zip writer for fixtures. yauzl reads what we write here, so we keep
 // it on the central directory + local file header format with no compression.
@@ -40,7 +46,7 @@ function makeZip(entries: FakeEntry[]): Buffer {
     const lfh = Buffer.alloc(30)
     lfh.writeUInt32LE(0x04034b50, 0)
     lfh.writeUInt16LE(20, 4) // version needed
-    lfh.writeUInt16LE(0, 6) // flags
+    lfh.writeUInt16LE(0x800, 6) // UTF-8 names
     lfh.writeUInt16LE(0, 8) // compression: stored
     lfh.writeUInt16LE(0, 10) // mod time
     lfh.writeUInt16LE(0, 12) // mod date
@@ -58,7 +64,7 @@ function makeZip(entries: FakeEntry[]): Buffer {
     cdh.writeUInt32LE(0x02014b50, 0)
     cdh.writeUInt16LE(20, 4) // version made by
     cdh.writeUInt16LE(20, 6) // version needed
-    cdh.writeUInt16LE(0, 8)
+    cdh.writeUInt16LE(0x800, 8) // UTF-8 names
     cdh.writeUInt16LE(0, 10)
     cdh.writeUInt16LE(0, 12)
     cdh.writeUInt16LE(0, 14)
@@ -104,10 +110,6 @@ const VALID_MANIFEST = JSON.stringify({
   contributes: {},
 })
 const TINY_BUNDLE = Buffer.from('export default function(){};', 'utf8')
-const EXPECTED_BUNDLE_SHA = createHash('sha256')
-  .update(TINY_BUNDLE)
-  .digest('hex')
-
 let tmp: string
 
 beforeEach(async () => {
@@ -124,8 +126,20 @@ async function writeFixture(name: string, buf: Buffer): Promise<string> {
   return p
 }
 
+async function expectPathCollision(
+  fixtureName: string,
+  entries: FakeEntry[]
+): Promise<void> {
+  const dest = path.join(tmp, `${fixtureName}-dest`)
+  const moext = await writeFixture(`${fixtureName}.moext`, makeZip(entries))
+  await expect(extractMoext(moext, dest)).rejects.toMatchObject({
+    message: 'plugin.install.path_collision',
+  })
+  expect(existsSync(dest)).toBe(false)
+}
+
 describe('moext-reader', () => {
-  it('valid bundle extracts; manifest readable; bundle sha256 correct', async () => {
+  it('valid bundle extracts and preserves bundle digest semantics', async () => {
     const moextBuf = makeZip([
       { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
       { name: 'dist/plugin.js', data: TINY_BUNDLE },
@@ -133,10 +147,159 @@ describe('moext-reader', () => {
     const moext = await writeFixture('valid.moext', moextBuf)
     const dest = path.join(tmp, 'unpacked')
     const result = await extractMoext(moext, dest)
-    expect(result.bundleSha256).toBe(EXPECTED_BUNDLE_SHA)
+    expect(result.bundleSha256).toBe(
+      createHash('sha256').update(TINY_BUNDLE).digest('hex')
+    )
     expect(JSON.parse(result.manifestRaw).id).toBe('com.example.test')
     const onDisk = await readFile(path.join(dest, 'dist/plugin.js'))
     expect(onDisk.equals(TINY_BUNDLE)).toBe(true)
+  })
+
+  it('retains a complete-archive digest independently of the bundle digest', async () => {
+    const baseEntries = [
+      { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
+      { name: 'dist/plugin.js', data: TINY_BUNDLE },
+    ]
+    const first = makeZip([
+      ...baseEntries,
+      { name: 'dist/alternate.js', data: Buffer.from('first') },
+    ])
+    const second = makeZip([
+      ...baseEntries,
+      { name: 'dist/alternate.js', data: Buffer.from('second') },
+    ])
+
+    const firstLoaded = await loadMoext(
+      await writeFixture('first.moext', first)
+    )
+    const secondLoaded = await loadMoext(
+      await writeFixture('second.moext', second)
+    )
+    const firstResult = await extractLoadedMoext(
+      firstLoaded,
+      path.join(tmp, 'first')
+    )
+    const secondResult = await extractLoadedMoext(
+      secondLoaded,
+      path.join(tmp, 'second')
+    )
+
+    expect(firstLoaded.archiveSha256).not.toBe(secondLoaded.archiveSha256)
+    expect(firstResult.bundleSha256).toBe(secondResult.bundleSha256)
+  })
+
+  it('rejects retained package bytes that no longer match their digest', async () => {
+    const moextBuf = makeZip([
+      { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
+      { name: 'dist/plugin.js', data: TINY_BUNDLE },
+    ])
+    const loaded = await loadMoext(
+      await writeFixture('mutated.moext', moextBuf)
+    )
+    loaded.bytes[0] ^= 0xff
+
+    await expect(
+      extractLoadedMoext(loaded, path.join(tmp, 'mutated'))
+    ).rejects.toMatchObject({ message: 'plugin.install.sha256_mismatch' })
+  })
+
+  it('keeps Linux-valid case, Unicode, colon, trailing-dot, and reserved names usable', async () => {
+    if (process.platform !== 'linux') return
+    const entries: FakeEntry[] = [
+      { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
+      { name: 'dist/plugin.js', data: TINY_BUNDLE },
+      { name: 'assets/Name.txt', data: Buffer.from('upper', 'utf8') },
+      { name: 'assets/name.txt', data: Buffer.from('lower', 'utf8') },
+      { name: 'assets/café.json', data: Buffer.from('nfc', 'utf8') },
+      { name: 'assets/cafe\u0301.json', data: Buffer.from('nfd', 'utf8') },
+      { name: 'assets/name:part', data: Buffer.from('colon', 'utf8') },
+      { name: 'assets/trailing.', data: Buffer.from('dot', 'utf8') },
+      { name: 'assets/CON', data: Buffer.from('reserved', 'utf8') },
+    ]
+    const dest = path.join(tmp, 'linux-valid-dest')
+    const moext = await writeFixture('linux-valid.moext', makeZip(entries))
+
+    await extractMoext(moext, dest)
+
+    expect(await readFile(path.join(dest, 'assets/Name.txt'), 'utf8')).toBe(
+      'upper'
+    )
+    expect(await readFile(path.join(dest, 'assets/name.txt'), 'utf8')).toBe(
+      'lower'
+    )
+    expect(await readFile(path.join(dest, 'assets/name:part'), 'utf8')).toBe(
+      'colon'
+    )
+  })
+
+  it('allows ordinary path components containing two dots', async () => {
+    const dest = path.join(tmp, 'two-dots-dest')
+    const moext = await writeFixture(
+      'two-dots.moext',
+      makeZip([
+        {
+          name: 'motrix-plugin.json',
+          data: Buffer.from(VALID_MANIFEST, 'utf8'),
+        },
+        { name: 'dist/plugin.js', data: TINY_BUNDLE },
+        { name: 'assets/name..part', data: Buffer.from('dots', 'utf8') },
+      ])
+    )
+
+    await extractMoext(moext, dest)
+
+    expect(await readFile(path.join(dest, 'assets/name..part'), 'utf8')).toBe(
+      'dots'
+    )
+  })
+
+  it('rejects exact duplicate paths', async () => {
+    await expectPathCollision('exact-collision', [
+      { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
+      { name: 'dist/plugin.js', data: TINY_BUNDLE },
+      { name: 'assets/data.json', data: Buffer.from('{}', 'utf8') },
+      { name: 'assets/data.json', data: Buffer.from('{"x":1}', 'utf8') },
+    ])
+  })
+
+  it('maps an exclusive-create EEXIST to path_collision', async () => {
+    const dest = path.join(tmp, 'preexisting-dest')
+    await mkdir(dest, { recursive: true })
+    await writeFile(path.join(dest, 'motrix-plugin.json'), 'keep')
+    const moext = await writeFixture(
+      'preexisting.moext',
+      makeZip([
+        {
+          name: 'motrix-plugin.json',
+          data: Buffer.from(VALID_MANIFEST, 'utf8'),
+        },
+        { name: 'dist/plugin.js', data: TINY_BUNDLE },
+      ])
+    )
+
+    await expect(extractMoext(moext, dest)).rejects.toMatchObject({
+      message: 'plugin.install.path_collision',
+    })
+    expect(await readFile(path.join(dest, 'motrix-plugin.json'), 'utf8')).toBe(
+      'keep'
+    )
+  })
+
+  it('rejects file-directory prefix conflicts in either entry order', async () => {
+    const requiredEntries: FakeEntry[] = [
+      { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
+      { name: 'dist/plugin.js', data: TINY_BUNDLE },
+    ]
+    await expectPathCollision('file-before-child', [
+      ...requiredEntries,
+      { name: 'assets', data: Buffer.from('file', 'utf8') },
+      { name: 'assets/payload.js', data: Buffer.from('child', 'utf8') },
+    ])
+    await expectPathCollision('child-before-file', [
+      ...requiredEntries,
+      { name: 'assets/payload.js', data: Buffer.from('child', 'utf8') },
+      { name: 'assets', data: Buffer.from('file', 'utf8') },
+    ])
   })
 
   it('zip-slip "../escape.txt" rejected', async () => {
@@ -161,21 +324,21 @@ describe('moext-reader', () => {
     ).rejects.toMatchObject({ message: 'plugin.install.zip_slip' })
   })
 
-  it('backslash entry is normalized by yauzl to forward slashes (no escape)', async () => {
+  it('backslash entry is normalized by yauzl but missing bundle writes nothing', async () => {
     // yauzl 3.x rewrites '\' to '/' before handing the entry to us. The
     // resulting name 'a/b/c' is a valid nested path inside destDir, so the
-    // extraction succeeds (path-traversal defenses already cover '..' / '/').
-    // The bundle is still missing in this fixture, which the reader flags.
+    // path validation accepts that contained name, but the full preflight sees
+    // the required bundle is missing before creating the destination tree.
     const moextBuf = makeZip([
       { name: 'motrix-plugin.json', data: Buffer.from(VALID_MANIFEST, 'utf8') },
       { name: 'a\\b\\c', data: Buffer.from('x', 'utf8') },
     ])
     const moext = await writeFixture('back.moext', moextBuf)
-    await expect(
-      extractMoext(moext, path.join(tmp, 'unpacked'))
-    ).rejects.toMatchObject({ message: 'plugin.install.bundle_missing' })
-    const onDisk = await readFile(path.join(tmp, 'unpacked', 'a/b/c'), 'utf8')
-    expect(onDisk).toBe('x')
+    const dest = path.join(tmp, 'unpacked')
+    await expect(extractMoext(moext, dest)).rejects.toMatchObject({
+      message: 'plugin.install.bundle_missing',
+    })
+    expect(existsSync(dest)).toBe(false)
   })
 
   it('symlink entry rejected via external-attr mode', async () => {

@@ -73,6 +73,8 @@ export interface PluginHostOptions {
    * Absent → no ffmpeg gate (all plugins pass regardless of manifest range).
    */
   ffmpegDetect?: () => Promise<FfmpegDetection>
+  /** Injectable bundle-source reader; defaults to `readFile(path, 'utf8')`. */
+  readBundleSource?: (bundlePath: string) => Promise<string>
   /**
    * Injectable for tests; defaults to the pinned build-time keys. Mirrors
    * `PluginRegistryOptions.signingPubkeys` — the host re-verifies
@@ -87,6 +89,10 @@ interface Active {
   manifest: PluginManifest
   lastActivityAt: number
   registrations: Array<{ kind: 'hook' | 'command'; key: string }>
+  /** Shared teardown promise so fatal/deactivate races cannot dispose twice. */
+  teardown?: Promise<void>
+  /** A failed dispose() must retry the worker termination backstop directly. */
+  disposeNeedsBackstop?: boolean
   /**
    * Snapshot taken at activation time. `true` when the plugin does not
    * declare ffmpeg at all (vacuously satisfied), or when detection met the
@@ -97,6 +103,14 @@ interface Active {
   ffmpegAdvertised: boolean
 }
 
+interface ActivationAttempt {
+  epoch: number
+  cancelled: boolean
+  cancellation: Promise<never>
+  cancel(): void
+  promise: Promise<void>
+}
+
 /**
  * Default soft cap on concurrently-active plugins, shared by PluginHost and
  * ActivationDispatcher so their independent defaults can't silently diverge.
@@ -105,15 +119,21 @@ export const DEFAULT_MAX_ACTIVE_PLUGINS = 32
 
 export class PluginHost {
   private readonly active = new Map<string, Active>()
-  // In-flight activations keyed by pluginId, so concurrent activate() calls
-  // for the same plugin share one promise instead of each spawning a worker.
-  private readonly activating = new Map<string, Promise<void>>()
+  // Per-plugin activation/deactivation state. The epoch invalidates every
+  // await continuation from an older activation, while `quiescing` is a
+  // synchronous tombstone that prevents a replacement worker from starting
+  // until teardown has fully completed.
+  private readonly activating = new Map<string, ActivationAttempt>()
+  private readonly deactivating = new Map<string, Promise<void>>()
+  private readonly activationEpochs = new Map<string, number>()
+  private readonly quiescing = new Set<string>()
   private readonly maxActivePlugins: number
   private readonly idleDisposeMs: number
   private readonly activationTimeoutMs: number
   private readonly deactivateBudgetMs: number
   private idleTimer?: NodeJS.Timeout
   private unsubscribeLocale: () => void = () => {}
+  private shuttingDown = false
 
   constructor(private readonly opts: PluginHostOptions) {
     this.maxActivePlugins = opts.maxActivePlugins ?? DEFAULT_MAX_ACTIVE_PLUGINS
@@ -131,6 +151,7 @@ export class PluginHost {
 
   private broadcastLocaleChange(_lang: string): void {
     for (const [pluginId, active] of this.active) {
+      if (this.quiescing.has(pluginId)) continue
       try {
         const snap = this.opts.capabilityHost.i18nSnapshot(pluginId)
         active.bridge.postLocaleChange(
@@ -155,7 +176,21 @@ export class PluginHost {
   }
 
   isActive(pluginId: string): boolean {
-    return this.active.has(pluginId)
+    return this.active.has(pluginId) && !this.quiescing.has(pluginId)
+  }
+
+  /**
+   * True only when no worker, bridge, activation continuation, or teardown
+   * remains for the plugin. Installer commit/uninstall use this stronger
+   * postcondition instead of treating an early `active.delete()` as stopped.
+   */
+  isQuiescent(pluginId: string): boolean {
+    return (
+      !this.active.has(pluginId) &&
+      !this.activating.has(pluginId) &&
+      !this.deactivating.has(pluginId) &&
+      !this.quiescing.has(pluginId)
+    )
   }
 
   /**
@@ -164,11 +199,11 @@ export class PluginHost {
    * is not active.
    */
   getFfmpegAdvertised(pluginId: string): boolean | undefined {
-    return this.active.get(pluginId)?.ffmpegAdvertised
+    return this.activeForUse(pluginId)?.ffmpegAdvertised
   }
 
   activeIds(): string[] {
-    return [...this.active.keys()]
+    return [...this.active.keys()].filter((id) => !this.quiescing.has(id))
   }
 
   /**
@@ -185,7 +220,7 @@ export class PluginHost {
     commandId: string,
     args: unknown
   ): Promise<unknown> {
-    const a = this.active.get(pluginId)
+    const a = this.activeForUse(pluginId)
     if (!a) {
       return Promise.reject(
         new AppError(
@@ -199,6 +234,20 @@ export class PluginHost {
   }
 
   async activate(pluginId: string): Promise<void> {
+    if (this.shuttingDown) {
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        'plugin.activation.host_shutting_down'
+      )
+    }
+    // Check the tombstone before `active`: the old worker remains owned by
+    // `active` until dispose() completes, but must not be considered a valid
+    // idempotent activation while teardown is underway.
+    if (this.quiescing.has(pluginId)) {
+      throw this.activationSupersededError(pluginId)
+    }
+    const inFlight = this.activating.get(pluginId)
+    if (inFlight) return inFlight.promise
     const existing = this.active.get(pluginId)
     if (existing) {
       existing.lastActivityAt = Date.now()
@@ -209,16 +258,46 @@ export class PluginHost {
     // resolution), so two overlapping calls would otherwise both pass the
     // guard above, both spawn a worker, and the second active.set() would
     // orphan the first bridge. Share one in-flight promise keyed by pluginId.
-    const inFlight = this.activating.get(pluginId)
-    if (inFlight) return inFlight
-    const promise = this.doActivate(pluginId).finally(() => {
-      this.activating.delete(pluginId)
+    const epoch = (this.activationEpochs.get(pluginId) ?? 0) + 1
+    this.activationEpochs.set(pluginId, epoch)
+    let rejectCancellation!: (error: Error) => void
+    const cancellation = new Promise<never>((_resolve, reject) => {
+      rejectCancellation = reject
     })
-    this.activating.set(pluginId, promise)
+    // The cancellation promise is raced at every async boundary. Keep a
+    // handler attached even between those boundaries to avoid an unhandled
+    // rejection when deactivate() wins immediately.
+    void cancellation.catch(() => undefined)
+    const attempt: ActivationAttempt = {
+      epoch,
+      cancelled: false,
+      cancellation,
+      cancel: () => {
+        if (attempt.cancelled) return
+        attempt.cancelled = true
+        rejectCancellation(this.activationSupersededError(pluginId))
+      },
+      promise: Promise.resolve(),
+    }
+    // Start in a microtask so the attempt and its real promise are both
+    // published before registry/capability test doubles can re-enter us.
+    const promise = Promise.resolve()
+      .then(() => this.doActivate(pluginId, attempt))
+      .finally(() => {
+        if (this.activating.get(pluginId) === attempt) {
+          this.activating.delete(pluginId)
+        }
+      })
+    attempt.promise = promise
+    this.activating.set(pluginId, attempt)
     return promise
   }
 
-  private async doActivate(pluginId: string): Promise<void> {
+  private async doActivate(
+    pluginId: string,
+    attempt: ActivationAttempt
+  ): Promise<void> {
+    this.assertActivationCurrent(pluginId, attempt)
     const indexed = this.opts.registry.get(pluginId)
     if (!indexed) {
       throw new AppError(
@@ -245,7 +324,11 @@ export class PluginHost {
 
     let ffmpegDetection: FfmpegDetection = { available: false }
     if (needsFfmpeg && this.opts.ffmpegDetect) {
-      ffmpegDetection = await this.opts.ffmpegDetect()
+      ffmpegDetection = await this.awaitActivation(
+        pluginId,
+        attempt,
+        this.opts.ffmpegDetect()
+      )
     }
 
     const ffmpegSatisfied =
@@ -294,8 +377,10 @@ export class PluginHost {
       // the tree would otherwise get unverified code run with builtin
       // privilege. Re-verify on every activation; nothing here is cached
       // across the signature check performed at scan time.
-      const moextBytes = await readFile(
-        path.join(indexed.rootDir, 'bundle.moext')
+      const moextBytes = await this.awaitActivation(
+        pluginId,
+        attempt,
+        readFile(path.join(indexed.rootDir, 'bundle.moext'))
       )
       if (
         !verifyBuiltinSignature(
@@ -314,7 +399,11 @@ export class PluginHost {
           'plugin.update.builtin_bad_signature'
         )
       }
-      const entryBytes = await readMoextEntry(moextBytes, indexed.manifest.main)
+      const entryBytes = await this.awaitActivation(
+        pluginId,
+        attempt,
+        readMoextEntry(moextBytes, indexed.manifest.main)
+      )
       if (!entryBytes) {
         this.opts.stateStore.recordError(
           pluginId,
@@ -328,7 +417,13 @@ export class PluginHost {
       }
       bundleSource = entryBytes.toString('utf8')
     } else {
-      bundleSource = await readFile(bundlePath, 'utf8')
+      const readBundleSource =
+        this.opts.readBundleSource ?? ((file) => readFile(file, 'utf8'))
+      bundleSource = await this.awaitActivation(
+        pluginId,
+        attempt,
+        readBundleSource(bundlePath)
+      )
     }
 
     let resolveReady: () => void
@@ -339,10 +434,16 @@ export class PluginHost {
     })
 
     const effectivePermissions = this.opts.pluginGrants
-      ? await this.opts.pluginGrants.effectivePermissionsFor(pluginId)
+      ? await this.awaitActivation(
+          pluginId,
+          attempt,
+          this.opts.pluginGrants.effectivePermissionsFor(pluginId)
+        )
       : undefined
 
-    const bridge = new CapabilityBridge(
+    this.assertActivationCurrent(pluginId, attempt)
+    let bridge: CapabilityBridge | undefined
+    bridge = new CapabilityBridge(
       {
         pluginId,
         manifest: indexed.manifest,
@@ -357,21 +458,43 @@ export class PluginHost {
       },
       {
         onReady: () => {
+          if (
+            !bridge ||
+            !this.isActivationCurrent(pluginId, attempt) ||
+            this.active.get(pluginId)?.bridge !== bridge
+          ) {
+            return
+          }
           this.opts.stateStore.markActivated(pluginId, Date.now())
           this.opts.registry.refreshState(pluginId)
           resolveReady()
         },
         onRegister: (kind, key) => {
-          this.active.get(pluginId)?.registrations.push({ kind, key })
+          const current = this.active.get(pluginId)
+          if (
+            bridge &&
+            current?.bridge === bridge &&
+            !this.quiescing.has(pluginId)
+          ) {
+            current.registrations.push({ kind, key })
+          }
         },
         onFatal: (code, message) => {
+          if (
+            !bridge ||
+            this.active.get(pluginId)?.bridge !== bridge ||
+            this.quiescing.has(pluginId)
+          ) {
+            return
+          }
           this.opts.stateStore.recordError(pluginId, `${code}: ${message}`)
           this.opts.registry.refreshState(pluginId)
-          void this.deactivate(pluginId)
           rejectReady(new AppError(ErrorCode.PluginRuntimeFault, message))
+          void this.deactivate(pluginId).catch(() => undefined)
         },
       }
     )
+    this.assertActivationCurrent(pluginId, attempt)
     this.active.set(pluginId, {
       bridge,
       manifest: indexed.manifest,
@@ -395,9 +518,18 @@ export class PluginHost {
     })
 
     try {
-      await Promise.race([ready, timeoutP])
+      await this.awaitActivation(
+        pluginId,
+        attempt,
+        Promise.race([ready, timeoutP])
+      )
     } catch (e) {
-      void this.deactivate(pluginId)
+      const current = this.active.get(pluginId)
+      if (bridge && current?.bridge === bridge) {
+        await this.teardownActive(pluginId, current)
+      } else if (bridge) {
+        await bridge.dispose()
+      }
       throw e
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle)
@@ -405,13 +537,63 @@ export class PluginHost {
   }
 
   async deactivate(pluginId: string): Promise<void> {
-    const a = this.active.get(pluginId)
-    if (!a) return
-    this.active.delete(pluginId)
+    const existing = this.deactivating.get(pluginId)
+    if (existing) return existing
 
+    // Establish the tombstone and supersede the activation synchronously,
+    // before yielding to any continuation that could publish a bridge.
+    this.quiescing.add(pluginId)
+    this.activationEpochs.set(
+      pluginId,
+      (this.activationEpochs.get(pluginId) ?? 0) + 1
+    )
+    const attempt = this.activating.get(pluginId)
+    attempt?.cancel()
+
+    const promise = Promise.resolve()
+      .then(() => this.doDeactivate(pluginId, attempt))
+      .finally(() => {
+        if (this.deactivating.get(pluginId) === promise) {
+          this.deactivating.delete(pluginId)
+          this.quiescing.delete(pluginId)
+        }
+      })
+    this.deactivating.set(pluginId, promise)
+    return promise
+  }
+
+  private async doDeactivate(
+    pluginId: string,
+    attempt: ActivationAttempt | undefined
+  ): Promise<void> {
+    // The attempt rejects when cancellation wins. Its catch path owns cleanup
+    // for any bridge it managed to create, so wait for that path before
+    // checking the stable active entry below.
+    await attempt?.promise.catch(() => undefined)
+    const active = this.active.get(pluginId)
+    if (active) await this.teardownActive(pluginId, active)
+  }
+
+  private teardownActive(pluginId: string, active: Active): Promise<void> {
+    if (active.teardown) return active.teardown
+    let teardown!: Promise<void>
+    teardown = this.performTeardown(pluginId, active).catch((error) => {
+      // A rejected teardown must not be cached forever. Keep the active entry
+      // owned by the host and let a later deactivate/upgrade retry termination.
+      if (active.teardown === teardown) active.teardown = undefined
+      throw error
+    })
+    active.teardown = teardown
+    return teardown
+  }
+
+  private async performTeardown(
+    pluginId: string,
+    active: Active
+  ): Promise<void> {
     // 1. Run worker-side deactivate handlers (budget enforced by bridge).
     try {
-      await a.bridge.runDeactivate(this.deactivateBudgetMs)
+      await active.bridge.runDeactivate(this.deactivateBudgetMs)
     } catch (e) {
       this.opts.capabilityHost
         .createLog(pluginId)
@@ -436,10 +618,89 @@ export class PluginHost {
       }
     }
 
-    // 3. Tear down bridge and mark inactive.
-    await a.bridge.dispose()
+    // 3. Tear down bridge and mark inactive. CapabilityBridge marks itself
+    // disposed before awaiting Worker.terminate(), so a rejected dispose()
+    // cannot itself be retried; terminate the worker directly as a backstop.
+    await this.disposeActiveBridge(pluginId, active)
+    if (this.active.get(pluginId) === active) {
+      this.active.delete(pluginId)
+    }
     this.opts.stateStore.setStatus(pluginId, 'inactive')
     this.opts.registry.refreshState(pluginId)
+  }
+
+  private async disposeActiveBridge(
+    pluginId: string,
+    active: Active
+  ): Promise<void> {
+    if (!active.disposeNeedsBackstop) {
+      try {
+        await active.bridge.dispose()
+        return
+      } catch (error) {
+        active.disposeNeedsBackstop = true
+        this.opts.capabilityHost
+          .createLog(pluginId)
+          .warn('worker bridge dispose failed; terminating worker directly', {
+            error: (error as Error).message,
+            code: (error as Error & { code?: string }).code,
+          })
+      }
+    }
+
+    try {
+      await active.bridge.getWorker().terminate()
+      active.disposeNeedsBackstop = false
+    } catch (error) {
+      this.opts.capabilityHost
+        .createLog(pluginId)
+        .warn('worker terminate backstop failed', {
+          error: (error as Error).message,
+          code: (error as Error & { code?: string }).code,
+        })
+      throw error
+    }
+  }
+
+  private async awaitActivation<T>(
+    pluginId: string,
+    attempt: ActivationAttempt,
+    operation: PromiseLike<T>
+  ): Promise<T> {
+    const value = await Promise.race([
+      Promise.resolve(operation),
+      attempt.cancellation,
+    ])
+    this.assertActivationCurrent(pluginId, attempt)
+    return value
+  }
+
+  private isActivationCurrent(
+    pluginId: string,
+    attempt: ActivationAttempt
+  ): boolean {
+    return (
+      !attempt.cancelled &&
+      !this.quiescing.has(pluginId) &&
+      this.activationEpochs.get(pluginId) === attempt.epoch &&
+      this.activating.get(pluginId) === attempt
+    )
+  }
+
+  private assertActivationCurrent(
+    pluginId: string,
+    attempt: ActivationAttempt
+  ): void {
+    if (!this.isActivationCurrent(pluginId, attempt)) {
+      throw this.activationSupersededError(pluginId)
+    }
+  }
+
+  private activationSupersededError(pluginId: string): AppError {
+    return new AppError(
+      ErrorCode.PluginRuntimeFault,
+      `plugin.activation.superseded: ${pluginId}`
+    )
   }
 
   /**
@@ -450,6 +711,7 @@ export class PluginHost {
   allActive(): ActivePluginInfo[] {
     const out: ActivePluginInfo[] = []
     for (const [id, a] of this.active.entries()) {
+      if (this.quiescing.has(id)) continue
       out.push({
         id,
         manifest: a.manifest,
@@ -467,22 +729,24 @@ export class PluginHost {
    */
   activeMeta(): ActiveMeta[] {
     const now = Date.now()
-    return [...this.active.entries()].map(([id, a]) => ({
-      id,
-      lastActivityAt: a.lastActivityAt,
-      idleMs: now - a.lastActivityAt,
-      evictionTier: deriveEvictionTier(a.manifest),
-    }))
+    return [...this.active.entries()]
+      .filter(([id]) => !this.quiescing.has(id))
+      .map(([id, a]) => ({
+        id,
+        lastActivityAt: a.lastActivityAt,
+        idleMs: now - a.lastActivityAt,
+        evictionTier: deriveEvictionTier(a.manifest),
+      }))
   }
 
   /** Plan C — bridge accessor used by HookOrchestrator and tests. */
   bridgeFor(pluginId: string): CapabilityBridge | undefined {
-    return this.active.get(pluginId)?.bridge
+    return this.activeForUse(pluginId)?.bridge
   }
 
   /** Plan C — worker accessor used by `newHookAbort` for the terminate path. */
   workerFor(pluginId: string): Worker | undefined {
-    return this.active.get(pluginId)?.bridge.getWorker()
+    return this.activeForUse(pluginId)?.bridge.getWorker()
   }
 
   /**
@@ -505,7 +769,7 @@ export class PluginHost {
       metadataSnapshot?: Record<string, unknown>
     }
   ): Promise<void> {
-    const a = this.active.get(pluginId)
+    const a = this.activeForUse(pluginId)
     if (!a) {
       throw new AppError(
         ErrorCode.PluginRuntimeFault,
@@ -532,7 +796,7 @@ export class PluginHost {
   async disable(pluginId: string, reason: string): Promise<void> {
     this.opts.stateStore.setEnabled(pluginId, false)
     this.opts.stateStore.recordError(pluginId, reason)
-    if (this.active.has(pluginId)) {
+    if (!this.isQuiescent(pluginId)) {
       await this.deactivate(pluginId)
     }
     this.opts.stateStore.setStatus(pluginId, 'disabled')
@@ -540,14 +804,21 @@ export class PluginHost {
   }
 
   async shutdown(): Promise<void> {
+    this.shuttingDown = true
     this.unsubscribeLocale()
     if (this.idleTimer) clearInterval(this.idleTimer)
-    await Promise.all([...this.active.keys()].map((id) => this.deactivate(id)))
+    const pluginIds = new Set([
+      ...this.active.keys(),
+      ...this.activating.keys(),
+      ...this.deactivating.keys(),
+    ])
+    await Promise.all([...pluginIds].map((id) => this.deactivate(id)))
   }
 
   private sweepIdle(): void {
     const now = Date.now()
     for (const [id, a] of this.active.entries()) {
+      if (this.quiescing.has(id)) continue
       if (now - a.lastActivityAt >= this.idleDisposeMs) {
         void this.deactivate(id)
       }
@@ -565,6 +836,11 @@ export class PluginHost {
   /** Test helper: idle threshold accessor. */
   get idleDisposeMsForTest(): number {
     return this.idleDisposeMs
+  }
+
+  private activeForUse(pluginId: string): Active | undefined {
+    if (this.quiescing.has(pluginId)) return undefined
+    return this.active.get(pluginId)
   }
 }
 

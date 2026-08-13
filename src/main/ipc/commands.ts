@@ -1258,7 +1258,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       const result = await pluginInstaller.stage(
         moextPath,
         toSourceInput(parsed),
-        { expect }
+        { expect, runtimeHost: pluginHost }
       )
       if (result.committed && result.pluginId) {
         eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
@@ -1345,7 +1345,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       const parsed = confirmPluginInstallPayloadSchema.parse(payload)
       const { pluginId } = await pluginInstaller.commit(
         parsed.stagingId,
-        parsed.grants
+        parsed.grants,
+        pluginHost
       )
       eventBus.emit(Events.PluginInstalled, { pluginId })
       return { ok: true, pluginId }
@@ -1374,7 +1375,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.UninstallPlugin]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      await pluginInstaller.uninstall(parsed.pluginId)
+      await pluginInstaller.uninstall(parsed.pluginId, pluginHost)
       await settingsManager.removePluginConfig(parsed.pluginId)
       eventBus.emit(Events.PluginUninstalled, { pluginId: parsed.pluginId })
       return { ok: true }
