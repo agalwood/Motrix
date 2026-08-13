@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { Script } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- JavaScript build script intentionally has no declarations
 import { BUILD_TARGETS } from '../../packages/native-host/build.mjs'
@@ -180,6 +182,22 @@ const ciSource = readFileSync(
 )
 const releaseSource = readFileSync(
   path.join(ROOT, '.github/workflows/release.yml'),
+  'utf8'
+)
+const signingConfigSource = readFileSync(
+  path.join(ROOT, 'electron-builder.signing.json'),
+  'utf8'
+)
+const signingInputSource = readFileSync(
+  path.join(ROOT, 'scripts/release-signing-input.mjs'),
+  'utf8'
+)
+const signingToolPackageSource = readFileSync(
+  path.join(ROOT, 'scripts/release-signing-tool/package.json'),
+  'utf8'
+)
+const signingToolLockSource = readFileSync(
+  path.join(ROOT, 'scripts/release-signing-tool/package-lock.json'),
   'utf8'
 )
 const cargoConfigSource = readFileSync(
@@ -893,28 +911,61 @@ describe('release workflow publication contract', () => {
   })
 
   it('isolates signing credentials behind platform-specific environments', () => {
-    const { job } = targetMatrix(releaseWorkflow)
-    const environment = asRecord(job.environment, 'build environment')
-    const environmentName = stringField(environment, 'name')
-    expect(environmentName).toContain("matrix.platform == 'darwin'")
-    expect(environmentName).toContain('macos-release-signing')
-    expect(environmentName).toContain("matrix.platform == 'win32'")
-    expect(environmentName).toContain('windows-release-signing')
-    expect(environmentName).toContain('release-build')
-    expect(environmentName).toContain("github.event_name == 'push'")
-    expect(environment.deployment).toBe(false)
+    const jobs = workflowJobs(releaseWorkflow)
+    const build = asRecord(jobs.build, 'build job')
+    expect(
+      stringField(asRecord(build.environment, 'build environment'), 'name')
+    ).toBe('release-build')
+    expect(JSON.stringify(build)).not.toContain('secrets.')
 
-    const builderSteps = jobSteps(job).filter((step) =>
-      stringField(step, 'run', '').includes('electron-builder')
+    const sign = asRecord(jobs.sign, 'sign job')
+    expect(stringField(sign, 'if')).toContain("github.event_name == 'push'")
+    expect(jobNeeds(sign)).toEqual(
+      expect.arrayContaining(['preflight', 'build'])
+    )
+    const entries = matrixEntries(sign, 'sign')
+    expect(entries.map((entry) => stringField(entry, 'target')).sort()).toEqual(
+      ['darwin-arm64', 'darwin-x64', 'win32-x64']
+    )
+    for (const entry of entries) {
+      expect(stringField(entry, 'electron_sha256')).toMatch(/^[0-9a-f]{64}$/)
+    }
+
+    const steps = jobSteps(sign)
+    expect(JSON.stringify(steps)).not.toContain('actions/checkout@')
+    expect(JSON.stringify(steps)).not.toContain('pnpm/action-setup@')
+    expect(releaseSource).not.toContain('downloadBuilderToolset')
+    const verifyIndex = steps.findIndex(
+      (step) => step.name === 'Verify signing input before secrets'
+    )
+    const electronIndex = steps.findIndex(
+      (step) => step.name === 'Download digest-pinned Electron distribution'
+    )
+    const firstSecretIndex = steps.findIndex((step) =>
+      JSON.stringify(step).includes('secrets.')
+    )
+    expect(verifyIndex).toBeGreaterThanOrEqual(0)
+    expect(electronIndex).toBeGreaterThan(verifyIndex)
+    expect(firstSecretIndex).toBeGreaterThan(electronIndex)
+    expect(JSON.stringify(steps.slice(0, firstSecretIndex))).not.toContain(
+      'secrets.'
     )
 
+    const install = steps.find(
+      (step) => step.name === 'Install exact signing dependency closure'
+    )
+    const installCommand = stringField(install as LooseRecord, 'run')
+    expect(installCommand).toContain('npm ci')
+    expect(installCommand).toContain('--ignore-scripts')
+    expect(installCommand).not.toContain('npm install')
+
+    const builderSteps = steps.filter((step) =>
+      stringField(step, 'run', '').includes('electron-builder')
+    )
     const macStep = platformBuilderStep(builderSteps, 'darwin')
     const windowsStep = platformBuilderStep(builderSteps, 'win32')
-    const linuxStep = platformBuilderStep(builderSteps, 'linux')
     const macEnv = asRecord(macStep.env, 'macOS builder environment')
     const windowsEnv = asRecord(windowsStep.env, 'Windows builder environment')
-    const linuxEnv = optionalRecord(linuxStep.env)
-
     expect(stringField(macEnv, 'CSC_LINK')).toContain('secrets.MAC_CERTS')
     expect(stringField(macEnv, 'CSC_KEY_PASSWORD')).toContain(
       'secrets.MAC_CERTS_PASSWORD'
@@ -929,18 +980,14 @@ describe('release workflow publication contract', () => {
     )
     expect(JSON.stringify(windowsEnv)).not.toContain('MAC_CERTS')
 
-    expect(linuxEnv).not.toHaveProperty('CSC_LINK')
-    expect(linuxEnv).not.toHaveProperty('CSC_KEY_PASSWORD')
-    expect(JSON.stringify(linuxEnv)).not.toContain('secrets.')
-
     expect(releaseSource).toContain('APPLE_API_ISSUER')
     expect(releaseSource).not.toContain('secrets.TEAM_ID')
     expect(releaseSource).not.toContain('APPLE_TEAM_ID')
   })
 
   it('verifies notarization stapling in addition to macOS signatures', () => {
-    const buildJob = targetMatrix(releaseWorkflow).job
-    const verification = jobSteps(buildJob).find(
+    const signJob = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    const verification = jobSteps(signJob).find(
       (step) => step.name === 'Verify macOS signatures'
     )
 
@@ -948,6 +995,127 @@ describe('release workflow publication contract', () => {
     const command = stringField(verification as LooseRecord, 'run')
     expect(command).toContain('codesign --verify')
     expect(command).toContain('xcrun stapler validate')
+  })
+
+  it('keeps manual assembly unsigned and tag assembly signing-gated', () => {
+    const jobs = workflowJobs(releaseWorkflow)
+    const build = asRecord(jobs.build, 'build job')
+    const upload = jobSteps(build).find(
+      (step) => step.name === 'Upload target release input'
+    )
+    const uploadCondition = stringField(upload as LooseRecord, 'if')
+    expect(uploadCondition).toContain("matrix.platform == 'linux'")
+    expect(uploadCondition).toContain(
+      "github.event_name == 'workflow_dispatch'"
+    )
+
+    const assemble = asRecord(jobs.assemble, 'assemble job')
+    expect(jobNeeds(assemble)).toContain('sign')
+    const condition = stringField(assemble, 'if')
+    expect(condition).toContain('always()')
+    expect(condition).toContain("needs.sign.result == 'success'")
+    expect(condition).toContain("needs.sign.result == 'skipped'")
+  })
+
+  it('uses a bounded tar and a hook-free exact signing tool closure', () => {
+    const config = asRecord(
+      JSON.parse(signingConfigSource) as unknown,
+      'restricted signing config'
+    )
+    expect(config.extends).toBeNull()
+    expect(config.npmRebuild).toBe(false)
+    expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
+    expect(stringField(config, 'electronVersion')).toBe('43.3.0')
+    for (const hook of [
+      'afterAllArtifactBuild',
+      'afterExtract',
+      'afterPack',
+      'afterSign',
+      'beforeBuild',
+      'beforePack',
+      'onNodeModuleFile',
+    ]) {
+      expect(config).not.toHaveProperty(hook)
+    }
+
+    const tool = asRecord(
+      JSON.parse(signingToolPackageSource) as unknown,
+      'signing tool package'
+    )
+    expect(tool).not.toHaveProperty('scripts')
+    expect(
+      stringField(
+        asRecord(tool.dependencies, 'signing tool dependencies'),
+        'electron-builder'
+      )
+    ).toBe('26.15.7')
+    const lock = asRecord(
+      JSON.parse(signingToolLockSource) as unknown,
+      'signing tool lock'
+    )
+    expect(lock.lockfileVersion).toBe(3)
+
+    const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    const extraction = jobSteps(sign).find(
+      (step) => step.name === 'Safely extract bounded signing input'
+    )
+    const source = stringField(extraction as LooseRecord, 'run')
+    expect(source).toContain('archiveBytes')
+    expect(source).toContain('inputBytes')
+    expect(source).toContain('fileBytes')
+    expect(source).toContain('fileCount')
+    expect(source).toContain('tar requires two zero end blocks')
+    expect(source).toContain('tar contains trailing bytes')
+    expect(source).toContain('unsupported tar entry type')
+
+    expect(releaseSource).toContain(
+      createHash('sha256').update(signingInputSource).digest('hex')
+    )
+  })
+
+  it('keeps the signing Electron runtime aligned with project metadata', () => {
+    const metadata = asRecord(
+      JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')),
+      'package metadata'
+    )
+    const version = stringField(
+      asRecord(metadata.devDependencies, 'dev dependencies'),
+      'electron'
+    )
+    expect(version).toBe('43.3.0')
+    expect(
+      stringField(
+        asRecord(
+          JSON.parse(signingConfigSource) as unknown,
+          'restricted signing config'
+        ),
+        'electronVersion'
+      )
+    ).toBe(version)
+    expect(signingInputSource).toContain(
+      `const ELECTRON_VERSION = '${version}'`
+    )
+    expect(releaseSource).toContain(`/electron/releases/download/v${version}/`)
+  })
+
+  it('keeps inline Node workflow steps syntactically executable', () => {
+    let checked = 0
+    for (const [jobName, value] of Object.entries(
+      workflowJobs(releaseWorkflow)
+    )) {
+      for (const step of jobSteps(asRecord(value, `${jobName} job`))) {
+        if (step.shell !== 'node {0}') continue
+        const source = stringField(step, 'run').replace(
+          /\$\{\{[\s\S]*?\}\}/gu,
+          'github_expression'
+        )
+        expect(
+          () => new Script(source, { filename: `${jobName}.js` })
+        ).not.toThrow()
+        checked += 1
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
   })
 
   it('pins the packaged macOS baseline to Electron 43 support', () => {
@@ -1070,10 +1238,6 @@ function asRecord(value: unknown, label: string): LooseRecord {
   return value as LooseRecord
 }
 
-function optionalRecord(value: unknown): LooseRecord {
-  return value === undefined ? {} : asRecord(value, 'optional value')
-}
-
 function stringField(
   record: LooseRecord,
   field: string,
@@ -1137,7 +1301,9 @@ function targetMatrix(workflow: LooseRecord): {
       if (
         !entries.every(
           (entry) =>
-            typeof entry.platform === 'string' && typeof entry.arch === 'string'
+            typeof entry.platform === 'string' &&
+            typeof entry.arch === 'string' &&
+            typeof entry.rust_target === 'string'
         )
       ) {
         return []
@@ -1152,6 +1318,15 @@ function targetMatrix(workflow: LooseRecord): {
     )
   }
   return candidates[0] as (typeof candidates)[number]
+}
+
+function matrixEntries(job: LooseRecord, label: string): LooseRecord[] {
+  const strategy = asRecord(job.strategy, `${label} strategy`)
+  const matrix = asRecord(strategy.matrix, `${label} matrix`)
+  if (!Array.isArray(matrix.include)) {
+    throw new TypeError(`${label} matrix include must be an array`)
+  }
+  return matrix.include.map((entry) => asRecord(entry, `${label} matrix entry`))
 }
 
 function platformBuilderStep(

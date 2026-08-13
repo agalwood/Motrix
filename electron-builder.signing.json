@@ -1,0 +1,177 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "app.motrix.native",
+  "productName": "Motrix",
+  "copyright": "Copyright © 2026 Dr_rOot",
+  "extends": null,
+  "asar": true,
+  "asarUnpack": [
+    "**/node_modules/{better-sqlite3,bindings,file-uri-to-path}/**",
+    "dist/renderer/**"
+  ],
+  "directories": {
+    "app": "dist/electron-app",
+    "output": "release",
+    "buildResources": "signing-build-resources"
+  },
+  "files": [
+    ".motrix-package-stage.json",
+    "dist/core/plugin/host/**",
+    "dist/main/**",
+    "dist/preload/**",
+    "dist/renderer/**",
+    "package.json",
+    {
+      "from": "node_modules",
+      "to": "node_modules",
+      "filter": [
+        "**/*",
+        "!**/*.map",
+        "!**/*.ts",
+        "!**/*.tsx",
+        "!**/tsconfig*.json",
+        "!**/biome.json",
+        "!**/vite*.config.*"
+      ]
+    },
+    "!**/*.map",
+    "!**/*.ts",
+    "!**/*.tsx",
+    "!**/tsconfig*.json",
+    "!**/biome.json",
+    "!**/vite*.config.*"
+  ],
+  "extraResources": [
+    {
+      "from": "./THIRD_PARTY_NOTICES.md",
+      "to": "./THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "from": "./THIRD_PARTY_NOTICES.zh-CN.md",
+      "to": "./THIRD_PARTY_NOTICES.zh-CN.md"
+    },
+    {
+      "from": "./THIRD_PARTY_LICENSES",
+      "to": "./THIRD_PARTY_LICENSES"
+    },
+    {
+      "from": "./build/legal",
+      "to": "./legal",
+      "filter": [
+        "THIRD_PARTY_DEPENDENCIES.md",
+        "THIRD_PARTY_LICENSES.txt",
+        "sbom.spdx.json"
+      ]
+    }
+  ],
+  "electronFuses": {
+    "runAsNode": false,
+    "enableCookieEncryption": false,
+    "enableNodeOptionsEnvironmentVariable": false,
+    "enableNodeCliInspectArguments": false,
+    "enableEmbeddedAsarIntegrityValidation": false,
+    "onlyLoadAppFromAsar": true,
+    "loadBrowserProcessSpecificV8Snapshot": false,
+    "grantFileProtocolExtraPrivileges": true
+  },
+  "protocols": [
+    {
+      "name": "Motrix Protocol",
+      "schemes": ["motrix", "mo"]
+    },
+    {
+      "name": "Magnet Protocol",
+      "schemes": ["magnet"]
+    }
+  ],
+  "fileAssociations": [
+    {
+      "ext": "torrent",
+      "mimeType": "application/x-bittorrent",
+      "name": "Torrent",
+      "role": "Viewer"
+    }
+  ],
+  "mac": {
+    "category": "public.app-category.utilities",
+    "type": "distribution",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "minimumSystemVersion": "12.0",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "signing-build-resources/entitlements.mac.plist",
+    "entitlementsInherit": "signing-build-resources/entitlements.mac.plist",
+    "darkModeSupport": true,
+    "extendInfo": {
+      "NSLocalNetworkUsageDescription": "Motrix uses the local network for UPnP port mapping and discovering download peers."
+    },
+    "target": ["dmg", "zip"],
+    "extraResources": [
+      { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
+      { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
+      { "from": "./extra/darwin/${arch}/", "to": "./extra/darwin/${arch}/" },
+      {
+        "from": "./packages/native-host/dist/darwin-${arch}/motrix-native-host",
+        "to": "bin/motrix-native-host"
+      },
+      {
+        "from": "./extra/tray/",
+        "to": "./extra/tray/",
+        "filter": [
+          "mo-tray-dark-normal@1x.png",
+          "mo-tray-dark-normal@2x.png",
+          "tray.svg",
+          "resvg.wasm",
+          "SFNS-Regular.ttf"
+        ]
+      }
+    ]
+  },
+  "dmg": {
+    "window": { "width": 540, "height": 380 },
+    "contents": [
+      { "x": 410, "y": 230, "type": "link", "path": "/Applications" },
+      { "x": 130, "y": 230, "type": "file" }
+    ]
+  },
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "zip", "arch": ["x64"] }
+    ],
+    "extraResources": [
+      { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
+      { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
+      { "from": "./extra/win32/${arch}/", "to": "./extra/win32/${arch}/" },
+      {
+        "from": "./packages/native-host/dist/win32-${arch}/motrix-native-host.exe",
+        "to": "bin/motrix-native-host.exe"
+      },
+      {
+        "from": "./extra/tray/",
+        "to": "./extra/tray/",
+        "filter": ["mo-tray-colorful-*.ico"]
+      }
+    ]
+  },
+  "nsis": {
+    "include": "trusted/installer.nsh",
+    "script": null,
+    "customNsisBinary": null,
+    "customNsisResources": null,
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "perMachine": false
+  },
+  "electronDist": "trusted/electron.zip",
+  "electronVersion": "43.3.0",
+  "npmRebuild": false,
+  "detectUpdateChannel": true,
+  "generateUpdatesFilesForAllChannels": true,
+  "publish": {
+    "provider": "generic",
+    "url": "https://dl.motrix.app/releases/"
+  }
+}
