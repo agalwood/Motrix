@@ -522,6 +522,8 @@ async function main() {
   const pluginUploadStore = new PluginUploadStore(
     path.join(pluginsDir, '_uploads')
   )
+  await pluginUploadStore.cleanupExpired()
+  shutdownActions.closeIngress = () => pluginUploadStore.dispose()
   const pluginInstallService = new ServerPluginInstallService({
     installer: pluginInstaller,
     registryClient,
@@ -926,8 +928,12 @@ async function main() {
         engine: supervisor.getStatus(),
       }),
   })
-  shutdownActions.closeIngress = () => app.close()
+  shutdownActions.closeIngress = async () => {
+    pluginUploadStore.dispose()
+    await app.close()
+  }
   if (!shellAsyncWork.isAccepting()) {
+    pluginUploadStore.dispose()
     await app.close()
     return
   }

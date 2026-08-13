@@ -22,7 +22,7 @@ afterEach(async () => {
 })
 
 describe('plugin upload route', () => {
-  it('returns an opaque upload reference for a verified package', async () => {
+  it('returns a server-hashed opaque reference without a client digest', async () => {
     const app = Fastify()
     registerPluginUploadRoute(app, new PluginUploadStore(root))
     const bytes = Buffer.from('plugin bytes')
@@ -34,7 +34,6 @@ describe('plugin upload route', () => {
       headers: {
         'content-type': PLUGIN_UPLOAD_CONTENT_TYPE,
         'x-motrix-file-name': encodeURIComponent('test.moext'),
-        'x-motrix-file-sha256': fileHash,
       },
       payload: bytes,
     })

@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { sha256File } from './plugin-install-file'
 import { __webPathPickerBus, createWebServices } from './web-services'
-
-vi.mock('./plugin-install-file', () => ({
-  sha256File: vi.fn(async () => 'b'.repeat(64)),
-}))
 
 describe('createWebServices', () => {
   let services: ReturnType<typeof createWebServices>
@@ -54,7 +49,7 @@ describe('createWebServices', () => {
     ) as unknown as typeof fetch
     services = createWebServices({
       fetchImpl,
-      baseUrl: 'https://motrix.example',
+      baseUrl: 'http://motrix.lan:8080',
     })
     const file = new File(['plugin'], '插件.moext')
 
@@ -63,17 +58,16 @@ describe('createWebServices', () => {
       uploadId: '123e4567-e89b-42d3-a456-426614174000',
       fileHash: 'b'.repeat(64),
     })
-    expect(sha256File).toHaveBeenCalledWith(file)
     expect(fetchImpl).toHaveBeenCalledWith(
-      'https://motrix.example/api/plugins/uploads',
+      'http://motrix.lan:8080/api/plugins/uploads',
       expect.objectContaining({
         method: 'POST',
         credentials: 'same-origin',
         body: file,
-        headers: expect.objectContaining({
+        headers: {
+          'content-type': 'application/vnd.motrix.moext',
           'x-motrix-file-name': encodeURIComponent('插件.moext'),
-          'x-motrix-file-sha256': 'b'.repeat(64),
-        }),
+        },
       })
     )
   })
