@@ -32,7 +32,7 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - 🧩 插件采用 QuickJS 沙箱隔离和细粒度能力授权，并可直接从应用内插件市场安装
 - 🌐 Chrome 和 Firefox 扩展可一键将浏览器下载任务交给 Motrix
 - ⌨️ 官方命令行客户端 `@motrix/cli` 既适合日常操作，也可供 AI agent 调用
-- 🐳 Headless server 可通过 Docker 部署，远程设备可使用 device-code 安全配对
+- 🐳 Headless server 可通过 Docker 部署，远程 CLI 和 agent 可使用 device-code 安全配对
 - 🎬 URL Resolver 插件可解析站点媒体页面，并可扩展对更多站点的支持
 - 🤖 可驻留系统托盘，并支持开机自启动
 - 🌍 界面支持简体中文和英语，后续将加入更多语言
@@ -107,8 +107,15 @@ docker compose up -d --wait
 ```
 
 runtime 以非 root 用户运行，支持只读根文件系统，在接受任务前检查挂载权限，
-并在替换容器后保留下载、session 和已安装插件。CLI、浏览器扩展等远程客户端
-可通过 device-code 与服务器配对。Docker Hub/GHCR 镜像与 tag 选择、群晖
+并在替换容器后保留下载、session 和已安装插件。标准的直连 LAN 部署会把 Web
+服务发布到 8080 端口，把 MDXP 发布到 16801 端口。请将
+`MOTRIX_PUBLIC_URL` 设为远程客户端实际可访问的 Web 审批 URL；Compose 文件不会
+为它填入会误导远程客户端的 localhost URL。
+
+远程 CLI 和 agent 客户端通过 device-code flow 配对。浏览器扩展通过 native messaging
+与桌面应用配对；headless server 不提供浏览器扩展的首次配对。只应在可信 LAN 上
+直接使用 HTTP；通过公网或不可信 LAN 访问时，必须配置 TLS 反向代理，并用防火墙保护
+源端口。Docker Hub/GHCR 镜像与 tag 选择、群晖
 DSM 7 和飞牛 fnOS 安装、目录所有权、端口、诊断与备份/升级说明见
 [Docker Server 部署指南](./docs/docker-server.zh-CN.md)。
 

@@ -20,10 +20,10 @@ services:
       MOTRIX_ALLOWED_SAVE_DIRS: /downloads
       MOTRIX_MDXP_HOST: 0.0.0.0
       MOTRIX_MDXP_PORT: 16801
-      MOTRIX_PUBLIC_URL: "${MOTRIX_PUBLIC_URL:-http://localhost:8080}"
+      MOTRIX_PUBLIC_URL: "${MOTRIX_PUBLIC_URL:-}"
     ports:
-      - "${MOTRIX_BIND_IP:-0.0.0.0}:${MOTRIX_HTTP_PORT:-8080}:8080"
-      - "${MOTRIX_BIND_IP:-0.0.0.0}:${MOTRIX_MDXP_PUBLIC_PORT:-16801}:16801"
+      - "${MOTRIX_WEB_BIND_IP:-${MOTRIX_BIND_IP:-0.0.0.0}}:${MOTRIX_HTTP_PORT:-8080}:8080"
+      - "${MOTRIX_MDXP_BIND_IP:-${MOTRIX_BIND_IP:-0.0.0.0}}:${MOTRIX_MDXP_PUBLIC_PORT:-16801}:16801"
     volumes:
       - ./motrix-data:/data
       - ./downloads:/downloads

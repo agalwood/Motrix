@@ -12,10 +12,12 @@ const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
 const interpolation = (value: string) => ['$', `{${value}}`].join('')
 const IMAGE = interpolation('MOTRIX_IMAGE:-motrixapp/motrix-server:latest')
-const BIND_IP = interpolation('MOTRIX_BIND_IP:-0.0.0.0')
+const LEGACY_BIND_IP = interpolation('MOTRIX_BIND_IP:-0.0.0.0')
+const WEB_BIND_IP = interpolation(`MOTRIX_WEB_BIND_IP:-${LEGACY_BIND_IP}`)
+const MDXP_BIND_IP = interpolation(`MOTRIX_MDXP_BIND_IP:-${LEGACY_BIND_IP}`)
 const HTTP_PORT = interpolation('MOTRIX_HTTP_PORT:-8080')
 const MDXP_PORT = interpolation('MOTRIX_MDXP_PUBLIC_PORT:-16801')
-const PUBLIC_URL = interpolation('MOTRIX_PUBLIC_URL:-http://localhost:8080')
+const PUBLIC_URL = interpolation('MOTRIX_PUBLIC_URL:-')
 
 function record(value: unknown, label: string): LooseRecord {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -51,8 +53,8 @@ describe('NAS-importable Compose contract', () => {
         '/tmp:rw,noexec,nosuid,size=64m,mode=1777',
       ])
       expect(service.ports).toEqual([
-        `${BIND_IP}:${HTTP_PORT}:8080`,
-        `${BIND_IP}:${MDXP_PORT}:16801`,
+        `${WEB_BIND_IP}:${HTTP_PORT}:8080`,
+        `${MDXP_BIND_IP}:${MDXP_PORT}:16801`,
       ])
       expect(service.environment).toEqual({
         MOTRIX_ALLOWED_SAVE_DIRS: '/downloads',
@@ -90,5 +92,16 @@ describe('NAS-importable Compose contract', () => {
       'motrix-data': null,
       'motrix-downloads': null,
     })
+  })
+
+  it('offers a host reverse-proxy environment without changing container listeners', async () => {
+    const environment = await readFile(
+      path.join(ROOT, 'compose.reverse-proxy.env'),
+      'utf8'
+    )
+    expect(environment).toContain('MOTRIX_WEB_BIND_IP=127.0.0.1')
+    expect(environment).toContain('MOTRIX_MDXP_BIND_IP=127.0.0.1')
+    expect(environment).not.toContain('MOTRIX_MDXP_HOST=127.0.0.1')
+    expect(environment).not.toMatch(/^MOTRIX_PUBLIC_URL=/m)
   })
 })

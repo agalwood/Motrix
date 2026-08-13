@@ -32,7 +32,7 @@ The same core powers two ways to run Motrix:
 - 🧩 QuickJS-based plugin sandboxing, fine-grained permissions, and an in-app marketplace
 - 🌐 Chrome and Firefox extensions that hand browser downloads off to Motrix in one click
 - ⌨️ Official `@motrix/cli` client for everyday shell use and AI agents
-- 🐳 Docker-ready headless server with secure device-code pairing for remote clients
+- 🐳 Docker-ready headless server with secure device-code pairing for remote CLI and agent clients
 - 🎬 Extensible URL Resolver plugins for extracting media from supported sites
 - 🤖 System tray integration and launch at startup
 - 🌍 Simplified Chinese and English UI, with more languages planned
@@ -108,8 +108,16 @@ docker compose up -d --wait
 
 The runtime is non-root, supports a read-only root filesystem, validates mount
 permissions before accepting work, and preserves downloads, sessions, and
-installed plugins across container replacement. Remote clients such as the CLI
-and browser extensions pair through a device-code flow. See the
+installed plugins across container replacement. The standard direct-LAN setup
+publishes the Web service on port 8080 and MDXP on port 16801. Set
+`MOTRIX_PUBLIC_URL` to the Web approval URL that remote clients can actually
+reach; the Compose files do not substitute a misleading localhost URL.
+
+Remote CLI and agent clients pair through the device-code flow. Browser
+extensions pair with the desktop app through native messaging; first-time
+extension pairing is not provided by the headless server. Direct HTTP is
+appropriate only on a trusted LAN. Internet or untrusted-LAN access requires a
+TLS reverse proxy and firewall rules around the origin ports. See the
 [Docker Server deployment guide](./docs/docker-server.md) for ownership setup,
 Docker Hub/GHCR image and tag selection, DSM 7 and fnOS installation, ports,
 diagnostics, and backup/upgrade instructions.
