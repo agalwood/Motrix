@@ -92,14 +92,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     environment:
-      name: >-
-        ${{
-          github.event_name == 'push' && matrix.platform == 'darwin'
-          && 'macos-release-signing'
-          || github.event_name == 'push' && matrix.platform == 'win32'
-          && 'windows-release-signing'
-          || 'release-build'
-        }}
+      name: release-build
       deployment: false
     strategy:
       fail-fast: false
@@ -204,58 +197,6 @@ jobs:
       - name: Third-party notice contract
         run: pnpm run check:third-party-notices
 
-      - name: Validate macOS release credentials
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          matrix.platform == 'darwin'
-        shell: bash
-        env:
-          MAC_CERTS: ${{ secrets.MAC_CERTS }}
-          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          API_KEY: ${{ secrets.API_KEY }}
-          API_KEY_ID: ${{ secrets.API_KEY_ID }}
-          API_KEY_ISSUER_ID: ${{ secrets.API_KEY_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-          missing=()
-          for name in \
-            MAC_CERTS \
-            MAC_CERTS_PASSWORD \
-            API_KEY \
-            API_KEY_ID \
-            API_KEY_ISSUER_ID
-          do
-            if [[ -z "${!name:-}" ]]; then
-              missing+=("$name")
-            fi
-          done
-          if (( ${#missing[@]} > 0 )); then
-            echo "Missing required macOS release secrets: ${missing[*]}" >&2
-            exit 1
-          fi
-
-      - name: Validate Windows release credentials
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          matrix.platform == 'win32'
-        shell: pwsh
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: |
-          $missing = @()
-          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK)) {
-            $missing += 'WIN_CSC_LINK'
-          }
-          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) {
-            $missing += 'WIN_CSC_KEY_PASSWORD'
-          }
-          if ($missing.Count -gt 0) {
-            throw "Missing required Windows release secrets: $($missing -join ', ')"
-          }
-
       # Build each target on a runner with the same native CPU architecture.
       # This also ensures better-sqlite3 is rebuilt for the packaged Electron.
       - name: Build
@@ -265,38 +206,12 @@ jobs:
           pnpm run build:electron
           pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
-      # Materialize the private key only after all project-controlled build
-      # scripts have completed. The path is passed through a step output so the
-      # notarization variables exist only in the macOS electron-builder process.
-      - name: Prepare Apple API Key
-        id: apple-api-key
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          matrix.platform == 'darwin'
-        shell: bash
-        env:
-          APPLE_API_KEY_CONTENT: ${{ secrets.API_KEY }}
-          APPLE_API_KEY_ID_VALUE: ${{ secrets.API_KEY_ID }}
-        run: |
-          set -euo pipefail
-          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID_VALUE}.p8"
-          printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$key_path"
-          chmod 600 "$key_path"
-          echo "path=${key_path}" >> "$GITHUB_OUTPUT"
-
-      # Keep signing credentials scoped to their platform. electron-builder
-      # 26 checks Apple ID before API Key, so the production path injects only
-      # the API Key variables prepared above.
+      # Tagged macOS and Windows outputs are deliberately unsigned here. A
+      # fresh, no-checkout job signs only the verified data artifact below.
       - name: Electron Builder (macOS)
         if: matrix.platform == 'darwin'
         env:
-          CSC_LINK: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.MAC_CERTS || '' }}
-          CSC_KEY_PASSWORD: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.MAC_CERTS_PASSWORD || '' }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
-          APPLE_API_KEY: ${{ steps.apple-api-key.outputs.path }}
-          APPLE_API_KEY_ID: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.API_KEY_ID || '' }}
-          APPLE_API_ISSUER: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.API_KEY_ISSUER_ID || '' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: >-
           pnpm exec electron-builder
           ${{ matrix.electron_builder_args }}
@@ -314,8 +229,6 @@ jobs:
       - name: Electron Builder (Windows)
         if: matrix.platform == 'win32'
         env:
-          CSC_LINK: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.WIN_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.WIN_CSC_KEY_PASSWORD || '' }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: >-
           pnpm exec electron-builder
@@ -337,20 +250,6 @@ jobs:
           ./scripts/verify-windows-native-host-dependencies.ps1
           -Binary
           "${{ matrix.resources_dir }}/bin/motrix-native-host.exe"
-
-      - name: Remove Apple API Key
-        if: >-
-          always() &&
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          matrix.platform == 'darwin'
-        shell: bash
-        env:
-          APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
-        run: |
-          if [[ -n "${APPLE_API_KEY_PATH:-}" ]]; then
-            rm -f "$APPLE_API_KEY_PATH"
-          fi
 
       - name: Verify packaged resources
         shell: node {0}
@@ -397,6 +296,32 @@ jobs:
               fs.accessSync(file, fs.constants.X_OK)
             }
           }
+
+      - name: Create isolated signing input
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          (matrix.platform == 'darwin' || matrix.platform == 'win32')
+        run: >-
+          node scripts/release-signing-input.mjs
+          --mode create
+          --directory "release/signing-input-${{ matrix.target }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --commit "$GITHUB_SHA"
+          --archive "release/signing-input-${{ matrix.target }}.tar"
+
+      - name: Upload isolated signing input
+        if: >-
+          github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          (matrix.platform == 'darwin' || matrix.platform == 'win32')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signing-input-${{ matrix.target }}
+          path: release/signing-input-${{ matrix.target }}.tar
+          if-no-files-found: error
+          retention-days: 2
 
       - name: Verify Linux package formats
         if: matrix.platform == 'linux'
@@ -473,45 +398,10 @@ jobs:
             exit 1
           fi
 
-      - name: Verify macOS signatures
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          matrix.platform == 'darwin'
-        shell: bash
-        run: |
-          set -euo pipefail
-          codesign --verify --deep --strict --verbose=2 "${{ matrix.app_path }}"
-          codesign --verify --strict --verbose=2 \
-            "${{ matrix.resources_dir }}/bin/motrix-native-host"
-          xcrun stapler validate "${{ matrix.app_path }}"
-
-      - name: Verify Windows signatures
-        if: >-
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          matrix.platform == 'win32'
-        shell: pwsh
-        run: |
-          $files = @(
-            'release/win-unpacked/Motrix.exe',
-            'release/win-unpacked/resources/bin/motrix-native-host.exe'
-          )
-          $files += @(
-            Get-ChildItem -Path release -Filter '*.exe' -File |
-              ForEach-Object { $_.FullName }
-          )
-          foreach ($file in $files) {
-            $signature = Get-AuthenticodeSignature -FilePath $file
-            if ($signature.Status -ne 'Valid') {
-              throw "Invalid Authenticode signature for ${file}: $($signature.StatusMessage)"
-            }
-            if ($null -eq $signature.TimeStamperCertificate) {
-              throw "Missing Authenticode timestamp for ${file}"
-            }
-          }
-
       - name: Upload target release input
+        if: >-
+          matrix.platform == 'linux' ||
+          github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-input-${{ matrix.target }}
@@ -541,9 +431,553 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  sign:
+    name: Sign / ${{ matrix.target }}
+    needs: [preflight, build]
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    environment:
+      name: ${{ matrix.signing_environment }}
+      deployment: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            os: macos-26
+            platform: darwin
+            arch: arm64
+            signing_environment: macos-release-signing
+            electron_builder_args: --mac --arm64
+            resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
+            app_path: release/mac-arm64/Motrix.app
+            electron_sha256: ee939d1564d83d61032b3b3cb23af4e46005a4900c91f0695f7ed793f0ce6e83
+          - target: darwin-x64
+            os: macos-26-intel
+            platform: darwin
+            arch: x64
+            signing_environment: macos-release-signing
+            electron_builder_args: --mac --x64
+            resources_dir: release/mac/Motrix.app/Contents/Resources
+            app_path: release/mac/Motrix.app
+            electron_sha256: 7347bbd5fb529eea64f9c2d148bb1c19222d98946ff234ffe27953a1bbcb9dae
+          - target: win32-x64
+            os: windows-2025
+            platform: win32
+            arch: x64
+            signing_environment: windows-release-signing
+            electron_builder_args: --win --x64
+            resources_dir: release/win-unpacked/resources
+            app_path: release/win-unpacked
+            electron_sha256: 18528bedc6a9b04bdc5efb7b803cbc3cb0e5ea6415d54046e23d464d89a00da9
+    env:
+      CUSTOM_DMGBUILD_PATH: ''
+      ELECTRON_BUILDER_7ZIP_PATH: ''
+      ELECTRON_BUILDER_BINARIES_ALLOW_HTTP: ''
+      ELECTRON_BUILDER_BINARIES_CUSTOM_DIR: ''
+      ELECTRON_BUILDER_BINARIES_DOWNLOAD_OVERRIDE_URL: ''
+      ELECTRON_BUILDER_BINARIES_MIRROR: ''
+      ELECTRON_BUILDER_NSIS_DIR: ''
+      ELECTRON_BUILDER_NSIS_RESOURCES_DIR: ''
+      ELECTRON_BUILDER_OSSL_SIGNCODE_PATH: ''
+      ELECTRON_BUILDER_RCEDIT_PATH: ''
+      ELECTRON_BUILDER_WINDOWS_KITS_PATH: ''
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR: ''
+      NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: ''
+      SIGNTOOL_PATH: ''
+      USE_SYSTEM_OSSLSIGNCODE: ''
+      USE_SYSTEM_SIGNCODE: ''
+
+    # Deliberately no checkout and no project package-manager install. Only the
+    # workflow-pinned verifier and digest-complete data artifact enter this job.
+    steps:
+      - name: Download isolated signing input
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: signing-input-${{ matrix.target }}
+          path: signing-transport
+
+      - name: Safely extract bounded signing input
+        shell: node {0}
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const decoder = new TextDecoder('utf-8', { fatal: true })
+          const limits = {
+            archiveBytes: 1024 * 1024 * 1024,
+            inputBytes: 768 * 1024 * 1024,
+            fileBytes: 512 * 1024 * 1024,
+            files: 50_000,
+            pathBytes: 4096,
+          }
+          const archive = path.resolve(
+            'signing-transport',
+            `signing-input-${process.env.EXPECTED_PLATFORM}-${process.env.EXPECTED_ARCH}.tar`
+          )
+          const archiveInfo = fs.lstatSync(archive)
+          if (
+            !archiveInfo.isFile() ||
+            archiveInfo.size < 1024 ||
+            archiveInfo.size > limits.archiveBytes ||
+            archiveInfo.size % 512 !== 0
+          ) {
+            throw new Error('signing input tar violates archive size limits')
+          }
+          const root = path.resolve('signing-input')
+          fs.mkdirSync(root, { recursive: false, mode: 0o700 })
+          const handle = fs.openSync(archive, 'r')
+          const readExactly = (offset, length) => {
+            const output = Buffer.alloc(length)
+            let read = 0
+            while (read < length) {
+              const count = fs.readSync(
+                handle,
+                output,
+                read,
+                length - read,
+                offset + read
+              )
+              if (count === 0) throw new Error('truncated signing input tar')
+              read += count
+            }
+            return output
+          }
+          const textField = (header, offset, length) => {
+            const field = header.subarray(offset, offset + length)
+            const nul = field.indexOf(0)
+            const end = nul < 0 ? field.length : nul
+            if (
+              nul >= 0 &&
+              field.subarray(nul).some((value) => value !== 0)
+            ) {
+              throw new Error('non-canonical tar text field')
+            }
+            return decoder.decode(field.subarray(0, end))
+          }
+          const octalField = (header, offset, length) => {
+            const value = decoder.decode(
+              header.subarray(offset, offset + length)
+            )
+            const match = /^([0-7]+)(?:\0[ \0]*| +)$/.exec(value)
+            if (!match) {
+              throw new Error('invalid tar numeric field')
+            }
+            const parsed = Number.parseInt(match[1], 8)
+            if (!Number.isSafeInteger(parsed)) {
+              throw new Error('tar numeric field exceeds safe integer range')
+            }
+            return parsed
+          }
+          const validatePath = (value) => {
+            const segments = value.split('/')
+            if (
+              !value ||
+              value.includes('\\') ||
+              /[\u0000-\u001f\u007f:]/u.test(value) ||
+              Buffer.byteLength(value) > limits.pathBytes ||
+              path.posix.normalize(value) !== value ||
+              path.posix.isAbsolute(value) ||
+              value === '..' ||
+              value.startsWith('../') ||
+              segments.some(
+                (segment) =>
+                  !segment ||
+                  /[ .]$/u.test(segment) ||
+                  /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu.test(
+                    segment
+                  )
+              )
+            ) {
+              throw new Error(`unsafe tar path: ${value}`)
+            }
+            return value
+          }
+          const parsePaxPath = (bytes) => {
+            const record = decoder.decode(bytes)
+            const match = /^([0-9]+) path=([^\n]+)\n$/.exec(record)
+            if (!match || Number(match[1]) !== bytes.length) {
+              throw new Error('unsupported pax header')
+            }
+            return validatePath(match[2])
+          }
+          const allZero = (bytes) =>
+            bytes.every((value) => value === 0)
+          const seen = new Set()
+          let fileCount = 0
+          let inputBytes = 0
+          let offset = 0
+          let paxPath
+          let ended = false
+          try {
+            while (offset < archiveInfo.size) {
+              const header = readExactly(offset, 512)
+              if (allZero(header)) {
+                const second = readExactly(offset + 512, 512)
+                if (!allZero(second)) {
+                  throw new Error('tar requires two zero end blocks')
+                }
+                offset += 1024
+                if (offset !== archiveInfo.size) {
+                  throw new Error('tar contains trailing bytes')
+                }
+                ended = true
+                break
+              }
+              const storedChecksum = octalField(header, 148, 8)
+              const checksumHeader = Buffer.from(header)
+              checksumHeader.fill(0x20, 148, 156)
+              const actualChecksum = checksumHeader.reduce(
+                (total, value) => total + value,
+                0
+              )
+              if (storedChecksum !== actualChecksum) {
+                throw new Error('tar header checksum mismatch')
+              }
+              if (
+                textField(header, 257, 6) !== 'ustar' ||
+                textField(header, 263, 2) !== '00' ||
+                textField(header, 345, 155) !== ''
+              ) {
+                throw new Error('unsupported tar header format')
+              }
+              const type = textField(header, 156, 1) || '0'
+              const size = octalField(header, 124, 12)
+              const mode = octalField(header, 100, 8) & 0o777
+              if (size > limits.fileBytes) {
+                throw new Error('tar entry exceeds per-file limit')
+              }
+              const dataStart = offset + 512
+              const dataEnd = dataStart + size
+              const next = dataStart + Math.ceil(size / 512) * 512
+              if (next > archiveInfo.size) {
+                throw new Error('truncated tar entry')
+              }
+              const padding = readExactly(dataEnd, next - dataEnd)
+              if (!allZero(padding)) {
+                throw new Error('tar entry has non-zero padding')
+              }
+              if (type === 'x') {
+                if (
+                  paxPath !== undefined ||
+                  mode !== 0o644 ||
+                  size > limits.pathBytes + 32
+                ) {
+                  throw new Error('invalid pax header')
+                }
+                paxPath = parsePaxPath(readExactly(dataStart, size))
+              } else if (type === '0') {
+                const headerPath = validatePath(textField(header, 0, 100))
+                const relative = paxPath ?? headerPath
+                paxPath = undefined
+                if (seen.has(relative)) {
+                  throw new Error(`duplicate tar path: ${relative}`)
+                }
+                if (![0o644, 0o755].includes(mode)) {
+                  throw new Error(`unexpected tar mode: ${relative}`)
+                }
+                fileCount += 1
+                inputBytes += size
+                if (
+                  fileCount > limits.files ||
+                  inputBytes > limits.inputBytes
+                ) {
+                  throw new Error('tar exceeds input limits')
+                }
+                const destination = path.resolve(root, relative)
+                if (!destination.startsWith(`${root}${path.sep}`)) {
+                  throw new Error(`tar path escapes root: ${relative}`)
+                }
+                fs.mkdirSync(path.dirname(destination), {
+                  recursive: true,
+                  mode: 0o700,
+                })
+                const output = fs.openSync(destination, 'wx', mode)
+                try {
+                  let copied = 0
+                  const buffer = Buffer.alloc(1024 * 1024)
+                  while (copied < size) {
+                    const length = Math.min(buffer.length, size - copied)
+                    const count = fs.readSync(
+                      handle,
+                      buffer,
+                      0,
+                      length,
+                      dataStart + copied
+                    )
+                    if (count === 0) {
+                      throw new Error('truncated tar file contents')
+                    }
+                    fs.writeSync(output, buffer, 0, count)
+                    copied += count
+                  }
+                  fs.fchmodSync(output, mode)
+                } finally {
+                  fs.closeSync(output)
+                }
+                seen.add(relative)
+              } else {
+                throw new Error(`unsupported tar entry type: ${type}`)
+              }
+              offset = next
+            }
+          } finally {
+            fs.closeSync(handle)
+          }
+          if (
+            !ended ||
+            paxPath !== undefined ||
+            fileCount === 0 ||
+            !seen.has('signing-input-manifest.json') ||
+            !seen.has('scripts/release-signing-input.mjs')
+          ) {
+            throw new Error('incomplete signing input tar')
+          }
+
+      - name: Verify signing input before secrets
+        shell: node {0}
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          # Updated only after reviewing the verifier source itself.
+          VERIFIER_SHA256: fa26b0c2cfde003c5f0605f0f5a123f372f8b1ac5a8dce3c0700c4a2039e7b6c
+        run: |
+          const crypto = require('node:crypto')
+          const fs = require('node:fs')
+          const { spawnSync } = require('node:child_process')
+          const verifier = 'signing-input/scripts/release-signing-input.mjs'
+          const actual = crypto
+            .createHash('sha256')
+            .update(fs.readFileSync(verifier))
+            .digest('hex')
+          if (actual !== process.env.VERIFIER_SHA256) {
+            throw new Error('signing input verifier digest mismatch')
+          }
+          const result = spawnSync(
+            process.execPath,
+            [
+              verifier,
+              '--mode',
+              'verify',
+              '--directory',
+              'signing-input',
+              '--platform',
+              process.env.EXPECTED_PLATFORM,
+              '--arch',
+              process.env.EXPECTED_ARCH,
+              '--commit',
+              process.env.EXPECTED_COMMIT,
+            ],
+            { stdio: 'inherit' }
+          )
+          if (result.status !== 0) {
+            throw new Error('signing input verification failed')
+          }
+
+      - name: Install exact signing dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp signing-input/signing-tool/package.json signing-input/package.json
+          cp signing-input/signing-tool/package-lock.json signing-input/package-lock.json
+          npm ci \
+            --prefix signing-input \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            --registry https://registry.npmjs.org/
+          node - <<'NODE'
+          const pkg = require('./signing-input/node_modules/electron-builder/package.json')
+          if (pkg.version !== '26.15.7') {
+            throw new Error('unexpected electron-builder version')
+          }
+          NODE
+
+      - name: Download digest-pinned Electron distribution
+        shell: bash
+        env:
+          ELECTRON_SHA256: ${{ matrix.electron_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p signing-input/trusted
+          cp \
+            signing-input/signing-policy/installer.nsh \
+            signing-input/trusted/installer.nsh
+          url="https://github.com/electron/electron/releases/download/v43.3.0/electron-v43.3.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            "$url" --output signing-input/trusted/electron.zip
+          node - <<'NODE'
+          const crypto = require('node:crypto')
+          const fs = require('node:fs')
+          const actual = crypto
+            .createHash('sha256')
+            .update(fs.readFileSync('signing-input/trusted/electron.zip'))
+            .digest('hex')
+          if (actual !== process.env.ELECTRON_SHA256) {
+            throw new Error('Electron distribution digest mismatch')
+          }
+          NODE
+
+      - name: Validate macOS release credentials
+        if: matrix.platform == 'darwin'
+        shell: bash
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          API_KEY: ${{ secrets.API_KEY }}
+          API_KEY_ID: ${{ secrets.API_KEY_ID }}
+          API_KEY_ISSUER_ID: ${{ secrets.API_KEY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          for name in MAC_CERTS MAC_CERTS_PASSWORD API_KEY API_KEY_ID API_KEY_ISSUER_ID; do
+            [[ -n "${!name:-}" ]] || { echo "Missing $name" >&2; exit 1; }
+          done
+
+      - name: Validate Windows release credentials
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK) -or
+              [string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) {
+            throw 'Missing Windows signing credentials'
+          }
+
+      - name: Prepare Apple API Key
+        id: apple-api-key
+        if: matrix.platform == 'darwin'
+        shell: bash
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.API_KEY }}
+          APPLE_API_KEY_ID_VALUE: ${{ secrets.API_KEY_ID }}
+        run: |
+          set -euo pipefail
+          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID_VALUE}.p8"
+          printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$key_path"
+          chmod 600 "$key_path"
+          echo "path=${key_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Electron Builder (macOS signing boundary)
+        if: matrix.platform == 'darwin'
+        working-directory: signing-input
+        env:
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
+          ELECTRON_DOWNLOAD_CACHE_MODE: '1'
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+          APPLE_API_KEY: ${{ steps.apple-api-key.outputs.path }}
+          APPLE_API_KEY_ID: ${{ secrets.API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.API_KEY_ISSUER_ID }}
+        run: >-
+          node node_modules/electron-builder/out/cli/cli.js
+          --config electron-builder.signing.json
+          ${{ matrix.electron_builder_args }}
+          --publish never
+
+      - name: Electron Builder (Windows signing boundary)
+        if: matrix.platform == 'win32'
+        working-directory: signing-input
+        env:
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
+          ELECTRON_DOWNLOAD_CACHE_MODE: '1'
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          node node_modules/electron-builder/out/cli/cli.js
+          --config electron-builder.signing.json
+          ${{ matrix.electron_builder_args }}
+          --publish never
+
+      - name: Verify macOS signatures
+        if: matrix.platform == 'darwin'
+        shell: bash
+        working-directory: signing-input
+        run: |
+          set -euo pipefail
+          codesign --verify --deep --strict --verbose=2 "${{ matrix.app_path }}"
+          codesign --verify --strict --verbose=2 \
+            "${{ matrix.resources_dir }}/bin/motrix-native-host"
+          xcrun stapler validate "${{ matrix.app_path }}"
+
+      - name: Verify Windows signatures
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        working-directory: signing-input
+        run: |
+          $files = @(
+            'release/win-unpacked/Motrix.exe',
+            'release/win-unpacked/resources/bin/motrix-native-host.exe'
+          )
+          $files += @(
+            Get-ChildItem -Path release -Filter '*.exe' -File |
+              ForEach-Object { $_.FullName }
+          )
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature -FilePath $file
+            if ($signature.Status -ne 'Valid') {
+              throw "Invalid Authenticode signature for ${file}: $($signature.StatusMessage)"
+            }
+            if ($null -eq $signature.TimeStamperCertificate) {
+              throw "Missing Authenticode timestamp for ${file}"
+            }
+          }
+
+      - name: Verify signed Electron package
+        working-directory: signing-input
+        run: >-
+          node scripts/verify-electron-package.mjs
+          --app-dir "${{ matrix.app_path }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --report "release/size-reports/${{ matrix.target }}.json"
+
+      - name: Remove Apple API Key
+        if: always() && matrix.platform == 'darwin'
+        shell: bash
+        env:
+          APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
+        run: |
+          if [[ -n "${APPLE_API_KEY_PATH:-}" ]]; then
+            rm -f "$APPLE_API_KEY_PATH"
+          fi
+
+      - name: Upload signed release input
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-input-${{ matrix.target }}
+          path: |
+            signing-input/release/*.blockmap
+            signing-input/release/beta*.yml
+            signing-input/release/*.dmg
+            signing-input/release/*.exe
+            signing-input/release/latest*.yml
+            signing-input/release/size-reports/${{ matrix.target }}.json
+            signing-input/release/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
   assemble:
     name: Assemble and validate release
-    needs: [preflight, build]
+    needs: [preflight, build, sign]
+    if: >-
+      always() &&
+      needs.preflight.result == 'success' &&
+      needs.build.result == 'success' &&
+      (
+        (github.event_name == 'push' && needs.sign.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && needs.sign.result == 'skipped')
+      )
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     env:

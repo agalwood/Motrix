@@ -45,6 +45,7 @@ import type { PluginManifest } from '@shared/types/plugin'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import { app, ipcMain } from 'electron'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
+import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
 import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
@@ -680,7 +681,7 @@ export async function bootstrapBridge(args: {
       channel: string,
       listener: Parameters<typeof ipcMain.handle>[1]
     ): void => {
-      ipcMain.handle(channel, (...listenerArgs) =>
+      registerTrustedIpcHandler(channel, (...listenerArgs) =>
         args.trackAsyncWork(async () => listener(...listenerArgs))
       )
       installedIpcChannels.push(channel)

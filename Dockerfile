@@ -55,6 +55,8 @@ RUN apk add --no-cache aria2 ca-certificates \
            /opt/yarn-v1.22.22 \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
           /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && printf '%s\n' '#!/bin/sh' 'exec node /app/dist/server/motrix-admin.mjs "$@"' > /usr/local/bin/motrix-admin \
+ && chmod 0755 /usr/local/bin/motrix-admin \
  && mkdir -p /data/home /data/tmp /downloads \
  && chown -R node:node /data /downloads
 WORKDIR /app
@@ -101,6 +103,8 @@ RUN apk add --no-cache aria2 ca-certificates \
            /opt/yarn-v1.22.22 \
  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
           /usr/local/bin/pnpm /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && printf '%s\n' '#!/bin/sh' 'exec node /app/dist/server/motrix-admin.mjs "$@"' > /usr/local/bin/motrix-admin \
+ && chmod 0755 /usr/local/bin/motrix-admin \
  && mkdir -p /data/home /data/tmp /downloads \
  && chown -R node:node /data /downloads
 WORKDIR /app

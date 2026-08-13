@@ -14,11 +14,12 @@
 // row → purge plugin_storage + plugin_task_metadata + plugin_cookie_jar →
 // remove the install directory → refresh registry.
 
-import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, rm } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { FALLBACK_LOCALE } from '@shared/constants/locales'
 import { AppError, ErrorCode } from '@shared/errors'
+import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import type { PluginManifest } from '@shared/types/plugin'
 import type {
   ConsentPayload,
@@ -45,7 +46,7 @@ import {
   requiresConsent,
   writeInstallRecord,
 } from './install-record'
-import { extractMoext } from './moext-reader'
+import { extractLoadedMoext, loadMoext } from './moext-reader'
 import { computePublicCommandHashes } from './public-command-hash'
 import {
   assertMatchesRegistryExpectation,
@@ -70,6 +71,15 @@ export interface CommandSchemaCacheLike {
     }>
   ): void
   uninstall(pluginId: string): void
+}
+
+/**
+ * Runtime teardown seam shared by the Electron and server plugin hosts.
+ * `deactivate()` does not resolve until the worker bridge has been disposed.
+ */
+export interface PluginRuntimeHostLike {
+  isQuiescent(pluginId: string): boolean
+  deactivate(pluginId: string): Promise<void>
 }
 
 export interface PluginInstallerOptions {
@@ -106,6 +116,10 @@ interface StagedInstall {
   source: InstallRecordSource
   stagingDir: string
   consent: ConsentPayload
+  archivePath: string
+  archiveSha256: string
+  previousRecord: InstallRecord | null
+  runtimeHost?: PluginRuntimeHostLike
 }
 
 export interface StageResult {
@@ -120,6 +134,10 @@ export interface StageResult {
 export interface StageOptions {
   /** §6.3 registry↔manifest consistency gate; checked before any commit. */
   expect?: RegistryExpectation
+  /** Digest pinned by a non-registry source such as server bootstrap. */
+  expectedSha256?: string
+  /** Runtime teardown seam supplied by the shell command boundary. */
+  runtimeHost?: PluginRuntimeHostLike
 }
 
 async function loadManifestLocale(
@@ -155,8 +173,42 @@ async function resolveManifestForInstall(
   })
 }
 
+function resolvePluginInstallDir(pluginsDir: string, pluginId: string): string {
+  if (!REGISTRY_PLUGIN_ID_RE.test(pluginId)) {
+    throw new AppError(
+      ErrorCode.PluginManifestInvalid,
+      'plugin.install.invalid_plugin_id'
+    )
+  }
+
+  const root = path.resolve(pluginsDir)
+  const candidate = path.resolve(root, pluginId)
+  const relative = path.relative(root, candidate)
+  if (
+    relative === '' ||
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new AppError(
+      ErrorCode.PluginManifestInvalid,
+      'plugin.install.invalid_plugin_id'
+    )
+  }
+  return candidate
+}
+
+function sameInstallRecord(
+  left: InstallRecord | null,
+  right: InstallRecord | null
+): boolean {
+  if (left === null || right === null) return left === right
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
 export class PluginInstaller {
   private readonly pending = new Map<string, StagedInstall>()
+  private readonly mutationTails = new Map<string, Promise<void>>()
 
   constructor(private readonly opts: PluginInstallerOptions) {}
 
@@ -170,25 +222,37 @@ export class PluginInstaller {
       '_staging',
       `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
     )
-    const { bundleSha256, manifestRaw } = await extractMoext(
-      moextPath,
-      stagingDir
-    )
-    const localFileHash =
+    const extractedDir = path.join(stagingDir, 'tree')
+    const archivePath = path.join(stagingDir, 'archive.moext')
+    const loadedMoext = await loadMoext(moextPath)
+    const pinnedSha256 =
       sourceInput.type === 'local'
-        ? createHash('sha256')
-            .update(await readFile(moextPath))
-            .digest('hex')
-        : null
-    if (
-      sourceInput.type === 'local' &&
-      sourceInput.fileHash !== localFileHash
-    ) {
-      await rm(stagingDir, { recursive: true, force: true })
+        ? sourceInput.fileHash
+        : (options?.expectedSha256 ?? options?.expect?.packageSha256)
+    if (pinnedSha256 && loadedMoext.archiveSha256 !== pinnedSha256) {
       throw new AppError(
         ErrorCode.PluginManifestInvalid,
-        'plugin.install.local_file_hash_mismatch'
+        sourceInput.type === 'local'
+          ? 'plugin.install.local_file_hash_mismatch'
+          : 'plugin.install.sha256_mismatch'
       )
+    }
+
+    let manifestRaw: string
+    let bundleSha256: string
+    try {
+      const extracted = await extractLoadedMoext(loadedMoext, extractedDir)
+      manifestRaw = extracted.manifestRaw
+      bundleSha256 = extracted.bundleSha256
+      // Consent can remain open indefinitely. Keep the exact package on disk
+      // instead of retaining up to 5 MiB in the installer's pending Map.
+      await writeFile(archivePath, loadedMoext.bytes, {
+        flag: 'wx',
+        mode: 0o600,
+      })
+    } catch (error) {
+      await rm(stagingDir, { recursive: true, force: true })
+      throw error
     }
 
     let parsedManifest: PluginManifest
@@ -198,7 +262,7 @@ export class PluginInstaller {
       })
       parsedManifest = await resolveManifestForInstall(
         result.manifest as PluginManifest,
-        stagingDir
+        extractedDir
       )
     } catch (e) {
       await rm(stagingDir, { recursive: true, force: true })
@@ -221,7 +285,10 @@ export class PluginInstaller {
       bundleSha256,
       recordedAt: Date.now(),
     }
-    const finalDir = path.join(this.opts.pluginsDir, parsedManifest.id)
+    const finalDir = resolvePluginInstallDir(
+      this.opts.pluginsDir,
+      parsedManifest.id
+    )
     const prev = await readInstallRecord(finalDir)
 
     if (this.opts.serverAck) {
@@ -315,6 +382,11 @@ export class PluginInstaller {
       { ffmpegDetection }
     )
 
+    // Locale/manifest resolution is complete. A pending consent transaction
+    // only needs the protected archive, so do not retain a second extracted
+    // copy indefinitely alongside it.
+    await rm(extractedDir, { recursive: true, force: true })
+
     const stagingId = path.basename(stagingDir)
     const staged: StagedInstall = {
       pluginId: parsedManifest.id,
@@ -322,11 +394,19 @@ export class PluginInstaller {
       source,
       stagingDir,
       consent,
+      archivePath,
+      archiveSha256: loadedMoext.archiveSha256,
+      previousRecord: prev,
+      runtimeHost: options?.runtimeHost,
     }
     this.pending.set(stagingId, staged)
 
     if (!needConsent) {
-      const committed = await this.commit(stagingId, prev?.grants ?? {})
+      const committed = await this.commit(
+        stagingId,
+        prev?.grants ?? {},
+        options?.runtimeHost
+      )
       return {
         stagingId,
         consent,
@@ -339,7 +419,8 @@ export class PluginInstaller {
 
   async commit(
     stagingId: string,
-    grants: GrantsMap
+    grants: GrantsMap,
+    runtimeHost?: PluginRuntimeHostLike
   ): Promise<{ pluginId: string }> {
     const staged = this.pending.get(stagingId)
     if (!staged) {
@@ -348,81 +429,223 @@ export class PluginInstaller {
         'plugin.install.staging_not_found'
       )
     }
-    const finalDir = path.join(this.opts.pluginsDir, staged.pluginId)
-    const prev = await readInstallRecord(finalDir)
 
-    if (prev) {
-      // Upgrade: deactivate first, then atomic dir swap with rollback.
-      await this.opts.capabilityHost.lifecycle.runDeactivate(staged.pluginId)
-      const backup = `${finalDir}.bak-${Date.now()}`
-      await rename(finalDir, backup)
-      try {
-        await rename(staged.stagingDir, finalDir)
-      } catch (e) {
-        await rename(backup, finalDir).catch(() => {})
-        throw e
+    return this.withPluginMutation(staged.pluginId, async () => {
+      // A second commit may have consumed this staging entry while this call
+      // waited for the per-plugin mutation lock.
+      if (this.pending.get(stagingId) !== staged) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.install.staging_not_found'
+        )
       }
-      await rm(backup, { recursive: true, force: true })
-    } else {
-      await mkdir(this.opts.pluginsDir, { recursive: true })
-      await rename(staged.stagingDir, finalDir)
-    }
 
-    const record: InstallRecord = {
-      version: 1,
-      pluginId: staged.pluginId,
-      source: staged.source,
-      grants,
-      consentSnapshot: {
-        permissions: staged.newManifest.permissions,
-        optionalPermissions: staged.newManifest.optionalPermissions ?? [],
-        invokesCommands: staged.newManifest.invokesCommands ?? [],
-        publicCommands: computePublicCommandHashes(staged.newManifest),
-        requestedHeapMB: staged.newManifest.requestedHeapMB ?? 32,
-        enginesMotrix: staged.newManifest.engines.motrix,
-        hostPermissions: staged.newManifest.hostPermissions ?? [],
-      },
-    }
-    await writeInstallRecord(finalDir, record)
-
-    if (this.opts.schemaCache) {
-      this.opts.schemaCache.installCommandSchemas(
-        staged.pluginId,
-        (staged.newManifest.contributes.commands ?? []) as ReadonlyArray<{
-          id: string
-          argsSchema?: unknown
-          resultSchema?: unknown
-          public?: boolean
-        }>
+      const finalDir = resolvePluginInstallDir(
+        this.opts.pluginsDir,
+        staged.pluginId
       )
-    }
+      const prev = await readInstallRecord(finalDir)
+      if (!sameInstallRecord(prev, staged.previousRecord)) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.install.changed_since_staging'
+        )
+      }
 
-    await this.opts.registry.discover()
-    this.pending.delete(stagingId)
-    return { pluginId: staged.pluginId }
+      const record: InstallRecord = {
+        version: 1,
+        pluginId: staged.pluginId,
+        source: staged.source,
+        grants,
+        consentSnapshot: {
+          permissions: staged.newManifest.permissions,
+          optionalPermissions: staged.newManifest.optionalPermissions ?? [],
+          invokesCommands: staged.newManifest.invokesCommands ?? [],
+          publicCommands: computePublicCommandHashes(staged.newManifest),
+          requestedHeapMB: staged.newManifest.requestedHeapMB ?? 32,
+          enginesMotrix: staged.newManifest.engines.motrix,
+          hostPermissions: staged.newManifest.hostPermissions ?? [],
+        },
+      }
+      const commitDir = path.join(
+        this.opts.pluginsDir,
+        '_staging',
+        `c_${randomUUID()}`
+      )
+      let backupDir: string | null = null
+      let swapped = false
+
+      try {
+        // Never commit the long-lived staging tree: it was visible while the
+        // consent dialog was open. Re-read through one file descriptor, verify
+        // the staged archive digest, then extract those exact bytes into the
+        // one-shot swap directory.
+        const loadedMoext = await loadMoext(staged.archivePath)
+        if (loadedMoext.archiveSha256 !== staged.archiveSha256) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.sha256_mismatch'
+          )
+        }
+        await extractLoadedMoext(loadedMoext, commitDir)
+        await writeInstallRecord(commitDir, record)
+        await mkdir(this.opts.pluginsDir, { recursive: true })
+
+        if (prev) {
+          // PluginHost.deactivate waits for the worker-side handler, tears
+          // down the bridge, and terminates the worker before disk changes.
+          await this.stopRuntime(
+            staged.pluginId,
+            runtimeHost ?? staged.runtimeHost
+          )
+          backupDir = `${finalDir}.bak-${randomUUID()}`
+          await rename(finalDir, backupDir)
+        }
+        await rename(commitDir, finalDir)
+        swapped = true
+
+        this.installCommandSchemas(staged.pluginId, staged.newManifest)
+        await this.opts.registry.discover()
+
+        this.pending.delete(stagingId)
+        await rm(staged.stagingDir, { recursive: true, force: true }).catch(
+          () => undefined
+        )
+        if (backupDir) {
+          await rm(backupDir, { recursive: true, force: true }).catch(
+            () => undefined
+          )
+        }
+        return { pluginId: staged.pluginId }
+      } catch (error) {
+        if (backupDir) {
+          if (swapped) {
+            await rm(finalDir, { recursive: true, force: true }).catch(
+              () => undefined
+            )
+          }
+          await rename(backupDir, finalDir).catch(() => undefined)
+        } else if (swapped) {
+          await rm(finalDir, { recursive: true, force: true }).catch(
+            () => undefined
+          )
+        }
+        if (backupDir || swapped) {
+          await this.opts.registry
+            .discover()
+            .then(() => {
+              const restored = this.opts.registry.get(staged.pluginId)
+              if (restored) {
+                this.installCommandSchemas(staged.pluginId, restored.manifest)
+              } else if (this.opts.schemaCache) {
+                this.opts.schemaCache.uninstall(staged.pluginId)
+              }
+            })
+            .catch(() => undefined)
+        }
+        throw error
+      } finally {
+        await rm(commitDir, { recursive: true, force: true }).catch(
+          () => undefined
+        )
+      }
+    })
   }
 
   async cancel(stagingId: string): Promise<void> {
     const staged = this.pending.get(stagingId)
     if (!staged) return
-    await rm(staged.stagingDir, { recursive: true, force: true })
-    this.pending.delete(stagingId)
+    await this.withPluginMutation(staged.pluginId, async () => {
+      if (this.pending.get(stagingId) !== staged) return
+      this.pending.delete(stagingId)
+      await rm(staged.stagingDir, { recursive: true, force: true })
+    })
   }
 
-  async uninstall(pluginId: string): Promise<void> {
-    const finalDir = path.join(this.opts.pluginsDir, pluginId)
-    // Best-effort deactivate — uninstalling something that failed to
-    // activate shouldn't block teardown.
-    await this.opts.capabilityHost.lifecycle
-      .runDeactivate(pluginId)
-      .catch(() => {})
-    this.opts.stateStore.remove(pluginId)
-    await this.opts.capabilityHost.storage.deleteAll(pluginId)
-    await this.opts.capabilityHost.metadata.deleteAllForPlugin(pluginId)
-    this.opts.capabilityHost.cookieJarFor(pluginId).clear()
-    await rm(finalDir, { recursive: true, force: true })
-    if (this.opts.schemaCache) this.opts.schemaCache.uninstall(pluginId)
-    await this.opts.registry.discover()
+  async uninstall(
+    pluginId: string,
+    runtimeHost?: PluginRuntimeHostLike
+  ): Promise<void> {
+    const finalDir = resolvePluginInstallDir(this.opts.pluginsDir, pluginId)
+    await this.withPluginMutation(pluginId, async () => {
+      // A worker retaining old code must not survive removal of its durable
+      // files. Unlike handler failures (which PluginHost handles internally),
+      // a bridge-disposal failure aborts the uninstall.
+      if (runtimeHost) {
+        await this.stopRuntime(pluginId, runtimeHost)
+      } else {
+        // Preserve the legacy direct-installer behavior for embedders that do
+        // not yet supply a PluginHost. Production IPC always passes it.
+        await this.opts.capabilityHost.lifecycle
+          .runDeactivate(pluginId)
+          .catch(() => undefined)
+      }
+      this.opts.stateStore.remove(pluginId)
+      await this.opts.capabilityHost.storage.deleteAll(pluginId)
+      await this.opts.capabilityHost.metadata.deleteAllForPlugin(pluginId)
+      this.opts.capabilityHost.cookieJarFor(pluginId).clear()
+      await rm(finalDir, { recursive: true, force: true })
+      if (this.opts.schemaCache) this.opts.schemaCache.uninstall(pluginId)
+      await this.opts.registry.discover()
+    })
+  }
+
+  private installCommandSchemas(
+    pluginId: string,
+    manifest: PluginManifest
+  ): void {
+    if (!this.opts.schemaCache) return
+    this.opts.schemaCache.installCommandSchemas(
+      pluginId,
+      (manifest.contributes.commands ?? []) as ReadonlyArray<{
+        id: string
+        argsSchema?: unknown
+        resultSchema?: unknown
+        public?: boolean
+      }>
+    )
+  }
+
+  private async stopRuntime(
+    pluginId: string,
+    runtimeHost?: PluginRuntimeHostLike
+  ): Promise<void> {
+    if (!runtimeHost) {
+      await this.opts.capabilityHost.lifecycle.runDeactivate(pluginId)
+      return
+    }
+    await runtimeHost.deactivate(pluginId)
+    if (!runtimeHost.isQuiescent(pluginId)) {
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        'plugin.install.runtime_still_active'
+      )
+    }
+  }
+
+  private async withPluginMutation<T>(
+    pluginId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const previous = this.mutationTails.get(pluginId) ?? Promise.resolve()
+    let release!: () => void
+    const current = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const tail = previous.then(
+      () => current,
+      () => current
+    )
+    this.mutationTails.set(pluginId, tail)
+    await previous.catch(() => undefined)
+    try {
+      return await operation()
+    } finally {
+      release()
+      if (this.mutationTails.get(pluginId) === tail) {
+        this.mutationTails.delete(pluginId)
+      }
+    }
   }
 
   private collectCalleeTitles(

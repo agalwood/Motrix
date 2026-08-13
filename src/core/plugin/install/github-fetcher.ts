@@ -7,7 +7,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
-import { Agent, interceptors, request } from 'undici'
+import { request } from 'undici'
 
 export interface GhReleaseSpec {
   owner: string
@@ -39,13 +39,67 @@ export interface DownloadResult {
 
 const USER_AGENT = 'motrix-plugin-installer'
 const MAX_MOEXT_BYTES = 5 * 1024 * 1024
+const MAX_REDIRECTS = 5
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
+
+function requireHttpsUrl(rawUrl: string, errorKey: string): URL {
+  let url: URL
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    throw new AppError(ErrorCode.PluginManifestInvalid, errorKey)
+  }
+  if (url.protocol !== 'https:') {
+    throw new AppError(ErrorCode.PluginManifestInvalid, errorKey)
+  }
+  return url
+}
+
+function responseHeader(
+  headers: Record<string, string | string[] | undefined>,
+  name: string
+): string | undefined {
+  const value = headers[name]
+  return Array.isArray(value) ? value[0] : value
+}
+
+async function cancelBody(body: unknown): Promise<void> {
+  const stream = body as {
+    destroy?: (error?: Error) => unknown
+    cancel?: (reason?: unknown) => Promise<void>
+  }
+  if (typeof stream.destroy === 'function') {
+    stream.destroy()
+  } else if (typeof stream.cancel === 'function') {
+    await stream.cancel().catch(() => undefined)
+  }
+}
+
+function resolveHttpsRedirect(location: string, current: URL): URL {
+  let next: URL
+  try {
+    next = new URL(location, current)
+  } catch {
+    throw new AppError(
+      ErrorCode.PluginManifestInvalid,
+      'plugin.install.invalid_redirect'
+    )
+  }
+  if (next.protocol !== 'https:') {
+    throw new AppError(
+      ErrorCode.PluginManifestInvalid,
+      'plugin.install.redirect_protocol_downgrade'
+    )
+  }
+  return next
+}
 
 export async function downloadGithubMoext(
   spec: GhReleaseSpec,
   destFile: string
 ): Promise<DownloadResult> {
   const apiUrl = spec.tag
-    ? `https://api.github.com/repos/${spec.owner}/${spec.repo}/releases/tags/${spec.tag}`
+    ? `https://api.github.com/repos/${spec.owner}/${spec.repo}/releases/tags/${encodeURIComponent(spec.tag)}`
     : `https://api.github.com/repos/${spec.owner}/${spec.repo}/releases/latest`
 
   const meta = await request(apiUrl, {
@@ -70,17 +124,39 @@ export async function downloadGithubMoext(
   }
 
   await mkdir(path.dirname(destFile), { recursive: true })
-  // undici v8 removed the `maxRedirections` request option; redirect handling
-  // now lives in a composed dispatcher. A GitHub asset's browser_download_url
-  // 302-redirects to a CDN, so this download MUST follow redirects or it
-  // returns the redirect status instead of the bytes.
-  const dispatcher = new Agent().compose(
-    interceptors.redirect({ maxRedirections: 5 })
+  // GitHub release assets redirect to a CDN. Follow manually so an HTTPS
+  // download cannot silently downgrade on a later hop.
+  let assetUrl = requireHttpsUrl(
+    asset.browser_download_url,
+    'plugin.install.gh_asset_insecure_url'
   )
-  const dl = await request(asset.browser_download_url, {
-    headers: { 'user-agent': USER_AGENT },
-    dispatcher,
-  })
+  let dl: Awaited<ReturnType<typeof request>> | undefined
+  for (let redirects = 0; ; redirects += 1) {
+    const response = await request(assetUrl.href, {
+      headers: { 'user-agent': USER_AGENT },
+    })
+    if (!REDIRECT_STATUSES.has(response.statusCode)) {
+      dl = response
+      break
+    }
+    if (redirects >= MAX_REDIRECTS) {
+      await cancelBody(response.body)
+      throw new AppError(
+        ErrorCode.PluginManifestInvalid,
+        'plugin.install.too_many_redirects'
+      )
+    }
+    const location = responseHeader(response.headers, 'location')
+    if (!location) {
+      await cancelBody(response.body)
+      throw new AppError(
+        ErrorCode.PluginManifestInvalid,
+        'plugin.install.invalid_redirect'
+      )
+    }
+    await cancelBody(response.body)
+    assetUrl = resolveHttpsRedirect(location, assetUrl)
+  }
   if (dl.statusCode !== 200) {
     throw new AppError(
       ErrorCode.PluginManifestInvalid,

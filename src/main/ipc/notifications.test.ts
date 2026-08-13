@@ -13,6 +13,13 @@ vi.mock('electron', () => ({
   ipcMain: { handle, removeHandler },
 }))
 
+vi.mock('./trusted-ipc', () => ({
+  registerTrustedIpcHandler: (
+    channel: string,
+    listener: (...args: unknown[]) => unknown
+  ) => handle(channel, listener),
+}))
+
 import {
   buildNotificationHandlers,
   registerNotificationIpc,

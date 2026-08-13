@@ -775,6 +775,13 @@ describe('server plugin lifecycle commands', () => {
         pluginId: 'test.plugin',
       })
     ).resolves.toMatchObject({ stagingId: 's1', committed: false })
+    expect(ctx.pluginInstallService.stage).toHaveBeenCalledWith(
+      {
+        sourceType: 'registry',
+        pluginId: 'test.plugin',
+      },
+      ctx.pluginHost
+    )
     expect(ctx.eventBus.emit).toHaveBeenCalledWith(
       Events.PluginInstallConsentRequested,
       expect.objectContaining({ stagingId: 's1' })
@@ -796,9 +803,11 @@ describe('server plugin lifecycle commands', () => {
         grants: { notify: 'denied' },
       })
     ).resolves.toEqual({ ok: true, pluginId: 'test.plugin' })
-    expect(ctx.pluginInstaller.commit).toHaveBeenCalledWith('s1', {
-      notify: 'denied',
-    })
+    expect(ctx.pluginInstaller.commit).toHaveBeenCalledWith(
+      's1',
+      { notify: 'denied' },
+      ctx.pluginHost
+    )
     expect(ctx.eventBus.emit).toHaveBeenCalledWith(Events.PluginInstalled, {
       pluginId: 'test.plugin',
     })
@@ -823,7 +832,10 @@ describe('server plugin lifecycle commands', () => {
     await handlers[Commands.UninstallPlugin]?.({ pluginId: 'test.plugin' })
 
     expect(ctx.pluginInstaller.cancel).toHaveBeenCalledWith('s1')
-    expect(ctx.pluginInstaller.uninstall).toHaveBeenCalledWith('test.plugin')
+    expect(ctx.pluginInstaller.uninstall).toHaveBeenCalledWith(
+      'test.plugin',
+      ctx.pluginHost
+    )
     expect(ctx.settingsManager.removePluginConfig).toHaveBeenCalledWith(
       'test.plugin'
     )

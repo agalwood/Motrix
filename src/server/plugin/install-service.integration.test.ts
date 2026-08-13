@@ -33,6 +33,11 @@ function capabilityHost(): CapabilityHost {
   } as unknown as CapabilityHost
 }
 
+const runtimeHost = {
+  deactivate: async () => undefined,
+  isQuiescent: () => true,
+}
+
 describe('Server plugin install lifecycle integration', () => {
   it('installs, persists enablement across rediscovery, and uninstalls', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'motrix-server-plugin-e2e-'))
@@ -72,13 +77,16 @@ describe('Server plugin install lifecycle integration', () => {
       .update(await readFile(fixture))
       .digest('hex')
 
-    const staged = await service.stage({
-      sourceType: 'local',
-      absPath: fixture,
-      fileHash,
-    })
+    const staged = await service.stage(
+      {
+        sourceType: 'local',
+        absPath: fixture,
+        fileHash,
+      },
+      runtimeHost
+    )
     expect(staged.committed).toBe(false)
-    await installer.commit(staged.stagingId, { notify: 'denied' })
+    await installer.commit(staged.stagingId, { notify: 'denied' }, runtimeHost)
     expect(
       existsSync(path.join(pluginsDir, 'test.demo-config', '_install.json'))
     ).toBe(true)
@@ -102,7 +110,7 @@ describe('Server plugin install lifecycle integration', () => {
       capabilityHost: capabilityHost(),
       hostVersion: '2.0.0',
     })
-    await restartedInstaller.uninstall('test.demo-config')
+    await restartedInstaller.uninstall('test.demo-config', runtimeHost)
     expect(restartedRegistry.get('test.demo-config')).toBeUndefined()
     expect(existsSync(path.join(pluginsDir, 'test.demo-config'))).toBe(false)
     database.close()

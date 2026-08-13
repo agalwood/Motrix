@@ -142,7 +142,7 @@ export function TaskInspectorDrawer({
                       dir="ltr"
                       onClick={() =>
                         transport.invoke(Commands.RevealInFolder, {
-                          path: single.diskPath,
+                          taskId: single.id,
                         })
                       }
                     >

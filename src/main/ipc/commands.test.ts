@@ -40,6 +40,15 @@ vi.mock('electron', () => ({
   },
 }))
 
+// Sender trust is covered by trusted-ipc.test.ts. Keep these handler tests
+// focused on command dispatch while preserving the same registration seam.
+vi.mock('./trusted-ipc', () => ({
+  registerTrustedIpcHandler: (
+    channel: string,
+    listener: (...args: unknown[]) => unknown
+  ) => ipcHandleMock(channel, listener),
+}))
+
 function fakeCtx() {
   // Build the rpc spies first, then wrap them in a real Aria2Adapter so the
   // create path (handleCreateTask → adapter.createDownload/addTorrent)
@@ -180,6 +189,14 @@ function fakeCtx() {
     },
     pluginHost: {
       allActive: vi.fn(() => []),
+      deactivate: vi.fn().mockResolvedValue(undefined),
+      isQuiescent: vi.fn(() => true),
+    },
+    pluginInstaller: {
+      stage: vi.fn(),
+      commit: vi.fn().mockResolvedValue({ pluginId: 'test.plugin' }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+      uninstall: vi.fn().mockResolvedValue(undefined),
     },
     userDataDir: '/tmp/userdata',
     pluginsDir: '/tmp/userdata/plugins',
@@ -244,6 +261,31 @@ describe('buildCommandHandlers', () => {
       expect(ctx.cliToolService.install).not.toHaveBeenCalled()
     }
   )
+
+  it('passes PluginHost through commit and uninstall lifecycle commands', async () => {
+    const ctx = fakeCtx()
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+
+    await expect(
+      handlers[Commands.ConfirmPluginInstall]?.({
+        stagingId: 's1',
+        grants: { notify: 'denied' },
+      })
+    ).resolves.toEqual({ ok: true, pluginId: 'test.plugin' })
+    await expect(
+      handlers[Commands.UninstallPlugin]?.({ pluginId: 'test.plugin' })
+    ).resolves.toEqual({ ok: true })
+
+    expect(ctx.pluginInstaller.commit).toHaveBeenCalledWith(
+      's1',
+      { notify: 'denied' },
+      ctx.pluginHost
+    )
+    expect(ctx.pluginInstaller.uninstall).toHaveBeenCalledWith(
+      'test.plugin',
+      ctx.pluginHost
+    )
+  })
 
   it('returns a map keyed by Commands channels', () => {
     // @ts-expect-error — fake ctx is partial; handler map keys are what we care about

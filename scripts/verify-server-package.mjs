@@ -287,6 +287,15 @@ export async function verifyServerPackage(options) {
     }
     return `${actualRoots.length} runtime roots match the contract`
   })
+  await check('operator-cli', async () => {
+    const bundle = await lstat(
+      path.join(stageRoot, 'dist/server/motrix-admin.mjs')
+    )
+    if (!bundle.isFile()) {
+      throw new Error('dist/server/motrix-admin.mjs is not a regular file')
+    }
+    return 'operator CLI bundle is present'
+  })
   await check('artifact-tree', async () => {
     tree = await walkStage(stageRoot)
     if (tree.symlinks.length > 0) {

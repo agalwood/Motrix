@@ -6,6 +6,7 @@ import type { AppSettings } from '@shared/types/settings'
 import { ipcMain } from 'electron'
 import type { DisclaimerGate } from '../onboarding/disclaimer-gate'
 import type { WindowManager } from '../window/window-manager'
+import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface DisclaimerIpcDeps {
   gate: Pick<DisclaimerGate, 'accept'>
@@ -53,7 +54,9 @@ export function registerDisclaimerIpc(deps: DisclaimerIpcDeps): () => void {
   const channels = Object.keys(handlers)
 
   for (const [channel, handler] of Object.entries(handlers)) {
-    ipcMain.handle(channel, async (_event, ...args) => handler(...args))
+    registerTrustedIpcHandler(channel, async (_event, ...args) =>
+      handler(...args)
+    )
   }
 
   return () => {

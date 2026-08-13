@@ -51,6 +51,13 @@ vi.mock('electron', () => ({
   },
 }))
 
+vi.mock('../ipc/trusted-ipc', () => ({
+  registerTrustedIpcHandler: (
+    channel: string,
+    listener: (...args: unknown[]) => unknown
+  ) => electron.handle(channel, listener),
+}))
+
 import { bootstrapBridge } from './index'
 
 function args(): Parameters<typeof bootstrapBridge>[0] {

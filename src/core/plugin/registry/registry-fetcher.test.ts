@@ -4,11 +4,12 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   assertAllowlistedPackageUrl,
   downloadRegistryMoext,
   fetchVerifiedPackageBytes,
+  MAX_REGISTRY_PACKAGE_BYTES,
 } from './registry-fetcher'
 
 const BYTES = Buffer.from('fake-moext-bytes')
@@ -46,13 +47,16 @@ function entry(
   }
 }
 
-function fakeFetch(body: Buffer, status = 200): typeof fetch {
-  return (async () => ({
-    ok: status === 200,
-    status,
-    arrayBuffer: async () =>
-      body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
-  })) as unknown as typeof fetch
+function responseFetch(response: Response): typeof fetch {
+  return vi.fn(async () => response) as unknown as typeof fetch
+}
+
+function fakeFetch(
+  body: Buffer,
+  status = 200,
+  headers?: HeadersInit
+): typeof fetch {
+  return responseFetch(new Response(Uint8Array.from(body), { status, headers }))
 }
 
 describe('assertAllowlistedPackageUrl', () => {
@@ -132,8 +136,130 @@ describe('downloadRegistryMoext', () => {
 })
 
 describe('fetchVerifiedPackageBytes', () => {
-  it('fetchVerifiedPackageBytes returns the verified bytes without touching disk', async () => {
+  it('returns verified bytes when Content-Length is absent', async () => {
     const bytes = await fetchVerifiedPackageBytes(entry(), fakeFetch(BYTES))
     expect(bytes).toEqual(BYTES)
+  })
+
+  it('verifies size and sha256 across streamed chunks', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(BYTES.subarray(0, 4))
+        controller.enqueue(BYTES.subarray(4))
+        controller.close()
+      },
+    })
+
+    await expect(
+      fetchVerifiedPackageBytes(
+        entry(),
+        responseFetch(
+          new Response(stream, {
+            headers: { 'content-length': String(BYTES.byteLength) },
+          })
+        )
+      )
+    ).resolves.toEqual(BYTES)
+  })
+
+  it('cancels immediately when the stream exceeds the declared size', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Buffer.concat([BYTES, Buffer.from('!')]))
+      },
+      cancel,
+    })
+
+    await expect(
+      fetchVerifiedPackageBytes(entry(), responseFetch(new Response(stream)))
+    ).rejects.toThrowError(/registry_size_mismatch/)
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
+  it('cancels immediately when the stream exceeds the absolute cap', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_REGISTRY_PACKAGE_BYTES + 1))
+      },
+      cancel,
+    })
+
+    await expect(
+      fetchVerifiedPackageBytes(
+        entry({ size: MAX_REGISTRY_PACKAGE_BYTES }),
+        responseFetch(new Response(stream))
+      )
+    ).rejects.toThrowError(/package_too_large/)
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
+  it('does not trust a mismatched Content-Length over verified body bytes', async () => {
+    await expect(
+      fetchVerifiedPackageBytes(
+        entry(),
+        responseFetch(
+          new Response(Uint8Array.from(BYTES), {
+            headers: { 'content-length': String(BYTES.byteLength - 1) },
+          })
+        )
+      )
+    ).resolves.toEqual(BYTES)
+  })
+
+  it('cancels a Content-Length above the absolute cap', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream<Uint8Array>({ cancel })
+
+    await expect(
+      fetchVerifiedPackageBytes(
+        entry(),
+        responseFetch(
+          new Response(stream, {
+            headers: {
+              'content-length': String(MAX_REGISTRY_PACKAGE_BYTES + 1),
+            },
+          })
+        )
+      )
+    ).rejects.toThrowError(/package_too_large/)
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
+  it('rejects an invalid declared package size before fetching', async () => {
+    const fetchImpl = vi.fn()
+    await expect(
+      fetchVerifiedPackageBytes(
+        entry({ size: MAX_REGISTRY_PACKAGE_BYTES + 1 }),
+        fetchImpl
+      )
+    ).rejects.toThrowError(/package_too_large/)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('rejects an absent response body', async () => {
+    await expect(
+      fetchVerifiedPackageBytes(
+        entry(),
+        responseFetch(new Response(null, { status: 200 }))
+      )
+    ).rejects.toThrowError(/registry_download_failed: empty body/)
+  })
+
+  it('wraps response stream errors', async () => {
+    const cause = new Error('stream failed')
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(cause)
+      },
+    })
+
+    await expect(
+      fetchVerifiedPackageBytes(entry(), responseFetch(new Response(stream)))
+    ).rejects.toMatchObject({
+      message: 'plugin.install.registry_download_failed: stream error',
+      cause,
+    })
   })
 })

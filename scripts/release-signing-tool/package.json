@@ -1,0 +1,9 @@
+{
+  "name": "motrix-release-signing-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned electron-builder dependency closure for isolated release signing",
+  "dependencies": {
+    "electron-builder": "26.15.7"
+  }
+}

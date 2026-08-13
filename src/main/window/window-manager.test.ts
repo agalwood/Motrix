@@ -97,8 +97,14 @@ vi.mock('electron', () => {
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { BrowserWindow } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
+import { initializeRendererUrlPolicy } from './renderer-url-policy'
 import { WINDOW_CONFIGS } from './window-configs'
 import { WindowManager } from './window-manager'
+
+initializeRendererUrlPolicy({
+  isPackaged: true,
+  appPath: '/app',
+})
 
 function createMockSettingsManager(
   windowState: Record<string, unknown> = {}
@@ -127,6 +133,52 @@ describe('WindowManager', () => {
     const win = wm.open('main')
     expect(win).toBeDefined()
     expect(wm.get('main')).toBe(win)
+  })
+
+  it('uses the explicit secure Electron renderer defaults', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+    })
+
+    const win = wm.open('main')
+    const options = (win as unknown as { options: Record<string, unknown> })
+      .options
+
+    expect(options.webPreferences).toEqual({
+      preload: '/fake/preload.cjs',
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    })
+  })
+
+  it('blocks navigation and redirects outside the trusted renderer URL', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+    })
+    const win = wm.open('main')
+    const on = win.webContents.on as ReturnType<typeof vi.fn>
+    const navigate = on.mock.calls.find(
+      ([event]) => event === 'will-navigate'
+    )?.[1]
+    const redirect = on.mock.calls.find(
+      ([event]) => event === 'will-redirect'
+    )?.[1]
+    const trustedEvent = { preventDefault: vi.fn() }
+    const externalEvent = { preventDefault: vi.fn() }
+    const redirectEvent = { preventDefault: vi.fn() }
+
+    navigate?.(trustedEvent, 'file:///app/dist/renderer/index.html?w=add-task')
+    navigate?.(externalEvent, 'https://attacker.example/')
+    redirect?.(redirectEvent, 'file:///tmp/attacker.html')
+
+    expect(trustedEvent.preventDefault).not.toHaveBeenCalled()
+    expect(externalEvent.preventDefault).toHaveBeenCalledOnce()
+    expect(redirectEvent.preventDefault).toHaveBeenCalledOnce()
   })
 
   it('creates the main window with Liquid Glass chrome when enabled', () => {

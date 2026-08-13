@@ -29,8 +29,14 @@ export function registerPluginUploadRoute(
       try {
         const encodedName = headerValue(request.headers['x-motrix-file-name'])
         const fileName = decodeURIComponent(encodedName)
-        const fileHash = headerValue(request.headers['x-motrix-file-sha256'])
-        const reference = await store.put(request.body, fileHash, fileName)
+        // The server is the authority for the retained package digest. Older
+        // clients may still send a claimed digest, which is verified when
+        // present; omitting it keeps uploads usable on plain LAN HTTP where
+        // browser Web Crypto is not exposed.
+        const claimedHash =
+          headerValue(request.headers['x-motrix-file-sha256']).trim() ||
+          undefined
+        const reference = await store.put(request.body, claimedHash, fileName)
         return reply.code(201).send(reference)
       } catch (cause) {
         request.log.warn({ err: cause }, 'plugin upload rejected')

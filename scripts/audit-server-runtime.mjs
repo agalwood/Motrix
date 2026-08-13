@@ -82,17 +82,35 @@ async function auditInputs(repoRoot, inputs, collectExternals) {
       throw new Error(`missing ${input.type} input: ${input.source}`)
     }
     if (collectExternals) {
-      const entry =
-        input.type === 'file' ? source : path.join(source, input.entry)
-      if (input.type === 'directory') {
-        if (!(await stat(entry).catch(() => null))?.isFile()) {
-          throw new Error(`missing build entry: ${input.source}/${input.entry}`)
+      const entries =
+        input.type === 'file'
+          ? [source]
+          : (Array.isArray(input.entry) ? input.entry : [input.entry]).map(
+              (entry) => path.join(source, entry)
+            )
+      for (const [index, entry] of entries.entries()) {
+        if (
+          input.type === 'directory' &&
+          !(await stat(entry).catch(() => null))?.isFile()
+        ) {
+          const relativeEntry = Array.isArray(input.entry)
+            ? input.entry[index]
+            : input.entry
+          throw new Error(
+            `missing build entry: ${input.source}/${relativeEntry}`
+          )
         }
       }
       if (input.scanExternals) {
-        const sourceText = await readFile(entry, 'utf8')
-        for (const specifier of scanStaticModuleSpecifiers(sourceText)) {
-          specifiers.add(specifier)
+        const modules =
+          input.type === 'directory'
+            ? await listJavaScriptFiles(source)
+            : entries
+        for (const modulePath of modules) {
+          const sourceText = await readFile(modulePath, 'utf8')
+          for (const specifier of scanStaticModuleSpecifiers(sourceText)) {
+            specifiers.add(specifier)
+          }
         }
       }
     }
@@ -108,6 +126,23 @@ async function auditInputs(repoRoot, inputs, collectExternals) {
     })
   }
   return { records, specifiers: [...specifiers].sort() }
+}
+
+async function listJavaScriptFiles(directory) {
+  const files = []
+  async function walk(current) {
+    const entries = await readdir(current, { withFileTypes: true })
+    entries.sort((left, right) => left.name.localeCompare(right.name))
+    for (const entry of entries) {
+      const entryPath = path.join(current, entry.name)
+      if (entry.isDirectory()) await walk(entryPath)
+      else if (entry.isFile() && /\.(?:c|m)?js$/.test(entry.name)) {
+        files.push(entryPath)
+      }
+    }
+  }
+  await walk(directory)
+  return files
 }
 
 async function resolvePackageRoot(repoRoot, name) {

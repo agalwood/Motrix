@@ -4,19 +4,10 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Stub undici.request before importing the SUT. downloadGithubMoext also
-// composes a redirect-following dispatcher (undici v8 moved maxRedirections
-// out of request() options); the mocked request ignores the dispatcher, so a
-// structural stub for Agent/interceptors is enough.
+// Stub undici.request before importing the SUT.
 const mockRequest = vi.fn()
 vi.mock('undici', () => ({
   request: (...a: unknown[]) => mockRequest(...a),
-  Agent: class {
-    compose() {
-      return {}
-    }
-  },
-  interceptors: { redirect: () => ({}) },
 }))
 
 const { downloadGithubMoext, parseGithubSpec } = await import(
@@ -41,8 +32,12 @@ function jsonResponse(payload: unknown, statusCode = 200) {
   }
 }
 
-function streamResponse(bytes: Buffer, statusCode = 200) {
-  return { statusCode, body: Readable.from(bytes) }
+function streamResponse(
+  bytes: Buffer,
+  statusCode = 200,
+  headers: Record<string, string> = {}
+) {
+  return { statusCode, body: Readable.from(bytes), headers }
 }
 
 describe('parseGithubSpec', () => {
@@ -127,6 +122,30 @@ describe('downloadGithubMoext', () => {
     )
   })
 
+  it('URL-encodes a tag before putting it in the GitHub API path', async () => {
+    mockRequest
+      .mockResolvedValueOnce(
+        jsonResponse({
+          tag_name: 'release/1',
+          assets: [
+            {
+              name: 'widget.moext',
+              browser_download_url: 'https://gh/assets/widget.moext',
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(streamResponse(Buffer.from('bytes')))
+
+    await downloadGithubMoext(
+      { owner: 'acme', repo: 'widget', tag: 'release/1' },
+      path.join(tmp, 'tagged-slash.moext')
+    )
+    expect(mockRequest.mock.calls[0]?.[0]).toBe(
+      'https://api.github.com/repos/acme/widget/releases/tags/release%2F1'
+    )
+  })
+
   it('rejects when GitHub returns non-200', async () => {
     mockRequest.mockResolvedValueOnce(
       jsonResponse({ message: 'not found' }, 404)
@@ -183,5 +202,90 @@ describe('downloadGithubMoext', () => {
     ).rejects.toMatchObject({
       message: 'plugin.install.gh_asset_download_failed: 500',
     })
+  })
+
+  it('rejects an insecure GitHub asset URL before downloading it', async () => {
+    mockRequest.mockResolvedValueOnce(
+      jsonResponse({
+        tag_name: 'v1.0.0',
+        assets: [
+          {
+            name: 'x.moext',
+            browser_download_url: 'http://assets.example/x.moext',
+          },
+        ],
+      })
+    )
+
+    await expect(
+      downloadGithubMoext(
+        { owner: 'acme', repo: 'widget', tag: 'v1.0.0' },
+        path.join(tmp, 'x.moext')
+      )
+    ).rejects.toMatchObject({
+      message: 'plugin.install.gh_asset_insecure_url',
+    })
+    expect(mockRequest).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a GitHub asset redirect that downgrades HTTPS', async () => {
+    mockRequest
+      .mockResolvedValueOnce(
+        jsonResponse({
+          tag_name: 'v1.0.0',
+          assets: [
+            {
+              name: 'x.moext',
+              browser_download_url: 'https://assets.example/x.moext',
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        streamResponse(Buffer.alloc(0), 302, {
+          location: 'http://cdn.example/x.moext',
+        })
+      )
+
+    await expect(
+      downloadGithubMoext(
+        { owner: 'acme', repo: 'widget', tag: 'v1.0.0' },
+        path.join(tmp, 'x.moext')
+      )
+    ).rejects.toMatchObject({
+      message: 'plugin.install.redirect_protocol_downgrade',
+    })
+    expect(mockRequest).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects a GitHub asset after five redirects', async () => {
+    mockRequest.mockResolvedValueOnce(
+      jsonResponse({
+        tag_name: 'v1.0.0',
+        assets: [
+          {
+            name: 'x.moext',
+            browser_download_url: 'https://assets.example/x.moext',
+          },
+        ],
+      })
+    )
+    for (let hop = 0; hop < 6; hop += 1) {
+      mockRequest.mockResolvedValueOnce(
+        streamResponse(Buffer.alloc(0), 302, {
+          location: `https://cdn.example/hop-${hop}.moext`,
+        })
+      )
+    }
+
+    await expect(
+      downloadGithubMoext(
+        { owner: 'acme', repo: 'widget', tag: 'v1.0.0' },
+        path.join(tmp, 'x.moext')
+      )
+    ).rejects.toMatchObject({
+      message: 'plugin.install.too_many_redirects',
+    })
+    expect(mockRequest).toHaveBeenCalledTimes(7)
   })
 })

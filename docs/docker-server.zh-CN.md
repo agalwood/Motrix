@@ -111,6 +111,57 @@ docker compose -f compose.named-volumes.yaml up -d --wait
 执行 `docker compose down` 时不要添加 `--volumes`，该参数会删除 named
 volumes。需要让下载文件同时出现在 NAS 共享文件夹时，bind mount 通常更合适。
 
+## 网络发布模式
+
+容器内的 listener 与 Docker 宿主上发布的端口是两层独立边界。Web/API 进程在
+容器内监听 `0.0.0.0:8080`，Compose 文件则把容器内 MDXP listener 设为
+`MOTRIX_MDXP_HOST=0.0.0.0`，端口为 16801。这些面向整个容器的 listener 使
+Docker 能够转发流量，但不会单独把服务变成公网服务。最终哪些宿主接口可以访问
+它们，由 Compose `ports` 中的宿主地址决定。
+
+标准直连 LAN 配置保持现有默认值：两个宿主端口都绑定到 `0.0.0.0`，可信 LAN
+设备可通过 8080 访问 Web 服务，通过 16801 访问 MDXP。两项发布可以独立控制：
+
+| Compose 变量 | 控制对象 | 默认值与 fallback |
+| --- | --- | --- |
+| `MOTRIX_WEB_BIND_IP` | 把容器 8080 端口发布到的宿主地址 | `MOTRIX_BIND_IP`，然后是 `0.0.0.0` |
+| `MOTRIX_MDXP_BIND_IP` | 把容器 16801 端口发布到的宿主地址 | `MOTRIX_BIND_IP`，然后是 `0.0.0.0` |
+| `MOTRIX_BIND_IP` | 两项服务的兼容 fallback | `0.0.0.0` |
+
+原有部署只设置 `MOTRIX_BIND_IP` 时，行为保持不变。新部署可以分别绑定两项服务，
+例如把 Web 界面发布到 LAN 地址，但让 MDXP 仅绑定到宿主 loopback。不要把容器内的
+`MOTRIX_MDXP_HOST` 改为 `127.0.0.1`：该 loopback 属于容器，Docker 端口转发和其他容器
+都无法访问它。
+
+### 运行在 Docker 宿主上的反向代理
+
+仓库提供的 [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) 会把两个已发布的
+origin 端口都绑定到 Docker 宿主 loopback，适用于运行在同一宿主上的反向代理：
+
+```bash
+export MOTRIX_PUBLIC_URL='https://motrix.example.com'
+docker compose --env-file compose.reverse-proxy.env -f compose.yaml pull server
+docker compose --env-file compose.reverse-proxy.env -f compose.yaml up -d --wait
+```
+
+如果使用 named volume，请把 `-f compose.yaml` 替换为
+`-f compose.named-volumes.yaml`。宿主反向代理需要配置两个独立 upstream：
+`127.0.0.1:8080`（Web 界面/API）和 `127.0.0.1:16801`（MDXP HTTP 与 SSE），并保留 cookie、
+Authorization header 和流式响应。该 environment 文件只限制宿主发布范围；它不会启用
+TLS、禁用任一服务或禁用配对。TLS 证书与代理路由仍需要 operator 自行配置。
+
+### 运行在其他容器中的反向代理
+
+如果反向代理容器与 Motrix 位于同一个用户定义 Docker network，更安全的设计是完全省略
+Motrix service 的 `ports`。让代理通过该私有 network 访问 `server:8080` 和
+`server:16801`，并且只发布代理的 TLS 入口。在这种拓扑中，把 Motrix 绑定到宿主
+loopback 仍会发布 origin 端口，因此没有必要。
+
+仓库没有提供可直接运行的容器反向代理 Compose 示例，因为证书挂载、代理镜像、域名以及 MDXP
+是否使用独立 origin 都与具体部署有关。请以基础 service contract 为起点，在自己的部署
+Compose 中删除两条 `ports`，并让两个容器内 listener 继续使用 `0.0.0.0`，确保代理容器
+可以访问它们。
+
 ## 群晖 DSM 7 Container Manager
 
 不同版本的 Container Manager 界面名称可能略有区别，但部署模型相同：
@@ -133,8 +184,9 @@ volumes。需要让下载文件同时出现在 NAS 共享文件夹时，bind mou
    `motrix-data/operator-token` 解锁。
 
 不要启用“高权限”、挂载 Docker socket 或授权访问整个 NAS 文件系统。若 DSM
-反向代理是 Web 的唯一入口，仅当代理的网络环境可访问主机 loopback 时才设置
-`MOTRIX_BIND_IP=127.0.0.1`；否则监听 NAS 地址，并通过 DSM 防火墙限制端口。
+反向代理运行在宿主网络环境时，可使用 `compose.reverse-proxy.env` 让两个 origin 都绑定到宿主
+loopback。如果代理无法访问宿主 loopback，请用 `MOTRIX_WEB_BIND_IP` 和
+`MOTRIX_MDXP_BIND_IP` 把各自需要的 origin 绑定到选定的 NAS 地址，再用 DSM 防火墙限制这两个端口。
 
 ## 飞牛 fnOS Docker/Compose
 
@@ -183,7 +235,9 @@ docker run -d \
   motrixapp/motrix-server:latest
 ```
 
-镜像已经定义 healthcheck、非 root 用户、数据路径和优雅 `SIGTERM` 行为。
+镜像已经定义 healthcheck、非 root 用户、数据路径和优雅 `SIGTERM` 行为。在这条命令中，
+`MOTRIX_MDXP_HOST=0.0.0.0` 控制容器内 listener，两个 `-p` 选项则把容器端口发布到
+Docker 宿主。
 
 ## Web、MDXP、token 与 HTTPS 边界
 
@@ -192,11 +246,13 @@ docker run -d \
 | 地址 | 用途 |
 | --- | --- |
 | `http://NAS_HOST:8080` | Web 界面、operator RPC/API 与 `GET /healthz` |
-| `http://NAS_HOST:16801` | MDXP 客户端基址；单次调用 `POST /mdxp`、事件流 `GET /mdxp/events` 与 device-code 配对 |
+| `http://NAS_HOST:16801` | MDXP 客户端基址；单次调用 `POST /mdxp`、事件流 `GET /mdxp/events` 与 CLI/agent device-code 配对 |
 
 `MOTRIX_PUBLIC_URL` 是 device-code 客户端收到的、外部可访问的 **Web 审批
-URL**，不要把它设置为 MDXP 端口。首次启动时，Motrix 会以 `0600` 权限生成
-`/data/operator-token`。使用 bind mount 时可这样读取：
+URL**。它没有 localhost 默认值：远程客户端需要配对时必须显式设置，不要向另一台机器上的
+客户端发布 `localhost`、`127.0.0.1` 或 `0.0.0.0`。应使用 Web 端口或它的反向代理 URL，
+而不是 MDXP 端口。留空不会禁用配对，但客户端无法从服务器获得有效的审批 URL。
+首次启动时，Motrix 会以 `0600` 权限生成 `/data/operator-token`。使用 bind mount 时可这样读取：
 
 ```bash
 cat motrix-data/operator-token
@@ -205,11 +261,32 @@ cat motrix-data/operator-token
 重启或替换镜像时会继续使用同一 token。也可以设置 `MOTRIX_OPERATOR_TOKEN`，
 但环境变量能从容器元数据中看到；单机部署默认使用生成文件更安全。
 
-不要把明文 HTTP 直接暴露到公网。应在可信反向代理终止 HTTPS，并用防火墙
-限制源端口。把 8080 作为 Web upstream，并保留 cookie、Authorization header
-和流式响应。MDXP 是独立的 HTTP/SSE 服务：远程 MDXP 客户端需要另一个启用
-TLS、指向 16801 的代理/upstream。只转发 8080 不会发布 MDXP，只转发 16801
-也不会提供审批界面。
+当 Web 审批 URL 暂时不可用时，通过 SSH 连接的 operator 可以在运行中的容器
+里批准指定的 device code。该命令只通过容器 loopback 使用现有 operator
+credential，不会输出该 credential 或客户端 token：
+
+```bash
+docker compose exec server motrix-admin pairing pending
+docker compose exec server motrix-admin pairing approve ABCD-EFGH
+```
+
+如果需要拒绝请求：
+
+```bash
+docker compose exec server motrix-admin pairing deny ABCD-EFGH
+```
+
+先在客户端发起 pairing，再输入该客户端显示的验证码。该命令刻意不提供
+approve-latest、approve-all、远程 endpoint 或 token 参数。Web 审批仍是正常
+路径；这个入口只用于 headless 或恢复场景下的本机 operator 操作。
+
+在可信 LAN 中可以使用明文 HTTP，Motrix 不会强制 HTTPS。通过公网或不可信 LAN 访问时，
+必须同时使用可信反向代理终止 TLS，并用防火墙保护 origin 端口。把 8080 作为 Web
+origin，并保留 cookie、Authorization header 和流式响应。MDXP 是独立的 HTTP/SSE 服务：
+远程客户端还需要一个启用 TLS、指向 16801 的代理/upstream。只转发 8080 不会发布
+MDXP，只转发 16801 也不会提供审批界面。不应通过禁用配对来实现这些保护；远程
+CLI/agent 配对仍然是一项需要 operator 审批的正常流程。浏览器扩展的首次配对是桌面应用/
+native messaging flow，headless server 不提供该流程。
 
 ## 下载路径与插件
 
@@ -334,9 +411,12 @@ secret-store 状态和 FFmpeg 探测结果。
 | `MOTRIX_ALLOW_UNMANAGED_PLUGINS` | `false` | 允许没有安装来源记录的插件目录 |
 | `MOTRIX_OPERATOR_TOKEN` | 自动生成文件 | operator 控制面凭据 |
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
-| `MOTRIX_MDXP_HOST` | `127.0.0.1`（Compose 为 `0.0.0.0`） | MDXP 监听地址 |
+| `MOTRIX_WEB_BIND_IP` | Compose：`0.0.0.0` | 发布 Web 8080 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
+| `MOTRIX_MDXP_BIND_IP` | Compose：`0.0.0.0` | 发布 MDXP 16801 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
+| `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |
+| `MOTRIX_MDXP_HOST` | runtime：`127.0.0.1`；Compose：`0.0.0.0` | 容器内 MDXP listener，不是宿主发布地址 |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP 监听端口；`0` 表示不使用固定发布端口 |
-| `MOTRIX_PUBLIC_URL` | 未设置 | 外部可访问的 Web 审批 URL，不是 MDXP URL |
+| `MOTRIX_PUBLIC_URL` | 未设置 | 显式设置的外部可访问 Web 审批 URL，不是 MDXP URL；不会默认为 localhost |
 | `MOTRIX_FFMPEG_PATH` | 自动探测 | 可选的 FFmpeg 绝对路径 |
 | `MOTRIX_HOST_LANGUAGE` | 系统设置 | Server/插件语言覆盖值 |
 | `LOG_LEVEL` | `info` | 输出到容器 stdout 的 Pino 日志级别 |

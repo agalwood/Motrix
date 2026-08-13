@@ -19,6 +19,7 @@
     "bittorrent-peerid",
     "chokidar",
     "fastify",
+    "i18next",
     "libsodium-wrappers",
     "parse-torrent",
     "pino",
@@ -50,7 +51,7 @@
       "source": "dist/server",
       "destination": "dist/server",
       "type": "directory",
-      "entry": "index.mjs",
+      "entry": ["index.mjs", "motrix-admin.mjs"],
       "scanExternals": true
     }
   ],

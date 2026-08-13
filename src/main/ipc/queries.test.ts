@@ -20,8 +20,23 @@ import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import type { QueryContext } from './queries'
 import { buildQueryHandlers, registerQueryHandlers } from './queries'
 
+const ipcMocks = vi.hoisted(() => ({
+  handle: vi.fn(),
+  removeHandler: vi.fn(),
+}))
+
 vi.mock('electron', () => ({
-  ipcMain: { handle: vi.fn(), removeHandler: vi.fn() },
+  ipcMain: {
+    handle: ipcMocks.handle,
+    removeHandler: ipcMocks.removeHandler,
+  },
+}))
+
+vi.mock('./trusted-ipc', () => ({
+  registerTrustedIpcHandler: (
+    channel: string,
+    listener: (...args: unknown[]) => unknown
+  ) => ipcMocks.handle(channel, listener),
 }))
 
 vi.mock('../plugin/ffmpeg-detect-electron', () => ({

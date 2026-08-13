@@ -119,6 +119,66 @@ Do not add `--volumes` to `docker compose down`: that option deletes the named
 volumes. Bind mounts are usually easier when downloads must also appear in a
 NAS shared folder.
 
+## Network publication modes
+
+The listeners inside the container and the ports published on the Docker host
+are separate boundaries. The Web/API process listens on `0.0.0.0:8080` inside
+the container, and the Compose files set the internal MDXP listener to
+`MOTRIX_MDXP_HOST=0.0.0.0` on port 16801. Those container-wide listeners let
+Docker forward traffic; they do not by themselves make either service public.
+The host addresses in Compose `ports` decide which host interfaces can reach
+them.
+
+The standard direct-LAN configuration keeps the existing defaults: both host
+ports bind to `0.0.0.0`, so trusted LAN devices can reach the Web service on
+8080 and MDXP on 16801. The publication controls are independent:
+
+| Compose variable | Controls | Default and fallback |
+| --- | --- | --- |
+| `MOTRIX_WEB_BIND_IP` | Host address publishing container port 8080 | `MOTRIX_BIND_IP`, then `0.0.0.0` |
+| `MOTRIX_MDXP_BIND_IP` | Host address publishing container port 16801 | `MOTRIX_BIND_IP`, then `0.0.0.0` |
+| `MOTRIX_BIND_IP` | Compatibility fallback for both services | `0.0.0.0` |
+
+Existing deployments that set only `MOTRIX_BIND_IP` keep the same behavior.
+New deployments can bind the services differently, for example publishing the
+Web UI on a LAN address while keeping MDXP on host loopback. Do not change the
+container's `MOTRIX_MDXP_HOST` to `127.0.0.1`: that loopback belongs to the
+container, so Docker port forwarding and other containers cannot reach it.
+
+### Reverse proxy on the Docker host
+
+The included [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) binds
+both published origin ports to the Docker host's loopback. It is intended for a
+reverse proxy running on that host:
+
+```bash
+export MOTRIX_PUBLIC_URL='https://motrix.example.com'
+docker compose --env-file compose.reverse-proxy.env -f compose.yaml pull server
+docker compose --env-file compose.reverse-proxy.env -f compose.yaml up -d --wait
+```
+
+For named volumes, replace `-f compose.yaml` with
+`-f compose.named-volumes.yaml`. Configure the host proxy with separate
+upstreams for `127.0.0.1:8080` (Web UI/API) and `127.0.0.1:16801` (MDXP HTTP and
+SSE), and preserve cookies, authorization headers, and streaming responses.
+The environment file only restricts host publication: it does not enable TLS,
+disable either service, or disable pairing. TLS certificates and proxy routing
+remain operator configuration.
+
+### Reverse proxy in another container
+
+When the proxy is a container on the same user-defined Docker network, the
+safer design is to omit `ports` from the Motrix service entirely. Route the
+proxy to `server:8080` and `server:16801` over that private network, and publish
+only the proxy's TLS entry point. Merely binding Motrix to host loopback still
+publishes origin ports and is unnecessary for this topology.
+
+The repository does not include a runnable container-proxy Compose example,
+because certificate mounts, proxy image, hostnames, and whether MDXP uses a
+separate origin are deployment-specific. Start from the base service contract,
+remove its two `ports` entries in your deployment Compose, and keep both
+internal listeners on `0.0.0.0` so the proxy container can reach them.
+
 ## Synology DSM 7 Container Manager
 
 DSM labels can vary slightly between Container Manager updates, but the
@@ -145,10 +205,11 @@ deployment model is the same:
    `motrix-data/operator-token` from an administrator shell to unlock it.
 
 Do not enable "high privilege", mount the Docker socket, or grant access to the
-whole NAS filesystem. If DSM's reverse proxy is the only Web entry point, set
-`MOTRIX_BIND_IP=127.0.0.1` only when that address is reachable from the proxy's
-network context; otherwise bind the NAS address and restrict the port with the
-DSM firewall.
+whole NAS filesystem. If DSM's reverse proxy runs in the host network context,
+use `compose.reverse-proxy.env` so both origins bind to host loopback. If the
+proxy cannot reach host loopback, bind each required origin to a selected NAS
+address with `MOTRIX_WEB_BIND_IP` and `MOTRIX_MDXP_BIND_IP`, then restrict both
+ports with the DSM firewall.
 
 ## fnOS Docker/Compose
 
@@ -203,7 +264,9 @@ docker run -d \
 ```
 
 The image already defines its health check, non-root user, data paths, and
-graceful `SIGTERM` behavior.
+graceful `SIGTERM` behavior. In this command,
+`MOTRIX_MDXP_HOST=0.0.0.0` controls the listener inside the container, while
+the two `-p` options publish those container ports on the Docker host.
 
 ## Web, MDXP, token, and HTTPS boundaries
 
@@ -212,11 +275,16 @@ The default addresses are different services:
 | Address | Purpose |
 | --- | --- |
 | `http://NAS_HOST:8080` | Web UI, operator RPC/API, and `GET /healthz` |
-| `http://NAS_HOST:16801` | MDXP client base; unary `POST /mdxp`, event stream `GET /mdxp/events`, and device-code pairing |
+| `http://NAS_HOST:16801` | MDXP client base; unary `POST /mdxp`, event stream `GET /mdxp/events`, and CLI/agent device-code pairing |
 
 `MOTRIX_PUBLIC_URL` is the externally reachable **Web approval URL** returned to
-device-code clients. Do not set it to the MDXP port. On first start, Motrix
-generates `/data/operator-token` at mode `0600`. With bind mounts, read it with:
+device-code clients. It has no localhost default: set it explicitly whenever a
+remote client must pair, and do not advertise `localhost`, `127.0.0.1`, or
+`0.0.0.0` to a client on another machine. Use the Web port or its reverse-proxy
+URL, not the MDXP port. Leaving it unset does not disable pairing, but the
+client cannot receive a useful approval URL from the server. On first start,
+Motrix generates `/data/operator-token` at mode `0600`. With bind mounts, read
+it with:
 
 ```bash
 cat motrix-data/operator-token
@@ -226,12 +294,38 @@ The same token is reused across restart and image replacement. You may set
 `MOTRIX_OPERATOR_TOKEN` instead, but environment variables are visible in
 container metadata; the generated file is the safer single-host default.
 
-Do not expose plaintext HTTP directly to the Internet. Terminate HTTPS at a
-trusted reverse proxy and firewall the origin ports. Proxy port 8080 as the Web
-origin and preserve cookies, authorization headers, and streaming responses.
-MDXP is a separate HTTP/SSE service: clients that access it remotely need a
-separate TLS-enabled proxy/upstream to port 16801. Forwarding only port 8080 does
+If the Web approval URL is unavailable, an operator connected over SSH can
+approve the exact device code from inside the running container. The command
+uses the existing operator credential over container loopback; it never prints
+that credential or the client token:
+
+```bash
+docker compose exec server motrix-admin pairing pending
+docker compose exec server motrix-admin pairing approve ABCD-EFGH
+```
+
+To reject a request instead:
+
+```bash
+docker compose exec server motrix-admin pairing deny ABCD-EFGH
+```
+
+Start pairing on the client first, then enter the code shown by that client.
+The command intentionally has no approve-latest, approve-all, remote endpoint,
+or token argument. Web approval remains available and is the normal path; this
+is an optional local operator path for headless or recovery deployments.
+
+Plain HTTP can be appropriate for a trusted LAN; Motrix does not force HTTPS.
+For Internet or untrusted-LAN access, TLS termination at a trusted reverse
+proxy **and** firewall protection for the origin ports are required. Proxy port
+8080 as the Web origin and preserve cookies, authorization headers, and
+streaming responses. MDXP is a separate HTTP/SSE service: remote clients need a
+TLS-enabled proxy/upstream to port 16801 as well. Forwarding only port 8080 does
 not publish MDXP, and forwarding only 16801 does not serve the approval UI.
+These protections must not be implemented by disabling pairing; remote
+CLI/agent pairing remains an operator-approved workflow. First-time browser
+extension pairing is a desktop/native-messaging flow and is not offered by the
+headless server.
 
 ## Download paths and plugins
 
@@ -366,9 +460,12 @@ detection.
 | `MOTRIX_ALLOW_UNMANAGED_PLUGINS` | `false` | Allow plugin directories without install provenance |
 | `MOTRIX_OPERATOR_TOKEN` | generated file | Operator control-plane credential |
 | `MOTRIX_SECRETS_SEED` | generated lockbox | 64-hex-character plugin secret key |
-| `MOTRIX_MDXP_HOST` | `127.0.0.1` (Compose: `0.0.0.0`) | MDXP bind address |
+| `MOTRIX_WEB_BIND_IP` | Compose: `0.0.0.0` | Host address publishing Web port 8080; falls back through `MOTRIX_BIND_IP` |
+| `MOTRIX_MDXP_BIND_IP` | Compose: `0.0.0.0` | Host address publishing MDXP port 16801; falls back through `MOTRIX_BIND_IP` |
+| `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |
+| `MOTRIX_MDXP_HOST` | runtime: `127.0.0.1`; Compose: `0.0.0.0` | MDXP listener inside the container, not the host publish address |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP listen port; `0` disables a stable published port |
-| `MOTRIX_PUBLIC_URL` | unset | Externally reachable Web approval URL, not the MDXP URL |
+| `MOTRIX_PUBLIC_URL` | unset | Explicit externally reachable Web approval URL, not the MDXP URL; never defaults to localhost |
 | `MOTRIX_FFMPEG_PATH` | auto-detect | Optional absolute FFmpeg path |
 | `MOTRIX_HOST_LANGUAGE` | system setting | Server/plugin locale override |
 | `LOG_LEVEL` | `info` | Pino log level written to container stdout |

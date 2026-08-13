@@ -30,14 +30,17 @@ export default defineConfig({
     target: 'node22',
     ssr: true,
     lib: {
-      entry: 'src/server/index.ts',
+      entry: {
+        index: 'src/server/index.ts',
+        'motrix-admin': 'src/server/operator-cli.ts',
+      },
       formats: ['es'],
-      fileName: 'index',
     },
     rollupOptions: {
       external: isExternal,
       output: {
-        entryFileNames: 'index.mjs',
+        entryFileNames: '[name].mjs',
+        chunkFileNames: 'chunks/[name]-[hash].mjs',
       },
     },
   },

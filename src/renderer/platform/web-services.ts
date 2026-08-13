@@ -1,7 +1,8 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
-import { sha256File } from './plugin-install-file'
 import type { PlatformServices } from './services'
+
+const SHA256_RE = /^[0-9a-f]{64}$/
 
 type PickRequest = { defaultPath?: string }
 type PickListener = (req: PickRequest) => void
@@ -61,14 +62,12 @@ export function createWebServices(
     pluginInstallFile: {
       mode: 'upload',
       async prepare(file) {
-        const fileHash = await sha256File(file)
         const response = await fetchImpl(`${baseUrl}/api/plugins/uploads`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
             'content-type': 'application/vnd.motrix.moext',
             'x-motrix-file-name': encodeURIComponent(file.name),
-            'x-motrix-file-sha256': fileHash,
           },
           body: file,
         })
@@ -84,14 +83,15 @@ export function createWebServices(
         }
         if (
           typeof reference.uploadId !== 'string' ||
-          reference.fileHash !== fileHash
+          typeof reference.fileHash !== 'string' ||
+          !SHA256_RE.test(reference.fileHash)
         ) {
           throw new Error('Plugin upload returned an invalid reference')
         }
         return {
           sourceType: 'upload',
           uploadId: reference.uploadId,
-          fileHash,
+          fileHash: reference.fileHash,
         }
       },
     },

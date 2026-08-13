@@ -11,12 +11,13 @@ import {
   readdir,
   readFile,
   rm,
+  stat,
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CapabilityHost } from '../capabilities/interface'
 import { PluginHost } from '../host/plugin-host'
 import { PluginRegistry } from '../plugin-registry'
@@ -25,6 +26,7 @@ import { PluginStateStore } from '../state/plugin-state-store'
 import {
   PluginInstaller,
   type PluginInstallerOptions,
+  type PluginRuntimeHostLike,
 } from './plugin-installer'
 import { buildRegistryExpectation } from './registry-expectation'
 
@@ -364,17 +366,13 @@ describe('PluginInstaller e2e', () => {
     })
   })
 
-  it('upgrade fail rolls back: backup restored when staging rename fails', async () => {
+  it('keeps only the protected archive pending and re-reads it at commit', async () => {
     const v1 = await writeMoext(path.join(inputDir, 'v1.moext'), manifestJSON())
     const { stagingId: id1 } = await installer.stage(v1, {
       type: 'github',
       spec: 'example/test',
     })
     await installer.commit(id1, {})
-    const v1Bytes = await readFile(
-      path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
-      'utf8'
-    )
 
     const v2 = await writeMoext(
       path.join(inputDir, 'v2.moext'),
@@ -387,14 +385,159 @@ describe('PluginInstaller e2e', () => {
     })
 
     const stagingPath = path.join(pluginsDir, '_staging', id2)
-    await rm(stagingPath, { recursive: true, force: true })
+    const archivePath = path.join(stagingPath, 'archive.moext')
+    expect((await readFile(archivePath)).equals(await readFile(v2))).toBe(true)
+    expect(existsSync(path.join(stagingPath, 'tree'))).toBe(false)
+    if (process.platform !== 'win32') {
+      expect((await stat(archivePath)).mode & 0o777).toBe(0o600)
+    }
 
-    await expect(installer.commit(id2, {})).rejects.toThrow()
-    const restored = await readFile(
+    await installer.commit(id2, {})
+    const committed = await readFile(
       path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
       'utf8'
     )
-    expect(restored).toBe(v1Bytes)
+    expect(committed).toBe('console.log(2);')
+    expect(existsSync(stagingPath)).toBe(false)
+  })
+
+  it('rejects a staged archive changed after consent and lets cancel clean it', async () => {
+    const moext = await writeMoext(
+      path.join(inputDir, 'tampered-archive.moext'),
+      manifestJSON()
+    )
+    const staged = await installer.stage(moext, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    const stagingPath = path.join(pluginsDir, '_staging', staged.stagingId)
+    const archivePath = path.join(stagingPath, 'archive.moext')
+    await writeFile(
+      archivePath,
+      Buffer.concat([await readFile(archivePath), Buffer.from([0])])
+    )
+
+    await expect(installer.commit(staged.stagingId, {})).rejects.toMatchObject({
+      message: 'plugin.install.sha256_mismatch',
+    })
+    expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(false)
+
+    await installer.cancel(staged.stagingId)
+    expect(existsSync(stagingPath)).toBe(false)
+  })
+
+  it('rejects a stale consent when the install changes before commit', async () => {
+    const v1 = await writeMoext(path.join(inputDir, 'v1.moext'), manifestJSON())
+    const first = await installer.stage(v1, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(first.stagingId, {})
+
+    const v2 = await writeMoext(
+      path.join(inputDir, 'v2.moext'),
+      manifestJSON({ permissions: ['http'], version: '1.1.0' }),
+      Buffer.from('console.log(2);', 'utf8')
+    )
+    const staged = await installer.stage(v2, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    const recordPath = path.join(pluginsDir, 'example.test', '_install.json')
+    const record = JSON.parse(await readFile(recordPath, 'utf8'))
+    record.grants = { storage: 'granted' }
+    await writeFile(recordPath, `${JSON.stringify(record, null, 2)}\n`)
+
+    await expect(installer.commit(staged.stagingId, {})).rejects.toMatchObject({
+      message: 'plugin.install.changed_since_staging',
+    })
+    expect(
+      await readFile(
+        path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
+        'utf8'
+      )
+    ).toBe('console.log(1);')
+  })
+
+  it('serializes concurrent commits and rejects the stale transaction', async () => {
+    const v1 = await writeMoext(path.join(inputDir, 'v1.moext'), manifestJSON())
+    const first = await installer.stage(v1, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(first.stagingId, {})
+
+    const v2 = await writeMoext(
+      path.join(inputDir, 'v2.moext'),
+      manifestJSON({ permissions: ['http'], version: '1.1.0' }),
+      Buffer.from('console.log(2);', 'utf8')
+    )
+    const v3 = await writeMoext(
+      path.join(inputDir, 'v3.moext'),
+      manifestJSON({ permissions: ['storage'], version: '1.2.0' }),
+      Buffer.from('console.log(3);', 'utf8')
+    )
+    const staged2 = await installer.stage(v2, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    const staged3 = await installer.stage(v3, {
+      type: 'github',
+      spec: 'example/test',
+    })
+
+    const results = await Promise.allSettled([
+      installer.commit(staged2.stagingId, {}),
+      installer.commit(staged3.stagingId, {}),
+    ])
+
+    expect(results[0]).toMatchObject({ status: 'fulfilled' })
+    expect(results[1]).toMatchObject({
+      status: 'rejected',
+      reason: { message: 'plugin.install.changed_since_staging' },
+    })
+    expect(
+      await readFile(
+        path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
+        'utf8'
+      )
+    ).toBe('console.log(2);')
+  })
+
+  it('aborts an upgrade until the runtime is quiescent', async () => {
+    const v1 = await writeMoext(path.join(inputDir, 'v1.moext'), manifestJSON())
+    const first = await installer.stage(v1, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(first.stagingId, {})
+
+    const v2 = await writeMoext(
+      path.join(inputDir, 'v2.moext'),
+      manifestJSON({ permissions: ['http'], version: '1.1.0' }),
+      Buffer.from('console.log(2);', 'utf8')
+    )
+    const update = await installer.stage(v2, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    const incompleteRuntime: PluginRuntimeHostLike = {
+      isQuiescent: () => false,
+      deactivate: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      installer.commit(update.stagingId, {}, incompleteRuntime)
+    ).rejects.toMatchObject({
+      message: 'plugin.install.runtime_still_active',
+    })
+    expect(incompleteRuntime.deactivate).toHaveBeenCalledWith('example.test')
+    expect(
+      await readFile(
+        path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
+        'utf8'
+      )
+    ).toBe('console.log(1);')
   })
 
   it('uninstall purges state + storage + metadata + cookie jar + dir', async () => {
@@ -419,6 +562,30 @@ describe('PluginInstaller e2e', () => {
     expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(false)
   })
 
+  it('uninstall rejects traversal before touching state or files', async () => {
+    const sentinel = path.join(tmp, 'keep.txt')
+    await writeFile(sentinel, 'keep')
+
+    await expect(installer.uninstall('..')).rejects.toMatchObject({
+      message: 'plugin.install.invalid_plugin_id',
+    })
+
+    expect(existsSync(sentinel)).toBe(true)
+    expect(calls.deactivated).toEqual([])
+    expect(calls.storageDeleteAll).toEqual([])
+  })
+
+  it('keeps uninstall compatible with a valid unmanaged plugin directory', async () => {
+    const unmanagedDir = path.join(pluginsDir, 'example.unmanaged')
+    await mkdir(unmanagedDir, { recursive: true })
+    await writeFile(path.join(unmanagedDir, 'marker'), 'present')
+
+    await installer.uninstall('example.unmanaged')
+
+    expect(existsSync(unmanagedDir)).toBe(false)
+    expect(calls.deactivated).toContain('example.unmanaged')
+  })
+
   it('zip-slip moext rejected at stage', async () => {
     const bad = makeZip([
       {
@@ -433,7 +600,7 @@ describe('PluginInstaller e2e', () => {
       installer.stage(moext, {
         type: 'local',
         absPath: moext,
-        fileHash: 'f'.repeat(64),
+        fileHash: createHash('sha256').update(bad).digest('hex'),
       })
     ).rejects.toMatchObject({ message: 'plugin.install.zip_slip' })
     expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(false)
@@ -694,15 +861,11 @@ describe('registry source install', () => {
   }
 
   const fakeFetchOf = (bytes: Buffer): typeof fetch =>
-    (async () => ({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () =>
-        bytes.buffer.slice(
-          bytes.byteOffset,
-          bytes.byteOffset + bytes.byteLength
-        ),
-    })) as unknown as typeof fetch
+    (async () =>
+      new Response(Uint8Array.from(bytes), {
+        status: 200,
+        headers: { 'content-length': String(bytes.byteLength) },
+      })) as unknown as typeof fetch
 
   it('installs, records registry source, and silently upgrades', async () => {
     // v1 — download through the verified fetcher, stage with expectation
@@ -759,6 +922,30 @@ describe('registry source install', () => {
       'utf8'
     )
     expect(installedBundle).toBe('exports.x=2')
+  })
+
+  it('rejects a registry package replaced after verified download', async () => {
+    const verified = makeZip([
+      { name: 'motrix-plugin.json', data: Buffer.from(manifestJSON()) },
+      { name: 'dist/plugin.js', data: Buffer.from('exports.x=1') },
+    ])
+    const replaced = makeZip([
+      { name: 'motrix-plugin.json', data: Buffer.from(manifestJSON()) },
+      { name: 'dist/plugin.js', data: Buffer.from('exports.x=2') },
+    ])
+    const entry = registryEntry(verified, '1.0.0')
+    const downloaded = path.join(downloadsDir, 'replaced.moext')
+    await downloadRegistryMoext(entry, downloaded, fakeFetchOf(verified))
+    await writeFile(downloaded, replaced)
+
+    await expect(
+      installer.stage(
+        downloaded,
+        { type: 'registry', pluginId: 'example.test' },
+        { expect: buildRegistryExpectation(entry) }
+      )
+    ).rejects.toMatchObject({ message: 'plugin.install.sha256_mismatch' })
+    expect(registry.get('example.test')).toBeUndefined()
   })
 
   it('rejects a package whose manifest disagrees with the registry entry', async () => {

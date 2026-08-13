@@ -210,6 +210,14 @@ describe('Server package contracts', () => {
     expect(() => validateServerRuntimeContract(duplicateDestination)).toThrow(
       'duplicate input destinations'
     )
+    const unsortedEntries = fixtureContract()
+    const serverInput = unsortedEntries.buildInputs[2] as {
+      entry: string | string[] | null
+    }
+    serverInput.entry = ['motrix-admin.mjs', 'index.mjs']
+    expect(() => validateServerRuntimeContract(unsortedEntries)).toThrow(
+      'unique paths in sorted order'
+    )
   })
 
   it('requires exact non-negative size budgets', () => {
@@ -242,6 +250,10 @@ describe('Server package contracts', () => {
       'dist/renderer-web',
       'dist/server',
     ])
+    expect(contract.buildInputs.at(-1)?.entry).toEqual([
+      'index.mjs',
+      'motrix-admin.mjs',
+    ])
     expect(contract.resourceInputs.map((entry) => entry.source)).toEqual([
       'THIRD_PARTY_LICENSES',
       'THIRD_PARTY_NOTICES.md',
@@ -252,7 +264,7 @@ describe('Server package contracts', () => {
       'dist/builtin-plugins',
       'extra/aria2.conf',
     ])
-    expect(contract.runtimeRoots).toHaveLength(20)
+    expect(contract.runtimeRoots).toHaveLength(21)
     expect(contract.runtimeRoots).not.toContain('electron-updater')
     expect(contract.runtimeRoots).not.toContain('@motrix/nat')
   })
@@ -324,5 +336,63 @@ describe('Server built external audit', () => {
         budgets: fixtureBudgets(),
       })
     ).rejects.toThrow('missing build entry: dist/server/index.mjs')
+  })
+
+  it('audits every declared entry in a multi-entry build directory', async () => {
+    const root = await createFixture()
+    await writeFixtureFile(
+      root,
+      'dist/server/motrix-admin.mjs',
+      'import gamma from "gamma"; export default gamma;'
+    )
+    const contract = fixtureContract()
+    const serverInput = contract.buildInputs[2] as {
+      entry: string | string[] | null
+    }
+    serverInput.entry = ['index.mjs', 'motrix-admin.mjs']
+
+    await expect(
+      auditServerRuntime({
+        repoRoot: root,
+        contract,
+        budgets: fixtureBudgets(),
+      })
+    ).rejects.toThrow('unexpected runtime roots: gamma')
+
+    await rm(path.join(root, 'dist/server/motrix-admin.mjs'))
+    await expect(
+      auditServerRuntime({
+        repoRoot: root,
+        contract,
+        budgets: fixtureBudgets(),
+      })
+    ).rejects.toThrow('missing build entry: dist/server/motrix-admin.mjs')
+  })
+
+  it('audits generated JavaScript chunks beside declared entries', async () => {
+    const root = await createFixture()
+    await writeFixtureFile(
+      root,
+      'dist/server/motrix-admin.mjs',
+      'import path from "node:path"; export default path.sep;'
+    )
+    await writeFixtureFile(
+      root,
+      'dist/server/chunks/shared.mjs',
+      'import gamma from "gamma"; export default gamma;'
+    )
+    const contract = fixtureContract()
+    const serverInput = contract.buildInputs[2] as {
+      entry: string | string[] | null
+    }
+    serverInput.entry = ['index.mjs', 'motrix-admin.mjs']
+
+    await expect(
+      auditServerRuntime({
+        repoRoot: root,
+        contract,
+        budgets: fixtureBudgets(),
+      })
+    ).rejects.toThrow('unexpected runtime roots: gamma')
   })
 })

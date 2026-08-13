@@ -97,6 +97,7 @@ import { createSetSelectedFilesHandler } from './commands/set-selected-files'
 import { createUpdateGeoIPDatabaseHandler } from './commands/update-geo-ip-database'
 import { NatCommandHandlers } from './nat-commands'
 import { applyNatPrivacyGate } from './nat-settings-gate'
+import { registerTrustedIpcHandler } from './trusted-ipc'
 
 const execFileAsync = promisify(execFile)
 
@@ -1046,7 +1047,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     },
 
-    [Commands.RevealInFolder]: createRevealInFolderHandler({ shell }),
+    [Commands.RevealInFolder]: createRevealInFolderHandler({
+      shell,
+      getTask: (taskId) => taskManager.getById(taskId),
+    }),
 
     [Commands.EnableNat]: async () => natHandlers.enable(),
     [Commands.DisableNat]: async () => natHandlers.disable(),
@@ -1254,7 +1258,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       const result = await pluginInstaller.stage(
         moextPath,
         toSourceInput(parsed),
-        { expect }
+        { expect, runtimeHost: pluginHost }
       )
       if (result.committed && result.pluginId) {
         eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
@@ -1341,7 +1345,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       const parsed = confirmPluginInstallPayloadSchema.parse(payload)
       const { pluginId } = await pluginInstaller.commit(
         parsed.stagingId,
-        parsed.grants
+        parsed.grants,
+        pluginHost
       )
       eventBus.emit(Events.PluginInstalled, { pluginId })
       return { ok: true, pluginId }
@@ -1370,7 +1375,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.UninstallPlugin]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      await pluginInstaller.uninstall(parsed.pluginId)
+      await pluginInstaller.uninstall(parsed.pluginId, pluginHost)
       await settingsManager.removePluginConfig(parsed.pluginId)
       eventBus.emit(Events.PluginUninstalled, { pluginId: parsed.pluginId })
       return { ok: true }
@@ -1406,14 +1411,14 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.CloseCurrentWindow ||
       channel === Commands.ResizeWindow
     ) {
-      ipcMain.handle(channel, (event, ...args) =>
+      registerTrustedIpcHandler(channel, (event, ...args) =>
         invoke(() =>
           // biome-ignore lint/suspicious/noExplicitAny: sender forwarded explicitly
           (handler as any)(event.sender, ...args)
         )
       )
     } else {
-      ipcMain.handle(channel, async (_event, ...args) =>
+      registerTrustedIpcHandler(channel, async (_event, ...args) =>
         invoke(() => handler(...args))
       )
     }

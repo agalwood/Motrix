@@ -445,6 +445,18 @@ async function startServerContainer(options) {
 
 async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
   await assertOperatorAuth(url, token)
+  const operatorCliOutput = await docker([
+    'exec',
+    name,
+    'motrix-admin',
+    'pairing',
+    'pending',
+    '--json',
+  ])
+  const operatorCli = JSON.parse(operatorCliOutput)
+  if (operatorCli.ok !== true || !Array.isArray(operatorCli.requests)) {
+    throw new Error(`unexpected motrix-admin response: ${operatorCliOutput}`)
+  }
   const diagnostics = await requestJson(`${url}/api/diagnostics`, {
     headers: { authorization: `Bearer ${token}` },
   })

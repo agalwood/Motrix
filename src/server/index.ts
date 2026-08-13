@@ -104,6 +104,7 @@ import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
 } from './bridge/bootstrap'
+import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
@@ -522,6 +523,8 @@ async function main() {
   const pluginUploadStore = new PluginUploadStore(
     path.join(pluginsDir, '_uploads')
   )
+  await pluginUploadStore.cleanupExpired()
+  shutdownActions.closeIngress = () => pluginUploadStore.dispose()
   const pluginInstallService = new ServerPluginInstallService({
     installer: pluginInstaller,
     registryClient,
@@ -926,8 +929,12 @@ async function main() {
         engine: supervisor.getStatus(),
       }),
   })
-  shutdownActions.closeIngress = () => app.close()
+  shutdownActions.closeIngress = async () => {
+    pluginUploadStore.dispose()
+    await app.close()
+  }
   if (!shellAsyncWork.isAccepting()) {
+    pluginUploadStore.dispose()
     await app.close()
     return
   }
@@ -1388,9 +1395,23 @@ async function main() {
         16801,
         { allowZero: true }
       )
+      const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
+      const publicUrlWarning = diagnoseMdxpPublicUrl({
+        mdxpHost,
+        publicUrl: process.env.MOTRIX_PUBLIC_URL,
+      })
+      if (publicUrlWarning) {
+        log.warn(
+          {
+            reason: publicUrlWarning.reason,
+            publicOrigin: publicUrlWarning.origin,
+          },
+          'non-loopback MDXP bind has no usable MOTRIX_PUBLIC_URL; remote clients may not receive a usable approval URL'
+        )
+      }
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
-        host: process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1',
+        host: mdxpHost,
         port: mdxpPort,
         motrixVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
         eventBus,
