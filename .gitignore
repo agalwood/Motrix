@@ -134,6 +134,8 @@ dist-test/
 .claude/settings.local.json
 .claude/worktrees/
 .claude/projects/
+# Personal per-machine Claude instructions
+CLAUDE.local.md
 
 # Superpowers brainstorming / visual companion artifacts
 .superpowers/
