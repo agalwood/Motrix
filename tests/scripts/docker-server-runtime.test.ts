@@ -119,6 +119,8 @@ describe('Docker Server runtime staging contract', () => {
       '**/*.test.ts',
       '**/*.test.tsx',
       'obsidian-docs.config.json',
+      '.obsidian-doc-context.json',
+      '.obsidian-doc-context.json.tmp-*',
     ]) {
       expect(dockerignore.split('\n')).toContain(entry)
     }

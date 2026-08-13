@@ -147,6 +147,11 @@ graphify-out/*
 
 .worktrees/
 
+# Optional local Obsidian documentation gateway
+/obsidian-docs.config.json
+/.obsidian-doc-context.json
+/.obsidian-doc-context.json.tmp-*
+
 # Playwright e2e
 /e2e/test-results
 /e2e/playwright-report

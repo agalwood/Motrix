@@ -141,6 +141,7 @@ jobs:
           tests/scripts/electron-package-contract.test.ts
           tests/scripts/flatpak-native-host.test.ts
           tests/scripts/native-binary-target.test.ts
+          tests/scripts/obsidian-docs.test.ts
           tests/scripts/release-metadata.test.ts
           tests/scripts/snap-artifact.test.ts
           tests/scripts/snap-build-set-release.test.ts

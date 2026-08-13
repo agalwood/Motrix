@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "vault": "your-obsidian-vault",
+  "projectRoot": "projects/motrix",
+  "repository": "Motrix",
+  "contextFile": ".obsidian-doc-context.json",
+  "commandTimeoutMs": 30000,
+  "directories": {
+    "activeSpecs": "20-active-specs",
+    "activePlans": "30-active-plans",
+    "decisions": "40-decisions",
+    "evidence": "50-evidence",
+    "publication": "60-publication",
+    "archivePlans": "90-archive/plans",
+    "legacyImport": "90-legacy-import"
+  }
+}

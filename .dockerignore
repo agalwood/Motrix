@@ -16,6 +16,8 @@ e2e
 AGENTS.md
 CLAUDE.md
 obsidian-docs.config.json
+.obsidian-doc-context.json
+.obsidian-doc-context.json.tmp-*
 scripts/obsidian-docs-lib.mjs
 scripts/obsidian-docs.mjs
 tests/scripts/obsidian-docs.test.ts
