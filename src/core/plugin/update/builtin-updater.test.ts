@@ -41,12 +41,11 @@ afterEach(async () => {
 })
 
 function fetchImplOf(bytes: Buffer): typeof fetch {
-  return (async () => ({
-    ok: true,
-    status: 200,
-    arrayBuffer: async () =>
-      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-  })) as unknown as typeof fetch
+  return async () =>
+    new Response(Uint8Array.from(bytes), {
+      status: 200,
+      headers: { 'content-length': String(bytes.byteLength) },
+    })
 }
 
 function makeUpdater(
