@@ -5,6 +5,7 @@ import packageJson from './package.json' with { type: 'json' }
 export default defineConfig({
   define: {
     __MOTRIX_TARGET__: JSON.stringify('electron'),
+    __MOTRIX_PREVIEW_MAC_MENU__: JSON.stringify(false),
     __MOTRIX_APP_METADATA__: JSON.stringify({
       name: packageJson.productName,
       version: packageJson.version,

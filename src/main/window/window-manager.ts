@@ -25,6 +25,8 @@ export interface WindowManagerDeps {
    * Injected by tests so platform-specific chrome is verifiable on any host.
    */
   platform?: string
+  /** Enables the development-only macOS in-window application-menu preview. */
+  previewMacMenu?: boolean
   /** Central legal/startup gate for every window-opening entry point. */
   resolveOpenTarget?: (requested: WindowId) => WindowId
   /** Invoked when the OS signals session end (Windows window 'session-end'). */
@@ -272,10 +274,21 @@ export class WindowManager {
   private registerWindow(id: WindowId, show: boolean): BrowserWindow {
     const config = WINDOW_CONFIGS[id]
     const win = this.createBrowserWindow(config, show)
+    const previewMacMenu =
+      id === 'main' &&
+      (this.deps.platform ?? process.platform) === 'darwin' &&
+      (this.deps.previewMacMenu ??
+        (process.env.VITE_DEV_SERVER_URL !== undefined &&
+          process.env.MOTRIX_PREVIEW_MAC_MENU === '1'))
 
     this.windows.set(id, win)
     if (config.liquidGlass) {
       this.deps.liquidGlass?.attach(id, win)
+    }
+    if (previewMacMenu) {
+      // Local-only product preview: liquid glass may have made the native
+      // buttons visible during attach(), so apply the preview override last.
+      win.setWindowButtonVisibility(false)
     }
     this.deps.loadUrl(win, config.route)
     this.setupCloseHandler(id, win)

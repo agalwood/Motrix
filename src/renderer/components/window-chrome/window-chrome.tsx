@@ -71,7 +71,8 @@ export function WindowChrome({
   const showLinuxControls = platform === 'linux'
   const isOverlay = variant === 'overlay'
   const isMac = platform === 'darwin'
-  const showTrafficLight = __MOTRIX_TARGET__ === 'electron' && isMac
+  const showTrafficLight =
+    __MOTRIX_TARGET__ === 'electron' && isMac && !__MOTRIX_PREVIEW_MAC_MENU__
 
   const containerStyle: React.CSSProperties = {
     height,

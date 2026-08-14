@@ -145,6 +145,22 @@ pnpm run lint    # biome check .
 pnpm build       # 下载已签名的内置插件，并构建 native host 和 4 个 Vite target
 ```
 
+### 在 macOS 预览窗口内应用菜单
+
+Windows 和 Linux 会在 Motrix 窗口内渲染应用菜单。在 macOS 开发环境中，可以通过
+以下预览开关检查相同的窗口布局：
+
+```bash
+MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
+```
+
+该开关会隐藏主窗口的 macOS 红绿灯按钮，并启用 renderer dropdown menu。Electron
+和 Vite 都会在启动时读取此开关，因此修改后需要重启开发进程。
+
+此模式用于调试布局和 command 菜单项。Electron 会通过 AppKit 原生菜单处理 macOS
+role 菜单项，因此 **Window → Minimize** 等 role action 从预览 dropdown 调用时，行为
+不会与原生菜单完全一致；这些原生 role action 需要在 Windows 或 Linux 上验收。
+
 macOS、Windows 和 Linux 的打包命令（`pack:*` / `dist:*`）可以在 `package.json` 的 scripts 字段和 `electron-builder.json` 中查看。
 
 ## 🔧 技术栈

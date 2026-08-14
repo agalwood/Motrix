@@ -18,7 +18,9 @@ export interface ApplicationMenuState {
 function supportsRendererApplicationMenu(): boolean {
   return (
     __MOTRIX_TARGET__ === 'electron' &&
-    (transport.platform === 'win32' || transport.platform === 'linux')
+    (transport.platform === 'win32' ||
+      transport.platform === 'linux' ||
+      (transport.platform === 'darwin' && __MOTRIX_PREVIEW_MAC_MENU__))
   )
 }
 

@@ -148,7 +148,16 @@ describe('MotrixMenuButton', () => {
 
     const trigger = screen.getByRole('button', { name: 'Motrix' })
     expect(trigger).toHaveAttribute('data-slot', 'motrix-menu-trigger')
-    expect(trigger).toHaveClass('app-no-drag', 'h-7', 'w-[72px]')
+    expect(trigger).toHaveClass(
+      'app-no-drag',
+      'h-7',
+      'w-[72px]',
+      'pl-2',
+      'pr-1'
+    )
+    const logo = trigger.querySelector('[data-slot="motrix-menu-logo"]')
+    expect(logo).toHaveClass('h-2.5', 'w-11', 'bg-foreground')
+    expect(logo).toHaveStyle({ maskImage: 'url("./mo-logo.svg")' })
 
     await user.click(trigger)
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1))

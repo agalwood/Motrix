@@ -148,6 +148,25 @@ pnpm run lint    # Run Biome checks
 pnpm build       # Fetch signed built-in plugins, then build the native host and four Vite targets
 ```
 
+### Preview the in-window application menu on macOS
+
+Windows and Linux render the application menu inside the Motrix window. To
+preview that chrome while developing on macOS, start the app with the preview
+flag enabled:
+
+```bash
+MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
+```
+
+The flag hides the main window's macOS traffic-light buttons and enables the
+renderer dropdown menu. Restart the development process after changing the
+flag because both Electron and Vite read it at startup.
+
+This mode is intended for layout and command-item debugging. Electron routes
+macOS role items through AppKit's native menu, so role-backed actions such as
+**Window → Minimize** do not behave identically when invoked from the preview
+dropdown. Validate those native role actions on Windows or Linux.
+
 See the scripts in `package.json` for the available packaging commands. Platform-specific settings for macOS, Windows, and Linux live in `electron-builder.json`.
 
 ## 🔧 Tech stack

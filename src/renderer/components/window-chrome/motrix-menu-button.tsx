@@ -28,11 +28,13 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-type RendererMenuPlatform = 'win32' | 'linux'
+type RendererMenuPlatform = 'darwin' | 'win32' | 'linux'
 
 function rendererMenuPlatform(): RendererMenuPlatform | null {
   if (__MOTRIX_TARGET__ !== 'electron') return null
-  return transport.platform === 'win32' || transport.platform === 'linux'
+  return transport.platform === 'win32' ||
+    transport.platform === 'linux' ||
+    (transport.platform === 'darwin' && __MOTRIX_PREVIEW_MAC_MENU__)
     ? transport.platform
     : null
 }
@@ -49,6 +51,8 @@ const ACCELERATOR_LABELS: Readonly<Record<string, string>> = {
   return: 'Enter',
   shift: 'Shift',
 }
+
+const MOTRIX_LOGO_MASK = 'url("./mo-logo.svg")'
 
 export function formatMenuAccelerator(accelerator: string): string {
   return accelerator
@@ -85,7 +89,7 @@ function ItemLabel({ item }: { item: ApplicationMenuNode }) {
     <>
       <span>{item.label}</span>
       {item.accelerator && (
-        <DropdownMenuShortcut>
+        <DropdownMenuShortcut className="opacity-60">
           {formatMenuAccelerator(item.accelerator)}
         </DropdownMenuShortcut>
       )}
@@ -270,7 +274,8 @@ function ElectronMotrixMenuButton() {
             type="button"
             variant="ghost"
             size="xs"
-            className="app-no-drag h-7 w-[72px] bg-transparent px-2 text-xs font-semibold hover:bg-accent"
+            aria-label={t('menu.app.title')}
+            className="app-no-drag h-7 w-[72px] gap-1 bg-transparent pl-2 pr-1 hover:bg-accent"
             onPointerDownCapture={() => {
               previousFocusRef.current =
                 document.activeElement instanceof HTMLElement
@@ -295,8 +300,22 @@ function ElectronMotrixMenuButton() {
           />
         }
       >
-        {t('menu.app.title')}
-        <ChevronDown className="size-3" />
+        <span
+          aria-hidden="true"
+          data-slot="motrix-menu-logo"
+          className="h-2.5 w-11 shrink-0 bg-foreground"
+          style={{
+            maskImage: MOTRIX_LOGO_MASK,
+            maskPosition: 'center',
+            maskRepeat: 'no-repeat',
+            maskSize: 'contain',
+            WebkitMaskImage: MOTRIX_LOGO_MASK,
+            WebkitMaskPosition: 'center',
+            WebkitMaskRepeat: 'no-repeat',
+            WebkitMaskSize: 'contain',
+          }}
+        />
+        <ChevronDown aria-hidden="true" className="size-3 shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
