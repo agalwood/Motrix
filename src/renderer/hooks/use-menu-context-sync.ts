@@ -8,6 +8,8 @@ import { useTaskList } from './use-task-list'
 
 type Patch = Partial<MenuContext>
 
+const RETRY_DELAY_MS = 500
+
 function diff(prev: Patch, next: Patch): Patch {
   const out: Patch = {}
   let changed = false
@@ -29,12 +31,69 @@ export function useMenuContextSync(): void {
   const selected = useSelectedTask()
   const list = useTaskList()
   const route = useCurrentRoute()
-  const lastSent = useRef<Patch>({})
+  const acknowledged = useRef<Patch>({})
+  const desired = useRef<Patch>({})
+  const drainOutbox = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (__MOTRIX_TARGET__ !== 'electron') return
 
-    const next: Patch = {
+    let disposed = false
+    let inFlight = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    const clearRetry = (): void => {
+      if (retryTimer === null) return
+      clearTimeout(retryTimer)
+      retryTimer = null
+    }
+
+    const scheduleRetry = (): void => {
+      if (disposed || retryTimer !== null) return
+      retryTimer = setTimeout(() => {
+        retryTimer = null
+        drain()
+      }, RETRY_DELAY_MS)
+    }
+
+    const drain = (): void => {
+      if (disposed || inFlight || retryTimer !== null) return
+
+      const patch = diff(acknowledged.current, desired.current)
+      if (Object.keys(patch).length === 0) return
+
+      inFlight = true
+      void (async () => {
+        try {
+          await transport.invoke(Commands.UpdateMenuContext, patch)
+        } catch {
+          if (disposed) return
+          inFlight = false
+          scheduleRetry()
+          return
+        }
+
+        if (disposed) return
+        acknowledged.current = { ...acknowledged.current, ...patch }
+        inFlight = false
+        drain()
+      })()
+    }
+
+    drainOutbox.current = drain
+    drain()
+
+    return () => {
+      disposed = true
+      clearRetry()
+      drainOutbox.current = () => {}
+    }
+  }, [])
+
+  useEffect(() => {
+    if (__MOTRIX_TARGET__ !== 'electron') return
+
+    desired.current = {
       selectedTaskId: selected.task?.id ?? null,
       selectedTaskStatus: selected.task?.status ?? null,
       selectedTaskAtTop: selected.atTop,
@@ -44,13 +103,6 @@ export function useMenuContextSync(): void {
       hasStoppedTasks: list.hasStopped,
       currentRoute: route,
     }
-
-    const patch = diff(lastSent.current, next)
-    if (Object.keys(patch).length === 0) return
-
-    lastSent.current = next
-    transport.invoke(Commands.UpdateMenuContext, patch).catch(() => {
-      // Ignore — preload may not be ready yet; next render retries.
-    })
+    drainOutbox.current()
   }, [selected, list, route])
 }

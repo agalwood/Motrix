@@ -47,6 +47,18 @@ describe('PanelShell', () => {
     expect(input).toHaveClass('compact-header:w-40')
   })
 
+  it('uses the shared window-chrome safe areas in compact mode', () => {
+    const { container } = render(
+      <PanelShell title="X">
+        <div />
+      </PanelShell>
+    )
+    expect(container.querySelector('header')).toHaveClass(
+      'compact-header:pl-[var(--window-chrome-safe-area-leading)]',
+      'compact-header:pr-[var(--window-chrome-safe-area-trailing)]'
+    )
+  })
+
   it('renders footer content when provided', () => {
     render(
       <PanelShell title="X" footer={<button type="button">go</button>}>

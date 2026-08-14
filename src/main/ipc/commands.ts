@@ -965,6 +965,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    // Minimize only the trusted window that originated the request. This is
+    // the Linux frameless-window replacement for a native caption button.
+    [Commands.MinimizeCurrentWindow]: async (sender: WebContents) => {
+      const win = BrowserWindow.fromWebContents(sender)
+      if (win && !win.isDestroyed() && win.isMinimizable()) {
+        win.minimize()
+      }
+      return { ok: true }
+    },
+
     [Commands.PickSaveDir]: async (params: { defaultPath?: string }) => {
       const result = await dialog.showOpenDialog({
         properties: ['openDirectory'],
@@ -1113,7 +1123,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       await trackerManager.syncBtTracker(task.id, params.engineGid, isPrivate)
     },
 
-    [Commands.UpdateMenuContext]: async (raw: unknown) => {
+    [Commands.UpdateMenuContext]: async (sender: WebContents, raw: unknown) => {
+      if (windowManager.getWindowIdBySender(sender) !== 'main') {
+        throw new Error('Blocked menu-context update from a non-main window')
+      }
       const patch = MenuContextPatchSchema.parse(raw)
       contextStore.merge(patch)
       return { ok: true }
@@ -1406,10 +1419,12 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       : Promise.resolve().then(operation)
 
   for (const [channel, handler] of Object.entries(handlers)) {
-    // CloseCurrentWindow and ResizeWindow need event.sender — pass it as first arg
+    // Window-bound commands need event.sender — pass it as the first arg.
     if (
       channel === Commands.CloseCurrentWindow ||
-      channel === Commands.ResizeWindow
+      channel === Commands.MinimizeCurrentWindow ||
+      channel === Commands.ResizeWindow ||
+      channel === Commands.UpdateMenuContext
     ) {
       registerTrustedIpcHandler(channel, (event, ...args) =>
         invoke(() =>

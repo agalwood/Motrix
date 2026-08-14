@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [tailwindcss()],
   define: {
     __MOTRIX_TARGET__: JSON.stringify('web'),
+    __MOTRIX_PREVIEW_MAC_MENU__: JSON.stringify(false),
     __MOTRIX_APP_METADATA__: JSON.stringify({
       name: packageJson.productName,
       version: packageJson.version,

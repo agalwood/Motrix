@@ -59,6 +59,7 @@ describe('MenuManager command lifecycle', () => {
     const coordinator = new MainProcessWorkCoordinator()
     const commandGate = deferred()
     const commandStarted = deferred()
+    const onApplicationMenuSet = vi.fn()
     const run = vi.fn(async () => {
       commandStarted.resolve()
       await commandGate.promise
@@ -69,6 +70,8 @@ describe('MenuManager command lifecycle', () => {
       run,
     })
     menuRegistry.appendItem({
+      id: 'menubar.task.test',
+      type: 'normal',
       menuId: MenuIds.MenubarTask,
       commandId: 'test.command',
       group: '1_test',
@@ -84,8 +87,10 @@ describe('MenuManager command lifecycle', () => {
         },
       } as unknown as CommandDeps,
       trackAsyncWork: (operation) => coordinator.run(operation),
+      onApplicationMenuSet,
     })
     manager.install()
+    expect(onApplicationMenuSet).toHaveBeenCalledOnce()
     const click = electronMenu.clicks[0]
     expect(click).toBeTypeOf('function')
 

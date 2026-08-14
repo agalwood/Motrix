@@ -49,6 +49,7 @@ export const Commands = {
   NextTorrent: 'command:nextTorrent',
   DownloadAllTorrents: 'command:downloadAllTorrents',
   CloseCurrentWindow: 'command:closeCurrentWindow',
+  MinimizeCurrentWindow: 'command:minimizeCurrentWindow',
   ShowMainWindow: 'command:showMainWindow',
   ShowAddTaskWindow: 'command:showAddTaskWindow',
   // Torrent
@@ -81,6 +82,7 @@ export const Commands = {
   RevealInFolder: 'command:revealInFolder',
   // Menu
   UpdateMenuContext: 'command:updateMenuContext',
+  ExecuteApplicationMenuItem: 'command:executeApplicationMenuItem',
   // Task creation (engine-neutral)
   CreateTask: 'command:createTask',
   // GeoIP

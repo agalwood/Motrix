@@ -58,6 +58,9 @@ vi.mock('electron', () => {
       }
     )
     setMinimumSize = vi.fn()
+    setAutoHideMenuBar = vi.fn()
+    setMenuBarVisibility = vi.fn()
+    setWindowButtonVisibility = vi.fn()
     center = vi.fn()
     on = vi.fn().mockReturnThis()
     onceListeners: Record<string, ((...args: unknown[]) => void)[]> = {}
@@ -154,6 +157,59 @@ describe('WindowManager', () => {
     })
   })
 
+  it.each(['win32', 'linux'])(
+    'keeps the native menu bar hidden for every new %s window',
+    (platform) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+        platform,
+      })
+
+      wm.open('main')
+      wm.precreate('add-task')
+      wm.recreate('main')
+
+      const instances = (
+        BrowserWindow as unknown as {
+          instances: Array<{
+            setAutoHideMenuBar: ReturnType<typeof vi.fn>
+            setMenuBarVisibility: ReturnType<typeof vi.fn>
+          }>
+        }
+      ).instances
+      expect(instances).toHaveLength(3)
+      for (const win of instances) {
+        expect(win.setAutoHideMenuBar).toHaveBeenCalledExactlyOnceWith(false)
+        expect(win.setMenuBarVisibility).toHaveBeenCalledExactlyOnceWith(false)
+        expect(win.setAutoHideMenuBar.mock.invocationCallOrder[0]).toBeLessThan(
+          win.setMenuBarVisibility.mock.invocationCallOrder[0]
+        )
+      }
+    }
+  )
+
+  it.each(['darwin', 'web'])(
+    'does not configure native menu bar visibility on %s',
+    (platform) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+        platform,
+      })
+
+      const win = wm.open('main') as unknown as {
+        setAutoHideMenuBar: ReturnType<typeof vi.fn>
+        setMenuBarVisibility: ReturnType<typeof vi.fn>
+      }
+
+      expect(win.setAutoHideMenuBar).not.toHaveBeenCalled()
+      expect(win.setMenuBarVisibility).not.toHaveBeenCalled()
+    }
+  )
+
   it('blocks navigation and redirects outside the trusted renderer URL', () => {
     const wm = new WindowManager({
       settingsManager: createMockSettingsManager(),
@@ -203,6 +259,29 @@ describe('WindowManager', () => {
     expect(options.vibrancy).toBeUndefined()
     expect(liquidGlass.shouldUseLiquidGlass).toHaveBeenCalledOnce()
     expect(liquidGlass.attach).toHaveBeenCalledWith('main', win)
+  })
+
+  it('hides macOS traffic lights after attaching the main-window preview', () => {
+    const sm = createMockSettingsManager()
+    const liquidGlass = {
+      shouldUseLiquidGlass: vi.fn(() => true),
+      attach: vi.fn(),
+    } as unknown as LiquidGlassController
+    const wm = new WindowManager({
+      settingsManager: sm,
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      liquidGlass,
+      platform: 'darwin',
+      previewMacMenu: true,
+    })
+
+    const win = wm.open('main')
+    const setWindowButtonVisibility = vi.mocked(win.setWindowButtonVisibility)
+
+    expect(liquidGlass.attach).toHaveBeenCalledWith('main', win)
+    expect(setWindowButtonVisibility).toHaveBeenCalledWith(false)
+    expect(liquidGlass.attach).toHaveBeenCalledBefore(setWindowButtonVisibility)
   })
 
   it('creates the onboarding window with Liquid Glass chrome when enabled', () => {

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppLayout } from './app-layout'
@@ -80,6 +80,37 @@ beforeEach(() => {
 })
 
 describe('AppLayout', () => {
+  it('renders the renderer application menu in the Windows leading slot', async () => {
+    Object.defineProperty(window.motrix, 'platform', {
+      value: 'win32',
+      configurable: true,
+    })
+    await act(async () => {
+      renderAppLayout()
+      await Promise.resolve()
+    })
+
+    const trigger = screen.getByRole('button', { name: 'Motrix' })
+    expect(trigger).toHaveAttribute('data-slot', 'motrix-menu-trigger')
+    expect(
+      trigger.closest('[data-slot="window-chrome-leading"]')
+    ).not.toBeNull()
+    expect(document.querySelector('[data-slot="sidebar-wrapper"]')).toHaveClass(
+      'electron-window-chrome'
+    )
+  })
+
+  it('keeps Electron chrome safe-area overrides out of the web target', () => {
+    vi.stubGlobal('__MOTRIX_TARGET__', 'web')
+
+    renderAppLayout()
+
+    expect(
+      document.querySelector('[data-slot="sidebar-wrapper"]')
+    ).not.toHaveClass('electron-window-chrome')
+    vi.stubGlobal('__MOTRIX_TARGET__', 'electron')
+  })
+
   it('keeps the sidebar-wrapper background in mobile mode', () => {
     // Below the 768px breakpoint the Sidebar renders as a portaled Sheet
     // without data-variant="inset", so the wrapper's conditional

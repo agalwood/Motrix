@@ -104,4 +104,8 @@ describe('ForwardableEvents', () => {
   it('excludes EngineFailureOccurred (internal main-process producer signal)', () => {
     expect(ForwardableEvents).not.toContain(Events.EngineFailureOccurred)
   })
+
+  it('excludes the Electron-only application-menu mirror event', () => {
+    expect(ForwardableEvents).not.toContain(Events.ApplicationMenuChanged)
+  })
 })

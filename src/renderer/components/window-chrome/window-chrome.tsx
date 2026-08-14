@@ -4,18 +4,18 @@ import { Commands } from '@shared/protocol/commands'
 import type React from 'react'
 import { useTranslation } from 'react-i18next'
 
-function LinuxWindowControls() {
+function LinuxWindowControls({ pushToEnd }: { pushToEnd: boolean }) {
   const { t } = useTranslation()
   const minimize = () => {
-    transport.invoke(Commands.ShowMainWindow)
+    void transport.invoke(Commands.MinimizeCurrentWindow)
   }
   const close = () => {
-    transport.invoke(Commands.CloseCurrentWindow)
+    void transport.invoke(Commands.CloseCurrentWindow)
   }
 
   return (
     <div
-      className="window-controls app-no-drag"
+      className={cn('window-controls app-no-drag', pushToEnd && 'ml-auto')}
       style={{ display: 'flex', gap: 8 }}
     >
       <button
@@ -54,6 +54,7 @@ interface WindowChromeProps {
   compact?: boolean
   title?: string
   variant?: 'overlay' | 'titled'
+  leading?: React.ReactNode
   children?: React.ReactNode
 }
 
@@ -62,6 +63,7 @@ export function WindowChrome({
   compact: _compact,
   title,
   variant = 'titled',
+  leading,
   children,
 }: WindowChromeProps) {
   const platform = transport.platform
@@ -69,14 +71,15 @@ export function WindowChrome({
   const showLinuxControls = platform === 'linux'
   const isOverlay = variant === 'overlay'
   const isMac = platform === 'darwin'
-  const showTrafficLight = __MOTRIX_TARGET__ === 'electron' && isMac
+  const showTrafficLight =
+    __MOTRIX_TARGET__ === 'electron' && isMac && !__MOTRIX_PREVIEW_MAC_MENU__
 
   const containerStyle: React.CSSProperties = {
     height,
     display: 'flex',
     alignItems: 'center',
     paddingLeft: showTrafficLight ? 93 : 12,
-    paddingRight: actionsPosition === 'end' && platform === 'win32' ? 148 : 20,
+    paddingRight: platform === 'win32' ? 148 : 20,
     flexShrink: 0,
     userSelect: 'none',
     ...(isOverlay && {
@@ -94,8 +97,13 @@ export function WindowChrome({
       {!isOverlay && title && (
         <div className="text-[13px] font-[600] pt-[14px]">{title}</div>
       )}
-      {actionsPosition === 'start' && showLinuxControls && (
-        <LinuxWindowControls />
+      {leading && (
+        <div
+          data-slot="window-chrome-leading"
+          className="app-no-drag relative z-[60] mr-1.5 flex shrink-0 items-center pt-3.5 empty:hidden"
+        >
+          {leading}
+        </div>
       )}
       <div
         data-slot="window-chrome-actions"
@@ -106,8 +114,8 @@ export function WindowChrome({
       >
         {children}
       </div>
-      {actionsPosition === 'end' && showLinuxControls && (
-        <LinuxWindowControls />
+      {showLinuxControls && (
+        <LinuxWindowControls pushToEnd={actionsPosition === 'start'} />
       )}
     </div>
   )
