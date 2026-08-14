@@ -80,11 +80,15 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
       <Alert variant="destructive" className="items-start">
         <AlertCircleIcon />
         <AlertTitle>{failure.reason}</AlertTitle>
-        {failure.hint && <AlertDescription>{failure.hint}</AlertDescription>}
-        {failure.technicalDetail && (
-          <pre className="mt-1 whitespace-pre-wrap break-all text-xs text-muted-foreground">
-            {failure.technicalDetail}
-          </pre>
+        {(failure.hint || failure.technicalDetail) && (
+          <AlertDescription className="min-w-0">
+            {failure.hint && <span className="block">{failure.hint}</span>}
+            {failure.technicalDetail && (
+              <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                {failure.technicalDetail}
+              </pre>
+            )}
+          </AlertDescription>
         )}
         {showRetry && (
           <AlertAction>

@@ -272,12 +272,16 @@ describe('TaskInspectorActionBar', () => {
           onClose={vi.fn()}
         />
       )
-      fireEvent.click(screen.getByRole('button', { name: /Copy URL/ }))
+      const copyButton = screen.getByRole('button', { name: /Copy URL/ })
+      expect(copyButton.querySelector('.lucide-copy')).not.toBeNull()
+
+      fireEvent.click(copyButton)
       await waitFor(() =>
         expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
           'https://example.com/file.zip'
         )
       )
+      expect(copyButton.querySelector('.lucide-check')).not.toBeNull()
     })
 
     it('BT task with infoHash copies a magnet URI carrying name + trackers', async () => {
@@ -369,6 +373,32 @@ describe('TaskInspectorActionBar', () => {
           'magnet:?xt=urn:btih:abc123&tr=udp://t/announce'
         )
       )
+    })
+
+    it('keeps the idle icon and reports an error when task details cannot load', async () => {
+      vi.mocked(transport.invoke).mockRejectedValueOnce(
+        new Error('detail unavailable')
+      )
+      render(
+        <TaskInspectorActionBar
+          selected={[
+            makeTask({
+              type: TaskType.Bt,
+              infoHash: 'abc123',
+              uris: [],
+            }),
+          ]}
+          onClose={vi.fn()}
+        />
+      )
+
+      const copyButton = screen.getByRole('button', { name: /Copy URL/ })
+      fireEvent.click(copyButton)
+
+      await waitFor(() => expect(toastAddMock).toHaveBeenCalledTimes(1))
+      expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
+      expect(copyButton.querySelector('.lucide-copy')).not.toBeNull()
+      expect(copyButton.querySelector('.lucide-check')).toBeNull()
     })
   })
 })

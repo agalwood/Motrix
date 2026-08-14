@@ -1,3 +1,4 @@
+import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
@@ -13,7 +14,6 @@ import { isTorrentLike } from '@shared/types/task-actions'
 import {
   ChevronDown,
   FolderOpen,
-  Link as LinkIcon,
   ListChecks,
   Pause,
   Play,
@@ -36,7 +36,7 @@ export interface TaskInspectorActionBarProps {
 /**
  * Click-time copy with an explicit failure path: a failed detail fetch must
  * abort the copy and tell the user, never silently write a tracker-less
- * magnet and report success.
+ * magnet and report success. Re-throw so CopyButton keeps its idle state.
  */
 async function copyTaskUrl(
   task: DownloadTask,
@@ -45,9 +45,9 @@ async function copyTaskUrl(
   let url: string
   try {
     url = await getCopyUrl(task)
-  } catch {
+  } catch (error) {
     onFailure()
-    return
+    throw error
   }
   await navigator.clipboard.writeText(url)
 }
@@ -139,7 +139,7 @@ function FinalizingActionBar({
           {t('panel.downloads.action.openFolder')}
         </Button>
       )}
-      <Button
+      <CopyButton
         size="xs"
         variant="outline"
         onClick={() =>
@@ -151,9 +151,8 @@ function FinalizingActionBar({
           )
         }
       >
-        <LinkIcon />
         {t('panel.downloads.action.copyUrl')}
-      </Button>
+      </CopyButton>
       <Button
         size="xs"
         variant="outline"
@@ -304,7 +303,7 @@ export function TaskInspectorActionBar({
             </Button>
           )}
         {single && (
-          <Button
+          <CopyButton
             size="xs"
             variant="outline"
             onClick={() =>
@@ -316,9 +315,8 @@ export function TaskInspectorActionBar({
               )
             }
           >
-            <LinkIcon />
             {t('panel.downloads.action.copyUrl')}
-          </Button>
+          </CopyButton>
         )}
 
         <CountedButton

@@ -160,9 +160,19 @@ describe('OverviewTab', () => {
         errorCode: DownloadErrorCode.NetworkError,
         errorMessage: 'ECONNREFUSED 127.0.0.1:9999',
       })
-      expect(
-        screen.getByText('ECONNREFUSED 127.0.0.1:9999')
-      ).toBeInTheDocument()
+      const technicalDetail = screen.getByText('ECONNREFUSED 127.0.0.1:9999')
+      const alertDescription = technicalDetail.closest(
+        '[data-slot="alert-description"]'
+      )
+
+      expect(technicalDetail).toBeInTheDocument()
+      expect(alertDescription).toHaveClass('min-w-0')
+      expect(alertDescription).toContainElement(
+        screen.getByText('Check your network connection, then retry')
+      )
+      expect(alertDescription?.parentElement).toContainElement(
+        screen.getByText('Network connection failed')
+      )
     })
 
     it('hides retry for a Mux-kind error task (not rebuildable)', () => {
