@@ -30,6 +30,12 @@ const parseYaml = require('js-yaml').load as (source: string) => unknown
 const PNPM_VERSION = '11.21.0'
 const PNPM_PACKAGE_MANAGER =
   'pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1'
+const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
+  'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
+  'npm_config_electron_builder_binaries_custom_dir',
+  'npm_package_config_electron_builder_binaries_custom_dir',
+  'ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
+] as const
 const EXPECTED_ACTION_PINS = new Map([
   [
     'actions/checkout',
@@ -1155,6 +1161,182 @@ describe('release workflow publication contract', () => {
     const command = stringField(createInput as LooseRecord, 'run')
     expect(command).toContain(`--commit "\${{ github.sha }}"`)
     expect(command).not.toContain('$GITHUB_SHA')
+  })
+
+  it('sanitizes then unsets builder custom directories inside each finalization boundary', () => {
+    const signJob = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    const signEnvironment = asRecord(signJob.env, 'sign job environment')
+    for (const variable of [
+      'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
+      'ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
+    ]) {
+      expect(stringField(signEnvironment, variable)).toBe('')
+    }
+
+    const steps = jobSteps(signJob)
+    const boundaries = [
+      {
+        name: 'Electron Builder (macOS signing boundary)',
+        shell: 'bash',
+        unsetCommand: (variable: string) => `unset ${variable}`,
+      },
+      {
+        name: 'Electron Builder (Windows finalization boundary)',
+        shell: 'pwsh',
+        unsetCommand: (variable: string) =>
+          `Remove-Item Env:${path.win32.sep}${variable} -ErrorAction SilentlyContinue`,
+      },
+    ]
+
+    for (const boundary of boundaries) {
+      const step = steps.find((candidate) => candidate.name === boundary.name)
+      expect(step).toBeDefined()
+      expect(stringField(step as LooseRecord, 'shell')).toBe(boundary.shell)
+      const command = stringField(step as LooseRecord, 'run')
+      const builderIndex = command.indexOf(
+        'node node_modules/electron-builder/out/cli/cli.js'
+      )
+      expect(builderIndex).toBeGreaterThanOrEqual(0)
+      for (const variable of ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES) {
+        const unsetIndex = command.indexOf(boundary.unsetCommand(variable))
+        expect(
+          unsetIndex,
+          `${boundary.name} must unset ${variable}`
+        ).toBeGreaterThanOrEqual(0)
+        expect(unsetIndex).toBeLessThan(builderIndex)
+      }
+    }
+  })
+
+  it('restores canonical 26.15.7 NSIS URLs after custom directories are unset', async () => {
+    const signingToolPackages = asRecord(
+      asRecord(
+        JSON.parse(signingToolLockSource) as unknown,
+        'signing tool lock'
+      ).packages,
+      'signing tool lock packages'
+    )
+    const lockedAppBuilder = asRecord(
+      signingToolPackages['node_modules/app-builder-lib'],
+      'locked app-builder-lib package'
+    )
+    expect(stringField(lockedAppBuilder, 'version')).toBe('26.15.7')
+
+    const packageMetadata = asRecord(
+      require('app-builder-lib/package.json') as unknown,
+      'app-builder-lib package metadata'
+    )
+    expect(stringField(packageMetadata, 'version')).toBe('26.15.7')
+
+    const electronGetPath = require.resolve(
+      'app-builder-lib/out/util/electronGet.js'
+    )
+    const binDownloadPath = require.resolve(
+      'app-builder-lib/out/binDownload.js'
+    )
+    const electronGet = asRecord(
+      require(electronGetPath) as unknown,
+      'app-builder-lib electron downloader'
+    )
+    const originalDownloadBuilderToolset = electronGet.downloadBuilderToolset
+    if (typeof originalDownloadBuilderToolset !== 'function') {
+      throw new TypeError('downloadBuilderToolset must be a function')
+    }
+
+    const customDirNames = new Set(
+      ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES.map((name) =>
+        name.toLowerCase()
+      )
+    )
+    const originalEnvironment = Object.entries(process.env).filter(([name]) =>
+      customDirNames.has(name.toLowerCase())
+    )
+    const clearCustomDirectories = () => {
+      for (const name of Object.keys(process.env)) {
+        if (customDirNames.has(name.toLowerCase())) {
+          delete process.env[name]
+        }
+      }
+    }
+    type GetBinFromUrl = (
+      releaseName: string,
+      filenameWithExt: string,
+      checksum: string
+    ) => Promise<string>
+    const loadGetBinFromUrl = (): GetBinFromUrl => {
+      delete require.cache[binDownloadPath]
+      const binDownload = asRecord(
+        require(binDownloadPath) as unknown,
+        'app-builder-lib binary downloader'
+      )
+      if (typeof binDownload.getBinFromUrl !== 'function') {
+        throw new TypeError('getBinFromUrl must be a function')
+      }
+      return binDownload.getBinFromUrl as GetBinFromUrl
+    }
+
+    const downloads: LooseRecord[] = []
+    electronGet.downloadBuilderToolset = async (options: unknown) => {
+      downloads.push(asRecord(options, 'builder toolset download options'))
+      return path.join(ROOT, '.stub-electron-builder-toolset')
+    }
+
+    try {
+      clearCustomDirectories()
+      for (const variable of ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES) {
+        process.env[variable] = ''
+      }
+      await loadGetBinFromUrl()(
+        'nsis-3.0.4.1',
+        'nsis-3.0.4.1.7z',
+        '0'.repeat(64)
+      )
+
+      expect(downloads).toHaveLength(1)
+      expect(stringField(downloads[0] as LooseRecord, 'releaseName')).toBe(
+        'download'
+      )
+      expect(stringField(downloads[0] as LooseRecord, 'overrideUrl')).toBe(
+        'https://github.com/electron-userland/electron-builder-binaries/releases/download/'
+      )
+
+      clearCustomDirectories()
+      const getBinFromUrl = loadGetBinFromUrl()
+      await getBinFromUrl('nsis-3.0.4.1', 'nsis-3.0.4.1.7z', '0'.repeat(64))
+      await getBinFromUrl(
+        'nsis-resources-3.4.1',
+        'nsis-resources-3.4.1.7z',
+        '0'.repeat(64)
+      )
+
+      expect(
+        downloads.slice(1).map((download) => ({
+          filenameWithExt: stringField(download, 'filenameWithExt'),
+          overrideUrl: stringField(download, 'overrideUrl'),
+          releaseName: stringField(download, 'releaseName'),
+        }))
+      ).toEqual([
+        {
+          filenameWithExt: 'nsis-3.0.4.1.7z',
+          overrideUrl:
+            'https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1',
+          releaseName: 'nsis-3.0.4.1',
+        },
+        {
+          filenameWithExt: 'nsis-resources-3.4.1.7z',
+          overrideUrl:
+            'https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1',
+          releaseName: 'nsis-resources-3.4.1',
+        },
+      ])
+    } finally {
+      electronGet.downloadBuilderToolset = originalDownloadBuilderToolset
+      delete require.cache[binDownloadPath]
+      clearCustomDirectories()
+      for (const [name, value] of originalEnvironment) {
+        process.env[name] = value
+      }
+    }
   })
 
   it('verifies notarization stapling in addition to macOS signatures', () => {

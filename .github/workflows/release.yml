@@ -910,6 +910,7 @@ jobs:
 
       - name: Electron Builder (macOS signing boundary)
         if: matrix.platform == 'darwin'
+        shell: bash
         working-directory: signing-input
         env:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
@@ -920,15 +921,21 @@ jobs:
           APPLE_API_KEY: ${{ steps.apple-api-key.outputs.path }}
           APPLE_API_KEY_ID: ${{ secrets.API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.API_KEY_ISSUER_ID }}
-        run: >-
-          node node_modules/electron-builder/out/cli/cli.js
-          --config electron-builder.signing.json
-          ${{ matrix.electron_builder_args }}
-          -c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0
-          --publish never
+        run: |
+          set -euo pipefail
+          unset ELECTRON_BUILDER_BINARIES_CUSTOM_DIR
+          unset NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR
+          unset npm_config_electron_builder_binaries_custom_dir
+          unset npm_package_config_electron_builder_binaries_custom_dir
+          node node_modules/electron-builder/out/cli/cli.js \
+            --config electron-builder.signing.json \
+            ${{ matrix.electron_builder_args }} \
+            -c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0 \
+            --publish never
 
       - name: Electron Builder (Windows finalization boundary)
         if: matrix.platform == 'win32'
+        shell: pwsh
         working-directory: signing-input
         env:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
@@ -936,11 +943,15 @@ jobs:
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: >-
-          node node_modules/electron-builder/out/cli/cli.js
-          --config electron-builder.signing.json
-          ${{ matrix.electron_builder_args }}
-          --publish never
+        run: |
+          Remove-Item Env:\ELECTRON_BUILDER_BINARIES_CUSTOM_DIR -ErrorAction SilentlyContinue
+          Remove-Item Env:\NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR -ErrorAction SilentlyContinue
+          Remove-Item Env:\npm_config_electron_builder_binaries_custom_dir -ErrorAction SilentlyContinue
+          Remove-Item Env:\npm_package_config_electron_builder_binaries_custom_dir -ErrorAction SilentlyContinue
+          node node_modules/electron-builder/out/cli/cli.js `
+            --config electron-builder.signing.json `
+            ${{ matrix.electron_builder_args }} `
+            --publish never
 
       - name: Verify macOS signatures
         if: matrix.platform == 'darwin'
