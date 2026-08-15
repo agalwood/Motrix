@@ -90,8 +90,153 @@ describe('release version contract', () => {
       `https://github.com/agalwood/Motrix/blob/${releaseTag}/docs/docker-server.zh-CN.md`
     )
 
-    expect(english).toContain(`motrix-server:${packageVersion}`)
-    expect(chinese).toContain(`motrix-server:${packageVersion}`)
+    for (const source of [english, chinese]) {
+      expect(source).toContain(
+        `docker.io/motrixapp/motrix-server:${packageVersion}`
+      )
+      expect(source).toContain(
+        `ghcr.io/agalwood/motrix-server:${packageVersion}`
+      )
+    }
+  })
+
+  it('preserves beta.6 Snap publish-runner dependency recovery history', () => {
+    const english = read('docs/release-notes/2.0.0-beta.6.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.6.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.6/docs/release-notes/2.0.0-beta.5.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.6/docs/release-notes/2.0.0-beta.5.zh-CN.md'
+    )
+    expect(normalizedEnglish).toContain(
+      'Prepares the isolated `publish-edge` runner immediately after checkout and before Snap artifact download or verification'
+    )
+    expect(normalizedEnglish).toContain('SHA-pinned setup actions')
+    expect(normalizedEnglish).toContain(
+      'installs the complete lockfile-pinned workspace dependency closure'
+    )
+    expect(normalizedEnglish).toContain(
+      'ahead of all Store credential access and mutation'
+    )
+    expect(normalizedEnglish).toContain(
+      'Store uploads still do not release automatically'
+    )
+    expect(normalizedEnglish).toContain(
+      'only the exact revisions returned by successful uploads may enter `latest/edge`, followed by rollback handling, public channel verification, and preservation of the trusted revision record'
+    )
+    expect(normalizedEnglish).toContain(
+      'Protected-tag and environment gates remain unchanged, and build jobs still receive no Store secrets'
+    )
+    expect(normalizedChinese).toContain(
+      '在 checkout 后、下载或验证 Snap artifact 前准备隔离的 `publish-edge` runner'
+    )
+    expect(normalizedChinese).toContain('使用固定 SHA 的 setup action')
+    expect(normalizedChinese).toContain(
+      '安装 lockfile 固定的完整 workspace dependency closure'
+    )
+    expect(normalizedChinese).toContain(
+      '在任何 Store credential 访问和 mutation 前验证两个架构 artifact'
+    )
+    expect(normalizedChinese).toContain('Store upload 仍不会自动 release')
+    expect(normalizedChinese).toContain(
+      '只有上传成功后返回的精确 revision 才能进入 `latest/edge`，随后执行 rollback 处理、公开 channel 验证， 并保存可信 revision record'
+    )
+    expect(normalizedChinese).toContain(
+      '受保护 tag 和 environment gate 保持不变，build job 仍不会获得 Store secret'
+    )
+    for (const source of [english, chinese]) {
+      expect(source).toContain('pnpm `11.21.0`')
+      expect(source).toContain('Node.js 24')
+      expect(source).toContain(
+        'pnpm install --frozen-lockfile --ignore-scripts'
+      )
+      expect(source).toContain('MOTRIX_SKIP_ELECTRON_REBUILD=1')
+      expect(source).toContain('MOTRIX_SKIP_ENGINE_FETCH=1')
+      expect(source).toContain('verify-snap-artifact.mjs')
+      expect(source).toContain('js-yaml')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain('Authenticode')
+      expect(source).toContain('SmartScreen')
+    }
+  })
+
+  it('marks beta.5 as an unpublished attempt superseded by beta.6', () => {
+    const english = read('docs/release-notes/2.0.0-beta.5.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.5.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.6/docs/release-notes/2.0.0-beta.5.zh-CN.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.6/docs/release-notes/2.0.0-beta.5.md'
+    )
+    expect(english).toContain('This release attempt did not complete')
+    expect(normalizedEnglish).toContain('All five desktop build jobs')
+    expect(normalizedEnglish).toContain(
+      'macOS signing environments remained pending approval'
+    )
+    expect(normalizedEnglish).toContain('neither macOS finalization job ran')
+    expect(normalizedEnglish).toContain(
+      'unsigned Windows finalization job was canceled while it was in progress'
+    )
+    expect(normalizedEnglish).toContain(
+      'Assemble, GitHub Release, R2 update-feed publishing, and Docker Hub/GHCR container publishing were canceled before they ran'
+    )
+    expect(normalizedEnglish).toContain(
+      'successfully built, verified, and uploaded the internal GitHub Actions artifacts for both `amd64` and `arm64`'
+    )
+    expect(normalizedEnglish).toContain(
+      'happened before Store credential validation, Store upload, exact revision binding, `latest/edge` release, public channel verification, or revision record preservation'
+    )
+    expect(normalizedEnglish).toContain('external distribution remained zero')
+    expect(chinese).toContain('本次发布尝试未完成')
+    expect(normalizedChinese).toContain('5 个桌面构建 job')
+    expect(normalizedChinese).toContain('macOS 签名环境一直等待审批')
+    expect(normalizedChinese).toContain('两个 macOS finalize job 均未执行')
+    expect(normalizedChinese).toContain(
+      '未签名 Windows finalize job 在运行过程中取消'
+    )
+    expect(normalizedChinese).toContain(
+      'assemble、GitHub Release、R2 更新数据源 发布以及 Docker Hub/GHCR container publish 均在执行前取消'
+    )
+    expect(normalizedChinese).toContain(
+      '成功构建、验证和上传 `amd64`、`arm64` 两个架构的内部 GitHub Actions artifact'
+    )
+    expect(normalizedChinese).toContain(
+      '失败发生在 Store credential validation、Store upload、精确 revision 绑定、`latest/edge` release、public channel verification 和 revision record preservation 之前'
+    )
+    expect(normalizedChinese).toContain('外部分发为零')
+    for (const source of [english, chinese]) {
+      expect(source).toContain('v2.0.0-beta.6')
+      expect(source).toMatch(/assemble/i)
+      expect(source).toContain('GitHub Release')
+      expect(source).toContain('R2')
+      expect(source).toContain('Docker Hub')
+      expect(source).toContain('GHCR')
+      expect(source).toContain('Snap')
+      expect(source).toContain('publish-edge')
+      expect(source).toContain('Verify complete upload set')
+      expect(source).toContain('ERR_MODULE_NOT_FOUND')
+      expect(source).toContain('js-yaml')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain('Authenticode')
+      expect(source).toContain('SmartScreen')
+    }
+    expect(english).toContain('Intended downloads (not published)')
+    expect(chinese).toContain('原计划下载（未发布）')
   })
 
   it('preserves beta.5 canonical manifest-order recovery history', () => {
