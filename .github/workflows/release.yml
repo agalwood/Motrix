@@ -336,7 +336,7 @@ jobs:
           --directory "release/signing-input-${{ matrix.target }}"
           --platform ${{ matrix.platform }}
           --arch ${{ matrix.arch }}
-          --commit "$GITHUB_SHA"
+          --commit "${{ github.sha }}"
           --archive "release/signing-input-${{ matrix.target }}.tar"
 
       - name: Upload isolated signing input

@@ -72,22 +72,53 @@ describe('release version contract', () => {
     )
   })
 
-  it('preserves beta.2 recovery and distribution disclosures', () => {
-    const betaVersion = '2.0.0-beta.2'
-    const betaTag = `v${betaVersion}`
-    const english = read(`docs/release-notes/${betaVersion}.md`)
-    const chinese = read(`docs/release-notes/${betaVersion}.zh-CN.md`)
+  it('preserves current distribution disclosures', () => {
+    const english = read(`docs/release-notes/${packageVersion}.md`)
+    const chinese = read(`docs/release-notes/${packageVersion}.zh-CN.md`)
 
     expect(english).toContain(
-      `https://github.com/agalwood/Motrix/blob/${betaTag}/docs/docker-server.md`
+      `https://github.com/agalwood/Motrix/blob/${releaseTag}/docs/docker-server.md`
     )
     expect(chinese).toContain(
-      `https://github.com/agalwood/Motrix/blob/${betaTag}/docs/docker-server.zh-CN.md`
+      `https://github.com/agalwood/Motrix/blob/${releaseTag}/docs/docker-server.zh-CN.md`
     )
 
     for (const source of [english, chinese]) {
-      expect(source).toContain(`motrix-server:${betaVersion}`)
+      expect(source).toContain(`motrix-server:${packageVersion}`)
+      expect(source).toContain('Snap')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Authenticode')
+      expect(source).toContain('SmartScreen')
+    }
+  })
+
+  it('preserves beta.3 recovery history', () => {
+    const english = read('docs/release-notes/2.0.0-beta.3.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.3.zh-CN.md')
+
+    for (const source of [english, chinese]) {
       expect(source).toContain('v2.0.0-beta.1')
+      expect(source).toContain('v2.0.0-beta.2')
+      expect(source).toMatch(/GitHub\s+Release/)
+      expect(source).toContain('R2')
+      expect(source).toContain('Snap')
+      expect(source).toContain('workflow')
+      expect(source).toContain('commit')
+    }
+  })
+
+  it('marks beta.2 as an unpublished attempt superseded by beta.3', () => {
+    const english = read('docs/release-notes/2.0.0-beta.2.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.2.zh-CN.md')
+
+    expect(english).toContain('This release attempt did not complete')
+    expect(english).toContain('Intended downloads (not published)')
+    expect(chinese).toContain('本次发布尝试未完成')
+    expect(chinese).toContain('原计划下载（未发布）')
+    for (const source of [english, chinese]) {
+      expect(source).toContain('v2.0.0-beta.3')
+      expect(source).toContain('$GITHUB_SHA')
+      expect(source).toContain('PowerShell')
       expect(source).toContain('GitHub Release')
       expect(source).toContain('R2')
       expect(source).toContain('Snap')
