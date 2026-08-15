@@ -10,9 +10,9 @@ nodeLinker: hoisted
 
 # pnpm 11 build-script gate (replaces onlyBuiltDependencies /
 # ignoredBuiltDependencies — packages not listed have their scripts skipped):
-#   - electron: postinstall downloads dist/ — the runtime binary plus
-#     dist/LICENSE and dist/LICENSES.chromium.html, required by build:legal,
-#     check:third-party-notices, and electron-builder.
+#   - electron: retained for compatibility with releases that expose an
+#     install script. Electron 43 only exposes install.js as a package bin, so
+#     packaging and legal-check workflows must hydrate dist/ explicitly.
 #   - better-sqlite3: native module rebuilt against the pinned ABI.
 #   - electron-winstaller / esbuild: harmless arch-selection scripts, allowed
 #     to keep installs warning-free (esbuild binaries ship via @esbuild/*

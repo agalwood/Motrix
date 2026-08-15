@@ -156,9 +156,8 @@ jobs:
         env:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
-      # Same side-effects-cache guard as the ci job: pnpm can reuse an
-      # electron store entry recorded while its build script was blocked,
-      # leaving dist/ absent. The notice contract needs dist/LICENSE.
+      # Electron 43 does not declare a postinstall script, so pnpm install
+      # does not hydrate dist/ with the runtime and license payload.
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js
 
@@ -278,23 +277,62 @@ jobs:
           EXPECTED_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          snaps=(release/snap-upload/*.snap)
-          if (( ${#snaps[@]} != 2 )); then
-            echo "Expected exactly two Snap artifacts, found ${#snaps[@]}" >&2
+          download_root='release/snap-upload'
+          verified_root='release/snap-verified'
+          downloaded_snaps=()
+          while IFS= read -r -d '' snap; do
+            downloaded_snaps+=("$snap")
+          done < <(find "$download_root" -name '*.snap' -print0)
+          if (( ${#downloaded_snaps[@]} != 2 )); then
+            echo "Expected exactly two Snap artifacts, found ${#downloaded_snaps[@]}" >&2
             exit 1
           fi
+          if [[ -e "$verified_root" || -L "$verified_root" ]]; then
+            echo "Verified Snap staging path already exists" >&2
+            exit 1
+          fi
+          mkdir "$verified_root"
+          first_basename=''
           for arch in amd64 arm64; do
-            matches=(release/snap-upload/*_"${arch}".snap)
+            arch_root="${download_root}/snap-${arch}"
+            if [[ ! -d "$arch_root" ]]; then
+              echo "Missing downloaded ${arch} artifact directory" >&2
+              exit 1
+            fi
+            matches=()
+            while IFS= read -r -d '' snap; do
+              matches+=("$snap")
+            done < <(find "$arch_root" -type f -name '*.snap' -print0)
             if (( ${#matches[@]} != 1 )); then
               echo "Expected exactly one ${arch} Snap artifact" >&2
               exit 1
             fi
+            snap="${matches[0]}"
+            basename="$(basename "$snap")"
+            if [[ -n "$first_basename" && "$basename" == "$first_basename" ]]; then
+              echo "Duplicate Snap artifact basename: $basename" >&2
+              exit 1
+            fi
+            first_basename="$basename"
+            if [[ ! "$basename" =~ _${arch}\.snap$ ]]; then
+              echo "Unexpected ${arch} Snap artifact name: $basename" >&2
+              exit 1
+            fi
             node scripts/verify-snap-artifact.mjs \
-              --snap "${matches[0]}" \
+              --snap "$snap" \
               --arch "$arch" \
               --version "$EXPECTED_VERSION"
+            install -m 0644 -- \
+              "$snap" "${verified_root}/motrix_verified_${arch}.snap"
           done
+          verified_snaps=()
+          while IFS= read -r -d '' snap; do
+            verified_snaps+=("$snap")
+          done < <(find "$verified_root" -type f -name '*.snap' -print0)
+          if (( ${#verified_snaps[@]} != 2 )); then
+            echo "Expected exactly two verified Snap artifacts" >&2
+            exit 1
+          fi
 
       - name: Install Snapcraft 9
         timeout-minutes: 10
@@ -322,18 +360,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          snaps=(release/snap-upload/*.snap)
           declare -A revisions
-          for snap in "${snaps[@]}"; do
-            case "$(basename "$snap")" in
-              *_amd64.snap) arch='amd64' ;;
-              *_arm64.snap) arch='arm64' ;;
-              *)
-                echo "Cannot determine architecture from $snap" >&2
-                exit 1
-                ;;
-            esac
+          for arch in amd64 arm64; do
+            snap="release/snap-verified/motrix_verified_${arch}.snap"
+            if [[ ! -f "$snap" || -L "$snap" ]]; then
+              echo "Missing verified ${arch} Snap artifact" >&2
+              exit 1
+            fi
             upload_log="${RUNNER_TEMP}/snap-upload-${arch}.log"
             LC_ALL=C.UTF-8 snapcraft upload "$snap" 2>&1 | tee "$upload_log"
             revisions["$arch"]="$(
