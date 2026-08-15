@@ -19,6 +19,32 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
+## 应用截图
+
+### 仪表盘
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-cn-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-cn.webp">
+  <img alt="Motrix 仪表盘" src="./screenshots/motrix-dashboard-cn.webp">
+</picture>
+
+### 下载任务
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-cn-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-cn.webp">
+  <img alt="Motrix 下载任务" src="./screenshots/motrix-downloads-cn.webp">
+</picture>
+
+### 设置
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-cn-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-cn.webp">
+  <img alt="Motrix 设置" src="./screenshots/motrix-settings-cn.webp">
+</picture>
+
 ## ✨ 主要功能
 
 - 🕹 简洁直观的图形界面，支持深色模式

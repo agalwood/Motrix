@@ -19,6 +19,32 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
+## Screenshots
+
+### Dashboard
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard.webp">
+  <img alt="Motrix Dashboard" src="./screenshots/motrix-dashboard.webp">
+</picture>
+
+### Downloads
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads.webp">
+  <img alt="Motrix Downloads" src="./screenshots/motrix-downloads.webp">
+</picture>
+
+### Settings
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings.webp">
+  <img alt="Motrix Settings" src="./screenshots/motrix-settings.webp">
+</picture>
+
 ## ✨ Features
 
 - 🕹 Clean, intuitive interface with dark mode
