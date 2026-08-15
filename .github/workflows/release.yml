@@ -821,6 +821,7 @@ jobs:
           const fs = require('node:fs')
           const path = require('node:path')
           const { spawnSync } = require('node:child_process')
+          const { pathToFileURL } = require('node:url')
           const parent = path.resolve(process.env.SIGNING_TOOL_PARENT)
           const target = process.env.SIGNING_TOOL_TARGET
           if (!target || !/^[a-z0-9-]+$/u.test(target)) {
@@ -885,9 +886,42 @@ jobs:
           if (!cliInfo.isFile()) {
             throw new Error('electron-builder CLI is not a file')
           }
+          const verifierDirectory = path.join(root, 'scripts')
+          fs.mkdirSync(verifierDirectory, { mode: 0o700 })
+          fs.chmodSync(verifierDirectory, 0o700)
+          for (const name of [
+            'electron-package-size-budgets.json',
+            'electron-package-utils.mjs',
+            'native-binary-target.mjs',
+            'verify-electron-package.mjs',
+          ]) {
+            const source = path.join('signing-input', 'scripts', name)
+            const sourceInfo = fs.lstatSync(source)
+            if (!sourceInfo.isFile()) {
+              throw new Error(`package verifier input is not a file: ${name}`)
+            }
+            const destination = path.join(verifierDirectory, name)
+            fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL)
+            fs.chmodSync(destination, 0o600)
+          }
+          const verifier = fs.realpathSync(
+            path.join(verifierDirectory, 'verify-electron-package.mjs')
+          )
+          const verifierImport = spawnSync(
+            process.execPath,
+            [
+              '--input-type=module',
+              '--eval',
+              `await import(${JSON.stringify(pathToFileURL(verifier).href)})`,
+            ],
+            { stdio: 'inherit' }
+          )
+          if (verifierImport.error || verifierImport.status !== 0) {
+            throw new Error('package verifier dependency import failed')
+          }
           fs.appendFileSync(
             process.env.GITHUB_OUTPUT,
-            `cli=${cli}\n`,
+            `cli=${cli}\nverifier=${verifier}\n`,
             'utf8'
           )
 
@@ -1088,14 +1122,13 @@ jobs:
             ${{ matrix.electron_builder_args }} `
             --publish never
 
-      - name: Remove finalization temporary inputs
+      - name: Remove finalization credentials
         if: always()
         shell: node {0}
         env:
           APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
           MAC_CERTIFICATE_DIRECTORY: ${{ steps.mac-certificate.outputs.directory }}
           MAC_CERTIFICATE_PATH: ${{ steps.mac-certificate.outputs.path }}
-          SIGNING_TOOL_ROOT: ${{ steps.signing-tool-runtime.outputs.root }}
           TEMPORARY_ROOT: ${{ runner.temp }}
         run: |
           const fs = require('node:fs')
@@ -1122,10 +1155,7 @@ jobs:
             const candidate = insideRoot(value)
             if (candidate) fs.rmSync(candidate, { force: true })
           }
-          for (const value of [
-            process.env.MAC_CERTIFICATE_DIRECTORY,
-            process.env.SIGNING_TOOL_ROOT,
-          ]) {
+          for (const value of [process.env.MAC_CERTIFICATE_DIRECTORY]) {
             const candidate = insideRoot(value)
             if (candidate) {
               fs.rmSync(candidate, { recursive: true, force: true })
@@ -1146,11 +1176,35 @@ jobs:
       - name: Verify finalized Electron package
         working-directory: signing-input
         run: >-
-          node scripts/verify-electron-package.mjs
+          node "${{ steps.signing-tool-runtime.outputs.verifier }}"
           --app-dir "${{ matrix.app_path }}"
           --platform ${{ matrix.platform }}
           --arch ${{ matrix.arch }}
           --report "release/size-reports/${{ matrix.target }}.json"
+
+      - name: Remove isolated signing runtime
+        if: always()
+        shell: node {0}
+        env:
+          SIGNING_TOOL_ROOT: ${{ steps.signing-tool-runtime.outputs.root }}
+          TEMPORARY_ROOT: ${{ runner.temp }}
+        run: |
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const root = path.resolve(process.env.TEMPORARY_ROOT)
+          const value = process.env.SIGNING_TOOL_ROOT
+          if (!value) process.exit(0)
+          const candidate = path.resolve(value)
+          const relative = path.relative(root, candidate)
+          if (
+            !relative ||
+            relative === '..' ||
+            relative.startsWith(`..${path.sep}`) ||
+            path.isAbsolute(relative)
+          ) {
+            throw new Error('refusing to clean a path outside runner temp')
+          }
+          fs.rmSync(candidate, { recursive: true, force: true })
 
       - name: Upload finalized release input
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

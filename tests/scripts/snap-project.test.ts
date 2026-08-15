@@ -100,8 +100,8 @@ describe('prepare-snap-project', () => {
       confinement: 'strict',
       grade: 'stable',
       assumes: ['snapd2.46'],
-      'source-code': 'https://gitlab.com/agalwood/motrix-turbo',
-      issues: 'https://gitlab.com/agalwood/motrix-turbo/-/issues',
+      'source-code': 'https://github.com/agalwood/Motrix',
+      issues: 'https://github.com/agalwood/Motrix/issues',
       platforms: {
         amd64: {
           'build-on': ['amd64'],
