@@ -76,13 +76,23 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.5" date="2026-08-15">
+      <description>
+        <p>
+          Release recovery update that sorts the complete canonical relative
+          paths in the Windows signing manifest by code-unit order, matching
+          the isolated verifier while retaining strict uniqueness and digest
+          validation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.4" date="2026-08-15">
       <description>
         <p>
-          Release recovery update that declares all ten fixed-digest signing
-          control text paths as text eol=lf, preserving canonical LF bytes
-          across Windows checkouts while leaving raw-byte SHA-256 verification
-          unchanged.
+          Unpublished Motrix Turbo beta attempt. All five desktop builds
+          succeeded and the Windows LF digest fix held, but finalization
+          rejected a unique 2,434-entry DFS manifest that was not in full-path
+          dictionary order. No external distribution was published.
         </p>
       </description>
     </release>

@@ -1240,7 +1240,14 @@ describe('release workflow publication contract', () => {
     expect(source).toContain('tar contains trailing bytes')
     expect(source).toContain('unsupported tar entry type')
 
-    expect(releaseSource).toContain(
+    const verification = jobSteps(sign).find(
+      (step) => step.name === 'Verify signing input before secrets'
+    )
+    const verifierEnvironment = asRecord(
+      verification?.env,
+      'signing input verifier environment'
+    )
+    expect(stringField(verifierEnvironment, 'VERIFIER_SHA256')).toBe(
       createHash('sha256').update(signingInputSource).digest('hex')
     )
   })
