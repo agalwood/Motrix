@@ -31,6 +31,7 @@ const HASH_PINNED_TEXT_SOURCES = [
   'build/installer.nsh',
   'scripts/release-signing-tool/package.json',
   'scripts/release-signing-tool/package-lock.json',
+  'scripts/before-build-use-staged-dependencies.mjs',
   'scripts/electron-package-size-budgets.json',
   'scripts/electron-package-utils.mjs',
   'scripts/native-binary-target.mjs',
@@ -56,6 +57,10 @@ const TRUSTED_FIXTURES = [
     'signing-tool/package-lock.json',
   ],
   ['scripts/release-signing-input.mjs', 'scripts/release-signing-input.mjs'],
+  [
+    'scripts/before-build-use-staged-dependencies.mjs',
+    'scripts/before-build-use-staged-dependencies.mjs',
+  ],
   [
     'scripts/electron-package-size-budgets.json',
     'scripts/electron-package-size-budgets.json',
@@ -254,6 +259,34 @@ describe('isolated release signing input', () => {
         config.beforePack = './untrusted.mjs'
       },
     })
+
+    await expect(verify(directory)).rejects.toThrow(
+      /trusted signing input digest mismatch/
+    )
+  })
+
+  it('rejects a signing config that relocates the staged app', async () => {
+    const directory = await createFixture({
+      mutateConfig: (config) => {
+        const directories = config.directories as Record<string, unknown>
+        directories.app = 'dist/untrusted-app'
+      },
+    })
+
+    await expect(verify(directory)).rejects.toThrow(
+      /trusted signing input digest mismatch/
+    )
+  })
+
+  it('rejects a staged-dependency hook whose digest changed', async () => {
+    const directory = await createFixture()
+    const hookPath = path.join(
+      directory,
+      'scripts/before-build-use-staged-dependencies.mjs'
+    )
+    const hook = await readFile(hookPath, 'utf8')
+    await writeFile(hookPath, `${hook}\n`)
+    await refreshManifest(directory)
 
     await expect(verify(directory)).rejects.toThrow(
       /trusted signing input digest mismatch/

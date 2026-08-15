@@ -76,13 +76,24 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.8" date="2026-08-16">
+      <description>
+        <p>
+          Cross-platform finalization reliability update with isolated
+          temporary handoff cleanup on macOS, preserved staged dependency
+          placements for Windows, and complete-set gates within each
+          publishing workflow. Windows packages remain unsigned.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.7" date="2026-08-16">
       <description>
         <p>
-          Release recovery update that removes Electron Builder binary
-          custom-directory variables from the macOS and Windows finalizer
-          process environments before invoking the lockfile-resolved Electron
-          Builder 26.15.7.
+          Unpublished Motrix Turbo beta attempt. The macOS and Windows
+          Finalize gates did not pass, and both release workflows were
+          canceled. No GitHub Release, R2 update feed, container image, or
+          public Snap distribution was published; external distribution
+          remained zero.
         </p>
       </description>
     </release>

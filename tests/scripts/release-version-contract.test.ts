@@ -109,7 +109,7 @@ describe('release version contract', () => {
     }
   })
 
-  it('preserves beta.7 Electron Builder custom-directory recovery history', () => {
+  it('records beta.7 as an unpublished attempt superseded by beta.8', () => {
     const english = read('docs/release-notes/2.0.0-beta.7.md')
     const chinese = read('docs/release-notes/2.0.0-beta.7.zh-CN.md')
     const normalizedEnglish = english
@@ -120,71 +120,141 @@ describe('release version contract', () => {
       .replace(/\s+/g, ' ')
 
     expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.7.zh-CN.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.7.md'
+    )
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.8.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.8.zh-CN.md'
+    )
+    expect(english).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.7/docs/release-notes/2.0.0-beta.6.md'
     )
     expect(chinese).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.7/docs/release-notes/2.0.0-beta.6.zh-CN.md'
     )
     expect(normalizedEnglish).toContain(
-      'Keeps job-level empty-value sanitization for inherited Electron Builder binary custom-directory settings, then truly removes all four overrides from the macOS and Windows finalizer process environment immediately before that process starts Electron Builder'
+      'The macOS and Windows Finalize gates did not pass'
     )
     expect(normalizedEnglish).toContain(
-      'a custom-directory variable that is defined but empty is still treated as an active override'
+      'Both the Build/Release workflow and the Snap publication workflow were canceled'
     )
     expect(normalizedEnglish).toContain(
-      'actual lockfile-resolved `app-builder-lib` downloader from the Electron Builder 26.15.7 dependency closure with a stub transport'
+      'No GitHub Release, R2 update feed, Docker Hub or GHCR container image, or public Snap distribution was created'
+    )
+    expect(normalizedEnglish).toContain('External distribution remained zero')
+    expect(normalizedChinese).toContain(
+      'macOS 与 Windows Finalize 门禁均未通过'
+    )
+    expect(normalizedChinese).toContain(
+      'Build/Release workflow 与 Snap 发布 workflow 均被取消'
+    )
+    expect(normalizedChinese).toContain(
+      '没有创建 GitHub Release、R2 更新数据源、 Docker Hub 或 GHCR 容器镜像，也没有产生公开 Snap 分发'
+    )
+    expect(normalizedChinese).toContain('外部分发为零')
+  })
+
+  it('preserves beta.8 release reliability and distribution disclosures', () => {
+    const english = read('docs/release-notes/2.0.0-beta.8.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.8.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta8Metainfo =
+      /<release version="2\.0\.0-beta\.8"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const beta7Metainfo =
+      /<release version="2\.0\.0-beta\.7"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const restrictedPublicLanguage =
+      /\b(?:certificates?|credentials?|secrets?|leak(?:ed|age|s)?|rotat(?:e|ed|ing|ion)|security incidents?)\b|证书|凭据|密钥|泄露|轮换|安全事件/iu
+    const secretLikeIdentifier =
+      /\b[A-Z][A-Z0-9_]*(?:SECRET|CERT|KEY|TOKEN|CREDENTIAL)[A-Z0-9_]*\b/u
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.8.zh-CN.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.8.md'
+    )
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.7.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.7.zh-CN.md'
     )
     expect(normalizedEnglish).toContain(
-      'truly unsetting all four values restores both canonical tool URLs'
+      'Strengthens cross-platform finalization reliability while retaining complete-platform-set gates within each release workflow'
     )
     expect(normalizedEnglish).toContain(
-      'Digest-complete signing inputs are still verified before secret access, and build jobs remain secret-free'
+      'macOS finalization now uses an isolated temporary handoff that is removed when the job ends'
     )
     expect(normalizedEnglish).toContain(
-      'fail-closed assembly, and protected-tag and environment gates remain unchanged'
+      'Windows finalization keeps its packaging toolchain outside the staged app and preserves the already verified staged dependency inventory and package placements'
+    )
+    expect(normalizedEnglish).toContain(
+      'desktop assets are assembled before the GitHub Release, both Snap architectures are verified before Store publication, and R2 feeds and containers start only after the GitHub Release succeeds'
+    )
+    expect(normalizedEnglish).toContain(
+      'Keeps Windows `x64` packages explicitly unsigned'
     )
     expect(normalizedChinese).toContain(
-      '保留 job 级的空值净化，用于中和继承的 Electron Builder binary custom-directory 设置'
+      '加强跨平台 Finalize 的可靠性，同时保留每条发布 workflow 内的完整平台集合门禁'
     )
     expect(normalizedChinese).toContain(
-      '在 macOS 和 Windows finalizer 进程启动 Electron Builder 前，立即从该进程环境中真正删除全部 4 个覆盖变量'
+      'macOS Finalize 现在使用隔离的临时文件进行交接，并在 job 结束时删除该文件'
     )
     expect(normalizedChinese).toContain(
-      '通过 stub transport 直接执行 Electron Builder 26.15.7 dependency closure 中真实由 lockfile 固定的 `app-builder-lib` downloader'
+      'Windows Finalize 将打包工具链放在已暂存应用之外，并原样保留已验证的暂存 依赖清单及包路径，避免清单漂移'
     )
     expect(normalizedChinese).toContain(
-      '真正 unset 全部 4 个变量后会恢复两个 canonical 工具 URL'
+      '桌面产物完成组装后才创建 GitHub Release，两种 Snap 架构均通过验证后才进入 Store 发布'
     )
     expect(normalizedChinese).toContain(
-      '完整摘要的 signing input 仍在访问 secret 前验证，build job 仍不获得 secret'
+      'R2 更新数据源与容器 仅在 GitHub Release 成功后启动'
     )
     expect(normalizedChinese).toContain(
-      'fail-closed assemble 以及受保护 tag 和 environment gate 均保持不变'
+      'Windows `x64` 安装包继续明确采用未签名发布'
     )
     for (const source of [english, chinese]) {
-      expect(source).toContain(
-        '`NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR`'
-      )
-      expect(source).toContain(
-        '`npm_config_electron_builder_binaries_custom_dir`'
-      )
-      expect(source).toContain(
-        '`npm_package_config_electron_builder_binaries_custom_dir`'
-      )
-      expect(source).toContain('`ELECTRON_BUILDER_BINARIES_CUSTOM_DIR`')
-      expect(source).toContain('26.15.7')
-      expect(source).toContain('download//nsis-3.0.4.1.7z')
-      expect(source).toContain('releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z')
-      expect(source).toContain(
-        'releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z'
-      )
-      expect(source).toContain('--publish never')
+      expect(source).toContain('2.0.0-beta.8')
       expect(source).toContain('latest/edge')
       expect(source).toContain('AppImage')
       expect(source).toContain('Flatpak')
-      expect(source).toContain('Authenticode')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.8-linux-<arch>.tar.gz'
+      )
       expect(source).toContain('SmartScreen')
+      expect(source).toContain('docker.io/motrixapp/motrix-server:2.0.0-beta.8')
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.8')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
     }
+    for (const source of [
+      read('docs/release-notes/2.0.0-beta.7.md'),
+      read('docs/release-notes/2.0.0-beta.7.zh-CN.md'),
+      beta8Metainfo,
+      beta7Metainfo,
+    ]) {
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(metainfo).toContain(
+      '<release version="2.0.0-beta.8" date="2026-08-16">'
+    )
+    expect(metainfo).toContain(
+      'Cross-platform finalization reliability update with isolated'
+    )
+    expect(metainfo).toContain(
+      'public Snap distribution was published; external distribution'
+    )
   })
 
   it('preserves beta.6 Snap recovery and canceled release history', () => {

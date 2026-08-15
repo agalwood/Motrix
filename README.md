@@ -22,8 +22,8 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. Download
-[v2.0.0-beta.7 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.7)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.7.md)
+[v2.0.0-beta.8 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.8)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.8.md)
 before installing it.
 
 Back up your existing Motrix data and downloads before testing. Migration from
@@ -126,8 +126,8 @@ package that matches your operating system and architecture:
 
 This beta does not publish an AppImage. Flatpak is validated separately and is
 not published by the release tag. Windows `arm64` and all 32-bit packages are
-not available. Windows `x64` packages are not Authenticode-signed and may
-trigger a Windows SmartScreen warning.
+not available. Windows `x64` packages are unsigned and may trigger a Windows
+SmartScreen warning.
 
 ### Command-line client
 
@@ -147,7 +147,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.7'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.8'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

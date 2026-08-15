@@ -13,6 +13,7 @@ scripts/release-signing-tool/package.json text eol=lf
 scripts/release-signing-tool/package-lock.json text eol=lf
 scripts/electron-package-size-budgets.json text eol=lf
 scripts/electron-package-utils.mjs text eol=lf
+scripts/before-build-use-staged-dependencies.mjs text eol=lf
 scripts/native-binary-target.mjs text eol=lf
 scripts/release-signing-input.mjs text eol=lf
 scripts/verify-electron-package.mjs text eol=lf

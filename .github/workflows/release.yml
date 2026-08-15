@@ -520,8 +520,10 @@ jobs:
       USE_SYSTEM_OSSLSIGNCODE: ''
       USE_SYSTEM_SIGNCODE: ''
 
-    # Deliberately no checkout and no project package-manager install. Only the
-    # workflow-pinned verifier and digest-complete data artifact enter this job.
+    # Deliberately no checkout and no project package-manager install. The
+    # digest-complete data artifact is verified before any additional pinned
+    # finalization tooling is installed, and secrets are introduced only after
+    # that tooling is ready.
     steps:
       - name: Download isolated signing input
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -775,7 +777,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 2f50644532785e07cc9f9769526f1864127bb65f09fadcc410d943e04c87e39c
+          VERIFIER_SHA256: 26cb8514c972c2f25964a0010167dd9a8375e81adab51298030258fa8b72dfd9
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -810,23 +812,84 @@ jobs:
           }
 
       - name: Install exact signing dependency closure
-        shell: bash
+        id: signing-tool-runtime
+        shell: node {0}
+        env:
+          SIGNING_TOOL_PARENT: ${{ runner.temp }}
+          SIGNING_TOOL_TARGET: ${{ matrix.target }}
         run: |
-          set -euo pipefail
-          cp signing-input/signing-tool/package.json signing-input/package.json
-          cp signing-input/signing-tool/package-lock.json signing-input/package-lock.json
-          npm ci \
-            --prefix signing-input \
-            --ignore-scripts \
-            --no-audit \
-            --no-fund \
-            --registry https://registry.npmjs.org/
-          node - <<'NODE'
-          const pkg = require('./signing-input/node_modules/electron-builder/package.json')
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const { spawnSync } = require('node:child_process')
+          const parent = path.resolve(process.env.SIGNING_TOOL_PARENT)
+          const target = process.env.SIGNING_TOOL_TARGET
+          if (!target || !/^[a-z0-9-]+$/u.test(target)) {
+            throw new Error('invalid signing tool target')
+          }
+          const root = fs.mkdtempSync(
+            path.join(parent, `motrix-signing-tool-${target}-`)
+          )
+          fs.chmodSync(root, 0o700)
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `root=${root}\n`,
+            'utf8'
+          )
+          for (const name of ['package.json', 'package-lock.json']) {
+            fs.copyFileSync(
+              path.join('signing-input', 'signing-tool', name),
+              path.join(root, name),
+              fs.constants.COPYFILE_EXCL
+            )
+          }
+          const npmArgs = [
+            'ci',
+            '--prefix',
+            root,
+            '--ignore-scripts',
+            '--no-audit',
+            '--no-fund',
+            '--registry',
+            'https://registry.npmjs.org/',
+          ]
+          const windows = process.platform === 'win32'
+          const command = windows ? process.env.ComSpec || 'cmd.exe' : 'npm'
+          const args = windows
+            ? ['/d', '/s', '/c', 'npm.cmd', ...npmArgs]
+            : npmArgs
+          const install = spawnSync(command, args, {
+            stdio: 'inherit',
+            shell: false,
+          })
+          if (install.error || install.status !== 0) {
+            throw new Error('signing tool dependency installation failed')
+          }
+          const pkg = JSON.parse(
+            fs.readFileSync(
+              path.join(root, 'node_modules', 'electron-builder', 'package.json'),
+              'utf8'
+            )
+          )
           if (pkg.version !== '26.15.7') {
             throw new Error('unexpected electron-builder version')
           }
-          NODE
+          const cli = path.join(
+            root,
+            'node_modules',
+            'electron-builder',
+            'out',
+            'cli',
+            'cli.js'
+          )
+          const cliInfo = fs.lstatSync(cli)
+          if (!cliInfo.isFile()) {
+            throw new Error('electron-builder CLI is not a file')
+          }
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `cli=${cli}\n`,
+            'utf8'
+          )
 
       - name: Download digest-pinned Electron distribution
         shell: bash
@@ -868,32 +931,6 @@ jobs:
             [[ -n "${!name:-}" ]] || { echo "Missing $name" >&2; exit 1; }
           done
 
-      - name: Resolve Windows signing mode
-        id: windows-signing
-        if: matrix.platform == 'win32'
-        shell: pwsh
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: |
-          $linkMissing = [string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK)
-          $passwordMissing = [string]::IsNullOrWhiteSpace(
-            $env:WIN_CSC_KEY_PASSWORD
-          )
-          if ($linkMissing -xor $passwordMissing) {
-            throw 'Configure both Windows signing credentials or neither'
-          }
-          if ($linkMissing) {
-            'enabled=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            @(
-              '### Windows signing'
-              ''
-              'Authenticode credentials are not configured. Publishing the verified Windows release artifacts unsigned.'
-            ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          } else {
-            'enabled=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          }
-
       - name: Prepare Apple API Key
         id: apple-api-key
         if: matrix.platform == 'darwin'
@@ -904,9 +941,105 @@ jobs:
         run: |
           set -euo pipefail
           key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID_VALUE}.p8"
+          echo "path=${key_path}" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$key_path"
           chmod 600 "$key_path"
-          echo "path=${key_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare isolated macOS signing certificate
+        id: mac-certificate
+        if: matrix.platform == 'darwin'
+        shell: node {0}
+        env:
+          MAC_CERTS_BASE64: ${{ secrets.MAC_CERTS }}
+          CERTIFICATE_PARENT: ${{ runner.temp }}
+        run: |
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const encoded = process.env.MAC_CERTS_BASE64
+          const maximumEncodedBytes = 128 * 1024
+          const maximumCertificateBytes = 96 * 1024
+          if (
+            !encoded ||
+            encoded.length > maximumEncodedBytes ||
+            !/^[A-Za-z0-9+/]+={0,2}$/u.test(encoded)
+          ) {
+            throw new Error(
+              'macOS signing certificate must be bounded standard base64'
+            )
+          }
+          const unpadded = encoded.replace(/=+$/u, '')
+          const remainder = unpadded.length % 4
+          if (remainder === 1) {
+            throw new Error('macOS signing certificate has invalid base64 length')
+          }
+          const padding = remainder === 2 ? '==' : remainder === 3 ? '=' : ''
+          const normalized = `${unpadded}${padding}`
+          if (
+            (encoded.includes('=') && encoded !== normalized) ||
+            Buffer.from(normalized, 'base64').toString('base64') !== normalized
+          ) {
+            throw new Error('macOS signing certificate is not canonical base64')
+          }
+          const certificate = Buffer.from(normalized, 'base64')
+          if (
+            certificate.length < 7 ||
+            certificate.length > maximumCertificateBytes ||
+            certificate[0] !== 0x30
+          ) {
+            throw new Error('macOS signing certificate is not a bounded P12')
+          }
+          const derLength = (bytes, offset) => {
+            const first = bytes[offset]
+            if (first === undefined || first === 0x80) {
+              throw new Error('macOS signing certificate has invalid DER')
+            }
+            if (first < 0x80) return { bytes: 1, value: first }
+            const width = first & 0x7f
+            if (
+              width < 1 ||
+              width > 4 ||
+              offset + width >= bytes.length ||
+              bytes[offset + 1] === 0
+            ) {
+              throw new Error('macOS signing certificate has invalid DER')
+            }
+            let value = 0
+            for (let index = 1; index <= width; index += 1) {
+              value = value * 256 + bytes[offset + index]
+            }
+            if (value < 0x80) {
+              throw new Error('macOS signing certificate has non-canonical DER')
+            }
+            return { bytes: width + 1, value }
+          }
+          const sequenceLength = derLength(certificate, 1)
+          const contentOffset = 1 + sequenceLength.bytes
+          const contentEnd = contentOffset + sequenceLength.value
+          if (
+            contentEnd !== certificate.length ||
+            certificate[contentOffset] !== 0x02 ||
+            certificate[contentOffset + 1] !== 0x01 ||
+            certificate[contentOffset + 2] !== 0x03 ||
+            certificate[contentOffset + 3] !== 0x30
+          ) {
+            throw new Error('macOS signing certificate is not a P12 container')
+          }
+          const parent = path.resolve(process.env.CERTIFICATE_PARENT)
+          const directory = fs.mkdtempSync(
+            path.join(parent, 'motrix-mac-certificate-')
+          )
+          fs.chmodSync(directory, 0o700)
+          const certificatePath = path.join(directory, 'identity.p12')
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `directory=${directory}\npath=${certificatePath}\n`,
+            'utf8'
+          )
+          fs.writeFileSync(certificatePath, certificate, {
+            flag: 'wx',
+            mode: 0o600,
+          })
+          fs.chmodSync(certificatePath, 0o600)
 
       - name: Electron Builder (macOS signing boundary)
         if: matrix.platform == 'darwin'
@@ -915,7 +1048,8 @@ jobs:
         env:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
           ELECTRON_DOWNLOAD_CACHE_MODE: '1'
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          ELECTRON_BUILDER_CLI: ${{ steps.signing-tool-runtime.outputs.cli }}
+          CSC_LINK: ${{ steps.mac-certificate.outputs.path }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
           APPLE_API_KEY: ${{ steps.apple-api-key.outputs.path }}
@@ -927,7 +1061,7 @@ jobs:
           unset NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR
           unset npm_config_electron_builder_binaries_custom_dir
           unset npm_package_config_electron_builder_binaries_custom_dir
-          node node_modules/electron-builder/out/cli/cli.js \
+          node "$ELECTRON_BUILDER_CLI" \
             --config electron-builder.signing.json \
             ${{ matrix.electron_builder_args }} \
             -c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0 \
@@ -940,18 +1074,63 @@ jobs:
         env:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
           ELECTRON_DOWNLOAD_CACHE_MODE: '1'
-          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          ELECTRON_BUILDER_CLI: ${{ steps.signing-tool-runtime.outputs.cli }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           Remove-Item Env:\ELECTRON_BUILDER_BINARIES_CUSTOM_DIR -ErrorAction SilentlyContinue
           Remove-Item Env:\NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR -ErrorAction SilentlyContinue
           Remove-Item Env:\npm_config_electron_builder_binaries_custom_dir -ErrorAction SilentlyContinue
           Remove-Item Env:\npm_package_config_electron_builder_binaries_custom_dir -ErrorAction SilentlyContinue
-          node node_modules/electron-builder/out/cli/cli.js `
+          Remove-Item Env:\CSC_LINK -ErrorAction SilentlyContinue
+          Remove-Item Env:\CSC_KEY_PASSWORD -ErrorAction SilentlyContinue
+          node $env:ELECTRON_BUILDER_CLI `
             --config electron-builder.signing.json `
             ${{ matrix.electron_builder_args }} `
             --publish never
+
+      - name: Remove finalization temporary inputs
+        if: always()
+        shell: node {0}
+        env:
+          APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
+          MAC_CERTIFICATE_DIRECTORY: ${{ steps.mac-certificate.outputs.directory }}
+          MAC_CERTIFICATE_PATH: ${{ steps.mac-certificate.outputs.path }}
+          SIGNING_TOOL_ROOT: ${{ steps.signing-tool-runtime.outputs.root }}
+          TEMPORARY_ROOT: ${{ runner.temp }}
+        run: |
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const root = path.resolve(process.env.TEMPORARY_ROOT)
+          const insideRoot = (value) => {
+            if (!value) return undefined
+            const candidate = path.resolve(value)
+            const relative = path.relative(root, candidate)
+            if (
+              !relative ||
+              relative === '..' ||
+              relative.startsWith(`..${path.sep}`) ||
+              path.isAbsolute(relative)
+            ) {
+              throw new Error('refusing to clean a path outside runner temp')
+            }
+            return candidate
+          }
+          for (const value of [
+            process.env.APPLE_API_KEY_PATH,
+            process.env.MAC_CERTIFICATE_PATH,
+          ]) {
+            const candidate = insideRoot(value)
+            if (candidate) fs.rmSync(candidate, { force: true })
+          }
+          for (const value of [
+            process.env.MAC_CERTIFICATE_DIRECTORY,
+            process.env.SIGNING_TOOL_ROOT,
+          ]) {
+            const candidate = insideRoot(value)
+            if (candidate) {
+              fs.rmSync(candidate, { recursive: true, force: true })
+            }
+          }
 
       - name: Verify macOS signatures
         if: matrix.platform == 'darwin'
@@ -964,31 +1143,6 @@ jobs:
             "${{ matrix.resources_dir }}/bin/motrix-native-host"
           xcrun stapler validate "${{ matrix.app_path }}"
 
-      - name: Verify Windows signatures
-        if: >-
-          matrix.platform == 'win32' &&
-          steps.windows-signing.outputs.enabled == 'true'
-        shell: pwsh
-        working-directory: signing-input
-        run: |
-          $files = @(
-            'release/win-unpacked/Motrix.exe',
-            'release/win-unpacked/resources/bin/motrix-native-host.exe'
-          )
-          $files += @(
-            Get-ChildItem -Path release -Filter '*.exe' -File |
-              ForEach-Object { $_.FullName }
-          )
-          foreach ($file in $files) {
-            $signature = Get-AuthenticodeSignature -FilePath $file
-            if ($signature.Status -ne 'Valid') {
-              throw "Invalid Authenticode signature for ${file}: $($signature.StatusMessage)"
-            }
-            if ($null -eq $signature.TimeStamperCertificate) {
-              throw "Missing Authenticode timestamp for ${file}"
-            }
-          }
-
       - name: Verify finalized Electron package
         working-directory: signing-input
         run: >-
@@ -997,16 +1151,6 @@ jobs:
           --platform ${{ matrix.platform }}
           --arch ${{ matrix.arch }}
           --report "release/size-reports/${{ matrix.target }}.json"
-
-      - name: Remove Apple API Key
-        if: always() && matrix.platform == 'darwin'
-        shell: bash
-        env:
-          APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
-        run: |
-          if [[ -n "${APPLE_API_KEY_PATH:-}" ]]; then
-            rm -f "$APPLE_API_KEY_PATH"
-          fi
 
       - name: Upload finalized release input
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
