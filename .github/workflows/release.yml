@@ -228,7 +228,8 @@ jobs:
           pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
       # Tagged macOS and Windows outputs are deliberately unsigned here. A
-      # fresh, no-checkout job signs only the verified data artifact below.
+      # fresh, no-checkout job finalizes only the verified data artifact below,
+      # applying platform signing when it is required or configured.
       - name: Electron Builder (macOS)
         if: matrix.platform == 'darwin'
         env:
@@ -454,7 +455,7 @@ jobs:
           retention-days: 7
 
   sign:
-    name: Sign / ${{ matrix.target }}
+    name: Finalize / ${{ matrix.target }}
     needs: [preflight, build]
     if: >-
       github.event_name == 'push' &&
@@ -862,16 +863,30 @@ jobs:
             [[ -n "${!name:-}" ]] || { echo "Missing $name" >&2; exit 1; }
           done
 
-      - name: Validate Windows release credentials
+      - name: Resolve Windows signing mode
+        id: windows-signing
         if: matrix.platform == 'win32'
         shell: pwsh
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK) -or
-              [string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) {
-            throw 'Missing Windows signing credentials'
+          $linkMissing = [string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK)
+          $passwordMissing = [string]::IsNullOrWhiteSpace(
+            $env:WIN_CSC_KEY_PASSWORD
+          )
+          if ($linkMissing -xor $passwordMissing) {
+            throw 'Configure both Windows signing credentials or neither'
+          }
+          if ($linkMissing) {
+            'enabled=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            @(
+              '### Windows signing'
+              ''
+              'Authenticode credentials are not configured. Publishing the verified Windows release artifacts unsigned.'
+            ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          } else {
+            'enabled=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
 
       - name: Prepare Apple API Key
@@ -907,7 +922,7 @@ jobs:
           -c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0
           --publish never
 
-      - name: Electron Builder (Windows signing boundary)
+      - name: Electron Builder (Windows finalization boundary)
         if: matrix.platform == 'win32'
         working-directory: signing-input
         env:
@@ -934,7 +949,9 @@ jobs:
           xcrun stapler validate "${{ matrix.app_path }}"
 
       - name: Verify Windows signatures
-        if: matrix.platform == 'win32'
+        if: >-
+          matrix.platform == 'win32' &&
+          steps.windows-signing.outputs.enabled == 'true'
         shell: pwsh
         working-directory: signing-input
         run: |
@@ -956,7 +973,7 @@ jobs:
             }
           }
 
-      - name: Verify signed Electron package
+      - name: Verify finalized Electron package
         working-directory: signing-input
         run: >-
           node scripts/verify-electron-package.mjs
@@ -975,7 +992,7 @@ jobs:
             rm -f "$APPLE_API_KEY_PATH"
           fi
 
-      - name: Upload signed release input
+      - name: Upload finalized release input
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-input-${{ matrix.target }}
@@ -1440,6 +1457,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
       AWS_EC2_METADATA_DISABLED: 'true'
+      RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
     steps:
@@ -1468,10 +1486,18 @@ jobs:
             echo "Missing required app-update-feed secrets: ${missing[*]}" >&2
             exit 1
           fi
+          if [[ ! "$R2_ACCOUNT_ID" =~ ^[0-9a-f]{32}$ ]]; then
+            echo 'R2_ACCOUNT_ID must be a 32-character lowercase hexadecimal account ID' >&2
+            exit 1
+          fi
+          if [[ "$R2_BUCKET" != 'motrix-releases' ]]; then
+            echo 'R2_BUCKET must match the dl Worker RELEASES binding: motrix-releases' >&2
+            exit 1
+          fi
           aws --version
 
       # The generic provider cannot publish itself. GitHub Release is the
-      # archive; this R2 prefix is the sole feed embedded in app-update.yml.
+      # archive; the R2 bucket root is the sole feed embedded in app-update.yml.
       # Upload versioned assets first and mutable channel manifests last so a
       # manifest never references an asset that is not already available.
       - name: Upload versioned update assets
@@ -1479,7 +1505,7 @@ jobs:
         run: |
           set -euo pipefail
           endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          aws s3 cp release "s3://${R2_BUCKET}/releases/" \
+          aws s3 cp release "s3://${R2_BUCKET}/" \
             --recursive \
             --exclude '*.yml' \
             --cache-control 'public,max-age=31536000,immutable' \
@@ -1490,7 +1516,7 @@ jobs:
         run: |
           set -euo pipefail
           endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          aws s3 cp release "s3://${R2_BUCKET}/releases/" \
+          aws s3 cp release "s3://${R2_BUCKET}/" \
             --recursive \
             --exclude '*' \
             --include 'latest*.yml' \
@@ -1498,3 +1524,55 @@ jobs:
             --content-type 'application/yaml' \
             --cache-control 'no-cache, no-store, must-revalidate' \
             --endpoint-url "$endpoint"
+
+      - name: Verify channel manifests through dl.motrix.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          manifests=(release/latest*.yml release/beta*.yml)
+          case "$RELEASE_CHANNEL" in
+            beta) expected_count=4 ;;
+            stable) expected_count=8 ;;
+            *)
+              echo "Unsupported release channel: ${RELEASE_CHANNEL}" >&2
+              exit 1
+              ;;
+          esac
+          if (( ${#manifests[@]} != expected_count )); then
+            echo "Expected ${expected_count} ${RELEASE_CHANNEL} update manifests, found ${#manifests[@]}" >&2
+            exit 1
+          fi
+          for manifest in "${manifests[@]}"; do
+            name="$(basename "$manifest")"
+            aws s3api head-object \
+              --bucket "$R2_BUCKET" \
+              --key "$name" \
+              --endpoint-url "$endpoint" \
+              > /dev/null
+            expected="$(sha256sum "$manifest" | cut -d ' ' -f 1)"
+            downloaded="${RUNNER_TEMP}/${name}"
+            matched='false'
+            for attempt in {1..12}; do
+              if curl \
+                --fail \
+                --location \
+                --silent \
+                --show-error \
+                "https://dl.motrix.app/releases/${name}?release=${GITHUB_SHA}&attempt=${attempt}" \
+                --output "$downloaded"
+              then
+                actual="$(sha256sum "$downloaded" | cut -d ' ' -f 1)"
+                if [[ "$actual" == "$expected" ]]; then
+                  matched='true'
+                  break
+                fi
+              fi
+              sleep 5
+            done
+            if [[ "$matched" != 'true' ]]; then
+              echo "Published manifest did not converge at dl.motrix.app: ${name}" >&2
+              exit 1
+            fi
+          done
