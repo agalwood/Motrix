@@ -76,13 +76,29 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.9" date="2026-08-16">
+      <description>
+        <p>
+          Release finalization update with a lockfile-pinned verifier closure
+          in an isolated runtime, temporary signing-input cleanup immediately
+          after Builder, and tool-runtime cleanup between package verification
+          and artifact upload. Windows packages remain unsigned. Snap
+          publication waits for Canonical approval of the personal-files
+          allow-installation declaration.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.8" date="2026-08-16">
       <description>
         <p>
-          Cross-platform finalization reliability update with isolated
-          temporary handoff cleanup on macOS, preserved staged dependency
-          placements for Windows, and complete-set gates within each
-          publishing workflow. Windows packages remain unsigned.
+          Unpublished Motrix Turbo beta attempt. All five desktop builds and
+          both strict Snap builds succeeded. Unsigned Windows Builder
+          completed, but final verification could not resolve @electron/asar
+          before scanning; macOS finalization was canceled without running
+          while awaiting approval. The
+          amd64 Snap upload required personal-files allow-installation review,
+          arm64 was not uploaded, latest/edge did not change, and external
+          distribution remained zero.
         </p>
       </description>
     </release>

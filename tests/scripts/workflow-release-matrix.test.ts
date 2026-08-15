@@ -6,13 +6,16 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { Script } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- JavaScript build script intentionally has no declarations
@@ -1184,6 +1187,229 @@ describe('release workflow publication contract', () => {
     expect(releaseSource).not.toContain('APPLE_TEAM_ID')
   })
 
+  it('runs the finalized package verifier from the isolated tool closure', () => {
+    const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    const steps = jobSteps(sign)
+    const installIndex = steps.findIndex(
+      (step) => step.name === 'Install exact signing dependency closure'
+    )
+    const credentialCleanupIndex = steps.findIndex(
+      (step) => step.name === 'Remove finalization credentials'
+    )
+    const verificationIndex = steps.findIndex(
+      (step) => step.name === 'Verify finalized Electron package'
+    )
+    const uploadIndex = steps.findIndex(
+      (step) => step.name === 'Upload finalized release input'
+    )
+    const runtimeCleanupIndex = steps.findIndex(
+      (step) => step.name === 'Remove isolated signing runtime'
+    )
+    expect(installIndex).toBeGreaterThanOrEqual(0)
+    expect(credentialCleanupIndex).toBeGreaterThan(installIndex)
+    for (const name of [
+      'Electron Builder (macOS signing boundary)',
+      'Electron Builder (Windows finalization boundary)',
+    ]) {
+      const builderIndex = steps.findIndex((step) => step.name === name)
+      expect(builderIndex, name).toBeGreaterThan(installIndex)
+      expect(builderIndex, name).toBeLessThan(credentialCleanupIndex)
+    }
+    expect(verificationIndex).toBeGreaterThan(credentialCleanupIndex)
+    expect(runtimeCleanupIndex).toBeGreaterThan(verificationIndex)
+    expect(uploadIndex).toBeGreaterThan(runtimeCleanupIndex)
+
+    const verifierFiles = [
+      'electron-package-size-budgets.json',
+      'electron-package-utils.mjs',
+      'native-binary-target.mjs',
+      'verify-electron-package.mjs',
+    ]
+    const install = steps[installIndex]!
+    const installSource = stringField(install, 'run')
+    expect(installSource).toContain("path.join(root, 'scripts')")
+    expect(installSource).toContain('fs.constants.COPYFILE_EXCL')
+    expect(installSource).toContain('fs.realpathSync')
+    expect(installSource).toContain(`verifier=\${verifier}`)
+    expect(installSource).toContain('pathToFileURL(verifier).href')
+    expect(installSource).toContain(
+      "throw new Error('package verifier dependency import failed')"
+    )
+    expect(installSource).not.toContain(
+      "path.join('signing-input', 'node_modules')"
+    )
+    const trustedPins = signingInputSource.slice(
+      signingInputSource.indexOf('const TRUSTED_INPUT_SHA256'),
+      signingInputSource.indexOf('const SOURCE_MAPPINGS')
+    )
+    const sourceMappings = signingInputSource.slice(
+      signingInputSource.indexOf('const SOURCE_MAPPINGS'),
+      signingInputSource.indexOf('async function sha256File')
+    )
+    const allowedPaths = signingInputSource.slice(
+      signingInputSource.indexOf('function isAllowedSigningDataPath'),
+      signingInputSource.indexOf('function isForbiddenControlPath')
+    )
+    for (const name of verifierFiles) {
+      expect(installSource, name).toContain(`'${name}'`)
+      const trustedPath = `'scripts/${name}'`
+      const pinIndex = trustedPins.indexOf(trustedPath)
+      expect(pinIndex, `${name} must be hard-pinned`).toBeGreaterThanOrEqual(0)
+      expect(
+        trustedPins.slice(pinIndex + trustedPath.length, pinIndex + 160),
+        `${name} must have a SHA-256 pin`
+      ).toMatch(/^\s*:\s*'[0-9a-f]{64}'/u)
+      expect(sourceMappings.split(trustedPath), name).toHaveLength(3)
+      expect(allowedPaths, name).toContain(trustedPath)
+    }
+
+    const verification = steps[verificationIndex]!
+    const verificationSource = stringField(verification, 'run')
+    expect(verificationSource).toContain(
+      'steps.signing-tool-runtime.outputs.verifier'
+    )
+    expect(verificationSource).not.toContain(
+      'node scripts/verify-electron-package.mjs'
+    )
+    expect(stringField(verification, 'if', '')).toBe('')
+    expect(stringField(verification, 'working-directory')).toBe('signing-input')
+    expect(
+      readFileSync(
+        path.join(ROOT, 'scripts/verify-electron-package.mjs'),
+        'utf8'
+      )
+    ).toMatch(
+      /path\.join\(\s*REPOSITORY_ROOT,\s*'scripts\/electron-package-size-budgets\.json'\s*\)/u
+    )
+
+    const fixture = realpathSync(
+      mkdtempSync(path.join(tmpdir(), 'motrix-isolated-package-verifier-'))
+    )
+    const signingInput = path.join(fixture, 'signing-input')
+    const runtime = path.join(fixture, 'runtime')
+    const stageVerifier = (root: string) => {
+      const scripts = path.join(root, 'scripts')
+      mkdirSync(scripts, { recursive: true })
+      for (const name of verifierFiles) {
+        writeFileSync(
+          path.join(scripts, name),
+          readFileSync(path.join(ROOT, 'scripts', name))
+        )
+      }
+      return path.join(scripts, 'verify-electron-package.mjs')
+    }
+    const importVerifier = (verifier: string) =>
+      spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '--eval',
+          `await import(${JSON.stringify(pathToFileURL(verifier).href)})`,
+        ],
+        { cwd: signingInput, encoding: 'utf8' }
+      )
+
+    try {
+      const inaccessibleVerifier = stageVerifier(signingInput)
+      const inaccessible = importVerifier(inaccessibleVerifier)
+      expect(inaccessible.status).not.toBe(0)
+      expect(`${inaccessible.stdout}${inaccessible.stderr}`).toContain(
+        "Cannot find package '@electron/asar'"
+      )
+
+      const isolatedVerifier = stageVerifier(runtime)
+      const installedNodeModules = path.join(ROOT, 'node_modules')
+      expect(existsSync(installedNodeModules)).toBe(true)
+      symlinkSync(
+        installedNodeModules,
+        path.join(runtime, 'node_modules'),
+        process.platform === 'win32' ? 'junction' : 'dir'
+      )
+      for (const name of [
+        'package.json',
+        'package-lock.json',
+        'node_modules',
+      ]) {
+        expect(existsSync(path.join(signingInput, name)), name).toBe(false)
+      }
+      const signingToolPackages = asRecord(
+        asRecord(
+          JSON.parse(signingToolLockSource) as unknown,
+          'signing tool lock'
+        ).packages,
+        'signing tool lock packages'
+      )
+      const lockedAsar = asRecord(
+        signingToolPackages['node_modules/@electron/asar'],
+        'locked @electron/asar package'
+      )
+      const installedAsar = asRecord(
+        JSON.parse(
+          readFileSync(
+            path.join(installedNodeModules, '@electron/asar/package.json'),
+            'utf8'
+          )
+        ) as unknown,
+        'installed @electron/asar package'
+      )
+      expect(stringField(installedAsar, 'version')).toBe(
+        stringField(lockedAsar, 'version')
+      )
+      const isolated = importVerifier(isolatedVerifier)
+      expect(isolated.status, isolated.stderr).toBe(0)
+
+      const report = 'isolated-runtime-smoke-report.json'
+      const execution = spawnSync(
+        process.execPath,
+        [
+          isolatedVerifier,
+          '--app-dir',
+          'missing-app',
+          '--platform',
+          'win32',
+          '--arch',
+          'x64',
+          '--report',
+          report,
+        ],
+        { cwd: signingInput, encoding: 'utf8' }
+      )
+      expect(execution.status).not.toBe(0)
+      expect(execution.stdout).toContain(
+        '[verify-electron-package] failed win32-x64'
+      )
+      expect(`${execution.stdout}${execution.stderr}`).not.toContain(
+        'electron-package-size-budgets.json'
+      )
+      expect(`${execution.stdout}${execution.stderr}`).not.toContain(
+        "Cannot find package '@electron/asar'"
+      )
+      const reportPath = path.join(signingInput, report)
+      expect(existsSync(reportPath)).toBe(true)
+      const reportTools = asRecord(
+        asRecord(
+          JSON.parse(readFileSync(reportPath, 'utf8')) as unknown,
+          'isolated verifier report'
+        ).tools,
+        'isolated verifier tool versions'
+      )
+      expect(stringField(reportTools, 'asar')).toBe(
+        stringField(lockedAsar, 'version')
+      )
+      expect(stringField(reportTools, 'electronBuilder')).toBe(
+        stringField(
+          asRecord(
+            signingToolPackages['node_modules/electron-builder'],
+            'locked electron-builder package'
+          ),
+          'version'
+        )
+      )
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
+    }
+  })
+
   it('materializes only bounded P12 bytes and always removes temporary inputs', () => {
     const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
     const steps = jobSteps(sign)
@@ -1282,35 +1508,64 @@ describe('release workflow publication contract', () => {
       rmSync(temporaryRoot, { recursive: true, force: true })
     }
 
-    const cleanup = steps.find(
-      (step) => step.name === 'Remove finalization temporary inputs'
+    const credentialCleanup = steps.find(
+      (step) => step.name === 'Remove finalization credentials'
     )
-    expect(cleanup).toBeDefined()
-    expect(stringField(cleanup as LooseRecord, 'if')).toBe('always()')
-    expect(stringField(cleanup as LooseRecord, 'shell')).toBe('node {0}')
-    const cleanupEnvironment = asRecord(
-      cleanup?.env,
-      'temporary input cleanup environment'
+    expect(credentialCleanup).toBeDefined()
+    expect(stringField(credentialCleanup as LooseRecord, 'if')).toBe('always()')
+    expect(stringField(credentialCleanup as LooseRecord, 'shell')).toBe(
+      'node {0}'
     )
-    expect(stringField(cleanupEnvironment, 'TEMPORARY_ROOT')).toContain(
-      'runner.temp'
-    )
-    expect(stringField(cleanupEnvironment, 'MAC_CERTIFICATE_PATH')).toContain(
-      'steps.mac-certificate.outputs.path'
+    const credentialCleanupEnvironment = asRecord(
+      credentialCleanup?.env,
+      'credential cleanup environment'
     )
     expect(
-      stringField(cleanupEnvironment, 'MAC_CERTIFICATE_DIRECTORY')
+      stringField(credentialCleanupEnvironment, 'TEMPORARY_ROOT')
+    ).toContain('runner.temp')
+    expect(
+      stringField(credentialCleanupEnvironment, 'MAC_CERTIFICATE_PATH')
+    ).toContain('steps.mac-certificate.outputs.path')
+    expect(
+      stringField(credentialCleanupEnvironment, 'MAC_CERTIFICATE_DIRECTORY')
     ).toContain('steps.mac-certificate.outputs.directory')
-    expect(stringField(cleanupEnvironment, 'APPLE_API_KEY_PATH')).toContain(
-      'steps.apple-api-key.outputs.path'
+    expect(
+      stringField(credentialCleanupEnvironment, 'APPLE_API_KEY_PATH')
+    ).toContain('steps.apple-api-key.outputs.path')
+    expect(credentialCleanupEnvironment).not.toHaveProperty('SIGNING_TOOL_ROOT')
+    expect(JSON.stringify(credentialCleanup)).not.toContain('secrets.')
+    const credentialCleanupSource = stringField(
+      credentialCleanup as LooseRecord,
+      'run'
     )
-    expect(stringField(cleanupEnvironment, 'SIGNING_TOOL_ROOT')).toContain(
-      'steps.signing-tool-runtime.outputs.root'
+    expect(credentialCleanupSource).toContain('path.relative(root, candidate)')
+    expect(credentialCleanupSource).toContain('fs.rmSync')
+
+    const runtimeCleanup = steps.find(
+      (step) => step.name === 'Remove isolated signing runtime'
     )
-    expect(JSON.stringify(cleanup)).not.toContain('secrets.')
-    const cleanupSource = stringField(cleanup as LooseRecord, 'run')
-    expect(cleanupSource).toContain('path.relative(root, candidate)')
-    expect(cleanupSource).toContain('fs.rmSync')
+    expect(runtimeCleanup).toBeDefined()
+    expect(stringField(runtimeCleanup as LooseRecord, 'if')).toBe('always()')
+    expect(stringField(runtimeCleanup as LooseRecord, 'shell')).toBe('node {0}')
+    const runtimeCleanupEnvironment = asRecord(
+      runtimeCleanup?.env,
+      'signing runtime cleanup environment'
+    )
+    expect(stringField(runtimeCleanupEnvironment, 'TEMPORARY_ROOT')).toContain(
+      'runner.temp'
+    )
+    expect(
+      stringField(runtimeCleanupEnvironment, 'SIGNING_TOOL_ROOT')
+    ).toContain('steps.signing-tool-runtime.outputs.root')
+    expect(runtimeCleanupEnvironment).not.toHaveProperty('APPLE_API_KEY_PATH')
+    expect(runtimeCleanupEnvironment).not.toHaveProperty('MAC_CERTIFICATE_PATH')
+    expect(JSON.stringify(runtimeCleanup)).not.toContain('secrets.')
+    const runtimeCleanupSource = stringField(
+      runtimeCleanup as LooseRecord,
+      'run'
+    )
+    expect(runtimeCleanupSource).toContain('path.relative(root, candidate)')
+    expect(runtimeCleanupSource).toContain('fs.rmSync')
 
     const cleanupRoot = mkdtempSync(
       path.join(tmpdir(), 'motrix-finalization-cleanup-contract-')
@@ -1325,26 +1580,60 @@ describe('release workflow publication contract', () => {
       writeFileSync(apiKey, 'api key')
       writeFileSync(certificate, 'certificate')
       writeFileSync(path.join(signingTool, 'package.json'), '{}')
-      const result = spawnSync(process.execPath, ['-e', cleanupSource], {
-        cwd: ROOT,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          APPLE_API_KEY_PATH: apiKey,
-          MAC_CERTIFICATE_DIRECTORY: certificateDirectory,
-          MAC_CERTIFICATE_PATH: certificate,
-          SIGNING_TOOL_ROOT: signingTool,
-          TEMPORARY_ROOT: cleanupRoot,
-        },
-      })
-      expect(result.status, result.stderr).toBe(0)
-      for (const candidate of [
-        apiKey,
-        certificate,
-        certificateDirectory,
-        signingTool,
-      ]) {
+      const credentialResult = spawnSync(
+        process.execPath,
+        ['-e', credentialCleanupSource],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            APPLE_API_KEY_PATH: apiKey,
+            MAC_CERTIFICATE_DIRECTORY: certificateDirectory,
+            MAC_CERTIFICATE_PATH: certificate,
+            TEMPORARY_ROOT: cleanupRoot,
+          },
+        }
+      )
+      expect(credentialResult.status, credentialResult.stderr).toBe(0)
+      for (const candidate of [apiKey, certificate, certificateDirectory]) {
         expect(existsSync(candidate), candidate).toBe(false)
+      }
+      expect(existsSync(signingTool)).toBe(true)
+
+      const runtimeResult = spawnSync(
+        process.execPath,
+        ['-e', runtimeCleanupSource],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            SIGNING_TOOL_ROOT: signingTool,
+            TEMPORARY_ROOT: cleanupRoot,
+          },
+        }
+      )
+      expect(runtimeResult.status, runtimeResult.stderr).toBe(0)
+      expect(existsSync(signingTool)).toBe(false)
+
+      for (const cleanupSource of [
+        credentialCleanupSource,
+        runtimeCleanupSource,
+      ]) {
+        const emptyResult = spawnSync(process.execPath, ['-e', cleanupSource], {
+          cwd: ROOT,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            APPLE_API_KEY_PATH: '',
+            MAC_CERTIFICATE_DIRECTORY: '',
+            MAC_CERTIFICATE_PATH: '',
+            SIGNING_TOOL_ROOT: '',
+            TEMPORARY_ROOT: cleanupRoot,
+          },
+        })
+        expect(emptyResult.status, emptyResult.stderr).toBe(0)
       }
     } finally {
       rmSync(cleanupRoot, { recursive: true, force: true })

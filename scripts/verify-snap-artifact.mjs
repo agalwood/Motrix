@@ -175,12 +175,12 @@ function verifyMetadata(metadata, { arch, version }) {
   requireExactSet(links.website, ['https://motrix.app'], 'snap links.website')
   requireExactSet(
     links['source-code'],
-    ['https://gitlab.com/agalwood/motrix-turbo'],
+    ['https://github.com/agalwood/Motrix'],
     'snap links.source-code'
   )
   requireExactSet(
     links.issues,
-    ['https://gitlab.com/agalwood/motrix-turbo/-/issues'],
+    ['https://github.com/agalwood/Motrix/issues'],
     'snap links.issues'
   )
   requireExactSet(root.architectures, [arch], 'snap architectures')

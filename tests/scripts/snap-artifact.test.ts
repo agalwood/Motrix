@@ -36,8 +36,8 @@ function metadata(arch: 'amd64' | 'arm64', version = '2.0.0') {
     assumes: ['snapd2.43', 'snapd2.46'],
     links: {
       website: ['https://motrix.app'],
-      'source-code': ['https://gitlab.com/agalwood/motrix-turbo'],
-      issues: ['https://gitlab.com/agalwood/motrix-turbo/-/issues'],
+      'source-code': ['https://github.com/agalwood/Motrix'],
+      issues: ['https://github.com/agalwood/Motrix/issues'],
     },
     architectures: [arch],
     apps: {

@@ -13,6 +13,10 @@ function read(relativePath: string): string {
 const packageVersion = (JSON.parse(read('package.json')) as { version: string })
   .version
 const releaseTag = `v${packageVersion}`
+const restrictedPublicLanguage =
+  /\b(?:certificates?|credentials?|secrets?|leak(?:ed|age|s)?|rotat(?:e|ed|ing|ion)|security incidents?)\b|证书|凭据|密钥|泄露|轮换|安全事件/iu
+const secretLikeIdentifier =
+  /\b[A-Z][A-Z0-9_]*(?:SECRET|CERT|KEY|TOKEN|CREDENTIAL)[A-Z0-9_]*\b/u
 
 describe('release version contract', () => {
   it('keeps package metadata, server fallback, and Flatpak metadata aligned', () => {
@@ -159,11 +163,15 @@ describe('release version contract', () => {
     expect(normalizedChinese).toContain('外部分发为零')
   })
 
-  it('preserves beta.8 release reliability and distribution disclosures', () => {
+  it('records beta.8 as an unpublished desktop and Snap attempt', () => {
     const english = read('docs/release-notes/2.0.0-beta.8.md')
     const chinese = read('docs/release-notes/2.0.0-beta.8.zh-CN.md')
-    const normalizedEnglish = english.replace(/\s+/g, ' ')
-    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
     const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
     const beta8Metainfo =
       /<release version="2\.0\.0-beta\.8"[\s\S]*?<\/release>/.exec(
@@ -173,16 +181,18 @@ describe('release version contract', () => {
       /<release version="2\.0\.0-beta\.7"[\s\S]*?<\/release>/.exec(
         metainfo
       )?.[0] ?? ''
-    const restrictedPublicLanguage =
-      /\b(?:certificates?|credentials?|secrets?|leak(?:ed|age|s)?|rotat(?:e|ed|ing|ion)|security incidents?)\b|证书|凭据|密钥|泄露|轮换|安全事件/iu
-    const secretLikeIdentifier =
-      /\b[A-Z][A-Z0-9_]*(?:SECRET|CERT|KEY|TOKEN|CREDENTIAL)[A-Z0-9_]*\b/u
 
     expect(english).toContain(
-      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.8.zh-CN.md'
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.8.zh-CN.md'
     )
     expect(chinese).toContain(
-      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.8.md'
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.8.md'
+    )
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.9.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.9.zh-CN.md'
     )
     expect(english).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.7.md'
@@ -190,54 +200,66 @@ describe('release version contract', () => {
     expect(chinese).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.8/docs/release-notes/2.0.0-beta.7.zh-CN.md'
     )
+    expect(normalizedEnglish).toContain('Motrix 2.0.0-beta.8 was not published')
     expect(normalizedEnglish).toContain(
-      'Strengthens cross-platform finalization reliability while retaining complete-platform-set gates within each release workflow'
-    )
-    expect(normalizedEnglish).toContain(
-      'macOS finalization now uses an isolated temporary handoff that is removed when the job ends'
+      'All five desktop build jobs completed successfully'
     )
     expect(normalizedEnglish).toContain(
-      'Windows finalization keeps its packaging toolchain outside the staged app and preserves the already verified staged dependency inventory and package placements'
+      'The explicitly unsigned Windows Finalize job completed Electron Builder and produced its final package candidates'
     )
     expect(normalizedEnglish).toContain(
-      'desktop assets are assembled before the GitHub Release, both Snap architectures are verified before Store publication, and R2 feeds and containers start only after the GitHub Release succeeds'
+      'The final verifier then stopped before package scanning because its isolated tool dependency set could not resolve `@electron/asar`'
     )
     expect(normalizedEnglish).toContain(
-      'Keeps Windows `x64` packages explicitly unsigned'
+      'Both macOS Finalize jobs were canceled without running while awaiting approval'
+    )
+    expect(normalizedEnglish).toContain(
+      'Desktop assembly, the GitHub Release, R2 update-feed publication, and Docker Hub/GHCR container publication were canceled without running'
+    )
+    expect(normalizedEnglish).toContain(
+      'The source gate and strict `amd64` and `arm64` Snap builds completed'
+    )
+    expect(normalizedEnglish).toContain(
+      "Both artifacts passed package verification and were uploaded to the workflow's internal artifact set"
+    )
+    expect(normalizedEnglish).toContain(
+      'The `amd64` upload reached Store processing, which required human review of the `personal-files` `allow-installation` declaration'
+    )
+    expect(normalizedEnglish).toContain(
+      'The Store did not return an exact revision, and the `arm64` Store upload did not start'
+    )
+    expect(normalizedEnglish).toContain(
+      'Public `latest/edge` remained unchanged at amd64 Motrix 1.8.19 with no arm64 entry'
+    )
+    expect(normalizedEnglish).toContain('External distribution remained zero')
+    expect(normalizedChinese).toContain('5 个桌面构建 job 均成功完成')
+    expect(normalizedChinese).toContain(
+      'Windows Finalize job 成功完成 Electron Builder'
+    )
+    expect(normalizedChinese).toContain('最终 verifier 在扫描安装包前停止')
+    expect(chinese).toContain('`@electron/asar`')
+    expect(normalizedChinese).toContain(
+      '两个 macOS Finalize job 在等待审批时被取消，均未执行'
     )
     expect(normalizedChinese).toContain(
-      '加强跨平台 Finalize 的可靠性，同时保留每条发布 workflow 内的完整平台集合门禁'
+      '桌面产物组装、GitHub Release、R2 更新数据源发布以及 Docker Hub/GHCR 容器发布均被取消且未执行'
     )
     expect(normalizedChinese).toContain(
-      'macOS Finalize 现在使用隔离的临时文件进行交接，并在 job 结束时删除该文件'
+      'source gate 以及 `amd64`、`arm64` 两个 strict Snap 构建均完成'
     )
     expect(normalizedChinese).toContain(
-      'Windows Finalize 将打包工具链放在已暂存应用之外，并原样保留已验证的暂存 依赖清单及包路径，避免清单漂移'
+      'Store 要求人工审核 `personal-files` 的 `allow-installation` 声明'
     )
     expect(normalizedChinese).toContain(
-      '桌面产物完成组装后才创建 GitHub Release，两种 Snap 架构均通过验证后才进入 Store 发布'
+      'Store 没有返回精确 revision，`arm64` Store upload 也未开始'
     )
     expect(normalizedChinese).toContain(
-      'R2 更新数据源与容器 仅在 GitHub Release 成功后启动'
+      '公开 `latest/edge` 保持不变，仍为 amd64 Motrix 1.8.19'
     )
-    expect(normalizedChinese).toContain(
-      'Windows `x64` 安装包继续明确采用未签名发布'
-    )
-    for (const source of [english, chinese]) {
-      expect(source).toContain('2.0.0-beta.8')
-      expect(source).toContain('latest/edge')
-      expect(source).toContain('AppImage')
-      expect(source).toContain('Flatpak')
-      expect(source).toContain(
-        'Motrix-Native-Host-2.0.0-beta.8-linux-<arch>.tar.gz'
-      )
-      expect(source).toContain('SmartScreen')
-      expect(source).toContain('docker.io/motrixapp/motrix-server:2.0.0-beta.8')
-      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.8')
-      expect(source).not.toMatch(restrictedPublicLanguage)
-      expect(source).not.toMatch(secretLikeIdentifier)
-    }
+    expect(normalizedChinese).toContain('外部分发为零')
     for (const source of [
+      english,
+      chinese,
       read('docs/release-notes/2.0.0-beta.7.md'),
       read('docs/release-notes/2.0.0-beta.7.zh-CN.md'),
       beta8Metainfo,
@@ -249,12 +271,101 @@ describe('release version contract', () => {
     expect(metainfo).toContain(
       '<release version="2.0.0-beta.8" date="2026-08-16">'
     )
+    expect(metainfo).toContain('Unsigned Windows Builder')
     expect(metainfo).toContain(
-      'Cross-platform finalization reliability update with isolated'
+      'amd64 Snap upload required personal-files allow-installation review'
     )
+  })
+
+  it('preserves beta.9 finalization and Snap review disclosures', () => {
+    const english = read('docs/release-notes/2.0.0-beta.9.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.9.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta9Metainfo =
+      /<release version="2\.0\.0-beta\.9"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.8.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.8.zh-CN.md'
+    )
+    expect(normalizedEnglish).toContain(
+      'Installs a complete, lockfile-pinned verifier dependency closure inside the isolated finalization runtime'
+    )
+    expect(normalizedEnglish).toContain(
+      'The verifier can resolve `@electron/asar` without consulting the staged application or the repository dependency tree'
+    )
+    expect(normalizedEnglish).toContain(
+      'Removes temporary signing inputs as soon as the Electron Builder step ends, before final package verification begins'
+    )
+    expect(normalizedEnglish).toContain(
+      'Removes the isolated finalization and verification tool runtime after final package verification and before finalized-artifact upload'
+    )
+    expect(normalizedEnglish).toContain(
+      'A cleanup failure prevents the upload from starting'
+    )
+    expect(normalizedEnglish).toContain(
+      'Installing a Snap with this interface requires a Store declaration signed by Canonical'
+    )
+    expect(normalizedEnglish).toContain(
+      'the project will not bypass or weaken it in code'
+    )
+    expect(normalizedEnglish).toContain(
+      'The `v2.0.0-beta.9` tag must wait until that declaration is approved'
+    )
+    expect(normalizedEnglish).toContain(
+      'a beta.9 Snap must not be considered available from `latest/edge`'
+    )
+    expect(normalizedChinese).toContain(
+      '在隔离的 Finalize runtime 内安装由 lockfile 固定的完整 verifier dependency closure'
+    )
+    expect(normalizedChinese).toContain(
+      'Electron Builder 步骤结束后立即删除签名临时输入'
+    )
+    expect(normalizedChinese).toContain(
+      '最终安装包验证完成后、finalized artifact 上传前，删除隔离的 Finalize 与验证 工具 runtime'
+    )
+    expect(normalizedChinese).toContain('清理失败会阻止上传开始')
+    expect(normalizedChinese).toContain(
+      '需要由 Canonical 签名的 Store declaration'
+    )
+    expect(normalizedChinese).toContain('项目不会通过代码绕过或弱化该要求')
+    expect(normalizedChinese).toContain(
+      '`v2.0.0-beta.9` tag 必须等待该 declaration 获批'
+    )
+    expect(normalizedChinese).toContain('本说明不表示 beta.9 Snap 已公开提供')
+    for (const source of [english, chinese]) {
+      expect(source).toContain('2.0.0-beta.9')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('personal-files')
+      expect(source).toContain('allow-installation')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.9-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain('docker.io/motrixapp/motrix-server:2.0.0-beta.9')
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.9')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
     expect(metainfo).toContain(
-      'public Snap distribution was published; external distribution'
+      '<release version="2.0.0-beta.9" date="2026-08-16">'
     )
+    expect(beta9Metainfo).toContain('lockfile-pinned verifier closure')
+    expect(beta9Metainfo).toContain(
+      'tool-runtime cleanup between package verification'
+    )
+    expect(beta9Metainfo).toContain('personal-files')
+    expect(beta9Metainfo).toContain('allow-installation')
+    expect(beta9Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta9Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
   it('preserves beta.6 Snap recovery and canceled release history', () => {

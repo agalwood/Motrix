@@ -6,8 +6,8 @@ description: |
   BitTorrent, Magnet, and Metalink downloads.
 license: MIT
 website: https://motrix.app
-source-code: https://gitlab.com/agalwood/motrix-turbo
-issues: https://gitlab.com/agalwood/motrix-turbo/-/issues
+source-code: https://github.com/agalwood/Motrix
+issues: https://github.com/agalwood/Motrix/issues
 version: '@MOTRIX_VERSION@'
 base: core24
 grade: stable
