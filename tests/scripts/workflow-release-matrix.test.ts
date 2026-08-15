@@ -1139,6 +1139,23 @@ describe('release workflow publication contract', () => {
     expect(releaseSource).not.toContain('APPLE_TEAM_ID')
   })
 
+  it('passes the signing input commit through a shell-neutral expression', () => {
+    const buildSteps = jobSteps(
+      asRecord(workflowJobs(releaseWorkflow).build, 'build job')
+    )
+    const createInput = buildSteps.find(
+      (step) => step.name === 'Create isolated signing input'
+    )
+
+    expect(createInput).toBeDefined()
+    expect(stringField(createInput as LooseRecord, 'if')).toContain(
+      "matrix.platform == 'win32'"
+    )
+    const command = stringField(createInput as LooseRecord, 'run')
+    expect(command).toContain(`--commit "\${{ github.sha }}"`)
+    expect(command).not.toContain('$GITHUB_SHA')
+  })
+
   it('verifies notarization stapling in addition to macOS signatures', () => {
     const signJob = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
     const verification = jobSteps(signJob).find(
@@ -1309,6 +1326,76 @@ describe('release workflow publication contract', () => {
     expect(stringField(signMac as LooseRecord, 'run')).toContain(
       bundleVersionArgument
     )
+  })
+})
+
+describe('workflow shell portability contract', () => {
+  it('recognizes Bash environment syntax without flagging shell-neutral forms', () => {
+    expect(bareUppercaseEnvironmentReferences('$GITHUB_SHA')).toEqual([
+      '$GITHUB_SHA',
+    ])
+    expect(bareUppercaseEnvironmentReferences(`\${GITHUB_SHA}`)).toEqual([
+      `\${GITHUB_SHA}`,
+    ])
+    expect(bareUppercaseEnvironmentReferences(`\${FOO:-default}`)).toEqual([
+      `\${FOO:-default}`,
+    ])
+    expect(bareUppercaseEnvironmentReferences(`\${{ github.sha }}`)).toEqual([])
+    expect(bareUppercaseEnvironmentReferences('$env:GITHUB_SHA')).toEqual([])
+    expect(bareUppercaseEnvironmentReferences('$Env:GITHUB_SHA')).toEqual([])
+  })
+
+  it.each([
+    ['', true],
+    ["matrix.platform == 'linux'", false],
+    ['matrix.platform == "darwin"', false],
+    ["matrix.os == 'ubuntu-22.04'", false],
+    ['matrix.os == "macos-26-intel"', false],
+    ["matrix.platform == 'win32'", true],
+    ["matrix.os != 'win32'", true],
+    ["github.event_name == 'push' && matrix.platform == 'linux'", true],
+  ] as const)(
+    'treats %j as Windows-capable only when it is not an explicit non-Windows equality',
+    (condition, expected) => {
+      expect(stepMayRunOnWindows({ if: condition })).toBe(expected)
+    }
+  )
+
+  it('rejects bare environment variables in release Windows default-shell steps', () => {
+    const violations: string[] = []
+    const jobs = workflowJobs(releaseWorkflow)
+    const workflowShell = defaultRunShell(releaseWorkflow)
+
+    for (const jobName of ['build', 'sign'] as const) {
+      const job = asRecord(jobs[jobName], `${jobName} job`)
+      expect(
+        matrixEntries(job, jobName).some(
+          (entry) =>
+            stringField(entry, 'platform') === 'win32' &&
+            stringField(entry, 'os').startsWith('windows-')
+        ),
+        `${jobName} must retain a Windows matrix target`
+      ).toBe(true)
+      const jobShell = defaultRunShell(job) ?? workflowShell
+
+      for (const step of jobSteps(job)) {
+        if (
+          typeof step.run !== 'string' ||
+          step.shell !== undefined ||
+          jobShell !== undefined ||
+          !stepMayRunOnWindows(step)
+        ) {
+          continue
+        }
+        const references = bareUppercaseEnvironmentReferences(step.run)
+        if (references.length === 0) continue
+        violations.push(
+          `release.yml:${jobName}:${stringField(step, 'name', '<unnamed>')}: ${references.join(', ')}`
+        )
+      }
+    }
+
+    expect(violations).toEqual([])
   })
 })
 
@@ -1524,4 +1611,32 @@ function platformBuilderStep(
 
 function compareTargets(left: ExpectedTarget, right: ExpectedTarget): number {
   return left.key.localeCompare(right.key)
+}
+
+function bareUppercaseEnvironmentReferences(command: string): string[] {
+  return Array.from(
+    command.matchAll(
+      /\$(?!\{\{|[Ee][Nn][Vv]:)(?:[A-Z][A-Z0-9_]*|\{[A-Z][A-Z0-9_]*(?::-[^}]*)?\})/gu
+    ),
+    (match) => match[0]
+  )
+}
+
+function defaultRunShell(record: LooseRecord): string | undefined {
+  if (record.defaults === undefined) return undefined
+  const defaults = asRecord(record.defaults, 'workflow defaults')
+  if (defaults.run === undefined) return undefined
+  const run = asRecord(defaults.run, 'workflow run defaults')
+  return typeof run.shell === 'string' ? run.shell : undefined
+}
+
+function stepMayRunOnWindows(step: LooseRecord): boolean {
+  const condition = stringField(step, 'if', '').trim()
+  if (/^matrix\.platform\s*==\s*(['"])(?:darwin|linux)\1$/u.test(condition)) {
+    return false
+  }
+  if (/^matrix\.os\s*==\s*(['"])(?:macos|ubuntu)[^'"]*\1$/u.test(condition)) {
+    return false
+  }
+  return true
 }
