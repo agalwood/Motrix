@@ -19,6 +19,18 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
+## 🧪 Beta testing
+
+Motrix Turbo v2 is currently in beta. Download
+[v2.0.0-beta.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.1)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.1.md)
+before installing it.
+
+Back up your existing Motrix data and downloads before testing. Migration from
+Motrix v1 data has not yet been validated, so do not use your only copy of v1
+data with this beta. When practical, test v2 in parallel using a separate OS
+account, machine, or Docker data directory.
+
 ## Screenshots
 
 ### Dashboard
@@ -102,13 +114,19 @@ Plugins run inside a QuickJS sandbox. Each plugin declares the host capabilities
 
 Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
 
-Available package formats:
+The current beta desktop packages are distributed through the GitHub
+prerelease linked above, with Snap available from its edge channel. Choose the
+package that matches your operating system and architecture:
 
-| Platform | Formats | Recommendation |
-|----------|---------|----------------|
-| macOS | `.dmg` / `.zip` | The Apple Silicon `.dmg` is recommended; use the Intel build only on an Intel-based Mac |
-| Windows | `.exe` (NSIS installer) / `.zip` | The `.exe` installer is the best choice for most users; use `.zip` for a manually extracted copy |
-| Linux | `.AppImage` / `.deb` / `.rpm`, plus Flatpak and Snap | Use `.deb` on Debian or Ubuntu, `.rpm` on Fedora or openSUSE, or `.AppImage` to run Motrix without installing it |
+| Platform | Architectures | Packages / channel | Recommendation |
+|----------|---------------|--------------------|----------------|
+| macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
+| Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
+| Linux | `x64`, `arm64` | `.deb` / `.rpm`; Snap `latest/edge` | Use `.deb` on Debian or Ubuntu, `.rpm` on Fedora or openSUSE, or the edge Snap for beta testing |
+
+This beta does not publish an AppImage. Flatpak is validated separately and is
+not published by the release tag. Windows `arm64` and all 32-bit packages are
+not available.
 
 ### Command-line client
 
@@ -121,12 +139,14 @@ You can also install it from Settings → Integration → Command-line tools in 
 ### Headless server with Docker
 
 Tagged releases publish a multi-architecture Server image to Docker Hub and
-GHCR. The included `compose.yaml` pulls Docker Hub by default and keeps Server
-state separate from downloaded resources:
+GHCR. Beta releases publish only the immutable version tag and do not update
+`latest`; the included `compose.yaml` keeps Server state separate from
+downloaded resources:
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.1'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
@@ -161,8 +181,8 @@ diagnostics, and backup/upgrade instructions.
 Development requires Node.js 22 or later and pnpm. Use the pnpm version specified by the `packageManager` field in `package.json`.
 
 ```bash
-git clone https://gitlab.com/agalwood/motrix-turbo.git
-cd motrix-turbo
+git clone https://github.com/agalwood/Motrix.git
+cd Motrix
 
 pnpm install     # Install dependencies, download aria2 for your platform, and rebuild native modules
 pnpm start       # Start the Electron app in development mode with Vite HMR in the renderer

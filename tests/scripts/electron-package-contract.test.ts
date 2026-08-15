@@ -94,6 +94,25 @@ describe('Electron package contracts', () => {
     expect(manifest.scripts?.['build:electron']).not.toContain('stage:electron')
   })
 
+  it('keeps macOS bundle versions numeric while the app version stays SemVer', async () => {
+    const manifest = (await readJson('package.json')) as { version?: string }
+    const version = manifest.version ?? ''
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.\d+)?$/.exec(version)
+
+    expect(match).not.toBeNull()
+    const bundleShortVersion = match?.slice(1, 4).join('.')
+    for (const configPath of [
+      'electron-builder.json',
+      'electron-builder.signing.json',
+    ]) {
+      const config = (await readJson(configPath)) as {
+        mac?: { bundleShortVersion?: string; bundleVersion?: string }
+      }
+      expect(config.mac?.bundleShortVersion).toBe(bundleShortVersion)
+      expect(config.mac?.bundleVersion).toMatch(/^\d+(?:\.\d+){0,2}$/)
+    }
+  })
+
   it('declares the exact supported runtime roots and targets', async () => {
     const contract = validateRuntimeDependencyContract(
       await readJson('scripts/electron-runtime-dependencies.json')
