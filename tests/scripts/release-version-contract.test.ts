@@ -82,6 +82,12 @@ describe('release version contract', () => {
   it('preserves current release references', () => {
     const english = read(`docs/release-notes/${packageVersion}.md`)
     const chinese = read(`docs/release-notes/${packageVersion}.zh-CN.md`)
+    const releaseMetadata = resolveReleaseMetadata({
+      eventName: 'workflow_dispatch',
+      refName: 'main',
+      refProtected: 'false',
+      packageVersion,
+    })
 
     expect(english).toContain(
       `https://github.com/agalwood/Motrix/blob/${releaseTag}/docs/docker-server.md`
@@ -97,20 +103,111 @@ describe('release version contract', () => {
       expect(source).toContain(
         `ghcr.io/agalwood/motrix-server:${packageVersion}`
       )
+      if (releaseMetadata.channel === 'beta') {
+        expect(source).toContain('latest/edge')
+      }
     }
   })
 
-  it('preserves beta.6 Snap publish-runner dependency recovery history', () => {
+  it('preserves beta.7 Electron Builder custom-directory recovery history', () => {
+    const english = read('docs/release-notes/2.0.0-beta.7.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.7.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.7/docs/release-notes/2.0.0-beta.6.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.7/docs/release-notes/2.0.0-beta.6.zh-CN.md'
+    )
+    expect(normalizedEnglish).toContain(
+      'Keeps job-level empty-value sanitization for inherited Electron Builder binary custom-directory settings, then truly removes all four overrides from the macOS and Windows finalizer process environment immediately before that process starts Electron Builder'
+    )
+    expect(normalizedEnglish).toContain(
+      'a custom-directory variable that is defined but empty is still treated as an active override'
+    )
+    expect(normalizedEnglish).toContain(
+      'actual lockfile-resolved `app-builder-lib` downloader from the Electron Builder 26.15.7 dependency closure with a stub transport'
+    )
+    expect(normalizedEnglish).toContain(
+      'truly unsetting all four values restores both canonical tool URLs'
+    )
+    expect(normalizedEnglish).toContain(
+      'Digest-complete signing inputs are still verified before secret access, and build jobs remain secret-free'
+    )
+    expect(normalizedEnglish).toContain(
+      'fail-closed assembly, and protected-tag and environment gates remain unchanged'
+    )
+    expect(normalizedChinese).toContain(
+      '保留 job 级的空值净化，用于中和继承的 Electron Builder binary custom-directory 设置'
+    )
+    expect(normalizedChinese).toContain(
+      '在 macOS 和 Windows finalizer 进程启动 Electron Builder 前，立即从该进程环境中真正删除全部 4 个覆盖变量'
+    )
+    expect(normalizedChinese).toContain(
+      '通过 stub transport 直接执行 Electron Builder 26.15.7 dependency closure 中真实由 lockfile 固定的 `app-builder-lib` downloader'
+    )
+    expect(normalizedChinese).toContain(
+      '真正 unset 全部 4 个变量后会恢复两个 canonical 工具 URL'
+    )
+    expect(normalizedChinese).toContain(
+      '完整摘要的 signing input 仍在访问 secret 前验证，build job 仍不获得 secret'
+    )
+    expect(normalizedChinese).toContain(
+      'fail-closed assemble 以及受保护 tag 和 environment gate 均保持不变'
+    )
+    for (const source of [english, chinese]) {
+      expect(source).toContain(
+        '`NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR`'
+      )
+      expect(source).toContain(
+        '`npm_config_electron_builder_binaries_custom_dir`'
+      )
+      expect(source).toContain(
+        '`npm_package_config_electron_builder_binaries_custom_dir`'
+      )
+      expect(source).toContain('`ELECTRON_BUILDER_BINARIES_CUSTOM_DIR`')
+      expect(source).toContain('26.15.7')
+      expect(source).toContain('download//nsis-3.0.4.1.7z')
+      expect(source).toContain('releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z')
+      expect(source).toContain(
+        'releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z'
+      )
+      expect(source).toContain('--publish never')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain('Authenticode')
+      expect(source).toContain('SmartScreen')
+    }
+  })
+
+  it('preserves beta.6 Snap recovery and canceled release history', () => {
     const english = read('docs/release-notes/2.0.0-beta.6.md')
     const chinese = read('docs/release-notes/2.0.0-beta.6.zh-CN.md')
-    const normalizedEnglish = english.replace(/\s+/g, ' ')
-    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
 
     expect(english).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.6/docs/release-notes/2.0.0-beta.5.md'
     )
     expect(chinese).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.6/docs/release-notes/2.0.0-beta.5.zh-CN.md'
+    )
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.7/docs/release-notes/2.0.0-beta.6.zh-CN.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.7/docs/release-notes/2.0.0-beta.6.md'
     )
     expect(normalizedEnglish).toContain(
       'Prepares the isolated `publish-edge` runner immediately after checkout and before Snap artifact download or verification'
@@ -148,6 +245,80 @@ describe('release version contract', () => {
     expect(normalizedChinese).toContain(
       '受保护 tag 和 environment gate 保持不变，build job 仍不会获得 Store secret'
     )
+    expect(normalizedEnglish).toContain('All five desktop build jobs')
+    expect(normalizedEnglish).toContain(
+      'both macOS finalization jobs were canceled without running'
+    )
+    expect(normalizedEnglish).toContain(
+      'unsigned Windows mode selection all succeeded'
+    )
+    expect(normalizedEnglish).toContain(
+      '`.../releases/download//nsis-3.0.4.1.7z`, which returned HTTP 404'
+    )
+    expect(normalizedEnglish).toContain(
+      'The failure was unrelated to absent Authenticode credentials'
+    )
+    expect(normalizedEnglish).toContain(
+      'Assemble, GitHub Release, R2 update-feed publishing, and Docker Hub/GHCR container publishing were canceled without running'
+    )
+    expect(normalizedEnglish).toContain(
+      'the amd64 transfer completed and entered Store processing before the job was canceled'
+    )
+    expect(normalizedEnglish).toContain(
+      'successfully built, verified, and uploaded the internal GitHub Actions artifacts for both `amd64` and `arm64`'
+    )
+    expect(normalizedEnglish).toContain(
+      'verified the complete `amd64`/`arm64` set, and validated the scoped Store credential'
+    )
+    expect(normalizedEnglish).toContain(
+      'no exact revision was returned or recorded'
+    )
+    expect(normalizedEnglish).toContain('the arm64 Store upload never started')
+    expect(normalizedEnglish).toContain(
+      'Public `latest/edge` remained on amd64 Motrix 1.8.19 revision 49'
+    )
+    expect(normalizedEnglish).toContain(
+      'At most one unchannelled internal amd64 revision may have completed processing after cancellation'
+    )
+    expect(normalizedEnglish).toContain(
+      'no beta.6 Snap revision was released to a channel'
+    )
+    expect(normalizedEnglish).toContain('external distribution remained zero')
+    expect(normalizedChinese).toContain('5 个桌面构建 job')
+    expect(normalizedChinese).toContain(
+      '两个 macOS finalize job 均未执行而被取消'
+    )
+    expect(normalizedChinese).toContain('未签名 Windows 模式选择均已成功')
+    expect(normalizedChinese).toContain(
+      '`.../releases/download//nsis-3.0.4.1.7z`，并收到 HTTP 404'
+    )
+    expect(normalizedChinese).toContain(
+      '该失败与缺少 Authenticode credential 无关'
+    )
+    expect(normalizedChinese).toContain(
+      'assemble、GitHub Release、R2 更新数据源发布以及 Docker Hub/GHCR container publish 均未执行而被取消'
+    )
+    expect(normalizedChinese).toContain(
+      'amd64 传输完成并进入 Store processing，此时 job 被取消'
+    )
+    expect(normalizedChinese).toContain(
+      '成功构建、验证和上传 `amd64`、`arm64` 两个架构的内部 GitHub Actions artifact'
+    )
+    expect(normalizedChinese).toContain(
+      '验证了完整的双架构集合，并通过了限定范围的 Store credential 校验'
+    )
+    expect(normalizedChinese).toContain('流程没有返回或记录精确 revision')
+    expect(normalizedChinese).toContain('arm64 Store upload 从未开始')
+    expect(normalizedChinese).toContain(
+      '公开 `latest/edge` 仍是 amd64 Motrix 1.8.19 revision 49'
+    )
+    expect(normalizedChinese).toContain(
+      '取消后最多可能有 1 个未上 channel 的内部 amd64 revision 完成 processing'
+    )
+    expect(normalizedChinese).toContain(
+      '没有 beta.6 Snap revision 被发布到任何 channel'
+    )
+    expect(normalizedChinese).toContain('外部分发为零')
     for (const source of [english, chinese]) {
       expect(source).toContain('pnpm `11.21.0`')
       expect(source).toContain('Node.js 24')

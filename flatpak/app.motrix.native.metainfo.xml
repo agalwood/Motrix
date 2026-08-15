@@ -76,12 +76,25 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.7" date="2026-08-16">
+      <description>
+        <p>
+          Release recovery update that removes Electron Builder binary
+          custom-directory variables from the macOS and Windows finalizer
+          process environments before invoking the lockfile-resolved Electron
+          Builder 26.15.7.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.6" date="2026-08-15">
       <description>
         <p>
-          Release recovery update that installs the lockfile-pinned workspace
-          dependency closure without lifecycle scripts on the isolated Snap
-          publish runner before artifact verification and Store access.
+          Unpublished Motrix Turbo beta attempt. All five desktop builds and
+          both strict Snap builds succeeded, but an empty Electron Builder
+          binary custom-directory value produced an invalid NSIS tool URL
+          during unsigned Windows finalization. Snap publication was canceled
+          while the amd64 upload was processing; latest/edge did not change,
+          and no external distribution was published.
         </p>
       </description>
     </release>
