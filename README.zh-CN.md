@@ -113,16 +113,16 @@ pnpm create motrix-plugin my-plugin
 访问 Motrix 官网 [motrix.app](https://motrix.app)，选择对应操作系统的安装包。macOS 用户通常下载 Apple Silicon 版本即可；如果使用较早的 Intel 芯片 Mac，请选择 Intel 版本。
 
 剩余发布门禁通过后，当前 beta 桌面安装包将通过上方链接的 GitHub 预发布版
-提供。Snap 只有在必要的 Store 审核与受保护发布门禁完成后，才会通过 edge
-通道提供。请根据操作系统和架构选择安装包：
+提供。本 beta 不发布 Snap；预发布 tag 的 Snap run 会在 source validation 后停止，
+不会构建或发布 Snap artifact。请根据操作系统和架构选择安装包：
 
 | 平台 | 架构 | 安装包 / 通道 | 选择建议 |
 |------|------|---------------|----------|
 | macOS 12+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
-| Linux | `x64`、`arm64` | `.deb` / `.rpm`；Store 批准后的 Snap `latest/edge` | Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm`；发布完成后也可使用 edge Snap |
+| Linux | `x64`、`arm64` | `.deb` / `.rpm` | Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 
-本 beta 不发布 AppImage。Flatpak 会单独验证，不会随该版本 tag 发布。
+本 beta 不发布 AppImage 或 Snap。Flatpak 会单独验证，不会随该版本 tag 发布。
 同时不提供 Windows `arm64` 和任何 32 位安装包。Windows `x64` 安装包未签名，
 可能触发 Windows SmartScreen 警告。
 

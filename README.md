@@ -115,21 +115,21 @@ Plugins run inside a QuickJS sandbox. Each plugin declares the host capabilities
 Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
 
 After the remaining release gates pass, the current beta desktop packages
-will be distributed through the GitHub prerelease linked above. Snap will
-become available from its edge channel only after the required Store review
-and protected publication gates complete. Choose the package that matches your
+will be distributed through the GitHub prerelease linked above. Snap is not
+published for this beta; prerelease tag runs stop after source validation and
+do not build or publish Snap artifacts. Choose the package that matches your
 operating system and architecture:
 
 | Platform | Architectures | Packages / channel | Recommendation |
 |----------|---------------|--------------------|----------------|
 | macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
-| Linux | `x64`, `arm64` | `.deb` / `.rpm`; Snap `latest/edge` after Store approval | Use `.deb` on Debian or Ubuntu, `.rpm` on Fedora or openSUSE, or the edge Snap after publication completes |
+| Linux | `x64`, `arm64` | `.deb` / `.rpm` | Use `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 
-This beta does not publish an AppImage. Flatpak is validated separately and is
-not published by the release tag. Windows `arm64` and all 32-bit packages are
-not available. Windows `x64` packages are unsigned and may trigger a Windows
-SmartScreen warning.
+This beta does not publish an AppImage or Snap. Flatpak is validated separately
+and is not published by the release tag. Windows `arm64` and all 32-bit
+packages are not available. Windows `x64` packages are unsigned and may
+trigger a Windows SmartScreen warning.
 
 ### Command-line client
 

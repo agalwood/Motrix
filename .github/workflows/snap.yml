@@ -3,8 +3,8 @@
 # Snap is deliberately independent from the GitHub Release workflow:
 #   - amd64 and arm64 are built on matching native Ubuntu runners;
 #   - pull requests and manual runs never receive Store credentials;
-#   - protected release tags publish a complete two-architecture build set to
-#     latest/edge only;
+#   - protected stable release tags publish a complete two-architecture build
+#     set to latest/edge only; prerelease tag runs stop after source validation;
 #   - candidate and stable receive that exact build set through snap-promote.yml.
 
 name: Snap
@@ -60,6 +60,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.metadata.outputs.version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -96,6 +97,9 @@ jobs:
 
   build:
     name: Build Snap / ${{ matrix.snap_arch }}
+    if: >-
+      github.event_name != 'push' ||
+      needs.preflight.outputs.prerelease == 'false'
     needs: preflight
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -240,6 +244,7 @@ jobs:
     name: Publish complete build set to edge
     if: >-
       github.event_name == 'push' &&
+      needs.preflight.outputs.prerelease == 'false' &&
       startsWith(github.ref, 'refs/tags/v') &&
       github.ref_protected == true
     needs: [preflight, build]

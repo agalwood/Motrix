@@ -11,7 +11,9 @@ describe('release metadata', () => {
     ['2.0.0', false, 'stable'],
     ['2.0.0-beta.1', true, 'beta'],
     ['2.0.0-beta.1+build.7', true, 'beta'],
+    ['2.0.0-beta.1+build-linux', true, 'beta'],
     ['2.0.0+build.007', false, 'stable'],
+    ['2.0.0+build-linux', false, 'stable'],
   ] as const)('parses strict SemVer %s', (version, prerelease, channel) => {
     expect(parseStrictSemVer(version)).toEqual({
       version,
@@ -49,6 +51,21 @@ describe('release metadata', () => {
       version: '2.0.0-beta.1',
       prerelease: true,
       channel: 'beta',
+    })
+  })
+
+  it('keeps hyphenated build metadata on the stable channel', () => {
+    expect(
+      resolveReleaseMetadata({
+        eventName: 'push',
+        refName: 'v2.0.0+build-linux',
+        refProtected: 'true',
+        packageVersion: '2.0.0+build-linux',
+      })
+    ).toEqual({
+      version: '2.0.0+build-linux',
+      prerelease: false,
+      channel: 'stable',
     })
   })
 

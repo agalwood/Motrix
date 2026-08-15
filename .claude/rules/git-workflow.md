@@ -58,8 +58,10 @@ them with local publishing steps.
 - Do not manually upload release files, reuse unverified artifacts, bypass
   protected environments, weaken signing-input isolation, or overwrite an
   existing immutable container tag.
-- Protected tags publish one verified amd64/arm64 Snap build set to
-  `latest/edge`. Promote those exact revisions with `snap-promote.yml` from
-  protected `main`; never rebuild during promotion. Stable rejects prereleases.
+- Protected stable tags publish one verified amd64/arm64 Snap build set to
+  `latest/edge`; prerelease tag runs stop after source validation and do not
+  build or publish Snap artifacts. Promote those exact revisions with
+  `snap-promote.yml` from protected `main`; never rebuild during promotion.
+  Stable rejects prereleases.
 - If a release gate fails, fix the source or workflow and run the complete
   gated path again. Do not publish a partial platform set.

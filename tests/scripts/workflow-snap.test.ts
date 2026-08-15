@@ -166,12 +166,24 @@ describe('Snap build workflow contract', () => {
     }
   })
 
-  it('publishes only protected tags through the edge environment', () => {
+  it('publishes only protected stable tags through the edge environment', () => {
+    const preflight = workflowJob(snapWorkflow, 'preflight')
+    const preflightOutputs = asRecord(preflight.outputs, 'preflight outputs')
+    const build = workflowJob(snapWorkflow, 'build')
     const publish = workflowJob(snapWorkflow, 'publish-edge')
+    const buildCondition = stringField(build, 'if')
     const condition = stringField(publish, 'if')
     const environment = asRecord(publish.environment, 'publish environment')
 
+    expect(stringField(preflightOutputs, 'prerelease')).toBe(
+      `\${{ steps.metadata.outputs.prerelease }}`
+    )
+    expect(buildCondition).toContain("github.event_name != 'push'")
+    expect(buildCondition).toContain(
+      "needs.preflight.outputs.prerelease == 'false'"
+    )
     expect(condition).toContain("github.event_name == 'push'")
+    expect(condition).toContain("needs.preflight.outputs.prerelease == 'false'")
     expect(condition).toContain("startsWith(github.ref, 'refs/tags/v')")
     expect(condition).toContain('github.ref_protected == true')
     expect(stringField(environment, 'name')).toBe('snap-store-edge')

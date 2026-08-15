@@ -82,9 +82,10 @@
           Release finalization update with a lockfile-pinned verifier closure
           in an isolated runtime, temporary signing-input cleanup immediately
           after Builder, and tool-runtime cleanup between package verification
-          and artifact upload. Windows packages remain unsigned. Snap
-          publication waits for Canonical approval of the personal-files
-          allow-installation declaration.
+          and artifact upload. Windows packages remain unsigned. Prerelease
+          Snap runs stop after source validation without building or
+          publishing artifacts; stable Snap publication retains its
+          personal-files Store declaration requirement.
         </p>
       </description>
     </release>
