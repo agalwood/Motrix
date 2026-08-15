@@ -169,7 +169,8 @@
   },
   "electronDist": "trusted/electron.zip",
   "electronVersion": "43.4.0",
-  "npmRebuild": false,
+  "npmRebuild": true,
+  "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",
   "detectUpdateChannel": true,
   "generateUpdatesFilesForAllChannels": true,
   "publish": {

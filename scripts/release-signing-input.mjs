@@ -35,7 +35,7 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
   'electron-builder.signing.json':
-    '05baea577e4c0e18599e6a56213a467bd35c6c6a1a0fba68b1bbd3739768450f',
+    '8657e48dd7a1cb2833e0ee3011ee9a0a28549bbe68e9c8ba5b45693612345de3',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -60,6 +60,8 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
     'f37ffcdb32967077cf66711526de91201d1bb976f3e48687cbc89fba89b94696',
   'scripts/electron-package-utils.mjs':
     '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
+  'scripts/before-build-use-staged-dependencies.mjs':
+    'acbd47ea1ac9397990ec0d605cb1f5e627c3db265bd1e3a6588a7c65635af315',
   'scripts/native-binary-target.mjs':
     '6f0a42eecf729eb6de2df28b5d7449993590e494deb4e309b99c367094045797',
   'scripts/verify-electron-package.mjs':
@@ -97,6 +99,10 @@ const SOURCE_MAPPINGS = [
     'scripts/electron-package-size-budgets.json',
   ],
   ['scripts/electron-package-utils.mjs', 'scripts/electron-package-utils.mjs'],
+  [
+    'scripts/before-build-use-staged-dependencies.mjs',
+    'scripts/before-build-use-staged-dependencies.mjs',
+  ],
   ['scripts/native-binary-target.mjs', 'scripts/native-binary-target.mjs'],
   [
     'scripts/verify-electron-package.mjs',
@@ -140,6 +146,7 @@ function isAllowedSigningDataPath(relativePath) {
       'signing-policy/installer.nsh',
       'signing-tool/package.json',
       'signing-tool/package-lock.json',
+      'scripts/before-build-use-staged-dependencies.mjs',
       'scripts/electron-package-size-budgets.json',
       'scripts/electron-package-utils.mjs',
       'scripts/native-binary-target.mjs',
@@ -642,7 +649,6 @@ async function verifyRestrictedConfig(input) {
     'appxManifestCreated',
     'artifactBuildCompleted',
     'artifactBuildStarted',
-    'beforeBuild',
     'beforePack',
     'msiProjectCreated',
     'onNodeModuleFile',
@@ -655,7 +661,10 @@ async function verifyRestrictedConfig(input) {
     config.electronDist !== 'trusted/electron.zip' ||
     config.electronVersion !== ELECTRON_VERSION ||
     config.extends !== null ||
-    config.npmRebuild !== false ||
+    config.npmRebuild !== true ||
+    config.beforeBuild !==
+      './scripts/before-build-use-staged-dependencies.mjs' ||
+    config.directories?.app !== 'dist/electron-app' ||
     config.directories?.buildResources !== 'signing-build-resources' ||
     config.nsis?.include !== 'trusted/installer.nsh' ||
     config.nsis?.script !== null ||

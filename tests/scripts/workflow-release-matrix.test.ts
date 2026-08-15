@@ -1,6 +1,17 @@
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Script } from 'node:vm'
 import { describe, expect, it } from 'vitest'
@@ -8,6 +19,8 @@ import { describe, expect, it } from 'vitest'
 import { BUILD_TARGETS } from '../../packages/native-host/build.mjs'
 // @ts-expect-error -- JavaScript release script intentionally has no declarations
 import { RELEASE_TARGETS } from '../../scripts/assemble-release-artifacts.mjs'
+// @ts-expect-error -- JavaScript build hook intentionally has no declarations
+import stagedDependenciesBoundary from '../../scripts/before-build-use-staged-dependencies.mjs'
 // @ts-expect-error -- JavaScript release script intentionally has no declarations
 import { resolveReleaseMetadata } from '../../scripts/release-metadata.mjs'
 
@@ -196,6 +209,10 @@ const signingConfigSource = readFileSync(
 )
 const signingInputSource = readFileSync(
   path.join(ROOT, 'scripts/release-signing-input.mjs'),
+  'utf8'
+)
+const stagedDependenciesHookSource = readFileSync(
+  path.join(ROOT, 'scripts/before-build-use-staged-dependencies.mjs'),
   'utf8'
 )
 const signingToolPackageSource = readFileSync(
@@ -1054,7 +1071,6 @@ describe('release workflow publication contract', () => {
 
     const steps = jobSteps(sign)
     expect(JSON.stringify(steps)).not.toContain('actions/checkout@')
-    expect(JSON.stringify(steps)).not.toContain('pnpm/action-setup@')
     expect(releaseSource).not.toContain('downloadBuilderToolset')
     const verifyIndex = steps.findIndex(
       (step) => step.name === 'Verify signing input before secrets'
@@ -1065,69 +1081,91 @@ describe('release workflow publication contract', () => {
     const firstSecretIndex = steps.findIndex((step) =>
       JSON.stringify(step).includes('secrets.')
     )
+    const installIndex = steps.findIndex(
+      (step) => step.name === 'Install exact signing dependency closure'
+    )
     expect(verifyIndex).toBeGreaterThanOrEqual(0)
+    expect(installIndex).toBeGreaterThan(verifyIndex)
+    expect(electronIndex).toBeGreaterThan(installIndex)
     expect(electronIndex).toBeGreaterThan(verifyIndex)
     expect(firstSecretIndex).toBeGreaterThan(electronIndex)
     expect(JSON.stringify(steps.slice(0, firstSecretIndex))).not.toContain(
       'secrets.'
     )
 
-    const install = steps.find(
-      (step) => step.name === 'Install exact signing dependency closure'
+    const install = steps[installIndex]!
+    const installCommand = stringField(install, 'run')
+    expect(stringField(install, 'id')).toBe('signing-tool-runtime')
+    expect(stringField(install, 'shell')).toBe('node {0}')
+    expect(installCommand).toContain('process.env.SIGNING_TOOL_PARENT')
+    expect(installCommand).toContain('fs.mkdtempSync')
+    expect(installCommand).toContain(
+      "path.join('signing-input', 'signing-tool', name)"
     )
-    const installCommand = stringField(install as LooseRecord, 'run')
-    expect(installCommand).toContain('npm ci')
+    expect(installCommand).not.toContain(
+      "path.join('signing-input', 'package.json')"
+    )
+    expect(installCommand).toContain("'ci'")
     expect(installCommand).toContain('--ignore-scripts')
     expect(installCommand).not.toContain('npm install')
+    expect(installCommand).toContain("process.env.ComSpec || 'cmd.exe'")
+    expect(installCommand).toContain(
+      "['/d', '/s', '/c', 'npm.cmd', ...npmArgs]"
+    )
+    expect(installCommand).toContain(": 'npm'")
+    expect(installCommand).toContain('shell: false')
+    expect(installCommand).not.toContain('shell: true')
+    const installEnvironment = asRecord(
+      install.env,
+      'signing tool runtime environment'
+    )
+    expect(stringField(installEnvironment, 'SIGNING_TOOL_PARENT')).toContain(
+      'runner.temp'
+    )
 
     const builderSteps = steps.filter((step) =>
-      stringField(step, 'run', '').includes('electron-builder')
+      stringField(step, 'name').startsWith('Electron Builder (')
     )
     const macStep = platformBuilderStep(builderSteps, 'darwin')
     const windowsStep = platformBuilderStep(builderSteps, 'win32')
     const macEnv = asRecord(macStep.env, 'macOS builder environment')
     const windowsEnv = asRecord(windowsStep.env, 'Windows builder environment')
-    expect(stringField(macEnv, 'CSC_LINK')).toContain('secrets.MAC_CERTS')
+    expect(stringField(macEnv, 'CSC_LINK')).toContain(
+      'steps.mac-certificate.outputs.path'
+    )
+    expect(stringField(macEnv, 'CSC_LINK')).not.toContain('secrets.')
     expect(stringField(macEnv, 'CSC_KEY_PASSWORD')).toContain(
       'secrets.MAC_CERTS_PASSWORD'
     )
+    expect(stringField(macEnv, 'ELECTRON_BUILDER_CLI')).toContain(
+      'steps.signing-tool-runtime.outputs.cli'
+    )
     expect(JSON.stringify(macEnv)).not.toContain('WIN_CSC')
 
-    expect(stringField(windowsEnv, 'CSC_LINK')).toContain(
-      'secrets.WIN_CSC_LINK'
-    )
-    expect(stringField(windowsEnv, 'CSC_KEY_PASSWORD')).toContain(
-      'secrets.WIN_CSC_KEY_PASSWORD'
-    )
+    expect(windowsEnv).not.toHaveProperty('CSC_LINK')
+    expect(windowsEnv).not.toHaveProperty('CSC_KEY_PASSWORD')
     expect(stringField(windowsEnv, 'CSC_IDENTITY_AUTO_DISCOVERY')).toBe('false')
+    expect(stringField(windowsEnv, 'ELECTRON_BUILDER_CLI')).toContain(
+      'steps.signing-tool-runtime.outputs.cli'
+    )
     expect(JSON.stringify(windowsEnv)).not.toContain('MAC_CERTS')
     expect(stringField(windowsStep, 'if')).toBe("matrix.platform == 'win32'")
-
-    const windowsMode = steps.find(
-      (step) => step.name === 'Resolve Windows signing mode'
+    const windowsCommand = stringField(windowsStep, 'run')
+    const builderIndex = windowsCommand.indexOf(
+      'node $env:ELECTRON_BUILDER_CLI'
     )
-    expect(windowsMode).toBeDefined()
-    expect(stringField(windowsMode as LooseRecord, 'id')).toBe(
-      'windows-signing'
-    )
-    const windowsModeCommand = stringField(windowsMode as LooseRecord, 'run')
-    expect(windowsModeCommand).toContain("'enabled=false'")
-    expect(windowsModeCommand).toContain("'enabled=true'")
-    expect(windowsModeCommand).toContain('-xor')
-    expect(windowsModeCommand).toContain('GITHUB_STEP_SUMMARY')
-    expect(windowsModeCommand).toContain('unsigned')
-    expect(JSON.stringify(windowsMode)).not.toContain(
-      'needs.preflight.outputs.prerelease'
-    )
-    expect(JSON.stringify(windowsMode)).not.toContain(
-      'needs.preflight.outputs.channel'
-    )
-
-    const windowsVerification = steps.find(
-      (step) => step.name === 'Verify Windows signatures'
-    )
-    expect(stringField(windowsVerification as LooseRecord, 'if')).toContain(
-      "steps.windows-signing.outputs.enabled == 'true'"
+    expect(builderIndex).toBeGreaterThanOrEqual(0)
+    for (const variable of ['CSC_LINK', 'CSC_KEY_PASSWORD']) {
+      const unsetIndex = windowsCommand.indexOf(
+        `Remove-Item Env:${path.win32.sep}${variable} -ErrorAction SilentlyContinue`
+      )
+      expect(unsetIndex, variable).toBeGreaterThanOrEqual(0)
+      expect(unsetIndex, variable).toBeLessThan(builderIndex)
+    }
+    expect(JSON.stringify(sign)).not.toContain('WIN_CSC')
+    expect(JSON.stringify(sign)).not.toContain('Get-AuthenticodeSignature')
+    expect(steps.map((step) => step.name)).not.toContain(
+      'Verify Windows signatures'
     )
 
     const packageVerification = steps.find(
@@ -1144,6 +1182,387 @@ describe('release workflow publication contract', () => {
     expect(releaseSource).toContain('APPLE_API_ISSUER')
     expect(releaseSource).not.toContain('secrets.TEAM_ID')
     expect(releaseSource).not.toContain('APPLE_TEAM_ID')
+  })
+
+  it('materializes only bounded P12 bytes and always removes temporary inputs', () => {
+    const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    const steps = jobSteps(sign)
+    const preparation = steps.find(
+      (step) => step.name === 'Prepare isolated macOS signing certificate'
+    )
+    expect(preparation).toBeDefined()
+    expect(stringField(preparation as LooseRecord, 'shell')).toBe('node {0}')
+    expect(stringField(preparation as LooseRecord, 'if')).toBe(
+      "matrix.platform == 'darwin'"
+    )
+    const preparationEnvironment = asRecord(
+      preparation?.env,
+      'macOS certificate preparation environment'
+    )
+    expect(stringField(preparationEnvironment, 'MAC_CERTS_BASE64')).toContain(
+      'secrets.MAC_CERTS'
+    )
+    expect(stringField(preparationEnvironment, 'CERTIFICATE_PARENT')).toContain(
+      'runner.temp'
+    )
+    const source = stringField(preparation as LooseRecord, 'run')
+    expect(source).toContain('maximumEncodedBytes')
+    expect(source).toContain('maximumCertificateBytes')
+    expect(source).toContain('fs.mkdtempSync')
+    expect(source).toContain('mode: 0o600')
+    expect(source).toContain("flag: 'wx'")
+    expect(source).not.toContain('console.')
+    expect(source).not.toContain('process.stdout')
+
+    const temporaryRoot = mkdtempSync(
+      path.join(tmpdir(), 'motrix-mac-certificate-contract-')
+    )
+    let run = 0
+    const execute = (encoded: string) => {
+      run += 1
+      const output = path.join(temporaryRoot, `github-output-${run}`)
+      writeFileSync(output, '')
+      const result = spawnSync(process.execPath, ['-e', source], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CERTIFICATE_PARENT: temporaryRoot,
+          GITHUB_OUTPUT: output,
+          MAC_CERTS_BASE64: encoded,
+        },
+      })
+      const values = Object.fromEntries(
+        readFileSync(output, 'utf8')
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            const separator = line.indexOf('=')
+            return [line.slice(0, separator), line.slice(separator + 1)]
+          })
+      )
+      return { result, values }
+    }
+
+    try {
+      const certificate = Buffer.alloc(1532)
+      certificate.set([0x30, 0x82, 0x05, 0xf8, 0x02, 0x01, 0x03, 0x30])
+      const padded = certificate.toString('base64')
+      const unpadded = padded.replace(/=+$/u, '')
+      expect(unpadded).toHaveLength(2043)
+
+      for (const encoded of [padded, unpadded]) {
+        const { result, values } = execute(encoded)
+        expect(result.status, result.stderr).toBe(0)
+        const certificatePath = values.path
+        expect(certificatePath).toBeDefined()
+        expect(readFileSync(certificatePath!)).toEqual(certificate)
+        expect(statSync(certificatePath!).mode & 0o777).toBe(0o600)
+        expect(path.dirname(certificatePath!)).toBe(values.directory)
+      }
+
+      for (const encoded of [
+        '',
+        'A',
+        'AB',
+        'AA-_',
+        ` ${padded}`,
+        `${padded}\n`,
+        'A'.repeat(128 * 1024 + 4),
+        Buffer.from([0x30, 0x00]).toString('base64'),
+      ]) {
+        const { result } = execute(encoded)
+        expect(result.status).not.toBe(0)
+        if (encoded) {
+          expect(`${result.stdout}${result.stderr}`).not.toContain(encoded)
+        }
+      }
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true })
+    }
+
+    const cleanup = steps.find(
+      (step) => step.name === 'Remove finalization temporary inputs'
+    )
+    expect(cleanup).toBeDefined()
+    expect(stringField(cleanup as LooseRecord, 'if')).toBe('always()')
+    expect(stringField(cleanup as LooseRecord, 'shell')).toBe('node {0}')
+    const cleanupEnvironment = asRecord(
+      cleanup?.env,
+      'temporary input cleanup environment'
+    )
+    expect(stringField(cleanupEnvironment, 'TEMPORARY_ROOT')).toContain(
+      'runner.temp'
+    )
+    expect(stringField(cleanupEnvironment, 'MAC_CERTIFICATE_PATH')).toContain(
+      'steps.mac-certificate.outputs.path'
+    )
+    expect(
+      stringField(cleanupEnvironment, 'MAC_CERTIFICATE_DIRECTORY')
+    ).toContain('steps.mac-certificate.outputs.directory')
+    expect(stringField(cleanupEnvironment, 'APPLE_API_KEY_PATH')).toContain(
+      'steps.apple-api-key.outputs.path'
+    )
+    expect(stringField(cleanupEnvironment, 'SIGNING_TOOL_ROOT')).toContain(
+      'steps.signing-tool-runtime.outputs.root'
+    )
+    expect(JSON.stringify(cleanup)).not.toContain('secrets.')
+    const cleanupSource = stringField(cleanup as LooseRecord, 'run')
+    expect(cleanupSource).toContain('path.relative(root, candidate)')
+    expect(cleanupSource).toContain('fs.rmSync')
+
+    const cleanupRoot = mkdtempSync(
+      path.join(tmpdir(), 'motrix-finalization-cleanup-contract-')
+    )
+    try {
+      const apiKey = path.join(cleanupRoot, 'AuthKey.p8')
+      const certificateDirectory = path.join(cleanupRoot, 'certificate')
+      const certificate = path.join(certificateDirectory, 'identity.p12')
+      const signingTool = path.join(cleanupRoot, 'signing-tool')
+      mkdirSync(certificateDirectory)
+      mkdirSync(signingTool)
+      writeFileSync(apiKey, 'api key')
+      writeFileSync(certificate, 'certificate')
+      writeFileSync(path.join(signingTool, 'package.json'), '{}')
+      const result = spawnSync(process.execPath, ['-e', cleanupSource], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          APPLE_API_KEY_PATH: apiKey,
+          MAC_CERTIFICATE_DIRECTORY: certificateDirectory,
+          MAC_CERTIFICATE_PATH: certificate,
+          SIGNING_TOOL_ROOT: signingTool,
+          TEMPORARY_ROOT: cleanupRoot,
+        },
+      })
+      expect(result.status, result.stderr).toBe(0)
+      for (const candidate of [
+        apiKey,
+        certificate,
+        certificateDirectory,
+        signingTool,
+      ]) {
+        expect(existsSync(candidate), candidate).toBe(false)
+      }
+    } finally {
+      rmSync(cleanupRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('uses the locked 26.15.7 hook to preserve staged dependency placements', async () => {
+    const packageMetadata = asRecord(
+      require('app-builder-lib/package.json') as unknown,
+      'app-builder-lib package metadata'
+    )
+    expect(stringField(packageMetadata, 'version')).toBe('26.15.7')
+    const signingConfig = asRecord(
+      JSON.parse(signingConfigSource) as unknown,
+      'restricted signing config'
+    )
+    expect(signingConfig.npmRebuild).toBe(true)
+    expect(stringField(signingConfig, 'beforeBuild')).toBe(
+      './scripts/before-build-use-staged-dependencies.mjs'
+    )
+
+    const fixture = mkdtempSync(
+      path.join(tmpdir(), 'motrix-finalizer-staged-dependencies-')
+    )
+    const signingInput = path.join(fixture, 'signing-input')
+    const appDirectory = path.join(signingInput, 'dist', 'electron-app')
+    const scriptsDirectory = path.join(signingInput, 'scripts')
+    mkdirSync(appDirectory, { recursive: true })
+    mkdirSync(scriptsDirectory, { recursive: true })
+    writeFileSync(
+      path.join(signingInput, 'electron-builder.signing.json'),
+      signingConfigSource
+    )
+    writeFileSync(
+      path.join(scriptsDirectory, 'before-build-use-staged-dependencies.mjs'),
+      stagedDependenciesHookSource
+    )
+    writeFileSync(
+      path.join(appDirectory, 'package.json'),
+      JSON.stringify({ name: 'motrix-stage', private: true })
+    )
+
+    try {
+      await expect(
+        stagedDependenciesBoundary({ appDir: appDirectory })
+      ).resolves.toBe(false)
+      await expect(
+        stagedDependenciesBoundary({
+          appDir: path.join(fixture, 'untrusted-app'),
+        })
+      ).rejects.toThrow(/expected appDir to be dist\/electron-app/u)
+
+      const packagerModule = require.resolve('app-builder-lib/out/packager.js')
+      const platformPackagerModule = require.resolve(
+        'app-builder-lib/out/platformPackager.js'
+      )
+      const yarnModule = require.resolve('app-builder-lib/out/util/yarn.js')
+      const childSource = `
+        const fs = require('node:fs')
+        const path = require('node:path')
+        const yarn = require(process.env.YARN_MODULE)
+        let installCalls = 0
+        yarn.installOrRebuild = async () => { installCalls += 1 }
+        const { Packager } = require(process.env.PACKAGER_MODULE)
+        const { Arch } = require(process.env.BUILDER_UTIL_MODULE)
+        const config = JSON.parse(
+          fs.readFileSync('electron-builder.signing.json', 'utf8')
+        )
+        const context = {
+          options: {},
+          framework: {
+            isNpmRebuildRequired: true,
+            version: config.electronVersion,
+          },
+          config,
+          appInfo: { type: 'module' },
+          appDir: path.resolve('dist/electron-app'),
+          getWorkspaceRoot: async () => process.cwd(),
+          _nodeModulesHandledExternally: false,
+          runtimeEnvironmentVariables: {},
+        }
+        Packager.prototype.installAppDependencies.call(
+          context,
+          { nodeName: 'win32' },
+          Arch.x64
+        ).then(() => {
+          process.stdout.write(JSON.stringify({
+            handledExternally: context._nodeModulesHandledExternally,
+            installCalls,
+          }))
+        }).catch((error) => {
+          console.error(error instanceof Error ? error.message : String(error))
+          process.exitCode = 1
+        })
+      `
+      const execution = spawnSync(process.execPath, ['-e', childSource], {
+        cwd: signingInput,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          BUILDER_UTIL_MODULE: require.resolve('builder-util'),
+          PACKAGER_MODULE: packagerModule,
+          YARN_MODULE: yarnModule,
+        },
+      })
+      expect(execution.status, execution.stderr).toBe(0)
+      expect(JSON.parse(execution.stdout)).toEqual({
+        handledExternally: true,
+        installCalls: 0,
+      })
+
+      const packagerSource = readFileSync(packagerModule, 'utf8')
+      expect(packagerSource).toContain(
+        'this._nodeModulesHandledExternally = !performDependenciesInstallOrRebuild'
+      )
+      const platformPackagerSource = readFileSync(
+        platformPackagerModule,
+        'utf8'
+      )
+      expect(platformPackagerSource).toMatch(
+        /!this\.info\.areNodeModulesHandledExternally[\s\S]{0,400}computeNodeModuleFileSets/u
+      )
+
+      const nestedPlacements = [
+        'ajv/node_modules/fast-uri/package.json',
+        'electron-updater/node_modules/js-yaml/package.json',
+        'electron-updater/node_modules/semver/package.json',
+      ]
+      for (const relativePath of nestedPlacements) {
+        const destination = path.join(
+          appDirectory,
+          'node_modules',
+          relativePath
+        )
+        mkdirSync(path.dirname(destination), { recursive: true })
+        writeFileSync(destination, JSON.stringify({ name: relativePath }))
+      }
+
+      const initialConfig = asRecord(
+        JSON.parse(
+          readFileSync(path.join(ROOT, 'electron-builder.json'), 'utf8')
+        ) as unknown,
+        'initial Electron Builder config'
+      )
+      expect(signingConfig.asar).toBe(initialConfig.asar)
+      expect(signingConfig.asarUnpack).toEqual(initialConfig.asarUnpack)
+      expect(signingConfig.files).toEqual(initialConfig.files)
+      expect(
+        asRecord(signingConfig.directories, 'signing directories').app
+      ).toBe(asRecord(initialConfig.directories, 'initial directories').app)
+      const findNodeModulesMapping = (config: LooseRecord) =>
+        (config.files as unknown[]).find((value) => {
+          return (
+            typeof value === 'object' &&
+            value !== null &&
+            !Array.isArray(value) &&
+            (value as LooseRecord).from === 'node_modules'
+          )
+        })
+      const signingMapping = asRecord(
+        findNodeModulesMapping(signingConfig),
+        'signing node_modules mapping'
+      )
+      expect(signingMapping).toEqual(findNodeModulesMapping(initialConfig))
+
+      const fileMatcherModule = asRecord(
+        require('app-builder-lib/out/fileMatcher.js') as unknown,
+        'app-builder-lib file matcher module'
+      )
+      const appFileCopierModule = asRecord(
+        require('app-builder-lib/out/util/appFileCopier.js') as unknown,
+        'app-builder-lib app file copier module'
+      )
+      const FileMatcher = fileMatcherModule.FileMatcher as new (
+        from: string,
+        to: string,
+        macroExpander: (value: string) => string,
+        patterns: string[]
+      ) => unknown
+      const computeFileSets = appFileCopierModule.computeFileSets as (
+        matchers: unknown[],
+        transformer: null,
+        platformPackager: {
+          info: { areNodeModulesHandledExternally: boolean }
+        },
+        isElectronCompile: boolean
+      ) => Promise<Array<{ destination: string; files: string[]; src: string }>>
+      const getDestinationPath = appFileCopierModule.getDestinationPath as (
+        file: string,
+        fileSet: { destination: string; src: string }
+      ) => string
+      const stagedNodeModules = path.join(appDirectory, 'node_modules')
+      const outputNodeModules = path.join(fixture, 'output', 'node_modules')
+      const matcher = new FileMatcher(
+        stagedNodeModules,
+        outputNodeModules,
+        (value) => value,
+        signingMapping.filter as string[]
+      )
+      const fileSets = await computeFileSets(
+        [matcher],
+        null,
+        { info: { areNodeModulesHandledExternally: true } },
+        false
+      )
+      expect(fileSets).toHaveLength(1)
+      const selectedPlacements = fileSets[0]!.files
+        .map((file) =>
+          path
+            .relative(outputNodeModules, getDestinationPath(file, fileSets[0]!))
+            .split(path.sep)
+            .join('/')
+        )
+        .sort()
+      expect(selectedPlacements).toEqual(nestedPlacements)
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
+    }
   })
 
   it('passes the signing input commit through a shell-neutral expression', () => {
@@ -1178,11 +1597,13 @@ describe('release workflow publication contract', () => {
       {
         name: 'Electron Builder (macOS signing boundary)',
         shell: 'bash',
+        builderCommand: 'node "$ELECTRON_BUILDER_CLI"',
         unsetCommand: (variable: string) => `unset ${variable}`,
       },
       {
         name: 'Electron Builder (Windows finalization boundary)',
         shell: 'pwsh',
+        builderCommand: 'node $env:ELECTRON_BUILDER_CLI',
         unsetCommand: (variable: string) =>
           `Remove-Item Env:${path.win32.sep}${variable} -ErrorAction SilentlyContinue`,
       },
@@ -1193,9 +1614,7 @@ describe('release workflow publication contract', () => {
       expect(step).toBeDefined()
       expect(stringField(step as LooseRecord, 'shell')).toBe(boundary.shell)
       const command = stringField(step as LooseRecord, 'run')
-      const builderIndex = command.indexOf(
-        'node node_modules/electron-builder/out/cli/cli.js'
-      )
+      const builderIndex = command.indexOf(boundary.builderCommand)
       expect(builderIndex).toBeGreaterThanOrEqual(0)
       for (const variable of ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES) {
         const unsetIndex = command.indexOf(boundary.unsetCommand(variable))
@@ -1371,21 +1790,29 @@ describe('release workflow publication contract', () => {
     expect(condition).toContain("needs.sign.result == 'skipped'")
   })
 
-  it('uses a bounded tar and a hook-free exact signing tool closure', () => {
+  it('uses a bounded tar and one exact staged-dependency hook', () => {
     const config = asRecord(
       JSON.parse(signingConfigSource) as unknown,
       'restricted signing config'
     )
     expect(config.extends).toBeNull()
-    expect(config.npmRebuild).toBe(false)
+    expect(config.npmRebuild).toBe(true)
+    expect(stringField(config, 'beforeBuild')).toBe(
+      './scripts/before-build-use-staged-dependencies.mjs'
+    )
+    expect(
+      stringField(asRecord(config.directories, 'signing directories'), 'app')
+    ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
     expect(stringField(config, 'electronVersion')).toBe('43.4.0')
+    expect(signingInputSource).toContain(
+      "config.directories?.app !== 'dist/electron-app'"
+    )
     for (const hook of [
       'afterAllArtifactBuild',
       'afterExtract',
       'afterPack',
       'afterSign',
-      'beforeBuild',
       'beforePack',
       'onNodeModuleFile',
     ]) {
