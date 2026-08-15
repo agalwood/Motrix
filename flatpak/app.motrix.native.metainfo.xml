@@ -76,13 +76,23 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.4" date="2026-08-15">
+      <description>
+        <p>
+          Release recovery update that declares all ten fixed-digest signing
+          control text paths as text eol=lf, preserving canonical LF bytes
+          across Windows checkouts while leaving raw-byte SHA-256 verification
+          unchanged.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.3" date="2026-08-15">
       <description>
         <p>
-          First Motrix Turbo beta intended for public distribution. Rewritten
-          on Electron 43, Vite 8, React 19, TypeScript 7 and Zod 4, with
-          corrected cross-platform release finalization, Electron runtime
-          dependency hydration and Snap artifact staging.
+          Unpublished Motrix Turbo beta attempt. Four non-Windows builds and
+          both Snap architectures succeeded; Windows signing-input creation
+          failed closed after CRLF checkout conversion changed digest-pinned
+          control bytes. No external distribution was published.
         </p>
       </description>
     </release>

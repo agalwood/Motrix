@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   cp,
@@ -23,6 +24,18 @@ import {
 const ROOT = process.cwd()
 const COMMIT = 'a'.repeat(40)
 const temporaryDirectories: string[] = []
+const HASH_PINNED_TEXT_SOURCES = [
+  'electron-builder.signing.json',
+  'build/entitlements.mac.plist',
+  'build/installer.nsh',
+  'scripts/release-signing-tool/package.json',
+  'scripts/release-signing-tool/package-lock.json',
+  'scripts/electron-package-size-budgets.json',
+  'scripts/electron-package-utils.mjs',
+  'scripts/native-binary-target.mjs',
+  'scripts/release-signing-input.mjs',
+  'scripts/verify-electron-package.mjs',
+] as const
 const TRUSTED_FIXTURES = [
   ['electron-builder.signing.json', 'electron-builder.signing.json'],
   ['build/256x256.png', 'signing-build-resources/256x256.png'],
@@ -63,6 +76,71 @@ afterEach(async () => {
 })
 
 describe('isolated release signing input', () => {
+  it('forces every hash-pinned text source to canonical LF checkouts', () => {
+    const fields = gitOutput([
+      'check-attr',
+      '-z',
+      'text',
+      'eol',
+      '--',
+      ...HASH_PINNED_TEXT_SOURCES,
+    ])
+      .toString('utf8')
+      .split('\0')
+    fields.pop()
+
+    const attributes = new Map<string, Map<string, string>>()
+    for (let index = 0; index < fields.length; index += 3) {
+      const source = fields[index]
+      const attribute = fields[index + 1]
+      const value = fields[index + 2]
+      if (source && attribute && value) {
+        const sourceAttributes = attributes.get(source) ?? new Map()
+        sourceAttributes.set(attribute, value)
+        attributes.set(source, sourceAttributes)
+      }
+    }
+
+    expect(fields).toHaveLength(HASH_PINNED_TEXT_SOURCES.length * 6)
+    for (const source of HASH_PINNED_TEXT_SOURCES) {
+      expect(attributes.get(source), source).toEqual(
+        new Map([
+          ['text', 'set'],
+          ['eol', 'lf'],
+        ])
+      )
+    }
+  })
+
+  it('keeps hash-pinned inputs byte-identical in a Windows-style checkout', async () => {
+    const directory = await temporaryDirectory('motrix-windows-checkout-')
+    const controlPath = 'package.json'
+    gitOutput([
+      '-c',
+      'core.autocrlf=true',
+      '-c',
+      'core.eol=crlf',
+      'checkout-index',
+      '--force',
+      `--prefix=${directory}${path.sep}`,
+      '--',
+      ...HASH_PINNED_TEXT_SOURCES,
+      controlPath,
+    ])
+
+    for (const source of HASH_PINNED_TEXT_SOURCES) {
+      const blob = gitOutput(['show', `:${source}`])
+      const checkout = await readFile(path.join(directory, source))
+      expect(checkout.equals(blob), source).toBe(true)
+      expect(checkout.includes(Buffer.from('\r\n')), source).toBe(false)
+    }
+
+    const controlBlob = gitOutput(['show', `:${controlPath}`])
+    const controlCheckout = await readFile(path.join(directory, controlPath))
+    expect(controlCheckout.equals(controlBlob)).toBe(false)
+    expect(controlCheckout.includes(Buffer.from('\r\n'))).toBe(true)
+  })
+
   it('accepts a digest-complete data-only fixture', async () => {
     const directory = await createFixture()
 
@@ -119,6 +197,18 @@ describe('isolated release signing input', () => {
         config.beforePack = './untrusted.mjs'
       },
     })
+
+    await expect(verify(directory)).rejects.toThrow(
+      /trusted signing input digest mismatch/
+    )
+  })
+
+  it('rejects CRLF trusted controls at the verification boundary', async () => {
+    const directory = await createFixture()
+    const configPath = path.join(directory, 'electron-builder.signing.json')
+    const config = await readFile(configPath, 'utf8')
+    await writeFile(configPath, config.replace(/\n/gu, '\r\n'))
+    await refreshManifest(directory)
 
     await expect(verify(directory)).rejects.toThrow(
       /trusted signing input digest mismatch/
@@ -194,6 +284,17 @@ async function verify(directory: string) {
     arch: 'x64',
     commit: COMMIT,
   })
+}
+
+function gitOutput(arguments_: string[]): Buffer {
+  const result = spawnSync('git', arguments_, { cwd: ROOT })
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${arguments_[0] ?? '<unknown>'} failed: ${result.stderr.toString('utf8')}`
+    )
+  }
+  return result.stdout
 }
 
 async function temporaryDirectory(prefix: string): Promise<string> {

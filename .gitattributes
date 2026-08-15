@@ -3,3 +3,16 @@
 # scripts/generate-third-party-notices.mjs). Disable line-ending conversion so
 # Windows checkouts (autocrlf) stay byte-identical to the committed blobs.
 THIRD_PARTY_LICENSES/** -text
+
+# Isolated signing control files are hash-pinned byte-for-byte. Keep their
+# checkout representation identical on Windows, macOS, and Linux.
+electron-builder.signing.json text eol=lf
+build/entitlements.mac.plist text eol=lf
+build/installer.nsh text eol=lf
+scripts/release-signing-tool/package.json text eol=lf
+scripts/release-signing-tool/package-lock.json text eol=lf
+scripts/electron-package-size-budgets.json text eol=lf
+scripts/electron-package-utils.mjs text eol=lf
+scripts/native-binary-target.mjs text eol=lf
+scripts/release-signing-input.mjs text eol=lf
+scripts/verify-electron-package.mjs text eol=lf
