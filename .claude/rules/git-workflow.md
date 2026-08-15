@@ -48,9 +48,13 @@ them with local publishing steps.
   `v<package-version>` tag whose commit is on `main`. The tag and package
   versions must match; only stable and `beta` channels are supported.
 - A tag push triggers `.github/workflows/release.yml`. Publishing is allowed
-  only after its platform builds, isolated signing jobs, signature/package
-  verification, artifact assembly, and update-artifact validation succeed.
-  Manual dispatch validates the build path but does not sign or publish.
+  only after its platform builds, isolated signing/finalization jobs,
+  required signature checks, package verification, artifact assembly, and
+  update-artifact validation succeed. macOS releases require signing and
+  notarization; Windows releases may be explicitly finalized unsigned when
+  both Authenticode secrets are absent. Disclose unsigned Windows artifacts in
+  the public release notes. Manual dispatch validates the build path but does
+  not sign or publish.
 - Do not manually upload release files, reuse unverified artifacts, bypass
   protected environments, weaken signing-input isolation, or overwrite an
   existing immutable container tag.

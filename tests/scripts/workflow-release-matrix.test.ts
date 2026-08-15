@@ -859,6 +859,9 @@ describe('release workflow publication contract', () => {
     ] as const) {
       expect(stringField(environment, name)).toContain(`secrets.${secret}`)
     }
+    expect(stringField(environment, 'RELEASE_CHANNEL')).toContain(
+      'needs.preflight.outputs.channel'
+    )
 
     const steps = jobSteps(feedJob)
     const assetsIndex = steps.findIndex(
@@ -872,15 +875,34 @@ describe('release workflow publication contract', () => {
 
     const assetsCommand = stringField(steps[assetsIndex] as LooseRecord, 'run')
     expect(assetsCommand).toContain("--exclude '*.yml'")
-    expect(assetsCommand).toContain('/releases/')
+    expect(assetsCommand).toContain(`s3://\${R2_BUCKET}/`)
+    expect(assetsCommand).not.toContain('/releases/')
     const manifestsCommand = stringField(
       steps[manifestsIndex] as LooseRecord,
       'run'
     )
+    expect(manifestsCommand).toContain(`s3://\${R2_BUCKET}/`)
+    expect(manifestsCommand).not.toContain('/releases/')
     expect(manifestsCommand).toContain("--include 'latest*.yml'")
     expect(manifestsCommand).toContain("--include 'beta*.yml'")
     expect(manifestsCommand).toContain("--exclude '*'")
     expect(manifestsCommand).toContain('no-cache')
+
+    const validation = steps.find(
+      (step) => step.name === 'Validate update feed credentials'
+    )
+    const validationCommand = stringField(validation as LooseRecord, 'run')
+    expect(validationCommand).toContain("R2_BUCKET\" != 'motrix-releases'")
+
+    const verification = steps.find(
+      (step) => step.name === 'Verify channel manifests through dl.motrix.app'
+    )
+    const verificationCommand = stringField(verification as LooseRecord, 'run')
+    expect(verificationCommand).toContain('aws s3api head-object')
+    expect(verificationCommand).toContain('https://dl.motrix.app/releases/')
+    expect(verificationCommand).toContain('sha256sum')
+    expect(verificationCommand).toContain('beta) expected_count=4')
+    expect(verificationCommand).toContain('stable) expected_count=8')
   })
 
   it('uploads only stable and beta metadata from target builds', () => {
@@ -1047,7 +1069,47 @@ describe('release workflow publication contract', () => {
     expect(stringField(windowsEnv, 'CSC_KEY_PASSWORD')).toContain(
       'secrets.WIN_CSC_KEY_PASSWORD'
     )
+    expect(stringField(windowsEnv, 'CSC_IDENTITY_AUTO_DISCOVERY')).toBe('false')
     expect(JSON.stringify(windowsEnv)).not.toContain('MAC_CERTS')
+    expect(stringField(windowsStep, 'if')).toBe("matrix.platform == 'win32'")
+
+    const windowsMode = steps.find(
+      (step) => step.name === 'Resolve Windows signing mode'
+    )
+    expect(windowsMode).toBeDefined()
+    expect(stringField(windowsMode as LooseRecord, 'id')).toBe(
+      'windows-signing'
+    )
+    const windowsModeCommand = stringField(windowsMode as LooseRecord, 'run')
+    expect(windowsModeCommand).toContain("'enabled=false'")
+    expect(windowsModeCommand).toContain("'enabled=true'")
+    expect(windowsModeCommand).toContain('-xor')
+    expect(windowsModeCommand).toContain('GITHUB_STEP_SUMMARY')
+    expect(windowsModeCommand).toContain('unsigned')
+    expect(JSON.stringify(windowsMode)).not.toContain(
+      'needs.preflight.outputs.prerelease'
+    )
+    expect(JSON.stringify(windowsMode)).not.toContain(
+      'needs.preflight.outputs.channel'
+    )
+
+    const windowsVerification = steps.find(
+      (step) => step.name === 'Verify Windows signatures'
+    )
+    expect(stringField(windowsVerification as LooseRecord, 'if')).toContain(
+      "steps.windows-signing.outputs.enabled == 'true'"
+    )
+
+    const packageVerification = steps.find(
+      (step) => step.name === 'Verify finalized Electron package'
+    )
+    const finalizedUpload = steps.find(
+      (step) => step.name === 'Upload finalized release input'
+    )
+    expect(packageVerification).toBeDefined()
+    expect(finalizedUpload).toBeDefined()
+    expect(stringField(packageVerification as LooseRecord, 'if', '')).toBe('')
+    expect(stringField(finalizedUpload as LooseRecord, 'if', '')).toBe('')
 
     expect(releaseSource).toContain('APPLE_API_ISSUER')
     expect(releaseSource).not.toContain('secrets.TEAM_ID')
@@ -1066,7 +1128,7 @@ describe('release workflow publication contract', () => {
     expect(command).toContain('xcrun stapler validate')
   })
 
-  it('keeps manual assembly unsigned and tag assembly signing-gated', () => {
+  it('keeps manual assembly unsigned and tag assembly finalization-gated', () => {
     const jobs = workflowJobs(releaseWorkflow)
     const build = asRecord(jobs.build, 'build job')
     const upload = jobSteps(build).find(
