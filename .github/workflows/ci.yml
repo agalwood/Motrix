@@ -142,6 +142,7 @@ jobs:
           tests/scripts/native-binary-target.test.ts
           tests/scripts/obsidian-docs.test.ts
           tests/scripts/release-metadata.test.ts
+          tests/scripts/release-signing-input.test.ts
           tests/scripts/release-version-contract.test.ts
           tests/scripts/snap-artifact.test.ts
           tests/scripts/snap-build-set-release.test.ts

@@ -508,6 +508,7 @@ describe('general CI native-host split contract', () => {
     for (const test of [
       'tests/scripts/electron-package-contract.test.ts',
       'tests/scripts/native-binary-target.test.ts',
+      'tests/scripts/release-signing-input.test.ts',
       'tests/scripts/stage-electron-app.test.ts',
       'tests/scripts/verify-electron-package.test.ts',
     ]) {

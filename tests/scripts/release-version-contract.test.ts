@@ -53,6 +53,13 @@ describe('release version contract', () => {
       expect(source).toContain(
         `docker.io/motrixapp/motrix-server:${packageVersion}`
       )
+      const advertisedReleaseTags = Array.from(
+        source.matchAll(
+          /https:\/\/github\.com\/agalwood\/Motrix\/releases\/tag\/([^\s)]+)/g
+        ),
+        (match) => match[1]
+      )
+      expect(new Set(advertisedReleaseTags)).toEqual(new Set([releaseTag]))
     }
   })
 
@@ -87,23 +94,86 @@ describe('release version contract', () => {
       expect(source).toContain(`motrix-server:${packageVersion}`)
       expect(source).toContain('Snap')
       expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
       expect(source).toContain('Authenticode')
       expect(source).toContain('SmartScreen')
     }
   })
 
-  it('preserves beta.3 recovery history', () => {
+  it('preserves beta.4 Git-enforced LF signing-control history', () => {
+    const english = read('docs/release-notes/2.0.0-beta.4.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.4.zh-CN.md')
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.4/docs/release-notes/2.0.0-beta.3.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.4/docs/release-notes/2.0.0-beta.3.zh-CN.md'
+    )
+    expect(english).toContain('byte-stable')
+    expect(english).toContain('all ten digest-pinned')
+    expect(english).toContain('CRLF artifact')
+    expect(english).toContain('raw-byte')
+    expect(chinese).toContain('字节稳定')
+    expect(chinese).toContain('全部 10 个固定摘要')
+    expect(chinese.replace(/\s+/g, ' ')).toContain('CRLF 产物')
+    expect(chinese).toContain('原始字节')
+    for (const source of [english, chinese]) {
+      expect(source).toContain('.gitattributes')
+      expect(source).toContain('text eol=lf')
+      expect(source).toContain('CRLF')
+      expect(source).toContain('canonical LF')
+      expect(source).toContain('SHA-256')
+      expect(source).toContain('fail closed')
+      expect(source).toContain('latest/edge')
+    }
+  })
+
+  it('marks beta.3 as an unpublished attempt superseded by beta.4', () => {
     const english = read('docs/release-notes/2.0.0-beta.3.md')
     const chinese = read('docs/release-notes/2.0.0-beta.3.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
 
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.4/docs/release-notes/2.0.0-beta.3.zh-CN.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.4/docs/release-notes/2.0.0-beta.3.md'
+    )
+    expect(english).toContain('This release attempt did not complete')
+    expect(normalizedEnglish).toContain(
+      'four non-Windows desktop build targets'
+    )
+    expect(english).toContain('Intended downloads (not published)')
+    expect(english).toContain('external distribution remained zero')
+    expect(english).toContain('failed closed')
+    expect(chinese).toContain('本次发布尝试未完成')
+    expect(chinese).toContain('4 个非 Windows 桌面构建目标')
+    expect(chinese).toContain('原计划下载（未发布）')
+    expect(chinese).toContain('外部分发为零')
+    expect(chinese).toContain('fail closed')
     for (const source of [english, chinese]) {
-      expect(source).toContain('v2.0.0-beta.1')
-      expect(source).toContain('v2.0.0-beta.2')
-      expect(source).toMatch(/GitHub\s+Release/)
-      expect(source).toContain('R2')
-      expect(source).toContain('Snap')
-      expect(source).toContain('workflow')
+      expect(source).toContain('v2.0.0-beta.4')
+      expect(source).toContain('electron-builder.signing.json')
       expect(source).toContain('commit')
+      expect(source).toContain('CRLF')
+      expect(source).toContain('SHA-256')
+      expect(source).toContain('macOS')
+      expect(source).toContain('finalize')
+      expect(source).toContain('assemble')
+      expect(source).toContain('GitHub Release')
+      expect(source).toContain('R2')
+      expect(source).toContain('container')
+      expect(source).toContain('Snap')
+      expect(source).toContain('steps=[]')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('Docker Hub')
+      expect(source).toContain('GHCR')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Authenticode')
+      expect(source).toContain('SmartScreen')
     }
   })
 
