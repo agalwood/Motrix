@@ -209,6 +209,11 @@ jobs:
           # Fetching the package target is explicit in the next step.
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
+      # Electron 43 does not declare a postinstall script, so pnpm install
+      # does not hydrate dist/ with the runtime and license payload.
+      - name: Ensure Electron runtime payload
+        run: node node_modules/electron/install.js
+
       - name: Fetch target aria2
         run: >-
           pnpm run fetch:engine

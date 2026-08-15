@@ -1,5 +1,15 @@
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -207,18 +217,18 @@ describe('Snap build workflow contract', () => {
     expect(steps.indexOf(inspectionTools as LooseRecord)).toBeLessThan(
       steps.indexOf(completeness as LooseRecord)
     )
-    expect(stringField(completeness as LooseRecord, 'run')).toContain(
-      `\${#snaps[@]} != 2`
-    )
-    expect(stringField(completeness as LooseRecord, 'run')).toContain(
-      'for arch in amd64 arm64'
-    )
+    const completenessCommand = stringField(completeness as LooseRecord, 'run')
+    expect(completenessCommand).toContain('for arch in amd64 arm64')
+    expect(completenessCommand).toContain('scripts/verify-snap-artifact.mjs')
 
     const uploadEnvironment = asRecord(upload?.env, 'upload environment')
     expect(
       stringField(uploadEnvironment, 'SNAPCRAFT_STORE_CREDENTIALS')
     ).toContain('secrets.SNAPCRAFT_STORE_CREDENTIALS')
     const uploadCommand = stringField(upload as LooseRecord, 'run')
+    expect(uploadCommand).toContain(
+      `release/snap-verified/motrix_verified_\${arch}.snap`
+    )
     expect(uploadCommand).toContain('snapcraft upload "$snap"')
     expect(uploadCommand).not.toContain('--release')
     expect(uploadCommand).toContain('matchAll(/\\bRevision')
@@ -250,6 +260,141 @@ describe('Snap build workflow contract', () => {
     )
     expect(stringField(recordInputs, 'name')).toContain('github.run_attempt')
     expect(stringField(recordInputs, 'path')).toContain('SNAP_REVISION_FILE')
+  })
+
+  it('normalizes the real nested artifact layout into one exact verified set', () => {
+    const fixture = createSnapUploadFixture()
+    try {
+      writeNestedSnap(
+        fixture.root,
+        'amd64',
+        'motrix_2.0.0-beta.2_amd64.snap',
+        'amd64-payload'
+      )
+      writeNestedSnap(
+        fixture.root,
+        'arm64',
+        'motrix_2.0.0-beta.2_arm64.snap',
+        'arm64-payload'
+      )
+      const reportDirectory = path.join(
+        fixture.root,
+        'release',
+        'snap-upload',
+        'size-reports'
+      )
+      mkdirSync(reportDirectory, { recursive: true })
+      writeFileSync(path.join(reportDirectory, 'linux-x64.json'), '{}')
+
+      const result = runSnapSetVerification(fixture)
+
+      expect(result.status, result.stderr).toBe(0)
+      const verifiedDirectory = path.join(
+        fixture.root,
+        'release',
+        'snap-verified'
+      )
+      expect(readdirSync(verifiedDirectory).sort()).toEqual([
+        'motrix_verified_amd64.snap',
+        'motrix_verified_arm64.snap',
+      ])
+      expect(
+        readFileSync(
+          path.join(verifiedDirectory, 'motrix_verified_amd64.snap'),
+          'utf8'
+        )
+      ).toBe('amd64-payload')
+      expect(
+        readFileSync(
+          path.join(verifiedDirectory, 'motrix_verified_arm64.snap'),
+          'utf8'
+        )
+      ).toBe('arm64-payload')
+      expect(
+        readFileSync(fixture.verificationLog, 'utf8').trim().split('\n')
+      ).toEqual([
+        'scripts/verify-snap-artifact.mjs --snap release/snap-upload/snap-amd64/motrix_2.0.0-beta.2_amd64.snap --arch amd64 --version 2.0.0-beta.2',
+        'scripts/verify-snap-artifact.mjs --snap release/snap-upload/snap-arm64/motrix_2.0.0-beta.2_arm64.snap --arch arm64 --version 2.0.0-beta.2',
+      ])
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    {
+      label: 'a missing architecture',
+      prepare(root: string) {
+        writeNestedSnap(
+          root,
+          'amd64',
+          'motrix_2.0.0-beta.2_amd64.snap',
+          'amd64'
+        )
+      },
+      error: /Expected exactly two Snap artifacts, found 1/,
+    },
+    {
+      label: 'an extra Snap',
+      prepare(root: string) {
+        writeNestedSnap(
+          root,
+          'amd64',
+          'motrix_2.0.0-beta.2_amd64.snap',
+          'amd64'
+        )
+        writeNestedSnap(
+          root,
+          'arm64',
+          'motrix_2.0.0-beta.2_arm64.snap',
+          'arm64'
+        )
+        writeFileSync(
+          path.join(root, 'release', 'snap-upload', 'unexpected.snap'),
+          'extra'
+        )
+      },
+      error: /Expected exactly two Snap artifacts, found 3/,
+    },
+    {
+      label: 'a duplicate basename',
+      prepare(root: string) {
+        for (const arch of ['amd64', 'arm64'] as const) {
+          writeNestedSnap(root, arch, 'motrix_2.0.0-beta.2_amd64.snap', arch)
+        }
+      },
+      error: /Duplicate Snap artifact basename/,
+    },
+    {
+      label: 'an architecture-mismatched name',
+      prepare(root: string) {
+        writeNestedSnap(
+          root,
+          'amd64',
+          'motrix_2.0.0-beta.2_amd64.snap',
+          'amd64'
+        )
+        writeNestedSnap(
+          root,
+          'arm64',
+          'motrix_2.0.0-beta.2_s390x.snap',
+          'arm64'
+        )
+      },
+      error: /Unexpected arm64 Snap artifact name/,
+    },
+  ])('rejects $label before upload', ({ prepare, error }) => {
+    const fixture = createSnapUploadFixture()
+    try {
+      prepare(fixture.root)
+
+      const result = runSnapSetVerification(fixture)
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toMatch(error)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
   })
 })
 
@@ -376,6 +521,60 @@ describe('Snap promotion workflow contract', () => {
     expect(source).toContain('--expected-arm64-revision')
   })
 })
+
+interface SnapUploadFixture {
+  root: string
+  verificationLog: string
+}
+
+function createSnapUploadFixture(): SnapUploadFixture {
+  const root = mkdtempSync(path.join(tmpdir(), 'motrix-snap-workflow-'))
+  const binaryDirectory = path.join(root, 'bin')
+  const verificationLog = path.join(root, 'verification.log')
+  const nodeStub = path.join(binaryDirectory, 'node')
+  mkdirSync(binaryDirectory, { recursive: true })
+  mkdirSync(path.join(root, 'release', 'snap-upload'), { recursive: true })
+  writeFileSync(
+    nodeStub,
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      `printf '%s\\n' "$*" >> "$VERIFY_LOG"`,
+      '',
+    ].join('\n')
+  )
+  chmodSync(nodeStub, 0o755)
+  return { root, verificationLog }
+}
+
+function writeNestedSnap(
+  root: string,
+  arch: 'amd64' | 'arm64',
+  name: string,
+  contents: string
+): void {
+  const directory = path.join(root, 'release', 'snap-upload', `snap-${arch}`)
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(path.join(directory, name), contents)
+}
+
+function runSnapSetVerification(fixture: SnapUploadFixture) {
+  const completeness = jobSteps(workflowJob(snapWorkflow, 'publish-edge')).find(
+    (step) => step.name === 'Verify complete upload set'
+  )
+  const command = stringField(completeness as LooseRecord, 'run')
+  const binaryDirectory = path.join(fixture.root, 'bin')
+  return spawnSync('bash', ['-c', command], {
+    cwd: fixture.root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      EXPECTED_VERSION: '2.0.0-beta.2',
+      PATH: `${binaryDirectory}:${process.env.PATH ?? ''}`,
+      VERIFY_LOG: fixture.verificationLog,
+    },
+  })
+}
 
 function asRecord(value: unknown, label: string): LooseRecord {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {

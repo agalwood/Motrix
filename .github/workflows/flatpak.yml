@@ -143,9 +143,9 @@ jobs:
           retention-days: 1
 
       # The install above is --ignore-scripts by design (offline-source
-      # verification), so electron's postinstall never runs here. The notice
-      # contract needs electron's dist/ payload (dist/LICENSE +
-      # dist/LICENSES.chromium.html) — fetch it explicitly.
+      # verification), and Electron 43 has no package postinstall to hydrate
+      # dist/ anyway. The notice contract needs dist/LICENSE and
+      # dist/LICENSES.chromium.html, so fetch the runtime explicitly.
       - name: Fetch Electron runtime for the notice contract
         run: node node_modules/electron/install.js
 

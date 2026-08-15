@@ -358,6 +358,29 @@ describe('CI and release target matrix contract', () => {
     }
   )
 
+  it('hydrates the Electron runtime after install and before the release notice gate', () => {
+    const steps = jobSteps(targetMatrix(releaseWorkflow).job)
+    const dependencyIndex = steps.findIndex(
+      (step) => step.name === 'Install dependencies'
+    )
+    const electronIndex = steps.findIndex(
+      (step) => step.name === 'Ensure Electron runtime payload'
+    )
+    const noticeIndex = steps.findIndex(
+      (step) => step.name === 'Third-party notice contract'
+    )
+
+    expect(dependencyIndex).toBeGreaterThanOrEqual(0)
+    expect(electronIndex).toBeGreaterThan(dependencyIndex)
+    expect(noticeIndex).toBeGreaterThan(electronIndex)
+    expect(stringField(steps[electronIndex] as LooseRecord, 'run')).toBe(
+      'node node_modules/electron/install.js'
+    )
+    expect(stringField(steps[noticeIndex] as LooseRecord, 'run')).toBe(
+      'pnpm run check:third-party-notices'
+    )
+  })
+
   it('keeps the release assembler on the same target set', () => {
     expect(
       RELEASE_TARGETS.map((target: { name: string }) => target.name).sort()

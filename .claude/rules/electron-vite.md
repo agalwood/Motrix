@@ -42,8 +42,10 @@ and packaged-file checks.
   hoisted` unless the Electron packaging smoke job proves isolated linking
   works.
 - Install-script permission is controlled by pnpm 11 `allowBuilds`. Keep
-  `electron` allowed: its install script supplies the runtime and license
-  payload required by packaging and legal checks.
+  `electron` allowed for compatibility, but do not rely on `pnpm install` to
+  hydrate Electron 43: it exposes `install.js` as a package bin without a
+  `postinstall` script. Packaging and legal-check workflows must explicitly
+  run `node node_modules/electron/install.js` before consuming `dist/`.
 - Native modules such as `better-sqlite3` must match the active ABI. Tests use
   the Node ABI; Electron and E2E use the Electron ABI. Preserve the
   `ensure-native-abi.mjs` hooks when changing test or start scripts.
