@@ -76,13 +76,23 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.6" date="2026-08-15">
+      <description>
+        <p>
+          Release recovery update that installs the lockfile-pinned workspace
+          dependency closure without lifecycle scripts on the isolated Snap
+          publish runner before artifact verification and Store access.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.5" date="2026-08-15">
       <description>
         <p>
-          Release recovery update that sorts the complete canonical relative
-          paths in the Windows signing manifest by code-unit order, matching
-          the isolated verifier while retaining strict uniqueness and digest
-          validation.
+          Unpublished Motrix Turbo beta attempt. All five desktop builds and
+          both strict Snap builds succeeded, but macOS finalization did not
+          run, unsigned Windows finalization was canceled, and Snap
+          publication could not load js-yaml before Store credential access.
+          No external distribution was published.
         </p>
       </description>
     </release>

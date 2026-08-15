@@ -190,6 +190,83 @@ describe('Snap build workflow contract', () => {
     expect(triggers).toHaveProperty('workflow_dispatch')
   })
 
+  it('installs pinned verifier dependencies before verification and Store mutation', () => {
+    const steps = jobSteps(workflowJob(snapWorkflow, 'publish-edge'))
+    const checkout = steps.find(
+      (step) => step.name === 'Checkout verification tools'
+    )
+    const setupPnpm = steps.find(
+      (step) => step.name === 'Setup pnpm for verification'
+    )
+    const setupNode = steps.find(
+      (step) => step.name === 'Setup Node.js for verification'
+    )
+    const install = steps.find(
+      (step) => step.name === 'Install verifier dependencies'
+    )
+    const download = steps.find(
+      (step) => step.name === 'Download both architecture artifacts'
+    )
+    const completeness = steps.find(
+      (step) => step.name === 'Verify complete upload set'
+    )
+    const credentialValidation = steps.find(
+      (step) => step.name === 'Validate scoped Store credential'
+    )
+
+    expect(stringField(setupPnpm as LooseRecord, 'uses')).toBe(
+      'pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271'
+    )
+    expect(asRecord(setupPnpm?.with, 'pnpm setup inputs')).toEqual({
+      version: '11.21.0',
+      run_install: false,
+    })
+    expect(stringField(setupNode as LooseRecord, 'uses')).toBe(
+      'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'
+    )
+    expect(asRecord(setupNode?.with, 'Node setup inputs')).toEqual({
+      'node-version': 24,
+      cache: 'pnpm',
+    })
+
+    const installCommand = stringField(install as LooseRecord, 'run')
+    expect(installCommand).toBe(
+      'pnpm install --frozen-lockfile --ignore-scripts'
+    )
+    expect(asRecord(install?.env, 'verifier install environment')).toEqual({
+      MOTRIX_SKIP_ELECTRON_REBUILD: '1',
+      MOTRIX_SKIP_ENGINE_FETCH: '1',
+    })
+
+    expect(steps.indexOf(checkout as LooseRecord)).toBeLessThan(
+      steps.indexOf(setupPnpm as LooseRecord)
+    )
+    expect(steps.indexOf(setupPnpm as LooseRecord)).toBeLessThan(
+      steps.indexOf(setupNode as LooseRecord)
+    )
+    expect(steps.indexOf(setupNode as LooseRecord)).toBeLessThan(
+      steps.indexOf(install as LooseRecord)
+    )
+    expect(steps.indexOf(install as LooseRecord)).toBeLessThan(
+      steps.indexOf(download as LooseRecord)
+    )
+    expect(steps.indexOf(install as LooseRecord)).toBeLessThan(
+      steps.indexOf(completeness as LooseRecord)
+    )
+    expect(steps.indexOf(completeness as LooseRecord)).toBeLessThan(
+      steps.indexOf(credentialValidation as LooseRecord)
+    )
+    for (const mutation of [
+      'Upload complete build set',
+      'Release exact build set to edge',
+    ]) {
+      const mutationStep = steps.find((step) => step.name === mutation)
+      expect(steps.indexOf(completeness as LooseRecord)).toBeLessThan(
+        steps.indexOf(mutationStep as LooseRecord)
+      )
+    }
+  })
+
   it('uploads before releasing only the captured exact edge revisions', () => {
     const steps = jobSteps(workflowJob(snapWorkflow, 'publish-edge'))
     const inspectionTools = steps.find(
@@ -531,6 +608,8 @@ function createSnapUploadFixture(): SnapUploadFixture {
   const root = mkdtempSync(path.join(tmpdir(), 'motrix-snap-workflow-'))
   const binaryDirectory = path.join(root, 'bin')
   const verificationLog = path.join(root, 'verification.log')
+  // Dependency provisioning is covered by the static publish-edge contract;
+  // this stub isolates artifact layout and verifier invocation behavior.
   const nodeStub = path.join(binaryDirectory, 'node')
   mkdirSync(binaryDirectory, { recursive: true })
   mkdirSync(path.join(root, 'release', 'snap-upload'), { recursive: true })
