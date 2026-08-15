@@ -100,6 +100,7 @@ import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import pino from 'pino'
+import packageJson from '../../package.json' with { type: 'json' }
 import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
@@ -152,6 +153,7 @@ async function main() {
 
   // ─── Platform ─────────────────────────────────────────────────
   const platform = createNodePlatformServices()
+  const appVersion = process.env.MOTRIX_APP_VERSION ?? packageJson.version
   const runtimeDirectories = await prepareServerRuntimeDirectories({
     dataDir: platform.userDataDir,
     tempDirValue: process.env.MOTRIX_TEMP_DIR,
@@ -428,7 +430,7 @@ async function main() {
     pluginsDir,
     builtinDir,
     stateStore: pluginStateStore,
-    hostVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
+    hostVersion: appVersion,
     hostLanguage,
     devPath,
     communityDirectoryPolicy: createServerCommunityPluginPolicy({
@@ -440,7 +442,7 @@ async function main() {
   await pluginRegistry.discover()
   if (!shellAsyncWork.isAccepting()) return
   const pluginCapHost = await createServerCapabilityHost({
-    appVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
+    appVersion,
     hostLanguage,
     db: db.database,
     userDataDir: platform.userDataDir,
@@ -475,7 +477,7 @@ async function main() {
       serverDir,
       '../core/plugin/host/quick-js-worker.cjs'
     ),
-    appVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
+    appVersion,
     runtime: 'server',
     hostLanguage,
     pluginGrants,
@@ -501,7 +503,7 @@ async function main() {
     pluginsDir,
   })
 
-  const hostVersion = process.env.MOTRIX_APP_VERSION ?? '2.0.0'
+  const hostVersion = appVersion
   const registryClient = new RegistryClient({
     cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
   })
@@ -1023,7 +1025,7 @@ async function main() {
           devPath,
           pluginRegistry,
           pluginHost,
-          process.env.MOTRIX_APP_VERSION ?? '2.0.0'
+          appVersion
         )
         if (!shellAsyncWork.isAccepting()) {
           await handle.close()
@@ -1413,7 +1415,7 @@ async function main() {
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,
-        motrixVersion: process.env.MOTRIX_APP_VERSION ?? '2.0.0',
+        motrixVersion: appVersion,
         eventBus,
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.

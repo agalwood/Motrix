@@ -19,6 +19,16 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
+## 🧪 Beta 测试
+
+Motrix Turbo v2 目前仍处于 beta 阶段。安装前请从 GitHub Releases
+下载 [v2.0.0-beta.1](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.1)，
+并阅读[完整发布说明](./docs/release-notes/2.0.0-beta.1.zh-CN.md)。
+
+测试前请备份现有 Motrix 数据和下载文件。Motrix v1 数据的迁移路径尚未经过
+验证，请勿让本 beta 使用您唯一一份 v1 数据。条件允许时，建议通过独立的系统
+账户、设备或 Docker 数据目录与现有环境并行测试 v2。
+
 ## 应用截图
 
 ### 仪表盘
@@ -102,13 +112,17 @@ pnpm create motrix-plugin my-plugin
 
 访问 Motrix 官网 [motrix.app](https://motrix.app)，选择对应操作系统的安装包。macOS 用户通常下载 Apple Silicon 版本即可；如果使用较早的 Intel 芯片 Mac，请选择 Intel 版本。
 
-各平台提供以下安装格式：
+当前 beta 桌面安装包通过上方链接的 GitHub 预发布版提供，Snap 则通过
+edge 通道提供。请根据操作系统和架构选择安装包：
 
-| 平台 | 可用格式 | 选择建议 |
-|------|----------|----------|
-| macOS | `.dmg` / `.zip` | 推荐下载 Apple Silicon 版的 `.dmg`；Intel 版只适用于旧款 Intel Mac |
-| Windows | `.exe`（NSIS 安装包）/ `.zip` | 大多数用户可直接使用 `.exe` 安装包；`.zip` 可解压后使用 |
-| Linux | `.AppImage` / `.deb` / `.rpm`，另提供 Flatpak 与 Snap | Debian、Ubuntu 等发行版使用 `.deb`，Fedora、openSUSE 等发行版使用 `.rpm`；`.AppImage` 无需安装即可运行 |
+| 平台 | 架构 | 安装包 / 通道 | 选择建议 |
+|------|------|---------------|----------|
+| macOS 12+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
+| Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
+| Linux | `x64`、`arm64` | `.deb` / `.rpm`；Snap `latest/edge` | Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm`；beta 测试也可使用 edge Snap |
+
+本 beta 不发布 AppImage。Flatpak 会单独验证，不会随该版本 tag 发布。
+同时不提供 Windows `arm64` 和任何 32 位安装包。
 
 ### 命令行客户端
 
@@ -120,13 +134,14 @@ npm install -g @motrix/cli
 
 ### Headless server（Docker）
 
-带 tag 的正式版本会把多架构 Server 镜像发布到 Docker Hub 和 GHCR。仓库的
-`compose.yaml` 默认从 Docker Hub 拉取，并分别持久化 Server 状态与用户下载
-资源：
+带 tag 的版本会把多架构 Server 镜像发布到 Docker Hub 和 GHCR。
+Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compose.yaml`
+会分别持久化 Server 状态与用户下载资源：
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.1'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
@@ -158,8 +173,8 @@ DSM 7 和飞牛 fnOS 安装、目录所有权、端口、诊断与备份/升级�
 开发前请先安装 Node.js 22+ 和 pnpm。pnpm 版本以 `package.json` 中的 `packageManager` 字段为准。
 
 ```bash
-git clone https://gitlab.com/agalwood/motrix-turbo.git
-cd motrix-turbo
+git clone https://github.com/agalwood/Motrix.git
+cd Motrix
 
 pnpm install     # 安装依赖（postinstall 自动下载适用于本机系统的 aria2，并重建原生模块）
 pnpm start       # 启动 Electron 开发模式（renderer 使用 Vite HMR）

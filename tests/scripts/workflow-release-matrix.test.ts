@@ -555,6 +555,75 @@ describe('general CI native-host split contract', () => {
 })
 
 describe('release workflow publication contract', () => {
+  it('derives the GitHub Release body from validated version metadata', () => {
+    const jobs = workflowJobs(releaseWorkflow)
+    const preflightJob = asRecord(jobs.preflight, 'preflight job')
+    const preflightOutputs = asRecord(
+      preflightJob.outputs,
+      'preflight job outputs'
+    )
+    const preflightSteps = jobSteps(preflightJob)
+    const metadataIndex = preflightSteps.findIndex(
+      (step) => step.id === 'metadata'
+    )
+    const releaseNotesIndex = preflightSteps.findIndex(
+      (step) => step.id === 'release_notes'
+    )
+
+    expect(metadataIndex).toBeGreaterThanOrEqual(0)
+    expect(releaseNotesIndex).toBeGreaterThan(metadataIndex)
+    expect(stringField(preflightOutputs, 'release_notes_path')).toBe(
+      `\${{ steps.release_notes.outputs.path }}`
+    )
+
+    const releaseNotesStep = preflightSteps[releaseNotesIndex] as LooseRecord
+    const releaseNotesEnvironment = asRecord(
+      releaseNotesStep.env,
+      'release notes environment'
+    )
+    expect(releaseNotesEnvironment).toEqual({
+      RELEASE_VERSION: `\${{ steps.metadata.outputs.version }}`,
+    })
+
+    const releaseNotesCommand = stringField(releaseNotesStep, 'run')
+    expect(releaseNotesCommand).toContain(
+      '[[ ! "$RELEASE_VERSION" =~ ^[0-9A-Za-z.+-]+$ ]]'
+    )
+    expect(releaseNotesCommand).toContain(`[[ "$RELEASE_VERSION" == *'..'* ]]`)
+    expect(releaseNotesCommand).toContain(
+      `release_notes_path="docs/release-notes/\${RELEASE_VERSION}.md"`
+    )
+    expect(releaseNotesCommand).toContain('[[ ! -f "$release_notes_path" ]]')
+    expect(releaseNotesCommand).toContain(
+      `printf 'path=%s\\n' "$release_notes_path" >> "$GITHUB_OUTPUT"`
+    )
+    expect(releaseNotesCommand).not.toMatch(/github\.(?:ref|ref_name)/)
+
+    const publishSteps = jobSteps(asRecord(jobs.publish, 'publish job'))
+    const checkoutIndex = publishSteps.findIndex((step) =>
+      stringField(step, 'uses', '').startsWith('actions/checkout@')
+    )
+    const releaseIndex = publishSteps.findIndex((step) =>
+      stringField(step, 'uses', '').startsWith('softprops/action-gh-release@')
+    )
+    expect(checkoutIndex).toBeGreaterThanOrEqual(0)
+    expect(releaseIndex).toBeGreaterThan(checkoutIndex)
+    const checkoutInputs = asRecord(
+      publishSteps[checkoutIndex]?.with,
+      'publish checkout inputs'
+    )
+    expect(checkoutInputs['persist-credentials']).toBe(false)
+
+    const publishInputs = asRecord(
+      publishSteps[releaseIndex]?.with,
+      'GitHub Release action inputs'
+    )
+    expect(stringField(publishInputs, 'body_path')).toBe(
+      `\${{ needs.preflight.outputs.release_notes_path }}`
+    )
+    expect(publishInputs.generate_release_notes).toBe(true)
+  })
+
   it('gates every build and publication on validated release metadata', () => {
     const jobs = workflowJobs(releaseWorkflow)
     const preflightJob = asRecord(jobs.preflight, 'preflight job')
@@ -1135,6 +1204,27 @@ describe('release workflow publication contract', () => {
       expect(stringField(env, 'MACOSX_DEPLOYMENT_TARGET')).toContain('12.0')
     }
   })
+
+  it('assigns an increasing numeric macOS bundle build to unsigned and signed packages', () => {
+    const bundleVersionArgument = `-c.mac.bundleVersion=\${{ github.run_number }}.\${{ github.run_attempt }}.0`
+
+    const jobs = workflowJobs(releaseWorkflow)
+    const buildMac = jobSteps(asRecord(jobs.build, 'build job')).find(
+      (step) => step.name === 'Electron Builder (macOS)'
+    )
+    const signMac = jobSteps(asRecord(jobs.sign, 'sign job')).find(
+      (step) => step.name === 'Electron Builder (macOS signing boundary)'
+    )
+
+    expect(buildMac).toBeDefined()
+    expect(signMac).toBeDefined()
+    expect(stringField(buildMac as LooseRecord, 'run')).toContain(
+      bundleVersionArgument
+    )
+    expect(stringField(signMac as LooseRecord, 'run')).toContain(
+      bundleVersionArgument
+    )
+  })
 })
 
 describe('workflow action supply-chain contract', () => {
@@ -1202,9 +1292,7 @@ describe('workflow action supply-chain contract', () => {
 
     const dockerfile = readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8')
     expect(
-      dockerfile.match(
-        new RegExp(`corepack prepare pnpm@${PNPM_VERSION}`, 'g')
-      )
+      dockerfile.match(new RegExp(`corepack prepare pnpm@${PNPM_VERSION}`, 'g'))
     ).toHaveLength(2)
     expect(dockerfile).not.toMatch(/pnpm@(?:latest|9(?:\D|$))/)
 

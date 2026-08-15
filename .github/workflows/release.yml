@@ -41,6 +41,7 @@ jobs:
       version: ${{ steps.metadata.outputs.version }}
       prerelease: ${{ steps.metadata.outputs.prerelease }}
       channel: ${{ steps.metadata.outputs.channel }}
+      release_notes_path: ${{ steps.release_notes.outputs.path }}
       container_version: ${{ steps.container.outputs.container_version }}
       container_prerelease: ${{ steps.container.outputs.container_prerelease }}
       container_dockerhub_repository: ${{ steps.container.outputs.container_dockerhub_repository }}
@@ -64,6 +65,26 @@ jobs:
           node scripts/release-metadata.mjs
           --package-json package.json
           --github-output "$GITHUB_OUTPUT"
+
+      - name: Validate release notes
+        id: release_notes
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9A-Za-z.+-]+$ ]] ||
+            [[ "$RELEASE_VERSION" == *'..'* ]]; then
+            printf 'Unsafe release version for release-notes path: %s\n' \
+              "$RELEASE_VERSION" >&2
+            exit 1
+          fi
+          release_notes_path="docs/release-notes/${RELEASE_VERSION}.md"
+          if [[ ! -f "$release_notes_path" ]]; then
+            printf 'Missing release notes: %s\n' "$release_notes_path" >&2
+            exit 1
+          fi
+          printf 'path=%s\n' "$release_notes_path" >> "$GITHUB_OUTPUT"
 
       - name: Resolve container release metadata
         id: container
@@ -215,6 +236,7 @@ jobs:
         run: >-
           pnpm exec electron-builder
           ${{ matrix.electron_builder_args }}
+          -c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0
           --publish never
 
       - name: Electron Builder (Linux)
@@ -747,7 +769,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: ef9db8b8e669233c44077791ae7672462fcc5153463fb304287be69411c9a809
+          VERIFIER_SHA256: 948f13ec32c0239a35fd69811a15e2ffa8ab0ba86a6eee95bcef46569c7f68a5
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -882,6 +904,7 @@ jobs:
           node node_modules/electron-builder/out/cli/cli.js
           --config electron-builder.signing.json
           ${{ matrix.electron_builder_args }}
+          -c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0
           --publish never
 
       - name: Electron Builder (Windows signing boundary)
@@ -1044,6 +1067,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Download validated release
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -1053,6 +1081,7 @@ jobs:
       - name: Publish validated GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
+          body_path: ${{ needs.preflight.outputs.release_notes_path }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           prerelease: ${{ needs.preflight.outputs.prerelease }}

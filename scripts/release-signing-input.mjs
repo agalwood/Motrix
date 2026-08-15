@@ -35,7 +35,7 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
   'electron-builder.signing.json':
-    '38edb9d207e1ad8f13d0b93b94ff664f742a3a8e64f789d036fa2dd0661dc68c',
+    '05baea577e4c0e18599e6a56213a467bd35c6c6a1a0fba68b1bbd3739768450f',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
