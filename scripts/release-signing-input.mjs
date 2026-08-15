@@ -125,9 +125,9 @@ function portable(relativePath) {
   return relativePath.split(path.sep).join('/')
 }
 
-function compareNames(left, right) {
-  if (left.name < right.name) return -1
-  if (left.name > right.name) return 1
+function compareCodeUnits(left, right) {
+  if (left < right) return -1
+  if (left > right) return 1
   return 0
 }
 
@@ -342,7 +342,7 @@ async function inventory(root, options = {}) {
   let totalBytes = 0
   async function visit(current, relative) {
     const entries = await readdir(current, { withFileTypes: true })
-    entries.sort(compareNames)
+    entries.sort((left, right) => compareCodeUnits(left.name, right.name))
     for (const entry of entries) {
       const absolute = path.join(current, entry.name)
       const relativePath = relative
@@ -386,7 +386,7 @@ async function inventory(root, options = {}) {
     }
   }
   await visit(root, '')
-  return files
+  return files.sort((left, right) => compareCodeUnits(left.path, right.path))
 }
 
 function tarString(buffer, offset, length, value) {
@@ -747,7 +747,7 @@ export async function verifySigningInput(options) {
   const expectedPaths = manifest.files.map((entry) => entry.path)
   if (
     JSON.stringify(expectedPaths) !==
-    JSON.stringify([...new Set(expectedPaths)].sort())
+    JSON.stringify([...new Set(expectedPaths)].sort(compareCodeUnits))
   ) {
     throw new Error('signing input file inventory must be sorted and unique')
   }

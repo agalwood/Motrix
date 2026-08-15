@@ -79,7 +79,7 @@ describe('release version contract', () => {
     )
   })
 
-  it('preserves current distribution disclosures', () => {
+  it('preserves current release references', () => {
     const english = read(`docs/release-notes/${packageVersion}.md`)
     const chinese = read(`docs/release-notes/${packageVersion}.zh-CN.md`)
 
@@ -90,9 +90,51 @@ describe('release version contract', () => {
       `https://github.com/agalwood/Motrix/blob/${releaseTag}/docs/docker-server.zh-CN.md`
     )
 
+    expect(english).toContain(`motrix-server:${packageVersion}`)
+    expect(chinese).toContain(`motrix-server:${packageVersion}`)
+  })
+
+  it('preserves beta.5 canonical manifest-order recovery history', () => {
+    const english = read('docs/release-notes/2.0.0-beta.5.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.5.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.5/docs/release-notes/2.0.0-beta.4.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.5/docs/release-notes/2.0.0-beta.4.zh-CN.md'
+    )
+    expect(normalizedEnglish).toContain(
+      'canonical code-unit order by its full relative path'
+    )
+    expect(normalizedEnglish).toContain(
+      'instead of inheriting directory-first DFS discovery order'
+    )
+    expect(normalizedEnglish).toContain(
+      'one global sort after inventory collection, and the verifier uses the same code-unit comparator'
+    )
+    expect(english).toContain('Strict path uniqueness')
+    expect(english).toContain('fixed-digest')
+    expect(normalizedChinese).toContain(
+      '完整相对路径为 key，把每份 Windows signing-input manifest 按 canonical code-unit 顺序排列'
+    )
+    expect(normalizedChinese).toContain(
+      'inventory 收集完成后进行一次全局排序，verifier 使用同一个 code-unit comparator'
+    )
+    expect(normalizedChinese).toContain('不再沿用目录优先的 DFS 发现顺序')
+    expect(chinese).toContain('严格的路径唯一性')
+    expect(chinese).toContain('固定摘要验证')
     for (const source of [english, chinese]) {
-      expect(source).toContain(`motrix-server:${packageVersion}`)
-      expect(source).toContain('Snap')
+      expect(source).toContain('v2.0.0-beta.4')
+      expect(source).toContain('js-yaml/lib/schema.js')
+      expect(source).toContain('js-yaml/lib/schema/…')
+      expect(source).toContain('fail-closed')
+      expect(source).toContain('.gitattributes')
+      expect(source).toContain('text eol=lf')
+      expect(source).toContain('SHA-256')
+      expect(source).toContain('latest/edge')
       expect(source).toContain('AppImage')
       expect(source).toContain('Flatpak')
       expect(source).toContain('Authenticode')
@@ -100,32 +142,68 @@ describe('release version contract', () => {
     }
   })
 
-  it('preserves beta.4 Git-enforced LF signing-control history', () => {
+  it('marks beta.4 as an unpublished attempt superseded by beta.5', () => {
     const english = read('docs/release-notes/2.0.0-beta.4.md')
     const chinese = read('docs/release-notes/2.0.0-beta.4.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
 
     expect(english).toContain(
-      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.4/docs/release-notes/2.0.0-beta.3.md'
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.5/docs/release-notes/2.0.0-beta.4.zh-CN.md'
     )
     expect(chinese).toContain(
-      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.4/docs/release-notes/2.0.0-beta.3.zh-CN.md'
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.5/docs/release-notes/2.0.0-beta.4.md'
     )
-    expect(english).toContain('byte-stable')
-    expect(english).toContain('all ten digest-pinned')
-    expect(english).toContain('CRLF artifact')
-    expect(english).toContain('raw-byte')
-    expect(chinese).toContain('字节稳定')
-    expect(chinese).toContain('全部 10 个固定摘要')
-    expect(chinese.replace(/\s+/g, ' ')).toContain('CRLF 产物')
-    expect(chinese).toContain('原始字节')
+    expect(english).toContain('This release attempt did not complete')
+    expect(normalizedEnglish).toContain('All five desktop build jobs')
+    expect(normalizedEnglish).toContain('fixed SHA-256 checks passed')
+    expect(normalizedEnglish).toContain('2,434 unique entries')
+    expect(normalizedEnglish).toContain('full-path dictionary order')
+    expect(normalizedEnglish).toContain('no duplicate entries')
+    expect(normalizedEnglish).toContain(
+      'before any Authenticode secret was read'
+    )
+    expect(normalizedEnglish).toContain('were not approved')
+    expect(chinese).toContain('本次发布尝试未完成')
+    expect(normalizedChinese).toContain('5 个桌面构建 job')
+    expect(normalizedChinese).toContain('固定 SHA-256 校验也已通过')
+    expect(normalizedChinese).toContain('2,434 个无重复条目')
+    expect(normalizedChinese).toContain('全路径字典序')
+    expect(normalizedChinese).toContain('manifest 中没有重复条目')
+    expect(normalizedChinese).toContain('读取任何 Authenticode secret 前')
+    expect(normalizedChinese).toContain('macOS 签名环境未获审批')
     for (const source of [english, chinese]) {
-      expect(source).toContain('.gitattributes')
-      expect(source).toContain('text eol=lf')
-      expect(source).toContain('CRLF')
-      expect(source).toContain('canonical LF')
+      const normalized = source.replace(/^>\s?/gm, '').replace(/\s+/g, ' ')
+      expect(source).toContain('v2.0.0-beta.5')
+      expect(source).toContain('js-yaml/lib/schema/…')
+      expect(source).toContain('js-yaml/lib/schema.js')
+      expect(source).toContain('DFS')
       expect(source).toContain('SHA-256')
-      expect(source).toContain('fail closed')
+      expect(source).toMatch(/finaliz/)
+      expect(source).toMatch(/assemble/i)
+      expect(source).toContain('GitHub Release')
+      expect(source).toContain('R2')
+      expect(source).toContain('container')
+      expect(source).toContain('Snap')
+      expect(source).toContain('arm64')
+      expect(source).toContain('amd64')
+      expect(normalized).toContain('strict Snap')
+      expect(source).toContain('steps=[]')
+      expect(normalized).toContain('nested artifact staging')
+      expect(normalized).toContain('Store credential validation')
+      expect(normalized).toContain('Store upload')
+      expect(normalized).toContain('public verification')
       expect(source).toContain('latest/edge')
+      expect(source).toContain('Docker Hub')
+      expect(source).toContain('GHCR')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain('Authenticode')
+      expect(source).toContain('SmartScreen')
     }
   })
 

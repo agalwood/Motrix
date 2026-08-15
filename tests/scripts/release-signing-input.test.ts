@@ -7,6 +7,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  realpath,
   rm,
   truncate,
   writeFile,
@@ -150,6 +151,62 @@ describe('isolated release signing input', () => {
       tools: { electronBuilder: '26.15.7', electron: '43.4.0' },
       limits: SIGNING_ARCHIVE_LIMITS,
     })
+  })
+
+  it('creates and verifies a canonical manifest for prefix-colliding paths', async () => {
+    const schemaFile = 'dist/electron-app/node_modules/js-yaml/lib/schema.js'
+    const schemaChild =
+      'dist/electron-app/node_modules/js-yaml/lib/schema/core.js'
+    const libsodiumFile =
+      'dist/electron-app/node_modules/libsodium/dist/libsodium.js'
+    const libsodiumWrappersFile =
+      'dist/electron-app/node_modules/libsodium-wrappers/dist/libsodium-wrappers.js'
+    const directory = await createGeneratedSigningInput([
+      [schemaChild, 'schema child'],
+      [schemaFile, 'schema module'],
+      [libsodiumFile, 'libsodium'],
+      [libsodiumWrappersFile, 'libsodium wrappers'],
+    ])
+    const manifestPath = path.join(directory, 'signing-input-manifest.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+      files: Array<{
+        path: string
+        bytes: number
+        mode: number
+        sha256: string
+      }>
+    }
+    const paths = manifest.files.map((entry) => entry.path)
+
+    expect(paths).toEqual([...paths].sort(compareCodeUnits))
+    expect(paths.indexOf(schemaFile)).toBeLessThan(paths.indexOf(schemaChild))
+    expect(paths.indexOf(libsodiumWrappersFile)).toBeLessThan(
+      paths.indexOf(libsodiumFile)
+    )
+    await expect(verify(directory)).resolves.toMatchObject({
+      target: { key: 'win32-x64' },
+    })
+
+    const schemaFileIndex = manifest.files.findIndex(
+      (entry) => entry.path === schemaFile
+    )
+    const schemaChildIndex = manifest.files.findIndex(
+      (entry) => entry.path === schemaChild
+    )
+    ;[manifest.files[schemaFileIndex], manifest.files[schemaChildIndex]] = [
+      manifest.files[schemaChildIndex]!,
+      manifest.files[schemaFileIndex]!,
+    ]
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+    await expect(verify(directory)).rejects.toThrow(/sorted and unique/)
+
+    ;[manifest.files[schemaFileIndex], manifest.files[schemaChildIndex]] = [
+      manifest.files[schemaChildIndex]!,
+      manifest.files[schemaFileIndex]!,
+    ]
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+    await writeFile(path.join(directory, libsodiumFile), 'tampered!')
+    await expect(verify(directory)).rejects.toThrow(/inventory or digest/)
   })
 
   it.each([
@@ -344,6 +401,67 @@ async function createFixture(
   return directory
 }
 
+async function createGeneratedSigningInput(
+  files: Array<[string, string]>
+): Promise<string> {
+  const sourceRoot = await realpath(
+    await temporaryDirectory('motrix-signing-source-')
+  )
+  for (const [source] of TRUSTED_FIXTURES) {
+    const target = path.join(sourceRoot, source)
+    await mkdir(path.dirname(target), { recursive: true })
+    await cp(path.join(ROOT, source), target)
+  }
+  for (const [relativePath, content] of [
+    ['THIRD_PARTY_LICENSES/LICENSE.txt', 'license'],
+    ['THIRD_PARTY_NOTICES.md', 'notices'],
+    ['THIRD_PARTY_NOTICES.zh-CN.md', 'notices'],
+    ['build/legal/LICENSE.txt', 'legal'],
+    ['dist/builtin-plugins/plugin.json', '{}'],
+    ['extra/aria2.conf', ''],
+    ['extra/tray/icon.png', 'tray'],
+    ['extra/win32/x64/aria2c.exe', 'aria2'],
+    [
+      'packages/native-host/dist/win32-x64/motrix-native-host.exe',
+      'native host',
+    ],
+    ['release/size-reports/win32-x64.json', '{}'],
+    ...files,
+  ] as Array<[string, string]>) {
+    await writeFixtureFile(sourceRoot, relativePath, content)
+  }
+
+  const generatedRoot = await temporaryDirectory('motrix-signing-generated-')
+  const directory = path.join(generatedRoot, 'signing-input')
+  const archive = path.join(generatedRoot, 'signing-input.tar')
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(sourceRoot, 'scripts/release-signing-input.mjs'),
+      '--mode',
+      'create',
+      '--directory',
+      directory,
+      '--platform',
+      'win32',
+      '--arch',
+      'x64',
+      '--commit',
+      COMMIT,
+      '--archive',
+      archive,
+    ],
+    { cwd: sourceRoot, encoding: 'utf8' }
+  )
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(
+      `signing input create failed: ${result.stderr || result.stdout}`
+    )
+  }
+  return directory
+}
+
 async function refreshManifest(directory: string) {
   const manifestPath = path.join(directory, 'signing-input-manifest.json')
   await rm(manifestPath, { force: true })
@@ -400,5 +518,11 @@ async function inventory(root: string) {
     }
   }
   await walk(root)
-  return files
+  return files.sort((left, right) => compareCodeUnits(left.path, right.path))
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  if (left < right) return -1
+  if (left > right) return 1
+  return 0
 }
