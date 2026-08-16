@@ -1055,6 +1055,10 @@ describe('release workflow publication contract', () => {
     expect(signatureCommand).toContain('return 1')
     expect(signatureCommand).toContain('sleep "$retry_delay_seconds"')
     expect(signatureCommand).not.toContain('|| true')
+    expect(finalSteps.at(-1)?.name).toBe('Verify immutable signatures')
+    expect(finalStepIndex('Update Docker Hub description')).toBe(-1)
+    expect(releaseSource).not.toContain('hub.docker.com/v2/users/login')
+    expect(releaseSource).not.toContain('full_description')
 
     const publicVerification = finalSteps[
       finalStepIndex(

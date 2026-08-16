@@ -2118,34 +2118,6 @@ jobs:
             verify_signature "$repository"
           done
 
-      - name: Update Docker Hub description
-        shell: bash
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          dockerhub_login_payload="$(jq -cn \
-            --arg username "$DOCKERHUB_USERNAME" \
-            --arg password "$DOCKERHUB_TOKEN" \
-            '{username: $username, password: $password}')"
-          dockerhub_jwt="$(curl --fail --silent --show-error \
-            --header 'Content-Type: application/json' \
-            --data "$dockerhub_login_payload" \
-            https://hub.docker.com/v2/users/login/ | jq -er '.token')"
-          dockerhub_description="$(jq -cn \
-            --arg description \
-              'Motrix Server for persistent Docker and NAS deployments' \
-            --rawfile full_description docs/docker-server.md \
-            '{description: $description, full_description: $full_description}')"
-          curl --fail --silent --show-error \
-            --request PATCH \
-            --header "Authorization: JWT ${dockerhub_jwt}" \
-            --header 'Content-Type: application/json' \
-            --data "$dockerhub_description" \
-            https://hub.docker.com/v2/repositories/motrixapp/motrix-server/ \
-            > /dev/null
-
   verify-container-runtime:
     name: Verify Server runtime / ${{ matrix.platform }}
     needs: [preflight, publish-container]

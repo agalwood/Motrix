@@ -76,17 +76,29 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.17" date="2026-08-16">
+      <description>
+        <p>
+          Docker Hub repository-description mutation is no longer part of the
+          artifact release authority. Anonymous signature verification now
+          hands the verified digest directly to the native public runtime
+          matrix. Native fan-out, cross-registry index, provenance, SBOM,
+          signature, runtime, recovery, and alias-last gates remain
+          fail-closed. Windows packages remain unsigned. Prerelease Snap runs
+          stop after source validation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.16" date="2026-08-16">
       <description>
         <p>
-          Single-platform metadata validation now accepts Docker Buildx's
-          documented flat image configuration while rejecting missing,
-          ambiguous, or conflicting platform data. The native BitTorrent smoke
-          waits for a complete aria2 seeder through JSON-RPC and verifies local
-          peer reachability before starting a real transfer. Native fan-out,
-          cross-registry index, provenance, SBOM, signature, and public runtime
-          gates remain fail-closed. Windows packages remain unsigned.
-          Prerelease Snap runs stop after source validation.
+          The desktop packages, GitHub prerelease, R2 update feed, native
+          platform builds, matching Docker Hub/GHCR index, provenance, SBOM,
+          and anonymous signature checks completed. A subsequent Docker Hub
+          repository-description request returned HTTP 403, so the final
+          native public runtime matrix was skipped. Stable aliases remained
+          unchanged. Windows packages were unsigned; the prerelease Snap run
+          stopped after source validation.
         </p>
       </description>
     </release>
