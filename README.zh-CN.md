@@ -83,7 +83,7 @@ Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请�
 | [`@motrix/mdxp`](https://github.com/motrixapp/mdxp) | npm 包 | 集中定义 MDXP 的 JSON-RPC 2.0 wire schema 和 Zod 类型，并提供双向连接工具，让通信两端使用同一套协议 |
 | [`@motrix/cli`](https://github.com/motrixapp/cli) | npm 包 | 命令行客户端，可执行命令为 `motrix`。它能自动发现并控制本地桌面应用，也能与远程实例配对 |
 | Motrix Browser Extension | 浏览器扩展 | 面向 Chrome 和 Firefox 的 MV3 扩展，可接管浏览器下载任务，并通过 native messaging 与桌面应用安全配对 |
-| Motrix Plugin SDK | 4 个 npm 包 | 包括 `@motrix/plugin-manifest-schema`、`@motrix/plugin-api`、`@motrix/plugin-cli` 和 `create-motrix-plugin`，提供插件开发、调试和打包所需的工具 |
+| [Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) | 4 个 npm 包 | 包括 `@motrix/plugin-manifest-schema`、`@motrix/plugin-api`、`@motrix/plugin-cli` 和 `create-motrix-plugin`，提供插件开发、调试和打包所需的工具 |
 | [Builtin Plugins](https://github.com/motrixapp/builtin-plugins) | 已签名的 `.moext` | 官方提供三个内置插件：**Filename Template**（保存文件时按模板自动重命名）、**Page Scraper**（从 HTML 页面提取实际文件链接）和 **URL Resolver**（为站点媒体解析提供基础能力） |
 | Plugin Registry | 公共数据源 | 维护插件列表和安装信息，并生成 `dl.motrix.app/registry/plugins.json`，供官网插件目录和应用内插件市场使用 |
 
@@ -100,11 +100,20 @@ motrix pair --name my-nas     # 通过 device-code 配对远程或 headless 实�
 
 ### 编写插件
 
+[Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) 提供 TypeScript API、manifest schema、项目脚手架和 CLI，覆盖完整的插件开发流程：
+
 ```bash
 pnpm create motrix-plugin my-plugin
+cd my-plugin && pnpm install
+pnpm dev                         # 监听构建，并启动 Motrix 加载插件
+pnpm exec motrix-plugin validate # 校验 motrix-plugin.json
+pnpm run pack                    # 生成 dist/<id>-<version>.moext
+pnpm exec motrix-plugin lint     # 检查打包产物
 ```
 
-插件在 QuickJS 沙箱中运行。每个插件都要在 manifest 中列出需要使用的宿主能力，例如通知、secret 存储和 FFmpeg 探测；这些能力只有在用户授权后才能调用。开发流程、项目模板以及打包和发布方式请参阅 Plugin SDK 文档。
+默认脚手架会创建一个使用 `beforeCreate` 的 URL Resolver；在项目名后添加 `post-action`，则会创建一个使用 `afterComplete` 发送通知的插件。插件可以接入 `beforeCreate`、`beforeFinalize`、`afterComplete` 和 `onError` 等生命周期钩子，也可以提供可调用的命令和设置，并通过 `motrix:plugin-api` 虚拟模块访问运行时 API。
+
+插件会打包为单个 ES2020 模块，并在 QuickJS 沙箱中运行，不能使用 Node.js API，也不能直接访问文件或网络。请在 `motrix-plugin.json` 中声明激活事件、所需能力以及限定 URL 范围的宿主权限；Motrix 会在授权前向用户展示这些请求。项目模板、manifest 与运行时 API 参考、本地化、沙箱约束、打包和分发方式请参阅 [Plugin SDK 文档](https://github.com/motrixapp/plugin-sdk)。
 
 ## 📦 安装
 

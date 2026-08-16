@@ -85,7 +85,7 @@ Motrix extends beyond the desktop app with a shared protocol library, command-li
 | [`@motrix/mdxp`](https://github.com/motrixapp/mdxp) | npm package | Defines the shared JSON-RPC 2.0 wire schemas and Zod types for MDXP, with helpers for bidirectional connections |
 | [`@motrix/cli`](https://github.com/motrixapp/cli) | npm package | Provides the `motrix` command, automatically discovers a local desktop app, and pairs with remote instances |
 | Motrix Browser Extension | Browser extension | Intercepts downloads in Chrome and Firefox (Manifest V3), hands them off to Motrix, and pairs securely with the desktop app over native messaging |
-| Motrix Plugin SDK | Four npm packages | Includes `@motrix/plugin-manifest-schema`, `@motrix/plugin-api`, `@motrix/plugin-cli`, and `create-motrix-plugin` for developing, testing, and packaging plugins |
+| [Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) | Four npm packages | Includes `@motrix/plugin-manifest-schema`, `@motrix/plugin-api`, `@motrix/plugin-cli`, and `create-motrix-plugin` for developing, testing, and packaging plugins |
 | [Builtin Plugins](https://github.com/motrixapp/builtin-plugins) | Signed `.moext` packages | Includes three official plugins: **Filename Template** for renaming files from a template before they are saved, **Page Scraper** for extracting direct file links from HTML pages, and **URL Resolver** as the foundation for site-specific media resolution |
 | Plugin Registry | Public JSON feed | Publishes plugin listings and install metadata at `dl.motrix.app/registry/plugins.json` for both the website and the in-app marketplace |
 
@@ -102,11 +102,20 @@ motrix pair --name my-nas     # Pair with a remote or headless instance
 
 ### Build a plugin
 
+The [Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) provides the TypeScript API, manifest schema, project scaffolder, and CLI used throughout the plugin development workflow:
+
 ```bash
 pnpm create motrix-plugin my-plugin
+cd my-plugin && pnpm install
+pnpm dev                         # Watch-build and launch Motrix with the plugin
+pnpm exec motrix-plugin validate # Validate motrix-plugin.json
+pnpm run pack                    # Create dist/<id>-<version>.moext
+pnpm exec motrix-plugin lint     # Check the packed bundle
 ```
 
-Plugins run inside a QuickJS sandbox. Each plugin declares the host capabilities it needs in its manifest, such as notifications, secret storage, or FFmpeg detection. Motrix asks the user before granting access. See the Plugin SDK documentation for development workflows, starter templates, packaging, and publishing.
+The default scaffold starts with a `beforeCreate` URL resolver. Pass `post-action` after the project name to start with an `afterComplete` notification plugin instead. Plugins can hook into `beforeCreate`, `beforeFinalize`, `afterComplete`, and `onError`, contribute callable commands and settings, and access the runtime through the `motrix:plugin-api` virtual module.
+
+Plugins are bundled as a single ES2020 module and run inside a QuickJS sandbox without Node.js APIs or direct file and network access. Declare activation events, required capabilities, and URL-scoped host permissions in `motrix-plugin.json`; Motrix shows those requests to the user before granting access. See the [Plugin SDK documentation](https://github.com/motrixapp/plugin-sdk) for templates, the manifest and runtime API references, localization, sandbox constraints, packaging, and distribution.
 
 ## 📦 Installation
 
