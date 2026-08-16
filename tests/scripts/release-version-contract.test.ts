@@ -486,7 +486,7 @@ describe('release version contract', () => {
     expect(beta11Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('preserves beta.12 canonical manifest recovery and distribution limits', () => {
+  it('records beta.12 canonical manifest recovery and public outcome', () => {
     const english = read('docs/release-notes/2.0.0-beta.12.md')
     const chinese = read('docs/release-notes/2.0.0-beta.12.zh-CN.md')
     const normalizedEnglish = english.replace(/\s+/g, ' ')
@@ -525,6 +525,32 @@ describe('release version contract', () => {
     expect(normalizedChinese).toContain(
       '每份 Linux 更新数据源都只包含一条 DEB 与 一条 RPM'
     )
+    expect(normalizedEnglish).toContain(
+      'Motrix 2.0.0-beta.12 was publicly distributed'
+    )
+    expect(normalizedEnglish).toContain(
+      'The GitHub prerelease published 21 assets'
+    )
+    expect(normalizedEnglish).toContain(
+      'The recovered R2 job published 17 versioned assets and then the four beta updater manifests'
+    )
+    expect(normalizedEnglish).toContain(
+      'Both registry digests were signed with the tag workflow identity'
+    )
+    expect(normalizedEnglish).toContain(
+      'the final provenance contract expecting an obsolete Docker Buildx URL instead of the real repository workflow run and attempt'
+    )
+    expect(normalizedEnglish).toContain(
+      'The desktop release and immutable container images remain public, and the mutable beta update feeds advanced successfully to beta.12'
+    )
+    expect(normalizedChinese).toContain('Motrix 2.0.0-beta.12 已公开分发')
+    expect(normalizedChinese).toContain('GitHub 预发布版发布了 21 个产物')
+    expect(normalizedChinese).toContain(
+      '恢复后的 R2 job 先发布 17 个带版本产物， 再发布 4 份 beta updater manifest'
+    )
+    expect(normalizedChinese).toContain(
+      '剩余失败来自最终 provenance 契约仍期待旧 Docker Buildx URL'
+    )
     for (const source of [english, chinese]) {
       expect(source).toContain('Snap')
       expect(source).toContain('latest/edge')
@@ -545,16 +571,87 @@ describe('release version contract', () => {
       '<release version="2.0.0-beta.12" date="2026-08-16">'
     )
     expect(normalizedBeta12Metainfo).toContain(
-      'validates and canonicalizes every platform updater manifest'
+      'All five desktop builds, all three Finalize jobs, assembly, the GitHub prerelease, and the R2 update feed completed'
     )
     expect(normalizedBeta12Metainfo).toContain(
-      'regenerates the Linux and Windows updater metadata from the verified package set'
+      'Immutable amd64/arm64 Server images were published to Docker Hub and GHCR'
     )
     expect(normalizedBeta12Metainfo).toContain(
-      'Windows packages remain unsigned'
+      'The overall workflow remained unsuccessful because its final anonymous provenance check expected an obsolete builder URL'
     )
     expect(beta12Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta12Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('preserves beta.13 container verification recovery and distribution limits', () => {
+    const english = read('docs/release-notes/2.0.0-beta.13.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.13.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta13Metainfo =
+      /<release version="2\.0\.0-beta\.13"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta13Metainfo = beta13Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      'Retries anonymous signature verification for up to 18 attempts with a 10-second delay'
+    )
+    expect(normalizedEnglish).toContain(
+      'still failing closed if either registry never exposes a valid signature'
+    )
+    expect(normalizedEnglish).toContain(
+      'Verifies BuildKit provenance against the exact current repository workflow run'
+    )
+    expect(normalizedEnglish).toContain(
+      'The builder attempt must be a positive integer no greater than the current run attempt'
+    )
+    expect(normalizedEnglish).toContain(
+      'without accepting another repository, workflow run, future attempt, or path suffix'
+    )
+    expect(normalizedEnglish).toContain(
+      'Existing beta.12 release assets and container tags are never overwritten or reused; mutable beta update feeds advance only after beta.13 versioned assets publish'
+    )
+    expect(normalizedChinese).toContain(
+      '匿名签名验证最多执行 18 次，每次间隔 10 秒'
+    )
+    expect(normalizedChinese).toContain(
+      '根据当前仓库的精确 workflow run 验证 BuildKit provenance'
+    )
+    expect(normalizedChinese).toContain(
+      '拒绝其他 仓库、其他 workflow run、未来 attempt 或附加路径后缀'
+    )
+    for (const source of [english, chinese]) {
+      expect(source).toContain('Snap')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.13-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain(
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.13'
+      )
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.13')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(metainfo).toContain(
+      '<release version="2.0.0-beta.13" date="2026-08-16">'
+    )
+    expect(normalizedBeta13Metainfo).toContain(
+      'waits for registry signature visibility with a bounded fail-closed retry'
+    )
+    expect(normalizedBeta13Metainfo).toContain(
+      'the exact repository workflow run and a valid current-or-earlier attempt'
+    )
+    expect(normalizedBeta13Metainfo).toContain(
+      'Windows packages remain unsigned'
+    )
+    expect(beta13Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta13Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
   it('preserves beta.6 Snap recovery and canceled release history', () => {

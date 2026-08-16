@@ -850,19 +850,57 @@ describe('release workflow publication contract', () => {
       stepIndex('Update Docker Hub description')
     )
 
+    const signatureVerification = steps[
+      stepIndex('Verify immutable signatures')
+    ] as LooseRecord
+    const signatureEnvironment = asRecord(
+      signatureVerification.env,
+      'signature verification environment'
+    )
+    expect(stringField(signatureEnvironment, 'DOCKER_CONFIG')).toContain(
+      'anonymous-docker'
+    )
+    expect(stringField(signatureEnvironment, 'COSIGN_VERIFY_ERROR')).toContain(
+      'runner.temp'
+    )
+    const signatureCommand = stringField(signatureVerification, 'run')
+    expect(signatureCommand).toContain('local max_attempts=18')
+    expect(signatureCommand).toContain('local retry_delay_seconds=10')
+    expect(signatureCommand).toContain('cosign verify')
+    expect(signatureCommand).toContain('--certificate-identity "$identity"')
+    expect(signatureCommand).toContain(
+      "'https://token.actions.githubusercontent.com'"
+    )
+    expect(signatureCommand).toContain('attempt == max_attempts')
+    expect(signatureCommand).toContain('return 1')
+    expect(signatureCommand).toContain('sleep "$retry_delay_seconds"')
+    expect(signatureCommand).not.toContain('|| true')
+
     const publicVerification = steps[
       stepIndex('Verify anonymous multi-architecture artifacts')
     ] as LooseRecord
-    expect(
-      stringField(
-        asRecord(publicVerification.env, 'anonymous env'),
-        'DOCKER_CONFIG'
-      )
-    ).toContain('anonymous-docker')
+    const publicEnvironment = asRecord(
+      publicVerification.env,
+      'anonymous verification environment'
+    )
+    expect(stringField(publicEnvironment, 'DOCKER_CONFIG')).toContain(
+      'anonymous-docker'
+    )
+    expect(stringField(publicEnvironment, 'EXPECTED_BUILDER_RUN')).toBe(
+      `https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}`
+    )
+    expect(stringField(publicEnvironment, 'MAXIMUM_BUILDER_ATTEMPT')).toBe(
+      `\${{ github.run_attempt }}`
+    )
     const publicCommand = stringField(publicVerification, 'run')
     expect(publicCommand).toContain("--format '{{json .SBOM}}'")
     expect(publicCommand).toContain("--format '{{json .Provenance}}'")
     expect(publicCommand).toContain('verify-container-publication.mjs')
+    expect(publicCommand).toContain('--builder-run-id "$EXPECTED_BUILDER_RUN"')
+    expect(publicCommand).toContain(
+      '--maximum-builder-attempt "$MAXIMUM_BUILDER_ATTEMPT"'
+    )
+    expect(publicCommand).not.toContain('--builder-id-prefix')
     const smokeCommand = stringField(
       steps[
         stepIndex('Smoke anonymous published architectures')
@@ -879,6 +917,78 @@ describe('release workflow publication contract', () => {
     )
     expect(JSON.stringify(allOtherJobs)).not.toContain('DOCKERHUB_TOKEN')
     expect(JSON.stringify(allOtherJobs)).not.toContain('packages":"write')
+  })
+
+  it('bounds anonymous signature visibility retries and still fails closed', () => {
+    const jobs = workflowJobs(releaseWorkflow)
+    const containerJob = asRecord(
+      jobs['publish-container'],
+      'publish-container job'
+    )
+    const signatureCommand = stringField(
+      jobSteps(containerJob).find(
+        (step) => step.name === 'Verify immutable signatures'
+      ) as LooseRecord,
+      'run'
+    )
+    const fixture = realpathSync(
+      mkdtempSync(path.join(tmpdir(), 'motrix-cosign-retry-'))
+    )
+    const binaryDirectory = path.join(fixture, 'bin')
+    const countPath = path.join(fixture, 'cosign-count')
+    const errorPath = path.join(fixture, 'cosign-error')
+    mkdirSync(binaryDirectory)
+    writeFileSync(
+      path.join(binaryDirectory, 'cosign'),
+      [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'count=0',
+        'if [[ -f "$MOTRIX_FAKE_COSIGN_COUNT" ]]; then',
+        '  read -r count < "$MOTRIX_FAKE_COSIGN_COUNT"',
+        'fi',
+        'count=$((count + 1))',
+        'printf \'%s\\n\' "$count" > "$MOTRIX_FAKE_COSIGN_COUNT"',
+        'if (( count <= MOTRIX_FAKE_COSIGN_FAILURES )); then',
+        '  echo "no signatures found" >&2',
+        '  exit 10',
+        'fi',
+      ].join('\n'),
+      { mode: 0o755 }
+    )
+    writeFileSync(path.join(binaryDirectory, 'sleep'), '#!/bin/sh\nexit 0\n', {
+      mode: 0o755,
+    })
+    const runVerification = (failures: number) => {
+      writeFileSync(countPath, '0\n')
+      return spawnSync('bash', ['-c', signatureCommand], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          COSIGN_VERIFY_ERROR: errorPath,
+          DOCKERHUB_REPOSITORY: 'docker.io/motrixapp/motrix-server',
+          GHCR_REPOSITORY: 'ghcr.io/agalwood/motrix-server',
+          GITHUB_REF_NAME: 'v2.0.0-beta.13',
+          MOTRIX_FAKE_COSIGN_COUNT: countPath,
+          MOTRIX_FAKE_COSIGN_FAILURES: String(failures),
+          PATH: `${binaryDirectory}:${process.env.PATH ?? ''}`,
+          PUBLISHED_DIGEST: `sha256:${'a'.repeat(64)}`,
+        },
+      })
+    }
+
+    try {
+      const converged = runVerification(2)
+      expect(converged.status).toBe(0)
+      expect(readFileSync(countPath, 'utf8').trim()).toBe('4')
+
+      const exhausted = runVerification(100)
+      expect(exhausted.status).toBe(1)
+      expect(readFileSync(countPath, 'utf8').trim()).toBe('18')
+      expect(exhausted.stderr).toContain('no signatures found')
+    } finally {
+      rmSync(fixture, { force: true, recursive: true })
+    }
   })
 
   it('assembles all target artifacts before publication', () => {

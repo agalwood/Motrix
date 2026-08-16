@@ -1723,23 +1723,44 @@ jobs:
       - name: Verify immutable signatures
         shell: bash
         env:
+          COSIGN_VERIFY_ERROR: ${{ runner.temp }}/cosign-verify-error.log
           DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
           PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
         run: |
           set -euo pipefail
           identity="https://github.com/agalwood/Motrix/.github/workflows/release.yml@refs/tags/${GITHUB_REF_NAME}"
+          verify_signature() {
+            local repository="$1"
+            local max_attempts=18
+            local retry_delay_seconds=10
+            local attempt
+            for (( attempt = 1; attempt <= max_attempts; attempt += 1 )); do
+              if cosign verify \
+                --certificate-identity "$identity" \
+                --certificate-oidc-issuer \
+                  'https://token.actions.githubusercontent.com' \
+                "${repository}@${PUBLISHED_DIGEST}" \
+                > /dev/null 2> "$COSIGN_VERIFY_ERROR"; then
+                return 0
+              fi
+              if (( attempt == max_attempts )); then
+                cat "$COSIGN_VERIFY_ERROR" >&2
+                return 1
+              fi
+              echo "Signature is not yet visible for ${repository}; retrying (${attempt}/${max_attempts})"
+              sleep "$retry_delay_seconds"
+            done
+          }
           for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
-            cosign verify \
-              --certificate-identity "$identity" \
-              --certificate-oidc-issuer \
-                'https://token.actions.githubusercontent.com' \
-              "${repository}@${PUBLISHED_DIGEST}" > /dev/null
+            verify_signature "$repository"
           done
 
       - name: Verify anonymous multi-architecture artifacts
         shell: bash
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          EXPECTED_BUILDER_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAXIMUM_BUILDER_ATTEMPT: ${{ github.run_attempt }}
           PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
           SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-publication
         run: |
@@ -1776,8 +1797,8 @@ jobs:
             --ghcr-index "$SNAPSHOT_DIRECTORY/ghcr-index.json" \
             --ghcr-sbom "$SNAPSHOT_DIRECTORY/ghcr-sbom.json" \
             --ghcr-provenance "$SNAPSHOT_DIRECTORY/ghcr-provenance.json" \
-            --builder-id-prefix \
-              'https://github.com/docker/buildx/actions/runs/' \
+            --builder-run-id "$EXPECTED_BUILDER_RUN" \
+            --maximum-builder-attempt "$MAXIMUM_BUILDER_ATTEMPT" \
             --version "$CONTAINER_VERSION" \
             --revision "$GITHUB_SHA"
 

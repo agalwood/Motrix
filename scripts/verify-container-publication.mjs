@@ -120,7 +120,46 @@ function verifySbom(sbom, repository) {
   }
 }
 
-function verifyProvenance(provenance, repository, revision, builderIdPrefix) {
+function positiveInteger(value, label) {
+  const text = typeof value === 'number' ? String(value) : string(value, label)
+  if (!/^[1-9][0-9]*$/.test(text)) {
+    throw new Error(`${label} must be a positive integer`)
+  }
+  const result = Number(text)
+  if (!Number.isSafeInteger(result)) {
+    throw new Error(`${label} must be a safe integer`)
+  }
+  return result
+}
+
+function verifyBuilderIdentity(
+  builderId,
+  repository,
+  platform,
+  builderRunId,
+  maximumBuilderAttempt
+) {
+  const expectedPrefix = `${builderRunId}/attempts/`
+  if (!builderId.startsWith(expectedPrefix)) {
+    throw new Error(`${repository} ${platform} builder identity conflicts`)
+  }
+  const attemptText = builderId.slice(expectedPrefix.length)
+  if (!/^[1-9][0-9]*$/.test(attemptText)) {
+    throw new Error(`${repository} ${platform} builder identity conflicts`)
+  }
+  const attempt = Number(attemptText)
+  if (!Number.isSafeInteger(attempt) || attempt > maximumBuilderAttempt) {
+    throw new Error(`${repository} ${platform} builder identity conflicts`)
+  }
+}
+
+function verifyProvenance(
+  provenance,
+  repository,
+  revision,
+  builderRunId,
+  maximumBuilderAttempt
+) {
   const document = record(provenance, `${repository} provenance result`)
   for (const platform of REQUIRED_CONTAINER_PLATFORMS) {
     const platformResult = record(
@@ -232,26 +271,55 @@ function verifyProvenance(provenance, repository, revision, builderIdPrefix) {
         }
       }
     }
-    if (builderIdPrefix && !builderId.startsWith(builderIdPrefix)) {
-      throw new Error(`${repository} ${platform} builder identity conflicts`)
-    }
+    verifyBuilderIdentity(
+      builderId,
+      repository,
+      platform,
+      builderRunId,
+      maximumBuilderAttempt
+    )
   }
 }
 
-function verifyArtifact(artifact, repository, revision, builderIdPrefix) {
+function verifyArtifact(
+  artifact,
+  repository,
+  revision,
+  builderRunId,
+  maximumBuilderAttempt
+) {
   const platformDigests = verifyIndex(artifact.index, repository)
   verifySbom(artifact.sbom, repository)
-  verifyProvenance(artifact.provenance, repository, revision, builderIdPrefix)
+  verifyProvenance(
+    artifact.provenance,
+    repository,
+    revision,
+    builderRunId,
+    maximumBuilderAttempt
+  )
   return platformDigests
 }
 
 export function verifyContainerPublication({
-  builderIdPrefix,
+  builderRunId,
   dockerHub,
   ghcr,
+  maximumBuilderAttempt,
   revision,
   version,
 }) {
+  const expectedBuilderRun = string(builderRunId, 'builder run id')
+  if (
+    !/^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/[1-9][0-9]*$/.test(
+      expectedBuilderRun
+    )
+  ) {
+    throw new Error('builder run id must be an exact GitHub Actions run URL')
+  }
+  const maximumAttempt = positiveInteger(
+    maximumBuilderAttempt,
+    'maximum builder attempt'
+  )
   const publication = resolveContainerPublicationState({
     dockerHubSnapshot: dockerHub.inspect,
     ghcrSnapshot: ghcr.inspect,
@@ -270,9 +338,16 @@ export function verifyContainerPublication({
       dockerHub,
       'Docker Hub',
       revision,
-      builderIdPrefix
+      expectedBuilderRun,
+      maximumAttempt
     ),
-    ghcr: verifyArtifact(ghcr, 'GHCR', revision, builderIdPrefix),
+    ghcr: verifyArtifact(
+      ghcr,
+      'GHCR',
+      revision,
+      expectedBuilderRun,
+      maximumAttempt
+    ),
     sbom: 'SPDX-2.x',
     provenance: 'SLSA BuildKit',
   }
@@ -289,7 +364,8 @@ function parseArgs(argv) {
     '--ghcr-index',
     '--ghcr-sbom',
     '--ghcr-provenance',
-    '--builder-id-prefix',
+    '--builder-run-id',
+    '--maximum-builder-attempt',
     '--version',
     '--revision',
   ])
@@ -319,10 +395,16 @@ function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options.version) throw new Error('--version is required')
   if (!options.revision) throw new Error('--revision is required')
+  if (!options['builder-run-id'])
+    throw new Error('--builder-run-id is required')
+  if (!options['maximum-builder-attempt']) {
+    throw new Error('--maximum-builder-attempt is required')
+  }
   const result = verifyContainerPublication({
-    builderIdPrefix: options['builder-id-prefix'],
+    builderRunId: options['builder-run-id'],
     dockerHub: readArtifact(options, 'docker-hub'),
     ghcr: readArtifact(options, 'ghcr'),
+    maximumBuilderAttempt: options['maximum-builder-attempt'],
     revision: options.revision,
     version: options.version,
   })

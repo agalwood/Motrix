@@ -76,15 +76,27 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.13" date="2026-08-16">
+      <description>
+        <p>
+          Container publication recovery that waits for registry signature
+          visibility with a bounded fail-closed retry and verifies BuildKit
+          provenance against the exact repository workflow run and a valid
+          current-or-earlier attempt. Windows packages remain unsigned.
+          Prerelease Snap runs stop after source validation without building
+          or publishing artifacts.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.12" date="2026-08-16">
       <description>
         <p>
-          Release assembly update that validates and canonicalizes every
-          platform updater manifest, collapses only metadata-identical source
-          duplicates, and regenerates the Linux and Windows updater metadata
-          from the verified package set. Windows packages remain unsigned.
-          Prerelease Snap runs stop after source validation without building
-          or publishing artifacts.
+          Published Motrix Turbo beta. All five desktop builds, all three
+          Finalize jobs, assembly, the GitHub prerelease, and the R2 update
+          feed completed. Immutable amd64/arm64 Server images were published
+          to Docker Hub and GHCR. The overall workflow remained unsuccessful
+          because its final anonymous provenance check expected an obsolete
+          builder URL. Prerelease Snap stopped after source validation.
         </p>
       </description>
     </release>
