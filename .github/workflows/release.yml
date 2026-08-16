@@ -1075,6 +1075,136 @@ jobs:
           })
           fs.chmodSync(certificatePath, 0o600)
 
+      - name: Prepare isolated macOS signing keychain
+        id: mac-keychain
+        if: matrix.platform == 'darwin'
+        shell: node {0}
+        env:
+          MAC_CERTIFICATE_PATH: ${{ steps.mac-certificate.outputs.path }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          KEYCHAIN_PARENT: ${{ runner.temp }}
+        run: |
+          const { spawnSync } = require('node:child_process')
+          const crypto = require('node:crypto')
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const parent = fs.realpathSync(process.env.KEYCHAIN_PARENT)
+          const certificatePath = fs.realpathSync(
+            process.env.MAC_CERTIFICATE_PATH
+          )
+          const certificateRelative = path.relative(parent, certificatePath)
+          if (
+            !certificateRelative ||
+            certificateRelative === '..' ||
+            certificateRelative.startsWith(`..${path.sep}`) ||
+            path.isAbsolute(certificateRelative)
+          ) {
+            throw new Error('macOS signing certificate is outside runner temp')
+          }
+          const certificatePassword = process.env.MAC_CERTS_PASSWORD
+          if (!certificatePassword) {
+            throw new Error('macOS signing certificate password is missing')
+          }
+          const directory = fs.mkdtempSync(
+            path.join(parent, 'motrix-mac-keychain-')
+          )
+          fs.chmodSync(directory, 0o700)
+          const keychainPath = path.join(directory, 'signing.keychain-db')
+          const originalListPath = path.join(directory, 'original-keychains.json')
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `directory=${directory}\npath=${keychainPath}\noriginal_list=${originalListPath}\n`,
+            'utf8'
+          )
+          const security = (args, operation) => {
+            const result = spawnSync('/usr/bin/security', args, {
+              encoding: 'utf8',
+              maxBuffer: 1024 * 1024,
+              shell: false,
+            })
+            if (result.error || result.status !== 0) {
+              throw new Error(`macOS signing keychain ${operation} failed`)
+            }
+            return result.stdout
+          }
+          const originalKeychains = security(
+            ['list-keychains', '-d', 'user'],
+            'inventory'
+          )
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) =>
+              line.startsWith('"') && line.endsWith('"')
+                ? line.slice(1, -1)
+                : line
+            )
+          fs.writeFileSync(originalListPath, JSON.stringify(originalKeychains), {
+            flag: 'wx',
+            mode: 0o600,
+          })
+          let keychainPassword
+          do {
+            keychainPassword = crypto.randomBytes(48).toString('base64url')
+          } while (keychainPassword === certificatePassword)
+          security(
+            ['create-keychain', '-p', keychainPassword, keychainPath],
+            'creation'
+          )
+          security(
+            ['unlock-keychain', '-p', keychainPassword, keychainPath],
+            'unlock'
+          )
+          security(
+            ['set-keychain-settings', '-lut', '21600', keychainPath],
+            'settings'
+          )
+          security(
+            [
+              'import',
+              certificatePath,
+              '-k',
+              keychainPath,
+              '-T',
+              '/usr/bin/codesign',
+              '-T',
+              '/usr/bin/productbuild',
+              '-P',
+              certificatePassword,
+            ],
+            'certificate import'
+          )
+          security(
+            [
+              'set-key-partition-list',
+              '-S',
+              'apple-tool:,apple:',
+              '-s',
+              '-k',
+              keychainPassword,
+              keychainPath,
+            ],
+            'partition configuration'
+          )
+          security(
+            [
+              'list-keychains',
+              '-d',
+              'user',
+              '-s',
+              keychainPath,
+              ...originalKeychains,
+            ],
+            'search-list configuration'
+          )
+          const identities = security(
+            ['find-identity', '-v', '-p', 'codesigning', keychainPath],
+            'identity verification'
+          )
+          if (!/Developer ID Application:/u.test(identities)) {
+            throw new Error('macOS signing identity is unavailable')
+          }
+
       - name: Electron Builder (macOS signing boundary)
         if: matrix.platform == 'darwin'
         shell: bash
@@ -1083,8 +1213,7 @@ jobs:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/motrix-signing-cache
           ELECTRON_DOWNLOAD_CACHE_MODE: '1'
           ELECTRON_BUILDER_CLI: ${{ steps.signing-tool-runtime.outputs.cli }}
-          CSC_LINK: ${{ steps.mac-certificate.outputs.path }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          CSC_KEYCHAIN: ${{ steps.mac-keychain.outputs.path }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
           APPLE_API_KEY: ${{ steps.apple-api-key.outputs.path }}
           APPLE_API_KEY_ID: ${{ secrets.API_KEY_ID }}
@@ -1095,6 +1224,8 @@ jobs:
           unset NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR
           unset npm_config_electron_builder_binaries_custom_dir
           unset npm_package_config_electron_builder_binaries_custom_dir
+          unset CSC_LINK
+          unset CSC_KEY_PASSWORD
           node "$ELECTRON_BUILDER_CLI" \
             --config electron-builder.signing.json \
             ${{ matrix.electron_builder_args }} \
@@ -1129,8 +1260,12 @@ jobs:
           APPLE_API_KEY_PATH: ${{ steps.apple-api-key.outputs.path }}
           MAC_CERTIFICATE_DIRECTORY: ${{ steps.mac-certificate.outputs.directory }}
           MAC_CERTIFICATE_PATH: ${{ steps.mac-certificate.outputs.path }}
+          MAC_KEYCHAIN_DIRECTORY: ${{ steps.mac-keychain.outputs.directory }}
+          MAC_KEYCHAIN_PATH: ${{ steps.mac-keychain.outputs.path }}
+          MAC_ORIGINAL_KEYCHAIN_LIST: ${{ steps.mac-keychain.outputs.original_list }}
           TEMPORARY_ROOT: ${{ runner.temp }}
         run: |
+          const { spawnSync } = require('node:child_process')
           const fs = require('node:fs')
           const path = require('node:path')
           const root = path.resolve(process.env.TEMPORARY_ROOT)
@@ -1148,18 +1283,80 @@ jobs:
             }
             return candidate
           }
+          const failures = []
+          const security = (args, operation) => {
+            const result = spawnSync('/usr/bin/security', args, {
+              encoding: 'utf8',
+              maxBuffer: 1024 * 1024,
+              shell: false,
+            })
+            if (result.error || result.status !== 0) {
+              failures.push(operation)
+            }
+          }
+          const keychainPath = insideRoot(process.env.MAC_KEYCHAIN_PATH)
+          const originalListPath = insideRoot(
+            process.env.MAC_ORIGINAL_KEYCHAIN_LIST
+          )
+          if (keychainPath) {
+            if (originalListPath && fs.existsSync(originalListPath)) {
+              let originalKeychains
+              try {
+                originalKeychains = JSON.parse(
+                  fs.readFileSync(originalListPath, 'utf8')
+                )
+                if (
+                  !Array.isArray(originalKeychains) ||
+                  originalKeychains.some((value) => typeof value !== 'string')
+                ) {
+                  throw new Error('invalid keychain inventory')
+                }
+                security(
+                  ['list-keychains', '-d', 'user', '-s', ...originalKeychains],
+                  'keychain search-list restoration'
+                )
+              } catch {
+                failures.push('keychain inventory restoration')
+              }
+            } else if (fs.existsSync(keychainPath)) {
+              failures.push('keychain inventory restoration')
+            }
+          }
+          if (keychainPath && fs.existsSync(keychainPath)) {
+            security(
+              ['delete-keychain', keychainPath],
+              'isolated keychain deletion'
+            )
+          }
           for (const value of [
             process.env.APPLE_API_KEY_PATH,
             process.env.MAC_CERTIFICATE_PATH,
+            process.env.MAC_ORIGINAL_KEYCHAIN_LIST,
           ]) {
             const candidate = insideRoot(value)
-            if (candidate) fs.rmSync(candidate, { force: true })
+            if (candidate) {
+              try {
+                fs.rmSync(candidate, { force: true })
+              } catch {
+                failures.push('temporary credential deletion')
+              }
+            }
           }
-          for (const value of [process.env.MAC_CERTIFICATE_DIRECTORY]) {
+          for (const value of [
+            process.env.MAC_CERTIFICATE_DIRECTORY,
+            process.env.MAC_KEYCHAIN_DIRECTORY,
+          ]) {
             const candidate = insideRoot(value)
             if (candidate) {
-              fs.rmSync(candidate, { recursive: true, force: true })
+              try {
+                fs.rmSync(candidate, { recursive: true, force: true })
+              } catch {
+                failures.push('temporary credential directory deletion')
+              }
             }
+          }
+          if (failures.length > 0) {
+            throw new Error('finalization credential cleanup failed')
           }
 
       - name: Verify macOS signatures

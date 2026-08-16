@@ -1136,17 +1136,23 @@ describe('release workflow publication contract', () => {
     const windowsStep = platformBuilderStep(builderSteps, 'win32')
     const macEnv = asRecord(macStep.env, 'macOS builder environment')
     const windowsEnv = asRecord(windowsStep.env, 'Windows builder environment')
-    expect(stringField(macEnv, 'CSC_LINK')).toContain(
-      'steps.mac-certificate.outputs.path'
+    expect(stringField(macEnv, 'CSC_KEYCHAIN')).toContain(
+      'steps.mac-keychain.outputs.path'
     )
-    expect(stringField(macEnv, 'CSC_LINK')).not.toContain('secrets.')
-    expect(stringField(macEnv, 'CSC_KEY_PASSWORD')).toContain(
-      'secrets.MAC_CERTS_PASSWORD'
-    )
+    expect(macEnv).not.toHaveProperty('CSC_LINK')
+    expect(macEnv).not.toHaveProperty('CSC_KEY_PASSWORD')
     expect(stringField(macEnv, 'ELECTRON_BUILDER_CLI')).toContain(
       'steps.signing-tool-runtime.outputs.cli'
     )
     expect(JSON.stringify(macEnv)).not.toContain('WIN_CSC')
+    const macCommand = stringField(macStep, 'run')
+    const macBuilderIndex = macCommand.indexOf('node "$ELECTRON_BUILDER_CLI"')
+    expect(macBuilderIndex).toBeGreaterThanOrEqual(0)
+    for (const variable of ['CSC_LINK', 'CSC_KEY_PASSWORD']) {
+      const unsetIndex = macCommand.indexOf(`unset ${variable}`)
+      expect(unsetIndex, variable).toBeGreaterThanOrEqual(0)
+      expect(unsetIndex, variable).toBeLessThan(macBuilderIndex)
+    }
 
     expect(windowsEnv).not.toHaveProperty('CSC_LINK')
     expect(windowsEnv).not.toHaveProperty('CSC_KEY_PASSWORD')
@@ -1413,7 +1419,7 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('materializes only bounded P12 bytes and always removes temporary inputs', () => {
+  it('uses separate certificate and keychain passwords in an isolated keychain', () => {
     const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
     const steps = jobSteps(sign)
     const preparation = steps.find(
@@ -1442,6 +1448,71 @@ describe('release workflow publication contract', () => {
     expect(source).toContain("flag: 'wx'")
     expect(source).not.toContain('console.')
     expect(source).not.toContain('process.stdout')
+
+    const keychainPreparation = steps.find(
+      (step) => step.name === 'Prepare isolated macOS signing keychain'
+    )
+    expect(keychainPreparation).toBeDefined()
+    expect(stringField(keychainPreparation as LooseRecord, 'id')).toBe(
+      'mac-keychain'
+    )
+    expect(stringField(keychainPreparation as LooseRecord, 'shell')).toBe(
+      'node {0}'
+    )
+    expect(stringField(keychainPreparation as LooseRecord, 'if')).toBe(
+      "matrix.platform == 'darwin'"
+    )
+    const keychainEnvironment = asRecord(
+      keychainPreparation?.env,
+      'macOS keychain preparation environment'
+    )
+    expect(stringField(keychainEnvironment, 'MAC_CERTIFICATE_PATH')).toContain(
+      'steps.mac-certificate.outputs.path'
+    )
+    expect(stringField(keychainEnvironment, 'MAC_CERTS_PASSWORD')).toContain(
+      'secrets.MAC_CERTS_PASSWORD'
+    )
+    expect(stringField(keychainEnvironment, 'KEYCHAIN_PARENT')).toContain(
+      'runner.temp'
+    )
+    const keychainSource = stringField(
+      keychainPreparation as LooseRecord,
+      'run'
+    )
+    expect(keychainSource).toContain(
+      "crypto.randomBytes(48).toString('base64url')"
+    )
+    expect(keychainSource).toContain(
+      'while (keychainPassword === certificatePassword)'
+    )
+    expect(keychainSource).toContain(
+      "'create-keychain', '-p', keychainPassword"
+    )
+    expect(keychainSource).toContain(
+      "'unlock-keychain', '-p', keychainPassword"
+    )
+    expect(keychainSource).toMatch(/'-P',\s*certificatePassword/u)
+    expect(keychainSource).toMatch(/'-k',\s*keychainPassword/u)
+    expect(keychainSource).toContain(
+      "'find-identity', '-v', '-p', 'codesigning'"
+    )
+    expect(keychainSource).toContain('original-keychains.json')
+    expect(keychainSource).toContain('mode: 0o600')
+    expect(keychainSource).not.toContain('console.')
+    expect(keychainSource).not.toContain('process.stdout')
+
+    const macCodeSignSource = readFileSync(
+      require.resolve('app-builder-lib/out/codeSign/macCodeSign.js'),
+      'utf8'
+    )
+    const macPackagerSource = readFileSync(
+      require.resolve('app-builder-lib/out/macPackager.js'),
+      'utf8'
+    )
+    expect(macCodeSignSource).toContain(
+      '["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainFile]'
+    )
+    expect(macPackagerSource).toContain('process.env.CSC_KEYCHAIN || null')
 
     const temporaryRoot = mkdtempSync(
       path.join(tmpdir(), 'motrix-mac-certificate-contract-')
@@ -1535,6 +1606,15 @@ describe('release workflow publication contract', () => {
     expect(
       stringField(credentialCleanupEnvironment, 'APPLE_API_KEY_PATH')
     ).toContain('steps.apple-api-key.outputs.path')
+    expect(
+      stringField(credentialCleanupEnvironment, 'MAC_KEYCHAIN_PATH')
+    ).toContain('steps.mac-keychain.outputs.path')
+    expect(
+      stringField(credentialCleanupEnvironment, 'MAC_KEYCHAIN_DIRECTORY')
+    ).toContain('steps.mac-keychain.outputs.directory')
+    expect(
+      stringField(credentialCleanupEnvironment, 'MAC_ORIGINAL_KEYCHAIN_LIST')
+    ).toContain('steps.mac-keychain.outputs.original_list')
     expect(credentialCleanupEnvironment).not.toHaveProperty('SIGNING_TOOL_ROOT')
     expect(JSON.stringify(credentialCleanup)).not.toContain('secrets.')
     const credentialCleanupSource = stringField(
@@ -1543,6 +1623,12 @@ describe('release workflow publication contract', () => {
     )
     expect(credentialCleanupSource).toContain('path.relative(root, candidate)')
     expect(credentialCleanupSource).toContain('fs.rmSync')
+    expect(credentialCleanupSource).toContain(
+      "['list-keychains', '-d', 'user', '-s', ...originalKeychains]"
+    )
+    expect(credentialCleanupSource).toContain(
+      "['delete-keychain', keychainPath]"
+    )
 
     const runtimeCleanup = steps.find(
       (step) => step.name === 'Remove isolated signing runtime'
@@ -1577,11 +1663,20 @@ describe('release workflow publication contract', () => {
       const apiKey = path.join(cleanupRoot, 'AuthKey.p8')
       const certificateDirectory = path.join(cleanupRoot, 'certificate')
       const certificate = path.join(certificateDirectory, 'identity.p12')
+      const keychainDirectory = path.join(cleanupRoot, 'keychain')
+      const keychain = path.join(keychainDirectory, 'signing.keychain-db')
+      const originalKeychains = path.join(
+        keychainDirectory,
+        'original-keychains.json'
+      )
       const signingTool = path.join(cleanupRoot, 'signing-tool')
       mkdirSync(certificateDirectory)
+      mkdirSync(keychainDirectory)
       mkdirSync(signingTool)
       writeFileSync(apiKey, 'api key')
       writeFileSync(certificate, 'certificate')
+      writeFileSync(keychain, 'keychain')
+      writeFileSync(originalKeychains, '[]')
       writeFileSync(path.join(signingTool, 'package.json'), '{}')
       const credentialResult = spawnSync(
         process.execPath,
@@ -1594,12 +1689,22 @@ describe('release workflow publication contract', () => {
             APPLE_API_KEY_PATH: apiKey,
             MAC_CERTIFICATE_DIRECTORY: certificateDirectory,
             MAC_CERTIFICATE_PATH: certificate,
+            MAC_KEYCHAIN_DIRECTORY: keychainDirectory,
+            MAC_KEYCHAIN_PATH: '',
+            MAC_ORIGINAL_KEYCHAIN_LIST: originalKeychains,
             TEMPORARY_ROOT: cleanupRoot,
           },
         }
       )
       expect(credentialResult.status, credentialResult.stderr).toBe(0)
-      for (const candidate of [apiKey, certificate, certificateDirectory]) {
+      for (const candidate of [
+        apiKey,
+        certificate,
+        certificateDirectory,
+        keychain,
+        originalKeychains,
+        keychainDirectory,
+      ]) {
         expect(existsSync(candidate), candidate).toBe(false)
       }
       expect(existsSync(signingTool)).toBe(true)
@@ -1632,6 +1737,9 @@ describe('release workflow publication contract', () => {
             APPLE_API_KEY_PATH: '',
             MAC_CERTIFICATE_DIRECTORY: '',
             MAC_CERTIFICATE_PATH: '',
+            MAC_KEYCHAIN_DIRECTORY: '',
+            MAC_KEYCHAIN_PATH: '',
+            MAC_ORIGINAL_KEYCHAIN_LIST: '',
             SIGNING_TOOL_ROOT: '',
             TEMPORARY_ROOT: cleanupRoot,
           },
