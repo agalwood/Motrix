@@ -591,7 +591,90 @@ describe('release version contract', () => {
     expect(beta12Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('ships beta.14 native container recovery without cross-channel atomicity claims', () => {
+  it('ships beta.15 Docker smoke compatibility recovery without weakening native gates', () => {
+    const english = read('docs/release-notes/2.0.0-beta.15.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.15.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta15Metainfo =
+      /<release version="2\.0\.0-beta\.15"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta15Metainfo = beta15Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      'Builds `linux/amd64` on `ubuntu-22.04` and `linux/arm64` on `ubuntu-22.04-arm`'
+    )
+    expect(normalizedEnglish).toContain(
+      'The container release path does not install or invoke QEMU'
+    )
+    expect(normalizedEnglish).toContain(
+      'explicitly pulls its staged digest with the required platform, then inspects the selected local image using the Docker CLI syntax supported by both GitHub runner images'
+    )
+    expect(normalizedEnglish).toContain(
+      'fails closed unless the inspected image architecture exactly matches the matrix platform'
+    )
+    expect(normalizedEnglish).toContain(
+      'A single architecture never receives the public version tag and cannot become the official release on its own'
+    )
+    expect(normalizedEnglish).toContain(
+      'Immutable platform metadata can be uploaded only after both registry smokes succeed'
+    )
+    expect(normalizedEnglish).toContain(
+      'rejects missing, duplicate, unexpected, cross-wired, shared, or future-attempt digests'
+    )
+    expect(normalizedEnglish).toContain(
+      'a rerun resumes an identical complete result or repairs one missing registry'
+    )
+    expect(normalizedEnglish).toContain(
+      'Stable floating aliases are handled by the final recovery-safe job only after every build, index, signature, provenance, SBOM, anonymous pull, and runtime gate succeeds'
+    )
+    expect(normalizedEnglish).toContain(
+      'this release does not claim cross-channel atomicity'
+    )
+    expect(normalizedChinese).toContain(
+      '`linux/amd64` 固定在 `ubuntu-22.04` 构建，`linux/arm64` 固定在 `ubuntu-22.04-arm` 构建'
+    )
+    expect(normalizedChinese).toContain('容器发布路径不安装或调用 QEMU')
+    expect(normalizedChinese).toContain(
+      'architecture 必须与矩阵 platform 完全一致'
+    )
+    expect(normalizedChinese).toMatch(
+      /全部构建、index、\s*签名、provenance、SBOM、匿名拉取和 runtime 门禁通过/u
+    )
+    expect(normalizedChinese).toMatch(/本版本不宣称跨渠道\s*原子性/u)
+    for (const source of [english, chinese]) {
+      expect(source).toContain('Snap')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.15-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain(
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.15'
+      )
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.15')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(normalizedBeta15Metainfo).toContain(
+      'use Docker CLI syntax supported by both GitHub runner architectures after a platform-pinned pull'
+    )
+    expect(normalizedBeta15Metainfo).toContain(
+      'retaining an exact architecture assertion and platform-pinned runtime containers'
+    )
+    expect(beta15Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta15Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('records beta.14 desktop/feed success and fail-closed native container smoke', () => {
     const english = read('docs/release-notes/2.0.0-beta.14.md')
     const chinese = read('docs/release-notes/2.0.0-beta.14.zh-CN.md')
     const normalizedEnglish = english
@@ -607,42 +690,41 @@ describe('release version contract', () => {
       )?.[0] ?? ''
     const normalizedBeta14Metainfo = beta14Metainfo.replace(/\s+/g, ' ')
 
+    expect(normalizedEnglish).toContain('was partially distributed')
     expect(normalizedEnglish).toContain(
-      'Builds `linux/amd64` on `ubuntu-22.04` and `linux/arm64` on `ubuntu-22.04-arm`'
+      'all five desktop builds, all three Finalize jobs, assembly, the GitHub prerelease, and the R2 update feed completed successfully'
     )
     expect(normalizedEnglish).toContain(
-      'The container release path no longer installs or invokes QEMU'
+      'Both jobs verified their native GitHub-hosted runner, built without QEMU, and pushed their untagged content-addressed platform digest to Docker Hub and GHCR'
     )
     expect(normalizedEnglish).toContain(
-      'A single architecture never receives the public version tag and cannot become the official release on its own'
+      'The GitHub runner Docker clients rejected `docker image inspect --platform` with `unknown flag: --platform`'
     )
     expect(normalizedEnglish).toContain(
-      'Anonymously pulls the exact staged digest from both registries and runs the full Server runtime smoke on its native runner'
+      "The failure was in the smoke client's Docker CLI compatibility, not in an emulated build or a Server-process crash"
     )
     expect(normalizedEnglish).toContain(
-      'rejects missing, duplicate, unexpected, cross-wired, or future-attempt records'
+      'Neither registry received an immutable `2.0.0-beta.14` tag or final multi-platform index'
     )
     expect(normalizedEnglish).toContain(
-      'a rerun resumes an identical complete result or repairs one missing registry'
+      'No beta.14 container index was signed, no final provenance or SBOM set was publicly verified, and no final public native runtime smoke completed'
     )
     expect(normalizedEnglish).toContain(
-      'Stable floating aliases are handled by a final recovery-safe job only after every build, index, signature, provenance, SBOM, anonymous pull, and runtime gate succeeds'
-    )
-    expect(normalizedEnglish).toContain(
-      'does not claim cross-channel atomicity'
+      'this result must not be described as atomic across distribution channels'
     )
     expect(normalizedChinese).toContain(
-      '`linux/amd64` 固定在 `ubuntu-22.04` 构建，`linux/arm64` 固定在 `ubuntu-22.04-arm` 构建'
-    )
-    expect(normalizedChinese).toContain('容器发布路径不再安装或调用 QEMU')
-    expect(normalizedChinese).toContain(
-      '单一架构不会获得公开版本 tag，因此不能独立成为正式发布版本'
+      '5 个桌面构建、3 个 Finalize job、assemble、GitHub 预发布版以及 R2 更新数据源 均成功完成'
     )
     expect(normalizedChinese).toContain(
-      '只有全部构建、index、签名、provenance、SBOM、匿名拉取和 runtime 门禁通过后'
+      '两个 job 都在匿名暂存 digest runtime smoke 中 fail-closed'
     )
-    expect(normalizedChinese).toContain('本版本不宣称跨渠道原子性')
+    expect(normalizedChinese).toContain(
+      '两个 registry 均没有获得不可变 `2.0.0-beta.14` tag 或最终 multi-platform index'
+    )
     for (const source of [english, chinese]) {
+      expect(source).toContain('31937363296')
+      expect(source).toContain('unknown flag: --platform')
+      expect(source).toContain('v2.0.0-beta.15')
       expect(source).toContain('Snap')
       expect(source).toContain('latest/edge')
       expect(source).toContain('AppImage')
@@ -659,10 +741,10 @@ describe('release version contract', () => {
       expect(source).not.toMatch(secretLikeIdentifier)
     }
     expect(normalizedBeta14Metainfo).toContain(
-      'builds amd64 and arm64 independently on native GitHub-hosted runners without QEMU'
+      'The GitHub prerelease and R2 update feed completed'
     )
     expect(normalizedBeta14Metainfo).toContain(
-      'Stable aliases advance only after final native public smoke tests'
+      'No beta.14 container tag, final index, signature, public provenance or SBOM verification, or final runtime smoke completed'
     )
     expect(beta14Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta14Metainfo).not.toMatch(secretLikeIdentifier)

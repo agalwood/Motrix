@@ -76,16 +76,31 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.15" date="2026-08-16">
+      <description>
+        <p>
+          Native staged-digest smoke tests now use Docker CLI syntax supported
+          by both GitHub runner architectures after a platform-pinned pull,
+          while retaining an exact architecture assertion and platform-pinned
+          runtime containers. The complete native fan-out, cross-registry
+          index, provenance, SBOM, signature, and public runtime gates remain
+          fail-closed. Windows packages remain unsigned. Prerelease Snap runs
+          stop after source validation without building or publishing
+          artifacts.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.14" date="2026-08-16">
       <description>
         <p>
-          Container publication now builds amd64 and arm64 independently on
-          native GitHub-hosted runners without QEMU. Untagged platform digests
-          must pass cross-registry metadata and native runtime checks before a
-          single job creates, signs, and anonymously verifies the final index.
-          Stable aliases advance only after final native public smoke tests.
-          Windows packages remain unsigned. Prerelease Snap runs stop after
-          source validation without building or publishing artifacts.
+          The GitHub prerelease and R2 update feed completed. Native amd64 and
+          arm64 Server builds without QEMU pushed only untagged staged digests,
+          then failed closed because the runner Docker clients did not support
+          the image-inspect platform flag. No beta.14 container tag, final
+          index, signature, public provenance or SBOM verification, or final
+          runtime smoke completed; stable aliases remained unchanged. Windows
+          packages were published unsigned. The prerelease Snap run stopped
+          after source validation.
         </p>
       </description>
     </release>

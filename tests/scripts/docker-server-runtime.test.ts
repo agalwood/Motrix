@@ -137,6 +137,16 @@ describe('Docker Server runtime staging contract', () => {
     )
 
     expect(imageSmoke).toContain("'--read-only'")
+    expect(imageSmoke).toContain(
+      "if (platform) await docker(['pull', '--platform', platform, image])"
+    )
+    expect(imageSmoke).toContain("await docker(['image', 'inspect', image])")
+    expect(imageSmoke).not.toContain(
+      "docker(['image', 'inspect', ...platformArgs(platform), image])"
+    )
+    expect(imageSmoke).toContain(
+      "metadata.Architecture !== platform.split('/')[1]"
+    )
     expect(imageSmoke).toContain('identity.user')
     expect(imageSmoke).toContain("'command:createTask'")
     expect(imageSmoke).toContain("'command:setTaskBtTracker'")
