@@ -76,16 +76,28 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.10" date="2026-08-16">
+      <description>
+        <p>
+          Release finalization update with an isolated per-job macOS keychain,
+          distinct import and keychain-unlock values, path-only Builder
+          handoff, and fail-closed cleanup. Windows packages remain unsigned.
+          Prerelease Snap runs stop after source validation without building
+          or publishing artifacts; stable Snap publication retains its
+          personal-files Store declaration requirement.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.9" date="2026-08-16">
       <description>
         <p>
-          Release finalization update with a lockfile-pinned verifier closure
-          in an isolated runtime, temporary signing-input cleanup immediately
-          after Builder, and tool-runtime cleanup between package verification
-          and artifact upload. Windows packages remain unsigned. Prerelease
-          Snap runs stop after source validation without building or
-          publishing artifacts; stable Snap publication retains its
-          personal-files Store declaration requirement.
+          Unpublished Motrix Turbo beta attempt. All five desktop builds
+          succeeded. Unsigned Windows and Apple Silicon finalization completed,
+          while Intel macOS finalization stopped in the signing runtime before
+          producing its final package set. Assembly, GitHub Release, R2, and
+          container publication did not run. The prerelease Snap workflow
+          stopped after source validation, and external distribution remained
+          zero.
         </p>
       </description>
     </release>
