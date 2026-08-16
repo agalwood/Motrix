@@ -76,15 +76,29 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.14" date="2026-08-16">
+      <description>
+        <p>
+          Container publication now builds amd64 and arm64 independently on
+          native GitHub-hosted runners without QEMU. Untagged platform digests
+          must pass cross-registry metadata and native runtime checks before a
+          single job creates, signs, and anonymously verifies the final index.
+          Stable aliases advance only after final native public smoke tests.
+          Windows packages remain unsigned. Prerelease Snap runs stop after
+          source validation without building or publishing artifacts.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.13" date="2026-08-16">
       <description>
         <p>
-          Container publication recovery that waits for registry signature
-          visibility with a bounded fail-closed retry and verifies BuildKit
-          provenance against the exact repository workflow run and a valid
-          current-or-earlier attempt. Windows packages remain unsigned.
-          Prerelease Snap runs stop after source validation without building
-          or publishing artifacts.
+          Partially distributed Motrix Turbo beta. All desktop builds,
+          Finalize jobs, assembly, the GitHub prerelease, and the R2 update
+          feed completed. The combined container build failed in the emulated
+          arm64 dependency-install layer and remained active until canceled;
+          no beta.13 container tag, signature, public artifact verification,
+          or runtime smoke completed. Windows packages were published
+          unsigned. Prerelease Snap stopped after source validation.
         </p>
       </description>
     </release>

@@ -1515,19 +1515,21 @@ jobs:
           prerelease: ${{ needs.preflight.outputs.prerelease }}
           files: release/*
 
-  publish-container:
-    name: Publish verified Server container
+  plan-container-publication:
+    name: Inspect Server container publication state
     needs: [preflight, publish]
     if: >-
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    environment: container-release
+    timeout-minutes: 10
     permissions:
       contents: read
-      id-token: write
-      packages: write
+    outputs:
+      action: ${{ steps.publication-state.outputs.publication_action }}
+      digest: ${{ steps.publication-state.outputs.publication_digest }}
+      copy_source: ${{ steps.publication-state.outputs.copy_source }}
+      copy_target: ${{ steps.publication-state.outputs.copy_target }}
     env:
       CONTAINER_VERSION: ${{ needs.preflight.outputs.container_version }}
       DOCKERHUB_REPOSITORY: ${{ needs.preflight.outputs.container_dockerhub_repository }}
@@ -1535,46 +1537,6 @@ jobs:
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Validate container release credentials
-        shell: bash
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          missing=()
-          for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN; do
-            if [[ -z "${!name:-}" ]]; then
-              missing+=("$name")
-            fi
-          done
-          if (( ${#missing[@]} > 0 )); then
-            echo "Missing required container-release secrets: ${missing[*]}" >&2
-            exit 1
-          fi
-          curl --fail --silent --show-error \
-            https://hub.docker.com/v2/repositories/motrixapp/motrix-server/ \
-            > /dev/null
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up pinned QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-        with:
-          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
-          platforms: arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -1624,31 +1586,398 @@ jobs:
           --revision "$GITHUB_SHA"
           --github-output "$GITHUB_OUTPUT"
 
-      - name: Build and stage immutable multi-architecture image
-        id: container-build
-        if: steps.publication-state.outputs.publication_action == 'build'
+  build-container-platform:
+    name: Build Server / ${{ matrix.platform }}
+    needs: [preflight, publish, plan-container-publication]
+    if: needs.plan-container-publication.outputs.action == 'build'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    environment: container-release
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            os: ubuntu-22.04
+            runner_arch: X64
+            artifact: container-build-linux-amd64
+            metadata_file: linux-amd64.json
+          - platform: linux/arm64
+            os: ubuntu-22.04-arm
+            runner_arch: ARM64
+            artifact: container-build-linux-arm64
+            metadata_file: linux-arm64.json
+    env:
+      CONTAINER_VERSION: ${{ needs.preflight.outputs.container_version }}
+      DOCKERHUB_REPOSITORY: ${{ needs.preflight.outputs.container_dockerhub_repository }}
+      GHCR_REPOSITORY: ${{ needs.preflight.outputs.container_ghcr_repository }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require native GitHub-hosted Linux runner
+        shell: bash
+        env:
+          EXPECTED_RUNNER_ARCH: ${{ matrix.runner_arch }}
+          RUNNER_ARCH_VALUE: ${{ runner.arch }}
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
+          RUNNER_OS_VALUE: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          [[ "$RUNNER_ENVIRONMENT_VALUE" == 'github-hosted' ]]
+          [[ "$RUNNER_OS_VALUE" == 'Linux' ]]
+          [[ "$RUNNER_ARCH_VALUE" == "$EXPECTED_RUNNER_ARCH" ]]
+
+      - name: Validate container release credentials
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required container-release secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error \
+            https://hub.docker.com/v2/repositories/motrixapp/motrix-server/ \
+            > /dev/null
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build and push native platform digest
+        id: platform-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           target: runtime
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ needs.preflight.outputs.container_immutable_tags }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,"name=${{ env.DOCKERHUB_REPOSITORY }},${{ env.GHCR_REPOSITORY }}",oci-artifact=true,push-by-digest=true,name-canonical=true,push=true
           labels: ${{ needs.preflight.outputs.container_labels }}
           build-args: |
             OCI_REVISION=${{ github.sha }}
             OCI_VERSION=${{ needs.preflight.outputs.container_version }}
-          cache-from: type=gha,scope=motrix-server-release
-          cache-to: type=gha,mode=max,scope=motrix-server-release
+          cache-from: type=gha,scope=motrix-server-release-${{ matrix.runner_arch }}
+          cache-to: type=gha,mode=max,scope=motrix-server-release-${{ matrix.runner_arch }}
           provenance: mode=max
           sbom: true
 
-      - name: Repair partial immutable publication
-        if: steps.publication-state.outputs.publication_action == 'copy'
+      - name: Inspect staged platform digests
         shell: bash
         env:
-          COPY_SOURCE: ${{ steps.publication-state.outputs.copy_source }}
-          COPY_TARGET: ${{ steps.publication-state.outputs.copy_target }}
+          PLATFORM_DIGEST: ${{ steps.platform-build.outputs.digest }}
+          SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-platform
+        run: |
+          set -euo pipefail
+          [[ "$PLATFORM_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          mkdir -p "$SNAPSHOT_DIRECTORY"
+          snapshot_platform() {
+            local name="$1"
+            local repository="$2"
+            docker buildx imagetools inspect \
+              "${repository}@${PLATFORM_DIGEST}" \
+              --format '{{json .}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-inspect.json"
+            docker buildx imagetools inspect \
+              "${repository}@${PLATFORM_DIGEST}" --raw \
+              > "$SNAPSHOT_DIRECTORY/${name}-index.json"
+          }
+          snapshot_platform docker-hub "$DOCKERHUB_REPOSITORY"
+          snapshot_platform ghcr "$GHCR_REPOSITORY"
+
+      - name: Prepare anonymous registry client
+        shell: bash
+        env:
+          ANONYMOUS_DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANONYMOUS_DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$ANONYMOUS_DOCKER_CONFIG/config.json"
+
+      - name: Smoke anonymous staged platform digests
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          PLATFORM_DIGEST: ${{ steps.platform-build.outputs.digest }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
+            node scripts/smoke-server-image.mjs \
+              --image "${repository}@${PLATFORM_DIGEST}" \
+              --platform "$PLATFORM" \
+              --timeout-ms 180000
+          done
+
+      - name: Write immutable platform build metadata
+        shell: bash
+        env:
+          BUILDER_RUN_ID: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          METADATA_FILE: ${{ runner.temp }}/${{ matrix.metadata_file }}
+          PLATFORM_DIGEST: ${{ steps.platform-build.outputs.digest }}
+          SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-platform
+        run: >-
+          node scripts/container-platform-metadata.mjs create
+          --platform "${{ matrix.platform }}"
+          --digest "$PLATFORM_DIGEST"
+          --version "$CONTAINER_VERSION"
+          --revision "$GITHUB_SHA"
+          --builder-run-id "$BUILDER_RUN_ID"
+          --builder-attempt "$GITHUB_RUN_ATTEMPT"
+          --runner-arch "${{ runner.arch }}"
+          --runner-environment "${{ runner.environment }}"
+          --runner-os "${{ runner.os }}"
+          --docker-hub-inspect "$SNAPSHOT_DIRECTORY/docker-hub-inspect.json"
+          --docker-hub-index "$SNAPSHOT_DIRECTORY/docker-hub-index.json"
+          --ghcr-inspect "$SNAPSHOT_DIRECTORY/ghcr-inspect.json"
+          --ghcr-index "$SNAPSHOT_DIRECTORY/ghcr-index.json"
+          --output "$METADATA_FILE"
+
+      - name: Upload immutable platform build metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.temp }}/${{ matrix.metadata_file }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  publish-container:
+    name: Finalize and publish verified Server index
+    needs:
+      [preflight, publish, plan-container-publication, build-container-platform]
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.preflight.result == 'success' &&
+      needs.publish.result == 'success' &&
+      needs.plan-container-publication.result == 'success' &&
+      (
+        (
+          needs.plan-container-publication.outputs.action == 'build' &&
+          needs.build-container-platform.result == 'success'
+        ) ||
+        (
+          needs.plan-container-publication.outputs.action != 'build' &&
+          needs.build-container-platform.result == 'skipped'
+        )
+      )
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    environment: container-release
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.immutable-publication.outputs.publication_digest }}
+    env:
+      CONTAINER_VERSION: ${{ needs.preflight.outputs.container_version }}
+      DOCKERHUB_REPOSITORY: ${{ needs.preflight.outputs.container_dockerhub_repository }}
+      GHCR_REPOSITORY: ${{ needs.preflight.outputs.container_ghcr_repository }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate container release credentials
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required container-release secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Download amd64 platform build metadata
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: container-build-linux-amd64
+          path: ${{ runner.temp }}/container-build-metadata/amd64
+
+      - name: Download arm64 platform build metadata
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: container-build-linux-arm64
+          path: ${{ runner.temp }}/container-build-metadata/arm64
+
+      - name: Verify complete platform build set
+        id: platform-builds
+        shell: bash
+        env:
+          BUILDER_RUN_ID: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          METADATA_DIRECTORY: ${{ runner.temp }}/container-build-metadata
+          VERIFIED_METADATA: ${{ runner.temp }}/verified-container-builds.json
+        run: >-
+          node scripts/container-platform-metadata.mjs verify-set
+          --metadata-dir "$METADATA_DIRECTORY"
+          --version "$CONTAINER_VERSION"
+          --revision "$GITHUB_SHA"
+          --builder-run-id "$BUILDER_RUN_ID"
+          --builder-attempt "$GITHUB_RUN_ATTEMPT"
+          --output "$VERIFIED_METADATA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Revalidate immutable tags before finalization
+        shell: bash
+        env:
+          DOCKERHUB_SNAPSHOT: ${{ runner.temp }}/dockerhub-immutable.json
+          GHCR_SNAPSHOT: ${{ runner.temp }}/ghcr-immutable.json
+        run: |
+          set -euo pipefail
+          inspect_tag() {
+            local ref="$1"
+            local target="$2"
+            local detail
+            if detail="$(docker buildx imagetools inspect \
+              "$ref" --format '{{json .}}' 2>&1)"; then
+              printf '%s\n' "$detail" > "$target"
+              return
+            fi
+            if grep -Eiq \
+              'not found|manifest unknown|name unknown|does not exist' \
+              <<< "$detail"; then
+              printf 'null\n' > "$target"
+              return
+            fi
+            printf '%s\n' "$detail" >&2
+            exit 1
+          }
+          inspect_tag \
+            "${DOCKERHUB_REPOSITORY}:${CONTAINER_VERSION}" \
+            "$DOCKERHUB_SNAPSHOT"
+          inspect_tag \
+            "${GHCR_REPOSITORY}:${CONTAINER_VERSION}" \
+            "$GHCR_SNAPSHOT"
+
+      - name: Resolve finalization state
+        id: finalization-state
+        env:
+          DOCKERHUB_SNAPSHOT: ${{ runner.temp }}/dockerhub-immutable.json
+          GHCR_SNAPSHOT: ${{ runner.temp }}/ghcr-immutable.json
+        run: >-
+          node scripts/container-publication-state.mjs
+          --docker-hub-snapshot "$DOCKERHUB_SNAPSHOT"
+          --ghcr-snapshot "$GHCR_SNAPSHOT"
+          --version "$CONTAINER_VERSION"
+          --revision "$GITHUB_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Prepare anonymous registry client
+        shell: bash
+        env:
+          ANONYMOUS_DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANONYMOUS_DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$ANONYMOUS_DOCKER_CONFIG/config.json"
+
+      - name: Verify partial immutable source before repair
+        if: steps.finalization-state.outputs.publication_action == 'copy'
+        shell: bash
+        env:
+          COPY_SOURCE: ${{ steps.finalization-state.outputs.copy_source }}
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          EXPECTED_BUILDER_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAXIMUM_BUILDER_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-repair-source
+          VERIFIED_METADATA: ${{ runner.temp }}/verified-container-builds.json
+        run: |
+          set -euo pipefail
+          mkdir -p "$SOURCE_SNAPSHOT_DIRECTORY"
+          source_repository="${COPY_SOURCE%@*}"
+          docker buildx imagetools inspect "$COPY_SOURCE" \
+            --format '{{json .}}' \
+            > "$SOURCE_SNAPSHOT_DIRECTORY/inspect.json"
+          docker buildx imagetools inspect "$COPY_SOURCE" --raw \
+            > "$SOURCE_SNAPSHOT_DIRECTORY/index.json"
+          docker buildx imagetools inspect "$COPY_SOURCE" \
+            --format '{{json .SBOM}}' \
+            > "$SOURCE_SNAPSHOT_DIRECTORY/sbom.json"
+          docker buildx imagetools inspect "$COPY_SOURCE" \
+            --format '{{json .Provenance}}' \
+            > "$SOURCE_SNAPSHOT_DIRECTORY/provenance.json"
+          node scripts/verify-container-publication.mjs \
+            --repository "$source_repository" \
+            --inspect "$SOURCE_SNAPSHOT_DIRECTORY/inspect.json" \
+            --index "$SOURCE_SNAPSHOT_DIRECTORY/index.json" \
+            --sbom "$SOURCE_SNAPSHOT_DIRECTORY/sbom.json" \
+            --provenance "$SOURCE_SNAPSHOT_DIRECTORY/provenance.json" \
+            --platform-metadata "$VERIFIED_METADATA" \
+            --builder-run-id "$EXPECTED_BUILDER_RUN" \
+            --maximum-builder-attempt "$MAXIMUM_BUILDER_ATTEMPT" \
+            --version "$CONTAINER_VERSION" \
+            --revision "$GITHUB_SHA"
+
+      - name: Create immutable multi-platform indexes
+        if: steps.finalization-state.outputs.publication_action == 'build'
+        shell: bash
+        env:
+          AMD64_DIGEST: ${{ steps.platform-builds.outputs.amd64_digest }}
+          ARM64_DIGEST: ${{ steps.platform-builds.outputs.arm64_digest }}
+        run: |
+          set -euo pipefail
+          for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
+            docker buildx imagetools create \
+              --tag "${repository}:${CONTAINER_VERSION}" \
+              "${repository}@${AMD64_DIGEST}" \
+              "${repository}@${ARM64_DIGEST}"
+          done
+
+      - name: Repair partial immutable publication
+        if: steps.finalization-state.outputs.publication_action == 'copy'
+        shell: bash
+        env:
+          COPY_SOURCE: ${{ steps.finalization-state.outputs.copy_source }}
+          COPY_TARGET: ${{ steps.finalization-state.outputs.copy_target }}
         run: >-
           docker buildx imagetools create
           --tag "$COPY_TARGET"
@@ -1685,18 +2014,61 @@ jobs:
         shell: bash
         env:
           EXPECTED_ACTION: ${{ steps.immutable-publication.outputs.publication_action }}
-          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
-          BUILD_DIGEST: ${{ steps.container-build.outputs.digest }}
         run: |
           set -euo pipefail
           if [[ "$EXPECTED_ACTION" != 'resume' ]]; then
             echo "Immutable publication did not converge: $EXPECTED_ACTION" >&2
             exit 1
           fi
-          if [[ -n "$BUILD_DIGEST" && "$BUILD_DIGEST" != "$PUBLISHED_DIGEST" ]]; then
-            echo "Build digest differs from published digest" >&2
-            exit 1
-          fi
+
+      - name: Verify anonymous multi-platform index artifacts before signing
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          EXPECTED_BUILDER_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAXIMUM_BUILDER_ATTEMPT: ${{ github.run_attempt }}
+          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
+          SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-publication
+          VERIFIED_METADATA: ${{ runner.temp }}/verified-container-builds.json
+        run: |
+          set -euo pipefail
+          mkdir -p "$SNAPSHOT_DIRECTORY"
+          snapshot_artifact() {
+            local name="$1"
+            local reference="$2"
+            docker buildx imagetools inspect "$reference" \
+              --format '{{json .}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-inspect.json"
+            docker buildx imagetools inspect "$reference" --raw \
+              > "$SNAPSHOT_DIRECTORY/${name}-index.json"
+            docker buildx imagetools inspect "$reference" \
+              --format '{{json .SBOM}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-sbom.json"
+            docker buildx imagetools inspect "$reference" \
+              --format '{{json .Provenance}}' \
+              > "$SNAPSHOT_DIRECTORY/${name}-provenance.json"
+          }
+          snapshot_artifact \
+            docker-hub "${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
+          snapshot_artifact ghcr "${GHCR_REPOSITORY}@${PUBLISHED_DIGEST}"
+          node scripts/verify-container-publication.mjs \
+            --docker-hub-inspect \
+              "$SNAPSHOT_DIRECTORY/docker-hub-inspect.json" \
+            --docker-hub-index \
+              "$SNAPSHOT_DIRECTORY/docker-hub-index.json" \
+            --docker-hub-sbom \
+              "$SNAPSHOT_DIRECTORY/docker-hub-sbom.json" \
+            --docker-hub-provenance \
+              "$SNAPSHOT_DIRECTORY/docker-hub-provenance.json" \
+            --ghcr-inspect "$SNAPSHOT_DIRECTORY/ghcr-inspect.json" \
+            --ghcr-index "$SNAPSHOT_DIRECTORY/ghcr-index.json" \
+            --ghcr-sbom "$SNAPSHOT_DIRECTORY/ghcr-sbom.json" \
+            --ghcr-provenance "$SNAPSHOT_DIRECTORY/ghcr-provenance.json" \
+            --platform-metadata "$VERIFIED_METADATA" \
+            --builder-run-id "$EXPECTED_BUILDER_RUN" \
+            --maximum-builder-attempt "$MAXIMUM_BUILDER_ATTEMPT" \
+            --version "$CONTAINER_VERSION" \
+            --revision "$GITHUB_SHA"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -1710,15 +2082,6 @@ jobs:
           for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
             cosign sign --yes "${repository}@${PUBLISHED_DIGEST}"
           done
-
-      - name: Prepare anonymous registry client
-        shell: bash
-        env:
-          ANONYMOUS_DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
-        run: |
-          set -euo pipefail
-          mkdir -p "$ANONYMOUS_DOCKER_CONFIG"
-          printf '{"auths":{}}\n' > "$ANONYMOUS_DOCKER_CONFIG/config.json"
 
       - name: Verify immutable signatures
         shell: bash
@@ -1755,96 +2118,6 @@ jobs:
             verify_signature "$repository"
           done
 
-      - name: Verify anonymous multi-architecture artifacts
-        shell: bash
-        env:
-          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
-          EXPECTED_BUILDER_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          MAXIMUM_BUILDER_ATTEMPT: ${{ github.run_attempt }}
-          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
-          SNAPSHOT_DIRECTORY: ${{ runner.temp }}/container-publication
-        run: |
-          set -euo pipefail
-          mkdir -p "$SNAPSHOT_DIRECTORY"
-          snapshot_artifact() {
-            local name="$1"
-            local reference="$2"
-            docker buildx imagetools inspect "$reference" \
-              --format '{{json .}}' \
-              > "$SNAPSHOT_DIRECTORY/${name}-inspect.json"
-            docker buildx imagetools inspect "$reference" --raw \
-              > "$SNAPSHOT_DIRECTORY/${name}-index.json"
-            docker buildx imagetools inspect "$reference" \
-              --format '{{json .SBOM}}' \
-              > "$SNAPSHOT_DIRECTORY/${name}-sbom.json"
-            docker buildx imagetools inspect "$reference" \
-              --format '{{json .Provenance}}' \
-              > "$SNAPSHOT_DIRECTORY/${name}-provenance.json"
-          }
-          snapshot_artifact \
-            docker-hub "${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
-          snapshot_artifact ghcr "${GHCR_REPOSITORY}@${PUBLISHED_DIGEST}"
-          node scripts/verify-container-publication.mjs \
-            --docker-hub-inspect \
-              "$SNAPSHOT_DIRECTORY/docker-hub-inspect.json" \
-            --docker-hub-index \
-              "$SNAPSHOT_DIRECTORY/docker-hub-index.json" \
-            --docker-hub-sbom \
-              "$SNAPSHOT_DIRECTORY/docker-hub-sbom.json" \
-            --docker-hub-provenance \
-              "$SNAPSHOT_DIRECTORY/docker-hub-provenance.json" \
-            --ghcr-inspect "$SNAPSHOT_DIRECTORY/ghcr-inspect.json" \
-            --ghcr-index "$SNAPSHOT_DIRECTORY/ghcr-index.json" \
-            --ghcr-sbom "$SNAPSHOT_DIRECTORY/ghcr-sbom.json" \
-            --ghcr-provenance "$SNAPSHOT_DIRECTORY/ghcr-provenance.json" \
-            --builder-run-id "$EXPECTED_BUILDER_RUN" \
-            --maximum-builder-attempt "$MAXIMUM_BUILDER_ATTEMPT" \
-            --version "$CONTAINER_VERSION" \
-            --revision "$GITHUB_SHA"
-
-      - name: Smoke anonymous published architectures
-        shell: bash
-        env:
-          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
-          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
-        run: |
-          set -euo pipefail
-          public_image="${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
-          node scripts/smoke-server-image.mjs \
-            --image "$public_image" \
-            --platform linux/amd64 \
-            --timeout-ms 180000
-          node scripts/smoke-server-image.mjs \
-            --image "$public_image" \
-            --platform linux/arm64 \
-            --mode health \
-            --timeout-ms 180000
-
-      - name: Promote stable container aliases
-        if: needs.preflight.outputs.container_prerelease != 'true'
-        shell: bash
-        env:
-          FLOATING_TAGS: ${{ needs.preflight.outputs.container_floating_tags }}
-          PUBLISHED_DIGEST: ${{ steps.immutable-publication.outputs.publication_digest }}
-        run: |
-          set -euo pipefail
-          dockerhub_tags=()
-          ghcr_tags=()
-          while IFS= read -r tag; do
-            [[ -z "$tag" ]] && continue
-            case "$tag" in
-              docker.io/*) dockerhub_tags+=(--tag "$tag") ;;
-              ghcr.io/*) ghcr_tags+=(--tag "$tag") ;;
-              *) echo "Unexpected container tag: $tag" >&2; exit 1 ;;
-            esac
-          done <<< "$FLOATING_TAGS"
-          docker buildx imagetools create \
-            "${dockerhub_tags[@]}" \
-            "${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
-          docker buildx imagetools create \
-            "${ghcr_tags[@]}" \
-            "${GHCR_REPOSITORY}@${PUBLISHED_DIGEST}"
-
       - name: Update Docker Hub description
         shell: bash
         env:
@@ -1872,6 +2145,173 @@ jobs:
             --data "$dockerhub_description" \
             https://hub.docker.com/v2/repositories/motrixapp/motrix-server/ \
             > /dev/null
+
+  verify-container-runtime:
+    name: Verify Server runtime / ${{ matrix.platform }}
+    needs: [preflight, publish-container]
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            os: ubuntu-22.04
+            runner_arch: X64
+          - platform: linux/arm64
+            os: ubuntu-22.04-arm
+            runner_arch: ARM64
+    env:
+      DOCKERHUB_REPOSITORY: ${{ needs.preflight.outputs.container_dockerhub_repository }}
+      GHCR_REPOSITORY: ${{ needs.preflight.outputs.container_ghcr_repository }}
+      PUBLISHED_DIGEST: ${{ needs.publish-container.outputs.digest }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require native GitHub-hosted Linux runner
+        shell: bash
+        env:
+          EXPECTED_RUNNER_ARCH: ${{ matrix.runner_arch }}
+          RUNNER_ARCH_VALUE: ${{ runner.arch }}
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
+          RUNNER_OS_VALUE: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          [[ "$RUNNER_ENVIRONMENT_VALUE" == 'github-hosted' ]]
+          [[ "$RUNNER_OS_VALUE" == 'Linux' ]]
+          [[ "$RUNNER_ARCH_VALUE" == "$EXPECTED_RUNNER_ARCH" ]]
+
+      - name: Prepare anonymous registry client
+        shell: bash
+        env:
+          ANONYMOUS_DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANONYMOUS_DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$ANONYMOUS_DOCKER_CONFIG/config.json"
+
+      - name: Smoke immutable public index on native platform
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          [[ "$PUBLISHED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
+            node scripts/smoke-server-image.mjs \
+              --image "${repository}@${PUBLISHED_DIGEST}" \
+              --platform "$PLATFORM" \
+              --timeout-ms 180000
+          done
+
+  promote-container-aliases:
+    name: Promote verified stable Server aliases
+    needs: [preflight, publish-container, verify-container-runtime]
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.preflight.outputs.container_prerelease != 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    environment: container-release
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CONTAINER_VERSION: ${{ needs.preflight.outputs.container_version }}
+      DOCKERHUB_REPOSITORY: ${{ needs.preflight.outputs.container_dockerhub_repository }}
+      GHCR_REPOSITORY: ${{ needs.preflight.outputs.container_ghcr_repository }}
+      PUBLISHED_DIGEST: ${{ needs.publish-container.outputs.digest }}
+    steps:
+      - name: Validate container release credentials
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$DOCKERHUB_USERNAME" ]]
+          [[ -n "$DOCKERHUB_TOKEN" ]]
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Revalidate immutable inputs before alias promotion
+        shell: bash
+        env:
+          ANONYMOUS_DOCKER_CONFIG: ${{ runner.temp }}/anonymous-docker
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANONYMOUS_DOCKER_CONFIG"
+          printf '{"auths":{}}\n' > "$ANONYMOUS_DOCKER_CONFIG/config.json"
+          identity="https://github.com/agalwood/Motrix/.github/workflows/release.yml@refs/tags/${GITHUB_REF_NAME}"
+          for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
+            observed="$(DOCKER_CONFIG="$ANONYMOUS_DOCKER_CONFIG" \
+              docker buildx imagetools inspect \
+              "${repository}:${CONTAINER_VERSION}" \
+              --format '{{json .}}' | jq -er '.manifest.digest')"
+            [[ "$observed" == "$PUBLISHED_DIGEST" ]]
+            DOCKER_CONFIG="$ANONYMOUS_DOCKER_CONFIG" cosign verify \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer \
+                'https://token.actions.githubusercontent.com' \
+              "${repository}@${PUBLISHED_DIGEST}" > /dev/null
+          done
+
+      - name: Promote and verify stable container aliases last
+        shell: bash
+        env:
+          FLOATING_TAGS: ${{ needs.preflight.outputs.container_floating_tags }}
+        run: |
+          set -euo pipefail
+          dockerhub_tags=()
+          ghcr_tags=()
+          all_tags=()
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            all_tags+=("$tag")
+            case "$tag" in
+              docker.io/*) dockerhub_tags+=(--tag "$tag") ;;
+              ghcr.io/*) ghcr_tags+=(--tag "$tag") ;;
+              *) echo "Unexpected container tag: $tag" >&2; exit 1 ;;
+            esac
+          done <<< "$FLOATING_TAGS"
+          (( ${#dockerhub_tags[@]} == 8 ))
+          (( ${#ghcr_tags[@]} == 8 ))
+          docker buildx imagetools create \
+            "${dockerhub_tags[@]}" \
+            "${DOCKERHUB_REPOSITORY}@${PUBLISHED_DIGEST}"
+          docker buildx imagetools create \
+            "${ghcr_tags[@]}" \
+            "${GHCR_REPOSITORY}@${PUBLISHED_DIGEST}"
+          for tag in "${all_tags[@]}"; do
+            observed="$(docker buildx imagetools inspect "$tag" \
+              --format '{{json .}}' | jq -er '.manifest.digest')"
+            [[ "$observed" == "$PUBLISHED_DIGEST" ]]
+          done
 
   publish-feed:
     name: Publish dl.motrix.app update feed

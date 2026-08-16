@@ -134,6 +134,7 @@ jobs:
           tests/scripts/assemble-release-artifacts.test.ts
           tests/scripts/before-pack-verify.test.ts
           tests/scripts/compose-server.test.ts
+          tests/scripts/container-platform-metadata.test.ts
           tests/scripts/container-publication-state.test.ts
           tests/scripts/container-release-metadata.test.ts
           tests/scripts/docker-server-docs.test.ts

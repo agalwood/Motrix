@@ -778,80 +778,260 @@ describe('release workflow publication contract', () => {
     )
   })
 
-  it('publishes resumable signed multi-architecture containers only from release tags', () => {
+  it('fans native container builds into one fail-closed signed index and promotes aliases last', () => {
     const jobs = workflowJobs(releaseWorkflow)
-    const containerJob = asRecord(
+    const plan = asRecord(
+      jobs['plan-container-publication'],
+      'container publication plan job'
+    )
+    const platformBuild = asRecord(
+      jobs['build-container-platform'],
+      'container platform build job'
+    )
+    const finalize = asRecord(
       jobs['publish-container'],
       'publish-container job'
     )
-    expect(jobNeeds(containerJob)).toEqual(
+    const runtime = asRecord(
+      jobs['verify-container-runtime'],
+      'container runtime job'
+    )
+    const promote = asRecord(
+      jobs['promote-container-aliases'],
+      'container alias promotion job'
+    )
+
+    expect(jobNeeds(plan)).toEqual(
       expect.arrayContaining(['preflight', 'publish'])
     )
-    const condition = stringField(containerJob, 'if')
-    expect(condition).toContain("github.event_name == 'push'")
-    expect(condition).toContain("startsWith(github.ref, 'refs/tags/v')")
-    expect(stringField(containerJob, 'environment')).toBe('container-release')
-    expect(asRecord(containerJob.permissions, 'container permissions')).toEqual(
-      {
-        contents: 'read',
-        'id-token': 'write',
-        packages: 'write',
-      }
+    expect(jobNeeds(platformBuild)).toEqual(
+      expect.arrayContaining([
+        'preflight',
+        'publish',
+        'plan-container-publication',
+      ])
+    )
+    expect(jobNeeds(finalize)).toEqual(
+      expect.arrayContaining([
+        'preflight',
+        'publish',
+        'plan-container-publication',
+        'build-container-platform',
+      ])
+    )
+    expect(jobNeeds(runtime)).toEqual(
+      expect.arrayContaining(['preflight', 'publish-container'])
+    )
+    expect(jobNeeds(promote)).toEqual(
+      expect.arrayContaining([
+        'preflight',
+        'publish-container',
+        'verify-container-runtime',
+      ])
     )
 
-    const steps = jobSteps(containerJob)
-    const stepIndex = (name: string) =>
-      steps.findIndex((step) => step.name === name)
-    const build =
-      steps[stepIndex('Build and stage immutable multi-architecture image')]
-    expect(build).toBeDefined()
-    const buildInputs = asRecord(build?.with, 'container build inputs')
-    expect(stringField(buildInputs, 'platforms')).toBe(
-      'linux/amd64,linux/arm64'
+    expect(stringField(platformBuild, 'if')).toContain(
+      "needs.plan-container-publication.outputs.action == 'build'"
     )
-    expect(buildInputs.push).toBe(true)
+    const finalCondition = stringField(finalize, 'if')
+    expect(finalCondition).toContain('always()')
+    expect(finalCondition).toContain(
+      "needs.plan-container-publication.outputs.action == 'build'"
+    )
+    expect(finalCondition).toContain(
+      "needs.build-container-platform.result == 'success'"
+    )
+    expect(finalCondition).toContain(
+      "needs.build-container-platform.result == 'skipped'"
+    )
+    for (const job of [plan, finalize, runtime]) {
+      const condition = stringField(job, 'if', finalCondition)
+      expect(condition).toContain("github.event_name == 'push'")
+      expect(condition).toContain("startsWith(github.ref, 'refs/tags/v')")
+    }
+
+    const matrix = asRecord(
+      asRecord(platformBuild.strategy, 'platform build strategy').matrix,
+      'platform build matrix'
+    )
+    expect(matrix.include).toEqual([
+      {
+        platform: 'linux/amd64',
+        os: 'ubuntu-22.04',
+        runner_arch: 'X64',
+        artifact: 'container-build-linux-amd64',
+        metadata_file: 'linux-amd64.json',
+      },
+      {
+        platform: 'linux/arm64',
+        os: 'ubuntu-22.04-arm',
+        runner_arch: 'ARM64',
+        artifact: 'container-build-linux-arm64',
+        metadata_file: 'linux-arm64.json',
+      },
+    ])
+    expect(stringField(platformBuild, 'runs-on')).toBe(`\${{ matrix.os }}`)
+    expect(stringField(platformBuild, 'environment')).toBe('container-release')
+    expect(
+      asRecord(platformBuild.permissions, 'platform build permissions')
+    ).toEqual({
+      contents: 'read',
+      packages: 'write',
+    })
+    expect(asRecord(finalize.permissions, 'finalize permissions')).toEqual({
+      contents: 'read',
+      'id-token': 'write',
+      packages: 'write',
+    })
+    expect(asRecord(runtime.permissions, 'runtime permissions')).toEqual({
+      contents: 'read',
+    })
+
+    const buildSteps = jobSteps(platformBuild)
+    const buildStepIndex = (name: string) =>
+      buildSteps.findIndex((step) => step.name === name)
+    const build =
+      buildSteps[buildStepIndex('Build and push native platform digest')]
+    const buildInputs = asRecord(build?.with, 'native container build inputs')
+    expect(stringField(buildInputs, 'platforms')).toBe(
+      `\${{ matrix.platform }}`
+    )
+    expect(stringField(buildInputs, 'outputs')).toContain('push-by-digest=true')
+    expect(stringField(buildInputs, 'outputs')).toContain('name-canonical=true')
+    expect(stringField(buildInputs, 'outputs')).toContain('oci-artifact=true')
+    expect(stringField(buildInputs, 'outputs')).toContain('push=true')
+    expect(buildInputs).not.toHaveProperty('tags')
     expect(buildInputs.sbom).toBe(true)
     expect(stringField(buildInputs, 'provenance')).toBe('mode=max')
-    expect(stringField(buildInputs, 'cache-from')).toContain('type=gha')
+    expect(stringField(buildInputs, 'cache-from')).toContain(
+      'matrix.runner_arch'
+    )
     expect(stringField(buildInputs, 'cache-to')).toContain('mode=max')
-
-    const qemu = steps.find((step) => step.name === 'Set up pinned QEMU')
-    expect(stringField(asRecord(qemu?.with, 'QEMU inputs'), 'image')).toMatch(
-      /^tonistiigi\/binfmt@sha256:[0-9a-f]{64}$/
-    )
-    expect(stringField(asRecord(qemu?.with, 'QEMU inputs'), 'platforms')).toBe(
-      'arm64'
-    )
-
-    const inspectCommand = stringField(
-      steps[stepIndex('Inspect existing immutable tags')] as LooseRecord,
-      'run'
-    )
-    expect(inspectCommand).not.toContain('pull access denied')
-    expect(stepIndex('Resolve immutable publication state')).toBeLessThan(
-      stepIndex('Build and stage immutable multi-architecture image')
-    )
-    expect(stepIndex('Verify immutable publication state')).toBeLessThan(
-      stepIndex('Sign immutable digests with GitHub OIDC')
-    )
-    expect(stepIndex('Sign immutable digests with GitHub OIDC')).toBeLessThan(
-      stepIndex('Prepare anonymous registry client')
-    )
-    expect(stepIndex('Verify immutable signatures')).toBeLessThan(
-      stepIndex('Verify anonymous multi-architecture artifacts')
+    expect(
+      buildStepIndex('Require native GitHub-hosted Linux runner')
+    ).toBeLessThan(buildStepIndex('Build and push native platform digest'))
+    expect(buildStepIndex('Inspect staged platform digests')).toBeLessThan(
+      buildStepIndex('Smoke anonymous staged platform digests')
     )
     expect(
-      stepIndex('Verify anonymous multi-architecture artifacts')
-    ).toBeLessThan(stepIndex('Smoke anonymous published architectures'))
-    expect(stepIndex('Smoke anonymous published architectures')).toBeLessThan(
-      stepIndex('Promote stable container aliases')
+      buildStepIndex('Smoke anonymous staged platform digests')
+    ).toBeLessThan(buildStepIndex('Write immutable platform build metadata'))
+    expect(
+      buildStepIndex('Write immutable platform build metadata')
+    ).toBeLessThan(buildStepIndex('Upload immutable platform build metadata'))
+    const runnerCommand = stringField(
+      buildSteps[
+        buildStepIndex('Require native GitHub-hosted Linux runner')
+      ] as LooseRecord,
+      'run'
     )
-    expect(stepIndex('Promote stable container aliases')).toBeLessThan(
-      stepIndex('Update Docker Hub description')
+    expect(runnerCommand).toContain("'github-hosted'")
+    expect(runnerCommand).toContain('EXPECTED_RUNNER_ARCH')
+    const stagedSmoke = stringField(
+      buildSteps[
+        buildStepIndex('Smoke anonymous staged platform digests')
+      ] as LooseRecord,
+      'run'
     )
+    expect(stagedSmoke).toContain('smoke-server-image.mjs')
+    expect(stagedSmoke).toContain('"$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"')
+    expect(stagedSmoke).not.toContain('--mode health')
+    const metadataCommand = stringField(
+      buildSteps[
+        buildStepIndex('Write immutable platform build metadata')
+      ] as LooseRecord,
+      'run'
+    )
+    expect(metadataCommand).toContain('container-platform-metadata.mjs create')
+    expect(metadataCommand).toContain('--runner-arch')
+    expect(metadataCommand).toContain('--docker-hub-index')
+    expect(metadataCommand).toContain('--ghcr-index')
+    const metadataUpload = buildSteps[
+      buildStepIndex('Upload immutable platform build metadata')
+    ] as LooseRecord
+    expect(
+      asRecord(metadataUpload.with, 'metadata upload inputs').overwrite
+    ).toBe(true)
 
-    const signatureVerification = steps[
-      stepIndex('Verify immutable signatures')
+    const finalSteps = jobSteps(finalize)
+    const finalStepIndex = (name: string) =>
+      finalSteps.findIndex((step) => step.name === name)
+    const metadataDownloads = finalSteps
+      .filter((step) =>
+        stringField(step, 'uses', '').startsWith('actions/download-artifact@')
+      )
+      .map((step) =>
+        stringField(asRecord(step.with, 'metadata download inputs'), 'name')
+      )
+    expect(metadataDownloads).toEqual([
+      'container-build-linux-amd64',
+      'container-build-linux-arm64',
+    ])
+    for (const step of finalSteps.filter((step) =>
+      stringField(step, 'uses', '').startsWith('actions/download-artifact@')
+    )) {
+      expect(step.if).toBeUndefined()
+    }
+    expect(finalStepIndex('Verify complete platform build set')).toBeLessThan(
+      finalStepIndex('Revalidate immutable tags before finalization')
+    )
+    expect(finalStepIndex('Resolve finalization state')).toBeLessThan(
+      finalStepIndex('Create immutable multi-platform indexes')
+    )
+    expect(
+      finalStepIndex('Create immutable multi-platform indexes')
+    ).toBeLessThan(finalStepIndex('Verify immutable publication state'))
+    expect(
+      finalStepIndex('Verify partial immutable source before repair')
+    ).toBeLessThan(finalStepIndex('Repair partial immutable publication'))
+    expect(finalStepIndex('Repair partial immutable publication')).toBeLessThan(
+      finalStepIndex('Verify immutable publication state')
+    )
+    expect(finalStepIndex('Verify immutable publication state')).toBeLessThan(
+      finalStepIndex(
+        'Verify anonymous multi-platform index artifacts before signing'
+      )
+    )
+    expect(
+      finalStepIndex(
+        'Verify anonymous multi-platform index artifacts before signing'
+      )
+    ).toBeLessThan(finalStepIndex('Sign immutable digests with GitHub OIDC'))
+    expect(
+      finalStepIndex('Sign immutable digests with GitHub OIDC')
+    ).toBeLessThan(finalStepIndex('Verify immutable signatures'))
+    const setCommand = stringField(
+      finalSteps[
+        finalStepIndex('Verify complete platform build set')
+      ] as LooseRecord,
+      'run'
+    )
+    expect(setCommand).toContain('container-platform-metadata.mjs verify-set')
+    expect(setCommand).toContain('--builder-attempt "$GITHUB_RUN_ATTEMPT"')
+    const createCommand = stringField(
+      finalSteps[
+        finalStepIndex('Create immutable multi-platform indexes')
+      ] as LooseRecord,
+      'run'
+    )
+    expect(createCommand).toContain('AMD64_DIGEST')
+    expect(createCommand).toContain('ARM64_DIGEST')
+    expect(createCommand).toContain('imagetools create')
+    const repairVerification = stringField(
+      finalSteps[
+        finalStepIndex('Verify partial immutable source before repair')
+      ] as LooseRecord,
+      'run'
+    )
+    expect(repairVerification).toContain('--repository "$source_repository"')
+    expect(repairVerification).toContain(
+      '--platform-metadata "$VERIFIED_METADATA"'
+    )
+    expect(repairVerification).toContain("--format '{{json .SBOM}}'")
+    expect(repairVerification).toContain("--format '{{json .Provenance}}'")
+
+    const signatureVerification = finalSteps[
+      finalStepIndex('Verify immutable signatures')
     ] as LooseRecord
     const signatureEnvironment = asRecord(
       signatureVerification.env,
@@ -876,8 +1056,10 @@ describe('release workflow publication contract', () => {
     expect(signatureCommand).toContain('sleep "$retry_delay_seconds"')
     expect(signatureCommand).not.toContain('|| true')
 
-    const publicVerification = steps[
-      stepIndex('Verify anonymous multi-architecture artifacts')
+    const publicVerification = finalSteps[
+      finalStepIndex(
+        'Verify anonymous multi-platform index artifacts before signing'
+      )
     ] as LooseRecord
     const publicEnvironment = asRecord(
       publicVerification.env,
@@ -896,27 +1078,62 @@ describe('release workflow publication contract', () => {
     expect(publicCommand).toContain("--format '{{json .SBOM}}'")
     expect(publicCommand).toContain("--format '{{json .Provenance}}'")
     expect(publicCommand).toContain('verify-container-publication.mjs')
+    expect(publicCommand).toContain('--platform-metadata "$VERIFIED_METADATA"')
     expect(publicCommand).toContain('--builder-run-id "$EXPECTED_BUILDER_RUN"')
-    expect(publicCommand).toContain(
-      '--maximum-builder-attempt "$MAXIMUM_BUILDER_ATTEMPT"'
-    )
     expect(publicCommand).not.toContain('--builder-id-prefix')
-    const smokeCommand = stringField(
-      steps[
-        stepIndex('Smoke anonymous published architectures')
-      ] as LooseRecord,
+
+    const runtimeMatrix = asRecord(
+      asRecord(runtime.strategy, 'runtime strategy').matrix,
+      'runtime matrix'
+    )
+    expect(runtimeMatrix.include).toEqual([
+      { platform: 'linux/amd64', os: 'ubuntu-22.04', runner_arch: 'X64' },
+      { platform: 'linux/arm64', os: 'ubuntu-22.04-arm', runner_arch: 'ARM64' },
+    ])
+    const runtimeSteps = jobSteps(runtime)
+    const publicSmoke = stringField(
+      runtimeSteps.find(
+        (step) =>
+          step.name === 'Smoke immutable public index on native platform'
+      ) as LooseRecord,
       'run'
     )
-    expect(smokeCommand).toContain('--platform linux/amd64')
-    expect(smokeCommand).toContain('--platform linux/arm64')
-    expect(smokeCommand).toContain('--mode health')
-    expect(smokeCommand).toContain('smoke-server-image.mjs')
+    expect(publicSmoke).toContain('smoke-server-image.mjs')
+    expect(publicSmoke).toContain('"$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"')
+    expect(publicSmoke).toContain('--platform "$PLATFORM"')
+    expect(publicSmoke).not.toContain('--mode health')
 
-    const allOtherJobs = Object.entries(jobs).filter(
-      ([name]) => name !== 'publish-container'
+    const promoteSteps = jobSteps(promote)
+    expect(stringField(promote, 'if')).toContain(
+      "needs.preflight.outputs.container_prerelease != 'true'"
     )
-    expect(JSON.stringify(allOtherJobs)).not.toContain('DOCKERHUB_TOKEN')
-    expect(JSON.stringify(allOtherJobs)).not.toContain('packages":"write')
+    expect(promoteSteps.at(-1)?.name).toBe(
+      'Promote and verify stable container aliases last'
+    )
+    const revalidateAliases = stringField(
+      promoteSteps.find(
+        (step) =>
+          step.name === 'Revalidate immutable inputs before alias promotion'
+      ) as LooseRecord,
+      'run'
+    )
+    expect(revalidateAliases).toContain('cosign verify')
+    expect(revalidateAliases).toContain('PUBLISHED_DIGEST')
+    const aliasCommand = stringField(promoteSteps.at(-1) as LooseRecord, 'run')
+    expect(aliasCommand).toContain('imagetools create')
+    expect(aliasCommand).toContain('all_tags')
+    expect(aliasCommand).toContain('PUBLISHED_DIGEST')
+
+    expect(releaseSource).not.toMatch(/qemu|setup-qemu|binfmt/i)
+    const jobsWithDockerHubToken = Object.entries(jobs)
+      .filter(([, job]) => JSON.stringify(job).includes('DOCKERHUB_TOKEN'))
+      .map(([name]) => name)
+      .sort()
+    expect(jobsWithDockerHubToken).toEqual([
+      'build-container-platform',
+      'promote-container-aliases',
+      'publish-container',
+    ])
   })
 
   it('bounds anonymous signature visibility retries and still fails closed', () => {
