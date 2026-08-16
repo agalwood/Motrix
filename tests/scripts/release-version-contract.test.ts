@@ -280,8 +280,12 @@ describe('release version contract', () => {
   it('records beta.9 as an unpublished finalization attempt', () => {
     const english = read('docs/release-notes/2.0.0-beta.9.md')
     const chinese = read('docs/release-notes/2.0.0-beta.9.zh-CN.md')
-    const normalizedEnglish = english.replace(/\s+/g, ' ')
-    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
     const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
     const beta9Metainfo =
       /<release version="2\.0\.0-beta\.9"[\s\S]*?<\/release>/.exec(
@@ -354,8 +358,12 @@ describe('release version contract', () => {
   it('records beta.10 as an unpublished assembly attempt', () => {
     const english = read('docs/release-notes/2.0.0-beta.10.md')
     const chinese = read('docs/release-notes/2.0.0-beta.10.zh-CN.md')
-    const normalizedEnglish = english.replace(/\s+/g, ' ')
-    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
     const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
     const beta10Metainfo =
       /<release version="2\.0\.0-beta\.10"[\s\S]*?<\/release>/.exec(
@@ -583,11 +591,92 @@ describe('release version contract', () => {
     expect(beta12Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('preserves beta.13 container verification recovery and distribution limits', () => {
+  it('ships beta.14 native container recovery without cross-channel atomicity claims', () => {
+    const english = read('docs/release-notes/2.0.0-beta.14.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.14.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta14Metainfo =
+      /<release version="2\.0\.0-beta\.14"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta14Metainfo = beta14Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      'Builds `linux/amd64` on `ubuntu-22.04` and `linux/arm64` on `ubuntu-22.04-arm`'
+    )
+    expect(normalizedEnglish).toContain(
+      'The container release path no longer installs or invokes QEMU'
+    )
+    expect(normalizedEnglish).toContain(
+      'A single architecture never receives the public version tag and cannot become the official release on its own'
+    )
+    expect(normalizedEnglish).toContain(
+      'Anonymously pulls the exact staged digest from both registries and runs the full Server runtime smoke on its native runner'
+    )
+    expect(normalizedEnglish).toContain(
+      'rejects missing, duplicate, unexpected, cross-wired, or future-attempt records'
+    )
+    expect(normalizedEnglish).toContain(
+      'a rerun resumes an identical complete result or repairs one missing registry'
+    )
+    expect(normalizedEnglish).toContain(
+      'Stable floating aliases are handled by a final recovery-safe job only after every build, index, signature, provenance, SBOM, anonymous pull, and runtime gate succeeds'
+    )
+    expect(normalizedEnglish).toContain(
+      'does not claim cross-channel atomicity'
+    )
+    expect(normalizedChinese).toContain(
+      '`linux/amd64` 固定在 `ubuntu-22.04` 构建，`linux/arm64` 固定在 `ubuntu-22.04-arm` 构建'
+    )
+    expect(normalizedChinese).toContain('容器发布路径不再安装或调用 QEMU')
+    expect(normalizedChinese).toContain(
+      '单一架构不会获得公开版本 tag，因此不能独立成为正式发布版本'
+    )
+    expect(normalizedChinese).toContain(
+      '只有全部构建、index、签名、provenance、SBOM、匿名拉取和 runtime 门禁通过后'
+    )
+    expect(normalizedChinese).toContain('本版本不宣称跨渠道原子性')
+    for (const source of [english, chinese]) {
+      expect(source).toContain('Snap')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.14-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain(
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.14'
+      )
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.14')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(normalizedBeta14Metainfo).toContain(
+      'builds amd64 and arm64 independently on native GitHub-hosted runners without QEMU'
+    )
+    expect(normalizedBeta14Metainfo).toContain(
+      'Stable aliases advance only after final native public smoke tests'
+    )
+    expect(beta14Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta14Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('records beta.13 desktop/feed success and incomplete container publication', () => {
     const english = read('docs/release-notes/2.0.0-beta.13.md')
     const chinese = read('docs/release-notes/2.0.0-beta.13.zh-CN.md')
-    const normalizedEnglish = english.replace(/\s+/g, ' ')
-    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
     const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
     const beta13Metainfo =
       /<release version="2\.0\.0-beta\.13"[\s\S]*?<\/release>/.exec(
@@ -596,45 +685,59 @@ describe('release version contract', () => {
     const normalizedBeta13Metainfo = beta13Metainfo.replace(/\s+/g, ' ')
 
     expect(normalizedEnglish).toContain(
-      'Retries anonymous signature verification for up to 18 attempts with a 10-second delay'
+      'Motrix 2.0.0-beta.13 was partially distributed'
     )
     expect(normalizedEnglish).toContain(
-      'still failing closed if either registry never exposes a valid signature'
+      'all five desktop builds, all three Finalize jobs, assembly, the GitHub prerelease, and the R2 update feed completed successfully'
     )
     expect(normalizedEnglish).toContain(
-      'Verifies BuildKit provenance against the exact current repository workflow run'
+      'At 57.27 seconds in the ARM `pnpm install` layer, QEMU exited with target signal 4'
+    )
+    expect(normalizedEnglish).toContain('canceled about 33 minutes later')
+    expect(normalizedEnglish).toContain(
+      'neither immutable beta.13 tag was published, no final index was signed'
     )
     expect(normalizedEnglish).toContain(
-      'The builder attempt must be a positive integer no greater than the current run attempt'
+      'this result must not be described as atomic across distribution channels'
     )
     expect(normalizedEnglish).toContain(
-      'without accepting another repository, workflow run, future attempt, or path suffix'
-    )
-    expect(normalizedEnglish).toContain(
-      'Existing beta.12 release assets and container tags are never overwritten or reused; mutable beta update feeds advance only after beta.13 versioned assets publish'
+      'The `v2.0.0-beta.13` tag remains immutable and is not moved or reused'
     )
     expect(normalizedChinese).toContain(
-      '匿名签名验证最多执行 18 次，每次间隔 10 秒'
+      'Motrix 2.0.0-beta.13 完成了部分渠道分发'
     )
     expect(normalizedChinese).toContain(
-      '根据当前仓库的精确 workflow run 验证 BuildKit provenance'
+      '5 个桌面构建、3 个 Finalize job、assemble、GitHub 预发布版以及 R2 更新数据源 均成功完成'
     )
     expect(normalizedChinese).toContain(
-      '拒绝其他 仓库、其他 workflow run、未来 attempt 或附加路径后缀'
+      'ARM `pnpm install` 层运行到 57.27 秒时，QEMU 因目标 signal 4'
+    )
+    expect(normalizedChinese).toContain('约 33 分钟后容器 job 被取消')
+    expect(normalizedChinese).toContain(
+      '不能把该结果描述为跨分发渠道的原子发布'
     )
     for (const source of [english, chinese]) {
-      expect(source).toContain('Snap')
-      expect(source).toContain('latest/edge')
-      expect(source).toContain('AppImage')
-      expect(source).toContain('Flatpak')
-      expect(source).toContain(
+      const normalizedSource = source
+        .replace(/^>\s?/gm, '')
+        .replace(/\s+/g, ' ')
+      expect(normalizedSource).toContain('v2.0.0-beta.14')
+      expect(normalizedSource).toContain('31932206203')
+      expect(normalizedSource).toContain('QEMU')
+      expect(normalizedSource).toContain('Illegal instruction')
+      expect(normalizedSource).toContain('Snap')
+      expect(normalizedSource).toContain('latest/edge')
+      expect(normalizedSource).toContain('AppImage')
+      expect(normalizedSource).toContain('Flatpak')
+      expect(normalizedSource).toContain(
         'Motrix-Native-Host-2.0.0-beta.13-linux-<arch>.tar.gz'
       )
-      expect(source).toContain('SmartScreen')
-      expect(source).toContain(
+      expect(normalizedSource).toContain('SmartScreen')
+      expect(normalizedSource).toContain(
         'docker.io/motrixapp/motrix-server:2.0.0-beta.13'
       )
-      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.13')
+      expect(normalizedSource).toContain(
+        'ghcr.io/agalwood/motrix-server:2.0.0-beta.13'
+      )
       expect(source).not.toMatch(restrictedPublicLanguage)
       expect(source).not.toMatch(secretLikeIdentifier)
     }
@@ -642,13 +745,13 @@ describe('release version contract', () => {
       '<release version="2.0.0-beta.13" date="2026-08-16">'
     )
     expect(normalizedBeta13Metainfo).toContain(
-      'waits for registry signature visibility with a bounded fail-closed retry'
+      'All desktop builds, Finalize jobs, assembly, the GitHub prerelease, and the R2 update feed completed'
     )
     expect(normalizedBeta13Metainfo).toContain(
-      'the exact repository workflow run and a valid current-or-earlier attempt'
+      'no beta.13 container tag, signature, public artifact verification, or runtime smoke completed'
     )
     expect(normalizedBeta13Metainfo).toContain(
-      'Windows packages remain unsigned'
+      'Windows packages were published unsigned'
     )
     expect(beta13Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta13Metainfo).not.toMatch(secretLikeIdentifier)

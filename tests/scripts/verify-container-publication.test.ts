@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- JavaScript release script intentionally has no declarations
 import {
@@ -5,7 +6,10 @@ import {
   CONTAINER_REPOSITORIES,
 } from '../../scripts/container-release-metadata.mjs'
 // @ts-expect-error -- JavaScript release script intentionally has no declarations
-import { verifyContainerPublication } from '../../scripts/verify-container-publication.mjs'
+import {
+  verifyContainerArtifact,
+  verifyContainerPublication,
+} from '../../scripts/verify-container-publication.mjs'
 
 const VERSION = '2.3.4'
 const REVISION = 'a'.repeat(40)
@@ -37,7 +41,11 @@ function inspect() {
   }
 }
 
-function index(options?: { omitArmAttestation?: boolean }) {
+function index(options?: {
+  amd64Digest?: string
+  omitArmAttestation?: boolean
+  unexpectedPlatform?: boolean
+}) {
   const manifest = (architecture: string, digest: string) => ({
     mediaType: 'application/vnd.oci.image.manifest.v1+json',
     digest,
@@ -58,12 +66,18 @@ function index(options?: { omitArmAttestation?: boolean }) {
     schemaVersion: 2,
     mediaType: 'application/vnd.oci.image.index.v1+json',
     manifests: [
-      manifest('amd64', AMD64_DIGEST),
-      attestation(AMD64_DIGEST, `sha256:${'e'.repeat(64)}`),
+      manifest('amd64', options?.amd64Digest ?? AMD64_DIGEST),
+      attestation(
+        options?.amd64Digest ?? AMD64_DIGEST,
+        `sha256:${'e'.repeat(64)}`
+      ),
       manifest('arm64', ARM64_DIGEST),
       ...(options?.omitArmAttestation
         ? []
         : [attestation(ARM64_DIGEST, `sha256:${'f'.repeat(64)}`)]),
+      ...(options?.unexpectedPlatform
+        ? [manifest('s390x', `sha256:${'1'.repeat(64)}`)]
+        : []),
     ],
   }
 }
@@ -157,6 +171,7 @@ function verify(
     dockerHub?: ReturnType<typeof artifact>
     ghcr?: ReturnType<typeof artifact>
     maximumBuilderAttempt?: number
+    platformMetadata?: Record<string, unknown>
   } = {}
 ) {
   return verifyContainerPublication({
@@ -165,6 +180,7 @@ function verify(
     ghcr: overrides.ghcr ?? artifact(),
     maximumBuilderAttempt:
       overrides.maximumBuilderAttempt ?? MAXIMUM_BUILDER_ATTEMPT,
+    platformMetadata: overrides.platformMetadata,
     revision: REVISION,
     version: VERSION,
   })
@@ -196,6 +212,77 @@ describe('container publication verifier', () => {
         ghcr: current,
       }).provenance
     ).toBe('SLSA BuildKit')
+  })
+
+  it('verifies a recovery source before it is copied to the missing registry', () => {
+    const rawIndex = Buffer.from(JSON.stringify(index()))
+    const rawDigest = `sha256:${createHash('sha256').update(rawIndex).digest('hex')}`
+    const source = artifact({
+      indexBytes: rawIndex,
+      inspect: {
+        ...inspect(),
+        manifest: { digest: rawDigest },
+      },
+    })
+    expect(
+      verifyContainerArtifact({
+        artifact: source,
+        builderRunId: BUILDER_RUN_ID,
+        maximumBuilderAttempt: MAXIMUM_BUILDER_ATTEMPT,
+        repository: CONTAINER_REPOSITORIES.dockerHub,
+        revision: REVISION,
+        version: VERSION,
+      }).digest
+    ).toBe(rawDigest)
+  })
+
+  it('rejects recovery when raw index bytes do not match the immutable digest', () => {
+    const rawIndex = Buffer.from(JSON.stringify(index()))
+    const rawDigest = `sha256:${createHash('sha256').update(rawIndex).digest('hex')}`
+    expect(() =>
+      verifyContainerArtifact({
+        artifact: artifact({
+          indexBytes: Buffer.concat([rawIndex, Buffer.from(' ')]),
+          inspect: {
+            ...inspect(),
+            manifest: { digest: rawDigest },
+          },
+        }),
+        builderRunId: BUILDER_RUN_ID,
+        maximumBuilderAttempt: MAXIMUM_BUILDER_ATTEMPT,
+        repository: CONTAINER_REPOSITORIES.ghcr,
+        revision: REVISION,
+        version: VERSION,
+      })
+    ).toThrow(/raw index digest conflicts/)
+  })
+
+  it('binds the final index to both native platform build records', () => {
+    expect(
+      verify({
+        platformMetadata: {
+          schemaVersion: 1,
+          version: VERSION,
+          revision: REVISION,
+          platforms: {
+            'linux/amd64': {
+              digest: `sha256:${'2'.repeat(64)}`,
+              manifests: {
+                image: AMD64_DIGEST,
+                attestation: `sha256:${'e'.repeat(64)}`,
+              },
+            },
+            'linux/arm64': {
+              digest: `sha256:${'3'.repeat(64)}`,
+              manifests: {
+                image: ARM64_DIGEST,
+                attestation: `sha256:${'f'.repeat(64)}`,
+              },
+            },
+          },
+        },
+      }).digest
+    ).toBe(INDEX_DIGEST)
   })
 
   it.each([
@@ -257,6 +344,11 @@ describe('container publication verifier', () => {
       }),
       /incomplete at materials/,
     ],
+    [
+      'unexpected architecture',
+      artifact({ index: index({ unexpectedPlatform: true }) }),
+      /unexpected image platform/,
+    ],
   ])('rejects %s', (_, dockerHub, error) => {
     expect(() => verify({ dockerHub })).toThrow(error)
   })
@@ -267,6 +359,41 @@ describe('container publication verifier', () => {
     expect(() => verify({ ghcr: artifact({ inspect: ghcrInspect }) })).toThrow(
       /Immutable container tags disagree/
     )
+  })
+
+  it('rejects cross-registry platform manifest divergence', () => {
+    const divergent = artifact({
+      index: index({ amd64Digest: `sha256:${'4'.repeat(64)}` }),
+    })
+    expect(() => verify({ ghcr: divergent })).toThrow(/disagree across/)
+  })
+
+  it('rejects a final manifest that differs from native build metadata', () => {
+    expect(() =>
+      verify({
+        platformMetadata: {
+          schemaVersion: 1,
+          version: VERSION,
+          revision: REVISION,
+          platforms: {
+            'linux/amd64': {
+              digest: `sha256:${'2'.repeat(64)}`,
+              manifests: {
+                image: `sha256:${'5'.repeat(64)}`,
+                attestation: `sha256:${'e'.repeat(64)}`,
+              },
+            },
+            'linux/arm64': {
+              digest: `sha256:${'3'.repeat(64)}`,
+              manifests: {
+                image: ARM64_DIGEST,
+                attestation: `sha256:${'f'.repeat(64)}`,
+              },
+            },
+          },
+        },
+      })
+    ).toThrow(/published image digest conflicts/)
   })
 
   it('keeps the expected public registry coordinates in the verified labels', () => {
