@@ -591,7 +591,94 @@ describe('release version contract', () => {
     expect(beta12Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('ships beta.16 inspection and BitTorrent recovery without weakening native gates', () => {
+  it('ships beta.17 Docker Hub metadata recovery without weakening native gates', () => {
+    const english = read('docs/release-notes/2.0.0-beta.17.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.17.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta17Metainfo =
+      /<release version="2\.0\.0-beta\.17"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta17Metainfo = beta17Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      'Removes Docker Hub repository-description mutation from the release workflow'
+    )
+    expect(normalizedEnglish).toContain(
+      'anonymous signature verification the final step of the single container finalize job'
+    )
+    expect(normalizedEnglish).toContain(
+      'rejects the removed Docker Hub login route, repository-description payload, or description step'
+    )
+    expect(normalizedEnglish).toContain(
+      'does not use `continue-on-error`, does not weaken an artifact, signature, provenance, SBOM, platform, anonymous-pull, or runtime check'
+    )
+    expect(normalizedEnglish).toContain(
+      'Builds `linux/amd64` on `ubuntu-22.04` and `linux/arm64` on `ubuntu-22.04-arm`'
+    )
+    expect(normalizedEnglish).toContain(
+      'The container release path does not install or invoke QEMU'
+    )
+    expect(normalizedEnglish).toContain(
+      'A single architecture never receives the public version tag and cannot become the official release by itself'
+    )
+    expect(normalizedEnglish).toContain(
+      'a rerun resumes an identical complete result or repairs one missing registry'
+    )
+    expect(normalizedEnglish).toContain(
+      'Advances stable floating aliases only in the last recovery-safe job after every build, index, signature, provenance, SBOM, anonymous pull, and runtime gate passes'
+    )
+    expect(normalizedEnglish).toContain(
+      'this release does not claim cross-channel atomicity'
+    )
+    expect(normalizedChinese).toContain(
+      '从发布 workflow 中移除 Docker Hub 仓库描述修改'
+    )
+    expect(normalizedChinese).toContain(
+      '把匿名签名验证作为唯一容器 finalize job 的最后一步'
+    )
+    expect(normalizedChinese).toContain(
+      '本次修改不使用 `continue-on-error`，不削弱 artifact、 签名、provenance、SBOM、platform、匿名拉取或 runtime 检查'
+    )
+    expect(normalizedChinese).toContain('容器发布路径不安装或调用 QEMU')
+    expect(normalizedChinese).toMatch(
+      /全部构建、index、签名、\s*provenance、SBOM、匿名拉取和 runtime 门禁通过/u
+    )
+    expect(normalizedChinese).toMatch(/本版本不宣称跨渠道原子性/u)
+    for (const source of [english, chinese]) {
+      expect(source).toContain('v2.0.0-beta.16')
+      expect(source).toContain('Snap')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.17-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain(
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.17'
+      )
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.17')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(normalizedBeta17Metainfo).toContain(
+      'Docker Hub repository-description mutation is no longer part of the artifact release authority'
+    )
+    expect(normalizedBeta17Metainfo).toContain(
+      'hands the verified digest directly to the native public runtime matrix'
+    )
+    expect(beta17Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta17Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('records beta.16 signed indexes and incomplete final runtime matrix', () => {
     const english = read('docs/release-notes/2.0.0-beta.16.md')
     const chinese = read('docs/release-notes/2.0.0-beta.16.zh-CN.md')
     const normalizedEnglish = english
@@ -608,62 +695,48 @@ describe('release version contract', () => {
     const normalizedBeta16Metainfo = beta16Metainfo.replace(/\s+/g, ' ')
 
     expect(normalizedEnglish).toContain(
-      'Builds `linux/amd64` on `ubuntu-22.04` and `linux/arm64` on `ubuntu-22.04-arm`'
+      'Motrix 2.0.0-beta.16 was partially distributed'
     )
     expect(normalizedEnglish).toContain(
-      'The container release path does not install or invoke QEMU'
+      'all five desktop builds, all three Finalize jobs, assembly, the GitHub prerelease, and the R2 update feed completed successfully'
     )
     expect(normalizedEnglish).toContain(
-      "Validates Docker Buildx's documented flat image configuration for a single-platform source and the platform-keyed form used by multi-platform inspection"
+      'Each job anonymously pulled its exact staged digest from Docker Hub and GHCR, passed the complete Server runtime smoke in both registries'
     )
     expect(normalizedEnglish).toContain(
-      'Missing, unexpected, multiple, ambiguous, or conflicting platform data fails closed'
+      'created the two immutable multi-platform indexes'
+    )
+    expect(normalizedEnglish).toContain('anonymously verified both signatures')
+    expect(normalizedEnglish).toContain(
+      'sha256:0430288a5b97f33bacf59a9ffc1634d98835c71e7af4aaced179409aaf5d395a'
     )
     expect(normalizedEnglish).toContain(
-      'exactly one active torrent has all bytes available'
+      'update the Docker Hub repository description returned HTTP 403'
     )
     expect(normalizedEnglish).toContain(
-      'proves the seeder port is reachable from the Server container before creating the real download task'
+      'the final native public runtime matrix did not run'
     )
     expect(normalizedEnglish).toContain(
-      'Tracker mutation is exercised only after the transfer and file hash pass'
+      'The beta.16 container index is public and signed, but the release did not complete every final container gate'
     )
     expect(normalizedEnglish).toContain(
-      'A single architecture never receives the public version tag and cannot become the official release on its own'
-    )
-    expect(normalizedEnglish).toContain(
-      'Immutable platform metadata can be uploaded only after both registry smokes succeed'
-    )
-    expect(normalizedEnglish).toContain(
-      'rejects missing, duplicate, unexpected, cross-wired, shared, or future-attempt digests'
-    )
-    expect(normalizedEnglish).toContain(
-      'a rerun resumes an identical complete result or repairs one missing registry'
-    )
-    expect(normalizedEnglish).toContain(
-      'Stable floating aliases are handled by the final recovery-safe job only after every build, index, signature, provenance, SBOM, anonymous pull, and runtime gate succeeds'
-    )
-    expect(normalizedEnglish).toContain(
-      'this release does not claim cross-channel atomicity'
+      'must not be described as atomic across distribution channels'
     )
     expect(normalizedChinese).toContain(
-      '`linux/amd64` 固定在 `ubuntu-22.04` 构建，`linux/arm64` 固定在 `ubuntu-22.04-arm` 构建'
+      'Motrix 2.0.0-beta.16 于 2026-08-16 完成了部分渠道分发'
     )
-    expect(normalizedChinese).toContain('容器发布路径不安装或调用 QEMU')
+    expect(normalizedChinese).toContain('创建两个不可变 multi-platform index')
+    expect(normalizedChinese).toContain('仓库描述更新 请求返回 HTTP 403')
+    expect(normalizedChinese).toContain('最终原生 公开 runtime matrix 未运行')
     expect(normalizedChinese).toContain(
-      '缺失、意外、多个、歧义或相互冲突的 platform 数据均会 在元数据被接受前 fail-closed'
+      'beta.16 容器 index 已公开并签名，但该版本没有完成全部最终容器门禁'
     )
     expect(normalizedChinese).toContain(
-      '恰好一个 active torrent 已 备齐全部字节'
+      '不能把这个部分完成的结果描述为跨分发渠道的原子发布'
     )
-    expect(normalizedChinese).toContain(
-      '有界失败会报告任务、Tracker、 peer 与字节进度诊断，不用重试掩盖错误'
-    )
-    expect(normalizedChinese).toMatch(
-      /全部构建、index、\s*签名、provenance、SBOM、匿名拉取和 runtime 门禁通过/u
-    )
-    expect(normalizedChinese).toMatch(/本版本不宣称跨渠道\s*原子性/u)
     for (const source of [english, chinese]) {
+      expect(source).toContain('31942836854')
+      expect(source).toContain('v2.0.0-beta.17')
       expect(source).toContain('Snap')
       expect(source).toContain('latest/edge')
       expect(source).toContain('AppImage')
@@ -680,10 +753,10 @@ describe('release version contract', () => {
       expect(source).not.toMatch(secretLikeIdentifier)
     }
     expect(normalizedBeta16Metainfo).toContain(
-      "accepts Docker Buildx's documented flat image configuration while rejecting missing, ambiguous, or conflicting platform data"
+      'matching Docker Hub/GHCR index, provenance, SBOM, and anonymous signature checks completed'
     )
     expect(normalizedBeta16Metainfo).toContain(
-      'waits for a complete aria2 seeder through JSON-RPC and verifies local peer reachability before starting a real transfer'
+      'repository-description request returned HTTP 403, so the final native public runtime matrix was skipped'
     )
     expect(beta16Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta16Metainfo).not.toMatch(secretLikeIdentifier)
