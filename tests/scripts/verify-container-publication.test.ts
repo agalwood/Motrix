@@ -9,6 +9,9 @@ import { verifyContainerPublication } from '../../scripts/verify-container-publi
 
 const VERSION = '2.3.4'
 const REVISION = 'a'.repeat(40)
+const BUILDER_RUN_ID =
+  'https://github.com/agalwood/Motrix/actions/runs/31925284912'
+const MAXIMUM_BUILDER_ATTEMPT = 3
 const INDEX_DIGEST = `sha256:${'b'.repeat(64)}`
 const AMD64_DIGEST = `sha256:${'c'.repeat(64)}`
 const ARM64_DIGEST = `sha256:${'d'.repeat(64)}`
@@ -85,7 +88,7 @@ function provenance(options?: { incompleteArmMaterials?: boolean }) {
     SLSA: {
       buildConfig: {},
       buildType: 'https://mobyproject.org/buildkit@v1',
-      builder: { id: 'https://github.com/agalwood/Motrix/actions/runs/1' },
+      builder: { id: `${BUILDER_RUN_ID}/attempts/1` },
       invocation: {},
       materials: [{}],
       metadata: {
@@ -118,9 +121,7 @@ function currentProvenance(options?: {
       },
       runDetails: {
         builder: {
-          id:
-            options?.builderId ??
-            'https://github.com/docker/buildx/actions/runs/123',
+          id: options?.builderId ?? `${BUILDER_RUN_ID}/attempts/2`,
         },
         metadata: {
           buildkit_completeness: { request: true },
@@ -152,15 +153,18 @@ function artifact(overrides: Record<string, unknown> = {}) {
 
 function verify(
   overrides: {
-    builderIdPrefix?: string
+    builderRunId?: string
     dockerHub?: ReturnType<typeof artifact>
     ghcr?: ReturnType<typeof artifact>
+    maximumBuilderAttempt?: number
   } = {}
 ) {
   return verifyContainerPublication({
-    builderIdPrefix: overrides.builderIdPrefix,
+    builderRunId: overrides.builderRunId ?? BUILDER_RUN_ID,
     dockerHub: overrides.dockerHub ?? artifact(),
     ghcr: overrides.ghcr ?? artifact(),
+    maximumBuilderAttempt:
+      overrides.maximumBuilderAttempt ?? MAXIMUM_BUILDER_ATTEMPT,
     revision: REVISION,
     version: VERSION,
   })
@@ -188,7 +192,6 @@ describe('container publication verifier', () => {
     const current = artifact({ provenance: currentProvenance() })
     expect(
       verify({
-        builderIdPrefix: 'https://github.com/docker/buildx/actions/runs/',
         dockerHub: current,
         ghcr: current,
       }).provenance
@@ -202,6 +205,20 @@ describe('container publication verifier', () => {
       /builder identity conflicts/,
     ],
     [
+      'builder run suffix',
+      currentProvenance({
+        builderId: `${BUILDER_RUN_ID}/attempts/2/extra`,
+      }),
+      /builder identity conflicts/,
+    ],
+    [
+      'future builder attempt',
+      currentProvenance({
+        builderId: `${BUILDER_RUN_ID}/attempts/4`,
+      }),
+      /builder identity conflicts/,
+    ],
+    [
       'source revision',
       currentProvenance({ revision: '0'.repeat(40) }),
       /provenance revision conflicts/,
@@ -209,11 +226,17 @@ describe('container publication verifier', () => {
   ])('rejects a conflicting current SLSA %s', (_, document, error) => {
     expect(() =>
       verify({
-        builderIdPrefix: 'https://github.com/docker/buildx/actions/runs/',
         dockerHub: artifact({ provenance: document }),
         ghcr: artifact({ provenance: document }),
       })
     ).toThrow(error)
+  })
+
+  it.each([
+    ['an inexact builder run URL', `${BUILDER_RUN_ID}/attempts`, 3],
+    ['a zero maximum attempt', BUILDER_RUN_ID, 0],
+  ])('rejects %s', (_, builderRunId, maximumBuilderAttempt) => {
+    expect(() => verify({ builderRunId, maximumBuilderAttempt })).toThrow()
   })
 
   it.each([
