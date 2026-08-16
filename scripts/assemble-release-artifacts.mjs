@@ -128,7 +128,6 @@ export async function assembleReleaseArtifacts({
     const assets = [...files.values()].filter((file) => file.kind === 'asset')
     assertRequiredAssets(target, assets, version)
     const manifests = new Map()
-    const manifestSources = new Map()
     for (const manifestName of manifestNames) {
       const manifestFile = files.get(manifestName.toLowerCase())
       if (!manifestFile) {
@@ -154,7 +153,6 @@ export async function assembleReleaseArtifacts({
         manifestName
       )
       manifests.set(manifestName, verifiedManifest)
-      manifestSources.set(manifestName, manifestFile.source)
     }
 
     targetResults.push({
@@ -162,7 +160,6 @@ export async function assembleReleaseArtifacts({
       directory,
       files,
       manifests,
-      manifestSources,
     })
   }
 
@@ -207,9 +204,14 @@ export async function assembleReleaseArtifacts({
   for (const target of targetResults) {
     if (target.name.startsWith('darwin-')) continue
     for (const manifestName of targetManifestNames(target, channel)) {
+      const manifest = target.manifests.get(manifestName)
       addOutputFile(outputFiles, manifestName, {
-        kind: 'copy',
-        source: target.manifestSources.get(manifestName),
+        kind: 'content',
+        content: dump(manifest.document, {
+          lineWidth: -1,
+          noRefs: true,
+          sortKeys: false,
+        }),
         target: target.name,
       })
     }
@@ -393,11 +395,6 @@ async function verifyManifestAssets(
       ) {
         throw new Error(
           `${target.name}/${manifestName}: duplicate manifest asset ${file.url} has conflicting metadata`
-        )
-      }
-      if (!target.sourceManifestAssetNames) {
-        throw new Error(
-          `${target.name}/${manifestName}: files[] must contain exactly ${expectedNames.join(', ')}`
         )
       }
     } else {

@@ -81,6 +81,19 @@ describe('assembleReleaseArtifacts', () => {
     expect(macManifest.path).toBe(fixture.names.macX64Zip)
     expect(macManifest.sha512).toBe(macManifest.files[0].sha512)
 
+    for (const manifestName of [
+      'latest-linux.yml',
+      'beta-linux.yml',
+      'latest-linux-arm64.yml',
+      'beta-linux-arm64.yml',
+    ]) {
+      const linuxManifest = load(
+        await readFile(path.join(fixture.output, manifestName), 'utf8')
+      ) as { files: Array<{ url: string }> }
+      expect(linuxManifest.files).toHaveLength(2)
+      expect(new Set(linuxManifest.files.map((file) => file.url)).size).toBe(2)
+    }
+
     await expect(
       verifyUpdateArtifacts({
         directory: fixture.output,
@@ -131,6 +144,39 @@ describe('assembleReleaseArtifacts', () => {
       })
     ).rejects.toThrow(
       `darwin-arm64/latest-mac.yml: duplicate manifest asset ${fixture.names.macArm64Dmg} has conflicting metadata`
+    )
+  })
+
+  it('rejects conflicting duplicate Linux manifest entries', async () => {
+    const fixture = await createFixture()
+    await writeManifest(
+      fixture.paths.linuxX64BetaManifest,
+      VERSION,
+      [
+        {
+          name: fixture.names.linuxX64Deb,
+          content: fixture.contents.linuxX64Deb,
+        },
+        {
+          name: fixture.names.linuxX64Rpm,
+          content: fixture.contents.linuxX64Rpm,
+        },
+        {
+          name: fixture.names.linuxX64Rpm,
+          content: Buffer.from('conflicting Linux x64 RPM metadata'),
+        },
+      ],
+      fixture.names.linuxX64Deb
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      `linux-x64/beta-linux.yml: duplicate manifest asset ${fixture.names.linuxX64Rpm} has conflicting metadata`
     )
   })
 
@@ -619,20 +665,23 @@ async function createFixture(version = VERSION) {
   )
   await writeAsset(linuxX64, names.linuxX64Rpm, contents.linuxX64Rpm)
   const linuxX64Manifest = path.join(linuxX64, 'latest-linux.yml')
+  const linuxX64BetaManifest = path.join(linuxX64, 'beta-linux.yml')
   await writeManifest(
     linuxX64Manifest,
     version,
     [
       { name: names.linuxX64Deb, content: contents.linuxX64Deb },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
+      { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
     names.linuxX64Deb
   )
   await writeManifest(
-    path.join(linuxX64, 'beta-linux.yml'),
+    linuxX64BetaManifest,
     version,
     [
       { name: names.linuxX64Deb, content: contents.linuxX64Deb },
+      { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
     names.linuxX64Deb
@@ -661,6 +710,7 @@ async function createFixture(version = VERSION) {
     [
       { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
+      { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
     names.linuxArm64Deb
   )
@@ -669,6 +719,7 @@ async function createFixture(version = VERSION) {
     version,
     [
       { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
+      { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
     names.linuxArm64Deb
@@ -703,6 +754,7 @@ async function createFixture(version = VERSION) {
       linuxArm64Rpm: linuxArm64Rpm.path,
       linuxX64Deb: linuxX64Deb.path,
       linuxX64Companion: linuxX64Companion.path,
+      linuxX64BetaManifest,
       linuxX64Manifest,
       macArm64Manifest,
       macArm64Zip: macArm64Zip.path,
