@@ -1,5 +1,7 @@
 import path from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
+import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
+import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
@@ -64,6 +66,14 @@ import type { createServerProxyApplier } from '../proxy/wiring'
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
+  /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
+  dnsFallback?: Pick<DnsFallbackConsumer, 'reset'>
+  /**
+   * Late-binds the DNS fallback consumer's task retry to the same
+   * `reAddTask` deps bundle the ReAddTasks command uses, so the two
+   * paths cannot drift. Called synchronously during handler construction.
+   */
+  bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
@@ -121,6 +131,8 @@ export function buildServerCommandHandlers(
   const {
     supervisor,
     settingsManager,
+    dnsFallback,
+    bindTaskRetry,
     adapter,
     trackerManager,
     aria2BinaryPath,
@@ -258,6 +270,9 @@ export function buildServerCommandHandlers(
     publishTaskUpdate,
     publishTaskUpdateNow,
   }
+  // The DNS fallback consumer retries through the same deps bundle as
+  // Commands.ReAddTasks so the automatic and user-initiated paths match.
+  bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
     taskManager,
     adapter,
@@ -519,6 +534,15 @@ export function buildServerCommandHandlers(
         await trackerManager.applyBlacklistChange(
           newFull.tracker.blacklistEnabled
         )
+      }
+
+      if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
+        await supervisor.applyAsyncDns(
+          dnsModeToAsyncDns(newFull.engine.dnsMode)
+        )
+        // Mode changes re-arm the auto fallback so a later switch back to
+        // 'auto' starts optimistic again.
+        dnsFallback?.reset()
       }
 
       // Server uses explicit stop+start (mirrors Commands.RestartEngine

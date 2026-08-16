@@ -1121,7 +1121,12 @@
         "retryWait": "重試等待時間 (秒)",
         "retryWaitDesc": "每次重試之間的暫停時間。",
         "lowestSpeedLimit": "低速連線門檻 (KB/s)",
-        "lowestSpeedLimitDesc": "低於此速度時中斷連線。0 = 停用。"
+        "lowestSpeedLimitDesc": "低於此速度時中斷連線。0 = 停用。",
+        "dnsMode": "DNS 解析方式",
+        "dnsModeDesc": "引擎解析網域名稱的方式。",
+        "dnsModeAuto": "自動(建議)",
+        "dnsModeSystem": "系統解析器",
+        "dnsModeEngine": "引擎內建解析器"
       },
       "disk": {
         "title": "磁碟與工作階段",
@@ -1668,6 +1673,10 @@
     },
     "engineFailure": {
       "title": "下載引擎失敗"
+    },
+    "dnsFallback": {
+      "title": "{{name}} 已改用系統 DNS 重試",
+      "body": "引擎無法聯繫任何 DNS 伺服器,本次工作階段已切換至系統解析器。"
     },
     "center": {
       "title": "通知",

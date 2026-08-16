@@ -7,6 +7,7 @@ import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
 import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
+import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
   PollingScheduler,
@@ -827,10 +828,32 @@ async function main() {
     log,
   })
 
+  // Auto DNS fallback: constructed here so the command context can reset
+  // its latch; registered on the occurrence dispatcher further down with
+  // the other consumers. The retry fn is late-bound by
+  // buildServerCommandHandlers to the ReAddTasks deps bundle.
+  let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
+  const dnsFallbackConsumer = createDnsFallbackConsumer({
+    getDnsMode: () => settingsManager.get().engine.dnsMode,
+    getTaskStatus: (id) => taskManager.getById(id)?.status ?? null,
+    getTaskName: (id) => taskManager.getById(id)?.name ?? null,
+    applyAsyncDns: (asyncDns) => supervisor.applyAsyncDns(asyncDns),
+    reAddTask: (id) =>
+      dnsFallbackRetry
+        ? dnsFallbackRetry(id)
+        : Promise.reject(new Error('dns fallback task retry not bound')),
+    notify: (input) => notificationCenter.notify(input),
+    log: getLogger('dns-fallback'),
+  })
+
   // ─── HTTP App ─────────────────────────────────────────────────
   const commandHandlers = buildServerCommandHandlers({
     supervisor,
     settingsManager,
+    dnsFallback: dnsFallbackConsumer,
+    bindTaskRetry: (fn) => {
+      dnsFallbackRetry = fn
+    },
     rpcClient,
     adapter,
     trackerManager,
@@ -1163,6 +1186,10 @@ async function main() {
       occurrenceDispatcher.register(
         notificationConsumer.name,
         notificationConsumer.consume
+      )
+      occurrenceDispatcher.register(
+        dnsFallbackConsumer.name,
+        dnsFallbackConsumer.consume
       )
 
       await sessionManager.restore()

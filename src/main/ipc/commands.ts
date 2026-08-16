@@ -3,6 +3,8 @@ import { access, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
+import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
+import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
@@ -148,6 +150,14 @@ async function setLinuxDefaultTorrentHandler(): Promise<void> {
 export interface CommandContext {
   cliToolService: Pick<CliToolService, 'install'>
   supervisor: EngineSupervisor
+  /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
+  dnsFallback?: Pick<DnsFallbackConsumer, 'reset'>
+  /**
+   * Late-binds the DNS fallback consumer's task retry to the same
+   * `reAddTask` deps bundle the ReAddTasks command uses, so the two
+   * paths cannot drift. Called synchronously during handler construction.
+   */
+  bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
   sessionManager: SessionManager
   settingsManager: SettingsManager
   protocolManager: ReturnType<typeof createProtocolManager>
@@ -240,6 +250,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   const {
     cliToolService,
     supervisor,
+    dnsFallback,
+    bindTaskRetry,
     sessionManager,
     settingsManager,
     protocolManager,
@@ -408,6 +420,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     publishTaskUpdate,
     publishTaskUpdateNow,
   }
+  // The DNS fallback consumer retries through the same deps bundle as
+  // Commands.ReAddTasks so the automatic and user-initiated paths match.
+  bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
     taskManager,
     adapter,
@@ -905,6 +920,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
       ) {
         trackerManager.applySyncScheduleChange()
+      }
+
+      if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
+        await supervisor.applyAsyncDns(
+          dnsModeToAsyncDns(newFull.engine.dnsMode)
+        )
+        // Mode changes re-arm the auto fallback so a later switch back to
+        // 'auto' starts optimistic again.
+        dnsFallback?.reset()
       }
 
       if (result.requiresRestart) {

@@ -35,6 +35,21 @@ export function EngineTuningSection({
   form: UseFormReturn<DownloadsFields>
 }) {
   const { t } = useTranslation()
+  const dnsModeOptions = [
+    {
+      value: 'auto',
+      label: t('settings.downloads.reliability.dnsModeAuto'),
+    },
+    {
+      value: 'system',
+      label: t('settings.downloads.reliability.dnsModeSystem'),
+    },
+    {
+      value: 'engine',
+      label: t('settings.downloads.reliability.dnsModeEngine'),
+    },
+  ] as const
+
   const fileAllocationOptions = [
     {
       value: 'none',
@@ -252,6 +267,44 @@ export function EngineTuningSection({
         'settings.downloads.reliability.lowestSpeedLimitDesc',
         { min: 0, scale: KB } // displayed KB/s → stored bytes/sec
       )}
+      <FormField
+        control={form.control}
+        name="engine.dnsMode"
+        render={({ field }) => (
+          <FormItem className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <FormLabel>
+                {t('settings.downloads.reliability.dnsMode')}
+              </FormLabel>
+              <FormDescription className="text-xs">
+                {t('settings.downloads.reliability.dnsModeDesc')}
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Select
+                items={dnsModeOptions}
+                value={field.value}
+                onValueChange={(value) => {
+                  if (value !== null) field.onChange(value)
+                }}
+              >
+                <SelectTrigger className="w-56" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {dnsModeOptions.map(({ label, value }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FormControl>
+          </FormItem>
+        )}
+      />
 
       <Separator className="my-4" />
 

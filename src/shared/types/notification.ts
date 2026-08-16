@@ -5,6 +5,7 @@ export const NotificationKinds = {
   TaskError: 'task-error',
   TaskComplete: 'task-complete',
   EngineFailure: 'engine-failure',
+  DnsFallback: 'dns-fallback',
 } as const
 export type NotificationKind = string
 

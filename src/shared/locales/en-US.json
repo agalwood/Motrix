@@ -1134,7 +1134,12 @@
         "retryWait": "Retry wait (s)",
         "retryWaitDesc": "Pause between retries.",
         "lowestSpeedLimit": "Slow connection threshold (KB/s)",
-        "lowestSpeedLimitDesc": "Drop connections below this speed. 0 = disabled."
+        "lowestSpeedLimitDesc": "Drop connections below this speed. 0 = disabled.",
+        "dnsMode": "DNS resolution",
+        "dnsModeDesc": "How the engine resolves host names.",
+        "dnsModeAuto": "Auto (recommended)",
+        "dnsModeSystem": "System resolver",
+        "dnsModeEngine": "Engine built-in resolver"
       },
       "disk": {
         "title": "Disk and session",
@@ -2067,6 +2072,10 @@
     },
     "engineFailure": {
       "title": "Download engine failed"
+    },
+    "dnsFallback": {
+      "title": "{{name}} retried with the system DNS resolver",
+      "body": "The engine could not contact any DNS server, so Motrix switched to the system resolver for this session."
     },
     "center": {
       "title": "Notifications",

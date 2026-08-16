@@ -734,6 +734,28 @@ describe('EngineSupervisor', () => {
     })
   })
 
+  describe('applyAsyncDns', () => {
+    it('is a no-op unless Ready', async () => {
+      await supervisor.applyAsyncDns(false)
+      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      [false, 'false'],
+      [true, 'true'],
+    ] as const)(
+      'calls changeGlobalOption with async-dns=%s when Ready',
+      async (asyncDns, wire) => {
+        await supervisor.start('/usr/bin/aria2c')
+        vi.mocked(rpcClient.changeGlobalOption).mockClear()
+        await supervisor.applyAsyncDns(asyncDns)
+        expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
+          'async-dns': wire,
+        })
+      }
+    )
+  })
+
   describe('applySpeedLimits', () => {
     it('is a no-op unless Ready', async () => {
       await supervisor.applySpeedLimits({ download: 100, upload: 50 })

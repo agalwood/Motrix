@@ -1121,7 +1121,12 @@
         "retryWait": "重试间隔 (秒)",
         "retryWaitDesc": "两次重试之间的停顿。",
         "lowestSpeedLimit": "慢连接阈值 (KB/s)",
-        "lowestSpeedLimitDesc": "速度低于此值时断开。0 表示关闭。"
+        "lowestSpeedLimitDesc": "速度低于此值时断开。0 表示关闭。",
+        "dnsMode": "DNS 解析方式",
+        "dnsModeDesc": "引擎解析域名的方式。",
+        "dnsModeAuto": "自动(推荐)",
+        "dnsModeSystem": "系统解析器",
+        "dnsModeEngine": "引擎内置解析器"
       },
       "disk": {
         "title": "磁盘与会话",
@@ -2047,6 +2052,10 @@
     },
     "engineFailure": {
       "title": "下载引擎故障"
+    },
+    "dnsFallback": {
+      "title": "{{name}} 已改用系统 DNS 重试",
+      "body": "引擎无法联系任何 DNS 服务器,本次会话已切换到系统解析器。"
     },
     "center": {
       "title": "通知",
