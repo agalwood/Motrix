@@ -76,15 +76,27 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.11" date="2026-08-16">
+      <description>
+        <p>
+          Release assembly update that validates the real macOS updater
+          manifest shape, accepts only metadata-identical duplicate entries,
+          and canonicalizes the combined updater feed to one ZIP per
+          architecture. Windows packages remain unsigned. Prerelease Snap
+          runs stop after source validation without building or publishing
+          artifacts.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.10" date="2026-08-16">
       <description>
         <p>
-          Release finalization update with an isolated per-job macOS keychain,
-          distinct import and keychain-unlock values, path-only Builder
-          handoff, and fail-closed cleanup. Windows packages remain unsigned.
-          Prerelease Snap runs stop after source validation without building
-          or publishing artifacts; stable Snap publication retains its
-          personal-files Store declaration requirement.
+          Unpublished Motrix Turbo beta attempt. All five desktop builds and
+          all three Finalize jobs succeeded. Assembly rejected the real macOS
+          updater manifest shape before creating a release bundle. GitHub
+          Release, R2, and container publication did not run. The prerelease
+          Snap workflow stopped after source validation, and external
+          distribution remained zero.
         </p>
       </description>
     </release>

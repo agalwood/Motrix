@@ -24,6 +24,10 @@ export const RELEASE_TARGETS = [
       `Motrix-${version}-arm64.dmg`,
       `Motrix-${version}-arm64.zip`,
     ],
+    sourceManifestAssetNames: (version) => [
+      `Motrix-${version}-arm64.zip`,
+      `Motrix-${version}-arm64.dmg`,
+    ],
     manifestAssetNames: (version) => [`Motrix-${version}-arm64.zip`],
     legacyAssetName: (version) => `Motrix-${version}-arm64.zip`,
   },
@@ -34,6 +38,10 @@ export const RELEASE_TARGETS = [
     assetNames: (version) => [
       `Motrix-${version}-x64.dmg`,
       `Motrix-${version}-x64.zip`,
+    ],
+    sourceManifestAssetNames: (version) => [
+      `Motrix-${version}-x64.zip`,
+      `Motrix-${version}-x64.dmg`,
     ],
     manifestAssetNames: (version) => [`Motrix-${version}-x64.zip`],
     legacyAssetName: (version) => `Motrix-${version}-x64.zip`,
@@ -138,8 +146,14 @@ export async function assembleReleaseArtifacts({
           `${target.name}/${manifestName}: version ${manifest.version} does not match ${version}`
         )
       }
-      await verifyManifestAssets(target, manifest, files, version, manifestName)
-      manifests.set(manifestName, manifest)
+      const verifiedManifest = await verifyManifestAssets(
+        target,
+        manifest,
+        files,
+        version,
+        manifestName
+      )
+      manifests.set(manifestName, verifiedManifest)
       manifestSources.set(manifestName, manifestFile.source)
     }
 
@@ -347,15 +361,12 @@ async function verifyManifestAssets(
   manifestName
 ) {
   const expectedNames = target.manifestAssetNames(version)
-  const actualNames = manifest.files.map((file) => file.url)
-  if (
-    actualNames.length !== expectedNames.length ||
-    expectedNames.some((name) => !actualNames.includes(name))
-  ) {
-    throw new Error(
-      `${target.name}/${manifestName}: files[] must contain exactly ${expectedNames.join(', ')}`
-    )
-  }
+  const allowedSourceNames =
+    target.sourceManifestAssetNames?.(version) ?? expectedNames
+  const allowedByName = new Map(
+    allowedSourceNames.map((name) => [name.toLowerCase(), name])
+  )
+  const uniqueFiles = new Map()
 
   const expectedLegacyName = target.legacyAssetName(version)
   if (manifest.legacyFile.url !== expectedLegacyName) {
@@ -365,6 +376,34 @@ async function verifyManifestAssets(
   }
 
   for (const file of manifest.files) {
+    const key = file.url.toLowerCase()
+    const allowedName = allowedByName.get(key)
+    if (!allowedName || allowedName !== file.url) {
+      throw new Error(
+        `${target.name}/${manifestName}: files[] contains unexpected asset ${file.url}; expected only ${allowedSourceNames.join(', ')}`
+      )
+    }
+
+    const previous = uniqueFiles.get(key)
+    if (previous) {
+      if (
+        previous.url !== file.url ||
+        previous.sha512 !== file.sha512 ||
+        previous.size !== file.size
+      ) {
+        throw new Error(
+          `${target.name}/${manifestName}: duplicate manifest asset ${file.url} has conflicting metadata`
+        )
+      }
+      if (!target.sourceManifestAssetNames) {
+        throw new Error(
+          `${target.name}/${manifestName}: files[] must contain exactly ${expectedNames.join(', ')}`
+        )
+      }
+    } else {
+      uniqueFiles.set(key, file)
+    }
+
     const input = files.get(file.url.toLowerCase())
     if (input?.kind !== 'asset' || input.name !== file.url) {
       throw new Error(
@@ -383,6 +422,28 @@ async function verifyManifestAssets(
         `${target.name}/${manifestName}: ${file.url} sha512 does not match manifest`
       )
     }
+  }
+
+  const canonicalFiles = expectedNames.map((name) =>
+    uniqueFiles.get(name.toLowerCase())
+  )
+  if (canonicalFiles.some((file) => !file)) {
+    throw new Error(
+      `${target.name}/${manifestName}: files[] must contain ${expectedNames.join(', ')}`
+    )
+  }
+  const canonicalLegacy = uniqueFiles.get(expectedLegacyName.toLowerCase())
+
+  return {
+    ...manifest,
+    document: {
+      ...manifest.document,
+      files: canonicalFiles,
+      path: expectedLegacyName,
+      sha512: canonicalLegacy.sha512,
+    },
+    files: canonicalFiles,
+    legacyFile: canonicalLegacy,
   }
 }
 

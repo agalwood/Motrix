@@ -74,6 +74,10 @@ describe('assembleReleaseArtifacts', () => {
       fixture.names.macX64Zip,
       fixture.names.macArm64Zip,
     ])
+    expect(new Set(macManifest.files.map((file) => file.url)).size).toBe(2)
+    expect(macManifest.files.some((file) => file.url.endsWith('.dmg'))).toBe(
+      false
+    )
     expect(macManifest.path).toBe(fixture.names.macX64Zip)
     expect(macManifest.sha512).toBe(macManifest.files[0].sha512)
 
@@ -95,6 +99,66 @@ describe('assembleReleaseArtifacts', () => {
       ],
     })
     await expect(access(fixture.paths.macArm64Zip)).resolves.toBeUndefined()
+  })
+
+  it('rejects conflicting duplicate macOS manifest entries', async () => {
+    const fixture = await createFixture()
+    await writeManifest(
+      fixture.paths.macArm64Manifest,
+      VERSION,
+      [
+        {
+          name: fixture.names.macArm64Zip,
+          content: fixture.contents.macArm64Zip,
+        },
+        {
+          name: fixture.names.macArm64Dmg,
+          content: fixture.contents.macArm64Dmg,
+        },
+        {
+          name: fixture.names.macArm64Dmg,
+          content: Buffer.from('conflicting macOS arm64 DMG metadata'),
+        },
+      ],
+      fixture.names.macArm64Zip
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      `darwin-arm64/latest-mac.yml: duplicate manifest asset ${fixture.names.macArm64Dmg} has conflicting metadata`
+    )
+  })
+
+  it('rejects unknown macOS manifest assets', async () => {
+    const fixture = await createFixture()
+    const unknownName = 'Motrix-2.0.0-arm64.pkg'
+    await writeManifest(
+      fixture.paths.macArm64Manifest,
+      VERSION,
+      [
+        {
+          name: fixture.names.macArm64Zip,
+          content: fixture.contents.macArm64Zip,
+        },
+        { name: unknownName, content: Buffer.from('unknown package') },
+      ],
+      fixture.names.macArm64Zip
+    )
+
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      `darwin-arm64/latest-mac.yml: files[] contains unexpected asset ${unknownName}`
+    )
   })
 
   it('publishes beta manifests without creating stable channel metadata', async () => {
@@ -469,7 +533,9 @@ async function createFixture(version = VERSION) {
     linuxX64Deb: `Motrix_${version}_amd64.deb`,
     linuxX64Companion: `Motrix-Native-Host-${version}-linux-x64.tar.gz`,
     linuxX64Rpm: `Motrix-${version}.x86_64.rpm`,
+    macArm64Dmg: `Motrix-${version}-arm64.dmg`,
     macArm64Zip: `Motrix-${version}-arm64.zip`,
+    macX64Dmg: `Motrix-${version}-x64.dmg`,
     macX64Zip: `Motrix-${version}-x64.zip`,
     windowsExe: `Motrix-Setup-${version}.exe`,
   }
@@ -480,44 +546,63 @@ async function createFixture(version = VERSION) {
     linuxX64Deb: Buffer.from('Linux x64 deb'),
     linuxX64Companion: Buffer.from('Linux x64 Flatpak companion'),
     linuxX64Rpm: Buffer.from('Linux x64 rpm'),
+    macArm64Dmg: Buffer.from('macOS arm64 DMG'),
     macArm64Zip: Buffer.from('macOS arm64 ZIP'),
+    macX64Dmg: Buffer.from('macOS x64 DMG'),
     macX64Zip: Buffer.from('macOS x64 ZIP'),
     windowsExe: Buffer.from('Windows x64 installer'),
   }
 
   const darwinArm64 = await makeTarget(input, 'darwin-arm64')
-  await writeAsset(darwinArm64, `Motrix-${version}-arm64.dmg`)
+  await writeAsset(darwinArm64, names.macArm64Dmg, contents.macArm64Dmg)
   const macArm64Zip = await writeAsset(
     darwinArm64,
     names.macArm64Zip,
     contents.macArm64Zip
   )
+  const macArm64Manifest = path.join(darwinArm64, 'latest-mac.yml')
   await writeManifest(
-    path.join(darwinArm64, 'latest-mac.yml'),
+    macArm64Manifest,
     version,
-    [{ name: names.macArm64Zip, content: contents.macArm64Zip }],
+    [
+      { name: names.macArm64Zip, content: contents.macArm64Zip },
+      { name: names.macArm64Dmg, content: contents.macArm64Dmg },
+      { name: names.macArm64Dmg, content: contents.macArm64Dmg },
+    ],
     names.macArm64Zip
   )
   await writeManifest(
     path.join(darwinArm64, 'beta-mac.yml'),
     version,
-    [{ name: names.macArm64Zip, content: contents.macArm64Zip }],
+    [
+      { name: names.macArm64Zip, content: contents.macArm64Zip },
+      { name: names.macArm64Dmg, content: contents.macArm64Dmg },
+      { name: names.macArm64Dmg, content: contents.macArm64Dmg },
+    ],
     names.macArm64Zip
   )
 
   const darwinX64 = await makeTarget(input, 'darwin-x64')
-  await writeAsset(darwinX64, `Motrix-${version}-x64.dmg`)
+  await writeAsset(darwinX64, names.macX64Dmg, contents.macX64Dmg)
   await writeAsset(darwinX64, names.macX64Zip, contents.macX64Zip)
   await writeManifest(
     path.join(darwinX64, 'latest-mac.yml'),
     version,
-    [{ name: names.macX64Zip, content: contents.macX64Zip }],
+    [
+      { name: names.macX64Zip, content: contents.macX64Zip },
+      { name: names.macX64Dmg, content: contents.macX64Dmg },
+      { name: names.macX64Dmg, content: contents.macX64Dmg },
+    ],
     names.macX64Zip
   )
   await writeManifest(
     path.join(darwinX64, 'beta-mac.yml'),
     version,
-    [{ name: names.macX64Zip, content: contents.macX64Zip }],
+    [
+      { name: names.macX64Zip, content: contents.macX64Zip },
+      { name: names.macX64Dmg, content: contents.macX64Dmg },
+      { name: names.macX64Dmg, content: contents.macX64Dmg },
+    ],
     names.macX64Zip
   )
 
@@ -619,6 +704,7 @@ async function createFixture(version = VERSION) {
       linuxX64Deb: linuxX64Deb.path,
       linuxX64Companion: linuxX64Companion.path,
       linuxX64Manifest,
+      macArm64Manifest,
       macArm64Zip: macArm64Zip.path,
       windowsExe: path.join(windows, names.windowsExe),
       windowsManifest,
