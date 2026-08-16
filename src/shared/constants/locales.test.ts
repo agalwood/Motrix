@@ -48,11 +48,13 @@ describe('resolveSupportedLocale', () => {
   it('returns exact and normalized supported matches', () => {
     expect(resolveSupportedLocale('zh-CN')).toBe('zh-CN')
     expect(resolveSupportedLocale('zh_cn')).toBe('zh-CN')
+    expect(resolveSupportedLocale('zh-TW')).toBe('zh-TW')
+    expect(resolveSupportedLocale('zh_tw')).toBe('zh-TW')
   })
 
   it('falls back by language for regional and script variants', () => {
     expect(resolveSupportedLocale('zh-Hans-SG')).toBe('zh-CN')
-    expect(resolveSupportedLocale('zh-Hant-TW')).toBe('zh-CN')
+    expect(resolveSupportedLocale('zh-Hant-TW')).toBe('zh-TW')
   })
 
   it('tries later candidates before the default', () => {
@@ -68,7 +70,9 @@ describe('isSupportedLocale', () => {
   it('accepts only exact catalog values', () => {
     expect(isSupportedLocale('en-US')).toBe(true)
     expect(isSupportedLocale('zh-CN')).toBe(true)
+    expect(isSupportedLocale('zh-TW')).toBe(true)
     expect(isSupportedLocale('zh_cn')).toBe(false)
+    expect(isSupportedLocale('zh_tw')).toBe(false)
     expect(isSupportedLocale('fr-FR')).toBe(false)
   })
 })
