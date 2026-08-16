@@ -351,7 +351,7 @@ describe('release version contract', () => {
     expect(beta9Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('preserves beta.10 isolated-keychain and Snap disclosures', () => {
+  it('records beta.10 as an unpublished assembly attempt', () => {
     const english = read('docs/release-notes/2.0.0-beta.10.md')
     const chinese = read('docs/release-notes/2.0.0-beta.10.zh-CN.md')
     const normalizedEnglish = english.replace(/\s+/g, ' ')
@@ -364,71 +364,127 @@ describe('release version contract', () => {
     const normalizedBeta10Metainfo = beta10Metainfo.replace(/\s+/g, ' ')
 
     expect(english).toContain(
-      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.10/docs/release-notes/2.0.0-beta.9.md'
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.11/docs/release-notes/2.0.0-beta.10.zh-CN.md'
     )
     expect(chinese).toContain(
-      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.10/docs/release-notes/2.0.0-beta.9.zh-CN.md'
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.11/docs/release-notes/2.0.0-beta.10.md'
     )
     expect(normalizedEnglish).toContain(
-      'Creates an isolated macOS keychain independently on every Finalize runner'
+      'Motrix 2.0.0-beta.10 was not published'
     )
     expect(normalizedEnglish).toContain(
-      'keychain creation, unlock, and partition configuration use a separate fresh per-job value'
+      'All five desktop build jobs completed successfully'
     )
     expect(normalizedEnglish).toContain(
-      'Passes only the isolated keychain path to Electron Builder'
+      'The explicitly unsigned Windows Finalize job and both macOS Finalize jobs also completed their full package verification'
     )
     expect(normalizedEnglish).toContain(
-      "Saves and restores the runner's original user-keychain search list"
+      'Each architecture supplied its expected ZIP and DMG entries, including a metadata-identical duplicate DMG entry'
     )
     expect(normalizedEnglish).toContain(
-      'Any setup or cleanup failure prevents finalized-artifact upload'
+      'The failure occurred before a release bundle was created'
+    )
+    expect(normalizedChinese).toContain('Motrix 2.0.0-beta.10 未发布')
+    expect(normalizedChinese).toContain('5 个桌面构建 job 均成功完成')
+    expect(normalizedChinese).toContain(
+      'Windows Finalize job 与两个 macOS Finalize job 也都完成了完整安装包验证'
     )
     expect(normalizedChinese).toContain(
-      '每个 macOS Finalize runner 都独立创建隔离 keychain'
+      '其中包含一条元数据完全相同的重复 DMG 条目'
     )
-    expect(normalizedChinese).toContain(
-      'keychain 创建、解锁与 partition 配置则使用另一 个每次 job 随机生成的值'
-    )
-    expect(normalizedChinese).toContain(
-      'Electron Builder 只接收隔离 keychain 路径'
-    )
-    expect(normalizedChinese).toContain(
-      '保存并恢复 runner 原有的 user keychain 搜索列表'
-    )
-    expect(normalizedChinese).toContain(
-      '任何准备或清理失败都会阻止 finalized artifact 上传'
-    )
+    expect(normalizedChinese).toContain('失败发生在 release bundle 创建之前')
     for (const source of [english, chinese]) {
       expect(source).toContain('Snap')
-      expect(source).toContain('latest/edge')
-      expect(source).toContain('personal-files')
-      expect(source).toContain('allow-installation')
-      expect(source).toContain('AppImage')
-      expect(source).toContain('Flatpak')
-      expect(source).toContain(
-        'Motrix-Native-Host-2.0.0-beta.10-linux-<arch>.tar.gz'
-      )
-      expect(source).toContain('SmartScreen')
-      expect(source).toContain(
-        'docker.io/motrixapp/motrix-server:2.0.0-beta.10'
-      )
-      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.10')
+      expect(source).toContain('2.0.0-beta.11')
       expect(source).not.toMatch(restrictedPublicLanguage)
       expect(source).not.toMatch(secretLikeIdentifier)
     }
+    expect(normalizedEnglish).toContain(
+      'The GitHub Release, R2 update feed, and Docker Hub/GHCR container publication did not run'
+    )
+    expect(normalizedEnglish).toContain('External distribution remained zero')
+    expect(normalizedChinese).toContain(
+      'GitHub Release、R2 更新数据源以及 Docker Hub/GHCR 容器发布均未执行'
+    )
+    expect(normalizedChinese).toContain('外部分发 为零')
     expect(metainfo).toContain(
       '<release version="2.0.0-beta.10" date="2026-08-16">'
     )
     expect(normalizedBeta10Metainfo).toContain(
-      'isolated per-job macOS keychain'
+      'All five desktop builds and all three Finalize jobs succeeded'
     )
-    expect(normalizedBeta10Metainfo).toContain('path-only Builder handoff')
     expect(normalizedBeta10Metainfo).toContain(
-      'Windows packages remain unsigned'
+      'Assembly rejected the real macOS updater manifest shape'
+    )
+    expect(normalizedBeta10Metainfo).toContain(
+      'external distribution remained zero'
     )
     expect(beta10Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta10Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('preserves beta.11 macOS manifest recovery and distribution limits', () => {
+    const english = read('docs/release-notes/2.0.0-beta.11.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.11.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta11Metainfo =
+      /<release version="2\.0\.0-beta\.11"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta11Metainfo = beta11Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      "Validates each architecture's real macOS updater source manifest against the exact ZIP and DMG basenames"
+    )
+    expect(normalizedEnglish).toContain(
+      'Accepts and collapses only metadata-identical duplicate manifest entries'
+    )
+    expect(normalizedEnglish).toContain(
+      'Canonicalizes each macOS source manifest to its updater ZIP before merging the architectures'
+    )
+    expect(normalizedEnglish).toContain(
+      'one verified ZIP for Intel and one for Apple Silicon'
+    )
+    expect(normalizedChinese).toContain(
+      '按每个架构的精确 ZIP 与 DMG basename 验证真实 macOS updater 源 manifest'
+    )
+    expect(normalizedChinese).toContain(
+      '只接受并折叠元数据完全相同的重复 manifest 条目'
+    )
+    expect(normalizedChinese).toContain(
+      '将每个 macOS 源 manifest 规范化为 updater ZIP'
+    )
+    for (const source of [english, chinese]) {
+      expect(source).toContain('Snap')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.11-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain(
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.11'
+      )
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.11')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(metainfo).toContain(
+      '<release version="2.0.0-beta.11" date="2026-08-16">'
+    )
+    expect(normalizedBeta11Metainfo).toContain('real macOS updater')
+    expect(normalizedBeta11Metainfo).toContain(
+      'metadata-identical duplicate entries'
+    )
+    expect(normalizedBeta11Metainfo).toContain('one ZIP per architecture')
+    expect(normalizedBeta11Metainfo).toContain(
+      'Windows packages remain unsigned'
+    )
+    expect(beta11Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta11Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
   it('preserves beta.6 Snap recovery and canceled release history', () => {
