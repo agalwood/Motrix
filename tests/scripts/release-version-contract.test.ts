@@ -423,7 +423,7 @@ describe('release version contract', () => {
     expect(beta10Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('preserves beta.11 macOS manifest recovery and distribution limits', () => {
+  it('records beta.11 as an unpublished Linux manifest assembly attempt', () => {
     const english = read('docs/release-notes/2.0.0-beta.11.md')
     const chinese = read('docs/release-notes/2.0.0-beta.11.zh-CN.md')
     const normalizedEnglish = english.replace(/\s+/g, ' ')
@@ -435,26 +435,95 @@ describe('release version contract', () => {
       )?.[0] ?? ''
     const normalizedBeta11Metainfo = beta11Metainfo.replace(/\s+/g, ' ')
 
-    expect(normalizedEnglish).toContain(
-      "Validates each architecture's real macOS updater source manifest against the exact ZIP and DMG basenames"
+    expect(english).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.12/docs/release-notes/2.0.0-beta.11.zh-CN.md'
+    )
+    expect(chinese).toContain(
+      'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.12/docs/release-notes/2.0.0-beta.11.md'
     )
     expect(normalizedEnglish).toContain(
-      'Accepts and collapses only metadata-identical duplicate manifest entries'
+      'Motrix 2.0.0-beta.11 was not published'
+    )
+    expect(normalizedEnglish).toContain('all five desktop Build jobs')
+    expect(normalizedEnglish).toContain(
+      'The explicitly unsigned Windows Finalize job and both macOS Finalize jobs also completed their full package verification'
     )
     expect(normalizedEnglish).toContain(
-      'Canonicalizes each macOS source manifest to its updater ZIP before merging the architectures'
+      'listed the expected DEB once and the expected RPM twice with identical basename, size, and SHA-512 metadata'
+    )
+    expect(normalizedChinese).toContain('Motrix 2.0.0-beta.11 未发布')
+    expect(normalizedChinese).toContain('5 个桌面 Build job 全部成功')
+    expect(normalizedChinese).toContain(
+      '两条 basename、大小和 SHA-512 元数据完全相同的预期 RPM'
+    )
+    for (const source of [english, chinese]) {
+      expect(source).toContain('Snap')
+      expect(source).toContain('2.0.0-beta.12')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(normalizedEnglish).toContain(
+      'The GitHub Release, R2 update feed, and Docker Hub/GHCR container publication did not run'
+    )
+    expect(normalizedEnglish).toContain('External distribution remained zero')
+    expect(normalizedChinese).toContain(
+      'GitHub Release、R2 更新数据源以及 Docker Hub/GHCR 容器发布均未执行'
+    )
+    expect(normalizedChinese).toContain('外部分发 为零')
+    expect(metainfo).toContain(
+      '<release version="2.0.0-beta.11" date="2026-08-16">'
+    )
+    expect(normalizedBeta11Metainfo).toContain(
+      'All five desktop builds and all three Finalize jobs succeeded'
+    )
+    expect(normalizedBeta11Metainfo).toContain(
+      'a metadata-identical duplicate RPM entry'
+    )
+    expect(normalizedBeta11Metainfo).toContain(
+      'external distribution remained zero'
+    )
+    expect(beta11Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta11Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('preserves beta.12 canonical manifest recovery and distribution limits', () => {
+    const english = read('docs/release-notes/2.0.0-beta.12.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.12.zh-CN.md')
+    const normalizedEnglish = english.replace(/\s+/g, ' ')
+    const normalizedChinese = chinese.replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta12Metainfo =
+      /<release version="2\.0\.0-beta\.12"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta12Metainfo = beta12Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      'Validates every source updater manifest against the exact allowlisted basenames, file sizes, and SHA-512 values'
     )
     expect(normalizedEnglish).toContain(
-      'one verified ZIP for Intel and one for Apple Silicon'
+      'Accepts and collapses only duplicate entries whose basename, size, and SHA-512 metadata are identical'
+    )
+    expect(normalizedEnglish).toContain(
+      'Regenerates the published Linux and Windows updater manifests from the canonical verified package set'
+    )
+    expect(normalizedEnglish).toContain(
+      'Each Linux feed therefore contains exactly one DEB and one RPM entry'
+    )
+    expect(normalizedEnglish).toContain(
+      '17 release assets and four beta updater manifests pass the recovered path'
     )
     expect(normalizedChinese).toContain(
-      '按每个架构的精确 ZIP 与 DMG basename 验证真实 macOS updater 源 manifest'
+      '按精确 allowlist basename、文件大小与 SHA-512 值验证 每一份 updater 源 manifest'
     )
     expect(normalizedChinese).toContain(
-      '只接受并折叠元数据完全相同的重复 manifest 条目'
+      '只接受并折叠 basename、大小与 SHA-512 元数据完全相同的重复条目'
     )
     expect(normalizedChinese).toContain(
-      '将每个 macOS 源 manifest 规范化为 updater ZIP'
+      '重新生成公开的 Linux 与 Windows updater manifest'
+    )
+    expect(normalizedChinese).toContain(
+      '每份 Linux 更新数据源都只包含一条 DEB 与 一条 RPM'
     )
     for (const source of [english, chinese]) {
       expect(source).toContain('Snap')
@@ -462,29 +531,30 @@ describe('release version contract', () => {
       expect(source).toContain('AppImage')
       expect(source).toContain('Flatpak')
       expect(source).toContain(
-        'Motrix-Native-Host-2.0.0-beta.11-linux-<arch>.tar.gz'
+        'Motrix-Native-Host-2.0.0-beta.12-linux-<arch>.tar.gz'
       )
       expect(source).toContain('SmartScreen')
       expect(source).toContain(
-        'docker.io/motrixapp/motrix-server:2.0.0-beta.11'
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.12'
       )
-      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.11')
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.12')
       expect(source).not.toMatch(restrictedPublicLanguage)
       expect(source).not.toMatch(secretLikeIdentifier)
     }
     expect(metainfo).toContain(
-      '<release version="2.0.0-beta.11" date="2026-08-16">'
+      '<release version="2.0.0-beta.12" date="2026-08-16">'
     )
-    expect(normalizedBeta11Metainfo).toContain('real macOS updater')
-    expect(normalizedBeta11Metainfo).toContain(
-      'metadata-identical duplicate entries'
+    expect(normalizedBeta12Metainfo).toContain(
+      'validates and canonicalizes every platform updater manifest'
     )
-    expect(normalizedBeta11Metainfo).toContain('one ZIP per architecture')
-    expect(normalizedBeta11Metainfo).toContain(
+    expect(normalizedBeta12Metainfo).toContain(
+      'regenerates the Linux and Windows updater metadata from the verified package set'
+    )
+    expect(normalizedBeta12Metainfo).toContain(
       'Windows packages remain unsigned'
     )
-    expect(beta11Metainfo).not.toMatch(restrictedPublicLanguage)
-    expect(beta11Metainfo).not.toMatch(secretLikeIdentifier)
+    expect(beta12Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta12Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
   it('preserves beta.6 Snap recovery and canceled release history', () => {
