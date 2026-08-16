@@ -277,7 +277,7 @@ describe('release version contract', () => {
     )
   })
 
-  it('preserves beta.9 finalization and Snap review disclosures', () => {
+  it('preserves beta.9 finalization and Snap prerelease-skip disclosures', () => {
     const english = read('docs/release-notes/2.0.0-beta.9.md')
     const chinese = read('docs/release-notes/2.0.0-beta.9.zh-CN.md')
     const normalizedEnglish = english.replace(/\s+/g, ' ')
@@ -287,6 +287,7 @@ describe('release version contract', () => {
       /<release version="2\.0\.0-beta\.9"[\s\S]*?<\/release>/.exec(
         metainfo
       )?.[0] ?? ''
+    const normalizedBeta9Metainfo = beta9Metainfo.replace(/\s+/g, ' ')
 
     expect(english).toContain(
       'https://github.com/agalwood/Motrix/blob/v2.0.0-beta.9/docs/release-notes/2.0.0-beta.8.md'
@@ -316,10 +317,13 @@ describe('release version contract', () => {
       'the project will not bypass or weaken it in code'
     )
     expect(normalizedEnglish).toContain(
-      'The `v2.0.0-beta.9` tag must wait until that declaration is approved'
+      'Snap is not part of the beta.9 distribution'
     )
     expect(normalizedEnglish).toContain(
-      'a beta.9 Snap must not be considered available from `latest/edge`'
+      'Protected prerelease Snap runs stop after source validation'
+    )
+    expect(normalizedEnglish).toContain(
+      'they do not build Snap artifacts, upload Store revisions, or change `latest/edge`'
     )
     expect(normalizedChinese).toContain(
       '在隔离的 Finalize runtime 内安装由 lockfile 固定的完整 verifier dependency closure'
@@ -335,10 +339,13 @@ describe('release version contract', () => {
       '需要由 Canonical 签名的 Store declaration'
     )
     expect(normalizedChinese).toContain('项目不会通过代码绕过或弱化该要求')
+    expect(normalizedChinese).toContain('Snap 不属于 beta.9 的分发范围')
     expect(normalizedChinese).toContain(
-      '`v2.0.0-beta.9` tag 必须等待该 declaration 获批'
+      '受保护的预发布 Snap run 会在 source validation 后停止'
     )
-    expect(normalizedChinese).toContain('本说明不表示 beta.9 Snap 已公开提供')
+    expect(normalizedChinese).toContain(
+      '不会构建 Snap artifact、上传 Store revision 或修改 `latest/edge`'
+    )
     for (const source of [english, chinese]) {
       expect(source).toContain('2.0.0-beta.9')
       expect(source).toContain('latest/edge')
@@ -362,8 +369,10 @@ describe('release version contract', () => {
     expect(beta9Metainfo).toContain(
       'tool-runtime cleanup between package verification'
     )
+    expect(normalizedBeta9Metainfo).toContain(
+      'Prerelease Snap runs stop after source validation'
+    )
     expect(beta9Metainfo).toContain('personal-files')
-    expect(beta9Metainfo).toContain('allow-installation')
     expect(beta9Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta9Metainfo).not.toMatch(secretLikeIdentifier)
   })

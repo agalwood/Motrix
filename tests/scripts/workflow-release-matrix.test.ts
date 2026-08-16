@@ -758,6 +758,9 @@ describe('release workflow publication contract', () => {
 
     const triggers = asRecord(releaseWorkflow.on, 'release workflow triggers')
     expect(triggers).toHaveProperty('workflow_dispatch')
+    expect(asRecord(triggers.push, 'release push trigger')).toEqual({
+      tags: ['v*'],
+    })
 
     const publishJob = asRecord(jobs.publish, 'publish job')
     const publishCondition = stringField(publishJob, 'if')
