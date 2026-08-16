@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import {
   chmod,
   cp,
@@ -28,6 +28,7 @@ const MAX_LOG_BYTES = 256 * 1024
 const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const HTTP_FIXTURE_NAME = 'motrix-http-smoke.bin'
 const PLUGIN_ID = 'test.demo-config'
+const SEEDER_RPC_PORT = 16_801
 const PLUGIN_FIXTURE = path.join(
   PROJECT_ROOT,
   'tests/fixtures/moext/test.demo-config-1.0.0.moext'
@@ -44,6 +45,24 @@ const TORRENT_DATA_FILE = path.join(TORRENT_DATA_ROOT, 'test.bin')
 const HTTP_FIXTURE = Buffer.from(
   'Motrix Docker Server persistent HTTP fixture\n'.repeat(16_384)
 )
+const SEEDER_STATUS_PROBE = [
+  "const response = await fetch('http://127.0.0.1:' + process.env.MOTRIX_SEEDER_RPC_PORT + '/jsonrpc', {",
+  "method: 'POST',",
+  "headers: {'content-type': 'application/json'},",
+  "body: JSON.stringify({jsonrpc: '2.0', id: 'seed-status', method: 'aria2.tellActive', params: ['token:' + process.env.MOTRIX_SEEDER_RPC_SECRET, ['gid', 'status', 'totalLength', 'completedLength', 'bittorrent']]})",
+  '})',
+  "if (!response.ok) throw new Error('Seeder RPC returned ' + response.status)",
+  'console.log(await response.text())',
+].join('\n')
+const TCP_PROBE = [
+  "import { connect } from 'node:net'",
+  'await new Promise((resolve, reject) => {',
+  'const socket = connect({host: process.env.MOTRIX_SEEDER_HOST, port: Number(process.env.MOTRIX_SEEDER_PORT)})',
+  "const timer = setTimeout(() => socket.destroy(new Error('Seeder TCP probe timed out')), 5000)",
+  "socket.once('connect', () => { clearTimeout(timer); socket.end(); resolve() })",
+  "socket.once('error', (error) => { clearTimeout(timer); reject(error) })",
+  '})',
+].join(';')
 
 function platformArgs(platform) {
   return platform ? ['--platform', platform] : []
@@ -152,6 +171,84 @@ async function waitForExit(name, timeoutMs) {
     await delay(100)
   }
   throw new Error(`Container ${name} did not exit within ${timeoutMs}ms`)
+}
+
+async function querySeederDownloads(name, rpcSecret) {
+  const output = await docker([
+    'exec',
+    '--env',
+    `MOTRIX_SEEDER_RPC_PORT=${SEEDER_RPC_PORT}`,
+    '--env',
+    `MOTRIX_SEEDER_RPC_SECRET=${rpcSecret}`,
+    name,
+    'node',
+    '--input-type=module',
+    '--eval',
+    SEEDER_STATUS_PROBE,
+  ])
+  const response = JSON.parse(output)
+  if (response.error) {
+    throw new Error(`Seeder RPC failed: ${JSON.stringify(response.error)}`)
+  }
+  if (!Array.isArray(response.result)) {
+    throw new Error(`Seeder RPC returned invalid result: ${output}`)
+  }
+  return response.result
+}
+
+async function waitForSeeder(name, rpcSecret, timeoutMs) {
+  const deadline = Date.now() + Math.min(timeoutMs, 30_000)
+  let lastStatus = 'RPC unavailable'
+  while (Date.now() < deadline) {
+    const exited = await containerExited(name)
+    if (exited) {
+      throw new Error(`Seeder exited before readiness: code=${exited.ExitCode}`)
+    }
+    try {
+      const downloads = await querySeederDownloads(name, rpcSecret)
+      if (downloads.length !== 1) {
+        lastStatus = `active downloads=${downloads.length}`
+      } else {
+        const [download] = downloads
+        lastStatus = JSON.stringify({
+          completedLength: download.completedLength,
+          gid: download.gid,
+          status: download.status,
+          totalLength: download.totalLength,
+        })
+        if (
+          download.status === 'active' &&
+          download.bittorrent &&
+          /^[1-9][0-9]*$/.test(download.totalLength) &&
+          download.completedLength === download.totalLength
+        ) {
+          return download
+        }
+      }
+    } catch (error) {
+      lastStatus = error instanceof Error ? error.message : String(error)
+    }
+    await delay(200)
+  }
+  throw new Error(`Seeder did not become ready: ${lastStatus}`)
+}
+
+async function assertSeederReachable(name, seedIp, timeoutMs) {
+  await docker(
+    [
+      'exec',
+      '--env',
+      `MOTRIX_SEEDER_HOST=${seedIp}`,
+      '--env',
+      'MOTRIX_SEEDER_PORT=6881',
+      name,
+      'node',
+      '--input-type=module',
+      '--eval',
+      TCP_PROBE,
+    ],
+    { timeout: Math.min(timeoutMs, 10_000) }
+  )
 }
 
 async function requestJson(url, options = {}, expectedStatus) {
@@ -519,9 +616,11 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
 
 async function waitForTask(url, token, taskId, accepted, timeoutMs) {
   const deadline = Date.now() + timeoutMs
+  let lastTask
   while (Date.now() < deadline) {
     const tasks = await rpc(url, token, 'query', 'query:listTasks')
     const task = tasks.find((candidate) => candidate.id === taskId)
+    lastTask = task
     if (task?.status === 'error') {
       throw new Error(
         `task ${taskId} failed: ${task.errorMessage ?? task.errorCode ?? 'unknown'}`
@@ -530,7 +629,20 @@ async function waitForTask(url, token, taskId, accepted, timeoutMs) {
     if (task && accepted.has(task.status)) return task
     await delay(250)
   }
-  throw new Error(`task ${taskId} did not reach ${[...accepted].join('/')}`)
+  const progress = lastTask
+    ? {
+        downloadedBytes: lastTask.downloadedBytes,
+        downloadSpeed: lastTask.downloadSpeed,
+        engineTaskId: lastTask.engineTaskId,
+        progress: lastTask.progress,
+        status: lastTask.status,
+        totalBytes: lastTask.totalBytes,
+        uploadSpeed: lastTask.uploadSpeed,
+      }
+    : { status: 'missing' }
+  throw new Error(
+    `task ${taskId} did not reach ${[...accepted].join('/')}; last=${JSON.stringify(progress)}`
+  )
 }
 
 async function assertHostFile(target, expected) {
@@ -752,6 +864,7 @@ export async function smokeServerImage(options) {
       trackerUrl
     )
     const seedRoot = path.join(tempRoot, 'seed')
+    const seederRpcSecret = randomBytes(24).toString('hex')
     await mkdir(seedRoot)
     await cp(TORRENT_DATA_ROOT, path.join(seedRoot, 'sample-data'), {
       recursive: true,
@@ -779,6 +892,10 @@ export async function smokeServerImage(options) {
       '--enable-dht6=false',
       '--bt-enable-lpd=false',
       '--enable-peer-exchange=false',
+      '--enable-rpc=true',
+      '--rpc-listen-all=false',
+      `--rpc-listen-port=${SEEDER_RPC_PORT}`,
+      `--rpc-secret=${seederRpcSecret}`,
       '--allow-overwrite=true',
       '--check-integrity=true',
       '--file-allocation=none',
@@ -790,6 +907,7 @@ export async function smokeServerImage(options) {
       '/seed/sample.torrent',
     ])
     seedCreated = true
+    await waitForSeeder(seedName, seederRpcSecret, timeoutMs)
     const seedIp = await docker([
       'inspect',
       '--format',
@@ -816,6 +934,7 @@ export async function smokeServerImage(options) {
       identity,
       timeoutMs
     )
+    await assertSeederReachable(appName, seedIp, timeoutMs)
 
     if (mode === 'health') {
       await stopServer(appName, timeoutMs)
@@ -888,11 +1007,7 @@ export async function smokeServerImage(options) {
         displayName: 'sample-data',
       }
     )
-    await rpc(url, operatorToken, 'command', 'command:setTaskBtTracker', {
-      engineGid: btTask.gid,
-      trackers: [trackerUrl],
-    })
-    await waitForTask(
+    const finalBtTask = await waitForTask(
       url,
       operatorToken,
       btTask.taskId,
@@ -903,6 +1018,10 @@ export async function smokeServerImage(options) {
       path.join(volumes.downloadsDir, 'sample-data', 'sample-data', 'test.bin'),
       await readFile(TORRENT_DATA_FILE)
     )
+    await rpc(url, operatorToken, 'command', 'command:setTaskBtTracker', {
+      engineGid: finalBtTask.engineTaskId,
+      trackers: [trackerUrl],
+    })
     if (
       fixtureServer.trackerAnnounces() < 2 ||
       fixtureServer.trackerPeerIds().size < 2
@@ -1068,6 +1187,8 @@ export async function smokeServerImage(options) {
       : ''
     const message = error instanceof Error ? error.message : String(error)
     const logs = [
+      seedCreated &&
+        `Fixture tracker: announces=${fixtureServer.trackerAnnounces()} peerIds=${fixtureServer.trackerPeerIds().size}`,
       appLogs && `Server logs:\n${appLogs}`,
       seedLogs && `Seeder logs:\n${seedLogs}`,
     ]

@@ -76,17 +76,31 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.16" date="2026-08-16">
+      <description>
+        <p>
+          Single-platform metadata validation now accepts Docker Buildx's
+          documented flat image configuration while rejecting missing,
+          ambiguous, or conflicting platform data. The native BitTorrent smoke
+          waits for a complete aria2 seeder through JSON-RPC and verifies local
+          peer reachability before starting a real transfer. Native fan-out,
+          cross-registry index, provenance, SBOM, signature, and public runtime
+          gates remain fail-closed. Windows packages remain unsigned.
+          Prerelease Snap runs stop after source validation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.15" date="2026-08-16">
       <description>
         <p>
-          Native staged-digest smoke tests now use Docker CLI syntax supported
-          by both GitHub runner architectures after a platform-pinned pull,
-          while retaining an exact architecture assertion and platform-pinned
-          runtime containers. The complete native fan-out, cross-registry
-          index, provenance, SBOM, signature, and public runtime gates remain
-          fail-closed. Windows packages remain unsigned. Prerelease Snap runs
-          stop after source validation without building or publishing
-          artifacts.
+          The desktop packages, GitHub prerelease, and R2 update feed completed.
+          Native amd64 and arm64 Server builds pushed only untagged staged
+          digests. Both arm64 registry smokes passed before metadata validation
+          rejected Docker Buildx's flat single-platform image configuration;
+          the amd64 smoke separately timed out in its local BitTorrent fixture.
+          No beta.15 container tag or final index was published or signed, and
+          stable aliases remained unchanged. Windows packages were unsigned;
+          the prerelease Snap run stopped after source validation.
         </p>
       </description>
     </release>

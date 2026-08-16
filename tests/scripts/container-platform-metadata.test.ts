@@ -81,7 +81,10 @@ function verify(directory: string, maximumBuilderAttempt = 3) {
   })
 }
 
-function platformPublication(platform: 'linux/amd64' | 'linux/arm64') {
+function platformPublication(
+  platform: 'linux/amd64' | 'linux/arm64',
+  imageShape: 'flat' | 'platform-map' = 'flat'
+) {
   const architecture = platform.split('/')[1]
   const imageDigest = IMAGE_DIGESTS[platform]
   const attestationDigest = ATTESTATION_DIGESTS[platform]
@@ -110,21 +113,29 @@ function platformPublication(platform: 'linux/amd64' | 'linux/arm64') {
     })
   )
   const digest = `sha256:${createHash('sha256').update(index).digest('hex')}`
-  const inspect = {
-    manifest: { digest },
-    image: {
-      [platform]: {
-        config: {
-          User: 'node',
-          Labels: {
-            ...CONTAINER_LABELS,
-            'org.opencontainers.image.revision': REVISION,
-            'org.opencontainers.image.version': VERSION,
-          },
-        },
-        platform: { architecture, os: 'linux' },
+  const image = {
+    architecture,
+    os: 'linux',
+    config: {
+      User: 'node',
+      Labels: {
+        ...CONTAINER_LABELS,
+        'org.opencontainers.image.revision': REVISION,
+        'org.opencontainers.image.version': VERSION,
       },
     },
+  }
+  const inspect = {
+    manifest: { digest },
+    image:
+      imageShape === 'flat'
+        ? image
+        : {
+            [platform]: {
+              config: image.config,
+              platform: { architecture, os: 'linux' },
+            },
+          },
   }
   return { attestationDigest, digest, imageDigest, index, inspect }
 }
@@ -200,12 +211,30 @@ describe('container platform metadata', () => {
     })
   })
 
+  it('accepts the documented platform-keyed Image shape from a multi-platform inspection', () => {
+    const artifact = platformPublication('linux/amd64', 'platform-map')
+    expect(
+      inspectContainerPlatformPublication({
+        digest: artifact.digest,
+        dockerHubIndex: artifact.index,
+        dockerHubInspect: artifact.inspect,
+        ghcrIndex: artifact.index,
+        ghcrInspect: artifact.inspect,
+        platform: 'linux/amd64',
+        revision: REVISION,
+        version: VERSION,
+      })
+    ).toEqual({
+      imageDigest: artifact.imageDigest,
+      attestationDigest: artifact.attestationDigest,
+    })
+  })
+
   it('rejects a platform inspection with a conflicting source revision', () => {
     const artifact = platformPublication('linux/amd64')
     const conflicting = structuredClone(artifact.inspect)
-    conflicting.image['linux/amd64'].config.Labels[
-      'org.opencontainers.image.revision'
-    ] = '1'.repeat(40)
+    conflicting.image.config.Labels['org.opencontainers.image.revision'] =
+      '1'.repeat(40)
     expect(() =>
       inspectContainerPlatformPublication({
         digest: artifact.digest,
@@ -218,6 +247,47 @@ describe('container platform metadata', () => {
         version: VERSION,
       })
     ).toThrow(/label .* conflicts/)
+  })
+
+  it.each([
+    [
+      'wrong flat architecture',
+      (inspect: { image: Record<string, unknown> }) => {
+        inspect.image.architecture = 'arm64'
+      },
+      /platform conflicts/,
+    ],
+    [
+      'missing flat platform',
+      (inspect: { image: Record<string, unknown> }) => {
+        delete inspect.image.architecture
+        delete inspect.image.os
+      },
+      /platform is missing/,
+    ],
+    [
+      'ambiguous flat and mapped shape',
+      (inspect: { image: Record<string, unknown> }) => {
+        inspect.image['linux/amd64'] = structuredClone(inspect.image)
+      },
+      /shape is ambiguous/,
+    ],
+  ])('rejects a %s inspection', (_, mutate, error) => {
+    const artifact = platformPublication('linux/amd64')
+    const conflicting = structuredClone(artifact.inspect)
+    mutate(conflicting)
+    expect(() =>
+      inspectContainerPlatformPublication({
+        digest: artifact.digest,
+        dockerHubIndex: artifact.index,
+        dockerHubInspect: conflicting,
+        ghcrIndex: artifact.index,
+        ghcrInspect: artifact.inspect,
+        platform: 'linux/amd64',
+        revision: REVISION,
+        version: VERSION,
+      })
+    ).toThrow(error)
   })
 
   it.each([

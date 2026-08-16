@@ -591,9 +591,9 @@ describe('release version contract', () => {
     expect(beta12Metainfo).not.toMatch(secretLikeIdentifier)
   })
 
-  it('ships beta.15 Docker smoke compatibility recovery without weakening native gates', () => {
-    const english = read('docs/release-notes/2.0.0-beta.15.md')
-    const chinese = read('docs/release-notes/2.0.0-beta.15.zh-CN.md')
+  it('ships beta.16 inspection and BitTorrent recovery without weakening native gates', () => {
+    const english = read('docs/release-notes/2.0.0-beta.16.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.16.zh-CN.md')
     const normalizedEnglish = english
       .replace(/^>\s?/gm, '')
       .replace(/\s+/g, ' ')
@@ -601,11 +601,11 @@ describe('release version contract', () => {
       .replace(/^>\s?/gm, '')
       .replace(/\s+/g, ' ')
     const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
-    const beta15Metainfo =
-      /<release version="2\.0\.0-beta\.15"[\s\S]*?<\/release>/.exec(
+    const beta16Metainfo =
+      /<release version="2\.0\.0-beta\.16"[\s\S]*?<\/release>/.exec(
         metainfo
       )?.[0] ?? ''
-    const normalizedBeta15Metainfo = beta15Metainfo.replace(/\s+/g, ' ')
+    const normalizedBeta16Metainfo = beta16Metainfo.replace(/\s+/g, ' ')
 
     expect(normalizedEnglish).toContain(
       'Builds `linux/amd64` on `ubuntu-22.04` and `linux/arm64` on `ubuntu-22.04-arm`'
@@ -614,10 +614,19 @@ describe('release version contract', () => {
       'The container release path does not install or invoke QEMU'
     )
     expect(normalizedEnglish).toContain(
-      'explicitly pulls its staged digest with the required platform, then inspects the selected local image using the Docker CLI syntax supported by both GitHub runner images'
+      "Validates Docker Buildx's documented flat image configuration for a single-platform source and the platform-keyed form used by multi-platform inspection"
     )
     expect(normalizedEnglish).toContain(
-      'fails closed unless the inspected image architecture exactly matches the matrix platform'
+      'Missing, unexpected, multiple, ambiguous, or conflicting platform data fails closed'
+    )
+    expect(normalizedEnglish).toContain(
+      'exactly one active torrent has all bytes available'
+    )
+    expect(normalizedEnglish).toContain(
+      'proves the seeder port is reachable from the Server container before creating the real download task'
+    )
+    expect(normalizedEnglish).toContain(
+      'Tracker mutation is exercised only after the transfer and file hash pass'
     )
     expect(normalizedEnglish).toContain(
       'A single architecture never receives the public version tag and cannot become the official release on its own'
@@ -642,13 +651,99 @@ describe('release version contract', () => {
     )
     expect(normalizedChinese).toContain('容器发布路径不安装或调用 QEMU')
     expect(normalizedChinese).toContain(
-      'architecture 必须与矩阵 platform 完全一致'
+      '缺失、意外、多个、歧义或相互冲突的 platform 数据均会 在元数据被接受前 fail-closed'
+    )
+    expect(normalizedChinese).toContain(
+      '恰好一个 active torrent 已 备齐全部字节'
+    )
+    expect(normalizedChinese).toContain(
+      '有界失败会报告任务、Tracker、 peer 与字节进度诊断，不用重试掩盖错误'
     )
     expect(normalizedChinese).toMatch(
       /全部构建、index、\s*签名、provenance、SBOM、匿名拉取和 runtime 门禁通过/u
     )
     expect(normalizedChinese).toMatch(/本版本不宣称跨渠道\s*原子性/u)
     for (const source of [english, chinese]) {
+      expect(source).toContain('Snap')
+      expect(source).toContain('latest/edge')
+      expect(source).toContain('AppImage')
+      expect(source).toContain('Flatpak')
+      expect(source).toContain(
+        'Motrix-Native-Host-2.0.0-beta.16-linux-<arch>.tar.gz'
+      )
+      expect(source).toContain('SmartScreen')
+      expect(source).toContain(
+        'docker.io/motrixapp/motrix-server:2.0.0-beta.16'
+      )
+      expect(source).toContain('ghcr.io/agalwood/motrix-server:2.0.0-beta.16')
+      expect(source).not.toMatch(restrictedPublicLanguage)
+      expect(source).not.toMatch(secretLikeIdentifier)
+    }
+    expect(normalizedBeta16Metainfo).toContain(
+      "accepts Docker Buildx's documented flat image configuration while rejecting missing, ambiguous, or conflicting platform data"
+    )
+    expect(normalizedBeta16Metainfo).toContain(
+      'waits for a complete aria2 seeder through JSON-RPC and verifies local peer reachability before starting a real transfer'
+    )
+    expect(beta16Metainfo).not.toMatch(restrictedPublicLanguage)
+    expect(beta16Metainfo).not.toMatch(secretLikeIdentifier)
+  })
+
+  it('records beta.15 desktop/feed success and two fail-closed native container checks', () => {
+    const english = read('docs/release-notes/2.0.0-beta.15.md')
+    const chinese = read('docs/release-notes/2.0.0-beta.15.zh-CN.md')
+    const normalizedEnglish = english
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const normalizedChinese = chinese
+      .replace(/^>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+    const metainfo = read('flatpak/app.motrix.native.metainfo.xml')
+    const beta15Metainfo =
+      /<release version="2\.0\.0-beta\.15"[\s\S]*?<\/release>/.exec(
+        metainfo
+      )?.[0] ?? ''
+    const normalizedBeta15Metainfo = beta15Metainfo.replace(/\s+/g, ' ')
+
+    expect(normalizedEnglish).toContain(
+      'Motrix 2.0.0-beta.15 was partially distributed'
+    )
+    expect(normalizedEnglish).toContain(
+      'all five desktop builds, all three Finalize jobs, assembly, the GitHub prerelease, and the R2 update feed completed successfully'
+    )
+    expect(normalizedEnglish).toContain(
+      'The arm64 job anonymously pulled its exact staged digest from both registries and passed the complete Server runtime smoke in each case'
+    )
+    expect(normalizedEnglish).toContain(
+      'Docker Buildx returned the documented flat `.Image` configuration for this single-platform source'
+    )
+    expect(normalizedEnglish).toContain(
+      'Its deterministic local BitTorrent task did not reach `seeding` or `completed` within 180 seconds'
+    )
+    expect(normalizedEnglish).toContain(
+      'Neither registry received an immutable `2.0.0-beta.15` tag or final multi-platform index'
+    )
+    expect(normalizedEnglish).toContain(
+      'No beta.15 index was signed; no final cross-registry provenance, SBOM, or anonymous signature set was verified; and no final public native runtime matrix completed'
+    )
+    expect(normalizedEnglish).toContain(
+      'this result must not be described as atomic across distribution channels'
+    )
+    expect(normalizedChinese).toContain(
+      'Motrix 2.0.0-beta.15 于 2026-08-16 完成了部分渠道分发'
+    )
+    expect(normalizedChinese).toContain(
+      'arm64 job 从两个 registry 匿名拉取精确暂存 digest，并分别通过完整 Server runtime smoke'
+    )
+    expect(normalizedChinese).toContain(
+      '本地确定性 BitTorrent 任务未能在 180 秒内进入 `seeding` 或 `completed`'
+    )
+    expect(normalizedChinese).toContain(
+      '两个 registry 均没有获得不可变 `2.0.0-beta.15` tag 或最终 multi-platform index'
+    )
+    for (const source of [english, chinese]) {
+      expect(source).toContain('31939678223')
+      expect(source).toContain('v2.0.0-beta.16')
       expect(source).toContain('Snap')
       expect(source).toContain('latest/edge')
       expect(source).toContain('AppImage')
@@ -665,10 +760,10 @@ describe('release version contract', () => {
       expect(source).not.toMatch(secretLikeIdentifier)
     }
     expect(normalizedBeta15Metainfo).toContain(
-      'use Docker CLI syntax supported by both GitHub runner architectures after a platform-pinned pull'
+      'Both arm64 registry smokes passed before metadata validation rejected Docker Buildx'
     )
     expect(normalizedBeta15Metainfo).toContain(
-      'retaining an exact architecture assertion and platform-pinned runtime containers'
+      'No beta.15 container tag or final index was published or signed, and stable aliases remained unchanged'
     )
     expect(beta15Metainfo).not.toMatch(restrictedPublicLanguage)
     expect(beta15Metainfo).not.toMatch(secretLikeIdentifier)
