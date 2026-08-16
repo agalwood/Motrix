@@ -724,7 +724,11 @@ export async function smokeServerImage(options) {
   try {
     if (platform) await docker(['pull', '--platform', platform, image])
     const metadata = JSON.parse(
-      await docker(['image', 'inspect', ...platformArgs(platform), image])
+      // `docker image inspect --platform` requires a newer Docker CLI than the
+      // GitHub-hosted Ubuntu runners consistently provide. The preceding
+      // platform-pinned pull selects the local image; the architecture check
+      // below remains the fail-closed platform assertion.
+      await docker(['image', 'inspect', image])
     )[0]
     if (metadata.Config.User !== 'node') {
       throw new Error(
