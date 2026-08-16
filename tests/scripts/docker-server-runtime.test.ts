@@ -147,6 +147,31 @@ describe('Docker Server runtime staging contract', () => {
     expect(imageSmoke).toContain(
       "metadata.Architecture !== platform.split('/')[1]"
     )
+    expect(imageSmoke).toContain("method: 'aria2.tellActive'")
+    expect(imageSmoke).toContain("download.status === 'active'")
+    expect(imageSmoke).toContain(
+      'download.completedLength === download.totalLength'
+    )
+    expect(imageSmoke).toContain("'--enable-rpc=true'")
+    expect(imageSmoke).toContain(
+      'await waitForSeeder(seedName, seederRpcSecret, timeoutMs)'
+    )
+    expect(imageSmoke).toContain(
+      'await assertSeederReachable(appName, seedIp, timeoutMs)'
+    )
+    expect(
+      imageSmoke.indexOf(
+        'await waitForSeeder(seedName, seederRpcSecret, timeoutMs)'
+      )
+    ).toBeLessThan(imageSmoke.indexOf('fixtureServer.setTrackerPeer'))
+    expect(imageSmoke.indexOf("'command:setTaskBtTracker'")).toBeGreaterThan(
+      imageSmoke.indexOf("new Set(['seeding', 'completed'])")
+    )
+    expect(imageSmoke).toContain('engineGid: finalBtTask.engineTaskId')
+    expect(imageSmoke).toContain("randomBytes(24).toString('hex')")
+    expect(imageSmoke).toContain('downloadedBytes: lastTask.downloadedBytes')
+    expect(imageSmoke).toContain('totalBytes: lastTask.totalBytes')
+    expect(imageSmoke).toContain('Fixture tracker: announces=')
     expect(imageSmoke).toContain('identity.user')
     expect(imageSmoke).toContain("'command:createTask'")
     expect(imageSmoke).toContain("'command:setTaskBtTracker'")

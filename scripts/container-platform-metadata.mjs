@@ -107,6 +107,67 @@ function platformParts(platform) {
   return { architecture, os }
 }
 
+function resolveInspectedImage(images, repository, platform) {
+  const flatFields = ['architecture', 'config', 'os']
+  const isFlatImage = flatFields.some((field) => Object.hasOwn(images, field))
+  const platformKeys = Object.keys(images).filter((key) => key.includes('/'))
+  if (isFlatImage) {
+    if (platformKeys.length > 0) {
+      throw new Error(`${repository} inspection image shape is ambiguous`)
+    }
+    return images
+  }
+
+  const expectedKeys = Object.keys(images).filter(
+    (key) => key !== 'unknown/unknown'
+  )
+  if (expectedKeys.length !== 1 || expectedKeys[0] !== platform) {
+    throw new Error(`${repository} inspection must contain exactly ${platform}`)
+  }
+  return requireRecord(
+    images[platform],
+    `${repository} ${platform} inspected image`
+  )
+}
+
+function requireInspectedPlatform(image, repository, platform) {
+  const expected = platformParts(platform)
+  const observed = []
+  if (Object.hasOwn(image, 'architecture') || Object.hasOwn(image, 'os')) {
+    observed.push({
+      architecture: requireString(
+        image.architecture,
+        `${repository} inspected image architecture`
+      ),
+      os: requireString(image.os, `${repository} inspected image OS`),
+    })
+  }
+  if (image.platform !== undefined) {
+    const nested = requireRecord(
+      image.platform,
+      `${repository} inspected image platform`
+    )
+    observed.push({
+      architecture: requireString(
+        nested.architecture,
+        `${repository} inspected platform architecture`
+      ),
+      os: requireString(nested.os, `${repository} inspected platform OS`),
+    })
+  }
+  if (observed.length === 0) {
+    throw new Error(`${repository} inspected image platform is missing`)
+  }
+  if (
+    observed.some(
+      (value) =>
+        value.architecture !== expected.architecture || value.os !== expected.os
+    )
+  ) {
+    throw new Error(`${repository} inspected platform conflicts`)
+  }
+}
+
 function inspectPlatformIndex(bytes, repository, platform, sourceDigest) {
   const candidates = [bytes]
   if (bytes.at(-1) === 0x0a) candidates.push(bytes.subarray(0, -1))
@@ -192,16 +253,8 @@ function inspectPlatformConfig(
     throw new Error(`${repository} inspected digest conflicts`)
   }
   const images = requireRecord(document.image, `${repository} inspected images`)
-  const expectedKeys = Object.keys(images).filter(
-    (key) => key !== 'unknown/unknown'
-  )
-  if (expectedKeys.length !== 1 || expectedKeys[0] !== platform) {
-    throw new Error(`${repository} inspection must contain exactly ${platform}`)
-  }
-  const image = requireRecord(
-    images[platform],
-    `${repository} ${platform} image`
-  )
+  const image = resolveInspectedImage(images, repository, platform)
+  requireInspectedPlatform(image, repository, platform)
   const config = requireRecord(image.config, `${repository} ${platform} config`)
   if (config.User !== 'node') {
     throw new Error(`${repository} ${platform} default user is not node`)
@@ -213,16 +266,6 @@ function inspectPlatformConfig(
   for (const [key, expected] of Object.entries(labels)) {
     if (actualLabels[key] !== expected) {
       throw new Error(`${repository} ${platform} label ${key} conflicts`)
-    }
-  }
-  const observedPlatform = image.platform
-  if (observedPlatform !== undefined) {
-    const { architecture, os } = platformParts(platform)
-    if (
-      observedPlatform.architecture !== architecture ||
-      observedPlatform.os !== os
-    ) {
-      throw new Error(`${repository} inspected platform conflicts`)
     }
   }
 }
