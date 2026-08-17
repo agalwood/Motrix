@@ -22,6 +22,7 @@ export const engineSettingsSchema = z.object({
   maxTries: z.number().int().min(0).max(100).catch(5),
   retryWait: z.number().int().min(0).max(300).catch(10),
   lowestSpeedLimit: z.number().int().min(0).catch(0),
+  dnsMode: z.enum(['auto', 'system', 'engine']).catch('auto'),
 
   // BitTorrent (HOT)
   btMaxPeers: z.number().int().min(1).max(1000).catch(128),

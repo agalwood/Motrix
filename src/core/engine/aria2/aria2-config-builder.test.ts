@@ -609,4 +609,21 @@ describe('Aria2ConfigBuilder', () => {
       expect(idxBtSaveMetadata).toBeGreaterThan(idxSplit)
     })
   })
+
+  describe('dns resolution mode', () => {
+    it.each([
+      ['auto', '--async-dns=true'],
+      ['engine', '--async-dns=true'],
+      ['system', '--async-dns=false'],
+    ] as const)('emits %s as %s', (dnsMode, flag) => {
+      const args = builder.buildArgs(
+        makeEngineSettings({ dnsMode }),
+        true,
+        null,
+        { download: 0, upload: 0 }
+      )
+
+      expect(args).toContain(flag)
+    })
+  })
 })

@@ -146,6 +146,19 @@ export class EngineSupervisor {
   }
 
   /**
+   * HOT-update the aria2 DNS resolver via `aria2.changeGlobalOption`.
+   * No-op when the engine is not Ready (cold start picks up the value via
+   * `buildArgs`). Applies to new and waiting downloads only — active
+   * downloads keep the resolver they started with.
+   */
+  async applyAsyncDns(asyncDns: boolean): Promise<void> {
+    if (this.state !== EngineState.Ready) return
+    await this.rpcClient.changeGlobalOption({
+      'async-dns': String(asyncDns),
+    })
+  }
+
+  /**
    * HOT-update the aria2 proxy via `aria2.changeGlobalOption`. No-op when
    * the engine is not Ready (cold start picks up proxy via `buildArgs`).
    * Pass `null` to clear the proxy (sends empty strings, which aria2

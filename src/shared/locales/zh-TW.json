@@ -906,7 +906,7 @@
       },
       "network": {
         "title": "網路",
-        "desc": "Proxy 和 NAT/UPnP"
+        "desc": "Proxy、DNS 和 NAT/UPnP"
       },
       "integration": {
         "title": "整合",
@@ -1238,6 +1238,14 @@
       }
     },
     "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS 解析方式",
+        "modeDesc": "下載引擎解析網域名稱的方式。",
+        "modeAuto": "自動",
+        "modeSystem": "系統解析器",
+        "modeEngine": "引擎內建解析器"
+      },
       "proxy": {
         "title": "Proxy",
         "enable": "啟用 Proxy",
@@ -1668,6 +1676,10 @@
     },
     "engineFailure": {
       "title": "下載引擎失敗"
+    },
+    "dnsFallback": {
+      "title": "{{name}} 已改用系統 DNS 重試",
+      "body": "引擎無法聯繫任何 DNS 伺服器,本次工作階段已切換至系統解析器。"
     },
     "center": {
       "title": "通知",

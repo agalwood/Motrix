@@ -108,14 +108,19 @@ jobs:
       - name: File naming conventions
         run: pnpm run check:file-names
 
+      # Fingerprint the resolved Biome first: lint verdicts have disagreed
+      # between runs with identical inputs before, and the version line is
+      # the fastest way to tell a toolchain drift from a real finding.
+      - name: Biome toolchain fingerprint
+        run: |
+          pnpm exec biome --version
+          pnpm ls @biomejs/biome
+
+      # Single source of truth for lint scope: package.json's `lint` script
+      # (`biome check .`), bounded by biome.json. Keep this in lockstep with
+      # the local commit gate in .claude/rules/commit-and-quality.md.
       - name: Lint
-        run: >-
-          pnpm exec biome check
-          src/ scripts/
-          packages/native-host/build.mjs
-          packages/native-host/build.test.mjs
-          packages/native-host/package-flatpak-companion.mjs
-          packages/native-host/package-flatpak-companion.test.mjs
+        run: pnpm run lint
 
       - name: Native host JavaScript tooling tests
         run: >-

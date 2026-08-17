@@ -5,6 +5,8 @@ import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
 import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
+import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
+import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
   PollingScheduler,
@@ -365,6 +367,10 @@ let aria2Adapter: Aria2Adapter
 // Constructed in Phase 2 below (F4); see that construction site's comment
 // for the full must-reach registration/drain ordering rationale.
 let notificationCenter: NotificationCenter
+// Constructed and registered in startEngineAndRestore; its task retry is
+// late-bound by buildCommandHandlers to the ReAddTasks deps bundle.
+let dnsFallbackConsumer: DnsFallbackConsumer | undefined
+let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
 let trackerManager: TrackerManager | null = null
@@ -997,6 +1003,22 @@ async function startEngineAndRestore(
   occurrenceDispatcher.register(
     notificationConsumer.name,
     notificationConsumer.consume
+  )
+  dnsFallbackConsumer = createDnsFallbackConsumer({
+    getDnsMode: () => settingsManager.get().engine.dnsMode,
+    getTaskStatus: (id) => taskManager.getById(id)?.status ?? null,
+    getTaskName: (id) => taskManager.getById(id)?.name ?? null,
+    applyAsyncDns: (asyncDns) => supervisor.applyAsyncDns(asyncDns),
+    reAddTask: (id) =>
+      dnsFallbackRetry
+        ? dnsFallbackRetry(id)
+        : Promise.reject(new Error('dns fallback task retry not bound')),
+    notify: (input) => notificationCenter.notify(input),
+    log: getLogger('dns-fallback'),
+  })
+  occurrenceDispatcher.register(
+    dnsFallbackConsumer.name,
+    dnsFallbackConsumer.consume
   )
 
   try {
@@ -2105,6 +2127,10 @@ async function initializeMainProcess(): Promise<void> {
   const disposeCommandHandlers = registerCommandHandlers({
     cliToolService,
     supervisor,
+    dnsFallback: { reset: () => dnsFallbackConsumer?.reset() },
+    bindTaskRetry: (fn) => {
+      dnsFallbackRetry = fn
+    },
     sessionManager,
     settingsManager,
     protocolManager,

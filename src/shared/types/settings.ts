@@ -150,6 +150,15 @@ export interface OnboardingState {
   disclaimerAccepted: boolean
 }
 
+/**
+ * DNS resolution strategy for the download engine.
+ * - `auto`: engine resolver first; on a DNS transport failure the session
+ *   falls back to the system resolver and retries the failed task once.
+ * - `system`: always the OS resolver (`async-dns=false`).
+ * - `engine`: always the engine's built-in async resolver, no fallback.
+ */
+export type DnsResolutionMode = 'auto' | 'system' | 'engine'
+
 export interface EngineSettings {
   // Startup params (change requires engine restart)
   rpcPort: number
@@ -171,6 +180,7 @@ export interface EngineSettings {
   maxTries: number
   retryWait: number
   lowestSpeedLimit: number
+  dnsMode: DnsResolutionMode
 
   // BitTorrent (HOT, flat)
   btMaxPeers: number

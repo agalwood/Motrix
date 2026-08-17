@@ -50,6 +50,9 @@ const FIXTURE = {
     autoDiagnostic: false,
     diagnosticIntervalSec: 3600,
   },
+  engine: {
+    dnsMode: 'auto',
+  },
 }
 
 describe('<NetworkDialog>', () => {
@@ -90,6 +93,33 @@ describe('<NetworkDialog>', () => {
           proxy: expect.objectContaining({ enabled: true }),
         })
       )
+    })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('changing dns resolution submits an engine dnsMode patch', async () => {
+    const onClose = vi.fn()
+    render(
+      <NetworkDialog
+        open
+        onClose={onClose}
+        labelKey="settings.cards.network.title"
+        descKey="settings.cards.network.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: /^dns$/i })
+      ).toBeInTheDocument()
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: /dns lookup/i }))
+    await user.click(await screen.findByRole('option', { name: /system dns/i }))
+    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await waitFor(() => {
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        engine: { dnsMode: 'system' },
+      })
     })
     expect(onClose).toHaveBeenCalled()
   })

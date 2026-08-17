@@ -906,7 +906,7 @@
       },
       "network": {
         "title": "网络",
-        "desc": "代理与 NAT/UPnP"
+        "desc": "代理、DNS 与 NAT/UPnP"
       },
       "integration": {
         "title": "集成",
@@ -1238,6 +1238,14 @@
       }
     },
     "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS 解析方式",
+        "modeDesc": "下载引擎解析域名的方式。",
+        "modeAuto": "自动",
+        "modeSystem": "系统解析器",
+        "modeEngine": "引擎内置解析器"
+      },
       "proxy": {
         "title": "代理",
         "enable": "启用代理",
@@ -2047,6 +2055,10 @@
     },
     "engineFailure": {
       "title": "下载引擎故障"
+    },
+    "dnsFallback": {
+      "title": "{{name}} 已改用系统 DNS 重试",
+      "body": "引擎无法联系任何 DNS 服务器,本次会话已切换到系统解析器。"
     },
     "center": {
       "title": "通知",

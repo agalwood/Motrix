@@ -919,7 +919,7 @@
       },
       "network": {
         "title": "Network",
-        "desc": "Proxy and NAT/UPnP"
+        "desc": "Proxy, DNS, and NAT/UPnP"
       },
       "integration": {
         "title": "Integration",
@@ -1251,6 +1251,14 @@
       }
     },
     "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS lookup",
+        "modeDesc": "How downloads look up server addresses.",
+        "modeAuto": "Auto",
+        "modeSystem": "System DNS",
+        "modeEngine": "Built-in DNS"
+      },
       "proxy": {
         "title": "Proxy",
         "enable": "Enable proxy",
@@ -2067,6 +2075,10 @@
     },
     "engineFailure": {
       "title": "Download engine failed"
+    },
+    "dnsFallback": {
+      "title": "{{name}} retried with system DNS",
+      "body": "Motrix couldn't reach a DNS server, so it switched to system DNS for this session."
     },
     "center": {
       "title": "Notifications",

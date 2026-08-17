@@ -2,6 +2,7 @@ import { access, copyFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { proxyToAria2Options } from '@core/proxy/serializers'
 import type { EngineSettings, ProxySettings } from '@shared/types/settings'
+import { dnsModeToAsyncDns } from './dns-fallback'
 
 export class Aria2ConfigBuilder {
   private readonly userConfPath: string
@@ -105,6 +106,9 @@ export class Aria2ConfigBuilder {
       `--max-tries=${settings.maxTries}`,
       `--retry-wait=${settings.retryWait}`,
       `--lowest-speed-limit=${settings.lowestSpeedLimit}`,
+      // 'auto' starts optimistic (async resolver); the runtime fallback
+      // consumer flips it to false via changeGlobalOption when needed.
+      `--async-dns=${dnsModeToAsyncDns(settings.dnsMode)}`,
       `--bt-max-peers=${settings.btMaxPeers}`,
       `--bt-enable-lpd=${settings.btEnableLpd}`,
       `--seed-ratio=${settings.seedRatio}`,

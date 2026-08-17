@@ -44,7 +44,9 @@ function makeFakeCtx() {
     supervisor: {
       stop: vi.fn().mockResolvedValue(undefined),
       start: vi.fn().mockResolvedValue(undefined),
+      applyAsyncDns: vi.fn().mockResolvedValue(undefined),
     } as unknown as EngineSupervisor,
+    dnsFallback: { reset: vi.fn() },
     settingsManager: {
       get: vi.fn(),
       update: vi.fn(),
@@ -142,7 +144,8 @@ function makeFakeCtx() {
 
 function makeSettings(
   proxy: typeof PROXY_OFF,
-  tracker: { sourcesEnabled?: boolean; blacklistEnabled?: boolean } = {}
+  tracker: { sourcesEnabled?: boolean; blacklistEnabled?: boolean } = {},
+  engine: { dnsMode?: 'auto' | 'system' | 'engine' } = {}
 ) {
   return {
     proxy,
@@ -150,6 +153,10 @@ function makeSettings(
       sourcesEnabled: true,
       blacklistEnabled: true,
       ...tracker,
+    },
+    engine: {
+      dnsMode: 'auto',
+      ...engine,
     },
   }
 }
@@ -185,6 +192,39 @@ describe('server Commands.UpdateSettings', () => {
     )
     await handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
     expect(ctx.proxyApplier.apply).toHaveBeenCalledWith(PROXY_OFF, PROXY_ON)
+  })
+
+  it('hot-applies async-dns and resets the fallback latch when dnsMode changes', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(makeSettings(PROXY_OFF, {}, { dnsMode: 'auto' }))
+      .mockReturnValueOnce(makeSettings(PROXY_OFF, {}, { dnsMode: 'system' }))
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await handlers[Commands.UpdateSettings]?.({ engine: { dnsMode: 'system' } })
+    expect(ctx.supervisor.applyAsyncDns).toHaveBeenCalledExactlyOnceWith(false)
+    expect(ctx.dnsFallback.reset).toHaveBeenCalledOnce()
+    expect(ctx.supervisor.stop).not.toHaveBeenCalled()
+  })
+
+  it('leaves async-dns alone when dnsMode is unchanged', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeSettings(PROXY_OFF)
+    )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await handlers[Commands.UpdateSettings]?.({})
+    expect(ctx.supervisor.applyAsyncDns).not.toHaveBeenCalled()
+    expect(ctx.dnsFallback.reset).not.toHaveBeenCalled()
   })
 
   it('restarts engine via stop+start when requiresRestart is true', async () => {

@@ -41,7 +41,7 @@ for (const path of FACADES) {
       `drift: ${path} contains unexpected content beyond the re-export.`
     )
     const display =
-      stripped.length > 200 ? stripped.slice(0, 200) + '...' : stripped
+      stripped.length > 200 ? `${stripped.slice(0, 200)}...` : stripped
     console.error(`       residue: ${display}`)
     failed = true
   }
