@@ -8,10 +8,9 @@ import { useTranslation } from 'react-i18next'
 // Statuses where the bitfield is actively changing and warrants the 2s
 // polling cadence. For other statuses (paused / seeding / completed /
 // error / removed) the hook still fetches once on mount so the user sees
-// the last-known piece map — it just stops polling after that. For
-// evicted-from-aria2 tasks (Completed BT after removeDownloadResult),
-// the IPC handler synthesizes a full-complete piece map from
-// task.bt.pieceLength + totalBytes, so PiecesTab still renders an
+// an available last-known piece map — it just stops polling after that.
+// For completed tasks evicted from aria2, the query handler synthesizes a
+// full-complete piece map from task.pieceLength + totalBytes, so this renders an
 // all-green canvas without needing to know about the eviction here.
 const PIECES_LIVE_STATUSES = new Set<TaskStatus>([
   TaskStatus.FetchingMetadata,
@@ -194,7 +193,7 @@ export function PiecesTab({ task }: { task: DownloadTask }) {
         <canvas
           ref={canvasRef}
           data-piece-count={cells.length}
-          aria-label="BT piece map"
+          aria-label={t('panel.downloads.inspector.pieces.mapLabel')}
           className="block max-w-full"
         />
       </div>

@@ -109,6 +109,7 @@ describe('translateRawToTask path fields', () => {
     expect(task.diskPath).toBe('/downloads/sample.bin.motrix')
     expect(task.finalPath).toBe('/downloads/sample.bin')
     expect(task.finalName).toBe('sample.bin')
+    expect(task.pieceLength).toBe(1000)
     expect(task.transitionPhase).toBe(TransitionPhase.Idle)
     expect(task.torrentMetaPath).toBeNull()
   })

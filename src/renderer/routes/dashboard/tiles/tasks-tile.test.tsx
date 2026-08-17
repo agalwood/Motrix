@@ -137,7 +137,6 @@ function bt(ratio: number): BtExtension {
     isPrivate: false,
     magnetUri: null,
     sequentialDownload: false,
-    pieceLength: 0,
   }
 }
 

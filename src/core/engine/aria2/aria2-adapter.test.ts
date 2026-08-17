@@ -748,7 +748,7 @@ describe('Aria2Adapter', () => {
   })
 
   describe('getTaskPieces', () => {
-    it('returns parsed piece state for a BT task', async () => {
+    it('returns parsed piece state for an engine-backed task', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.tellStatus).mockResolvedValue({
         pieceLength: '16384',
@@ -771,7 +771,7 @@ describe('Aria2Adapter', () => {
       ])
     })
 
-    it('returns zero-shape when fields are missing (HTTP task)', async () => {
+    it('normalizes missing piece fields to zero-shape', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.tellStatus).mockResolvedValue(
         {} as unknown as Aria2RawStatus

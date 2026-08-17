@@ -95,6 +95,7 @@ const BASE_TASK: DownloadTask = {
   uploadedBytesBaseline: 0,
   fileCount: 1,
   connections: 0,
+  pieceLength: 1000,
   infoHash: null,
   errorCode: null,
   errorDetailKey: null,

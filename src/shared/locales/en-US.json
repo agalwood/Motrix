@@ -641,6 +641,7 @@
           }
         },
         "pieces": {
+          "mapLabel": "Download piece map",
           "legend": {
             "done": "Completed",
             "active": "Downloading",

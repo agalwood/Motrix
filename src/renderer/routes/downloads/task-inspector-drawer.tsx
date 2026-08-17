@@ -14,6 +14,7 @@ import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
+import { canInspectPieces } from '@shared/types/task-actions'
 import {
   Files,
   Grid3x3,
@@ -73,6 +74,7 @@ export function TaskInspectorDrawer({
   const open = selected.length > 0
   const single = selected.length === 1 ? selected[0] : null
   const isBt = single?.type === TaskType.Bt || single?.type === TaskType.Magnet
+  const showPieces = single !== null && canInspectPieces(single)
   const [subtab, setSubtab] = useState<SubTab>('overview')
   const activitySnapshotCache = useMemo(
     createTaskInspectorActivitySnapshotCache,
@@ -177,7 +179,7 @@ export function TaskInspectorDrawer({
                 >
                   <Files className="size-3.5" />
                 </TabsTrigger>
-                {isBt && (
+                {showPieces && (
                   <TabsTrigger
                     value="pieces"
                     className="text-xs px-5"
@@ -222,7 +224,7 @@ export function TaskInspectorDrawer({
               <TabsContent value="files" className="min-h-0">
                 <FilesTab task={single} />
               </TabsContent>
-              {isBt && (
+              {showPieces && (
                 <TabsContent value="pieces" className="min-h-0">
                   <PiecesTab task={single} />
                 </TabsContent>

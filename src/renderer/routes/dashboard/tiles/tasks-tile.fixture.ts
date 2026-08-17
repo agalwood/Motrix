@@ -56,7 +56,6 @@ function btExtension(ratio: number): BtExtension {
     isPrivate: false,
     magnetUri: null,
     sequentialDownload: false,
-    pieceLength: 0,
   }
 }
 
@@ -107,6 +106,7 @@ function makeTask(
     uploadedBytesBaseline: 0,
     fileCount: 1,
     connections: 8,
+    pieceLength: 1_048_576,
     infoHash: null,
     errorCode: null,
     errorDetailKey: null,

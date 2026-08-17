@@ -144,16 +144,11 @@ export interface EngineAdapter {
   ): Promise<void>
 
   /**
-   * Fetch BT piece state for the given engine task.
+   * Fetch piece state for an engine-backed download task.
    *
-   * - Returns `null` if the engine has no record of `engineTaskId`.
-   * - Returns zero-shape (`{ pieceLength: 0, numPieces: 0, bitfield: '' }`)
-   *   for HTTP/FTP tasks, mirroring how aria2's `tellStatus` omits piece
-   *   fields for non-BT tasks.
-   *
-   * Bitfield is large (~2KB on big torrents); call only when the consumer
-   * is actively viewing the pieces visualization. Not bundled into
-   * `getTaskStatus` to keep the ListTasks hot path lean.
+   * Returns `null` if the engine has no record of `engineTaskId`. Bitfield can
+   * be large, so call only while the consumer is viewing the visualization;
+   * it is deliberately excluded from the ListTasks hot path.
    */
   getTaskPieces(engineTaskId: string): Promise<TaskPiecesResult | null>
 

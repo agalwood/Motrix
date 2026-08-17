@@ -1,6 +1,7 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { TaskPiecesResult } from '@shared/types/pieces'
 import type { DownloadTask } from '@shared/types/task'
+import { TaskStatus } from '@shared/types/task'
 
 export interface GetTaskPiecesDeps {
   engineAdapter: Pick<EngineAdapter, 'getTaskPieces'>
@@ -20,20 +21,15 @@ const EMPTY: TaskPiecesResult = {
 }
 
 /**
- * For BT tasks evicted from aria2 post-seeding, the engine returns null.
- * Synthesize a "fully complete" piece map from the persisted pieceLength
- * (motrix.db) and totalBytes — bitfield filled with 'f' so every piece
- * cell renders as done. Returns EMPTY when pieceLength is 0 (non-BT,
- * legacy row pre-v4 migration, or polling never captured it).
+ * Reconstruct the final all-complete map after finalize retires the engine
+ * result. The exact piece length was captured from aria2 and persisted on the
+ * task; trailing bits are ignored by the renderer.
  */
 function synthesizeCompletePieces(task: DownloadTask): TaskPiecesResult {
-  const pieceLength = task.bt?.pieceLength ?? 0
-  if (pieceLength <= 0 || task.totalBytes <= 0) return EMPTY
-  const numPieces = Math.ceil(task.totalBytes / pieceLength)
-  // 4 pieces per hex char (nibble). Trailing bits past `numPieces` are
-  // ignored by statesFromBitfield, so over-filling with 'f' is safe.
+  if (task.pieceLength <= 0 || task.totalBytes <= 0) return EMPTY
+  const numPieces = Math.ceil(task.totalBytes / task.pieceLength)
   const bitfield = 'f'.repeat(Math.ceil(numPieces / 4))
-  return { pieceLength, numPieces, bitfield }
+  return { pieceLength: task.pieceLength, numPieces, bitfield }
 }
 
 export function createGetTaskPiecesHandler(deps: GetTaskPiecesDeps) {
@@ -42,8 +38,20 @@ export function createGetTaskPiecesHandler(deps: GetTaskPiecesDeps) {
   }: GetTaskPiecesPayload): Promise<TaskPiecesResult> => {
     const task = deps.taskManager.getById(taskId)
     if (!task) return EMPTY
-    const result = await deps.engineAdapter.getTaskPieces(task.engineTaskId)
-    if (result) return result
+
+    if (task.engineTaskId) {
+      const result = await deps.engineAdapter.getTaskPieces(task.engineTaskId)
+      if (
+        result &&
+        (result.numPieces > 0 || task.status !== TaskStatus.Completed)
+      ) {
+        return result
+      }
+    }
+
+    // A missing engine row does not prove completion: error rows are evicted
+    // too, and synthesizing those as all-green would misrepresent the failure.
+    if (task.status !== TaskStatus.Completed) return EMPTY
     return synthesizeCompletePieces(task)
   }
 }

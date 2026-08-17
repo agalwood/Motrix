@@ -32,7 +32,6 @@ export function taskRowToDownloadTask(
         trackers: task.trackers.flat(),
         announceList: task.trackers,
         isPrivate: task.isPrivate,
-        pieceLength: task.pieceLength,
       })
     : undefined
 
@@ -59,6 +58,7 @@ export function taskRowToDownloadTask(
     uploadedBytesBaseline: task.uploadedBytesBaseline,
     fileCount: task.fileCount,
     connections: 0,
+    pieceLength: task.pieceLength,
     infoHash: task.infoHash,
     errorCode: task.errorCode,
     errorDetailKey: task.errorDetailKey,

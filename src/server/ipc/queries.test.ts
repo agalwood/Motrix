@@ -7,6 +7,7 @@ import { NotificationCenter } from '@core/notifications/notification-center'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
 import { Queries } from '@shared/protocol/queries'
+import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildServerQueryHandlers, type ServerQueryContext } from './queries'
 
@@ -320,6 +321,38 @@ describe('buildServerQueryHandlers — GetTaskDetail parity', () => {
     // @ts-expect-error partial ctx for test
     const handlers = buildServerQueryHandlers(ctx)
     expect(await handlers[Queries.GetTaskDetail]?.('missing')).toBeNull()
+  })
+})
+
+describe('buildServerQueryHandlers — GetTaskPieces parity', () => {
+  it('uses the shared piece query handler in web mode', async () => {
+    const task = makeDownloadTask({ id: 'task-http', engineTaskId: 'gid-http' })
+    const getTaskPieces = vi.fn().mockResolvedValue({
+      pieceLength: 1_048_576,
+      numPieces: 8,
+      bitfield: 'c0',
+    })
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        taskManager: {
+          getAll: vi.fn(() => [task]),
+          getById: vi.fn(() => task),
+        },
+        engineAdapter: {
+          getTaskBtTracker: vi.fn(),
+          getTaskPieces,
+        },
+      }) as unknown as ServerQueryContext
+    )
+
+    await expect(
+      handlers[Queries.GetTaskPieces]?.({ taskId: 'task-http' })
+    ).resolves.toEqual({
+      pieceLength: 1_048_576,
+      numPieces: 8,
+      bitfield: 'c0',
+    })
+    expect(getTaskPieces).toHaveBeenCalledWith('gid-http')
   })
 })
 

@@ -634,6 +634,7 @@
           }
         },
         "pieces": {
+          "mapLabel": "下载分片图",
           "legend": {
             "done": "已下载",
             "active": "下载中",
