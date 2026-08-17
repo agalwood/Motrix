@@ -202,8 +202,9 @@ async function finalizeHttp(
   const desiredFinalPath = finalizeOutcome.finalFilePath ?? task.finalPath
   await persistDesiredFinalPath(task, desiredFinalPath, deps)
 
-  // Refresh byte counters from aria2 BEFORE removeDownloadResult retires
-  // the gid. The polling loop only sees active/waiting tasks, so a
+  // Refresh byte counters and piece length from aria2 BEFORE
+  // removeDownloadResult retires the gid. The polling loop only sees
+  // active/waiting tasks, so a
   // super-tiny HTTP download that completes between two ticks never gets
   // its totalLength/completedLength merged into our task — finalize would
   // then persist `Completed` with `totalBytes=0`, leaving the UI showing
@@ -317,6 +318,9 @@ async function refreshTaskBytesBeforeFinalize(
     }
     if (task.sizeWhenDone === 0 && refreshed.sizeWhenDone > 0) {
       task.sizeWhenDone = refreshed.sizeWhenDone
+    }
+    if (task.pieceLength === 0 && refreshed.pieceLength > 0) {
+      task.pieceLength = refreshed.pieceLength
     }
   } catch (err) {
     deps.log.warn(

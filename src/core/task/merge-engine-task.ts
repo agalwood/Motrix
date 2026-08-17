@@ -62,6 +62,7 @@ export function mergeEngineTask(
     uploadSpeed: protected_.uploadSpeed,
     etaSeconds: protected_.etaSeconds,
     connections: protected_.connections,
+    pieceLength: protected_.pieceLength,
     uploadedBytes,
     uploadedBytesBaseline: existing.uploadedBytesBaseline,
     fileCount: protected_.fileCount,
@@ -86,6 +87,7 @@ export function hasEngineTaskDelta(
     before.uploadSpeed !== after.uploadSpeed ||
     before.etaSeconds !== after.etaSeconds ||
     before.connections !== after.connections ||
+    before.pieceLength !== after.pieceLength ||
     before.uploadedBytes !== after.uploadedBytes ||
     before.fileCount !== after.fileCount ||
     before.errorMessage !== after.errorMessage ||

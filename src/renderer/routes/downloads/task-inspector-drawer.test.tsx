@@ -4,7 +4,7 @@ import { createSelectionStore } from '@renderer/components/desktop-kit/selection
 import type { SelectionStore } from '@renderer/components/desktop-kit/selection/types'
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TaskType } from '@shared/types/task'
+import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import {
   TaskHistoryAccuracy,
   TaskHistoryEventKind,
@@ -179,6 +179,32 @@ describe('TaskInspectorDrawer', () => {
       'aria-selected',
       'true'
     )
+  })
+
+  it('shows Pieces for a direct HTTP task', () => {
+    const selection = createSelectionStore<DownloadTask>((t) => t.id)
+    const tasks = [
+      fake({ id: 'a', type: TaskType.Http, kind: TaskKind.Direct }),
+    ]
+    selection.getState().setItems([...tasks])
+    selection.getState().select('a')
+
+    render(<TestHarness selection={selection} tasks={tasks} />)
+
+    expect(screen.getByRole('tab', { name: /pieces/i })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /peers/i })).toBeNull()
+    expect(screen.queryByRole('tab', { name: /trackers/i })).toBeNull()
+  })
+
+  it('does not show Pieces for a multi-instance HTTP media task', () => {
+    const selection = createSelectionStore<DownloadTask>((t) => t.id)
+    const tasks = [fake({ id: 'a', type: TaskType.Http, kind: TaskKind.Hls })]
+    selection.getState().setItems([...tasks])
+    selection.getState().select('a')
+
+    render(<TestHarness selection={selection} tasks={tasks} />)
+
+    expect(screen.queryByRole('tab', { name: /pieces/i })).toBeNull()
   })
 
   it('reuses one keyed Activity cache across tab remounts', async () => {

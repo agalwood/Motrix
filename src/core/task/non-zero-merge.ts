@@ -10,11 +10,12 @@ const MIRROR_FIELDS = [
   'downloadedBytes',
   'sizeWhenDone',
   'fileCount',
+  'pieceLength',
 ] as const satisfies ReadonlyArray<keyof DownloadTask>
 
 /**
  * Merge an incoming engine snapshot into existing in-memory task state,
- * preserving the five mirror fields when the engine reports zero against
+ * preserving the mirror fields when the engine reports zero against
  * an existing non-zero value. This is the I-2 invariant: zero never
  * overwrites non-zero (root-cause fix for aria2_motrix paused-state collapse).
  */

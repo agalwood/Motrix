@@ -364,8 +364,8 @@ describe('finalizeTask failure-path publication routing', () => {
 // can finish between two polling ticks, so finalize sees totalBytes=0
 // and persists Completed with Size 0 / 0%. The fix is a pre-finalize
 // tellStatus refresh before removeDownloadResult retires the gid.
-describe('finalizeTask HTTP pre-refresh byte counters', () => {
-  it('fills totalBytes/sizeWhenDone/downloadedBytes from aria2 when polling never observed them', async () => {
+describe('finalizeTask HTTP pre-refresh transfer metadata', () => {
+  it('fills byte counters and piece length when polling never observed them', async () => {
     const deps = makeDeps()
     const task = makeTask({
       totalBytes: 0,
@@ -380,6 +380,7 @@ describe('finalizeTask HTTP pre-refresh byte counters', () => {
         totalBytes: 1234,
         downloadedBytes: 1234,
         sizeWhenDone: 1234,
+        pieceLength: 1024,
       } as DownloadTask
     )
 
@@ -388,6 +389,7 @@ describe('finalizeTask HTTP pre-refresh byte counters', () => {
     expect(task.totalBytes).toBe(1234)
     expect(task.sizeWhenDone).toBe(1234)
     expect(task.downloadedBytes).toBe(1234)
+    expect(task.pieceLength).toBe(1024)
     expect(task.progress).toBe(1)
     expect(task.status).toBe(TaskStatus.Completed)
   })
@@ -500,6 +502,7 @@ describe('finalizeTask HTTP pre-refresh byte counters', () => {
       totalBytes: 500,
       downloadedBytes: 500,
       sizeWhenDone: 500,
+      pieceLength: 256,
     })
     ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
       task
@@ -512,6 +515,7 @@ describe('finalizeTask HTTP pre-refresh byte counters', () => {
         totalBytes: 999,
         downloadedBytes: 999,
         sizeWhenDone: 999,
+        pieceLength: 1024,
       } as DownloadTask
     )
 
@@ -524,6 +528,7 @@ describe('finalizeTask HTTP pre-refresh byte counters', () => {
     expect(task.totalBytes).toBe(500)
     expect(task.sizeWhenDone).toBe(500)
     expect(task.downloadedBytes).toBe(500)
+    expect(task.pieceLength).toBe(256)
   })
 })
 
@@ -971,7 +976,6 @@ describe('finalizeTask BT branch', () => {
         comment: null,
         magnetUri: null,
         sequentialDownload: false,
-        pieceLength: 0,
       },
     })
     ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(

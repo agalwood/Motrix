@@ -21,6 +21,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
@@ -145,6 +146,11 @@ export function buildServerQueryHandlers(
     // read keyed by public id, null when absent (never undefined).
     [Queries.GetTaskDetail]: async (taskId: string) =>
       taskManager.getById(taskId) ?? null,
+
+    [Queries.GetTaskPieces]: createGetTaskPiecesHandler({
+      engineAdapter,
+      taskManager,
+    }),
 
     [Queries.GetStats]: async () => statsAggregator.getStats(),
 

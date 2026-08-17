@@ -244,7 +244,7 @@ export class SessionManager {
       // (effective trackers, ~200 rows of global trackers) — that's
       // runtime state, reconstructible from settings.
       trackers: task.bt?.announceList ?? [],
-      pieceLength: task.bt?.pieceLength ?? 0,
+      pieceLength: task.pieceLength,
       aggStatus: task.status,
       finishedAt: task.finishedAt,
       errorMessage: task.errorMessage,
@@ -795,7 +795,6 @@ export class SessionManager {
         trackers: taskPart.trackers.flat(),
         announceList: taskPart.trackers,
         isPrivate: taskPart.isPrivate,
-        pieceLength: taskPart.pieceLength,
       })
     }
 
@@ -860,6 +859,7 @@ export class SessionManager {
       uploadedBytesBaseline,
       fileCount,
       connections: Number(aria2.connections),
+      pieceLength: Number(aria2.pieceLength) || taskPart.pieceLength,
       infoHash: aria2.infoHash ?? taskPart.infoHash,
       metadataProgress: 0,
       priority: taskPart.priority,
@@ -906,7 +906,6 @@ export class SessionManager {
           trackers: taskPart.trackers.flat(),
           announceList: taskPart.trackers,
           isPrivate: taskPart.isPrivate,
-          pieceLength: taskPart.pieceLength,
         })
       : undefined
     const terminalFields = applyTerminalTransition(
@@ -950,6 +949,7 @@ export class SessionManager {
       uploadedBytesBaseline,
       fileCount: taskPart.fileCount,
       connections: 0,
+      pieceLength: taskPart.pieceLength,
       infoHash: taskPart.infoHash,
       metadataProgress: 0,
       priority: taskPart.priority,
@@ -1177,6 +1177,7 @@ export class SessionManager {
         uploadedBytesBaseline: 0,
         fileCount: 0,
         connections: 0,
+        pieceLength: taskPart.pieceLength,
         infoHash: taskPart.infoHash,
         errorCode: null,
         errorDetailKey: null,

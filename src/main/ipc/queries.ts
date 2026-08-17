@@ -26,6 +26,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
@@ -50,7 +51,6 @@ import { createGetGeoIPStatusHandler } from './queries/get-geo-ip-status'
 import { createGetTaskBtTrackerHandler } from './queries/get-task-bt-tracker'
 import { createGetTaskFilesHandler } from './queries/get-task-files'
 import { createGetTaskPeersHandler } from './queries/get-task-peers'
-import { createGetTaskPiecesHandler } from './queries/get-task-pieces'
 import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface QueryContext {

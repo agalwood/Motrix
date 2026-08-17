@@ -226,7 +226,6 @@ export function translateBtExtension(
     isPrivate: false,
     magnetUri: null,
     sequentialDownload: false,
-    pieceLength: Number(raw.pieceLength) || 0,
   }
 }
 
@@ -373,6 +372,7 @@ export function translateRawToTask(raw: Aria2RawStatus): DownloadTask {
     fileCount: raw.files?.length ?? 0,
 
     connections: Number(raw.connections),
+    pieceLength: Number(raw.pieceLength) || 0,
     infoHash: raw.infoHash ?? null,
     metadataProgress: 0,
 

@@ -103,6 +103,10 @@ export interface DownloadTask {
 
   // ── connection & metadata ────────────────────────
   connections: number
+  // aria2 piece size in bytes. Applies to direct HTTP/FTP downloads as
+  // well as BitTorrent; persisted so completed tasks can reconstruct their
+  // fully-downloaded piece map after the engine result has been retired.
+  pieceLength: number
   infoHash: string | null
   errorCode: DownloadErrorCode | null
   errorDetailKey: string | null
@@ -155,17 +159,12 @@ export interface BtExtension {
   isPrivate: boolean
   magnetUri: string | null
   sequentialDownload: boolean
-  // .torrent-fixed piece length in bytes. Persisted so a task evicted
-  // from aria2 (post-seeding) can still synthesize a full piece map
-  // for the inspector — `numPieces = ceil(totalBytes / pieceLength)`,
-  // bitfield filled with 'f'. 0 for non-BT or until first poll.
-  pieceLength: number
 }
 
 /**
  * Build a BtExtension with all-zero/empty defaults. Use at creation and
  * restore sites that start from defaults and override only the few fields
- * they actually know — keeps the 13-field shape in one place so a new field
+ * they actually know — keeps the extension shape in one place so a new field
  * gets one default here instead of being missed at a copy. Sites that derive
  * most fields from an engine snapshot (e.g. aria2 translate) keep an explicit
  * literal so the compiler still flags any unhandled field.
@@ -213,6 +212,7 @@ export function makeDownloadTask(
     uploadedBytesBaseline: 0,
     fileCount: 0,
     connections: 0,
+    pieceLength: 0,
     infoHash: null,
     errorCode: null,
     errorDetailKey: null,
@@ -246,7 +246,6 @@ export function makeDefaultBtExtension(
     isPrivate: false,
     magnetUri: null,
     sequentialDownload: false,
-    pieceLength: 0,
     ...overrides,
   }
 }

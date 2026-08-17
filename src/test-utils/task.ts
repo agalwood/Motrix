@@ -39,6 +39,7 @@ export function makeDownloadTask(
     uploadedBytesBaseline: 0,
     fileCount: 0,
     connections: 0,
+    pieceLength: 0,
     infoHash: null,
     errorCode: null,
     errorDetailKey: null,

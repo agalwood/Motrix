@@ -75,7 +75,6 @@ function makeBtTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
       isPrivate: false,
       magnetUri: null,
       sequentialDownload: false,
-      pieceLength: 0,
     },
     ...overrides,
   })

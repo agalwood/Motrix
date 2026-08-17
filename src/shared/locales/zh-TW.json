@@ -634,6 +634,7 @@
           }
         },
         "pieces": {
+          "mapLabel": "下載區塊圖",
           "legend": {
             "done": "已完成",
             "active": "下載中",

@@ -693,6 +693,7 @@ describe('SessionManager', () => {
         uploadedBytes: 256,
         uploadedBytesBaseline: 0,
         fileCount: 3,
+        pieceLength: 256,
       })
       taskManager.add(task)
       await session.save()
@@ -702,6 +703,7 @@ describe('SessionManager', () => {
       expect(saved?.task.sizeWhenDone).toBe(1024)
       expect(saved?.instances[0]?.uploadedBytes).toBe(256)
       expect(saved?.task.fileCount).toBe(3)
+      expect(saved?.task.pieceLength).toBe(256)
     })
 
     it('preserves isPrivate=true across save (round-trip)', async () => {
@@ -724,7 +726,6 @@ describe('SessionManager', () => {
           isPrivate: true,
           magnetUri: null,
           sequentialDownload: false,
-          pieceLength: 0,
         },
       })
       taskManager.add(task)

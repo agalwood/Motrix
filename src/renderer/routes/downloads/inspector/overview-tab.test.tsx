@@ -62,6 +62,7 @@ const task: DownloadTask = {
   uploadedBytesBaseline: 0,
   fileCount: 42,
   connections: 0,
+  pieceLength: 1_048_576,
   infoHash: 'abc',
   errorCode: null,
   errorDetailKey: null,
@@ -94,7 +95,6 @@ const task: DownloadTask = {
     isPrivate: false,
     magnetUri: null,
     sequentialDownload: false,
-    pieceLength: 0,
   },
 }
 

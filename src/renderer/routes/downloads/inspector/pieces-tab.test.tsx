@@ -40,24 +40,25 @@ describe('PiecesTab', () => {
     expect(root?.getAttribute('dir')).toBe('ltr')
   })
 
-  it.each([
-    [TaskStatus.Completed],
-    [TaskStatus.Error],
-    [TaskStatus.Removed],
-  ] as const)(
-    'renders full-complete canvas for synthesized pieces (status=%s)',
-    (status) => {
-      // Mirror the IPC handler synthesizing a fully-done piece map for
-      // an evicted BT task: every piece is `done`, all-green canvas.
-      mockPieces.value = { pieceLength: 16384, numPieces: 5, bitfield: 'ff' }
-      const { container } = render(
-        <PiecesTab task={makeTask('t-evicted', status)} />
-      )
-      const canvas = container.querySelector('canvas')
-      expect(canvas).not.toBeNull()
-      expect(canvas?.getAttribute('data-piece-count')).toBe('5')
-    }
-  )
+  it('renders full-complete canvas for synthesized completed pieces', () => {
+    mockPieces.value = { pieceLength: 16384, numPieces: 5, bitfield: 'ff' }
+    const { container } = render(
+      <PiecesTab task={makeTask('t-evicted', TaskStatus.Completed)} />
+    )
+    const canvas = container.querySelector('canvas')
+    expect(canvas).not.toBeNull()
+    expect(canvas?.getAttribute('data-piece-count')).toBe('5')
+  })
+
+  it('renders the empty state when no trustworthy piece map remains', () => {
+    mockPieces.value = { pieceLength: 0, numPieces: 0, bitfield: '' }
+    const { container } = render(
+      <PiecesTab task={makeTask('t-error', TaskStatus.Error)} />
+    )
+
+    expect(container.querySelector('canvas')).toBeNull()
+    expect(container.textContent).toContain('No pieces data')
+  })
 
   it('keeps loading-shaped placeholder when pieces=null on a live status', () => {
     mockPieces.value = null

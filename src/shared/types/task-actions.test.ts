@@ -11,6 +11,7 @@ import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import {
   canAttemptRetry,
+  canInspectPieces,
   canPause,
   canRebuildTaskInputs,
   canRemove,
@@ -56,6 +57,20 @@ function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
     ...overrides,
   })
 }
+
+describe('canInspectPieces', () => {
+  it.each([
+    [TaskKind.Direct, TaskType.Http, true],
+    [TaskKind.Direct, TaskType.Ftp, true],
+    [TaskKind.Direct, TaskType.Metalink, true],
+    [TaskKind.Bt, TaskType.Bt, true],
+    [TaskKind.Bt, TaskType.Magnet, true],
+    [TaskKind.Hls, TaskType.Http, false],
+    [TaskKind.Mux, TaskType.Http, false],
+  ] as const)('returns %s/%s -> %s', (kind, type, expected) => {
+    expect(canInspectPieces(makeTask({ kind, type }))).toBe(expected)
+  })
+})
 
 describe('canPause', () => {
   it.each([

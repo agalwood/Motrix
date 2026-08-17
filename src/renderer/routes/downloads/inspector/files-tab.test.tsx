@@ -76,7 +76,6 @@ const mockTask = (over: Partial<DownloadTask> = {}): DownloadTask =>
       isPrivate: false,
       magnetUri: null,
       sequentialDownload: false,
-      pieceLength: 0,
     },
     ...over,
   })
@@ -162,7 +161,6 @@ describe('FilesTab', () => {
             isPrivate: false,
             magnetUri: null,
             sequentialDownload: false,
-            pieceLength: 0,
           },
         })}
       />

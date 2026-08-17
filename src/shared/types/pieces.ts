@@ -1,19 +1,13 @@
-/**
- * BT piece state for a single task.
- *
- * For non-BT tasks (HTTP/FTP/SFTP) the engine returns no piece info;
- * this type uses zero-shape values rather than nulls so callers don't
- * have to branch on task type.
- */
+/** Piece state for a single engine-backed download task. */
 export interface TaskPiecesResult {
-  /** Bytes per piece. 0 when the engine has no piece concept. */
+  /** Bytes per piece. 0 until the engine knows the piece layout. */
   pieceLength: number
-  /** Total piece count. 0 for non-BT tasks. */
+  /** Total piece count. 0 until the engine knows the content length. */
   numPieces: number
   /**
    * Hex-encoded bitfield from aria2 `tellStatus.bitfield`.
    * Each hex char encodes 4 pieces (MSB = piece i, LSB = piece i+3).
-   * Empty string for non-BT tasks.
+   * Empty while the download has not started or no live map is available.
    */
   bitfield: string
 }

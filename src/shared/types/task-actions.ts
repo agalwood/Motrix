@@ -21,6 +21,11 @@ export function isMediaKind(kind: TaskKind): boolean {
   return kind === TaskKind.Mux || kind === TaskKind.Hls
 }
 
+/** Whether a task has one engine-level piece map that the inspector can show. */
+export function canInspectPieces(t: DownloadTask): boolean {
+  return t.kind === TaskKind.Direct || isTorrentLike(t)
+}
+
 /**
  * Terminal in the occurrence/terminal-metadata sense: the two statuses that
  * carry `finishedAt`/`error*` fields and qualify for a terminal occurrence.
