@@ -2241,6 +2241,7 @@ async function initializeMainProcess(): Promise<void> {
     menuManager: activeMenuManager,
     protocolManager,
     extraResourceDir: platform.extraResourceDir,
+    toggleMainWindow: () => windowManager.toggle('main'),
   })
 
   launcher.flushDeferred()

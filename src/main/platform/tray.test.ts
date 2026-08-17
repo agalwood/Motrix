@@ -71,7 +71,7 @@ import { RunMode } from '@shared/constants'
 import { setupTray, type TrayDeps } from './tray'
 
 const originalPlatform = process.platform
-
+const toggleMainWindow = vi.fn()
 function createDeps(): TrayDeps {
   return {
     eventBus: {
@@ -93,6 +93,7 @@ function createDeps(): TrayDeps {
       handleTorrentFile: vi.fn(),
     },
     extraResourceDir: path.join(process.cwd(), 'extra'),
+    toggleMainWindow,
   } as unknown as TrayDeps
 }
 
@@ -129,6 +130,28 @@ describe('setupTray', () => {
     await vi.waitFor(() => {
       expect(trayConstructor).toHaveBeenCalledWith(icon)
     })
+    handle.destroy()
+  })
+  it('toggles the main window on left click on Windows', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+
+    const handle = setupTray(createDeps())
+
+    await vi.waitFor(() => {
+      expect(trayConstructor).toHaveBeenCalled()
+    })
+
+    const clickHandler = trayInstance.on.mock.calls.find(
+      ([event]) => event === 'click'
+    )?.[1] as (() => void) | undefined
+
+    expect(clickHandler).toBeDefined()
+
+    clickHandler?.()
+
+    expect(toggleMainWindow).toHaveBeenCalledOnce()
+    expect(trayInstance.popUpContextMenu).not.toHaveBeenCalled()
+
     handle.destroy()
   })
 })

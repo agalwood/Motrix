@@ -35,6 +35,7 @@ export interface TrayDeps {
   menuManager: MenuManager
   protocolManager: ReturnType<typeof createProtocolManager>
   extraResourceDir: string
+  toggleMainWindow: () => void
 }
 
 export interface TrayHandle {
@@ -49,7 +50,8 @@ export function setupTray(deps: TrayDeps): TrayHandle {
     menuManager,
     protocolManager,
     extraResourceDir,
-  } = deps
+    toggleMainWindow,
+} = deps
 
   // Resolve asset paths — all tray assets live in extra/tray/
   const trayAssetDir = path.join(extraResourceDir, 'tray')
@@ -109,9 +111,14 @@ export function setupTray(deps: TrayDeps): TrayHandle {
 
     // Events
     tray.on('click', () => {
+      if (process.platform === 'win32') {
+        toggleMainWindow()
+        return
+      }
+
       if (currentMenu) tray?.popUpContextMenu(currentMenu)
     })
-
+  
     tray.on('right-click', () => {
       if (currentMenu) tray?.popUpContextMenu(currentMenu)
     })
