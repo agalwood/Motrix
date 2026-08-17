@@ -18,6 +18,10 @@ import { createSpeedometer } from './tray-speedometer'
 // Module-scope getLogger() runs before initLogger() and would only
 // write to stdout (invisible in packaged apps).
 
+// Keep this value stable: macOS uses it to restore the tray item's position
+// between launches.
+const MACOS_TRAY_GUID = '493f17b6-d4ac-48d3-8723-c3ac490b14cf'
+
 // Linux requires setContextMenu for the context menu to work.
 function applyMenuToTray(tray: Tray, menu: Menu): void {
   if (process.platform === 'linux') {
@@ -78,7 +82,11 @@ export function setupTray(deps: TrayDeps): TrayHandle {
     iconProvider = createIconProvider(svgPath, trayAssetDir)
     await iconProvider.init()
 
-    tray = new Tray(iconProvider.getIcon(false))
+    const icon = iconProvider.getIcon(false)
+    tray =
+      process.platform === 'darwin'
+        ? new Tray(icon, MACOS_TRAY_GUID)
+        : new Tray(icon)
 
     if (process.platform !== 'darwin') {
       tray.setToolTip('Motrix')
