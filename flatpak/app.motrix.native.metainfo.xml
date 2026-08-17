@@ -76,6 +76,19 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.18" date="2026-08-17">
+      <description>
+        <p>
+          The bundled aria2 engine is updated to 1.37.0-motrix.4. Network
+          settings now offer automatic, system, and built-in DNS resolution;
+          automatic mode falls back to the system resolver for the session and
+          retries an affected task once when the engine cannot contact a DNS
+          server. Traditional Chinese is now available. Windows packages
+          remain unsigned, and prerelease Snap runs stop after source
+          validation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.17" date="2026-08-16">
       <description>
         <p>
