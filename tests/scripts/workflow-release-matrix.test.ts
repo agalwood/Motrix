@@ -506,15 +506,25 @@ describe('general CI native-host split contract', () => {
       (step) => step.name === 'Release and packaging contracts'
     )
 
+    // Lint runs through the package script so the workflow, the local
+    // commit gate, and biome.json cannot drift apart. The repo-wide
+    // `biome check .` keeps the native-host tooling scripts covered —
+    // the guarantee the previous explicit path list existed for.
     expect(lint).toBeDefined()
     const lintCommand = stringField(lint as LooseRecord, 'run')
-    expect(lintCommand).toContain(
-      'packages/native-host/package-flatpak-companion.mjs'
+    expect(lintCommand.trim()).toBe('pnpm run lint')
+    const packageJson = JSON.parse(
+      readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+    ) as { scripts?: Record<string, string> }
+    expect(packageJson.scripts?.lint).toBe('biome check .')
+
+    const fingerprint = steps.find(
+      (step) => step.name === 'Biome toolchain fingerprint'
     )
-    expect(lintCommand).toContain(
-      'packages/native-host/package-flatpak-companion.test.mjs'
+    expect(fingerprint).toBeDefined()
+    expect(stringField(fingerprint as LooseRecord, 'run')).toContain(
+      'biome --version'
     )
-    expect(lintCommand).toContain('src/')
 
     expect(tooling).toBeDefined()
     const toolingCommand = stringField(tooling as LooseRecord, 'run')
