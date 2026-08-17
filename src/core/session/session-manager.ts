@@ -65,6 +65,119 @@ async function fetchAll(
   return all
 }
 
+/**
+ * aria2's live task store and stopped-history store can contain the same GID
+ * at the same time. This happens when a resumable HTTP task has a historical
+ * error row but its current task row is paused/waiting. tellStopped is history,
+ * not a newer lifecycle observation, so a stopped duplicate must never
+ * overwrite the active/waiting row during restore.
+ *
+ * The caller supplies rows in fallback order: active, then waiting, then
+ * stopped. Conflicting GIDs are re-read through tellStatus so a task that
+ * genuinely completed during the concurrent list snapshots still settles to
+ * its terminal state. First row wins only when that arbitration fails.
+ */
+const DUPLICATE_GID_ARBITRATION_CONCURRENCY = 16
+
+async function resolveCurrentAria2Rows(
+  rpc: Pick<Aria2RpcClient, 'tellStatus'>,
+  activeTasks: readonly Aria2RawStatus[],
+  waitingTasks: readonly Aria2RawStatus[],
+  stoppedTasks: readonly Aria2RawStatus[]
+): Promise<{
+  tasks: Aria2RawStatus[]
+  ignoredDuplicateCount: number
+  duplicateGidCount: number
+  arbitrationFailureCount: number
+  ignoredDuplicateSample: Array<{
+    gid: string
+    keptStatus: string
+    ignoredStatus: string
+  }>
+}> {
+  const tasks: Aria2RawStatus[] = []
+  const ignoredDuplicateSample: Array<{
+    gid: string
+    keptStatus: string
+    ignoredStatus: string
+  }> = []
+  const currentStatusByGid = new Map<string, string>()
+  const taskIndexByGid = new Map<string, number>()
+  const duplicateGids = new Set<string>()
+  let ignoredDuplicateCount = 0
+
+  for (const group of [activeTasks, waitingTasks, stoppedTasks]) {
+    for (const task of group) {
+      const currentStatus = currentStatusByGid.get(task.gid)
+      if (currentStatus !== undefined) {
+        ignoredDuplicateCount += 1
+        duplicateGids.add(task.gid)
+        if (ignoredDuplicateSample.length < 20) {
+          ignoredDuplicateSample.push({
+            gid: task.gid,
+            keptStatus: currentStatus,
+            ignoredStatus: task.status,
+          })
+        }
+        continue
+      }
+      currentStatusByGid.set(task.gid, task.status)
+      taskIndexByGid.set(task.gid, tasks.length)
+      tasks.push(task)
+    }
+  }
+
+  // The three list RPCs above are concurrent snapshots. A task can complete
+  // between tellActive and tellStopped, so fixed source priority alone could
+  // discard a genuinely newer terminal row. Resolve only conflicting GIDs
+  // through tellStatus, which is aria2's current authoritative view. Bound the
+  // fan-out so a large retained history cannot create an RPC burst at startup.
+  const gids = [...duplicateGids]
+  let arbitrationFailureCount = 0
+  for (
+    let offset = 0;
+    offset < gids.length;
+    offset += DUPLICATE_GID_ARBITRATION_CONCURRENCY
+  ) {
+    const batch = gids.slice(
+      offset,
+      offset + DUPLICATE_GID_ARBITRATION_CONCURRENCY
+    )
+    const results = await Promise.allSettled(
+      batch.map((gid) => rpc.tellStatus(gid))
+    )
+    for (let i = 0; i < results.length; i++) {
+      const gid = batch[i]
+      const result = results[i]
+      const taskIndex = taskIndexByGid.get(gid)
+      if (
+        result.status === 'fulfilled' &&
+        result.value.gid === gid &&
+        taskIndex !== undefined
+      ) {
+        tasks[taskIndex] = result.value
+      } else {
+        arbitrationFailureCount += 1
+      }
+    }
+  }
+
+  for (const duplicate of ignoredDuplicateSample) {
+    const taskIndex = taskIndexByGid.get(duplicate.gid)
+    if (taskIndex !== undefined) {
+      duplicate.keptStatus = tasks[taskIndex].status
+    }
+  }
+
+  return {
+    tasks,
+    ignoredDuplicateCount,
+    duplicateGidCount: duplicateGids.size,
+    arbitrationFailureCount,
+    ignoredDuplicateSample,
+  }
+}
+
 // Trailing-edge debounce window for requestSave(). 50ms is large enough
 // that a synchronous burst of identity/transition writes (e.g. pasting
 // 100 URLs in AddTaskWindow → 100 createAndPersist calls in the same
@@ -321,7 +434,29 @@ export class SessionManager {
       fetchAll((offset, num) => this.rpc.tellWaiting(offset, num)),
       fetchAll((offset, num) => this.rpc.tellStopped(offset, num)),
     ])
-    const aria2Tasks = [...activeTasks, ...waitingTasks, ...stoppedTasks]
+    const {
+      tasks: aria2Tasks,
+      ignoredDuplicateCount,
+      duplicateGidCount,
+      arbitrationFailureCount,
+      ignoredDuplicateSample,
+    } = await resolveCurrentAria2Rows(
+      this.rpc,
+      activeTasks,
+      waitingTasks,
+      stoppedTasks
+    )
+    if (ignoredDuplicateCount > 0) {
+      log.warn(
+        {
+          duplicateCount: ignoredDuplicateCount,
+          duplicateGidCount,
+          arbitrationFailureCount,
+          duplicates: ignoredDuplicateSample,
+        },
+        'restore: reconciled duplicate aria2 rows'
+      )
+    }
     const aria2GidSet = new Set(aria2Tasks.map((t) => t.gid))
 
     this.taskManager.clear()

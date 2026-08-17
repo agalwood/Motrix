@@ -124,6 +124,7 @@ function createMockRpc(
   opts: { activeTasks?: Aria2RawStatus[] } = {}
 ): Aria2RpcClient {
   return {
+    tellStatus: vi.fn().mockRejectedValue(new Error('tellStatus not mocked')),
     tellActive: vi.fn().mockResolvedValue(opts.activeTasks ?? []),
     tellWaiting: vi.fn().mockResolvedValue([]),
     tellStopped: vi.fn().mockResolvedValue([]),
@@ -1425,6 +1426,232 @@ describe('SessionManager', () => {
       expect(restored?.status).toBe(TaskStatus.Paused)
     })
 
+    it('prefers a paused live row over a stale stopped error with the same gid', async () => {
+      const gid = 'gid-http-paused-with-stale-error'
+      const totalBytes = 6_976_131_072
+      const downloadedBytes = 2_654_994_432
+
+      seedAsPair(db, {
+        motrixId: 'm-http-paused-with-stale-error',
+        gid,
+        name: 'deepin.iso',
+        type: TaskType.Http,
+        kind: TaskKind.Direct,
+        status: TaskStatus.Paused,
+        totalBytes,
+        downloadedBytes,
+        pieceLength: 1_048_576,
+        uris: ['https://example.com/deepin.iso'],
+        diskPath: '/tmp/deepin.iso.motrix',
+        finalPath: '/tmp/deepin.iso',
+        finalName: 'deepin.iso',
+      })
+
+      // A just-restored paused row may not materialize its control data until
+      // unpaused, so it reports zero metrics. motrix.db still has the last
+      // good 38% snapshot.
+      rpc.tellWaiting = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'paused',
+          totalLength: '0',
+          completedLength: '0',
+        }),
+      ])
+      // aria2's history store retains an older failure for the same GID. It
+      // must not overwrite the current paused lifecycle row or its progress.
+      rpc.tellStopped = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'error',
+          errorCode: '7',
+          totalLength: String(totalBytes),
+          completedLength: '189513728',
+        }),
+      ])
+      rpc.tellStatus = vi.fn(async () =>
+        makeRawStatus({
+          gid,
+          status: 'paused',
+          totalLength: '0',
+          completedLength: '0',
+        })
+      )
+
+      await sessionManager.restore()
+
+      const restored = taskManager.getById('m-http-paused-with-stale-error')
+      expect(restored).toMatchObject({
+        engineTaskId: gid,
+        status: TaskStatus.Paused,
+        totalBytes,
+        downloadedBytes,
+      })
+      expect(restored?.progress).toBeCloseTo(downloadedBytes / totalBytes)
+      expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
+      expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+      expect(rpc.tellStatus).toHaveBeenCalledExactlyOnceWith(gid)
+    })
+
+    it('keeps active when tellStatus confirms it over duplicate waiting and stopped rows', async () => {
+      const gid = 'gid-active-wins-all-duplicates'
+      seedAsPair(db, {
+        motrixId: 'm-active-wins-all-duplicates',
+        gid,
+        status: TaskStatus.Downloading,
+        totalBytes: 1000,
+        downloadedBytes: 500,
+      })
+      rpc.tellActive = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'active',
+          totalLength: '1000',
+          completedLength: '700',
+        }),
+      ])
+      rpc.tellWaiting = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'paused',
+          totalLength: '1000',
+          completedLength: '600',
+        }),
+      ])
+      rpc.tellStopped = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'complete',
+          totalLength: '1000',
+          completedLength: '1000',
+        }),
+      ])
+      rpc.tellStatus = vi.fn(async () =>
+        makeRawStatus({
+          gid,
+          status: 'active',
+          totalLength: '1000',
+          completedLength: '700',
+        })
+      )
+
+      await sessionManager.restore()
+
+      expect(taskManager.getById('m-active-wins-all-duplicates')).toMatchObject(
+        {
+          status: TaskStatus.Downloading,
+          totalBytes: 1000,
+          downloadedBytes: 700,
+          progress: 0.7,
+        }
+      )
+      expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
+      expect(rpc.tellStatus).toHaveBeenCalledExactlyOnceWith(gid)
+    })
+
+    it('falls back to the live row when duplicate-GID arbitration fails', async () => {
+      const gid = 'gid-duplicate-arbitration-failed'
+      seedAsPair(db, {
+        motrixId: 'm-duplicate-arbitration-failed',
+        gid,
+        status: TaskStatus.Paused,
+        totalBytes: 1000,
+        downloadedBytes: 400,
+      })
+      rpc.tellWaiting = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'paused',
+          totalLength: '0',
+          completedLength: '0',
+        }),
+      ])
+      rpc.tellStopped = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'error',
+          errorCode: '7',
+          totalLength: '1000',
+          completedLength: '100',
+        }),
+      ])
+      rpc.tellStatus = vi.fn().mockRejectedValue(new Error('rpc unavailable'))
+
+      await sessionManager.restore()
+
+      expect(
+        taskManager.getById('m-duplicate-arbitration-failed')
+      ).toMatchObject({
+        status: TaskStatus.Paused,
+        totalBytes: 1000,
+        downloadedBytes: 400,
+        progress: 0.4,
+      })
+      expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
+    })
+
+    it('does not hide a terminal transition that occurs during the list snapshot race', async () => {
+      const gid = 'gid-completed-during-restore-scan'
+      seedAsPair(db, {
+        motrixId: 'm-completed-during-restore-scan',
+        gid,
+        status: TaskStatus.Downloading,
+        totalBytes: 1000,
+        downloadedBytes: 500,
+      })
+      // tellActive captured the task immediately before it completed.
+      rpc.tellActive = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'active',
+          totalLength: '1000',
+          completedLength: '700',
+        }),
+      ])
+      // tellStopped captured the terminal row from the other side of the
+      // transition. Fixed active-first precedence would incorrectly hide it.
+      rpc.tellStopped = vi.fn(async () => [
+        makeRawStatus({
+          gid,
+          status: 'complete',
+          totalLength: '1000',
+          completedLength: '1000',
+        }),
+      ])
+      rpc.tellStatus = vi.fn(async () =>
+        makeRawStatus({
+          gid,
+          status: 'complete',
+          totalLength: '1000',
+          completedLength: '1000',
+        })
+      )
+
+      await sessionManager.restore()
+
+      expect(
+        taskManager.getById('m-completed-during-restore-scan')
+      ).toMatchObject({
+        status: TaskStatus.Completed,
+        downloadedBytes: 1000,
+        progress: 1,
+      })
+      expect(db.persistTaskWithOccurrence).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          task: expect.objectContaining({
+            motrixId: 'm-completed-during-restore-scan',
+            aggStatus: TaskStatus.Completed,
+          }),
+        }),
+        expect.objectContaining({
+          taskId: 'm-completed-during-restore-scan',
+          fromStatus: TaskStatus.Downloading,
+          toStatus: TaskStatus.Completed,
+        })
+      )
+    })
+
     describe('persisted Error task with a resurrected engine row (shield)', () => {
       function seedErroredHttpTask(gid: string): void {
         seedAsPair(db, {
@@ -1453,6 +1680,12 @@ describe('SessionManager', () => {
         rpc.tellWaiting = vi.fn(async () => [
           makeRawStatus({ gid, status: 'waiting' }),
         ])
+        rpc.tellStopped = vi.fn(async () => [
+          makeRawStatus({ gid, status: 'error', errorCode: '3' }),
+        ])
+        rpc.tellStatus = vi.fn(async () =>
+          makeRawStatus({ gid, status: 'waiting' })
+        )
 
         await sessionManager.restore()
 
@@ -1462,6 +1695,8 @@ describe('SessionManager', () => {
         expect(restored?.errorMessage).toBe('Resource not found')
         expect(adapter.forceRemoveTask).toHaveBeenCalledWith(gid)
         expect(adapter.removeDownloadResult).toHaveBeenCalledWith(gid)
+        expect(adapter.forceRemoveTask).toHaveBeenCalledTimes(1)
+        expect(adapter.removeDownloadResult).toHaveBeenCalledTimes(1)
         expect(adapter.createDownload).not.toHaveBeenCalled()
         expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
       })
