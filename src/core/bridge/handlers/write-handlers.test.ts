@@ -242,3 +242,63 @@ describe('download/add', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.AdapterError })
   })
 })
+
+describe('download/add idempotency', () => {
+  const keyedParams = {
+    kind: 'url',
+    saveDir: '/dl',
+    uris: ['https://example.com/f.iso'],
+    idempotencyKey: '018f3b2e-4c5d-7aaa-bbbb-cccccccccccc',
+  }
+
+  it('replays the same key for the same identity without re-creating', async () => {
+    const { d, deps } = setup()
+    const first = (await d.dispatch('download/add', keyedParams, cliCtx)) as {
+      id: string
+    }
+    const replay = (await d.dispatch('download/add', keyedParams, cliCtx)) as {
+      id: string
+    }
+    expect(deps.createTask).toHaveBeenCalledTimes(1)
+    expect(replay.id).toBe(first.id)
+  })
+
+  it('scopes dedup by client identity', async () => {
+    const { d, deps } = setup()
+    const otherCtx: MdxpSessionContext = {
+      ...cliCtx,
+      identity: { kind: 'cli', id: 'other' },
+    }
+    await d.dispatch('download/add', keyedParams, cliCtx)
+    await d.dispatch('download/add', keyedParams, otherCtx)
+    expect(deps.createTask).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not cache a failed attempt — the retry re-executes', async () => {
+    const createTask = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('engine down'))
+      .mockResolvedValue({ taskId: 'created-1' })
+    const { d } = setup({ createTask })
+    await expect(
+      d.dispatch('download/add', keyedParams, cliCtx)
+    ).rejects.toThrow('engine down')
+    const result = (await d.dispatch('download/add', keyedParams, cliCtx)) as {
+      id: string
+    }
+    expect(result.id).toBe('created-1')
+    expect(createTask).toHaveBeenCalledTimes(2)
+  })
+
+  it('a keyless add never deduplicates', async () => {
+    const { d, deps } = setup()
+    const params = {
+      kind: 'url',
+      saveDir: '/dl',
+      uris: ['https://example.com/f.iso'],
+    }
+    await d.dispatch('download/add', params, cliCtx)
+    await d.dispatch('download/add', params, cliCtx)
+    expect(deps.createTask).toHaveBeenCalledTimes(2)
+  })
+})

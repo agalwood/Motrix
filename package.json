@@ -109,7 +109,7 @@
     "@fastify/websocket": "^11.3.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@hookform/resolvers": "^5.7.1",
-    "@motrix/mdxp": "^0.4.0",
+    "@motrix/mdxp": "^0.5.0",
     "@motrix/nat": "^0.1.0",
     "@motrix/plugin-manifest-schema": "^2.1.0",
     "@resvg/resvg-wasm": "^2.6.2",

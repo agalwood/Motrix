@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { BridgeEventBus } from '@core/bridge/bridge-event-bus'
+import { IdempotencyCache } from '@core/bridge/idempotency-cache'
 import type { MdxpSessionContext } from '@core/bridge/mdxp-session-context'
 import type { SegmentAria2 } from '@core/download/segment-downloader'
 import { SegmentDownloader } from '@core/download/segment-downloader'
@@ -16,6 +17,7 @@ import {
   ErrorCodes,
   makeMdxpError,
 } from '@motrix/mdxp'
+import { clientKey } from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
@@ -172,21 +174,13 @@ export class BridgeReceiver {
   // Terminal-transition dedup for the WS push (same harness as the SSE source).
   private readonly terminalEmitted = new Map<string, string>()
   /**
-   * In-flight and settled download/submit results keyed by the JSON tuple
-   * [browser, extensionId, idempotencyKey] (unambiguous even though
-   * extensionId may itself contain ':'). A retransmit of the same logical
+   * In-flight and settled download/submit results keyed by
+   * [clientKey(identity), idempotencyKey]. A retransmit of the same logical
    * submit (lost response, reconnect replay) awaits or receives the original
-   * result instead of creating a duplicate task. Failures are evicted on
-   * rejection so a retry re-executes. Capacity eviction only ever removes
-   * SETTLED entries: a pending media submit spans its entire download, and
-   * evicting it would let a replay re-dispatch the same submission as a
-   * duplicate — the exact bug this cache exists to prevent.
+   * result instead of creating a duplicate task — dedup semantics live in
+   * IdempotencyCache (failure eviction, settled-only capacity eviction).
    */
-  private readonly submitsByKey = new Map<
-    string,
-    { result: Promise<{ taskId: string }>; settled: boolean }
-  >()
-  private static readonly MAX_SUBMIT_KEYS = 500
+  private readonly submitsByKey = new IdempotencyCache<{ taskId: string }>()
 
   constructor(private readonly deps: BridgeReceiverDeps) {
     this.adapter = new SubmitDownloadAdapter({
@@ -291,39 +285,10 @@ export class BridgeReceiver {
     const key = params.idempotencyKey
     if (!key) return this.dispatchSubmit(params, identity)
 
-    const scoped = JSON.stringify([identity.browser, identity.extensionId, key])
-    const known = this.submitsByKey.get(scoped)
-    if (known) return known.result
-
-    const entry = {
-      result: this.dispatchSubmit(params, identity),
-      settled: false,
-    }
-    if (this.submitsByKey.size >= BridgeReceiver.MAX_SUBMIT_KEYS) {
-      // Evict the oldest SETTLED entry only; if every entry is somehow still
-      // pending, overshoot the cap rather than break a live submit's dedup.
-      for (const [k, e] of this.submitsByKey) {
-        if (e.settled) {
-          this.submitsByKey.delete(k)
-          break
-        }
-      }
-    }
-    this.submitsByKey.set(scoped, entry)
-    entry.result.then(
-      () => {
-        entry.settled = true
-      },
-      () => {
-        // A failed submit must not poison its key — the retry re-executes.
-        // Delete by identity so a stale rejection can never remove a newer
-        // entry that has since reused the key.
-        if (this.submitsByKey.get(scoped) === entry) {
-          this.submitsByKey.delete(scoped)
-        }
-      }
+    return this.submitsByKey.run(
+      JSON.stringify([clientKey(identity), key]),
+      () => this.dispatchSubmit(params, identity)
     )
-    return entry.result
   }
 
   private async dispatchSubmit(

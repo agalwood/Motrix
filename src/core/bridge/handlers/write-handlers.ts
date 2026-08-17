@@ -9,8 +9,10 @@ import {
   TaskRemoveParamsSchema,
   TaskResumeParamsSchema,
 } from '@motrix/mdxp'
+import { clientKey } from '@shared/protocol/bridge'
 import type { TaskCreateRequest } from '@shared/schemas/add-task'
 import type { DownloadTask } from '@shared/types/task'
+import { IdempotencyCache } from '../idempotency-cache'
 import { buildCreateRequest } from '../mappers/download-add-to-create-request'
 import { toMdxpTask } from '../mappers/download-task-to-mdxp'
 import type { MdxpDispatcher } from '../mdxp-dispatcher'
@@ -89,22 +91,35 @@ export function registerWriteHandlers(
     }
   )
 
+  // Keyed replays (lost response, prompt retry) must return the first
+  // submission's snapshot instead of minting a second task. Scoped by
+  // clientKey so identities can never share a dedup namespace. Keyless
+  // adds keep the direct path (backward compatible).
+  const addsByKey = new IdempotencyCache<MdxpTask>()
   dispatcher.register(
     Methods.DownloadAdd,
     DownloadAddParamsSchema,
-    async (params): Promise<MdxpTask> => {
-      const req = await buildCreateRequest(params, deps.parseTorrentFileCount)
-      const { taskId } = await deps.createTask(req)
-      // handleCreateTask registers the task synchronously, so getById should
-      // resolve immediately; a miss means the create path is broken.
-      const task = deps.taskManager.getById(taskId)
-      if (!task) {
-        throw makeMdxpError(
-          ErrorCodes.AdapterError,
-          `created task not retrievable: ${taskId}`
-        )
+    async (params, ctx): Promise<MdxpTask> => {
+      const createAndSnapshot = async (): Promise<MdxpTask> => {
+        const req = await buildCreateRequest(params, deps.parseTorrentFileCount)
+        const { taskId } = await deps.createTask(req)
+        // handleCreateTask registers the task synchronously, so getById should
+        // resolve immediately; a miss means the create path is broken.
+        const task = deps.taskManager.getById(taskId)
+        if (!task) {
+          throw makeMdxpError(
+            ErrorCodes.AdapterError,
+            `created task not retrievable: ${taskId}`
+          )
+        }
+        return toMdxpTask(task)
       }
-      return toMdxpTask(task)
+      const key = params.idempotencyKey
+      if (!key) return createAndSnapshot()
+      return addsByKey.run(
+        JSON.stringify([clientKey(ctx.identity), key]),
+        createAndSnapshot
+      )
     }
   )
 }
