@@ -83,8 +83,8 @@ must obtain permission or replace the font before distributing the build.
 Desktop builds bundle an `aria2c` executable pinned by
 `scripts/engine.lock.json`:
 
-- **Version:** 1.37.0-motrix.3
-- **Source:** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.3>
+- **Version:** 1.37.0-motrix.4
+- **Source:** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.4>
 - **License:** GNU General Public License v2.0 or later (`GPL-2.0-or-later`)
 - **Full license text:** `THIRD_PARTY_LICENSES/aria2-COPYING`
 - **OpenSSL exception / notice:**
