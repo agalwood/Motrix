@@ -10,9 +10,13 @@ Run all three commands and fix failures before committing:
 
 ```bash
 pnpm run check:boundaries
-pnpm exec biome check src/
+pnpm run lint
 pnpm exec tsc --noEmit
 ```
+
+`pnpm run lint` (`biome check .`, scoped by biome.json) is the same command
+CI runs — do not substitute a narrower path list, and never pipe it in a way
+that discards its exit code.
 
 `check:boundaries` is an automated baseline, not a complete architecture
 proof. Review changed imports against `architecture.md` as well.
@@ -45,5 +49,5 @@ Run every check that matches the change:
   the relevant verifier. Follow workflow-supplied arguments for checks such as
   `check:update-artifacts`.
 
-Use `pnpm exec biome check --write src/` only for reviewed, auto-fixable
+Use `pnpm exec biome check --write .` only for reviewed, auto-fixable
 issues; re-run the required gate afterward.
