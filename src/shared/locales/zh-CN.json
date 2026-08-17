@@ -1242,7 +1242,7 @@
         "title": "DNS",
         "mode": "DNS 解析方式",
         "modeDesc": "下载引擎解析域名的方式。",
-        "modeAuto": "自动(推荐)",
+        "modeAuto": "自动",
         "modeSystem": "系统解析器",
         "modeEngine": "引擎内置解析器"
       },

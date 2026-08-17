@@ -178,7 +178,7 @@ export function NetworkDialog({
                           if (value !== null) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="w-56" size="sm">
+                        <SelectTrigger className="w-35" size="sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -240,7 +240,7 @@ export function NetworkDialog({
                           if (value !== null) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="w-32" size="sm">
+                        <SelectTrigger className="w-35" size="sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

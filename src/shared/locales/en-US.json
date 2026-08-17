@@ -1255,7 +1255,7 @@
         "title": "DNS",
         "mode": "DNS lookup",
         "modeDesc": "How downloads look up server addresses.",
-        "modeAuto": "Auto (recommended)",
+        "modeAuto": "Auto",
         "modeSystem": "System DNS",
         "modeEngine": "Built-in DNS"
       },
