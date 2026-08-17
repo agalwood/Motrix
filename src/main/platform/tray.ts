@@ -51,7 +51,7 @@ export function setupTray(deps: TrayDeps): TrayHandle {
     protocolManager,
     extraResourceDir,
     toggleMainWindow,
-} = deps
+  } = deps
 
   // Resolve asset paths — all tray assets live in extra/tray/
   const trayAssetDir = path.join(extraResourceDir, 'tray')
@@ -118,7 +118,7 @@ export function setupTray(deps: TrayDeps): TrayHandle {
 
       if (currentMenu) tray?.popUpContextMenu(currentMenu)
     })
-  
+
     tray.on('right-click', () => {
       if (currentMenu) tray?.popUpContextMenu(currentMenu)
     })
