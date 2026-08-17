@@ -1253,11 +1253,11 @@
     "network": {
       "dns": {
         "title": "DNS",
-        "mode": "DNS resolution",
-        "modeDesc": "How the download engine resolves host names.",
+        "mode": "DNS lookup",
+        "modeDesc": "How downloads look up server addresses.",
         "modeAuto": "Auto (recommended)",
-        "modeSystem": "System resolver",
-        "modeEngine": "Engine built-in resolver"
+        "modeSystem": "System DNS",
+        "modeEngine": "Built-in DNS"
       },
       "proxy": {
         "title": "Proxy",
@@ -2077,8 +2077,8 @@
       "title": "Download engine failed"
     },
     "dnsFallback": {
-      "title": "{{name}} retried with the system DNS resolver",
-      "body": "The engine could not contact any DNS server, so Motrix switched to the system resolver for this session."
+      "title": "{{name}} retried with system DNS",
+      "body": "Motrix couldn't reach a DNS server, so it switched to system DNS for this session."
     },
     "center": {
       "title": "Notifications",
