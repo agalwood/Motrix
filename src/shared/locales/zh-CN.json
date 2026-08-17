@@ -906,7 +906,7 @@
       },
       "network": {
         "title": "网络",
-        "desc": "代理与 NAT/UPnP"
+        "desc": "代理、DNS 与 NAT/UPnP"
       },
       "integration": {
         "title": "集成",
@@ -1121,12 +1121,7 @@
         "retryWait": "重试间隔 (秒)",
         "retryWaitDesc": "两次重试之间的停顿。",
         "lowestSpeedLimit": "慢连接阈值 (KB/s)",
-        "lowestSpeedLimitDesc": "速度低于此值时断开。0 表示关闭。",
-        "dnsMode": "DNS 解析方式",
-        "dnsModeDesc": "引擎解析域名的方式。",
-        "dnsModeAuto": "自动(推荐)",
-        "dnsModeSystem": "系统解析器",
-        "dnsModeEngine": "引擎内置解析器"
+        "lowestSpeedLimitDesc": "速度低于此值时断开。0 表示关闭。"
       },
       "disk": {
         "title": "磁盘与会话",
@@ -1243,6 +1238,14 @@
       }
     },
     "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS 解析方式",
+        "modeDesc": "下载引擎解析域名的方式。",
+        "modeAuto": "自动(推荐)",
+        "modeSystem": "系统解析器",
+        "modeEngine": "引擎内置解析器"
+      },
       "proxy": {
         "title": "代理",
         "enable": "启用代理",

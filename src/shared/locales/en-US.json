@@ -919,7 +919,7 @@
       },
       "network": {
         "title": "Network",
-        "desc": "Proxy and NAT/UPnP"
+        "desc": "Proxy, DNS, and NAT/UPnP"
       },
       "integration": {
         "title": "Integration",
@@ -1134,12 +1134,7 @@
         "retryWait": "Retry wait (s)",
         "retryWaitDesc": "Pause between retries.",
         "lowestSpeedLimit": "Slow connection threshold (KB/s)",
-        "lowestSpeedLimitDesc": "Drop connections below this speed. 0 = disabled.",
-        "dnsMode": "DNS resolution",
-        "dnsModeDesc": "How the engine resolves host names.",
-        "dnsModeAuto": "Auto (recommended)",
-        "dnsModeSystem": "System resolver",
-        "dnsModeEngine": "Engine built-in resolver"
+        "lowestSpeedLimitDesc": "Drop connections below this speed. 0 = disabled."
       },
       "disk": {
         "title": "Disk and session",
@@ -1256,6 +1251,14 @@
       }
     },
     "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS resolution",
+        "modeDesc": "How the download engine resolves host names.",
+        "modeAuto": "Auto (recommended)",
+        "modeSystem": "System resolver",
+        "modeEngine": "Engine built-in resolver"
+      },
       "proxy": {
         "title": "Proxy",
         "enable": "Enable proxy",

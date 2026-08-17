@@ -43,7 +43,6 @@ const FIXTURE = {
     maxTries: 5,
     retryWait: 10,
     lowestSpeedLimit: 0,
-    dnsMode: 'auto',
     fileAllocation: 'none',
     diskCache: 67108864,
     sessionSaveInterval: 15,
@@ -128,34 +127,6 @@ describe('<DownloadsDialog>', () => {
     expect(
       screen.getByRole('button', { name: /^automatic$/i })
     ).toBeInTheDocument()
-  })
-
-  it('changing dns resolution submits an engine dnsMode patch', async () => {
-    const onClose = vi.fn()
-    render(
-      <DownloadsDialog
-        open
-        onClose={onClose}
-        labelKey="settings.cards.downloads.title"
-        descKey="settings.cards.downloads.desc"
-      />
-    )
-    await waitFor(() => {
-      const inputs = screen
-        .getAllByDisplayValue('5')
-        .filter((el) => el.getAttribute('min') === '1')
-      expect(inputs.length).toBe(1)
-    })
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('combobox', { name: /dns resolution/i }))
-    await user.click(
-      await screen.findByRole('option', { name: /system resolver/i })
-    )
-    await user.click(screen.getByRole('button', { name: /apply/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: { dnsMode: 'system' },
-    })
-    expect(onClose).toHaveBeenCalled()
   })
 
   it('changing the base download limit submits a base patch', async () => {

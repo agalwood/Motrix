@@ -31,9 +31,14 @@ import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_NAT_SETTINGS, DEFAULT_PROXY_SETTINGS } from '@shared/schemas'
+import {
+  DEFAULT_ENGINE_SETTINGS,
+  DEFAULT_NAT_SETTINGS,
+  DEFAULT_PROXY_SETTINGS,
+} from '@shared/schemas'
 import type {
   AppSettings,
+  DnsResolutionMode,
   NatSettings,
   ProxySettings,
 } from '@shared/types/settings'
@@ -47,13 +52,17 @@ import { ProxySection } from './proxy-section'
 export interface NetworkFields {
   proxy: ProxySettings
   nat: NatSettings
+  // Only the DNS slice of EngineSettings is edited here; the rest of the
+  // engine namespace stays with the Downloads dialog.
+  engine: { dnsMode: DnsResolutionMode }
 }
 
-// Source of truth: src/shared/schemas/{proxy,nat}-settings.ts.
-// Keep in sync with DEFAULT_PROXY_SETTINGS / DEFAULT_NAT_SETTINGS.
+// Source of truth: src/shared/schemas/{proxy,nat,engine}-settings.ts.
+// Keep in sync with the corresponding DEFAULT_* exports.
 const DEFAULTS: NetworkFields = {
   proxy: { ...DEFAULT_PROXY_SETTINGS },
   nat: { ...DEFAULT_NAT_SETTINGS },
+  engine: { dnsMode: DEFAULT_ENGINE_SETTINGS.dnsMode },
 }
 
 const NAT_PROTOCOL_OPTIONS = [
@@ -85,6 +94,12 @@ export function NetworkDialog({
   const { t } = useTranslation()
   const form = useForm<NetworkFields>({ defaultValues: DEFAULTS })
 
+  const dnsModeOptions = [
+    { value: 'auto', label: t('settings.network.dns.modeAuto') },
+    { value: 'system', label: t('settings.network.dns.modeSystem') },
+    { value: 'engine', label: t('settings.network.dns.modeEngine') },
+  ] as const
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable
   useEffect(() => {
     let cancelled = false
@@ -94,7 +109,13 @@ export function NetworkDialog({
         if (cancelled) return
         const all = data as AppSettings | undefined
         if (all?.proxy && all?.nat) {
-          form.reset({ proxy: all.proxy, nat: all.nat })
+          form.reset({
+            proxy: all.proxy,
+            nat: all.nat,
+            engine: {
+              dnsMode: all.engine?.dnsMode ?? DEFAULT_ENGINE_SETTINGS.dnsMode,
+            },
+          })
         }
       })
       .catch(() => {
@@ -131,6 +152,49 @@ export function NetworkDialog({
           <Form {...form}>
             <form className="space-y-4">
               <ProxySection form={form} />
+
+              <Separator className="my-4" />
+
+              {/* DNS resolution */}
+              <h3 className="text-sm font-semibold text-foreground">
+                {t('settings.network.dns.title')}
+              </h3>
+              <FormField
+                control={form.control}
+                name="engine.dnsMode"
+                render={({ field }) => (
+                  <FormItem className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <FormLabel>{t('settings.network.dns.mode')}</FormLabel>
+                      <FormDescription className="text-xs">
+                        {t('settings.network.dns.modeDesc')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Select
+                        items={dnsModeOptions}
+                        value={field.value}
+                        onValueChange={(value) => {
+                          if (value !== null) field.onChange(value)
+                        }}
+                      >
+                        <SelectTrigger className="w-56" size="sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {dnsModeOptions.map(({ label, value }) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
               <Separator className="my-4" />
 

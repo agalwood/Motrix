@@ -906,7 +906,7 @@
       },
       "network": {
         "title": "網路",
-        "desc": "Proxy 和 NAT/UPnP"
+        "desc": "Proxy、DNS 和 NAT/UPnP"
       },
       "integration": {
         "title": "整合",
@@ -1121,12 +1121,7 @@
         "retryWait": "重試等待時間 (秒)",
         "retryWaitDesc": "每次重試之間的暫停時間。",
         "lowestSpeedLimit": "低速連線門檻 (KB/s)",
-        "lowestSpeedLimitDesc": "低於此速度時中斷連線。0 = 停用。",
-        "dnsMode": "DNS 解析方式",
-        "dnsModeDesc": "引擎解析網域名稱的方式。",
-        "dnsModeAuto": "自動(建議)",
-        "dnsModeSystem": "系統解析器",
-        "dnsModeEngine": "引擎內建解析器"
+        "lowestSpeedLimitDesc": "低於此速度時中斷連線。0 = 停用。"
       },
       "disk": {
         "title": "磁碟與工作階段",
@@ -1243,6 +1238,14 @@
       }
     },
     "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS 解析方式",
+        "modeDesc": "下載引擎解析網域名稱的方式。",
+        "modeAuto": "自動(建議)",
+        "modeSystem": "系統解析器",
+        "modeEngine": "引擎內建解析器"
+      },
       "proxy": {
         "title": "Proxy",
         "enable": "啟用 Proxy",

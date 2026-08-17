@@ -21,7 +21,6 @@ export type EngineFields = Pick<
   | 'maxTries'
   | 'retryWait'
   | 'lowestSpeedLimit'
-  | 'dnsMode'
   | 'fileAllocation'
   | 'diskCache'
   | 'sessionSaveInterval'
@@ -53,7 +52,6 @@ export const ENGINE_DEFAULTS: EngineFields = {
   maxTries: DEFAULT_ENGINE_SETTINGS.maxTries,
   retryWait: DEFAULT_ENGINE_SETTINGS.retryWait,
   lowestSpeedLimit: DEFAULT_ENGINE_SETTINGS.lowestSpeedLimit,
-  dnsMode: DEFAULT_ENGINE_SETTINGS.dnsMode,
   fileAllocation: DEFAULT_ENGINE_SETTINGS.fileAllocation,
   diskCache: DEFAULT_ENGINE_SETTINGS.diskCache,
   sessionSaveInterval: DEFAULT_ENGINE_SETTINGS.sessionSaveInterval,
