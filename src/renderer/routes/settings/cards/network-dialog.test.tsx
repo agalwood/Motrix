@@ -114,9 +114,7 @@ describe('<NetworkDialog>', () => {
     )
     const user = userEvent.setup()
     await user.click(screen.getByRole('combobox', { name: /dns lookup/i }))
-    await user.click(
-      await screen.findByRole('option', { name: /system dns/i })
-    )
+    await user.click(await screen.findByRole('option', { name: /system dns/i }))
     await user.click(screen.getByRole('button', { name: /apply/i }))
     await waitFor(() => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
