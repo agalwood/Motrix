@@ -29,18 +29,27 @@ function TooltipContent({
   sideOffset = 4,
   align = 'center',
   alignOffset = 0,
+  anchor,
+  disableAnchorTracking,
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
   Pick<
     TooltipPrimitive.Positioner.Props,
-    'align' | 'alignOffset' | 'side' | 'sideOffset'
+    | 'align'
+    | 'alignOffset'
+    | 'anchor'
+    | 'disableAnchorTracking'
+    | 'side'
+    | 'sideOffset'
   >) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
+        anchor={anchor}
+        disableAnchorTracking={disableAnchorTracking}
         side={side}
         sideOffset={sideOffset}
         className="isolate z-50"
