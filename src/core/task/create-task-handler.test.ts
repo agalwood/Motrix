@@ -5,6 +5,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
 import { handleCreateTask } from './create-task-handler'
 
+const { logInfo, logWarn, logError, logDebug } = vi.hoisted(() => ({
+  logInfo: vi.fn(),
+  logWarn: vi.fn(),
+  logError: vi.fn(),
+  logDebug: vi.fn(),
+}))
+
+vi.mock('@core/logger', () => ({
+  getLogger: () => ({
+    info: logInfo,
+    warn: logWarn,
+    error: logError,
+    debug: logDebug,
+  }),
+}))
 // Stub `mkdir` (and the other `fs.*` calls inadvertently dragged
 // in via TorrentMetaStore) so unit tests don't touch the real
 // filesystem. The production code calls
@@ -224,6 +239,53 @@ describe('handleCreateTask', () => {
     await expect(handleCreateTask({ junk: true }, makeDeps())).rejects.toThrow(
       AppError
     )
+  })
+
+  it('does not expose sensitive download credentials in structured logs', async () => {
+    logInfo.mockClear()
+
+    const secrets = {
+      urlToken: 'URL_SECRET_123',
+      authorization: 'AUTH_SECRET_456',
+      cookie: 'COOKIE_SECRET_789',
+      proxy: 'PROXY_SECRET_321',
+      referer: 'REFERER_SECRET_654',
+      cookieJar: 'COOKIE_JAR_SECRET_987',
+    }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: [`https://example.com/file.zip?token=${secrets.urlToken}`],
+        saveDir: '/d',
+        headers: [
+          {
+            name: 'Authorization',
+            value: `Bearer ${secrets.authorization}`,
+          },
+          {
+            name: 'Cookie',
+            value: `session=${secrets.cookie}`,
+          },
+        ],
+        proxy: `http://user:${secrets.proxy}@proxy.example:8080`,
+      },
+      makeDeps(),
+      {
+        extraEngineOptions: {
+          referer: `https://origin.example/?token=${secrets.referer}`,
+          'load-cookies': `/tmp/${secrets.cookieJar}.txt`,
+        },
+      }
+    )
+
+    const serializedLogs = JSON.stringify(logInfo.mock.calls)
+
+    expect(serializedLogs).toContain('createDownload')
+
+    for (const secret of Object.values(secrets)) {
+      expect(serializedLogs).not.toContain(secret)
+    }
   })
 
   it('dispatches http request via rpcClient.addUri', async () => {

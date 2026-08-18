@@ -285,7 +285,18 @@ export async function handleCreateTask(
     async (reservedGid: string): Promise<string> => {
       params.gid = reservedGid
       log.info(
-        { method: 'createDownload', uriCount: params.uris.length, params },
+        {
+          method: 'createDownload',
+          uriCount: params.uris.length,
+          hasHeaders: Boolean(
+            params.headers && Object.keys(params.headers).length > 0
+          ),
+          hasProxy: Boolean(params.proxy),
+          hasExtraEngineOptions: Boolean(
+            params.extraEngineOptions &&
+              Object.keys(params.extraEngineOptions).length > 0
+          ),
+        },
         'dispatching to engine'
       )
       return deps.adapter.createDownload(params)
@@ -393,7 +404,7 @@ export async function handleCreateTask(
         taskId,
         hasOrchestrator: Boolean(deps.orchestrator),
         reqType: req.type,
-        uris: req.uris,
+        uriCount: req.uris.length,
       },
       'beforeCreate hook chain pre-check'
     )
@@ -415,7 +426,9 @@ export async function handleCreateTask(
         {
           taskId,
           aborted: result.aborted === true,
-          rewrittenUris: result.aborted ? undefined : result.final.uris,
+          rewrittenUriCount: result.aborted
+            ? undefined
+            : result.final.uris.length,
           contributors: result.aborted ? undefined : result.contributors,
         },
         'beforeCreate hook chain result'
