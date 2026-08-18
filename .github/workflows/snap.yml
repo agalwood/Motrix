@@ -128,7 +128,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.21.0
+          version: 11.22.0
           run_install: false
 
       - name: Setup Node.js
@@ -265,7 +265,7 @@ jobs:
         timeout-minutes: 5
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.21.0
+          version: 11.22.0
           run_install: false
 
       - name: Setup Node.js for verification

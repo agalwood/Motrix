@@ -131,6 +131,17 @@ describe('WindowChrome', () => {
     )
   })
 
+  it('uses the theme foreground color for Linux caption controls', () => {
+    setPlatform('linux')
+    render(<WindowChrome variant="overlay" />)
+
+    const minimize = screen.getByRole('button', { name: 'Minimize' })
+    const close = screen.getByRole('button', { name: 'Close' })
+
+    expect(minimize).toHaveStyle({ color: 'var(--color-foreground)' })
+    expect(close).toHaveStyle({ color: 'var(--color-foreground)' })
+  })
+
   it('routes Linux caption controls to sender-bound window commands', () => {
     setPlatform('linux')
     render(<WindowChrome variant="overlay" />)
