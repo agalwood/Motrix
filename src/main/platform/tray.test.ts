@@ -71,6 +71,8 @@ import { RunMode } from '@shared/constants'
 import { setupTray, type TrayDeps } from './tray'
 
 const originalPlatform = process.platform
+const trayMenu = { kind: 'tray-menu' }
+const toggleMainWindow = vi.fn()
 
 function createDeps(): TrayDeps {
   return {
@@ -85,7 +87,7 @@ function createDeps(): TrayDeps {
       }),
     },
     menuManager: {
-      getTrayMenu: () => null,
+      getTrayMenu: () => trayMenu,
       onTrayRebuilt: vi.fn(),
     },
     protocolManager: {
@@ -93,7 +95,17 @@ function createDeps(): TrayDeps {
       handleTorrentFile: vi.fn(),
     },
     extraResourceDir: path.join(process.cwd(), 'extra'),
+    toggleMainWindow,
   } as unknown as TrayDeps
+}
+
+function getTrayHandler(eventName: string): () => void {
+  const handler = trayInstance.on.mock.calls.find(
+    ([event]) => event === eventName
+  )?.[1]
+
+  expect(handler).toBeTypeOf('function')
+  return handler as () => void
 }
 
 describe('setupTray', () => {
@@ -118,6 +130,7 @@ describe('setupTray', () => {
         '493f17b6-d4ac-48d3-8723-c3ac490b14cf'
       )
     })
+
     handle.destroy()
   })
 
@@ -129,6 +142,78 @@ describe('setupTray', () => {
     await vi.waitFor(() => {
       expect(trayConstructor).toHaveBeenCalledWith(icon)
     })
+
     handle.destroy()
   })
+
+  it('toggles the main window without opening the menu on Windows left click', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+
+    const handle = setupTray(createDeps())
+
+    await vi.waitFor(() => {
+      expect(trayInstance.on).toHaveBeenCalledWith(
+        'click',
+        expect.any(Function)
+      )
+    })
+
+    getTrayHandler('click')()
+
+    expect(toggleMainWindow).toHaveBeenCalledOnce()
+    expect(trayInstance.popUpContextMenu).not.toHaveBeenCalled()
+
+    handle.destroy()
+  })
+
+  it('opens the menu without toggling the window on Windows right click', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+
+    const handle = setupTray(createDeps())
+
+    await vi.waitFor(() => {
+      expect(trayInstance.on).toHaveBeenCalledWith(
+        'right-click',
+        expect.any(Function)
+      )
+    })
+
+    getTrayHandler('right-click')()
+
+    expect(trayInstance.popUpContextMenu).toHaveBeenCalledExactlyOnceWith(
+      trayMenu
+    )
+    expect(toggleMainWindow).not.toHaveBeenCalled()
+
+    handle.destroy()
+  })
+
+  it.each(['darwin', 'linux'] as const)(
+    'preserves the tray-menu behavior on %s left click',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+
+      const handle = setupTray(createDeps())
+
+      await vi.waitFor(() => {
+        expect(trayInstance.on).toHaveBeenCalledWith(
+          'click',
+          expect.any(Function)
+        )
+      })
+
+      getTrayHandler('click')()
+
+      expect(trayInstance.popUpContextMenu).toHaveBeenCalledExactlyOnceWith(
+        trayMenu
+      )
+      expect(toggleMainWindow).not.toHaveBeenCalled()
+
+      if (platform === 'linux') {
+        expect(trayInstance.setContextMenu).toHaveBeenCalledWith(trayMenu)
+      }
+
+      handle.destroy()
+    }
+  )
 })
