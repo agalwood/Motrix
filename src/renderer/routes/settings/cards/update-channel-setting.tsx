@@ -1,3 +1,4 @@
+import { ButtonGroup } from '@renderer/components/ui/button-group'
 import {
   Select,
   SelectContent,
@@ -29,17 +30,20 @@ const settingsChannelSchema = z.object({
 interface UpdateChannelSettingProps {
   disabled?: boolean
   children?: ReactNode
+  warningId?: string
+  onChannelChanged?: (channel: AppUpdateChannel) => void
 }
 
 export function UpdateChannelSetting({
   disabled = false,
   children,
+  warningId,
+  onChannelChanged,
 }: UpdateChannelSettingProps) {
   const { t } = useTranslation()
   const id = useId()
   const labelId = `${id}-label`
   const descriptionId = `${id}-description`
-  const warningId = `${id}-warning`
   const [channel, setChannel] = useState<AppUpdateChannel>('stable')
   const [pending, setPending] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -81,7 +85,11 @@ export function UpdateChannelSetting({
     }
   }, [])
 
-  const onChannelChange = useCallback(
+  useEffect(() => {
+    onChannelChanged?.(channel)
+  }, [channel, onChannelChanged])
+
+  const saveChannel = useCallback(
     async (value: unknown) => {
       const parsed = appUpdateChannelSchema.safeParse(value)
       if (!parsed.success || parsed.data === channel) return
@@ -114,20 +122,24 @@ export function UpdateChannelSetting({
       <span id={labelId} className="sr-only">
         {t('settings.about.update.channelLabel')}
       </span>
-      <div className="flex max-w-full items-center gap-2">
+      <ButtonGroup
+        className="max-w-full shrink-0 gap-1 rounded-md bg-primary py-1 ps-1 pe-1.5 shadow-xs [&>[data-slot]:not(:has(~[data-slot]))]:rounded-r-sm!"
+        aria-label={t('settings.about.update.title')}
+      >
+        {children}
         <Select
           items={options}
           value={channel}
           disabled={disabled || pending}
-          onValueChange={(value) => void onChannelChange(value)}
+          onValueChange={(value) => void saveChannel(value)}
         >
           <SelectTrigger
             id={id}
             size="sm"
-            className="w-28"
+            className="h-6! w-17 self-center justify-center gap-1.5 rounded-sm! border! bg-background! px-1.5 py-0 text-xs data-disabled:opacity-100! [&_svg]:size-3!"
             aria-labelledby={labelId}
             aria-describedby={
-              channel === 'beta'
+              channel === 'beta' && warningId
                 ? `${descriptionId} ${warningId}`
                 : descriptionId
             }
@@ -144,21 +156,11 @@ export function UpdateChannelSetting({
             </SelectGroup>
           </SelectContent>
         </Select>
-        {children}
-      </div>
+      </ButtonGroup>
 
       {failed && (
         <p className="max-w-sm text-[11px] leading-4 text-destructive">
           {t('settings.about.update.channelSaveError')}
-        </p>
-      )}
-
-      {channel === 'beta' && (
-        <p
-          id={warningId}
-          className="max-w-sm rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-left text-[11px] leading-4 text-amber-900 dark:text-amber-200"
-        >
-          {t('settings.about.update.channelBetaWarning')}
         </p>
       )}
     </div>

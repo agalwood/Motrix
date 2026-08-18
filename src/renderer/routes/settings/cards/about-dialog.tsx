@@ -26,7 +26,7 @@ function CompactLink({ href, title }: CompactLinkProps) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground outline-none transition-[color,background-color,transform] hover:bg-accent/70 hover:text-foreground active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none"
+      className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground outline-none transition-[color,background-color] hover:bg-accent/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
     >
       {title}
     </a>
@@ -154,11 +154,7 @@ export function AboutDialog({
 
         <DialogFooter className="shrink-0 flex-row items-center justify-between gap-4 border-t border-border/70 bg-background/85 px-6 py-3.5 backdrop-blur-xl sm:justify-between">
           {showUpdates ? <AutomaticUpdateSetting /> : <span />}
-          <Button
-            onClick={onClose}
-            size="sm"
-            className="min-w-20 transition-transform active:scale-[0.97] motion-reduce:transform-none"
-          >
+          <Button onClick={onClose} size="sm" className="min-w-20">
             {t('common.close')}
           </Button>
         </DialogFooter>

@@ -100,6 +100,36 @@ describe('UpdateManager', () => {
   })
 
   describe('imperative methods', () => {
+    it('runs the explicit update flow from check through install', async () => {
+      const phases: string[] = []
+      eventBus.on(Events.UpdateStateChanged, (state) => {
+        phases.push((state as { phase: string }).phase)
+      })
+
+      await manager.check()
+      updater.fire('update-available', { version: '2.0.1' })
+      await manager.download()
+      updater.fire('download-progress', {
+        percent: 75,
+        bytesPerSecond: 1024,
+        transferred: 75,
+        total: 100,
+      })
+      updater.fire('update-downloaded', { version: '2.0.1' })
+      manager.install()
+
+      expect(phases).toEqual([
+        'checking',
+        'available',
+        'downloading',
+        'downloading',
+        'downloaded',
+      ])
+      expect(updater.checkForUpdates).toHaveBeenCalledOnce()
+      expect(updater.downloadUpdate).toHaveBeenCalledOnce()
+      expect(updater.quitAndInstall).toHaveBeenCalledOnce()
+    })
+
     it('check() delegates to updater.checkForUpdates()', async () => {
       await manager.check()
       expect(updater.checkForUpdates).toHaveBeenCalledOnce()
@@ -111,14 +141,12 @@ describe('UpdateManager', () => {
       expect(updater.downloadUpdate).toHaveBeenCalledOnce()
     })
 
-    it('install() delegates only after download and runs the quit guard first', () => {
-      const beforeQuit = vi.fn()
+    it('install() delegates only after download', () => {
       updater.fire('update-available', { version: '2.0.1' })
       updater.fire('update-downloaded', { version: '2.0.1' })
 
-      manager.install(beforeQuit)
+      manager.install()
 
-      expect(beforeQuit).toHaveBeenCalledOnce()
       expect(updater.quitAndInstall).toHaveBeenCalledOnce()
     })
 
@@ -130,12 +158,30 @@ describe('UpdateManager', () => {
     })
 
     it('rejects install before download completion', () => {
-      const beforeQuit = vi.fn()
-      expect(() => manager.install(beforeQuit)).toThrow(
-        'Update is not ready to install'
-      )
-      expect(beforeQuit).not.toHaveBeenCalled()
+      expect(() => manager.install()).toThrow('Update is not ready to install')
       expect(updater.quitAndInstall).not.toHaveBeenCalled()
+    })
+
+    it('preserves the available version and allows retry after download failure', async () => {
+      vi.mocked(updater.downloadUpdate).mockRejectedValueOnce(
+        new Error('network unavailable')
+      )
+      updater.fire('update-available', { version: '2.0.1' })
+
+      await expect(manager.download()).rejects.toThrow('network unavailable')
+      expect(manager.getState()).toMatchObject({
+        phase: 'error',
+        availableVersion: '2.0.1',
+        error: { message: 'network unavailable' },
+      })
+
+      await manager.download()
+
+      expect(updater.downloadUpdate).toHaveBeenCalledTimes(2)
+      expect(manager.getState()).toMatchObject({
+        phase: 'downloading',
+        availableVersion: '2.0.1',
+      })
     })
 
     it('does not replace an in-progress or downloaded update with a new check', async () => {

@@ -167,9 +167,6 @@ export interface CommandContext {
   adapter: EngineAdapter
   taskManager: TaskManager
   updateManager: UpdateManager
-  /** Set the quit handler's force flag so the install quit skips the
-   *  confirmation dialog (an interrupted install would be left half-applied). */
-  markForceQuit: () => void
   /**
    * Startup barrier: resolves once engine start + session restore have
    * settled (success or failure). createTask awaits it (after engine-ready)
@@ -262,7 +259,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     adapter,
     taskManager,
     updateManager,
-    markForceQuit,
     waitForTasksReady,
     trackerManager,
     contextStore,
@@ -1103,7 +1099,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.InstallUpdate]: async () => {
-      updateManager.install(markForceQuit)
+      updateManager.install()
       return { ok: true }
     },
 

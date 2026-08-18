@@ -115,14 +115,58 @@ describe('<AboutDialog>', () => {
         `Version ${packageJson.version} is installed. Check now, or let Motrix check when it opens.`
       )
     ).toBeInTheDocument()
+    expect(
+      screen.getByText('Keep Motrix up to date').parentElement
+    ).toHaveClass('min-h-20', 'sm:min-h-16')
     const checkButton = screen.getByRole('button', {
       name: 'Check for updates',
     })
+    expect(checkButton).toHaveTextContent('Check')
     expect(checkButton).not.toHaveTextContent('Check for updates')
     expect(checkButton.querySelector('svg')).toBeInTheDocument()
-    expect(
-      screen.getByRole('combobox', { name: 'Update channel' }).parentElement
-    ).toContainElement(checkButton)
+    expect(checkButton).not.toHaveClass('w-44')
+    expect(checkButton.className).not.toContain('active:scale')
+    const channel = screen.getByRole('combobox', { name: 'Update channel' })
+    const actionGroup = checkButton.closest('[data-slot="button-group"]')
+    expect(actionGroup).toHaveAttribute('aria-label', 'App updates')
+    expect(actionGroup).toHaveClass(
+      'gap-1',
+      'rounded-md',
+      'bg-primary',
+      'py-1',
+      'ps-1',
+      'pe-1.5',
+      'shadow-xs',
+      '[&>[data-slot]:not(:has(~[data-slot]))]:rounded-r-sm!'
+    )
+    expect(actionGroup).not.toHaveClass('rounded-lg', 'rounded-xl')
+    expect(actionGroup).not.toHaveClass('p-1')
+    expect(actionGroup).not.toHaveClass('ring-1', 'ring-border')
+    expect(actionGroup).toContainElement(channel)
+    expect(actionGroup?.firstElementChild).toBe(checkButton)
+    expect(checkButton).toHaveAttribute('data-variant', 'default')
+    expect(checkButton).toHaveClass(
+      'h-7!',
+      'gap-1.5',
+      'rounded-md!',
+      'px-2',
+      'text-xs',
+      'shadow-none'
+    )
+    expect(channel).toHaveClass(
+      'h-6!',
+      'w-17',
+      'self-center',
+      'justify-center',
+      'gap-1.5',
+      'rounded-sm!',
+      'border!',
+      'bg-background!',
+      'py-0',
+      'text-xs',
+      'data-disabled:opacity-100!'
+    )
+    expect(channel).not.toHaveClass('shadow-none')
     await userEvent.click(checkButton)
 
     expect(transport.invoke).toHaveBeenCalledWith(Queries.GetUpdateState)
@@ -145,7 +189,26 @@ describe('<AboutDialog>', () => {
     expect(transport.invoke).toHaveBeenCalledWith(Commands.DownloadUpdate)
   })
 
-  it('renders accessible download progress and survives rehydration', async () => {
+  it('keeps the update action in place and uses a spinner while checking', async () => {
+    renderDialog()
+    const actionButton = await screen.findByRole('button', {
+      name: 'Check for updates',
+    })
+
+    await emitState({
+      phase: 'checking',
+      currentVersion: packageJson.version,
+    })
+
+    const checkingButton = screen.getByRole('button', { name: 'Checking…' })
+    expect(checkingButton).toBe(actionButton)
+    expect(checkingButton).toBeDisabled()
+    expect(checkingButton).toHaveAttribute('aria-busy', 'true')
+    expect(checkingButton.querySelector('.animate-spin')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('renders a compact download percentage and survives rehydration', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.GetUpdateState) {
         return {
@@ -172,20 +235,22 @@ describe('<AboutDialog>', () => {
       />
     )
 
-    expect(
-      await screen.findByRole('progressbar', {
-        name: 'Update download progress',
-      })
-    ).toHaveAttribute('aria-valuenow', '45')
-    expect(screen.getByText('45%')).toBeInTheDocument()
+    const downloadButton = await screen.findByRole('button', {
+      name: 'Downloading… 45%',
+    })
+    expect(downloadButton).toBeDisabled()
+    expect(downloadButton).toHaveAttribute('aria-busy', 'true')
+    expect(downloadButton).toHaveTextContent('45%')
+    expect(downloadButton).not.toHaveTextContent('Downloading…')
+    expect(downloadButton).not.toHaveClass('w-44')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
 
     view.unmount()
     renderDialog()
     expect(
-      await screen.findByRole('progressbar', {
-        name: 'Update download progress',
-      })
+      await screen.findByRole('button', { name: 'Downloading… 45%' })
     ).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
   it('offers restart only after the update is downloaded', async () => {
@@ -201,6 +266,66 @@ describe('<AboutDialog>', () => {
     )
 
     expect(transport.invoke).toHaveBeenCalledWith(Commands.InstallUpdate)
+  })
+
+  it('surfaces an install command failure without losing the update version', async () => {
+    renderDialog()
+    await emitState({
+      phase: 'downloaded',
+      currentVersion: packageJson.version,
+      availableVersion: '2.0.1',
+    })
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Commands.InstallUpdate) {
+        throw new Error('installer launch failed')
+      }
+      return { ok: true }
+    })
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Restart and install' })
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Update failed: installer launch failed'
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.DownloadUpdate)
+  })
+
+  it('keeps a newer update event when the initial snapshot resolves late', async () => {
+    let resolveSnapshot!: (state: AppUpdateState) => void
+    vi.mocked(transport.invoke).mockImplementation((channel) => {
+      if (channel === Queries.GetUpdateState) {
+        return new Promise((resolve) => {
+          resolveSnapshot = resolve
+        })
+      }
+      if (channel === Queries.GetSettings) {
+        return Promise.resolve({
+          app: { checkForUpdatesOnLaunch: true, updateChannel: 'stable' },
+        })
+      }
+      return Promise.resolve({ ok: true })
+    })
+    renderDialog()
+    await emitState({
+      phase: 'downloaded',
+      currentVersion: packageJson.version,
+      availableVersion: '2.0.1',
+    })
+
+    await act(async () => {
+      resolveSnapshot(idleState)
+      await Promise.resolve()
+    })
+
+    expect(
+      screen.getByRole('button', { name: 'Restart and install' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Check for updates' })
+    ).not.toBeInTheDocument()
   })
 
   it('retries the download after a version-specific error', async () => {
@@ -288,12 +413,50 @@ describe('<AboutDialog>', () => {
     )
   })
 
+  it('does not scale About actions while they are pressed', () => {
+    renderDialog()
+
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.className).not.toContain('active:scale')
+    }
+    for (const link of screen.getAllByRole('link')) {
+      expect(link.className).not.toContain('active:scale')
+    }
+  })
+
   it('keeps release notes out of the compact dialog', () => {
     renderDialog()
 
     expect(
       screen.queryByRole('heading', { name: /changelog|release notes/i })
     ).not.toBeInTheDocument()
+  })
+
+  it('unsubscribes the update listener when the dialog unmounts', async () => {
+    const view = render(
+      <AboutDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.about.title"
+        descKey="settings.cards.about.desc"
+      />
+    )
+    await waitFor(() => {
+      expect(transport.on).toHaveBeenCalledWith(
+        Events.UpdateStateChanged,
+        expect.any(Function)
+      )
+    })
+    const listener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([event]) => event === Events.UpdateStateChanged)?.[1]
+
+    view.unmount()
+
+    expect(transport.off).toHaveBeenCalledWith(
+      Events.UpdateStateChanged,
+      listener
+    )
   })
 
   it('keeps the update form inside a shrinkable scroll region', () => {

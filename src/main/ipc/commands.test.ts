@@ -145,10 +145,9 @@ function fakeCtx() {
     updateManager: {
       check: vi.fn(),
       download: vi.fn(),
-      install: vi.fn((beforeQuit?: () => void) => beforeQuit?.()),
+      install: vi.fn(),
       setChannel: vi.fn(),
     },
-    markForceQuit: vi.fn(),
     trackerManager: {
       applySourcesChange: vi.fn().mockResolvedValue(undefined),
       applyBlacklistChange: vi.fn().mockResolvedValue(undefined),
@@ -703,8 +702,7 @@ describe('buildCommandHandlers', () => {
     expect(ctx.windowManager.show).toHaveBeenCalledWith('main')
     expect(ctx.updateManager.check).toHaveBeenCalledOnce()
     expect(ctx.updateManager.download).toHaveBeenCalledOnce()
-    expect(ctx.markForceQuit).toHaveBeenCalledOnce()
-    expect(ctx.updateManager.install).toHaveBeenCalledWith(ctx.markForceQuit)
+    expect(ctx.updateManager.install).toHaveBeenCalledOnce()
     expect(ctx.contextStore.merge).toHaveBeenCalledWith({
       currentRoute: '/downloads',
     })

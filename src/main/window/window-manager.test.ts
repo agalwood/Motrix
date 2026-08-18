@@ -420,6 +420,34 @@ describe('WindowManager', () => {
     expect(win?.hide).toHaveBeenCalled()
   })
 
+  it('stops converting main-window close into hide after update quit starts', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+    })
+    const win = wm.open('main')
+    const closeListener = (
+      win.on as unknown as ReturnType<typeof vi.fn>
+    ).mock.calls.find(([event]) => event === 'close')?.[1] as
+      | ((event: { preventDefault(): void }) => void)
+      | undefined
+    expect(closeListener).toBeTypeOf('function')
+
+    const ordinaryClose = { preventDefault: vi.fn() }
+    closeListener?.(ordinaryClose)
+    expect(ordinaryClose.preventDefault).toHaveBeenCalledOnce()
+    expect(win.hide).toHaveBeenCalledOnce()
+
+    vi.mocked(win.hide).mockClear()
+    wm.setWillQuit(true)
+    const updateClose = { preventDefault: vi.fn() }
+    closeListener?.(updateClose)
+
+    expect(updateClose.preventDefault).not.toHaveBeenCalled()
+    expect(win.hide).not.toHaveBeenCalled()
+  })
+
   it('close destroys add-task window', () => {
     const sm = createMockSettingsManager()
     const wm = new WindowManager({

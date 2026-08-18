@@ -178,11 +178,10 @@ export class UpdateManager {
     return this.downloadPromise
   }
 
-  install(beforeQuit?: () => void): void {
+  install(): void {
     if (this.state.phase !== 'downloaded') {
       throw new Error('Update is not ready to install')
     }
-    beforeQuit?.()
     this.updater.quitAndInstall()
   }
 

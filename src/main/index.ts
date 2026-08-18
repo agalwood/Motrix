@@ -106,7 +106,13 @@ import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
-import { app, type BrowserWindow, dialog, powerMonitor } from 'electron'
+import {
+  app,
+  type BrowserWindow,
+  dialog,
+  autoUpdater as nativeAutoUpdater,
+  powerMonitor,
+} from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
 import { BridgeManager } from './bridge/bridge-manager'
@@ -122,7 +128,12 @@ import { ContextStore } from './commands/context-store'
 import { registerAllCommands } from './commands/definitions'
 import { KeybindingRegistry } from './commands/keybindings/keybinding-registry'
 import type { CommandDeps } from './commands/types'
+import {
+  DevelopmentUpdateSimulator,
+  shouldUseDevelopmentUpdateSimulator,
+} from './core/development-update-simulator'
 import { UpdateManager } from './core/update-manager'
+import { registerUpdateQuitPreparation } from './core/update-quit-preparation'
 import { setupExceptionHandler } from './exception-handler'
 import { registerApplicationMenuIpc } from './ipc/application-menu'
 import { registerCommandHandlers } from './ipc/commands'
@@ -1743,15 +1754,36 @@ async function initializeMainProcess(): Promise<void> {
   const hasUpdateMetadata =
     app.isPackaged &&
     (await pathExists(path.join(process.resourcesPath, 'app-update.yml')))
-  const updatesSupported = isElectronSelfUpdateSupported({
-    hasUpdateMetadata,
+  const updateSimulatorEnabled = shouldUseDevelopmentUpdateSimulator({
     isPackaged: app.isPackaged,
-    snapEnvironment: settingsSnapEnvironment,
+    value: process.env.MOTRIX_UPDATE_SIMULATOR,
   })
+  const developmentUpdateSimulator = updateSimulatorEnabled
+    ? new DevelopmentUpdateSimulator({
+        currentVersion: app.getVersion(),
+        onQuitAndInstall: () => app.quit(),
+      })
+    : null
+  const updateBackend = developmentUpdateSimulator ?? autoUpdater
+  const updatesSupported =
+    updateSimulatorEnabled ||
+    isElectronSelfUpdateSupported({
+      hasUpdateMetadata,
+      isPackaged: app.isPackaged,
+      snapEnvironment: settingsSnapEnvironment,
+    })
+  if (developmentUpdateSimulator) {
+    log.info('development update simulator enabled')
+    registerUpdateQuitPreparation({
+      updater: developmentUpdateSimulator,
+      markForceQuit: () => quitController.markForceQuit(),
+      setWillQuit: (value) => windowManager?.setWillQuit(value),
+    })
+  }
   if (!mainProcessWork.isAccepting()) return
   const updateManager = new UpdateManager({
     eventBus,
-    updater: autoUpdater,
+    updater: updateBackend,
     currentVersion: app.getVersion(),
     channel: settingsManager.getApp().updateChannel,
     supported: updatesSupported,
@@ -1815,7 +1847,11 @@ async function initializeMainProcess(): Promise<void> {
     .run(() => proxyApplier.applyAll(settingsManager.getProxy()))
     .catch((err) => log.warn({ err }, 'initial proxy apply failed'))
 
-  if (updatesSupported && settingsManager.getApp().checkForUpdatesOnLaunch) {
+  if (
+    updatesSupported &&
+    !updateSimulatorEnabled &&
+    settingsManager.getApp().checkForUpdatesOnLaunch
+  ) {
     runShellAsyncWork('automatic update check', async () => {
       await proxyReady
       if (!mainProcessWork.isAccepting()) return
@@ -2140,7 +2176,6 @@ async function initializeMainProcess(): Promise<void> {
     adapter,
     taskManager,
     updateManager,
-    markForceQuit: () => quitController.markForceQuit(),
     // Startup barrier for UI-initiated creates (AddTask window, motrix://
     // protocol, .torrent file-open) — same restore race as bridge submits.
     waitForTasksReady: () => mainProcessWork.waitForStartup(),
@@ -2354,6 +2389,12 @@ const quitController = new QuitController({
   persistDisableWarn: () =>
     settingsManager.update({ app: { warnBeforeQuit: false } }).then(() => {}),
   beginShutdown,
+})
+
+registerUpdateQuitPreparation({
+  updater: nativeAutoUpdater,
+  markForceQuit: () => quitController.markForceQuit(),
+  setWillQuit: (value) => windowManager?.setWillQuit(value),
 })
 
 const requestForcedQuit = (reason: string) => {
