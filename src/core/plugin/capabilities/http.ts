@@ -20,6 +20,7 @@
 
 import type { Dispatcher } from 'undici'
 import { Agent, ProxyAgent, request as undiciRequest } from 'undici'
+import { urlMatchesHostPermissions } from '../hooks/eligibility'
 import type { CookieJar } from './http-cookies'
 
 // ---------------------------------------------------------------------------
@@ -104,6 +105,14 @@ export interface HttpCapabilityHostOptions {
   cookieJar?: CookieJar
   defaultTimeoutMs?: number
   defaultMaxBodyBytes?: number
+  /**
+   * Manifest hostPermissions patterns this instance is confined to. When
+   * present, the initial URL and every redirect hop must match one pattern
+   * (empty array denies everything, mirroring eligibility rule I29).
+   * Undefined skips host confinement — only for host-agnostic instances in
+   * tests; the capability bridge always passes the manifest's list.
+   */
+  hostPermissions?: ReadonlyArray<string>
 }
 
 // ---------------------------------------------------------------------------
@@ -223,12 +232,23 @@ export class HttpCapabilityHost {
   private readonly cookieJar: CookieJar | undefined
   private readonly defaultTimeoutMs: number
   private readonly defaultMaxBodyBytes: number
+  private readonly hostPermissions: ReadonlyArray<string> | undefined
 
   constructor(opts?: HttpCapabilityHostOptions) {
     this.cookieJar = opts?.cookieJar
     this.defaultTimeoutMs = opts?.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS
     this.defaultMaxBodyBytes =
       opts?.defaultMaxBodyBytes ?? DEFAULT_MAX_BODY_BYTES
+    this.hostPermissions = opts?.hostPermissions
+  }
+
+  private checkHostPermitted(url: string): void {
+    if (this.hostPermissions === undefined) return
+    if (urlMatchesHostPermissions(this.hostPermissions, url)) return
+    throw new HttpError(
+      'plugin.http.host_not_permitted',
+      `URL is outside the plugin's hostPermissions: ${url}`
+    )
   }
 
   // -------------------------------------------------------------------------
@@ -247,6 +267,7 @@ export class HttpCapabilityHost {
 
     const parsed = parseUrl(opts.url)
     checkScheme(parsed)
+    this.checkHostPermitted(parsed.toString())
 
     const timeoutMs = clampTimeout(opts.timeoutMs, this.defaultTimeoutMs)
     const maxBodyBytes = clampMaxBody(
@@ -409,10 +430,11 @@ export class HttpCapabilityHost {
           await response.body.dump?.()
           const loc = Array.isArray(location) ? (location[0] ?? '') : location
           const nextUrl = new URL(loc, currentUrl)
-          // Re-validate the scheme on every hop. checkScheme only ran on the
-          // initial URL, so a 3xx Location to file:// (or any non-http scheme)
-          // would otherwise escape the allowlist.
+          // Re-validate the scheme and host confinement on every hop. Both
+          // only ran on the initial URL, so a 3xx Location to file:// (or to
+          // a host outside hostPermissions) would otherwise escape.
           checkScheme(nextUrl)
+          this.checkHostPermitted(nextUrl.toString())
           currentUrl = nextUrl.toString()
           redirected = true
           hops += 1

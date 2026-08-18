@@ -307,6 +307,65 @@ function readStringToken(source, start) {
   return undefined
 }
 
+// Keywords after which a `/` starts a regex literal rather than division.
+const REGEX_PRECEDING_KEYWORDS = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'in',
+  'of',
+  'new',
+  'delete',
+  'void',
+  'throw',
+  'case',
+  'do',
+  'else',
+  'yield',
+  'await',
+])
+
+// Standard lexer heuristic: a `/` is division only when the previous token
+// can terminate an operand (identifier, string, `)`, `]`, or a digit —
+// numbers tokenize as digit punctuation here). Everything else, including
+// the start of input, puts the slash in expression position where it must
+// begin a regex literal.
+function regexLiteralAllowed(previous) {
+  if (!previous) return true
+  if (previous.type === 'string') return false
+  if (previous.type === 'identifier') {
+    return REGEX_PRECEDING_KEYWORDS.has(previous.value)
+  }
+  return !/[)\]\w.]/.test(previous.value)
+}
+
+// Returns the index just past the regex literal (including flags), or -1
+// when no well-formed regex starts at `start` (an unescaped newline or EOF
+// before the closing slash).
+function readRegexEnd(source, start) {
+  let index = start + 1
+  let inClass = false
+  while (index < source.length) {
+    const character = source[index]
+    if (character === '\\') {
+      index += 2
+      continue
+    }
+    if (character === '\n' || character === '\r') return -1
+    if (inClass) {
+      if (character === ']') inClass = false
+    } else if (character === '[') {
+      inClass = true
+    } else if (character === '/') {
+      index += 1
+      while (/[a-z]/i.test(source[index] ?? '')) index += 1
+      return index
+    }
+    index += 1
+  }
+  return -1
+}
+
 function tokenizeJavaScript(source) {
   const tokens = []
   let index = 0
@@ -326,6 +385,13 @@ function tokenizeJavaScript(source) {
       const end = source.indexOf('*/', index + 2)
       index = end === -1 ? source.length : end + 2
       continue
+    }
+    if (character === '/' && regexLiteralAllowed(tokens[tokens.length - 1])) {
+      const end = readRegexEnd(source, index)
+      if (end !== -1) {
+        index = end
+        continue
+      }
     }
     if (character === '"' || character === "'" || character === '`') {
       const token = readStringToken(source, index)

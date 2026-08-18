@@ -22,12 +22,6 @@ export interface RemoveTasksDialogProps {
   onConfirm: (deleteFiles: boolean) => void
 }
 
-const NO_OUTPUT_STATES: ReadonlySet<TaskStatus> = new Set([
-  TaskStatus.Error,
-  TaskStatus.Removed,
-  TaskStatus.Queued,
-])
-
 const HAS_OUTPUT_STATES: ReadonlySet<TaskStatus> = new Set([
   TaskStatus.Completed,
   TaskStatus.Seeding,
@@ -71,15 +65,6 @@ function buildTitle(
   })
 }
 
-function defaultDeleteFiles(
-  selected: readonly DownloadTask[],
-  preCheck: boolean
-): boolean {
-  if (preCheck) return true
-  if (selected.length === 0) return false
-  return selected.every((task) => NO_OUTPUT_STATES.has(task.status))
-}
-
 function hasOutput(selected: readonly DownloadTask[]): boolean {
   return selected.some(
     (task) => task.downloadedBytes > 0 || HAS_OUTPUT_STATES.has(task.status)
@@ -102,15 +87,16 @@ export function RemoveTasksDialog({
 }: RemoveTasksDialogProps) {
   const { t } = useTranslation()
   const checkboxId = useId()
-  const [deleteFiles, setDeleteFiles] = useState(() =>
-    defaultDeleteFiles(selected, preCheckDeleteFiles)
-  )
+  // Deleting files is always an explicit opt-in (or the Shift shortcut via
+  // preCheckDeleteFiles) — even Error/Queued selections may hold partial
+  // data on disk, so no task status ever pre-checks the box.
+  const [deleteFiles, setDeleteFiles] = useState(preCheckDeleteFiles)
 
   useEffect(() => {
     if (open) {
-      setDeleteFiles(defaultDeleteFiles(selected, preCheckDeleteFiles))
+      setDeleteFiles(preCheckDeleteFiles)
     }
-  }, [open, selected, preCheckDeleteFiles])
+  }, [open, preCheckDeleteFiles])
 
   const showEstimate = deleteFiles && hasOutput(selected)
   const title = buildTitle(selected, t)

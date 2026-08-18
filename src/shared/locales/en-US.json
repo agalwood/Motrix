@@ -803,6 +803,7 @@
       "saveDirEmpty": "Choose a folder…",
       "changeSaveDir": "Change save directory",
       "created": "Task added",
+      "createdPartial": "{{ok}} added · {{failed}} failed",
       "adding": "Adding…",
       "interpretedMagnet": "Magnet link detected",
       "interpretedCurl": "cURL command parsed",

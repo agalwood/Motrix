@@ -80,7 +80,9 @@ describe('RemoveTasksDialog', () => {
     expect(screen.getByText(/Remove 2 tasks/)).toBeDefined()
   })
 
-  it('defaults deleteFiles to true for all-Error selection', () => {
+  it('defaults deleteFiles to false for all-Error selection', () => {
+    // Error tasks can still hold partial data on disk; deleting must always
+    // be an explicit opt-in, never a status-based default.
     render(
       <RemoveTasksDialog
         open={true}
@@ -94,7 +96,7 @@ describe('RemoveTasksDialog', () => {
       />
     )
     const checkbox = screen.getByRole('checkbox')
-    expect(checkbox.getAttribute('aria-checked')).toBe('true')
+    expect(checkbox.getAttribute('aria-checked')).toBe('false')
   })
 
   it('defaults deleteFiles to false for all-Completed selection', () => {

@@ -659,7 +659,13 @@ export class CapabilityBridge {
   private getPluginHttpHost(): HttpCapabilityHost {
     if (!this.pluginHttpHost) {
       const jar = this.opts.capabilityHost.cookieJarFor(this.opts.pluginId)
-      this.pluginHttpHost = new HttpCapabilityHost({ cookieJar: jar })
+      this.pluginHttpHost = new HttpCapabilityHost({
+        cookieJar: jar,
+        // Confine outbound requests to the manifest's declared hosts — the
+        // consent screen presents hostPermissions as the plugin's reach, so
+        // the runtime must enforce it (no declaration ⇒ no hosts, rule I29).
+        hostPermissions: this.opts.manifest.hostPermissions ?? [],
+      })
     }
     return this.pluginHttpHost
   }

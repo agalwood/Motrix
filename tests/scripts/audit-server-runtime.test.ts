@@ -293,6 +293,25 @@ describe('Server built external audit', () => {
     ).toEqual(['@scope/gamma', 'alpha', 'beta', 'delta', 'epsilon'])
   })
 
+  it('does not lose imports after a regex literal containing quotes', () => {
+    // Regression: bundle order shuffles could place guest-code rewrite
+    // helpers (whose regex literals contain quote characters) before real
+    // import statements; a tokenizer without regex-literal support started
+    // a phantom string at the quote and desynchronized, dropping every
+    // later specifier and mis-flagging pinned runtime roots as stale.
+    const source = [
+      String.raw`const stripped = code.replace(/\}\s*from\s*['"]motrix:plugin-api['"]\s*;?/g, patch);`,
+      'const ratio = total / 2 / count;',
+      'const halved = width() / 2;',
+      'import * as schema from "@motrix/plugin-manifest-schema";',
+      'export { audit } from "zeta/audit";',
+    ].join('\n')
+    expect(scanStaticModuleSpecifiers(source)).toEqual([
+      '@motrix/plugin-manifest-schema',
+      'zeta/audit',
+    ])
+  })
+
   it('measures reviewed inputs and rejects root drift', async () => {
     const root = await createFixture()
     const report = await auditServerRuntime({

@@ -187,6 +187,25 @@ function splitUrlLines(raw: string): string[] {
     .filter((l) => l.length > 0)
 }
 
+/**
+ * One request per pasted link line. Each line is an independent download —
+ * a magnet line becomes its own bt request, everything else an http request
+ * with the shared advanced options. The filename override only applies when
+ * exactly one line is present (the same name on several tasks would collide).
+ * Mirror semantics (several uris feeding one task) remain available to API
+ * callers via the singular converter below.
+ */
+export function formValuesToTaskCreateRequests(
+  v: AddTaskFormValues
+): TaskCreateRequest[] {
+  if (v.tab !== 'links') return [formValuesToTaskCreateRequest(v)]
+  const lines = splitUrlLines(v.urls)
+  const filename = lines.length === 1 ? v.filename : undefined
+  return lines.map((line) =>
+    formValuesToTaskCreateRequest({ ...v, urls: line, filename })
+  )
+}
+
 export function formValuesToTaskCreateRequest(
   v: AddTaskFormValues
 ): TaskCreateRequest {

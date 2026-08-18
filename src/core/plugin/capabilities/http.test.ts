@@ -60,6 +60,12 @@ function createTestServer(): Promise<{
         return
       }
 
+      if (url === '/redirect-external') {
+        res.writeHead(302, { Location: 'https://elsewhere.example/file' })
+        res.end()
+        return
+      }
+
       if (url === '/large') {
         res.writeHead(200, { 'Content-Type': 'text/plain' })
         // Stream in chunks to simulate streaming response.
@@ -299,5 +305,66 @@ describe('HttpCapabilityHost', () => {
     for (const h of resp.headers) {
       expect(h.name).toBe(h.name.toLowerCase())
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Host permissions enforcement
+// ---------------------------------------------------------------------------
+
+describe('HttpCapabilityHost host permissions', () => {
+  let server: http.Server
+  let baseUrl: string
+
+  beforeEach(async () => {
+    const created = await createTestServer()
+    server = created.server
+    baseUrl = created.baseUrl
+  })
+
+  afterEach(
+    () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve())
+      })
+  )
+
+  it('rejects a URL outside the declared hostPermissions without a request', async () => {
+    const host = new HttpCapabilityHost({
+      hostPermissions: ['https://allowed.example/*'],
+    })
+    await expect(host.get(`${baseUrl}/text`)).rejects.toMatchObject({
+      code: 'plugin.http.host_not_permitted',
+    })
+  })
+
+  it('allows a URL matching the declared hostPermissions', async () => {
+    const host = new HttpCapabilityHost({
+      hostPermissions: ['http://127.0.0.1:*/*'],
+    })
+    const resp = await host.get(`${baseUrl}/text`)
+    expect(resp.body).toBe('hello')
+  })
+
+  it('denies every URL when hostPermissions is empty', async () => {
+    const host = new HttpCapabilityHost({ hostPermissions: [] })
+    await expect(host.get(`${baseUrl}/text`)).rejects.toMatchObject({
+      code: 'plugin.http.host_not_permitted',
+    })
+  })
+
+  it('re-checks hostPermissions on every redirect hop', async () => {
+    const host = new HttpCapabilityHost({
+      hostPermissions: ['http://127.0.0.1:*/*'],
+    })
+    await expect(
+      host.get(`${baseUrl}/redirect-external`)
+    ).rejects.toMatchObject({ code: 'plugin.http.host_not_permitted' })
+  })
+
+  it('leaves hosts unrestricted when hostPermissions is not provided', async () => {
+    const host = new HttpCapabilityHost()
+    const resp = await host.get(`${baseUrl}/text`)
+    expect(resp.body).toBe('hello')
   })
 })

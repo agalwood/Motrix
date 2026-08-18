@@ -791,6 +791,7 @@
       "saveDirEmpty": "選擇資料夾...",
       "changeSaveDir": "變更儲存目錄",
       "created": "已新增任務",
+      "createdPartial": "已新增 {{ok}} 個，{{failed}} 個失敗",
       "adding": "正在新增...",
       "interpretedMagnet": "已偵測到 Magnet 連結",
       "interpretedCurl": "已解析 cURL 命令",
