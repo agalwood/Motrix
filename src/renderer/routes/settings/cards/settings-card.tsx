@@ -27,7 +27,7 @@ export function SettingsCard({
         className
       )}
     >
-      <div className="flex max-h-18 flex-1 items-center justify-center transition-[filter,transform] duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-110 group-active:grayscale-50 motion-reduce:transform-none motion-reduce:transition-none min-[914px]:max-h-none [&_img]:max-h-16 [&_img]:w-auto min-[914px]:[&_img]:max-h-none">
+      <div className="flex max-h-18 flex-1 items-center justify-center transition-[filter,rotate,scale] duration-200 ease-out group-hover:-rotate-8 group-hover:scale-110 group-active:grayscale-50 motion-reduce:rotate-0 motion-reduce:scale-100 motion-reduce:transition-none min-[914px]:max-h-none [&_img]:max-h-16 [&_img]:w-auto min-[914px]:[&_img]:max-h-none">
         {Icon}
       </div>
       <div className="min-h-14 pt-3 min-[914px]:min-h-[90px] min-[914px]:pt-6">
