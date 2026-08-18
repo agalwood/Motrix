@@ -60,6 +60,7 @@ vi.mock('electron', () => {
     setMinimumSize = vi.fn()
     setAutoHideMenuBar = vi.fn()
     setMenuBarVisibility = vi.fn()
+    setTitleBarOverlay = vi.fn()
     setWindowButtonVisibility = vi.fn()
     center = vi.fn()
     on = vi.fn().mockReturnThis()
@@ -92,13 +93,14 @@ vi.mock('electron', () => {
 
   return {
     BrowserWindow: MockBrowserWindow,
+    nativeTheme: { shouldUseDarkColors: false },
     screen: mockScreen,
     shell: { openExternal: vi.fn() },
   }
 })
 
 import type { SettingsManager } from '@core/settings/settings-manager'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { initializeRendererUrlPolicy } from './renderer-url-policy'
 import { WINDOW_CONFIGS } from './window-configs'
@@ -122,6 +124,9 @@ function createMockSettingsManager(
 describe('WindowManager', () => {
   beforeEach(() => {
     ;(BrowserWindow as unknown as { instances: unknown[] }).instances.length = 0
+    ;(
+      nativeTheme as unknown as { shouldUseDarkColors: boolean }
+    ).shouldUseDarkColors = false
     vi.clearAllMocks()
   })
 
@@ -136,6 +141,59 @@ describe('WindowManager', () => {
     const win = wm.open('main')
     expect(win).toBeDefined()
     expect(wm.get('main')).toBe(win)
+  })
+
+  it('creates aligned Windows caption controls for the light theme', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'win32',
+    })
+
+    const win = wm.open('main')
+    const options = (win as unknown as { options: Record<string, unknown> })
+      .options
+    expect(options.titleBarOverlay).toEqual({
+      color: '#00000000',
+      symbolColor: '#1d1d1f',
+      height: 54,
+    })
+  })
+
+  it('creates and refreshes Windows caption controls for the dark theme', () => {
+    ;(
+      nativeTheme as unknown as { shouldUseDarkColors: boolean }
+    ).shouldUseDarkColors = true
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'win32',
+    })
+
+    const main = wm.open('main')
+    const onboarding = wm.open('onboarding')
+    const mainOptions = (
+      main as unknown as { options: Record<string, unknown> }
+    ).options
+    expect(mainOptions.titleBarOverlay).toMatchObject({
+      symbolColor: '#f5f5f5',
+      height: 54,
+    })
+
+    wm.syncWindowControlsTheme(true)
+
+    expect(main.setTitleBarOverlay).toHaveBeenCalledWith({
+      color: '#00000000',
+      symbolColor: '#f5f5f5',
+      height: 54,
+    })
+    expect(onboarding.setTitleBarOverlay).toHaveBeenCalledWith({
+      color: '#00000000',
+      symbolColor: '#1d1d1f',
+      height: 54,
+    })
   })
 
   it('uses the explicit secure Electron renderer defaults', () => {

@@ -1356,10 +1356,6 @@ async function initializeMainProcess(): Promise<void> {
 
   const engineSettings = settingsManager.getEngine()
 
-  // Apply persisted theme to Electron's nativeTheme BEFORE opening windows,
-  // so macOS vibrancy + titlebar paint in the right mode on the first frame.
-  setupNativeThemeSync(eventBus, settingsManager)
-
   const gate = new DisclaimerGate({ settings: settingsManager })
   pendingDisclaimerGate = gate.isAccepted() ? null : gate
   const liquidGlass = new LiquidGlassController({ settingsManager })
@@ -1374,6 +1370,11 @@ async function initializeMainProcess(): Promise<void> {
         ? 'onboarding'
         : requested,
     onSessionEnd: () => quitController.markSessionEnding(),
+  })
+  // Apply the persisted theme before opening windows, then keep Windows
+  // caption symbols synchronized with the resolved app/system theme.
+  setupNativeThemeSync(eventBus, settingsManager, (shouldUseDarkColors) => {
+    windowManager.syncWindowControlsTheme(shouldUseDarkColors)
   })
   // Install forwarding before the onboarding window becomes interactive.
   // SetDisclaimerLanguage persists before its asynchronous locale transaction

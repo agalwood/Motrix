@@ -126,6 +126,10 @@ describe('WindowChrome', () => {
     )
     const controls = container.querySelector('.window-controls')
     expect(controls).toHaveClass('ml-auto')
+    expect(controls).toHaveStyle({ paddingTop: '14px' })
+    expect((container.firstChild as HTMLElement).style.paddingRight).toBe(
+      '16px'
+    )
     expect(actions?.compareDocumentPosition(controls as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
@@ -159,11 +163,11 @@ describe('WindowChrome', () => {
     )
   })
 
-  it('always reserves the Windows caption-button area', () => {
+  it('reserves the Windows caption-button area with a visual gap', () => {
     setPlatform('win32')
     const { container } = render(<WindowChrome variant="overlay" />)
     expect((container.firstChild as HTMLElement).style.paddingRight).toBe(
-      '148px'
+      '154px'
     )
   })
 })
