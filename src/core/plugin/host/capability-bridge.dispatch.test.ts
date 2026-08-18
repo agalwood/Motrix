@@ -182,12 +182,15 @@ interface BridgeWithSpy {
   posted: unknown[]
 }
 
-function makeBridge(capHost: CapabilityHost): BridgeWithSpy {
+function makeBridge(
+  capHost: CapabilityHost,
+  manifest: PluginManifest = STUB_MANIFEST
+): BridgeWithSpy {
   const posted: unknown[] = []
   const bridge = new CapabilityBridge(
     {
       pluginId: PLUGIN_ID,
-      manifest: STUB_MANIFEST,
+      manifest,
       bundleSource: '',
       capabilityHost: capHost,
       workerScriptPath: getStubWorkerPath(),
@@ -342,6 +345,27 @@ describe('CapabilityBridge dispatch table', () => {
     const resp = lastPosted(posted) as { ok: boolean; result: unknown }
     expect(resp.ok).toBe(true)
     expect(getStub).toHaveBeenCalledWith('https://example.com', undefined)
+  })
+
+  // 6b. http requests are confined to the manifest's hostPermissions
+  it('http.get outside the manifest hostPermissions fails with host_not_permitted', async () => {
+    const scoped = makeBridge(capHost, {
+      ...STUB_MANIFEST,
+      permissions: ['http'],
+      hostPermissions: ['https://allowed.example/*'],
+    })
+    await new Promise((r) => setTimeout(r, 5))
+    scoped.posted.length = 0
+
+    await scoped.bridge.dispatchCall(
+      makeCall('http', 'get', ['https://blocked.example/file'])
+    )
+    const resp = lastPosted(scoped.posted) as {
+      ok: boolean
+      error: { code: string }
+    }
+    expect(resp.ok).toBe(false)
+    expect(resp.error.code).toBe('plugin.http.host_not_permitted')
   })
 
   // 7. fs.storage.exists returns false for non-existent file
