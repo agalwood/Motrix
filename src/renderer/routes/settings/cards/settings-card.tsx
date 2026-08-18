@@ -23,7 +23,7 @@ export function SettingsCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex h-full min-h-33 select-none flex-col items-start rounded-lg px-5 py-3 text-left transition-[box-shadow,background-color] duration-200 ease-out hover:bg-muted/40 hover:shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none min-[914px]:min-h-[170px] min-[914px]:px-6 min-[914px]:py-4',
+        'group flex h-full min-h-33 select-none flex-col items-start rounded-lg bg-muted/40 px-5 py-3 text-left transition-[box-shadow,background-color] duration-200 ease-out hover:bg-muted/60 hover:shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none min-[914px]:min-h-[170px] min-[914px]:px-6 min-[914px]:py-4',
         className
       )}
     >
