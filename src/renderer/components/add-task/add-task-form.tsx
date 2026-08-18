@@ -12,7 +12,7 @@ import { Queries } from '@shared/protocol/queries'
 import {
   type AddTaskFormValues,
   addTaskFormSchema,
-  formValuesToTaskCreateRequest,
+  formValuesToTaskCreateRequests,
 } from '@shared/schemas/add-task'
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -90,16 +90,32 @@ export function AddTaskForm({
     async (values: AddTaskFormValues) => {
       setSubmitting(true)
       try {
-        const request = formValuesToTaskCreateRequest(values)
-        const result = (await transport.invoke(
-          Commands.CreateTask,
-          request
-        )) as { gid: string }
-        platform.notify('info', 'task.add.created')
-        onSubmitSuccess?.(result.gid)
-      } catch (err) {
-        platform.notify('error', 'task.add.createFailed')
-        console.error(err)
+        const requests = formValuesToTaskCreateRequests(values)
+        const gids: string[] = []
+        let failed = 0
+        for (const request of requests) {
+          try {
+            const result = (await transport.invoke(
+              Commands.CreateTask,
+              request
+            )) as { gid: string }
+            gids.push(result.gid)
+          } catch (err) {
+            failed += 1
+            console.error(err)
+          }
+        }
+        if (failed === 0) {
+          platform.notify('info', 'task.add.created')
+        } else if (gids.length > 0) {
+          platform.notify('warn', 'task.add.createdPartial', {
+            ok: gids.length,
+            failed,
+          })
+        } else {
+          platform.notify('error', 'task.add.createFailed')
+        }
+        if (gids.length > 0) onSubmitSuccess?.(gids[0])
       } finally {
         setSubmitting(false)
       }

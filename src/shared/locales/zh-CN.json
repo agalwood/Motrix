@@ -791,6 +791,7 @@
       "saveDirEmpty": "选择文件夹…",
       "changeSaveDir": "更改保存目录",
       "created": "任务已添加",
+      "createdPartial": "已添加 {{ok}} 个，{{failed}} 个失败",
       "adding": "添加中…",
       "interpretedMagnet": "已识别磁力链接",
       "interpretedCurl": "已解析 cURL 命令",

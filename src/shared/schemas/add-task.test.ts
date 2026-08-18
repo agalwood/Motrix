@@ -4,6 +4,7 @@ import {
   addTaskUrlParamsSchema,
   encodeUrlParams,
   formValuesToTaskCreateRequest,
+  formValuesToTaskCreateRequests,
   taskCreateRequestSchema,
   urlParamsToFormDefaults,
 } from './add-task'
@@ -149,6 +150,73 @@ describe('taskCreateRequestSchema', () => {
       saveDir: '/d',
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('formValuesToTaskCreateRequests', () => {
+  it('creates one request per link line', () => {
+    const reqs = formValuesToTaskCreateRequests({
+      tab: 'links',
+      urls: 'https://a/b\nhttps://c/d',
+      saveDir: '/d',
+      split: 5,
+    })
+    expect(reqs).toHaveLength(2)
+    expect(reqs[0]).toMatchObject({ type: 'http', uris: ['https://a/b'] })
+    expect(reqs[1]).toMatchObject({ type: 'http', uris: ['https://c/d'] })
+  })
+
+  it('converts a magnet line into its own bt request', () => {
+    const magnet = `magnet:?xt=urn:btih:${'a'.repeat(40)}`
+    const reqs = formValuesToTaskCreateRequests({
+      tab: 'links',
+      urls: `${magnet}\nhttps://c/d`,
+      saveDir: '/d',
+      split: 5,
+    })
+    expect(reqs[0]).toMatchObject({
+      type: 'bt',
+      payload: { kind: 'magnet', uri: magnet },
+    })
+    expect(reqs[1]).toMatchObject({ type: 'http', uris: ['https://c/d'] })
+  })
+
+  it('applies the filename override only for a single line', () => {
+    const multi = formValuesToTaskCreateRequests({
+      tab: 'links',
+      urls: 'https://a/b\nhttps://c/d',
+      saveDir: '/d',
+      split: 5,
+      filename: 'x.zip',
+    }) as Array<{ filename?: string }>
+    expect(multi.map((r) => r.filename)).toEqual([undefined, undefined])
+
+    const single = formValuesToTaskCreateRequests({
+      tab: 'links',
+      urls: 'https://a/b',
+      saveDir: '/d',
+      split: 5,
+      filename: 'x.zip',
+    })
+    expect(single[0]).toMatchObject({ filename: 'x.zip' })
+  })
+
+  it('wraps a torrent submission in a single request', () => {
+    const reqs = formValuesToTaskCreateRequests({
+      tab: 'torrent',
+      source: 'file',
+      base64: 'AAAA',
+      torrentMeta: {
+        name: 't',
+        infoHash: 'a'.repeat(40),
+        totalSize: 0,
+        files: [],
+      },
+      selectedFiles: [0],
+      saveDir: '/d',
+    })
+    expect(reqs).toHaveLength(1)
+    expect(reqs[0]).toMatchObject({ type: 'bt' })
   })
 })
 

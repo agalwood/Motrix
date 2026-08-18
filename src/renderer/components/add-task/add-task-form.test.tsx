@@ -86,4 +86,60 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
   })
+
+  it('submits one createTask per link line', async () => {
+    const onSubmitSuccess = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    renderForm({ onSubmitSuccess })
+
+    await user.type(
+      screen.getByRole('textbox'),
+      'https://a/1{Enter}https://b/2'
+    )
+    await user.click(screen.getByRole('button', { name: /download/i }))
+
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'command:createTask',
+        expect.objectContaining({ type: 'http', uris: ['https://b/2'] })
+      )
+    )
+    expect(transport.invoke).toHaveBeenCalledWith(
+      'command:createTask',
+      expect.objectContaining({ type: 'http', uris: ['https://a/1'] })
+    )
+    expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
+    expect(mockServices.notify).toHaveBeenCalledWith('info', 'task.add.created')
+  })
+
+  it('reports a partial failure when some lines fail', async () => {
+    const onSubmitSuccess = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(
+      async (channel: string, payload?: unknown) => {
+        if (channel !== 'command:createTask') return {}
+        const req = payload as { uris?: string[] }
+        if (req.uris?.[0] === 'https://bad/2') throw new Error('boom')
+        return { gid: 'ok-gid' }
+      }
+    )
+    renderForm({ onSubmitSuccess })
+
+    await user.type(
+      screen.getByRole('textbox'),
+      'https://a/1{Enter}https://bad/2'
+    )
+    await user.click(screen.getByRole('button', { name: /download/i }))
+
+    await waitFor(() =>
+      expect(mockServices.notify).toHaveBeenCalledWith(
+        'warn',
+        'task.add.createdPartial',
+        { ok: 1, failed: 1 }
+      )
+    )
+    expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
+  })
 })
