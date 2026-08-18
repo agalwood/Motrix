@@ -76,6 +76,20 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.19" date="2026-08-19">
+      <description>
+        <p>
+          The in-app updater now hands off to the installer reliably even when
+          windows hide to the tray. New Task autofills downloadable links from
+          the clipboard, each pasted link line becomes an independent task,
+          and removing tasks never pre-selects file deletion. Plugin HTTP
+          access is limited to declared hosts, HTTP downloads show piece
+          progress, and tray and window-control behavior is corrected across
+          platforms. Windows packages remain unsigned, and prerelease Snap
+          runs stop after source validation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.18" date="2026-08-17">
       <description>
         <p>
