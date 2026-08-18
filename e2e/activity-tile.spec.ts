@@ -25,6 +25,10 @@ interface PointerProfile {
   repaintCount: number
   pixelsStable: boolean
   tooltipCountAfterSettle: number
+  tooltipMountedFrames: number
+  tooltipPositionChanges: number
+  tooltipTextChanges: number
+  resizeObserverLoopErrors: string[]
 }
 
 interface ResizeFrameProfile {
@@ -531,26 +535,90 @@ async function pointerProfile(page: Page): Promise<PointerProfile> {
     const contextPrototype = CanvasRenderingContext2D.prototype
     const originalClearRect = contextPrototype.clearRect
     let repaintCount = 0
+    const resizeObserverLoopErrors: string[] = []
+    const captureResizeObserverLoopError = (event: ErrorEvent) => {
+      if (event.message.includes('ResizeObserver loop')) {
+        resizeObserverLoopErrors.push(event.message)
+      }
+    }
     contextPrototype.clearRect = function patchedClearRect(...args) {
       if (this.canvas === canvas) repaintCount += 1
       return originalClearRect.apply(this, args)
     }
+    window.addEventListener('error', captureResizeObserverLoopError)
 
     try {
+      const calendarElement = calendar as HTMLElement
+      calendarElement.focus()
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+      const tooltip = document.querySelector<HTMLElement>('[role="tooltip"]')
+      const anchor = calendar.querySelector<HTMLElement>(
+        '[data-testid="activity-tooltip-anchor"]'
+      )
+      if (!tooltip || !anchor) {
+        throw new Error('Activity tooltip did not open before pointer sweep')
+      }
+      const pointAtAnchor = () => {
+        const anchorRect = anchor.getBoundingClientRect()
+        return {
+          x: anchorRect.left + anchorRect.width / 2,
+          y: anchorRect.top + anchorRect.height / 2,
+        }
+      }
+      const firstPoint = pointAtAnchor()
+      calendar.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowLeft' })
+      )
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+      const secondPoint = pointAtAnchor()
+      if (firstPoint.x === secondPoint.x && firstPoint.y === secondPoint.y) {
+        throw new Error('Activity keyboard navigation did not move the anchor')
+      }
+
       const before = canvas.toDataURL()
-      const rect = calendar.getBoundingClientRect()
       const startedAt = performance.now()
-      for (let index = 0; index < 1_000; index += 1) {
-        const x = rect.left + 30 + ((index * 17) % Math.max(1, rect.width - 34))
-        const y = rect.top + 18 + ((index * 11) % Math.max(1, rect.height - 22))
-        calendar.dispatchEvent(
-          new PointerEvent('pointermove', {
-            bubbles: true,
-            clientX: x,
-            clientY: y,
-            pointerType: 'mouse',
-          })
+      const points = [firstPoint, secondPoint]
+      let tooltipMountedFrames = 0
+      let tooltipPositionChanges = 0
+      let tooltipTextChanges = 0
+      let previousTooltipText = tooltip.textContent
+      let previousTooltipRect = tooltip.getBoundingClientRect()
+      for (let frame = 0; frame < 120; frame += 1) {
+        for (let step = 0; step < 7; step += 1) {
+          const point = points[(frame + step) % points.length]
+          if (!point) throw new Error('Activity pointer target is unavailable')
+          calendar.dispatchEvent(
+            new PointerEvent('pointermove', {
+              bubbles: true,
+              clientX: point.x,
+              clientY: point.y,
+              pointerType: 'mouse',
+            })
+          )
+        }
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => resolve())
         )
+        const currentTooltip =
+          document.querySelector<HTMLElement>('[role="tooltip"]')
+        if (currentTooltip === tooltip) tooltipMountedFrames += 1
+        const currentTooltipText = tooltip.textContent
+        if (currentTooltipText !== previousTooltipText) {
+          tooltipTextChanges += 1
+        }
+        previousTooltipText = currentTooltipText
+        const currentTooltipRect = tooltip.getBoundingClientRect()
+        if (
+          currentTooltipRect.left !== previousTooltipRect.left ||
+          currentTooltipRect.top !== previousTooltipRect.top
+        ) {
+          tooltipPositionChanges += 1
+        }
+        previousTooltipRect = currentTooltipRect
       }
       calendar.dispatchEvent(
         new PointerEvent('pointerout', {
@@ -570,9 +638,14 @@ async function pointerProfile(page: Page): Promise<PointerProfile> {
         pixelsStable: before === canvas.toDataURL(),
         tooltipCountAfterSettle:
           document.querySelectorAll('[role="tooltip"]').length,
+        tooltipMountedFrames,
+        tooltipPositionChanges,
+        tooltipTextChanges,
+        resizeObserverLoopErrors,
       }
     } finally {
       contextPrototype.clearRect = originalClearRect
+      window.removeEventListener('error', captureResizeObserverLoopError)
     }
   })
 }
@@ -1290,6 +1363,10 @@ test.describe('Activity Tile production renderer', () => {
     expect(pointer.repaintCount).toBe(0)
     expect(pointer.pixelsStable).toBe(true)
     expect(pointer.tooltipCountAfterSettle).toBe(0)
+    expect(pointer.tooltipMountedFrames).toBe(120)
+    expect(pointer.tooltipPositionChanges).toBeGreaterThan(0)
+    expect(pointer.tooltipTextChanges).toBe(120)
+    expect(pointer.resizeObserverLoopErrors).toEqual([])
     expect(
       resizeFrameProfiles.every((profile) => profile.coalescedFrames === 1)
     ).toBe(true)

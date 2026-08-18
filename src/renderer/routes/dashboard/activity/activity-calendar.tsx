@@ -288,6 +288,7 @@ export function ActivityCalendar({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const tooltipAnchorRef = useRef<HTMLSpanElement>(null)
   const scheduleRef = useRef<(() => void) | null>(null)
   const projectionCacheRef = useRef<{
     source: readonly ActivityCalendarCell[]
@@ -966,6 +967,17 @@ export function ActivityCalendar({
     geometry && tooltipIndex !== null
       ? cellPosition(geometry, tooltipIndex)
       : null
+  // Tooltip text changes width while the pointer crosses cells. A fresh
+  // virtual anchor makes each React commit reposition explicitly, so Base UI
+  // does not need an element ResizeObserver on this high-frequency path.
+  const tooltipAnchor =
+    tooltipCell && tooltipPosition
+      ? {
+          contextElement: containerRef.current ?? undefined,
+          getBoundingClientRect: () =>
+            tooltipAnchorRef.current?.getBoundingClientRect() ?? new DOMRect(),
+        }
+      : null
   const monthLabels = useMemo(() => activityMonthLabels(cells), [cells])
   const tooltipDetails = tooltipCell
     ? [
@@ -1129,6 +1141,7 @@ export function ActivityCalendar({
           id={tooltipTriggerId}
           render={
             <span
+              ref={tooltipAnchorRef}
               aria-hidden="true"
               tabIndex={-1}
               data-testid="activity-tooltip-anchor"
@@ -1177,6 +1190,8 @@ export function ActivityCalendar({
 
       {tooltipCell ? (
         <TooltipContent
+          anchor={tooltipAnchor}
+          disableAnchorTracking
           side="top"
           className="max-w-none animate-none px-3 py-2 transition-none data-open:animate-none data-closed:animate-none"
         >

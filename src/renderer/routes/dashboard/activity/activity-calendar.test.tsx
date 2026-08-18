@@ -434,6 +434,50 @@ describe('ActivityCalendar', () => {
     expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
+  it('does not add resize observers while retargeting an open Tooltip', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'],
+    })
+    const view = render(
+      <ActivityCalendar
+        snapshot={activitySnapshot()}
+        contentLevel="compact"
+        now={new Date(2026, 6, 29, 12)}
+      />,
+      { wrapper }
+    )
+    await flushFrames()
+
+    const observerCountAfterMount = resizeObservers.length
+    expect(observerCountAfterMount).toBeGreaterThan(0)
+    const geometry = selectActivityGeometry({
+      width: calendarSize.width,
+      height: calendarSize.height,
+      contentLevel: 'compact',
+    })
+    if (!geometry) throw new Error('Missing test geometry')
+    const grid = screen.getByRole('grid')
+    const point = (column: number) => ({
+      clientX: geometry.gridLeft + column * geometry.stride + 1,
+      clientY: geometry.gridTop + 1,
+    })
+
+    fireEvent.pointerMove(grid, point(0))
+    await advanceTimersByTime(ACTIVITY_TOOLTIP_OPEN_DELAY_MS)
+    expect(screen.getByRole('tooltip')).not.toBeNull()
+    expect(resizeObservers).toHaveLength(observerCountAfterMount)
+
+    for (let column = 1; column < geometry.weeks; column += 1) {
+      fireEvent.pointerMove(grid, point(column))
+    }
+    expect(resizeObservers).toHaveLength(observerCountAfterMount)
+
+    view.unmount()
+    expect(
+      resizeObservers.every((observer) => observer.targets.size === 0)
+    ).toBe(true)
+  })
+
   it('keeps the rounded focus border inside a grid that touches every edge', async () => {
     calendarSize.width = 103
     calendarSize.height = 55
