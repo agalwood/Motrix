@@ -69,6 +69,83 @@ describe('AddTaskForm', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 
+  it('prefills empty urls from the clipboard when autofill is enabled', async () => {
+    vi.mocked(mockServices.readClipboard).mockResolvedValue(
+      'https://example.com/f.zip'
+    )
+    renderForm()
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveValue(
+        'https://example.com/f.zip'
+      )
+    )
+  })
+
+  it('does not prefill when the setting is turned off', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') {
+        return { app: { autofillClipboardLinks: false } }
+      }
+      return { gid: 'test-gid' }
+    })
+    vi.mocked(mockServices.readClipboard).mockResolvedValue(
+      'https://example.com/f.zip'
+    )
+    renderForm()
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith('query:getSettings')
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(mockServices.readClipboard).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox')).toHaveValue('')
+  })
+
+  it('does not overwrite urls that are already filled', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) =>
+      channel === 'query:getSettings'
+        ? { app: { autofillClipboardLinks: true } }
+        : { gid: 'test-gid' }
+    )
+    vi.mocked(mockServices.readClipboard).mockResolvedValue('https://clip/x')
+    renderForm({
+      defaultValues: { tab: 'links', urls: 'https://kept/1', saveDir: '/d' },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(screen.getByRole('textbox')).toHaveValue('https://kept/1')
+  })
+
+  it('ignores clipboard content that is not a downloadable link', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) =>
+      channel === 'query:getSettings'
+        ? { app: { autofillClipboardLinks: true } }
+        : { gid: 'test-gid' }
+    )
+    vi.mocked(mockServices.readClipboard).mockResolvedValue(
+      'hello world\nnot a url'
+    )
+    renderForm()
+    await waitFor(() => expect(mockServices.readClipboard).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(screen.getByRole('textbox')).toHaveValue('')
+  })
+
+  it('stays quiet when the clipboard cannot be read', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) =>
+      channel === 'query:getSettings'
+        ? { app: { autofillClipboardLinks: true } }
+        : { gid: 'test-gid' }
+    )
+    vi.mocked(mockServices.readClipboard).mockRejectedValue(new Error('denied'))
+    renderForm()
+    await waitFor(() => expect(mockServices.readClipboard).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(screen.getByRole('textbox')).toHaveValue('')
+  })
+
   it('submit flow calls transport and onSubmitSuccess', async () => {
     const onSubmitSuccess = vi.fn()
     const user = userEvent.setup()

@@ -922,6 +922,8 @@
       "defaultSaveDirDesc": "除非個別任務另有指定，新的下載會儲存在這裡。",
       "notifyOnComplete": "下載完成時通知",
       "notifyOnCompleteDesc": "任務完成時顯示系統通知。",
+      "autofillClipboardLinks": "新增任務時自動填入剪貼簿連結",
+      "autofillClipboardLinksDesc": "開啟新增任務時，若剪貼簿中是連結則自動填入空白的 URL 輸入框。",
       "notifyOnError": "失敗時通知",
       "notifyOnErrorDesc": "視窗在背景時，下載失敗會顯示系統通知。",
       "warnBeforeQuit": "結束前確認",

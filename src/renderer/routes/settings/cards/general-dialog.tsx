@@ -36,6 +36,7 @@ type GeneralFields = Pick<
   | 'defaultSaveDir'
   | 'notifyOnComplete'
   | 'notifyOnError'
+  | 'autofillClipboardLinks'
   | 'warnBeforeQuit'
 >
 
@@ -47,6 +48,7 @@ const DEFAULTS: GeneralFields = {
   defaultSaveDir: DEFAULT_APP_SETTINGS.defaultSaveDir,
   notifyOnComplete: DEFAULT_APP_SETTINGS.notifyOnComplete,
   notifyOnError: DEFAULT_APP_SETTINGS.notifyOnError,
+  autofillClipboardLinks: DEFAULT_APP_SETTINGS.autofillClipboardLinks,
   warnBeforeQuit: DEFAULT_APP_SETTINGS.warnBeforeQuit,
 }
 
@@ -74,6 +76,7 @@ export function GeneralDialog({
             defaultSaveDir: all.app.defaultSaveDir,
             notifyOnComplete: all.app.notifyOnComplete,
             notifyOnError: all.app.notifyOnError,
+            autofillClipboardLinks: all.app.autofillClipboardLinks,
             warnBeforeQuit: all.app.warnBeforeQuit,
           })
         }
@@ -153,6 +156,29 @@ export function GeneralDialog({
                         </FormDescription>
                       </div>
                       <DirectoryPicker name="defaultSaveDir" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="autofillClipboardLinks"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t('settings.general.autofillClipboardLinks')}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t('settings.general.autofillClipboardLinksDesc')}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />

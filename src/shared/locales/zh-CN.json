@@ -922,6 +922,8 @@
       "defaultSaveDirDesc": "新建下载默认保存到此目录，可按任务覆盖。",
       "notifyOnComplete": "下载完成通知",
       "notifyOnCompleteDesc": "任务完成时弹出系统通知。",
+      "autofillClipboardLinks": "新建任务时自动填入剪贴板链接",
+      "autofillClipboardLinksDesc": "打开新建任务时，若剪贴板中是链接则自动填入空白的 URL 输入框。",
       "notifyOnError": "下载失败时通知",
       "notifyOnErrorDesc": "当窗口处于后台时，下载失败会弹出系统通知。",
       "warnBeforeQuit": "退出前确认",
