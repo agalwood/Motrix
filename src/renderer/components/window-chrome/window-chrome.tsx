@@ -4,6 +4,10 @@ import { Commands } from '@shared/protocol/commands'
 import type React from 'react'
 import { useTranslation } from 'react-i18next'
 
+const WINDOWS_CAPTION_CONTROLS_WIDTH = 138
+const CAPTION_CONTROLS_EDGE_GAP = 16
+const CAPTION_CONTROLS_TOP_PADDING = 14
+
 function LinuxWindowControls({ pushToEnd }: { pushToEnd: boolean }) {
   const { t } = useTranslation()
   const minimize = () => {
@@ -16,7 +20,11 @@ function LinuxWindowControls({ pushToEnd }: { pushToEnd: boolean }) {
   return (
     <div
       className={cn('window-controls app-no-drag', pushToEnd && 'ml-auto')}
-      style={{ display: 'flex', gap: 8 }}
+      style={{
+        display: 'flex',
+        gap: 8,
+        paddingTop: CAPTION_CONTROLS_TOP_PADDING,
+      }}
     >
       <button
         type="button"
@@ -79,7 +87,12 @@ export function WindowChrome({
     display: 'flex',
     alignItems: 'center',
     paddingLeft: showTrafficLight ? 93 : 12,
-    paddingRight: platform === 'win32' ? 148 : 20,
+    paddingRight:
+      platform === 'win32'
+        ? WINDOWS_CAPTION_CONTROLS_WIDTH + CAPTION_CONTROLS_EDGE_GAP
+        : platform === 'linux'
+          ? CAPTION_CONTROLS_EDGE_GAP
+          : 20,
     flexShrink: 0,
     userSelect: 'none',
     ...(isOverlay && {

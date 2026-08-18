@@ -21,9 +21,25 @@ export interface NativeThemeSyncHandle {
 // ThemeSync) stays runtime-agnostic and works in both Electron and browser.
 export function setupNativeThemeSync(
   eventBus: EventBus,
-  settingsManager: SettingsManager
+  settingsManager: SettingsManager,
+  onResolvedThemeChanged?: (shouldUseDarkColors: boolean) => void
 ): NativeThemeSyncHandle {
+  let lastShouldUseDarkColors: boolean | undefined
+
+  function notifyResolvedThemeChanged() {
+    const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
+    if (shouldUseDarkColors === lastShouldUseDarkColors) return
+    lastShouldUseDarkColors = shouldUseDarkColors
+    onResolvedThemeChanged?.(shouldUseDarkColors)
+  }
+
+  function onNativeThemeUpdated() {
+    notifyResolvedThemeChanged()
+  }
+
+  nativeTheme.on('updated', onNativeThemeUpdated)
   apply(settingsManager.getApp().theme)
+  notifyResolvedThemeChanged()
 
   function onSettingsChanged(payload: unknown) {
     const { old, updated } = payload as {
@@ -32,6 +48,7 @@ export function setupNativeThemeSync(
     }
     if (old.app.theme !== updated.app.theme) {
       apply(updated.app.theme)
+      notifyResolvedThemeChanged()
     }
   }
 
@@ -40,6 +57,7 @@ export function setupNativeThemeSync(
   return {
     destroy() {
       eventBus.off(Events.SettingsChanged, onSettingsChanged)
+      nativeTheme.off('updated', onNativeThemeUpdated)
     },
   }
 }
