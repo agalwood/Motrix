@@ -31,7 +31,7 @@ minimumReleaseAgeExclude:
   - '@motrix/nat@0.1.0'
   - '@motrix/cli@0.1.0'
   - '@motrix/plugin-manifest-schema@2.0.0'
-  - '@hookform/resolvers@5.5.7'
+  - '@hookform/resolvers@5.5.7 || 5.9.1'
   - jsdom@30.0.0
   - magnet-uri@7.0.10
   - parse-torrent@11.0.24
@@ -68,15 +68,15 @@ minimumReleaseAgeExclude:
   - '@esbuild/win32-x64@0.28.2'
   - esbuild@0.28.2
   - '@testing-library/jest-dom@7.0.1'
-  - '@biomejs/biome@2.5.8'
-  - '@biomejs/cli-darwin-arm64@2.5.8'
-  - '@biomejs/cli-darwin-x64@2.5.8'
-  - '@biomejs/cli-linux-arm64-musl@2.5.8'
-  - '@biomejs/cli-linux-arm64@2.5.8'
-  - '@biomejs/cli-linux-x64-musl@2.5.8'
-  - '@biomejs/cli-linux-x64@2.5.8'
-  - '@biomejs/cli-win32-arm64@2.5.8'
-  - '@biomejs/cli-win32-x64@2.5.8'
+  - '@biomejs/biome@2.5.8 || 2.5.9'
+  - '@biomejs/cli-darwin-arm64@2.5.8 || 2.5.9'
+  - '@biomejs/cli-darwin-x64@2.5.8 || 2.5.9'
+  - '@biomejs/cli-linux-arm64-musl@2.5.8 || 2.5.9'
+  - '@biomejs/cli-linux-arm64@2.5.8 || 2.5.9'
+  - '@biomejs/cli-linux-x64-musl@2.5.8 || 2.5.9'
+  - '@biomejs/cli-linux-x64@2.5.8 || 2.5.9'
+  - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9'
+  - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9'
   - electron@43.4.0
-  - shadcn@4.17.0
+  - shadcn@4.17.0 || 4.18.0
   - zustand@5.0.15

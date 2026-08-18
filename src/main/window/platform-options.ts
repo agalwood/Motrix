@@ -11,7 +11,7 @@ export function buildPlatformOptions(
   {
     vibrancy = true,
     liquidGlass = false,
-    windowControlsSymbolColor = '#ffffff',
+    windowControlsSymbolColor,
   }: PlatformOptionsInput = {}
 ): BrowserWindowConstructorOptions {
   switch (platform) {
@@ -42,7 +42,9 @@ export function buildPlatformOptions(
         titleBarStyle: 'hidden',
         titleBarOverlay: {
           color: '#00000000',
-          symbolColor: windowControlsSymbolColor,
+          ...(windowControlsSymbolColor && {
+            symbolColor: windowControlsSymbolColor,
+          }),
           height: 36,
         },
       }

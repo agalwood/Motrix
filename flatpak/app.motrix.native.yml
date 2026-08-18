@@ -186,7 +186,7 @@ modules:
     build-commands:
       - npm install -g
         --prefix=/run/build/motrix/flatpak-node/pnpm-cli
-        ./flatpak-node/pnpm/pnpm-11.21.0.tgz
+        ./flatpak-node/pnpm/pnpm-11.22.0.tgz
         --offline
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
@@ -306,8 +306,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-11.21.0.tgz
-        sha256: 87237d37eadb79dc626a0576eb3a52d23d70422c323ae5e00fc05c91f4323780
+        url: https://registry.npmjs.org/pnpm/-/pnpm-11.22.0.tgz
+        sha256: 57a97e6f23a3faffc03153a4ef8c770a0552612b8640aebe39bfdd5754d0ebdc
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked

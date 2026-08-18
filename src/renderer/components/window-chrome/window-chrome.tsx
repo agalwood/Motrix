@@ -41,7 +41,7 @@ function LinuxWindowControls({ pushToEnd }: { pushToEnd: boolean }) {
 const controlButtonStyle: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
-  color: 'var(--color-muted)',
+  color: 'var(--color-foreground)',
   cursor: 'pointer',
   fontSize: 14,
   padding: '4px 8px',

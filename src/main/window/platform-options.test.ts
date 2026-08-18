@@ -10,14 +10,14 @@ describe('buildPlatformOptions', () => {
     expect(opts.trafficLightPosition).toEqual({ x: 20, y: 20 })
   })
 
-  it('returns hidden titleBarStyle with overlay for Windows', () => {
+  it('uses the system-adaptive title-bar symbol color on Windows', () => {
     const opts = buildPlatformOptions('win32')
     expect(opts.titleBarStyle).toBe('hidden')
     expect(opts.titleBarOverlay).toEqual({
       color: '#00000000',
-      symbolColor: '#ffffff',
       height: 36,
     })
+    expect(opts.titleBarOverlay).not.toHaveProperty('symbolColor')
   })
 
   it('uses a configured Windows title-bar symbol color', () => {
