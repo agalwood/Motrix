@@ -16,6 +16,7 @@ export const appSettingsSchema = z.object({
   defaultSaveDir: z.string().catch(''),
   notifyOnComplete: z.boolean().catch(true),
   notifyOnError: z.boolean().catch(true),
+  autofillClipboardLinks: z.boolean().catch(true),
   protocols: z
     .object({
       magnet: z.boolean().catch(true),

@@ -935,6 +935,8 @@
       "defaultSaveDirDesc": "New downloads land here unless overridden per-task.",
       "notifyOnComplete": "Notify when download completes",
       "notifyOnCompleteDesc": "Show a system notification when a task finishes.",
+      "autofillClipboardLinks": "Autofill link from clipboard",
+      "autofillClipboardLinksDesc": "When New Task opens, paste a link found in your clipboard into the empty URL field.",
       "notifyOnError": "Notify on failure",
       "notifyOnErrorDesc": "Show a system notification when a download fails while the window is in the background.",
       "warnBeforeQuit": "Confirm before quitting",

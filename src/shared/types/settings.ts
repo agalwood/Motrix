@@ -209,6 +209,10 @@ export interface MotrixAppSettings {
   defaultSaveDir: string
   notifyOnComplete: boolean
   notifyOnError: boolean
+  /** When true, opening the New Task dialog reads the clipboard once and
+   *  fills the URL field with any link(s) found — only when the field is
+   *  empty. One-shot on open; never a background clipboard watcher. */
+  autofillClipboardLinks: boolean
   protocols: {
     magnet: boolean
   }

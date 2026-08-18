@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next'
 import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
 import { TorrentTabPanel } from './torrent-tab-panel'
+import { parseUrlLines } from './url-interpreters/multiline-url'
 import { useExternalHydration } from './use-external-hydration'
 
 interface AddTaskFormProps {
@@ -85,6 +86,42 @@ export function AddTaskForm({
       cancelled = true
     }
   }, [form])
+
+  // One-shot clipboard autofill: when the dialog opens on the Links tab
+  // with an empty URL field, read the clipboard once and prefill it when
+  // every non-empty line is a downloadable link (http/https/ftp/magnet).
+  // Gated by the autofillClipboardLinks setting; never a background
+  // watcher, and external hydration always wins because it resets the form.
+  useEffect(() => {
+    if (form.getValues('tab') !== 'links') return
+    if (form.getValues('urls')) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const settings = (await transport.invoke(Queries.GetSettings)) as {
+          app?: { autofillClipboardLinks?: boolean }
+        }
+        if (cancelled || settings?.app?.autofillClipboardLinks === false) {
+          return
+        }
+        const content = (await platform.readClipboard()).trim()
+        if (cancelled || !content) return
+        const lines = parseUrlLines(content)
+        if (lines.length === 0 || !lines.every((line) => line.valid)) return
+        if (form.getValues('urls')) return
+        form.setValue(
+          'urls' as never,
+          lines.map((line) => line.url).join('\n') as never,
+          { shouldValidate: true }
+        )
+      } catch {
+        // Best effort — the clipboard may be unreadable (web permissions).
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [form, platform])
 
   const onSubmit = useCallback(
     async (values: AddTaskFormValues) => {

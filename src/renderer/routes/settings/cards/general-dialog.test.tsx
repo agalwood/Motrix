@@ -38,6 +38,7 @@ const SETTINGS_FIXTURE = {
     notifyOnComplete: true,
     notifyOnError: true,
     warnBeforeQuit: true,
+    autofillClipboardLinks: true,
     protocols: { magnet: true },
     runMode: 1, // RunMode.Standard — numeric enum
     theme: 'system',
@@ -102,6 +103,22 @@ describe('<GeneralDialog>', () => {
     await waitFor(() => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
         app: { notifyOnError: false },
+      })
+    })
+  })
+
+  it('saves autofillClipboardLinks when toggled', async () => {
+    render(<GeneralDialog open onClose={() => {}} labelKey="" descKey="" />)
+
+    const toggle = await screen.findByRole('switch', {
+      name: /autofill link from clipboard/i,
+    })
+    await userEvent.click(toggle)
+    await userEvent.click(screen.getByRole('button', { name: /apply/i }))
+
+    await waitFor(() => {
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { autofillClipboardLinks: false },
       })
     })
   })
