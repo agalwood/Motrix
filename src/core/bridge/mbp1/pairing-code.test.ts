@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { loadMbp1Vectors } from './__tests__/vectors'
+import { ProtocolViolationError } from './canonical'
 import {
   CROCKFORD_ALPHABET,
   formatPairingCode,
@@ -32,12 +33,31 @@ describe('pairing code format (§7.1)', () => {
     ).toBe('11100000')
   })
 
+  it('rejects a shorter-than-5-byte input', () => {
+    expect(() => generatePairingCode(new Uint8Array(4))).toThrow(
+      ProtocolViolationError
+    )
+  })
+
+  it('rejects a longer-than-5-byte input', () => {
+    expect(() => generatePairingCode(new Uint8Array(6))).toThrow(
+      ProtocolViolationError
+    )
+  })
+
   it('formats a code with a hyphen after the 4th symbol', () => {
     expect(formatPairingCode('MTX7K2Q9')).toBe('MTX7-K2Q9')
   })
 
   it('normalizes by stripping hyphens/spaces and uppercasing', () => {
     expect(normalizePairingCode('mtx7-k2q9 ')).toBe('MTX7K2Q9')
+  })
+
+  it('remaps O, I, L in both cases (O→0, I→1, L→1)', () => {
+    // 'iI-oO-lL7K' -> strip '-' -> 'iIoOlL7K' -> upper -> 'IIOOLL7K'
+    // -> O:0, I:1, L:1 -> '1100117K' (independently hand-verified against
+    // §7.1, not derived from the code under test)
+    expect(normalizePairingCode('iI-oO-lL7K')).toBe('1100117K')
   })
 
   it('matches the spake2[0] vector linkage', () => {
