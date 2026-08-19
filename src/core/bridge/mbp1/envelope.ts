@@ -36,8 +36,12 @@ const SEQ_LENGTH = 8
 const TAG_LENGTH = 16
 const BLOCK_SIZE = 16
 const MAX_PLAINTEXT_LENGTH = 1024 * 1024 // 1 MiB (§10)
-const MAX_FRAMES = 2 ** 24 // §10
-const MAX_BLOCKS = 2 ** 30 // §10 (16 GiB of plaintext)
+
+/** §10 usage bound: a direction MUST reconnect with fresh keys before sealing this many frames. */
+export const MAX_ENVELOPE_FRAMES = 2 ** 24
+
+/** §10 usage bound: a direction MUST reconnect with fresh keys before sealing this many encrypted AES blocks (16 GiB of plaintext). */
+export const MAX_ENVELOPE_BLOCKS = 2 ** 30
 
 /** `ceil(plaintextLength / 16)` encrypted AES blocks, for the §10 usage bound. */
 function blockCountFor(length: number): number {
@@ -51,13 +55,21 @@ function buildNonce(dir: EnvelopeDirection, seqBytes: Uint8Array): Uint8Array {
 
 /**
  * Seals plaintext into successive envelope frames for one direction.
- * `seq` starts at `startSeq` (default 0) and increments by exactly 1 per
- * frame; `blockCount` starts at `startBlockCount` (default 0) and
- * accumulates `ceil(plaintextLength / 16)` per frame. Both default to the
- * real production starting point (a fresh connection always starts a
- * direction at 0), and both exist as constructor parameters — not
- * production-only setters — so the 2^24-frame and 2^30-block usage bounds
- * are reachable from a test without a debug back door.
+ *
+ * `startSeq` and `startBlockCount` (both default 0, the real starting point
+ * for a fresh connection — there is no in-place rekey in v1, so production
+ * code never passes non-default values) are resume seams: the point at
+ * which this sealer's counters begin, expressed as ordinary constructor
+ * arguments rather than a production-only setter, so the 2^24-frame and
+ * 2^30-block usage bounds are reachable and verifiable from a test.
+ *
+ * `sealedFrameCount`/`sealedBlockCount` are the counterpart production API:
+ * §10 makes the *caller* responsible for closing the connection and
+ * reconnecting with fresh keys before either bound is reached — throwing
+ * `EnvelopeLimitError` at the boundary is the backstop, not the intended
+ * path. The wiring layer reads these getters to decide when a direction is
+ * close enough to `MAX_ENVELOPE_FRAMES`/`MAX_ENVELOPE_BLOCKS` to reconnect
+ * proactively, before ever hitting the backstop.
  */
 export class EnvelopeSealer {
   private readonly key: Uint8Array
@@ -77,6 +89,16 @@ export class EnvelopeSealer {
     this.blockCount = startBlockCount
   }
 
+  /** Number of frames this instance has sealed so far (§10 proactive-reconnect signal). */
+  get sealedFrameCount(): number {
+    return this.seq
+  }
+
+  /** Cumulative `ceil(plaintextLength / 16)` encrypted AES blocks this instance has sealed so far (§10 proactive-reconnect signal). */
+  get sealedBlockCount(): number {
+    return this.blockCount
+  }
+
   /** `frame = seq64BE ‖ AES-256-GCM(key, nonce, plaintext, aad)` (§10). */
   seal(plaintext: Uint8Array): Uint8Array {
     if (plaintext.length > MAX_PLAINTEXT_LENGTH) {
@@ -84,13 +106,13 @@ export class EnvelopeSealer {
         `envelope plaintext of ${plaintext.length} bytes exceeds the 1 MiB frame limit`
       )
     }
-    if (this.seq >= MAX_FRAMES) {
+    if (this.seq >= MAX_ENVELOPE_FRAMES) {
       throw new EnvelopeLimitError(
         'envelope frame-count usage bound reached (2^24 frames); reconnect required'
       )
     }
     const blocks = blockCountFor(plaintext.length)
-    if (this.blockCount + blocks > MAX_BLOCKS) {
+    if (this.blockCount + blocks > MAX_ENVELOPE_BLOCKS) {
       throw new EnvelopeLimitError(
         'envelope encrypted-block usage bound reached (2^30 blocks); reconnect required'
       )
@@ -122,6 +144,10 @@ export class EnvelopeSealer {
  * window. Any gap, repeat, dirTag/key mismatch, or GCM authentication
  * failure throws `EnvelopeViolationError`, which the caller MUST treat as an
  * immediate connection close (§10, §11).
+ *
+ * `startSeq` (default 0, the real starting point for a fresh connection) is
+ * the same kind of resume seam as `EnvelopeSealer`'s constructor arguments —
+ * an ordinary constructor argument, not a production-only setter.
  */
 export class EnvelopeOpener {
   private readonly key: Uint8Array

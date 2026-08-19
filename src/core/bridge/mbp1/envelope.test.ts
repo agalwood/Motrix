@@ -112,3 +112,30 @@ describe('EnvelopeSealer usage bounds and size cap (§10)', () => {
     expect(() => sealer.seal(atLimit)).not.toThrow()
   })
 })
+
+describe('EnvelopeSealer proactive-reconnect counters (§10)', () => {
+  it('starts sealedFrameCount and sealedBlockCount at the constructor seams', () => {
+    const sealer = new EnvelopeSealer(keyC2S, DIR_C2S, 7, 42)
+    expect(sealer.sealedFrameCount).toBe(7)
+    expect(sealer.sealedBlockCount).toBe(42)
+  })
+
+  it('advances sealedFrameCount by exactly 1 per seal', () => {
+    const sealer = new EnvelopeSealer(keyC2S, DIR_C2S)
+    sealer.seal(new Uint8Array(1))
+    expect(sealer.sealedFrameCount).toBe(1)
+    sealer.seal(new Uint8Array(1))
+    expect(sealer.sealedFrameCount).toBe(2)
+  })
+
+  it('advances sealedBlockCount by ceil(plaintextLength / 16) per seal', () => {
+    const sealer = new EnvelopeSealer(keyC2S, DIR_C2S)
+    expect(sealer.sealedBlockCount).toBe(0)
+    sealer.seal(new Uint8Array(16)) // ceil(16/16) = 1 block
+    expect(sealer.sealedBlockCount).toBe(1)
+    sealer.seal(new Uint8Array(17)) // ceil(17/16) = 2 blocks
+    expect(sealer.sealedBlockCount).toBe(3)
+    sealer.seal(new Uint8Array(0)) // ceil(0/16) = 0 blocks
+    expect(sealer.sealedBlockCount).toBe(3)
+  })
+})
