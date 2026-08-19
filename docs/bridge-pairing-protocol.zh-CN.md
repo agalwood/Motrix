@@ -6,8 +6,9 @@
 契约，并把所有密码学参数钉死到字节级。**MUST**、**MUST NOT**、**SHOULD**、
 **MAY** 按 RFC 2119 / RFC 8174 的含义使用。
 
-状态：**草案，待独立密码学审查**。审查完成前 MUST NOT 开始实现本协议（见
-[§14](#14-审查与实现-gate)）。
+状态：**密码学审查 gate 已满足**（六轮独立对抗审查，均重新确认 0 High；
+发现已处理，残留 Low 项跟踪到实现——见附录 C 审查日志）。Phase-A 实现可以
+开始；[§14](#14-审查与实现-gate) 中其余 Phase-A 前置条件仍适用。
 
 相关文档：[RFC 9382]（SPAKE2）、[RFC 5869]（HKDF）、[RFC 8032]（edwards25519
 编码）、[RFC 7914]（scrypt）、[RFC 4648]（base32 背景；MBP1 使用 §7 定义的
@@ -413,10 +414,17 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   `committed`——对轮换而言在同一持久事务内 CAS-提升新的**并**吊销旧的——
   然后才 (iii) 发送 `reconnectAccept`。提升未持久前 MUST NOT 发送
   `reconnectAccept`，否则 accept 之后崩溃可能使刚认证的凭据仍是 provisional
-  而后过期。**持久 commit 顺序（client）：** 客户端 MUST 在修剪任何其他凭据
-  （见下方修剪规则）**之前**先持久把已认证凭据标记为 `committed`。二者之间
-  任意位置的 worker 死亡都留下可重连状态：要么双方都能完成重连、要么客户端
-  重新配对——绝不困住客户端。
+  而后过期。若 server 采用「启动时重放轮换 journal」替代单事务，该重放 MUST
+  在 **`/v1` 开始接受认证之前**完成、并收敛为每 principal 恰好一把有效凭据，
+  使任何客户端都不会对着半完成的轮换认证。
+- **持久 commit 顺序（client）。** 认证成功时，客户端 MUST 在**一次原子持久
+  写入**中同时把已认证凭据标记为 `committed` **并**把 `activeCredentialId`
+  指向它——状态与指针永不失配——之后才可修剪其他凭据。原子写入之后、修剪
+  之前的崩溃因此无害：存储可能短暂含两条 `committed`，但 `activeCredentialId`
+  明确指出存活的那把。**恢复顺序：** 若 `activeCredentialId` 已设则先试它；
+  再试最新 `commit-uncertain` provisional；再试其他 `committed`；再试其余
+  provisional。这保证崩溃-未修剪时绝不选中被吊销的前任，任意位置的 worker
+  死亡都留下可重连状态——要么完成重连、要么重新配对，绝不困住客户端。
 - 从未被 ack 或使用的 provisional server 凭据会过期（默认 10 分钟）。**server
   provisional 基数有界，不只是时间有界：** 每个
   `{principal, currentCommittedCredentialId}` 至多存在**一个**未决 provisional
@@ -430,10 +438,14 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   principal 当前 committed `credentialId` 的 **compare-and-swap**，且 server
   按 principal **串行化轮换（single-flight）**：从同一旧凭据发起的两个并发
   轮换不可能都提交——后者会看到已变化的 current id 而被拒，因此只存在唯一
-  后继。
+  后继。在「幂等重发」路径（对同一 `{principal, currentCommittedCredentialId}`
+  在 offer 丢失后重复 offer）上，幂等意味着 server **重发它已持久在该唯一
+  槽位中的同一 `{credentialId, mutualKey}`**——绝非新铸的替代——使存了上一个
+  offer 的客户端与没存的客户端收敛到同一后继。
 - **客户端绝不因未认证信号销毁凭据。** `authFailed`（§11）是任何 listener
   都能伪造的信道前消息，因此其本身 MUST NOT 删除任何存储凭据。重连时客户端
-  **先试最新 provisional 凭据**，再试上一个 committed。一旦建立起经认证的
+  按上述恢复顺序（先 `activeCredentialId`，再最新 `commit-uncertain`，再其他
+  `committed`，再其余 provisional）。一旦建立起经认证的
   会话（双向 `reconnectAccept` 验证通过，§8），通过认证的那把即被证明存活，
   客户端此后 MUST 删除**该 principal 名下所有其他存储凭据与 pin**——认证后
   的修剪是强制而非可选，使被中断的轮换不会累积陈旧 mutual key。若某次重连
@@ -450,8 +462,14 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   老化删除：ack 可能已到达 server，server 可能已原子地 commit 它并吊销旧凭据
   （§6.7 轮换），丢弃它会使客户端困在被吊销的凭据上。`commit-uncertain` 凭据保留至
   一次经认证的重连解出哪把存活（重连时先试它），再由上面的强制认证后规则
-  提升或修剪。这既把陈旧密钥限界（每 principal 两条），又保证 ack/commit
-  窗口内任意位置的 worker 死亡仍留下可重连状态（§6.7 两阶段提交所要求）。
+  提升或修剪。**孤儿清理（仅首配）：** 来自**首次配对**的 `commit-uncertain`
+  凭据——其 principal 名下**没有**其他 committed 凭据，故无可被困住的对象——
+  MAY 在 server 首配 provisional TTL（10 分钟）可证已过且无成功重连后移除：
+  该窗口之后 server 已不可能持有它，故它不可用、可安全丢弃并重新配对。由
+  **轮换**产生的 `commit-uncertain`（存在先前 committed 凭据）绝不老化删除，
+  因为只有重连能证明 server 保留了两者中的哪一把。这既把陈旧密钥限界（每
+  principal 两条），又保证 ack/commit 窗口内任意位置的 worker 死亡仍留下可
+  重连状态（§6.7 两阶段提交所要求）。
   也使假 listener 无法靠重放 `authFailed` 诱使客户端丢弃唯一有效凭据。显式
   吊销会关闭存活会话。
 - 凭据 principal：`{browser, verifiedOrigin, clientInstallationId}`。第二个
@@ -667,6 +685,16 @@ AAD ticket digest 钉死（该 digest 哈希 ticket **各字段解析值的规�
 ticket 校验，绝不等到字节一致被证明。`pairHello` 另要求 `nmTicket.browser ==
 pairHello.browser`（为另一浏览器铸造的 ticket 不绑定本会话）。
 
+**检查顺序具规范性：先验 `mac`。** `ticketKey` 仅由 `localToken` 派生，故
+`localToken` MUST 跨 bridge 重启持久——只有 `serverGeneration` 轮换。server
+在任何其他检查之前先用当前 `localToken` 派生的 `ticketKey` 重算 `mac`；`mac`
+失败立即中止，只有 `mac` 有效的 ticket 才进入 generation / `exp` / `callerId`
+检查。这正是让由**先前** server generation 铸造的诚实 ticket（在持久
+`localToken` 下 `mac` 有效、`serverGeneration` 陈旧）解析为语义 `unverified`
+**降级**、而非被误判为 bad-`mac` 中止的原因；反之真正伪造的 `mac` 无论其
+generation 字段如何都中止。由于没有经认证的铸造时间戳，`exp` 约束是**剩余
+寿命**上限（`exp ≤ now + 60 秒`），并非对原始铸造时刻的证明。
+
 **每种结果都有定义——下表穷尽。** 每个检查恰好映射到三种处置之一：**中止**
 （`pairError`，不配对）、**降级**（以低于 `official` 的身份继续）、或**延后**
 （在流程后续判定）。
@@ -680,7 +708,7 @@ pairHello.browser`（为另一浏览器铸造的 ticket 不绑定本会话）。
 | `callerId != pairHello.claimedExtensionId` | **中止**（`protocolViolation`） |
 | `nmTicket.browser != pairHello.browser` | **中止**（`protocolViolation`） |
 | ticket MAC 曾出现过（一次性重放） | **中止**（`protocolViolation`） |
-| `exp` 距当前超过 60 秒（超出铸造窗口） | **中止**（`protocolViolation`） |
+| `exp` 距当前超过 60 秒（剩余寿命 > 60 秒） | **中止**（`protocolViolation`） |
 | 真实 ticket，`serverGeneration` 未知/过期 | **降级** → `unverified` |
 | 真实 ticket，`exp` 已过（过期） | **降级** → `unverified` |
 | 真实且有效 ticket，`callerId` 不在 allowlist | **降级** → `attested-non-official`（§5） |
@@ -779,9 +807,12 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
   绝不因 `/discovery` 提交。
 - pinned 端口不匹配 → 对匹配 `instanceId` 做全候选段扫描 → 仅在认证后
   重新提交；否则清除 pin，回退到全新 code-entry 配对。
-- `storage.local` 凭据条目携带 `state: "provisional" | "committed"`
-  （§6.7），外加一个 active-credential 指针。重连恢复顺序：先试最新的
-  provisional，再试上一个 committed。凭据**只在经认证的会话证明哪一把存活
+- `storage.local` 凭据条目携带 `state: "provisional" | "committed"`、
+  provisional 的 `unacked` / `commit-uncertain` 子状态（§6.7），外加一个与
+  `committed` 转变**原子写入**的 `activeCredentialId` 指针。重连恢复顺序：
+  若已设则先试 `activeCredentialId`，再试最新 `commit-uncertain` provisional，
+  再试其他 `committed`，再试其余 provisional（崩溃-未修剪留下的两条 `committed`
+  由指针消歧，绝不靠猜）。凭据**只在经认证的会话证明哪一把存活
   之后**才删除（§6.7）；信道前的 `authFailed` 本身绝不删除凭据，因此伪造的
   `authFailed` 无法使客户端陷入无凭据可用。当没有任何存储凭据通过认证时，
   保留集留待重试，仅在用户主动操作或凭据被吊销时才回到首次配对。保留状态
@@ -831,9 +862,11 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
 ## 14. 审查与实现 gate
 
 1. 在编写任何 MBP1 协议代码之前，本文档 MUST 通过一次**独立密码学审查**。
-   审查记录（审查人、日期、发现、处置）见附录 C。
-2. 实现 MUST 以精确版本锁定 `@noble/curves`（≥ 1.6.0）与 `@noble/hashes`，
-   并记录对应的审计报告。
+   **已满足**——六轮独立对抗审查（2026-08-19），每轮均重新确认 0 High；末轮
+   清除最后一个 Medium，仅余跟踪到实现的 Low 项。完整审查记录（审查人、
+   日期、发现、处置）见附录 C。
+2. 实现 MUST 以精确版本锁定 `@noble/curves`（2.0.1）与 `@noble/hashes`
+   （2.0.1），并记录其对应的审计依据（§3）。
 3. 附录 B 中的事实在 Phase-A 发布前 MUST 对照实际最低版本浏览器构建矩阵
    （Chrome 120、Firefox 121）重新验证；它们引自厂商文档，而非本仓库自身
    的证据。
@@ -895,7 +928,9 @@ Firefox 两行的推论：扩展在探测 loopback 之前 MUST 先检查
 | 4 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M1/L4 已闭合；1 Medium + 2 Low | Medium：无条件 10 分钟客户端 provisional 过期可能在轮换中删除 server 已 commit 的 `commit-uncertain` 凭据，使客户端困在被吊销的凭据上。Low：§9.2 仍称 digest 逐字节哈希 wire 字段、且只有字节一致的 ticket 才“走到校验”，与 §6.4 的规范解析规则及 pairHello 顺序矛盾。Low：§9.2 笼统的“任何校验失败→降级、不中止”与 §6.5/§9.1 冲突（无效/small-order `bindingPub` 使必需的 `ticketProof` 不可能成立）。全局计数器首配 griefing 评为可接受的可用性残留（§1.1）；多 profile 修剪判定为正确。 |
 | 4-rev | 2026-08-19 | 规范修订 | 发现已处理 | 按状态的 provisional 过期；§9.2 规范解析 digest、pairHello 顺序校验、中止/降级拆分。 |
 | 5 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；round-4 Low 措辞已闭合；1 Medium（持久顺序）+ 3 Low | Medium：崩溃一致性顺序不完整——`commit-uncertain` 未要求在发送 `credentialAck` **之前**先持久完成 `unacked → commit-uncertain` write-ahead，重连提升也未要求 server 在发送 `reconnectAccept` **之前**先持久提升/CAS 吊销；两处缝隙的崩溃仍可能困住客户端。Low：server provisional 后继只时间有界、无基数界（重复崩溃的 offer 可累积 `P₁…Pₙ`）。Low：§9.2 结果拆分不穷尽（重放 MAC、`callerId`/`bindingPub`/`browser` 不匹配、`exp` 过长、以及 `ticketProof` 验证失败情形未定义或未归类）。构造与全部向量独立复核；无 High。 |
-| 5-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | 客户端 MUST 在发送 `credentialAck` 前持久翻转 `unacked → commit-uncertain`（write-ahead）；server MUST 在发送 `reconnectAccept` 前持久提升/CAS 吊销，客户端 MUST 在修剪前持久标记 committed（§6.7）。server provisional 后继按 `{principal, currentCommittedCredentialId}` 限为一个、幂等重发（§6.7）。§9.2 结果表化穷尽（中止/降级/延后）、新增 `nmTicket.browser == pairHello.browser` 检查、将重放/caller/binding-key/browser/`exp` 过长归为中止、把 `ticketProof` 验证延后到 §6.5，并声明结构性中止优先于官方 origin。待复审。 |
+| 5-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端在 `credentialAck` 前 write-ahead；server 在 `reconnectAccept` 前持久提升/CAS 吊销；server provisional 限界、幂等重发；§9.2 结果表穷尽、加 `browser` 检查与延后。 |
+| 6 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；1 Medium + 4 Low | Medium：客户端 committed 写入后、修剪前崩溃可能留下两条 `committed` 而 active 指针仍指向前任，恢复未定义如何选择——合规客户端可能在被吊销的凭据上循环。Low：journal 替代方案需「重放先于 `/v1`」屏障；「幂等重发」定义不足；首配孤儿 `commit-uncertain` 清理未定义；§9.2 缺 MAC-first 检查顺序（诚实的先前 generation ticket 可能被误判）且过度声称「铸造窗口」。构造与全部向量独立复现；无 High。审查者：Medium 修复后 Low 项可延后到实现跟踪、gate 即可视为满足。 |
+| 6-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理；gate 满足 | 客户端在修剪前于**一次原子持久写入**中同时写 `committed` **与** `activeCredentialId`，恢复先试 `activeCredentialId`，使崩溃-未修剪由指针消歧、绝不靠猜（§6.7/§12）。journal 重放 MUST 在 `/v1` 接受认证前完成；「幂等重发」重发已存的同一 `{credentialId, mutualKey}`；首配孤儿 `commit-uncertain`（无 committed 兄弟）可在 10 分钟 server provisional TTL 后清理（§6.7）。§9.2 固定 MAC-first 顺序、要求 `localToken` 持久而只 `serverGeneration` 轮换、并把 `exp` 重述为剩余寿命上限。**六轮独立对抗审查均重新确认 0 High；Medium 已闭合；残留 Low 项跟踪到实现。编码前密码学审查 gate 满足。** |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

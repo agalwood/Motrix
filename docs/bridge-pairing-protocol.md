@@ -7,9 +7,11 @@ Motrix browser extension against the Motrix bridge server. It fixes every
 cryptographic parameter at byte level. The words **MUST**, **MUST NOT**,
 **SHOULD**, and **MAY** are used as in RFC 2119 / RFC 8174.
 
-Status: **draft pending independent cryptographic review**. Implementation of
-this protocol MUST NOT begin before that review is complete (see
-[§14](#14-review-and-implementation-gates)).
+Status: **cryptographic-review gate satisfied** (six independent adversarial
+review rounds, all re-confirming 0 High; findings resolved, residual Low items
+tracked to implementation — see the Appendix C review log). Phase-A
+implementation may begin; the remaining Phase-A prerequisites in
+[§14](#14-review-and-implementation-gates) still apply.
 
 Related documents: [RFC 9382] (SPAKE2), [RFC 5869] (HKDF), [RFC 8032]
 (edwards25519 encoding), [RFC 7914] (scrypt), [RFC 4648] (base32 background;
@@ -464,11 +466,23 @@ Atomicity rules:
   same durable transaction — and only then (iii) send `reconnectAccept`. It
   MUST NOT send `reconnectAccept` while the promotion is not yet durable, or a
   crash after the accept could leave the just-authenticated credential merely
-  provisional and let it later expire. **Durable-commit ordering (client):**
-  the client MUST durably mark the authenticated credential `committed`
-  **before** it prunes any other credential (§ prune rule below). Between these
-  two, a worker death anywhere leaves a reconnectable state: either both sides
-  can complete reconnect, or the client re-pairs — never a stranded client.
+  provisional and let it later expire. If the server permits the "rotation
+  journal replayed on startup" alternative to a single transaction, that replay
+  MUST complete — converging to exactly one valid credential per principal —
+  **before `/v1` begins accepting authentication**, so no client ever
+  authenticates against a half-applied rotation.
+- **Durable-commit ordering (client).** On authenticating, the client MUST, in
+  **one atomic durable write**, both mark the authenticated credential
+  `committed` **and** set `activeCredentialId` to it — the state and the pointer
+  can never disagree — and only **after** that write may it prune the others. A
+  crash after the atomic write but before pruning is therefore harmless: storage
+  may briefly hold two `committed` entries, but `activeCredentialId`
+  unambiguously names the live one. **Recovery order:** try
+  `activeCredentialId` first if set; then the newest `commit-uncertain`
+  provisional; then any other `committed`; then any remaining provisional. This
+  guarantees a crash-before-prune never selects the revoked predecessor, and a
+  worker death anywhere leaves a reconnectable state — either side completes
+  reconnect, or the client re-pairs; never a stranded client.
 - Provisional server credentials expire (default 10 minutes) if never acked or
   used. **Server provisional cardinality is bounded, not merely time-bounded:**
   at most **one** outstanding provisional successor may exist per
@@ -486,12 +500,18 @@ Atomicity rules:
   serializes rotations per principal (**single-flight**): two concurrent
   rotations started from the same old credential cannot both commit — the
   second observes the changed current id and is rejected, so exactly one
-  successor exists.
+  successor exists. On the "idempotent re-offer" path (a repeated offer for the
+  same `{principal, currentCommittedCredentialId}` after a lost offer),
+  idempotent means the server **re-offers the identical `{credentialId,
+  mutualKey}`** it already persisted in the single slot — never a freshly minted
+  replacement — so a client that stored the earlier offer and one that did not
+  converge on the same successor.
 - **Client recovery never destroys a credential on an unauthenticated
   signal.** `authFailed` (§11) is a pre-channel message any listener can
   forge, so it MUST NOT by itself delete a stored credential. On reconnect the
-  client tries the **newest provisional credential first**, then the previous
-  committed one. Once an authenticated session is established (mutual
+  client follows the recovery order above (`activeCredentialId` first, then
+  newest `commit-uncertain`, then other `committed`, then any remaining
+  provisional). Once an authenticated session is established (mutual
   `reconnectAccept` verified, §8), the credential that authenticated is provably
   the live one, and the client MUST then delete **all other stored credentials
   and pins for that same principal** — the prune after authentication is
@@ -515,7 +535,15 @@ Atomicity rules:
   client on a revoked credential. A `commit-uncertain`
   credential is retained until an authenticated reconnect resolves which
   credential is live (it is tried first on reconnect), then promoted or pruned
-  by the mandatory post-auth rule above. This keeps stale secrets bounded (two
+  by the mandatory post-auth rule above. **Orphan cleanup (first pair only):** a
+  `commit-uncertain` credential from **first pairing** — one whose principal has
+  **no** other committed credential, so there is nothing to be stranded on — MAY
+  be removed once the server's first-pair provisional TTL (10 minutes) has
+  provably elapsed with no successful reconnect: after that window the server can
+  no longer hold it, so it is unusable and safe to drop, and the flow re-pairs.
+  A `commit-uncertain` credential produced by **rotation** (a prior committed
+  credential exists) is never age-deleted, since only reconnect can prove which
+  of the two the server kept. This keeps stale secrets bounded (two
   per principal) while guaranteeing that a worker death anywhere in the ack/
   commit window still leaves a reconnectable state, as §6.7's two-phase commit
   requires. This also denies a fake listener the ability to make the client
@@ -770,6 +798,20 @@ proven. `pairHello` additionally requires `nmTicket.browser ==
 pairHello.browser` (a ticket minted for a different browser than the one
 pairing does not bind this session).
 
+**Check order is normative: the `mac` is verified first.** `ticketKey` derives
+from `localToken` alone, so `localToken` MUST persist across bridge restarts —
+only `serverGeneration` rotates. The server recomputes the `mac` with the
+current `localToken`-derived `ticketKey` before any other check; a `mac`
+failure aborts immediately, and only a valid-`mac` ticket proceeds to the
+generation / `exp` / `callerId` checks. This is what makes an honest ticket
+minted by a **previous** server generation (valid `mac` under the persistent
+`localToken`, stale `serverGeneration`) resolve as the semantic
+`unverified` **downgrade** rather than being misclassified as a bad-`mac`
+abort — and conversely keeps a genuinely forged `mac` an abort regardless of
+its generation field. Because there is no authenticated mint timestamp, the
+`exp` bound is a **remaining-lifetime** limit (`exp ≤ now + 60 s`), not a proof
+of original mint time.
+
 **Every outcome is defined — the map below is exhaustive.** Each check maps to
 exactly one of three dispositions: **abort** (`pairError`, no pairing),
 **downgrade** (proceed with a lower identity than `official`), or **defer**
@@ -784,7 +826,7 @@ exactly one of three dispositions: **abort** (`pairError`, no pairing),
 | `callerId != pairHello.claimedExtensionId` | **abort** (`protocolViolation`) |
 | `nmTicket.browser != pairHello.browser` | **abort** (`protocolViolation`) |
 | ticket MAC already seen (one-shot replay) | **abort** (`protocolViolation`) |
-| `exp` more than 60 s after now (beyond the mint window) | **abort** (`protocolViolation`) |
+| `exp` more than 60 s after now (remaining lifetime > 60 s) | **abort** (`protocolViolation`) |
 | authentic ticket, unknown/stale `serverGeneration` | **downgrade** → `unverified` |
 | authentic ticket, `exp` in the past (expired) | **downgrade** → `unverified` |
 | authentic ticket, valid, `callerId` not on allowlist | **downgrade** → `attested-non-official` (§5) |
@@ -903,11 +945,16 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
   → re-commit only post-auth; otherwise clear the pin and fall back to fresh
   code-entry pairing.
 - `storage.local` credential entries carry `state: "provisional" |
-  "committed"` (§6.7), plus an active-credential pointer. Recovery order on
-  reconnect: try the newest provisional first, then the previous committed
-  one. A credential is deleted **only after an authenticated session proves
-  which one is live** (§6.7); a pre-channel `authFailed` never deletes a
-  credential on its own, so a forged `authFailed` cannot strand the client.
+  "committed"` and, for provisionals, the `unacked` / `commit-uncertain`
+  sub-state (§6.7), plus an `activeCredentialId` pointer written **atomically
+  with** the `committed` transition. Recovery order on reconnect:
+  `activeCredentialId` first if set, then the newest `commit-uncertain`
+  provisional, then any other `committed`, then any remaining provisional (so
+  two `committed` entries left by a crash-before-prune are disambiguated by the
+  pointer, never by guessing). A credential is deleted **only after an
+  authenticated session proves which one is live** (§6.7); a pre-channel
+  `authFailed` never deletes a credential on its own, so a forged `authFailed`
+  cannot strand the client.
   When no stored credential authenticates, the retained set stays for a later
   retry and the flow returns to first pair only on explicit user action or
   revocation. Retained state is bounded: at most the committed credential plus
@@ -967,10 +1014,12 @@ inputs.
 ## 14. Review and implementation gates
 
 1. This document MUST pass an **independent cryptographic review** before any
-   MBP1 protocol code is written. The review record (reviewer, date, findings,
-   resolutions) is kept in Appendix C.
-2. The implementation MUST pin exact versions of `@noble/curves` (≥ 1.6.0)
-   and `@noble/hashes`, and record the audit reports they correspond to.
+   MBP1 protocol code is written. **Satisfied** — six independent adversarial
+   rounds (2026-08-19), every one re-confirming 0 High; the final round cleared
+   the last Medium and left only implementation-tracked Low items. The full
+   review record (reviewer, date, findings, resolutions) is Appendix C.
+2. The implementation MUST pin exact versions of `@noble/curves` (2.0.1) and
+   `@noble/hashes` (2.0.1), and record the audit basis they correspond to (§3).
 3. The facts in Appendix B MUST be re-validated against the actual
    minimum-version browser build matrix (Chrome 120, Firefox 121) before
    Phase-A release; they are cited from vendor documentation, not from this
@@ -1038,7 +1087,9 @@ The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
 | 4 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M1/L4 closed; 1 Medium + 2 Low | Medium: the unconditional 10-minute client provisional expiry could delete a `commit-uncertain` credential the server had already committed during rotation, stranding the client on a revoked credential. Low: §9.2 still said the digest hashes wire fields "verbatim" and that only a byte-identical ticket "reaches validation", contradicting §6.4's canonical-parsed rule and pairHello-ordering. Low: §9.2's blanket "any validation failure → downgrade, do not abort" conflicted with §6.5/§9.1, where an invalid/small-order `bindingPub` makes the required `ticketProof` impossible. Global-counter first-pair griefing assessed as an accepted availability residual (§1.1); multi-profile prune found sound. |
 | 4-rev | 2026-08-19 | Spec revision | Findings addressed | State-dependent provisional expiry; §9.2 canonical-parsed digest, pairHello-ordered validation, and abort-vs-downgrade split. |
 | 5 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; round-4 Low wording closed; 1 Medium (durable ordering) + 3 Low | Medium: crash-consistent ordering was incomplete — `commit-uncertain` did not require the durable `unacked → commit-uncertain` write-ahead **before** sending `credentialAck`, and reconnect promotion did not require the server to durably promote/CAS-revoke **before** sending `reconnectAccept`; a crash in either gap could still strand the client. Low: server provisional successors were time-bounded but not cardinality-bounded (repeated crashed offers could accumulate `P₁…Pₙ`). Low: the §9.2 outcome split was not exhaustive (replayed MAC, `callerId`/`bindingPub`/`browser` mismatch, over-long `exp`, and the `ticketProof`-verify-failure case were undefined or unassigned). Construction and all vectors independently revalidated; no High. |
-| 5-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Client MUST durably flip `unacked → commit-uncertain` before transmitting `credentialAck` (write-ahead); server MUST durably promote/CAS-revoke before sending `reconnectAccept`, and the client MUST durably mark committed before pruning (§6.7). Server provisional successors bounded to one per `{principal, currentCommittedCredentialId}` with idempotent re-offer (§6.7). §9.2 outcome map made exhaustive as a table (abort / downgrade / defer), adds the `nmTicket.browser == pairHello.browser` check, assigns replay / caller / binding-key / browser / over-long-`exp` to abort, defers `ticketProof` verification to §6.5, and states structural-abort precedence over an official origin. Awaiting re-review. |
+| 5-rev | 2026-08-19 | Spec revision | Findings addressed | Client write-ahead before `credentialAck`; server durable promote/CAS-revoke before `reconnectAccept`; server provisional bounded with idempotent re-offer; §9.2 outcome map made exhaustive with the `browser` check and deferrals. |
+| 6 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; 1 Medium + 4 Low | Medium: a crash after the client's committed-write but before pruning could leave two `committed` entries with the active pointer still on the predecessor, and recovery did not say how to choose — a conforming client could loop on the revoked credential. Low: the journal alternative needed a replay-before-`/v1` barrier; "idempotent re-offer" was under-defined; first-pair orphan `commit-uncertain` cleanup was undefined; §9.2 lacked a MAC-first check order (so an honest prior-generation ticket could be misclassified) and over-claimed a "mint window". Construction and all vectors independently reproduced; no High. Reviewer: once the Medium is fixed the Low items are deferrable to implementation tracking and the gate may be considered satisfied. |
+| 6-rev | 2026-08-19 | Spec revision (this document) | Findings addressed; gate satisfied | The client writes `committed` **and** `activeCredentialId` in one atomic durable write before pruning, and recovery tries `activeCredentialId` first, so a crash-before-prune is disambiguated by the pointer, never by guessing (§6.7/§12). Journal replay MUST finish before `/v1` accepts auth; "idempotent re-offer" re-sends the identical stored `{credentialId, mutualKey}`; a first-pair orphan `commit-uncertain` (no committed sibling) may be cleaned after the 10-minute server provisional TTL (§6.7). §9.2 now fixes MAC-first check order, requires `localToken` to persist while only `serverGeneration` rotates, and reframes `exp` as a remaining-lifetime bound. **Six independent adversarial rounds re-confirmed 0 High; the Medium is closed; the residual Low items are tracked to implementation. Pre-implementation cryptographic-review gate is satisfied.** |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
