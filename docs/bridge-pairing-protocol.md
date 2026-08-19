@@ -442,9 +442,13 @@ Inside the AEAD channel:
 1. **B→A `credentialOffer`** `{ "type": "credentialOffer", "credentialId":
    "<UUIDv4>", "mutualKey": "<b64url 32 CSPRNG bytes>" }`. The server persists
    the credential durably in state `provisional` **before** sending.
-2. **A** writes `{credentialId, mutualKey, state:"provisional"}` to
-   `storage.local`, then sends **`credentialAck`**
-   `{ "type": "credentialAck", "credentialId": "<same>" }`.
+2. **A** writes `{credentialId, mutualKey, state:"provisional", sub:"unacked"}`
+   to `storage.local`; then, **before transmitting `credentialAck`, A durably
+   flips the sub-state `unacked → commit-uncertain`** (write-ahead), and only
+   then sends **`credentialAck`** `{ "type": "credentialAck", "credentialId":
+   "<same>" }`. The write-ahead is mandatory: `commit-uncertain` must mean "the
+   ack **may** have been sent," so a crash between the durable flip and the send
+   still lands in the retain-forever state, never the age-out state.
 3. **B** marks the credential `committed` durably, then sends
    **`credentialCommitted`** `{ "type": "credentialCommitted" }`. A marks its
    copy `committed`.
@@ -453,11 +457,27 @@ Atomicity rules:
 
 - A provisional server credential also authenticates a reconnect (§8); a
   successful challenge–response is itself an authenticated acknowledgment and
-  promotes it to `committed` on both sides. A worker death anywhere in the
-  flow therefore leaves no unusable half-state: either both sides can
-  complete reconnect, or the client re-pairs.
-- Provisional server credentials expire (default 10 minutes) if never acked
-  or used.
+  promotes it to `committed`. **Durable-promotion ordering (server):** on a
+  reconnect that promotes a provisional credential, the server MUST, in order,
+  (i) verify `reconnectResponse`, (ii) **durably** promote the provisional to
+  `committed` — and, for a rotation, CAS-promote-new **and** revoke-old in the
+  same durable transaction — and only then (iii) send `reconnectAccept`. It
+  MUST NOT send `reconnectAccept` while the promotion is not yet durable, or a
+  crash after the accept could leave the just-authenticated credential merely
+  provisional and let it later expire. **Durable-commit ordering (client):**
+  the client MUST durably mark the authenticated credential `committed`
+  **before** it prunes any other credential (§ prune rule below). Between these
+  two, a worker death anywhere leaves a reconnectable state: either both sides
+  can complete reconnect, or the client re-pairs — never a stranded client.
+- Provisional server credentials expire (default 10 minutes) if never acked or
+  used. **Server provisional cardinality is bounded, not merely time-bounded:**
+  at most **one** outstanding provisional successor may exist per
+  `{principal, currentCommittedCredentialId}`. A repeated offer for the same
+  `{principal, currentCommittedCredentialId}` (e.g. the worker died before
+  storing the previous offer and the client retried on the unchanged committed
+  credential) MUST reuse/replace that single slot idempotently rather than
+  accumulate `P₁…Pₙ`; the single-flight CAS below enforces the same bound
+  against concurrent rotations.
 - On **rotation** (same flow run inside an authenticated `/v1` session):
   commit-new and revoke-old MUST be a **single durable server transaction**
   (or a rotation journal replayed on startup), so a crash can never leave
@@ -483,14 +503,16 @@ Atomicity rules:
   set to **at most two** entries per principal — the current committed
   credential and the single newest provisional one.
 - **Provisional expiry is state-dependent, never blind.** A client provisional
-  credential carries a sub-state: `unacked` (the client has not yet sent
-  `credentialAck`) or `commit-uncertain` (it sent `credentialAck` but has not
-  processed `credentialCommitted`). An **`unacked`** provisional MAY be aged
-  out after **10 minutes** — the server never committed it, matching the
-  server's own provisional expiry. A **`commit-uncertain`** provisional MUST
-  NOT be age-deleted: once the ack was sent the server may have atomically
-  committed it and revoked the old credential (§6.7 rotation), so discarding it
-  could strand the client on a revoked credential. A `commit-uncertain`
+  credential carries a sub-state: `unacked` (the durable `unacked →
+  commit-uncertain` write-ahead of step 2 has not happened) or
+  `commit-uncertain` (that write-ahead is durable, so `credentialAck` **may**
+  have been sent). An **`unacked`** provisional MAY be aged out after
+  **10 minutes** — the write-ahead never completed, so the ack was never sent
+  and the server never committed it, matching the server's own provisional
+  expiry. A **`commit-uncertain`** provisional MUST NOT be age-deleted: the ack
+  may have reached the server, which may then have atomically committed it and
+  revoked the old credential (§6.7 rotation), so discarding it could strand the
+  client on a revoked credential. A `commit-uncertain`
   credential is retained until an authenticated reconnect resolves which
   credential is live (it is tried first on reconnect), then promoted or pruned
   by the mandatory post-auth rule above. This keeps stale secrets bounded (two
@@ -744,40 +766,59 @@ fails key confirmation closed rather than merely downgrading.
 
 **Validation runs at `pairHello`, before key confirmation** — the server
 validates whatever ticket it received; it never waits for byte-identity to be
-proven. The checks: recompute `mac` in constant time; `v`, `purpose`, and
-`protocolVersion` exact; `serverGeneration` equals the server's **current
-generation** — a UUIDv4 regenerated at every bridge-server start and published
-to the host as a new `generation` field in `endpoint.json` (additive; the
-existing `writtenAt` stays diagnostic-only); `exp` in the future and at most
-60 s from mint; the ticket unseen before (one-shot: the server caches the MAC
-until `exp`); `callerId` equal to `pairHello.claimedExtensionId`; `bindingPub`
-equal to `pairHello.ticketBindingKey` and valid per §9.1.
+proven. `pairHello` additionally requires `nmTicket.browser ==
+pairHello.browser` (a ticket minted for a different browser than the one
+pairing does not bind this session).
 
-**Two failure classes, two outcomes:**
+**Every outcome is defined — the map below is exhaustive.** Each check maps to
+exactly one of three dispositions: **abort** (`pairError`, no pairing),
+**downgrade** (proceed with a lower identity than `official`), or **defer**
+(decided later in the flow).
 
-- **Structural / cryptographic failure** — bad `mac`, non-exact `v` /
-  `purpose` / `protocolVersion`, or a `bindingPub` that fails §9.1 validation
-  (malformed, identity, small-order, or non-torsion-free). The ticket and its
-  mandatory `ticketProof` cannot be soundly processed, so the server **aborts
-  the pairing** (`pairError {code:"protocolViolation"}`) rather than
-  continuing. This does not weaken security: a legitimate extension never
-  presents such a ticket, and an in-transit modification is already caught by
-  the AAD binding at key confirmation (§6.4). It resolves the otherwise
-  contradictory case where §6.5 requires a valid `ticketProof` that an invalid
-  `bindingPub` can never satisfy.
-- **Semantic failure** — the ticket is authentic (valid `mac`, valid
-  `bindingPub`, `ticketProof` verifies) but its identity claim does not reach
-  `official`: an unknown or stale `serverGeneration`, or an expired `exp`,
-  yields `unverified`; a valid ticket whose `callerId` is not on the allowlist
-  yields `attested-non-official` (§5). Here the pairing **proceeds** with the
-  downgraded identity surfaced in the dialog; the code-entry anchor still
-  applies.
+| Ticket condition | Disposition |
+|---|---|
+| `mac` fails constant-time recompute | **abort** (`protocolViolation`) |
+| `v` / `purpose` / `protocolVersion` not exact | **abort** (`protocolViolation`) |
+| `bindingPub` fails §9.1 (malformed, identity, small-order, non-torsion-free) | **abort** (`protocolViolation`) |
+| `bindingPub != pairHello.ticketBindingKey` | **abort** (`protocolViolation`) |
+| `callerId != pairHello.claimedExtensionId` | **abort** (`protocolViolation`) |
+| `nmTicket.browser != pairHello.browser` | **abort** (`protocolViolation`) |
+| ticket MAC already seen (one-shot replay) | **abort** (`protocolViolation`) |
+| `exp` more than 60 s after now (beyond the mint window) | **abort** (`protocolViolation`) |
+| authentic ticket, unknown/stale `serverGeneration` | **downgrade** → `unverified` |
+| authentic ticket, `exp` in the past (expired) | **downgrade** → `unverified` |
+| authentic ticket, valid, `callerId` not on allowlist | **downgrade** → `attested-non-official` (§5) |
+| authentic ticket, valid, `callerId` on allowlist | `official` (§5) |
+| `confirmA.ticketProof` schema-invalid (not 64 bytes) | **defer** → `protocolViolation` (§6.5) |
+| `confirmA.ticketProof` well-formed but fails strict verify | **defer** → `codeMismatch`, consumes an attempt (§6.5/§7.2) |
+
+Rationale for the two structural rules that most affect security:
+
+- **Abort, not downgrade, on structural/cryptographic failure.** A legitimate
+  extension never presents such a ticket, and an in-transit modification is
+  already caught by the AAD binding at key confirmation (§6.4). Aborting
+  resolves the otherwise contradictory case where §6.5 requires a valid
+  `ticketProof` that an invalid `bindingPub` can never satisfy. Structural
+  validation happens **before** the approval dialog and does not touch the
+  prompt/failure counters, so it does not amplify the DoS surface; a corrupted
+  legitimate ticket causes a self-heal re-bootstrap, never credential
+  compromise.
+- **`ticketProof` verification is not a `pairHello` outcome.** The server
+  cannot know at `pairHello` that "the proof verifies" — the proof arrives in
+  `confirmA` (§6.5). So §9.2 validates only the *ticket*, and the proof's
+  outcome is deferred to §6.5 exactly as the last two rows state.
 
 Two boundary rules apply:
 
 - **Precedence with §5**: a ticket's identity contribution can only *raise* an
   identity, never lower one — a Chromium verified origin on the allowlist
-  establishes `official` with or without a ticket.
+  establishes `official` with or without a ticket. A **structural abort takes
+  precedence over identity**, however: if a *presented* ticket hits any abort
+  row above, the pairing aborts even for a caller that would otherwise be
+  `official` by verified origin (a legitimate official caller never presents a
+  structurally-broken ticket, and the client simply re-bootstraps ticketless).
+  A caller that presents **no** ticket is unaffected — origin alone resolves
+  its identity per §5.
 - **Tampering is not a downgrade**: because the ticket digest is bound into the
   PAKE AAD (§6.4), a ticket modified in transit desynchronizes the two
   parties' AAD and fails key confirmation closed — an in-transit tamper never
@@ -995,7 +1036,9 @@ The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
 | 3 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M4(1)/M4(2)/L1/N1 closed; M1 partial (Medium blocker); L4 partial (Low blocker); 2 new Low | M1: the client counter was keyed by the attacker-controllable `instanceId`, so a fake listener returning a fresh `instanceId` each session got a fresh counter. L4: vectors carried only prose for `S ≥ ℓ` / non-canonical `R` (no malicious bytes) and covered only two small-order encodings. New Low: post-auth prune was only `MAY` and client provisional credentials had no expiry/bound (stale-secret growth). New Low: §6.4 prose said an unlisted `callerId` downgrades to `unverified` (contradicting §5/§9.2 `attested-non-official`) and implied validation runs only after byte-identity. |
 | 3-rev | 2026-08-19 | Spec revision | Findings addressed | Client first-pair backoff is a single truly-global counter (§7.3); post-auth prune mandatory, retained set bounded (§6.7/§12); §6.4 identity/encoding prose corrected; vectors carry real malicious bytes for `S ≥ ℓ` / non-canonical `R`, the full small-order set, and all-field tamper self-checks (§13). |
 | 4 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M1/L4 closed; 1 Medium + 2 Low | Medium: the unconditional 10-minute client provisional expiry could delete a `commit-uncertain` credential the server had already committed during rotation, stranding the client on a revoked credential. Low: §9.2 still said the digest hashes wire fields "verbatim" and that only a byte-identical ticket "reaches validation", contradicting §6.4's canonical-parsed rule and pairHello-ordering. Low: §9.2's blanket "any validation failure → downgrade, do not abort" conflicted with §6.5/§9.1, where an invalid/small-order `bindingPub` makes the required `ticketProof` impossible. Global-counter first-pair griefing assessed as an accepted availability residual (§1.1); multi-profile prune found sound. |
-| 4-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Provisional expiry is now state-dependent: only an `unacked` provisional ages out at 10 min; a `commit-uncertain` one (ack sent) is never age-deleted and is resolved by authenticated reconnect, so rotation never strands the client (§6.7/§12). §9.2 rewritten to hash canonical encodings of parsed values (not "verbatim"), state validation runs at `pairHello` before confirmation, and split outcomes into **structural/cryptographic failure → abort** (resolving the mandatory-`ticketProof` conflict) versus **semantic failure → downgrade and proceed** (`unverified` / `attested-non-official`). Generator comment aligned; vectors byte-identical. Awaiting re-review. |
+| 4-rev | 2026-08-19 | Spec revision | Findings addressed | State-dependent provisional expiry; §9.2 canonical-parsed digest, pairHello-ordered validation, and abort-vs-downgrade split. |
+| 5 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; round-4 Low wording closed; 1 Medium (durable ordering) + 3 Low | Medium: crash-consistent ordering was incomplete — `commit-uncertain` did not require the durable `unacked → commit-uncertain` write-ahead **before** sending `credentialAck`, and reconnect promotion did not require the server to durably promote/CAS-revoke **before** sending `reconnectAccept`; a crash in either gap could still strand the client. Low: server provisional successors were time-bounded but not cardinality-bounded (repeated crashed offers could accumulate `P₁…Pₙ`). Low: the §9.2 outcome split was not exhaustive (replayed MAC, `callerId`/`bindingPub`/`browser` mismatch, over-long `exp`, and the `ticketProof`-verify-failure case were undefined or unassigned). Construction and all vectors independently revalidated; no High. |
+| 5-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Client MUST durably flip `unacked → commit-uncertain` before transmitting `credentialAck` (write-ahead); server MUST durably promote/CAS-revoke before sending `reconnectAccept`, and the client MUST durably mark committed before pruning (§6.7). Server provisional successors bounded to one per `{principal, currentCommittedCredentialId}` with idempotent re-offer (§6.7). §9.2 outcome map made exhaustive as a table (abort / downgrade / defer), adds the `nmTicket.browser == pairHello.browser` check, assigns replay / caller / binding-key / browser / over-long-`exp` to abort, defers `ticketProof` verification to §6.5, and states structural-abort precedence over an official origin. Awaiting re-review. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

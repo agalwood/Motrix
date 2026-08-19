@@ -394,9 +394,12 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
 1. **B→A `credentialOffer`** `{ "type": "credentialOffer", "credentialId":
    "<UUIDv4>", "mutualKey": "<b64url 32 CSPRNG bytes>" }`。server 在发送
    **之前**先以 `provisional` 状态持久化该凭据。
-2. **A** 把 `{credentialId, mutualKey, state:"provisional"}` 写入
-   `storage.local`，然后发送 **`credentialAck`**
-   `{ "type": "credentialAck", "credentialId": "<same>" }`。
+2. **A** 把 `{credentialId, mutualKey, state:"provisional", sub:"unacked"}`
+   写入 `storage.local`；随后，**在发送 `credentialAck` 之前，A 先持久化把
+   子状态 `unacked → commit-uncertain`**（write-ahead），然后才发送
+   **`credentialAck`** `{ "type": "credentialAck", "credentialId": "<same>" }`。
+   write-ahead 是强制的：`commit-uncertain` 必须意味着“ack **可能**已发出”，
+   使持久翻转与发送之间的崩溃也落到永久保留态、而非老化态。
 3. **B** 持久化标记该凭据为 `committed`，然后发送
    **`credentialCommitted`** `{ "type": "credentialCommitted" }`。A 将本地
    副本标记为 `committed`。
@@ -404,10 +407,23 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
 原子性规则：
 
 - server 侧的 provisional 凭据同样可用于重连认证（§8）；一次成功的
-  challenge–response 本身就是经认证的确认，会在双侧把它提升为
-  `committed`。因此 worker 在流程任意点死亡都不会留下不可用的半状态：
-  要么双方都能完成重连，要么客户端重新配对。
-- 从未被 ack 或使用的 provisional server 凭据会过期（默认 10 分钟）。
+  challenge–response 本身就是经认证的确认，会把它提升为 `committed`。
+  **持久提升顺序（server）：** 在提升某 provisional 凭据的重连中，server MUST
+  依次：(i) 验证 `reconnectResponse`，(ii) **持久**提升该 provisional 为
+  `committed`——对轮换而言在同一持久事务内 CAS-提升新的**并**吊销旧的——
+  然后才 (iii) 发送 `reconnectAccept`。提升未持久前 MUST NOT 发送
+  `reconnectAccept`，否则 accept 之后崩溃可能使刚认证的凭据仍是 provisional
+  而后过期。**持久 commit 顺序（client）：** 客户端 MUST 在修剪任何其他凭据
+  （见下方修剪规则）**之前**先持久把已认证凭据标记为 `committed`。二者之间
+  任意位置的 worker 死亡都留下可重连状态：要么双方都能完成重连、要么客户端
+  重新配对——绝不困住客户端。
+- 从未被 ack 或使用的 provisional server 凭据会过期（默认 10 分钟）。**server
+  provisional 基数有界，不只是时间有界：** 每个
+  `{principal, currentCommittedCredentialId}` 至多存在**一个**未决 provisional
+  后继。对同一 `{principal, currentCommittedCredentialId}` 的重复 offer（例如
+  worker 在存储上一个 offer 前死亡、客户端在未变的 committed 凭据上重试）MUST
+  幂等地复用/替换那唯一槽位，而非累积 `P₁…Pₙ`；下面的 single-flight CAS 对
+  并发轮换施加同一界限。
 - **轮换**（在已认证 `/v1` 会话内运行同一流程）时：commit-new 与
   revoke-old MUST 是**单个持久化的 server 事务**（或启动时重放的轮换
   journal），确保崩溃绝不会留下两把都有效或两把都失效的状态。该事务是对
@@ -426,12 +442,13 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   principal 的保留集限制为**至多两条**——当前 committed 凭据与唯一最新的
   provisional 凭据。
 - **provisional 过期是按状态的，绝非无条件。** 客户端 provisional 凭据带
-  子状态：`unacked`（尚未发送 `credentialAck`）或 `commit-uncertain`（已发
-  `credentialAck` 但尚未处理 `credentialCommitted`）。`unacked` 的
-  provisional MAY 在 **10 分钟**后老化删除——server 从未 commit 它，与 server
+  子状态：`unacked`（步骤 2 的持久 `unacked → commit-uncertain` write-ahead
+  尚未发生）或 `commit-uncertain`（该 write-ahead 已持久，故 `credentialAck`
+  **可能**已发出）。`unacked` 的 provisional MAY 在 **10 分钟**后老化删除——
+  write-ahead 从未完成，故 ack 从未发出、server 从未 commit 它，与 server
   自身的 provisional 过期一致。`commit-uncertain` 的 provisional MUST NOT 被
-  老化删除：ack 一旦发出，server 可能已原子地 commit 它并吊销旧凭据（§6.7
-  轮换），丢弃它会使客户端困在被吊销的凭据上。`commit-uncertain` 凭据保留至
+  老化删除：ack 可能已到达 server，server 可能已原子地 commit 它并吊销旧凭据
+  （§6.7 轮换），丢弃它会使客户端困在被吊销的凭据上。`commit-uncertain` 凭据保留至
   一次经认证的重连解出哪把存活（重连时先试它），再由上面的强制认证后规则
   提升或修剪。这既把陈旧密钥限界（每 principal 两条），又保证 ack/commit
   窗口内任意位置的 worker 死亡仍留下可重连状态（§6.7 两阶段提交所要求）。
@@ -647,34 +664,49 @@ AAD ticket digest 钉死（该 digest 哈希 ticket **各字段解析值的规�
 会使双方 AAD 失配、让 key confirmation fail closed，而不仅是降级。
 
 **校验在 `pairHello` 处进行，先于 key confirmation**——server 对它实际收到的
-ticket 校验，绝不等到字节一致被证明。检查项：constant-time 重算 `mac`；
-`v`、`purpose` 与 `protocolVersion` 精确匹配；`serverGeneration` 等于 server
-**当前 generation**——每次 bridge-server 启动重新生成的 UUIDv4，通过
-`endpoint.json` 新增的 `generation` 字段发布给 host（增量字段；既有
-`writtenAt` 维持 diagnostic-only）；`exp` 在未来且距铸造至多 60 秒；
-ticket 此前未出现过（一次性：server 缓存 MAC 直至 `exp`）；`callerId`
-等于 `pairHello.claimedExtensionId`；`bindingPub` 等于
-`pairHello.ticketBindingKey` 且通过 §9.1 校验。
+ticket 校验，绝不等到字节一致被证明。`pairHello` 另要求 `nmTicket.browser ==
+pairHello.browser`（为另一浏览器铸造的 ticket 不绑定本会话）。
 
-**两类失败、两种结果：**
+**每种结果都有定义——下表穷尽。** 每个检查恰好映射到三种处置之一：**中止**
+（`pairError`，不配对）、**降级**（以低于 `official` 的身份继续）、或**延后**
+（在流程后续判定）。
 
-- **结构性 / 密码学失败**——`mac` 错误、`v`/`purpose`/`protocolVersion` 不
-  精确匹配、或 `bindingPub` 未通过 §9.1 校验（畸形、单位元、small-order、
-  非 torsion-free）。此时 ticket 及其必需的 `ticketProof` 无法被可靠处理，
-  server **中止配对**（`pairError {code:"protocolViolation"}`）而非继续。
-  这不削弱安全：合法扩展绝不出示这种 ticket，而在途修改早已被 §6.4 的 AAD
-  绑定在 key confirmation 处拦截；它同时解决了 §6.5 要求有效 `ticketProof`、
-  而无效 `bindingPub` 永远无法满足的矛盾。
-- **语义失败**——ticket 真实（`mac` 有效、`bindingPub` 有效、`ticketProof`
-  验证通过），但其身份主张达不到 `official`：`serverGeneration` 未知或过期、
-  或 `exp` 已过，得到 `unverified`；有效但 `callerId` 不在 allowlist 的
-  ticket 得到 `attested-non-official`（§5）。此时配对**继续**，降级身份在
-  对话框如实显示；code-entry 信任锚仍然成立。
+| Ticket 条件 | 处置 |
+|---|---|
+| `mac` constant-time 重算失败 | **中止**（`protocolViolation`） |
+| `v` / `purpose` / `protocolVersion` 不精确 | **中止**（`protocolViolation`） |
+| `bindingPub` 未过 §9.1（畸形、单位元、small-order、非 torsion-free） | **中止**（`protocolViolation`） |
+| `bindingPub != pairHello.ticketBindingKey` | **中止**（`protocolViolation`） |
+| `callerId != pairHello.claimedExtensionId` | **中止**（`protocolViolation`） |
+| `nmTicket.browser != pairHello.browser` | **中止**（`protocolViolation`） |
+| ticket MAC 曾出现过（一次性重放） | **中止**（`protocolViolation`） |
+| `exp` 距当前超过 60 秒（超出铸造窗口） | **中止**（`protocolViolation`） |
+| 真实 ticket，`serverGeneration` 未知/过期 | **降级** → `unverified` |
+| 真实 ticket，`exp` 已过（过期） | **降级** → `unverified` |
+| 真实且有效 ticket，`callerId` 不在 allowlist | **降级** → `attested-non-official`（§5） |
+| 真实且有效 ticket，`callerId` 在 allowlist | `official`（§5） |
+| `confirmA.ticketProof` schema 非法（非 64 字节） | **延后** → `protocolViolation`（§6.5） |
+| `confirmA.ticketProof` 格式合法但 strict 验证失败 | **延后** → `codeMismatch`，消耗一次尝试（§6.5/§7.2） |
+
+对最影响安全的两条结构性规则的理由：
+
+- **结构性/密码学失败中止而非降级。** 合法扩展绝不出示这种 ticket，而在途
+  修改早已被 §6.4 的 AAD 绑定在 key confirmation 处拦截。中止解决了 §6.5
+  要求有效 `ticketProof`、而无效 `bindingPub` 永远无法满足的矛盾。结构校验
+  发生在审批对话框**之前**、不触碰弹窗/失败计数器，故不放大 DoS 面；被损坏
+  的合法 ticket 只导致自愈式重新 bootstrap，绝非凭据泄露。
+- **`ticketProof` 验证不是 `pairHello` 的结果。** server 在 `pairHello` 处
+  无法得知“证明验证通过”——证明在 `confirmA`（§6.5）到达。故 §9.2 只校验
+  *ticket*，证明的结果如上表末两行延后到 §6.5。
 
 两条边界规则：
 
 - **与 §5 的优先级**：ticket 的身份贡献只能*抬升*身份，绝不降低——allowlist
-  中的 Chromium verified origin 无论有无 ticket 都成立 `official`。
+  中的 Chromium verified origin 无论有无 ticket 都成立 `official`。但**结构性
+  中止优先于身份**：若*已出示*的 ticket 命中上表任一中止行，即使调用方本可凭
+  verified origin 成为 `official`，配对也中止（合法官方调用方绝不出示结构损坏
+  的 ticket，客户端只需无 ticket 重新 bootstrap）。**不**出示 ticket 的调用方
+  不受影响——其身份单凭 origin 按 §5 判定。
 - **篡改不是降级**：由于 ticket digest 被绑入 PAKE AAD（§6.4），传输中被
   修改的 ticket 会使双方 AAD 失配、破坏 key confirmation、使配对 fail
   closed——在途篡改绝不会静默变成语义降级。
@@ -861,7 +893,9 @@ Firefox 两行的推论：扩展在探测 loopback 之前 MUST 先检查
 | 3 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M4(1)/M4(2)/L1/N1 已闭合；M1 部分（Medium blocker）；L4 部分（Low blocker）；新增 2 Low | M1：客户端计数器按攻击者可控的 `instanceId` 分键，假 listener 每次返回新 `instanceId` 即得新计数器。L4：向量对 `S ≥ ℓ` / 非规范 `R` 只有描述（无恶意字节），且仅覆盖两个小阶点编码。新 Low：认证后修剪只是 `MAY`、客户端 provisional 凭据无过期/上界（陈旧密钥增长）。新 Low：§6.4 措辞称未在 allowlist 的 `callerId` 降级为 `unverified`（与 §5/§9.2 的 `attested-non-official` 矛盾），并暗示校验只在字节一致后才进行。 |
 | 3-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端首配 backoff 改为单一真正全局计数器（§7.3）；认证后修剪强制、保留集限界（§6.7/§12）；§6.4 身份/编码措辞更正；向量以真实恶意字节覆盖 `S ≥ ℓ` / 非规范 `R`、完整小阶点集与全字段篡改自检（§13）。 |
 | 4 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M1/L4 已闭合；1 Medium + 2 Low | Medium：无条件 10 分钟客户端 provisional 过期可能在轮换中删除 server 已 commit 的 `commit-uncertain` 凭据，使客户端困在被吊销的凭据上。Low：§9.2 仍称 digest 逐字节哈希 wire 字段、且只有字节一致的 ticket 才“走到校验”，与 §6.4 的规范解析规则及 pairHello 顺序矛盾。Low：§9.2 笼统的“任何校验失败→降级、不中止”与 §6.5/§9.1 冲突（无效/small-order `bindingPub` 使必需的 `ticketProof` 不可能成立）。全局计数器首配 griefing 评为可接受的可用性残留（§1.1）；多 profile 修剪判定为正确。 |
-| 4-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | provisional 过期改为按状态：仅 `unacked` 的 10 分钟老化，`commit-uncertain` 的（已发 ack）绝不老化删除、由经认证重连解出，故轮换绝不困住客户端（§6.7/§12）。§9.2 重写为哈希解析值的规范编码（非“verbatim”）、明确校验在 `pairHello` 先于 confirmation，并拆分为**结构性/密码学失败→中止**（解决必需 `ticketProof` 的矛盾）与**语义失败→降级并继续**（`unverified` / `attested-non-official`）。生成器注释对齐；向量字节不变。待复审。 |
+| 4-rev | 2026-08-19 | 规范修订 | 发现已处理 | 按状态的 provisional 过期；§9.2 规范解析 digest、pairHello 顺序校验、中止/降级拆分。 |
+| 5 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；round-4 Low 措辞已闭合；1 Medium（持久顺序）+ 3 Low | Medium：崩溃一致性顺序不完整——`commit-uncertain` 未要求在发送 `credentialAck` **之前**先持久完成 `unacked → commit-uncertain` write-ahead，重连提升也未要求 server 在发送 `reconnectAccept` **之前**先持久提升/CAS 吊销；两处缝隙的崩溃仍可能困住客户端。Low：server provisional 后继只时间有界、无基数界（重复崩溃的 offer 可累积 `P₁…Pₙ`）。Low：§9.2 结果拆分不穷尽（重放 MAC、`callerId`/`bindingPub`/`browser` 不匹配、`exp` 过长、以及 `ticketProof` 验证失败情形未定义或未归类）。构造与全部向量独立复核；无 High。 |
+| 5-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | 客户端 MUST 在发送 `credentialAck` 前持久翻转 `unacked → commit-uncertain`（write-ahead）；server MUST 在发送 `reconnectAccept` 前持久提升/CAS 吊销，客户端 MUST 在修剪前持久标记 committed（§6.7）。server provisional 后继按 `{principal, currentCommittedCredentialId}` 限为一个、幂等重发（§6.7）。§9.2 结果表化穷尽（中止/降级/延后）、新增 `nmTicket.browser == pairHello.browser` 检查、将重放/caller/binding-key/browser/`exp` 过长归为中止、把 `ticketProof` 验证延后到 §6.5，并声明结构性中止优先于官方 origin。待复审。 |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
