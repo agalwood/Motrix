@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { getLogger } from '@core/logger'
+import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { app, dialog } from 'electron'
 import writeFileAtomic from 'write-file-atomic'
 import { i18n } from '../lib/i18n'
@@ -10,10 +11,12 @@ import {
   type AppImageIntegrationDeps,
   type CommandResult,
   DEFAULT_INTEGRATION_RECORD,
+  enableSystemIntegration,
   type IntegrationFs,
   type IntegrationRecord,
   type IntegrationStore,
   parseIntegrationRecord,
+  removeSystemIntegration,
   runStartupIntegration,
 } from './appimage-integration'
 
@@ -89,50 +92,119 @@ export interface SetupAppImageIntegrationOptions {
   getMagnetEnabled: () => boolean
 }
 
-// Startup entry point wired from main/index.ts. No-op unless running as a
-// packaged Linux AppImage (`process.env.APPIMAGE` is only set by the AppImage
-// runtime). Never throws into the caller.
-export async function setupAppImageIntegration(
-  opts: SetupAppImageIntegrationOptions
-): Promise<void> {
-  const log = getLogger('appimage')
-  if (process.platform !== 'linux' || !app.isPackaged) return
-  const appImagePath = process.env.APPIMAGE
-  if (!appImagePath) return
+// The AppImage environment gate: `process.env.APPIMAGE` is only set by the
+// AppImage runtime, and only a packaged Linux build can be one.
+function appImageEnvironmentPath(): string | null {
+  if (process.platform !== 'linux' || !app.isPackaged) return null
+  return process.env.APPIMAGE ?? null
+}
 
-  const deps: AppImageIntegrationDeps = {
+function createHostStore(): IntegrationStore {
+  return createFileIntegrationStore(
+    path.join(app.getPath('userData'), INTEGRATION_FILE)
+  )
+}
+
+// One deps assembly shared by the startup path and the settings IPC entry
+// points; only the consent prompt differs (startup shows the dialog, a manual
+// settings action *is* the consent).
+function buildDeps(
+  appImagePath: string,
+  opts: SetupAppImageIntegrationOptions,
+  prompt: () => Promise<boolean>
+): AppImageIntegrationDeps {
+  return {
     appImagePath,
     env: process.env,
     homedir: app.getPath('home'),
     iconSourcePath: path.join(process.resourcesPath, ICON_RESOURCE),
-    store: createFileIntegrationStore(
-      path.join(app.getPath('userData'), INTEGRATION_FILE)
-    ),
+    store: createHostStore(),
     fs: hostFs,
     runCommand,
     getMagnetEnabled: opts.getMagnetEnabled,
-    prompt: async () => {
-      const { response } = await dialog.showMessageBox({
-        type: 'question',
-        buttons: [
-          i18n.t('settings.integration.appimage.prompt.decline'),
-          i18n.t('settings.integration.appimage.prompt.accept'),
-        ],
-        defaultId: 1,
-        cancelId: 0,
-        title: i18n.t('settings.integration.appimage.prompt.title'),
-        message: i18n.t('settings.integration.appimage.prompt.message'),
-        detail: i18n.t('settings.integration.appimage.prompt.detail'),
-      })
-      return response === 1
-    },
-    log,
+    prompt,
+    log: getLogger('appimage'),
   }
+}
 
+async function promptWithDialog(): Promise<boolean> {
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    buttons: [
+      i18n.t('settings.integration.appimage.prompt.decline'),
+      i18n.t('settings.integration.appimage.prompt.accept'),
+    ],
+    defaultId: 1,
+    cancelId: 0,
+    title: i18n.t('settings.integration.appimage.prompt.title'),
+    message: i18n.t('settings.integration.appimage.prompt.message'),
+    detail: i18n.t('settings.integration.appimage.prompt.detail'),
+  })
+  return response === 1
+}
+
+function toView(record: IntegrationRecord): AppImageIntegrationView {
+  return {
+    supported: true,
+    decision: record.decision,
+    owner: record.owner,
+    status: record.status,
+  }
+}
+
+// Startup entry point wired from main/index.ts. No-op unless running as a
+// packaged Linux AppImage. Never throws into the caller.
+export async function setupAppImageIntegration(
+  opts: SetupAppImageIntegrationOptions
+): Promise<void> {
+  const appImagePath = appImageEnvironmentPath()
+  if (!appImagePath) return
+  const deps = buildDeps(appImagePath, opts, promptWithDialog)
   try {
     await runStartupIntegration(deps)
   } catch (err) {
-    log.warn({ err }, 'appimage desktop integration failed')
+    deps.log.warn({ err }, 'appimage desktop integration failed')
+  }
+}
+
+// Settings status query (Queries.GetAppImageIntegrationStatus): reads the
+// persisted record without running any integration step.
+export async function getAppImageIntegrationView(): Promise<AppImageIntegrationView> {
+  if (!appImageEnvironmentPath()) return { supported: false }
+  return toView(await createHostStore().load())
+}
+
+// Settings action (Commands.EnableAppImageIntegration). The user clicked the
+// enable button, so consent is already given — no dialog. Runs the full
+// install transaction, including from a previously `declined` state.
+export async function enableAppImageIntegrationFromSettings(
+  opts: SetupAppImageIntegrationOptions
+): Promise<AppImageIntegrationView> {
+  const appImagePath = appImageEnvironmentPath()
+  if (!appImagePath) return { supported: false }
+  const deps = buildDeps(appImagePath, opts, async () => true)
+  try {
+    return toView(await enableSystemIntegration(deps))
+  } catch (err) {
+    deps.log.warn({ err }, 'manual appimage integration enable failed')
+    return toView(await deps.store.load())
+  }
+}
+
+// Settings action (Commands.RemoveAppImageIntegration). Externally-owned
+// integrations are left untouched by the core module; the refreshed view
+// reports that state back to the UI.
+export async function removeAppImageIntegrationFromSettings(
+  opts: SetupAppImageIntegrationOptions
+): Promise<AppImageIntegrationView> {
+  const appImagePath = appImageEnvironmentPath()
+  if (!appImagePath) return { supported: false }
+  const deps = buildDeps(appImagePath, opts, async () => true)
+  try {
+    return toView(await removeSystemIntegration(deps))
+  } catch (err) {
+    deps.log.warn({ err }, 'manual appimage integration removal failed')
+    return toView(await deps.store.load())
   }
 }
 

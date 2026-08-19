@@ -1517,6 +1517,8 @@
           "decline": "暂不"
         },
         "status": {
+          "healthy": "已与当前桌面集成。",
+          "notIntegrated": "尚未与当前桌面集成。",
           "failedTitle": "桌面集成未完成",
           "failedDetail": "Motrix 未能把自己注册为链接处理程序。在你重新启用桌面集成之前，浏览器唤起可能无法工作。",
           "externalManaged": "桌面集成由另一个 Motrix 安装提供。"

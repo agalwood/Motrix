@@ -1031,6 +1031,23 @@ describe('enableSystemIntegration', () => {
 })
 
 describe('removeSystemIntegration', () => {
+  it('is a no-op for an externally-owned integration', async () => {
+    const store = createFakeStore({
+      decision: 'accepted',
+      owner: 'external',
+      desktopId: 'motrix.desktop',
+      status: 'healthy',
+    })
+    const fs = createFakeFs()
+    const xdg = createFakeXdg({ 'x-scheme-handler/motrix': 'motrix.desktop' })
+    const next = await removeSystemIntegration(baseDeps({ store, fs, xdg }))
+    expect(next.decision).toBe('accepted')
+    expect(next.owner).toBe('external')
+    expect(store.record.owner).toBe('external')
+    expect(xdg.calls).toEqual([])
+    expect(fs.remove).not.toHaveBeenCalled()
+  })
+
   it('reverses the install: deletes owned files, restores default, sets declined', async () => {
     const dataHome = '/home/u/.local/share'
     const desktopPath = desktopEntryFilePath(dataHome)

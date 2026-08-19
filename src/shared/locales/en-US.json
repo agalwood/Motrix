@@ -1531,6 +1531,8 @@
           "decline": "Not now"
         },
         "status": {
+          "healthy": "Integrated with this desktop.",
+          "notIntegrated": "Not integrated with this desktop.",
           "failedTitle": "Desktop integration incomplete",
           "failedDetail": "Motrix couldn't register itself as the handler for its links. Browser hand-off may not work until you re-enable desktop integration.",
           "externalManaged": "Desktop integration is provided by another Motrix install."

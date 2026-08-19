@@ -1517,6 +1517,8 @@
           "decline": "暫不"
         },
         "status": {
+          "healthy": "已與目前桌面整合。",
+          "notIntegrated": "尚未與目前桌面整合。",
           "failedTitle": "桌面整合未完成",
           "failedDetail": "Motrix 未能把自己註冊為連結處理程式。在您重新啟用桌面整合之前，瀏覽器喚起可能無法運作。",
           "externalManaged": "桌面整合由另一個 Motrix 安裝提供。"

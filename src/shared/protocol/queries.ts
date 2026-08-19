@@ -71,6 +71,9 @@ export const Queries = {
   // GetUnreadNotificationCount returns the unread badge count as a number.
   GetUnreadNotificationCount: 'query:getUnreadNotificationCount',
   GetCliToolStatus: 'query:getCliToolStatus',
+  // Linux AppImage desktop integration; returns `AppImageIntegrationView`
+  // ({ supported: false } outside a packaged Linux AppImage).
+  GetAppImageIntegrationStatus: 'query:getAppImageIntegrationStatus',
   GetApplicationMenu: 'query:getApplicationMenu',
 } as const
 

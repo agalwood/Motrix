@@ -1,5 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto'
 import path from 'node:path'
+import type {
+  AppImageIntegrationDecision,
+  AppImageIntegrationHealth,
+  AppImageIntegrationOwner,
+} from '@shared/types/appimage-integration'
 import { z } from 'zod'
 
 // AppImage desktop self-integration (Layer 2).
@@ -19,9 +24,11 @@ import { z } from 'zod'
 
 // ── Persisted record ────────────────────────────────────
 
-export type IntegrationDecision = 'unset' | 'accepted' | 'declined'
-export type IntegrationOwner = 'self' | 'external' | null
-export type IntegrationStatus = 'healthy' | 'failed' | null
+// The decision/owner/health unions are shared with the renderer-facing view
+// (`AppImageIntegrationView`), so they live in the shared contract layer.
+export type IntegrationDecision = AppImageIntegrationDecision
+export type IntegrationOwner = AppImageIntegrationOwner
+export type IntegrationStatus = AppImageIntegrationHealth
 export type NmConsent = 'unset' | 'accepted' | 'declined'
 
 export interface IntegrationRecord {
@@ -899,6 +906,16 @@ export async function removeSystemIntegration(
   deps: AppImageIntegrationDeps
 ): Promise<IntegrationRecord> {
   const record = await deps.store.load()
+  // An externally-owned integration (deb install, another tool) was never
+  // written by us: there is nothing of ours to delete, and flipping the record
+  // to `declined` would erase the external classification. Leave both alone.
+  if (record.owner === 'external') {
+    deps.log.info(
+      {},
+      'appimage integration is externally owned; nothing to remove'
+    )
+    return record
+  }
   const dataHome = resolveXdgDataHome(deps.env, deps.homedir)
   const desktopPath = desktopEntryFilePath(dataHome)
   const icon = iconFilePath(dataHome)

@@ -45,6 +45,7 @@ import type { TuningContext } from '@shared/types/tuning'
 import { ipcMain, session } from 'electron'
 import type { CliToolService } from '../cli/cli-tool-service'
 import type { UpdateManager } from '../core/update-manager'
+import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
 import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import { createGetEngineTaskOptionsHandler } from './queries/get-engine-task-options'
 import { createGetGeoIPStatusHandler } from './queries/get-geo-ip-status'
@@ -168,6 +169,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       )
       return parseElectronProxyChain(chain)
     },
+
+    [Queries.GetAppImageIntegrationStatus]: async () =>
+      getAppImageIntegrationView(),
 
     [Queries.GetEngineStatus]: async () => {
       return supervisor.getStatus()
