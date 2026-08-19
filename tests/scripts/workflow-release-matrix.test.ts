@@ -1314,7 +1314,7 @@ describe('release workflow publication contract', () => {
     expect(paths).not.toContain('alpha')
   })
 
-  it('builds only deb and rpm Linux release assets', () => {
+  it('builds AppImage, deb, and rpm Linux release assets', () => {
     const linuxTargets = targetMatrix(releaseWorkflow).entries.filter(
       (entry) => entry.platform === 'linux'
     )
@@ -1322,13 +1322,13 @@ describe('release workflow publication contract', () => {
     expect(linuxTargets).toHaveLength(2)
     for (const entry of linuxTargets) {
       const args = stringField(entry, 'electron_builder_args')
+      expect(args).toMatch(/\bAppImage\b/)
       expect(args).toMatch(/\bdeb\b/)
       expect(args).toMatch(/\brpm\b/)
-      expect(args).not.toMatch(/\bAppImage\b/)
       expect(args).not.toMatch(/\bsnap\b/i)
     }
     expect(releaseSource).toContain(`\${{ matrix.electron_builder_args }}`)
-    expect(releaseSource).not.toContain('release/*.AppImage')
+    expect(releaseSource).toContain('release/*.AppImage')
 
     const buildJob = targetMatrix(releaseWorkflow).job
     const linuxVerification = jobSteps(buildJob).find(
@@ -1341,7 +1341,18 @@ describe('release workflow publication contract', () => {
     )
     expect(verificationCommand).toContain('release/*.deb')
     expect(verificationCommand).toContain('release/*.rpm')
-    expect(verificationCommand).not.toContain('AppImage')
+    expect(verificationCommand).toContain('release/*.AppImage')
+
+    const appImageVerification = jobSteps(buildJob).find(
+      (step) => step.name === 'Verify AppImage artifact'
+    )
+    expect(appImageVerification).toBeDefined()
+    expect(stringField(appImageVerification as LooseRecord, 'if')).toContain(
+      "matrix.platform == 'linux'"
+    )
+    expect(stringField(appImageVerification as LooseRecord, 'run')).toContain(
+      'scripts/verify-appimage-artifact.mjs'
+    )
   })
 
   it('publishes required Flatpak companions outside updater manifests', () => {

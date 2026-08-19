@@ -90,6 +90,10 @@ import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
 import type { ContextStore } from '../commands/context-store'
 import type { UpdateManager } from '../core/update-manager'
+import {
+  enableAppImageIntegrationFromSettings,
+  removeAppImageIntegrationFromSettings,
+} from '../platform/appimage-integration-host'
 import { syncAutoLaunch } from '../platform/auto-launch'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import type { createMainProxyApplier } from '../proxy/wiring'
@@ -1044,6 +1048,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
       return { ok: true }
     },
+
+    [Commands.EnableAppImageIntegration]: async () =>
+      enableAppImageIntegrationFromSettings({
+        getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
+      }),
+
+    [Commands.RemoveAppImageIntegration]: async () =>
+      removeAppImageIntegrationFromSettings({
+        getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
+      }),
 
     [Commands.RequestDefaultTorrentHandler]: async () => {
       if (process.platform === 'darwin') {

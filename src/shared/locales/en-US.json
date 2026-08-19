@@ -1517,7 +1517,28 @@
           "fileMissing": "File does not exist at this path."
         }
       },
-      "pairResolveFailed": "Couldn't submit your decision — try again."
+      "pairResolveFailed": "Couldn't submit your decision — try again.",
+      "appimage": {
+        "title": "Desktop integration",
+        "desc": "Register this Motrix AppImage with your desktop so browsers and magnet links can hand downloads to it.",
+        "enable": "Enable desktop integration",
+        "remove": "Remove desktop integration",
+        "prompt": {
+          "title": "Integrate Motrix with your desktop?",
+          "message": "Let this Motrix AppImage register with your desktop environment?",
+          "detail": "Motrix will add a desktop entry and icon under your user data directory and register itself as the handler for motrix: links, magnet links, and .torrent files. This lets your browser and the Motrix extension launch Motrix and hand it downloads. Nothing is written outside your home directory, and you can undo this from Settings.",
+          "accept": "Integrate",
+          "decline": "Not now"
+        },
+        "status": {
+          "healthy": "Integrated with this desktop.",
+          "notIntegrated": "Not integrated with this desktop.",
+          "failedTitle": "Desktop integration incomplete",
+          "failedDetail": "Motrix couldn't register itself as the handler for its links. Browser hand-off may not work until you re-enable desktop integration.",
+          "externalManaged": "Desktop integration is provided by another Motrix install."
+        },
+        "movedHint": "If you move the AppImage while Motrix is closed, links may fail to launch until you start Motrix once from its new location."
+      }
     }
   },
   "errors": {

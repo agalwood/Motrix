@@ -79,6 +79,10 @@ export const Commands = {
   ResizeWindow: 'command:resizeWindow',
   OpenExternal: 'command:openExternal',
   RequestDefaultTorrentHandler: 'command:requestDefaultTorrentHandler',
+  // Linux AppImage desktop integration (settings-driven enable/remove).
+  // Both return the refreshed `AppImageIntegrationView`.
+  EnableAppImageIntegration: 'command:enableAppImageIntegration',
+  RemoveAppImageIntegration: 'command:removeAppImageIntegration',
   RevealInFolder: 'command:revealInFolder',
   // Menu
   UpdateMenuContext: 'command:updateMenuContext',

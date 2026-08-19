@@ -11,11 +11,12 @@
 #   - a native GitHub-hosted runner;
 #   - a packages/native-host/build.mjs Rust target.
 #
-# AppImage is intentionally excluded until its transient mount can persist a
-# browser native-messaging host that remains launchable after the app exits.
-# Snap has its own strict-confinement build and Store promotion workflows.
-# 32-bit targets remain unsupported. Windows arm64 remains reserved until the
-# aria2 lock supplies that architecture.
+# The Linux AppImage is published for x64 and arm64. It self-integrates its
+# desktop entry and URL-scheme handlers at runtime under the user's XDG data
+# tree (src/main/platform/appimage-integration.ts). Snap has its own
+# strict-confinement build and Store promotion workflows. 32-bit targets remain
+# unsupported. Windows arm64 remains reserved until the aria2 lock supplies that
+# architecture.
 
 name: Build/Release
 
@@ -140,7 +141,7 @@ jobs:
             platform: linux
             arch: x64
             rust_target: x86_64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm --x64
+            electron_builder_args: --linux deb rpm AppImage --x64
             resources_dir: release/linux-unpacked/resources
             app_path: release/linux-unpacked
           - target: linux-arm64
@@ -148,7 +149,7 @@ jobs:
             platform: linux
             arch: arm64
             rust_target: aarch64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm --arm64
+            electron_builder_args: --linux deb rpm AppImage --arm64
             resources_dir: release/linux-arm64-unpacked/resources
             app_path: release/linux-arm64-unpacked
           - target: win32-x64
@@ -188,7 +189,10 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes rpm
+          # squashfs-tools provides `unsquashfs`, used by
+          # verify-appimage-artifact.mjs to read the AppImage's embedded
+          # desktop entry.
+          sudo apt-get install --yes rpm squashfs-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -359,12 +363,21 @@ jobs:
           shopt -s nullglob
           debs=(release/*.deb)
           rpms=(release/*.rpm)
-          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 )); then
-            echo "Expected one deb and rpm for ${{ matrix.target }}" >&2
+          appimages=(release/*.AppImage)
+          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#appimages[@]} != 1 )); then
+            echo "Expected one deb, rpm, and AppImage for ${{ matrix.target }}" >&2
             exit 1
           fi
           dpkg-deb --info "${debs[0]}"
           rpm -qip "${rpms[0]}"
+
+      - name: Verify AppImage artifact
+        if: matrix.platform == 'linux'
+        run: >-
+          node scripts/verify-appimage-artifact.mjs
+          --dir release
+          --version "${{ needs.preflight.outputs.version }}"
+          --arch ${{ matrix.arch }}
 
       - name: Package Flatpak native host companion
         if: matrix.platform == 'linux'
@@ -434,6 +447,7 @@ jobs:
         with:
           name: release-input-${{ matrix.target }}
           path: |
+            release/*.AppImage
             release/*.blockmap
             release/beta*.yml
             release/*.deb

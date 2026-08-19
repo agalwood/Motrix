@@ -6,7 +6,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)
 
-English | [简体中文](./README.zh-CN.md)
+English | [ç®ä½ä¸­æ](./README.zh-CN.md)
 
 ## Overview
 
@@ -19,7 +19,7 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## 🧪 Beta testing
+## ð§ª Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
 download [v2.0.0-beta.19 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.19)
@@ -57,26 +57,26 @@ account, machine, or Docker data directory.
   <img alt="Motrix Settings" src="./screenshots/motrix-settings.webp">
 </picture>
 
-## ✨ Features
+## â¨ Features
 
-- 🕹 Clean, intuitive interface with dark mode
-- 🦄 BitTorrent downloads with per-file selection, plus magnet link support
-- 📡 Built-in tracker list management with automatic updates and health checks
-- 🔌 UPnP and NAT-PMP port mapping
-- 🚥 Upload and download limits with multiple speed-limit profiles
-- 💾 SQLite-backed sessions that restore downloads after a restart
-- 📊 Customizable Dashboard with transfer stats, live activity, and task tiles
-- 🔔 System notifications when downloads finish, plus an in-app notification center
-- 🧩 QuickJS-based plugin sandboxing, fine-grained permissions, and an in-app marketplace
-- 🌐 Chrome and Firefox extensions that hand browser downloads off to Motrix in one click
-- ⌨️ Official `@motrix/cli` client for everyday shell use and AI agents
-- 🐳 Docker-ready headless server with secure device-code pairing for remote CLI and agent clients
-- 🎬 Extensible URL Resolver plugins for extracting media from supported sites
-- 🤖 System tray integration and launch at startup
-- 🌍 Simplified Chinese and English UI, with more languages planned
-- 🔗 Handlers for `motrix://` and `magnet:` links, plus `.torrent` file associations
+- ð¹ Clean, intuitive interface with dark mode
+- ð¦ BitTorrent downloads with per-file selection, plus magnet link support
+- ð¡ Built-in tracker list management with automatic updates and health checks
+- ð UPnP and NAT-PMP port mapping
+- ð¥ Upload and download limits with multiple speed-limit profiles
+- ð¾ SQLite-backed sessions that restore downloads after a restart
+- ð Customizable Dashboard with transfer stats, live activity, and task tiles
+- ð System notifications when downloads finish, plus an in-app notification center
+- ð§© QuickJS-based plugin sandboxing, fine-grained permissions, and an in-app marketplace
+- ð Chrome and Firefox extensions that hand browser downloads off to Motrix in one click
+- â¨ï¸ Official `@motrix/cli` client for everyday shell use and AI agents
+- ð³ Docker-ready headless server with secure device-code pairing for remote CLI and agent clients
+- ð¬ Extensible URL Resolver plugins for extracting media from supported sites
+- ð¤ System tray integration and launch at startup
+- ð Simplified Chinese and English UI, with more languages planned
+- ð Handlers for `motrix://` and `magnet:` links, plus `.torrent` file associations
 
-## 🧩 Ecosystem
+## ð§© Ecosystem
 
 Motrix extends beyond the desktop app with a shared protocol library, command-line client, browser extensions, and a complete plugin toolchain:
 
@@ -117,7 +117,7 @@ The default scaffold starts with a `beforeCreate` URL resolver. Pass `post-actio
 
 Plugins are bundled as a single ES2020 module and run inside a QuickJS sandbox without Node.js APIs or direct file and network access. Declare activation events, required capabilities, and URL-scoped host permissions in `motrix-plugin.json`; Motrix shows those requests to the user before granting access. See the [Plugin SDK documentation](https://github.com/motrixapp/plugin-sdk) for templates, the manifest and runtime API references, localization, sandbox constraints, packaging, and distribution.
 
-## 📦 Installation
+## ð¦ Installation
 
 ### Desktop app
 
@@ -133,9 +133,13 @@ operating system and architecture:
 |----------|---------------|--------------------|----------------|
 | macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
-| Linux | `x64`, `arm64` | `.deb` / `.rpm` | Use `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
+| Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 
-This beta does not publish an AppImage or Snap. Flatpak is validated separately
+The `.AppImage` asks on first launch whether to register its desktop entry and
+URL-scheme handlers under your user data directory; declining leaves your system
+untouched. You can enable or remove this desktop integration at any time from
+Settings → Integration.
+This beta does not publish a Snap. Flatpak is validated separately
 and is not published by the release tag. Windows `arm64` and all 32-bit
 packages are not available. Windows `x64` packages are unsigned and may
 trigger a Windows SmartScreen warning.
@@ -146,7 +150,7 @@ trigger a Windows SmartScreen warning.
 npm install -g @motrix/cli
 ```
 
-You can also install it from Settings → Integration → Command-line tools in the desktop app.
+You can also install it from Settings â Integration â Command-line tools in the desktop app.
 
 ### Headless server with Docker
 
@@ -188,7 +192,7 @@ TLS reverse proxy and firewall rules around the origin ports. See the
 Docker Hub/GHCR image and tag selection, DSM 7 and fnOS installation, ports,
 diagnostics, and backup/upgrade instructions.
 
-## 🛠 Development
+## ð  Development
 
 Development requires Node.js 22 or later and pnpm. Use the pnpm version specified by the `packageManager` field in `package.json`.
 
@@ -222,12 +226,12 @@ flag because both Electron and Vite read it at startup.
 
 This mode is intended for layout and command-item debugging. Electron routes
 macOS role items through AppKit's native menu, so role-backed actions such as
-**Window → Minimize** do not behave identically when invoked from the preview
+**Window â Minimize** do not behave identically when invoked from the preview
 dropdown. Validate those native role actions on Windows or Linux.
 
 See the scripts in `package.json` for the available packaging commands. Platform-specific settings for macOS, Windows, and Linux live in `electron-builder.json`.
 
-## 🔧 Tech stack
+## ð§ Tech stack
 
 | Area | Stack |
 |------|-------|
@@ -247,19 +251,19 @@ The codebase has four strict layers. CI enforces the dependency boundaries betwe
 
 ```
 renderer (React UI)
-   │  IPC via window.motrix
+   â  IPC via window.motrix
 app core (tasks, settings, plugins, bridge)
-   │
+   â
 engine adapter
-   │
+   â
 aria2 (download engine)
 ```
 
 The Electron desktop app and the Node.js headless server share the same core. Platform-specific capabilities such as notifications and secret storage have separate implementations with consistent behavior.
 
-## 📜 License
+## ð License
 
-[MIT](./LICENSE) © 2018-present Dr_rOot
+[MIT](./LICENSE) Â© 2018-present Dr_rOot
 
 See [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) for third-party license information.
 Release packages also include a generated dependency inventory, consolidated license texts, and an SPDX 2.3 SBOM under `legal/`.

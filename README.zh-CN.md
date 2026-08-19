@@ -129,9 +129,10 @@ pnpm exec motrix-plugin lint     # 检查打包产物
 |------|------|---------------|----------|
 | macOS 12+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
-| Linux | `x64`、`arm64` | `.deb` / `.rpm` | Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
+| Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 
-本 beta 不发布 AppImage 或 Snap。Flatpak 会单独验证，不会随该版本 tag 发布。
+`.AppImage` 首次启动时会询问是否把桌面入口和 URL scheme 处理程序注册到你的用户数据目录；拒绝则不改动系统。之后随时可以在「设置 → 集成」中启用或移除该桌面集成。
+本 beta 不发布 Snap。Flatpak 会单独验证，不会随该版本 tag 发布。
 同时不提供 Windows `arm64` 和任何 32 位安装包。Windows `x64` 安装包未签名，
 可能触发 Windows SmartScreen 警告。
 

@@ -46,6 +46,8 @@ describe('assembleReleaseArtifacts', () => {
     expect(result.manifests).toHaveLength(8)
     expect(await readdir(fixture.output)).toEqual(
       expect.arrayContaining([
+        'Motrix-2.0.0-arm64.AppImage',
+        'Motrix-2.0.0-x86_64.AppImage',
         'Motrix-2.0.0.aarch64.rpm',
         'Motrix-2.0.0.x86_64.rpm',
         'Motrix-Native-Host-2.0.0-linux-arm64.tar.gz',
@@ -90,8 +92,11 @@ describe('assembleReleaseArtifacts', () => {
       const linuxManifest = load(
         await readFile(path.join(fixture.output, manifestName), 'utf8')
       ) as { files: Array<{ url: string }> }
-      expect(linuxManifest.files).toHaveLength(2)
-      expect(new Set(linuxManifest.files.map((file) => file.url)).size).toBe(2)
+      expect(linuxManifest.files).toHaveLength(3)
+      expect(new Set(linuxManifest.files.map((file) => file.url)).size).toBe(3)
+      expect(
+        linuxManifest.files.some((file) => file.url.endsWith('.AppImage'))
+      ).toBe(true)
     }
 
     await expect(
@@ -472,25 +477,34 @@ describe('assembleReleaseArtifacts', () => {
     )
   })
 
-  it('rejects AppImage inputs from the GitHub release bundle', async () => {
+  it('flattens the AppImage asset and records it in both Linux manifests', async () => {
     const fixture = await createFixture()
-    await writeFile(
-      path.join(
-        path.dirname(fixture.paths.linuxArm64Deb),
-        'Motrix-2.0.0-arm64.AppImage'
-      ),
-      'AppImage'
+
+    await assembleReleaseArtifacts({
+      inputDirectory: fixture.input,
+      outputDirectory: fixture.output,
+      version: VERSION,
+    })
+
+    // Both architecture AppImages land in the output alongside deb/rpm.
+    const output = await readdir(fixture.output)
+    expect(output).toEqual(
+      expect.arrayContaining([
+        'Motrix-2.0.0-x86_64.AppImage',
+        'Motrix-2.0.0-arm64.AppImage',
+      ])
     )
 
-    await expect(
-      assembleReleaseArtifacts({
-        inputDirectory: fixture.input,
-        outputDirectory: fixture.output,
-        version: VERSION,
-      })
-    ).rejects.toThrow(
-      'linux-arm64: unexpected release asset Motrix-2.0.0-arm64.AppImage'
-    )
+    // Each Linux updater manifest lists its architecture's AppImage.
+    for (const [manifestName, appImage] of [
+      ['latest-linux.yml', 'Motrix-2.0.0-x86_64.AppImage'],
+      ['latest-linux-arm64.yml', 'Motrix-2.0.0-arm64.AppImage'],
+    ] as const) {
+      const manifest = load(
+        await readFile(path.join(fixture.output, manifestName), 'utf8')
+      ) as { files: Array<{ url: string }> }
+      expect(manifest.files.map((file) => file.url)).toContain(appImage)
+    }
   })
 
   it('rejects Linux artifacts swapped between x64 and arm64 inputs', async () => {
@@ -576,9 +590,11 @@ async function createFixture(version = VERSION) {
     linuxArm64Deb: `Motrix_${version}_arm64.deb`,
     linuxArm64Companion: `Motrix-Native-Host-${version}-linux-arm64.tar.gz`,
     linuxArm64Rpm: `Motrix-${version}.aarch64.rpm`,
+    linuxArm64AppImage: `Motrix-${version}-arm64.AppImage`,
     linuxX64Deb: `Motrix_${version}_amd64.deb`,
     linuxX64Companion: `Motrix-Native-Host-${version}-linux-x64.tar.gz`,
     linuxX64Rpm: `Motrix-${version}.x86_64.rpm`,
+    linuxX64AppImage: `Motrix-${version}-x86_64.AppImage`,
     macArm64Dmg: `Motrix-${version}-arm64.dmg`,
     macArm64Zip: `Motrix-${version}-arm64.zip`,
     macX64Dmg: `Motrix-${version}-x64.dmg`,
@@ -589,9 +605,11 @@ async function createFixture(version = VERSION) {
     linuxArm64Deb: Buffer.from('Linux arm64 deb'),
     linuxArm64Companion: Buffer.from('Linux arm64 Flatpak companion'),
     linuxArm64Rpm: Buffer.from('Linux arm64 rpm'),
+    linuxArm64AppImage: Buffer.from('Linux arm64 AppImage'),
     linuxX64Deb: Buffer.from('Linux x64 deb'),
     linuxX64Companion: Buffer.from('Linux x64 Flatpak companion'),
     linuxX64Rpm: Buffer.from('Linux x64 rpm'),
+    linuxX64AppImage: Buffer.from('Linux x64 AppImage'),
     macArm64Dmg: Buffer.from('macOS arm64 DMG'),
     macArm64Zip: Buffer.from('macOS arm64 ZIP'),
     macX64Dmg: Buffer.from('macOS x64 DMG'),
@@ -664,6 +682,11 @@ async function createFixture(version = VERSION) {
     contents.linuxX64Companion
   )
   await writeAsset(linuxX64, names.linuxX64Rpm, contents.linuxX64Rpm)
+  const linuxX64AppImage = await writeAsset(
+    linuxX64,
+    names.linuxX64AppImage,
+    contents.linuxX64AppImage
+  )
   const linuxX64Manifest = path.join(linuxX64, 'latest-linux.yml')
   const linuxX64BetaManifest = path.join(linuxX64, 'beta-linux.yml')
   await writeManifest(
@@ -672,6 +695,7 @@ async function createFixture(version = VERSION) {
     [
       { name: names.linuxX64Deb, content: contents.linuxX64Deb },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
+      { name: names.linuxX64AppImage, content: contents.linuxX64AppImage },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
     names.linuxX64Deb
@@ -682,6 +706,7 @@ async function createFixture(version = VERSION) {
     [
       { name: names.linuxX64Deb, content: contents.linuxX64Deb },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
+      { name: names.linuxX64AppImage, content: contents.linuxX64AppImage },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
     names.linuxX64Deb
@@ -703,6 +728,11 @@ async function createFixture(version = VERSION) {
     names.linuxArm64Companion,
     contents.linuxArm64Companion
   )
+  const linuxArm64AppImage = await writeAsset(
+    linuxArm64,
+    names.linuxArm64AppImage,
+    contents.linuxArm64AppImage
+  )
   const linuxArm64Manifest = path.join(linuxArm64, 'latest-linux-arm64.yml')
   await writeManifest(
     linuxArm64Manifest,
@@ -710,6 +740,7 @@ async function createFixture(version = VERSION) {
     [
       { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
+      { name: names.linuxArm64AppImage, content: contents.linuxArm64AppImage },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
     names.linuxArm64Deb
@@ -720,6 +751,7 @@ async function createFixture(version = VERSION) {
     [
       { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
+      { name: names.linuxArm64AppImage, content: contents.linuxArm64AppImage },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
     names.linuxArm64Deb
@@ -752,8 +784,10 @@ async function createFixture(version = VERSION) {
       linuxArm64Companion: linuxArm64Companion.path,
       linuxArm64Manifest,
       linuxArm64Rpm: linuxArm64Rpm.path,
+      linuxArm64AppImage: linuxArm64AppImage.path,
       linuxX64Deb: linuxX64Deb.path,
       linuxX64Companion: linuxX64Companion.path,
+      linuxX64AppImage: linuxX64AppImage.path,
       linuxX64BetaManifest,
       linuxX64Manifest,
       macArm64Manifest,
