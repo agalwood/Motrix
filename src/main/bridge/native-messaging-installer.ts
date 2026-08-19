@@ -6,8 +6,8 @@ import { promisify } from 'node:util'
 const execFileAsync = promisify(execFile)
 
 /**
- * Writes Native Messaging host manifest files for Chrome, Edge, and Firefox
- * at OS-specific locations each browser scans.
+ * Writes Native Messaging host manifest files for Chrome, Edge, Firefox, and
+ * (on Linux) unbranded Chromium at OS-specific locations each browser scans.
  *
  * Chromium-family browsers expect `allowed_origins` with full
  * `chrome-extension://<id>/` URLs; Firefox expects a plain `allowed_extensions`
@@ -23,9 +23,15 @@ const execFileAsync = promisify(execFile)
 export type Platform = 'darwin' | 'linux' | 'win32'
 
 export interface ManifestPaths {
-  chromium: string
+  chrome: string
   firefox: string
   edge?: string
+  /**
+   * Unbranded Chromium (e.g. Debian/Ubuntu `chromium` packages). Linux only:
+   * on Windows Chromium has no stable HKCU vendor key we register, and on
+   * macOS the unbranded browser is not a supported target.
+   */
+  chromium?: string
 }
 
 export interface RegistryEntry {
@@ -109,14 +115,15 @@ export function computeManifestPaths(
 ): ManifestPaths {
   if (platform === 'darwin') {
     return {
-      chromium: `${home}/Library/Application Support/Google/Chrome/NativeMessagingHosts/${MANIFEST_NAME}`,
+      chrome: `${home}/Library/Application Support/Google/Chrome/NativeMessagingHosts/${MANIFEST_NAME}`,
       firefox: `${home}/Library/Application Support/Mozilla/NativeMessagingHosts/${MANIFEST_NAME}`,
       edge: `${home}/Library/Application Support/Microsoft Edge/NativeMessagingHosts/${MANIFEST_NAME}`,
     }
   }
   if (platform === 'linux') {
     return {
-      chromium: `${home}/.config/google-chrome/NativeMessagingHosts/${MANIFEST_NAME}`,
+      chrome: `${home}/.config/google-chrome/NativeMessagingHosts/${MANIFEST_NAME}`,
+      chromium: `${home}/.config/chromium/NativeMessagingHosts/${MANIFEST_NAME}`,
       firefox: `${home}/.mozilla/native-messaging-hosts/${MANIFEST_NAME}`,
       edge: `${home}/.config/microsoft-edge/NativeMessagingHosts/${MANIFEST_NAME}`,
     }
@@ -127,7 +134,7 @@ export function computeManifestPaths(
   const roamingAppData = windowsRoamingAppData ?? `${home}/AppData/Roaming`
   const manifestDir = join(roamingAppData, 'Motrix', 'bridge', 'manifests')
   return {
-    chromium: join(manifestDir, 'chrome.json'),
+    chrome: join(manifestDir, 'chrome.json'),
     edge: join(manifestDir, 'edge.json'),
     firefox: join(manifestDir, 'firefox.json'),
   }
@@ -148,7 +155,7 @@ export function computeRegistryEntries(
   // Chrome, Firefox, and Edge each discover the host through their own HKCU
   // key; only the vendor segment and the target JSON file differ per browser.
   const hosts: Array<[vendor: string, manifest: string | undefined]> = [
-    ['Google\\Chrome', paths.chromium],
+    ['Google\\Chrome', paths.chrome],
     ['Mozilla', paths.firefox],
     ['Microsoft\\Edge', paths.edge],
   ]
@@ -294,7 +301,10 @@ export class NativeMessagingInstaller {
       type: 'stdio',
       allowed_origins: args.chromium.map((id) => `chrome-extension://${id}/`),
     }
-    await this.writeJson(paths.chromium, chromiumManifest)
+    await this.writeJson(paths.chrome, chromiumManifest)
+    if (paths.chromium) {
+      await this.writeJson(paths.chromium, chromiumManifest)
+    }
     if (paths.edge) {
       await this.writeJson(paths.edge, chromiumManifest)
     }
@@ -339,9 +349,12 @@ export class NativeMessagingInstaller {
       )
     )
 
-    const manifestPaths = [paths.chromium, paths.edge, paths.firefox].filter(
-      (filePath): filePath is string => filePath !== undefined
-    )
+    const manifestPaths = [
+      paths.chrome,
+      paths.chromium,
+      paths.edge,
+      paths.firefox,
+    ].filter((filePath): filePath is string => filePath !== undefined)
     await Promise.all(
       manifestPaths.map((filePath) => this.removeOwnedManifest(filePath))
     )
