@@ -7,6 +7,7 @@ import {
   APP_RESTART_REQUIRED_KEYS,
   ENGINE_RESTART_REQUIRED_KEYS,
 } from '@shared/constants/restart-keys'
+import type { BridgeSettings } from '@shared/schemas/bridge-settings'
 import {
   bridgeSettingsSchema,
   DEFAULT_BRIDGE_SETTINGS,
@@ -18,7 +19,6 @@ import {
 import type { GeoIPSettings } from '@shared/types/geoip'
 import type {
   AppSettings,
-  BridgeSettings,
   DashboardLayoutSettings,
   EngineSettings,
   MediaSettings,
