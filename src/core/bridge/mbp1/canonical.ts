@@ -6,6 +6,7 @@
 // produced by a Rust and a browser-extension implementation, so every
 // definition here must match §2 exactly — do not "improve" the encoding.
 
+import { Buffer } from 'node:buffer'
 import { concatBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 
 export { concatBytes }
@@ -26,10 +27,17 @@ export function assertAscii(s: string, field: string): void {
   }
 }
 
-/** `len64LE(s)` — length of `s` in bytes as an 8-byte little-endian integer (§2). */
+/**
+ * `len64LE(n)` — encodes the already-computed length `n` (in bytes) as an
+ * 8-byte little-endian integer (§2). `n` must be a non-negative integer
+ * representable in 64 bits; anything else throws `ProtocolViolationError`
+ * rather than silently wrapping, since a flipped-length field must change
+ * the encoded bytes.
+ */
 export function len64LE(n: number | bigint): Uint8Array {
+  const value = assertUint64Range(n, 'len64LE')
   const view = new DataView(new ArrayBuffer(8))
-  view.setBigUint64(0, BigInt(n), true)
+  view.setBigUint64(0, value, true)
   return new Uint8Array(view.buffer)
 }
 
@@ -44,18 +52,58 @@ function asciiStringToBytes(s: string): Uint8Array {
   return utf8ToBytes(s)
 }
 
-/** `encU32BE(n)` — 4-byte big-endian unsigned integer (§2). */
+/**
+ * `encU32BE(n)` — 4-byte big-endian unsigned integer (§2). `n` must be a
+ * non-negative integer within uint32 range; out-of-range or non-integer
+ * input throws `ProtocolViolationError` instead of silently wrapping.
+ */
 export function encU32BE(n: number): Uint8Array {
+  if (!Number.isInteger(n) || n < 0 || n >= 2 ** 32) {
+    throw new ProtocolViolationError(
+      'encU32BE input must be a non-negative integer within uint32 range'
+    )
+  }
   const view = new DataView(new ArrayBuffer(4))
   view.setUint32(0, n, false)
   return new Uint8Array(view.buffer)
 }
 
-/** `encU64BE(n)` — 8-byte big-endian unsigned integer (§2). */
+/**
+ * `encU64BE(n)` — 8-byte big-endian unsigned integer (§2). `n` must be a
+ * non-negative integer representable in 64 bits; out-of-range or
+ * non-integer input throws `ProtocolViolationError` instead of silently
+ * wrapping.
+ */
 export function encU64BE(n: number | bigint): Uint8Array {
+  const value = assertUint64Range(n, 'encU64BE')
   const view = new DataView(new ArrayBuffer(8))
-  view.setBigUint64(0, BigInt(n), false)
+  view.setBigUint64(0, value, false)
   return new Uint8Array(view.buffer)
+}
+
+/**
+ * Shared range/integer check for the two 64-bit integer encoders. Handles
+ * both arms of the `number | bigint` union and returns the validated value
+ * as a `bigint` ready for `DataView.setBigUint64`. `DataView` itself does
+ * not throw on negative or overflowing input — it silently wraps — which
+ * would break the protocol's requirement that any flipped wire field
+ * changes the encoded (and later, MAC'd/digested) bytes.
+ */
+function assertUint64Range(n: number | bigint, field: string): bigint {
+  if (typeof n === 'bigint') {
+    if (n < 0n || n >= 2n ** 64n) {
+      throw new ProtocolViolationError(
+        `${field} input must be a non-negative integer within uint64 range`
+      )
+    }
+    return n
+  }
+  if (!Number.isInteger(n) || n < 0 || n >= 2 ** 64) {
+    throw new ProtocolViolationError(
+      `${field} input must be a non-negative integer within uint64 range`
+    )
+  }
+  return BigInt(n)
 }
 
 const BASE64URL_ALPHABET = /^[A-Za-z0-9_-]*$/

@@ -7,6 +7,7 @@ import {
   encU64BE,
   fromBase64Url,
   len64LE,
+  ProtocolViolationError,
   toBase64Url,
 } from './canonical'
 
@@ -56,5 +57,24 @@ describe('canonical encoding (§2)', () => {
   })
   it('enc rejects non-ASCII strings', () => {
     expect(() => enc('mötrix')).toThrow()
+  })
+  it('len64LE rejects out-of-range or non-integer input', () => {
+    expect(() => len64LE(-1)).toThrow(ProtocolViolationError)
+    expect(() => len64LE(-1n)).toThrow(ProtocolViolationError)
+    expect(() => len64LE(2 ** 64)).toThrow(ProtocolViolationError)
+    expect(() => len64LE(2n ** 64n)).toThrow(ProtocolViolationError)
+    expect(() => len64LE(1.5)).toThrow(ProtocolViolationError)
+  })
+  it('encU32BE rejects out-of-range or non-integer input', () => {
+    expect(() => encU32BE(-1)).toThrow(ProtocolViolationError)
+    expect(() => encU32BE(2 ** 32)).toThrow(ProtocolViolationError)
+    expect(() => encU32BE(1.5)).toThrow(ProtocolViolationError)
+  })
+  it('encU64BE rejects out-of-range or non-integer input', () => {
+    expect(() => encU64BE(-1)).toThrow(ProtocolViolationError)
+    expect(() => encU64BE(-1n)).toThrow(ProtocolViolationError)
+    expect(() => encU64BE(2 ** 64)).toThrow(ProtocolViolationError)
+    expect(() => encU64BE(2n ** 64n)).toThrow(ProtocolViolationError)
+    expect(() => encU64BE(1.5)).toThrow(ProtocolViolationError)
   })
 })
