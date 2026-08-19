@@ -151,6 +151,7 @@ import { MenuRegistry } from './menu/menu-registry'
 import { createNatManager } from './nat/nat-manager-factory'
 import { createOsNotificationBridge } from './notifications/os-bridge'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
+import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
@@ -562,6 +563,9 @@ const protocolManager = createProtocolManager({
   getWindow: () => windowManager?.get('main') ?? null,
   settingsManager,
   torrentParser,
+  // In an AppImage, appimage-integration owns the scheme defaults; don't let
+  // Electron's setAsDefaultProtocolClient race it (see ProtocolManagerDeps).
+  isAppImage: process.platform === 'linux' && Boolean(process.env.APPIMAGE),
   // External URL clicks (magnet/http(s)/ftp and
   // motrix://new-task?uri=...) open add-task with Links prefilled.
   onOpenAddTask: (params) => {
@@ -1442,6 +1446,15 @@ async function initializeMainProcess(): Promise<void> {
   if (!mainProcessWork.isAccepting()) return
   syncAutoLaunch(settingsManager.getApp().launchAtStartup)
   protocolManager.register()
+
+  // Linux AppImage self-integration (desktop entry, icon, URL-scheme handlers).
+  // No-op on other platforms/packagings; deferred so the one-time consent
+  // dialog never blocks startup.
+  runShellAsyncWork('appimage-integration', () =>
+    setupAppImageIntegration({
+      getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
+    })
+  )
 
   // ── Phase 2: Initialize services while renderer loads ─────
   // The renderer needs time to load JS bundles and render React.

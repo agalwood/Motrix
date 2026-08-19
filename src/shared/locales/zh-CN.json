@@ -1503,7 +1503,26 @@
           "fileMissing": "该路径不存在。"
         }
       },
-      "pairResolveFailed": "提交决定失败，请重试。"
+      "pairResolveFailed": "提交决定失败，请重试。",
+      "appimage": {
+        "title": "桌面集成",
+        "desc": "将此 Motrix AppImage 注册到桌面环境，让浏览器和磁力链接能把下载交给它。",
+        "enable": "启用桌面集成",
+        "remove": "移除桌面集成",
+        "prompt": {
+          "title": "将 Motrix 集成到桌面环境？",
+          "message": "允许此 Motrix AppImage 注册到你的桌面环境吗？",
+          "detail": "Motrix 会在你的用户数据目录下添加桌面入口和图标，并把自己注册为 motrix: 链接、磁力链接和 .torrent 文件的处理程序。这样浏览器和 Motrix 扩展就能唤起 Motrix 并把下载交给它。不会写入 home 目录以外的位置，你可以随时在设置中撤销。",
+          "accept": "集成",
+          "decline": "暂不"
+        },
+        "status": {
+          "failedTitle": "桌面集成未完成",
+          "failedDetail": "Motrix 未能把自己注册为链接处理程序。在你重新启用桌面集成之前，浏览器唤起可能无法工作。",
+          "externalManaged": "桌面集成由另一个 Motrix 安装提供。"
+        },
+        "movedHint": "如果在 Motrix 未运行时移动 AppImage，链接可能无法唤起，直到你从新位置手动启动一次 Motrix。"
+      }
     }
   },
   "menu": {

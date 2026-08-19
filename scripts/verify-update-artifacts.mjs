@@ -12,12 +12,12 @@ const MANIFEST_PLATFORMS = [
   {
     suffix: '-linux',
     legacyExtension: '.deb',
-    requiredExtensions: ['.deb', '.rpm'],
+    requiredExtensions: ['.deb', '.rpm', '.AppImage'],
   },
   {
     suffix: '-linux-arm64',
     legacyExtension: '.deb',
-    requiredExtensions: ['.deb', '.rpm'],
+    requiredExtensions: ['.deb', '.rpm', '.AppImage'],
   },
 ]
 

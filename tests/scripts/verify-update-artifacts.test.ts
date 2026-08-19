@@ -30,16 +30,20 @@ describe('verifyUpdateArtifacts', () => {
     const fixture = await makeTempDir()
     const deb = Buffer.from('signed Linux arm64 deb')
     const rpm = Buffer.from('signed Linux arm64 rpm')
+    const appImage = Buffer.from('signed Linux arm64 AppImage')
     const debName = 'Motrix_2.0.0_arm64.deb'
     const rpmName = 'Motrix-2.0.0.aarch64.rpm'
+    const appImageName = 'Motrix-2.0.0-arm64.AppImage'
     await writeFile(path.join(fixture, debName), deb)
     await writeFile(path.join(fixture, rpmName), rpm)
+    await writeFile(path.join(fixture, appImageName), appImage)
     await writeFile(
       path.join(fixture, 'latest-linux-arm64.yml'),
       manifest(
         [
           { name: debName, content: deb },
           { name: rpmName, content: rpm },
+          { name: appImageName, content: appImage },
         ],
         debName
       )
@@ -49,7 +53,7 @@ describe('verifyUpdateArtifacts', () => {
       verifyUpdateArtifacts({ directory: fixture, version: '2.0.0' })
     ).resolves.toEqual({
       manifests: ['latest-linux-arm64.yml'],
-      assets: [debName, rpmName],
+      assets: [debName, rpmName, appImageName],
     })
   })
 
@@ -206,7 +210,7 @@ describe('verifyUpdateArtifacts', () => {
     ).rejects.toThrow('legacy path/sha512 does not match files[]')
   })
 
-  it('requires both deb and rpm entries in Linux update manifests', async () => {
+  it('requires deb, rpm, and AppImage entries in Linux update manifests', async () => {
     const fixture = await makeTempDir()
     const deb = Buffer.from('deb only')
     const debName = 'Motrix_2.0.0_amd64.deb'
@@ -219,6 +223,24 @@ describe('verifyUpdateArtifacts', () => {
     await expect(
       verifyUpdateArtifacts({ directory: fixture, version: '2.0.0' })
     ).rejects.toThrow('a .rpm asset is required for auto-update')
+
+    // With deb + rpm but no AppImage, the AppImage requirement is what fails.
+    const rpm = Buffer.from('rpm')
+    const rpmName = 'Motrix-2.0.0.x86_64.rpm'
+    await writeFile(path.join(fixture, rpmName), rpm)
+    await writeFile(
+      path.join(fixture, 'latest-linux.yml'),
+      manifest(
+        [
+          { name: debName, content: deb },
+          { name: rpmName, content: rpm },
+        ],
+        debName
+      )
+    )
+    await expect(
+      verifyUpdateArtifacts({ directory: fixture, version: '2.0.0' })
+    ).rejects.toThrow('a .AppImage asset is required for auto-update')
   })
 })
 

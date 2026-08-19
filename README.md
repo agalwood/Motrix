@@ -133,9 +133,12 @@ operating system and architecture:
 |----------|---------------|--------------------|----------------|
 | macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
-| Linux | `x64`, `arm64` | `.deb` / `.rpm` | Use `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
+| Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 
-This beta does not publish an AppImage or Snap. Flatpak is validated separately
+The `.AppImage` asks on first launch whether to register its desktop entry and
+URL-scheme handlers under your user data directory; declining leaves your system
+untouched.
+This beta does not publish a Snap. Flatpak is validated separately
 and is not published by the release tag. Windows `arm64` and all 32-bit
 packages are not available. Windows `x64` packages are unsigned and may
 trigger a Windows SmartScreen warning.

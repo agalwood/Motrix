@@ -179,6 +179,7 @@
         "GenericName": "Download Manager",
         "Comment": "Full-featured download manager",
         "Keywords": "download;bittorrent;magnet;aria2;",
+        "MimeType": "application/x-bittorrent;x-scheme-handler/magnet;x-scheme-handler/motrix;",
         "StartupWMClass": "Motrix"
       }
     },
@@ -190,6 +191,10 @@
     "extraResources": [
       { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
       { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
+      {
+        "from": "./build/256x256.png",
+        "to": "./icons/motrix-appimage-256.png"
+      },
       { "from": "./extra/linux/${arch}/", "to": "./extra/linux/${arch}/" },
       {
         "from": "./packages/native-host/dist/linux-${arch}/motrix-native-host",

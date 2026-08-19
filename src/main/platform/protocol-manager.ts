@@ -13,6 +13,14 @@ export interface ProtocolManagerDeps {
   getWindow: () => BrowserWindow | null
   settingsManager: SettingsManager
   torrentParser: TorrentParser
+  // When running as a packaged Linux AppImage, the AppImage desktop
+  // self-integration (src/main/platform/appimage-integration.ts) owns the
+  // `motrix:`/`magnet:` scheme defaults via a user-scope `.desktop` file. In
+  // that environment we must NOT also call Electron's
+  // `setAsDefaultProtocolClient`, which writes its own competing desktop entry
+  // and mutates the XDG default — that would race the integration's
+  // external-owner detection and corrupt the recorded prior default handler.
+  isAppImage?: boolean
   // Open (or focus) the add-task window with URL prefill. Wired in
   // main/index.ts to open the window + dispatch SetAddTaskMode once the
   // renderer's first paint + useEffect have completed.
@@ -72,6 +80,13 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
   return {
     register() {
       if (!app.isPackaged) return
+
+      // In an AppImage, the desktop self-integration owns scheme registration;
+      // calling Electron's registrar here would fight it. See ProtocolManagerDeps.
+      if (deps.isAppImage) {
+        log.info('appimage: scheme registration owned by desktop integration')
+        return
+      }
 
       app.setAsDefaultProtocolClient('motrix')
 

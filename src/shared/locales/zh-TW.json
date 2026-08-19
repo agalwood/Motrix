@@ -1503,7 +1503,26 @@
           "fileMissing": "此路徑不存在檔案。"
         }
       },
-      "pairResolveFailed": "無法提交您的決定，請再試一次。"
+      "pairResolveFailed": "無法提交您的決定，請再試一次。",
+      "appimage": {
+        "title": "桌面整合",
+        "desc": "將此 Motrix AppImage 註冊到桌面環境，讓瀏覽器和磁力連結能把下載交給它。",
+        "enable": "啟用桌面整合",
+        "remove": "移除桌面整合",
+        "prompt": {
+          "title": "將 Motrix 整合到桌面環境？",
+          "message": "允許此 Motrix AppImage 註冊到您的桌面環境嗎？",
+          "detail": "Motrix 會在您的使用者資料目錄下新增桌面項目和圖示，並把自己註冊為 motrix: 連結、磁力連結和 .torrent 檔案的處理程式。這樣瀏覽器和 Motrix 擴充功能就能喚起 Motrix 並把下載交給它。不會寫入 home 目錄以外的位置，您可以隨時在設定中撤銷。",
+          "accept": "整合",
+          "decline": "暫不"
+        },
+        "status": {
+          "failedTitle": "桌面整合未完成",
+          "failedDetail": "Motrix 未能把自己註冊為連結處理程式。在您重新啟用桌面整合之前，瀏覽器喚起可能無法運作。",
+          "externalManaged": "桌面整合由另一個 Motrix 安裝提供。"
+        },
+        "movedHint": "如果在 Motrix 未執行時移動 AppImage，連結可能無法喚起，直到您從新位置手動啟動一次 Motrix。"
+      }
     }
   },
   "errors": {

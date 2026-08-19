@@ -152,6 +152,30 @@ describe('createProtocolManager', () => {
 
       expect(mockSetAsDefault).not.toHaveBeenCalled()
     })
+
+    it('skips Electron scheme registration in an AppImage (integration owns it)', () => {
+      const {
+        getWindow,
+        settingsManager,
+        torrentParser,
+        onOpenAddTask,
+        deliverToAddTask,
+        onOpenPluginDetail,
+      } = makeDeps(true)
+      const pm = createProtocolManager({
+        getWindow,
+        settingsManager,
+        torrentParser,
+        onOpenAddTask,
+        deliverToAddTask,
+        onOpenPluginDetail,
+        isAppImage: true,
+      })
+      pm.register()
+
+      expect(mockSetAsDefault).not.toHaveBeenCalled()
+      expect(mockRemoveDefault).not.toHaveBeenCalled()
+    })
   })
 
   describe('handle', () => {
