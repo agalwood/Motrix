@@ -115,10 +115,10 @@ Ed25519 MUST come from bundled, independently audited libraries pinned at an
 **exact** version on the TypeScript side: **`@noble/curves@2.0.1`** and
 **`@noble/hashes@2.0.1`** (the versions the normative test vectors were
 generated with). The Cure53 audit of September 2024 was performed at
-`@noble/curves` 1.6.0; the audit basis for the 2.0.1 pin — that audit plus a
-maintainer-reviewed upstream diff from 1.6.0 to 2.0.1 — is recorded in the
-review log (Appendix C), where the diff review is marked pending maintainer
-confirmation before Phase-A release. Any version bump re-runs the full vector
+`@noble/curves` 1.6.0. **Pending confirmation before Phase-A release:** the
+maintainer review of the upstream diff from 1.6.0 to 2.0.1 that completes the
+audit basis for this pin has not yet been performed; the review log
+(Appendix C) records this status. Any version bump re-runs the full vector
 suite and updates this pin.
 WebCrypto X25519/Ed25519 MUST NOT be used: it requires Chrome 133 / Firefox
 130, while the extension supports Chrome 120+ / Firefox 121+ (see Appendix B).

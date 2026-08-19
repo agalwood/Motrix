@@ -97,10 +97,10 @@ N = d3bfb518f44f3430f29d0c92af503865a1ed3281dc69b35dd868ba85f886c4ab
 **实现来源。** 曲线运算、SPAKE2 组合、scrypt 与 Ed25519 MUST 来自捆绑的、经
 独立审计的库并以**精确版本**锁定：TypeScript 侧为 **`@noble/curves@2.0.1`**
 与 **`@noble/hashes@2.0.1`**（即生成规范性测试向量所用的版本）。Cure53
-2024 年 9 月的审计基于 `@noble/curves` 1.6.0；2.0.1 锁定版本的审计依据——
-该审计加上一次从 1.6.0 到 2.0.1、经 maintainer 审阅的上游 diff——已记录在
-审查日志（附录 C）中，其中 diff 审阅一项标记为 Phase-A 发布前待 maintainer
-确认。任何版本升级都要重跑全部向量并更新此锁定。
+2024 年 9 月的审计基于 `@noble/curves` 1.6.0。**Phase-A 发布前待确认：**
+补全此锁定版本审计依据所需的、对 1.6.0 到 2.0.1 上游 diff 的 maintainer
+审阅尚未进行；审查日志（附录 C）记录了这一状态。任何版本升级都要重跑
+全部向量并更新此锁定。
 MUST NOT 使用 WebCrypto 的 X25519/Ed25519：其要求 Chrome 133 / Firefox
 130，而扩展
 支持 Chrome 120+ / Firefox 121+（见附录 B）。对称原语（AES-256-GCM、
