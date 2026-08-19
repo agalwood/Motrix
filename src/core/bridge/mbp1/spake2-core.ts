@@ -198,6 +198,10 @@ function decodePoint(
  * caller decides what an identity contains: MBP1 passes the §6.4 composites,
  * while the RFC 9382 vectors pass the bare identity strings. The layout is
  * identical either way.
+ *
+ * `w` must already be reduced mod the group order — `deriveW` guarantees that.
+ * The value is encoded as given, so an unreduced `w` would produce a
+ * transcript inconsistent with the `pA` the caller derived from it.
  */
 export function buildTT(
   aIdentity: Uint8Array,
@@ -285,10 +289,15 @@ function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
 /**
  * `I2OSP(w, 32)` — big-endian, zero-padded to the constant transcript width
  * required by RFC 9382 §3.3 (§6.4).
+ *
+ * A negative or oversized `w` is a broken local invariant, not peer-supplied
+ * data, so these throw plain `Error`: `ProtocolViolationError` is mapped onto
+ * the peer-facing `protocolViolation` pairError, and reporting our own bug as
+ * the peer's violation would misattribute the failure.
  */
 function i2ospScalar(w: bigint): Uint8Array {
   if (w < 0n) {
-    throw new ProtocolViolationError('w must be non-negative')
+    throw new Error('w must be non-negative')
   }
   const out = new Uint8Array(SCALAR_BYTES)
   let remaining = w
@@ -297,7 +306,7 @@ function i2ospScalar(w: bigint): Uint8Array {
     remaining >>= 8n
   }
   if (remaining !== 0n) {
-    throw new ProtocolViolationError('w does not fit in 32 bytes')
+    throw new Error('w does not fit in 32 bytes')
   }
   return out
 }

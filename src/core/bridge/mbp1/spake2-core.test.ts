@@ -195,6 +195,15 @@ describe('SPAKE2 core — MBP1 edwards25519 vectors', () => {
 describe('drawScalar rejection sampling (§6.3)', () => {
   const order = EDWARDS25519_GROUP.order
 
+  // Pinned against the §3 literal rather than against itself. The vectors
+  // constrain the cofactor and M/N through pA/pB/K, but nothing constrains
+  // `order`: noble validates scalars against its own curve params, and the
+  // rejection bounds below are derived from this same constant — so an
+  // `Fn.ORDER` → `Fp.ORDER` slip would pass every other test in this file.
+  it('exposes the edwards25519 group order ℓ from §3', () => {
+    expect(order).toBe(2n ** 252n + 27742317777372353535851937790883648493n)
+  })
+
   it('redraws on 0 and on values at or above the order', () => {
     const queue = [
       scalarBytes(order + 1n),
@@ -265,22 +274,66 @@ describe('SPAKE2 core failure handling', () => {
   // cofactor into the scalar as `(pB − w·N)·(h·x mod ℓ)` — the plausible
   // "simplification" of `sharedSecret` — passes every published vector, RFC
   // 9382 Appendix B and MBP1 alike: those vectors are generated from honest
-  // shares, so `pB − w·N` is torsion-free and the two forms agree exactly on
-  // the prime-order subgroup. They diverge only against a peer point carrying
-  // a low-order component, which is what this test constructs. Verified by
-  // mutation: with the folded form, all 27 other tests here stay green and
-  // only this one fails.
-  it('clears a torsion component added to the peer share', () => {
-    const orderTwoPoint = G.Point.fromBytes(
-      hexToBytes(
-        'ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f'
-      )
+  // shares, so `pB − w·N` is torsion-free and both forms agree exactly on the
+  // prime-order subgroup.
+  //
+  // A torsion-carrying peer point is necessary but NOT automatically
+  // sufficient to separate them. Writing `s = 8x mod ℓ`, the two forms differ
+  // by exactly `(s mod ord(T))·T`, so the torsion point's order decides how
+  // often the guard bites:
+  //
+  //   - order 2 (the point `ecff…7f`): differ only when `s` is odd, i.e. when
+  //     `floor(8x/ℓ)` is odd — true for this vector's `x`, but a coin flip over
+  //     `x` in general. Such a guard would silently stop discriminating if the
+  //     vectors were ever regenerated.
+  //   - order 8 (used below): since ℓ ≡ 5 (mod 8), `s mod 8 = 3·floor(8x/ℓ)
+  //     mod 8`, which vanishes only when `floor(8x/ℓ) = 0`. In that case
+  //     `s = 8x` exactly and the two forms are the *same expression*, so no
+  //     test could separate them. Order 8 is therefore maximally
+  //     discriminating: it bites for every `x` where biting is possible.
+  //
+  // The explicit folded-form assertion below keeps this self-checking — if a
+  // future fixture ever stops separating the two forms, the build fails loudly
+  // instead of going quietly blind. Verified by mutation: with the folded form
+  // in `sharedSecret`, this is the single failing test in the file (29 of 30
+  // stay green, the order-8 check among them since it never calls the core).
+  const orderEightPoint = G.Point.fromBytes(
+    hexToBytes(
+      '26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05'
     )
-    const tainted = G.encodePoint(
-      G.Point.fromBytes(hexToBytes(v0.expected.pB)).add(orderTwoPoint)
-    )
+  )
 
-    expect(tainted).not.toEqual(hexToBytes(v0.expected.pB))
-    expect(bytesToHex(sharedFromA(G, w, x, tainted))).toBe(v0.expected.K)
+  it('uses a torsion point of order exactly 8', () => {
+    expect(orderEightPoint.multiplyUnsafe(8n).is0()).toBe(true)
+    expect(orderEightPoint.multiplyUnsafe(4n).is0()).toBe(false)
+  })
+
+  it('clears a torsion component added to the peer share', () => {
+    const taintedB = G.encodePoint(
+      G.Point.fromBytes(hexToBytes(v0.expected.pB)).add(orderEightPoint)
+    )
+    const taintedA = G.encodePoint(
+      G.Point.fromBytes(hexToBytes(v0.expected.pA)).add(orderEightPoint)
+    )
+    expect(taintedB).not.toEqual(hexToBytes(v0.expected.pB))
+    expect(taintedA).not.toEqual(hexToBytes(v0.expected.pA))
+
+    expect(bytesToHex(sharedFromA(G, w, x, taintedB))).toBe(v0.expected.K)
+    expect(bytesToHex(sharedFromB(G, w, y, taintedA))).toBe(v0.expected.K)
+
+    // Self-check: the folded form must actually disagree on these inputs,
+    // otherwise the assertions above prove nothing about the cofactor.
+    const foldedFromA = G.encodePoint(
+      G.Point.fromBytes(taintedB)
+        .subtract(G.N.multiply(w))
+        .multiply((G.cofactor * x) % G.order)
+    )
+    const foldedFromB = G.encodePoint(
+      G.Point.fromBytes(taintedA)
+        .subtract(G.M.multiply(w))
+        .multiply((G.cofactor * y) % G.order)
+    )
+    expect(bytesToHex(foldedFromA)).not.toBe(v0.expected.K)
+    expect(bytesToHex(foldedFromB)).not.toBe(v0.expected.K)
   })
 })
