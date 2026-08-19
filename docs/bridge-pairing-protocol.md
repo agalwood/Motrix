@@ -110,8 +110,13 @@ N = d3bfb518f44f3430f29d0c92af503865a1ed3281dc69b35dd868ba85f886c4ab
 
 **Implementation source.** Curve arithmetic, SPAKE2 composition, scrypt, and
 Ed25519 MUST come from bundled, independently audited libraries pinned at an
-**exact** version: `@noble/curves` (no older than 1.6.0 — the Cure53 audit of
-September 2024 covers ed25519) and `@noble/hashes` on the TypeScript side.
+**exact** version on the TypeScript side: **`@noble/curves@2.0.1`** and
+**`@noble/hashes@2.0.1`** (the versions the normative test vectors were
+generated with). The Cure53 audit of September 2024 was performed at
+`@noble/curves` 1.6.0; before Phase-A release the maintainers MUST record the
+audit basis for the pinned version — a reviewed upstream diff from the audited
+release, or a newer audit — in the review log (Appendix C). Any version bump
+re-runs the full vector suite and updates this pin.
 WebCrypto X25519/Ed25519 MUST NOT be used: it requires Chrome 133 / Firefox
 130, while the extension supports Chrome 120+ / Firefox 121+ (see Appendix B).
 Symmetric primitives (AES-256-GCM, HKDF-SHA-256, HMAC-SHA-256) MAY use
@@ -306,7 +311,7 @@ w    = OS2IP(h) mod ℓ
 
 `pairNonce` is the exact ASCII nonce string consumed by this `/pair`
 connection, making `w` session-unique. If `w = 0`, abort with
-`pairingFailed` (probability ≈ 2^-188; no retry semantics are attached).
+`pairingFailed` (probability ≈ 2^-252; no retry semantics are attached).
 Reducing a 512-bit hash mod ℓ leaves negligible bias (RFC 9382 §3.2 requires
 only 64 extra bits). scrypt is used as the RFC-recommended MHF; its cost is
 paid once per attempt and additionally forecloses offline grinding of a
@@ -316,8 +321,9 @@ recorded active-attack transcript even within the code's lifetime.
 
 Per [RFC 9382] §3.3 with A = extension, B = Motrix:
 
-- A draws `x`: 64 CSPRNG bytes, `x = OS2IP(bytes) mod ℓ`, redraw on 0.
-  `X = x·P`, `pA = w·M + X`.
+- A draws `x` uniformly from `[1, ℓ)` by **rejection sampling** ([RFC 9382]
+  §7): draw 32 CSPRNG bytes, interpret big-endian, redraw while the value is 0
+  or ≥ ℓ. `X = x·P`, `pA = w·M + X`.
 - B draws `y` the same way. `Y = y·P`, `pB = w·N + Y`.
 - Received points MUST decode as canonical RFC 8032 encodings of points on
   the curve; anything else aborts with `protocolViolation`. (noble-curves
@@ -348,11 +354,19 @@ TT = enc(A_id) ‖ enc(B_id) ‖ enc(pA) ‖ enc(pB) ‖ enc(K) ‖ enc(I2OSP(w,
 **AAD** (bound into confirmation keys, RFC 9382 §4):
 
 ```
-AAD = encU32BE(protocolVersion) ‖ enc(pairNonce) ‖ enc(bindingPubOrEmpty)
+AAD = encU32BE(protocolVersion) ‖ enc(pairNonce) ‖ enc(ticketDigestOrEmpty)
+ticketDigest = SHA-256(canonical ‖ mac)
 ```
 
-where `bindingPubOrEmpty` is the raw 32-byte `ticketBindingKey` when an
-`nmTicket` was presented, else the empty string.
+where, when an `nmTicket` was presented, `canonical` is the ticket's §9.2
+canonical MAC input (which includes `bindingPub`) and `mac` its 32-byte MAC —
+each side computing over the ticket exactly as it sent/received it — and
+`ticketDigestOrEmpty` is the empty string when no ticket was presented. An
+in-path attacker that modifies any ticket byte (including its MAC) therefore
+desynchronizes the AAD and breaks key confirmation: ticket tampering **fails
+the pairing closed** instead of silently downgrading it. A ticket both sides
+see identically but which fails validation (§9.2) still downgrades visibly to
+`unverified`.
 
 ### 6.5 Key schedule and confirmation
 
@@ -368,21 +382,35 @@ cB = HMAC-SHA-256(KcB, TT)
 
 A sends `cA` first. B MUST verify `cA` (and `ticketProof` when a ticket was
 presented: an Ed25519 signature by the ticket-binding private key over
-`"MBP1/ticket-proof/v1" ‖ TT`, verified against the ticket's `bindingPub`)
-before sending `cB`. A MUST verify `cB` before sending anything further. Both
+`"MBP1/ticket-proof/v1" ‖ TT`, verified against the ticket's `bindingPub`
+under the strict RFC 8032 rules of §9.1 — never ZIP-215/cofactored
+verification) before sending `cB`. A MUST verify `cB` before sending anything
+further. Both
 verifications are constant-time. A failed verification is a **failed attempt**
 (§7.2) and B responds with `pairError {code:"codeMismatch",
 attemptsRemaining}` — after which a fresh run (new `pakeA` with fresh `x`,
 same code while it lives) MAY follow on the same connection.
+
+**Both sides enforce the attempt limits independently.** The extension MUST
+enforce its own ceiling of **3 protocol runs per pairing session** and an
+absolute session deadline of **180 s** from `pairHello`, plus its own global
+failure backoff, regardless of what the peer reports: a server-supplied
+`attemptsRemaining` is untrusted display data and MUST NOT extend the local
+limits. Without this, a fake or relaying listener could feed the client
+`codeMismatch` indefinitely and harvest one password test per induced run.
 
 ### 6.6 Pair-session traffic keys
 
 After mutual confirmation:
 
 ```
-kC2S = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-traffic-c2s", L=32)
-kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-traffic-s2c", L=32)
+kC2S = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-c2s", L=32)
+kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L=32)
 ```
+
+The `info` labels are deliberately distinct from the reconnect labels (§8):
+every HKDF/HMAC invocation in MBP1 carries a globally unique label, so key
+separation never rests on incidental differences in IKM or salt alone.
 
 All subsequent frames on the connection, both directions — credential
 messages and MDXP alike — travel inside the AEAD envelope (§10).
@@ -410,9 +438,17 @@ Atomicity rules:
   complete reconnect, or the client re-pairs.
 - Provisional server credentials expire (default 10 minutes) if never acked
   or used.
-- On **rotation** (same flow run inside an authenticated `/v1` session) the
-  old credential is invalidated **only after** the new one reaches
-  `committed`/promoted. Revocation closes live sessions.
+- On **rotation** (same flow run inside an authenticated `/v1` session):
+  commit-new and revoke-old MUST be a **single durable server transaction**
+  (or a rotation journal replayed on startup), so a crash can never leave
+  both credentials valid or neither. The client keeps an explicit
+  active-credential pointer with deterministic recovery ordering: on
+  reconnect it MUST try the **newest provisional credential first** (the
+  server persists its provisional before offering, so this succeeds whenever
+  the offer was sent), promote it on success, and delete the superseded
+  entry; only if that credential is rejected with `authFailed` does it fall
+  back to the previous committed credential and discard the orphaned
+  provisional one. Explicit revocation closes live sessions.
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
@@ -456,9 +492,11 @@ retry. Implementations MUST test worker death both before and after approval.
 - The code dies at the earliest of: **120 s** after generation, the dialog
   being dismissed, the WebSocket closing, or the **3rd failed attempt**.
 - A **failed attempt** is any protocol run on the session that reaches `pakeA`
-  and ends without mutual confirmation (bad `cA`, bad `ticketProof`, identity
-  `K`, malformed point after `pakeA`). Attempt accounting is per session and
-  server-side.
+  and ends without mutual confirmation **for any reason** — bad `cA`, bad
+  `ticketProof`, identity `K`, malformed point after `pakeA`, protocol abort,
+  or the socket closing mid-run. Attempt accounting is kept independently on
+  both sides (§6.5); disconnection MUST NOT reset it below what the code has
+  already consumed.
 - After the 3rd failure the server sends
   `pairError {code:"rateLimited"}`, closes the socket, and invalidates the
   nonce and code.
@@ -469,12 +507,14 @@ retry. Implementations MUST test worker death both before and after approval.
   requests beyond the pending cap (default 3 queued) are rejected with
   `pairError {code:"busy"}` **before** any session mutation. Pending-pair
   dedup is keyed by verified origin.
-- A global failure counter increments whenever a pairing session ends with
-  its code exhausted or expired unapproved. Before dialog `n` (counting
-  consecutive failures), the server enforces a lockout of
-  `min(30 · 2^(n−1), 3600)` seconds during which new `/pair` sessions are
-  rejected with `rateLimited`. The counter resets on a successful pairing or
-  after 24 h.
+- A global failure counter increments whenever a pairing session that queued
+  a dialog **or consumed at least one attempt** ends without mutual
+  confirmation — including disconnects, aborts, dismissals, expiry, and
+  exhaustion. A guesser therefore cannot dodge the counter by closing the
+  socket before exhausting a code. Before dialog `n` (counting consecutive
+  failures), the server enforces a lockout of `min(30 · 2^(n−1), 3600)`
+  seconds during which new `/pair` sessions are rejected with `rateLimited`.
+  The counter resets on a successful pairing or after 24 h.
 - The counter is process-lifetime state; a same-UID attacker who can restart
   Motrix is out of scope (§1.1). The 40-bit code space at 3 attempts per
   session and this lockout schedule yields a success probability for an
@@ -486,8 +526,15 @@ retry. Implementations MUST test worker death both before and after approval.
 
 ## 8. Reconnect — challenge–response on `/v1`
 
-`/v1` upgrades carry **no** credentials in the URL. After upgrade (Host and
-Origin checks as in §4.3/§5), the server speaks first:
+`/v1` upgrades carry **no** credentials in the URL. Pre-channel messages on
+`/v1` follow exactly the §6.1 framing rules: single WebSocket text frames,
+one JSON object with a `type` discriminator per frame, base64url binary
+fields, a 16 KiB pre-authentication frame cap, and abort with
+`protocolViolation` on unknown types, out-of-order or duplicate messages,
+oversized frames, or schema-invalid JSON. The whole challenge–response MUST
+complete within **10 s** of the upgrade or the server closes the socket.
+After upgrade (Host and Origin checks as in §4.3/§5), the server speaks
+first:
 
 ```json
 { "type": "reconnectChallenge", "protocolVersion": 1, "S": "<b64url 32 CSPRNG bytes>" }
@@ -551,6 +598,18 @@ is the **only** ticket type in MBP1.
 
 1. The extension generates an **ephemeral Ed25519 keypair** (`bindingPriv`,
    `bindingPub`) for this bootstrap.
+
+   **Binding-key validation (server side).** `bindingPub` MUST decode as a
+   canonical RFC 8032 point encoding that is on the curve, is **not the
+   identity, not of small order, and lies in the prime-order subgroup**
+   (torsion-free); anything else makes the ticket invalid. `ticketProof`
+   MUST be verified with **strict RFC 8032 semantics** (canonical `R`,
+   `S < ℓ`, cofactorless equation — with noble-curves, `zip215: false`);
+   ZIP-215/cofactored verification MUST NOT be used. Without the small-order
+   check, `bindingPub` = identity with `ticketProof` = (identity ‖ 0) passes
+   even the strict verification equation for every message, turning the
+   ticket into a bearer object. Implementations MUST include every
+   small-order/torsion point encoding as negative tests.
 2. Extension → host: `{ "action": "bootstrap", "protocolVersion": 1,
    "bindingPub": "<b64url 32 bytes>" }`.
 3. The host reads `endpoint.json` (0600 owner-only — that file ownership *is*
@@ -588,21 +647,34 @@ Canonical MAC input (field order fixed, independent of JSON key order):
 ticketKey = HKDF-SHA-256(ikm=UTF8(localToken), salt="MBP1/nm-ticket/v1",
                          info="mac", L=32)
 mac = HMAC-SHA-256(ticketKey,
-        enc("mbp1-attestation") ‖ encU32BE(protocolVersion)
+        enc("mbp1-attestation") ‖ encU32BE(v) ‖ encU32BE(protocolVersion)
       ‖ enc(serverGeneration) ‖ enc(browser) ‖ enc(callerId)
       ‖ encU64BE(exp) ‖ enc(bindingPub raw 32 bytes))
 ```
 
-Validation (server): recompute `mac` in constant time; `purpose` and
+Every wire field of the ticket except `mac` itself is covered by the MAC —
+including the format version `v` — so no field can be swapped independently.
+
+Validation (server): recompute `mac` in constant time; `v`, `purpose`, and
 `protocolVersion` exact; `serverGeneration` equals the server's **current
 generation** — a UUIDv4 regenerated at every bridge-server start and published
 to the host as a new `generation` field in `endpoint.json` (additive; the
 existing `writtenAt` stays diagnostic-only); `exp` in the future and at most
 60 s from mint; the ticket unseen before (one-shot: the server caches the MAC
 until `exp`); `callerId` equal to `pairHello.claimedExtensionId`; `bindingPub`
-equal to `pairHello.ticketBindingKey`. Any failure downgrades the pairing to
-`unverified` **and** is surfaced as such in the dialog; it does not abort the
-pairing (the code-entry anchor still applies).
+equal to `pairHello.ticketBindingKey` and valid per §9.1. A validation failure
+downgrades the ticket's contribution to `unverified` **and** is surfaced as
+such in the dialog; it does not by itself abort the pairing (the code-entry
+anchor still applies). Two boundary rules apply:
+
+- **Precedence with §5**: ticket state can only *raise* an identity, never
+  lower one — a Chromium verified origin on the allowlist establishes
+  `official` with or without a ticket; a failed ticket leaves a Firefox or
+  unknown caller at `unverified`.
+- **Tampering is not a downgrade**: because the ticket digest is bound into
+  the PAKE AAD (§6.4), a ticket modified in transit breaks key confirmation
+  and the pairing fails closed; only a ticket both sides saw identically can
+  reach this validation step at all.
 
 `callerId` values: Chromium — the 32-char extension ID extracted from the
 `chrome-extension://<id>/` origin argv; Firefox — the Gecko ID argument. The
@@ -631,8 +703,14 @@ aad       = "MBP1/env/v1" (ASCII, 11 bytes)
   close the connection immediately (`envelopeViolation`). This is the replay
   protection: replay = strict sequence check.
 - Keys are per-direction (§6.6/§8), so nonce uniqueness holds per key by
-  construction. A connection MUST be closed before `seq` reaches `2^40`
-  (re-establish via reconnect; no in-place rekey in v1).
+  construction. Uniqueness alone is not a usage bound: a connection MUST be
+  closed — and re-established via reconnect, deriving fresh keys — before
+  either direction exceeds **2^24 frames** or **2^30 encrypted AES blocks
+  (16 GiB of plaintext)**, whichever comes first. These bounds keep the
+  combined AES-GCM confidentiality/integrity advantage comfortably below the
+  ≈2^-57 target used by the TLS 1.3 analysis (RFC 8446 §5.5; cf. RFC 9053
+  §4.1.1); MDXP control traffic sits orders of magnitude below them. There is
+  no in-place rekey in v1.
 - Maximum plaintext per frame: 1 MiB. Text frames after channel activation
   are a protocol violation.
 
@@ -677,8 +755,11 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
   → re-commit only post-auth; otherwise clear the pin and fall back to fresh
   code-entry pairing.
 - `storage.local` credential entries carry `state: "provisional" |
-  "committed"` (§6.7). A provisional entry that fails reconnect with
-  `authFailed` is deleted, and the flow returns to first pair.
+  "committed"` (§6.7), plus an active-credential pointer. Recovery order on
+  reconnect: newest provisional first, promote on success and delete the
+  superseded entry; on `authFailed` fall back to the previous committed
+  credential and delete the orphaned provisional one; only when no stored
+  credential authenticates does the flow return to first pair.
 
 ---
 
@@ -691,17 +772,28 @@ the ticket vectors) MUST validate against them. The file contains, with all
 byte strings hex-encoded:
 
 1. **`spake2`** — full first-pair runs over edwards25519 with fixed inputs
-   (`code`, `pairNonce`, identities, `w`, `x`, `y`) and expected `pA`, `pB`,
-   `K`, `TT`, `Ke`, `Ka`, `KcA`, `KcB`, `cA`, `cB`, traffic keys. Because
-   [RFC 9382] Appendix B provides vectors only for P-256, implementations of
-   the generic SPAKE2 core MUST additionally validate against those RFC
-   P-256 vectors to prove the core composition (TT layout, key schedule)
-   before the edwards25519 instantiation is trusted.
+   (`code`, `pairNonce`, identities, and the scalars `w`, `x`, `y` given
+   directly, as in the RFC vectors) and expected `pA`, `pB`, `K`, `TT`, `Ke`,
+   `Ka`, `KcA`, `KcB`, `cA`, `cB`, traffic keys. Because [RFC 9382]
+   Appendix B provides vectors only for P-256, implementations of the generic
+   SPAKE2 core MUST additionally validate against **all four** RFC P-256
+   vectors to prove the core composition (TT layout, key schedule) before the
+   edwards25519 instantiation is trusted.
 2. **`scryptW`** — pairing-code normalization and `w` derivation (§6.2).
 3. **`reconnect`** — `RT`, client and server MACs, traffic keys (§8).
-4. **`nmTicket`** — `ticketKey` derivation and canonical MAC (§9.2).
+4. **`nmTicket`** — `ticketKey` derivation and canonical MAC (§9.2), plus
+   **weak binding-key rejections**: the identity encoding and other
+   small-order point encodings MUST be rejected by §9.1 validation, and the
+   identity-key forgery `(R = identity, S = 0)` MUST fail.
 5. **`envelope`** — AEAD frames for given keys/plaintexts, including expected
-   rejection cases (wrong seq, tampered ciphertext, wrong dirTag).
+   rejection cases: wrong sequence number, tampered ciphertext, and a
+   **direction-tag-only** mismatch (same key, flipped `dirTag`) so an
+   implementation that ignores `dirTag` cannot pass.
+
+Beyond the vector file, implementation test suites MUST cover the stateful
+cases that vectors cannot express: retry-limit enforcement on both sides
+(§6.5/§7.2), global-counter accounting across disconnects (§7.3), and
+rotation crash points (§6.7).
 
 The vectors are generated by a reference script checked in with the Phase-A
 implementation; regenerating them MUST be deterministic given the recorded
@@ -713,7 +805,7 @@ inputs.
 
 1. This document MUST pass an **independent cryptographic review** before any
    MBP1 protocol code is written. The review record (reviewer, date, findings,
-   resolutions) is kept with the maintainers.
+   resolutions) is kept in Appendix C.
 2. The implementation MUST pin exact versions of `@noble/curves` (≥ 1.6.0)
    and `@noble/hashes`, and record the audit reports they correspond to.
 3. The facts in Appendix B MUST be re-validated against the actual
@@ -741,11 +833,17 @@ download submission. Specifically:
   (§6.4/§6.5) or the reconnect MAC (§8).
 - **Post-handshake integrity** — frame tampering, reordering, replay, or
   cross-direction reflection MUST close the connection (§10).
-- **Online guessing** — bounded by 3 attempts per session and the global
-  lockout schedule (§7.3).
-- **Ticket replay** — one-shot cache, 60 s expiry, generation binding, and
-  the Ed25519 possession proof (§9) make a captured ticket unusable on any
-  other handshake or server generation.
+- **Online guessing** — bounded by 3 attempts per session enforced
+  **independently on both sides**, disconnect-proof attempt accounting, and
+  the global lockout schedule (§6.5/§7.2/§7.3); a peer-supplied
+  `attemptsRemaining` never extends a local limit.
+- **Ticket replay and forgery** — one-shot cache, 60 s expiry, generation
+  binding, the Ed25519 possession proof with strict verification and
+  small-order/torsion rejection (§9.1), and the AAD-bound ticket digest
+  (§6.4) make a captured or tampered ticket unusable on any other handshake
+  or server generation; small-order `bindingPub` forgeries MUST be rejected.
+- **AEAD usage bounds** — sessions close before 2^24 frames or 2^30 encrypted
+  blocks per direction (§10).
 
 ## Appendix B — Externally-verified browser facts
 
@@ -763,6 +861,13 @@ Consequence of the Firefox rows: before probing loopback the extension MUST
 check `permissions.contains({origins:["http://127.0.0.1/*"]})`, request within
 a user gesture when missing, and show an explicit degraded state on refusal.
 The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
+
+## Appendix C — Review log
+
+| Round | Date | Reviewer | Verdict | Summary |
+|---|---|---|---|---|
+| 1 | 2026-08-19 | Independent adversarial cryptographic review (Codex) | NOT APPROVED — 0 High / 4 Medium / 6 Low | SPAKE2 construction and all published vectors independently reproduced as correct. Mediums: one-sided attempt accounting (M1), unjustified 2^40-frame GCM limit (M2), ZIP-215/small-order `bindingPub` forgery (M3), non-transactional rotation (M4). Lows: ticket `v` outside the MAC and no ticket/AAD binding, non-uniform scalar sampling wording and wrong `w = 0` probability, reused HKDF traffic labels, thin negative-vector coverage, unspecified `/v1` pre-channel framing, unpinned dependency versions. |
+| 1-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Both-sides attempt limits with disconnect-proof accounting (§6.5/§7.2/§7.3); 2^24-frame / 2^30-block AEAD bounds (§10); strict Ed25519 verification plus canonical/small-order/torsion-free `bindingPub` validation with negative tests (§9.1); transactional rotation and deterministic client recovery (§6.7/§12); ticket `v` MACed and the ticket digest bound into AAD with fail-closed tamper semantics and §5 precedence (§6.4/§9.2); rejection-sampled scalars and corrected probability (§6.3/§6.2); distinct pair/reconnect HKDF labels (§6.6); all four RFC P-256 vectors, dirTag-only and weak-key negatives (§13); `/v1` framing and deadline (§8); exact noble pins with audit-basis requirement (§3). Awaiting re-review. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
