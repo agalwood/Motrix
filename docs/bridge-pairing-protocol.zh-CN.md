@@ -424,10 +424,19 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   没有任何存储凭据通过认证，则保留集留待重试；只有在用户主动要求或凭据被
   显式吊销时才回退到全新 code-entry 配对。在任何成功认证之前，客户端把每个
   principal 的保留集限制为**至多两条**——当前 committed 凭据与唯一最新的
-  provisional 凭据；未在 **10 分钟**内认证成功的客户端 provisional 凭据
-  （与 server provisional 过期一致）被丢弃。这既使假 listener 无法靠重放
-  `authFailed` 诱使客户端丢弃唯一有效凭据，又不让陈旧密钥无界增长。显式吊销
-  会关闭存活会话。
+  provisional 凭据。
+- **provisional 过期是按状态的，绝非无条件。** 客户端 provisional 凭据带
+  子状态：`unacked`（尚未发送 `credentialAck`）或 `commit-uncertain`（已发
+  `credentialAck` 但尚未处理 `credentialCommitted`）。`unacked` 的
+  provisional MAY 在 **10 分钟**后老化删除——server 从未 commit 它，与 server
+  自身的 provisional 过期一致。`commit-uncertain` 的 provisional MUST NOT 被
+  老化删除：ack 一旦发出，server 可能已原子地 commit 它并吊销旧凭据（§6.7
+  轮换），丢弃它会使客户端困在被吊销的凭据上。`commit-uncertain` 凭据保留至
+  一次经认证的重连解出哪把存活（重连时先试它），再由上面的强制认证后规则
+  提升或修剪。这既把陈旧密钥限界（每 principal 两条），又保证 ack/commit
+  窗口内任意位置的 worker 死亡仍留下可重连状态（§6.7 两阶段提交所要求）。
+  也使假 listener 无法靠重放 `authFailed` 诱使客户端丢弃唯一有效凭据。显式
+  吊销会关闭存活会话。
 - 凭据 principal：`{browser, verifiedOrigin, clientInstallationId}`。第二个
   浏览器 profile 是**新的 principal**，作为新凭据配对；签发或轮换一个凭据
   MUST NOT 影响另一个。
@@ -633,27 +642,42 @@ mac = HMAC-SHA-256(ticketKey,
 除 `mac` 自身外，ticket 的每个 wire 字段——包括格式版本 `v`——都被 MAC
 覆盖，任何字段都无法被单独调换。MAC 开头的 `enc("mbp1-attestation")` 是
 固定域标签，不是 wire 上的 `purpose`；wire 上的 `purpose` 值改由 §6.4 的
-AAD ticket digest 钉死（该 digest 逐字节哈希 ticket 的 wire 字段），因此
-篡改 `purpose`（或任何其他 wire 字段）会让 key confirmation fail closed，
-而不仅是降级。
+AAD ticket digest 钉死（该 digest 哈希 ticket **各字段解析值的规范编码**，
+按 §6.4，而非原始 JSON 序列化），因此篡改 `purpose`（或任何其他 wire 字段）
+会使双方 AAD 失配、让 key confirmation fail closed，而不仅是降级。
 
-校验（server 侧）：constant-time 重算 `mac`；`v`、`purpose` 与
-`protocolVersion` 精确匹配；`serverGeneration` 等于 server **当前
-generation**——每次 bridge-server 启动重新生成的 UUIDv4，通过
+**校验在 `pairHello` 处进行，先于 key confirmation**——server 对它实际收到的
+ticket 校验，绝不等到字节一致被证明。检查项：constant-time 重算 `mac`；
+`v`、`purpose` 与 `protocolVersion` 精确匹配；`serverGeneration` 等于 server
+**当前 generation**——每次 bridge-server 启动重新生成的 UUIDv4，通过
 `endpoint.json` 新增的 `generation` 字段发布给 host（增量字段；既有
 `writtenAt` 维持 diagnostic-only）；`exp` 在未来且距铸造至多 60 秒；
 ticket 此前未出现过（一次性：server 缓存 MAC 直至 `exp`）；`callerId`
 等于 `pairHello.claimedExtensionId`；`bindingPub` 等于
-`pairHello.ticketBindingKey` 且通过 §9.1 校验。校验失败会把 ticket 的身份
-贡献降级为 `unverified` **并**在对话框中如实显示；其本身不中止配对
-（code-entry 信任锚仍然成立）。两条边界规则：
+`pairHello.ticketBindingKey` 且通过 §9.1 校验。
 
-- **与 §5 的优先级**：ticket 状态只能*抬升*身份，绝不降低——allowlist 中的
-  Chromium verified origin 无论有无 ticket 都成立 `official`；失败的
-  ticket 只是让 Firefox 或未知调用方停留在 `unverified`。
+**两类失败、两种结果：**
+
+- **结构性 / 密码学失败**——`mac` 错误、`v`/`purpose`/`protocolVersion` 不
+  精确匹配、或 `bindingPub` 未通过 §9.1 校验（畸形、单位元、small-order、
+  非 torsion-free）。此时 ticket 及其必需的 `ticketProof` 无法被可靠处理，
+  server **中止配对**（`pairError {code:"protocolViolation"}`）而非继续。
+  这不削弱安全：合法扩展绝不出示这种 ticket，而在途修改早已被 §6.4 的 AAD
+  绑定在 key confirmation 处拦截；它同时解决了 §6.5 要求有效 `ticketProof`、
+  而无效 `bindingPub` 永远无法满足的矛盾。
+- **语义失败**——ticket 真实（`mac` 有效、`bindingPub` 有效、`ticketProof`
+  验证通过），但其身份主张达不到 `official`：`serverGeneration` 未知或过期、
+  或 `exp` 已过，得到 `unverified`；有效但 `callerId` 不在 allowlist 的
+  ticket 得到 `attested-non-official`（§5）。此时配对**继续**，降级身份在
+  对话框如实显示；code-entry 信任锚仍然成立。
+
+两条边界规则：
+
+- **与 §5 的优先级**：ticket 的身份贡献只能*抬升*身份，绝不降低——allowlist
+  中的 Chromium verified origin 无论有无 ticket 都成立 `official`。
 - **篡改不是降级**：由于 ticket digest 被绑入 PAKE AAD（§6.4），传输中被
-  修改的 ticket 会破坏 key confirmation、使配对 fail closed；只有双方看到
-  完全一致的 ticket 才可能走到本校验步骤。
+  修改的 ticket 会使双方 AAD 失配、破坏 key confirmation、使配对 fail
+  closed——在途篡改绝不会静默变成语义降级。
 
 `callerId` 取值：Chromium — 从 argv 的 `chrome-extension://<id>/` origin
 提取的 32 字符扩展 ID；Firefox — Gecko ID 参数。ticket 证明*是哪一个*
@@ -729,9 +753,12 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
   之后**才删除（§6.7）；信道前的 `authFailed` 本身绝不删除凭据，因此伪造的
   `authFailed` 无法使客户端陷入无凭据可用。当没有任何存储凭据通过认证时，
   保留集留待重试，仅在用户主动操作或凭据被吊销时才回到首次配对。保留状态
-  有界：每个 principal 至多保留 committed 凭据加最新一条 provisional，
-  provisional 条目 10 分钟后过期，且一次成功认证 MUST 删除该 principal 名下
-  其他所有凭据及其 `PinStore` 条目，使被中断的轮换不留下无界的陈旧密钥。
+  有界：每个 principal 至多保留 committed 凭据加最新一条 provisional。
+  provisional 条目带子状态（§6.7）：`unacked` 的 10 分钟后过期，而
+  `commit-uncertain` 的（其 `credentialAck` 已发出、server 可能已 commit）
+  绝不老化删除——保留并在重连时先试它，直至经认证的会话解出为止。一次成功
+  认证 MUST 删除该 principal 名下其他所有凭据及其 `PinStore` 条目，使被中断
+  的轮换既不留无界陈旧密钥、也绝不让客户端困在被吊销的凭据上。
 
 ---
 
@@ -832,7 +859,9 @@ Firefox 两行的推论：扩展在探测 loopback 之前 MUST 先检查
 | 2 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M2/M3/L2/L3/L5/L6 已闭合；M1/M4/L1/L4 部分；新增 1 Low（N1） | M1：客户端全局 backoff 未充分规定。M4：（1）未认证的 `authFailed` 可能删除客户端唯一有效凭据；（2）缺少针对并发轮换的 single-flight/CAS。L1：MAC 硬编码 `purpose`、AAD 遗漏单独的 `ticketBindingKey`，这两个字段只降级而非 fail closed。L4：缺少 dirty-torsion / 非规范 `R` / `S ≥ ℓ` 负例。N1：noble 2.0.1 的 `zip215:false` 用 cofactored 方程，故“cofactorless”措辞不准确。 |
 | 2-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端全局 backoff 规定；轮换 single-flight CAS；客户端绝不因未认证 `authFailed` 删除凭据；AAD 绑定 `ticketBindingKey` 加覆盖 ticket wire 字段的 `ticketDigest`；验证措辞更正为 RFC 8032 strict（cofactored）；向量新增 dirty-torsion / `S ≥ ℓ` / 非规范 `R` / 逐字段篡改负例。 |
 | 3 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M4(1)/M4(2)/L1/N1 已闭合；M1 部分（Medium blocker）；L4 部分（Low blocker）；新增 2 Low | M1：客户端计数器按攻击者可控的 `instanceId` 分键，假 listener 每次返回新 `instanceId` 即得新计数器。L4：向量对 `S ≥ ℓ` / 非规范 `R` 只有描述（无恶意字节），且仅覆盖两个小阶点编码。新 Low：认证后修剪只是 `MAY`、客户端 provisional 凭据无过期/上界（陈旧密钥增长）。新 Low：§6.4 措辞称未在 allowlist 的 `callerId` 降级为 `unverified`（与 §5/§9.2 的 `attested-non-official` 矛盾），并暗示校验只在字节一致后才进行。 |
-| 3-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | 客户端首配 backoff 改为单一真正全局计数器，绝不按 `instanceId` 或任何攻击者值分键，另设可选的已认证按实例子计数器（§7.3）。认证后修剪改为强制（MUST 删除同 principal 其他所有凭据与 pin），认证前保留集限为两条并设 10 分钟 provisional 过期（§6.7/§12）。§6.4 更正：未列入 allowlist 的 `callerId` → `attested-non-official`，`ticketDigest` 定义为对解析值的规范编码，并澄清校验先于 confirmation 的顺序。向量以真实恶意字节重生成 `S ≥ ℓ` 与非规范 `R`、完整 8 个小阶点集、以及全九字段篡改自检（§13）。待复审。 |
+| 3-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端首配 backoff 改为单一真正全局计数器（§7.3）；认证后修剪强制、保留集限界（§6.7/§12）；§6.4 身份/编码措辞更正；向量以真实恶意字节覆盖 `S ≥ ℓ` / 非规范 `R`、完整小阶点集与全字段篡改自检（§13）。 |
+| 4 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M1/L4 已闭合；1 Medium + 2 Low | Medium：无条件 10 分钟客户端 provisional 过期可能在轮换中删除 server 已 commit 的 `commit-uncertain` 凭据，使客户端困在被吊销的凭据上。Low：§9.2 仍称 digest 逐字节哈希 wire 字段、且只有字节一致的 ticket 才“走到校验”，与 §6.4 的规范解析规则及 pairHello 顺序矛盾。Low：§9.2 笼统的“任何校验失败→降级、不中止”与 §6.5/§9.1 冲突（无效/small-order `bindingPub` 使必需的 `ticketProof` 不可能成立）。全局计数器首配 griefing 评为可接受的可用性残留（§1.1）；多 profile 修剪判定为正确。 |
+| 4-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | provisional 过期改为按状态：仅 `unacked` 的 10 分钟老化，`commit-uncertain` 的（已发 ack）绝不老化删除、由经认证重连解出，故轮换绝不困住客户端（§6.7/§12）。§9.2 重写为哈希解析值的规范编码（非“verbatim”）、明确校验在 `pairHello` 先于 confirmation，并拆分为**结构性/密码学失败→中止**（解决必需 `ticketProof` 的矛盾）与**语义失败→降级并继续**（`unverified` / `attested-non-official`）。生成器注释对齐；向量字节不变。待复审。 |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

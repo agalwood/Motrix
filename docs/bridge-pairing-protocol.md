@@ -481,12 +481,24 @@ Atomicity rules:
   code-entry pairing only when the user asks or a credential is explicitly
   revoked. Before any successful authentication the client bounds its retained
   set to **at most two** entries per principal — the current committed
-  credential and the single newest provisional one — and a client-side
-  provisional credential that has not authenticated within **10 minutes**
-  (matching the server provisional expiry) is discarded. This denies a fake
-  listener the ability to make the client discard its only valid credential by
-  replaying `authFailed`, without letting stale secrets grow unbounded.
-  Explicit revocation closes live sessions.
+  credential and the single newest provisional one.
+- **Provisional expiry is state-dependent, never blind.** A client provisional
+  credential carries a sub-state: `unacked` (the client has not yet sent
+  `credentialAck`) or `commit-uncertain` (it sent `credentialAck` but has not
+  processed `credentialCommitted`). An **`unacked`** provisional MAY be aged
+  out after **10 minutes** — the server never committed it, matching the
+  server's own provisional expiry. A **`commit-uncertain`** provisional MUST
+  NOT be age-deleted: once the ack was sent the server may have atomically
+  committed it and revoked the old credential (§6.7 rotation), so discarding it
+  could strand the client on a revoked credential. A `commit-uncertain`
+  credential is retained until an authenticated reconnect resolves which
+  credential is live (it is tried first on reconnect), then promoted or pruned
+  by the mandatory post-auth rule above. This keeps stale secrets bounded (two
+  per principal) while guaranteeing that a worker death anywhere in the ack/
+  commit window still leaves a reconnectable state, as §6.7's two-phase commit
+  requires. This also denies a fake listener the ability to make the client
+  discard its only valid credential by replaying `authFailed`. Explicit
+  revocation closes live sessions.
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
@@ -725,30 +737,51 @@ Every wire field of the ticket except `mac` itself is covered by the MAC —
 including the format version `v` — so no field can be swapped independently.
 The MAC's leading `enc("mbp1-attestation")` is a fixed domain tag, not the
 wire `purpose`; the wire `purpose` value is instead pinned by the AAD ticket
-digest (§6.4), which hashes the ticket's wire fields verbatim, so tampering
-`purpose` (or any other wire field) fails key confirmation closed rather than
-merely downgrading.
+digest (§6.4), which hashes the **canonical encodings of the ticket's parsed
+field values** (per §6.4, not the raw JSON serialization), so tampering
+`purpose` (or any other wire field) desynchronizes the two parties' AAD and
+fails key confirmation closed rather than merely downgrading.
 
-Validation (server): recompute `mac` in constant time; `v`, `purpose`, and
+**Validation runs at `pairHello`, before key confirmation** — the server
+validates whatever ticket it received; it never waits for byte-identity to be
+proven. The checks: recompute `mac` in constant time; `v`, `purpose`, and
 `protocolVersion` exact; `serverGeneration` equals the server's **current
 generation** — a UUIDv4 regenerated at every bridge-server start and published
 to the host as a new `generation` field in `endpoint.json` (additive; the
 existing `writtenAt` stays diagnostic-only); `exp` in the future and at most
 60 s from mint; the ticket unseen before (one-shot: the server caches the MAC
 until `exp`); `callerId` equal to `pairHello.claimedExtensionId`; `bindingPub`
-equal to `pairHello.ticketBindingKey` and valid per §9.1. A validation failure
-downgrades the ticket's contribution to `unverified` **and** is surfaced as
-such in the dialog; it does not by itself abort the pairing (the code-entry
-anchor still applies). Two boundary rules apply:
+equal to `pairHello.ticketBindingKey` and valid per §9.1.
 
-- **Precedence with §5**: ticket state can only *raise* an identity, never
-  lower one — a Chromium verified origin on the allowlist establishes
-  `official` with or without a ticket; a failed ticket leaves a Firefox or
-  unknown caller at `unverified`.
-- **Tampering is not a downgrade**: because the ticket digest is bound into
-  the PAKE AAD (§6.4), a ticket modified in transit breaks key confirmation
-  and the pairing fails closed; only a ticket both sides saw identically can
-  reach this validation step at all.
+**Two failure classes, two outcomes:**
+
+- **Structural / cryptographic failure** — bad `mac`, non-exact `v` /
+  `purpose` / `protocolVersion`, or a `bindingPub` that fails §9.1 validation
+  (malformed, identity, small-order, or non-torsion-free). The ticket and its
+  mandatory `ticketProof` cannot be soundly processed, so the server **aborts
+  the pairing** (`pairError {code:"protocolViolation"}`) rather than
+  continuing. This does not weaken security: a legitimate extension never
+  presents such a ticket, and an in-transit modification is already caught by
+  the AAD binding at key confirmation (§6.4). It resolves the otherwise
+  contradictory case where §6.5 requires a valid `ticketProof` that an invalid
+  `bindingPub` can never satisfy.
+- **Semantic failure** — the ticket is authentic (valid `mac`, valid
+  `bindingPub`, `ticketProof` verifies) but its identity claim does not reach
+  `official`: an unknown or stale `serverGeneration`, or an expired `exp`,
+  yields `unverified`; a valid ticket whose `callerId` is not on the allowlist
+  yields `attested-non-official` (§5). Here the pairing **proceeds** with the
+  downgraded identity surfaced in the dialog; the code-entry anchor still
+  applies.
+
+Two boundary rules apply:
+
+- **Precedence with §5**: a ticket's identity contribution can only *raise* an
+  identity, never lower one — a Chromium verified origin on the allowlist
+  establishes `official` with or without a ticket.
+- **Tampering is not a downgrade**: because the ticket digest is bound into the
+  PAKE AAD (§6.4), a ticket modified in transit desynchronizes the two
+  parties' AAD and fails key confirmation closed — an in-transit tamper never
+  silently becomes a semantic downgrade.
 
 `callerId` values: Chromium — the 32-char extension ID extracted from the
 `chrome-extension://<id>/` origin argv; Firefox — the Gecko ID argument. The
@@ -837,10 +870,14 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
   When no stored credential authenticates, the retained set stays for a later
   retry and the flow returns to first pair only on explicit user action or
   revocation. Retained state is bounded: at most the committed credential plus
-  the newest provisional one per principal, provisional entries expire after
-  10 minutes, and a successful authentication MUST delete every other
-  credential and its `PinStore` entry for that principal, so interrupted
-  rotations leave no unbounded stale-secret inventory.
+  the newest provisional one per principal. Provisional entries carry a
+  sub-state (§6.7): an `unacked` one expires after 10 minutes, but a
+  `commit-uncertain` one (its `credentialAck` was sent, so the server may have
+  committed it) is never age-deleted — it is retained and tried first on
+  reconnect until an authenticated session resolves it. A successful
+  authentication MUST delete every other credential and its `PinStore` entry
+  for that principal, so interrupted rotations leave no unbounded stale-secret
+  inventory yet never strand the client on a revoked credential.
 
 ---
 
@@ -956,7 +993,9 @@ The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
 | 2 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M2/M3/L2/L3/L5/L6 closed; M1/M4/L1/L4 partial; 1 new Low (N1) | M1: client-side global backoff underspecified. M4: (1) an unauthenticated `authFailed` could delete the client's only valid credential; (2) no single-flight/CAS against concurrent rotations. L1: MAC hard-codes `purpose` and AAD omitted the separate `ticketBindingKey`, so those two fields downgraded rather than failing closed. L4: missing dirty-torsion / non-canonical `R` / `S ≥ ℓ` negatives. N1: noble 2.0.1 `zip215:false` uses the cofactored equation, so the "cofactorless" wording was inaccurate. |
 | 2-rev | 2026-08-19 | Spec revision | Findings addressed | Client global backoff specified; rotation single-flight CAS; client never deletes a credential on an unauthenticated `authFailed`; AAD binds `ticketBindingKey` plus a `ticketDigest` over the ticket's wire fields; verification wording corrected to RFC 8032 strict (cofactored); vectors add dirty-torsion / `S ≥ ℓ` / non-canonical `R` / per-field tamper negatives. |
 | 3 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M4(1)/M4(2)/L1/N1 closed; M1 partial (Medium blocker); L4 partial (Low blocker); 2 new Low | M1: the client counter was keyed by the attacker-controllable `instanceId`, so a fake listener returning a fresh `instanceId` each session got a fresh counter. L4: vectors carried only prose for `S ≥ ℓ` / non-canonical `R` (no malicious bytes) and covered only two small-order encodings. New Low: post-auth prune was only `MAY` and client provisional credentials had no expiry/bound (stale-secret growth). New Low: §6.4 prose said an unlisted `callerId` downgrades to `unverified` (contradicting §5/§9.2 `attested-non-official`) and implied validation runs only after byte-identity. |
-| 3-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Client first-pair backoff is now a single truly-global counter, never keyed by `instanceId` or any attacker value, with an optional separate authenticated per-instance subcounter (§7.3). Post-authentication prune is mandatory (MUST delete all other same-principal credentials and pins), pre-auth retained set bounded to two with a 10-minute provisional expiry (§6.7/§12). §6.4 corrected: unlisted-`callerId` → `attested-non-official`, ticketDigest defined over canonical encodings of parsed values, and the validation-before-confirmation ordering clarified. Vectors regenerated with actual malicious bytes for `S ≥ ℓ` and non-canonical `R`, the full 8-element small-order set, and all-nine-field tamper self-checks (§13). Awaiting re-review. |
+| 3-rev | 2026-08-19 | Spec revision | Findings addressed | Client first-pair backoff is a single truly-global counter (§7.3); post-auth prune mandatory, retained set bounded (§6.7/§12); §6.4 identity/encoding prose corrected; vectors carry real malicious bytes for `S ≥ ℓ` / non-canonical `R`, the full small-order set, and all-field tamper self-checks (§13). |
+| 4 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M1/L4 closed; 1 Medium + 2 Low | Medium: the unconditional 10-minute client provisional expiry could delete a `commit-uncertain` credential the server had already committed during rotation, stranding the client on a revoked credential. Low: §9.2 still said the digest hashes wire fields "verbatim" and that only a byte-identical ticket "reaches validation", contradicting §6.4's canonical-parsed rule and pairHello-ordering. Low: §9.2's blanket "any validation failure → downgrade, do not abort" conflicted with §6.5/§9.1, where an invalid/small-order `bindingPub` makes the required `ticketProof` impossible. Global-counter first-pair griefing assessed as an accepted availability residual (§1.1); multi-profile prune found sound. |
+| 4-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Provisional expiry is now state-dependent: only an `unacked` provisional ages out at 10 min; a `commit-uncertain` one (ack sent) is never age-deleted and is resolved by authenticated reconnect, so rotation never strands the client (§6.7/§12). §9.2 rewritten to hash canonical encodings of parsed values (not "verbatim"), state validation runs at `pairHello` before confirmation, and split outcomes into **structural/cryptographic failure → abort** (resolving the mandatory-`ticketProof` conflict) versus **semantic failure → downgrade and proceed** (`unverified` / `attested-non-official`). Generator comment aligned; vectors byte-identical. Awaiting re-review. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
