@@ -354,19 +354,32 @@ TT = enc(A_id) ‖ enc(B_id) ‖ enc(pA) ‖ enc(pB) ‖ enc(K) ‖ enc(I2OSP(w,
 **AAD** (bound into confirmation keys, RFC 9382 §4):
 
 ```
-AAD = encU32BE(protocolVersion) ‖ enc(pairNonce) ‖ enc(ticketDigestOrEmpty)
-ticketDigest = SHA-256(canonical ‖ mac)
+AAD = encU32BE(protocolVersion) ‖ enc(pairNonce)
+    ‖ enc(ticketBindingKeyOrEmpty) ‖ enc(ticketDigestOrEmpty)
+
+ticketDigest = SHA-256(
+      encU32BE(v) ‖ enc(purpose) ‖ encU32BE(ticketProtocolVersion)
+    ‖ enc(serverGeneration) ‖ enc(browser) ‖ enc(callerId)
+    ‖ encU64BE(exp) ‖ enc(bindingPub) ‖ enc(mac))
 ```
 
-where, when an `nmTicket` was presented, `canonical` is the ticket's §9.2
-canonical MAC input (which includes `bindingPub`) and `mac` its 32-byte MAC —
-each side computing over the ticket exactly as it sent/received it — and
-`ticketDigestOrEmpty` is the empty string when no ticket was presented. An
-in-path attacker that modifies any ticket byte (including its MAC) therefore
-desynchronizes the AAD and breaks key confirmation: ticket tampering **fails
-the pairing closed** instead of silently downgrading it. A ticket both sides
-see identically but which fails validation (§9.2) still downgrades visibly to
-`unverified`.
+- `ticketBindingKeyOrEmpty` is the raw 32-byte `pairHello.ticketBindingKey`
+  when an `nmTicket` was presented, else the empty string.
+- `ticketDigest` is computed over **every field of the ticket exactly as it
+  appeared on the wire** — including `v`, the wire `purpose` string, and the
+  32-byte `mac` — each party hashing the ticket exactly as it sent or
+  received it; `ticketDigestOrEmpty` is empty when no ticket was presented.
+  This deliberately does **not** reuse the §9.2 canonical MAC input (which
+  fixes `purpose` to a constant), so that flipping *any* wire field — `mac`,
+  `purpose`, `bindingPub`, or `callerId` — changes the digest.
+
+Because both the separate `ticketBindingKey` field and every ticket field are
+bound here, an in-path attacker that modifies any of them desynchronizes the
+two parties' AAD and breaks key confirmation: such tampering **fails the
+pairing closed**, never a silent `unverified` downgrade. Only a ticket both
+sides received byte-identically reaches §9.2 validation, where a
+*content*-level problem (unknown generation, expiry, unlisted `callerId`)
+downgrades visibly to `unverified`.
 
 ### 6.5 Key schedule and confirmation
 
@@ -383,9 +396,9 @@ cB = HMAC-SHA-256(KcB, TT)
 A sends `cA` first. B MUST verify `cA` (and `ticketProof` when a ticket was
 presented: an Ed25519 signature by the ticket-binding private key over
 `"MBP1/ticket-proof/v1" ‖ TT`, verified against the ticket's `bindingPub`
-under the strict RFC 8032 rules of §9.1 — never ZIP-215/cofactored
-verification) before sending `cB`. A MUST verify `cB` before sending anything
-further. Both
+under the RFC 8032 strict rules of §9.1 — `zip215: false`, never the
+permissive ZIP-215 default) before sending `cB`. A MUST verify `cB` before
+sending anything further. Both
 verifications are constant-time. A failed verification is a **failed attempt**
 (§7.2) and B responds with `pairError {code:"codeMismatch",
 attemptsRemaining}` — after which a fresh run (new `pakeA` with fresh `x`,
@@ -441,14 +454,25 @@ Atomicity rules:
 - On **rotation** (same flow run inside an authenticated `/v1` session):
   commit-new and revoke-old MUST be a **single durable server transaction**
   (or a rotation journal replayed on startup), so a crash can never leave
-  both credentials valid or neither. The client keeps an explicit
-  active-credential pointer with deterministic recovery ordering: on
-  reconnect it MUST try the **newest provisional credential first** (the
-  server persists its provisional before offering, so this succeeds whenever
-  the offer was sent), promote it on success, and delete the superseded
-  entry; only if that credential is rejected with `authFailed` does it fall
-  back to the previous committed credential and discard the orphaned
-  provisional one. Explicit revocation closes live sessions.
+  both credentials valid or neither. The transaction is a **compare-and-swap
+  on the principal's current committed `credentialId`**, and the server
+  serializes rotations per principal (**single-flight**): two concurrent
+  rotations started from the same old credential cannot both commit — the
+  second observes the changed current id and is rejected, so exactly one
+  successor exists.
+- **Client recovery never destroys a credential on an unauthenticated
+  signal.** `authFailed` (§11) is a pre-channel message any listener can
+  forge, so it MUST NOT by itself delete a stored credential. On reconnect the
+  client tries the **newest provisional credential first**, then the previous
+  committed one; it prunes the superseded credential **only after an
+  authenticated session has been established** (mutual `reconnectAccept`
+  verified, §8), at which point the credential that authenticated is provably
+  the live one and the other MAY be removed. A run in which no stored
+  credential authenticates leaves **both** credentials in place for a later
+  retry; the flow falls back to fresh code-entry pairing only when the user
+  asks or a credential is explicitly revoked. This denies a fake listener the
+  ability to make the client discard its only valid credential by replaying
+  `authFailed`. Explicit revocation closes live sessions.
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
@@ -515,6 +539,19 @@ retry. Implementations MUST test worker death both before and after approval.
   failures), the server enforces a lockout of `min(30 · 2^(n−1), 3600)`
   seconds during which new `/pair` sessions are rejected with `rateLimited`.
   The counter resets on a successful pairing or after 24 h.
+- **Client-side global backoff (mirrors the server counter).** The extension
+  keeps its own persistent global failure counter in `storage.local`, keyed
+  per Motrix `instanceId` (falling back to a single global key when no
+  `instanceId` is known yet). It increments on the same condition — any
+  pairing session that reached `pakeA` and ended without mutual confirmation,
+  including one the extension itself abandoned by closing the socket — so a
+  fake server cannot reset the client's accounting by forcing a fresh
+  WebSocket. Before starting pairing session `n` (consecutive client-side
+  failures) the extension enforces the **same** `min(30 · 2^(n−1), 3600)`
+  second lockout, refusing to open `/pair` and showing the user a "try again
+  later" state; it resets on a successful pairing or after 24 h. Both
+  independent limits (per-session ≤3 runs, this global backoff) hold
+  regardless of any server-reported `attemptsRemaining`.
 - The counter is process-lifetime state; a same-UID attacker who can restart
   Motrix is out of scope (§1.1). The 40-bit code space at 3 attempts per
   session and this lockout schedule yields a success probability for an
@@ -603,13 +640,24 @@ is the **only** ticket type in MBP1.
    canonical RFC 8032 point encoding that is on the curve, is **not the
    identity, not of small order, and lies in the prime-order subgroup**
    (torsion-free); anything else makes the ticket invalid. `ticketProof`
-   MUST be verified with **strict RFC 8032 semantics** (canonical `R`,
-   `S < ℓ`, cofactorless equation — with noble-curves, `zip215: false`);
-   ZIP-215/cofactored verification MUST NOT be used. Without the small-order
-   check, `bindingPub` = identity with `ticketProof` = (identity ‖ 0) passes
-   even the strict verification equation for every message, turning the
-   ticket into a bearer object. Implementations MUST include every
-   small-order/torsion point encoding as negative tests.
+   MUST be verified in **RFC 8032 strict mode — `zip215: false` in
+   noble-curves 2.0.1** — which enforces a canonical `R` encoding and
+   `S < ℓ` and rejects the malleable/non-canonical inputs ZIP-215 (the
+   permissive default, `zip215: true`) would accept. The permissive ZIP-215
+   mode MUST NOT be used. Note that noble's strict mode still checks the
+   **cofactored** group equation `[8]·S·B = [8]·R + [8]·k·A`, not a
+   cofactorless one; MBP1 does not rely on cofactorless equality. The
+   security of the possession proof comes from `bindingPriv` being secret
+   **combined with** the mandatory `bindingPub` validation above: without the
+   small-order/torsion check, `bindingPub` = identity with `ticketProof` =
+   (identity ‖ 0) satisfies the equation for every message and turns the
+   ticket into a bearer object, which the validation forecloses.
+   Implementations MUST include every small-order/torsion `bindingPub`
+   encoding as negative tests. A signer that legitimately knows `bindingPriv`
+   can still produce a torsion-tweaked signature (`R = rB + T`, `S = r + k·a`)
+   that noble's cofactored equation accepts; this is a **conformance caveat,
+   not a forgery** (it requires the private key), so vectors MUST NOT assert
+   its rejection.
 2. Extension → host: `{ "action": "bootstrap", "protocolVersion": 1,
    "bindingPub": "<b64url 32 bytes>" }`.
 3. The host reads `endpoint.json` (0600 owner-only — that file ownership *is*
@@ -654,6 +702,11 @@ mac = HMAC-SHA-256(ticketKey,
 
 Every wire field of the ticket except `mac` itself is covered by the MAC —
 including the format version `v` — so no field can be swapped independently.
+The MAC's leading `enc("mbp1-attestation")` is a fixed domain tag, not the
+wire `purpose`; the wire `purpose` value is instead pinned by the AAD ticket
+digest (§6.4), which hashes the ticket's wire fields verbatim, so tampering
+`purpose` (or any other wire field) fails key confirmation closed rather than
+merely downgrading.
 
 Validation (server): recompute `mac` in constant time; `v`, `purpose`, and
 `protocolVersion` exact; `serverGeneration` equals the server's **current
@@ -756,10 +809,13 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
   code-entry pairing.
 - `storage.local` credential entries carry `state: "provisional" |
   "committed"` (§6.7), plus an active-credential pointer. Recovery order on
-  reconnect: newest provisional first, promote on success and delete the
-  superseded entry; on `authFailed` fall back to the previous committed
-  credential and delete the orphaned provisional one; only when no stored
-  credential authenticates does the flow return to first pair.
+  reconnect: try the newest provisional first, then the previous committed
+  one. A credential is deleted **only after an authenticated session proves
+  which one is live** (§6.7); a pre-channel `authFailed` never deletes a
+  credential on its own, so a forged `authFailed` cannot strand the client.
+  When no stored credential authenticates, both are retained for a later
+  retry and the flow returns to first pair only on explicit user action or
+  revocation.
 
 ---
 
@@ -781,10 +837,14 @@ byte strings hex-encoded:
    edwards25519 instantiation is trusted.
 2. **`scryptW`** — pairing-code normalization and `w` derivation (§6.2).
 3. **`reconnect`** — `RT`, client and server MACs, traffic keys (§8).
-4. **`nmTicket`** — `ticketKey` derivation and canonical MAC (§9.2), plus
-   **weak binding-key rejections**: the identity encoding and other
-   small-order point encodings MUST be rejected by §9.1 validation, and the
-   identity-key forgery `(R = identity, S = 0)` MUST fail.
+4. **`nmTicket`** — `ticketKey` derivation, canonical MAC, and `ticketDigest`
+   (§9.2/§6.4), plus **weak binding-key rejections**: the identity encoding,
+   other small-order point encodings, and a **dirty (non-torsion-free)**
+   `bindingPub` MUST be rejected by §9.1 validation; the identity-key forgery
+   `(R = identity, S = 0)` MUST fail; `S ≥ ℓ` and non-canonical `R`
+   signatures MUST be rejected by strict verification; and tampering any wire
+   field (including `mac` and `purpose`) MUST fail key confirmation closed via
+   the §6.4 AAD binding.
 5. **`envelope`** — AEAD frames for given keys/plaintexts, including expected
    rejection cases: wrong sequence number, tampered ciphertext, and a
    **direction-tag-only** mismatch (same key, flipped `dirTag`) so an
@@ -867,7 +927,9 @@ The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
 | Round | Date | Reviewer | Verdict | Summary |
 |---|---|---|---|---|
 | 1 | 2026-08-19 | Independent adversarial cryptographic review (Codex) | NOT APPROVED — 0 High / 4 Medium / 6 Low | SPAKE2 construction and all published vectors independently reproduced as correct. Mediums: one-sided attempt accounting (M1), unjustified 2^40-frame GCM limit (M2), ZIP-215/small-order `bindingPub` forgery (M3), non-transactional rotation (M4). Lows: ticket `v` outside the MAC and no ticket/AAD binding, non-uniform scalar sampling wording and wrong `w = 0` probability, reused HKDF traffic labels, thin negative-vector coverage, unspecified `/v1` pre-channel framing, unpinned dependency versions. |
-| 1-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Both-sides attempt limits with disconnect-proof accounting (§6.5/§7.2/§7.3); 2^24-frame / 2^30-block AEAD bounds (§10); strict Ed25519 verification plus canonical/small-order/torsion-free `bindingPub` validation with negative tests (§9.1); transactional rotation and deterministic client recovery (§6.7/§12); ticket `v` MACed and the ticket digest bound into AAD with fail-closed tamper semantics and §5 precedence (§6.4/§9.2); rejection-sampled scalars and corrected probability (§6.3/§6.2); distinct pair/reconnect HKDF labels (§6.6); all four RFC P-256 vectors, dirTag-only and weak-key negatives (§13); `/v1` framing and deadline (§8); exact noble pins with audit-basis requirement (§3). Awaiting re-review. |
+| 1-rev | 2026-08-19 | Spec revision | Findings addressed | Both-sides attempt limits with disconnect-proof accounting (§6.5/§7.2/§7.3); 2^24-frame / 2^30-block AEAD bounds (§10); strict Ed25519 verification plus canonical/small-order/torsion-free `bindingPub` validation with negative tests (§9.1); transactional rotation and deterministic client recovery (§6.7/§12); ticket `v` MACed and the ticket digest bound into AAD with fail-closed tamper semantics and §5 precedence (§6.4/§9.2); rejection-sampled scalars and corrected probability (§6.3/§6.2); distinct pair/reconnect HKDF labels (§6.6); all four RFC P-256 vectors, dirTag-only and weak-key negatives (§13); `/v1` framing and deadline (§8); exact noble pins with audit-basis requirement (§3). |
+| 2 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M2/M3/L2/L3/L5/L6 closed; M1/M4/L1/L4 partial; 1 new Low (N1) | M1: client-side global backoff underspecified. M4: (1) an unauthenticated `authFailed` could delete the client's only valid credential; (2) no single-flight/CAS against concurrent rotations. L1: MAC hard-codes `purpose` and AAD omitted the separate `ticketBindingKey`, so those two fields downgraded rather than failing closed. L4: missing dirty-torsion / non-canonical `R` / `S ≥ ℓ` negatives. N1: noble 2.0.1 `zip215:false` uses the cofactored equation, so the "cofactorless" wording was inaccurate. |
+| 2-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Client global backoff fully specified — persistent per-`instanceId` counter, same lockout schedule, independent of `attemptsRemaining` (§7.3). Rotation is a per-principal single-flight CAS; client never deletes a credential on an unauthenticated `authFailed` and prunes only after an authenticated session (§6.7/§12). AAD now binds `ticketBindingKey` plus a `ticketDigest` over the ticket's wire fields (including the wire `purpose` and `mac`), so any ticket-field tamper fails closed (§6.4/§9.2). Verification wording corrected to RFC 8032 strict `zip215:false` (cofactored), with the torsion-tweak conformance caveat stated (§9.1/§6.5). Vectors add dirty-torsion, `S ≥ ℓ`, non-canonical `R`, and per-field tamper negatives (§13). Awaiting re-review. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
