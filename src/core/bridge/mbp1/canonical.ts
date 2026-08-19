@@ -1,4 +1,5 @@
-// MBP1 canonical byte-level encoding primitives (docs/bridge-pairing-protocol.md §2).
+// MBP1 canonical byte-level encoding primitives (docs/bridge-pairing-protocol.md §2)
+// plus the two fixed symmetric primitives every module derives keys with (§3).
 //
 // These are the shared building blocks every later mbp1 crypto module
 // (scrypt-w, spake2-core, transcript, reconnect-mac, envelope, ticket-verify)
@@ -7,6 +8,7 @@
 // definition here must match §2 exactly — do not "improve" the encoding.
 
 import { Buffer } from 'node:buffer'
+import { createHmac, hkdfSync } from 'node:crypto'
 import { concatBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 
 export { concatBytes }
@@ -118,6 +120,26 @@ export function os2ip(bytes: Uint8Array): bigint {
     n = (n << 8n) | BigInt(byte)
   }
   return n
+}
+
+/**
+ * `HKDF-SHA-256(ikm, salt, info, L=32)` — the fixed MBP1 KDF (§3). Every MBP1
+ * key derivation asks for exactly 32 bytes (§6.5's `KcA ‖ KcB`, §6.6's and
+ * §8's traffic keys, §9.2's `ticketKey`), so the length is not a parameter:
+ * a caller that wants two 16-byte keys slices this output rather than
+ * re-invoking HKDF with a different `L`, which would produce different bytes.
+ */
+export function hkdf32(
+  ikm: Uint8Array,
+  salt: Uint8Array,
+  info: Uint8Array
+): Uint8Array {
+  return new Uint8Array(hkdfSync('sha256', ikm, salt, info, 32))
+}
+
+/** `HMAC-SHA-256(key, data)` — the fixed MBP1 MAC (§3). */
+export function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
+  return new Uint8Array(createHmac('sha256', key).update(data).digest())
 }
 
 const BASE64URL_ALPHABET = /^[A-Za-z0-9_-]*$/

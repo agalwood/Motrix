@@ -14,10 +14,17 @@
 // `KcA`, `KcB`, the confirmation MACs, and the traffic keys (§11). It therefore
 // logs nothing at any level, and all state is caller-owned and in-memory only.
 
-import { createHash, createHmac, hkdfSync } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
-import { concatBytes, enc, os2ip, ProtocolViolationError } from './canonical'
+import {
+  concatBytes,
+  enc,
+  hkdf32,
+  hmacSha256,
+  os2ip,
+  ProtocolViolationError,
+} from './canonical'
 
 /** `K` came out as the identity element, which is a failed attempt (§6.3, §7.2). */
 export class IdentityKError extends Error {
@@ -233,14 +240,10 @@ export function keySchedule(
 ): { Ke: Uint8Array; Ka: Uint8Array; KcA: Uint8Array; KcB: Uint8Array } {
   const digest = new Uint8Array(createHash('sha256').update(tt).digest())
   const Ka = digest.slice(16)
-  const confirmation = new Uint8Array(
-    hkdfSync(
-      'sha256',
-      Ka,
-      new Uint8Array(0),
-      concatBytes(CONFIRMATION_KEYS_LABEL, aad),
-      32
-    )
+  const confirmation = hkdf32(
+    Ka,
+    new Uint8Array(0),
+    concatBytes(CONFIRMATION_KEYS_LABEL, aad)
   )
   return {
     Ke: digest.slice(0, 16),
@@ -272,18 +275,6 @@ export function pairTrafficKeys(ke: Uint8Array): {
     kC2S: hkdf32(ke, PAIR_TRAFFIC_SALT, PAIR_TRAFFIC_INFO_C2S),
     kS2C: hkdf32(ke, PAIR_TRAFFIC_SALT, PAIR_TRAFFIC_INFO_S2C),
   }
-}
-
-function hkdf32(
-  ikm: Uint8Array,
-  salt: Uint8Array,
-  info: Uint8Array
-): Uint8Array {
-  return new Uint8Array(hkdfSync('sha256', ikm, salt, info, 32))
-}
-
-function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
-  return new Uint8Array(createHmac('sha256', key).update(data).digest())
 }
 
 /**

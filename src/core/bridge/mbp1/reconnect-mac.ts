@@ -13,9 +13,8 @@
 // Everything here is secret-adjacent (`mutualKey`, the MACs, the traffic
 // keys), so this module logs nothing at any level.
 
-import { createHmac, hkdfSync } from 'node:crypto'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
-import { concatBytes, enc, encU32BE } from './canonical'
+import { concatBytes, enc, encU32BE, hkdf32, hmacSha256 } from './canonical'
 
 const RT_LABEL = 'MBP1/reconnect/v1'
 const MAC_CLIENT_LABEL = utf8ToBytes('MBP1-R/c')
@@ -81,16 +80,4 @@ export function reconnectTrafficKeys(
     kC2S: hkdf32(mutualKey, salt, TRAFFIC_INFO_C2S),
     kS2C: hkdf32(mutualKey, salt, TRAFFIC_INFO_S2C),
   }
-}
-
-function hkdf32(
-  ikm: Uint8Array,
-  salt: Uint8Array,
-  info: Uint8Array
-): Uint8Array {
-  return new Uint8Array(hkdfSync('sha256', ikm, salt, info, 32))
-}
-
-function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
-  return new Uint8Array(createHmac('sha256', key).update(data).digest())
 }
