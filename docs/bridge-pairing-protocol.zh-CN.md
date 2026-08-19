@@ -328,18 +328,23 @@ ticketDigest = SHA-256(
 
 - 携带 `nmTicket` 时，`ticketBindingKeyOrEmpty` 为 `pairHello.ticketBindingKey`
   的原始 32 字节，否则为空串。
-- `ticketDigest` 覆盖 **ticket 在 wire 上出现的每个字段原样**——包括 `v`、
-  wire 上的 `purpose` 字符串、以及 32 字节 `mac`——双方各自按自己发出/收到
-  的 ticket 计算；未携带 ticket 时 `ticketDigestOrEmpty` 为空串。这里刻意
-  **不**复用 §9.2 的规范 MAC 输入（后者把 `purpose` 固定为常量域标签），
-  以便翻转*任何* wire 字段——`mac`、`purpose`、`bindingPub`、`callerId`——
-  都会改变 digest。
+- `ticketDigest` 覆盖 **ticket 每个字段解析值的上述规范编码**——`v` 与
+  `ticketProtocolVersion` 为 U32、`exp` 为 U64、字符串为 UTF-8、
+  `bindingPub`/`mac` 为其 base64url 解出的原始字节。（不哈希 JSON 原始
+  拼写/空白；双方各自重新编码所解析的值。）未携带 ticket 时
+  `ticketDigestOrEmpty` 为空串。这里刻意**不**复用 §9.2 的规范 MAC 输入
+  （后者把 `purpose` 固定为常量域标签），以便翻转*任何* wire 字段——`mac`、
+  `purpose`、`bindingPub`、`callerId`、`serverGeneration`、`browser`、
+  `exp`、`v`、`ticketProtocolVersion`——都会改变 digest。
 
 由于单独的 `ticketBindingKey` 字段与每个 ticket 字段都被绑定于此，路径上的
 攻击者修改其中任一项都会使双方 AAD 失配、破坏 key confirmation：此类篡改让
-配对 **fail closed**，绝不静默降级为 `unverified`。只有双方逐字节收到一致的
-ticket 才会走到 §9.2 校验，在那里*内容*级问题（generation 未知、过期、
-`callerId` 不在 allowlist）才可见地降级为 `unverified`。
+配对 **fail closed**，绝不静默降级为 `unverified`。顺序说明：server 在
+`pairHello` 处运行 §9.2 ticket 校验，*先于* key confirmation。因此被篡改的
+ticket 并非“绕过”校验——校验对 server 实际收到的内容进行；是随后的 *key
+confirmation* 因双方 digest 不同而失败。对双方逐字节一致的 ticket，其内容级
+结果按 §5/§9.2：generation 未知或过期降级为 `unverified`，而有效但 `callerId`
+不在 allowlist 的 ticket 得到 `attested-non-official`（不是 `unverified`）。
 
 ### 6.5 Key schedule 与 confirmation
 
@@ -412,12 +417,17 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   后继。
 - **客户端绝不因未认证信号销毁凭据。** `authFailed`（§11）是任何 listener
   都能伪造的信道前消息，因此其本身 MUST NOT 删除任何存储凭据。重连时客户端
-  **先试最新 provisional 凭据**，再试上一个 committed；**只有在建立起经认证
-  的会话之后**（双向 `reconnectAccept` 验证通过，§8）才修剪被取代的凭据——
-  此刻通过认证的那把才被证明是存活的，另一把 MAY 删除。若某次重连没有任何
-  存储凭据通过认证，则**两把都保留**留待重试；只有在用户主动要求或凭据被
-  显式吊销时才回退到全新 code-entry 配对。这使假 listener 无法靠重放
-  `authFailed` 诱使客户端丢弃它唯一有效的凭据。显式吊销会关闭存活会话。
+  **先试最新 provisional 凭据**，再试上一个 committed。一旦建立起经认证的
+  会话（双向 `reconnectAccept` 验证通过，§8），通过认证的那把即被证明存活，
+  客户端此后 MUST 删除**该 principal 名下所有其他存储凭据与 pin**——认证后
+  的修剪是强制而非可选，使被中断的轮换不会累积陈旧 mutual key。若某次重连
+  没有任何存储凭据通过认证，则保留集留待重试；只有在用户主动要求或凭据被
+  显式吊销时才回退到全新 code-entry 配对。在任何成功认证之前，客户端把每个
+  principal 的保留集限制为**至多两条**——当前 committed 凭据与唯一最新的
+  provisional 凭据；未在 **10 分钟**内认证成功的客户端 provisional 凭据
+  （与 server provisional 过期一致）被丢弃。这既使假 listener 无法靠重放
+  `authFailed` 诱使客户端丢弃唯一有效凭据，又不让陈旧密钥无界增长。显式吊销
+  会关闭存活会话。
 - 凭据 principal：`{browser, verifiedOrigin, clientInstallationId}`。第二个
   浏览器 profile 是**新的 principal**，作为新凭据配对；签发或轮换一个凭据
   MUST NOT 影响另一个。
@@ -474,15 +484,20 @@ WebSocket 会重置 worker 空闲计时器（见附录 B）；即便 worker 仍�
   次（连续失败计）对话框之前，server 强制 `min(30 · 2^(n−1), 3600)` 秒的
   锁定期，其间新 `/pair` 会话一律以 `rateLimited` 拒绝。计数器在配对成功
   或 24 小时后重置。
-- **客户端全局 backoff（镜像 server 计数器）。** 扩展在 `storage.local` 中
-  维护自己的持久全局失败计数器，按 Motrix `instanceId` 分键（尚不知
-  `instanceId` 时退化为单一全局键）。其在相同条件下递增——任何到达 `pakeA`
-  却未达成双向 confirmation 的配对会话，包括扩展自己关闭 socket 主动放弃的
-  会话——因此假 server 无法靠强制新建 WebSocket 来重置客户端计数。开始第
-  `n` 个（连续客户端失败计）配对会话之前，扩展强制**同样**的
-  `min(30 · 2^(n−1), 3600)` 秒锁定，拒绝打开 `/pair` 并向用户显示“稍后
-  重试”状态；配对成功或 24 小时后重置。两个独立限制（每会话 ≤3 轮、本条
-  全局 backoff）都与 server 报告的任何 `attemptsRemaining` 无关地成立。
+- **客户端全局 backoff（与 server 计数器类比，但不同键）。** 扩展在
+  `storage.local` 中维护**单一真正全局**的首配失败计数器——**对所有未认证
+  首配目标共用一个计数器**，刻意**不**按 `instanceId`、`port` 或任何攻击者
+  可控值分键（假 listener 每次返回新 `instanceId` 也绝不能换到新计数器；
+  `instanceId` 从不是安全信号，§4.1）。其在任何到达 `pakeA` 却未达成双向
+  confirmation 的首配会话上递增，包括扩展自己关闭 socket 主动放弃的会话。
+  开始第 `n` 个（连续全局失败计）首配会话之前，扩展强制
+  `min(30 · 2^(n−1), 3600)` 秒锁定，拒绝打开 `/pair` 并显示“稍后重试”状态；
+  配对成功或 24 小时后重置。这是 server 计数器（§7.3）的客户端类比，抵御
+  同一在线猜测攻击，只是二者计数时点略有不同——server 在带码对话框排队时
+  递增，客户端在会话到达 `pakeA` 时递增。**已认证的、按 `instanceId`** 的
+  重连失败子计数器 MAY 额外存在，但与本全局首配计数器分离、绝不替代它。
+  两个客户端限制（每会话 ≤3 轮、本条全局 backoff）都与 server 报告的任何
+  `attemptsRemaining` 无关地成立。
 - 该计数器是进程生命周期状态；能重启 Motrix 的同 UID 攻击者不在威胁模型
   内（§1.1）。40 bit 码空间、每会话 3 次尝试加上述锁定表，在线猜测者的
   成功概率约为 `3·k / 2^40`（`k` 为会话数）——按上限每天不足约 700 个
@@ -713,7 +728,10 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
   provisional，再试上一个 committed。凭据**只在经认证的会话证明哪一把存活
   之后**才删除（§6.7）；信道前的 `authFailed` 本身绝不删除凭据，因此伪造的
   `authFailed` 无法使客户端陷入无凭据可用。当没有任何存储凭据通过认证时，
-  两把都保留留待重试，仅在用户主动操作或凭据被吊销时才回到首次配对。
+  保留集留待重试，仅在用户主动操作或凭据被吊销时才回到首次配对。保留状态
+  有界：每个 principal 至多保留 committed 凭据加最新一条 provisional，
+  provisional 条目 10 分钟后过期，且一次成功认证 MUST 删除该 principal 名下
+  其他所有凭据及其 `PinStore` 条目，使被中断的轮换不留下无界的陈旧密钥。
 
 ---
 
@@ -812,7 +830,9 @@ Firefox 两行的推论：扩展在探测 loopback 之前 MUST 先检查
 | 1 | 2026-08-19 | 独立对抗性密码学审查（Codex） | NOT APPROVED — 0 High / 4 Medium / 6 Low | SPAKE2 构造与全部已发布向量被独立复现为正确。Medium：单侧尝试计数（M1）、缺乏依据的 2^40 帧 GCM 上限（M2）、ZIP-215/small-order `bindingPub` 伪造（M3）、非事务性轮换（M4）。Low：ticket `v` 未入 MAC 且 ticket 未绑 AAD、标量采样表述不均匀与 `w = 0` 概率错误、HKDF traffic label 复用、负例向量覆盖不足、`/v1` 信道前成帧未规定、依赖版本未真正锁定。 |
 | 1-rev | 2026-08-19 | 规范修订 | 发现已处理 | 双侧尝试限制与防断连规避的计数（§6.5/§7.2/§7.3）；2^24 帧 / 2^30 block AEAD 上界（§10）；strict Ed25519 验证加规范/small-order/torsion-free `bindingPub` 校验与负例（§9.1）；事务性轮换与确定性客户端恢复（§6.7/§12）；ticket `v` 入 MAC、ticket digest 绑入 AAD、篡改 fail-closed 与 §5 优先级（§6.4/§9.2）；拒绝采样标量与概率修正（§6.3/§6.2）；pair/reconnect HKDF label 区分（§6.6）；RFC P-256 全四组向量、dirTag 单独负例与 weak-key 负例（§13）；`/v1` 成帧与 deadline（§8）；noble 精确锁定与审计依据要求（§3）。 |
 | 2 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M2/M3/L2/L3/L5/L6 已闭合；M1/M4/L1/L4 部分；新增 1 Low（N1） | M1：客户端全局 backoff 未充分规定。M4：（1）未认证的 `authFailed` 可能删除客户端唯一有效凭据；（2）缺少针对并发轮换的 single-flight/CAS。L1：MAC 硬编码 `purpose`、AAD 遗漏单独的 `ticketBindingKey`，这两个字段只降级而非 fail closed。L4：缺少 dirty-torsion / 非规范 `R` / `S ≥ ℓ` 负例。N1：noble 2.0.1 的 `zip215:false` 用 cofactored 方程，故“cofactorless”措辞不准确。 |
-| 2-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | 客户端全局 backoff 完整规定——持久的按 `instanceId` 计数、相同锁定表、与 `attemptsRemaining` 无关（§7.3）。轮换为按 principal 的 single-flight CAS；客户端绝不因未认证 `authFailed` 删除凭据、仅在经认证会话后修剪（§6.7/§12）。AAD 现绑定 `ticketBindingKey` 加覆盖 ticket wire 字段（含 wire `purpose` 与 `mac`）的 `ticketDigest`，任何 ticket 字段篡改均 fail closed（§6.4/§9.2）。验证措辞更正为 RFC 8032 strict `zip215:false`（cofactored），并说明 torsion 微扰的 conformance caveat（§9.1/§6.5）。向量新增 dirty-torsion、`S ≥ ℓ`、非规范 `R` 与逐字段篡改负例（§13）。待复审。 |
+| 2-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端全局 backoff 规定；轮换 single-flight CAS；客户端绝不因未认证 `authFailed` 删除凭据；AAD 绑定 `ticketBindingKey` 加覆盖 ticket wire 字段的 `ticketDigest`；验证措辞更正为 RFC 8032 strict（cofactored）；向量新增 dirty-torsion / `S ≥ ℓ` / 非规范 `R` / 逐字段篡改负例。 |
+| 3 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；M4(1)/M4(2)/L1/N1 已闭合；M1 部分（Medium blocker）；L4 部分（Low blocker）；新增 2 Low | M1：客户端计数器按攻击者可控的 `instanceId` 分键，假 listener 每次返回新 `instanceId` 即得新计数器。L4：向量对 `S ≥ ℓ` / 非规范 `R` 只有描述（无恶意字节），且仅覆盖两个小阶点编码。新 Low：认证后修剪只是 `MAY`、客户端 provisional 凭据无过期/上界（陈旧密钥增长）。新 Low：§6.4 措辞称未在 allowlist 的 `callerId` 降级为 `unverified`（与 §5/§9.2 的 `attested-non-official` 矛盾），并暗示校验只在字节一致后才进行。 |
+| 3-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理 | 客户端首配 backoff 改为单一真正全局计数器，绝不按 `instanceId` 或任何攻击者值分键，另设可选的已认证按实例子计数器（§7.3）。认证后修剪改为强制（MUST 删除同 principal 其他所有凭据与 pin），认证前保留集限为两条并设 10 分钟 provisional 过期（§6.7/§12）。§6.4 更正：未列入 allowlist 的 `callerId` → `attested-non-official`，`ticketDigest` 定义为对解析值的规范编码，并澄清校验先于 confirmation 的顺序。向量以真实恶意字节重生成 `S ≥ ℓ` 与非规范 `R`、完整 8 个小阶点集、以及全九字段篡改自检（§13）。待复审。 |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

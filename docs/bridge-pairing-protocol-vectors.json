@@ -114,14 +114,18 @@
     },
     "mustReject": [
       {
-        "case": "bindingPub = identity encoding",
-        "bindingPub": "0100000000000000000000000000000000000000000000000000000000000000",
-        "reason": "identity key rejected by §9.1 validation"
-      },
-      {
-        "case": "bindingPub = small-order point",
-        "bindingPub": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
-        "reason": "small-order key rejected by §9.1 validation"
+        "case": "bindingPub = any small-order / torsion point encoding (full set)",
+        "bindingPub": [
+          "0100000000000000000000000000000000000000000000000000000000000000",
+          "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+          "0000000000000000000000000000000000000000000000000000000000000000",
+          "0000000000000000000000000000000000000000000000000000000000000080",
+          "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+          "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+          "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+          "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85"
+        ],
+        "reason": "every order-dividing-8 encoding rejected by §9.1 validation (identity, order-2, order-4, order-8)"
       },
       {
         "case": "bindingPub = dirty (non-torsion-free) point",
@@ -130,20 +134,23 @@
       },
       {
         "case": "ticketProof = (identity || 0) under bindingPub = identity",
+        "bindingPub": "0100000000000000000000000000000000000000000000000000000000000000",
         "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
         "reason": "passes the bare verification equation for any message; stopped by key-level rejection of identity bindingPub"
       },
       {
         "case": "ticketProof with S >= ell (S malleated by + ell)",
+        "signature": "2d232ce6318a9bff5654dbf760d0091b20a78cfac56c6ca24178a197805d5ea645c5c0a72467dc20da160c7b25a102b8f881d0212c560d03c2f888d3973f3512",
         "reason": "RFC 8032 strict (zip215:false) rejects S >= ell"
       },
       {
-        "case": "ticketProof with a non-canonical R encoding (y >= p)",
+        "case": "ticketProof with a non-canonical R encoding (y = p)",
+        "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
         "reason": "RFC 8032 strict rejects non-canonical point encodings"
       },
       {
-        "case": "any single wire field of the ticket (v, purpose, callerId, bindingPub, mac) modified in transit",
-        "reason": "ticketDigest over wire fields bound into the PAKE AAD (§6.4) desynchronizes key confirmation → fail closed"
+        "case": "any single wire field of the ticket (v, purpose, ticketProtocolVersion, serverGeneration, browser, callerId, exp, bindingPub, mac) modified in transit",
+        "reason": "ticketDigest over the parsed wire fields bound into the PAKE AAD (§6.4) desynchronizes key confirmation → fail closed"
       }
     ],
     "note": "A torsion-tweaked proof (R=rB+T, S=r+k·a) by a signer who KNOWS bindingPriv is a conformance caveat of noble's cofactored equation, NOT a forgery, and is intentionally not asserted as rejected (spec §9.1)."

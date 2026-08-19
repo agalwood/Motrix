@@ -365,21 +365,28 @@ ticketDigest = SHA-256(
 
 - `ticketBindingKeyOrEmpty` is the raw 32-byte `pairHello.ticketBindingKey`
   when an `nmTicket` was presented, else the empty string.
-- `ticketDigest` is computed over **every field of the ticket exactly as it
-  appeared on the wire** — including `v`, the wire `purpose` string, and the
-  32-byte `mac` — each party hashing the ticket exactly as it sent or
-  received it; `ticketDigestOrEmpty` is empty when no ticket was presented.
-  This deliberately does **not** reuse the §9.2 canonical MAC input (which
-  fixes `purpose` to a constant), so that flipping *any* wire field — `mac`,
-  `purpose`, `bindingPub`, or `callerId` — changes the digest.
+- `ticketDigest` is computed over **the canonical encodings above of the
+  parsed values of every ticket field** — `v` and `ticketProtocolVersion` as
+  U32, `exp` as U64, strings as UTF-8, and `bindingPub`/`mac` as the raw bytes
+  their base64url decodes to. (Raw JSON spelling/whitespace is *not* hashed;
+  each party re-encodes the values it parsed.) `ticketDigestOrEmpty` is empty
+  when no ticket was presented. This deliberately does **not** reuse the §9.2
+  canonical MAC input (which fixes `purpose` to a constant domain tag), so that
+  flipping *any* wire field — `mac`, `purpose`, `bindingPub`, `callerId`,
+  `serverGeneration`, `browser`, `exp`, `v`, or `ticketProtocolVersion` —
+  changes the digest.
 
 Because both the separate `ticketBindingKey` field and every ticket field are
 bound here, an in-path attacker that modifies any of them desynchronizes the
 two parties' AAD and breaks key confirmation: such tampering **fails the
-pairing closed**, never a silent `unverified` downgrade. Only a ticket both
-sides received byte-identically reaches §9.2 validation, where a
-*content*-level problem (unknown generation, expiry, unlisted `callerId`)
-downgrades visibly to `unverified`.
+pairing closed**, never a silent `unverified` downgrade. Ordering note: the
+server runs §9.2 ticket validation at `pairHello`, *before* key confirmation.
+So a tampered ticket does not "avoid" validation — validation runs on whatever
+the server received; it is *key confirmation* that later fails, because the two
+parties' digests differ. Content-level problems on a ticket both sides received
+identically resolve per §5/§9.2: an unknown generation or expired ticket
+downgrades to `unverified`, while a valid ticket whose `callerId` is not on the
+allowlist yields `attested-non-official` (not `unverified`).
 
 ### 6.5 Key schedule and confirmation
 
@@ -464,15 +471,22 @@ Atomicity rules:
   signal.** `authFailed` (§11) is a pre-channel message any listener can
   forge, so it MUST NOT by itself delete a stored credential. On reconnect the
   client tries the **newest provisional credential first**, then the previous
-  committed one; it prunes the superseded credential **only after an
-  authenticated session has been established** (mutual `reconnectAccept`
-  verified, §8), at which point the credential that authenticated is provably
-  the live one and the other MAY be removed. A run in which no stored
-  credential authenticates leaves **both** credentials in place for a later
-  retry; the flow falls back to fresh code-entry pairing only when the user
-  asks or a credential is explicitly revoked. This denies a fake listener the
-  ability to make the client discard its only valid credential by replaying
-  `authFailed`. Explicit revocation closes live sessions.
+  committed one. Once an authenticated session is established (mutual
+  `reconnectAccept` verified, §8), the credential that authenticated is provably
+  the live one, and the client MUST then delete **all other stored credentials
+  and pins for that same principal** — the prune after authentication is
+  mandatory, not optional, so interrupted rotations cannot accumulate stale
+  mutual keys. A run in which no stored credential authenticates leaves the
+  retained set in place for a later retry; the flow falls back to fresh
+  code-entry pairing only when the user asks or a credential is explicitly
+  revoked. Before any successful authentication the client bounds its retained
+  set to **at most two** entries per principal — the current committed
+  credential and the single newest provisional one — and a client-side
+  provisional credential that has not authenticated within **10 minutes**
+  (matching the server provisional expiry) is discarded. This denies a fake
+  listener the ability to make the client discard its only valid credential by
+  replaying `authFailed`, without letting stale secrets grow unbounded.
+  Explicit revocation closes live sessions.
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
@@ -539,19 +553,26 @@ retry. Implementations MUST test worker death both before and after approval.
   failures), the server enforces a lockout of `min(30 · 2^(n−1), 3600)`
   seconds during which new `/pair` sessions are rejected with `rateLimited`.
   The counter resets on a successful pairing or after 24 h.
-- **Client-side global backoff (mirrors the server counter).** The extension
-  keeps its own persistent global failure counter in `storage.local`, keyed
-  per Motrix `instanceId` (falling back to a single global key when no
-  `instanceId` is known yet). It increments on the same condition — any
-  pairing session that reached `pakeA` and ended without mutual confirmation,
-  including one the extension itself abandoned by closing the socket — so a
-  fake server cannot reset the client's accounting by forcing a fresh
-  WebSocket. Before starting pairing session `n` (consecutive client-side
-  failures) the extension enforces the **same** `min(30 · 2^(n−1), 3600)`
-  second lockout, refusing to open `/pair` and showing the user a "try again
-  later" state; it resets on a successful pairing or after 24 h. Both
-  independent limits (per-session ≤3 runs, this global backoff) hold
-  regardless of any server-reported `attemptsRemaining`.
+- **Client-side global backoff (analogous to, not keyed like, the server
+  counter).** The extension keeps a **single truly global** first-pair failure
+  counter in `storage.local` — **one counter for all unauthenticated
+  first-pair targets**, deliberately **not** keyed by `instanceId`, `port`, or
+  any other attacker-controllable value (a fake listener that returns a fresh
+  `instanceId` every session must not obtain a fresh counter; `instanceId` is
+  never a security signal, §4.1). It increments on any first-pair session that
+  reached `pakeA` and ended without mutual confirmation, including one the
+  extension itself abandoned by closing the socket. Before starting first-pair
+  session `n` (consecutive global failures) the extension enforces the
+  `min(30 · 2^(n−1), 3600)` second lockout, refusing to open `/pair` and
+  showing a "try again later" state; it resets on a successful pairing or after
+  24 h. This is the client analogue of the server counter (§7.3) and defeats
+  the same online-guessing attack, though the two count at slightly different
+  points — the server increments once a code-bearing dialog is queued, the
+  client once a session reaches `pakeA`. An **authenticated, per-`instanceId`**
+  reconnect-failure subcounter MAY additionally exist, but it is separate from
+  and never substitutes for this global first-pair counter. Both client limits
+  (per-session ≤3 runs, this global backoff) hold regardless of any
+  server-reported `attemptsRemaining`.
 - The counter is process-lifetime state; a same-UID attacker who can restart
   Motrix is out of scope (§1.1). The 40-bit code space at 3 attempts per
   session and this lockout schedule yields a success probability for an
@@ -813,9 +834,13 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
   one. A credential is deleted **only after an authenticated session proves
   which one is live** (§6.7); a pre-channel `authFailed` never deletes a
   credential on its own, so a forged `authFailed` cannot strand the client.
-  When no stored credential authenticates, both are retained for a later
+  When no stored credential authenticates, the retained set stays for a later
   retry and the flow returns to first pair only on explicit user action or
-  revocation.
+  revocation. Retained state is bounded: at most the committed credential plus
+  the newest provisional one per principal, provisional entries expire after
+  10 minutes, and a successful authentication MUST delete every other
+  credential and its `PinStore` entry for that principal, so interrupted
+  rotations leave no unbounded stale-secret inventory.
 
 ---
 
@@ -929,7 +954,9 @@ The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
 | 1 | 2026-08-19 | Independent adversarial cryptographic review (Codex) | NOT APPROVED — 0 High / 4 Medium / 6 Low | SPAKE2 construction and all published vectors independently reproduced as correct. Mediums: one-sided attempt accounting (M1), unjustified 2^40-frame GCM limit (M2), ZIP-215/small-order `bindingPub` forgery (M3), non-transactional rotation (M4). Lows: ticket `v` outside the MAC and no ticket/AAD binding, non-uniform scalar sampling wording and wrong `w = 0` probability, reused HKDF traffic labels, thin negative-vector coverage, unspecified `/v1` pre-channel framing, unpinned dependency versions. |
 | 1-rev | 2026-08-19 | Spec revision | Findings addressed | Both-sides attempt limits with disconnect-proof accounting (§6.5/§7.2/§7.3); 2^24-frame / 2^30-block AEAD bounds (§10); strict Ed25519 verification plus canonical/small-order/torsion-free `bindingPub` validation with negative tests (§9.1); transactional rotation and deterministic client recovery (§6.7/§12); ticket `v` MACed and the ticket digest bound into AAD with fail-closed tamper semantics and §5 precedence (§6.4/§9.2); rejection-sampled scalars and corrected probability (§6.3/§6.2); distinct pair/reconnect HKDF labels (§6.6); all four RFC P-256 vectors, dirTag-only and weak-key negatives (§13); `/v1` framing and deadline (§8); exact noble pins with audit-basis requirement (§3). |
 | 2 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M2/M3/L2/L3/L5/L6 closed; M1/M4/L1/L4 partial; 1 new Low (N1) | M1: client-side global backoff underspecified. M4: (1) an unauthenticated `authFailed` could delete the client's only valid credential; (2) no single-flight/CAS against concurrent rotations. L1: MAC hard-codes `purpose` and AAD omitted the separate `ticketBindingKey`, so those two fields downgraded rather than failing closed. L4: missing dirty-torsion / non-canonical `R` / `S ≥ ℓ` negatives. N1: noble 2.0.1 `zip215:false` uses the cofactored equation, so the "cofactorless" wording was inaccurate. |
-| 2-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Client global backoff fully specified — persistent per-`instanceId` counter, same lockout schedule, independent of `attemptsRemaining` (§7.3). Rotation is a per-principal single-flight CAS; client never deletes a credential on an unauthenticated `authFailed` and prunes only after an authenticated session (§6.7/§12). AAD now binds `ticketBindingKey` plus a `ticketDigest` over the ticket's wire fields (including the wire `purpose` and `mac`), so any ticket-field tamper fails closed (§6.4/§9.2). Verification wording corrected to RFC 8032 strict `zip215:false` (cofactored), with the torsion-tweak conformance caveat stated (§9.1/§6.5). Vectors add dirty-torsion, `S ≥ ℓ`, non-canonical `R`, and per-field tamper negatives (§13). Awaiting re-review. |
+| 2-rev | 2026-08-19 | Spec revision | Findings addressed | Client global backoff specified; rotation single-flight CAS; client never deletes a credential on an unauthenticated `authFailed`; AAD binds `ticketBindingKey` plus a `ticketDigest` over the ticket's wire fields; verification wording corrected to RFC 8032 strict (cofactored); vectors add dirty-torsion / `S ≥ ℓ` / non-canonical `R` / per-field tamper negatives. |
+| 3 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; M4(1)/M4(2)/L1/N1 closed; M1 partial (Medium blocker); L4 partial (Low blocker); 2 new Low | M1: the client counter was keyed by the attacker-controllable `instanceId`, so a fake listener returning a fresh `instanceId` each session got a fresh counter. L4: vectors carried only prose for `S ≥ ℓ` / non-canonical `R` (no malicious bytes) and covered only two small-order encodings. New Low: post-auth prune was only `MAY` and client provisional credentials had no expiry/bound (stale-secret growth). New Low: §6.4 prose said an unlisted `callerId` downgrades to `unverified` (contradicting §5/§9.2 `attested-non-official`) and implied validation runs only after byte-identity. |
+| 3-rev | 2026-08-19 | Spec revision (this document) | Findings addressed | Client first-pair backoff is now a single truly-global counter, never keyed by `instanceId` or any attacker value, with an optional separate authenticated per-instance subcounter (§7.3). Post-authentication prune is mandatory (MUST delete all other same-principal credentials and pins), pre-auth retained set bounded to two with a 10-minute provisional expiry (§6.7/§12). §6.4 corrected: unlisted-`callerId` → `attested-non-official`, ticketDigest defined over canonical encodings of parsed values, and the validation-before-confirmation ordering clarified. Vectors regenerated with actual malicious bytes for `S ≥ ℓ` and non-canonical `R`, the full 8-element small-order set, and all-nine-field tamper self-checks (§13). Awaiting re-review. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
