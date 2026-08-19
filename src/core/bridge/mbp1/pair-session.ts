@@ -52,6 +52,7 @@ import { DIR_C2S, DIR_S2C, EnvelopeOpener, EnvelopeSealer } from './envelope'
 import {
   confirmAFrameSchema,
   credentialAckFrameSchema,
+  credentialOfferFrameSchema,
   frameEnvelopeSchema,
   MAX_PRE_AUTH_FRAME_BYTES,
   MBP1_PROTOCOL_VERSION,
@@ -329,13 +330,22 @@ export class PairSession {
       this.terminate('credentialCommitFailed')
       return
     }
-    if (this.state !== 'acked' || this.channel === null) {
+    // Captured into a local, not re-read from `this`: `sendSealed` can
+    // `terminate` (which nulls `this.channel`), and TypeScript keeps the
+    // narrowing above alive across that call.
+    const channel = this.channel
+    if (this.state !== 'acked' || channel === null) {
       return
     }
 
-    this.sendSealed({ type: 'credentialCommitted' })
+    // A failed seal has already closed the session. Continuing would set
+    // `state = 'committed'` on a closed session and hand the wiring a channel
+    // after its `close` callback had fired.
+    if (!this.sendSealed({ type: 'credentialCommitted' })) {
+      return
+    }
     this.state = 'committed'
-    this.deps.onAuthenticated(this.channel)
+    this.deps.onAuthenticated(channel)
   }
 
   /**
@@ -350,7 +360,7 @@ export class PairSession {
     }
     this.state = 'closed'
     this.discardRunState()
-    this.dialog?.close()
+    this.closeDialog()
     this.releasePendingSlot()
   }
 
@@ -600,15 +610,18 @@ export class PairSession {
       return
     }
 
+    // §7.2: the run has begun. Consuming the attempt here — before the schema
+    // parse, and never on its outcome — is what makes both a mid-run
+    // disconnect and a malformed frame unable to reclaim it. §7.2 lists
+    // "malformed point after `pakeA`" among the failures that count, so an
+    // unparseable `pakeA` spends an attempt just as a bad `cA` does.
+    this.attempts += 1
+
     const parsed = pakeAFrameSchema.safeParse(body)
     if (!parsed.success) {
       this.violation()
       return
     }
-
-    // §7.2: the run has begun. Consuming the attempt here — not on its
-    // outcome — is what makes disconnecting mid-run unable to reclaim it.
-    this.attempts += 1
 
     let w: bigint
     try {
@@ -726,7 +739,7 @@ export class PairSession {
     this.run = null
     this.w = null
     this.codeNormalized = null
-    this.dialog?.close()
+    this.closeDialog()
     // The dialog is gone, so the §7.3 pending slot is free — and it must be
     // freed here rather than at `dispose`, or a long-lived paired connection
     // would hold a slot for its whole lifetime and three of them would block
@@ -763,13 +776,29 @@ export class PairSession {
       return
     }
 
-    this.offeredCredentialId = offer.credentialId
-    this.state = 'offer-sent'
-    this.sendSealed({
+    // Self-check the frame we are about to emit. `credentialOfferFrameSchema`
+    // asserts `mutualKey` is canonical base64url of exactly 32 bytes (§6.7),
+    // and nothing else verifies that the store honours it: `PairCredentialIssuer`
+    // is a structural interface, so `tsc` proves the method shapes match but
+    // says nothing about the *contents* of the string it returns. Validating
+    // here turns a store-contract violation into a local, diagnosable close
+    // instead of a malformed frame the peer has to reject, and makes
+    // `frames.ts`'s "one schema describes both directions" claim literally true.
+    const offerFrame = {
       type: 'credentialOffer',
       credentialId: offer.credentialId,
       mutualKey: offer.mutualKeyB64,
-    })
+    }
+    if (!credentialOfferFrameSchema.safeParse(offerFrame).success) {
+      this.terminate('credentialOfferInvalid')
+      return
+    }
+
+    this.offeredCredentialId = offer.credentialId
+    this.state = 'offer-sent'
+    if (!this.sendSealed(offerFrame)) {
+      return
+    }
   }
 
   // -- shared helpers ------------------------------------------------------
@@ -835,9 +864,24 @@ export class PairSession {
     }
     this.state = 'closed'
     this.discardRunState()
-    this.dialog?.close()
+    this.closeDialog()
     this.releasePendingSlot()
     this.deps.close(reason)
+  }
+
+  /**
+   * Closes the approval dialog at most once. `PairDialogHandle.close` is not
+   * required to be idempotent, and the close sites overlap: key confirmation
+   * closes the dialog, and the later `dispose` on socket close would close it
+   * a second time.
+   */
+  private closeDialog(): void {
+    const dialog = this.dialog
+    if (dialog === null) {
+      return
+    }
+    this.dialog = null
+    dialog.close()
   }
 
   /** See `PairSessionDeps.release`: at most once, and only for a slot we took. */
@@ -857,16 +901,24 @@ export class PairSession {
     this.channel = null
   }
 
-  private sendSealed(frame: object): void {
+  /**
+   * Seals and sends one frame, reporting whether it actually went out. A
+   * `false` return means the session is **already closed** — every caller must
+   * return immediately rather than continue on the assumption that the frame
+   * was delivered.
+   */
+  private sendSealed(frame: object): boolean {
     if (this.channel === null) {
-      return
+      return false
     }
     try {
       this.deps.sendBinary(
         this.channel.sealer.seal(utf8ToBytes(JSON.stringify(frame)))
       )
+      return true
     } catch {
       this.terminate('envelopeSealFailed')
+      return false
     }
   }
 }

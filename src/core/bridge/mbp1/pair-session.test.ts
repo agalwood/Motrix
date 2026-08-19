@@ -865,12 +865,15 @@ describe('PairSession', () => {
       expect(h2.error().code).toBe('protocolViolation')
     })
 
-    it('aborts on a malformed base64url point', async () => {
+    it('aborts on a malformed base64url point, and still spends the attempt', async () => {
       const h = makeHarness()
       await openSession(h)
       await h.text({ type: 'pakeA', pA: '!!!!not-base64url!!!!' })
       expect(h.error().code).toBe('protocolViolation')
       expect(h.closed).toHaveLength(1)
+      // §7.2 counts "malformed point after pakeA" as a failed attempt, so an
+      // unparseable pakeA must not be a free probe.
+      expect(h.session.attemptCount).toBe(1)
     })
 
     it('aborts on a well-formed but non-canonical curve point, consuming the attempt', async () => {
@@ -895,8 +898,14 @@ describe('PairSession', () => {
       const code = await openSession(h)
       const client = new ClientDouble({ code })
       await runHandshake(h, client)
+      const before = h.sent.length
 
       await h.text({ type: 'pakeA', pA: toBase64Url(new Uint8Array(32)) })
+
+      // Closed *silently*: §11 scopes `pairError` to pre-channel, so leaking a
+      // plaintext error here would be the very §11 violation this path exists
+      // to prevent. Asserting only "the socket closed" would pass either way.
+      expect(h.sent).toHaveLength(before)
       expect(h.closed).toHaveLength(1)
     })
 
@@ -1051,9 +1060,13 @@ describe('PairSession', () => {
       // Released at confirmation, not at socket close: a paired connection
       // lives for hours, and three of them would otherwise block every dialog.
       expect(h.released).toEqual([ORIGIN])
+      expect(h.dialogClosed).toEqual([0])
 
       h.session.dispose('socket-closed')
       expect(h.released).toEqual([ORIGIN])
+      // The dialog is closed exactly once too: `PairDialogHandle.close` is not
+      // required to be idempotent, and confirmation + dispose both reach it.
+      expect(h.dialogClosed).toEqual([0])
     })
 
     it('frees the pending slot when the session ends without pairing', async () => {
@@ -1228,6 +1241,56 @@ describe('PairSession', () => {
       )
 
       expect(h.commitFromPair).not.toHaveBeenCalled()
+      expect(h.closed).toHaveLength(1)
+    })
+
+    it('refuses to emit a credentialOffer the store filled in wrongly', async () => {
+      // `PairCredentialIssuer` is structural, so `tsc` proves the store's
+      // method shapes but never its string contents. A `mutualKeyB64` that is
+      // not 32 bytes of base64url must close locally, not go out malformed.
+      const h = makeHarness({
+        offerProvisional: () =>
+          Promise.resolve({
+            credentialId: 'cred-1111-2222-3333',
+            mutualKeyB64: toBase64Url(new Uint8Array(16).fill(7)),
+          }),
+      })
+      const code = await openSession(h)
+      const client = new ClientDouble({ code })
+      await runHandshake(h, client)
+
+      expect(h.binary).toHaveLength(0)
+      expect(h.closed).toHaveLength(1)
+      expect(h.authenticated).toBeNull()
+    })
+
+    it('does not resurrect a closed session when the seal fails', async () => {
+      const h = makeHarness()
+      const code = await openSession(h)
+      const client = new ClientDouble({ code })
+      await runHandshake(h, client)
+      const channel = client.channel()
+      channel.opener.open(h.binary[0])
+
+      // Force the credentialCommitted seal to throw, the way an envelope usage
+      // bound would (§10). The session is already closed by then, so it must
+      // not go on to hand the wiring a channel after `close` already fired.
+      h.deps.sendBinary = () => {
+        throw new Error('seal failed')
+      }
+
+      await h.session.handleBinary(
+        channel.sealer.seal(
+          utf8ToBytes(
+            JSON.stringify({
+              type: 'credentialAck',
+              credentialId: 'cred-1111-2222-3333',
+            })
+          )
+        )
+      )
+
+      expect(h.authenticated).toBeNull()
       expect(h.closed).toHaveLength(1)
     })
 
