@@ -4,8 +4,9 @@
 // The pairing code IS the PAKE password: never log `codeNormalized`, the
 // scrypt output, or the derived scalar `w`.
 
+import { Buffer } from 'node:buffer'
 import { scryptSync } from 'node:crypto'
-import { assertAscii } from './canonical'
+import { assertAscii, os2ip } from './canonical'
 
 export class PairingFailedError extends Error {}
 
@@ -35,17 +36,9 @@ export function deriveW(
     maxmem: 64 * 1024 * 1024,
   })
 
-  const w = bytesToBigIntBE(h) % order
+  const w = os2ip(h) % order
   if (w === 0n) {
     throw new PairingFailedError('derived w is 0')
   }
   return w
-}
-
-function bytesToBigIntBE(bytes: Uint8Array): bigint {
-  let n = 0n
-  for (const byte of bytes) {
-    n = (n << 8n) | BigInt(byte)
-  }
-  return n
 }

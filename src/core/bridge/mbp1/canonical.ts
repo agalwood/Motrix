@@ -106,6 +106,20 @@ function assertUint64Range(n: number | bigint, field: string): bigint {
   return BigInt(n)
 }
 
+/**
+ * `OS2IP(b)` — big-endian interpretation of a byte string as an integer (§2).
+ * Shared by every mbp1 module that turns raw bytes (a hash digest, CSPRNG
+ * output) into a numeric value: `scrypt-w.ts`'s `w` derivation,
+ * `pairing-code.ts`'s bit-grouping, and later §6.3 scalar rejection sampling.
+ */
+export function os2ip(bytes: Uint8Array): bigint {
+  let n = 0n
+  for (const byte of bytes) {
+    n = (n << 8n) | BigInt(byte)
+  }
+  return n
+}
+
 const BASE64URL_ALPHABET = /^[A-Za-z0-9_-]*$/
 
 /** Base64url without padding (§2, RFC 4648 §5). */
