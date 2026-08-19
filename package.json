@@ -115,6 +115,8 @@
     "@motrix/mdxp": "^0.5.0",
     "@motrix/nat": "^0.1.1",
     "@motrix/plugin-manifest-schema": "^2.1.0",
+    "@noble/curves": "2.0.1",
+    "@noble/hashes": "2.0.1",
     "@resvg/resvg-wasm": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-virtual": "^3.14.9",

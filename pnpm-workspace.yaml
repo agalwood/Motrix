@@ -25,6 +25,8 @@ allowBuilds:
   esbuild: true
 
 minimumReleaseAgeExclude:
+  - '@noble/curves@2.0.1'
+  - '@noble/hashes@2.0.1'
   - i18next@26.3.6
   - lucide-react@1.24.0 || 1.31.0
   - react-i18next@17.0.9

@@ -115,10 +115,11 @@ Ed25519 MUST come from bundled, independently audited libraries pinned at an
 **exact** version on the TypeScript side: **`@noble/curves@2.0.1`** and
 **`@noble/hashes@2.0.1`** (the versions the normative test vectors were
 generated with). The Cure53 audit of September 2024 was performed at
-`@noble/curves` 1.6.0; before Phase-A release the maintainers MUST record the
-audit basis for the pinned version — a reviewed upstream diff from the audited
-release, or a newer audit — in the review log (Appendix C). Any version bump
-re-runs the full vector suite and updates this pin.
+`@noble/curves` 1.6.0; the audit basis for the 2.0.1 pin — that audit plus a
+maintainer-reviewed upstream diff from 1.6.0 to 2.0.1 — is recorded in the
+review log (Appendix C), where the diff review is marked pending maintainer
+confirmation before Phase-A release. Any version bump re-runs the full vector
+suite and updates this pin.
 WebCrypto X25519/Ed25519 MUST NOT be used: it requires Chrome 133 / Firefox
 130, while the extension supports Chrome 120+ / Firefox 121+ (see Appendix B).
 Symmetric primitives (AES-256-GCM, HKDF-SHA-256, HMAC-SHA-256) MAY use
@@ -1090,6 +1091,7 @@ The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
 | 5-rev | 2026-08-19 | Spec revision | Findings addressed | Client write-ahead before `credentialAck`; server durable promote/CAS-revoke before `reconnectAccept`; server provisional bounded with idempotent re-offer; §9.2 outcome map made exhaustive with the `browser` check and deferrals. |
 | 6 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; 1 Medium + 4 Low | Medium: a crash after the client's committed-write but before pruning could leave two `committed` entries with the active pointer still on the predecessor, and recovery did not say how to choose — a conforming client could loop on the revoked credential. Low: the journal alternative needed a replay-before-`/v1` barrier; "idempotent re-offer" was under-defined; first-pair orphan `commit-uncertain` cleanup was undefined; §9.2 lacked a MAC-first check order (so an honest prior-generation ticket could be misclassified) and over-claimed a "mint window". Construction and all vectors independently reproduced; no High. Reviewer: once the Medium is fixed the Low items are deferrable to implementation tracking and the gate may be considered satisfied. |
 | 6-rev | 2026-08-19 | Spec revision (this document) | Findings addressed; gate satisfied | The client writes `committed` **and** `activeCredentialId` in one atomic durable write before pruning, and recovery tries `activeCredentialId` first, so a crash-before-prune is disambiguated by the pointer, never by guessing (§6.7/§12). Journal replay MUST finish before `/v1` accepts auth; "idempotent re-offer" re-sends the identical stored `{credentialId, mutualKey}`; a first-pair orphan `commit-uncertain` (no committed sibling) may be cleaned after the 10-minute server provisional TTL (§6.7). §9.2 now fixes MAC-first check order, requires `localToken` to persist while only `serverGeneration` rotates, and reframes `exp` as a remaining-lifetime bound. **Six independent adversarial rounds re-confirmed 0 High; the Medium is closed; the residual Low items are tracked to implementation. Pre-implementation cryptographic-review gate is satisfied.** |
+| Dep-pin | 2026-08-20 | Maintainer (dependency audit-basis record, §14.2) | Recorded — diff review pending | Pinned `@noble/curves@2.0.1` and `@noble/hashes@2.0.1` at exact versions in the TypeScript implementation (§3). Audit basis: the Cure53 audit of September 2024 was performed at `@noble/curves` 1.6.0; the second pillar of that basis — a maintainer review of the upstream diff from 1.6.0 to 2.0.1 — is **pending maintainer confirmation before Phase-A release**; no such review has been performed yet. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

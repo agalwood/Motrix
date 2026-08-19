@@ -97,9 +97,10 @@ N = d3bfb518f44f3430f29d0c92af503865a1ed3281dc69b35dd868ba85f886c4ab
 **实现来源。** 曲线运算、SPAKE2 组合、scrypt 与 Ed25519 MUST 来自捆绑的、经
 独立审计的库并以**精确版本**锁定：TypeScript 侧为 **`@noble/curves@2.0.1`**
 与 **`@noble/hashes@2.0.1`**（即生成规范性测试向量所用的版本）。Cure53
-2024 年 9 月的审计基于 `@noble/curves` 1.6.0；Phase-A 发布前 maintainer
-MUST 在审查日志（附录 C）中记录所锁定版本的审计依据——从被审计版本起的
-上游 diff 审阅、或更新的审计。任何版本升级都要重跑全部向量并更新此锁定。
+2024 年 9 月的审计基于 `@noble/curves` 1.6.0；2.0.1 锁定版本的审计依据——
+该审计加上一次从 1.6.0 到 2.0.1、经 maintainer 审阅的上游 diff——已记录在
+审查日志（附录 C）中，其中 diff 审阅一项标记为 Phase-A 发布前待 maintainer
+确认。任何版本升级都要重跑全部向量并更新此锁定。
 MUST NOT 使用 WebCrypto 的 X25519/Ed25519：其要求 Chrome 133 / Firefox
 130，而扩展
 支持 Chrome 120+ / Firefox 121+（见附录 B）。对称原语（AES-256-GCM、
@@ -931,6 +932,7 @@ Firefox 两行的推论：扩展在探测 loopback 之前 MUST 先检查
 | 5-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端在 `credentialAck` 前 write-ahead；server 在 `reconnectAccept` 前持久提升/CAS 吊销；server provisional 限界、幂等重发；§9.2 结果表穷尽、加 `browser` 检查与延后。 |
 | 6 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；1 Medium + 4 Low | Medium：客户端 committed 写入后、修剪前崩溃可能留下两条 `committed` 而 active 指针仍指向前任，恢复未定义如何选择——合规客户端可能在被吊销的凭据上循环。Low：journal 替代方案需「重放先于 `/v1`」屏障；「幂等重发」定义不足；首配孤儿 `commit-uncertain` 清理未定义；§9.2 缺 MAC-first 检查顺序（诚实的先前 generation ticket 可能被误判）且过度声称「铸造窗口」。构造与全部向量独立复现；无 High。审查者：Medium 修复后 Low 项可延后到实现跟踪、gate 即可视为满足。 |
 | 6-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理；gate 满足 | 客户端在修剪前于**一次原子持久写入**中同时写 `committed` **与** `activeCredentialId`，恢复先试 `activeCredentialId`，使崩溃-未修剪由指针消歧、绝不靠猜（§6.7/§12）。journal 重放 MUST 在 `/v1` 接受认证前完成；「幂等重发」重发已存的同一 `{credentialId, mutualKey}`；首配孤儿 `commit-uncertain`（无 committed 兄弟）可在 10 分钟 server provisional TTL 后清理（§6.7）。§9.2 固定 MAC-first 顺序、要求 `localToken` 持久而只 `serverGeneration` 轮换、并把 `exp` 重述为剩余寿命上限。**六轮独立对抗审查均重新确认 0 High；Medium 已闭合；残留 Low 项跟踪到实现。编码前密码学审查 gate 满足。** |
+| Dep-pin | 2026-08-20 | Maintainer（依赖审计依据记录，§14.2） | 已记录——diff 审阅待确认 | 在 TypeScript 实现中精确锁定 `@noble/curves@2.0.1` 与 `@noble/hashes@2.0.1`（§3）。审计依据：Cure53 2024 年 9 月的审计基于 `@noble/curves` 1.6.0；该依据的第二支柱——对从 1.6.0 到 2.0.1 的上游 diff 的 maintainer 审阅——**待 Phase-A 发布前确认**，目前尚未进行该审阅。 |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869
