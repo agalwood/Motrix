@@ -1,4 +1,6 @@
-export const CURRENT_SETTINGS_VERSION = 9
+import { randomUUID } from 'node:crypto'
+
+export const CURRENT_SETTINGS_VERSION = 10
 
 interface Migration {
   version: number
@@ -205,6 +207,31 @@ function migrateV8ToV9(data: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+/**
+ * Seeds `bridge.fixedPort` and a stable `bridge.instanceId`.
+ *
+ * Numbered v10 rather than v9: `main` shipped its own v9 (the engine
+ * performance profile) while this branch was in flight, and a rebase cannot
+ * merge two migrations that claim the same version — the one already on the
+ * trunk keeps the number.
+ */
+function migrateV9ToV10(data: Record<string, unknown>): Record<string, unknown> {
+  const bridge = (data.bridge ?? {}) as Record<string, unknown>
+  const instanceId =
+    typeof bridge.instanceId === 'string' && bridge.instanceId !== ''
+      ? bridge.instanceId
+      : randomUUID()
+
+  return {
+    ...data,
+    version: 10,
+    bridge: {
+      fixedPort: bridge.fixedPort ?? 'auto',
+      instanceId,
+    },
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -215,6 +242,7 @@ const migrations: Migration[] = [
   { version: 7, migrate: migrateV6ToV7 },
   { version: 8, migrate: migrateV7ToV8 },
   { version: 9, migrate: migrateV8ToV9 },
+  { version: 10, migrate: migrateV9ToV10 },
 ]
 
 export function migrate(

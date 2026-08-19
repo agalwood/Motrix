@@ -144,7 +144,23 @@ export interface AppSettings {
   media: MediaSettings
   dashboard: DashboardLayoutSettings
   speedLimit: SpeedLimitSettings
+  bridge: BridgeSettings
   windowState: Record<string, WindowBounds>
+}
+
+// Settings for the WebSocket bridge that lets browser extensions hand
+// downloads to Motrix (see MotrixAppSettings.browserBridgeEnabled for the
+// master on/off switch).
+export interface BridgeSettings {
+  // 'auto' tries the 16802-16806 candidate range; a number pins the bridge
+  // to a single fixed port for networks/firewalls where the range is
+  // unusable.
+  fixedPort: 'auto' | number
+  // Durable per-install identity, seeded once (migration or first launch)
+  // and never regenerated afterward. '' is the unseeded sentinel. This is a
+  // routing hint the extension uses to pick which candidate port to try
+  // first (docs/bridge-pairing-protocol.md §4.1) — NOT a security signal.
+  instanceId: string
 }
 
 export interface OnboardingState {

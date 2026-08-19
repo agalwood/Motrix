@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,12 +8,17 @@ import {
   ENGINE_RESTART_REQUIRED_KEYS,
 } from '@shared/constants/restart-keys'
 import {
+  bridgeSettingsSchema,
+  DEFAULT_BRIDGE_SETTINGS,
+} from '@shared/schemas/bridge-settings'
+import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
 } from '@shared/schemas/proxy-settings'
 import type { GeoIPSettings } from '@shared/types/geoip'
 import type {
   AppSettings,
+  BridgeSettings,
   DashboardLayoutSettings,
   EngineSettings,
   MediaSettings,
@@ -119,6 +125,11 @@ function createDefaultSettings(
     media: { ...DEFAULT_MEDIA_SETTINGS },
     dashboard: validateDashboardLayoutSettings({} as DashboardLayoutSettings),
     speedLimit: { ...DEFAULT_SPEED_LIMIT_SETTINGS },
+    // Fresh install: mint a real, durable instance id now rather than
+    // persisting the '' sentinel. Unlike rpcSecret/defaultSaveDir (seeded
+    // later by seedSentinels using instance-scoped defaults), the UUID
+    // needs no runtime context, so it is generated directly here.
+    bridge: { ...DEFAULT_BRIDGE_SETTINGS, instanceId: randomUUID() },
     windowState: {},
   }
 }
@@ -563,6 +574,7 @@ export class SettingsManager {
       speedLimit: validateSpeedLimitSettings(
         (raw.speedLimit ?? {}) as SpeedLimitSettings
       ),
+      bridge: bridgeSettingsSchema.parse((raw.bridge ?? {}) as BridgeSettings),
       windowState: windowStateSchema.parse(raw.windowState ?? {}),
     }
   }
