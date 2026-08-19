@@ -100,6 +100,7 @@ function makeHarness(opts: HarnessOptions = {}) {
   const order: string[] = []
   const dismissals: Deferred<void>[] = []
   const dialogClosed: number[] = []
+  const released: string[] = []
   let authenticated: { sealer: EnvelopeSealer; opener: EnvelopeOpener } | null =
     null
 
@@ -156,6 +157,10 @@ function makeHarness(opts: HarnessOptions = {}) {
       order.push('admit')
       return opts.admit ? opts.admit() : { ok: true as const }
     }),
+    release: vi.fn((origin: string) => {
+      order.push('release')
+      released.push(origin)
+    }),
     queueDialog: vi.fn((args: DialogArgs) => {
       order.push('queueDialog')
       dialogs.push(args)
@@ -200,6 +205,7 @@ function makeHarness(opts: HarnessOptions = {}) {
     order,
     dismissals,
     dialogClosed,
+    released,
     replayAdd,
     offerProvisional,
     commitFromPair,
@@ -1032,6 +1038,62 @@ describe('PairSession', () => {
       expect(h.dialogs).toHaveLength(0)
       expect(h.replayAdd).not.toHaveBeenCalled()
       expect(h.order[0]).toBe('admit')
+    })
+
+    it('frees the pending slot at key confirmation, and never twice', async () => {
+      const h = makeHarness()
+      const code = await openSession(h)
+      const client = new ClientDouble({ code })
+      expect(h.released).toEqual([])
+
+      await runHandshake(h, client)
+
+      // Released at confirmation, not at socket close: a paired connection
+      // lives for hours, and three of them would otherwise block every dialog.
+      expect(h.released).toEqual([ORIGIN])
+
+      h.session.dispose('socket-closed')
+      expect(h.released).toEqual([ORIGIN])
+    })
+
+    it('frees the pending slot when the session ends without pairing', async () => {
+      for (const end of [
+        async (h: Harness) => {
+          h.dismissals[0].resolve()
+          await Promise.resolve()
+          await Promise.resolve()
+        },
+        async (h: Harness) => {
+          await h.text({ type: 'somethingElse' })
+        },
+        async (h: Harness) => {
+          h.session.dispose('socket-closed')
+        },
+        async (h: Harness) => {
+          h.session.dispose('timeout')
+        },
+      ]) {
+        const h = makeHarness()
+        await openSession(h)
+        await end(h)
+        expect(h.released).toEqual([ORIGIN])
+      }
+    })
+
+    it('never frees a slot it did not take', async () => {
+      // The slot this admission was refused against belongs to another live
+      // session; releasing it here would hand that session's slot away.
+      for (const code of ['busy', 'rateLimited'] as const) {
+        const h = makeHarness({ admit: () => ({ ok: false, code }) })
+        await h.text(helloFrame())
+        h.session.dispose('socket-closed')
+        expect(h.released).toEqual([])
+      }
+
+      // A session that never got as far as pairHello holds no slot either.
+      const never = makeHarness()
+      never.session.dispose('socket-closed')
+      expect(never.released).toEqual([])
     })
 
     it('surfaces a rateLimited admission verdict verbatim', async () => {

@@ -142,11 +142,26 @@ export interface PairSessionDeps {
   replay: TicketReplayCache
   /**
    * §7.3 dedup, global pending cap, and backoff. Called before any session
-   * state exists; a refusal is reported verbatim and ends the session. The
-   * caller owns the matching `release` and the §7.3 failure counter, which it
-   * can compute from `attemptCount` and whether `onAuthenticated` fired.
+   * state exists; a refusal is reported verbatim and ends the session.
    */
   admit(verifiedOrigin: string): PairAdmission
+  /**
+   * Frees the pending slot `admit` took. The session calls this **exactly
+   * once**, and only if its own `admit` succeeded, at the earliest of key
+   * confirmation, termination, or `dispose`.
+   *
+   * Both halves of that rule matter, because `PairFloodControl` keys its
+   * pending set by origin alone and cannot tell two sessions apart. Releasing
+   * a slot this session never took would free the slot held by whichever
+   * session *did* take it, and releasing twice would free the slot of a later
+   * session that re-admitted the same origin in between — either one raises
+   * the effective pending cap for an attacker that reconnects on a fixed
+   * origin.
+   *
+   * The caller still owns the §7.3 *failure counter*, which it can compute
+   * from `attemptCount` and whether `onAuthenticated` fired.
+   */
+  release(verifiedOrigin: string): void
   queueDialog(args: PairDialogRequest): PairDialogHandle
   sendText(json: object): void
   sendBinary(frame: Uint8Array): void
@@ -208,6 +223,10 @@ export class PairSession {
   private offeredCredentialId: string | null = null
   private confirmed = false
   private attempts = 0
+  /** Whether this session's own `admit` took a §7.3 pending slot. */
+  private admitted = false
+  /** Whether that slot has already been given back. */
+  private released = false
 
   constructor(deps: PairSessionDeps) {
     this.deps = deps
@@ -332,6 +351,7 @@ export class PairSession {
     this.state = 'closed'
     this.discardRunState()
     this.dialog?.close()
+    this.releasePendingSlot()
   }
 
   // -- §6.1 pairHello ------------------------------------------------------
@@ -371,9 +391,12 @@ export class PairSession {
     // §7.3, before any session state, ticket work, or dialog.
     const admission = this.deps.admit(this.deps.verifiedOrigin)
     if (!admission.ok) {
+      // No slot was taken, so `releasePendingSlot` must stay a no-op — the
+      // slot this was refused against belongs to another live session.
       this.fail(admission.code)
       return
     }
+    this.admitted = true
 
     const resolved = this.resolveIdentity(frame)
     if (resolved === null) {
@@ -678,6 +701,11 @@ export class PairSession {
     this.w = null
     this.codeNormalized = null
     this.dialog?.close()
+    // The dialog is gone, so the §7.3 pending slot is free — and it must be
+    // freed here rather than at `dispose`, or a long-lived paired connection
+    // would hold a slot for its whole lifetime and three of them would block
+    // every new dialog.
+    this.releasePendingSlot()
 
     await this.issueCredential()
   }
@@ -782,7 +810,17 @@ export class PairSession {
     this.state = 'closed'
     this.discardRunState()
     this.dialog?.close()
+    this.releasePendingSlot()
     this.deps.close(reason)
+  }
+
+  /** See `PairSessionDeps.release`: at most once, and only for a slot we took. */
+  private releasePendingSlot(): void {
+    if (!this.admitted || this.released) {
+      return
+    }
+    this.released = true
+    this.deps.release(this.deps.verifiedOrigin)
   }
 
   /** §6.3: all PAKE state is in-memory only and dies with the run. */
