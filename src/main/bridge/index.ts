@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { homedir, platform as osPlatform } from 'node:os'
 import { join } from 'node:path'
 import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
@@ -670,7 +670,8 @@ export async function bootstrapBridge(args: {
     // clear() is owned before write(): a faulting write may have replaced or
     // partially created the discovery file before rejecting.
     ownership.own('endpoint', () => endpointWriter.clear())
-    await endpointWriter.write(port, localToken)
+    // serverGeneration wired via BridgeIdentity in Task 19
+    await endpointWriter.write(port, localToken, randomUUID())
 
     // Renderer IPC. Track exact channels as each registration succeeds; a
     // later duplicate/fault removes the earlier subset during rollback.

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import { BridgeOwnership } from '@core/bridge/bridge-ownership'
@@ -211,7 +211,8 @@ export async function bootstrapBridgeForServer(
     )
     // A failed atomic replace may still have created temporary/discovery state.
     ownership.own('endpoint', () => endpointWriter.clear())
-    await endpointWriter.write(port, localToken)
+    // serverGeneration wired via BridgeIdentity in Task 19
+    await endpointWriter.write(port, localToken, randomUUID())
 
     return {
       server,
