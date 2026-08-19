@@ -6,7 +6,9 @@
 // Appendix B P-256 vectors before MBP1's edwards25519 instantiation is trusted
 // (§13). Passing only the MBP1 vectors would prove nothing about the
 // composition: a wrong-but-self-consistent implementation reproduces its own
-// generated vectors.
+// generated vectors. Only MBP1's own group is defined here; the P-256 group
+// those RFC vectors need is built inside `spake2-core.test.ts`, so the NIST
+// curve implementation never reaches a production bundle.
 //
 // Everything this module handles is secret: `w`, `x`, `y`, `K`, `Ke`, `Ka`,
 // `KcA`, `KcB`, the confirmation MACs, and the traffic keys (§11). It therefore
@@ -14,7 +16,6 @@
 
 import { createHash, createHmac, hkdfSync } from 'node:crypto'
 import { ed25519 } from '@noble/curves/ed25519.js'
-import { p256 } from '@noble/curves/nist.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { concatBytes, enc, os2ip, ProtocolViolationError } from './canonical'
 
@@ -29,8 +30,8 @@ export class IdentityKError extends Error {
 /**
  * The point operations SPAKE2 needs, satisfied structurally by the noble
  * `Point` classes. `toBytes` carries the optional compression flag only
- * because the P-256 test group must ask for the RFC 9382 uncompressed
- * encoding; the edwards25519 group ignores it.
+ * because the P-256 group injected by the RFC-vector test must ask for the
+ * RFC 9382 uncompressed encoding; the edwards25519 group ignores it.
  */
 export interface GroupPoint {
   add(other: GroupPoint): GroupPoint
@@ -64,25 +65,6 @@ export const EDWARDS25519_GROUP: Spake2Group = {
     'd3bfb518f44f3430f29d0c92af503865a1ed3281dc69b35dd868ba85f886c4ab'
   ),
   encodePoint: (p) => p.toBytes(),
-}
-
-/**
- * Test-only group: P-256 with the RFC 9382 §6 constants, cofactor 1, and SEC1
- * uncompressed point encoding. It exists solely so `spake2-core.test.ts` can
- * run the Appendix B vectors through this module's production code paths; MBP1
- * itself never negotiates a group (§3).
- */
-export const P256_TEST_GROUP: Spake2Group = {
-  Point: p256.Point,
-  order: p256.Point.Fn.ORDER,
-  cofactor: 1n,
-  M: p256.Point.fromHex(
-    '02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f'
-  ),
-  N: p256.Point.fromHex(
-    '03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49'
-  ),
-  encodePoint: (p) => p.toBytes(false),
 }
 
 /** Width of a SPAKE2 scalar draw and of `I2OSP(w, 32)` in the transcript (§6.3, §6.4). */
@@ -167,13 +149,23 @@ function sharedSecret(
   w: bigint
 ): Uint8Array {
   const d = peerShare.subtract(mask.multiply(w))
-  // The cofactor multiply is a separate step, and NOT folded into the scalar as
-  // `(h·scalar mod order)`. `d` may carry a low-order torsion component, and
-  // reducing `h·scalar` modulo the prime subgroup order destroys the factor of
-  // `h` that cancels that component — the two expressions then disagree
-  // whenever a peer sends a share with torsion in it. `multiplyUnsafe` is
-  // acceptable here because `h` is a public curve constant, not a secret; the
-  // secret scalar goes through the constant-time `multiply`.
+  // DO NOT "simplify" the next line into `d.multiply((h * scalar) % order)`.
+  // The cofactor multiply must stay a separate step: `d` may carry a low-order
+  // torsion component `T`, and `h·scalar·d` kills it because `8 | h·scalar`,
+  // whereas reducing `h·scalar` modulo the prime subgroup order destroys that
+  // divisibility and leaves a residual torsion term. The two forms then
+  // disagree whenever a peer sends a share with torsion in it.
+  //
+  // No test vector catches the difference — RFC 9382 Appendix B and the MBP1
+  // vectors alike are generated from honest shares, whose `pB − w·N` is
+  // torsion-free, and on the prime-order subgroup both forms agree exactly.
+  // The only thing pinning this is the crafted torsion-share test in
+  // `spake2-core.test.ts` ("clears a torsion component added to the peer
+  // share"); a green vector suite is NOT evidence that this line is right.
+  //
+  // `multiplyUnsafe` is acceptable for `h` because it is a public curve
+  // constant, not a secret; the secret scalar goes through constant-time
+  // `multiply`.
   const k = d.multiply(scalar).multiplyUnsafe(g.cofactor)
   if (k.is0()) {
     throw new IdentityKError('SPAKE2 shared secret K is the identity element')

@@ -1,5 +1,6 @@
+import { p256 } from '@noble/curves/nist.js'
 import { describe, expect, it } from 'vitest'
-import rfcVectors from './__tests__/fixtures/rfc9382-p256-vectors.json'
+import rfc from './__tests__/fixtures/rfc9382-p256-vectors.json'
 import { bytesToHex, hexToBytes, loadMbp1Vectors } from './__tests__/vectors'
 import { os2ip, ProtocolViolationError } from './canonical'
 import {
@@ -11,8 +12,8 @@ import {
   EDWARDS25519_GROUP,
   IdentityKError,
   keySchedule,
-  P256_TEST_GROUP,
   pairTrafficKeys,
+  type Spake2Group,
   sharedFromA,
   sharedFromB,
 } from './spake2-core'
@@ -20,6 +21,27 @@ import {
 const ascii = (s: string) => new TextEncoder().encode(s)
 const EMPTY = new Uint8Array(0)
 const scalarBytes = (n: bigint) => hexToBytes(n.toString(16).padStart(64, '0'))
+
+/**
+ * P-256 with the RFC 9382 §6 constants, cofactor 1, and SEC1 uncompressed point
+ * encoding — the group the Appendix B vectors are stated over. It lives here
+ * rather than in `spake2-core.ts` because it has no runtime purpose: exporting
+ * it from the module would drag `@noble/curves/nist.js` into the shipped
+ * bundle. The core is group-generic by design, so injecting the group from the
+ * test exercises exactly the same production code paths.
+ */
+const P256_TEST_GROUP: Spake2Group = {
+  Point: p256.Point,
+  order: p256.Point.Fn.ORDER,
+  cofactor: 1n,
+  M: p256.Point.fromHex(
+    '02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f'
+  ),
+  N: p256.Point.fromHex(
+    '03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49'
+  ),
+  encodePoint: (p) => p.toBytes(false),
+}
 
 // RFC 9382 Appendix B provides SPAKE2 vectors only for P-256, so the group-generic
 // core is proven against all four of them before its edwards25519 instantiation is
@@ -29,7 +51,11 @@ const scalarBytes = (n: bigint) => hexToBytes(n.toString(16).padStart(64, '0'))
 // bare identity strings, MBP1 passes the §6.4 composite `A_id`/`B_id`. `buildTT`
 // therefore takes already-assembled identities and serves both callers.
 describe('SPAKE2 core — RFC 9382 Appendix B P-256 gate', () => {
-  for (const v of rfcVectors) {
+  it('runs every published Appendix B vector', () => {
+    expect(rfc.vectors).toHaveLength(4)
+  })
+
+  for (const v of rfc.vectors) {
     describe(v.label, () => {
       const w = os2ip(hexToBytes(v.w))
       const x = os2ip(hexToBytes(v.x))
@@ -234,12 +260,16 @@ describe('SPAKE2 core failure handling', () => {
     )
   })
 
-  // The cofactor multiply must stay a separate step: `(pB − w·N)·(h·x mod ℓ)`
-  // reduces away the factor of h that cancels a low-order component, so a peer
-  // share carrying torsion would yield a different K on each side. The in-tree
-  // vectors cannot catch that — their pB is torsion-free, and both forms agree
-  // on the prime-order subgroup — so K's independence from an added torsion
-  // point is asserted directly.
+  // DO NOT DELETE THIS TEST AS REDUNDANT WITH THE VECTORS. It is the only
+  // check in the suite that pins the correct cofactor form. Folding the
+  // cofactor into the scalar as `(pB − w·N)·(h·x mod ℓ)` — the plausible
+  // "simplification" of `sharedSecret` — passes every published vector, RFC
+  // 9382 Appendix B and MBP1 alike: those vectors are generated from honest
+  // shares, so `pB − w·N` is torsion-free and the two forms agree exactly on
+  // the prime-order subgroup. They diverge only against a peer point carrying
+  // a low-order component, which is what this test constructs. Verified by
+  // mutation: with the folded form, all 27 other tests here stay green and
+  // only this one fails.
   it('clears a torsion component added to the peer share', () => {
     const orderTwoPoint = G.Point.fromBytes(
       hexToBytes(
