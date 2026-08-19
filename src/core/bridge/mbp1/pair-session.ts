@@ -481,9 +481,35 @@ export class PairSession {
     digest: Uint8Array | null
   } | null {
     if (frame.nmTicket === undefined) {
-      // No attestation. A Firefox origin cannot be mapped to a Gecko id, so it
-      // is `unverified`; a Chromium origin already proved the caller id above,
-      // so only the allowlist is left to consult (§5).
+      // No ticket. §5's table has a genuinely empty cell here — a ticketless
+      // Chromium caller whose id is *not* allowlisted — so this reading is a
+      // controller ruling, not a transcription of the table. Do not "fix" it
+      // to `unverified` without re-reading the whole argument:
+      //
+      //   - §5's `official` row admits TWO independent bases for a proven
+      //     caller identity: "the Chromium verified `Origin` host, OR the
+      //     `callerId` inside a valid NM attestation ticket". The Origin check
+      //     above already rejected any Chromium session whose origin host
+      //     disagrees with `claimedExtensionId`, so a surviving Chromium
+      //     session has proven *which* extension it is, ticket or no ticket.
+      //   - `official` vs `attested-non-official` is then purely "is that
+      //     proven id on the immutable allowlist". Returning `unverified` for
+      //     the not-allowlisted case would be internally inconsistent: the
+      //     identical evidence would be strong enough to grant `official` when
+      //     the id IS allowlisted, yet too weak to say "we know which
+      //     extension this is" when it is not.
+      //   - `unverified` is reserved for callers whose id genuinely cannot be
+      //     established: Firefox's `moz-extension://<UUID>`, which maps to no
+      //     Gecko id, and candidate-sweep peers.
+      //   - The display consequence follows. `attested-non-official` shows the
+      //     raw *proven* id, which on Chromium is truthful;`unverified` shows a
+      //     raw *claimed* id with warning styling, understating what the server
+      //     knows.
+      //
+      // §5's "native local processes can forge any Origin header" caveat does
+      // not change this: it applies equally to the `official` row and the spec
+      // accepts it there. The user-facing boundary is the pairing code, the
+      // approval dialog, and the global prompt caps (§7.3) — never the Origin.
       const identity: IdentityTriState =
         frame.browser === 'firefox'
           ? 'unverified'
