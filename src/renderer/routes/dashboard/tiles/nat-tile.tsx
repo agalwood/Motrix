@@ -17,9 +17,11 @@ import {
 } from '@renderer/lib/nat-status'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { usePlatformServices } from '@renderer/platform/services'
 import { ErrorCode } from '@shared/errors'
+import { getNatTroubleshootingUrl } from '@shared/external-urls'
 import { type CommandChannel, Commands } from '@shared/protocol/commands'
-import { Activity, Power, RefreshCw, Settings2 } from 'lucide-react'
+import { Activity, BookOpen, Power, RefreshCw, Settings2 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -62,6 +64,7 @@ interface NatAction {
 
 export function NatTile({ viewport, className }: NatTileProps) {
   const { t, i18n } = useTranslation()
+  const services = usePlatformServices()
   const status = useNatStatus()
   const compact = viewport.contentLevel === 'compact'
   const summary = viewport.contentLevel === 'summary'
@@ -70,6 +73,7 @@ export function NatTile({ viewport, className }: NatTileProps) {
   const focus = viewport.contentLevel === 'focus'
 
   const { bucket, color } = natBucket(status)
+  const failed = bucket === 'failed'
   const stateLabel =
     status && isNatRetrying(status)
       ? t('panel.dashboard.nat.retrying', {
@@ -137,6 +141,18 @@ export function NatTile({ viewport, className }: NatTileProps) {
       run: () => void runCommand(Commands.RunNatDiagnostic),
     },
   ]
+  if (failed) {
+    actions.push({
+      key: 'help',
+      Icon: BookOpen,
+      label: t('panel.dashboard.nat.actions.troubleshoot'),
+      shortLabel: t('panel.dashboard.nat.actions.short.help'),
+      run: () =>
+        services.openExternal(
+          getNatTroubleshootingUrl(i18n.resolvedLanguage ?? i18n.language)
+        ),
+    })
+  }
 
   return (
     <TileShell
@@ -353,7 +369,8 @@ function NatActions({
         data-testid="nat-actions"
         aria-label={label}
         className={cn(
-          'grid min-w-0 shrink-0 grid-cols-3 gap-0.5 rounded-lg border-0 bg-muted/45 p-1 ring-1 ring-inset ring-foreground/5',
+          'grid min-w-0 shrink-0 gap-0.5 rounded-lg border-0 bg-muted/45 p-1 ring-1 ring-inset ring-foreground/5',
+          actions.length === 4 ? 'grid-cols-4' : 'grid-cols-3',
           summary ? 'w-fit' : 'mt-3 w-full'
         )}
       >

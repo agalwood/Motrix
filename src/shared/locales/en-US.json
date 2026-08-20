@@ -449,11 +449,13 @@
           "disable": "Disable NAT",
           "remap": "Force remap",
           "diagnose": "Run diagnostic",
+          "troubleshoot": "NAT troubleshooting guide",
           "short": {
             "enable": "Enable",
             "disable": "Disable",
             "remap": "Remap",
-            "diagnose": "Diagnose"
+            "diagnose": "Diagnose",
+            "help": "Help"
           },
           "settings": "NAT settings"
         },
@@ -530,7 +532,8 @@
         "natFailed": "NAT failed",
         "natOff": "NAT off",
         "natEnable": "Enable NAT",
-        "natDisable": "Disable NAT"
+        "natDisable": "Disable NAT",
+        "natHelp": "Troubleshoot NAT"
       },
       "tab": {
         "all": "All",

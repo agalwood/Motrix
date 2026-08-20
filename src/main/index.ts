@@ -1705,6 +1705,7 @@ async function initializeMainProcess(): Promise<void> {
   const natStack = createNatManager({
     eventBus,
     settingsManager,
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
   })
   natManager = natStack.manager
   log.info('NatManager constructed')

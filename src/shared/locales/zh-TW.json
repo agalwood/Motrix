@@ -447,11 +447,13 @@
           "disable": "停用 NAT",
           "remap": "強制重新對應",
           "diagnose": "執行診斷",
+          "troubleshoot": "查看 NAT 疑難排解手冊",
           "short": {
             "enable": "啟用",
             "disable": "停用",
             "remap": "重新對應",
-            "diagnose": "診斷"
+            "diagnose": "診斷",
+            "help": "說明"
           },
           "settings": "NAT 設定"
         },
@@ -528,7 +530,8 @@
         "natFailed": "NAT 失敗",
         "natOff": "NAT 已關閉",
         "natEnable": "啟用 NAT",
-        "natDisable": "停用 NAT"
+        "natDisable": "停用 NAT",
+        "natHelp": "查看 NAT 疑難排解手冊"
       },
       "tab": {
         "all": "全部",

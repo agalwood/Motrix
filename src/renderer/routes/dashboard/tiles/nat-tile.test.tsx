@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { ErrorCode } from '@shared/errors'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import {
   NatPortReachability,
@@ -18,8 +19,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
 
-const { mockInvoke, toastAddMock } = vi.hoisted(() => ({
+const { mockInvoke, openExternalMock, toastAddMock } = vi.hoisted(() => ({
   mockInvoke: vi.fn(),
+  openExternalMock: vi.fn(),
   toastAddMock: vi.fn(),
 }))
 const natState = vi.hoisted(() => ({ status: null as NatStatus | null }))
@@ -55,6 +57,10 @@ vi.mock('@renderer/lib/transport', () => ({
 
 vi.mock('@renderer/components/ui/toast', () => ({
   toast: { add: toastAddMock, close: vi.fn() },
+}))
+
+vi.mock('@renderer/platform/services', () => ({
+  usePlatformServices: () => ({ openExternal: openExternalMock }),
 }))
 
 const { NatTile } = await import('./nat-tile')
@@ -106,6 +112,7 @@ function makeStatus(overrides: Partial<NatStatus> = {}): NatStatus {
 describe('NatTile', () => {
   beforeEach(() => {
     mockInvoke.mockReset().mockResolvedValue({ ok: true })
+    openExternalMock.mockReset()
     toastAddMock.mockReset()
     natState.status = makeStatus()
   })
@@ -378,6 +385,22 @@ describe('NatTile', () => {
     render(<NatTile viewport={COMPACT} />)
     fireEvent.click(screen.getByRole('button', { name: 'Enable NAT' }))
     expect(mockInvoke).toHaveBeenCalledWith(Commands.EnableNat)
+  })
+
+  it('offers the official troubleshooting guide in the terminal failed state', () => {
+    natState.status = makeStatus({
+      state: NatState.Failed,
+      retryAttempt: 3,
+      maxRetries: 3,
+    })
+    render(<NatTile viewport={SQUARE_DETAILED} />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'NAT troubleshooting guide' })
+    )
+    expect(openExternalMock).toHaveBeenCalledWith(
+      EXTERNAL_URLS.motrix.manual.natTroubleshooting.en
+    )
   })
 
   it('toasts when a command is rate limited', async () => {

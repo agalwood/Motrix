@@ -447,11 +447,13 @@
           "disable": "禁用 NAT",
           "remap": "强制重映射",
           "diagnose": "运行诊断",
+          "troubleshoot": "查看 NAT 排障手册",
           "short": {
             "enable": "启用",
             "disable": "禁用",
             "remap": "重映射",
-            "diagnose": "诊断"
+            "diagnose": "诊断",
+            "help": "帮助"
           },
           "settings": "NAT 设置"
         },
@@ -528,7 +530,8 @@
         "natOff": "NAT 已关闭",
         "natRetrying": "NAT 重试中 ({{attempt}}/{{max}})",
         "natEnable": "启用 NAT",
-        "natDisable": "关闭 NAT"
+        "natDisable": "关闭 NAT",
+        "natHelp": "查看 NAT 排障手册"
       },
       "tab": {
         "all": "全部",
