@@ -4,7 +4,7 @@ import { expect, launchMotrix, test } from './fixtures/electron-app'
 const SWITCH_LABEL = 'Notify when download completes'
 
 async function openGeneralSettings(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
   // Settings cards are clickable tiles. The "General" card's title comes
   // from settings.cards.general.title. Match the text that's also the
   // accessible heading inside the card.
@@ -43,7 +43,7 @@ test.describe('settings persistence', () => {
     // Apply: handler awaits transport.invoke(UpdateSettings),
     // which awaits SettingsManager.update -> writeFile.
     // Dialog closes after success → switch leaves the DOM.
-    await main.getByRole('button', { name: 'Apply' }).click()
+    await main.getByRole('button', { name: 'Save' }).click()
     await expect(switch1).toBeHidden()
 
     await app.close()

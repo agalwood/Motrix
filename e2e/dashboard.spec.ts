@@ -11,7 +11,7 @@
 import { expect, test } from './fixtures/electron-app'
 
 test.describe('Dashboard v1', () => {
-  test('cold launch renders seven tile labels and task views within 800ms', async ({
+  test('cold launch renders seven default tile labels within 800ms', async ({
     mainWindow,
   }) => {
     // Navigate to dashboard (hash router — '#/' is the dashboard route)
@@ -55,21 +55,14 @@ test.describe('Dashboard v1', () => {
       ).toBeVisible({ timeout: 800 }),
       expect(
         mainWindow
-          .getByTestId('dashboard-tile-tasks')
-          .getByText('Tasks', { exact: true })
+          .getByTestId('dashboard-tile-activity')
+          .getByText('Activity', { exact: true })
       ).toBeVisible({ timeout: 800 }),
       expect(
         mainWindow
           .getByTestId('dashboard-tile-transfer')
           .getByText('Transfer', { exact: true })
       ).toBeVisible({ timeout: 800 }),
-      expect(
-        mainWindow
-          .getByTestId('dashboard-tile-tasks')
-          .getByRole('radiogroup', { name: 'Task view' })
-      ).toBeVisible({
-        timeout: 800,
-      }),
     ])
   })
 
