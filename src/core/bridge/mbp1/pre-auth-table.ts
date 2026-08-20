@@ -6,11 +6,11 @@
 // map and cannot evict an authenticated session." This table IS that
 // pre-authentication table: a generic holding area, keyed by cap and a
 // per-entry deadline, that a caller uses in place of inserting an
-// unauthenticated connection directly into a session map. Today's
-// `attachConnection` disposes a same-key session on attach — this table
-// exists so that behavior can be replaced: an unauthenticated connection
-// admitted here can never evict anything, because it was never in the
-// live-session map to begin with.
+// unauthenticated connection directly into a session map. It replaced an
+// attach path that disposed a same-key session the moment a socket upgraded,
+// which let an unauthenticated `/pair` connection kick a live authenticated
+// one; a connection admitted here can never evict anything, because it was
+// never in the live-session map to begin with.
 //
 // This module logs nothing at any level (§11): entries are typically
 // connection/session identifiers.

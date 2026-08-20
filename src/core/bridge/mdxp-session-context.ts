@@ -18,17 +18,23 @@ export interface MdxpSessionContext {
   isReady(): boolean
   markReady(): void
   /**
-   * Whether the peer may invoke control-plane / download methods. `/v1`
-   * reconnects and the bearer-authenticated unary path are authorized; a
-   * `/pair` first-connect is authorized only after the initialize handler
-   * records a pairing approval via `markAuthorized`.
+   * Whether the peer may invoke control-plane / download methods.
+   *
+   * Every WebSocket session is authorized **at the transport**: MBP1
+   * authenticates below MDXP, and `adoptAuthenticatedSession` marks the
+   * connection before registering a single handler
+   * (docs/bridge-pairing-protocol.md §4, §6.6, §8). The bearer-authenticated
+   * unary path is likewise authorized by the time a context exists. No handler
+   * grants authorization any more; `markAuthorized` remains only so a future
+   * transport can promote a session it deliberately admitted unauthorized.
    */
   isAuthorized(): boolean
   markAuthorized(): void
   /**
-   * Pairing context from the transport: a first-pair connection (`/pair`)
-   * carries `PairRequestArgs`; reconnect (`/v1`) and unary requests carry
-   * `null`. Only `motrix/initialize` reads it.
+   * Legacy pairing context from the transport. Always `null` for an MBP1
+   * extension session and for unary requests: the approval dialog now lives
+   * inside the `/pair` state machine, below MDXP, so no handler reads this.
+   * Kept as a seam for a transport that must hand a handler pre-MDXP context.
    */
   readonly pendingPair: PairRequestArgs | null
   /**

@@ -22,8 +22,9 @@ import {
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
-import { type WebSocket, WebSocketServer } from 'ws'
+import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
+import type { Mbp1CredentialStore } from './credential-store'
 import type { DeviceCodeService } from './device-code-service'
 import { createInitializeHandler } from './handlers/initialize-handler'
 import {
@@ -34,6 +35,21 @@ import {
   registerWriteHandlers,
   type WriteHandlerDeps,
 } from './handlers/write-handlers'
+import {
+  type EnvelopeChannel,
+  type EnvelopeStream,
+  wrapWithEnvelope,
+} from './mbp1/envelope-message-stream'
+import { PairFloodControl } from './mbp1/flood-control'
+import { NonceService } from './mbp1/nonce-service'
+import {
+  type PairDialogHandle,
+  type PairDialogRequest,
+  PairSession,
+} from './mbp1/pair-session'
+import { PreAuthTable } from './mbp1/pre-auth-table'
+import { ReconnectSession } from './mbp1/reconnect-session'
+import { TicketReplayCache } from './mbp1/ticket-verify'
 import { MdxpDispatcher } from './mdxp-dispatcher'
 import {
   contextFromConnection,
@@ -41,6 +57,7 @@ import {
 } from './mdxp-session-context'
 import type { PairingService } from './pairing-service'
 import type { TrustedExtensionRegistry } from './trusted-extension-registry'
+import type { WebSocketLike } from './web-socket-message-stream'
 
 export interface PairDecision {
   decision: 'allow' | 'deny'
@@ -91,6 +108,98 @@ export interface BridgeServerOptions {
    * rather than pointing the user at this bridge (which 404s `/`).
    */
   verificationUri?: string
+  /**
+   * This bridge instance's stable identity, reported by `GET /discovery` and
+   * bound into both MBP1 transcripts (§4.1, §6.2, §8). A routing hint only —
+   * never a trust signal, and emitted verbatim however the shell configured it.
+   */
+  instanceId?: string
+  /**
+   * Rotates on every bridge start and is never persisted (§9.2). An NM ticket
+   * minted under a previous generation downgrades to `unverified` rather than
+   * aborting, which is also what keeps the per-process replay cache sound
+   * across restarts.
+   */
+  serverGeneration?: string
+  /** Reported verbatim by `GET /discovery` (§4.1). */
+  appVersion?: string
+  /**
+   * The durable MBP1 credential store, shared by both session paths (§6.7, §8).
+   * Typed as the real class rather than a narrowed interface so `tsc` checks it
+   * against `PairCredentialIssuer` / `ReconnectCredentialAuthenticator` — those
+   * exist for testability, and without a production assignment the compiler
+   * would only ever have seen the fakes.
+   */
+  credentials?: Mbp1CredentialStore
+  /**
+   * Reads the immutable allowlist **only** — never the NM manifest set and
+   * never the user registry, both of which admit user-added ids (§5).
+   */
+  isOfficialId?: (browser: Browser, id: string) => boolean
+  /**
+   * Shows the §7.1 approval dialog. Error-free by construction: §7.3 admission
+   * (dedup, the global pending cap, and the failure lockout) is core's, runs
+   * *before* ticket validation, and is applied by this server through
+   * `PairFloodControl` — the shell only renders.
+   */
+  queueMbp1Dialog?: (args: PairDialogRequest) => PairDialogHandle
+  /**
+   * Fired once an extension session authenticates over MBP1 — first pair or
+   * reconnect alike. It is the only remaining signal that an extension became
+   * usable, now that `motrix/initialize` no longer mints anything: the shell's
+   * paired-client list, revoke command, and revoke-kick all hang off it.
+   */
+  onExtensionAuthenticated?: (
+    identity: ClientIdentity & { kind: 'extension' }
+  ) => void
+}
+
+/**
+ * The MBP1 options resolved as a unit. They arrive together or not at all: a
+ * `/pair` session needs every one of them, so admitting a connection against a
+ * half-configured surface would mean discovering the gap mid-handshake, with a
+ * dialog possibly already on screen. One `null` check, one place to audit.
+ */
+interface Mbp1Wiring {
+  instanceId: string
+  serverGeneration: string
+  appVersion: string
+  credentials: Mbp1CredentialStore
+  isOfficialId: (browser: Browser, id: string) => boolean
+  queueMbp1Dialog: (args: PairDialogRequest) => PairDialogHandle
+}
+
+function resolveMbp1Wiring(opts: BridgeServerOptions): Mbp1Wiring | null {
+  const {
+    instanceId,
+    serverGeneration,
+    appVersion,
+    credentials,
+    isOfficialId,
+    queueMbp1Dialog,
+  } = opts
+  if (
+    instanceId === undefined ||
+    serverGeneration === undefined ||
+    appVersion === undefined ||
+    credentials === undefined ||
+    isOfficialId === undefined ||
+    queueMbp1Dialog === undefined
+  ) {
+    return null
+  }
+  // Assigning the REAL `Mbp1CredentialStore` here is what makes `tsc` check it
+  // against the narrowed `PairCredentialIssuer` / `ReconnectCredentialAuthenticator`
+  // the two session modules consume: those interfaces exist for testability, so
+  // without a production assignment the compiler has only ever seen the fakes.
+  return {
+    instanceId,
+    serverGeneration,
+    appVersion,
+    credentials,
+    isOfficialId,
+    queueMbp1Dialog,
+  }
 }
 
 export interface BridgeSession {
@@ -98,6 +207,9 @@ export interface BridgeSession {
   extensionId: string
   browser: Browser
   startedAt: number
+  /** The AEAD stream under this session's MDXP connection; `usage` exposes the
+   *  §10 outbound frame/block counters. */
+  envelope: EnvelopeStream
 }
 
 /**
@@ -135,18 +247,156 @@ const EXTENSION_WS_CONTROL_PLANE = [
   Methods.EngineStatus,
 ] as const
 
-const PAIR_NONCE_TTL_MS = 60_000
 const SSE_HEARTBEAT_MS = 15_000
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost'])
+
+/** §4: the candidate range the bridge tries in order before falling back. */
+export const BRIDGE_CANDIDATE_PORTS = [
+  16802, 16803, 16804, 16805, 16806,
+] as const
+
+/** §4: total pre-authentication connections admitted per route at once. */
+const PRE_AUTH_CAP = 32
+
+/**
+ * How long a `/pair` connection may stay pre-authenticated.
+ *
+ * It must EXCEED the §7.2 code lifetime (`CODE_LIFETIME_MS = 120 s`), not
+ * undercut it: the user is reading a code off one screen and typing it into
+ * another, and a shorter table deadline would kill legitimate pairings while
+ * they type and make the session's own `expired` branch unreachable in
+ * production. The code lifetime stays the real bound; this is the backstop for
+ * a peer that upgrades and then says nothing at all.
+ */
+const PAIR_PRE_AUTH_DEADLINE_MS = 150_000
+
+/**
+ * How long a `/v1` connection may stay pre-authenticated. §8's own 10 s
+ * protocol deadline fires first and produces a proper `authFailed`; this is
+ * deliberately a little longer so the uniform failure — not a bare socket
+ * close — is what a real client sees.
+ */
+const RECONNECT_PRE_AUTH_DEADLINE_MS = 15_000
+
+/** RFC 6455 close codes used when the envelope stream refuses a frame (§10). */
+const WS_CLOSE_PROTOCOL_ERROR = 1002
+const WS_CLOSE_INTERNAL_ERROR = 1011
 
 function isLoopbackHost(host: string): boolean {
   return LOOPBACK_HOSTS.has(host)
 }
 
+/**
+ * `host[:port]`, with an IPv6 literal in brackets (RFC 7230 §5.4). Used only
+ * to split a Host header; `isLoopbackHost` above validates a *bind* host and
+ * carries no port, so the two are not interchangeable.
+ */
+const HOST_HEADER = /^(?:\[([0-9a-fA-F:]+)\]|([^:[\]]+)):(\d{1,5})$/
+
+/**
+ * §4.3: while bound to loopback, every route and upgrade must reject a `Host`
+ * that is not `127.0.0.1[:port]`, `localhost[:port]`, or `[::1][:port]`. That
+ * closes DNS rebinding — a page on an attacker's domain can reach the loopback
+ * port, but the browser sends the attacker's hostname in `Host`.
+ *
+ * The port is REQUIRED and must equal the port actually bound. On loopback
+ * there is no proxy rewriting anything and every real client sends the port it
+ * connected to, so exact matching costs nothing and additionally refuses a
+ * same-host confused deputy pointed at a different port. A `Host` with no port
+ * implies 80, which this server never binds.
+ */
+function isLoopbackHostHeader(
+  rawHost: string | undefined,
+  boundPort: number
+): boolean {
+  if (!rawHost) {
+    return false
+  }
+  const parts = HOST_HEADER.exec(rawHost)
+  if (!parts) {
+    return false
+  }
+  const name = (parts[1] ?? parts[2] ?? '').toLowerCase()
+  return LOOPBACK_HOSTS.has(name) && Number(parts[3]) === boundPort
+}
+
+/**
+ * The §5 verified peer, derived from the upgrade `Origin` header and nothing
+ * else — never a query parameter, never a self-reported message field.
+ *
+ * `extensionId` is the origin's host component uniformly. On Chromium that IS
+ * the extension id, and `pair-session.ts` separately enforces
+ * `Origin host === claimedExtensionId`. On Firefox it is the `moz-extension`
+ * UUID rather than the Gecko id: the Gecko id is self-reported and
+ * unverifiable there, so keying the live-session map by it would let one
+ * extension evict another's session simply by claiming its id. Showing the
+ * claimed id is a UI concern, not a session-identity one.
+ */
+interface ExtensionPeer {
+  browser: Browser
+  extensionId: string
+  origin: string
+}
+
+function parseExtensionOrigin(origin: string): ExtensionPeer | null {
+  const browser: Browser | null = origin.startsWith('chrome-extension://')
+    ? 'chromium'
+    : origin.startsWith('moz-extension://')
+      ? 'firefox'
+      : null
+  if (browser === null) {
+    return null
+  }
+  let host: string
+  try {
+    host = new URL(origin).host
+  } catch {
+    return null
+  }
+  if (host === '') {
+    return null
+  }
+  return { browser, extensionId: host, origin }
+}
+
+/** A `/pair` connection held in the pre-authentication table (§4, §7.3). */
+interface PairPreAuthEntry {
+  readonly ws: WebSocket
+  /** Assigned immediately after admission; `null` only inside `admit` itself. */
+  session: PairSession | null
+  /** Whether an approval dialog was actually shown for this session — the one
+   *  §7.3 outcome flag `PairSession` does not expose. */
+  queuedDialog: boolean
+  confirmed: boolean
+  /** §7.3's counter must move exactly once per session, whichever terminal
+   *  path (success, deadline, close) gets there first. */
+  outcomeRecorded: boolean
+}
+
+/** A `/v1` connection held in the pre-authentication table (§4, §8). */
+interface ReconnectPreAuthEntry {
+  readonly ws: WebSocket
+  session: ReconnectSession | null
+}
+
 export class WebSocketBridgeServer {
   private http: HttpServer
   private wss: WebSocketServer
-  private pairNonces = new Map<string, number>()
+  private readonly mbp1: Mbp1Wiring | null
+  private readonly nonces = new NonceService()
+  private readonly floodControl = new PairFloodControl()
+  /**
+   * §9.2's one-shot ticket store, one instance per bridge start. Its scope is
+   * this process, which is sound only because `serverGeneration` also rotates
+   * per start: a ticket replayed into a later process downgrades to
+   * `unverified`, which is what presenting no ticket yields anyway.
+   */
+  private readonly replay = new TicketReplayCache()
+  private readonly preAuthPair: PreAuthTable<PairPreAuthEntry>
+  private readonly preAuthReconnect: PreAuthTable<ReconnectPreAuthEntry>
+  /** The host and port actually bound, for the §4.3 Host guard. */
+  private boundHost: string | null = null
+  private boundPort = 0
   private sessions = new Map<string, BridgeSession>()
   // Open SSE connections (GET /mdxp/events) → their heartbeat timer + the
   // authenticated caller identity. The CLI `watch` firehose; a global
@@ -163,6 +413,30 @@ export class WebSocketBridgeServer {
   private stopPromise: Promise<void> | null = null
 
   constructor(private opts: BridgeServerOptions) {
+    this.mbp1 = resolveMbp1Wiring(opts)
+    // `PreAuthTable` holds unauthenticated connections OUT of `this.sessions`,
+    // which is what makes "a `/pair` attempt cannot evict a live authenticated
+    // session" true by construction rather than by discipline (§4).
+    this.preAuthPair = new PreAuthTable<PairPreAuthEntry>({
+      cap: PRE_AUTH_CAP,
+      deadlineMs: PAIR_PRE_AUTH_DEADLINE_MS,
+      onDeadline: (entry) => this.expirePairPreAuth(entry),
+    })
+    this.preAuthReconnect = new PreAuthTable<ReconnectPreAuthEntry>({
+      cap: PRE_AUTH_CAP,
+      deadlineMs: RECONNECT_PRE_AUTH_DEADLINE_MS,
+      onDeadline: (entry) => {
+        try {
+          entry.session?.dispose('timeout')
+        } finally {
+          // `dispose` deliberately does NOT close the socket — both session
+          // modules read it as "the peer is already gone, or the wiring is
+          // closing it" — so the wiring must close, or a peer that upgrades and
+          // then says nothing holds its slot until the process exits.
+          entry.ws.close()
+        }
+      },
+    })
     // `motrix/initialize` is always available; the shell registers domain
     // methods (download/*) later via setHandlers().
     this.dispatcher.register(
@@ -172,9 +446,6 @@ export class WebSocketBridgeServer {
         motrixVersion: opts.motrixVersion,
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
-        pairing: opts.pairing,
-        registry: opts.registry,
-        onPairRequest: opts.onPairRequest,
       })
     )
     // Revocation/rotation must reach live SSE firehose streams, not just future
@@ -195,17 +466,15 @@ export class WebSocketBridgeServer {
     this.wss = new WebSocketServer({ noServer: true })
 
     this.http.on('upgrade', (req, socket, head) => {
+      // The base is a placeholder for relative-URL parsing only. The Host
+      // header is validated separately below and is never derived from here.
       const url = new URL(req.url ?? '/', 'http://localhost')
-      const origin = req.headers.origin ?? ''
       const protoHeader = req.headers['sec-websocket-protocol'] ?? ''
-      // DEBUG(connect-storm): every WS upgrade attempt Motrix sees.
-      // TODO(remove-after-rootcause).
-      console.log(
-        `[bridge-debug] upgrade path=${url.pathname} origin=${origin || 'none'}`
-      )
 
-      if (!/^chrome-extension:\/\/|^moz-extension:\/\//.test(origin)) {
-        console.log('[bridge-debug] reject 401: bad origin')
+      // §5: the verified origin, and every identity fact taken from it, comes
+      // from this header alone.
+      const peer = parseExtensionOrigin(req.headers.origin ?? '')
+      if (peer === null) {
         return this.reject(socket, 401)
       }
       if (
@@ -214,29 +483,64 @@ export class WebSocketBridgeServer {
           .map((s) => s.trim())
           .includes('motrix-bridge.v1')
       ) {
-        console.log('[bridge-debug] reject 401: missing subprotocol')
         return this.reject(socket, 401)
+      }
+      // §4.3/§6.1: before the route decides anything, before a nonce is
+      // consumed, and before any session object exists.
+      if (!this.hostHeaderAllowed(req)) {
+        return this.reject(socket, 403)
+      }
+      const mbp1 = this.mbp1
+      if (mbp1 === null) {
+        // Both routes speak MBP1 and nothing else (§4). A shell that has not
+        // wired it has no extension WebSocket surface at all — the same 404 an
+        // unknown path gets, so the response says nothing about which it was.
+        return this.reject(socket, 404)
       }
 
       if (url.pathname === '/pair') {
-        return this.handlePairUpgrade(req, socket, head, url)
+        return this.handleMbp1PairUpgrade(req, socket, head, url, peer, mbp1)
       }
       if (url.pathname === '/v1') {
-        return this.handleV1Upgrade(req, socket, head, url)
+        return this.handleMbp1ReconnectUpgrade(req, socket, head, peer, mbp1)
       }
-      console.log('[bridge-debug] reject 404: unknown path')
       this.reject(socket, 404)
     })
 
     this.http.on('request', (req, res) => {
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname
-      // GET /nonce — one-shot pairing nonce for the native-messaging host.
-      if (req.method === 'GET' && pathname === '/nonce') {
-        const nonce = this.issuePairNonce()
-        // DEBUG(connect-storm). TODO(remove-after-rootcause).
-        console.log('[bridge-debug] GET /nonce → issued')
-        res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ nonce }))
+      // §4.3 DNS-rebinding guard, ahead of every route including the CLI's.
+      // The body names no condition, so it is not an oracle for which check
+      // rejected the request (§11).
+      if (!this.hostHeaderAllowed(req)) {
+        writeJson(res, 403, {
+          error: { code: ErrorCodes.PermissionDenied, message: 'forbidden' },
+        })
+        return
+      }
+      // GET /discovery — §4.1. Unauthenticated, replayable, and explicitly a
+      // routing hint rather than a trust signal: an extension may pin a port
+      // only after a mutually-authenticated MBP1 session on it. `instanceId`
+      // is emitted verbatim, whatever the shell configured.
+      if (req.method === 'GET' && pathname === '/discovery') {
+        const mbp1 = this.mbp1
+        if (mbp1 === null) {
+          res.writeHead(404)
+          res.end()
+          return
+        }
+        writeJson(res, 200, {
+          app: 'motrix-bridge',
+          apiVersion: 1,
+          instanceId: mbp1.instanceId,
+          appVersion: mbp1.appVersion,
+        })
+        return
+      }
+      // POST /nonce — §4.2. The former GET route is gone and now falls through
+      // to the bare 404 below, which is what the spec requires.
+      if (req.method === 'POST' && pathname === '/nonce') {
+        this.handleNonceIssue(req, res)
         return
       }
       // GET /mdxp/events — Server-Sent Events firehose for CLI/agents (watch).
@@ -313,19 +617,97 @@ export class WebSocketBridgeServer {
    * unauthenticated LAN surface. (Remote token issuance is Spec 7.)
    */
   async start(host = '127.0.0.1', port = 0): Promise<number> {
+    this.assertBindAllowed(host)
+    const bound = await this.listenOnce(host, port)
+    this.recordBinding(host, bound)
+    return bound
+  }
+
+  /**
+   * Bind the first free port of `ports`, in order, falling back to an
+   * ephemeral one (§4). `degraded` reports that fallback, so a caller can tell
+   * "an extension's port pin will still work" from "every candidate was taken
+   * and a sweep is required".
+   *
+   * Deliberately additive rather than a replacement for {@link start}: the
+   * server shell binds a configured host and port from its operator's config
+   * and must never walk off it.
+   */
+  async startOnFirstFree(
+    host: string,
+    ports: readonly number[]
+  ): Promise<{ port: number; degraded: boolean }> {
+    // Hoisted out of the loop: the guard is about the host, not the port.
+    this.assertBindAllowed(host)
+    for (const candidate of ports) {
+      try {
+        const bound = await this.listenOnce(host, candidate)
+        this.recordBinding(host, bound)
+        return { port: bound, degraded: false }
+      } catch (err) {
+        // Only a taken port advances the scan. EACCES, EADDRNOTAVAIL, and
+        // friends are configuration faults that the next port would hit too,
+        // and swallowing them would turn a misconfiguration into a silent
+        // ephemeral bind on an address nobody expects.
+        if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE') {
+          throw err
+        }
+      }
+    }
+    const bound = await this.listenOnce(host, 0)
+    this.recordBinding(host, bound)
+    return { port: bound, degraded: true }
+  }
+
+  /** Binding a NON-loopback host requires a configured `localToken` — fail
+   *  closed so we never stand up an unauthenticated LAN surface. */
+  private assertBindAllowed(host: string): void {
     if (!isLoopbackHost(host) && !this.opts.localToken) {
       throw new Error(
         `refusing to bind the MDXP bridge to non-loopback host "${host}" without a token`
       )
     }
+  }
+
+  /**
+   * One `listen` attempt, resolving the bound port or rejecting with the raw
+   * error. The error listener is removed on BOTH outcomes: re-`listen`ing the
+   * same `HttpServer` after a failed attempt would otherwise leave the earlier
+   * attempt's rejection handler armed, so a later error would settle an
+   * already-settled promise or abort the whole scan.
+   */
+  private listenOnce(host: string, port: number): Promise<number> {
     return new Promise((resolve, reject) => {
+      const onError = (err: Error) => {
+        this.http.removeListener('error', onError)
+        reject(err)
+      }
+      this.http.once('error', onError)
       this.http.listen(port, host, () => {
+        this.http.removeListener('error', onError)
         const addr = this.http.address()
         if (addr && typeof addr === 'object') resolve(addr.port)
         else reject(new Error('failed to bind'))
       })
-      this.http.once('error', reject)
     })
+  }
+
+  private recordBinding(host: string, port: number): void {
+    this.boundHost = host
+    this.boundPort = port
+  }
+
+  /**
+   * §4.3, scoped to a loopback bind. The non-loopback server shell keeps its
+   * existing token + reverse-proxy model and is explicitly out of MBP1 scope;
+   * applying the rule there would 403 every request it serves, since a proxied
+   * request legitimately carries the operator's public hostname.
+   */
+  private hostHeaderAllowed(req: IncomingMessage): boolean {
+    if (this.boundHost === null || !isLoopbackHost(this.boundHost)) {
+      return true
+    }
+    return isLoopbackHostHeader(req.headers.host, this.boundPort)
   }
 
   stop(): Promise<void> {
@@ -342,6 +724,13 @@ export class WebSocketBridgeServer {
   private async closeTransportsAndDrain(
     acceptedHandlers: Promise<void>
   ): Promise<void> {
+    // Pre-authentication connections never enter `sessions`, so the dispose
+    // loop below would not touch them. Cancel their deadline timers here or
+    // they fire `onDeadline` into a stopped server — `unref()` keeps them from
+    // holding the process open but does not stop them running while it lives.
+    // Their sockets die with the `wss.clients` terminate loop further down.
+    this.preAuthPair.clear()
+    this.preAuthReconnect.clear()
     for (const session of this.sessions.values()) {
       session.conn.dispose()
     }
@@ -378,17 +767,21 @@ export class WebSocketBridgeServer {
     await acceptedHandlers
   }
 
+  /**
+   * Issue a one-shot pairing nonce directly, bypassing the `POST /nonce` route
+   * (§4.2). A thin façade over {@link NonceService}, kept so in-process callers
+   * need not speak HTTP to themselves.
+   *
+   * Throws when a cap is hit rather than retrying: callers expect a string, and
+   * silently retrying past a breached cap would defeat the very limit that was
+   * reached.
+   */
   issuePairNonce(): string {
-    // Sweep expired nonces before inserting. Denied/abandoned/retried pair
-    // attempts issue nonces that are never consumed by /pair, so without this
-    // the Map grows unbounded over the lifetime of the desktop process.
-    const now = Date.now()
-    for (const [key, expires] of this.pairNonces) {
-      if (expires <= now) this.pairNonces.delete(key)
+    const issued = this.nonces.issue(null)
+    if ('error' in issued) {
+      throw new Error('pairing nonce issuance is rate-limited')
     }
-    const nonce = randomBytes(16).toString('base64url')
-    this.pairNonces.set(nonce, now + PAIR_NONCE_TTL_MS)
-    return nonce
+    return issued.nonce
   }
 
   /** Register the shell's domain handlers. Call BEFORE the first connection. */
@@ -808,120 +1201,298 @@ export class WebSocketBridgeServer {
     writeJson(res, 200, dc.poll(requestId))
   }
 
-  private reject(socket: Duplex, code: 401 | 404): void {
-    const reason = code === 401 ? 'Unauthorized' : 'Not Found'
-    socket.write(`HTTP/1.1 ${code} ${reason}\r\n\r\n`)
+  private reject(socket: Duplex, code: 401 | 403 | 404): void {
+    socket.write(`HTTP/1.1 ${code} ${REJECT_REASONS[code]}\r\n\r\n`)
     socket.destroy()
   }
 
-  private consumeNonce(nonce: string): boolean {
-    const expires = this.pairNonces.get(nonce)
-    if (!expires) return false
-    this.pairNonces.delete(nonce)
-    return expires > Date.now()
+  /** `POST /nonce` — §4.2 one-shot pairing nonce issuance. */
+  private handleNonceIssue(req: IncomingMessage, res: ServerResponse): void {
+    // §4.2: the custom header makes the request non-simple, so the browser
+    // preflight (we grant no CORS) stops a cross-origin page before it reaches
+    // this handler at all. The caps below do not depend on that holding.
+    if (req.headers['x-motrix-bridge'] !== '1') {
+      writeJson(res, 403, {
+        error: { code: ErrorCodes.PermissionDenied, message: 'forbidden' },
+      })
+      return
+    }
+    // The native-messaging host has no Origin; `issue(null)` skips the
+    // per-origin quota by design and still applies both global caps.
+    const issued = this.nonces.issue(req.headers.origin ?? null)
+    if ('error' in issued) {
+      writeJson(res, 429, {
+        error: {
+          code: ErrorCodes.RateLimited,
+          message: 'nonce issuance is rate-limited',
+        },
+      })
+      return
+    }
+    writeJson(res, 200, issued)
   }
 
-  private handlePairUpgrade(
+  /**
+   * `/pair` — the §6 first-pair state machine, and nothing else. There is no
+   * token mode and no legacy frame format to downgrade into.
+   */
+  private handleMbp1PairUpgrade(
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
-    url: URL
+    url: URL,
+    peer: ExtensionPeer,
+    mbp1: Mbp1Wiring
   ): void {
-    const nonce = url.searchParams.get('nonce') ?? ''
-    const extensionId = url.searchParams.get('extensionId') ?? ''
-    const browser = (url.searchParams.get('browser') ?? '') as Browser
-    const extensionName = url.searchParams.get('extensionName') ?? ''
-    const extensionVersion = url.searchParams.get('extensionVersion') ?? ''
-
-    if (
-      !this.consumeNonce(nonce) ||
-      !extensionId ||
-      (browser !== 'chromium' && browser !== 'firefox')
-    ) {
-      // DEBUG(connect-storm): nonce already consumed above, so we log
-      // raw inputs rather than re-validating. TODO(remove-after-rootcause).
-      console.log(
-        `[bridge-debug] /pair reject 401: noncePresent=${nonce !== ''} ` +
-          `extId=${extensionId || 'none'} browser=${browser || 'none'}`
-      )
+    // §4/§6.1: consuming the one-shot nonce is the FIRST thing that happens
+    // once the route is decided — before any session object, dialog, or
+    // flood-control slot exists.
+    //
+    // An unknown or replayed nonce is refused HERE rather than admitted and
+    // failed with `pairError {expired}`. Requiring a live nonce to occupy a
+    // pre-authentication slot is what puts `POST /nonce`'s three caps
+    // (outstanding, global rate, per-origin rate) in front of the pre-auth
+    // table; without it, upgrades are free and a peer that connects and then
+    // stays silent could fill all 32 slots for the whole deadline at no cost.
+    // `PairSessionDeps.nonceValid` therefore stays `true` for every session
+    // this demux builds, and remains as the session's own defence in depth.
+    const pairNonce = url.searchParams.get('nonce') ?? ''
+    if (!this.nonces.consume(pairNonce)) {
       this.reject(socket, 401)
       return
     }
-    console.log(`[bridge-debug] /pair accepted extId=${extensionId}`)
-    // For first-time pair: registry check is deferred to the
-    // initialize handler (which may call onPairRequest dialog).
+    // No `extensionId`/`browser`/`extensionName` query reads: §5 forbids
+    // trusting self-reported identity, and every one of those now comes from
+    // `pairHello` bound to the verified Origin.
 
     this.wss.handleUpgrade(req, socket, head, (ws) => {
-      const pairArgs: PairRequestArgs = {
-        extensionId,
-        browser,
-        extensionName,
-        extensionVersion,
+      const entry: PairPreAuthEntry = {
+        ws,
+        session: null,
+        queuedDialog: false,
+        confirmed: false,
+        outcomeRecorded: false,
       }
-      this.attachConnection(ws, extensionId, browser, pairArgs, false)
+      if (!this.preAuthPair.admit(entry)) {
+        // §4: the table is full. Nothing is constructed, so this attempt
+        // cannot touch flood control or any live session.
+        ws.close()
+        return
+      }
+      // A dead socket's `send` emits 'error'; without a listener that is an
+      // unhandled event and takes the process down.
+      ws.on('error', () => {})
+
+      const session = new PairSession({
+        nonceValid: true,
+        pairNonce,
+        verifiedOrigin: peer.origin,
+        instanceId: mbp1.instanceId,
+        serverGeneration: mbp1.serverGeneration,
+        localToken: this.opts.localToken,
+        isOfficialId: mbp1.isOfficialId,
+        credentials: mbp1.credentials,
+        replay: this.replay,
+        // §7.3 admission is core's and runs before ticket validation, so a
+        // session refused `busy` never burns a legitimate ticket's one-shot
+        // replay slot. Passed straight through — `release` in particular must
+        // not be double-called, since pending slots are keyed by origin alone.
+        admit: (origin) => this.floodControl.admit(origin),
+        release: (origin) => this.floodControl.release(origin),
+        queueDialog: (args) => {
+          // The one §7.3 outcome flag the session does not expose.
+          entry.queuedDialog = true
+          return mbp1.queueMbp1Dialog(args)
+        },
+        sendText: (json) => sendText(ws, json),
+        sendBinary: (frame) => sendBinary(ws, frame),
+        // The reason names an internal step, so it stays off the wire and out
+        // of every log (§11).
+        close: () => ws.close(),
+        onAuthenticated: (channel) => {
+          // Synchronous, in the same tick: no `await` may separate the
+          // session's `committed` state from this handover, or the post-commit
+          // drop guards swallow the client's first real frames.
+          detachPreAuth()
+          this.preAuthPair.settle(entry)
+          entry.confirmed = true
+          this.recordPairOutcome(entry)
+          this.adoptAuthenticatedSession(
+            ws,
+            {
+              kind: 'extension',
+              browser: peer.browser,
+              extensionId: peer.extensionId,
+            },
+            channel
+          )
+        },
+        now: () => Date.now(),
+        random: (n) => new Uint8Array(randomBytes(n)),
+      })
+      entry.session = session
+
+      const pump = createPreAuthFramePump(ws, (frame, isBinary) =>
+        isBinary
+          ? session.handleBinary(asProtocolBytes(frame))
+          : // The true byte length, not the decoded string's length: §6.1's
+            // 16 KiB pre-authentication cap is measured on the wire.
+            session.handleText(frame.toString('utf8'), frame.length)
+      )
+      const onMessage = (data: RawData, isBinary: boolean): void => {
+        pump.push(rawToBuffer(data), isBinary)
+      }
+      const detachPreAuth = (): void => {
+        ws.off('message', onMessage)
+        pump.handOver()
+      }
+      ws.on('message', onMessage)
+
+      ws.on('close', () => {
+        detachPreAuth()
+        this.preAuthPair.settle(entry)
+        session.dispose('socket-closed')
+        // §7.3 names the early disconnect explicitly: a guesser must not be
+        // able to dodge the failure counter by closing the socket.
+        this.recordPairOutcome(entry)
+      })
     })
   }
 
-  private handleV1Upgrade(
+  /**
+   * `/v1` — the §8 challenge–response. The upgrade carries no credentials in
+   * the URL; a `?token=` query is simply ignored, because there is no token
+   * path left for it to reach.
+   */
+  private handleMbp1ReconnectUpgrade(
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
-    url: URL
+    peer: ExtensionPeer,
+    mbp1: Mbp1Wiring
   ): void {
-    const token = url.searchParams.get('token') ?? ''
-    const paired = this.opts.pairing.findByToken(token)
-    // /v1 is the EXTENSION WebSocket reconnect path; a cli/agent uses the
-    // unary HTTP transport, never this socket. Admit only extension identities.
-    if (paired?.identity.kind !== 'extension') {
-      // DEBUG(connect-storm): stale/invalid token → 401. The browser WS
-      // API only surfaces this as a generic close 1006 to the ext.
-      // TODO(remove-after-rootcause).
-      console.log(
-        `[bridge-debug] /v1 reject 401: token ${token ? 'present-but-unknown' : 'missing'}`
-      )
-      this.reject(socket, 401)
-      return
-    }
-    const { browser, extensionId } = paired.identity
-    console.log(
-      `[bridge-debug] /v1 accepted extId=${extensionId} browser=${browser}`
-    )
     this.wss.handleUpgrade(req, socket, head, (ws) => {
-      this.attachConnection(ws, extensionId, browser, null, true)
-      this.opts.pairing.markActive(paired.identity)
+      const entry: ReconnectPreAuthEntry = { ws, session: null }
+      if (!this.preAuthReconnect.admit(entry)) {
+        ws.close()
+        return
+      }
+      ws.on('error', () => {})
+
+      const session = new ReconnectSession({
+        verifiedOrigin: peer.origin,
+        // Derived from the Origin scheme, never from a stored or claimed
+        // field: §8 binds the live connection's values into the MAC.
+        browser: peer.browser,
+        instanceId: mbp1.instanceId,
+        credentials: mbp1.credentials,
+        sendText: (json) => sendText(ws, json),
+        close: () => ws.close(),
+        onAuthenticated: (channel) => {
+          detachPreAuth()
+          this.preAuthReconnect.settle(entry)
+          this.adoptAuthenticatedSession(
+            ws,
+            {
+              kind: 'extension',
+              browser: peer.browser,
+              extensionId: peer.extensionId,
+            },
+            channel
+          )
+        },
+        now: () => Date.now(),
+        random: (n) => new Uint8Array(randomBytes(n)),
+      })
+      entry.session = session
+
+      const pump = createPreAuthFramePump(ws, (frame, isBinary) =>
+        // §8 pre-channel framing is text-only, exactly as §6.1. A binary frame
+        // is routed through the same handler with a body that cannot parse, so
+        // the session emits its own uniform `protocolViolation` rather than the
+        // wiring inventing a second, differently-shaped failure path.
+        session.handleText(isBinary ? '' : frame.toString('utf8'), frame.length)
+      )
+      const onMessage = (data: RawData, isBinary: boolean): void => {
+        pump.push(rawToBuffer(data), isBinary)
+      }
+      const detachPreAuth = (): void => {
+        ws.off('message', onMessage)
+        pump.handOver()
+      }
+      ws.on('message', onMessage)
+
+      ws.on('close', () => {
+        detachPreAuth()
+        this.preAuthReconnect.settle(entry)
+        session.dispose('socket-closed')
+      })
+
+      // The server speaks first on `/v1`; the listener is already attached, so
+      // a fast client's response cannot race it.
+      session.start()
     })
   }
 
-  private attachConnection(
-    ws: WebSocket,
-    extensionId: string,
-    browser: Browser,
-    pairArgs: PairRequestArgs | null,
-    authorized: boolean
+  /**
+   * Promote a socket that has completed MBP1 into the live session map, with
+   * MDXP running inside the AEAD envelope.
+   *
+   * The caller MUST have detached its pre-authentication `'message'` listener
+   * in the same tick: Node fans `'message'` out to every listener, so a
+   * surviving one would advance the opener's strict sequence a second time and
+   * the real consumer would see a mismatch on the very next frame.
+   */
+  adoptAuthenticatedSession(
+    ws: WebSocketLike,
+    identity: ClientIdentity & { kind: 'extension' },
+    channel: EnvelopeChannel
   ): void {
-    const sessionKey = makeSessionKey(browser, extensionId)
-    const existing = this.sessions.get(sessionKey)
-    if (existing) {
-      existing.conn.dispose()
-    }
+    // Byte-identical to `clientKey(identity)`, which the SSE revoke matcher
+    // and `getSession` both rely on.
+    const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
     const startedAt = Date.now()
-    const conn = new BridgeConnection(ws, {
+    // The handed-over endpoints, never fresh ones: their sequence counters
+    // continue from the handshake (`/pair` has already sealed
+    // `credentialCommitted`).
+    const envelope = wrapWithEnvelope(ws, channel, (fault) => {
+      // §10: any gap, repeat, tampered frame, or post-activation text frame
+      // closes immediately. The close code separates "the peer broke the
+      // protocol" from "this process did" without naming which check failed —
+      // every §10 violation reports the same 1002 (§11).
+      ws.close(
+        fault.fromPeer ? WS_CLOSE_PROTOCOL_ERROR : WS_CLOSE_INTERNAL_ERROR
+      )
+    })
+    const conn = new BridgeConnection(envelope, {
       sessionKey,
-      extensionId,
-      browser,
+      extensionId: identity.extensionId,
+      browser: identity.browser,
       startedAt,
     })
-    // `/v1` reconnects arrive with a pair token already verified at upgrade,
-    // so they are authorized immediately. `/pair` first-connects are NOT:
-    // control-plane / download methods stay closed until the initialize
-    // handler records a pairing approval.
-    if (authorized) conn.markAuthorized()
+    // MBP1 authenticated the transport below MDXP, so the session is
+    // authorized on arrival. No handler grants this any more.
+    conn.markAuthorized()
+    this.applyHandlers(conn, null)
 
-    this.applyHandlers(conn, pairArgs)
-
-    const session: BridgeSession = { conn, extensionId, browser, startedAt }
+    const session: BridgeSession = {
+      conn,
+      extensionId: identity.extensionId,
+      browser: identity.browser,
+      startedAt,
+      envelope,
+    }
+    // Register BEFORE disposing the predecessor, and only ever from here —
+    // the unconditional pre-construction eviction this replaces let an
+    // unauthenticated `/pair` connection kick a live authenticated session
+    // just by opening a socket (§4).
+    const existing = this.sessions.get(sessionKey)
     this.sessions.set(sessionKey, session)
+    existing?.conn.dispose()
+
     ws.on('close', () => {
+      // Only ever remove OUR OWN entry: the replaced socket's imminent close
+      // must not delete the replacement that just took its key.
       if (this.sessions.get(sessionKey) === session) {
         this.sessions.delete(sessionKey)
       }
@@ -929,6 +1500,37 @@ export class WebSocketBridgeServer {
     })
 
     conn.listen()
+    this.opts.onExtensionAuthenticated?.(identity)
+  }
+
+  /** §7.3's counter moves exactly once per `/pair` session, on whichever
+   *  terminal path arrives first. */
+  private recordPairOutcome(entry: PairPreAuthEntry): void {
+    if (entry.outcomeRecorded) {
+      return
+    }
+    entry.outcomeRecorded = true
+    this.floodControl.recordOutcome({
+      queuedDialog: entry.queuedDialog,
+      // §7.2 never gives a consumed attempt back, so reading it after the fact
+      // is exactly the "reached pakeA and did not confirm" test §7.3 wants.
+      consumedAttempt: (entry.session?.attemptCount ?? 0) > 0,
+      confirmed: entry.confirmed,
+    })
+  }
+
+  private expirePairPreAuth(entry: PairPreAuthEntry): void {
+    try {
+      entry.session?.dispose('timeout')
+      this.recordPairOutcome(entry)
+    } finally {
+      // `dispose` deliberately does NOT close the socket — both session modules
+      // read it as "the peer is already gone, or the wiring is closing it" — so
+      // the wiring must, and must do so even if the bookkeeping above throws.
+      // This runs from a timer callback, where a lost close means a peer that
+      // upgraded and then said nothing holds its slot for the process's life.
+      entry.ws.close()
+    }
   }
 
   private applyHandlers(
@@ -937,10 +1539,10 @@ export class WebSocketBridgeServer {
   ): void {
     const ctx = contextFromConnection(conn, pairArgs)
     // Every method EXCEPT the handshake pair (motrix/initialize, system/ping)
-    // requires an authorized session. A `/pair` first-connect is unauthorized
-    // until its initialize handler records a pairing approval, so without this
-    // a caller that merely consumed a one-shot nonce could drive download +
-    // control-plane methods before (or entirely without) user approval. The
+    // requires an authorized session. Under MBP1 every WebSocket session is
+    // authorized before this runs, so the gate is defence in depth rather than
+    // the live boundary: it is what stops a future transport that admits an
+    // unauthorized connection from silently reaching the control plane. The
     // dispatcher itself has no authz notion, so the gate lives at the wiring.
     const authorizedDispatch = (
       method: string,
@@ -1011,6 +1613,133 @@ export class WebSocketBridgeServer {
     return this.requestWork.run(() =>
       this.dispatcher.dispatch(method, params, ctx)
     )
+  }
+}
+
+const REJECT_REASONS = {
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+} as const
+
+/** One WebSocket text frame carrying one JSON object (§6.1). */
+function sendText(ws: WebSocket, json: object): void {
+  if (ws.readyState !== ws.OPEN) {
+    return
+  }
+  ws.send(JSON.stringify(json))
+}
+
+/** One WebSocket binary frame carrying one sealed envelope (§10). */
+function sendBinary(ws: WebSocket, frame: Uint8Array): void {
+  if (ws.readyState !== ws.OPEN) {
+    return
+  }
+  ws.send(frame, { binary: true })
+}
+
+/**
+ * Normalize whatever `ws` delivered into one contiguous `Buffer`. In the
+ * default `binaryType: 'nodebuffer'` mode that is already a `Buffer`, but the
+ * declared `RawData` also admits a fragment array and an `ArrayBuffer`, and a
+ * pre-authentication frame's byte length is load-bearing (§6.1's 16 KiB cap).
+ */
+function rawToBuffer(data: RawData): Buffer {
+  if (Buffer.isBuffer(data)) {
+    return data
+  }
+  if (Array.isArray(data)) {
+    return Buffer.concat(data)
+  }
+  return Buffer.from(data)
+}
+
+/**
+ * The same bytes as a plain `Uint8Array`, zero-copy — so §6.1's byte-length
+ * accounting is unaffected.
+ *
+ * `mbp1/` hands its byte inputs to `@noble` helpers that accept a value only
+ * when `value instanceof Uint8Array`, and a `Buffer` fails that check whenever
+ * the two were built in different realms. Handing `EnvelopeOpener.open` a
+ * `Buffer` therefore risks a `TypeError` from inside the AEAD layer, which
+ * `PairSession.handleBinary` would report to the peer as a §10 envelope
+ * violation — our own fault dressed up as the peer's.
+ */
+function asProtocolBytes(frame: Buffer): Uint8Array {
+  return new Uint8Array(frame.buffer, frame.byteOffset, frame.byteLength)
+}
+
+interface PreAuthFramePump {
+  /** Enqueue one raw frame from the socket. */
+  push(frame: Buffer, isBinary: boolean): void
+  /** Stop feeding the handshake and release the unread tail. */
+  handOver(): void
+}
+
+/**
+ * Feeds pre-authentication frames to a session **one at a time**, and hands
+ * the unread tail to whoever takes the socket over.
+ *
+ * Serializing is the first half: both session handlers are `async` and await
+ * the credential store, so a per-event call would let a second frame enter the
+ * state machine mid-transition.
+ *
+ * Releasing the tail is the second half, and it is the part that is easy to
+ * miss. A client may pipeline its first MDXP request straight behind the last
+ * handshake frame, without waiting for `credentialCommitted` /
+ * `reconnectAccept`. That frame is already queued here when the handover
+ * happens, and the session's post-handover guards **drop** such frames rather
+ * than treating them as violations — so dispatching it would swallow the
+ * request AND leave the envelope opener one sequence number behind, killing the
+ * connection on the next frame with a mismatch that looks like tampering.
+ * Re-emitting it on the socket instead delivers it to the MDXP consumer that
+ * has just attached, in order.
+ */
+function createPreAuthFramePump(
+  ws: WebSocket,
+  consume: (frame: Buffer, isBinary: boolean) => Promise<void>
+): PreAuthFramePump {
+  const pending: Array<[Buffer, boolean]> = []
+  let running = false
+  let handedOver = false
+
+  const drain = async (): Promise<void> => {
+    if (running) {
+      return
+    }
+    running = true
+    try {
+      while (!handedOver) {
+        const next = pending.shift()
+        if (next === undefined) {
+          break
+        }
+        await consume(next[0], next[1])
+      }
+    } catch {
+      // Both session handlers contain their own faults, so a rejection here is
+      // an internal one. Close rather than strand every later frame; nothing is
+      // logged, because the value may carry protocol state (§11).
+      pending.length = 0
+      ws.close(WS_CLOSE_INTERNAL_ERROR)
+    } finally {
+      running = false
+    }
+    if (handedOver && pending.length > 0) {
+      for (const [frame, isBinary] of pending.splice(0)) {
+        ws.emit('message', frame, isBinary)
+      }
+    }
+  }
+
+  return {
+    push(frame, isBinary) {
+      pending.push([frame, isBinary])
+      void drain()
+    },
+    handOver() {
+      handedOver = true
+    },
   }
 }
 

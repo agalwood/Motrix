@@ -1,7 +1,7 @@
 import { createInitializeHandler } from '@core/bridge/handlers/initialize-handler'
 import type { MdxpSessionContext } from '@core/bridge/mdxp-session-context'
-import type { PairRequestArgs } from '@core/bridge/web-socket-bridge-server'
 import { ErrorCodes } from '@motrix/mdxp'
+import type { Browser } from '@shared/protocol/bridge'
 import { describe, expect, it, vi } from 'vitest'
 
 const baseCapabilities = {
@@ -28,140 +28,66 @@ const validClientInfo = {
   adapters: [],
 }
 
-const fakePairArgs: PairRequestArgs = {
-  extensionId: 'abc',
-  browser: 'chromium',
-  extensionName: 'Test Ext',
-  extensionVersion: '0.1',
-}
-
 function makeCtx(opts: {
   extensionId?: string
-  pendingPair?: PairRequestArgs | null
+  browser?: Browser
   markAuthorized?: () => void
 }): MdxpSessionContext {
   return {
     identity: {
       kind: 'extension',
-      browser: 'chromium',
+      browser: opts.browser ?? 'chromium',
       extensionId: opts.extensionId ?? 'abc',
     },
     startedAt: 0,
     isReady: () => false,
     markReady: () => {},
-    isAuthorized: () => false,
+    // Under MBP1 an extension session is authenticated at the transport, so it
+    // arrives authorized; the handler must not be the gate that grants it.
+    isAuthorized: () => true,
     markAuthorized: opts.markAuthorized ?? (() => {}),
-    pendingPair: opts.pendingPair ?? null,
+    pendingPair: null,
   }
 }
 
 describe('initialize handler', () => {
-  it('first-pair success: returns pairToken + capabilities', async () => {
-    const issueToken = vi.fn().mockResolvedValue({ token: 'tok-1' })
-    const onPairRequest = vi
-      .fn()
-      .mockResolvedValue({ decision: 'allow', addToRegistry: false })
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken } as never,
-      registry: { has: () => false, add: vi.fn() } as never,
-      onPairRequest,
-    })
+  it('returns capabilities and never a pairToken', async () => {
+    const handler = createInitializeHandler(baseCapabilities)
 
-    const markAuthorized = vi.fn()
-    const result = await handler(
-      validClientInfo as never,
-      makeCtx({ pendingPair: fakePairArgs, markAuthorized })
-    )
+    const result = await handler(validClientInfo as never, makeCtx({}))
 
     expect(result.protocolVersion).toBe('1.0')
     expect(result.server.name).toBe('motrix')
-    expect(result.pairToken).toBe('tok-1')
-    expect(onPairRequest).toHaveBeenCalledWith(fakePairArgs)
-    // Approval authorizes the session for control-plane / download methods.
-    expect(markAuthorized).toHaveBeenCalledOnce()
+    expect(result.pairToken).toBeUndefined()
+  })
+
+  it('does not authorize the session — the transport already did', async () => {
+    // MBP1 authenticates below MDXP: `adoptAuthenticatedSession` marks the
+    // connection authorized before any handler runs. A handler that also
+    // granted authorization would be a second, weaker gate.
+    const markAuthorized = vi.fn()
+    const handler = createInitializeHandler(baseCapabilities)
+
+    await handler(validClientInfo as never, makeCtx({ markAuthorized }))
+
+    expect(markAuthorized).not.toHaveBeenCalled()
   })
 
   it('reports the runtime injected by the Server composition root', async () => {
     const handler = createInitializeHandler({
       ...baseCapabilities,
       runtime: 'server',
-      pairing: { issueToken: vi.fn() } as never,
-      registry: { has: () => true } as never,
-      onPairRequest: vi.fn(),
     })
 
-    const result = await handler(
-      validClientInfo as never,
-      makeCtx({ pendingPair: null })
-    )
+    const result = await handler(validClientInfo as never, makeCtx({}))
 
     expect(result.server.runtime).toBe('server')
   })
 
-  it('first-pair deny: does NOT authorize the session', async () => {
-    const markAuthorized = vi.fn()
-    const onPairRequest = vi
-      .fn()
-      .mockResolvedValue({ decision: 'deny', addToRegistry: false })
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken: vi.fn() } as never,
-      registry: { has: () => false } as never,
-      onPairRequest,
-    })
-
-    await expect(
-      handler(
-        validClientInfo as never,
-        makeCtx({ pendingPair: fakePairArgs, markAuthorized })
-      )
-    ).rejects.toMatchObject({ code: ErrorCodes.PermissionDenied })
-    expect(markAuthorized).not.toHaveBeenCalled()
-  })
-
-  it('first-pair deny: throws -32003 Permission denied', async () => {
-    const onPairRequest = vi
-      .fn()
-      .mockResolvedValue({ decision: 'deny', addToRegistry: false })
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken: vi.fn() } as never,
-      registry: { has: () => false } as never,
-      onPairRequest,
-    })
-
-    await expect(
-      handler(validClientInfo as never, makeCtx({ pendingPair: fakePairArgs }))
-    ).rejects.toMatchObject({ code: ErrorCodes.PermissionDenied })
-  })
-
-  it('reconnect (pendingPair=null): returns capabilities without minting a token', async () => {
-    const issueToken = vi.fn()
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken } as never,
-      registry: { has: () => true } as never,
-      onPairRequest: vi.fn(),
-    })
-
-    const result = await handler(
-      validClientInfo as never,
-      makeCtx({ pendingPair: null })
-    )
-
-    expect(result.protocolVersion).toBe('1.0')
-    expect(issueToken).not.toHaveBeenCalled()
-    expect(result.pairToken).toBeUndefined()
-  })
-
-  it('reconnect rejects mismatched extensionId in params vs session', async () => {
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken: vi.fn() } as never,
-      registry: { has: () => true } as never,
-      onPairRequest: vi.fn(),
-    })
+  it('rejects a mismatched extensionId on Chromium', async () => {
+    // On Chromium the verified `Origin` host IS the extension id, so a client
+    // that re-asserts a different one is inconsistent with its own transport.
+    const handler = createInitializeHandler(baseCapabilities)
 
     await expect(
       handler(
@@ -169,20 +95,36 @@ describe('initialize handler', () => {
           ...validClientInfo,
           client: { ...validClientInfo.client, extensionId: 'xyz' },
         } as never,
-        makeCtx({ extensionId: 'abc', pendingPair: null })
+        makeCtx({ extensionId: 'abc' })
       )
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
   })
 
-  it('reconnect fails closed for a non-extension client kind', async () => {
-    // v1 only admits extension reconnect; a non-extension kind must be rejected
-    // outright, not skip the identity check (no fail-open auth gate).
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken: vi.fn() } as never,
-      registry: { has: () => true } as never,
-      onPairRequest: vi.fn(),
-    })
+  it('does not compare extensionId on Firefox, where the origin proves no Gecko id', async () => {
+    // The session id is the `moz-extension://<UUID>` host; the client reports
+    // its Gecko id. §5 says the two cannot be mapped to each other, so
+    // comparing them would reject every legitimate Firefox session.
+    const handler = createInitializeHandler(baseCapabilities)
+
+    const result = await handler(
+      {
+        ...validClientInfo,
+        client: {
+          ...validClientInfo.client,
+          browser: 'firefox',
+          extensionId: 'motrix@example.org',
+        },
+      } as never,
+      makeCtx({ browser: 'firefox', extensionId: 'a1b2c3d4-uuid' })
+    )
+
+    expect(result.protocolVersion).toBe('1.0')
+  })
+
+  it('fails closed for a non-extension client kind', async () => {
+    // The MBP1 routes only admit extensions; a non-extension kind must be
+    // rejected outright rather than skip the identity check.
+    const handler = createInitializeHandler(baseCapabilities)
 
     await expect(
       handler(
@@ -190,29 +132,23 @@ describe('initialize handler', () => {
           ...validClientInfo,
           client: { kind: 'cli', name: 'motrix-cli', version: '2.0' },
         } as never,
-        makeCtx({ extensionId: 'abc', pendingPair: null })
+        makeCtx({ extensionId: 'abc' })
       )
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
   })
 
-  it('reconnect fails closed for a non-extension session identity', async () => {
-    // The /v1 route only ever creates extension sessions, but the handler must
-    // not assume it: a cli-kind session identity reconnecting (a future
-    // device-code session) must be rejected, not silently bypass the
-    // extensionId match against an absent field.
-    const handler = createInitializeHandler({
-      ...baseCapabilities,
-      pairing: { issueToken: vi.fn() } as never,
-      registry: { has: () => true } as never,
-      onPairRequest: vi.fn(),
-    })
+  it('fails closed for a non-extension session identity', async () => {
+    // `/pair` and `/v1` only ever create extension sessions, but the handler
+    // must not assume it: a cli-kind session identity must be rejected, not
+    // silently bypass the extensionId match against an absent field.
+    const handler = createInitializeHandler(baseCapabilities)
 
     const cliCtx: MdxpSessionContext = {
       identity: { kind: 'cli', id: 'local' },
       startedAt: 0,
       isReady: () => false,
       markReady: () => {},
-      isAuthorized: () => false,
+      isAuthorized: () => true,
       markAuthorized: () => {},
       pendingPair: null,
     }
@@ -223,44 +159,21 @@ describe('initialize handler', () => {
   })
 
   it('ffmpegAvailable:false → selectionKinds is only ["direct"]', async () => {
-    const onPairRequest = vi
-      .fn()
-      .mockResolvedValue({ decision: 'allow', addToRegistry: false })
     const handler = createInitializeHandler({
-      motrixVersion: '2.0',
-      runtime: 'electron',
+      ...baseCapabilities,
       ffmpegAvailable: false,
-      pairing: {
-        issueToken: vi.fn().mockResolvedValue({ token: 'tok' }),
-      } as never,
-      registry: { has: () => false, add: vi.fn() } as never,
-      onPairRequest,
     })
-    const result = await handler(
-      validClientInfo as never,
-      makeCtx({ pendingPair: fakePairArgs })
-    )
+
+    const result = await handler(validClientInfo as never, makeCtx({}))
+
     expect(result.capabilities.selectionKinds).toEqual(['direct'])
   })
 
   it('ffmpegAvailable:true → selectionKinds is ["direct","hls","dash","mux"]', async () => {
-    const onPairRequest = vi
-      .fn()
-      .mockResolvedValue({ decision: 'allow', addToRegistry: false })
-    const handler = createInitializeHandler({
-      motrixVersion: '2.0',
-      runtime: 'electron',
-      ffmpegAvailable: true,
-      pairing: {
-        issueToken: vi.fn().mockResolvedValue({ token: 'tok' }),
-      } as never,
-      registry: { has: () => false, add: vi.fn() } as never,
-      onPairRequest,
-    })
-    const result = await handler(
-      validClientInfo as never,
-      makeCtx({ pendingPair: fakePairArgs })
-    )
+    const handler = createInitializeHandler(baseCapabilities)
+
+    const result = await handler(validClientInfo as never, makeCtx({}))
+
     expect(result.capabilities.selectionKinds).toEqual([
       'direct',
       'hls',
