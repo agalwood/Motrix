@@ -1,4 +1,13 @@
 import { EventEmitter } from 'node:events'
+import { mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import type { Browser } from '@shared/protocol/bridge'
+import {
+  MBP1_CREDENTIALS_FILENAME,
+  Mbp1CredentialStore,
+} from '../credential-store'
+import type { PairDialogHandle, PairDialogRequest } from '../mbp1/pair-session'
 import { type PairedClient, PairingService } from '../pairing-service'
 import type { TrustedExtensionRegistry } from '../trusted-extension-registry'
 
@@ -87,4 +96,129 @@ export function makeFakeRegistry(): TrustedExtensionRegistry {
     remove: async () => {},
     listManifestIds: () => [],
   } as unknown as TrustedExtensionRegistry
+}
+
+/**
+ * A REAL {@link Mbp1CredentialStore} on a throwaway directory. Not a double:
+ * §6.7's ordering guarantees are the store's, the sessions await them, and a
+ * fake would let a broken ordering pass. The caller owns the temp directory
+ * only for the life of the test.
+ */
+export async function makeTempCredentialStore(): Promise<Mbp1CredentialStore> {
+  const dir = await mkdtemp(join(tmpdir(), 'motrix-mbp1-'))
+  return Mbp1CredentialStore.load(join(dir, MBP1_CREDENTIALS_FILENAME))
+}
+
+/**
+ * The §7.1 approval dialog, recorded rather than rendered. A test reads
+ * `requests` for the identity tri-state the server resolved and for the pairing
+ * code — the same two things the real dialog shows the user.
+ */
+export interface FakeDialogs {
+  requests: PairDialogRequest[]
+  /** The most recent request, or a loud failure if none was queued. */
+  latest(): PairDialogRequest
+  /** The display code of the most recent request. */
+  latestCode(): string
+  /** How many dialogs were closed by the server. */
+  closed: number
+  /** Resolve the newest dialog's `dismissed`, as the user dismissing it. */
+  dismissLatest(): void
+  queue(args: PairDialogRequest): PairDialogHandle
+}
+
+export function makeFakeDialogs(): FakeDialogs {
+  const requests: PairDialogRequest[] = []
+  const dismissals: Array<() => void> = []
+  const state = { closed: 0 }
+  return {
+    requests,
+    get closed() {
+      return state.closed
+    },
+    latest() {
+      const last = requests.at(-1)
+      if (!last) {
+        throw new Error('no pairing dialog was queued')
+      }
+      return last
+    },
+    latestCode() {
+      return this.latest().code
+    },
+    dismissLatest() {
+      const dismiss = dismissals.at(-1)
+      if (!dismiss) {
+        throw new Error('no pairing dialog was queued')
+      }
+      dismiss()
+    },
+    queue(args) {
+      requests.push(args)
+      let resolve!: () => void
+      const dismissed = new Promise<void>((done) => {
+        resolve = done
+      })
+      dismissals.push(resolve)
+      return {
+        dismissed,
+        close: () => {
+          state.closed += 1
+        },
+      }
+    },
+  }
+}
+
+/**
+ * §5's `isOfficialId`, backed by an explicit allowlist. It stands in for the
+ * immutable `native-messaging-extensions.json` set — never the NM manifest set
+ * and never the user registry, both of which admit user-added ids.
+ */
+export function makeAllowlist(
+  entries: ReadonlyArray<[Browser, string]>
+): (browser: Browser, id: string) => boolean {
+  const allowed = new Set(entries.map(([browser, id]) => `${browser}:${id}`))
+  return (browser, id) => allowed.has(`${browser}:${id}`)
+}
+
+/** The six MBP1 `BridgeServerOptions` a test server needs, plus the dialog
+ *  fake the pairing code has to be read from. */
+export interface Mbp1TestWiring {
+  dialogs: FakeDialogs
+  options: {
+    instanceId: string
+    serverGeneration: string
+    appVersion: string
+    credentials: Mbp1CredentialStore
+    isOfficialId: (browser: Browser, id: string) => boolean
+    queueMbp1Dialog: (args: PairDialogRequest) => PairDialogHandle
+  }
+}
+
+export const MBP1_TEST_INSTANCE_ID = 'instance-for-tests'
+export const MBP1_TEST_SERVER_GENERATION = 'gen-for-tests'
+export const MBP1_TEST_APP_VERSION = '2.0.0-test'
+
+/**
+ * Wire MBP1 the way a shell will. The six options resolve as a unit — a server
+ * missing any one of them refuses both `/pair` and `/v1` — so a suite that
+ * wants a working extension WebSocket needs all of them, and spreading this
+ * `options` object is the whole of it.
+ */
+export async function makeMbp1TestWiring(
+  allowlist: ReadonlyArray<[Browser, string]> = []
+): Promise<Mbp1TestWiring> {
+  const dialogs = makeFakeDialogs()
+  return {
+    dialogs,
+    options: {
+      instanceId: MBP1_TEST_INSTANCE_ID,
+      serverGeneration: MBP1_TEST_SERVER_GENERATION,
+      appVersion: MBP1_TEST_APP_VERSION,
+      credentials: await makeTempCredentialStore(),
+      isOfficialId: makeAllowlist(allowlist),
+      queueMbp1Dialog: (args) => dialogs.queue(args),
+    },
+  }
 }
