@@ -2,9 +2,14 @@ import { useGlobalStats } from '@renderer/hooks/use-global-stats'
 import { formatBytes } from '@renderer/lib/format'
 import { useTranslation } from 'react-i18next'
 import { EngineBadge } from './engine-badge'
+import type { DownloadsTab } from './filter'
 import { NatBadge } from './nat-badge'
 
-export function GlobalStatsBar() {
+interface GlobalStatsBarProps {
+  counts: Record<DownloadsTab, number>
+}
+
+export function GlobalStatsBar({ counts }: GlobalStatsBarProps) {
   const { t } = useTranslation()
   const { stats } = useGlobalStats()
 
@@ -25,9 +30,9 @@ export function GlobalStatsBar() {
         </span>
         <span className="tabular-nums">
           {t('panel.downloads.stats.counts', {
-            active: stats?.activeTasks ?? 0,
-            completed: stats?.stoppedTasks ?? 0,
-            error: 0,
+            active: counts.active,
+            completed: counts.completed,
+            error: counts.error,
           })}
         </span>
       </div>
