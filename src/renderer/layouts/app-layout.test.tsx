@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppLayout } from './app-layout'
@@ -98,6 +98,12 @@ describe('AppLayout', () => {
     expect(document.querySelector('[data-slot="sidebar-wrapper"]')).toHaveClass(
       'electron-window-chrome'
     )
+    expect(
+      document.querySelector('[data-slot="desktop-window-controls"]')
+    ).not.toBeNull()
+    expect(
+      document.querySelector('[data-slot="sidebar-inset"]')
+    ).not.toHaveAttribute('style')
   })
 
   it('keeps Electron chrome safe-area overrides out of the web target', () => {
@@ -109,6 +115,36 @@ describe('AppLayout', () => {
       document.querySelector('[data-slot="sidebar-wrapper"]')
     ).not.toHaveClass('electron-window-chrome')
     vi.stubGlobal('__MOTRIX_TARGET__', 'electron')
+  })
+
+  it('keeps chrome actions and the drag region available after collapsing the sidebar', async () => {
+    Object.defineProperty(window.motrix, 'platform', {
+      value: 'win32',
+      configurable: true,
+    })
+    await act(async () => {
+      renderAppLayout()
+      await Promise.resolve()
+    })
+
+    const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
+    expect(wrapper).toHaveAttribute('data-state', 'expanded')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle sidebar' }))
+
+    expect(wrapper).toHaveAttribute('data-state', 'collapsed')
+    expect(
+      document.querySelector('[data-slot="window-chrome-leading"]')
+    ).not.toBeNull()
+    expect(
+      document.querySelector('[data-slot="window-chrome-actions"]')
+    ).not.toBeNull()
+    expect(
+      document.querySelector('[data-slot="window-chrome-drag-region"]')
+    ).toHaveClass('min-w-16', 'flex-1')
+    expect(
+      document.querySelector('[data-slot="desktop-window-controls"]')
+    ).not.toBeNull()
   })
 
   it('keeps the sidebar-wrapper background in mobile mode', () => {

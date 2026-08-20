@@ -18,7 +18,6 @@ export interface WindowConfig {
   vibrancy: boolean
   liquidGlass: boolean
   transparent?: boolean
-  windowControlsSymbolColor?: string
 }
 
 export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
@@ -65,6 +64,5 @@ export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
     vibrancy: false,
     liquidGlass: true,
     transparent: false,
-    windowControlsSymbolColor: '#1d1d1f',
   },
 }

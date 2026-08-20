@@ -147,12 +147,20 @@
   --window-chrome-safe-area-leading: 160px;
 }
 
+.platform-darwin.window-main
+  .electron-window-chrome.preview-desktop-window-controls,
+.platform-linux.window-main .electron-window-chrome,
 .platform-win32.window-main .electron-window-chrome {
-  --window-chrome-safe-area-trailing: 148px;
+  --window-chrome-safe-area-trailing: 112px;
 }
 
-.platform-linux.window-main .electron-window-chrome {
-  --window-chrome-safe-area-trailing: 88px;
+@media (width >= 48rem) {
+  .electron-window-chrome.group\/sidebar-wrapper[data-state="expanded"]
+    .panel-action-align-visual-end {
+    /* Keep the 16px glyph centered inside its 28px target while preserving
+       the existing glyph-end visual line. */
+    inset-inline-end: -0.125rem;
+  }
 }
 
 .dark {

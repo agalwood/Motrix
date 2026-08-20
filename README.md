@@ -220,9 +220,12 @@ flag enabled:
 MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
 ```
 
-The flag hides the main window's macOS traffic-light buttons and enables the
-renderer dropdown menu. Restart the development process after changing the
-flag because both Electron and Vite read it at startup.
+The flag hides the main window's macOS traffic-light buttons, enables the
+renderer dropdown menu, and shows the custom window controls used on Windows
+and Linux. Collapse the sidebar in this mode to check the application menu,
+attached actions, drag region, and caption-control safe areas together.
+Restart the development process after changing the flag because both Electron
+and Vite read it at startup.
 
 This mode is intended for layout and command-item debugging. Electron routes
 macOS role items through AppKit's native menu, so role-backed actions such as

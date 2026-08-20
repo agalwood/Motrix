@@ -8,10 +8,11 @@ import {
 import type React from 'react'
 import { useCompactHeader } from '../hooks/use-compact-header'
 
-// Compact buttons mirror the 28px window-chrome row (AddTaskTriggerButton
-// is size-[28px] with a size-4 icon) so hit targets stay comfortable in
-// the short header. Icons keep Button's default size-4.
-export const COMPACT_ACTION_CLASS = 'h-7 px-1.5'
+// Compact panel actions share the window chrome controls' 28px hit target.
+// Keep the glyph geometrically centered inside that target; the complete
+// button stays on the shared WindowChrome centerline.
+export const COMPACT_ACTION_CLASS =
+  'size-7 p-0 [&>svg]:size-4 [&>svg]:opacity-50 hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75'
 
 /**
  * A PanelShell header action that adapts to the compact header: full mode

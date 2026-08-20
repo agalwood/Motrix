@@ -675,6 +675,42 @@ describe('buildCommandHandlers', () => {
     expect(minimize).toHaveBeenCalledOnce()
   })
 
+  it('ToggleMaximizeCurrentWindow maximizes and restores only its sender window', async () => {
+    const maximize = vi.fn()
+    const unmaximize = vi.fn()
+    const fakeSender = {} as never
+    fromWebContentsMock
+      .mockReturnValueOnce({
+        isDestroyed: vi.fn(() => false),
+        isMaximizable: vi.fn(() => true),
+        isMaximized: vi.fn(() => false),
+        maximize,
+        unmaximize,
+      })
+      .mockReturnValueOnce({
+        isDestroyed: vi.fn(() => false),
+        isMaximizable: vi.fn(() => true),
+        isMaximized: vi.fn(() => true),
+        maximize,
+        unmaximize,
+      })
+    const ctx = fakeCtx()
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+
+    await expect(
+      handlers[Commands.ToggleMaximizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+    await expect(
+      handlers[Commands.ToggleMaximizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+
+    expect(fromWebContentsMock).toHaveBeenNthCalledWith(1, fakeSender)
+    expect(fromWebContentsMock).toHaveBeenNthCalledWith(2, fakeSender)
+    expect(maximize).toHaveBeenCalledOnce()
+    expect(unmaximize).toHaveBeenCalledOnce()
+  })
+
   it('routes direct shell commands to their owning collaborators', async () => {
     const ctx = fakeCtx()
     // @ts-expect-error partial ctx
@@ -826,6 +862,9 @@ describe('buildCommandHandlers', () => {
     const minimizeRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.MinimizeCurrentWindow
     )
+    const toggleMaximizeRegistration = ipcHandleMock.mock.calls.find(
+      ([channel]) => channel === Commands.ToggleMaximizeCurrentWindow
+    )
     const menuContextRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.UpdateMenuContext
     )
@@ -834,6 +873,7 @@ describe('buildCommandHandlers', () => {
     )
     expect(closeRegistration).toBeDefined()
     expect(minimizeRegistration).toBeDefined()
+    expect(toggleMaximizeRegistration).toBeDefined()
     expect(menuContextRegistration).toBeDefined()
     expect(restartRegistration).toBeDefined()
 
@@ -844,6 +884,13 @@ describe('buildCommandHandlers', () => {
       minimize: vi.fn(),
     })
     await minimizeRegistration?.[1]({ sender })
+    fromWebContentsMock.mockReturnValueOnce({
+      isDestroyed: () => false,
+      isMaximizable: () => true,
+      isMaximized: () => false,
+      maximize: vi.fn(),
+    })
+    await toggleMaximizeRegistration?.[1]({ sender })
     await menuContextRegistration?.[1]({ sender }, { currentRoute: '/tasks' })
     await restartRegistration?.[1]({})
 
@@ -861,6 +908,9 @@ describe('buildCommandHandlers', () => {
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(
       Commands.MinimizeCurrentWindow
+    )
+    expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(
+      Commands.ToggleMaximizeCurrentWindow
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(Commands.RestartEngine)
   })

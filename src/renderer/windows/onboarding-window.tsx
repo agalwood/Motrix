@@ -10,6 +10,7 @@ export function OnboardingWindow() {
         title="Motrix"
         variant="titled"
         compact
+        maximizable={false}
         actionsPosition="end"
       >
         <OnboardingLanguageSelect />

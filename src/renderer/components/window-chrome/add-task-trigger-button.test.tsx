@@ -56,4 +56,13 @@ describe('AddTaskTriggerButton', () => {
     })
     expect(openMock).not.toHaveBeenCalled()
   })
+
+  it('shares the window-chrome icon opacity treatment', () => {
+    renderWithProviders()
+    expect(screen.getByRole('button', { name: /new task/i })).toHaveClass(
+      '[&>svg]:opacity-50',
+      'hover:[&>svg]:opacity-75',
+      'focus-visible:[&>svg]:opacity-75'
+    )
+  })
 })

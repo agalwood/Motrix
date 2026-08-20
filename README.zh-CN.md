@@ -207,8 +207,10 @@ Windows 和 Linux 会在 Motrix 窗口内渲染应用菜单。在 macOS 开发�
 MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
 ```
 
-该开关会隐藏主窗口的 macOS 红绿灯按钮，并启用 renderer dropdown menu。Electron
-和 Vite 都会在启动时读取此开关，因此修改后需要重启开发进程。
+该开关会隐藏主窗口的 macOS 红绿灯按钮，启用 renderer dropdown menu，并显示
+Windows/Linux 使用的自绘窗体按钮。可在这个模式下收起 Sidebar，联合检查应用菜单、
+附加 actions、拖拽区域和窗体按钮的安全间距。Electron 和 Vite 都会在启动时读取此
+开关，因此修改后需要重启开发进程。
 
 此模式用于调试布局和 command 菜单项。Electron 会通过 AppKit 原生菜单处理 macOS
 role 菜单项，因此 **Window → Minimize** 等 role action 从预览 dropdown 调用时，行为

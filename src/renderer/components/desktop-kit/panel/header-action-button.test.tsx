@@ -78,7 +78,7 @@ describe('HeaderActionButton', () => {
     expect(button).toHaveTextContent('Add')
   })
 
-  it('renders icon-only on the 28px row in the compact header', () => {
+  it('keeps a 16px icon in a 28px target on the collapsed header centerline', () => {
     stubCompactEnvironment()
     render(
       <SidebarProvider defaultOpen={false}>
@@ -89,7 +89,14 @@ describe('HeaderActionButton', () => {
     )
 
     const button = screen.getByRole('button', { name: 'Install' })
-    expect(button).toHaveClass('h-7')
+    expect(button).toHaveClass(
+      'size-7',
+      'p-0',
+      '[&>svg]:size-4',
+      '[&>svg]:opacity-50',
+      'hover:[&>svg]:opacity-75'
+    )
+    expect(button).not.toHaveClass('[&>svg]:translate-y-0.5')
     expect(button).not.toHaveTextContent('Install')
   })
 })

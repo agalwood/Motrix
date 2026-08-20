@@ -50,6 +50,7 @@ export const Commands = {
   DownloadAllTorrents: 'command:downloadAllTorrents',
   CloseCurrentWindow: 'command:closeCurrentWindow',
   MinimizeCurrentWindow: 'command:minimizeCurrentWindow',
+  ToggleMaximizeCurrentWindow: 'command:toggleMaximizeCurrentWindow',
   ShowMainWindow: 'command:showMainWindow',
   ShowAddTaskWindow: 'command:showAddTaskWindow',
   // Torrent

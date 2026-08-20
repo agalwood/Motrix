@@ -998,12 +998,24 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    // Minimize only the trusted window that originated the request. This is
-    // the Linux frameless-window replacement for a native caption button.
+    // Operate only on the trusted window that originated each custom caption
+    // control request. No renderer can target a different BrowserWindow.
     [Commands.MinimizeCurrentWindow]: async (sender: WebContents) => {
       const win = BrowserWindow.fromWebContents(sender)
       if (win && !win.isDestroyed() && win.isMinimizable()) {
         win.minimize()
+      }
+      return { ok: true }
+    },
+
+    [Commands.ToggleMaximizeCurrentWindow]: async (sender: WebContents) => {
+      const win = BrowserWindow.fromWebContents(sender)
+      if (win && !win.isDestroyed() && win.isMaximizable()) {
+        if (win.isMaximized()) {
+          win.unmaximize()
+        } else {
+          win.maximize()
+        }
       }
       return { ok: true }
     },
@@ -1466,6 +1478,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
     if (
       channel === Commands.CloseCurrentWindow ||
       channel === Commands.MinimizeCurrentWindow ||
+      channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext
     ) {

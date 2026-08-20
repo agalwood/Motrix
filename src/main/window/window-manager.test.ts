@@ -93,14 +93,13 @@ vi.mock('electron', () => {
 
   return {
     BrowserWindow: MockBrowserWindow,
-    nativeTheme: { shouldUseDarkColors: false },
     screen: mockScreen,
     shell: { openExternal: vi.fn() },
   }
 })
 
 import type { SettingsManager } from '@core/settings/settings-manager'
-import { BrowserWindow, nativeTheme } from 'electron'
+import { BrowserWindow } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { initializeRendererUrlPolicy } from './renderer-url-policy'
 import { WINDOW_CONFIGS } from './window-configs'
@@ -124,9 +123,6 @@ function createMockSettingsManager(
 describe('WindowManager', () => {
   beforeEach(() => {
     ;(BrowserWindow as unknown as { instances: unknown[] }).instances.length = 0
-    ;(
-      nativeTheme as unknown as { shouldUseDarkColors: boolean }
-    ).shouldUseDarkColors = false
     vi.clearAllMocks()
   })
 
@@ -143,7 +139,7 @@ describe('WindowManager', () => {
     expect(wm.get('main')).toBe(win)
   })
 
-  it('creates aligned Windows caption controls for the light theme', () => {
+  it('creates a hidden Windows title bar for renderer-drawn controls', () => {
     const wm = new WindowManager({
       settingsManager: createMockSettingsManager(),
       preloadPath: '/fake/preload.cjs',
@@ -154,46 +150,8 @@ describe('WindowManager', () => {
     const win = wm.open('main')
     const options = (win as unknown as { options: Record<string, unknown> })
       .options
-    expect(options.titleBarOverlay).toEqual({
-      color: '#00000000',
-      symbolColor: '#1d1d1f',
-      height: 54,
-    })
-  })
-
-  it('creates and refreshes Windows caption controls for the dark theme', () => {
-    ;(
-      nativeTheme as unknown as { shouldUseDarkColors: boolean }
-    ).shouldUseDarkColors = true
-    const wm = new WindowManager({
-      settingsManager: createMockSettingsManager(),
-      preloadPath: '/fake/preload.cjs',
-      loadUrl: vi.fn(),
-      platform: 'win32',
-    })
-
-    const main = wm.open('main')
-    const onboarding = wm.open('onboarding')
-    const mainOptions = (
-      main as unknown as { options: Record<string, unknown> }
-    ).options
-    expect(mainOptions.titleBarOverlay).toMatchObject({
-      symbolColor: '#f5f5f5',
-      height: 54,
-    })
-
-    wm.syncWindowControlsTheme(true)
-
-    expect(main.setTitleBarOverlay).toHaveBeenCalledWith({
-      color: '#00000000',
-      symbolColor: '#f5f5f5',
-      height: 54,
-    })
-    expect(onboarding.setTitleBarOverlay).toHaveBeenCalledWith({
-      color: '#00000000',
-      symbolColor: '#1d1d1f',
-      height: 54,
-    })
+    expect(options.titleBarStyle).toBe('hidden')
+    expect(options.titleBarOverlay).toBeUndefined()
   })
 
   it('uses the explicit secure Electron renderer defaults', () => {
@@ -504,6 +462,29 @@ describe('WindowManager', () => {
 
     expect(updateClose.preventDefault).not.toHaveBeenCalled()
     expect(win.hide).not.toHaveBeenCalled()
+  })
+
+  it('reports both early and terminal Windows session-end signals', () => {
+    const onSessionEnd = vi.fn()
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      onSessionEnd,
+    })
+    const win = wm.open('main')
+    const listeners = (win.on as unknown as ReturnType<typeof vi.fn>).mock.calls
+    const querySessionEnd = listeners.find(
+      ([event]) => event === 'query-session-end'
+    )?.[1] as (() => void) | undefined
+    const sessionEnd = listeners.find(
+      ([event]) => event === 'session-end'
+    )?.[1] as (() => void) | undefined
+
+    querySessionEnd?.()
+    sessionEnd?.()
+
+    expect(onSessionEnd).toHaveBeenCalledTimes(2)
   })
 
   it('close destroys add-task window', () => {

@@ -1411,15 +1411,18 @@ export function DashboardGrid({
               <Button
                 type="button"
                 variant="ghost"
-                size={compact ? 'icon-sm' : 'sm'}
+                size="icon-xs"
                 aria-label={label.action}
-                className={compact ? COMPACT_ACTION_CLASS : undefined}
+                className={cn(
+                  'panel-action-align-visual-end relative size-7 bg-transparent hover:bg-transparent dark:hover:bg-transparent',
+                  compact && COMPACT_ACTION_CLASS
+                )}
                 disabled={configurationUnavailable}
                 onClick={startEditing}
               />
             }
           >
-            <SlidersHorizontal aria-hidden />
+            <SlidersHorizontal aria-hidden className="size-4" />
           </TooltipTrigger>
           {configurationUnavailable ? (
             <TooltipContent>{label.expandHint}</TooltipContent>

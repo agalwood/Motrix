@@ -1,7 +1,12 @@
 import { Toast } from '@base-ui/react/toast'
 import { Button } from '@renderer/components/ui/button'
 import { SEVERITY_ICONS } from '@renderer/components/ui/severity-icons'
+import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import {
+  DESKTOP_WINDOW_CHROME_HEIGHT,
+  WINDOW_CHROME_EDGE_GAP,
+} from '@shared/constants/window-chrome'
 import type { PairRequestPayload } from '@shared/protocol/bridge'
 import { XIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -147,6 +152,11 @@ function ToastList() {
 
 export function Toaster() {
   const { t } = useTranslation()
+  const avoidDesktopChrome =
+    __MOTRIX_TARGET__ === 'electron' &&
+    (transport.platform === 'win32' ||
+      transport.platform === 'linux' ||
+      (transport.platform === 'darwin' && __MOTRIX_PREVIEW_MAC_MENU__))
   return (
     // Base UI defaults `limit` to 3; the 4th-oldest toast onward gets
     // `data-limited` (styled below as invisible + unclickable). A live
@@ -159,7 +169,17 @@ export function Toaster() {
       <Toast.Portal>
         <Toast.Viewport
           aria-label={t('notification.center.toastRegionAria')}
-          className="pointer-events-none fixed top-4 right-4 z-[100] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 outline-none"
+          className={cn(
+            'pointer-events-none fixed end-4 z-[100] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 outline-none',
+            !avoidDesktopChrome && 'top-4'
+          )}
+          style={
+            avoidDesktopChrome
+              ? {
+                  top: DESKTOP_WINDOW_CHROME_HEIGHT + WINDOW_CHROME_EDGE_GAP,
+                }
+              : undefined
+          }
         >
           <ToastList />
         </Toast.Viewport>

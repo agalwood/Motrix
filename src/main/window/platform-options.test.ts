@@ -10,28 +10,10 @@ describe('buildPlatformOptions', () => {
     expect(opts.trafficLightPosition).toEqual({ x: 20, y: 20 })
   })
 
-  it('uses dark title-bar symbols for the light Windows theme', () => {
+  it('hides the Windows title bar without enabling native caption controls', () => {
     const opts = buildPlatformOptions('win32')
     expect(opts.titleBarStyle).toBe('hidden')
-    expect(opts.titleBarOverlay).toEqual({
-      color: '#00000000',
-      symbolColor: '#1d1d1f',
-      height: 54,
-    })
-  })
-
-  it('uses light title-bar symbols for the dark Windows theme', () => {
-    const opts = buildPlatformOptions('win32', {
-      shouldUseDarkColors: true,
-    })
-    expect(opts.titleBarOverlay).toMatchObject({ symbolColor: '#f5f5f5' })
-  })
-
-  it('uses a configured Windows title-bar symbol color', () => {
-    const opts = buildPlatformOptions('win32', {
-      windowControlsSymbolColor: '#1d1d1f',
-    })
-    expect(opts.titleBarOverlay).toMatchObject({ symbolColor: '#1d1d1f' })
+    expect(opts.titleBarOverlay).toBeUndefined()
   })
 
   it('returns hidden titleBarStyle for Linux', () => {

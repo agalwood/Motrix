@@ -99,6 +99,35 @@ describe('AppSidebar', () => {
     }
   })
 
+  it('matches footer item sizing and horizontal inset to the main navigation', () => {
+    render(wrap(<AppSidebar />))
+
+    const dashboard = screen
+      .getByText('Dashboard')
+      .closest('[data-slot="sidebar-menu-button"]')
+    const notifications = screen
+      .getByText('Notifications')
+      .closest('[data-slot="sidebar-menu-button"]')
+    const settings = screen
+      .getByText('Settings')
+      .closest('[data-slot="sidebar-menu-button"]')
+    const mainGroup = dashboard?.closest('[data-slot="sidebar-group"]')
+    const footer = settings?.closest('[data-slot="sidebar-footer"]')
+
+    expect(mainGroup).toHaveClass('p-[2px]')
+    expect(footer).toHaveClass('px-0.5')
+    for (const item of [dashboard, notifications, settings]) {
+      expect(item).toHaveAttribute('data-size', 'default')
+      expect(item).toHaveClass(
+        'h-[38px]',
+        'px-2.5',
+        'py-3',
+        'gap-2',
+        '[&>svg]:size-4'
+      )
+    }
+  })
+
   it('renders the Notifications entry before a separator before Settings in the footer', () => {
     render(wrap(<AppSidebar />))
 
@@ -133,9 +162,11 @@ describe('AppSidebar', () => {
       .closest('[data-sidebar="menu"]')
     const separator = footerMenu?.querySelector('[data-sidebar="separator"]')
     expect(separator).not.toBeNull()
+    expect(separator).toHaveClass('mx-0', 'w-auto')
 
     const wrapper = separator?.parentElement
     expect(wrapper?.tagName).toBe('LI')
+    expect(wrapper).toHaveClass('relative')
     expect(wrapper).toHaveAttribute('aria-hidden', 'true')
   })
 

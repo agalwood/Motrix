@@ -3,7 +3,7 @@ import type { SettingsManager } from '@core/settings/settings-manager'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds } from '@shared/types/settings'
-import { BrowserWindow, nativeTheme, screen, shell } from 'electron'
+import { BrowserWindow, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { buildPlatformOptions } from './platform-options'
 import {
@@ -29,7 +29,7 @@ export interface WindowManagerDeps {
   previewMacMenu?: boolean
   /** Central legal/startup gate for every window-opening entry point. */
   resolveOpenTarget?: (requested: WindowId) => WindowId
-  /** Invoked when the OS signals session end (Windows window 'session-end'). */
+  /** Invoked when Windows first queries or confirms that the session will end. */
   onSessionEnd?: () => void
   /** Frozen renderer trust policy shared with IPC sender validation. */
   rendererUrlPolicy?: RendererUrlPolicy
@@ -236,22 +236,6 @@ export class WindowManager {
     }
   }
 
-  syncWindowControlsTheme(shouldUseDarkColors: boolean): void {
-    const platform = this.deps.platform ?? process.platform
-    if (platform !== 'win32') return
-
-    for (const [id, win] of this.windows.entries()) {
-      if (!win || win.isDestroyed()) continue
-      const config = WINDOW_CONFIGS[id]
-      const titleBarOverlay = buildPlatformOptions('win32', {
-        shouldUseDarkColors,
-        windowControlsSymbolColor: config.windowControlsSymbolColor,
-      }).titleBarOverlay
-      if (!titleBarOverlay || typeof titleBarOverlay === 'boolean') continue
-      win.setTitleBarOverlay(titleBarOverlay)
-    }
-  }
-
   setWillQuit(value: boolean): void {
     this.willQuit = value
   }
@@ -331,8 +315,6 @@ export class WindowManager {
     const platformOpts = buildPlatformOptions(platform, {
       vibrancy: config.vibrancy && !liquidGlass,
       liquidGlass,
-      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-      windowControlsSymbolColor: config.windowControlsSymbolColor,
     })
 
     const win = new BrowserWindow({
@@ -463,6 +445,7 @@ export class WindowManager {
     })
 
     if (id === 'main') {
+      win.on('query-session-end', () => this.deps.onSessionEnd?.())
       win.on('session-end', () => this.deps.onSessionEnd?.())
     }
   }

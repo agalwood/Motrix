@@ -1377,13 +1377,11 @@ async function initializeMainProcess(): Promise<void> {
       !gate.isAccepted() && requested !== 'onboarding'
         ? 'onboarding'
         : requested,
-    onSessionEnd: () => quitController.markSessionEnding(),
+    onSessionEnd: prepareForSessionEnd,
   })
-  // Apply the persisted theme before opening windows, then keep Windows
-  // caption symbols synchronized with the resolved app/system theme.
-  setupNativeThemeSync(eventBus, settingsManager, (shouldUseDarkColors) => {
-    windowManager.syncWindowControlsTheme(shouldUseDarkColors)
-  })
+  // Apply the persisted theme before opening windows. Renderer-drawn Windows
+  // controls inherit the same theme through CSS without native overlay sync.
+  setupNativeThemeSync(eventBus, settingsManager)
   // Install forwarding before the onboarding window becomes interactive.
   // SetDisclaimerLanguage persists before its asynchronous locale transaction
   // completes; an immediate AcceptDisclaimer can open the main window in that
@@ -1412,7 +1410,7 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   // OS logout/shutdown: skip the quit dialog so session end is never blocked.
-  powerMonitor.on('shutdown', () => quitController.markSessionEnding())
+  powerMonitor.on('shutdown', prepareForSessionEnd)
 
   if (gate.isAccepted()) {
     const runMode = settingsManager.getApp().runMode
@@ -2400,6 +2398,14 @@ function beginShutdown(): void {
   void performCleanup()
     .catch(() => {})
     .finally(() => app.quit())
+}
+
+function prepareForSessionEnd(): void {
+  // This callback runs from Windows query-session-end/session-end and the
+  // cross-platform powerMonitor shutdown event. Mark the child exit expected
+  // synchronously; the ordinary quit flow performs the graceful stop later.
+  supervisor?.prepareForShutdown()
+  quitController.markSessionEnding()
 }
 
 const quitController = new QuitController({

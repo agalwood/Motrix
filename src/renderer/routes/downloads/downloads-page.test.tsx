@@ -155,9 +155,17 @@ describe('DownloadsPage', () => {
     expect(
       screen.getByRole('heading', { name: /downloads/i })
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /search downloads/i })
-    ).toBeInTheDocument()
+    const search = screen.getByRole('button', { name: /search downloads/i })
+    expect(search).toHaveClass(
+      'size-7',
+      'items-center',
+      'justify-center',
+      'hover:bg-transparent',
+      'dark:hover:bg-transparent',
+      'panel-action-align-visual-end'
+    )
+    expect(search.querySelector('svg')).toHaveClass('size-4')
+    expect(search).not.toHaveClass('size-8')
   })
 
   it.each([

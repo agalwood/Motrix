@@ -37,14 +37,14 @@ export function PanelShell({
       {/* PanelShell header */}
       <header
         className={cn(
-          'flex shrink-0 items-start justify-between gap-4 px-6 pt-8 pb-4 transition-[padding] duration-200',
+          'flex shrink-0 items-start justify-between gap-4 px-6 pt-9 pb-4 transition-[padding] duration-200',
           // Compact rows center on the window-chrome icon line: the overlay
           // strip renders its 28px buttons at window y 13..41 (pt-[14px]
           // wrapper in AppLayout), i.e. centerline y=27. The inset sits 8px
           // down (m-2), so 5px top padding centers a 28px row at
           // 8 + 5 + 14 = 27 — same line as the traffic lights ({x:20,y:20}).
           'compact-header:py-[5px]',
-          'compact-header:pl-[var(--window-chrome-safe-area-leading)] compact-header:pr-[var(--window-chrome-safe-area-trailing)]',
+          'compact-header:ps-[var(--window-chrome-safe-area-leading)] compact-header:pe-[var(--window-chrome-safe-area-trailing)]',
           headerClassName
         )}
       >
@@ -56,6 +56,7 @@ export function PanelShell({
           title
         )}
         <div
+          data-slot="panel-shell-actions"
           // Keep actions above the z-30 WindowChrome drag strip but below the
           // z-50 modal layer so dialogs always cover background controls.
           className="app-no-drag relative z-40 flex shrink-0 items-center gap-2"

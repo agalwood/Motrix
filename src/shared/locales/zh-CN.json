@@ -95,6 +95,7 @@
   },
   "chrome": {
     "minimize": "最小化",
+    "toggleMaximize": "最大化或还原",
     "close": "关闭",
     "toggleSidebar": "切换边栏",
     "newTask": "新建任务"
