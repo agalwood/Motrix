@@ -73,13 +73,36 @@ describe('PreAuthTable (§4)', () => {
       onDeadline,
     })
     expect(table.admit('conn-1')).toBe(true)
+    // Advance between the two admits so a leaked timer would fire at a
+    // DIFFERENT instant than the original: admitting twice at the same fake
+    // instant cannot tell a leaked timer from a wrong return value.
+    vi.advanceTimersByTime(4_000)
     expect(table.admit('conn-1')).toBe(false)
     expect(table.size()).toBe(1)
 
     // The original timer must still be the one armed -- not orphaned by a
     // second admit() silently overwriting its slot.
-    vi.advanceTimersByTime(10_000)
+    vi.advanceTimersByTime(6_000)
     expect(onDeadline).toHaveBeenCalledExactlyOnceWith('conn-1')
+    vi.advanceTimersByTime(60_000)
+    expect(onDeadline).toHaveBeenCalledTimes(1)
+  })
+
+  it('clear() cancels every armed deadline and empties the table', () => {
+    const onDeadline = vi.fn()
+    const table = new PreAuthTable<string>({
+      cap: 5,
+      deadlineMs: 10_000,
+      onDeadline,
+    })
+    table.admit('conn-1')
+    table.admit('conn-2')
+
+    table.clear()
+
+    expect(table.size()).toBe(0)
+    vi.advanceTimersByTime(60_000)
+    expect(onDeadline).not.toHaveBeenCalled()
   })
 
   it('settle on an entry that already hit its deadline is a harmless no-op', () => {

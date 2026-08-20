@@ -73,6 +73,22 @@ export class PreAuthTable<T> {
     this.entries.delete(entry)
   }
 
+  /**
+   * Cancels every deadline timer and empties the table — the shutdown path.
+   *
+   * Pre-authentication entries never enter the live-session map, so a server
+   * teardown that only drains sessions would leave these timers armed to fire
+   * `onDeadline` into an already-stopped server. `unref()` keeps them from
+   * holding the process open but does not stop them running while it lives, so
+   * a re-enable cycle would otherwise inherit the previous instance's timers.
+   */
+  clear(): void {
+    for (const slot of this.entries.values()) {
+      clearTimeout(slot.timer)
+    }
+    this.entries.clear()
+  }
+
   /** Current number of admitted, not-yet-settled entries. */
   size(): number {
     return this.entries.size

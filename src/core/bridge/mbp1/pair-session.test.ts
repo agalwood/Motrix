@@ -108,10 +108,11 @@ function makeHarness(opts: HarnessOptions = {}) {
   const replayAdd = vi.spyOn(replay, 'add').mockImplementation(function (
     this: TicketReplayCache,
     macB64: string,
-    expMs: number
+    expMs: number,
+    nowMs: number
   ) {
     order.push('replay.add')
-    return TicketReplayCache.prototype.add.call(this, macB64, expMs)
+    return TicketReplayCache.prototype.add.call(this, macB64, expMs, nowMs)
   })
 
   const offerProvisional = vi.fn(

@@ -6,6 +6,7 @@ import { hmacSha256, toBase64Url } from './canonical'
 import type { TicketContext } from './ticket-verify'
 import {
   deriveTicketKey,
+  MAX_REMAINING_LIFETIME_MS,
   TicketReplayCache,
   ticketMacInput,
   validateBindingPub,
@@ -437,11 +438,36 @@ describe('TicketReplayCache', () => {
   it('remembers a mac until it is pruned past its exp', () => {
     const cache = new TicketReplayCache()
     const key = toBase64Url(hexToBytes(expected.mac))
-    cache.add(key, inputs.exp * 1000)
+    cache.add(key, inputs.exp * 1000, inputs.exp * 1000 - 1000)
     expect(cache.has(key)).toBe(true)
     cache.prune(inputs.exp * 1000 - 1)
     expect(cache.has(key)).toBe(true)
     cache.prune(inputs.exp * 1000)
+    expect(cache.has(key)).toBe(false)
+  })
+
+  it('clamps retention so a far-future exp cannot pin an entry forever', () => {
+    // `add` runs before the `expTooFar` row, so an absurd `exp` from a host
+    // holding `localToken` would otherwise leave an entry `prune` never drops.
+    const cache = new TicketReplayCache()
+    const key = toBase64Url(hexToBytes(expected.mac))
+    const now = 1_000_000
+    cache.add(key, now + 100 * 365 * 24 * 3600 * 1000, now)
+
+    expect(cache.has(key)).toBe(true)
+    cache.prune(now + MAX_REMAINING_LIFETIME_MS - 1)
+    expect(cache.has(key)).toBe(true)
+    cache.prune(now + MAX_REMAINING_LIFETIME_MS)
+    expect(cache.has(key)).toBe(false)
+  })
+
+  it('still honours an exp nearer than the clamp', () => {
+    const cache = new TicketReplayCache()
+    const key = toBase64Url(hexToBytes(expected.mac))
+    const now = 1_000_000
+    cache.add(key, now + 5_000, now)
+
+    cache.prune(now + 5_000)
     expect(cache.has(key)).toBe(false)
   })
 

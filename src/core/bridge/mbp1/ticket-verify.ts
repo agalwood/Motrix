@@ -66,7 +66,7 @@ const POINT_LENGTH = 32
 const SIGNATURE_LENGTH = 64
 
 /** `exp` is a remaining-lifetime bound, not a mint timestamp (§9.2). */
-const MAX_REMAINING_LIFETIME_MS = 60_000
+export const MAX_REMAINING_LIFETIME_MS = 60_000
 
 /** Which §9.2 abort row a ticket hit. Every value maps to `pairError {code:"protocolViolation"}`. */
 export type TicketAbortReason =
@@ -228,6 +228,14 @@ export function verifyTicketProofStrict(
  * ticket's `exp` passes: after that the ticket can only resolve as the
  * `expired` downgrade, which grants no identity a ticketless peer would not
  * already get, so pruning cannot be used to raise an identity.
+ *
+ * **Scope is one process.** The one-shot guarantee does not survive a restart,
+ * and nothing rescues it except `serverGeneration` rotating on every bridge
+ * start: a ticket replayed into a later process downgrades to `unverified` on
+ * the generation row, which is exactly what presenting no ticket at all yields.
+ * A change that ever made `serverGeneration` persist across restarts would
+ * therefore open a real one-shot replay window here and must restore a durable
+ * cache in the same change.
  */
 export class TicketReplayCache {
   private readonly seen = new Map<string, number>()
@@ -236,8 +244,18 @@ export class TicketReplayCache {
     return this.seen.has(macB64)
   }
 
-  add(macB64: string, expMs: number): void {
-    this.seen.set(macB64, expMs)
+  /**
+   * Records a consumed MAC. Retention is clamped to
+   * `min(expMs, nowMs + MAX_REMAINING_LIFETIME_MS)` because `add` runs *before*
+   * the `expTooFar` row: without the clamp, a buggy or compromised host holding
+   * `localToken` could mint tickets whose `exp` is centuries away and pin an
+   * entry `prune` can never remove, growing the map for the life of the
+   * process. The clamp costs nothing — a ticket beyond the remaining-lifetime
+   * bound is aborted on the very next row and can never be honoured, so there
+   * is no window in which forgetting it early admits anything.
+   */
+  add(macB64: string, expMs: number, nowMs: number): void {
+    this.seen.set(macB64, Math.min(expMs, nowMs + MAX_REMAINING_LIFETIME_MS))
   }
 
   prune(nowMs: number): void {
@@ -381,7 +399,7 @@ export function verifyNmTicket(
   }
   // Consumed at the table's replay position: every preceding abort row has
   // passed, so the ticket has been used even if a later row rejects it.
-  ctx.replay.add(macKey, expMs)
+  ctx.replay.add(macKey, expMs, ctx.nowMs)
 
   if (expMs > ctx.nowMs + MAX_REMAINING_LIFETIME_MS) {
     return abort('expTooFar')
