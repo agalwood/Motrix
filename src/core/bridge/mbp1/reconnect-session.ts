@@ -170,7 +170,7 @@ export class ReconnectSession {
    * wiring's own pre-authentication deadline table is closing it. Mirrors
    * `PairSession.dispose`.
    */
-  dispose(_reason: string): void {
+  dispose(_reason: 'socket-closed' | 'timeout'): void {
     if (this.state === 'closed') {
       return
     }
@@ -206,13 +206,6 @@ export class ReconnectSession {
 
     const c = fromBase64Url(parsed.data.C)
     const presentedMac = fromBase64Url(parsed.data.mac)
-    const rt = buildRT({
-      protocolVersion: MBP1_PROTOCOL_VERSION,
-      credentialId: parsed.data.credentialId,
-      browser: this.deps.browser,
-      verifiedOrigin: this.deps.verifiedOrigin,
-      instanceId: this.deps.instanceId,
-    })
 
     // §8: `browser`/`verifiedOrigin` here are the live connection's values,
     // never anything the client claims — a stored principal that disagrees
@@ -220,10 +213,33 @@ export class ReconnectSession {
     const credential = this.deps.credentials.findForAuth(
       parsed.data.credentialId
     )
-    const key =
-      credential === null
-        ? DUMMY_MUTUAL_KEY
-        : fromBase64Url(credential.mutualKeyB64)
+
+    // `buildRT`'s `enc()` throws on a non-ASCII `verifiedOrigin`/`instanceId`
+    // — deps-supplied, unlike the frame's own fields, and not schema-validated
+    // the way `credentialId`/`C`/`mac` are — and a corrupted `mutualKeyB64`
+    // fails `fromBase64Url`'s canonical check. Neither is the peer's fault in
+    // a way §11 has a code for, so both collapse into the same uniform
+    // authFailed + close as every other reconnect authentication failure —
+    // never an uncaught rejection escaping this handler (mirrors
+    // `pair-session.ts`'s guarded `buildAad`/`buildAId`/`generatePairingCode`).
+    let rt: Uint8Array
+    let key: Uint8Array
+    try {
+      rt = buildRT({
+        protocolVersion: MBP1_PROTOCOL_VERSION,
+        credentialId: parsed.data.credentialId,
+        browser: this.deps.browser,
+        verifiedOrigin: this.deps.verifiedOrigin,
+        instanceId: this.deps.instanceId,
+      })
+      key =
+        credential === null
+          ? DUMMY_MUTUAL_KEY
+          : fromBase64Url(credential.mutualKeyB64)
+    } catch {
+      this.fail('authFailed')
+      return
+    }
 
     // Called exactly once regardless of whether `credentialId` was known —
     // no short-circuit before it — so an unknown id costs the same work as a
@@ -274,8 +290,11 @@ export class ReconnectSession {
       if (promoted === null) {
         // Unreachable in a correct store: a credential this call just
         // promoted must still be findable. Fail closed rather than hand the
-        // wiring a channel with no credential to attach.
-        this.terminate('reconnectPromoteFailed')
+        // wiring a channel with no credential to attach. Distinct reason from
+        // the real promotion failure above, so a future diagnosis can tell
+        // "the store rejected the promote" from "the store accepted it but
+        // then lost the record" apart.
+        this.terminate('reconnectPromotedCredentialMissing')
         return
       }
       authenticated = promoted

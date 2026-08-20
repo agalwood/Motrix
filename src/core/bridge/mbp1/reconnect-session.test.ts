@@ -360,6 +360,10 @@ describe('ReconnectSession (§8)', () => {
       await h.text(frame)
 
       expect(verifySpy).toHaveBeenCalledTimes(1)
+      // The whole emitted sequence, not just the last frame: reconnectChallenge
+      // then exactly one pairError, nothing else — same shape scenario 2's
+      // other test must also produce.
+      expect(h.sent).toHaveLength(2)
       expect(h.error()).toEqual({ type: 'pairError', code: 'authFailed' })
       expect(h.closed).toEqual(['authFailed'])
       expect(h.authenticated).toBeNull()
@@ -392,6 +396,7 @@ describe('ReconnectSession (§8)', () => {
       await h.text(frame)
 
       expect(verifySpy).toHaveBeenCalledTimes(1)
+      expect(h.sent).toHaveLength(2)
       expect(h.error()).toEqual({ type: 'pairError', code: 'authFailed' })
       expect(h.closed).toEqual(['authFailed'])
       expect(h.authenticated).toBeNull()
@@ -535,6 +540,47 @@ describe('ReconnectSession (§8)', () => {
 
       expect(h.lastSent().type).toBe('reconnectAccept')
       expect(h.authenticated).not.toBeNull()
+    })
+
+    it("documents the silent-client boundary: dispose('timeout') leaves the session terminal with no frame beyond the challenge, and a subsequently-arriving response is refused", async () => {
+      // This module cannot itself close the transport when the client never
+      // responds at all — there is no injected timer, only `deps.now()` — so
+      // that case is Task 18's `PreAuthTable` real-timer responsibility
+      // (mirrors `PairSession`'s own reactive-only 120 s code lifetime). What
+      // this test pins is the boundary: once the wiring's deadline fires and
+      // calls `dispose('timeout')`, this session is provably inert from then
+      // on, emitting nothing further and accepting nothing further, even if a
+      // response arrives on the wire after all.
+      const mutualKey = new Uint8Array(32).fill(9)
+      const credential = makeCredential({
+        state: 'committed',
+        committedAt: T0 - 1,
+        mutualKeyB64: toBase64Url(mutualKey),
+      })
+      const h = makeHarness({
+        findForAuth: (id) => (id === CREDENTIAL_ID ? credential : null),
+      })
+      h.session.start()
+      const { S } = challengeFrom(h)
+      const { frame } = buildResponse({
+        mutualKey,
+        S,
+        credentialId: CREDENTIAL_ID,
+        browser: 'chromium',
+        verifiedOrigin: ORIGIN,
+        instanceId: INSTANCE_ID,
+      })
+
+      h.session.dispose('timeout')
+
+      expect(h.sent).toHaveLength(1) // only the initial reconnectChallenge
+      expect(h.closed).toEqual([]) // dispose itself never closes (Task 18's job)
+
+      await h.text(frame)
+
+      expect(h.sent).toHaveLength(1)
+      expect(h.closed).toEqual([])
+      expect(h.authenticated).toBeNull()
     })
   })
 
@@ -724,6 +770,8 @@ describe('ReconnectSession (§8)', () => {
       // it is either already closing the transport itself or the peer is
       // already gone, so this must not also call `deps.close`.
       expect(h.closed).toEqual([])
+      // No frame beyond the initial challenge was ever emitted.
+      expect(h.sent).toHaveLength(1)
     })
 
     it('ignores a text frame delivered after dispose', async () => {
@@ -783,6 +831,73 @@ describe('ReconnectSession (§8)', () => {
 
       expect(h.sent).toHaveLength(1) // only the initial reconnectChallenge
       expect(h.closed).toEqual(['reconnectPromoteFailed'])
+      expect(h.authenticated).toBeNull()
+    })
+  })
+
+  describe('non-schema-validated inputs never escape handleText as an uncaught rejection', () => {
+    it('treats a non-ASCII live verifiedOrigin (deps-supplied, not schema-checked like a frame field) as authFailed rather than throwing out of handleText', async () => {
+      const mutualKey = new Uint8Array(32).fill(9)
+      const nonAsciiOrigin = 'chrome-extension://éxt-not-ascii'
+      const credential = makeCredential({
+        state: 'committed',
+        committedAt: T0 - 1,
+        mutualKeyB64: toBase64Url(mutualKey),
+      })
+      // The harness's live-connection `verifiedOrigin` is the non-ASCII
+      // value that will make the *server's* own `buildRT` throw. The client
+      // double still computes a normal (ASCII) transcript for whatever it
+      // believes — its exact MAC is irrelevant here, since the server never
+      // gets far enough to compare it.
+      const h = makeHarness({
+        verifiedOrigin: nonAsciiOrigin,
+        findForAuth: (id) => (id === CREDENTIAL_ID ? credential : null),
+      })
+      h.session.start()
+      const { S } = challengeFrom(h)
+      const { frame } = buildResponse({
+        mutualKey,
+        S,
+        credentialId: CREDENTIAL_ID,
+        browser: 'chromium',
+        verifiedOrigin: ORIGIN,
+        instanceId: INSTANCE_ID,
+      })
+
+      // Must resolve (not reject) and reach the uniform failure frame.
+      await expect(h.text(frame)).resolves.toBeUndefined()
+
+      expect(h.error()).toEqual({ type: 'pairError', code: 'authFailed' })
+      expect(h.closed).toEqual(['authFailed'])
+      expect(h.sent).toHaveLength(2)
+      expect(h.authenticated).toBeNull()
+    })
+
+    it('treats a corrupted stored mutualKeyB64 (store-supplied, not schema-checked) as authFailed rather than throwing out of handleText', async () => {
+      const credential = makeCredential({
+        state: 'committed',
+        committedAt: T0 - 1,
+        mutualKeyB64: 'not*valid#base64url',
+      })
+      const h = makeHarness({
+        findForAuth: (id) => (id === CREDENTIAL_ID ? credential : null),
+      })
+      h.session.start()
+      const { S } = challengeFrom(h)
+      const { frame } = buildResponse({
+        mutualKey: new Uint8Array(32).fill(9),
+        S,
+        credentialId: CREDENTIAL_ID,
+        browser: 'chromium',
+        verifiedOrigin: ORIGIN,
+        instanceId: INSTANCE_ID,
+      })
+
+      await expect(h.text(frame)).resolves.toBeUndefined()
+
+      expect(h.error()).toEqual({ type: 'pairError', code: 'authFailed' })
+      expect(h.closed).toEqual(['authFailed'])
+      expect(h.sent).toHaveLength(2)
       expect(h.authenticated).toBeNull()
     })
   })
