@@ -191,6 +191,14 @@ export interface PairAttemptOptions {
   claimedExtensionId: string
   clientInstallationId?: string
   ticket?: ClientTicket
+  /**
+   * The `verifiedOrigin` this client binds into `A_id`, when it must differ
+   * from the origin it actually connects with. Only a misbinding test wants
+   * this: `verifiedOrigin` is the ONE transcript input neither side takes from
+   * a frame, so making the two disagree is the only way to prove the server
+   * binds the header it verified rather than something the client claimed.
+   */
+  transcriptOrigin?: string
 }
 
 /** The state a `/pair` client holds between `pairHello` and channel activation. */
@@ -261,7 +269,7 @@ export async function startPair(
     browser: opts.browser,
     aId: buildAId({
       browser: opts.browser,
-      verifiedOrigin: opts.origin,
+      verifiedOrigin: opts.transcriptOrigin ?? opts.origin,
       claimedExtensionId: opts.claimedExtensionId,
       clientInstallationId,
     }),
@@ -293,10 +301,28 @@ export interface PakeResult {
  * how a wrong code, an exhausted attempt limit, and a failed ticket proof all
  * surface, indistinguishably except for the code the spec permits.
  */
+export interface RunPakeOptions {
+  ticket?: ClientTicket
+  ticketProofOverride?: string
+  /**
+   * The `instanceId` this client binds into `B_id`, when it must differ from
+   * the one the server announced. The `B_id` half of the misbinding property.
+   */
+  instanceIdOverride?: string
+  /**
+   * Send this `pA` instead of the honestly-computed one, while still deriving
+   * the client's own key material from its real scalar. Adversarial key
+   * generation, for the Appendix A grinder: it lets a caller offer the group
+   * identity or a small-order point and check the server refuses to reach a
+   * confirmed key either way.
+   */
+  pAOverride?: Uint8Array
+}
+
 export async function runPake(
   hs: PairHandshake,
   code: string,
-  opts: { ticket?: ClientTicket; ticketProofOverride?: string } = {}
+  opts: RunPakeOptions = {}
 ): Promise<PakeResult> {
   const normalized = normalizePairingCode(code)
   if (normalized === null) {
@@ -304,7 +330,8 @@ export async function runPake(
   }
   const w = deriveW(normalized, hs.pairNonce, EDWARDS25519_GROUP.order)
   const x = drawScalar(EDWARDS25519_GROUP.order, random)
-  const pA = computePublicA(EDWARDS25519_GROUP, w, x)
+  const honestPA = computePublicA(EDWARDS25519_GROUP, w, x)
+  const pA = opts.pAOverride ?? honestPA
 
   hs.wire.sendJson({ type: 'pakeA', pA: toBase64Url(pA) })
   const pakeB = await hs.wire.takeJson<{ type: string; pB: string }>()
@@ -314,7 +341,8 @@ export async function runPake(
 
   const pB = fromBase64Url(pakeB.pB)
   const k = sharedFromA(EDWARDS25519_GROUP, w, x, pB)
-  const tt = buildTT(hs.aId, buildBId(hs.instanceId), pA, pB, k, w)
+  const bId = buildBId(opts.instanceIdOverride ?? hs.instanceId)
+  const tt = buildTT(hs.aId, bId, pA, pB, k, w)
   const keys = keySchedule(tt, hs.aad)
   const macs = confirmationMacs(keys.KcA, keys.KcB, tt)
 

@@ -1445,7 +1445,230 @@ describe('§8 reconnect over the wire', () => {
     expect(second.channel.sealer).toBeDefined()
     second.wire.ws.close()
   })
+
+  it('rate-limits reconnect attempts per verified origin and globally', async () => {
+    // §8's closing requirement. `PreAuthTable`'s cap of 32 does NOT cover this:
+    // that bounds CONCURRENT pre-auth sockets, so a peer that connects, fails,
+    // and disconnects holds no slot and can retry as fast as it likes. The
+    // default per-origin allowance is 10 per rolling minute.
+    const opened: WireClient[] = []
+    for (let i = 0; i < 10; i++) {
+      opened.push(
+        await WireClient.open(`ws://127.0.0.1:${h.port}/v1`, OFFICIAL_ORIGIN)
+      )
+    }
+
+    // The 11th from the same origin is refused at the UPGRADE — no socket, no
+    // pre-authentication slot, no session object.
+    await expect(
+      WireClient.open(`ws://127.0.0.1:${h.port}/v1`, OFFICIAL_ORIGIN)
+    ).rejects.toThrow()
+
+    // Metered per origin, so a different extension is unaffected.
+    const other = await WireClient.open(
+      `ws://127.0.0.1:${h.port}/v1`,
+      SIDELOADED_ORIGIN
+    )
+    opened.push(other)
+
+    for (const wire of opened) {
+      wire.ws.close()
+    }
+  })
 })
+
+// ---------------------------------------------------------------------------
+// Appendix A — transcript misbinding and adversarial key generation
+// ---------------------------------------------------------------------------
+
+describe('Appendix A acceptance criteria', () => {
+  let h: Harness
+
+  beforeEach(async () => {
+    h = await makeHarness()
+  })
+
+  afterEach(async () => {
+    await h.server.stop()
+  })
+
+  it('breaks key confirmation when the client binds a different origin', async () => {
+    // Appendix A: "any swap of origin, browser, IDs, versions, nonce, or
+    // binding key between the parties MUST break key confirmation". This is the
+    // coarse form: it proves the server binds SOME origin into `A_id`. The two
+    // cases below pin *which* one.
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+      transcriptOrigin: SIDELOADED_ORIGIN,
+    })
+
+    // The RIGHT code, so the only disagreement is the transcript itself.
+    await expect(runPake(hs, h.dialogs.latestCode())).rejects.toMatchObject({
+      frame: { type: 'pairError', code: 'codeMismatch' },
+    })
+  })
+
+  // The named regression: a refactor that builds `A_id` from frame-claimed
+  // values instead of `deps.verifiedOrigin`. A client binding some *arbitrary*
+  // wrong origin cannot catch that — both the correct and the broken server
+  // disagree with it, so confirmation fails either way and the test stays
+  // green. Catching it requires the client to bind exactly what the broken
+  // server would bind, so that such a server AGREES and confirms a key.
+  //
+  // Firefox is the setting: there `claimedExtensionId` is the Gecko id and the
+  // verified origin is `moz-extension://<UUID>`, two genuinely different
+  // strings, so a substitution is observable. (On Chromium the server has
+  // already enforced that the origin host equals the claimed id, which is why
+  // several substitutions are indistinguishable there.)
+  const GECKO_ID = 'motrix@example.org'
+
+  it.each([
+    ['the claimed extension id verbatim', GECKO_ID],
+    ['an origin rebuilt from the claimed id', `moz-extension://${GECKO_ID}`],
+    ['an empty origin, i.e. the field dropped', ''],
+  ])(
+    'does not bind %s in place of the verified Origin',
+    async (_label, substituted) => {
+      const hs = await startPair({
+        port: h.port,
+        origin: FIREFOX_ORIGIN,
+        browser: 'firefox',
+        claimedExtensionId: GECKO_ID,
+        transcriptOrigin: substituted,
+      })
+
+      await expect(runPake(hs, h.dialogs.latestCode())).rejects.toMatchObject({
+        frame: { type: 'pairError', code: 'codeMismatch' },
+      })
+    }
+  )
+
+  // The `B_id` half: the server must bind its own identity into the transcript.
+  // Same reasoning as the `A_id` cases above — an arbitrary wrong instanceId
+  // only proves something is bound, so the empty case is included to catch the
+  // server dropping the field, where a client that also bound nothing would
+  // otherwise agree and confirm.
+  it.each([
+    ['a different instance', 'some-other-instance'],
+    ['an empty instanceId, i.e. the field dropped', ''],
+  ])('does not confirm against %s', async (_label, substituted) => {
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+    })
+
+    await expect(
+      runPake(hs, h.dialogs.latestCode(), {
+        instanceIdOverride: substituted,
+      })
+    ).rejects.toMatchObject({
+      frame: { type: 'pairError', code: 'codeMismatch' },
+    })
+  })
+
+  it('fails a grinder with adversarial key generation (Appendix A)', async () => {
+    // "Terminating MITM (own PAKE with each side) cannot produce two confirmed
+    // keys without the code; a grinder test with adversarial key generation
+    // MUST fail."
+    //
+    // The adversary never reads the dialog. It runs its own PAKE against the
+    // server, free to choose both its scalar and the `pA` it puts on the wire.
+    //
+    // Each choice gets a PRISTINE server on purpose. Sharing one would let
+    // §7.3's global lockout refuse the later choices at `pairHello`, before
+    // their `pA` ever reached the PAKE — the test would still pass and would
+    // have proven nothing about adversarial key generation.
+    const lowOrder = (hex: string) => new Uint8Array(Buffer.from(hex, 'hex'))
+    const choices: Array<{ label: string; pAOverride?: Uint8Array }> = [
+      { label: 'own PAKE under a guessed code' },
+      // The canonical edwards25519 low-order points. A server that fails to
+      // reject these collapses the shared secret into a value the adversary
+      // knows without knowing the code.
+      {
+        label: 'group identity as pA',
+        pAOverride: lowOrder(
+          '0100000000000000000000000000000000000000000000000000000000000000'
+        ),
+      },
+      {
+        label: 'order-2 pA',
+        pAOverride: lowOrder(
+          'ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f'
+        ),
+      },
+      {
+        label: 'order-8 pA',
+        pAOverride: lowOrder(
+          'c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a'
+        ),
+      },
+    ]
+
+    for (const choice of choices) {
+      const fresh = await makeHarness()
+      try {
+        const outcome = await grind(fresh, choice.pAOverride)
+        // Any refusal is acceptable. What must never happen is a confirmed key.
+        expect(outcome, `grinder confirmed a key via ${choice.label}`).toBe(
+          'REFUSED'
+        )
+      } finally {
+        await fresh.server.stop()
+      }
+    }
+  })
+
+  it('still refuses a grinder that keeps opening fresh sessions', async () => {
+    // The grinding motion itself: a new session per guess, so the per-session
+    // 3-attempt limit never applies. §7.3's global lockout is what stops it,
+    // and it must stop it without ever confirming.
+    const outcomes: string[] = []
+    for (let i = 0; i < 5; i++) {
+      outcomes.push(await grind(h))
+    }
+    expect(outcomes).toEqual(Array(5).fill('REFUSED'))
+  })
+})
+
+/**
+ * One adversarial pairing attempt that never reads the dialog code. Resolves
+ * `'CONFIRMED'` only if the server actually completed key confirmation —
+ * anything else, at any stage, is a refusal.
+ */
+async function grind(
+  h: Harness,
+  pAOverride?: Uint8Array
+): Promise<'CONFIRMED' | 'REFUSED'> {
+  try {
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+    })
+    try {
+      // A code the adversary picked, never the one on screen.
+      const guessed =
+        h.dialogs.latestCode() === 'AAAA-AAAA' ? 'BBBB-BBBB' : 'AAAA-AAAA'
+      await runPake(hs, guessed, { pAOverride })
+      return 'CONFIRMED'
+    } finally {
+      hs.wire.ws.close()
+    }
+  } catch (err) {
+    // A `pairError` at any stage — including a `rateLimited` refusal before the
+    // handshake even starts — is the server declining to proceed.
+    if (err instanceof PairAborted) {
+      return 'REFUSED'
+    }
+    throw err
+  }
+}
 
 // ---------------------------------------------------------------------------
 // §4 — startOnFirstFree
