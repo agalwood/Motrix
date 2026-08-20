@@ -1,13 +1,3 @@
-import {
-  APP_RESTART_REQUIRED_KEYS,
-  ENGINE_RESTART_REQUIRED_KEYS,
-} from '@shared/constants/restart-keys'
-import type {
-  AppSettings,
-  EngineSettings,
-  MotrixAppSettings,
-} from '@shared/types/settings'
-
 type DirtyTree = boolean | { [key: string]: DirtyTree | undefined }
 
 export function pickDirty<T>(
@@ -31,26 +21,4 @@ export function pickDirty<T>(
     }
   }
   return hasAny ? (out as Partial<T>) : undefined
-}
-
-export function patchHasRestartKeys(patch: Partial<AppSettings>): boolean {
-  const enginePatch = patch.engine
-  if (
-    enginePatch &&
-    Object.keys(enginePatch).some((k) =>
-      ENGINE_RESTART_REQUIRED_KEYS.has(k as keyof EngineSettings)
-    )
-  ) {
-    return true
-  }
-  const appPatch = patch.app
-  if (
-    appPatch &&
-    Object.keys(appPatch).some((k) =>
-      APP_RESTART_REQUIRED_KEYS.has(k as keyof MotrixAppSettings)
-    )
-  ) {
-    return true
-  }
-  return false
 }

@@ -90,7 +90,34 @@ describe('toast', () => {
     const viewport = baseElement.querySelector('[class*="z-[100]"]')
     expect(viewport).not.toBeNull()
     expect(viewport?.className).toContain('max-w-[calc(100vw-2rem)]')
+    expect(viewport).toHaveClass('end-4')
+    expect(viewport).not.toHaveClass('right-4')
   })
+
+  it.each(['win32', 'linux'] as const)(
+    'positions %s toasts below the custom caption controls',
+    async (platform) => {
+      Object.defineProperty(window, 'motrix', {
+        value: { ...window.motrix, platform },
+        configurable: true,
+      })
+      try {
+        const { baseElement } = render(<Toaster />)
+        add({ title: 'safe area probe' })
+        await screen.findByText('safe area probe')
+        const viewport = baseElement.querySelector(
+          '[aria-label="Notifications"]'
+        ) as HTMLElement | null
+        expect(viewport).toHaveStyle({ top: '56px' })
+        expect(viewport).not.toHaveClass('top-4')
+      } finally {
+        Object.defineProperty(window, 'motrix', {
+          value: { ...window.motrix, platform: 'darwin' },
+          configurable: true,
+        })
+      }
+    }
+  )
 
   it('labels the viewport region for screen readers, translated with the locale', async () => {
     const { baseElement } = render(<Toaster />)

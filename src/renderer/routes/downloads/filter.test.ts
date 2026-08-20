@@ -4,6 +4,7 @@ import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import {
   applyFilter,
+  countTasksByTab,
   countTasksByType,
   DOWNLOADS_TABS,
   isValidTab,
@@ -96,6 +97,19 @@ describe('applyFilter (tab + types)', () => {
     expect(
       applyFilter(tasks, 'active', [TaskType.Bt]).map((t) => t.id)
     ).toEqual([])
+  })
+})
+
+describe('countTasksByTab', () => {
+  it('uses Motrix task statuses for all footer and title counts', () => {
+    expect(
+      countTasksByTab([
+        fake({ id: 'paused', status: TaskStatus.Paused }),
+        fake({ id: 'completed', status: TaskStatus.Completed }),
+        fake({ id: 'error', status: TaskStatus.Error }),
+        fake({ id: 'removed', status: TaskStatus.Removed }),
+      ])
+    ).toEqual({ all: 3, active: 1, completed: 1, error: 1 })
   })
 })
 

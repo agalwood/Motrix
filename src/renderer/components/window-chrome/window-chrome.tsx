@@ -1,98 +1,130 @@
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { DESKTOP_WINDOW_CHROME_HEIGHT } from '@shared/constants/window-chrome'
 import { Commands } from '@shared/protocol/commands'
+import { MinusIcon, SquareIcon, XIcon } from 'lucide-react'
 import type React from 'react'
 import { useTranslation } from 'react-i18next'
 
-const WINDOWS_CAPTION_CONTROLS_WIDTH = 138
-const CAPTION_CONTROLS_EDGE_GAP = 16
-const CAPTION_CONTROLS_TOP_PADDING = 14
-
-function LinuxWindowControls({ pushToEnd }: { pushToEnd: boolean }) {
+function DesktopWindowControls({
+  maximizable,
+  separateFromActions,
+}: {
+  maximizable: boolean
+  separateFromActions: boolean
+}) {
   const { t } = useTranslation()
   const minimize = () => {
     void transport.invoke(Commands.MinimizeCurrentWindow)
+  }
+  const toggleMaximize = () => {
+    void transport.invoke(Commands.ToggleMaximizeCurrentWindow)
   }
   const close = () => {
     void transport.invoke(Commands.CloseCurrentWindow)
   }
 
+  const buttonClassName =
+    'app-no-drag flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground outline-none transition-colors [&>svg]:opacity-50 hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-30'
+  const standardButtonClassName = cn(
+    buttonClassName,
+    'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50'
+  )
+
   return (
     <div
-      className={cn('window-controls app-no-drag', pushToEnd && 'ml-auto')}
-      style={{
-        display: 'flex',
-        gap: 8,
-        paddingTop: CAPTION_CONTROLS_TOP_PADDING,
-      }}
+      data-slot="desktop-window-controls"
+      className={cn(
+        'flex shrink-0 items-center gap-2 pe-3.5 pt-3.5',
+        separateFromActions && 'ms-4'
+      )}
     >
       <button
         type="button"
+        className={standardButtonClassName}
         onClick={minimize}
-        style={controlButtonStyle}
         aria-label={t('chrome.minimize')}
+        title={t('chrome.minimize')}
       >
-        &#x2013;
+        <MinusIcon aria-hidden className="size-4" strokeWidth={1.5} />
       </button>
       <button
         type="button"
-        onClick={close}
-        style={controlButtonStyle}
-        aria-label={t('chrome.close')}
+        className={standardButtonClassName}
+        disabled={!maximizable}
+        onClick={toggleMaximize}
+        aria-label={t('chrome.toggleMaximize')}
+        title={t('chrome.toggleMaximize')}
       >
-        &#x2715;
+        <SquareIcon aria-hidden className="size-4" strokeWidth={1.5} />
+      </button>
+      <button
+        type="button"
+        className={cn(
+          buttonClassName,
+          'hover:bg-destructive hover:text-white hover:[&>svg]:opacity-100 dark:hover:bg-destructive/80'
+        )}
+        onClick={close}
+        aria-label={t('chrome.close')}
+        title={t('chrome.close')}
+      >
+        <XIcon aria-hidden className="size-4" strokeWidth={1.5} />
       </button>
     </div>
   )
 }
 
-const controlButtonStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-foreground)',
-  cursor: 'pointer',
-  fontSize: 14,
-  padding: '4px 8px',
-  borderRadius: 4,
-  lineHeight: 1,
-}
-
 interface WindowChromeProps {
   actionsPosition?: 'start' | 'end'
   compact?: boolean
+  maximizable?: boolean
+  previewDesktopControls?: boolean
   title?: string
   variant?: 'overlay' | 'titled'
   leading?: React.ReactNode
   children?: React.ReactNode
 }
 
+export function shouldShowDesktopWindowControls(
+  platform: NodeJS.Platform | 'web',
+  previewMacMenu: boolean
+): boolean {
+  return (
+    platform === 'linux' ||
+    platform === 'win32' ||
+    (platform === 'darwin' && previewMacMenu)
+  )
+}
+
 export function WindowChrome({
   actionsPosition = 'start',
   compact: _compact,
+  maximizable = true,
+  previewDesktopControls = false,
   title,
   variant = 'titled',
   leading,
   children,
 }: WindowChromeProps) {
   const platform = transport.platform
-  const height = 40
-  const showLinuxControls = platform === 'linux'
+  const showDesktopControls = shouldShowDesktopWindowControls(
+    platform,
+    previewDesktopControls
+  )
   const isOverlay = variant === 'overlay'
   const isMac = platform === 'darwin'
   const showTrafficLight =
-    __MOTRIX_TARGET__ === 'electron' && isMac && !__MOTRIX_PREVIEW_MAC_MENU__
+    __MOTRIX_TARGET__ === 'electron' && isMac && !previewDesktopControls
+  const offsetStartActionsForDesktopMenu =
+    showDesktopControls && leading != null && actionsPosition === 'start'
 
   const containerStyle: React.CSSProperties = {
-    height,
+    height: DESKTOP_WINDOW_CHROME_HEIGHT,
     display: 'flex',
     alignItems: 'center',
-    paddingLeft: showTrafficLight ? 93 : 12,
-    paddingRight:
-      platform === 'win32'
-        ? WINDOWS_CAPTION_CONTROLS_WIDTH + CAPTION_CONTROLS_EDGE_GAP
-        : platform === 'linux'
-          ? CAPTION_CONTROLS_EDGE_GAP
-          : 20,
+    paddingLeft: showTrafficLight ? 94 : undefined,
+    paddingInlineStart: showTrafficLight ? undefined : 12,
+    paddingInlineEnd: showDesktopControls ? 0 : 20,
     flexShrink: 0,
     userSelect: 'none',
     ...(isOverlay && {
@@ -105,30 +137,43 @@ export function WindowChrome({
     }),
   } as React.CSSProperties
 
+  const actionSlot = (
+    <div
+      data-slot="window-chrome-actions"
+      className={cn(
+        'app-no-drag relative z-[60] flex shrink-0 items-center gap-2 pt-3.5 empty:hidden',
+        offsetStartActionsForDesktopMenu && 'ms-1'
+      )}
+    >
+      {children}
+    </div>
+  )
+
   return (
     <div className="window-chrome app-drag" style={containerStyle}>
       {!isOverlay && title && (
-        <div className="text-[13px] font-[600] pt-[14px]">{title}</div>
+        <div className="pt-[14px] text-[13px] font-[600]">{title}</div>
       )}
       {leading && (
         <div
           data-slot="window-chrome-leading"
-          className="app-no-drag relative z-[60] mr-1.5 flex shrink-0 items-center pt-3.5 empty:hidden"
+          className="app-no-drag relative z-[60] me-1.5 flex shrink-0 items-center pt-3.5 empty:hidden"
         >
           {leading}
         </div>
       )}
+      {actionsPosition === 'start' && actionSlot}
       <div
-        data-slot="window-chrome-actions"
-        className={cn(
-          'app-no-drag relative z-[60] flex shrink-0 items-center gap-2',
-          actionsPosition === 'end' && 'ml-auto'
-        )}
-      >
-        {children}
-      </div>
-      {showLinuxControls && (
-        <LinuxWindowControls pushToEnd={actionsPosition === 'start'} />
+        aria-hidden
+        data-slot="window-chrome-drag-region"
+        className="min-w-16 flex-1"
+      />
+      {actionsPosition === 'end' && actionSlot}
+      {showDesktopControls && (
+        <DesktopWindowControls
+          maximizable={maximizable}
+          separateFromActions={actionsPosition === 'end'}
+        />
       )}
     </div>
   )

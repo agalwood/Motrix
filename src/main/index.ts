@@ -410,6 +410,10 @@ let resolvedApplicationLocale: SupportedLocale = DEFAULT_LOCALE
 let cleanupPromise: Promise<void> | null = null
 
 function performCleanup(): Promise<void> {
+  // Fence engine exit handling before the first await. Windows may terminate
+  // aria2 as soon as session end begins, before graceful cleanup reaches it.
+  supervisor?.prepareForShutdown()
+
   // Release a first-run bootstrap waiting for legal consent before asking the
   // work coordinator to drain that bootstrap. This must happen synchronously
   // or declining/closing the disclaimer can deadlock shutdown.
@@ -1373,13 +1377,11 @@ async function initializeMainProcess(): Promise<void> {
       !gate.isAccepted() && requested !== 'onboarding'
         ? 'onboarding'
         : requested,
-    onSessionEnd: () => quitController.markSessionEnding(),
+    onSessionEnd: prepareForSessionEnd,
   })
-  // Apply the persisted theme before opening windows, then keep Windows
-  // caption symbols synchronized with the resolved app/system theme.
-  setupNativeThemeSync(eventBus, settingsManager, (shouldUseDarkColors) => {
-    windowManager.syncWindowControlsTheme(shouldUseDarkColors)
-  })
+  // Apply the persisted theme before opening windows. Renderer-drawn Windows
+  // controls inherit the same theme through CSS without native overlay sync.
+  setupNativeThemeSync(eventBus, settingsManager)
   // Install forwarding before the onboarding window becomes interactive.
   // SetDisclaimerLanguage persists before its asynchronous locale transaction
   // completes; an immediate AcceptDisclaimer can open the main window in that
@@ -1408,7 +1410,7 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   // OS logout/shutdown: skip the quit dialog so session end is never blocked.
-  powerMonitor.on('shutdown', () => quitController.markSessionEnding())
+  powerMonitor.on('shutdown', prepareForSessionEnd)
 
   if (gate.isAccepted()) {
     const runMode = settingsManager.getApp().runMode
@@ -1703,6 +1705,7 @@ async function initializeMainProcess(): Promise<void> {
   const natStack = createNatManager({
     eventBus,
     settingsManager,
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
   })
   natManager = natStack.manager
   log.info('NatManager constructed')
@@ -2200,6 +2203,7 @@ async function initializeMainProcess(): Promise<void> {
     torrentMetaStore,
     fileCleanupService,
     eventBus,
+    notificationCenter,
     motrixDatabase: motrixDb,
     geoipManager,
     proxyApplier,
@@ -2379,6 +2383,7 @@ function beginShutdown(): void {
   // quitController.phase is already 'shutting-down' (set synchronously before
   // this call). app.quit() below re-fires before-quit synchronously; the guard
   // there relies on the phase already being terminal.
+  supervisor?.prepareForShutdown()
   // Drain a pending coalesced TaskUpdated while consumers are still attached.
   taskUpdatePublisher.flush()
   windowManager?.setWillQuit(true) // FIRST — never before/during the dialog
@@ -2394,6 +2399,14 @@ function beginShutdown(): void {
   void performCleanup()
     .catch(() => {})
     .finally(() => app.quit())
+}
+
+function prepareForSessionEnd(): void {
+  // This callback runs from Windows query-session-end/session-end and the
+  // cross-platform powerMonitor shutdown event. Mark the child exit expected
+  // synchronously; the ordinary quit flow performs the graceful stop later.
+  supervisor?.prepareForShutdown()
+  quitController.markSessionEnding()
 }
 
 const quitController = new QuitController({

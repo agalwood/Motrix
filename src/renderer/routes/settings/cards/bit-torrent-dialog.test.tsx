@@ -1,11 +1,12 @@
 // src/renderer/routes/settings/cards/bit-torrent-dialog.test.tsx
 
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { BitTorrentDialog } from './bit-torrent-dialog'
 
@@ -80,7 +81,7 @@ describe('<BitTorrentDialog>', () => {
     })
   })
 
-  it('shows restart confirm when listen port changes', async () => {
+  it('saves a listen-port change without a pre-save confirmation', async () => {
     render(
       <BitTorrentDialog
         open
@@ -92,12 +93,12 @@ describe('<BitTorrentDialog>', () => {
     await waitFor(() => screen.getAllByDisplayValue('6881'))
     const user = userEvent.setup()
     const listenInput = screen.getAllByDisplayValue('6881')[0]
-    await user.clear(listenInput)
-    await user.type(listenInput, '6882')
-    await user.click(screen.getByRole('button', { name: /apply/i }))
-    expect(
-      await screen.findByText(/restart to apply changes/i)
-    ).toBeInTheDocument()
+    fireEvent.change(listenInput, { target: { value: '6882' } })
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: { listenPort: 6882 },
+    })
+    expect(screen.queryByText(/restart to apply changes/i)).toBeNull()
   })
 
   it('shows hint paragraph pointing users to the Trackers page Blacklist tab', async () => {

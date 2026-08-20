@@ -132,6 +132,7 @@ describe('createNatManager', () => {
     const result = createNatManager({
       eventBus: eventBus as never,
       settingsManager: settingsManager as never,
+      isEngineReady: () => false,
     })
     const options = state.natOptions as CapturedNatOptions
     const pmpOptions = state.pmpOptions as {
@@ -170,6 +171,7 @@ describe('createNatManager', () => {
     createNatManager({
       eventBus: eventBus as never,
       settingsManager: {} as never,
+      isEngineReady: () => false,
     })
     const options = state.natOptions as CapturedNatOptions
     const onReady = vi.fn()
@@ -243,6 +245,7 @@ describe('createNatManager', () => {
     createNatManager({
       eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() } as never,
       settingsManager: {} as never,
+      isEngineReady: () => false,
     })
     const pmpOptions = state.pmpOptions as {
       gatewayIp: string

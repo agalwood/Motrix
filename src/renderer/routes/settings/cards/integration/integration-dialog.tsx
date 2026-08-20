@@ -1,6 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { RestartConfirmDialog } from '@renderer/components/settings-kit/restart-confirm-dialog'
-import { useRestartConfirmDialog } from '@renderer/components/settings-kit/use-restart-confirm-dialog'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -11,7 +9,7 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { Separator } from '@renderer/components/ui/separator'
-import { patchHasRestartKeys, pickDirty } from '@renderer/lib/form-utils'
+import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -61,7 +59,6 @@ export function IntegrationDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const restartDialog = useRestartConfirmDialog()
   const form = useForm<IntegrationFormValues>({
     resolver: zodResolver(integrationFormSchema),
     defaultValues: DEFAULTS,
@@ -104,114 +101,103 @@ export function IntegrationDialog({
       return
     }
     const patch = dirty as Partial<AppSettings>
-    if (patchHasRestartKeys(patch)) {
-      const ok = await restartDialog.confirm()
-      if (!ok) return
-    }
     await transport.invoke(Commands.UpdateSettings, patch)
     onClose()
   })
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent
-          className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
-          initialFocus={false}
-        >
-          <DialogHeader className="shrink-0 px-6 pt-6">
-            <DialogTitle>{t(labelKey)}</DialogTitle>
-            <DialogDescription>{t(descKey)}</DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent
+        className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
+        initialFocus={false}
+      >
+        <DialogHeader className="shrink-0 px-6 pt-6">
+          <DialogTitle>{t(labelKey)}</DialogTitle>
+          <DialogDescription>{t(descKey)}</DialogDescription>
+        </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-            <FormProvider {...form}>
-              <div className="flex flex-col gap-6">
-                <section
-                  aria-labelledby="integration-system"
-                  className="flex flex-col gap-3"
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <FormProvider {...form}>
+            <div className="flex flex-col gap-6">
+              <section
+                aria-labelledby="integration-system"
+                className="flex flex-col gap-3"
+              >
+                <h3
+                  id="integration-system"
+                  className="text-sm font-semibold text-foreground"
                 >
-                  <h3
-                    id="integration-system"
-                    className="text-sm font-semibold text-foreground"
-                  >
-                    {t('settings.integration.system.title')}
-                  </h3>
-                  <SystemProtocolsSection />
-                  <AppImageIntegrationSection />
-                </section>
+                  {t('settings.integration.system.title')}
+                </h3>
+                <SystemProtocolsSection />
+                <AppImageIntegrationSection />
+              </section>
 
+              <Separator />
+
+              <section
+                aria-labelledby="integration-browser"
+                className="flex flex-col gap-3"
+              >
+                <h3
+                  id="integration-browser"
+                  className="text-sm font-semibold text-foreground"
+                >
+                  {t('settings.integration.browser.title')}
+                </h3>
+                <BrowserExtensionsSection />
+              </section>
+
+              <Separator />
+
+              <section
+                aria-labelledby="integration-cli"
+                className="flex flex-col gap-4"
+              >
+                <h3
+                  id="integration-cli"
+                  className="text-sm font-semibold text-foreground"
+                >
+                  {t('settings.integration.cli.title')}
+                </h3>
+                <CliToolSection />
                 <Separator />
+                <CLIClientsSection />
+                <PendingApprovalsSection />
+              </section>
 
-                <section
-                  aria-labelledby="integration-browser"
-                  className="flex flex-col gap-3"
+              <Separator />
+
+              <section
+                aria-labelledby="integration-media"
+                className="flex flex-col gap-3"
+              >
+                <h3
+                  id="integration-media"
+                  className="text-sm font-semibold text-foreground"
                 >
-                  <h3
-                    id="integration-browser"
-                    className="text-sm font-semibold text-foreground"
-                  >
-                    {t('settings.integration.browser.title')}
-                  </h3>
-                  <BrowserExtensionsSection />
-                </section>
+                  {t('settings.integration.media.title')}
+                </h3>
+                <MediaToolsSection />
+              </section>
+            </div>
+          </FormProvider>
+        </div>
 
-                <Separator />
-
-                <section
-                  aria-labelledby="integration-cli"
-                  className="flex flex-col gap-4"
-                >
-                  <h3
-                    id="integration-cli"
-                    className="text-sm font-semibold text-foreground"
-                  >
-                    {t('settings.integration.cli.title')}
-                  </h3>
-                  <CliToolSection />
-                  <Separator />
-                  <CLIClientsSection />
-                  <PendingApprovalsSection />
-                </section>
-
-                <Separator />
-
-                <section
-                  aria-labelledby="integration-media"
-                  className="flex flex-col gap-3"
-                >
-                  <h3
-                    id="integration-media"
-                    className="text-sm font-semibold text-foreground"
-                  >
-                    {t('settings.integration.media.title')}
-                  </h3>
-                  <MediaToolsSection />
-                </section>
-              </div>
-            </FormProvider>
-          </div>
-
-          <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
-            <Button type="button" variant="outline" size="sm" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={onSubmit}
-              disabled={form.formState.isSubmitting}
-            >
-              {t('common.apply')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <RestartConfirmDialog
-        open={restartDialog.open}
-        onResolve={restartDialog.handleResolve}
-      />
-    </>
+        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSubmit}
+            disabled={form.formState.isSubmitting}
+          >
+            {t('common.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

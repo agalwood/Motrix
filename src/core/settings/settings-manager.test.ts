@@ -389,6 +389,34 @@ describe('SettingsManager', () => {
       expect(mockedFs.writeFile).toHaveBeenCalled()
     })
 
+    it('persists explicit split and disk tuning values unchanged', async () => {
+      await manager.update({
+        engine: {
+          split: 32,
+          fileAllocation: 'prealloc',
+          diskCache: 32 * 1024 * 1024,
+        },
+      })
+
+      expect(manager.getEngine()).toEqual(
+        expect.objectContaining({
+          split: 32,
+          fileAllocation: 'prealloc',
+          diskCache: 32 * 1024 * 1024,
+        })
+      )
+      const persisted = JSON.parse(
+        mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+      ) as AppSettings
+      expect(persisted.engine).toEqual(
+        expect.objectContaining({
+          split: 32,
+          fileAllocation: 'prealloc',
+          diskCache: 32 * 1024 * 1024,
+        })
+      )
+    })
+
     it('updates app settings and persists', async () => {
       const before = manager.get()
       const result = await manager.update({

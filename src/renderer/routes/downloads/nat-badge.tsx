@@ -17,6 +17,8 @@ import {
 } from '@renderer/lib/nat-status'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { usePlatformServices } from '@renderer/platform/services'
+import { getNatTroubleshootingUrl } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -29,7 +31,8 @@ const TEXT_KEY: Record<NatBucket, string> = {
 }
 
 export function NatBadge() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const services = usePlatformServices()
   const status = useNatStatus()
   const { bucket, color } = natBucket(status)
   const badgeText = t(TEXT_KEY[bucket])
@@ -48,6 +51,12 @@ export function NatBadge() {
   const handleDisable = useCallback(() => {
     void transport.invoke(Commands.DisableNat)
   }, [])
+  const troubleshootingUrl = getNatTroubleshootingUrl(
+    i18n.resolvedLanguage ?? i18n.language
+  )
+  const handleHelp = useCallback(() => {
+    void services.openExternal(troubleshootingUrl)
+  }, [services, troubleshootingUrl])
 
   return (
     <DropdownMenu>
@@ -80,6 +89,11 @@ export function NatBadge() {
               {t('panel.downloads.stats.natEnable')}
             </DropdownMenuItem>
           )}
+          {bucket === 'failed' ? (
+            <DropdownMenuItem onClick={handleHelp}>
+              {t('panel.downloads.stats.natHelp')}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

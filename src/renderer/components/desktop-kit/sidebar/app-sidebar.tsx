@@ -80,11 +80,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="px-0.5">
         <SidebarMenu>
           <NotificationsNavItem />
           <SidebarMenuItem aria-hidden="true">
-            <SidebarSeparator />
+            <SidebarSeparator className="mx-0" />
           </SidebarMenuItem>
           {FOOTER_NAV_ITEMS.map((item) => {
             const Icon = item.icon

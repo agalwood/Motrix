@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { Commands } from '@shared/protocol/commands'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WindowChrome } from './window-chrome'
+import { shouldShowDesktopWindowControls, WindowChrome } from './window-chrome'
 
 beforeAll(() => {
   // stub the preload bridge read by the module on import
@@ -33,6 +33,13 @@ beforeEach(() => {
 })
 
 describe('WindowChrome', () => {
+  it('uses the macOS menu-preview env branch to expose custom controls', () => {
+    expect(shouldShowDesktopWindowControls('darwin', false)).toBe(false)
+    expect(shouldShowDesktopWindowControls('darwin', true)).toBe(true)
+    expect(shouldShowDesktopWindowControls('win32', false)).toBe(true)
+    expect(shouldShowDesktopWindowControls('linux', false)).toBe(true)
+  })
+
   it('renders no title text in overlay variant', () => {
     render(<WindowChrome variant="overlay" title="ignored" />)
     expect(screen.queryByText('ignored')).toBeNull()
@@ -45,6 +52,12 @@ describe('WindowChrome', () => {
     expect(el.style.top).toBe('0px')
     expect(el.style.left).toBe('0px')
     expect(el.style.right).toBe('0px')
+  })
+
+  it('offsets macOS actions 94 px from the left edge', () => {
+    const { container } = render(<WindowChrome variant="overlay" />)
+
+    expect((container.firstChild as HTMLElement).style.paddingLeft).toBe('94px')
   })
 
   it('renders the title text in titled variant', () => {
@@ -74,21 +87,42 @@ describe('WindowChrome', () => {
       </WindowChrome>
     )
 
-    expect(
-      container.querySelector('[data-slot="window-chrome-actions"]')
-    ).not.toHaveClass('ml-auto')
+    const actions = container.querySelector(
+      '[data-slot="window-chrome-actions"]'
+    )
+    const dragRegion = container.querySelector(
+      '[data-slot="window-chrome-drag-region"]'
+    )
+    expect(actions?.compareDocumentPosition(dragRegion as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    )
   })
 
-  it('supports explicitly right-aligned child actions', () => {
+  it('places end actions after the drag region and separates caption controls', () => {
+    setPlatform('win32')
     const { container } = render(
       <WindowChrome variant="titled" actionsPosition="end">
         <button type="button">Trigger</button>
       </WindowChrome>
     )
 
-    expect(
-      container.querySelector('[data-slot="window-chrome-actions"]')
-    ).toHaveClass('ml-auto')
+    const dragRegion = container.querySelector(
+      '[data-slot="window-chrome-drag-region"]'
+    )
+    const actions = container.querySelector(
+      '[data-slot="window-chrome-actions"]'
+    )
+    const controls = container.querySelector(
+      '[data-slot="desktop-window-controls"]'
+    )
+    expect(dragRegion).toHaveClass('min-w-16', 'flex-1')
+    expect(dragRegion?.compareDocumentPosition(actions as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    )
+    expect(actions?.compareDocumentPosition(controls as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    )
+    expect(controls).toHaveClass('ms-4')
   })
 
   it('renders a vertically aligned no-drag leading slot before actions', () => {
@@ -107,67 +141,176 @@ describe('WindowChrome', () => {
     const actions = container.querySelector(
       '[data-slot="window-chrome-actions"]'
     )
-    expect(leading).toHaveClass('app-no-drag', 'pt-3.5', 'mr-1.5')
+    expect(leading).toHaveClass('app-no-drag', 'pt-3.5', 'me-1.5')
     expect(leading?.compareDocumentPosition(actions as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
   })
 
-  it('keeps Linux controls trailing for start-positioned actions', () => {
-    setPlatform('linux')
-    const { container } = render(
-      <WindowChrome variant="overlay">
-        <button type="button">Action</button>
-      </WindowChrome>
-    )
+  it.each(['linux', 'win32'] as const)(
+    'aligns the %s menu-state sidebar toggle 94 px from the left edge',
+    (platform) => {
+      setPlatform(platform)
+      const { container } = render(
+        <WindowChrome
+          variant="overlay"
+          leading={<div className="w-[72px]">Menu</div>}
+        >
+          <button type="button">Toggle sidebar</button>
+        </WindowChrome>
+      )
 
-    const actions = container.querySelector(
-      '[data-slot="window-chrome-actions"]'
-    )
-    const controls = container.querySelector('.window-controls')
-    expect(controls).toHaveClass('ml-auto')
-    expect(controls).toHaveStyle({ paddingTop: '14px' })
-    expect((container.firstChild as HTMLElement).style.paddingRight).toBe(
-      '16px'
-    )
-    expect(actions?.compareDocumentPosition(controls as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    )
-  })
+      const chrome = container.firstChild as HTMLElement
+      const leading = container.querySelector(
+        '[data-slot="window-chrome-leading"]'
+      )
+      const actions = container.querySelector(
+        '[data-slot="window-chrome-actions"]'
+      )
+      expect(chrome.style.paddingInlineStart).toBe('12px')
+      expect(leading).toHaveClass('me-1.5')
+      expect(actions).toHaveClass('ms-1')
+    }
+  )
 
-  it('uses the theme foreground color for Linux caption controls', () => {
-    setPlatform('linux')
+  it.each(['linux', 'win32'] as const)(
+    'keeps %s controls at the logical end for start-positioned actions',
+    (platform) => {
+      setPlatform(platform)
+      const { container } = render(
+        <WindowChrome variant="overlay">
+          <button type="button">Action</button>
+        </WindowChrome>
+      )
+
+      const actions = container.querySelector(
+        '[data-slot="window-chrome-actions"]'
+      )
+      const controls = container.querySelector(
+        '[data-slot="desktop-window-controls"]'
+      )
+      const dragRegion = container.querySelector(
+        '[data-slot="window-chrome-drag-region"]'
+      )
+      expect(dragRegion).toHaveClass('min-w-16', 'flex-1')
+      expect(controls).toHaveClass('pe-3.5', 'pt-3.5')
+      expect(controls).not.toHaveClass('ms-4')
+      expect((container.firstChild as HTMLElement).style.paddingInlineEnd).toBe(
+        '0px'
+      )
+      expect(actions?.compareDocumentPosition(dragRegion as Node)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      )
+      expect(dragRegion?.compareDocumentPosition(controls as Node)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      )
+    }
+  )
+
+  it.each(['linux', 'win32'] as const)(
+    'renders aligned 28 px %s caption hit targets with 16 px icons',
+    (platform) => {
+      setPlatform(platform)
+      const { container } = render(<WindowChrome variant="overlay" />)
+      const chrome = container.firstChild as HTMLElement
+      const controls = container.querySelector(
+        '[data-slot="desktop-window-controls"]'
+      )
+      expect(chrome.style.height).toBe('40px')
+      expect(controls).toHaveClass('gap-2', 'pe-3.5', 'pt-3.5')
+      const buttons = [
+        screen.getByRole('button', { name: 'Minimize' }),
+        screen.getByRole('button', { name: 'Maximize or restore' }),
+        screen.getByRole('button', { name: 'Close' }),
+      ]
+      for (const button of buttons) {
+        expect(button).toHaveClass('size-7')
+        expect(button.querySelector('svg')).toHaveClass('size-4')
+      }
+    }
+  )
+
+  it('uses theme-aware caption colors with a readable destructive hover', () => {
+    setPlatform('win32')
     render(<WindowChrome variant="overlay" />)
 
     const minimize = screen.getByRole('button', { name: 'Minimize' })
     const close = screen.getByRole('button', { name: 'Close' })
 
-    expect(minimize).toHaveStyle({ color: 'var(--color-foreground)' })
-    expect(close).toHaveStyle({ color: 'var(--color-foreground)' })
+    expect(minimize).toHaveClass(
+      'text-foreground',
+      '[&>svg]:opacity-50',
+      'hover:bg-accent',
+      'hover:text-accent-foreground',
+      'hover:[&>svg]:opacity-75',
+      'dark:hover:bg-accent/50'
+    )
+    expect(close).toHaveClass(
+      'text-foreground',
+      '[&>svg]:opacity-50',
+      'hover:bg-destructive',
+      'hover:text-white',
+      'hover:[&>svg]:opacity-100',
+      'dark:hover:bg-destructive/80'
+    )
+    expect(close).not.toHaveClass('hover:text-destructive-foreground')
   })
 
-  it('routes Linux caption controls to sender-bound window commands', () => {
-    setPlatform('linux')
-    render(<WindowChrome variant="overlay" />)
+  it.each(['linux', 'win32'] as const)(
+    'routes %s caption controls to sender-bound window commands',
+    (platform) => {
+      setPlatform(platform)
+      render(<WindowChrome variant="overlay" />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Maximize or restore' })
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
-    expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
-      1,
-      Commands.MinimizeCurrentWindow
-    )
-    expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
-      2,
-      Commands.CloseCurrentWindow
-    )
-  })
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        1,
+        Commands.MinimizeCurrentWindow
+      )
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        2,
+        Commands.ToggleMaximizeCurrentWindow
+      )
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        3,
+        Commands.CloseCurrentWindow
+      )
+    }
+  )
 
-  it('reserves the Windows caption-button area with a visual gap', () => {
+  it('disables maximize for fixed-size windows', () => {
     setPlatform('win32')
-    const { container } = render(<WindowChrome variant="overlay" />)
-    expect((container.firstChild as HTMLElement).style.paddingRight).toBe(
-      '154px'
+    render(<WindowChrome variant="titled" maximizable={false} />)
+
+    expect(
+      screen.getByRole('button', { name: 'Maximize or restore' })
+    ).toBeDisabled()
+  })
+
+  it('aligns app and caption controls on the shared compact baseline', () => {
+    setPlatform('win32')
+    const { container } = render(
+      <WindowChrome
+        variant="overlay"
+        leading={<button type="button">Menu</button>}
+      >
+        <button type="button">Action</button>
+      </WindowChrome>
     )
+
+    expect(
+      container.querySelector('[data-slot="window-chrome-leading"]')
+    ).toHaveClass('pt-3.5')
+    expect(
+      container.querySelector('[data-slot="window-chrome-actions"]')
+    ).toHaveClass('pt-3.5')
+    expect(
+      container.querySelector('[data-slot="desktop-window-controls"]')
+    ).toHaveClass('pt-3.5')
   })
 })

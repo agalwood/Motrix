@@ -26,7 +26,7 @@ export function AddTaskTriggerButton({
             size="icon"
             aria-label={t('chrome.newTask')}
             className={cn(
-              'app-no-drag size-7 opacity-50 bg-transparent hover:opacity-75 hover:bg-accent focus-visible:opacity-75',
+              'app-no-drag size-7 bg-transparent [&>svg]:opacity-50 hover:bg-accent hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75',
               className
             )}
             onClick={onClick}

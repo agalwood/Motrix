@@ -4,6 +4,7 @@ import { Events } from '@shared/protocol/events'
 import type { EngineFailurePayload } from '@shared/types/engine'
 import {
   EngineFailureReason,
+  EngineState,
   engineFailureReasonKey,
 } from '@shared/types/engine'
 import { NotificationKinds } from '@shared/types/notification'
@@ -62,7 +63,7 @@ describe('registerEngineFailureSubscriber', () => {
       log: makeLog(),
     })
 
-    expect(order).toEqual(['cleanup', 'subscribe'])
+    expect(order).toEqual(['cleanup', 'subscribe', 'subscribe'])
     expect(motrixDb.deleteEngineNotificationLedgerBefore).toHaveBeenCalledWith(
       5000
     )
@@ -94,6 +95,93 @@ describe('registerEngineFailureSubscriber', () => {
       bodyKey: 'panel.dashboard.engine.diagnostics.reason.spawn_failed',
       createdAt: payload.occurredAt,
     })
+  })
+
+  it('discards a transient unexpected-exit incident after automatic recovery', () => {
+    const motrixDb = {
+      deleteEngineNotificationLedgerBefore: vi.fn(() => 0),
+    } as unknown as MotrixDatabase
+    const eventBus = new EventBus()
+    const notify = vi.fn()
+
+    registerEngineFailureSubscriber({
+      motrixDb,
+      eventBus,
+      notificationCenter: { notify },
+      log: makeLog(),
+    })
+
+    eventBus.emit(
+      Events.EngineFailureOccurred,
+      makePayload({ reason: EngineFailureReason.UnexpectedExit })
+    )
+    eventBus.emit(Events.EngineStateChanged, EngineState.Restarting)
+    expect(notify).not.toHaveBeenCalled()
+
+    eventBus.emit(Events.EngineStateChanged, EngineState.Ready)
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('publishes a recoverable incident if automatic recovery becomes terminal', () => {
+    const motrixDb = {
+      deleteEngineNotificationLedgerBefore: vi.fn(() => 0),
+    } as unknown as MotrixDatabase
+    const eventBus = new EventBus()
+    const notify = vi.fn()
+    const payload = makePayload({
+      reason: EngineFailureReason.HealthCheckFailed,
+    })
+
+    registerEngineFailureSubscriber({
+      motrixDb,
+      eventBus,
+      notificationCenter: { notify },
+      log: makeLog(),
+    })
+
+    eventBus.emit(Events.EngineFailureOccurred, payload)
+    eventBus.emit(Events.EngineStateChanged, EngineState.Failed)
+
+    expect(notify).toHaveBeenCalledOnce()
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: payload.incidentId,
+        bodyKey:
+          'panel.dashboard.engine.diagnostics.reason.health_check_failed',
+      })
+    )
+  })
+
+  it('reports only a terminal restart cause after a transient exit', () => {
+    const motrixDb = {
+      deleteEngineNotificationLedgerBefore: vi.fn(() => 0),
+    } as unknown as MotrixDatabase
+    const eventBus = new EventBus()
+    const notify = vi.fn()
+
+    registerEngineFailureSubscriber({
+      motrixDb,
+      eventBus,
+      notificationCenter: { notify },
+      log: makeLog(),
+    })
+
+    eventBus.emit(
+      Events.EngineFailureOccurred,
+      makePayload({ reason: EngineFailureReason.UnexpectedExit })
+    )
+    const terminal = makePayload({
+      incidentId: 'engine:1001:1',
+      occurredAt: 1001,
+      reason: EngineFailureReason.SpawnFailed,
+    })
+    eventBus.emit(Events.EngineFailureOccurred, terminal)
+    eventBus.emit(Events.EngineStateChanged, EngineState.Failed)
+
+    expect(notify).toHaveBeenCalledOnce()
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceKey: terminal.incidentId })
+    )
   })
 
   it('a notify() throw (e.g. a full store) is swallowed and logged via log.warn, never re-thrown into the EventBus dispatch', () => {

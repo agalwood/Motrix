@@ -463,18 +463,42 @@ describe('DashboardGrid', () => {
     ])
   })
 
-  it('renders icon-only h-7 actions when the header is compact', () => {
+  it('renders icon-only 28px actions on the collapsed header centerline', () => {
     renderCollapsedGrid()
 
     const configure = screen.getByRole('button', { name: /Configure|配置/i })
-    expect(configure).toHaveClass('h-7')
+    expect(configure).toHaveClass(
+      'size-7',
+      'p-0',
+      'hover:bg-transparent',
+      'dark:hover:bg-transparent',
+      'panel-action-align-visual-end'
+    )
+    expect(configure.querySelector('svg')).toHaveClass('size-4')
+    expect(configure).not.toHaveClass('[&>svg]:translate-y-0.5')
     expect(configure).not.toHaveTextContent(/Configure|配置/i)
 
     fireEvent.click(configure)
 
     const cancel = screen.getByRole('button', { name: /Cancel|取消/i })
-    expect(cancel).toHaveClass('h-7')
+    expect(cancel).toHaveClass('size-7', 'p-0', '[&>svg]:size-4')
     expect(cancel).not.toHaveTextContent(/Cancel|取消/i)
+  })
+
+  it('uses a 28px configure action in the expanded panel header', () => {
+    renderDefaultGrid()
+
+    const configure = screen.getByRole('button', { name: /Configure|配置/i })
+    expect(configure).toHaveClass(
+      'size-7',
+      'items-center',
+      'justify-center',
+      'panel-action-align-visual-end',
+      'hover:bg-transparent',
+      'dark:hover:bg-transparent'
+    )
+    expect(configure.querySelector('svg')).toHaveClass('size-4')
+    expect(configure).not.toHaveClass('size-8')
   })
 
   it('shows all presets only while configuring and labels exact or custom drafts', async () => {

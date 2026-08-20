@@ -1,6 +1,7 @@
 import { Alert } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
+import { cn } from '@renderer/lib/utils'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppUpdateChannel } from '@shared/types/settings'
 import { DownloadIcon, RefreshCwIcon, RotateCwIcon } from 'lucide-react'
@@ -118,7 +119,10 @@ function UpdateActionButton({
       type="button"
       size="sm"
       variant={action.variant}
-      className="h-7! gap-1.5 rounded-md! px-2 text-xs shadow-none disabled:opacity-100 [&_svg]:size-3.5!"
+      className={cn(
+        'h-7! gap-1.5 rounded-md! px-2 text-xs shadow-none [&_svg]:size-3.5!',
+        state.phase !== 'unsupported' && 'disabled:opacity-100'
+      )}
       aria-label={action.accessibleLabel}
       aria-busy={
         state.phase === 'checking' || state.phase === 'downloading'
@@ -146,7 +150,13 @@ function updateAction(
 ): UpdateAction | null {
   switch (state.phase) {
     case 'unsupported':
-      return null
+      return {
+        label: t('settings.about.update.checkAction'),
+        accessibleLabel: t('settings.about.update.check'),
+        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        disabled: true,
+        variant: 'default',
+      }
     case 'checking':
       return {
         label: t('settings.about.update.checking'),

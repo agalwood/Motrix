@@ -371,9 +371,13 @@ describe('<AboutDialog>', () => {
         'This build of Motrix doesn’t support automatic updates. Download the latest release from the official website.'
       )
     ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Check for updates' })
-    ).not.toBeInTheDocument()
+    const checkButton = screen.getByRole('button', {
+      name: 'Check for updates',
+    })
+    expect(checkButton).toBeDisabled()
+    expect(checkButton).toHaveTextContent('Check')
+    expect(checkButton).toHaveClass('disabled:opacity-50')
+    expect(checkButton).not.toHaveClass('disabled:opacity-100')
   })
 
   it('persists the automatic launch check setting from the footer', async () => {

@@ -6,7 +6,7 @@ import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   NatErrorCode,
   type NatEvent,
-  NatManager,
+  type NatManager,
   type NatManagerHooks,
   NetworkMonitor,
   nodeHttpClient,
@@ -20,6 +20,7 @@ import {
 import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
+import { MotrixNatManager } from './motrix-nat-manager'
 
 const NAT_ERROR_CODE_MAP = {
   [NatErrorCode.DiscoveryFailed]: ErrorCode.NatDiscoveryFailed,
@@ -42,8 +43,9 @@ export interface NatStack {
 export function createNatManager(args: {
   eventBus: EventBus
   settingsManager: SettingsManager
+  isEngineReady: () => boolean
 }): NatStack {
-  const { eventBus, settingsManager } = args
+  const { eventBus, isEngineReady, settingsManager } = args
   setNatLogger(getLogger('nat'))
 
   // Derive client internal IP (16-byte v4-mapped IPv6) for PCP requests.
@@ -111,16 +113,19 @@ export function createNatManager(args: {
     }
   }
 
-  const manager = new NatManager({
-    hooks,
-    onEvent,
-    settingsProvider: new SettingsNatProvider(settingsManager),
-    upnpClient,
-    pmpPcpClient,
-    stunClient,
-    portChecker,
-    networkMonitor,
-  })
+  const manager = new MotrixNatManager(
+    {
+      hooks,
+      onEvent,
+      settingsProvider: new SettingsNatProvider(settingsManager),
+      upnpClient,
+      pmpPcpClient,
+      stunClient,
+      portChecker,
+      networkMonitor,
+    },
+    isEngineReady
+  )
 
   return { manager, networkMonitor }
 }

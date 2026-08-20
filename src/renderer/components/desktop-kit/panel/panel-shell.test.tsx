@@ -54,8 +54,8 @@ describe('PanelShell', () => {
       </PanelShell>
     )
     expect(container.querySelector('header')).toHaveClass(
-      'compact-header:pl-[var(--window-chrome-safe-area-leading)]',
-      'compact-header:pr-[var(--window-chrome-safe-area-trailing)]'
+      'compact-header:ps-[var(--window-chrome-safe-area-leading)]',
+      'compact-header:pe-[var(--window-chrome-safe-area-trailing)]'
     )
   })
 

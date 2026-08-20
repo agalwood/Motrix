@@ -81,6 +81,8 @@ function fakeCtx() {
     },
     supervisor: {
       restart: vi.fn(),
+      applyEngineSettings: vi.fn().mockResolvedValue(undefined),
+      applyAsyncDns: vi.fn().mockResolvedValue(undefined),
       recover: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
@@ -175,6 +177,9 @@ function fakeCtx() {
       on: vi.fn(),
       off: vi.fn(),
       removeAll: vi.fn(),
+    },
+    notificationCenter: {
+      notify: vi.fn(() => ({ fresh: true })),
     },
     proxyApplier: {
       apply: vi.fn().mockResolvedValue(undefined),
@@ -670,6 +675,42 @@ describe('buildCommandHandlers', () => {
     expect(minimize).toHaveBeenCalledOnce()
   })
 
+  it('ToggleMaximizeCurrentWindow maximizes and restores only its sender window', async () => {
+    const maximize = vi.fn()
+    const unmaximize = vi.fn()
+    const fakeSender = {} as never
+    fromWebContentsMock
+      .mockReturnValueOnce({
+        isDestroyed: vi.fn(() => false),
+        isMaximizable: vi.fn(() => true),
+        isMaximized: vi.fn(() => false),
+        maximize,
+        unmaximize,
+      })
+      .mockReturnValueOnce({
+        isDestroyed: vi.fn(() => false),
+        isMaximizable: vi.fn(() => true),
+        isMaximized: vi.fn(() => true),
+        maximize,
+        unmaximize,
+      })
+    const ctx = fakeCtx()
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+
+    await expect(
+      handlers[Commands.ToggleMaximizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+    await expect(
+      handlers[Commands.ToggleMaximizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+
+    expect(fromWebContentsMock).toHaveBeenNthCalledWith(1, fakeSender)
+    expect(fromWebContentsMock).toHaveBeenNthCalledWith(2, fakeSender)
+    expect(maximize).toHaveBeenCalledOnce()
+    expect(unmaximize).toHaveBeenCalledOnce()
+  })
+
   it('routes direct shell commands to their owning collaborators', async () => {
     const ctx = fakeCtx()
     // @ts-expect-error partial ctx
@@ -821,6 +862,9 @@ describe('buildCommandHandlers', () => {
     const minimizeRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.MinimizeCurrentWindow
     )
+    const toggleMaximizeRegistration = ipcHandleMock.mock.calls.find(
+      ([channel]) => channel === Commands.ToggleMaximizeCurrentWindow
+    )
     const menuContextRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.UpdateMenuContext
     )
@@ -829,6 +873,7 @@ describe('buildCommandHandlers', () => {
     )
     expect(closeRegistration).toBeDefined()
     expect(minimizeRegistration).toBeDefined()
+    expect(toggleMaximizeRegistration).toBeDefined()
     expect(menuContextRegistration).toBeDefined()
     expect(restartRegistration).toBeDefined()
 
@@ -839,6 +884,13 @@ describe('buildCommandHandlers', () => {
       minimize: vi.fn(),
     })
     await minimizeRegistration?.[1]({ sender })
+    fromWebContentsMock.mockReturnValueOnce({
+      isDestroyed: () => false,
+      isMaximizable: () => true,
+      isMaximized: () => false,
+      maximize: vi.fn(),
+    })
+    await toggleMaximizeRegistration?.[1]({ sender })
     await menuContextRegistration?.[1]({ sender }, { currentRoute: '/tasks' })
     await restartRegistration?.[1]({})
 
@@ -856,6 +908,9 @@ describe('buildCommandHandlers', () => {
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(
       Commands.MinimizeCurrentWindow
+    )
+    expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(
+      Commands.ToggleMaximizeCurrentWindow
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(Commands.RestartEngine)
   })
@@ -946,7 +1001,8 @@ describe('Commands.UpdateSettings', () => {
     proxy: object,
     app: object = {},
     nat: object = {},
-    tracker: object = {}
+    tracker: object = {},
+    engine: object = {}
   ) {
     return {
       app: {
@@ -960,7 +1016,7 @@ describe('Commands.UpdateSettings', () => {
         ...nat,
       },
       proxy,
-      engine: {},
+      engine,
       tracker: {
         sourcesEnabled: true,
         blacklistEnabled: true,
@@ -1029,7 +1085,7 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.supervisor.restart).not.toHaveBeenCalled()
   })
 
-  it('invokes supervisor.restart when result.requiresRestart is true', async () => {
+  it('saves restart-required settings and publishes a reminder without restarting', async () => {
     const ctx = fakeCtx()
     const settings = makeSettingsLike(PROXY_OFF)
     const settingsManager = {
@@ -1047,8 +1103,46 @@ describe('Commands.UpdateSettings', () => {
       protocolManager: { register: vi.fn() },
     } as unknown as CommandContext)
     await handlers[Commands.UpdateSettings]?.({ engine: { rpcPort: 9000 } })
-    expect(ctx.supervisor.restart).toHaveBeenCalledOnce()
+    expect(ctx.supervisor.restart).not.toHaveBeenCalled()
+    expect(ctx.notificationCenter.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'engine-restart-required',
+        severity: 'warning',
+      })
+    )
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(
+      Events.EngineRestartRequired,
+      { changedKeys: ['rpcPort'] }
+    )
     expect(ctx.proxyApplier.apply).not.toHaveBeenCalled()
+  })
+
+  it('hot-applies runtime engine settings without a restart reminder', async () => {
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(PROXY_OFF, {}, {}, {}, { split: 16 })
+    const after = makeSettingsLike(PROXY_OFF, {}, {}, {}, { split: 32 })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({ engine: { split: 32 } })
+
+    expect(ctx.supervisor.applyEngineSettings).toHaveBeenCalledWith(
+      before.engine,
+      after.engine
+    )
+    expect(ctx.notificationCenter.notify).not.toHaveBeenCalled()
   })
 
   it('calls trackerManager.applySourcesChange when sourcesEnabled changes', async () => {

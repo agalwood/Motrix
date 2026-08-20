@@ -73,7 +73,7 @@ test.describe('task recovery', () => {
       let main = await openMain(app)
       await waitForEngineReady(main)
 
-      await main.getByRole('button', { name: '+ New task' }).click()
+      await main.getByRole('button', { name: 'New task' }).click()
       const addTaskPage = await findAddTaskWindow(app)
       await addTaskPage.getByRole('textbox', { name: 'URLs' }).fill(fx.fileUrl)
       await addTaskPage.getByRole('button', { name: 'Download' }).click()

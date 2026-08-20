@@ -33,15 +33,13 @@ export function FilterSearchCommand({
             variant="ghost"
             size="icon"
             aria-label={t('panel.downloads.search.placeholder')}
-            // In the collapsed (40px) header the button keeps its 32px visual
-            // size — icon position and hover circle stay identical to the
-            // expanded state — but -my-2 cancels the extra layout height so
-            // the row stays 16px tall like the title trigger.
-            className="app-no-drag relative size-8 rounded-full compact-header:-my-0.5"
+            // Match the 28px window-chrome targets so compact panel actions
+            // stay on the Toggle Sidebar and Add Task centerline.
+            className="panel-action-align-visual-end app-no-drag relative size-7 rounded-full bg-transparent hover:bg-transparent dark:hover:bg-transparent [&>svg]:opacity-50 hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75"
           />
         }
       >
-        <Search className="size-4 text-muted-foreground" />
+        <Search className="size-4" />
         {active && (
           <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-background" />
         )}

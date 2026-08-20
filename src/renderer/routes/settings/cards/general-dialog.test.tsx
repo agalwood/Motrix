@@ -82,7 +82,7 @@ describe('<GeneralDialog>', () => {
       name: /confirm before quitting/i,
     })
     await userEvent.click(toggle)
-    await userEvent.click(screen.getByRole('button', { name: /apply/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
@@ -98,7 +98,7 @@ describe('<GeneralDialog>', () => {
       name: /notify on failure/i,
     })
     await userEvent.click(toggle)
-    await userEvent.click(screen.getByRole('button', { name: /apply/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
@@ -114,7 +114,7 @@ describe('<GeneralDialog>', () => {
       name: /autofill link from clipboard/i,
     })
     await userEvent.click(toggle)
-    await userEvent.click(screen.getByRole('button', { name: /apply/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
@@ -137,7 +137,7 @@ describe('<GeneralDialog>', () => {
     const user = userEvent.setup()
     const switches = screen.getAllByRole('switch')
     await user.click(switches[0]) // toggle launchAtStartup
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       app: { launchAtStartup: true },
     })

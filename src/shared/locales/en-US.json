@@ -96,6 +96,7 @@
   },
   "chrome": {
     "minimize": "Minimize",
+    "toggleMaximize": "Maximize or restore",
     "close": "Close",
     "toggleSidebar": "Toggle sidebar",
     "newTask": "New task"
@@ -448,11 +449,13 @@
           "disable": "Disable NAT",
           "remap": "Force remap",
           "diagnose": "Run diagnostic",
+          "troubleshoot": "NAT troubleshooting guide",
           "short": {
             "enable": "Enable",
             "disable": "Disable",
             "remap": "Remap",
-            "diagnose": "Diagnose"
+            "diagnose": "Diagnose",
+            "help": "Help"
           },
           "settings": "NAT settings"
         },
@@ -529,7 +532,8 @@
         "natFailed": "NAT failed",
         "natOff": "NAT off",
         "natEnable": "Enable NAT",
-        "natDisable": "Disable NAT"
+        "natDisable": "Disable NAT",
+        "natHelp": "Troubleshoot NAT"
       },
       "tab": {
         "all": "All",
@@ -1323,11 +1327,6 @@
       }
     },
     "common": {
-      "restartConfirm": {
-        "title": "Restart to apply changes?",
-        "body": "Some changes require a restart to take effect. Active downloads pause and resume in a few seconds.",
-        "confirm": "Save and restart"
-      },
       "browse": "Browse…",
       "add": "Add",
       "remove": "Remove",
@@ -2100,6 +2099,11 @@
     "engineFailure": {
       "title": "Download engine failed"
     },
+    "engineRestartRequired": {
+      "title": "Restart the download engine to apply settings",
+      "body": "Your settings are saved. Restart the download engine when convenient.",
+      "restartNow": "Restart now"
+    },
     "dnsFallback": {
       "title": "{{name}} retried with system DNS",
       "body": "Motrix couldn't reach a DNS server, so it switched to system DNS for this session."
@@ -2109,7 +2113,7 @@
       "markAllRead": "Mark all read",
       "clearAll": "Clear",
       "empty": "No notifications",
-      "emptyDesc": "Download failures and completions will show up here",
+      "emptyDesc": "Download activity and important app notices will show up here",
       "unreadBadgeAria_one": "{{count}} unread notification",
       "unreadBadgeAria_other": "{{count}} unread notifications",
       "rowUnreadAria": "{{title}} (unread)",

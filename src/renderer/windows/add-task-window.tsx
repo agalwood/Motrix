@@ -32,7 +32,12 @@ export function AddTaskWindow() {
 
   return (
     <div className="flex h-screen flex-col">
-      <WindowChrome variant="titled" compact title={t('task.add.title')} />
+      <WindowChrome
+        variant="titled"
+        compact
+        maximizable={false}
+        title={t('task.add.title')}
+      />
       <PlatformServicesProvider services={electronServices}>
         <AddTaskForm
           defaultValues={defaultValues}

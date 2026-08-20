@@ -303,7 +303,7 @@ export function DownloadsPage() {
           />
         }
         actionsPosition="end"
-        footer={<GlobalStatsBar />}
+        footer={<GlobalStatsBar counts={counts} />}
         contentClassName="px-6"
       >
         {status === 'error' && hasReadySnapshot ? (

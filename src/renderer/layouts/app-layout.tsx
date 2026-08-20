@@ -8,6 +8,7 @@ import { MotrixMenuButton } from '@renderer/components/window-chrome/motrix-menu
 import { SidebarTriggerButton } from '@renderer/components/window-chrome/sidebar-trigger-button'
 import { WindowChrome } from '@renderer/components/window-chrome/window-chrome'
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
+import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restart-required-toast'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
 import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
@@ -30,6 +31,7 @@ export function AppLayout() {
   useShortcuts()
   useToastEvents()
   usePairRequestPrompts()
+  useEngineRestartRequiredToast()
   useNotificationToasts()
 
   const navigate = useNavigate()
@@ -37,7 +39,6 @@ export function AppLayout() {
   const transparentInset = matches.some(
     (m) => (m.handle as RouteHandle | undefined)?.transparentInset
   )
-
   useIpcEvent(Events.NavigateTo, (...args) => {
     const path = args[0]
     if (typeof path === 'string' && path) navigate(path)
@@ -54,11 +55,18 @@ export function AppLayout() {
         <SidebarProvider
           className={cn(
             'h-svh overflow-hidden bg-sidebar',
-            __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome'
+            __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome',
+            __MOTRIX_TARGET__ === 'electron' &&
+              __MOTRIX_PREVIEW_MAC_MENU__ &&
+              'preview-desktop-window-controls'
           )}
         >
-          <WindowChrome variant="overlay" leading={<MotrixMenuButton />}>
-            <div className="pt-3.5 flex items-center gap-1.5">
+          <WindowChrome
+            variant="overlay"
+            leading={<MotrixMenuButton />}
+            previewDesktopControls={__MOTRIX_PREVIEW_MAC_MENU__}
+          >
+            <div className="flex items-center gap-1.5">
               <SidebarTriggerButton />
               <AddTaskTriggerButton />
             </div>

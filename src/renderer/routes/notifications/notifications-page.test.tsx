@@ -78,7 +78,9 @@ describe('<NotificationsPage>', () => {
     renderPage()
     expect(await screen.findByText('No notifications')).toBeInTheDocument()
     expect(
-      screen.getByText('Download failures and completions will show up here')
+      screen.getByText(
+        'Download activity and important app notices will show up here'
+      )
     ).toBeInTheDocument()
     // The Empty state isn't a list — the row container must not claim
     // role="list" over zero list items.

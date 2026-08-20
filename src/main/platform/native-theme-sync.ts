@@ -11,7 +11,7 @@ export interface NativeThemeSyncHandle {
 // Bridges the persisted `app.theme` setting to Electron's `nativeTheme`.
 // This is what makes the user's choice flow into:
 //   - macOS vibrancy material + traffic-light/titlebar tint
-//   - Windows 11 titlebar overlay color
+//   - Windows custom-title-bar colors through `prefers-color-scheme`
 //   - the OS-reported `prefers-color-scheme` (and thus the renderer's
 //     own dark-class application via next-themes when in `system` mode)
 //   - the Linux tray icon picker (reads `nativeTheme.shouldUseDarkColors`)

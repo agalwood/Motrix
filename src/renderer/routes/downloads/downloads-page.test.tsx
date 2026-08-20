@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import {
+  type PlatformServices,
+  PlatformServicesProvider,
+} from '@renderer/platform/services'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
@@ -59,6 +63,15 @@ vi.mock('@renderer/lib/transport', () => ({
     platform: 'darwin',
   },
 }))
+
+const testPlatformServices: PlatformServices = {
+  kind: 'electron',
+  pickSaveDir: vi.fn(async () => null),
+  closeHost: vi.fn(),
+  readClipboard: vi.fn(async () => ''),
+  openExternal: vi.fn(),
+  notify: vi.fn(),
+}
 
 function task(
   id: string,
@@ -131,10 +144,15 @@ function TestRouter({ initialPath }: { initialPath: string }) {
 }
 
 function renderAt(path: string) {
-  const view = render(<TestRouter initialPath={path} />)
+  const renderTree = () => (
+    <PlatformServicesProvider services={testPlatformServices}>
+      <TestRouter initialPath={path} />
+    </PlatformServicesProvider>
+  )
+  const view = render(renderTree())
   return {
     ...view,
-    refresh: () => view.rerender(<TestRouter initialPath={path} />),
+    refresh: () => view.rerender(renderTree()),
   }
 }
 
@@ -155,9 +173,17 @@ describe('DownloadsPage', () => {
     expect(
       screen.getByRole('heading', { name: /downloads/i })
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /search downloads/i })
-    ).toBeInTheDocument()
+    const search = screen.getByRole('button', { name: /search downloads/i })
+    expect(search).toHaveClass(
+      'size-7',
+      'items-center',
+      'justify-center',
+      'hover:bg-transparent',
+      'dark:hover:bg-transparent',
+      'panel-action-align-visual-end'
+    )
+    expect(search.querySelector('svg')).toHaveClass('size-4')
+    expect(search).not.toHaveClass('size-8')
   })
 
   it.each([
