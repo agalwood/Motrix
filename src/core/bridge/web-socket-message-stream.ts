@@ -21,15 +21,32 @@ import { Emitter } from 'vscode-jsonrpc'
 // Minimal subset of ws.WebSocket we depend on. Avoids a hard dep on
 // `ws` types in @core, which would be an architectural smell (core is
 // engine-agnostic). Caller passes any object matching this shape.
+//
+// `isBinary` is NOT optional in spirit, only in the type: `ws` runs in its
+// default `binaryType: 'nodebuffer'` mode, where a text frame and a binary
+// frame BOTH arrive as a `Buffer`, so `typeof data === 'string'` cannot tell
+// them apart. Anything that must distinguish the two — the MBP1 envelope
+// stream, the pre-authentication demux — has to read this flag. It is declared
+// optional so a socket double that omits it still satisfies the interface; the
+// consumers treat "absent" as "not binary", which is the fail-closed reading.
+//
+// `send` accepts bytes as well as text because the envelope stream sends
+// sealed binary frames through the same seam the JSON writer uses.
 export interface WebSocketLike {
   readyState: number
-  on(event: 'message', listener: (data: Buffer | string) => void): void
+  on(
+    event: 'message',
+    listener: (data: Buffer | string, isBinary?: boolean) => void
+  ): void
   on(event: 'close', listener: () => void): void
   on(event: 'error', listener: (err: Error) => void): void
-  off(event: 'message', listener: (data: Buffer | string) => void): void
+  off(
+    event: 'message',
+    listener: (data: Buffer | string, isBinary?: boolean) => void
+  ): void
   off(event: 'close', listener: () => void): void
   off(event: 'error', listener: (err: Error) => void): void
-  send(data: string): void
+  send(data: string | Uint8Array): void
   close(code?: number, reason?: string): void
 }
 
