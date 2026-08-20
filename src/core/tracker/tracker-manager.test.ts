@@ -1,3 +1,4 @@
+import { Events } from '@shared/protocol/events'
 import type { CuratedTrackerList } from '@shared/types/tracker'
 import type { Mock } from 'vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,7 +15,25 @@ function createMockRpcClient() {
 }
 
 function createMockEventBus() {
-  return { emit: vi.fn(), on: vi.fn(), off: vi.fn(), removeAll: vi.fn() }
+  type Listener = (...args: unknown[]) => void
+  const listeners = new Map<string, Set<Listener>>()
+
+  return {
+    emit: vi.fn((channel: string, ...args: unknown[]) => {
+      for (const listener of listeners.get(channel) ?? []) {
+        listener(...args)
+      }
+    }),
+    on: vi.fn((channel: string, listener: Listener) => {
+      const channelListeners = listeners.get(channel) ?? new Set<Listener>()
+      channelListeners.add(listener)
+      listeners.set(channel, channelListeners)
+    }),
+    off: vi.fn((channel: string, listener: Listener) => {
+      listeners.get(channel)?.delete(listener)
+    }),
+    removeAll: vi.fn(() => listeners.clear()),
+  }
 }
 
 function createMockSettingsManager() {
@@ -647,7 +666,7 @@ describe('TrackerManager.applyBlacklistChange', () => {
   })
 })
 
-describe('TrackerManager.init push to aria2', () => {
+describe('TrackerManager engine-ready cache push', () => {
   function makeStoreWithCurated(cached: CuratedTrackerList) {
     return {
       load: vi.fn().mockResolvedValue(cached),
@@ -685,33 +704,47 @@ describe('TrackerManager.init push to aria2', () => {
     return base
   }
 
-  it('pushes cached effective and blacklist to aria2 on init', async () => {
-    const cached: CuratedTrackerList = {
-      effective: ['udp://cached-tracker'],
-      blacklist: ['udp://cached-bad'],
+  function makeCached(
+    effective: string[],
+    blacklist: string[] = []
+  ): CuratedTrackerList {
+    return {
+      effective,
+      blacklist,
       healthMap: {},
       sourceMap: {},
       lastSyncAt: 1,
       lastProbeAt: 1,
     }
+  }
+
+  function makeHarness(
+    cached: CuratedTrackerList,
+    flags = { sourcesEnabled: true, blacklistEnabled: false }
+  ) {
     const rpc = makeRpcMock()
     const eventBus = createMockEventBus()
-    const settings = makeSettingsWithFlags({
-      sourcesEnabled: true,
-      blacklistEnabled: true,
-    })
-    const syncer = createMockSyncer()
-    const prober = createMockProber()
     const store = makeStoreWithCurated(cached)
     const mgr = new TrackerManager(
-      settings as never,
+      makeSettingsWithFlags(flags) as never,
       rpc as never,
       eventBus as never,
-      syncer as never,
-      prober as never,
+      createMockSyncer() as never,
+      createMockProber() as never,
       store as never
     )
+    return { mgr, rpc, eventBus, store }
+  }
+
+  it('waits for engine ready before pushing cached effective and blacklist', async () => {
+    const { mgr, rpc, eventBus } = makeHarness(
+      makeCached(['udp://cached-tracker'], ['udp://cached-bad']),
+      { sourcesEnabled: true, blacklistEnabled: true }
+    )
     await mgr.init()
+    expect(rpc.changeGlobalOption).not.toHaveBeenCalled()
+
+    eventBus.emit(Events.EngineRecovered)
     expect(rpc.changeGlobalOption).toHaveBeenCalledWith({
       'bt-tracker': 'udp://cached-tracker',
       'bt-exclude-tracker': 'udp://cached-bad',
@@ -719,33 +752,89 @@ describe('TrackerManager.init push to aria2', () => {
     mgr.dispose()
   })
 
-  it('does not push when both subsystems disabled on init', async () => {
-    const cached: CuratedTrackerList = {
-      effective: ['udp://x'],
-      blacklist: ['udp://y'],
-      healthMap: {},
-      sourceMap: {},
-      lastSyncAt: 1,
-      lastProbeAt: 1,
-    }
-    const rpc = makeRpcMock()
-    const eventBus = createMockEventBus()
-    const settings = makeSettingsWithFlags({
-      sourcesEnabled: false,
-      blacklistEnabled: false,
+  it('pushes after init when engine ready arrives while cache is loading', async () => {
+    const cached = makeCached(['udp://cached-tracker'])
+    const loaded = deferred<CuratedTrackerList>()
+    const { mgr, rpc, eventBus, store } = makeHarness(cached)
+    store.load.mockReturnValueOnce(loaded.promise)
+
+    const initializing = mgr.init()
+    eventBus.emit(Events.EngineRecovered)
+    expect(rpc.changeGlobalOption).not.toHaveBeenCalled()
+
+    loaded.resolve(cached)
+    await initializing
+    expect(rpc.changeGlobalOption).toHaveBeenCalledWith({
+      'bt-tracker': 'udp://cached-tracker',
     })
-    const syncer = createMockSyncer()
-    const prober = createMockProber()
-    const store = makeStoreWithCurated(cached)
-    const mgr = new TrackerManager(
-      settings as never,
-      rpc as never,
-      eventBus as never,
-      syncer as never,
-      prober as never,
-      store as never
+    mgr.dispose()
+  })
+
+  it('reapplies cached state after an engine reconnect', async () => {
+    const { mgr, rpc, eventBus } = makeHarness(
+      makeCached(['udp://cached-tracker'])
     )
     await mgr.init()
+
+    eventBus.emit(Events.EngineRecovered)
+    eventBus.emit(Events.EngineDisconnected)
+    eventBus.emit(Events.EngineRecovered)
+
+    expect(rpc.changeGlobalOption).toHaveBeenCalledTimes(2)
+    mgr.dispose()
+  })
+
+  it('does not push after disposal', async () => {
+    const { mgr, rpc, eventBus } = makeHarness(
+      makeCached(['udp://cached-tracker'])
+    )
+    await mgr.init()
+    mgr.dispose()
+
+    eventBus.emit(Events.EngineRecovered)
+
+    expect(rpc.changeGlobalOption).not.toHaveBeenCalled()
+    expect(eventBus.off).toHaveBeenCalledWith(
+      Events.EngineRecovered,
+      expect.any(Function)
+    )
+  })
+
+  it('waits for an accepted cache push during shutdown', async () => {
+    const pushStarted = deferred<void>()
+    const allowPush = deferred<void>()
+    const { mgr, rpc, eventBus } = makeHarness(
+      makeCached(['udp://cached-tracker'])
+    )
+    rpc.changeGlobalOption.mockImplementation(async () => {
+      pushStarted.resolve()
+      await allowPush.promise
+      return 'OK'
+    })
+    await mgr.init()
+    eventBus.emit(Events.EngineRecovered)
+    await pushStarted.promise
+
+    const draining = mgr.stopAndDrain()
+    let drained = false
+    void draining.then(() => {
+      drained = true
+    })
+    await Promise.resolve()
+    expect(drained).toBe(false)
+
+    allowPush.resolve()
+    await draining
+    expect(drained).toBe(true)
+  })
+
+  it('does not push when both subsystems are disabled', async () => {
+    const { mgr, rpc, eventBus } = makeHarness(
+      makeCached(['udp://x'], ['udp://y']),
+      { sourcesEnabled: false, blacklistEnabled: false }
+    )
+    await mgr.init()
+    eventBus.emit(Events.EngineRecovered)
     expect(rpc.changeGlobalOption).not.toHaveBeenCalled()
     mgr.dispose()
   })

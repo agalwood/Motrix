@@ -1,5 +1,5 @@
 import { proxyToFetchUrl } from '@core/proxy/serializers'
-import { Events } from '@shared/protocol/events'
+import { type EventChannel, Events } from '@shared/protocol/events'
 import type { ProxySettings } from '@shared/types/settings'
 import type {
   CuratedTrackerList,
@@ -42,7 +42,9 @@ interface RpcClient {
 }
 
 interface EventBus {
-  emit(channel: string, ...args: unknown[]): void
+  on(channel: EventChannel, listener: (...args: unknown[]) => void): void
+  off(channel: EventChannel, listener: (...args: unknown[]) => void): void
+  emit(channel: EventChannel, ...args: unknown[]): void
 }
 
 export interface TrackerTaskActions {
@@ -94,9 +96,20 @@ export class TrackerManager {
   }
   private timer: ReturnType<typeof setInterval> | null = null
   private disposed = false
+  private initialized = false
+  private engineReady = false
   private lifecycleGeneration = 0
   private readonly inFlightTrackerChanges = new Set<Promise<void>>()
+  private readonly inFlightCachedStatePushes = new Set<Promise<void>>()
   private stopPromise: Promise<void> | null = null
+  private readonly handleEngineRecovered = (): void => {
+    this.engineReady = true
+    if (!this.initialized || this.disposed) return
+    void this.queueCachedStatePush()
+  }
+  private readonly handleEngineDisconnected = (): void => {
+    this.engineReady = false
+  }
 
   constructor(
     private settings: SettingsManager,
@@ -106,7 +119,10 @@ export class TrackerManager {
     private prober: TrackerProber,
     private store: TrackerStore,
     private taskActions?: TrackerTaskActions
-  ) {}
+  ) {
+    this.eventBus.on(Events.EngineRecovered, this.handleEngineRecovered)
+    this.eventBus.on(Events.EngineDisconnected, this.handleEngineDisconnected)
+  }
 
   async init(): Promise<void> {
     if (this.disposed) return
@@ -126,9 +142,25 @@ export class TrackerManager {
     )
     this.applySyncScheduleChange()
 
-    // Push cached state to aria2 immediately so bt-tracker/bt-exclude-tracker
-    // are populated from boot — otherwise users wait up to syncIntervalHours
-    // for the first interval-triggered sync to push.
+    this.initialized = true
+    if (this.engineReady) {
+      await this.queueCachedStatePush()
+    }
+  }
+
+  private queueCachedStatePush(): Promise<void> {
+    const operation = this.pushCachedState()
+    this.inFlightCachedStatePushes.add(operation)
+    void operation.then(
+      () => this.inFlightCachedStatePushes.delete(operation),
+      () => this.inFlightCachedStatePushes.delete(operation)
+    )
+    return operation
+  }
+
+  private async pushCachedState(): Promise<void> {
+    const generation = this.captureGeneration()
+    const cfg = this.settings.get().tracker
     const opts: Record<string, string> = {}
     if (cfg.sourcesEnabled && this.curated.effective.length > 0) {
       opts['bt-tracker'] = this.curated.effective.join(',')
@@ -142,13 +174,13 @@ export class TrackerManager {
         if (!this.isCurrent(generation)) return
         log.info(
           { opts: Object.keys(opts) },
-          'pushed cached state to aria2 on init'
+          'pushed cached state to aria2 after engine became ready'
         )
       } catch (err) {
         if (!this.isCurrent(generation)) return
         log.warn(
           { err },
-          'failed to push cached state on init — engine may not be ready yet'
+          'failed to push cached state after engine became ready'
         )
       }
     }
@@ -436,6 +468,8 @@ export class TrackerManager {
     if (this.disposed) return
     this.disposed = true
     this.lifecycleGeneration += 1
+    this.eventBus.off(Events.EngineRecovered, this.handleEngineRecovered)
+    this.eventBus.off(Events.EngineDisconnected, this.handleEngineDisconnected)
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
@@ -448,7 +482,10 @@ export class TrackerManager {
     // already-paused setBtTracker operation then runs its unconditional resume
     // compensation before the captured promise settles.
     this.dispose()
-    const accepted = [...this.inFlightTrackerChanges]
+    const accepted = [
+      ...this.inFlightTrackerChanges,
+      ...this.inFlightCachedStatePushes,
+    ]
     this.stopPromise = Promise.allSettled(accepted).then(() => undefined)
     return this.stopPromise
   }
