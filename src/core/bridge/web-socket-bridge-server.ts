@@ -48,6 +48,7 @@ import {
   PairSession,
 } from './mbp1/pair-session'
 import { PreAuthTable } from './mbp1/pre-auth-table'
+import { ReconnectRateLimit } from './mbp1/reconnect-rate-limit'
 import { ReconnectSession } from './mbp1/reconnect-session'
 import { TicketReplayCache } from './mbp1/ticket-verify'
 import { MdxpDispatcher } from './mdxp-dispatcher'
@@ -392,6 +393,10 @@ export class WebSocketBridgeServer {
    * `unverified`, which is what presenting no ticket yields anyway.
    */
   private readonly replay = new TicketReplayCache()
+  /** §8's per-origin + global reconnect throttle. Deliberately separate from
+   *  `floodControl`: see `mbp1/reconnect-rate-limit.ts` for why sharing
+   *  counters between the two would be a bug in both directions. */
+  private readonly reconnectRate = new ReconnectRateLimit()
   private readonly preAuthPair: PreAuthTable<PairPreAuthEntry>
   private readonly preAuthReconnect: PreAuthTable<ReconnectPreAuthEntry>
   /** The host and port actually bound, for the §4.3 Host guard. */
@@ -1201,7 +1206,7 @@ export class WebSocketBridgeServer {
     writeJson(res, 200, dc.poll(requestId))
   }
 
-  private reject(socket: Duplex, code: 401 | 403 | 404): void {
+  private reject(socket: Duplex, code: 401 | 403 | 404 | 429): void {
     socket.write(`HTTP/1.1 ${code} ${REJECT_REASONS[code]}\r\n\r\n`)
     socket.destroy()
   }
@@ -1371,6 +1376,21 @@ export class WebSocketBridgeServer {
     peer: ExtensionPeer,
     mbp1: Mbp1Wiring
   ): void {
+    // §8's closing requirement: reconnect attempts are rate-limited per
+    // verified origin and globally. Refused HERE rather than after the upgrade,
+    // for the same reason `/pair` refuses an unknown nonce before it: a
+    // throttled peer should not get a WebSocket, a pre-authentication slot, or
+    // a session object out of the attempt.
+    //
+    // This is not an authentication oracle. It answers only "you are asking too
+    // often", which is true regardless of whether any credential exists — §8's
+    // requirement that an unknown `credentialId` and a bad MAC be
+    // indistinguishable concerns what happens *after* admission.
+    if (!this.reconnectRate.admit(peer.origin)) {
+      this.reject(socket, 429)
+      return
+    }
+
     this.wss.handleUpgrade(req, socket, head, (ws) => {
       const entry: ReconnectPreAuthEntry = { ws, session: null }
       if (!this.preAuthReconnect.admit(entry)) {
@@ -1620,6 +1640,7 @@ const REJECT_REASONS = {
   401: 'Unauthorized',
   403: 'Forbidden',
   404: 'Not Found',
+  429: 'Too Many Requests',
 } as const
 
 /** One WebSocket text frame carrying one JSON object (§6.1). */

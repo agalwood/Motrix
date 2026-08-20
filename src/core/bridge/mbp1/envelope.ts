@@ -166,6 +166,17 @@ export class EnvelopeOpener {
         `envelope frame of ${frame.length} bytes is shorter than the seq+tag minimum`
       )
     }
+    // §10 states the 1 MiB cap as a property of a FRAME, not of the sender, so
+    // it binds this direction too. Checked here rather than after decryption:
+    // GCM ciphertext and plaintext are the same length, so the bound is known
+    // up front, and refusing early is what actually protects us — an
+    // authenticated peer holding the traffic key could otherwise make us
+    // allocate and decrypt an arbitrarily large frame before anyone objects.
+    if (frame.length - SEQ_LENGTH - TAG_LENGTH > MAX_PLAINTEXT_LENGTH) {
+      throw new EnvelopeViolationError(
+        'envelope frame carries more than the 1 MiB plaintext limit'
+      )
+    }
 
     const seqBytes = frame.subarray(0, SEQ_LENGTH)
     if (os2ip(seqBytes) !== BigInt(this.seq)) {

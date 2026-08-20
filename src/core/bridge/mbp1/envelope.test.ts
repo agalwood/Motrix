@@ -77,6 +77,31 @@ describe('EnvelopeOpener mustReject (§10)', () => {
       EnvelopeViolationError
     )
   })
+
+  it('rejects a frame carrying more than the 1 MiB plaintext limit', () => {
+    // §10 caps the plaintext of a FRAME, not just of what we send. The receive
+    // side is the direction that protects us: an authenticated peer holding the
+    // traffic key could otherwise make us allocate and decrypt an arbitrarily
+    // large frame. Refused on length alone, before any crypto runs, so the
+    // frame need not be a genuinely sealed one.
+    //
+    // The message is asserted, not just the class: an unsealed oversized frame
+    // ALSO fails GCM, so a bare `toThrow(EnvelopeViolationError)` would pass
+    // just as happily with no length check at all. Only the reason separates
+    // the control being tested from the one behind it.
+    const oversized = new Uint8Array(8 + 16 + 1024 * 1024 + 1)
+    const opener = new EnvelopeOpener(keyC2S, DIR_C2S)
+    expect(() => opener.open(oversized)).toThrow(/1 MiB plaintext limit/)
+  })
+
+  it('admits a frame whose plaintext is exactly at the 1 MiB limit', () => {
+    // The boundary, sealed for real, so the cap cannot be off by one against a
+    // frame a conforming peer is allowed to send.
+    const sealer = new EnvelopeSealer(keyC2S, DIR_C2S)
+    const atLimit = sealer.seal(new Uint8Array(1024 * 1024))
+    const opener = new EnvelopeOpener(keyC2S, DIR_C2S)
+    expect(opener.open(atLimit)).toHaveLength(1024 * 1024)
+  })
 })
 
 describe('EnvelopeSealer usage bounds and size cap (§10)', () => {
