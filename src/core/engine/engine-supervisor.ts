@@ -210,10 +210,20 @@ export class EngineSupervisor {
     await this.rpcClient.changeGlobalOption(params)
   }
 
-  async stop(): Promise<void> {
+  /**
+   * Synchronously fence process-exit handling before asynchronous app cleanup.
+   * Windows can terminate child processes as soon as session end begins, so
+   * waiting until stop() reaches gracefulStop() can misclassify that expected
+   * exit as an engine crash.
+   */
+  prepareForShutdown(): void {
     this.stopping = true
     this.stopHealthCheck()
     this.clearRestartTimer()
+  }
+
+  async stop(): Promise<void> {
+    this.prepareForShutdown()
 
     if (this.processManager.isRunning()) {
       // SIGTERM aria2 directly. Its signal handler sets

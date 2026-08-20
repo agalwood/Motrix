@@ -468,6 +468,18 @@ describe('EngineSupervisor', () => {
       expect(payloads).toHaveLength(0)
     })
 
+    it('suppresses a process exit as soon as app shutdown is prepared', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      const payloads = collectFailures()
+
+      supervisor.prepareForShutdown()
+      processManager.onExit?.(1, null)
+
+      expect(payloads).toHaveLength(0)
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+      await supervisor.stop()
+    })
+
     it('restart() emits no EngineFailureOccurred on a successful manual restart', async () => {
       await supervisor.start('/usr/bin/aria2c')
       const payloads = collectFailures()

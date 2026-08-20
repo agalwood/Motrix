@@ -410,6 +410,10 @@ let resolvedApplicationLocale: SupportedLocale = DEFAULT_LOCALE
 let cleanupPromise: Promise<void> | null = null
 
 function performCleanup(): Promise<void> {
+  // Fence engine exit handling before the first await. Windows may terminate
+  // aria2 as soon as session end begins, before graceful cleanup reaches it.
+  supervisor?.prepareForShutdown()
+
   // Release a first-run bootstrap waiting for legal consent before asking the
   // work coordinator to drain that bootstrap. This must happen synchronously
   // or declining/closing the disclaimer can deadlock shutdown.
@@ -2380,6 +2384,7 @@ function beginShutdown(): void {
   // quitController.phase is already 'shutting-down' (set synchronously before
   // this call). app.quit() below re-fires before-quit synchronously; the guard
   // there relies on the phase already being terminal.
+  supervisor?.prepareForShutdown()
   // Drain a pending coalesced TaskUpdated while consumers are still attached.
   taskUpdatePublisher.flush()
   windowManager?.setWillQuit(true) // FIRST — never before/during the dialog

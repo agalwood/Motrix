@@ -173,6 +173,10 @@ describe('MainProcessWorkCoordinator', () => {
       performCleanup
     )
     const beginShutdown = source.indexOf('function beginShutdown()')
+    const prepareEngine = source.indexOf(
+      'supervisor?.prepareForShutdown()',
+      beginShutdown
+    )
     const destroyRenderers = source.indexOf(
       'windowManager?.destroyAll()',
       beginShutdown
@@ -185,6 +189,8 @@ describe('MainProcessWorkCoordinator', () => {
     expect(performCleanup).toBeGreaterThan(-1)
     expect(removeHandlers).toBeGreaterThan(performCleanup)
     expect(beginShutdown).toBeGreaterThan(-1)
+    expect(prepareEngine).toBeGreaterThan(beginShutdown)
+    expect(prepareEngine).toBeLessThan(destroyRenderers)
     expect(destroyRenderers).toBeGreaterThan(beginShutdown)
     expect(callCleanup).toBeGreaterThan(destroyRenderers)
   })
