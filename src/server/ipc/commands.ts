@@ -7,6 +7,7 @@ import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
 import type { EventBus } from '@core/events/event-bus'
 import { getLogger } from '@core/logger'
+import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
@@ -135,7 +136,6 @@ export function buildServerCommandHandlers(
     bindTaskRetry,
     adapter,
     trackerManager,
-    aria2BinaryPath,
     finalNamePicker,
     torrentMetaStore,
     taskManager,
@@ -536,6 +536,8 @@ export function buildServerCommandHandlers(
         )
       }
 
+      await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
+
       if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
         await supervisor.applyAsyncDns(
           dnsModeToAsyncDns(newFull.engine.dnsMode)
@@ -545,11 +547,11 @@ export function buildServerCommandHandlers(
         dnsFallback?.reset()
       }
 
-      // Server uses explicit stop+start (mirrors Commands.RestartEngine
-      // handler in this file); main runtime uses supervisor.restart().
       if (result.requiresRestart) {
-        await supervisor.stop()
-        await supervisor.start(aria2BinaryPath)
+        publishEngineRestartRequired(
+          { eventBus, notificationCenter, log },
+          result.changedRestartKeys
+        )
       }
 
       return result

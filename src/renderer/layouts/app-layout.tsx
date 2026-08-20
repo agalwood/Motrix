@@ -8,6 +8,7 @@ import { MotrixMenuButton } from '@renderer/components/window-chrome/motrix-menu
 import { SidebarTriggerButton } from '@renderer/components/window-chrome/sidebar-trigger-button'
 import { WindowChrome } from '@renderer/components/window-chrome/window-chrome'
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
+import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restart-required-toast'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
 import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
@@ -30,6 +31,7 @@ export function AppLayout() {
   useShortcuts()
   useToastEvents()
   usePairRequestPrompts()
+  useEngineRestartRequiredToast()
   useNotificationToasts()
 
   const navigate = useNavigate()

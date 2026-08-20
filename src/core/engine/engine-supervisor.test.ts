@@ -24,33 +24,6 @@ import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
-vi.mock('../probe/disk-probe', () => ({
-  probePrecise: vi.fn().mockResolvedValue({
-    platform: 'darwin',
-    mountPoint: '/',
-    fsType: 'apfs',
-    diskType: 'ssd',
-    isInternal: true,
-    isNetworkFs: false,
-    freeBytes: 250000000000,
-    confidence: 'high',
-  }),
-  invalidateProbeCache: vi.fn(),
-}))
-
-vi.mock('./aria2/aria2-tuning', () => ({
-  recommend: vi.fn().mockReturnValue({
-    fileAllocation: 'none',
-    diskCache: 16777216,
-    split: 5,
-    minSplitSize: 20971520,
-    reasons: [],
-    confidence: 'high',
-    alternatives: [],
-    detectedEnv: {},
-  }),
-}))
-
 // checkPort uses node:net I/O which doesn't fire under fake timers, and
 // a live aria2 on the dev port would make it return false. Mock the
 // port-check module so the supervisor always sees the port as available.
@@ -226,6 +199,11 @@ describe('EngineSupervisor', () => {
       // degrades to "always trust not-found".
       await supervisor.start('/usr/bin/aria2c')
       expect(adapter.setFeatureReport).toHaveBeenCalledWith(FEATURE_REPORT)
+    })
+
+    it('does not overwrite persisted tuning settings during engine start', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      expect(settings.update).not.toHaveBeenCalled()
     })
   })
 
@@ -795,6 +773,40 @@ describe('EngineSupervisor', () => {
         expect.anything(),
         { download: 0, upload: 0 }
       )
+    })
+  })
+
+  describe('applyEngineSettings', () => {
+    it('is a no-op unless Ready', async () => {
+      const previous = settings.getEngine()
+      await supervisor.applyEngineSettings(previous, {
+        ...previous,
+        split: 32,
+      })
+      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
+    })
+
+    it('maps changed runtime settings and excludes startup-only settings', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.changeGlobalOption).mockClear()
+      const previous = settings.getEngine()
+
+      await supervisor.applyEngineSettings(previous, {
+        ...previous,
+        split: 32,
+        userAgent: 'Motrix/Test',
+        btEnableLpd: false,
+        sessionSaveInterval: 30,
+        fileAllocation: 'prealloc',
+        diskCache: 32 * 1024 * 1024,
+      })
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
+        split: '32',
+        'user-agent': 'Motrix/Test',
+        'bt-enable-lpd': 'false',
+        'save-session-interval': '30',
+      })
     })
   })
 

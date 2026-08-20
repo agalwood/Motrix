@@ -11,6 +11,8 @@ import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
 import type { EventBus } from '@core/events/event-bus'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { getLogger } from '@core/logger'
+import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
+import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { HookAuditLog } from '@core/plugin/hooks/audit-log'
@@ -185,6 +187,7 @@ export interface CommandContext {
   torrentMetaStore: TorrentMetaStore
   fileCleanupService: FileCleanupService
   eventBus: EventBus
+  notificationCenter: Pick<NotificationCenter, 'notify'>
   motrixDatabase: MotrixDatabase
   geoipManager: GeoIPManager
   proxyApplier: ReturnType<typeof createMainProxyApplier>
@@ -270,6 +273,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     torrentMetaStore,
     fileCleanupService,
     eventBus,
+    notificationCenter,
     motrixDatabase,
     geoipManager,
     proxyApplier,
@@ -922,6 +926,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         trackerManager.applySyncScheduleChange()
       }
 
+      await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
+
       if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
         await supervisor.applyAsyncDns(
           dnsModeToAsyncDns(newFull.engine.dnsMode)
@@ -932,7 +938,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
 
       if (result.requiresRestart) {
-        await supervisor.restart()
+        publishEngineRestartRequired(
+          { eventBus, notificationCenter, log },
+          result.changedRestartKeys
+        )
       }
 
       return result

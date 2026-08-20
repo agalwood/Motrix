@@ -328,7 +328,7 @@ export function AppearanceDialog({
             onClick={onSubmit}
             disabled={form.formState.isSubmitting}
           >
-            {t('common.apply')}
+            {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

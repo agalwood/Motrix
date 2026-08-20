@@ -17,10 +17,9 @@ export const ENGINE_RESTART_REQUIRED_KEYS: ReadonlySet<keyof EngineSettings> =
     'sqlite3HistoryLimit',
   ])
 
-// Consumed by:
-//   - renderer's patchHasRestartKeys() — shows RestartConfirmDialog before saving
-//   - SettingsManager.update() — sets requiresAppRestart in UpdateResult
-//   - Commands.UpdateSettings handler — calls app.relaunch() + app.exit(0)
+// Consumed by SettingsManager.update(), which reports requiresAppRestart to
+// shell command handlers. Settings forms always save first; shells own any
+// follow-up restart notice or action.
 //
 // Currently empty: launchAtStartup is hot-applied via syncAutoLaunch();
 // browserBridgeEnabled is hot-applied via BridgeManager.setEnabled().

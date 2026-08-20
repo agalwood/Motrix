@@ -71,7 +71,7 @@ describe('<AdvancedDialog>', () => {
     )
     await waitFor(() => screen.getByDisplayValue('16800'))
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Commands.UpdateSettings,
       expect.anything()
@@ -79,11 +79,12 @@ describe('<AdvancedDialog>', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows restart confirm when RESTART field is dirty', async () => {
+  it('saves a restart-required field without a pre-save confirmation', async () => {
+    const onClose = vi.fn()
     render(
       <AdvancedDialog
         open
-        onClose={vi.fn()}
+        onClose={onClose}
         labelKey="settings.cards.advanced.title"
         descKey="settings.cards.advanced.desc"
       />
@@ -97,60 +98,12 @@ describe('<AdvancedDialog>', () => {
     // rather than the intended final number. fireEvent fires one change event
     // with the full target value, matching real-user paste/blur semantics.
     fireEvent.change(portInput, { target: { value: '17000' } })
-    await user.click(screen.getByRole('button', { name: /apply/i }))
-    expect(
-      await screen.findByText(/restart to apply changes/i)
-    ).toBeInTheDocument()
-  })
-
-  it('cancel restart keeps form dirty and does not call UpdateSettings', async () => {
-    const onClose = vi.fn()
-    render(
-      <AdvancedDialog
-        open
-        onClose={onClose}
-        labelKey="settings.cards.advanced.title"
-        descKey="settings.cards.advanced.desc"
-      />
-    )
-    await waitFor(() => screen.getByDisplayValue('16800'))
-    const user = userEvent.setup()
-    const portInput = screen.getByDisplayValue('16800')
-    fireEvent.change(portInput, { target: { value: '17000' } })
-    await user.click(screen.getByRole('button', { name: /apply/i }))
-    await screen.findByText(/restart to apply changes/i)
-
-    // The first Cancel button is the dialog cancel; restart confirm has its own.
-    // Find the confirm dialog scope
-    const cancelButtons = screen.getAllByRole('button', { name: /cancel/i })
-    await user.click(cancelButtons[cancelButtons.length - 1])
-
-    expect(transport.invoke).not.toHaveBeenCalledWith(
-      Commands.UpdateSettings,
-      expect.anything()
-    )
-    expect(onClose).not.toHaveBeenCalled()
-  })
-
-  it('confirm restart sends UpdateSettings with engine patch', async () => {
-    render(
-      <AdvancedDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.advanced.title"
-        descKey="settings.cards.advanced.desc"
-      />
-    )
-    await waitFor(() => screen.getByDisplayValue('16800'))
-    const user = userEvent.setup()
-    const portInput = screen.getByDisplayValue('16800')
-    fireEvent.change(portInput, { target: { value: '17000' } })
-    await user.click(screen.getByRole('button', { name: /apply/i }))
-    await screen.findByText(/restart to apply changes/i)
-    await user.click(screen.getByRole('button', { name: /save and restart/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       engine: { rpcPort: 17000 },
     })
+    expect(onClose).toHaveBeenCalled()
+    expect(screen.queryByText(/restart to apply changes/i)).toBeNull()
   })
 
   it('Generate button populates rpcSecret', async () => {

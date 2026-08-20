@@ -1310,11 +1310,6 @@
       }
     },
     "common": {
-      "restartConfirm": {
-        "title": "要重新啟動以套用變更嗎?",
-        "body": "部分變更需要重新啟動才會生效。進行中的下載將會暫停，並在幾秒後繼續。",
-        "confirm": "儲存並重新啟動"
-      },
       "browse": "瀏覽...",
       "add": "新增",
       "remove": "移除",
@@ -1701,6 +1696,11 @@
     "engineFailure": {
       "title": "下載引擎失敗"
     },
+    "engineRestartRequired": {
+      "title": "重新啟動下載引擎以套用設定",
+      "body": "設定已儲存，您可以在方便時重新啟動下載引擎。",
+      "restartNow": "立即重新啟動"
+    },
     "dnsFallback": {
       "title": "{{name}} 已改用系統 DNS 重試",
       "body": "引擎無法聯繫任何 DNS 伺服器,本次工作階段已切換至系統解析器。"
@@ -1710,7 +1710,7 @@
       "markAllRead": "全部標示為已讀",
       "clearAll": "清除",
       "empty": "沒有通知",
-      "emptyDesc": "下載失敗和完成時會顯示在這裡",
+      "emptyDesc": "下載活動和重要應用程式通知會顯示在這裡",
       "unreadBadgeAria_other": "{{count}} 則未讀通知",
       "rowUnreadAria": "{{title}} (未讀)",
       "toastRegionAria": "通知"

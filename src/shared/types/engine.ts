@@ -74,6 +74,11 @@ export interface EngineFailurePayload {
   technicalMessage: string | null
 }
 
+/** Payload emitted after settings save while startup-only engine keys differ. */
+export interface EngineRestartRequiredPayload {
+  changedKeys: string[]
+}
+
 export interface EngineProcessInfo {
   pid: number
   name: string

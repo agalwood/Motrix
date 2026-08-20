@@ -96,11 +96,47 @@ describe('<DownloadsDialog>', () => {
       .find((el) => el.getAttribute('min') === '1') as HTMLInputElement
     fireEvent.change(concurrent, { target: { value: '10' } })
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       engine: { maxConcurrentDownloads: 10 },
     })
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('saves split, file allocation, and disk cache as explicit user values', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    await waitFor(() => {
+      expect(screen.getByLabelText(/split connections per file/i)).toHaveValue(
+        16
+      )
+    })
+
+    fireEvent.change(screen.getByLabelText(/split connections per file/i), {
+      target: { value: '32' },
+    })
+    fireEvent.change(screen.getByLabelText(/disk cache/i), {
+      target: { value: '32' },
+    })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: /file allocation/i }))
+    await user.click(await screen.findByRole('option', { name: /^prealloc$/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: {
+        split: 32,
+        fileAllocation: 'prealloc',
+        diskCache: 32 * 1024 * 1024,
+      },
+    })
+    expect(screen.queryByText(/restart to apply changes/i)).toBeNull()
   })
 
   it('renders the speed modes with user-facing names', async () => {
@@ -151,7 +187,7 @@ describe('<DownloadsDialog>', () => {
     ) as HTMLInputElement
     // 1024 KB/s → bytes/sec: 1024 * 1024 = 1_048_576.
     fireEvent.change(baseDown, { target: { value: '1024' } })
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       speedLimit: { base: { download: 1024 * 1024 } },
     })
@@ -176,7 +212,7 @@ describe('<DownloadsDialog>', () => {
     })
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^automatic$/i }))
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       speedLimit: { turtle: 'auto' },
     })
@@ -273,7 +309,7 @@ describe('<DownloadsDialog>', () => {
     expect(reserved).toHaveValue(20)
     fireEvent.change(reserved, { target: { value: '30' } })
 
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       speedLimit: {
         turtle: 'auto',

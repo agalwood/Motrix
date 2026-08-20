@@ -107,7 +107,7 @@ describe('<AppearanceDialog>', () => {
     await user.click(themeTrigger)
     const darkOption = await screen.findByRole('option', { name: /dark/i })
     await user.click(darkOption)
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       app: { theme: 'dark' },
     })
@@ -129,7 +129,7 @@ describe('<AppearanceDialog>', () => {
 
     await user.click(languageTrigger)
     await user.click(await screen.findByRole('option', { name: '简体中文' }))
-    await user.click(screen.getByRole('button', { name: /apply/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       app: { language: 'zh-CN' },

@@ -44,6 +44,7 @@ function makeFakeCtx() {
     supervisor: {
       stop: vi.fn().mockResolvedValue(undefined),
       start: vi.fn().mockResolvedValue(undefined),
+      applyEngineSettings: vi.fn().mockResolvedValue(undefined),
       applyAsyncDns: vi.fn().mockResolvedValue(undefined),
     } as unknown as EngineSupervisor,
     dnsFallback: { reset: vi.fn() },
@@ -78,6 +79,7 @@ function makeFakeCtx() {
       deleteMetadata: vi.fn(),
     } as unknown as MotrixDatabase,
     notificationCenter: {
+      notify: vi.fn(() => ({ fresh: true })),
       markRead: vi.fn(() => true),
       markAllRead: vi.fn(() => 0),
       delete: vi.fn(() => true),
@@ -145,7 +147,7 @@ function makeFakeCtx() {
 function makeSettings(
   proxy: typeof PROXY_OFF,
   tracker: { sourcesEnabled?: boolean; blacklistEnabled?: boolean } = {},
-  engine: { dnsMode?: 'auto' | 'system' | 'engine' } = {}
+  engine: { dnsMode?: 'auto' | 'system' | 'engine'; split?: number } = {}
 ) {
   return {
     proxy,
@@ -227,7 +229,7 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.dnsFallback.reset).not.toHaveBeenCalled()
   })
 
-  it('restarts engine via stop+start when requiresRestart is true', async () => {
+  it('publishes a restart reminder without stopping the engine', async () => {
     const ctx = makeFakeCtx()
     ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>).mockReturnValue(
       makeSettings(PROXY_OFF)
@@ -239,8 +241,41 @@ describe('server Commands.UpdateSettings', () => {
       ctx as Parameters<typeof buildServerCommandHandlers>[0]
     )
     await handlers[Commands.UpdateSettings]?.({ engine: { rpcPort: 9000 } })
-    expect(ctx.supervisor.stop).toHaveBeenCalledOnce()
-    expect(ctx.supervisor.start).toHaveBeenCalledWith('/usr/bin/aria2c')
+    expect(ctx.supervisor.stop).not.toHaveBeenCalled()
+    expect(ctx.supervisor.start).not.toHaveBeenCalled()
+    expect(ctx.notificationCenter.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'engine-restart-required',
+        severity: 'warning',
+      })
+    )
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(
+      Events.EngineRestartRequired,
+      { changedKeys: ['rpcPort'] }
+    )
+  })
+
+  it('hot-applies runtime engine settings without a restart reminder', async () => {
+    const ctx = makeFakeCtx()
+    const before = makeSettings(PROXY_OFF, {}, { dnsMode: 'auto', split: 16 })
+    const after = makeSettings(PROXY_OFF, {}, { dnsMode: 'auto', split: 32 })
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(before)
+      .mockReturnValueOnce(after)
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({ engine: { split: 32 } })
+
+    expect(ctx.supervisor.applyEngineSettings).toHaveBeenCalledWith(
+      before.engine,
+      after.engine
+    )
+    expect(ctx.notificationCenter.notify).not.toHaveBeenCalled()
   })
 
   it('calls trackerManager.applySourcesChange when sourcesEnabled changes', async () => {

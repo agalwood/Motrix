@@ -17,14 +17,13 @@ import {
   EngineState,
   type EngineStatusSnapshot,
 } from '@shared/types/engine'
+import type { EngineSettings } from '@shared/types/settings'
 import type { EventBus } from '../events/event-bus'
-import { probePrecise } from '../probe/disk-probe'
 import type { SettingsManager } from '../settings/settings-manager'
 import type { Aria2Adapter } from './aria2/aria2-adapter'
 import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
-import { recommend } from './aria2/aria2-tuning'
 import { checkPort, findAvailablePort } from './port-check'
 
 const log = getLogger('engine')
@@ -39,6 +38,24 @@ const BACKOFF_MAX = 30_000
 const MAX_RESTARTS = 5
 const HEALTH_CHECK_INTERVAL = 30_000
 const MAX_CONSECUTIVE_FAILURES = 3
+
+const HOT_ENGINE_OPTIONS = {
+  maxConcurrentDownloads: 'max-concurrent-downloads',
+  maxConnectionPerServer: 'max-connection-per-server',
+  split: 'split',
+  minSplitSize: 'min-split-size',
+  userAgent: 'user-agent',
+  connectTimeout: 'connect-timeout',
+  socketTimeout: 'timeout',
+  maxTries: 'max-tries',
+  retryWait: 'retry-wait',
+  lowestSpeedLimit: 'lowest-speed-limit',
+  btMaxPeers: 'bt-max-peers',
+  btEnableLpd: 'bt-enable-lpd',
+  seedRatio: 'seed-ratio',
+  seedTime: 'seed-time',
+  sessionSaveInterval: 'save-session-interval',
+} as const satisfies Partial<Record<keyof EngineSettings, string>>
 
 function getBackoffDelay(attempt: number): number {
   return Math.min(BACKOFF_BASE * 2 ** attempt, BACKOFF_MAX)
@@ -158,6 +175,25 @@ export class EngineSupervisor {
     })
   }
 
+  /** HOT-update changed runtime engine settings without restarting aria2. */
+  async applyEngineSettings(
+    previous: EngineSettings,
+    next: EngineSettings
+  ): Promise<void> {
+    if (this.state !== EngineState.Ready) return
+
+    const params: Record<string, string> = {}
+    for (const [key, option] of Object.entries(HOT_ENGINE_OPTIONS) as Array<
+      [keyof typeof HOT_ENGINE_OPTIONS, string]
+    >) {
+      if (previous[key] !== next[key]) {
+        params[option] = String(next[key])
+      }
+    }
+    if (Object.keys(params).length === 0) return
+    await this.rpcClient.changeGlobalOption(params)
+  }
+
   /**
    * HOT-update the aria2 proxy via `aria2.changeGlobalOption`. No-op when
    * the engine is not Ready (cold start picks up proxy via `buildArgs`).
@@ -214,11 +250,7 @@ export class EngineSupervisor {
     let phase: 'probe' | 'config' | 'spawn' | 'rpc' = 'probe'
 
     try {
-      const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir || '.'
-      const [featureReport, probeResult] = await Promise.all([
-        this.processManager.probe(this.binaryPath),
-        probePrecise(defaultSaveDir),
-      ])
+      const featureReport = await this.processManager.probe(this.binaryPath)
       if (this.stopping) return
 
       this.featureReport = featureReport
@@ -226,26 +258,6 @@ export class EngineSupervisor {
       // and nothing calls adapter.connect() in production — inject the report
       // we just probed so the gate reflects the real engine version.
       this.adapter.setFeatureReport(featureReport)
-
-      const tuning = recommend(probeResult, null)
-
-      const currentEngine = this.settingsManager.getEngine()
-      if (
-        currentEngine.fileAllocation !== tuning.fileAllocation ||
-        currentEngine.diskCache !== tuning.diskCache ||
-        currentEngine.split !== tuning.split ||
-        currentEngine.minSplitSize !== tuning.minSplitSize
-      ) {
-        await this.settingsManager.update({
-          engine: {
-            fileAllocation: tuning.fileAllocation,
-            diskCache: tuning.diskCache,
-            split: tuning.split,
-            minSplitSize: tuning.minSplitSize,
-          },
-        })
-        this.eventBus.emit(Events.TuningUpdated, tuning)
-      }
 
       // Step 2: Ensure config and build args
       phase = 'config'

@@ -2200,6 +2200,7 @@ async function initializeMainProcess(): Promise<void> {
     torrentMetaStore,
     fileCleanupService,
     eventBus,
+    notificationCenter,
     motrixDatabase: motrixDb,
     geoipManager,
     proxyApplier,

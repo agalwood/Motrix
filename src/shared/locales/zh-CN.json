@@ -1310,11 +1310,6 @@
       }
     },
     "common": {
-      "restartConfirm": {
-        "title": "重启以应用更改？",
-        "body": "部分更改需要重启才能生效。当前下载会暂停后自动恢复。",
-        "confirm": "保存并重启"
-      },
       "browse": "浏览…",
       "add": "添加",
       "remove": "移除",
@@ -2080,6 +2075,11 @@
     "engineFailure": {
       "title": "下载引擎故障"
     },
+    "engineRestartRequired": {
+      "title": "重启下载引擎以应用设置",
+      "body": "设置已保存，可在方便时重启下载引擎。",
+      "restartNow": "立即重启"
+    },
     "dnsFallback": {
       "title": "{{name}} 已改用系统 DNS 重试",
       "body": "引擎无法联系任何 DNS 服务器,本次会话已切换到系统解析器。"
@@ -2089,7 +2089,7 @@
       "markAllRead": "全部标为已读",
       "clearAll": "清空",
       "empty": "暂无通知",
-      "emptyDesc": "下载失败和完成会显示在这里",
+      "emptyDesc": "下载活动和重要应用提醒会显示在这里",
       "unreadBadgeAria_other": "{{count}} 条未读通知",
       "rowUnreadAria": "{{title}}（未读）",
       "toastRegionAria": "通知"
