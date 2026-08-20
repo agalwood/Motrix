@@ -14,18 +14,27 @@ Import `ErrorCodes` and `makeMdxpError` from the package.
 
 ## Pairing and session lifecycle
 
-- Extension WebSockets use `/pair?nonce=...` for first-time pairing and
-  `/v1?token=...` for authenticated reconnects. Valid MDXP clients make
-  `motrix/initialize` their first request on either route.
+- Extension WebSockets speak MBP1 (`docs/bridge-pairing-protocol.md`), which
+  authenticates *below* MDXP. `/pair?nonce=...` runs the §6 first-pair
+  handshake and `/v1` the §8 challenge–response; `/v1` carries **no**
+  credential in its URL and a `?token=` query is ignored. Only once a route
+  authenticates does MDXP start, inside the §10 AEAD envelope, and
+  `motrix/initialize` is the client's first request there.
 - `WebSocketBridgeServer` always owns and registers `motrix/initialize`.
   Shell-provided download handlers are registered separately and must be wired
   before `server.start()`; never expose a listener with incomplete handlers.
-- Authorization and readiness are different states. A `/pair` connection is
-  unauthorized until initialize completes an approved pairing; `/v1` is
-  authorized when its token passes the upgrade gate. On extension WebSockets,
-  all control-plane and download methods other than initialize and
-  `system/ping` use `authorizedDispatch`; unary HTTP separately requires its
-  bearer-token and agent-facing gates.
+- Authorization and readiness are different states. Every extension WebSocket
+  session is authorized **at the transport**: `adoptAuthenticatedSession` marks
+  the connection before registering a handler, and `motrix/initialize` is a
+  capabilities exchange that grants nothing and never returns a `pairToken`.
+  The `authorizedDispatch` gate over control-plane and download methods stays
+  as defence in depth. Unary HTTP separately requires its bearer-token and
+  agent-facing gates.
+- The six MBP1 `BridgeServerOptions` (`instanceId`, `serverGeneration`,
+  `appVersion`, `credentials`, `isOfficialId`, `queueMbp1Dialog`) resolve as a
+  unit. A server missing any one of them has no extension WebSocket surface at
+  all: both upgrades are refused rather than falling back to an
+  unauthenticated one.
 - A connection becomes ready only after the peer sends the
   `motrix/initialized` notification. Providers passed to
   `UrlResolutionService` must filter to ready connections before sending
@@ -34,9 +43,16 @@ Import `ErrorCodes` and `makeMdxpError` from the package.
   connection. Do not mutate the server's session map from feature code.
 
 Pair nonces are one-shot, expire after 60 seconds, and are consumed only by
-`/pair`. Never persist them. `endpoint.json` contains discovery information and
-a separate local CLI bearer token; the native host obtains a fresh nonce from
-`GET /nonce`.
+`/pair` — before the route does anything else, so a refused upgrade never
+reaches a session or a dialog. Never persist them. `endpoint.json` contains
+discovery information and a separate local CLI bearer token; the native host
+bootstraps with `GET /discovery` then `POST /nonce` (which requires
+`X-Motrix-Bridge: 1`; the former `GET /nonce` is gone and 404s).
+
+While bound to a loopback host, every route and upgrade rejects a `Host` header
+that is not `127.0.0.1`, `localhost`, or `[::1]` with the bound port — the §4.3
+DNS-rebinding guard. It is inert for a non-loopback bind, which keeps its
+existing token + reverse-proxy model.
 
 ## Dispatch and transport exposure
 
@@ -79,8 +95,9 @@ main owns its `CancellationTokenSource`, and the matching cancel query aborts it
 ## Native Messaging host
 
 `packages/native-host/` is a standalone Rust executable spawned by Chromium or
-Firefox. It reads only the endpoint port, calls loopback `GET /nonce`, and
-returns `{ action: 'requestPair', port, nonce }`. It must not expose the local
+Firefox. It reads only the endpoint port, calls loopback `POST /nonce` with
+`X-Motrix-Bridge: 1` and no `Origin`, and returns
+`{ action: 'requestPair', port, nonce }`. It must not expose the local
 CLI token or depend on system Node.js or Electron. Production extension IDs
 come from `src/shared/config/native-messaging-extensions.json`; development IDs
 may be added only through `MOTRIX_DEV_TRUSTED_EXTENSIONS` and must never ship as
