@@ -256,9 +256,9 @@ describe('third-party graph dependency notices', () => {
 
       expect(notice).toContain('SFNS-Regular.ttf')
       expect(notice).toContain('https://developer.apple.com/fonts/')
-      expect(notice).toContain('1.37.0-motrix.4')
+      expect(notice).toContain('1.37.0-motrix.5')
       expect(notice).toContain(
-        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.4'
+        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.5'
       )
       expect(notice).toContain('GPL-2.0-or-later')
       expect(notice).toContain('THIRD_PARTY_LICENSES/aria2-COPYING')
