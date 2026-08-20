@@ -802,9 +802,10 @@ describe('§6 first pair over the wire', () => {
   })
 
   it('closes on a text frame injected after channel activation (§10)', async () => {
-    // Only reachable against a REAL ws client: in nodebuffer mode a text frame
-    // and a binary frame both arrive as a Buffer, so a wrapper discriminating
-    // on `typeof data` would accept this injected plaintext.
+    // Note what this does NOT pin: a wrapper discriminating on `typeof data`
+    // instead of `isBinary` also closes 1002 here, because injected plaintext
+    // fails GCM. The §10 rule itself is pinned by the unit test — see the case
+    // below for why the sharp form cannot be written against a real socket.
     const hs = await startPair({
       port: h.port,
       origin: OFFICIAL_ORIGIN,
@@ -821,6 +822,41 @@ describe('§6 first pair over the wire', () => {
 
     const closed = await hs.wire.closed
     expect(closed.code).toBe(1002)
+  })
+
+  it('refuses a sealed frame that arrives flagged as text, at the transport', async () => {
+    // The sharp form of the case above — a payload that WOULD open cleanly, so
+    // that only reading `isBinary` can refuse it — is not expressible here, and
+    // that is itself the finding: `ws`'s own receiver validates that a TEXT
+    // frame is valid UTF-8 and closes 1007 before our wrapper is consulted.
+    // Ciphertext is not valid UTF-8, so a sealed frame can never arrive flagged
+    // as text through a real socket at all.
+    //
+    // The §10 rule is therefore pinned by the unit test that CAN deliver
+    // arbitrary bytes flagged as text (`mbp1/envelope-message-stream.test.ts`,
+    // "refuses a well-formed envelope that arrives flagged as text"); this case
+    // records the transport-level bound that makes the rule defence in depth.
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+    })
+    const { channel } = await runPake(hs, h.dialogs.latestCode())
+    await exchangeCredential(hs, channel)
+    hs.wire.detach()
+
+    const sealed = channel.sealer.seal(
+      new Uint8Array(Buffer.from('{"jsonrpc":"2.0","method":"x"}', 'utf8'))
+    )
+    // `binary: false` puts those exact bytes in a TEXT frame.
+    hs.wire.ws.send(Buffer.from(sealed), { binary: false })
+
+    const closed = await Promise.race([
+      hs.wire.closed,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_000)),
+    ])
+    expect(closed?.code).toBe(1007)
   })
 
   it('closes on a replayed sealed frame after activation (§10)', async () => {
@@ -960,6 +996,49 @@ describe('§6 first pair over the wire', () => {
     const frame = await hs.wire.takeJson<{ type: string; code: string }>()
     expect(frame).toMatchObject({ type: 'pairError', code: 'aborted' })
     await hs.wire.closed
+  })
+
+  it('refuses a second pairHello on the same connection', async () => {
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+    })
+    // The §7.3 pending slot was taken by the first hello. A second one must be
+    // a protocol violation, not a second admission — otherwise one socket could
+    // hold an unbounded number of slots.
+    hs.wire.sendJson({
+      type: 'pairHello',
+      protocolVersion: 1,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+      clientInstallationId: 'install-1',
+    })
+
+    const frame = await hs.wire.takeJson<{ type: string; code: string }>()
+    expect(frame).toMatchObject({
+      type: 'pairError',
+      code: 'protocolViolation',
+    })
+    expect(h.dialogs.requests).toHaveLength(1)
+    await hs.wire.closed
+  })
+
+  it('never puts a reason string on a close frame (§11)', async () => {
+    // Every close is bare. A reason names the internal step that produced it —
+    // dismissal, a ticket row, a wrong code — so it would be exactly the
+    // failure oracle §9.2 and §11 forbid, on the one channel a peer always sees.
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+    })
+    h.dialogs.dismissLatest()
+
+    const closed = await hs.wire.closed
+    expect(closed.reason).toBe('')
   })
 })
 
