@@ -45,9 +45,9 @@ Import `ErrorCodes` and `makeMdxpError` from the package.
 Pair nonces are one-shot, expire after 60 seconds, and are consumed only by
 `/pair` — before the route does anything else, so a refused upgrade never
 reaches a session or a dialog. Never persist them. `endpoint.json` contains
-discovery information and a separate local CLI bearer token; the native host
-bootstraps with `GET /discovery` then `POST /nonce` (which requires
-`X-Motrix-Bridge: 1`; the former `GET /nonce` is gone and 404s).
+discovery information and a separate local CLI bearer token. The nonce route is
+now `POST /nonce` and requires `X-Motrix-Bridge: 1`; the former `GET /nonce` is
+gone and 404s.
 
 While bound to a loopback host, every route and upgrade rejects a `Host` header
 that is not `127.0.0.1`, `localhost`, or `[::1]` with the bound port — the §4.3
@@ -95,13 +95,20 @@ main owns its `CancellationTokenSource`, and the matching cancel query aborts it
 ## Native Messaging host
 
 `packages/native-host/` is a standalone Rust executable spawned by Chromium or
-Firefox. It reads only the endpoint port, calls loopback `POST /nonce` with
-`X-Motrix-Bridge: 1` and no `Origin`, and returns
-`{ action: 'requestPair', port, nonce }`. It must not expose the local
+Firefox. It reads only the endpoint port, fetches a nonce over loopback, and
+returns `{ action: 'requestPair', port, nonce }`. It must not expose the local
 CLI token or depend on system Node.js or Electron. Production extension IDs
 come from `src/shared/config/native-messaging-extensions.json`; development IDs
 may be added only through `MOTRIX_DEV_TRUSTED_EXTENSIONS` and must never ship as
 production defaults.
+
+**Pending migration — do not treat the host as MBP1-ready.** `probe.rs` still
+issues `GET /nonce` with no custom header, which the bridge now 404s, so the
+shipped host's `requestPair` path is broken until it is ported to `POST /nonce`
+with `X-Motrix-Bridge: 1`. Nothing in CI catches this: the host's own test
+asserts the old request line, so it passes against a server that no longer
+serves it. The port is tracked separately and is a release gate for the MBP1
+branch.
 
 ## Verification
 
