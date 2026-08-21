@@ -42,7 +42,7 @@ fn user_data_for(home: &Path, app_data: &Path) -> PathBuf {
 }
 
 fn run_host(home: &Path, app_data: &Path, wire: &[u8]) -> Output {
-    run_host_with_bridge_override(home, app_data, wire, None)
+    run_host_with_options(home, app_data, wire, None, &[])
 }
 
 fn run_host_with_bridge_override(
@@ -51,8 +51,25 @@ fn run_host_with_bridge_override(
     wire: &[u8],
     bridge_data_dir: Option<&Path>,
 ) -> Output {
+    run_host_with_options(home, app_data, wire, bridge_data_dir, &[])
+}
+
+/// Runs the host with extra post-argv0 arguments, mimicking the browser
+/// caller identity Chromium/Firefox pass over Native Messaging (§9.1).
+fn run_host_with_argv(home: &Path, app_data: &Path, wire: &[u8], argv: &[&str]) -> Output {
+    run_host_with_options(home, app_data, wire, None, argv)
+}
+
+fn run_host_with_options(
+    home: &Path,
+    app_data: &Path,
+    wire: &[u8],
+    bridge_data_dir: Option<&Path>,
+    argv: &[&str],
+) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_motrix-native-host"));
     command
+        .args(argv)
         .env("HOME", home)
         .env("USERPROFILE", home)
         .env("APPDATA", app_data)
@@ -110,46 +127,54 @@ fn read_request_head(stream: &mut std::net::TcpStream) -> String {
     String::from_utf8(request).expect("request is ASCII")
 }
 
-/// A fake bridge that answers exactly the two requests the host now makes
-/// per resolution (Task B6): first the `GET /discovery` liveness probe, then
-/// a single `POST /nonce`. Returns the nonce request's text, matching the
-/// pre-split behavior callers already assert on.
-fn serve_chunked_nonce() -> (u16, JoinHandle<String>) {
+/// A fake bridge that answers up to `requests` sequential connections: a
+/// `GET /discovery` liveness probe gets a 200 JSON discovery body, and a
+/// `POST /nonce` (which must carry `X-Motrix-Bridge: 1`) gets the chunked
+/// nonce body. Returns every request's text, in arrival order, so callers
+/// can assert both the liveness probe and the nonce fetch (Task B6/B8).
+fn serve_bridge(requests: usize) -> (u16, JoinHandle<Vec<String>>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fake bridge");
     let port = listener.local_addr().expect("fake bridge address").port();
     let handle = thread::spawn(move || {
-        let (mut discovery_stream, _) = listener.accept().expect("accept discovery probe");
-        let discovery_request = read_request_head(&mut discovery_stream);
-        assert!(
-            discovery_request.starts_with("GET /discovery HTTP/1.1\r\n"),
-            "expected a liveness probe before the nonce fetch, got: {discovery_request}"
-        );
-        let discovery_body =
-            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#;
-        let discovery_response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{discovery_body}",
-            discovery_body.len()
-        );
-        discovery_stream
-            .write_all(discovery_response.as_bytes())
-            .expect("write discovery response");
+        let mut captured = Vec::with_capacity(requests);
+        for _ in 0..requests {
+            let (mut stream, _) = listener.accept().expect("accept fake bridge connection");
+            let request = read_request_head(&mut stream);
 
-        let (mut nonce_stream, _) = listener.accept().expect("accept native host probe");
-        let request = read_request_head(&mut nonce_stream);
-
-        let body = format!(r#"{{"nonce":"{NONCE}"}}"#);
-        let split = 11;
-        let first = &body[..split];
-        let second = &body[split..];
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{:X}\r\n{first}\r\n{:X}\r\n{second}\r\n0\r\n\r\n",
-            first.len(),
-            second.len()
-        );
-        nonce_stream
-            .write_all(response.as_bytes())
-            .expect("write chunked nonce response");
-        request
+            if request.starts_with("GET /discovery HTTP/1.1\r\n") {
+                let discovery_body = r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#;
+                let discovery_response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{discovery_body}",
+                    discovery_body.len()
+                );
+                stream
+                    .write_all(discovery_response.as_bytes())
+                    .expect("write discovery response");
+            } else {
+                assert!(
+                    request.starts_with("POST /nonce HTTP/1.1\r\n"),
+                    "expected a discovery probe or a nonce fetch, got: {request}"
+                );
+                assert!(
+                    request.contains("\r\nX-Motrix-Bridge: 1\r\n"),
+                    "nonce fetch is missing the X-Motrix-Bridge header: {request}"
+                );
+                let body = format!(r#"{{"nonce":"{NONCE}"}}"#);
+                let split = 11;
+                let first = &body[..split];
+                let second = &body[split..];
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{:X}\r\n{first}\r\n{:X}\r\n{second}\r\n0\r\n\r\n",
+                    first.len(),
+                    second.len()
+                );
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write chunked nonce response");
+            }
+            captured.push(request);
+        }
+        captured
     });
     (port, handle)
 }
@@ -163,7 +188,7 @@ fn subprocess_returns_exact_pair_frame_and_never_logs_nonce_or_local_token() {
     fs::create_dir_all(&bridge_dir).expect("create bridge directory");
     fs::write(bridge_dir.join(".nh-debug"), b"").expect("enable debug log");
 
-    let (port, server) = serve_chunked_nonce();
+    let (port, server) = serve_bridge(2);
     let endpoint_path = bridge_dir.join("endpoint.json");
     fs::write(
         &endpoint_path,
@@ -193,9 +218,10 @@ fn subprocess_returns_exact_pair_frame_and_never_logs_nonce_or_local_token() {
         json!({ "action": "requestPair", "protocolVersion": 1, "port": port, "nonce": NONCE })
     );
 
-    let request = server.join().expect("fake bridge thread");
-    assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
-    assert!(request.contains("\r\nX-Motrix-Bridge: 1\r\n"));
+    let requests = server.join().expect("fake bridge thread");
+    assert!(requests[0].starts_with("GET /discovery HTTP/1.1\r\n"));
+    assert!(requests[1].starts_with("POST /nonce HTTP/1.1\r\n"));
+    assert!(requests[1].contains("\r\nX-Motrix-Bridge: 1\r\n"));
     let log = fs::read_to_string(user_data.join("logs").join("native-host.log"))
         .expect("read native host debug log");
     assert!(log.contains("nonce=[redacted]"));
@@ -210,7 +236,7 @@ fn subprocess_reads_endpoint_from_the_shared_bridge_override() {
     let bridge_dir = temp.path.join("snap").join("common").join("bridge");
     fs::create_dir_all(&bridge_dir).expect("create shared bridge directory");
 
-    let (port, server) = serve_chunked_nonce();
+    let (port, server) = serve_bridge(2);
     fs::write(
         bridge_dir.join("endpoint.json"),
         format!(r#"{{"port":{port},"pid":1,"writtenAt":0}}"#),
@@ -287,4 +313,163 @@ fn subprocess_rejects_primitive_malformed_truncated_and_oversized_input() {
     );
     assert!(!oversized.status.success());
     assert!(oversized.stdout.is_empty());
+}
+
+// binding pub = 32 bytes of 0x07, base64url no-pad (spec §9.1/§9.2).
+const BOOTSTRAP_BINDING_PUB: &str = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
+const BOOTSTRAP_CALLER_ARGV: &str = "chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/";
+
+fn bootstrap_wire(allow_launch: bool) -> Vec<u8> {
+    encode(&json!({
+        "action": "bootstrap",
+        "protocolVersion": 1,
+        "bindingPub": BOOTSTRAP_BINDING_PUB,
+        "allowLaunch": allow_launch,
+    }))
+}
+
+#[test]
+fn bootstrap_request_returns_ticketed_pair_frame_and_never_leaks_secrets() {
+    let temp = TempDir::new("bootstrap");
+    let app_data = temp.path.join("Roaming");
+    let user_data = user_data_for(&temp.path, &app_data);
+    let bridge_dir = user_data.join("bridge");
+    fs::create_dir_all(&bridge_dir).expect("create bridge directory");
+    fs::write(bridge_dir.join(".nh-debug"), b"").expect("enable debug log");
+
+    let (port, server) = serve_bridge(2); // /discovery then POST /nonce
+    let endpoint_path = bridge_dir.join("endpoint.json");
+    fs::write(
+        &endpoint_path,
+        format!(
+            r#"{{"port":{port},"pid":1,"writtenAt":0,"localToken":"endpoint-secret","generation":"gen-1"}}"#
+        ),
+    )
+    .expect("write endpoint");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o600))
+            .expect("chmod endpoint fixture to 0600");
+    }
+
+    let output = run_host_with_argv(
+        &temp.path,
+        &app_data,
+        &bootstrap_wire(false),
+        &[BOOTSTRAP_CALLER_ARGV],
+    );
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let frame = decode_only_frame(&output.stdout);
+    assert_eq!(frame["action"], "requestPair");
+    assert_eq!(frame["protocolVersion"], 1);
+    assert_eq!(frame["port"], u64::from(port));
+    let ticket = &frame["nmTicket"];
+    assert_eq!(ticket["v"], 1);
+    assert_eq!(ticket["purpose"], "mbp1-attestation");
+    assert_eq!(ticket["callerId"], "ibpkjhgpbidfmbmomagmldcdlpbmchgi");
+    assert_eq!(ticket["browser"], "chromium");
+    assert_eq!(ticket["bindingPub"], BOOTSTRAP_BINDING_PUB);
+    let exp = ticket["exp"].as_u64().expect("exp");
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_secs();
+    assert!(exp > now && exp <= now + 61, "exp must be now + 60s");
+
+    let requests = server.join().expect("fake bridge");
+    assert!(requests[0].starts_with("GET /discovery HTTP/1.1\r\n"));
+    assert!(requests[1].starts_with("POST /nonce HTTP/1.1\r\n"));
+    assert!(requests[1].contains("\r\nX-Motrix-Bridge: 1\r\n"));
+
+    let log = fs::read_to_string(user_data.join("logs").join("native-host.log")).expect("log");
+    assert!(log.contains("ticket=present"));
+    assert!(!log.contains("endpoint-secret"));
+    assert!(!log.contains(ticket["mac"].as_str().expect("mac")));
+}
+
+#[cfg(unix)]
+#[test]
+fn bootstrap_request_degrades_to_ticketless_when_endpoint_file_is_lax() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new("bootstrap-lax-endpoint");
+    let app_data = temp.path.join("Roaming");
+    let user_data = user_data_for(&temp.path, &app_data);
+    let bridge_dir = user_data.join("bridge");
+    fs::create_dir_all(&bridge_dir).expect("create bridge directory");
+
+    let (port, server) = serve_bridge(2);
+    let endpoint_path = bridge_dir.join("endpoint.json");
+    fs::write(
+        &endpoint_path,
+        format!(
+            r#"{{"port":{port},"pid":1,"writtenAt":0,"localToken":"endpoint-secret","generation":"gen-1"}}"#
+        ),
+    )
+    .expect("write endpoint");
+    // Group/world-readable: the 0600 owner-only check fails, so the host
+    // must drop `localToken`/`generation` and reply ticketless rather than
+    // trusting an unverified credential (§9.1's attestation root).
+    fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o644))
+        .expect("chmod endpoint fixture to 0644");
+
+    let output = run_host_with_argv(
+        &temp.path,
+        &app_data,
+        &bootstrap_wire(false),
+        &[BOOTSTRAP_CALLER_ARGV],
+    );
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let frame = decode_only_frame(&output.stdout);
+    assert_eq!(frame["action"], "requestPair");
+    assert_eq!(frame["port"], u64::from(port));
+    assert!(
+        frame.get("nmTicket").is_none(),
+        "a lax-permission endpoint file must degrade to ticketless, got: {frame}"
+    );
+
+    server.join().expect("fake bridge");
+}
+
+#[test]
+fn bootstrap_request_degrades_to_ticketless_without_caller_identity() {
+    let temp = TempDir::new("bootstrap-no-caller");
+    let app_data = temp.path.join("Roaming");
+    let user_data = user_data_for(&temp.path, &app_data);
+    let bridge_dir = user_data.join("bridge");
+    fs::create_dir_all(&bridge_dir).expect("create bridge directory");
+
+    let (port, server) = serve_bridge(2);
+    let endpoint_path = bridge_dir.join("endpoint.json");
+    fs::write(
+        &endpoint_path,
+        format!(
+            r#"{{"port":{port},"pid":1,"writtenAt":0,"localToken":"endpoint-secret","generation":"gen-1"}}"#
+        ),
+    )
+    .expect("write endpoint");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o600))
+            .expect("chmod endpoint fixture to 0600");
+    }
+
+    // No argv at all: the host cannot extract a caller identity, so it must
+    // never fabricate one — it degrades to ticketless instead of minting.
+    let output = run_host_with_argv(&temp.path, &app_data, &bootstrap_wire(false), &[]);
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let frame = decode_only_frame(&output.stdout);
+    assert_eq!(frame["action"], "requestPair");
+    assert_eq!(frame["port"], u64::from(port));
+    assert!(
+        frame.get("nmTicket").is_none(),
+        "a missing caller identity must degrade to ticketless, got: {frame}"
+    );
+
+    server.join().expect("fake bridge");
 }
