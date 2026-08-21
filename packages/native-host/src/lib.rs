@@ -1,4 +1,5 @@
 pub mod broker_protocol;
+pub mod canonical;
 pub mod endpoint;
 pub mod flatpak_companion;
 pub mod launcher;
