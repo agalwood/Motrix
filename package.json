@@ -32,6 +32,7 @@
     "build:builtin": "node scripts/fetch-builtins.mjs",
     "build:native-host": "node packages/native-host/build.mjs",
     "build:legal": "pnpm run ensure:electron-runtime && node scripts/generate-third-party-notices.mjs",
+    "generate:bridge-vectors": "node scripts/generate-bridge-pairing-vectors.mjs docs/bridge-pairing-protocol-vectors.json",
     "package:flatpak-native-host": "node packages/native-host/package-flatpak-companion.mjs",
     "build:snap:prepare": "node scripts/prepare-snap-project.mjs",
     "build:mac-arm64": "pnpm run build:builtin && pnpm run build:native-host -- --platform darwin --arch arm64 && pnpm run build:electron",
