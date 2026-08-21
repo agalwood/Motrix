@@ -163,6 +163,14 @@ export class EnvelopeSealer {
  * to protect grows with frames processed under a key, not with frames a
  * single side chose to seal. Exceeding either throws `EnvelopeLimitError`.
  *
+ * With the strict sequence check above, this direction's counters advance in
+ * lockstep with frames the peer actually sent, so a compliant peer's own
+ * `seal` would already have refused to transmit whatever frame would push
+ * this bound past its limit. This check is therefore a receive-side
+ * backstop against a peer that does not enforce that bound on itself — the
+ * same defense-in-depth rationale that already justifies enforcing the
+ * 1 MiB frame cap on receive rather than trusting the sender alone.
+ *
  * `startSeq`/`startBlockCount` (both default 0, the real starting point for
  * a fresh connection — there is no in-place rekey in v1, so production code
  * never passes non-default values) are the same kind of resume seam as
