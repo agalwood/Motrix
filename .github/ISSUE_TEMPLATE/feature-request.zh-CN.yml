@@ -1,0 +1,85 @@
+name: "✨ 功能建议（中文）"
+description: 为 Motrix 提议改进或新功能
+title: "[Feature]: "
+labels:
+  - "enhancement ✨"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你分享想法。高质量的功能建议应先说明用户遇到的问题和希望达成的结果，再描述可能的解决方案。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前检查
+      description: 提交建议前，请确认以下各项。
+      options:
+        - label: 我已搜索[现有及已关闭的 Issue](https://github.com/agalwood/Motrix/issues?q=is%3Aissue)，没有发现相同建议。
+          required: true
+        - label: 此 Issue 只描述一个明确的问题或功能点。
+          required: true
+        - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.md)。
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 所属功能
+      description: 这项改进属于哪些部分？
+      multiple: true
+      options:
+        - 桌面端体验
+        - 仪表盘或任务管理
+        - HTTP / FTP 下载
+        - BT / 磁力链接下载
+        - 设置、自动化或系统集成
+        - 插件或插件市场
+        - 浏览器扩展 / CLI / MDXP 集成
+        - Headless Server、Web 界面或 Docker
+        - 无障碍或本地化
+        - 开发体验
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题或使用场景
+      description: 你想完成什么操作、哪些用户会受到影响，以及现有方式为什么无法满足需求？
+      placeholder: "当……时，我需要……，因为……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: 建议方案
+      description: 请描述你期望的行为或体验。建议重点说明结果，也欢迎附上原型图或操作流程示例。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的替代方案
+      description: 你目前如何处理这个问题？请说明现有变通方法或考虑过的其他方案。
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: 示例与补充信息
+      description: 可附上原型图、其他应用中的类似功能、技术限制或相关 Issue。
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: 你是否愿意协助实现此功能？
+      options:
+        - 是，我可以提交 Pull Request
+        - 是，但需要维护者提供指导
+        - 我可以协助测试或编写文档
+        - 否

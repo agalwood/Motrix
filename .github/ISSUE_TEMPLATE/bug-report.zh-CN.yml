@@ -1,0 +1,162 @@
+name: "🐛 Bug 反馈（中文）"
+description: 反馈可稳定复现的 Motrix 问题
+title: "[Bug]: "
+labels:
+  - "bug 🐞"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你帮助改进 Motrix。请完整填写以下内容，以便维护者高效复现和定位问题。
+
+        请勿提交密码、令牌、Cookie、私有下载地址或其他敏感信息。提交前请先在日志和截图中将其隐藏或替换。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前检查
+      description: 提交反馈前，请确认以下各项。
+      options:
+        - label: 我已搜索[现有及已关闭的 Issue](https://github.com/agalwood/Motrix/issues?q=is%3Aissue)，没有发现相同问题。
+          required: true
+        - label: 我已使用当前的 Motrix Turbo v2 版本进行测试；如果无法测试，我会在下文说明原因。
+          required: true
+        - label: 我已从描述、日志和截图中移除敏感信息。
+          required: true
+        - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.md)。
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Motrix 版本
+      description: 桌面端版本可在「设置 → 关于」中查看；Server 请填写完整的镜像标签或软件包版本。
+      placeholder: "2.0.0-beta.19"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: 运行方式
+      description: 问题出现在哪种运行方式中？
+      multiple: true
+      options:
+        - 桌面应用
+        - Headless Server（Docker）
+        - Headless Server（Node.js）
+        - Server Web 界面
+        - 浏览器扩展 / CLI / MDXP 集成
+        - 插件系统
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 受影响功能
+      description: 可选择所有相关功能。
+      multiple: true
+      options:
+        - 应用启动、窗口、托盘或通知
+        - 仪表盘或任务列表
+        - HTTP / FTP 下载
+        - BT / 磁力链接下载
+        - 设置、数据持久化或迁移
+        - 限速、Tracker 或端口映射
+        - 插件或插件市场
+        - 浏览器任务交接、CLI 或 MDXP 配对
+        - Server、Web 界面或 Docker 部署
+        - 安装、更新或系统集成
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 操作系统与处理器架构
+      description: 请填写准确的系统版本和架构；如适用，也请填写 Linux 桌面/会话类型或容器宿主信息。
+      placeholder: "macOS 15.6 arm64；Windows 11 24H2 x64；Ubuntu 24.04 x64（Wayland）；群晖 DSM 7.2 arm64"
+    validations:
+      required: true
+
+  - type: input
+    id: installation
+    attributes:
+      label: 安装来源或软件包类型
+      description: 请说明 Motrix 的安装或启动方式。
+      placeholder: "GitHub Release 的 .dmg、Windows 安装包、AppImage、Docker Hub 镜像、pnpm start 等"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 简要描述可见现象及影响。请重点说明发生了什么，而不是推测代码层面的原因。
+      placeholder: "当我……之后，Motrix 会……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请提供能够稳定复现问题的最短步骤。如果需要下载地址，请使用公开或已脱敏的测试地址。
+      placeholder: |
+        1. 打开……
+        2. 设置……
+        3. 启动……
+        4. 观察到……
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 复现频率
+      options:
+        - 每次都能复现
+        - 经常出现
+        - 偶尔出现
+        - 仅出现过一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 你期望 Motrix 如何运行？
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: Motrix 实际发生了什么？如有错误提示，请附上准确文本。
+    validations:
+      required: true
+
+  - type: input
+    id: last-working-version
+    attributes:
+      label: 最后正常工作的版本
+      description: 如果这是回归问题，请填写未出现该问题的最新版本。
+      placeholder: "2.0.0-beta.18 或 不清楚"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与诊断信息
+      description: 请粘贴相关片段，或附上日志/诊断文件。提交前请移除令牌、Cookie、私有地址、个人路径及其他敏感数据。
+      placeholder: "带时间的相关日志、崩溃输出或 Server 诊断信息"
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 补充信息
+      description: 可附上截图、录屏、示例文件、相关 Issue 或其他有助于排查的信息。

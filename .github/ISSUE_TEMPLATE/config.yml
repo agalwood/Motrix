@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 Questions and community support / 使用咨询与社区支持"
+    url: https://github.com/agalwood/Motrix/discussions
+    about: Ask usage questions and get help from the community / 咨询使用问题并获取社区帮助
+  - name: "📖 Documentation / 使用文档"
+    url: https://github.com/agalwood/Motrix#readme
+    about: Read the project overview, installation instructions, and links to detailed guides / 查看项目简介、安装说明与详细指南

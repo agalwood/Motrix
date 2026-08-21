@@ -1,0 +1,85 @@
+name: "✨ Feature Request (English)"
+description: Suggest an improvement or new capability for Motrix
+title: "[Feature]: "
+labels:
+  - "enhancement ✨"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea. Strong feature requests start with the user problem and desired outcome, then describe a possible solution.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      description: Please confirm each item before submitting this request.
+      options:
+        - label: I searched the [open and closed issues](https://github.com/agalwood/Motrix/issues?q=is%3Aissue) and did not find an existing request for this idea.
+          required: true
+        - label: This request describes one focused problem or capability.
+          required: true
+        - label: I agree to follow the [Code of Conduct](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      description: Where would this improvement belong?
+      multiple: true
+      options:
+        - Desktop experience
+        - Dashboard or task management
+        - HTTP / FTP downloads
+        - BitTorrent / magnet downloads
+        - Settings, automation, or OS integration
+        - Plugins or marketplace
+        - Browser extension / CLI / MDXP integration
+        - Headless Server, Web UI, or Docker
+        - Accessibility or localization
+        - Developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to accomplish, who is affected, and why is the current behavior insufficient?
+      placeholder: "When ..., I need to ..., because ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or experience you would like. Focus on the outcome; mockups or workflow examples are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: How do you handle this today? Include workarounds or other solutions you considered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples and additional context
+      description: Add mockups, links to similar behavior in other applications, technical constraints, or related issues.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you like to help implement this feature?
+      options:
+        - Yes, I can submit a pull request
+        - Yes, with guidance from maintainers
+        - I can help test or document it
+        - "No"
