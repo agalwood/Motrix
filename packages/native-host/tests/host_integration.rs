@@ -136,11 +136,22 @@ fn subprocess_returns_exact_pair_frame_and_never_logs_nonce_or_local_token() {
     fs::write(bridge_dir.join(".nh-debug"), b"").expect("enable debug log");
 
     let (port, server) = serve_chunked_nonce();
+    let endpoint_path = bridge_dir.join("endpoint.json");
     fs::write(
-        bridge_dir.join("endpoint.json"),
+        &endpoint_path,
         format!(r#"{{"port":{port},"pid":1,"writtenAt":0,"localToken":"endpoint-secret"}}"#),
     )
     .expect("write endpoint");
+    // Mirror the shell's real 0600 write (spec §9.1) so the host actually
+    // reads `localToken` here rather than dropping it via a lax-permission
+    // fallback — the point of this test is that a read token still never
+    // reaches the log, not that it goes unread.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o600))
+            .expect("chmod endpoint fixture to 0600");
+    }
 
     let output = run_host(
         &temp.path,

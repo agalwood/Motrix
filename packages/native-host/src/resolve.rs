@@ -176,7 +176,11 @@ mod tests {
     }
 
     fn endpoint(port: u16) -> Option<EndpointFile> {
-        Some(EndpointFile { port })
+        Some(EndpointFile {
+            port,
+            local_token: None,
+            generation: None,
+        })
     }
 
     #[test]

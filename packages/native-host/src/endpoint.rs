@@ -6,21 +6,63 @@ use serde::Deserialize;
 
 pub const MAX_ENDPOINT_BYTES: usize = 64 * 1024;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct EndpointFile {
     pub port: u16,
+    #[serde(rename = "localToken", default)]
+    pub local_token: Option<String>,
+    #[serde(default)]
+    pub generation: Option<String>,
 }
 
+#[cfg(unix)]
+fn effective_user_id() -> u32 {
+    unsafe extern "C" {
+        fn geteuid() -> u32;
+    }
+
+    // SAFETY: geteuid has no preconditions and does not dereference pointers.
+    unsafe { geteuid() }
+}
+
+/// Spec §9.1: `endpoint.json`'s 0600 owner-only mode *is* the attestation
+/// root. Reads metadata from the already-open handle, avoiding a TOCTOU
+/// window between checking the file and reading its contents.
+#[cfg(unix)]
+fn is_owner_only(file: &File) -> bool {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    let Ok(metadata) = file.metadata() else {
+        return false;
+    };
+    metadata.uid() == effective_user_id() && metadata.permissions().mode() & 0o077 == 0
+}
+
+/// On Windows, `%APPDATA%` ACLs are the documented boundary in place of a
+/// Unix owner/mode check; `localToken`/`generation` pass through unchecked.
 pub fn read_endpoint(file_path: &Path) -> Option<EndpointFile> {
     let file = File::open(file_path).ok()?;
+    #[cfg(unix)]
+    let owner_only = is_owner_only(&file);
     let mut limited: Take<File> = file.take((MAX_ENDPOINT_BYTES + 1) as u64);
     let mut bytes = Vec::new();
     limited.read_to_end(&mut bytes).ok()?;
     if bytes.len() > MAX_ENDPOINT_BYTES {
         return None;
     }
-    let endpoint: EndpointFile = serde_json::from_slice(&bytes).ok()?;
-    (endpoint.port != 0).then_some(endpoint)
+    let mut endpoint: EndpointFile = serde_json::from_slice(&bytes).ok()?;
+    if endpoint.port == 0 {
+        return None;
+    }
+    // Degrade, don't fail: a non-0600 file still reports its port so the
+    // host can bootstrap, but cannot serve as the attestation root, so the
+    // ticket-minting fields are dropped rather than trusted.
+    #[cfg(unix)]
+    if !owner_only {
+        endpoint.local_token = None;
+        endpoint.generation = None;
+    }
+    Some(endpoint)
 }
 
 #[cfg(test)]
@@ -56,14 +98,58 @@ mod tests {
     }
 
     #[test]
-    fn parses_endpoint_and_ignores_local_token() {
+    fn parses_local_token_and_generation_from_owner_only_file() {
         let path = temp_file("endpoint.json");
         fs::write(
             &path,
-            br#"{"port":55809,"pid":"ignored","writtenAt":null,"localToken":"must-not-leak"}"#,
+            br#"{"port":55809,"pid":1,"writtenAt":0,"localToken":"tok-abc","generation":"gen-1"}"#,
         )
         .expect("write endpoint fixture");
-        assert_eq!(read_endpoint(&path), Some(EndpointFile { port: 55_809 }));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("chmod 0600");
+        }
+        let endpoint = read_endpoint(&path).expect("endpoint parses");
+        assert_eq!(endpoint.port, 55_809);
+        assert_eq!(endpoint.local_token.as_deref(), Some("tok-abc"));
+        assert_eq!(endpoint.generation.as_deref(), Some("gen-1"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn group_readable_file_keeps_port_but_drops_token_fields() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = temp_file("endpoint-lax.json");
+        fs::write(
+            &path,
+            br#"{"port":55809,"localToken":"tok-abc","generation":"gen-1"}"#,
+        )
+        .expect("write endpoint fixture");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).expect("chmod 0644");
+        let endpoint = read_endpoint(&path).expect("endpoint parses");
+        assert_eq!(endpoint.port, 55_809);
+        assert_eq!(endpoint.local_token, None);
+        assert_eq!(endpoint.generation, None);
+    }
+
+    #[test]
+    fn missing_token_fields_deserialize_as_none() {
+        let path = temp_file("endpoint-min.json");
+        fs::write(&path, br#"{"port":55809}"#).expect("write endpoint fixture");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("chmod 0600");
+        }
+        assert_eq!(
+            read_endpoint(&path),
+            Some(EndpointFile {
+                port: 55_809,
+                local_token: None,
+                generation: None
+            })
+        );
     }
 
     #[test]
