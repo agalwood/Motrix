@@ -7,6 +7,8 @@ pub mod probe;
 pub mod protocol;
 pub mod resolve;
 pub mod runtime;
+#[cfg(test)]
+pub(crate) mod test_vectors;
 pub mod user_data;
 
 use serde_json::Value;
