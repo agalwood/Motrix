@@ -1,3 +1,4 @@
+import { initLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType, TransitionPhase } from '@shared/types/task'
@@ -36,8 +37,25 @@ vi.mock('node:fs/promises', () => ({
   default: fsStub,
 }))
 
+const logInfo = vi.fn()
+const logWarn = vi.fn()
+const logError = vi.fn()
+const logDebug = vi.fn()
+
 beforeEach(() => {
   mkdirMock.mockClear()
+  logInfo.mockClear()
+  logWarn.mockClear()
+  logError.mockClear()
+  logDebug.mockClear()
+  initLogger({
+    child: () => ({
+      info: logInfo,
+      warn: logWarn,
+      error: logError,
+      debug: logDebug,
+    }),
+  } as never)
 })
 
 // Build a minimal valid bencoded torrent with an optional private flag.
@@ -224,6 +242,123 @@ describe('handleCreateTask', () => {
     await expect(handleCreateTask({ junk: true }, makeDeps())).rejects.toThrow(
       AppError
     )
+  })
+
+  it('redacts sensitive create data while retaining safe engine diagnostics', async () => {
+    const secrets = {
+      urlToken: 'URL_SECRET_123',
+      authorization: 'AUTH_SECRET_456',
+      cookie: 'COOKIE_SECRET_789',
+      proxy: 'PROXY_SECRET_321',
+      referer: 'REFERER_SECRET_654',
+      cookieJar: 'COOKIE_JAR_SECRET_987',
+      unknownOption: 'UNKNOWN_OPTION_SECRET_159',
+    }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: [`https://example.com/file.zip?token=${secrets.urlToken}`],
+        saveDir: '/d',
+        filename: 'file.zip',
+        connections: 8,
+        headers: [
+          {
+            name: 'Authorization',
+            value: `Bearer ${secrets.authorization}`,
+          },
+          {
+            name: 'Cookie',
+            value: `session=${secrets.cookie}`,
+          },
+        ],
+        proxy: `http://user:${secrets.proxy}@proxy.example:8080`,
+      },
+      makeDeps(),
+      {
+        extraEngineOptions: {
+          referer: `https://origin.example/watch?token=${secrets.referer}`,
+          'load-cookies': `/tmp/${secrets.cookieJar}.txt`,
+          'unknown-option': secrets.unknownOption,
+        },
+      }
+    )
+
+    const serializedLogs = JSON.stringify(logInfo.mock.calls)
+    for (const secret of Object.values(secrets)) {
+      expect(serializedLogs).not.toContain(secret)
+    }
+
+    const dispatch = logInfo.mock.calls.find(
+      (call) => call[1] === 'dispatching to engine'
+    )
+    expect(dispatch?.[0]).toMatchObject({
+      method: 'createDownload',
+      uriCount: 1,
+      params: {
+        uris: ['https://example.com/file.zip'],
+        saveDir: '/d',
+        filename: 'file.zip.motrix',
+        connections: 8,
+        headers: ['Authorization', 'Cookie'],
+        proxy: 'http://proxy.example:8080',
+        extraEngineOptions: {
+          referer: 'https://origin.example/watch',
+          'load-cookies': '[redacted-path]',
+          'unknown-option': '[redacted]',
+        },
+      },
+    })
+    const dispatchFields = dispatch?.[0] as
+      | { params: { gid: string } }
+      | undefined
+    expect(dispatchFields?.params.gid).toMatch(/^[0-9a-f]{16}$/)
+  })
+
+  it('redacts plugin-rewritten URIs without reducing the result to a count', async () => {
+    const rewrittenSecret = 'REWRITTEN_URI_SECRET_753'
+    const orchestrator = {
+      runBeforeCreateHttp: vi.fn().mockResolvedValue({
+        final: {
+          type: 'http' as const,
+          sourceUrl: 'https://original.example/file.zip',
+          uris: [`https://cdn.example/file.zip?signature=${rewrittenSecret}`],
+          saveDir: '/d',
+          filename: 'file.zip',
+          connections: undefined,
+          headers: [],
+          proxy: undefined,
+          createdBy: 'user' as const,
+          requestedAt: 0,
+        },
+        contributors: {
+          headers: [],
+          proxy: null,
+          uris: 'plugin-rewriter',
+        },
+        staged: { commitMetadata: vi.fn() },
+      }),
+    } as unknown as Deps['orchestrator']
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://original.example/file.zip'],
+        saveDir: '/d',
+        filename: 'file.zip',
+        headers: [],
+      },
+      { ...makeDeps(), orchestrator }
+    )
+
+    const resultLog = logInfo.mock.calls.find(
+      (call) => call[1] === 'beforeCreate hook chain result'
+    )
+    expect(resultLog?.[0]).toMatchObject({
+      rewrittenUris: ['https://cdn.example/file.zip'],
+      contributors: { uris: 'plugin-rewriter' },
+    })
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(rewrittenSecret)
   })
 
   it('dispatches http request via rpcClient.addUri', async () => {
