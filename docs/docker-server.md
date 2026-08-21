@@ -1,8 +1,11 @@
 # Docker Server deployment
 
-Motrix Server packages the Web UI and aria2 in a non-root, multi-architecture
-container image for NAS and home-server deployments. Tagged releases publish
-the same image to both registries:
+Motrix Server packages the Web UI and the checksum-verified
+[`motrixapp/aria2`](https://github.com/motrixapp/aria2) fork in a non-root,
+multi-architecture container image for NAS and home-server deployments. The
+fork provides Motrix's SQLite persistence contract; the image does not install
+the distribution's generic aria2 package. Tagged releases publish the same
+image to both registries:
 
 - Docker Hub: `docker.io/motrixapp/motrix-server`
 - GitHub Container Registry: `ghcr.io/agalwood/motrix-server`
@@ -51,6 +54,18 @@ cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   "docker.io/motrixapp/motrix-server@${DIGEST}"
 ```
+
+### TLS trust-store lifecycle
+
+The official image installs Alpine's `ca-certificates` bundle when the image is
+built and points the fork at `/etc/ssl/certs/ca-certificates.crt` through
+`SSL_CERT_FILE`. Motrix therefore does not create a long-lived CA snapshot in
+`/data`; recreating the container uses the trust store shipped by the new image.
+
+An already-running immutable container cannot update that image-layer bundle.
+Pull and recreate from maintained image releases as part of normal patching. A
+custom deployment that needs an independent CA lifecycle may mount a refreshed
+PEM bundle read-only and set `SSL_CERT_FILE` to that mounted path.
 
 ## Persistent storage contract
 
@@ -470,6 +485,6 @@ detection.
 | `MOTRIX_HOST_LANGUAGE` | system setting | Server/plugin locale override |
 | `LOG_LEVEL` | `info` | Pino log level written to container stdout |
 
-`MOTRIX_ARIA2_BIN`, `MOTRIX_EXTRA_DIR`, and `MOTRIX_RENDERER_DIR` are fixed by
-the official image. Override them only in a custom image that provides the
-corresponding artifacts.
+`MOTRIX_ARIA2_BIN` (`/app/bin/aria2c`), `MOTRIX_EXTRA_DIR`, and
+`MOTRIX_RENDERER_DIR` are fixed by the official image. Override them only in a
+custom image that provides the corresponding artifacts.

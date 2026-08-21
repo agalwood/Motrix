@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto'
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -13,6 +15,12 @@ import { stageServerApp } from '../../scripts/stage-server-app.mjs'
 import { verifyServerPackage } from '../../scripts/verify-server-package.mjs'
 
 const temporaryRoots: string[] = []
+
+interface FixtureEngineLock {
+  engine: string
+  version: string
+  assets: Record<string, { bin: string; binarySha256: string }>
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -113,10 +121,14 @@ function fixtureBudgets(overrides: Record<string, number> = {}) {
   }
 }
 
-async function createStagedFixture(): Promise<{
+async function createStagedFixture(
+  options: { withEngine?: boolean } = {}
+): Promise<{
   root: string
   stageRoot: string
   reportPath: string
+  contract: ReturnType<typeof fixtureContract>
+  engineLock?: FixtureEngineLock
 }> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-server-verify-'))
   temporaryRoots.push(root)
@@ -189,18 +201,42 @@ async function createStagedFixture(): Promise<{
       nativeHeader(platform, arch)
     )
   }
+  const contract = fixtureContract()
+  let engineLock: FixtureEngineLock | undefined
+  if (options.withEngine) {
+    const engineBytes = nativeHeader('darwin', 'arm64')
+    await writeFixtureFile(root, 'extra/darwin/arm64/aria2c', engineBytes)
+    await chmod(path.join(root, 'extra/darwin/arm64/aria2c'), 0o755)
+    contract.resourceInputs.unshift({
+      source: 'extra/{platform}/{arch}/{aria2Binary}',
+      destination: 'bin/{aria2Binary}',
+      type: 'file',
+    })
+    engineLock = {
+      engine: 'aria2',
+      version: '1.37.0-motrix.test',
+      assets: {
+        'darwin-arm64': {
+          bin: 'aria2c',
+          binarySha256: createHash('sha256').update(engineBytes).digest('hex'),
+        },
+      },
+    }
+  }
   await stageServerApp({
     repoRoot: root,
     platform: 'darwin',
     arch: 'arm64',
     strict: true,
-    contract: fixtureContract(),
+    contract,
     budgets: fixtureBudgets(),
   })
   return {
     root,
     stageRoot: path.join(root, 'dist/server-app'),
     reportPath: path.join(root, 'reports/server-darwin-arm64.json'),
+    contract,
+    engineLock,
   }
 }
 
@@ -212,9 +248,10 @@ async function verifyFixture(
     appDir: fixture.stageRoot,
     platform: 'darwin',
     arch: 'arm64',
-    contract: fixtureContract(),
+    contract: fixture.contract,
     budgets,
     reportPath: fixture.reportPath,
+    engineLock: fixture.engineLock,
   })
 }
 
@@ -230,6 +267,25 @@ describe('verifyServerPackage', () => {
     const reportJson = await readFile(fixture.reportPath, 'utf8')
     expect(reportJson).not.toContain(fixture.root)
     expect(JSON.parse(reportJson)).toEqual(report)
+  })
+
+  it('accepts only the target aria2 binary pinned by the engine lock', async () => {
+    const fixture = await createStagedFixture({ withEngine: true })
+    const report = await verifyFixture(fixture)
+
+    expect(report.engineBinary).toEqual(
+      expect.objectContaining({
+        path: 'bin/aria2c',
+        version: '1.37.0-motrix.test',
+        format: 'mach-o',
+        arch: 'arm64',
+      })
+    )
+
+    const asset = fixture.engineLock?.assets['darwin-arm64']
+    if (!asset) throw new Error('fixture engine lock is missing its asset')
+    asset.binarySha256 = '0'.repeat(64)
+    await expect(verifyFixture(fixture)).rejects.toThrow('bundled-engine')
   })
 
   it('fails closed on content drift and still writes the JSON report', async () => {

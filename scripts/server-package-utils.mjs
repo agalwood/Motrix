@@ -272,6 +272,31 @@ export function parseServerTarget(options = {}) {
   return { platform, arch, ...(libc ? { libc } : {}), key }
 }
 
+export function resolveServerInput(input, target) {
+  const replacements = {
+    arch: target.arch,
+    aria2Binary: target.platform === 'win32' ? 'aria2c.exe' : 'aria2c',
+    platform: target.platform,
+  }
+  const resolveTemplate = (value, label) =>
+    normalizeRelativePath(
+      value.replaceAll(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (token, name) => {
+        const replacement = replacements[name]
+        if (!replacement) {
+          throw new Error(`${label} has unknown target token: ${token}`)
+        }
+        return replacement
+      }),
+      label
+    )
+
+  return {
+    ...input,
+    source: resolveTemplate(input.source, 'Server input source'),
+    destination: resolveTemplate(input.destination, 'Server input destination'),
+  }
+}
+
 export function packageNameFromSpecifier(specifier) {
   if (
     typeof specifier !== 'string' ||

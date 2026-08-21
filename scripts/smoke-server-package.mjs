@@ -321,12 +321,14 @@ export async function smokeServerPackage(options) {
     )
   }
   const stageRoot = path.resolve(options.appDir)
-  const aria2Source = path.resolve(
-    options.aria2Bin ?? process.env.MOTRIX_ARIA2_BIN ?? ''
+  const bundledAria2 = path.join(
+    stageRoot,
+    'bin',
+    process.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
   )
-  if (!options.aria2Bin && !process.env.MOTRIX_ARIA2_BIN) {
-    throw new Error('--aria2-bin or MOTRIX_ARIA2_BIN is required')
-  }
+  const aria2Source = path.resolve(
+    options.aria2Bin ?? process.env.MOTRIX_ARIA2_BIN ?? bundledAria2
+  )
   if (!(await stat(stageRoot)).isDirectory()) {
     throw new Error('staged Server app is not a directory')
   }

@@ -95,6 +95,11 @@
       "source": "extra/aria2.conf",
       "destination": "extra/aria2.conf",
       "type": "file"
+    },
+    {
+      "source": "extra/{platform}/{arch}/{aria2Binary}",
+      "destination": "bin/{aria2Binary}",
+      "type": "file"
     }
   ]
 }

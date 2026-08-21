@@ -107,7 +107,11 @@ async function createFixture(): Promise<{
   )
   await writeFixtureFile(stageRoot, 'extra/aria2.conf', '')
   await mkdir(path.join(stageRoot, 'builtin-plugins'), { recursive: true })
-  const aria2Bin = await writeFixtureFile(root, 'aria2c', '#!/bin/sh\nexit 0\n')
+  const aria2Bin = await writeFixtureFile(
+    stageRoot,
+    'bin/aria2c',
+    '#!/bin/sh\nexit 0\n'
+  )
   await chmod(aria2Bin, 0o755)
   return { stageRoot, aria2Bin }
 }
@@ -117,7 +121,6 @@ describe('smokeServerPackage', () => {
     const fixture = await createFixture()
     const result = await smokeServerPackage({
       appDir: fixture.stageRoot,
-      aria2Bin: fixture.aria2Bin,
       timeoutMs: 10_000,
     })
 
@@ -135,7 +138,7 @@ describe('smokeServerPackage', () => {
     expect(result.databaseBytes).toBeGreaterThan(0)
   }, 20_000)
 
-  it('rejects a missing external aria2 prerequisite before startup', async () => {
+  it('rejects an explicit missing aria2 override before startup', async () => {
     const fixture = await createFixture()
     await expect(
       smokeServerPackage({

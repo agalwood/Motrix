@@ -10,6 +10,8 @@ import {
 
 const ROOT = process.cwd()
 const NODE_IMAGE_REFERENCE = '$' + '{NODE_IMAGE}'
+const PATH_REFERENCE = '$' + '{PATH}'
+const ENGINE_ARCH_REFERENCE = '$' + '{engine_arch}'
 
 describe('Docker Server runtime staging contract', () => {
   it('limits explicit publication smoke to supported Linux architectures', () => {
@@ -64,8 +66,13 @@ describe('Docker Server runtime staging contract', () => {
     )
     expect(runtime).toContain('chmod 0755 /usr/local/bin/motrix-admin')
     expect(runtime.match(/^COPY /gm)).toHaveLength(1)
-    expect(runtime).toContain('apk add --no-cache aria2 ca-certificates')
-    expect(runtime).toContain('MOTRIX_ARIA2_BIN=/usr/bin/aria2c')
+    expect(runtime).toContain('apk add --no-cache ca-certificates')
+    expect(runtime).not.toContain('apk add --no-cache aria2')
+    expect(runtime).toContain(`PATH=/app/bin:${PATH_REFERENCE}`)
+    expect(runtime).toContain('MOTRIX_ARIA2_BIN=/app/bin/aria2c')
+    expect(runtime).toContain(
+      'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt'
+    )
     expect(runtime).toContain('MOTRIX_DATA_DIR=/data')
     expect(runtime).toContain('MOTRIX_PLUGIN_DIR=/data/plugins')
     expect(runtime).toContain('MOTRIX_DEFAULT_SAVE_DIR=/downloads')
@@ -182,6 +189,12 @@ describe('Docker Server runtime staging contract', () => {
     expect(imageSmoke).toContain("'pending'")
     expect(imageSmoke).toContain('Save directory is not writable: /downloads')
     expect(imageSmoke).toContain('did not survive container restart')
+    expect(imageSmoke).toContain("'SQLite3-Persistence'")
+    expect(imageSmoke).toContain("'test ! -e /usr/bin/aria2c'")
+    expect(imageSmoke).toContain(
+      '\'test "$(readlink /proc/$aria2_pid/exe)" = "/app/bin/aria2c"\''
+    )
+    expect(imageSmoke).toContain('motrixAria2Fork: true')
   })
 
   it('keeps a corrected full-root comparison target without changing the final target', async () => {
@@ -202,6 +215,11 @@ describe('Docker Server runtime staging contract', () => {
     expect(dockerfile).toContain(
       'pnpm install --prod --frozen-lockfile --ignore-scripts'
     )
+    expect(dockerfile).toContain(
+      `node scripts/fetch-engine.mjs --platform linux --arch "${ENGINE_ARCH_REFERENCE}"`
+    )
+    expect(dockerfile).toContain('amd64) engine_arch=x64')
+    expect(dockerfile).toContain('arm64) engine_arch=arm64')
     expect(baseline).toContain(
       'COPY --from=full-root-production-deps --chown=node:node /app/node_modules ./node_modules'
     )

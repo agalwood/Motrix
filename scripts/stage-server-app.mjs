@@ -24,6 +24,7 @@ import {
   betterSqlite3PrebuildName,
   normalizeRelativePath,
   parseServerTarget,
+  resolveServerInput,
   stringifySortedJson,
   validateServerRuntimeContract,
   validateServerSizeBudgets,
@@ -418,6 +419,25 @@ export async function stageServerApp(options = {}) {
   if (!contract.supportedTargets.includes(target.key)) {
     throw new Error(`unsupported Server package target ${target.key}`)
   }
+  const resolvedContract = {
+    ...contract,
+    buildInputs: contract.buildInputs.map((input) =>
+      resolveServerInput(input, target)
+    ),
+    resourceInputs: contract.resourceInputs.map((input) =>
+      resolveServerInput(input, target)
+    ),
+  }
+  const inputs = [
+    ...resolvedContract.buildInputs,
+    ...resolvedContract.resourceInputs,
+  ]
+  const inputDestinations = inputs.map((input) => input.destination)
+  if (new Set(inputDestinations).size !== inputDestinations.length) {
+    throw new Error(
+      `Server runtime contract has duplicate destinations for ${target.key}`
+    )
+  }
 
   const requestedStageRoot = path.resolve(
     options.outputDir ?? path.join(repoRoot, 'dist/server-app')
@@ -436,7 +456,7 @@ export async function stageServerApp(options = {}) {
 
   const audit = await auditServerRuntime({
     repoRoot,
-    contract,
+    contract: resolvedContract,
     budgets,
   })
   const rootManifest = await readJson(
@@ -444,7 +464,6 @@ export async function stageServerApp(options = {}) {
     'root package manifest'
   )
   const appManifest = generatedManifest(rootManifest, contract)
-  const inputs = [...contract.buildInputs, ...contract.resourceInputs]
   const inputFingerprints = []
   for (const input of inputs) {
     inputFingerprints.push(await fingerprintInput(repoRoot, input))
