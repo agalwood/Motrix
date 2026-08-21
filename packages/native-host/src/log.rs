@@ -56,9 +56,16 @@ impl NativeHostLogger {
 
     pub fn log_resolve_result(&self, result: &ResolveResult) {
         match result {
-            ResolveResult::RequestPair { port, .. } => {
+            ResolveResult::RequestPair {
+                port, nm_ticket, ..
+            } => {
+                let ticket = if nm_ticket.is_some() {
+                    "present"
+                } else {
+                    "absent"
+                };
                 self.log(&format!(
-                    "resolve -> requestPair port={port} nonce=[redacted]"
+                    "resolve -> requestPair port={port} nonce=[redacted] ticket={ticket}"
                 ));
             }
             ResolveResult::Error { error } => {
@@ -114,7 +121,43 @@ mod tests {
             fs::read_to_string(base.join("logs").join("native-host.log")).expect("read debug log");
         assert!(text.contains("spawned second line"));
         assert!(text.contains("nonce=[redacted]"));
+        assert!(text.contains("ticket=absent"));
         assert!(!text.contains("secret-nonce-value"));
+    }
+
+    #[test]
+    fn enabled_logger_reports_ticket_present_without_leaking_ticket_material() {
+        use crate::ticket::NmTicket;
+
+        let base = temp_dir();
+        fs::create_dir_all(base.join("bridge")).expect("create bridge directory");
+        fs::write(base.join("bridge").join(".nh-debug"), b"").expect("write sentinel");
+
+        let ticket = NmTicket {
+            v: 1,
+            purpose: "mbp1-attestation",
+            protocol_version: 1,
+            server_generation: "gen-1".into(),
+            browser: "chromium".into(),
+            caller_id: "ibpkjhgpbidfmbmomagmldcdlpbmchgi".into(),
+            exp: 1_755_600_000,
+            binding_pub: "SECRETPUB".into(),
+            mac: "SECRETMAC".into(),
+        };
+
+        let logger = NativeHostLogger::from_user_data(Some(&base));
+        logger.log_resolve_result(&ResolveResult::request_pair_with_ticket(
+            55_809,
+            "secret-nonce-value".into(),
+            ticket,
+        ));
+
+        let text =
+            fs::read_to_string(base.join("logs").join("native-host.log")).expect("read debug log");
+        assert!(text.contains("ticket=present"));
+        assert!(!text.contains("secret-nonce-value"));
+        assert!(!text.contains("SECRETMAC"));
+        assert!(!text.contains("SECRETPUB"));
     }
 
     #[test]

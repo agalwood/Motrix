@@ -208,6 +208,8 @@ enum ResolveResultWire {
 #[serde(deny_unknown_fields)]
 struct RequestPairWire {
     action: String,
+    #[serde(rename = "protocolVersion")]
+    protocol_version: u32,
     port: u16,
     nonce: String,
 }
@@ -223,6 +225,11 @@ pub fn decode_broker_response(bytes: &[u8]) -> Result<ResolveResult, BrokerProto
         ResolveResultWire::RequestPair(response) => {
             if response.action != "requestPair" {
                 return Err(BrokerProtocolError::InvalidResponse("unexpected action"));
+            }
+            if response.protocol_version != 1 {
+                return Err(BrokerProtocolError::InvalidResponse(
+                    "unexpected protocol version",
+                ));
             }
             if response.port == 0 {
                 return Err(BrokerProtocolError::InvalidResponse("zero port"));
@@ -363,10 +370,11 @@ mod tests {
         );
 
         for invalid in [
-            json!({ "action": "connect", "port": 55809, "nonce": "AbCdEfGhIjKlMnOpQrStUv" }),
-            json!({ "action": "requestPair", "port": 0, "nonce": "AbCdEfGhIjKlMnOpQrStUv" }),
-            json!({ "action": "requestPair", "port": 55809, "nonce": "bad=" }),
-            json!({ "action": "requestPair", "port": 55809, "nonce": "AbCdEfGhIjKlMnOpQrStUv", "extra": true }),
+            json!({ "action": "connect", "protocolVersion": 1, "port": 55809, "nonce": "AbCdEfGhIjKlMnOpQrStUv" }),
+            json!({ "action": "requestPair", "protocolVersion": 2, "port": 55809, "nonce": "AbCdEfGhIjKlMnOpQrStUv" }),
+            json!({ "action": "requestPair", "protocolVersion": 1, "port": 0, "nonce": "AbCdEfGhIjKlMnOpQrStUv" }),
+            json!({ "action": "requestPair", "protocolVersion": 1, "port": 55809, "nonce": "bad=" }),
+            json!({ "action": "requestPair", "protocolVersion": 1, "port": 55809, "nonce": "AbCdEfGhIjKlMnOpQrStUv", "extra": true }),
             json!({ "error": "unknown" }),
         ] {
             let bytes = encode_broker_message(&invalid).expect("encode invalid response");

@@ -4,18 +4,29 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::endpoint::EndpointFile;
+use crate::ticket::NmTicket;
 
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
 pub const LAUNCH_POLL_TIMEOUT: Duration = Duration::from_secs(15);
 pub const LAUNCH_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
+/// NM wire protocol version (`docs/bridge-pairing-protocol.md` §9.1), echoed
+/// in every `requestPair` reply. Distinct from [`crate::ticket::TICKET_PROTOCOL_VERSION`]:
+/// the two happen to share the same value in v1, but one names the outer NM
+/// exchange and the other is a MAC-covered ticket field.
+pub const NM_PROTOCOL_VERSION: u32 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum ResolveResult {
     RequestPair {
         action: &'static str,
+        #[serde(rename = "protocolVersion")]
+        protocol_version: u32,
         port: u16,
         nonce: String,
+        #[serde(rename = "nmTicket", skip_serializing_if = "Option::is_none")]
+        nm_ticket: Option<NmTicket>,
     },
     Error {
         error: ResolveError,
@@ -23,11 +34,26 @@ pub enum ResolveResult {
 }
 
 impl ResolveResult {
+    /// A ticketless `requestPair` reply (legacy callers, or a bootstrap
+    /// caller missing a trusted input for minting).
     pub fn request_pair(port: u16, nonce: String) -> Self {
         Self::RequestPair {
             action: "requestPair",
+            protocol_version: NM_PROTOCOL_VERSION,
             port,
             nonce,
+            nm_ticket: None,
+        }
+    }
+
+    /// A `requestPair` reply carrying a minted NM attestation ticket (§9.1).
+    pub fn request_pair_with_ticket(port: u16, nonce: String, ticket: NmTicket) -> Self {
+        Self::RequestPair {
+            action: "requestPair",
+            protocol_version: NM_PROTOCOL_VERSION,
+            port,
+            nonce,
+            nm_ticket: Some(ticket),
         }
     }
 }
@@ -140,8 +166,8 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError, poll_launched_endpoint,
-        resolve_endpoint,
+        LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError, ResolveResult,
+        poll_launched_endpoint, resolve_endpoint,
     };
     use crate::endpoint::EndpointFile;
 
@@ -317,6 +343,19 @@ mod tests {
         assert!(
             deps.nonce_calls.is_empty(),
             "liveness never succeeded, so no nonce should ever be fetched"
+        );
+    }
+
+    #[test]
+    fn request_pair_serializes_protocol_version_and_omits_absent_ticket() {
+        let json = serde_json::to_value(ResolveResult::request_pair(
+            55_809,
+            "n0nceAbCdEfGhIj".into(),
+        ))
+        .expect("serialize");
+        assert_eq!(
+            json,
+            serde_json::json!({ "action": "requestPair", "protocolVersion": 1, "port": 55809, "nonce": "n0nceAbCdEfGhIj" })
         );
     }
 

@@ -190,7 +190,7 @@ fn subprocess_returns_exact_pair_frame_and_never_logs_nonce_or_local_token() {
     assert!(output.stderr.is_empty());
     assert_eq!(
         decode_only_frame(&output.stdout),
-        json!({ "action": "requestPair", "port": port, "nonce": NONCE })
+        json!({ "action": "requestPair", "protocolVersion": 1, "port": port, "nonce": NONCE })
     );
 
     let request = server.join().expect("fake bridge thread");
@@ -227,7 +227,7 @@ fn subprocess_reads_endpoint_from_the_shared_bridge_override() {
     assert!(output.stderr.is_empty());
     assert_eq!(
         decode_only_frame(&output.stdout),
-        json!({ "action": "requestPair", "port": port, "nonce": NONCE })
+        json!({ "action": "requestPair", "protocolVersion": 1, "port": port, "nonce": NONCE })
     );
     server.join().expect("fake bridge thread");
 }
