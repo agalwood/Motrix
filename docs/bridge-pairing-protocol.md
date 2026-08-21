@@ -151,6 +151,14 @@ pre-authentication table with hard deadlines and caps until MBP1 completes;
 they never enter the live-session map and cannot evict an authenticated
 session.
 
+**Both WebSocket routes require the `motrix-bridge.v1` subprotocol.** The
+client MUST offer it in `Sec-WebSocket-Protocol`; a request whose offered list
+does not include it is rejected with **401** before the route is examined, and
+before any nonce is consumed. This is a hard gate, not a hint: a client that
+omits it cannot reach either state machine.
+
+---
+
 ### 4.1 `GET /discovery`
 
 Unauthenticated, replayable, **a hint and never a trust decision**. Response
@@ -934,6 +942,26 @@ cookies, headers, or commands.
 Beyond `codeMismatch`/`attemptsRemaining` (which the user needs) the server
 MUST NOT reveal which internal step failed. Implementations MUST NOT log
 codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
+
+**WebSocket close codes.** Once the AEAD channel is active there is no
+`pairError` — §10 violations and usage bounds are reported by closing:
+
+| Code | Meaning | Client action |
+|---|---|---|
+| `1002` | Any §10/§11 protocol violation. Uniform: it never says which check failed. | Treat this attempt as failed. |
+| `4001` | A §10 per-direction usage bound was reached (2^24 frames or 2^30 encrypted blocks). Neither side misbehaved. | Reconnect (§8) and derive fresh keys. |
+| `1011` | A genuine internal fault on the closing side. | Treat as a peer defect. |
+
+`4001` sits in the private-use range [RFC 6455] §7.4.2 reserves for
+application agreement; no standard code fits, since `1002` would accuse the
+peer of a violation that did not occur and `1011` would claim a defect for a
+routine, spec-mandated transition.
+
+**Clients MUST NOT branch on the close code.** Every close of an established
+envelope channel means "re-establish it via §8", and a conforming client that
+never learns these numbers still behaves correctly — the codes exist to make a
+log legible, not to carry protocol state. Implementations MUST NOT assign a
+different meaning to `4001`.
 
 ---
 
