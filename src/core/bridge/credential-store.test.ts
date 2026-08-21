@@ -1,13 +1,34 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialPrincipal, StoredCredential } from './credential-store'
 import {
   Mbp1CredentialStore,
   PROVISIONAL_TTL_MS,
   principalKey,
 } from './credential-store'
+
+/**
+ * Counts durable writes without changing any of them: the mock delegates to the
+ * real `write-file-atomic`, so every test in this file keeps writing real files
+ * to a real temp dir. The count exists because §6.7 requires rotation's
+ * commit-new and revoke-old to be ONE durable transaction, and a final-state
+ * assertion cannot tell one write from two — a crash between two writes would
+ * leave the predecessor deleted and the successor still provisional.
+ */
+const writeCount = { n: 0 }
+vi.mock('write-file-atomic', async (importOriginal) => {
+  const actual = (await importOriginal()) as {
+    default: (...args: unknown[]) => Promise<void>
+  }
+  return {
+    default: (...args: unknown[]) => {
+      writeCount.n += 1
+      return actual.default(...args)
+    },
+  }
+})
 
 interface OnDiskDocument {
   version: number
@@ -147,7 +168,14 @@ describe('Mbp1CredentialStore', () => {
 
     const p2 = await store.offerProvisional(PRINCIPAL_A, 'official')
     now = START + 5_000
+    writeCount.n = 0
     await store.promoteOnReconnect(p2.credentialId)
+
+    // The name of this test is the assertion: ONE durable write. Final state
+    // alone cannot distinguish one transaction from two, and two would leave a
+    // crash window where the predecessor is gone and the successor is still
+    // provisional — neither credential valid, which §6.7 forbids.
+    expect(writeCount.n).toBe(1)
 
     // One read after the fact: the rotation left neither both credentials nor
     // neither of them — exactly the successor (§6.7 rotation CAS).
@@ -169,6 +197,13 @@ describe('Mbp1CredentialStore', () => {
 
     // Two concurrent rotations started from C1 share the single provisional
     // slot, so they cannot produce two successors in the first place.
+    //
+    // That shared slot, plus the live-provisional state check, is what makes
+    // the loser reject here — NOT the predecessor CAS. Verified by mutation:
+    // deleting the CAS leaves this test green. The CAS is pinned by
+    // `rejects a promote whose recorded predecessor is no longer the committed
+    // credential`, which is the only test that fails without it. Do not read
+    // this one as CAS coverage.
     const [a, b] = await Promise.all([
       store.offerProvisional(PRINCIPAL_A, 'official'),
       store.offerProvisional(PRINCIPAL_A, 'official'),
