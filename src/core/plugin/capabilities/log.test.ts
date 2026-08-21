@@ -26,6 +26,90 @@ describe('LogCapabilityHost', () => {
     expect(entry.level).toBeDefined()
   })
 
+  it('applies the shared plugin redaction to the ring and NDJSON', async () => {
+    const cap = host.create('alice.demo')
+    cap.info('request', {
+      url: 'https://api.example.com/data?token=secret',
+      headers: { Authorization: 'Bearer secret' },
+      path: '/Users/alice/private/file.txt',
+    })
+    await host.flush()
+
+    expect(host.getTail('alice.demo', 1)[0]).toMatchObject({
+      url: 'https://api.example.com/data',
+      path: 'file.txt',
+    })
+    expect(host.getTail('alice.demo', 1)[0]).not.toHaveProperty('headers')
+
+    const file = path.join(dir, 'alice.demo', 'logs', 'current.ndjson')
+    const entry = JSON.parse(readFileSync(file, 'utf8').trim())
+    expect(entry.url).toBe('https://api.example.com/data')
+    expect(entry.path).toBe('file.txt')
+    expect(entry.headers).toBeUndefined()
+    expect(JSON.stringify(entry)).not.toContain('secret')
+  })
+
+  it('keeps the existing explicit plugin verbose bypass', () => {
+    host.setVerbose('alice.demo', true)
+    const cap = host.create('alice.demo')
+    const fields = {
+      url: 'https://api.example.com/data?token=secret',
+      headers: { Authorization: 'Bearer secret' },
+    }
+
+    cap.info('verbose request', fields)
+
+    expect(host.getTail('alice.demo', 1)[0]).toMatchObject(fields)
+  })
+
+  it('prevents plugin fields from forging host log metadata', async () => {
+    const cap = host.create('alice.demo')
+    cap.warn('host message', {
+      ts: 0,
+      time: 0,
+      level: 'fatal',
+      msg: 'forged message',
+      pid: 1,
+      hostname: 'attacker',
+    })
+    await host.flush()
+
+    const ringEntry = host.getTail('alice.demo', 1)[0]
+    expect(ringEntry).toMatchObject({
+      level: 'warn',
+      msg: 'host message',
+      fieldTs: 0,
+      fieldTime: 0,
+      fieldLevel: 'fatal',
+      fieldMsg: 'forged message',
+      fieldPid: 1,
+      fieldHostname: 'attacker',
+    })
+    expect(ringEntry.ts).toBeGreaterThan(0)
+
+    const file = path.join(dir, 'alice.demo', 'logs', 'current.ndjson')
+    const ndjsonEntry = JSON.parse(readFileSync(file, 'utf8').trim())
+    expect(ndjsonEntry.level).toBe(40)
+    expect(ndjsonEntry.time).not.toBe(0)
+    expect(ndjsonEntry.msg).toBe('host message')
+    expect(ndjsonEntry.fieldLevel).toBe('fatal')
+    expect(ndjsonEntry.fieldMsg).toBe('forged message')
+  })
+
+  it('bounds untrusted plugin message size in the ring and NDJSON', async () => {
+    const cap = host.create('alice.demo')
+    cap.info('x'.repeat(20_000), { count: 1 })
+    await host.flush()
+
+    const ringMessage = host.getTail('alice.demo', 1)[0].msg
+    expect(ringMessage.length).toBeLessThanOrEqual(16 * 1024)
+    expect(ringMessage).toContain('[truncated:')
+
+    const file = path.join(dir, 'alice.demo', 'logs', 'current.ndjson')
+    const ndjsonEntry = JSON.parse(readFileSync(file, 'utf8').trim())
+    expect(ndjsonEntry.msg).toBe(ringMessage)
+  })
+
   it('flush() persists every entry, across the write buffer and a refill', async () => {
     const cap = host.create('alice.demo')
     const file = path.join(dir, 'alice.demo', 'logs', 'current.ndjson')

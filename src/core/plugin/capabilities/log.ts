@@ -1,7 +1,7 @@
 import path from 'node:path'
+import { redactLogFields, truncateLogText } from '@core/log-redact'
 import pino, { type DestinationStream, type Logger } from 'pino'
 import type { LogEntry, PluginLogCapability } from './interface'
-import { redactFields } from './log-redact'
 
 export interface LogCapabilityHostOptions {
   pluginLogsDir: string
@@ -97,18 +97,25 @@ export class LogCapabilityHost {
     ) => {
       // Spec §7 L2391-2403 — default-redact url / headers / body / paths /
       // storage value. The per-plugin verbose flag (set via SetPluginLogVerbose
-      // IPC + LogCapabilityHost.setVerbose) bypasses redaction for diagnostic
-      // capture; the UI shows a red banner while verbose is active.
-      const safe = fields ? redactFields(fields, per.verbose) : (fields ?? {})
+      // IPC + LogCapabilityHost.setVerbose) bypasses privacy-value redaction
+      // for diagnostic capture, while structural limits and host metadata
+      // integrity remain enforced; the UI shows a red banner while active.
+      const safe = fields
+        ? redactLogFields(fields, {
+            profile: 'plugin',
+            verbose: per.verbose,
+          })
+        : (fields ?? {})
+      const safeMessage = truncateLogText(msg)
       const entry: LogEntry = {
+        ...safe,
         ts: Date.now(),
         level,
-        msg,
-        ...safe,
+        msg: safeMessage,
       }
       per.ring.push(entry)
       while (per.ring.length > this.opts.ringSize) per.ring.shift()
-      per.logger[level]({ ...safe }, msg)
+      per.logger[level]({ ...safe }, safeMessage)
       for (const listener of this.subscribers) {
         try {
           listener(pluginId, entry)
