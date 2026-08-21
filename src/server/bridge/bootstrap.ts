@@ -147,9 +147,13 @@ export async function bootstrapBridgeForServer(
   const server = new WebSocketBridgeServer({
     pairing,
     registry,
-    // Extension pairing stays headless-denied — a previously-paired extension
-    // can still reconnect via /v1 (findByToken). cli/agent clients pair through
-    // the device-code flow below, approved in the web UI.
+    // None of the six MBP1 options (instanceId, serverGeneration, appVersion,
+    // credentials, isOfficialId, queueMbp1Dialog) are wired for this runtime,
+    // so `/pair` and `/v1` both 404 (they resolve as a unit — see
+    // `resolveMbp1Wiring`): there is no extension WebSocket surface here at
+    // all, not even reconnect for a previously-paired extension. cli/agent
+    // clients pair through the device-code flow below instead, approved in
+    // the web UI.
     motrixVersion: opts.motrixVersion,
     runtime: 'server',
     ffmpegAvailable: false,

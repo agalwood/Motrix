@@ -90,6 +90,8 @@ never walks the candidate range.
 derivation), `pairing-code.ts` (§7.1 code generation/display/normalization),
 `spake2-core.ts` (§6.3–6.6 the generic SPAKE2 core), `transcript.ts` (§6.4
 transcript construction), `reconnect-mac.ts` (§8 reconnect MAC),
+`reconnect-rate-limit.ts` (§8 per-origin and global reconnect rate limiting,
+deliberately separate from `flood-control.ts`'s §7.3 counters),
 `envelope.ts` + `envelope-message-stream.ts` (§10 AEAD framing),
 `ticket-verify.ts` (§9 NM ticket verification), `frames.ts` (§6.1/§11 wire
 frame schemas and the `pairError` vocabulary), `nonce-service.ts` (§4.2
