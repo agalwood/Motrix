@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::endpoint::{EndpointFile, read_endpoint};
 use crate::launcher::launch_motrix;
-use crate::probe::fetch_nonce;
+use crate::probe::{fetch_nonce, probe_liveness};
 use crate::resolve::{
     LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError,
     ResolveResult, poll_launched_endpoint, resolve_endpoint,
@@ -31,7 +31,11 @@ impl ResolveDeps for SystemResolveDeps {
         self.endpoint_path.as_deref().and_then(read_endpoint)
     }
 
-    fn probe(&mut self, port: u16, timeout: Duration) -> Option<String> {
+    fn probe_liveness(&mut self, port: u16, timeout: Duration) -> bool {
+        probe_liveness(port, timeout)
+    }
+
+    fn fetch_nonce(&mut self, port: u16, timeout: Duration) -> Option<String> {
         fetch_nonce(port, timeout)
     }
 
@@ -50,13 +54,17 @@ impl ResolveDeps for SystemResolveDeps {
 
 pub fn resolve_direct(allow_launch: bool, bridge_data: Option<&Path>) -> ResolveResult {
     let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
-    resolve_endpoint(allow_launch, &mut deps)
+    match resolve_endpoint(allow_launch, &mut deps) {
+        Ok(resolved) => ResolveResult::request_pair(resolved.endpoint.port, resolved.nonce),
+        Err(error) => ResolveResult::Error { error },
+    }
 }
 
 pub fn probe_bridge(bridge_data: Option<&Path>) -> ResolveResult {
     let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
     if let Some(endpoint) = deps.read_endpoint()
-        && let Some(nonce) = deps.probe(endpoint.port, PROBE_TIMEOUT)
+        && deps.probe_liveness(endpoint.port, PROBE_TIMEOUT)
+        && let Some(nonce) = deps.fetch_nonce(endpoint.port, PROBE_TIMEOUT)
     {
         return ResolveResult::request_pair(endpoint.port, nonce);
     }
@@ -68,7 +76,7 @@ pub fn probe_bridge(bridge_data: Option<&Path>) -> ResolveResult {
 pub fn wait_for_bridge(bridge_data: Option<&Path>) -> ResolveResult {
     let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
     match poll_launched_endpoint(&mut deps, LAUNCH_POLL_TIMEOUT, LAUNCH_POLL_INTERVAL) {
-        Some((port, nonce)) => ResolveResult::request_pair(port, nonce),
+        Some(resolved) => ResolveResult::request_pair(resolved.endpoint.port, resolved.nonce),
         None => ResolveResult::Error {
             error: ResolveError::LaunchFailed,
         },

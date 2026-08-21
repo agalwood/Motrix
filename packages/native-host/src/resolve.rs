@@ -42,45 +42,57 @@ pub enum ResolveError {
     LaunchFailed,
 }
 
+/// A `endpoint.json` whose recorded port answered a liveness probe and then
+/// yielded a fresh one-shot nonce.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResolvedEndpoint {
+    pub endpoint: EndpointFile,
+    pub nonce: String,
+}
+
 pub trait ResolveDeps {
     fn read_endpoint(&mut self) -> Option<EndpointFile>;
-    fn probe(&mut self, port: u16, timeout: Duration) -> Option<String>;
+    /// Cheap, unauthenticated liveness check (spec §4.1 `GET /discovery`).
+    /// Callers probe this on every poll iteration; it never consumes a
+    /// nonce.
+    fn probe_liveness(&mut self, port: u16, timeout: Duration) -> bool;
+    /// One-shot nonce acquisition (spec §4.2 `POST /nonce`). Callers must
+    /// call this only once liveness is already known, and at most once per
+    /// resolution — the server caps outstanding nonces and rate-limits
+    /// issuance.
+    fn fetch_nonce(&mut self, port: u16, timeout: Duration) -> Option<String>;
     fn launch(&mut self) -> bool;
     fn now(&self) -> Instant;
     fn sleep(&mut self, duration: Duration);
 }
 
-pub fn resolve_endpoint<D: ResolveDeps>(allow_launch: bool, deps: &mut D) -> ResolveResult {
+pub fn resolve_endpoint<D: ResolveDeps>(
+    allow_launch: bool,
+    deps: &mut D,
+) -> Result<ResolvedEndpoint, ResolveError> {
     if let Some(endpoint) = deps.read_endpoint()
-        && let Some(nonce) = deps.probe(endpoint.port, PROBE_TIMEOUT)
+        && deps.probe_liveness(endpoint.port, PROBE_TIMEOUT)
+        && let Some(nonce) = deps.fetch_nonce(endpoint.port, PROBE_TIMEOUT)
     {
-        return ResolveResult::request_pair(endpoint.port, nonce);
+        return Ok(ResolvedEndpoint { endpoint, nonce });
     }
 
     if !allow_launch {
-        return ResolveResult::Error {
-            error: ResolveError::NotRunning,
-        };
+        return Err(ResolveError::NotRunning);
     }
     if !deps.launch() {
-        return ResolveResult::Error {
-            error: ResolveError::NotInstalled,
-        };
+        return Err(ResolveError::NotInstalled);
     }
 
-    match poll_launched_endpoint(deps, LAUNCH_POLL_TIMEOUT, LAUNCH_POLL_INTERVAL) {
-        Some((port, nonce)) => ResolveResult::request_pair(port, nonce),
-        None => ResolveResult::Error {
-            error: ResolveError::LaunchFailed,
-        },
-    }
+    poll_launched_endpoint(deps, LAUNCH_POLL_TIMEOUT, LAUNCH_POLL_INTERVAL)
+        .ok_or(ResolveError::LaunchFailed)
 }
 
 pub fn poll_launched_endpoint<D: ResolveDeps>(
     deps: &mut D,
     timeout: Duration,
     interval: Duration,
-) -> Option<(u16, String)> {
+) -> Option<ResolvedEndpoint> {
     let deadline = deps.now().checked_add(timeout)?;
 
     loop {
@@ -90,15 +102,27 @@ pub fn poll_launched_endpoint<D: ResolveDeps>(
         }
 
         if let Some(endpoint) = deps.read_endpoint() {
-            let probe_budget = min(
+            let liveness_budget = min(
                 PROBE_TIMEOUT,
                 deadline.saturating_duration_since(deps.now()),
             );
-            if probe_budget.is_zero() {
+            if liveness_budget.is_zero() {
                 return None;
             }
-            if let Some(nonce) = deps.probe(endpoint.port, probe_budget) {
-                return Some((endpoint.port, nonce));
+            if deps.probe_liveness(endpoint.port, liveness_budget) {
+                // The bridge is alive: fetch exactly one nonce, bounded by
+                // whatever deadline remains, and return either way — wake
+                // polling must never burn more than one nonce per launch.
+                let nonce_budget = min(
+                    PROBE_TIMEOUT,
+                    deadline.saturating_duration_since(deps.now()),
+                );
+                if nonce_budget.is_zero() {
+                    return None;
+                }
+                return deps
+                    .fetch_nonce(endpoint.port, nonce_budget)
+                    .map(|nonce| ResolvedEndpoint { endpoint, nonce });
             }
         }
 
@@ -116,17 +140,19 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError,
-        ResolveResult, poll_launched_endpoint, resolve_endpoint,
+        LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError, poll_launched_endpoint,
+        resolve_endpoint,
     };
     use crate::endpoint::EndpointFile;
 
     struct FakeDeps {
         endpoints: VecDeque<Option<EndpointFile>>,
-        probes: VecDeque<Option<String>>,
+        liveness: VecDeque<bool>,
+        nonces: VecDeque<Option<String>>,
         launch_result: bool,
         launch_calls: usize,
-        probe_calls: Vec<(u16, Duration)>,
+        liveness_calls: Vec<(u16, Duration)>,
+        nonce_calls: Vec<(u16, Duration)>,
         elapsed: Duration,
         probe_cost: Duration,
         sleeps: Vec<Duration>,
@@ -137,10 +163,12 @@ mod tests {
         fn new() -> Self {
             Self {
                 endpoints: VecDeque::new(),
-                probes: VecDeque::new(),
+                liveness: VecDeque::new(),
+                nonces: VecDeque::new(),
                 launch_result: true,
                 launch_calls: 0,
-                probe_calls: Vec::new(),
+                liveness_calls: Vec::new(),
+                nonce_calls: Vec::new(),
                 elapsed: Duration::ZERO,
                 probe_cost: Duration::ZERO,
                 sleeps: Vec::new(),
@@ -154,10 +182,16 @@ mod tests {
             self.endpoints.pop_front().flatten()
         }
 
-        fn probe(&mut self, port: u16, timeout: Duration) -> Option<String> {
-            self.probe_calls.push((port, timeout));
+        fn probe_liveness(&mut self, port: u16, timeout: Duration) -> bool {
+            self.liveness_calls.push((port, timeout));
             self.elapsed += self.probe_cost.min(timeout);
-            self.probes.pop_front().flatten()
+            self.liveness.pop_front().unwrap_or(false)
+        }
+
+        fn fetch_nonce(&mut self, port: u16, timeout: Duration) -> Option<String> {
+            self.nonce_calls.push((port, timeout));
+            self.elapsed += self.probe_cost.min(timeout);
+            self.nonces.pop_front().flatten()
         }
 
         fn launch(&mut self) -> bool {
@@ -184,32 +218,35 @@ mod tests {
     }
 
     #[test]
-    fn live_endpoint_returns_pair_response_without_launching() {
+    fn live_endpoint_probes_liveness_then_fetches_one_nonce() {
         let mut deps = FakeDeps::new();
         deps.endpoints.push_back(endpoint(100));
-        deps.probes.push_back(Some("nonce-live".into()));
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(Some("nonce-live".into()));
 
-        assert_eq!(
-            resolve_endpoint(true, &mut deps),
-            ResolveResult::request_pair(100, "nonce-live".into())
-        );
+        let resolved = resolve_endpoint(true, &mut deps).expect("resolves");
+        assert_eq!(resolved.endpoint.port, 100);
+        assert_eq!(resolved.nonce, "nonce-live");
         assert_eq!(deps.launch_calls, 0);
-        assert_eq!(deps.probe_calls, vec![(100, PROBE_TIMEOUT)]);
+        assert_eq!(deps.liveness_calls, vec![(100, PROBE_TIMEOUT)]);
+        assert_eq!(deps.nonce_calls.len(), 1);
     }
 
     #[test]
     fn dead_endpoint_without_user_intent_never_launches() {
         let mut deps = FakeDeps::new();
         deps.endpoints.push_back(endpoint(100));
-        deps.probes.push_back(None);
+        deps.liveness.push_back(false);
 
         assert_eq!(
             resolve_endpoint(false, &mut deps),
-            ResolveResult::Error {
-                error: ResolveError::NotRunning
-            }
+            Err(ResolveError::NotRunning)
         );
         assert_eq!(deps.launch_calls, 0);
+        assert!(
+            deps.nonce_calls.is_empty(),
+            "a dead endpoint never fetches a nonce"
+        );
     }
 
     #[test]
@@ -220,27 +257,41 @@ mod tests {
 
         assert_eq!(
             resolve_endpoint(true, &mut deps),
-            ResolveResult::Error {
-                error: ResolveError::NotInstalled
-            }
+            Err(ResolveError::NotInstalled)
         );
         assert_eq!(deps.launch_calls, 1);
     }
 
     #[test]
-    fn launch_poll_rereads_endpoint_and_returns_fresh_port_and_nonce() {
+    fn launch_poll_probes_liveness_only_and_fetches_nonce_once_at_the_end() {
         let mut deps = FakeDeps::new();
-        deps.endpoints.push_back(None);
-        deps.endpoints.push_back(None);
-        deps.endpoints.push_back(endpoint(200));
-        deps.probes.push_back(Some("nonce-new".into()));
+        deps.endpoints.push_back(None); // initial read: not running
+        deps.endpoints.push_back(None); // poll #1: no endpoint yet
+        deps.endpoints.push_back(endpoint(200)); // poll #2
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(Some("nonce-new".into()));
 
-        assert_eq!(
-            resolve_endpoint(true, &mut deps),
-            ResolveResult::request_pair(200, "nonce-new".into())
-        );
+        let resolved = resolve_endpoint(true, &mut deps).expect("resolves");
+        assert_eq!(resolved.endpoint.port, 200);
+        assert_eq!(resolved.nonce, "nonce-new");
         assert_eq!(deps.launch_calls, 1);
-        assert_eq!(deps.sleeps, vec![LAUNCH_POLL_INTERVAL]);
+        assert_eq!(
+            deps.nonce_calls.len(),
+            1,
+            "wake polling must not burn nonces"
+        );
+    }
+
+    #[test]
+    fn live_endpoint_with_failed_nonce_fetch_is_a_launch_failure_not_a_pair() {
+        let mut deps = FakeDeps::new();
+        deps.endpoints.push_back(endpoint(100));
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(None);
+        assert_eq!(
+            resolve_endpoint(false, &mut deps),
+            Err(ResolveError::NotRunning)
+        );
     }
 
     #[test]
@@ -250,20 +301,22 @@ mod tests {
         deps.endpoints.push_back(None); // Initial liveness check.
         for _ in 0..32 {
             deps.endpoints.push_back(endpoint(300));
-            deps.probes.push_back(None);
+            deps.liveness.push_back(false);
         }
 
         assert_eq!(
             resolve_endpoint(true, &mut deps),
-            ResolveResult::Error {
-                error: ResolveError::LaunchFailed
-            }
+            Err(ResolveError::LaunchFailed)
         );
         assert_eq!(deps.elapsed, LAUNCH_POLL_TIMEOUT);
         assert!(
-            deps.probe_calls
+            deps.liveness_calls
                 .iter()
                 .all(|(_, budget)| *budget <= PROBE_TIMEOUT)
+        );
+        assert!(
+            deps.nonce_calls.is_empty(),
+            "liveness never succeeded, so no nonce should ever be fetched"
         );
     }
 
@@ -271,12 +324,14 @@ mod tests {
     fn zero_timeout_poll_does_not_read_or_probe() {
         let mut deps = FakeDeps::new();
         deps.endpoints.push_back(endpoint(42));
-        deps.probes.push_back(Some("unused".into()));
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(Some("unused".into()));
         assert_eq!(
             poll_launched_endpoint(&mut deps, Duration::ZERO, Duration::from_millis(1)),
             None
         );
-        assert!(deps.probe_calls.is_empty());
+        assert!(deps.liveness_calls.is_empty());
+        assert!(deps.nonce_calls.is_empty());
         assert_eq!(deps.endpoints.len(), 1);
     }
 }

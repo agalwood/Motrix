@@ -93,21 +93,49 @@ fn decode_only_frame(stdout: &[u8]) -> Value {
     value
 }
 
+/// Reads one HTTP request's headers off `stream` and returns the raw bytes
+/// read so far as text (the caller only inspects the request line/headers,
+/// never a body, matching every request this fake bridge answers).
+fn read_request_head(stream: &mut std::net::TcpStream) -> String {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .expect("set fake bridge timeout");
+    let mut request = Vec::new();
+    let mut buffer = [0_u8; 256];
+    while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+        let read = stream.read(&mut buffer).expect("read native host request");
+        assert_ne!(read, 0, "native host closed before request headers");
+        request.extend_from_slice(&buffer[..read]);
+    }
+    String::from_utf8(request).expect("request is ASCII")
+}
+
+/// A fake bridge that answers exactly the two requests the host now makes
+/// per resolution (Task B6): first the `GET /discovery` liveness probe, then
+/// a single `POST /nonce`. Returns the nonce request's text, matching the
+/// pre-split behavior callers already assert on.
 fn serve_chunked_nonce() -> (u16, JoinHandle<String>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fake bridge");
     let port = listener.local_addr().expect("fake bridge address").port();
     let handle = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept native host probe");
-        stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .expect("set fake bridge timeout");
-        let mut request = Vec::new();
-        let mut buffer = [0_u8; 256];
-        while !request.windows(4).any(|window| window == b"\r\n\r\n") {
-            let read = stream.read(&mut buffer).expect("read native host request");
-            assert_ne!(read, 0, "native host closed before request headers");
-            request.extend_from_slice(&buffer[..read]);
-        }
+        let (mut discovery_stream, _) = listener.accept().expect("accept discovery probe");
+        let discovery_request = read_request_head(&mut discovery_stream);
+        assert!(
+            discovery_request.starts_with("GET /discovery HTTP/1.1\r\n"),
+            "expected a liveness probe before the nonce fetch, got: {discovery_request}"
+        );
+        let discovery_body =
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#;
+        let discovery_response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{discovery_body}",
+            discovery_body.len()
+        );
+        discovery_stream
+            .write_all(discovery_response.as_bytes())
+            .expect("write discovery response");
+
+        let (mut nonce_stream, _) = listener.accept().expect("accept native host probe");
+        let request = read_request_head(&mut nonce_stream);
 
         let body = format!(r#"{{"nonce":"{NONCE}"}}"#);
         let split = 11;
@@ -118,10 +146,10 @@ fn serve_chunked_nonce() -> (u16, JoinHandle<String>) {
             first.len(),
             second.len()
         );
-        stream
+        nonce_stream
             .write_all(response.as_bytes())
             .expect("write chunked nonce response");
-        String::from_utf8(request).expect("request is ASCII")
+        request
     });
     (port, handle)
 }
