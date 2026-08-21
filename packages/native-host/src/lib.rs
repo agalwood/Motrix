@@ -10,6 +10,7 @@ pub mod resolve;
 pub mod runtime;
 #[cfg(test)]
 pub(crate) mod test_vectors;
+pub mod ticket;
 pub mod user_data;
 
 use serde_json::Value;
