@@ -249,33 +249,43 @@ describe('recommend', () => {
       expect(rec.detectedEnv).toBe(probe)
     })
 
-    it('SSD + small -> diskCache 16MB, split 5, minSplitSize 1MB', () => {
+    it('SSD + small -> diskCache 32MB, split 8, minSplitSize 1MB', () => {
       const rec = recommend(
         makeProbe({ diskType: 'ssd' }),
         makeContext({ totalSizeBytes: 100 * MB })
       )
-      expect(rec.diskCache).toBe(16 * MB)
-      expect(rec.split).toBe(5)
+      expect(rec.diskCache).toBe(32 * MB)
+      expect(rec.split).toBe(8)
       expect(rec.minSplitSize).toBe(1 * MB)
     })
 
-    it('SSD + large -> diskCache 32MB, split 10, minSplitSize 20MB', () => {
+    it('SSD + large -> diskCache 64MB, split 32, minSplitSize 10MB', () => {
       const rec = recommend(
         makeProbe({ diskType: 'ssd' }),
         makeContext({ totalSizeBytes: 10 * GB })
       )
-      expect(rec.diskCache).toBe(32 * MB)
-      expect(rec.split).toBe(10)
+      expect(rec.diskCache).toBe(64 * MB)
+      expect(rec.split).toBe(32)
+      expect(rec.minSplitSize).toBe(10 * MB)
+    })
+
+    it('SSD + huge -> diskCache 64MB, split 64, minSplitSize 20MB', () => {
+      const rec = recommend(
+        makeProbe({ diskType: 'ssd' }),
+        makeContext({ totalSizeBytes: 30 * GB })
+      )
+      expect(rec.diskCache).toBe(64 * MB)
+      expect(rec.split).toBe(64)
       expect(rec.minSplitSize).toBe(20 * MB)
     })
 
-    it('HDD -> diskCache 64MB, split 5, minSplitSize 20MB', () => {
+    it('HDD -> diskCache 64MB, split 8, minSplitSize 20MB', () => {
       const rec = recommend(
         makeProbe({ diskType: 'hdd' }),
         makeContext({ totalSizeBytes: 1 * GB })
       )
       expect(rec.diskCache).toBe(64 * MB)
-      expect(rec.split).toBe(5)
+      expect(rec.split).toBe(8)
       expect(rec.minSplitSize).toBe(20 * MB)
     })
 

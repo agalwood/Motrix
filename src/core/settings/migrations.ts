@@ -1,4 +1,4 @@
-export const CURRENT_SETTINGS_VERSION = 8
+export const CURRENT_SETTINGS_VERSION = 9
 
 interface Migration {
   version: number
@@ -165,6 +165,46 @@ function migrateV7ToV8(data: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+const LEGACY_PERFORMANCE_DEFAULTS = {
+  maxConnectionPerServer: 16,
+  split: 16,
+  minSplitSize: 10 * 1024 * 1024,
+  diskCache: 64 * 1024 * 1024,
+} as const
+
+function migrateV8ToV9(data: Record<string, unknown>): Record<string, unknown> {
+  const engine = (data.engine ?? {}) as Record<string, unknown>
+  const performanceKeys = Object.keys(LEGACY_PERFORMANCE_DEFAULTS) as Array<
+    keyof typeof LEGACY_PERFORMANCE_DEFAULTS
+  >
+  const hasPerformanceValues = performanceKeys.some(
+    (key) => typeof engine[key] === 'number'
+  )
+  const matchesLegacyDefaults = performanceKeys.every(
+    (key) => engine[key] === LEGACY_PERFORMANCE_DEFAULTS[key]
+  )
+  const existingProfile = engine.performanceProfile
+  const performanceProfile =
+    existingProfile === 'auto' ||
+    existingProfile === 'balanced' ||
+    existingProfile === 'high' ||
+    existingProfile === 'maximum' ||
+    existingProfile === 'custom'
+      ? existingProfile
+      : !hasPerformanceValues || matchesLegacyDefaults
+        ? 'auto'
+        : 'custom'
+
+  return {
+    ...data,
+    version: 9,
+    engine: {
+      ...engine,
+      performanceProfile,
+    },
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -174,6 +214,7 @@ const migrations: Migration[] = [
   { version: 6, migrate: migrateV5ToV6 },
   { version: 7, migrate: migrateV6ToV7 },
   { version: 8, migrate: migrateV7ToV8 },
+  { version: 9, migrate: migrateV8ToV9 },
 ]
 
 export function migrate(

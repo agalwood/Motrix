@@ -11,6 +11,10 @@ import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { toast } from '@renderer/components/ui/toast'
 import { Toggle } from '@renderer/components/ui/toggle'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@renderer/components/ui/toggle-group'
 import { formatBytes } from '@renderer/lib/format'
 import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
@@ -421,23 +425,21 @@ export function SpeedLimitSection({
               </FormDescription>
             </div>
             <FormControl>
-              <fieldset
-                className="flex shrink-0 gap-1"
+              <ToggleGroup
+                className="shrink-0"
                 aria-label={t('settings.downloads.speedLimit.turtle')}
+                value={[field.value]}
+                onValueChange={(values) => {
+                  const value = values[0]
+                  if (value) field.onChange(value)
+                }}
               >
                 {TURTLE_STATES.map((state) => (
-                  <Button
-                    key={state}
-                    type="button"
-                    size="xs"
-                    aria-pressed={field.value === state}
-                    variant={field.value === state ? 'default' : 'outline'}
-                    onClick={() => field.onChange(state)}
-                  >
+                  <ToggleGroupItem key={state} value={state} type="button">
                     {t(`settings.downloads.speedLimit.turtle_${state}`)}
-                  </Button>
+                  </ToggleGroupItem>
                 ))}
-              </fieldset>
+              </ToggleGroup>
             </FormControl>
           </FormItem>
         )}

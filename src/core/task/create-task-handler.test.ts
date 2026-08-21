@@ -1,5 +1,6 @@
 import { initLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
+import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType, TransitionPhase } from '@shared/types/task'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -170,7 +171,10 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
     getApp: () => ({
       defaultSaveDir: overrides.defaultSaveDir ?? '/fallback',
     }),
-    getEngine: () => ({ maxConnectionPerServer: 16 }),
+    getEngine: () => ({
+      performanceProfile: DEFAULT_ENGINE_SETTINGS.performanceProfile,
+      maxConnectionPerServer: DEFAULT_ENGINE_SETTINGS.maxConnectionPerServer,
+    }),
   } as unknown as Deps['settingsManager']
   const finalNamePicker = { pick } as unknown as Deps['finalNamePicker']
   const torrentMetaStore = {
@@ -1453,8 +1457,8 @@ describe('characterization: aria2 RPC args', () => {
     expect(options['all-proxy']).toBeUndefined()
   })
 
-  // (b) HTTP with headers + proxy + connections (clamped to maxConnectionPerServer=16)
-  it('HTTP full: connections clamped to 16, header array, all-proxy, out=.motrix', async () => {
+  // (b) HTTP with headers + proxy + connections (clamped to the engine default)
+  it('HTTP full: connections clamped to 64, header array, all-proxy, out=.motrix', async () => {
     const deps = makeDeps()
     await handleCreateTask(
       {
@@ -1462,7 +1466,7 @@ describe('characterization: aria2 RPC args', () => {
         uris: ['https://example.com/file.zip'],
         saveDir: '/dl',
         filename: 'file.zip',
-        connections: 64, // clamped to maxConnectionPerServer=16
+        connections: 128, // clamped to maxConnectionPerServer=64
         headers: [{ name: 'Cookie', value: 'a=b' }],
         proxy: 'http://p:1080',
       },
@@ -1476,9 +1480,9 @@ describe('characterization: aria2 RPC args', () => {
     expect(uris).toEqual(['https://example.com/file.zip'])
     expect(options.dir).toBe('/dl')
     expect(options.out).toBe('file.zip.motrix')
-    // connections: min(64, 16) = 16, both keys identical string
-    expect(options.split).toBe('16')
-    expect(options['max-connection-per-server']).toBe('16')
+    // connections: min(128, 64) = 64, both keys identical string
+    expect(options.split).toBe('64')
+    expect(options['max-connection-per-server']).toBe('64')
     expect(options.split).toBe(options['max-connection-per-server'])
     expect(options.header).toEqual(['Cookie: a=b'])
     expect(options['all-proxy']).toBe('http://p:1080')

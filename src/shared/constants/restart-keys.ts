@@ -5,6 +5,7 @@ import type { EngineSettings, MotrixAppSettings } from '@shared/types/settings'
 // proxy / tracker changeGlobalOption.
 export const ENGINE_RESTART_REQUIRED_KEYS: ReadonlySet<keyof EngineSettings> =
   new Set([
+    'performanceProfile',
     'rpcPort',
     'rpcSecret',
     'listenPort',

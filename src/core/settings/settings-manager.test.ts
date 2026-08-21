@@ -400,6 +400,7 @@ describe('SettingsManager', () => {
 
       expect(manager.getEngine()).toEqual(
         expect.objectContaining({
+          performanceProfile: 'custom',
           split: 32,
           fileAllocation: 'prealloc',
           diskCache: 32 * 1024 * 1024,
@@ -410,11 +411,30 @@ describe('SettingsManager', () => {
       ) as AppSettings
       expect(persisted.engine).toEqual(
         expect.objectContaining({
+          performanceProfile: 'custom',
           split: 32,
           fileAllocation: 'prealloc',
           diskCache: 32 * 1024 * 1024,
         })
       )
+    })
+
+    it('applies every linked value when selecting a performance profile', async () => {
+      const result = await manager.update({
+        engine: { performanceProfile: 'high' },
+      })
+
+      expect(manager.getEngine()).toEqual(
+        expect.objectContaining({
+          performanceProfile: 'high',
+          maxConnectionPerServer: 32,
+          split: 32,
+          minSplitSize: 4 * 1024 * 1024,
+          diskCache: 64 * 1024 * 1024,
+        })
+      )
+      expect(result.requiresRestart).toBe(true)
+      expect(result.changedRestartKeys).toContain('diskCache')
     })
 
     it('updates app settings and persists', async () => {
@@ -600,6 +620,7 @@ describe('SettingsManager', () => {
     })
 
     it('does not flag restart for non-restart keys', async () => {
+      await manager.update({ engine: { performanceProfile: 'custom' } })
       const result = await manager.update({
         engine: { split: 10, maxConcurrentDownloads: 8 },
       })

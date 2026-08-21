@@ -1106,6 +1106,38 @@
     "downloads": {
       "performance": {
         "title": "效能",
+        "profile": "效能檔位",
+        "profileDesc": "選擇 Motrix 的下載強度。",
+        "baseline": "基準",
+        "metrics": {
+          "segments": "分段",
+          "perServer": "單一伺服器",
+          "minimum": "最小分段",
+          "cache": "快取"
+        },
+        "customParameters": "自訂效能參數",
+        "profiles": {
+          "auto": {
+            "label": "自動",
+            "desc": "依下載磁碟自動調整效能。"
+          },
+          "balanced": {
+            "label": "均衡",
+            "desc": "降低資源用量，適合日常下載。"
+          },
+          "high": {
+            "label": "高速",
+            "desc": "增加連線數，提升下載速度。"
+          },
+          "maximum": {
+            "label": "極限",
+            "desc": "使用最大並行；部分伺服器可能拒絕。"
+          },
+          "custom": {
+            "label": "自訂",
+            "desc": "手動設定連線、分段和快取。"
+          }
+        },
         "maxConcurrentDownloads": "同時下載數量上限",
         "maxConcurrentDownloadsDesc": "可平行下載的任務數量。",
         "maxConnectionPerServer": "每台伺服器的連線數上限",

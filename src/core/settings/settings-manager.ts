@@ -1,6 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { ENGINE_PERFORMANCE_TUNING_KEYS } from '@shared/constants/engine-performance-profiles'
 import {
   APP_RESTART_REQUIRED_KEYS,
   ENGINE_RESTART_REQUIRED_KEYS,
@@ -364,16 +365,19 @@ export class SettingsManager {
     // Merge engine settings
     if (partial.engine) {
       const merged = { ...next.engine, ...partial.engine }
+      if (
+        partial.engine.performanceProfile === undefined &&
+        ENGINE_PERFORMANCE_TUNING_KEYS.some(
+          (key) => partial.engine?.[key] !== undefined
+        )
+      ) {
+        merged.performanceProfile = 'custom'
+      }
       const validated = validateEngineSettings(merged as EngineSettings)
 
       // Detect restart-required key changes
-      for (const key of Object.keys(partial.engine) as Array<
-        keyof EngineSettings
-      >) {
-        if (
-          ENGINE_RESTART_REQUIRED_KEYS.has(key) &&
-          validated[key] !== next.engine[key]
-        ) {
+      for (const key of ENGINE_RESTART_REQUIRED_KEYS) {
+        if (validated[key] !== next.engine[key]) {
           changedRestartKeys.push(key)
         }
       }

@@ -1,61 +1,86 @@
 import type { EngineSettings } from '@shared/types/settings'
 import { z } from 'zod'
+import {
+  applyEnginePerformanceProfile,
+  ENGINE_PERFORMANCE_PROFILE_IDS,
+  ENGINE_PERFORMANCE_PROFILES,
+  MAX_CONNECTIONS_PER_SERVER,
+} from '../constants/engine-performance-profiles'
 
-export const engineSettingsSchema = z.object({
-  // RPC & engine startup (RESTART)
-  rpcPort: z.number().int().min(1024).max(65535).catch(16800),
-  rpcSecret: z.string().catch(''), // sentinel — SettingsManager seeds on first load
-  listenPort: z.number().int().min(1024).max(65535).catch(6881),
-  dhtListenPort: z.number().int().min(1024).max(65535).catch(6881),
-  dhtEnabled: z.boolean().catch(true),
+export { MAX_CONNECTIONS_PER_SERVER } from '../constants/engine-performance-profiles'
 
-  // Performance (HOT)
-  maxConcurrentDownloads: z.number().int().min(1).max(100).catch(5),
-  maxConnectionPerServer: z.number().int().min(1).max(16).catch(16),
-  split: z.number().int().min(1).max(128).catch(16),
-  minSplitSize: z.number().min(1048576).catch(10485760),
+const AUTO_PERFORMANCE = ENGINE_PERFORMANCE_PROFILES.auto
 
-  // Network reliability (HOT)
-  userAgent: z.string().catch('Motrix/2.0'),
-  connectTimeout: z.number().int().min(1).max(600).catch(30),
-  socketTimeout: z.number().int().min(1).max(600).catch(30),
-  maxTries: z.number().int().min(0).max(100).catch(5),
-  retryWait: z.number().int().min(0).max(300).catch(10),
-  lowestSpeedLimit: z.number().int().min(0).catch(0),
-  dnsMode: z.enum(['auto', 'system', 'engine']).catch('auto'),
+export const engineSettingsSchema = z
+  .object({
+    // RPC & engine startup (RESTART)
+    rpcPort: z.number().int().min(1024).max(65535).catch(16800),
+    rpcSecret: z.string().catch(''), // sentinel — SettingsManager seeds on first load
+    listenPort: z.number().int().min(1024).max(65535).catch(6881),
+    dhtListenPort: z.number().int().min(1024).max(65535).catch(6881),
+    dhtEnabled: z.boolean().catch(true),
 
-  // BitTorrent (HOT)
-  btMaxPeers: z.number().int().min(1).max(1000).catch(128),
-  btEnableLpd: z.boolean().catch(true),
-  seedRatio: z.number().min(0).max(100).catch(1),
-  seedTime: z.number().int().min(0).max(525600).catch(60),
+    // Performance (HOT, except diskCache)
+    performanceProfile: z.enum(ENGINE_PERFORMANCE_PROFILE_IDS).catch('auto'),
+    maxConcurrentDownloads: z.number().int().min(1).max(100).catch(5),
+    maxConnectionPerServer: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_CONNECTIONS_PER_SERVER)
+      .catch(AUTO_PERFORMANCE.maxConnectionPerServer),
+    split: z.number().int().min(1).max(128).catch(AUTO_PERFORMANCE.split),
+    minSplitSize: z.number().min(1048576).catch(AUTO_PERFORMANCE.minSplitSize),
 
-  // Disk & session
-  fileAllocation: z.enum(['none', 'prealloc', 'trunc', 'falloc']).catch('none'),
-  diskCache: z.number().int().min(0).max(134217728).catch(67108864),
-  sessionSaveInterval: z.number().int().min(10).max(3600).catch(15),
+    // Network reliability (HOT)
+    userAgent: z.string().catch('Motrix/2.0'),
+    connectTimeout: z.number().int().min(1).max(600).catch(30),
+    socketTimeout: z.number().int().min(1).max(600).catch(30),
+    maxTries: z.number().int().min(0).max(100).catch(5),
+    retryWait: z.number().int().min(0).max(300).catch(10),
+    lowestSpeedLimit: z.number().int().min(0).catch(0),
+    dnsMode: z.enum(['auto', 'system', 'engine']).catch('auto'),
 
-  // SQLite3 persistence
-  sqlite3Persistence: z.boolean().catch(true),
-  sqlite3DbPath: z
-    .string()
-    .max(1024)
-    .refine((p) => !p.includes('\0'), {
-      message: 'settings.engine.sqlite3DbPath.nullByte',
-    })
-    .catch(''),
-  sqlite3HistoryLimit: z
-    .number()
-    .int()
-    .min(-1, { message: 'settings.engine.sqlite3HistoryLimit.minBound' })
-    .max(1_000_000, {
-      message: 'settings.engine.sqlite3HistoryLimit.maxBound',
-    })
-    .catch(-1),
+    // BitTorrent (HOT)
+    btMaxPeers: z.number().int().min(1).max(1000).catch(128),
+    btEnableLpd: z.boolean().catch(true),
+    seedRatio: z.number().min(0).max(100).catch(1),
+    seedTime: z.number().int().min(0).max(525600).catch(60),
 
-  // Magnet (motrix-turbo timer)
-  magnetResolveTimeout: z.number().int().min(30).max(600).catch(120),
-})
+    // Disk & session
+    fileAllocation: z
+      .enum(['none', 'prealloc', 'trunc', 'falloc'])
+      .catch('none'),
+    diskCache: z
+      .number()
+      .int()
+      .min(0)
+      .max(134217728)
+      .catch(AUTO_PERFORMANCE.diskCache),
+    sessionSaveInterval: z.number().int().min(10).max(3600).catch(15),
+
+    // SQLite3 persistence
+    sqlite3Persistence: z.boolean().catch(true),
+    sqlite3DbPath: z
+      .string()
+      .max(1024)
+      .refine((p) => !p.includes('\0'), {
+        message: 'settings.engine.sqlite3DbPath.nullByte',
+      })
+      .catch(''),
+    sqlite3HistoryLimit: z
+      .number()
+      .int()
+      .min(-1, { message: 'settings.engine.sqlite3HistoryLimit.minBound' })
+      .max(1_000_000, {
+        message: 'settings.engine.sqlite3HistoryLimit.maxBound',
+      })
+      .catch(-1),
+
+    // Magnet (motrix-turbo timer)
+    magnetResolveTimeout: z.number().int().min(30).max(600).catch(120),
+  })
+  .transform(applyEnginePerformanceProfile)
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings =
   engineSettingsSchema.parse({})

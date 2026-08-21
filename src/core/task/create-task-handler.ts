@@ -306,6 +306,7 @@ export async function handleCreateTask(
       // applyPathOverrides HTTP equivalent: dir = saveDir, out = <name>.motrix
       saveDir: effectiveSaveDir,
       filename: `${finalName}${INCOMPLETE_SUFFIX}`,
+      performanceProfile: engineSettings.performanceProfile,
       connections: clampedConnections,
       headers: headersRecord,
       proxy: req.proxy,

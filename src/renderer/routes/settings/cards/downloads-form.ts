@@ -11,6 +11,7 @@ import type { EngineSettings, SpeedLimitSettings } from '@shared/types/settings'
 
 export type EngineFields = Pick<
   EngineSettings,
+  | 'performanceProfile'
   | 'maxConcurrentDownloads'
   | 'maxConnectionPerServer'
   | 'split'
@@ -42,6 +43,7 @@ export const MBPS = 125_000
 // Defaults are sourced from the schema; the renderer mirrors the subset of
 // fields it edits. Keep this Pick<> in sync if the schema fields change.
 export const ENGINE_DEFAULTS: EngineFields = {
+  performanceProfile: DEFAULT_ENGINE_SETTINGS.performanceProfile,
   maxConcurrentDownloads: DEFAULT_ENGINE_SETTINGS.maxConcurrentDownloads,
   maxConnectionPerServer: DEFAULT_ENGINE_SETTINGS.maxConnectionPerServer,
   split: DEFAULT_ENGINE_SETTINGS.split,

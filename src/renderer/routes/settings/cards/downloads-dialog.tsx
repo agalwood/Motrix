@@ -25,11 +25,12 @@ import {
   ENGINE_DEFAULTS,
 } from './downloads-form'
 import { EngineTuningSection } from './engine-tuning-section'
+import { PerformanceSection } from './performance-section'
 import { SpeedLimitSection } from './speed-limit-section'
 
-// Form shape, defaults, and unit constants live in ./downloads-form.ts; the
-// engine tuning and speed-limit field groups are rendered by the two section
-// components, ProxySection-style (form passed down as a prop).
+// Form shape, defaults, and unit constants live in ./downloads-form.ts. The
+// compact sections are ordered by user intent: performance, limits, then
+// advanced engine behavior.
 
 export function DownloadsDialog({
   open,
@@ -94,9 +95,11 @@ export function DownloadsDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
             <form className="space-y-4">
-              <EngineTuningSection form={form} />
+              <PerformanceSection form={form} />
               <Separator className="my-4" />
               <SpeedLimitSection form={form} />
+              <Separator className="my-4" />
+              <EngineTuningSection form={form} />
             </form>
           </Form>
         </div>

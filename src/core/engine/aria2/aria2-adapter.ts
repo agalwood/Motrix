@@ -206,9 +206,15 @@ export class Aria2Adapter implements EngineAdapter {
         options[k] = v
     }
 
+    const automaticTuning =
+      params.performanceProfile === undefined ||
+      params.performanceProfile === 'auto'
     if (params.fileAllocation) {
       options['file-allocation'] = params.fileAllocation
-    } else if (params.totalSizeBytes != null || params.protocol != null) {
+    } else if (
+      automaticTuning &&
+      (params.totalSizeBytes != null || params.protocol != null)
+    ) {
       const probe = probeQuick(params.saveDir)
       const context: TuningContext = {
         downloadPath: params.saveDir,
@@ -218,10 +224,13 @@ export class Aria2Adapter implements EngineAdapter {
       }
       const rec = recommend(probe, context)
       options['file-allocation'] = rec.fileAllocation
-      if (params.split == null) options.split = String(rec.split)
-      if (params.minSplitSize == null) {
+      if (!options.split) options.split = String(rec.split)
+      if (!options['min-split-size']) {
         options['min-split-size'] = String(rec.minSplitSize)
       }
+      // disk-cache is an aria2 instance-wide startup option, shared by all
+      // downloads. EngineSupervisor applies the automatic recommendation
+      // before process launch; it is intentionally not sent to addUri here.
     }
     if (params.split != null && !options.split) {
       options.split = String(params.split)

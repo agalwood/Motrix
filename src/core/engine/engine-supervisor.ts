@@ -19,11 +19,13 @@ import {
 } from '@shared/types/engine'
 import type { EngineSettings } from '@shared/types/settings'
 import type { EventBus } from '../events/event-bus'
+import { probePrecise } from '../probe/disk-probe'
 import type { SettingsManager } from '../settings/settings-manager'
 import type { Aria2Adapter } from './aria2/aria2-adapter'
 import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
+import { recommend } from './aria2/aria2-tuning'
 import { checkPort, findAvailablePort } from './port-check'
 
 const log = getLogger('engine')
@@ -194,6 +196,30 @@ export class EngineSupervisor {
     await this.rpcClient.changeGlobalOption(params)
   }
 
+  private async resolveRuntimeEngineSettings(
+    settings: EngineSettings
+  ): Promise<EngineSettings> {
+    if (settings.performanceProfile !== 'auto') return settings
+
+    const downloadPath = this.settingsManager.getApp().defaultSaveDir
+    try {
+      const probe = await probePrecise(downloadPath)
+      const tuning = recommend(probe, null)
+      return {
+        ...settings,
+        diskCache: tuning.diskCache,
+        split: tuning.split,
+        minSplitSize: tuning.minSplitSize,
+      }
+    } catch (error) {
+      log.warn(
+        { err: error, downloadPath },
+        'automatic performance probe failed; using profile defaults'
+      )
+      return settings
+    }
+  }
+
   /**
    * HOT-update the aria2 proxy via `aria2.changeGlobalOption`. No-op when
    * the engine is not Ready (cold start picks up proxy via `buildArgs`).
@@ -274,7 +300,10 @@ export class EngineSupervisor {
       await this.configBuilder.ensureUserConfig()
       if (this.stopping) return
 
-      const engineSettings = this.settingsManager.getEngine()
+      const configuredEngineSettings = this.settingsManager.getEngine()
+      const engineSettings = await this.resolveRuntimeEngineSettings(
+        configuredEngineSettings
+      )
       const proxy = this.settingsManager.getProxy()
       // Provider is wired by the shell (Task 8) before start() in production;
       // the { 0, 0 } (unlimited) fallback only fires in tests or if start()

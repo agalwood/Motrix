@@ -1,4 +1,5 @@
 import type { RunMode } from '../constants'
+import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { SupportedLocale } from '../constants/locales'
 import type { GeoIPSettings } from './geoip'
 import type { PluginSettings } from './plugin'
@@ -167,7 +168,9 @@ export interface EngineSettings {
   dhtListenPort: number
   dhtEnabled: boolean
 
-  // Runtime params (RPC hot-update via changeGlobalOption) — performance
+  // Performance profile is resolved at engine start; individual network
+  // values remain hot-updatable after entering the custom profile.
+  performanceProfile: EnginePerformanceProfile
   maxConcurrentDownloads: number
   maxConnectionPerServer: number
   split: number
