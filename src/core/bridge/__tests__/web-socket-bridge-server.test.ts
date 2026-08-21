@@ -5,8 +5,10 @@ import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
 import {
   DIR_C2S,
   DIR_S2C,
+  EnvelopeLimitError,
   EnvelopeOpener,
   EnvelopeSealer,
+  EnvelopeViolationError,
   MAX_ENVELOPE_FRAMES,
 } from '@core/bridge/mbp1/envelope'
 import type { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
@@ -299,9 +301,10 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
 class FakeExtensionSocket extends EventEmitter {
   readyState = 1
   readonly closedWith: Array<[number | undefined, string | undefined]> = []
+  readonly sent: Array<string | Uint8Array> = []
 
-  send(): void {
-    // Unused: these tests only drive the inbound path.
+  send(data: string | Uint8Array): void {
+    this.sent.push(data)
   }
 
   close(code?: number, reason?: string): void {
@@ -364,5 +367,50 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
     ws.emit('message', Buffer.from('not an envelope'), false)
 
     expect(ws.closedWith).toEqual([[WS_CLOSE_PROTOCOL_ERROR, undefined]])
+  })
+
+  it('closes with the usage-limit code when an OUTBOUND §10 bound is reached', () => {
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      // Already AT the frame-count bound: the very next seal() throws, and no
+      // later one can ever succeed, so the connection must be re-established
+      // with fresh keys (§8) — the one seal failure that is a connection-level
+      // event rather than a single failed write.
+      sealer: new EnvelopeSealer(KEY, DIR_S2C, MAX_ENVELOPE_FRAMES),
+      opener: new EnvelopeOpener(KEY, DIR_C2S),
+    })
+    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    if (!session) throw new Error('session was not registered')
+
+    expect(() => session.envelope.send('{"jsonrpc":"2.0"}')).toThrow(
+      EnvelopeLimitError
+    )
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_ENVELOPE_USAGE_LIMIT, undefined]])
+  })
+
+  it('leaves the session open when an outbound frame exceeds the 1 MiB cap', () => {
+    // The regression this pins: routing every seal() failure to the fault sink
+    // closed a healthy connection (1011) for one oversize payload. `seal`
+    // throws the cap check before it reads or advances `seq`/`blockCount`, so
+    // nothing needed closing — and once the socket is CLOSING, even the
+    // JSON-RPC error reply for the failed write cannot be sent.
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      sealer: new EnvelopeSealer(KEY, DIR_S2C),
+      opener: new EnvelopeOpener(KEY, DIR_C2S),
+    })
+    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    if (!session) throw new Error('session was not registered')
+
+    expect(() =>
+      session.envelope.send(new Uint8Array(1024 * 1024 + 1))
+    ).toThrow(EnvelopeViolationError)
+
+    expect(ws.closedWith).toEqual([])
+    expect(ws.readyState).toBe(1)
+    // Still live: the next, admissible frame goes out on the same channel.
+    session.envelope.send('{"jsonrpc":"2.0"}')
+    expect(ws.sent).toHaveLength(1)
   })
 })

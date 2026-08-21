@@ -397,10 +397,16 @@ describe('wrapWithEnvelope — outbound', () => {
     expect(fault.cause).toBeInstanceOf(EnvelopeLimitError)
   })
 
-  it('reports an oversized outbound plaintext as internal, NOT a peer violation', () => {
+  it('fails an oversized outbound plaintext without reporting a fault', () => {
     // `EnvelopeViolationError` from `seal()` is this process's own mistake —
     // something upstream tried to send more than the 1 MiB frame allows —
-    // never the peer's, unlike the same error class thrown by `open()`.
+    // never the peer's, unlike the same error class thrown by `open()`. It is
+    // thrown by `seal`'s first statement, before `seq` or `blockCount` is even
+    // read, so the channel is intact and only this one write may fail.
+    // Reporting it would reach `onViolation`, which closes the socket (1011),
+    // and `WebSocketMessageWriter.write` would then find `readyState` already
+    // CLOSING — so a single oversize payload would take down a healthy session
+    // AND swallow the JSON-RPC error reply that should have gone out instead.
     const ws = new FakeSocket()
     const onViolation = vi.fn()
     const wrapped = wrapWithEnvelope(
@@ -414,10 +420,56 @@ describe('wrapWithEnvelope — outbound', () => {
     )
 
     expect(ws.sent).toHaveLength(0)
-    expect(onViolation).toHaveBeenCalledTimes(1)
-    const fault = firstFault(onViolation)
-    expect(fault.kind).toBe('internal')
-    expect(fault.cause.cause).toBeInstanceOf(EnvelopeViolationError)
+    expect(onViolation).not.toHaveBeenCalled()
+    expect(ws.closedWith).toEqual([])
+  })
+
+  it('keeps the channel usable after a refused oversize write', () => {
+    // The sharp form of the case above: `seq` did not advance, so a peer
+    // opener still at seq 0 round-trips the NEXT frame. If the rejected write
+    // had disturbed the sealer's counters, this would fail as a sequence
+    // mismatch rather than by any assertion about closing.
+    const ws = new FakeSocket()
+    const peer = makePeer()
+    const wrapped = wrapWithEnvelope(ws.asLike(), makeServerChannel(), vi.fn())
+
+    expect(() => wrapped.send(new Uint8Array(1024 * 1024 + 1))).toThrow(
+      EnvelopeViolationError
+    )
+    wrapped.send('{"a":1}')
+
+    expect(wrapped.usage).toEqual({ frames: 1, blocks: 1 })
+    const frame = ws.sent[0]
+    if (!frame) throw new Error('no frame sent')
+    expect(Buffer.from(peer.opener.open(frame)).toString('utf8')).toBe(
+      '{"a":1}'
+    )
+  })
+
+  it('does not report a broken sealer either: only a usage bound closes', () => {
+    // A non-limit `seal()` failure that is not the 1 MiB cap. `seal` advances
+    // `seq`/`blockCount` only after the cipher completes, so no such failure
+    // can leave the channel in a state that needs closing — it needs the
+    // failing write to fail, which is what the writer above already does.
+    const ws = new FakeSocket()
+    const boom = new TypeError('sealer is broken')
+    const brokenSealer = {
+      seal(): Uint8Array {
+        throw boom
+      },
+    } as unknown as EnvelopeSealer
+    const onViolation = vi.fn()
+    const wrapped = wrapWithEnvelope(
+      ws.asLike(),
+      { sealer: brokenSealer, opener: new EnvelopeOpener(KEY_C2S, DIR_C2S) },
+      onViolation
+    )
+
+    expect(() => wrapped.send('{"a":1}')).toThrow(boom)
+
+    expect(ws.sent).toHaveLength(0)
+    expect(onViolation).not.toHaveBeenCalled()
+    expect(ws.closedWith).toEqual([])
   })
 })
 
