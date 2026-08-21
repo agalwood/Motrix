@@ -131,7 +131,10 @@ The close codes are:
 
 On-disk state lives under `<userData>/bridge/`: `pairing.json`,
 `registry.json`, `endpoint.json` (mode 0600), `local-token` (mode 0600), and
-`mbp1-credentials.json`.
+`mbp1-credentials.json`. The writers request 0600 on every platform, but
+Node's `chmod` on Windows manipulates only the read-only bit — see the
+attestation-root passage under **Native Messaging host** for what that means
+for what the host can attest there.
 
 ## Dispatch and transport exposure
 
@@ -200,7 +203,9 @@ production defaults.
 
 For a `bootstrap` request, the host also mints a §9.2 NM attestation ticket
 (`mint_ticket_for_bootstrap` in `main.rs`), returned as `nmTicket` in
-`{ action: 'requestPair', port, nonce, nmTicket? }`, whenever every trusted
+`{ action: 'requestPair', protocolVersion: 1, port, nonce, nmTicket? }` —
+`protocolVersion` is always emitted, by both `request_pair` and
+`request_pair_with_ticket`, and §9.1 makes it normative — whenever every trusted
 input is available: an argv-extracted caller identity, an owner-checked
 `localToken` and ASCII `generation` from `endpoint.json`, and the
 extension's `bindingPub`. A missing input degrades to a ticketless reply
@@ -220,10 +225,19 @@ Unix-specific, so this is not a spec violation — but do not read the
 ticket-minting path above as attesting anything stronger than that on
 Windows.
 
-The Flatpak companion and broker (`motrix-flatpak-native-host`,
-`motrix-native-host-broker`) share `probe.rs`, so they pick up the
-`POST /nonce` / `X-Motrix-Bridge: 1` migration, but remain ticketless by
-design — neither calls `mint_ticket`. That scope decision stands.
+On Flatpak, only the **broker** (`motrix-native-host-broker`) speaks HTTP:
+`probe_bridge` reaches `probe.rs` through `resolve_endpoint`, so the broker
+inherits the `POST /nonce` / `X-Motrix-Bridge: 1` migration. The companion
+(`motrix-flatpak-native-host`) makes **no** HTTP calls of its own — it has no
+reference to `probe_liveness` or `fetch_nonce` — and reaches the bridge only by
+spawning the broker over stdio. Both are ticketless by design; neither calls
+`mint_ticket`. That scope decision stands.
+
+**Do not "simplify" this by giving the companion a direct probe call.** The
+indirection is the sandbox boundary: the companion runs outside the Flatpak
+sandbox and the broker inside it, and routing every bridge request through the
+stdio contract is what keeps that boundary a single, auditable seam. A direct
+call would read as removing a pointless hop.
 
 ## Verification
 

@@ -74,13 +74,17 @@ function buildNonce(dir: EnvelopeDirection, seqBytes: Uint8Array): Uint8Array {
  * arguments rather than a production-only setter, so the 2^24-frame and
  * 2^30-block usage bounds are reachable and verifiable from a test.
  *
- * `sealedFrameCount`/`sealedBlockCount` are the counterpart production API:
- * §10 makes the *caller* responsible for closing the connection and
- * reconnecting with fresh keys before either bound is reached — throwing
- * `EnvelopeLimitError` at the boundary is the backstop, not the intended
- * path. The wiring layer reads these getters to decide when a direction is
- * close enough to `MAX_ENVELOPE_FRAMES`/`MAX_ENVELOPE_BLOCKS` to reconnect
- * proactively, before ever hitting the backstop.
+ * `sealedFrameCount`/`sealedBlockCount` expose this direction's §10 usage so a
+ * caller *could* close and reconnect with fresh keys before either bound is
+ * reached.
+ *
+ * **Nothing does that today.** Outside tests, the only reader is
+ * `EnvelopeMessageStream`, which forwards them as `EnvelopeUsage`; no
+ * production code consults that. So `EnvelopeLimitError` is the operative
+ * path, not a backstop behind a proactive one, and §10's MUST is met by the
+ * refusal at the boundary rather than by anticipating it. `EnvelopeOpener`
+ * exposes no counter getters at all, so a future proactive layer would need
+ * inbound ones added before it could act on that direction.
  */
 export class EnvelopeSealer {
   private readonly key: Uint8Array

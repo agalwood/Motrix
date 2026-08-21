@@ -85,9 +85,11 @@ export interface EnvelopeStreamFault {
   readonly cause: Error
 }
 
-/** §10 usage counters for the outbound direction, read by the wiring so a
- *  connection can be re-established with fresh keys before either bound is
- *  reached; `EnvelopeLimitError` is the backstop, not the intended path. */
+/** §10 usage counters for the outbound direction. Exposed so a caller could
+ *  re-establish the connection with fresh keys before either bound is reached
+ *  — but **no production code reads this yet**, so `EnvelopeLimitError` at the
+ *  boundary is currently the operative path rather than a backstop behind a
+ *  proactive one. */
 export interface EnvelopeUsage {
   readonly frames: number
   readonly blocks: number
