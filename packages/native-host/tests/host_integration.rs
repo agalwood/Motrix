@@ -166,7 +166,8 @@ fn subprocess_returns_exact_pair_frame_and_never_logs_nonce_or_local_token() {
     );
 
     let request = server.join().expect("fake bridge thread");
-    assert!(request.starts_with("GET /nonce HTTP/1.1\r\n"));
+    assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
+    assert!(request.contains("\r\nX-Motrix-Bridge: 1\r\n"));
     let log = fs::read_to_string(user_data.join("logs").join("native-host.log"))
         .expect("read native host debug log");
     assert!(log.contains("nonce=[redacted]"));

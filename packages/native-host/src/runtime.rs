@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::endpoint::{EndpointFile, read_endpoint};
 use crate::launcher::launch_motrix;
-use crate::probe::probe_alive_with_timeout;
+use crate::probe::fetch_nonce;
 use crate::resolve::{
     LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError,
     ResolveResult, poll_launched_endpoint, resolve_endpoint,
@@ -32,7 +32,7 @@ impl ResolveDeps for SystemResolveDeps {
     }
 
     fn probe(&mut self, port: u16, timeout: Duration) -> Option<String> {
-        probe_alive_with_timeout(port, timeout)
+        fetch_nonce(port, timeout)
     }
 
     fn launch(&mut self) -> bool {
