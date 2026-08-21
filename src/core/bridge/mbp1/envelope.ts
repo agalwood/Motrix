@@ -54,6 +54,37 @@ export const MAX_ENVELOPE_FRAMES = 2 ** 24
 /** §10 usage bound: a direction MUST reconnect with fresh keys before sealing this many encrypted AES blocks (16 GiB of plaintext). */
 export const MAX_ENVELOPE_BLOCKS = 2 ** 30
 
+/**
+ * The §10 usage-bound checks, shared by both directions.
+ *
+ * Extracted because the two sites were byte-identical, message included — which
+ * made a log unable to say which direction had exhausted, and made a mutation
+ * test unable to target one site without hitting the other. `side` fixes both:
+ * the logic has one home, and the message names the direction.
+ */
+function assertFrameBoundNotReached(
+  seq: number,
+  side: 'outbound' | 'inbound'
+): void {
+  if (seq >= MAX_ENVELOPE_FRAMES) {
+    throw new EnvelopeLimitError(
+      `envelope ${side} frame-count usage bound reached (2^24 frames); reconnect required`
+    )
+  }
+}
+
+function assertBlockBoundNotReached(
+  blockCount: number,
+  blocks: number,
+  side: 'outbound' | 'inbound'
+): void {
+  if (blockCount + blocks > MAX_ENVELOPE_BLOCKS) {
+    throw new EnvelopeLimitError(
+      `envelope ${side} encrypted-block usage bound reached (2^30 blocks); reconnect required`
+    )
+  }
+}
+
 /** `ceil(plaintextLength / 16)` encrypted AES blocks, for the §10 usage bound. */
 function blockCountFor(length: number): number {
   return Math.ceil(length / BLOCK_SIZE)
@@ -121,17 +152,9 @@ export class EnvelopeSealer {
         `envelope plaintext of ${plaintext.length} bytes exceeds the 1 MiB frame limit`
       )
     }
-    if (this.seq >= MAX_ENVELOPE_FRAMES) {
-      throw new EnvelopeLimitError(
-        'envelope frame-count usage bound reached (2^24 frames); reconnect required'
-      )
-    }
+    assertFrameBoundNotReached(this.seq, 'outbound')
     const blocks = blockCountFor(plaintext.length)
-    if (this.blockCount + blocks > MAX_ENVELOPE_BLOCKS) {
-      throw new EnvelopeLimitError(
-        'envelope encrypted-block usage bound reached (2^30 blocks); reconnect required'
-      )
-    }
+    assertBlockBoundNotReached(this.blockCount, blocks, 'outbound')
 
     const seqBytes = encU64BE(this.seq)
     const cipher = createCipheriv(
@@ -223,11 +246,7 @@ export class EnvelopeOpener {
     // direction has opened MAX_ENVELOPE_FRAMES frames, no further frame is
     // admissible no matter what it contains, exactly mirroring where
     // `EnvelopeSealer.seal` checks it, before doing any work.
-    if (this.seq >= MAX_ENVELOPE_FRAMES) {
-      throw new EnvelopeLimitError(
-        'envelope frame-count usage bound reached (2^24 frames); reconnect required'
-      )
-    }
+    assertFrameBoundNotReached(this.seq, 'inbound')
 
     const seqBytes = frame.subarray(0, SEQ_LENGTH)
     if (os2ip(seqBytes) !== BigInt(this.seq)) {
@@ -268,11 +287,7 @@ export class EnvelopeOpener {
     // is told to reconnect, which is the same mistake as letting it move
     // `blockCount` at all.
     const blocks = blockCountFor(plaintext.length)
-    if (this.blockCount + blocks > MAX_ENVELOPE_BLOCKS) {
-      throw new EnvelopeLimitError(
-        'envelope encrypted-block usage bound reached (2^30 blocks); reconnect required'
-      )
-    }
+    assertBlockBoundNotReached(this.blockCount, blocks, 'inbound')
 
     this.seq += 1
     this.blockCount += blocks
