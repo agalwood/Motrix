@@ -103,6 +103,32 @@ credentials), `../bridge-identity.ts` (§9.2 the persistent `localToken` /
 rotating `serverGeneration` loader), and `../endpoint-file-writer.ts` (the
 `endpoint.json` writer).
 
+## Envelope close codes
+
+Once §10 AEAD framing is active, envelope faults are classified by a
+three-state discriminated union — `peer-violation`, `usage-limit`, `internal`
+— and by direction. The direction matters: the same `EnvelopeViolationError`
+from inbound `open()` means the peer sent something §10 forbids, but from
+outbound `seal()` it means our code tried to seal a frame over the 1 MiB
+plaintext cap, so it is `internal` rather than the peer's fault.
+
+The close codes are:
+
+- **`1002` (protocol error)**: a §11 protocol violation (bad frame, tampering,
+  replay, a post-activation text frame). The peer sent something §10 forbids.
+- **`4001` (usage limit)**: a direction reached its §10 frame- or block-count
+  usage bound (2^24 frames or 2^30 encrypted AES blocks per direction). This
+  is neither side's fault — §10 requires the closure before either bound is
+  exceeded, and the remedy — reconnect and derive fresh keys (§8) — is the
+  same whichever direction tripped it. RFC 6455 §7.4.2 reserves 4000–4999 for
+  exactly this: private use "by prior agreement" between applications. `1002`
+  and `1011` cannot be reused: `1002` would accuse the peer of a violation when
+  none occurred, `1011` would claim an internal crash for a routine,
+  spec-mandated transition. A conforming client reconnects on any established
+  channel close (regardless of code) via §8 and derives fresh keys.
+- **`1011` (internal error)**: this process is broken (a bug, not a protocol
+  event).
+
 On-disk state lives under `<userData>/bridge/`: `pairing.json`,
 `registry.json`, `endpoint.json` (mode 0600), `local-token` (mode 0600), and
 `mbp1-credentials.json`.
