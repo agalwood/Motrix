@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { chmod, mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Browser } from '@shared/protocol/bridge'
 import writeFileAtomic from 'write-file-atomic'
@@ -412,11 +412,25 @@ async function writeDocument(
     // on load so a document written by a recovery tool still converges.
     pendingPromote: null,
   }
-  // Atomic: temp file, fsync, rename over the target — a crash mid-write
-  // leaves the previous document intact. Owner-only (0600) because the file
-  // holds mutual keys; the explicit chmod tightens a pre-existing looser file.
+  // Atomic: temp file, fsync, rename over the target — a crash mid-write leaves
+  // the previous document intact. Owner-only (0600) because the file holds
+  // mutual keys.
+  //
+  // There is deliberately no `chmod` after this call, and the absence is
+  // load-bearing. `write-file-atomic` creates the temp file with an explicitly
+  // supplied `mode` (it only inherits the existing target's mode when `mode` is
+  // omitted), chmods that temp file, and *then* renames — so a mode failure
+  // happens before the commit point and leaves the old document intact, while
+  // the rename replaces the inode and the result carries 0600 by construction.
+  //
+  // A post-rename `chmod` was therefore redundant, and being redundant was the
+  // smaller half of the problem: it was a fallible step *after* the data was
+  // durable, so `chmod` rejecting made `persist` throw before
+  // `this.credentials = next`. Disk held the promoted successor while memory
+  // still held the revoked predecessor, and any later mutation would write that
+  // stale array back — resurrecting a credential this store had already revoked,
+  // against §6.7's requirement that rotation converge on exactly one.
   await writeFileAtomic(filePath, JSON.stringify(document, null, 2), {
     mode: 0o600,
   })
-  await chmod(filePath, 0o600)
 }

@@ -389,6 +389,41 @@ describe('Mbp1CredentialStore', () => {
     }
   )
 
+  it.runIf(process.platform !== 'win32')(
+    'leaves memory and disk on the previous state when a write fails',
+    async () => {
+      // `persist` is durable-first, in-memory-second, and this pins that the
+      // order is the one that holds. It matters because there used to be a
+      // fallible step *after* the atomic rename: `writeDocument` chmodded the
+      // renamed target, so a chmod rejection made `persist` throw with the new
+      // document already on disk and `this.credentials` still on the old one.
+      // A later unrelated mutation would then write that stale array back and
+      // resurrect a revoked credential. The chmod is gone — `write-file-atomic`
+      // sets the mode on the temp file before renaming — so every remaining
+      // failure lands before anything is durable.
+      const store = await open()
+      const c1 = await store.offerProvisional(PRINCIPAL_A, 'official')
+      await store.commitFromPair(c1.credentialId)
+      const before = await readDoc()
+
+      // Deny writes to the containing directory so the temp file cannot be
+      // created. The failure therefore happens before the rename.
+      const dir = path.dirname(filePath)
+      await fs.chmod(dir, 0o500)
+      try {
+        await expect(store.revoke(c1.credentialId)).rejects.toThrow()
+      } finally {
+        await fs.chmod(dir, 0o700)
+      }
+
+      // Disk still holds the pre-mutation document...
+      expect(await readDoc()).toEqual(before)
+      // ...and memory agrees with it, rather than claiming the revoke landed.
+      expect(store.findForAuth(c1.credentialId)).not.toBeNull()
+      expect(store.committedFor(PRINCIPAL_A)).not.toBeNull()
+    }
+  )
+
   it('revokes a credential durably', async () => {
     const store = await open()
     const c1 = await store.offerProvisional(PRINCIPAL_A, 'official')
