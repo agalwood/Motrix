@@ -1,3 +1,8 @@
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import {
   FormControl,
@@ -9,16 +14,18 @@ import {
 import { Switch } from '@renderer/components/ui/switch'
 import { cn } from '@renderer/lib/utils'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
+import { TriangleAlertIcon } from 'lucide-react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { IntegrationFormValues } from './integration-dialog'
 import { TrustedExtensionsSection } from './trusted-extensions-section'
-import { usePairedExtensions } from './use-bridge'
+import { useBridgeStatus, usePairedExtensions } from './use-bridge'
 
 export function BrowserExtensionsSection() {
   const { t } = useTranslation()
   const form = useFormContext<IntegrationFormValues>()
   const { items: paired, revoke } = usePairedExtensions()
+  const status = useBridgeStatus()
   // This section lists browser extensions only; cli/agent clients (device-code
   // paired) are a separate principal kind.
   const pairedExtensions = paired.filter(
@@ -48,6 +55,20 @@ export function BrowserExtensionsSection() {
           </FormItem>
         )}
       />
+
+      {status?.degraded && (
+        <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">
+          <TriangleAlertIcon />
+          <AlertTitle>
+            {t('settings.integration.browser.degradedPort.title')}
+          </AlertTitle>
+          <AlertDescription className="text-amber-900/80 dark:text-amber-200/80">
+            {t('settings.integration.browser.degradedPort.description', {
+              port: status.port,
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div
         className={cn(

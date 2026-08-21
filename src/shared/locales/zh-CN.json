@@ -1478,6 +1478,10 @@
           "builtin": "内置",
           "userAdded": "已添加",
           "imported": "已导入"
+        },
+        "degradedPort": {
+          "title": "Bridge 正在使用备用端口运行",
+          "description": "端口 16802–16806 均不可用，Bridge 改用端口 {{port}}。浏览器扩展按标准端口范围探测将无法自动发现它——请通过 Native Messaging 配对，或设置固定端口。Motrix CLI 与 Native Host 不受影响。"
         }
       },
       "cli": {

@@ -59,6 +59,7 @@ export const BridgeQueries = {
   ResolveUrl: 'bridge:resolveUrl',
   CancelResolveUrl: 'bridge:cancelResolveUrl',
   ListPendingPairRequests: 'bridge:listPendingPairRequests',
+  GetStatus: 'bridge:getStatus',
 } as const
 
 export const BridgeEvents = {
@@ -105,6 +106,30 @@ export interface TrustedExtensionInfo {
   source: 'builtin' | 'user-added' | 'imported'
   label?: string
   addedAt: number
+}
+
+/**
+ * Renderer-facing snapshot of the bridge's current port policy (§4), read by
+ * {@link BridgeQueries.GetStatus}. Lets the settings UI surface a degraded
+ * (ephemeral-port) bridge as informational, not an error — `endpoint.json`
+ * remains the authoritative discovery source, and the CLI and native
+ * messaging host are unaffected by this query existing or not.
+ */
+export interface BridgeStatusInfo {
+  /** The port actually bound (`BridgeRuntime.port`). `null` only if a future
+   *  caller reads this before a port is bound; today the query handler is
+   *  installed after binding, so it always returns a real number. */
+  port: number | null
+  /** True once every candidate in the §4 port range (or the pinned
+   *  `fixedPort`) was taken and the bridge fell back to an ephemeral port —
+   *  extension port-probing can no longer find it. */
+  degraded: boolean
+  /** The persisted port policy (`BridgeSettings.fixedPort`) that produced
+   *  `port`/`degraded`. */
+  fixedPort: 'auto' | number
+  /** The persisted §4.1 discovery routing hint (`BridgeSettings.instanceId`).
+   *  A routing hint only — never a security signal. */
+  instanceId: string
 }
 
 /**

@@ -8,7 +8,18 @@ import {
 } from '@shared/types/cli-tool'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Mutable so individual tests can flip the bridge's reported port status
+// (Task 21) without redefining the whole `vi.mock` factory per test.
+const bridgeStatus = vi.hoisted(() => ({
+  current: {
+    port: 16802,
+    degraded: false,
+    fixedPort: 'auto' as const,
+    instanceId: 'test-instance',
+  },
+}))
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
@@ -19,6 +30,9 @@ vi.mock('@renderer/lib/transport', () => ({
         channel === 'bridge:listPendingPairRequests'
       ) {
         return Promise.resolve([])
+      }
+      if (channel === 'bridge:getStatus') {
+        return Promise.resolve(bridgeStatus.current)
       }
       if (channel === 'query:getFfmpegDetection') {
         return Promise.resolve({ active: null, candidates: [] })
@@ -84,6 +98,15 @@ import { transport } from '@renderer/lib/transport'
 import { IntegrationDialog } from './integration-dialog'
 
 describe('IntegrationDialog scaffold', () => {
+  beforeEach(() => {
+    bridgeStatus.current = {
+      port: 16802,
+      degraded: false,
+      fixedPort: 'auto',
+      instanceId: 'test-instance',
+    }
+  })
+
   it('renders the four top-level section headings', async () => {
     render(
       <IntegrationDialog
@@ -172,6 +195,9 @@ describe('IntegrationDialog scaffold', () => {
       ) {
         return []
       }
+      if (channel === 'bridge:getStatus') {
+        return bridgeStatus.current
+      }
       if (channel === 'query:getFfmpegDetection') {
         return { active: null, candidates: [] }
       }
@@ -201,5 +227,44 @@ describe('IntegrationDialog scaffold', () => {
       await screen.findByText(/desktop association could not be changed/i)
     ).toBeVisible()
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('surfaces the degraded-port notice in the browser extensions card when the bridge fell back to an ephemeral port (Task 21)', async () => {
+    bridgeStatus.current = {
+      port: 54321,
+      degraded: true,
+      fixedPort: 'auto',
+      instanceId: 'test-instance',
+    }
+
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+
+    expect(
+      await screen.findByText('Bridge running on a fallback port')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/bound port 54321 instead/)).toBeInTheDocument()
+  })
+
+  it('shows no degraded-port notice when the bridge is running on its normal port', async () => {
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+
+    await screen.findByRole('heading', { name: /browser extensions/i })
+    expect(
+      screen.queryByText('Bridge running on a fallback port')
+    ).not.toBeInTheDocument()
   })
 })

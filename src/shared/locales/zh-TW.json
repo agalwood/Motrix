@@ -1478,6 +1478,10 @@
           "builtin": "內建",
           "userAdded": "已新增",
           "imported": "已匯入"
+        },
+        "degradedPort": {
+          "title": "Bridge 正在使用備用連接埠運行",
+          "description": "連接埠 16802–16806 皆無法使用，Bridge 改用連接埠 {{port}}。瀏覽器擴充功能依標準連接埠範圍偵測將無法自動找到它——請透過 Native Messaging 配對，或設定固定連接埠。Motrix CLI 與 Native Host 不受影響。"
         }
       },
       "cli": {

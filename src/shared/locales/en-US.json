@@ -1491,6 +1491,10 @@
           "builtin": "Built-in",
           "userAdded": "Added",
           "imported": "Imported"
+        },
+        "degradedPort": {
+          "title": "Bridge running on a fallback port",
+          "description": "Ports 16802–16806 were unavailable, so the bridge bound port {{port}} instead. Browser extensions won't find it by probing the standard range — pair using native messaging, or set a fixed port. The Motrix CLI and native host are unaffected."
         }
       },
       "cli": {

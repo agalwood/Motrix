@@ -6,6 +6,7 @@ import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
+import type { BridgeStatusInfo } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NativeMessagingInstaller } from './native-messaging-installer'
@@ -471,6 +472,66 @@ describe('desktop bridge bootstrap ownership', () => {
         expect.objectContaining({ reason: 'user-revoked' })
       )
       await vi.waitFor(() => expect(conn.dispose).toHaveBeenCalledOnce())
+
+      await runtime.shutdown()
+    })
+  })
+
+  describe('bridge:getStatus (Task 21)', () => {
+    function getStatusHandler() {
+      return electron.handle.mock.calls.find(
+        ([channel]) => channel === 'bridge:getStatus'
+      )?.[1] as (() => Promise<BridgeStatusInfo>) | undefined
+    }
+
+    it('reports the bound port, fixedPort policy, and instanceId when nominal', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      const handler = getStatusHandler()
+      expect(handler).toBeTypeOf('function')
+      await expect(handler?.()).resolves.toEqual({
+        port: 19002,
+        degraded: false,
+        fixedPort: 'auto',
+        instanceId: 'test-instance-id',
+      })
+
+      await runtime.shutdown()
+    })
+
+    it('surfaces degraded: true and the ephemeral port when every candidate port was taken (§4)', async () => {
+      vi.mocked(
+        WebSocketBridgeServer.prototype.startOnFirstFree
+      ).mockResolvedValueOnce({ port: 54321, degraded: true })
+
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      await expect(getStatusHandler()?.()).resolves.toEqual({
+        port: 54321,
+        degraded: true,
+        fixedPort: 'auto',
+        instanceId: 'test-instance-id',
+      })
+
+      await runtime.shutdown()
+    })
+
+    it('reflects a pinned fixedPort and instanceId from persisted bridge settings', async () => {
+      const runtime = await bootstrapBridge({
+        ...args(),
+        bridgeSettings: { fixedPort: 18080, instanceId: 'pinned-instance' },
+      })
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      await expect(getStatusHandler()?.()).resolves.toMatchObject({
+        fixedPort: 18080,
+        instanceId: 'pinned-instance',
+      })
 
       await runtime.shutdown()
     })

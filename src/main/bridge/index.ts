@@ -35,6 +35,7 @@ import {
   BridgeCommands,
   BridgeEvents,
   BridgeQueries,
+  type BridgeStatusInfo,
   type Browser,
   type ClientIdentity,
   clientKey,
@@ -781,6 +782,15 @@ export async function bootstrapBridge(args: {
       ...dialog.listPending(),
     ])
     installIpcHandler(BridgeQueries.ListTrusted, () => registry.list())
+    installIpcHandler(
+      BridgeQueries.GetStatus,
+      (): BridgeStatusInfo => ({
+        port,
+        degraded,
+        fixedPort: args.bridgeSettings.fixedPort,
+        instanceId: args.bridgeSettings.instanceId,
+      })
+    )
     installIpcHandler(
       BridgeCommands.RevokePair,
       async (_e, params: { identity: ClientIdentity }) => {
