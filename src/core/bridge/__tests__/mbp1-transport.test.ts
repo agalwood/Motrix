@@ -61,7 +61,6 @@ async function makeHarness(
   const server = new WebSocketBridgeServer({
     pairing: makeStatefulFakePairing(),
     registry: makeFakeRegistry(),
-    onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
     motrixVersion: '2.0',
     runtime: 'electron',
     ffmpegAvailable: true,
@@ -431,7 +430,6 @@ describe('§4 ingress demux', () => {
     const bare = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'server',
       ffmpegAvailable: false,
@@ -1726,7 +1724,6 @@ describe('startOnFirstFree', () => {
     const h = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'server',
       ffmpegAvailable: false,
@@ -1746,7 +1743,6 @@ async function makeUnstartedHarness(): Promise<WebSocketBridgeServer> {
   return new WebSocketBridgeServer({
     pairing: makeStatefulFakePairing(),
     registry: makeFakeRegistry(),
-    onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
     motrixVersion: '2.0',
     runtime: 'electron',
     ffmpegAvailable: false,

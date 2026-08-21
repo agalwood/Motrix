@@ -87,7 +87,6 @@ describe('SSE GET /mdxp/events', () => {
     server = new WebSocketBridgeServer({
       pairing: makeFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -168,7 +167,6 @@ describe('SSE revocation closes live streams', () => {
     server = new WebSocketBridgeServer({
       pairing,
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -262,7 +260,6 @@ describe('SSE rotation on device-code re-pair (end-to-end)', () => {
     server = new WebSocketBridgeServer({
       pairing,
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,

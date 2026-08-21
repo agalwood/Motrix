@@ -66,7 +66,6 @@ describe('unary POST /mdxp', () => {
     server = new WebSocketBridgeServer({
       pairing: makeFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -264,7 +263,6 @@ describe('unary POST /mdxp — AppError normalization', () => {
     server = new WebSocketBridgeServer({
       pairing: makeFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -329,7 +327,6 @@ describe('unary POST /mdxp — paired-token auth (device-code)', () => {
     server = new WebSocketBridgeServer({
       pairing: makeFakePairing({ 'cli-tok': cliClient, 'ext-tok': extClient }),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,

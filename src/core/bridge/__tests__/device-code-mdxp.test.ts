@@ -65,7 +65,6 @@ describe('device-code HTTP endpoints', () => {
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -164,7 +163,6 @@ describe('device-code verificationUri', () => {
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -190,7 +188,6 @@ describe('device-code endpoints disabled when no DeviceCodeService', () => {
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,

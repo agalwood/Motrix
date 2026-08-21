@@ -73,8 +73,8 @@ export interface ServerBridgeOptions {
  * (read/write methods + the stats/task firehose) on a configurable host:port.
  *
  * Mirrors the desktop bootstrap minus every Electron piece: NO
- * PairingDialogController (headless — `onPairRequest` fails closed; web-UI
- * approval is Spec 7), NO NativeMessagingInstaller (no browser NM on a server),
+ * PairingDialogController (headless; web-UI approval is Spec 7),
+ * NO NativeMessagingInstaller (no browser NM on a server),
  * NO ipcMain. The extension `download/submit` WS path is intentionally NOT wired
  * here — the server's value is the agent HTTP MDXP surface.
  */
@@ -150,7 +150,6 @@ export async function bootstrapBridgeForServer(
     // Extension pairing stays headless-denied — a previously-paired extension
     // can still reconnect via /v1 (findByToken). cli/agent clients pair through
     // the device-code flow below, approved in the web UI.
-    onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
     motrixVersion: opts.motrixVersion,
     runtime: 'server',
     ffmpegAvailable: false,

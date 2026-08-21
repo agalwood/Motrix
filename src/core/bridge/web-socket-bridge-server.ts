@@ -60,13 +60,6 @@ import type { PairingService } from './pairing-service'
 import type { TrustedExtensionRegistry } from './trusted-extension-registry'
 import type { WebSocketLike } from './web-socket-message-stream'
 
-export interface PairDecision {
-  decision: 'allow' | 'deny'
-  /** Whether the user chose to remember this extension. Owned by dialog
-   * controller — controller calls `registry.add(...)` before resolving. */
-  addToRegistry: boolean
-}
-
 export interface PairRequestArgs {
   extensionId: string
   browser: Browser
@@ -77,7 +70,6 @@ export interface PairRequestArgs {
 export interface BridgeServerOptions {
   pairing: PairingService
   registry: TrustedExtensionRegistry
-  onPairRequest: (args: PairRequestArgs) => Promise<PairDecision>
   motrixVersion: string
   runtime: 'electron' | 'server'
   ffmpegAvailable: boolean
@@ -96,7 +88,7 @@ export interface BridgeServerOptions {
   /**
    * Fired when a device-code `pair/request` arrives, so the shell can surface an
    * approval prompt (the bootstrap wires this to `bus.emitPairRequested`). The
-   * server itself stays bus-agnostic, mirroring the `onPairRequest` pattern.
+   * server itself stays bus-agnostic; only the shell knows how to prompt.
    */
   onPairRequested?: (payload: PairRequestPayload) => void
   /**

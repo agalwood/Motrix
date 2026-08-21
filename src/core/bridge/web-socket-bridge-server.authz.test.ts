@@ -58,7 +58,6 @@ async function makeServer(mbp1: Mbp1TestWiring | null): Promise<{
   const server = new WebSocketBridgeServer({
     pairing,
     registry,
-    onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
     motrixVersion: '0.0.0-test',
     runtime: 'electron',
     ffmpegAvailable: false,

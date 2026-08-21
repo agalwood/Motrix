@@ -617,12 +617,6 @@ export async function bootstrapBridge(args: {
       motrixVersion: args.motrixVersion,
       runtime: 'electron',
       ffmpegAvailable: args.ffmpegAvailable,
-      // Dead under MBP1 — nothing in web-socket-bridge-server.ts calls this
-      // any more (extension pairing runs entirely through the MBP1 session
-      // state machine) — but `BridgeServerOptions.onPairRequest` is still a
-      // required field left over from before the initialize collapse.
-      // `src/server/bridge/bootstrap.ts` keeps the same fail-closed stub.
-      onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
       localToken: bridgeIdentity.localToken,
       deviceCode,
       // A device-code pair/request surfaces the SAME approval prompt the

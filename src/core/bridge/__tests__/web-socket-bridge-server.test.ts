@@ -58,7 +58,6 @@ describe('WebSocketBridgeServer upgrade gates', () => {
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -118,7 +117,6 @@ describe('WebSocketBridgeServer.start() bind guard', () => {
     return new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -207,7 +205,6 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
         remove: async () => {},
         listManifestIds: () => [],
       } as unknown as TrustedExtensionRegistry,
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
