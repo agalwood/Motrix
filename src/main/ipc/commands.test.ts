@@ -1155,13 +1155,24 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  // Namespaces come in as one named object, not as trailing positional
+  // parameters: five defaulted `object` slots in a row means a call site can
+  // silently put its override in the wrong namespace and still type-check.
   function makeSettingsLike(
     proxy: object,
-    app: object = {},
-    nat: object = {},
-    tracker: object = {},
-    engine: object = {},
-    bridge: object = {}
+    {
+      app = {},
+      nat = {},
+      tracker = {},
+      engine = {},
+      bridge = {},
+    }: {
+      app?: object
+      nat?: object
+      tracker?: object
+      engine?: object
+      bridge?: object
+    } = {}
   ) {
     return {
       app: {
@@ -1628,8 +1639,8 @@ describe('Commands.UpdateSettings', () => {
 
   it('hot-applies runtime engine settings without a restart reminder', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(PROXY_OFF, {}, {}, {}, { split: 16 })
-    const after = makeSettingsLike(PROXY_OFF, {}, {}, {}, { split: 32 })
+    const before = makeSettingsLike(PROXY_OFF, { engine: { split: 16 } })
+    const after = makeSettingsLike(PROXY_OFF, { engine: { split: 32 } })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1656,18 +1667,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls trackerManager.applySourcesChange when sourcesEnabled changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: false, blacklistEnabled: true }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: false, blacklistEnabled: true },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1691,18 +1696,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls trackerManager.applyBlacklistChange when blacklistEnabled changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: false }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: false },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1726,18 +1725,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls both apply* methods when both toggle in one patch', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: false, blacklistEnabled: false }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: false, blacklistEnabled: false },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1761,12 +1754,9 @@ describe('Commands.UpdateSettings', () => {
 
   it('does not call apply* methods when tracker toggles unchanged', async () => {
     const ctx = fakeCtx()
-    const settings = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
+    const settings = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValue(settings),
@@ -1790,22 +1780,10 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls bridgeManager.restart when bridge.fixedPort changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      {},
-      {},
-      { fixedPort: 'auto' }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      {},
-      {},
-      { fixedPort: 16900 }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      bridge: { fixedPort: 'auto' },
+    })
+    const after = makeSettingsLike(PROXY_OFF, { bridge: { fixedPort: 16900 } })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1837,14 +1815,9 @@ describe('Commands.UpdateSettings', () => {
 
   it('does not call bridgeManager.restart when bridge.fixedPort is unchanged', async () => {
     const ctx = fakeCtx()
-    const settings = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      {},
-      {},
-      { fixedPort: 'auto' }
-    )
+    const settings = makeSettingsLike(PROXY_OFF, {
+      bridge: { fixedPort: 'auto' },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValue(settings),
@@ -1875,8 +1848,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('reconfigures the updater after the persisted channel changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(PROXY_OFF, { updateChannel: 'stable' })
-    const after = makeSettingsLike(PROXY_OFF, { updateChannel: 'beta' })
+    const before = makeSettingsLike(PROXY_OFF, {
+      app: { updateChannel: 'stable' },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      app: { updateChannel: 'beta' },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
