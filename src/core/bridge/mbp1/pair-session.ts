@@ -51,15 +51,21 @@ import { fromBase64Url, toBase64Url } from './canonical'
 import { DIR_C2S, DIR_S2C, EnvelopeOpener, EnvelopeSealer } from './envelope'
 import {
   confirmAFrameSchema,
+  confirmBFrameSchema,
   credentialAckFrameSchema,
+  credentialCommittedFrameSchema,
   credentialOfferFrameSchema,
   frameEnvelopeSchema,
   MAX_PRE_AUTH_FRAME_BYTES,
   MBP1_PROTOCOL_VERSION,
   nmTicketWireSchema,
   type PairErrorCode,
+  type PairErrorFrame,
+  pairAcceptFrameSchema,
+  pairErrorFrameSchema,
   pairHelloFrameSchema,
   pakeAFrameSchema,
+  pakeBFrameSchema,
 } from './frames'
 import { formatPairingCode, generatePairingCode } from './pairing-code'
 import { deriveW } from './scrypt-w'
@@ -347,10 +353,15 @@ export class PairSession {
       return
     }
 
+    const committedFrame = { type: 'credentialCommitted' }
+    if (!credentialCommittedFrameSchema.safeParse(committedFrame).success) {
+      this.terminate('credentialCommittedInvalid')
+      return
+    }
     // A failed seal has already closed the session. Continuing would set
     // `state = 'committed'` on a closed session and hand the wiring a channel
     // after its `close` callback had fired.
-    if (!this.sendSealed({ type: 'credentialCommitted' })) {
+    if (!this.sendSealed(committedFrame)) {
       return
     }
     this.state = 'committed'
@@ -476,14 +487,19 @@ export class PairSession {
       () => this.onDismissed()
     )
 
-    this.state = 'awaiting-pakeA'
     // §6.1: sent when the dialog is queued, and carrying no approval
     // semantics — only key confirmation proves the user approved.
-    this.deps.sendText({
+    const acceptFrame = {
       type: 'pairAccept',
       protocolVersion: MBP1_PROTOCOL_VERSION,
       instanceId: this.deps.instanceId,
-    })
+    }
+    if (!pairAcceptFrameSchema.safeParse(acceptFrame).success) {
+      this.terminate('pairAcceptInvalid')
+      return
+    }
+    this.state = 'awaiting-pakeA'
+    this.deps.sendText(acceptFrame)
   }
 
   /**
@@ -685,8 +701,13 @@ export class PairSession {
     const macs = confirmationMacs(keys.KcA, keys.KcB, tt)
     this.run = { tt, ke: keys.Ke, expectedCA: macs.cA, cB: macs.cB }
 
+    const pakeBFrame = { type: 'pakeB', pB: toBase64Url(pB) }
+    if (!pakeBFrameSchema.safeParse(pakeBFrame).success) {
+      this.terminate('pakeBInvalid')
+      return
+    }
     this.state = 'awaiting-confirmA'
-    this.deps.sendText({ type: 'pakeB', pB: toBase64Url(pB) })
+    this.deps.sendText(pakeBFrame)
   }
 
   // -- §6.5 confirmA -------------------------------------------------------
@@ -736,8 +757,13 @@ export class PairSession {
       return
     }
 
+    const confirmBFrame = { type: 'confirmB', cB: toBase64Url(run.cB) }
+    if (!confirmBFrameSchema.safeParse(confirmBFrame).success) {
+      this.terminate('confirmBInvalid')
+      return
+    }
     this.confirmed = true
-    this.deps.sendText({ type: 'confirmB', cB: toBase64Url(run.cB) })
+    this.deps.sendText(confirmBFrame)
 
     // §6.6: the channel is live in both directions from here on.
     const { kC2S, kS2C } = pairTrafficKeys(run.ke)
@@ -840,12 +866,16 @@ export class PairSession {
       this.fail('rateLimited')
       return
     }
+    if (
+      !this.sendPairError({
+        type: 'pairError',
+        code: 'codeMismatch',
+        attemptsRemaining: MAX_ATTEMPTS - this.attempts,
+      })
+    ) {
+      return
+    }
     this.state = 'awaiting-pakeA'
-    this.deps.sendText({
-      type: 'pairError',
-      code: 'codeMismatch',
-      attemptsRemaining: MAX_ATTEMPTS - this.attempts,
-    })
   }
 
   private onDismissed(): void {
@@ -864,8 +894,29 @@ export class PairSession {
   }
 
   private fail(code: PairErrorCode): void {
-    this.deps.sendText({ type: 'pairError', code })
+    if (!this.sendPairError({ type: 'pairError', code })) {
+      return
+    }
     this.terminate(code)
+  }
+
+  /**
+   * Validates a `pairError` frame against its own schema before it reaches
+   * the peer. `pairError`'s fields are locally constructed — a typed `code`
+   * and a computed `attemptsRemaining` — but validating it too is what makes
+   * `frames.ts`'s "one schema describes both directions" claim total rather
+   * than true for six frames out of seven. A frame that fails here is our own
+   * construction bug, and there is nowhere left to report it: a second
+   * `pairError` could be just as broken, so this terminates silently instead
+   * of recursing into `fail`.
+   */
+  private sendPairError(frame: PairErrorFrame): boolean {
+    if (!pairErrorFrameSchema.safeParse(frame).success) {
+      this.terminate('pairErrorFrameInvalid')
+      return false
+    }
+    this.deps.sendText(frame)
+    return true
   }
 
   private terminate(reason: string): void {

@@ -1222,6 +1222,20 @@ describe('PairSession', () => {
       expect(h.closed).toHaveLength(1)
       expect(h.lastSent().type).toBe('confirmB')
     })
+
+    it('terminates locally rather than emit a pairAccept a broken deps wiring produced', async () => {
+      // `pairAcceptFrameSchema` requires `instanceId` to be ASCII (it reaches
+      // `enc()` via §6.4's B_id). `PairSessionDeps` is structural, so `tsc`
+      // proves nothing about the string's contents — a non-ASCII value must
+      // close locally, not go out as a malformed frame the peer has to reject.
+      const h = makeHarness()
+      h.deps.instanceId = 'bad-é-instance'
+
+      await h.text(helloFrame())
+
+      expect(h.sent).toEqual([])
+      expect(h.closed).toHaveLength(1)
+    })
   })
 
   describe('credential exchange discipline (§6.7)', () => {

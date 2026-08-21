@@ -44,6 +44,10 @@ import {
   MAX_PRE_AUTH_FRAME_BYTES,
   MBP1_PROTOCOL_VERSION,
   type PairErrorCode,
+  type PairErrorFrame,
+  pairErrorFrameSchema,
+  reconnectAcceptFrameSchema,
+  reconnectChallengeFrameSchema,
   reconnectResponseFrameSchema,
 } from './frames'
 import {
@@ -126,11 +130,16 @@ export class ReconnectSession {
   start(): void {
     this.challengeS = this.deps.random(CHALLENGE_BYTES)
     this.deadlineAt = this.deps.now() + RECONNECT_DEADLINE_MS
-    this.deps.sendText({
+    const challengeFrame = {
       type: 'reconnectChallenge',
       protocolVersion: MBP1_PROTOCOL_VERSION,
       S: toBase64Url(this.challengeS),
-    })
+    }
+    if (!reconnectChallengeFrameSchema.safeParse(challengeFrame).success) {
+      this.terminate('reconnectChallengeInvalid')
+      return
+    }
+    this.deps.sendText(challengeFrame)
   }
 
   async handleText(raw: string, byteLength: number): Promise<void> {
@@ -301,10 +310,15 @@ export class ReconnectSession {
     }
 
     const macServer = reconnectMacServer(key, this.challengeS, c, rt)
-    this.deps.sendText({
+    const acceptFrame = {
       type: 'reconnectAccept',
       mac: toBase64Url(macServer),
-    })
+    }
+    if (!reconnectAcceptFrameSchema.safeParse(acceptFrame).success) {
+      this.terminate('reconnectAcceptInvalid')
+      return
+    }
+    this.deps.sendText(acceptFrame)
 
     const { kC2S, kS2C } = reconnectTrafficKeys(key, this.challengeS, c)
     const channel = {
@@ -340,7 +354,17 @@ export class ReconnectSession {
   }
 
   private fail(code: PairErrorCode): void {
-    this.deps.sendText({ type: 'pairError', code })
+    const frame: PairErrorFrame = { type: 'pairError', code }
+    // Validated for the same reason `pair-session.ts`'s `sendPairError` is:
+    // `frames.ts` claims one schema describes both directions, and a
+    // construction bug in this locally-built frame is ours, not the peer's —
+    // there is nowhere left to report it, so this terminates silently rather
+    // than risk sending a second, possibly-also-broken `pairError`.
+    if (!pairErrorFrameSchema.safeParse(frame).success) {
+      this.terminate('pairErrorFrameInvalid')
+      return
+    }
+    this.deps.sendText(frame)
     this.terminate(code)
   }
 
