@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, open as openFile, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Browser } from '@shared/protocol/bridge'
 import writeFileAtomic from 'write-file-atomic'
@@ -278,11 +278,29 @@ export class Mbp1CredentialStore {
     )
   }
 
-  /** Durable first, in-memory second: a failed write must not leave the store
-   *  claiming a state that is not on disk. */
+  /**
+   * `rename` → memory → parent-directory sync, in that order, and the order is
+   * the whole design.
+   *
+   * `writeDocument` returns once the atomic rename has landed, so at that point
+   * **disk already holds `next`** — which is why memory is updated before the
+   * directory sync rather than after. The sync only makes the rename's
+   * directory entry survive power loss; it cannot un-land it. If it rejects,
+   * this method still rejects (the caller has not been promised durability),
+   * but memory and disk agree, so a later mutation cannot write a stale
+   * snapshot back.
+   *
+   * Contrast the `chmod` that used to sit here: that step was **redundant**,
+   * because `write-file-atomic` already set the mode on the temp file, so the
+   * fix was to delete it. This step is not redundant — §6.7's crash
+   * consistency depends on it — so it stays and the memory update moves ahead
+   * of it instead. Same window, opposite remedy, because one step was doing
+   * nothing and the other is load-bearing.
+   */
   private async persist(next: StoredCredential[]): Promise<void> {
     await writeDocument(this.filePath, next)
     this.credentials = next
+    await syncParentDirectory(this.filePath)
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
@@ -397,6 +415,37 @@ function reconcile(
 
 function committedOrder(credential: StoredCredential): number {
   return credential.committedAt ?? credential.createdAt
+}
+
+/**
+ * Fsyncs the directory holding `filePath`, so the rename that published the new
+ * document is itself durable.
+ *
+ * `write-file-atomic@8.0.0` fsyncs the temp file's fd before renaming but never
+ * opens the parent directory, so without this the *contents* are durable while
+ * the directory entry naming them may not be. §6.7 requires the server to
+ * "durably promote ... and only then send `reconnectAccept`", and names the
+ * exact failure this closes: "a crash after the accept could leave the
+ * just-authenticated credential merely provisional and let it later expire."
+ * Power loss between the rename and the directory metadata reaching stable
+ * storage could also re-expose the previous document, resurrecting a credential
+ * this store had revoked.
+ *
+ * Skipped on Windows by an explicit platform check rather than by catching the
+ * open failure: a directory cannot be opened as a file there, so the guarantee
+ * rests on the filesystem instead. Inferring the platform from an error would
+ * have made a genuine `EACCES` on Unix indistinguishable from "unsupported",
+ * silently downgrading a real durability failure — so on every platform that
+ * has the syscall, every failure here propagates.
+ */
+async function syncParentDirectory(filePath: string): Promise<void> {
+  if (process.platform === 'win32') return
+  const handle = await openFile(dirname(filePath), 'r')
+  try {
+    await handle.sync()
+  } finally {
+    await handle.close()
+  }
 }
 
 async function writeDocument(
