@@ -24,6 +24,14 @@ import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
+const { probePreciseMock } = vi.hoisted(() => ({
+  probePreciseMock: vi.fn(),
+}))
+
+vi.mock('../probe/disk-probe', () => ({
+  probePrecise: probePreciseMock,
+}))
+
 // checkPort uses node:net I/O which doesn't fire under fake timers, and
 // a live aria2 on the dev port would make it return false. Mock the
 // port-check module so the supervisor always sees the port as available.
@@ -51,14 +59,15 @@ function createMockSettingsManager(): SettingsManager {
       dhtEnabled: true,
       listenPort: 6881,
       dhtListenPort: 6881,
+      performanceProfile: 'auto',
       maxConcurrentDownloads: 5,
-      maxConnectionPerServer: 1,
-      split: 5,
-      minSplitSize: 20971520,
+      maxConnectionPerServer: 64,
+      split: 16,
+      minSplitSize: 4194304,
       userAgent: 'Motrix/2.0',
       sessionSaveInterval: 60,
       fileAllocation: 'none',
-      diskCache: 16777216,
+      diskCache: 33554432,
     })),
     getApp: vi.fn(() => ({
       defaultSaveDir: '/Users/test/Downloads',
@@ -133,6 +142,17 @@ describe('EngineSupervisor', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    probePreciseMock.mockReset()
+    probePreciseMock.mockResolvedValue({
+      platform: 'darwin',
+      mountPoint: '/',
+      fsType: 'apfs',
+      diskType: 'ssd',
+      isInternal: true,
+      isNetworkFs: false,
+      freeBytes: 100 * 1024 * 1024 * 1024,
+      confidence: 'high',
+    })
     eventBus = new EventBus()
     settings = createMockSettingsManager()
     processManager = createMockProcessManager()
@@ -204,6 +224,60 @@ describe('EngineSupervisor', () => {
     it('does not overwrite persisted tuning settings during engine start', async () => {
       await supervisor.start('/usr/bin/aria2c')
       expect(settings.update).not.toHaveBeenCalled()
+    })
+
+    it('applies automatic storage tuning to runtime args', async () => {
+      probePreciseMock.mockResolvedValue({
+        platform: 'linux',
+        mountPoint: '/downloads',
+        fsType: 'ext4',
+        diskType: 'hdd',
+        isInternal: true,
+        isNetworkFs: false,
+        freeBytes: 100 * 1024 * 1024 * 1024,
+        confidence: 'high',
+      })
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          performanceProfile: 'auto',
+          diskCache: 64 * 1024 * 1024,
+          split: 8,
+          minSplitSize: 20 * 1024 * 1024,
+        }),
+        expect.anything(),
+        expect.anything(),
+        expect.anything()
+      )
+      expect(settings.update).not.toHaveBeenCalled()
+    })
+
+    it('keeps custom performance values unchanged at runtime', async () => {
+      const configured = settings.getEngine()
+      vi.mocked(settings.getEngine).mockReturnValue({
+        ...configured,
+        performanceProfile: 'custom',
+        diskCache: 48 * 1024 * 1024,
+        split: 24,
+        minSplitSize: 2 * 1024 * 1024,
+      })
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(probePreciseMock).not.toHaveBeenCalled()
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          performanceProfile: 'custom',
+          diskCache: 48 * 1024 * 1024,
+          split: 24,
+          minSplitSize: 2 * 1024 * 1024,
+        }),
+        expect.anything(),
+        expect.anything(),
+        expect.anything()
+      )
     })
   })
 

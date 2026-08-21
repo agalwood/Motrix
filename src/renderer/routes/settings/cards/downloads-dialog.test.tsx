@@ -1,8 +1,10 @@
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { transport } from '@renderer/lib/transport'
+import { ENGINE_PERFORMANCE_PROFILES } from '@shared/constants/engine-performance-profiles'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import { MAX_CONNECTIONS_PER_SERVER } from '@shared/schemas/engine-settings'
 import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -33,10 +35,11 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 
 const FIXTURE = {
   engine: {
+    performanceProfile: 'auto',
     maxConcurrentDownloads: 5,
-    maxConnectionPerServer: 16,
+    maxConnectionPerServer: MAX_CONNECTIONS_PER_SERVER,
     split: 16,
-    minSplitSize: 10485760,
+    minSplitSize: 4 * 1024 * 1024,
     userAgent: 'Motrix/2.0',
     connectTimeout: 30,
     socketTimeout: 30,
@@ -44,7 +47,7 @@ const FIXTURE = {
     retryWait: 10,
     lowestSpeedLimit: 0,
     fileAllocation: 'none',
-    diskCache: 67108864,
+    diskCache: 32 * 1024 * 1024,
     sessionSaveInterval: 15,
     magnetResolveTimeout: 120,
     listenPort: 6881,
@@ -103,6 +106,88 @@ describe('<DownloadsDialog>', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('exposes the Motrix aria2 connection limit in the performance settings', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('combobox', { name: /performance profile/i })
+    )
+    await user.click(await screen.findByRole('option', { name: /^custom$/i }))
+
+    const input = screen.getByLabelText(/max connections per server/i)
+    expect(input).toHaveValue(MAX_CONNECTIONS_PER_SERVER)
+    expect(input).toHaveAttribute('max', String(MAX_CONNECTIONS_PER_SERVER))
+    expect(
+      screen.getAllByRole('button', {
+        name: String(MAX_CONNECTIONS_PER_SERVER),
+      }).length
+    ).toBeGreaterThan(0)
+  })
+
+  it('links the high-speed profile to all performance parameters', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('combobox', { name: /performance profile/i })
+    )
+    await user.click(
+      await screen.findByRole('option', { name: /^high speed$/i })
+    )
+    expect(screen.getAllByText('32')).toHaveLength(2)
+    expect(screen.getByText(/per server/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: {
+        performanceProfile: 'high',
+        maxConnectionPerServer:
+          ENGINE_PERFORMANCE_PROFILES.high.maxConnectionPerServer,
+        split: ENGINE_PERFORMANCE_PROFILES.high.split,
+        diskCache: ENGINE_PERFORMANCE_PROFILES.high.diskCache,
+      },
+    })
+  })
+
+  it('places custom performance parameters before concurrent downloads', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('combobox', { name: /performance profile/i })
+    )
+    await user.click(await screen.findByRole('option', { name: /^custom$/i }))
+
+    const customParameters = screen.getByText(/custom performance parameters/i)
+    const concurrentDownloads = screen.getByText(/max concurrent downloads/i)
+    expect(
+      customParameters.compareDocumentPosition(concurrentDownloads) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
   it('saves split, file allocation, and disk cache as explicit user values', async () => {
     render(
       <DownloadsDialog
@@ -112,28 +197,30 @@ describe('<DownloadsDialog>', () => {
         descKey="settings.cards.downloads.desc"
       />
     )
-    await waitFor(() => {
-      expect(screen.getByLabelText(/split connections per file/i)).toHaveValue(
-        16
-      )
-    })
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('combobox', { name: /performance profile/i })
+    )
+    await user.click(await screen.findByRole('option', { name: /^custom$/i }))
+
+    expect(screen.getByLabelText(/split connections per file/i)).toHaveValue(16)
 
     fireEvent.change(screen.getByLabelText(/split connections per file/i), {
       target: { value: '32' },
     })
     fireEvent.change(screen.getByLabelText(/disk cache/i), {
-      target: { value: '32' },
+      target: { value: '64' },
     })
-    const user = userEvent.setup()
     await user.click(screen.getByRole('combobox', { name: /file allocation/i }))
     await user.click(await screen.findByRole('option', { name: /^prealloc$/i }))
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       engine: {
+        performanceProfile: 'custom',
         split: 32,
         fileAllocation: 'prealloc',
-        diskCache: 32 * 1024 * 1024,
+        diskCache: 64 * 1024 * 1024,
       },
     })
     expect(screen.queryByText(/restart to apply changes/i)).toBeNull()
@@ -163,6 +250,42 @@ describe('<DownloadsDialog>', () => {
     expect(
       screen.getByRole('button', { name: /^automatic$/i })
     ).toBeInTheDocument()
+  })
+
+  it('places compact speed limits between performance and reliability', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const standard = await screen.findByRole('button', { name: /^standard$/i })
+    const performance = screen.getByRole('heading', { name: 'Performance' })
+    const speedLimits = screen.getByRole('heading', { name: 'Speed limits' })
+    const reliability = screen.getByRole('heading', {
+      name: 'Network reliability',
+    })
+    const follows = (first: Element, second: Element) =>
+      Boolean(
+        first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING
+      )
+
+    expect(follows(performance, speedLimits)).toBe(true)
+    expect(follows(speedLimits, reliability)).toBe(true)
+
+    const modeGroup = screen.getByRole('group', { name: 'Current mode' })
+    expect(modeGroup).toHaveClass(
+      'gap-0',
+      'rounded-lg',
+      'bg-tab-background',
+      'p-[3px]'
+    )
+    expect(standard).toHaveAttribute('data-slot', 'toggle-group-item')
+    expect(standard).toHaveAttribute('aria-pressed', 'true')
+    expect(standard).toHaveClass('h-7', 'text-xs', 'shadow-none')
   })
 
   it('changing the base download limit submits a base patch', async () => {

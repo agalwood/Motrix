@@ -1106,6 +1106,38 @@
     "downloads": {
       "performance": {
         "title": "性能",
+        "profile": "性能档位",
+        "profileDesc": "选择 Motrix 的下载强度。",
+        "baseline": "基线",
+        "metrics": {
+          "segments": "分段",
+          "perServer": "单服务器",
+          "minimum": "最小分段",
+          "cache": "缓存"
+        },
+        "customParameters": "自定义性能参数",
+        "profiles": {
+          "auto": {
+            "label": "自动",
+            "desc": "根据下载磁盘自动调整性能。"
+          },
+          "balanced": {
+            "label": "均衡",
+            "desc": "降低资源占用，适合日常下载。"
+          },
+          "high": {
+            "label": "高速",
+            "desc": "增加连接数，提升下载速度。"
+          },
+          "maximum": {
+            "label": "极限",
+            "desc": "使用最大并发；部分服务器可能拒绝。"
+          },
+          "custom": {
+            "label": "自定义",
+            "desc": "手动设置连接、分段和缓存。"
+          }
+        },
         "maxConcurrentDownloads": "最大同时下载数",
         "maxConcurrentDownloadsDesc": "同一时刻并行下载的任务数。",
         "maxConnectionPerServer": "单服务器最大连接数",

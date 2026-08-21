@@ -87,8 +87,8 @@ describe('migrate', () => {
 })
 
 describe('migration v3 → v4', () => {
-  it('targets version 8', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(8)
+  it('targets version 9', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(9)
   })
 
   it('adds dhtListenPort defaulting to listenPort value', () => {
@@ -175,7 +175,7 @@ describe('migration v5 → v6 (media namespace)', () => {
   it('migrates v5 → v6 by injecting media defaults', () => {
     const v5 = { version: 5, engine: {}, app: {} }
     const out = migrate(v5)
-    expect(out.version).toBe(8)
+    expect(out.version).toBe(9)
     expect(out.media).toEqual(DEFAULT_MEDIA_SETTINGS)
   })
 
@@ -198,8 +198,8 @@ describe('migration v5 → v6 (media namespace)', () => {
 })
 
 describe('migration v6 → v7 (speedLimit namespace)', () => {
-  it('targets version 8', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(8)
+  it('targets version 9', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(9)
   })
 
   it('v6→v7: maps a configured limit to base, turtle off', () => {
@@ -210,7 +210,7 @@ describe('migration v6 → v7 (speedLimit namespace)', () => {
         maxOverallUploadLimit: 256000,
       },
     })
-    expect(result.version).toBe(8)
+    expect(result.version).toBe(9)
     expect(
       (result.engine as Record<string, unknown>).maxOverallDownloadLimit
     ).toBeUndefined()
@@ -259,7 +259,7 @@ describe('migration v7 → v8 (application update channel)', () => {
   it('defaults existing users to stable', () => {
     const result = migrate({ version: 7, app: { theme: 'dark' } })
 
-    expect(result.version).toBe(8)
+    expect(result.version).toBe(9)
     expect(result.app).toEqual({ theme: 'dark', updateChannel: 'stable' })
   })
 
@@ -276,5 +276,42 @@ describe('migration v7 → v8 (application update channel)', () => {
     const result = migrate({ version: 7, app: { updateChannel: 'alpha' } })
 
     expect(result.app).toEqual({ updateChannel: 'stable' })
+  })
+})
+
+describe('migration v8 → v9 (performance profiles)', () => {
+  it('moves the previous defaults to the automatic profile', () => {
+    const result = migrate({
+      version: 8,
+      engine: {
+        maxConnectionPerServer: 16,
+        split: 16,
+        minSplitSize: 10 * 1024 * 1024,
+        diskCache: 64 * 1024 * 1024,
+      },
+    })
+
+    expect(result.version).toBe(9)
+    expect(result.engine).toMatchObject({ performanceProfile: 'auto' })
+  })
+
+  it('preserves tuned values through the custom profile', () => {
+    const result = migrate({
+      version: 8,
+      engine: {
+        maxConnectionPerServer: 24,
+        split: 12,
+        minSplitSize: 2 * 1024 * 1024,
+        diskCache: 48 * 1024 * 1024,
+      },
+    })
+
+    expect(result.engine).toMatchObject({
+      performanceProfile: 'custom',
+      maxConnectionPerServer: 24,
+      split: 12,
+      minSplitSize: 2 * 1024 * 1024,
+      diskCache: 48 * 1024 * 1024,
+    })
   })
 })

@@ -1119,6 +1119,38 @@
     "downloads": {
       "performance": {
         "title": "Performance",
+        "profile": "Performance profile",
+        "profileDesc": "Choose how aggressively Motrix downloads.",
+        "baseline": "Baseline",
+        "metrics": {
+          "segments": "Segments",
+          "perServer": "Per server",
+          "minimum": "Minimum",
+          "cache": "Cache"
+        },
+        "customParameters": "Custom performance parameters",
+        "profiles": {
+          "auto": {
+            "label": "Automatic",
+            "desc": "Adjusts performance to your download drive."
+          },
+          "balanced": {
+            "label": "Balanced",
+            "desc": "Uses fewer resources for everyday downloads."
+          },
+          "high": {
+            "label": "High speed",
+            "desc": "Uses more connections for faster downloads."
+          },
+          "maximum": {
+            "label": "Maximum",
+            "desc": "Uses maximum parallelism. Some servers may reject it."
+          },
+          "custom": {
+            "label": "Custom",
+            "desc": "Set connections, segments, and cache manually."
+          }
+        },
         "maxConcurrentDownloads": "Max concurrent downloads",
         "maxConcurrentDownloadsDesc": "Number of tasks downloading in parallel.",
         "maxConnectionPerServer": "Max connections per server",

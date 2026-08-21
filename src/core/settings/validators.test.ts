@@ -75,10 +75,16 @@ describe('validateEngineSettings', () => {
     expect(tooHigh.split).toBe(DEFAULT_ENGINE_SETTINGS.split)
   })
 
-  it('clamps maxConnectionPerServer to valid range (1-16)', () => {
+  it('clamps maxConnectionPerServer to valid range (1-64)', () => {
+    const atLimit = validateEngineSettings({
+      ...DEFAULT_ENGINE_SETTINGS,
+      maxConnectionPerServer: 64,
+    })
+    expect(atLimit.maxConnectionPerServer).toBe(64)
+
     const tooHigh = validateEngineSettings({
       ...DEFAULT_ENGINE_SETTINGS,
-      maxConnectionPerServer: 32,
+      maxConnectionPerServer: 65,
     })
     expect(tooHigh.maxConnectionPerServer).toBe(
       DEFAULT_ENGINE_SETTINGS.maxConnectionPerServer

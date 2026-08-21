@@ -189,7 +189,10 @@ function makeBaseDeps(saveDir: string): Deps & {
   const adapter = new Aria2Adapter(rpcClient as never)
   const settingsManager = {
     getApp: () => ({ defaultSaveDir: saveDir }),
-    getEngine: () => ({ maxConnectionPerServer: 16 }),
+    getEngine: () => ({
+      performanceProfile: 'custom',
+      maxConnectionPerServer: 16,
+    }),
   } as unknown as Deps['settingsManager']
   const finalNamePicker = {
     pick: vi.fn(async (_dir: string, name: string) => name),

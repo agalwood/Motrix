@@ -169,17 +169,20 @@ function recommendTuningParams(
   }
 
   if (probe.diskType === 'hdd') {
-    return { diskCache: 64 * MB, split: 5, minSplitSize: 20 * MB }
+    return { diskCache: 64 * MB, split: 8, minSplitSize: 20 * MB }
   }
 
   // SSD or unknown
   if (tier === 'small') {
-    return { diskCache: 16 * MB, split: 5, minSplitSize: 1 * MB }
+    return { diskCache: 32 * MB, split: 8, minSplitSize: 1 * MB }
   }
   if (tier === 'medium') {
-    return { diskCache: 16 * MB, split: 5, minSplitSize: 4 * MB }
+    return { diskCache: 32 * MB, split: 16, minSplitSize: 4 * MB }
   }
-  return { diskCache: 32 * MB, split: 10, minSplitSize: 20 * MB }
+  if (tier === 'large') {
+    return { diskCache: 64 * MB, split: 32, minSplitSize: 10 * MB }
+  }
+  return { diskCache: 64 * MB, split: 64, minSplitSize: 20 * MB }
 }
 
 export function recommend(

@@ -1,3 +1,4 @@
+import type { EnginePerformanceProfile } from '@shared/constants/engine-performance-profiles'
 import type {
   EngineCapability,
   EngineFeatureReport,
@@ -67,6 +68,7 @@ export interface CreateDownloadParams {
   pause?: boolean
 
   // Tuning hints
+  performanceProfile?: EnginePerformanceProfile
   totalSizeBytes?: number
   protocol?: 'http' | 'ftp' | 'sftp' | 'bt' | 'magnet' | 'metalink'
   isMultiFile?: boolean

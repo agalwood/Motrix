@@ -484,6 +484,69 @@ describe('Aria2Adapter', () => {
       )
     })
 
+    it('auto profile applies per-file tuning without sending global disk-cache', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        performanceProfile: 'auto',
+        protocol: 'http',
+        totalSizeBytes: 10 * 1024 * 1024 * 1024,
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({
+          split: '32',
+          'min-split-size': String(10 * 1024 * 1024),
+        })
+      )
+      const options = vi.mocked(rpc.addUri).mock.calls[0][1]
+      expect(options).not.toHaveProperty('disk-cache')
+    })
+
+    it('fixed profiles keep their global tuning values', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        performanceProfile: 'high',
+        protocol: 'http',
+        totalSizeBytes: 10 * 1024 * 1024 * 1024,
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(['u'], { dir: '/d' })
+    })
+
+    it('auto tuning preserves an explicit connection count', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        performanceProfile: 'auto',
+        protocol: 'http',
+        totalSizeBytes: 10 * 1024 * 1024 * 1024,
+        connections: 8,
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({
+          split: '8',
+          'max-connection-per-server': '8',
+        })
+      )
+    })
+
     it('createDownload maps proxy to all-proxy and merges extraEngineOptions', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
