@@ -14,7 +14,6 @@ base: org.electronjs.Electron2.BaseApp
 base-version: '25.08'
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node24
-  - org.freedesktop.Sdk.Extension.rust-stable
 command: start-motrix
 
 # The default destination is the user's XDG Downloads directory. Other
@@ -153,8 +152,8 @@ modules:
   - name: motrix
     buildsystem: simple
     build-options:
-      prepend-path: /run/build/motrix/flatpak-node/pnpm-cli/bin
-      append-path: /usr/lib/sdk/node24/bin:/usr/lib/sdk/rust-stable/bin
+      prepend-path: /run/build/motrix/flatpak-node/pnpm-cli/bin:/run/build/motrix/flatpak-rust-toolchain/bin
+      append-path: /usr/lib/sdk/node24/bin
       env:
         XDG_CACHE_HOME: /run/build/motrix/flatpak-node/cache
         npm_config_cache: /run/build/motrix/flatpak-node/npm-cache
@@ -184,6 +183,15 @@ modules:
             MOTRIX_RUST_TARGET: aarch64-unknown-linux-gnu
 
     build-commands:
+      # Keep the build-only Rust toolchain content-addressed with the rest of
+      # the offline sources. A floating Flathub SDK extension can briefly
+      # reference objects that have not reached every repository mirror yet.
+      - ./flatpak-rust/install.sh
+        --prefix=/run/build/motrix/flatpak-rust-toolchain
+        --without=rust-docs
+        --without=rust-docs-json-preview
+        --disable-ldconfig
+        --verbose
       - npm install -g
         --prefix=/run/build/motrix/flatpak-node/pnpm-cli
         ./flatpak-node/pnpm/pnpm-11.22.0.tgz
@@ -219,8 +227,8 @@ modules:
       - install -Dm755 /app/libexec/motrix-build/aria2c
         extra/linux/$npm_config_target_arch/aria2c
 
-      # rust-stable//25.08 supplies native GNU targets, not musl targets.
-      # Build directly instead of invoking the release-oriented build.mjs.
+      # The pinned Rust archive supplies the native GNU target, not a musl
+      # target. Build directly instead of invoking release-oriented build.mjs.
       # --bins also produces the browser-facing host required transiently by
       # electron-builder. It is stripped before the unpacked app is copied to
       # $FLATPAK_DEST; the broker is the only native-host binary exported.
@@ -299,8 +307,22 @@ modules:
           type: git
           tag-pattern: ^v([\d.]+)$
 
+      # Pin the build-only Rust toolchain by architecture. Flathub fetches it
+      # with every other source before the offline build phase.
+      - type: archive
+        only-arches:
+          - x86_64
+        dest: flatpak-rust
+        url: https://static.rust-lang.org/dist/2026-08-20/rust-1.98.0-x86_64-unknown-linux-gnu.tar.xz
+        sha256: ed8ee2df70909c88cbaf87a6cfa3920dac00b537de12a6abe6906641e0f5952f
+      - type: archive
+        only-arches:
+          - aarch64
+        dest: flatpak-rust
+        url: https://static.rust-lang.org/dist/2026-08-20/rust-1.98.0-aarch64-unknown-linux-gnu.tar.xz
+        sha256: ac9283184301aeed06ecc9f5aa4c1be7041e18a1b197b6cb6c5d162d98f566da
+
       # Generated from the lockfiles in the exact application source commit.
-      # Flathub fetches these sources before its offline build phase.
       - generated-sources.json
       - cargo-sources.json
 
