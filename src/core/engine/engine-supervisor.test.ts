@@ -21,6 +21,7 @@ import type { Aria2Adapter } from './aria2/aria2-adapter'
 import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
+import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
@@ -123,6 +124,12 @@ function createMockRpcClient(): Aria2RpcClient {
   } as unknown as Aria2RpcClient
 }
 
+function createMockTrustStore(): Aria2TrustStore {
+  return {
+    prepareEnvironment: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Aria2TrustStore
+}
+
 function createMockAdapter(): Aria2Adapter {
   return {
     setFeatureReport: vi.fn(),
@@ -136,6 +143,7 @@ describe('EngineSupervisor', () => {
   let settings: SettingsManager
   let processManager: Aria2ProcessManager
   let configBuilder: Aria2ConfigBuilder
+  let trustStore: Aria2TrustStore
   let rpcClient: Aria2RpcClient
   let adapter: Aria2Adapter
   let supervisor: EngineSupervisor
@@ -157,6 +165,7 @@ describe('EngineSupervisor', () => {
     settings = createMockSettingsManager()
     processManager = createMockProcessManager()
     configBuilder = createMockConfigBuilder()
+    trustStore = createMockTrustStore()
     rpcClient = createMockRpcClient()
     adapter = createMockAdapter()
 
@@ -165,6 +174,7 @@ describe('EngineSupervisor', () => {
       settings,
       processManager,
       configBuilder,
+      trustStore,
       rpcClient,
       adapter
     )
@@ -199,11 +209,30 @@ describe('EngineSupervisor', () => {
 
       expect(processManager.probe).toHaveBeenCalledWith('/usr/bin/aria2c')
       expect(configBuilder.ensureUserConfig).toHaveBeenCalled()
+      expect(trustStore.prepareEnvironment).toHaveBeenCalled()
       expect(configBuilder.buildArgs).toHaveBeenCalled()
-      expect(processManager.spawn).toHaveBeenCalledWith('/usr/bin/aria2c', [
-        '--conf-path=/tmp/aria2.conf',
-      ])
+      expect(processManager.spawn).toHaveBeenCalledWith(
+        '/usr/bin/aria2c',
+        ['--conf-path=/tmp/aria2.conf'],
+        undefined
+      )
       expect(rpcClient.connect).toHaveBeenCalledWith(16800)
+    })
+
+    it('passes the prepared trust environment only to the aria2 process', async () => {
+      const env = {
+        PATH: '/usr/bin',
+        SSL_CERT_FILE: '/tmp/aria2-ca-bundle.pem',
+      }
+      vi.mocked(trustStore.prepareEnvironment).mockResolvedValue(env)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(processManager.spawn).toHaveBeenCalledWith(
+        '/usr/bin/aria2c',
+        ['--conf-path=/tmp/aria2.conf'],
+        env
+      )
     })
 
     it('caches feature report after successful start', async () => {

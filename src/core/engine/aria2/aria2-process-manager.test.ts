@@ -268,6 +268,22 @@ describe('Aria2ProcessManager', () => {
       expect(manager.getPid()).toBe(12345)
     })
 
+    it('passes a dedicated environment to the aria2 child', async () => {
+      const mockChild = createMockChildProcess()
+      mockSpawnFn.mockReturnValue(mockChild)
+      const env = {
+        PATH: '/usr/bin',
+        SSL_CERT_FILE: '/tmp/aria2-ca-bundle.pem',
+      }
+
+      await manager.spawn('/usr/bin/aria2c', [], env)
+
+      expect(mockSpawnFn).toHaveBeenCalledWith('/usr/bin/aria2c', [], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env,
+      })
+    })
+
     it('calls onExit when process exits', async () => {
       const mockChild = createMockChildProcess()
       mockSpawnFn.mockReturnValue(mockChild)

@@ -25,6 +25,7 @@ import type { Aria2Adapter } from './aria2/aria2-adapter'
 import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
+import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { recommend } from './aria2/aria2-tuning'
 import { checkPort, findAvailablePort } from './port-check'
 
@@ -89,6 +90,7 @@ export class EngineSupervisor {
     private settingsManager: SettingsManager,
     private processManager: Aria2ProcessManager,
     private configBuilder: Aria2ConfigBuilder,
+    private trustStore: Aria2TrustStore,
     private rpcClient: Aria2RpcClient,
     private adapter: Aria2Adapter
   ) {
@@ -299,6 +301,8 @@ export class EngineSupervisor {
       phase = 'config'
       await this.configBuilder.ensureUserConfig()
       if (this.stopping) return
+      const processEnv = await this.trustStore.prepareEnvironment()
+      if (this.stopping) return
 
       const configuredEngineSettings = this.settingsManager.getEngine()
       const engineSettings = await this.resolveRuntimeEngineSettings(
@@ -342,7 +346,7 @@ export class EngineSupervisor {
       // Step 4: Spawn process (abort if stop() was called during earlier awaits)
       if (this.stopping) return
       phase = 'spawn'
-      await this.processManager.spawn(this.binaryPath, args)
+      await this.processManager.spawn(this.binaryPath, args, processEnv)
 
       // Step 5: Connect RPC
       if (this.stopping) {
