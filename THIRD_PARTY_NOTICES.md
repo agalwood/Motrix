@@ -179,9 +179,19 @@ listed because they are included in the Windows native-host build.
 
 | Crate | Version | SPDX license expression | Repository |
 | --- | --- | --- | --- |
+| base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
+| block-buffer | 0.10.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
+| cfg-if | 1.0.4 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/cfg-if> |
+| cpufeatures | 0.2.17 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
+| crypto-common | 0.1.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
+| digest | 0.10.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
+| generic-array | 0.14.7 | `MIT` | <https://github.com/fizyk20/generic-array> |
+| hkdf | 0.12.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/KDFs> |
+| hmac | 0.12.1 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/MACs> |
 | home | 0.5.12 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/cargo> |
 | humantime | 2.4.0 | `MIT OR Apache-2.0` | <https://github.com/chronotope/humantime> |
 | itoa | 1.0.18 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/itoa> |
+| libc | 0.2.189 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/libc> |
 | memchr | 2.8.3 | `Unlicense OR MIT` | <https://github.com/BurntSushi/memchr> |
 | proc-macro2 | 1.0.107 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/proc-macro2> |
 | quote | 1.0.47 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/quote> |
@@ -189,8 +199,12 @@ listed because they are included in the Windows native-host build.
 | serde_core | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_derive | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_json | 1.0.151 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/json> |
+| sha2 | 0.10.9 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/hashes> |
+| subtle | 2.6.1 | `BSD-3-Clause` | <https://github.com/dalek-cryptography/subtle> |
 | syn | 3.0.3 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
+| typenum | 1.20.1 | `MIT OR Apache-2.0` | <https://github.com/paholg/typenum> |
 | unicode-ident | 1.0.24 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
+| version_check | 0.9.5 | `MIT/Apache-2.0` | <https://github.com/SergioBenitez/version_check> |
 | windows-link | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-sys | 0.61.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | zmij | 1.0.23 | `MIT` | <https://github.com/dtolnay/zmij> |
@@ -199,13 +213,30 @@ Each license file below is copied byte-for-byte from a locked crate source.
 Common texts are reused only where the license terms are the same;
 crate-specific notices are preserved separately:
 
+- `THIRD_PARTY_LICENSES/rust-base64-LICENSE-APACHE`
+- `THIRD_PARTY_LICENSES/rust-base64-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE`
+- `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-crypto-common-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-digest-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-generic-array-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-hkdf-LICENSE-APACHE`
+- `THIRD_PARTY_LICENSES/rust-hkdf-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-humantime-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-libc-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-memchr-COPYING`
 - `THIRD_PARTY_LICENSES/rust-memchr-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-memchr-UNLICENSE`
+- `THIRD_PARTY_LICENSES/rust-sha2-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-subtle-LICENSE`
+- `THIRD_PARTY_LICENSES/rust-typenum-LICENSE-APACHE`
+- `THIRD_PARTY_LICENSES/rust-typenum-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE`
+- `THIRD_PARTY_LICENSES/rust-version_check-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT`
 
 ---

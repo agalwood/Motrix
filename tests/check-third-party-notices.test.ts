@@ -29,6 +29,60 @@ interface RustCrateNotice {
 
 const RUST_NATIVE_HOST_CRATES: RustCrateNotice[] = [
   {
+    name: 'base64',
+    version: '0.22.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/marshallpierce/rust-base64',
+  },
+  {
+    name: 'block-buffer',
+    version: '0.10.4',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/utils',
+  },
+  {
+    name: 'cfg-if',
+    version: '1.0.4',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/rust-lang/cfg-if',
+  },
+  {
+    name: 'cpufeatures',
+    version: '0.2.17',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/utils',
+  },
+  {
+    name: 'crypto-common',
+    version: '0.1.7',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/traits',
+  },
+  {
+    name: 'digest',
+    version: '0.10.7',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/traits',
+  },
+  {
+    name: 'generic-array',
+    version: '0.14.7',
+    license: 'MIT',
+    repository: 'https://github.com/fizyk20/generic-array',
+  },
+  {
+    name: 'hkdf',
+    version: '0.12.4',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/KDFs',
+  },
+  {
+    name: 'hmac',
+    version: '0.12.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/MACs',
+  },
+  {
     name: 'home',
     version: '0.5.12',
     license: 'MIT OR Apache-2.0',
@@ -45,6 +99,12 @@ const RUST_NATIVE_HOST_CRATES: RustCrateNotice[] = [
     version: '1.0.18',
     license: 'MIT OR Apache-2.0',
     repository: 'https://github.com/dtolnay/itoa',
+  },
+  {
+    name: 'libc',
+    version: '0.2.189',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/rust-lang/libc',
   },
   {
     name: 'memchr',
@@ -89,16 +149,40 @@ const RUST_NATIVE_HOST_CRATES: RustCrateNotice[] = [
     repository: 'https://github.com/serde-rs/json',
   },
   {
+    name: 'sha2',
+    version: '0.10.9',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/RustCrypto/hashes',
+  },
+  {
+    name: 'subtle',
+    version: '2.6.1',
+    license: 'BSD-3-Clause',
+    repository: 'https://github.com/dalek-cryptography/subtle',
+  },
+  {
     name: 'syn',
     version: '3.0.3',
     license: 'MIT OR Apache-2.0',
     repository: 'https://github.com/dtolnay/syn',
   },
   {
+    name: 'typenum',
+    version: '1.20.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/paholg/typenum',
+  },
+  {
     name: 'unicode-ident',
     version: '1.0.24',
     license: '(MIT OR Apache-2.0) AND Unicode-3.0',
     repository: 'https://github.com/dtolnay/unicode-ident',
+  },
+  {
+    name: 'version_check',
+    version: '0.9.5',
+    license: 'MIT/Apache-2.0',
+    repository: 'https://github.com/SergioBenitez/version_check',
   },
   {
     name: 'windows-link',
@@ -122,6 +206,26 @@ const RUST_NATIVE_HOST_CRATES: RustCrateNotice[] = [
 
 const RUST_LICENSE_FILES = [
   {
+    file: 'rust-base64-LICENSE-APACHE',
+    sha256: 'a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2',
+  },
+  {
+    file: 'rust-base64-LICENSE-MIT',
+    sha256: '0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7',
+  },
+  {
+    file: 'rust-block-buffer-LICENSE-APACHE',
+    sha256: 'a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5',
+  },
+  {
+    file: 'rust-block-buffer-LICENSE-MIT',
+    sha256: 'd5c22aa3118d240e877ad41c5d9fa232f9c77d757d4aac0c2f943afc0a95e0ef',
+  },
+  {
+    file: 'rust-cfg-if-LICENSE-MIT',
+    sha256: '378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397',
+  },
+  {
     file: 'rust-common-LICENSE-APACHE',
     sha256: '62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a',
   },
@@ -130,8 +234,36 @@ const RUST_LICENSE_FILES = [
     sha256: '23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3',
   },
   {
+    file: 'rust-cpufeatures-LICENSE-MIT',
+    sha256: 'ae9baa7beea910273c2f384c2a6b721fb7bd02bda3436074a1072e4ee689f985',
+  },
+  {
+    file: 'rust-crypto-common-LICENSE-MIT',
+    sha256: '3521672491a3479422d5fe1aca6645dd2984090f85da6e5205abfb18fb7a6897',
+  },
+  {
+    file: 'rust-digest-LICENSE-MIT',
+    sha256: '9e0dfd2dd4173a530e238cb6adb37aa78c34c6bc7444e0e10c1ab5d8881f63ba',
+  },
+  {
+    file: 'rust-generic-array-LICENSE-MIT',
+    sha256: 'c09aae9d3c77b531f56351a9947bc7446511d6b025b3255312d3e3442a9a7583',
+  },
+  {
+    file: 'rust-hkdf-LICENSE-APACHE',
+    sha256: '59013a5c8d3a19c26a457579105915a5d51bb0c09d579f8cdedf12e4203c3018',
+  },
+  {
+    file: 'rust-hkdf-LICENSE-MIT',
+    sha256: 'd288f9c9b4590446ec18c22ead8f8b5a12a3d4025b68f62dc9015063eb9cca69',
+  },
+  {
     file: 'rust-humantime-LICENSE-MIT',
     sha256: 'f6deca8261a8f4a3403dc74c725c46051157fd36c27cd4b100277eb1f303ad11',
+  },
+  {
+    file: 'rust-libc-LICENSE-MIT',
+    sha256: '123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e',
   },
   {
     file: 'rust-memchr-COPYING',
@@ -146,8 +278,28 @@ const RUST_LICENSE_FILES = [
     sha256: '7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c',
   },
   {
+    file: 'rust-sha2-LICENSE-MIT',
+    sha256: 'b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1',
+  },
+  {
+    file: 'rust-subtle-LICENSE',
+    sha256: 'd1fc1bc0d155df60b2e7705b6b2ae02a05c96f948e1cec6e2fb86360b09f346b',
+  },
+  {
+    file: 'rust-typenum-LICENSE-APACHE',
+    sha256: '516b24e051bf5630880ebbd55c40a25ce9552ebaf8970a53e8976eb70e522406',
+  },
+  {
+    file: 'rust-typenum-LICENSE-MIT',
+    sha256: 'a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f',
+  },
+  {
     file: 'rust-unicode-ident-LICENSE-UNICODE',
     sha256: 'f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1',
+  },
+  {
+    file: 'rust-version_check-LICENSE-MIT',
+    sha256: 'b7e650f3fce5c53249d1cdc608b54df156a97edd636cf9d23498d0cfe7aec63e',
   },
   {
     file: 'rust-windows-rs-LICENSE-MIT',
