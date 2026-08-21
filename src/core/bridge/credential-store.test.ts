@@ -198,12 +198,8 @@ describe('Mbp1CredentialStore', () => {
     // Two concurrent rotations started from C1 share the single provisional
     // slot, so they cannot produce two successors in the first place.
     //
-    // That shared slot, plus the live-provisional state check, is what makes
-    // the loser reject here — NOT the predecessor CAS. Verified by mutation:
-    // deleting the CAS leaves this test green. The CAS is pinned by
-    // `rejects a promote whose recorded predecessor is no longer the committed
-    // credential`, which is the only test that fails without it. Do not read
-    // this one as CAS coverage.
+    // Not CAS coverage: the loser is rejected by that shared slot, not by the
+    // predecessor comparison. See the stale-predecessor test for the CAS.
     const [a, b] = await Promise.all([
       store.offerProvisional(PRINCIPAL_A, 'official'),
       store.offerProvisional(PRINCIPAL_A, 'official'),
@@ -227,10 +223,18 @@ describe('Mbp1CredentialStore', () => {
   })
 
   it('commits only one successor when two share the same predecessor', async () => {
-    // Two live successors of C1 are unreachable through this store's own
-    // writes (the single slot forbids them), so the file is written by hand to
-    // pin the CAS itself: whichever rotation lands second must observe the
-    // changed current id rather than commit a second successor.
+    // Two live successors of C1 are unreachable through this store's own writes
+    // (the single slot forbids them), so the file is written by hand.
+    //
+    // This does NOT pin the CAS, despite reaching a state that looks like it
+    // should. `enqueue` serializes the two promotions, and the first
+    // `applyPromote` deletes every credential of the principal — including the
+    // rival provisional — so the loser fails the `no live provisional` check
+    // and never reaches the CAS comparison. Verified by mutation: deleting the
+    // CAS leaves this test green. The assertion on the loser's reason below is
+    // what keeps that honest; the CAS is pinned by the stale-predecessor test
+    // that follows, which keeps a live provisional and gives it a predecessor
+    // that is no longer committed.
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     await writeDoc({
       version: 1,
@@ -258,7 +262,15 @@ describe('Mbp1CredentialStore', () => {
       store.promoteOnReconnect('p2-prime'),
     ])
     expect(settled.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
-    expect(settled.filter((r) => r.status === 'rejected')).toHaveLength(1)
+    const rejected = settled.filter((r) => r.status === 'rejected')
+    expect(rejected).toHaveLength(1)
+    // The mechanism, not just the count: the rival was deleted, so the loser
+    // stops at the live-provisional gate. If this ever reads `stale rotation`
+    // instead, the serialization or deletion behaviour changed and this test is
+    // measuring something else.
+    expect(String((rejected[0] as PromiseRejectedResult).reason)).toContain(
+      'no live provisional'
+    )
 
     const doc = await readDoc()
     expect(doc.credentials).toHaveLength(1)
