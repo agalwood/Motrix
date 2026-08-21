@@ -1004,6 +1004,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       ) {
         await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
       }
+      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+        await bridgeManager.restart()
+      }
       if (
         magnetPreferenceSubmitted ||
         oldFull.app.protocols.magnet !== newFull.app.protocols.magnet

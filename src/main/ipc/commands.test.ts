@@ -241,6 +241,7 @@ function fakeCtx() {
     bridgeManager: {
       current: null,
       setEnabled: vi.fn(),
+      restart: vi.fn(),
     },
     magnetTracker: {
       submit: vi.fn().mockResolvedValue(undefined),
@@ -1159,7 +1160,8 @@ describe('Commands.UpdateSettings', () => {
     app: object = {},
     nat: object = {},
     tracker: object = {},
-    engine: object = {}
+    engine: object = {},
+    bridge: object = {}
   ) {
     return {
       app: {
@@ -1179,6 +1181,11 @@ describe('Commands.UpdateSettings', () => {
         sourcesEnabled: true,
         blacklistEnabled: true,
         ...tracker,
+      },
+      bridge: {
+        fixedPort: 'auto',
+        instanceId: 'instance-1',
+        ...bridge,
       },
     }
   }
@@ -1779,6 +1786,84 @@ describe('Commands.UpdateSettings', () => {
     })
     expect(ctx.trackerManager.applySourcesChange).not.toHaveBeenCalled()
     expect(ctx.trackerManager.applyBlacklistChange).not.toHaveBeenCalled()
+  })
+
+  it('calls bridgeManager.restart when bridge.fixedPort changes', async () => {
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(
+      PROXY_OFF,
+      {},
+      {},
+      {},
+      {},
+      { fixedPort: 'auto' }
+    )
+    const after = makeSettingsLike(PROXY_OFF, {}, {}, {}, {}, { fixedPort: 16900 })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const bridgeManager = {
+      current: null,
+      setEnabled: vi.fn(),
+      restart: vi.fn(),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      bridgeManager,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({
+      bridge: { fixedPort: 16900 },
+    })
+
+    expect(bridgeManager.restart).toHaveBeenCalledOnce()
+    expect(bridgeManager.setEnabled).not.toHaveBeenCalled()
+  })
+
+  it('does not call bridgeManager.restart when bridge.fixedPort is unchanged', async () => {
+    const ctx = fakeCtx()
+    const settings = makeSettingsLike(
+      PROXY_OFF,
+      {},
+      {},
+      {},
+      {},
+      { fixedPort: 'auto' }
+    )
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValue(settings),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const bridgeManager = {
+      current: null,
+      setEnabled: vi.fn(),
+      restart: vi.fn(),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      bridgeManager,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { launchAtStartup: false },
+    })
+
+    expect(bridgeManager.restart).not.toHaveBeenCalled()
   })
 
   it('reconfigures the updater after the persisted channel changes', async () => {
