@@ -6,8 +6,8 @@ use crate::endpoint::{EndpointFile, read_endpoint};
 use crate::launcher::launch_motrix;
 use crate::probe::{fetch_nonce, probe_liveness};
 use crate::resolve::{
-    LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError,
-    ResolveResult, poll_launched_endpoint, resolve_endpoint,
+    LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, ResolveDeps, ResolveError, ResolveResult,
+    poll_launched_endpoint, resolve_endpoint,
 };
 use crate::user_data::bridge_endpoint_path;
 
@@ -60,16 +60,29 @@ pub fn resolve_direct(allow_launch: bool, bridge_data: Option<&Path>) -> Resolve
     }
 }
 
+/// The broker's `Probe` operation: resolve the recorded endpoint without any
+/// launch capability, since only the host-side companion can start a Flatpak
+/// app. Delegating to [`resolve_endpoint`] with `allow_launch = false` keeps
+/// the "liveness, then exactly one nonce" sequence in one place instead of
+/// mirroring it here, where it could drift.
+///
+/// Deliberately ticketless (`request_pair`, never `request_pair_with_ticket`):
+/// the broker has no caller identity to attest — the browser talks to the
+/// companion, not to it — so the reply resolves to `unverified` by design.
+///
+/// A live bridge that refuses a nonce reports `NotRunning`, which the
+/// companion cannot distinguish from a bridge that is down, so it will launch
+/// and call `WaitForEndpoint`, fetching a second nonce. Bounded (two per
+/// resolution, never a loop) but real; removing it needs a broker-protocol
+/// response that separates the two, which the current versioned stdio
+/// contract cannot express without breaking older companions.
 pub fn probe_bridge(bridge_data: Option<&Path>) -> ResolveResult {
     let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
-    if let Some(endpoint) = deps.read_endpoint()
-        && deps.probe_liveness(endpoint.port, PROBE_TIMEOUT)
-        && let Some(nonce) = deps.fetch_nonce(endpoint.port, PROBE_TIMEOUT)
-    {
-        return ResolveResult::request_pair(endpoint.port, nonce);
-    }
-    ResolveResult::Error {
-        error: ResolveError::NotRunning,
+    match resolve_endpoint(false, &mut deps) {
+        Ok(resolved) => ResolveResult::request_pair(resolved.endpoint.port, resolved.nonce),
+        Err(_) => ResolveResult::Error {
+            error: ResolveError::NotRunning,
+        },
     }
 }
 

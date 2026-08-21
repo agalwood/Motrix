@@ -177,7 +177,21 @@ main owns its `CancellationTokenSource`, and the matching cancel query aborts it
 Firefox. It reads `endpoint.json`, probes `GET /discovery` for liveness
 (§4.1), and fetches exactly one `POST /nonce` with `X-Motrix-Bridge: 1`
 (§4.2) once liveness succeeds — the launch-poll loop probes liveness every
-~200ms but never fetches more than one nonce per resolution attempt. It
+~200ms but never fetches more than one nonce per resolution attempt. A
+successful liveness probe settles the resolution either way: if the nonce
+fetch then fails, `resolve_endpoint` reports `NotRunning` rather than
+falling through to a launch, because `fetch_nonce` answers `None` for any
+non-2xx — including the 429/503 the §4.2 outstanding-nonce cap and issuance
+rate limit return — and retrying there would amplify exactly the load that
+caused the refusal.
+
+The **broker** path cannot yet reach one nonce per resolution. `NotRunning`
+is all the versioned stdio contract can say, so a live bridge that refuses a
+nonce is indistinguishable to the companion from one that is down: it
+launches and calls `WaitForEndpoint`, fetching a second nonce. Bounded at two
+per resolution and never a loop, but real — separating the two states needs a
+broker-protocol response the current contract cannot express without
+breaking older companions. It
 must not expose the local CLI token itself to the extension or depend on
 system Node.js or Electron. Production extension IDs come from
 `src/shared/config/native-messaging-extensions.json`; development IDs may

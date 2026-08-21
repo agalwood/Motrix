@@ -92,15 +92,36 @@ pub trait ResolveDeps {
     fn sleep(&mut self, duration: Duration);
 }
 
+/// Resolves the recorded endpoint, launching Motrix first when the caller
+/// allows it and the bridge is not already up.
+///
+/// A successful liveness probe settles the whole resolution: the bridge is
+/// running, so there is nothing to launch, and the single [`ResolveDeps::
+/// fetch_nonce`] call that follows is the only one this resolution makes —
+/// whichever way it goes. Falling through to `launch()` after a failed nonce
+/// fetch would fetch a second nonce from `poll_launched_endpoint` and wake an
+/// app that is already awake, and it would do so in precisely the state where
+/// that is most harmful: `fetch_nonce` answers `None` for any non-2xx reply,
+/// which is what the §4.2 outstanding-nonce cap and issuance rate limit
+/// return. A retry there amplifies the load that caused the refusal.
+///
+/// `NotRunning` is therefore also what a live bridge that will not issue a
+/// nonce reports, matching what `allow_launch = false` already returned for
+/// that state: the flag decides whether to launch, not what a nonce failure
+/// means. The three-code NM error vocabulary (§9.1) has no "running but
+/// unavailable" member, and `NotRunning` is the one that keeps the caller's
+/// remedy — try again — correct.
 pub fn resolve_endpoint<D: ResolveDeps>(
     allow_launch: bool,
     deps: &mut D,
 ) -> Result<ResolvedEndpoint, ResolveError> {
     if let Some(endpoint) = deps.read_endpoint()
         && deps.probe_liveness(endpoint.port, PROBE_TIMEOUT)
-        && let Some(nonce) = deps.fetch_nonce(endpoint.port, PROBE_TIMEOUT)
     {
-        return Ok(ResolvedEndpoint { endpoint, nonce });
+        return deps
+            .fetch_nonce(endpoint.port, PROBE_TIMEOUT)
+            .map(|nonce| ResolvedEndpoint { endpoint, nonce })
+            .ok_or(ResolveError::NotRunning);
     }
 
     if !allow_launch {
@@ -309,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn live_endpoint_with_failed_nonce_fetch_is_a_launch_failure_not_a_pair() {
+    fn live_endpoint_with_failed_nonce_fetch_is_not_a_pair() {
         let mut deps = FakeDeps::new();
         deps.endpoints.push_back(endpoint(100));
         deps.liveness.push_back(true);
@@ -317,6 +338,37 @@ mod tests {
         assert_eq!(
             resolve_endpoint(false, &mut deps),
             Err(ResolveError::NotRunning)
+        );
+    }
+
+    #[test]
+    fn live_endpoint_with_failed_nonce_fetch_never_launches_or_refetches() {
+        // The §4.2 outstanding-nonce cap and issuance rate limit answer 429 or
+        // 503, which `fetch_nonce` reports as `None` — so this is the state in
+        // which a retry would amplify the very load that caused the refusal.
+        // A passing liveness probe settles the resolution: one nonce fetch, no
+        // launch, whatever the fetch answers.
+        let mut deps = FakeDeps::new();
+        deps.endpoints.push_back(endpoint(100));
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(None);
+        // Would be consumed by a second attempt, and must not be.
+        deps.endpoints.push_back(endpoint(100));
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(Some("second-nonce".into()));
+
+        assert_eq!(
+            resolve_endpoint(true, &mut deps),
+            Err(ResolveError::NotRunning)
+        );
+        assert_eq!(
+            deps.nonce_calls.len(),
+            1,
+            "one resolution must never burn two nonces"
+        );
+        assert_eq!(
+            deps.launch_calls, 0,
+            "a live bridge must never be launched again"
         );
     }
 
