@@ -98,7 +98,16 @@ export async function bootstrapBridgeForServer(
   // Agent /mdxp secret — self-minted, written to endpoint.json. Distinct from
   // the operator control-plane token (Spec 9 / F1): the two planes no longer
   // share a secret, so a leak/loss of one does not compromise the other.
+  // Per-start, deliberately NOT persisted like the desktop shell's
+  // `loadOrCreateBridgeIdentity`: extension pairing is headless-denied here
+  // (no NM tickets are ever minted against this token), so a restart
+  // invalidating every previously-issued Bearer token is a wanted property,
+  // not a gap.
   const localToken = randomBytes(32).toString('base64url')
+  // One generation for the life of this process, named here (rather than
+  // inlined at the endpoint write below) so a future second write site can't
+  // accidentally mint a fresh one and make every NM ticket look stale.
+  const serverGeneration = randomUUID()
 
   // Device-code pairing for cli/agent clients. The approval prompt is surfaced
   // in the WEB UI: bridge events are re-emitted onto the core EventBus, which
@@ -211,8 +220,7 @@ export async function bootstrapBridgeForServer(
     )
     // A failed atomic replace may still have created temporary/discovery state.
     ownership.own('endpoint', () => endpointWriter.clear())
-    // serverGeneration wired via BridgeIdentity in Task 19
-    await endpointWriter.write(port, localToken, randomUUID())
+    await endpointWriter.write(port, localToken, serverGeneration)
 
     return {
       server,
