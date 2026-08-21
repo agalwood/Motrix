@@ -477,6 +477,42 @@ describe('stageServerApp', () => {
     )
   })
 
+  it('resolves target-specific bundled engine inputs', async () => {
+    const root = await createFixture()
+    const contract = fixtureContract()
+    contract.resourceInputs.unshift({
+      source: 'extra/{platform}/{arch}/{aria2Binary}',
+      destination: 'bin/{aria2Binary}',
+      type: 'file',
+    })
+    await writeFixtureFile(
+      root,
+      'extra/linux/x64/aria2c',
+      nativeHeader('linux', 'x64')
+    )
+
+    const result = await stageServerApp({
+      repoRoot: root,
+      platform: 'linux',
+      arch: 'amd64',
+      libc: 'musl',
+      strict: true,
+      contract,
+      budgets: fixtureBudgets(),
+    })
+
+    expect(result.manifest.target.key).toBe('linux-x64-musl')
+    expect(
+      await readFile(path.join(root, 'dist/server-app/bin/aria2c'))
+    ).toEqual(nativeHeader('linux', 'x64'))
+    expect(result.manifest.inputFingerprints).toContainEqual(
+      expect.objectContaining({
+        destination: 'bin/aria2c',
+        source: 'extra/linux/x64/aria2c',
+      })
+    )
+  })
+
   it('preserves the last valid stage after an input failure', async () => {
     const root = await createFixture()
     const options = {

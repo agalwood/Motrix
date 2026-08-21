@@ -1,4 +1,4 @@
-import type { ChildProcess } from 'node:child_process'
+import type { ChildProcess, SpawnOptions } from 'node:child_process'
 import { execFile, spawn } from 'node:child_process'
 import { readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
@@ -97,10 +97,16 @@ export class Aria2ProcessManager {
     })
   }
 
-  async spawn(binaryPath: string, args: string[]): Promise<void> {
-    const child = spawn(binaryPath, args, {
+  async spawn(
+    binaryPath: string,
+    args: string[],
+    env?: NodeJS.ProcessEnv
+  ): Promise<void> {
+    const options: SpawnOptions = {
       stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    }
+    if (env) options.env = env
+    const child = spawn(binaryPath, args, options)
 
     this.process = child
     this.running = true

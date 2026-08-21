@@ -5,6 +5,7 @@ import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
 import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
+import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
@@ -336,6 +337,7 @@ const configBuilder = new Aria2ConfigBuilder(
   path.join(platform.extraResourceDir, 'aria2.conf'),
   platform.userDataDir
 )
+const trustStore = new Aria2TrustStore(platform.userDataDir)
 
 // ─── Database ───────────────────────────────────────────
 
@@ -1470,6 +1472,7 @@ async function initializeMainProcess(): Promise<void> {
     settingsManager,
     processManager,
     configBuilder,
+    trustStore,
     rpcClient,
     adapter
   )

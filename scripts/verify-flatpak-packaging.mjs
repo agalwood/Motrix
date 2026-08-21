@@ -18,13 +18,24 @@ export const FLATPAK_BUILDER_TOOLS_COMMIT =
 // tag resolves to is pinned by hand (and cross-checked against the manifest).
 export const ARIA2_SOURCE = Object.freeze({
   url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.5 — performance, HTTP tail reclaim, and WinTLS fixes
-  commit: '0f30696fd4d80d456a8493c63af26b6c06429b17',
+  // v1.37.0-motrix.6 — portable Linux OpenSSL trust-store discovery
+  commit: '7e3efdb0db9678efdc93cab6007125286d06bff1',
 })
 
 const PNPM_SOURCE = Object.freeze({
   url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.22.0.tgz',
   sha256: '57a97e6f23a3faffc03153a4ef8c770a0552612b8640aebe39bfdd5754d0ebdc',
+})
+
+const RUST_SOURCES = Object.freeze({
+  x86_64: Object.freeze({
+    url: 'https://static.rust-lang.org/dist/2026-08-20/rust-1.98.0-x86_64-unknown-linux-gnu.tar.xz',
+    sha256: 'ed8ee2df70909c88cbaf87a6cfa3920dac00b537de12a6abe6906641e0f5952f',
+  }),
+  aarch64: Object.freeze({
+    url: 'https://static.rust-lang.org/dist/2026-08-20/rust-1.98.0-aarch64-unknown-linux-gnu.tar.xz',
+    sha256: 'ac9283184301aeed06ecc9f5aa4c1be7041e18a1b197b6cb6c5d162d98f566da',
+  }),
 })
 
 const FLATPAK_BUILDER_ACTION_COMMIT = '401fe28a8384095fc1531b9d320b292f0ee45adb'
@@ -166,10 +177,10 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'Node 24 SDK extension is required'
   )
   invariant(
-    manifest['sdk-extensions'].includes(
+    !manifest['sdk-extensions'].includes(
       'org.freedesktop.Sdk.Extension.rust-stable'
     ),
-    'Rust SDK extension is required'
+    'Rust must use pinned archive sources, not the floating SDK extension'
   )
   const finishArgs = array(manifest['finish-args'], 'finish-args')
   invariant(
@@ -244,6 +255,23 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'pnpm source'
   )
   invariant(pnpmSource.sha256 === PNPM_SOURCE.sha256, 'pnpm digest drifted')
+  for (const [arch, expected] of Object.entries(RUST_SOURCES)) {
+    const rustSource = sourceByUrl(
+      objectSources(motrix),
+      expected.url,
+      `${arch} Rust source`
+    )
+    invariant(rustSource.type === 'archive', `${arch} Rust must be an archive`)
+    invariant(rustSource.dest === 'flatpak-rust', `${arch} Rust dest drifted`)
+    invariant(
+      JSON.stringify(rustSource['only-arches']) === JSON.stringify([arch]),
+      `${arch} Rust source architecture drifted`
+    )
+    invariant(
+      rustSource.sha256 === expected.sha256,
+      `${arch} Rust digest drifted`
+    )
+  }
 
   const motrixCommands = commandText(motrix)
   const motrixBuildOptions = JSON.stringify(
@@ -257,6 +285,17 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
         '/run/build/motrix/flatpak-node/pnpm-cli/bin'
       ),
     'pnpm CLI must install into a writable build prefix'
+  )
+  invariant(
+    motrixCommands.includes('./flatpak-rust/install.sh') &&
+      motrixCommands.includes(
+        '--prefix=/run/build/motrix/flatpak-rust-toolchain'
+      ) &&
+      motrixBuildOptions.includes(
+        '/run/build/motrix/flatpak-rust-toolchain/bin'
+      ) &&
+      !motrixBuildOptions.includes('/usr/lib/sdk/rust-stable'),
+    'Rust must install from the pinned archive into a writable build prefix'
   )
   const aria2Copy = motrixCommands.indexOf(
     'extra/linux/$npm_config_target_arch/aria2c'

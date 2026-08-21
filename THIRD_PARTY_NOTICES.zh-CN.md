@@ -71,8 +71,8 @@ src/renderer/routes/settings/icons/icon-network@2x.png
 
 桌面版随应用打包 `aria2c` 可执行文件，版本由 `scripts/engine.lock.json` 固定：
 
-- **版本：** 1.37.0-motrix.5
-- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.5>
+- **版本：** 1.37.0-motrix.6
+- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.6>
 - **许可证：** GNU General Public License v2.0 or later（`GPL-2.0-or-later`）
 - **完整许可证文本：** `THIRD_PARTY_LICENSES/aria2-COPYING`
 - **OpenSSL 例外条款 / 声明：**

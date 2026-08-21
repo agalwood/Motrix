@@ -1,7 +1,10 @@
 # Docker Server 部署
 
-Motrix Server 将 Web 界面和 aria2 打包为非 root、多架构容器镜像，适合 NAS
-与家庭服务器。带 tag 的正式发布会把同一镜像发布到两个 registry：
+Motrix Server 将 Web 界面和经过 checksum 校验的
+[`motrixapp/aria2`](https://github.com/motrixapp/aria2) fork 打包为非 root、
+多架构容器镜像，适合 NAS 与家庭服务器。该 fork 提供 Motrix 所需的 SQLite
+持久化契约；镜像不安装发行版提供的通用 aria2 软件包。带 tag 的正式发布会把
+同一镜像发布到两个 registry：
 
 - Docker Hub：`docker.io/motrixapp/motrix-server`
 - GitHub Container Registry：`ghcr.io/agalwood/motrix-server`
@@ -49,6 +52,17 @@ cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   "docker.io/motrixapp/motrix-server@${DIGEST}"
 ```
+
+### TLS 信任库生命周期
+
+官方镜像在构建时安装 Alpine 的 `ca-certificates`，并通过 `SSL_CERT_FILE` 让
+aria2 fork 使用 `/etc/ssl/certs/ca-certificates.crt`。因此 Motrix 不会在
+`/data` 中生成长期保留的 CA 快照；用新镜像重建容器时会直接使用新镜像携带的
+信任库。
+
+已经运行的不可变容器不会自动更新镜像层中的 CA bundle。请把定期拉取维护版本
+并重建容器纳入日常补丁流程。如果自定义部署要求 CA 生命周期独立于镜像，也可
+只读挂载定期刷新的 PEM bundle，并把 `SSL_CERT_FILE` 指向该挂载路径。
 
 ## 持久化契约
 
@@ -421,5 +435,6 @@ secret-store 状态和 FFmpeg 探测结果。
 | `MOTRIX_HOST_LANGUAGE` | 系统设置 | Server/插件语言覆盖值 |
 | `LOG_LEVEL` | `info` | 输出到容器 stdout 的 Pino 日志级别 |
 
-`MOTRIX_ARIA2_BIN`、`MOTRIX_EXTRA_DIR` 和 `MOTRIX_RENDERER_DIR` 由官方镜像
-固定。只有自定义镜像同时提供对应 artifact 时才应覆盖它们。
+`MOTRIX_ARIA2_BIN`（`/app/bin/aria2c`）、`MOTRIX_EXTRA_DIR` 和
+`MOTRIX_RENDERER_DIR` 由官方镜像固定。只有自定义镜像同时提供对应 artifact
+时才应覆盖它们。

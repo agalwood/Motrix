@@ -560,6 +560,11 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
   if (
     diagnostics.health?.ok !== true ||
     diagnostics.engine?.state !== 'ready' ||
+    !/-motrix\.\d+$/.test(diagnostics.engine?.featureReport?.version ?? '') ||
+    diagnostics.engine?.featureReport?.hasSqlitePersistence !== true ||
+    !diagnostics.engine?.featureReport?.features?.includes(
+      'SQLite3-Persistence'
+    ) ||
     diagnostics.process?.uid !== identity.uid ||
     diagnostics.storage?.dataDir !== '/data' ||
     diagnostics.storage?.tempDir !== '/data/tmp' ||
@@ -589,9 +594,15 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
       'test -w /data/tmp',
       'test ! -w /app',
       'test -s /data/motrix.db',
+      'test "$MOTRIX_ARIA2_BIN" = "/app/bin/aria2c"',
+      'test "$SSL_CERT_FILE" = "/etc/ssl/certs/ca-certificates.crt"',
+      'test -s "$SSL_CERT_FILE"',
+      'test ! -e /usr/bin/aria2c',
+      "aria2c --version | grep -F -- 'SQLite3-Persistence'",
       'pidof aria2c',
       "aria2_pid=$(for pid in $(pidof aria2c); do tr '\\0' '\\n' </proc/$pid/cmdline | grep -Fxq -- '--conf-path=/data/aria2.conf' && { echo $pid; break; }; done)",
       'test -n "$aria2_pid"',
+      'test "$(readlink /proc/$aria2_pid/exe)" = "/app/bin/aria2c"',
       "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path=/data/dht.dat'",
       "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path6=/data/dht6.dat'",
     ].join('; '),
@@ -805,7 +816,7 @@ function imageSmokeSummary(metadata, diagnostics, identity, startedAt) {
     operatorAuth: true,
     diagnostics: true,
     sqlite: true,
-    systemAria2: true,
+    motrixAria2Fork: true,
     defaultSaveDir: '/downloads',
     shutdown: 'SIGTERM',
     durationMs: Date.now() - startedAt,
