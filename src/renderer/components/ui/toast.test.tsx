@@ -207,8 +207,8 @@ describe('toast', () => {
             kind: 'extension',
             pairingNonce: 'nonce',
             extensionId: 'ext-1',
-            extensionName: 'Motrix Helper',
-            extensionVersion: '1.0',
+            identity: 'official',
+            code: '1234-5678',
             browser: 'chromium',
             onAllow: vi.fn(),
             onDeny: vi.fn(),
@@ -217,7 +217,9 @@ describe('toast', () => {
       })
 
       expect(
-        await screen.findByText('Motrix Helper wants to connect to Motrix')
+        // MBP1 forbids displaying the self-reported extension name (§5); the
+        // title interpolates the extension id instead.
+        await screen.findByText('ext-1 wants to connect to Motrix')
       ).toBeInTheDocument()
       expect(screen.getByText('From Chrome / Edge')).toBeInTheDocument()
     })

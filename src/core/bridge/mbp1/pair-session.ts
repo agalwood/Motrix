@@ -105,6 +105,15 @@ export interface PairDialogRequest {
   /** The §7.1 **display** form, grouped `XXXX-XXXX`. The dialog renders it verbatim. */
   code: string
   pairingNonce: string
+  /**
+   * The verified `Origin` this `/pair` connection presented (§5) — never a
+   * self-reported field. The shell's dialog controller keys its per-key
+   * prompt dedup on this, never on `claimedExtensionId`: on Firefox the
+   * claimed id is self-reported, so keying on it would let one extension
+   * suppress another's prompt by claiming its id. Internal bookkeeping only —
+   * never surfaced to the renderer.
+   */
+  verifiedOrigin: string
 }
 
 /** A queued approval dialog. `dismissed` resolves when the user dismisses it. */
@@ -460,6 +469,7 @@ export class PairSession {
       identity: resolved.identity,
       code: formatPairingCode(code),
       pairingNonce: this.deps.pairNonce,
+      verifiedOrigin: this.deps.verifiedOrigin,
     })
     this.dialog.dismissed.then(
       () => this.onDismissed(),

@@ -66,6 +66,7 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
     motrixVersion: '2.0-test',
     ffmpegAvailable: false,
     enabled: true,
+    bridgeSettings: { fixedPort: 'auto', instanceId: 'test-instance-id' },
     eventBus: { on: vi.fn(), off: vi.fn() },
     createTaskDeps: {} as never,
     activityRecorder: {} as never,
@@ -139,7 +140,10 @@ describe('desktop bridge bootstrap ownership', () => {
     vi.spyOn(BridgeReceiver.prototype, 'restoreInflight').mockResolvedValue()
     vi.spyOn(BridgeReceiver.prototype, 'start').mockImplementation(() => {})
     vi.spyOn(BridgeReceiver.prototype, 'stopAndDrain').mockResolvedValue()
-    vi.spyOn(WebSocketBridgeServer.prototype, 'start').mockResolvedValue(19002)
+    vi.spyOn(
+      WebSocketBridgeServer.prototype,
+      'startOnFirstFree'
+    ).mockResolvedValue({ port: 19002, degraded: false })
     vi.spyOn(WebSocketBridgeServer.prototype, 'stop').mockResolvedValue()
     vi.spyOn(PairingService.prototype, 'stopAndDrain').mockResolvedValue()
     vi.spyOn(BridgeStreamSource.prototype, 'attach').mockImplementation(
@@ -204,7 +208,9 @@ describe('desktop bridge bootstrap ownership', () => {
 
     expect(receiverLive).toBe(false)
     expect(BridgeReceiver.prototype.stopAndDrain).toHaveBeenCalledOnce()
-    expect(WebSocketBridgeServer.prototype.start).not.toHaveBeenCalled()
+    expect(
+      WebSocketBridgeServer.prototype.startOnFirstFree
+    ).not.toHaveBeenCalled()
   })
 
   it('detaches a stream whose attach side effect throws', async () => {
@@ -378,5 +384,95 @@ describe('desktop bridge bootstrap ownership', () => {
     await runtime?.shutdown()
 
     expect(shutdownOrder).toEqual(['server', 'pairing'])
+  })
+
+  describe('MBP1 identity persistence (§9.2) and the Paired seam', () => {
+    it('persists localToken across a restart while rotating serverGeneration', async () => {
+      const writeCalls: Array<{
+        port: number
+        localToken: string
+        generation: string
+      }> = []
+      vi.mocked(EndpointFileWriter.prototype.write).mockImplementation(
+        async (port, localToken, generation) => {
+          writeCalls.push({ port, localToken, generation })
+        }
+      )
+
+      const first = await bootstrapBridge(args())
+      await first?.shutdown()
+      const second = await bootstrapBridge(args())
+      await second?.shutdown()
+
+      expect(writeCalls).toHaveLength(2)
+      // §9.2: localToken MUST survive a restart — only serverGeneration
+      // rotates. A rotating localToken would MAC-fail every in-flight NM
+      // ticket into an abort instead of the spec's graceful `unverified`
+      // downgrade.
+      expect(writeCalls[0]?.localToken).toBe(writeCalls[1]?.localToken)
+      expect(writeCalls[0]?.localToken).not.toBe('')
+      expect(writeCalls[0]?.generation).not.toBe(writeCalls[1]?.generation)
+    })
+
+    it('wires onExtensionAuthenticated end to end: ListPaired sees the client, RevokePair removes it, and the revoke-kick notifies + disposes the live session', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      const identity = {
+        kind: 'extension' as const,
+        browser: 'chromium' as const,
+        extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      }
+
+      // Reach the real callback WebSocketBridgeServer's constructor was
+      // given — the exact seam `adoptAuthenticatedSession` invokes on
+      // every successful MBP1 authentication (Task 18's own tests prove
+      // THAT call fires; this proves the desktop shell's closure).
+      const opts = (
+        runtime.server as unknown as {
+          opts: {
+            onExtensionAuthenticated?: (id: typeof identity) => void
+          }
+        }
+      ).opts
+      expect(opts.onExtensionAuthenticated).toBeTypeOf('function')
+
+      // Inject a live session the way `adoptAuthenticatedSession` would,
+      // so the revoke-kick has something to find and close.
+      const conn = { sendNotification: vi.fn(), dispose: vi.fn() }
+      ;(
+        runtime.server as unknown as { sessions: Map<string, unknown> }
+      ).sessions.set('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
+        conn,
+        extensionId: identity.extensionId,
+        browser: identity.browser,
+        startedAt: Date.now(),
+      })
+
+      opts.onExtensionAuthenticated?.(identity)
+      await vi.waitFor(() =>
+        expect(runtime.pairing.listPaired()).toHaveLength(1)
+      )
+      expect(runtime.pairing.listPaired()[0]?.identity).toEqual(identity)
+
+      const revokeHandler = electron.handle.mock.calls.find(
+        ([channel]) => channel === 'bridge:revokePair'
+      )?.[1] as
+        | ((event: unknown, params: { identity: typeof identity }) => unknown)
+        | undefined
+      expect(revokeHandler).toBeTypeOf('function')
+
+      await revokeHandler?.(undefined, { identity })
+
+      expect(runtime.pairing.listPaired()).toHaveLength(0)
+      expect(conn.sendNotification).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reason: 'user-revoked' })
+      )
+      await vi.waitFor(() => expect(conn.dispose).toHaveBeenCalledOnce())
+
+      await runtime.shutdown()
+    })
   })
 })

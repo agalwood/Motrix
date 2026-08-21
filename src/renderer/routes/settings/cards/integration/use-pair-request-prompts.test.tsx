@@ -87,8 +87,8 @@ const EXT_A = {
   kind: 'extension',
   pairingNonce: 'n',
   extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  extensionName: 'Motrix Helper',
-  extensionVersion: '1.0',
+  identity: 'official',
+  code: '1234-5678',
   browser: 'chromium',
 }
 
@@ -184,7 +184,9 @@ describe('usePairRequestPrompts', () => {
     expect(
       findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n')
     ).toMatchObject({
-      title: 'Motrix Helper wants to connect to Motrix',
+      // MBP1 forbids displaying the self-reported extension name (§5); the
+      // title interpolates the extension id instead.
+      title: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wants to connect to Motrix',
       description: 'From Chrome / Edge',
     })
   })
@@ -398,7 +400,7 @@ describe('usePairRequestPrompts', () => {
     )
   })
 
-  it('extension pair request resolves via pairingNonce/extensionId/browser with addToRegistry=false', async () => {
+  it('extension pair request dismisses via pairingNonce/extensionId/browser — no decision under MBP1', async () => {
     render(<Host />)
     findListener(BridgeEvents.PairRequested)(EXT_A)
     const data = findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n').data
@@ -410,8 +412,6 @@ describe('usePairRequestPrompts', () => {
         pairingNonce: 'n',
         extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         browser: 'chromium',
-        decision: 'allow',
-        addToRegistry: false,
       })
     )
   })

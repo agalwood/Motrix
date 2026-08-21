@@ -108,19 +108,41 @@ export interface TrustedExtensionInfo {
 }
 
 /**
+ * The §5/§9.2 tri-state proof level for an extension's identity. A literal
+ * copy of core's `IdentityTriState` (`src/core/bridge/credential-store.ts`) —
+ * duplicated deliberately because the renderer must not import `@core/`.
+ * `src/main/bridge/pairing-dialog-controller.ts` asserts the two stay
+ * assignable both ways at compile time, so a future widening of either union
+ * fails `tsc` instead of silently diverging.
+ */
+export type IdentityTriState =
+  | 'official'
+  | 'attested-non-official'
+  | 'unverified'
+
+/**
  * Renderer-facing pairing-approval prompt payload. Discriminated on `kind`:
  * an `extension` pairing (the browser `/pair` handshake) vs a `cli` device-code
  * pairing (Spec 7b). The approval toast branches on `kind` — a `cli` request
  * carries the human-verifiable `userCode` instead of a browser/extensionId.
+ *
+ * Under MBP1 (§5) no self-reported extension name/version is ever displayed:
+ * `extensionId` is the pairHello `claimedExtensionId` — proven whenever
+ * `identity !== 'unverified'`, claimed-only when `unverified` — and `code` is
+ * the §7.1 pairing code the user types into the extension to actually
+ * authorize it. There is no `decision` to make here any more: approval is
+ * proven by typing the code, not by a click in this dialog.
  */
 export type PairRequestPayload =
   | {
       kind: 'extension'
       pairingNonce: string
       extensionId: string
-      extensionName: string
-      extensionVersion: string
       browser: Browser
+      identity: IdentityTriState
+      /** The §7.1 display form, grouped `XXXX-XXXX`. Render verbatim — never
+       *  reformat, and never log (§7.1/§11: it is the PAKE password). */
+      code: string
     }
   | {
       kind: 'cli'
@@ -132,9 +154,11 @@ export type PairRequestPayload =
 
 /**
  * Renderer → main/server decision for a pairing prompt. Mirrors
- * {@link PairRequestPayload}'s discriminant: an `extension` decision settles the
- * blocked `/pair` WebSocket; a `cli` decision approves/denies a device-code
- * request by its `requestId`.
+ * {@link PairRequestPayload}'s discriminant: a `cli` decision approves/denies
+ * a device-code request by its `requestId`. An `extension` request has
+ * shrunk to a pure dismiss — under MBP1 the desktop dialog only DISPLAYS the
+ * code (§7.1); there is no Allow/Deny affordance, since approval is proven by
+ * typing the code into the extension, not by a click here.
  */
 export type ResolvePairParams =
   | {
@@ -142,8 +166,6 @@ export type ResolvePairParams =
       pairingNonce: string
       extensionId: string
       browser: Browser
-      decision: 'allow' | 'deny'
-      addToRegistry: boolean
     }
   | {
       kind: 'cli'
@@ -156,8 +178,9 @@ export type ResolvePairParams =
  * inbox. Discriminated on `kind`, mirroring {@link PairRequestPayload}: a
  * `cli` device-code request (token-free by construction, mirrors
  * {@link getPending}'s projection; `deviceId` — identity-keying material — is
- * deliberately excluded) vs an `extension` `/pair` handshake still awaiting a
- * decision. Both add `createdAt`/`expiresAt` for ordering + the TTL countdown.
+ * deliberately excluded) vs an `extension` `/pair` handshake still awaiting
+ * the code being typed into the extension. Both add `createdAt`/`expiresAt`
+ * for ordering + the TTL countdown.
  */
 export type PendingPairRequestInfo =
   | {
@@ -173,9 +196,9 @@ export type PendingPairRequestInfo =
       kind: 'extension'
       pairingNonce: string
       extensionId: string
-      extensionName: string
-      extensionVersion: string
       browser: Browser
+      identity: IdentityTriState
+      code: string
       createdAt: number
       expiresAt: number
     }

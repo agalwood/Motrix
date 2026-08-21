@@ -34,9 +34,9 @@ function toPairRequestPayload(
         kind: 'extension',
         pairingNonce: info.pairingNonce,
         extensionId: info.extensionId,
-        extensionName: info.extensionName,
-        extensionVersion: info.extensionVersion,
         browser: info.browser,
+        identity: info.identity,
+        code: info.code,
       }
 }
 
@@ -114,16 +114,13 @@ export function usePairRequestPrompts(): void {
           payload.kind === 'cli'
             ? { kind: 'cli', requestId: payload.requestId, decision }
             : {
+                // MBP1 has no allow/deny decision for an extension prompt —
+                // approval is proven by typing the code into the extension,
+                // not by a click here — so both buttons currently dismiss.
                 kind: 'extension',
                 pairingNonce: payload.pairingNonce,
                 extensionId: payload.extensionId,
                 browser: payload.browser,
-                decision,
-                // addToRegistry is intentionally false: the bridge already
-                // requires the extension to be in the trusted registry
-                // before this prompt can fire. Promoting is done
-                // explicitly from the Integration settings card, not here.
-                addToRegistry: false,
               }
         try {
           await resolvePairWithFeedback(params, tRef.current)

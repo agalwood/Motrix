@@ -55,8 +55,6 @@ describe('resolvePairWithFeedback', () => {
         pairingNonce: 'n1',
         extensionId: 'ext1',
         browser: 'chromium',
-        decision: 'allow',
-        addToRegistry: false,
       },
       t
     )

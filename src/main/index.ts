@@ -2199,6 +2199,10 @@ async function initializeMainProcess(): Promise<void> {
       motrixVersion: app.getVersion(),
       ffmpegAvailable: ff.available,
       enabled: true,
+      // Read fresh on every factory invocation (including a hot restart from
+      // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
+      // takes effect without a full app restart.
+      bridgeSettings: settingsManager.get().bridge,
       eventBus,
       createTaskDeps,
       activityRecorder: activeTaskActivityService,

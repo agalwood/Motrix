@@ -12,6 +12,8 @@ function makeRuntime(): BridgeRuntime {
       unregister: vi.fn().mockResolvedValue(undefined),
     } as unknown as BridgeRuntime['installer'],
     endpointWriter: {} as unknown as BridgeRuntime['endpointWriter'],
+    port: 16802,
+    degraded: false,
     shutdown: vi.fn().mockResolvedValue(undefined),
     muxPipeline: undefined,
     getMediaSegmentGids: vi.fn().mockReturnValue([]),

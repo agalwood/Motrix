@@ -57,8 +57,10 @@ export function pairRequestCopy(
         denyLabel: t('settings.integration.cli.pairToast.deny'),
       }
     : {
+        // MBP1 forbids displaying the self-reported extension name, so this
+        // interpolates the extension id instead as a placeholder.
         title: t('settings.integration.browser.pairToast.title', {
-          name: payload.extensionName,
+          name: payload.extensionId,
         }),
         description: t('settings.integration.browser.pairToast.from', {
           browser: payload.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox',
