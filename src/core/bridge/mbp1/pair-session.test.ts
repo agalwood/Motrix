@@ -148,6 +148,9 @@ function makeHarness(opts: HarnessOptions = {}) {
     nonceValid: opts.nonceValid ?? true,
     pairNonce: PAIR_NONCE,
     verifiedOrigin: opts.verifiedOrigin ?? ORIGIN,
+    // Defaults to what `ORIGIN`'s scheme derives to, so an existing test that
+    // overrides only `verifiedOrigin` still gets a consistent pair.
+    browser: opts.browser ?? 'chromium',
     instanceId: INSTANCE_ID,
     serverGeneration: SERVER_GENERATION,
     localToken: LOCAL_TOKEN,
@@ -1154,9 +1157,46 @@ describe('PairSession', () => {
       expect(h.dialogs).toHaveLength(0)
     })
 
+    it('rejects a hello whose browser contradicts the derived one', async () => {
+      // §5: identity never comes from a self-reported field. The rejection also
+      // has to land before `admit`, or a client could spend other sessions'
+      // §7.3 pending slots on frames that were never going to be accepted.
+      let admitted = false
+      const h = makeHarness({
+        browser: 'chromium',
+        admit: () => {
+          admitted = true
+          return { ok: true }
+        },
+      })
+      await h.text(helloFrame({ browser: 'firefox' }))
+      expect(h.error().code).toBe('protocolViolation')
+      expect(h.dialogs).toHaveLength(0)
+      expect(admitted).toBe(false)
+    })
+
+    it('does not let a declared firefox skip the chromium origin check', async () => {
+      // The attack the previous shape allowed: connect from a real
+      // `chrome-extension://` origin, declare `firefox` so the origin/claimedId
+      // predicate does not apply, and then claim any id at all. Identity landed
+      // in `unverified`, which renders the *claimed* id in the approval dialog —
+      // so the payoff was showing the user a recognizable extension id from an
+      // extension that was not it.
+      const h = makeHarness({ browser: 'chromium' })
+      await h.text(
+        helloFrame({
+          browser: 'firefox',
+          claimedExtensionId: 'someotherextensionid',
+        })
+      )
+      expect(h.error().code).toBe('protocolViolation')
+      expect(h.dialogs).toHaveLength(0)
+    })
+
     it('resolves a ticketless firefox caller as unverified', async () => {
       const h = makeHarness({
         official: true,
+        browser: 'firefox',
         verifiedOrigin: 'moz-extension://8c1a0d6e-1f2b-4c3d-9e0a-5b6c7d8e9f01',
       })
       await h.text(helloFrame({ browser: 'firefox' }))
@@ -1204,7 +1244,16 @@ describe('PairSession', () => {
     it('reports a non-ASCII verified origin as pairingFailed', async () => {
       // `enc()` refuses a non-ASCII string (§2), which would otherwise throw
       // out of the frame handler while building A_id.
-      const h = makeHarness({ verifiedOrigin: 'chrome-extension://ídentity' })
+      //
+      // Uses a Firefox origin throughout rather than declaring `firefox` over a
+      // `chrome-extension://` one. The old version did the latter to skip the
+      // Chromium origin/claimedId check and reach `enc()` — which is exactly
+      // the bypass that check now refuses, so the test was quietly relying on
+      // the defect it sat next to.
+      const h = makeHarness({
+        browser: 'firefox',
+        verifiedOrigin: 'moz-extension://ídentity',
+      })
       await h.text(helloFrame({ browser: 'firefox' }))
       expect(h.error()).toEqual({ type: 'pairError', code: 'pairingFailed' })
       expect(h.dialogs).toHaveLength(0)

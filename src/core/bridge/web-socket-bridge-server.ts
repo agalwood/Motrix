@@ -1319,6 +1319,9 @@ export class WebSocketBridgeServer {
         nonceValid: true,
         pairNonce,
         verifiedOrigin: peer.origin,
+        // Both from the same `parseExtensionOrigin` result, so `/pair` and
+        // `/v1` cannot disagree about which browser a credential belongs to.
+        browser: peer.browser,
         instanceId: mbp1.instanceId,
         serverGeneration: mbp1.serverGeneration,
         localToken: this.opts.localToken,

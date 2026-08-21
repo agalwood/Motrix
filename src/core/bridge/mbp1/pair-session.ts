@@ -149,6 +149,18 @@ export interface PairSessionDeps {
   pairNonce: string
   /** The `Origin` header value, never a self-reported field (§5). */
   verifiedOrigin: string
+  /**
+   * The browser this connection actually came from, derived by the wiring from
+   * the `Origin` scheme — never `pairHello.browser` (§5). `ReconnectSessionDeps`
+   * has always taken it this way; `/pair` did not, and the asymmetry was a
+   * defect: the credential principal stored the client's self-report while §8
+   * builds `RT` from the live connection, so a client whose two producers
+   * disagreed paired successfully and then failed **every** reconnect with the
+   * uniform `authFailed` it is forbidden to delete a credential over
+   * (§6.7/§12) — an unrecoverable pairing indistinguishable from a forged
+   * listener. `onPairHello` now rejects the mismatch instead.
+   */
+  browser: Browser
   instanceId: string
   serverGeneration: string
   localToken: string
@@ -404,13 +416,33 @@ export class PairSession {
       return
     }
 
+    // §5 forbids taking identity from a self-reported field, so `browser` must
+    // agree with what the `Origin` scheme already proved. Rejecting the
+    // mismatch here — before admission, so it costs no §7.3 slot — is what
+    // keeps every later use of `frame.browser` sound, and it moves an honest
+    // client's detection bug from "pairs, then fails every reconnect forever"
+    // to one abort it can actually diagnose.
+    if (frame.browser !== this.deps.browser) {
+      this.violation()
+      return
+    }
+
     // §5: on Chromium the verified `Origin` host proves the extension id, so a
     // `claimedExtensionId` that disagrees with it is a rejected pairing. On
     // Firefox a `moz-extension://<UUID>` origin cannot be mapped to a Gecko
     // id, so there is nothing to compare. Host-header validation is the
     // wiring's, since the header never reaches this module.
+    //
+    // Branches on the **derived** browser, not the frame's. The check above
+    // makes them equal, so this is belt and braces — but this is the check
+    // §5's whole identity proof rests on, and while it keyed off the client's
+    // own field a Chromium caller could declare `firefox` to skip it entirely
+    // and then claim any `claimedExtensionId` it liked. Identity resolved to
+    // `unverified`, which renders the *claimed* id in the dialog, so the
+    // payoff was showing the user a recognizable id from an extension that
+    // was not it. Never let this predicate depend on a frame field again.
     if (
-      frame.browser === 'chromium' &&
+      this.deps.browser === 'chromium' &&
       this.deps.verifiedOrigin !==
         `${CHROMIUM_ORIGIN_SCHEME}${frame.claimedExtensionId}`
     ) {
@@ -791,8 +823,15 @@ export class PairSession {
     if (this.hello === null) {
       return
     }
+    // `browser` comes from the derived value, not `this.hello.browser`, and the
+    // distinction is the whole point: §8 rebuilds `RT` from the **live**
+    // connection's browser on every reconnect, so a principal recorded from
+    // anything else fails the MAC forever. `onPairHello` proves the two are
+    // equal, so this is the same value either way — but it now comes from the
+    // same source the reconnect side reads, which is what makes that true by
+    // construction rather than by a check someone could later move.
     const principal: CredentialPrincipal = {
-      browser: this.hello.browser,
+      browser: this.deps.browser,
       verifiedOrigin: this.deps.verifiedOrigin,
       clientInstallationId: this.hello.clientInstallationId,
     }
