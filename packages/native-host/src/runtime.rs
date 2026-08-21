@@ -52,13 +52,24 @@ impl ResolveDeps for SystemResolveDeps {
     }
 }
 
-pub fn resolve_direct(allow_launch: bool, bridge_data: Option<&Path>) -> ResolveResult {
-    let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
-    match resolve_endpoint(allow_launch, &mut deps) {
-        Ok(resolved) => ResolveResult::request_pair(resolved.endpoint.port, resolved.nonce),
-        Err(error) => ResolveResult::Error { error },
-    }
-}
+// There is deliberately no general-purpose `resolve_direct` helper here.
+//
+// One existed and was deleted: a `pub fn resolve_direct(allow_launch,
+// bridge_data)` that resolved the endpoint and answered
+// `ResolveResult::request_pair(..)`. It had no callers, and it was a trap
+// rather than merely dead code. `main.rs`'s live path does the same
+// resolution but branches on `HostRequest::Bootstrap` to mint a §9.2 ticket
+// and answers `request_pair_with_ticket`. So the deleted helper read as a
+// tidier, better-named version of that block while silently dropping
+// attestation — a future refactor replacing `main.rs` with a call to it would
+// type-check, read cleanly, keep every unit test green, and make every
+// extension resolve to `unverified`, putting the `official` /
+// `attested-non-official` tiers permanently out of reach. Only the three
+// integration tests would have caught it.
+//
+// If a ticketless direct resolve is ever genuinely wanted, write it at the
+// call site where the ticketless choice is visible, the way `probe_bridge`
+// below does.
 
 /// The broker's `Probe` operation: resolve the recorded endpoint without any
 /// launch capability, since only the host-side companion can start a Flatpak
