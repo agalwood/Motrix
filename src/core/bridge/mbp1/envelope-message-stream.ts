@@ -22,11 +22,17 @@
 //      violation, and a wrapper that accepted one would hand injected
 //      plaintext to MDXP as if it had been authenticated.
 //
-//   3. **A peer violation and an internal fault are different events.**
-//      `EnvelopeViolationError`/`ProtocolViolationError` mean the peer sent
-//      something §10 forbids; anything else means this process is broken.
-//      Collapsing the two reports our own `TypeError` as "GCM authentication
-//      failed", which reads as a wire attack during debugging.
+//   3. **A peer violation, a usage-bound closure, and an internal fault are
+//      three different events, not two.** `EnvelopeViolationError`/
+//      `ProtocolViolationError` mean the peer sent something §10 forbids;
+//      `EnvelopeLimitError` means a direction reached its §10 frame/block
+//      usage bound and MUST reconnect — expected, spec-mandated, and nobody's
+//      fault; anything else means this process is broken. Collapsing the
+//      first and third reports our own `TypeError` as "GCM authentication
+//      failed", which reads as a wire attack during debugging. Collapsing the
+//      second into either one instead reports a routine reconnect boundary as
+//      an attack or a crash, which is exactly the same class of misattribution
+//      one level up.
 //
 // This module handles traffic keys and plaintext MDXP payloads, so it logs
 // nothing at any level (§11).
@@ -36,6 +42,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { WebSocketLike } from '../web-socket-message-stream'
 import { ProtocolViolationError } from './canonical'
 import {
+  EnvelopeLimitError,
   type EnvelopeOpener,
   type EnvelopeSealer,
   EnvelopeViolationError,
@@ -48,16 +55,33 @@ export interface EnvelopeChannel {
 }
 
 /**
- * Why the stream refused an inbound frame. `fromPeer` is the whole point of
- * the type: the wiring must close either way, but it must never attribute its
- * own fault to the peer, and a caller that only had `() => void` to work with
- * has no way to keep them apart.
+ * Why the stream refused an inbound frame or failed to seal an outbound one.
+ *
+ * - `'peer-violation'` — the peer sent something §10 forbids (bad frame,
+ *   tampering, replay, a post-activation text frame). The wiring MUST close;
+ *   it is the peer's fault.
+ * - `'usage-limit'` — a direction's §10 frame- or block-count usage bound was
+ *   reached (`EnvelopeLimitError`). The wiring MUST close, but this is
+ *   neither side's fault: §10 requires it before either bound is exceeded,
+ *   and the remedy — reconnect and derive fresh keys (§8) — is the same
+ *   whichever direction tripped it.
+ * - `'internal'` — this process is broken (a bug, not a protocol event).
+ *
+ * A two-state `fromPeer` boolean cannot represent this: a usage-limit closure
+ * is neither an accusation nor a confession, and forcing it into either
+ * bucket reports a routine, spec-mandated reconnect boundary as either an
+ * attack or a crash — the same misattribution the `EnvelopeViolationError`
+ * vs. internal-fault split above already exists to avoid one level down.
  */
+export type EnvelopeStreamFaultKind =
+  | 'peer-violation'
+  | 'usage-limit'
+  | 'internal'
+
 export interface EnvelopeStreamFault {
-  /** `true` for a §10 violation the peer caused; `false` for an internal fault. */
-  readonly fromPeer: boolean
-  /** The violation itself, or — for an internal fault — a wrapper whose
-   *  `cause` is the original error. */
+  readonly kind: EnvelopeStreamFaultKind
+  /** The violation/limit error itself, or — for an internal fault — a
+   *  wrapper whose `cause` is the original error. */
   readonly cause: Error
 }
 
@@ -105,7 +129,7 @@ class EnvelopeMessageStream implements EnvelopeStream {
     if (isBinary !== true) {
       // §10: text frames after channel activation are a protocol violation.
       this.onViolation({
-        fromPeer: true,
+        kind: 'peer-violation',
         cause: new EnvelopeViolationError(
           'received a text frame after channel activation'
         ),
@@ -117,7 +141,7 @@ class EnvelopeMessageStream implements EnvelopeStream {
     try {
       plaintext = this.channel.opener.open(toBytes(data))
     } catch (error) {
-      this.onViolation(faultFrom(error))
+      this.onViolation(faultFromOpen(error))
       return
     }
 
@@ -194,13 +218,27 @@ class EnvelopeMessageStream implements EnvelopeStream {
   }
 
   /**
-   * Seals and sends. A `seal` failure (over 1 MiB, or a §10 usage bound)
-   * throws through to `WebSocketMessageWriter.write`, which reports it on its
-   * error emitter and rethrows to the caller — the documented backstop.
+   * Seals and sends. A `seal` failure (over 1 MiB, or a §10 usage bound) is
+   * reported to `onViolation` — the same sink the inbound path uses, so a
+   * usage bound hit while SENDING closes this connection exactly the way one
+   * hit while receiving does, rather than leaving a socket that will keep
+   * refusing every later `seal()` call (the counters that tripped it never
+   * advance) open and silently dead. It is ALSO rethrown to the immediate
+   * caller — `WebSocketMessageWriter.write` reports it on its own error
+   * emitter and rethrows again — because the specific write that failed still
+   * needs to fail for whoever issued it (e.g. a pending `sendRequest`'s
+   * promise), independent of the connection-level close this triggers.
    */
   send(data: string | Uint8Array): void {
     const plaintext = typeof data === 'string' ? utf8ToBytes(data) : data
-    this.ws.send(this.channel.sealer.seal(plaintext))
+    let sealed: Uint8Array
+    try {
+      sealed = this.channel.sealer.seal(plaintext)
+    } catch (error) {
+      this.onViolation(faultFromSeal(error))
+      throw error
+    }
+    this.ws.send(sealed)
   }
 
   close(code?: number, reason?: string): void {
@@ -215,16 +253,49 @@ function toBytes(data: Buffer | string): Uint8Array {
     : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
 }
 
-function faultFrom(error: unknown): EnvelopeStreamFault {
+/**
+ * Classifies an `EnvelopeOpener.open` (inbound) failure. `EnvelopeLimitError`
+ * is checked before the peer-violation types: it is thrown from a check on
+ * this direction's OWN counter, before the frame is even parsed (see
+ * `envelope.ts`), so it is never also an `EnvelopeViolationError` — the order
+ * here documents that these are disjoint, not a priority between them.
+ */
+function faultFromOpen(error: unknown): EnvelopeStreamFault {
+  if (error instanceof EnvelopeLimitError) {
+    // Not wrapped: `EnvelopeLimitError`'s own message ("usage bound reached
+    // ...; reconnect required") already reads as a usage-bound close without
+    // needing the reader to know this `kind` exists.
+    return { kind: 'usage-limit', cause: error }
+  }
   if (
     error instanceof EnvelopeViolationError ||
     error instanceof ProtocolViolationError
   ) {
-    return { fromPeer: true, cause: error }
+    return { kind: 'peer-violation', cause: error }
   }
   return {
-    fromPeer: false,
+    kind: 'internal',
     cause: new Error('envelope stream failed to open an inbound frame', {
+      cause: error,
+    }),
+  }
+}
+
+/**
+ * Classifies an `EnvelopeSealer.seal` (outbound) failure. Unlike the inbound
+ * side, an `EnvelopeViolationError` here (plaintext over the 1 MiB cap) is
+ * OUR OWN mistake — something upstream tried to hand this stream a frame
+ * that cannot be sent — never the peer's, so it is `internal` rather than
+ * `peer-violation`: the same error class means a different thing depending
+ * on which direction produced it.
+ */
+function faultFromSeal(error: unknown): EnvelopeStreamFault {
+  if (error instanceof EnvelopeLimitError) {
+    return { kind: 'usage-limit', cause: error }
+  }
+  return {
+    kind: 'internal',
+    cause: new Error('envelope stream failed to seal an outbound frame', {
       cause: error,
     }),
   }

@@ -10,6 +10,7 @@ import { ProtocolViolationError } from './canonical'
 import {
   DIR_C2S,
   DIR_S2C,
+  EnvelopeLimitError,
   EnvelopeOpener,
   EnvelopeSealer,
   EnvelopeViolationError,
@@ -149,7 +150,7 @@ describe('wrapWithEnvelope — inbound', () => {
     expect(delivered).not.toHaveBeenCalled()
     expect(onViolation).toHaveBeenCalledTimes(1)
     const fault = firstFault(onViolation)
-    expect(fault.fromPeer).toBe(true)
+    expect(fault.kind).toBe('peer-violation')
     expect(fault.cause).toBeInstanceOf(EnvelopeViolationError)
   })
 
@@ -215,7 +216,7 @@ describe('wrapWithEnvelope — inbound', () => {
 
     expect(delivered).not.toHaveBeenCalled()
     expect(onViolation).toHaveBeenCalledTimes(1)
-    expect(firstFault(onViolation).fromPeer).toBe(true)
+    expect(firstFault(onViolation).kind).toBe('peer-violation')
   })
 
   it('treats a replayed frame as a violation (strict sequence, no window)', () => {
@@ -282,7 +283,7 @@ describe('wrapWithEnvelope — inbound', () => {
 
     expect(delivered).not.toHaveBeenCalled()
     const fault = firstFault(onViolation)
-    expect(fault.fromPeer).toBe(false)
+    expect(fault.kind).toBe('internal')
     expect(fault.cause.cause).toBe(boom)
   })
 
@@ -303,7 +304,33 @@ describe('wrapWithEnvelope — inbound', () => {
 
     ws.deliverBinary(new Uint8Array(32))
 
-    expect(firstFault(onViolation).fromPeer).toBe(true)
+    expect(firstFault(onViolation).kind).toBe('peer-violation')
+  })
+
+  it('reports an inbound EnvelopeLimitError as a usage-limit closure, not a peer violation or internal fault', () => {
+    // The opener's frame-count check reads only its own counter, before the
+    // frame is even parsed, so an arbitrary length-valid buffer trips it
+    // without needing real encryption (mirrors envelope.test.ts).
+    const ws = new FakeSocket()
+    const onViolation = vi.fn()
+    const wrapped = wrapWithEnvelope(
+      ws.asLike(),
+      {
+        sealer: new EnvelopeSealer(KEY_S2C, DIR_S2C),
+        opener: new EnvelopeOpener(KEY_C2S, DIR_C2S, 2 ** 24),
+      },
+      onViolation
+    )
+    const delivered = vi.fn()
+    wrapped.on('message', delivered)
+
+    ws.deliverBinary(new Uint8Array(8 + 16))
+
+    expect(delivered).not.toHaveBeenCalled()
+    expect(onViolation).toHaveBeenCalledTimes(1)
+    const fault = firstFault(onViolation)
+    expect(fault.kind).toBe('usage-limit')
+    expect(fault.cause).toBeInstanceOf(EnvelopeLimitError)
   })
 })
 
@@ -349,6 +376,48 @@ describe('wrapWithEnvelope — outbound', () => {
     expect(wrapped.usage).toEqual({ frames: 0, blocks: 0 })
     wrapped.send('0123456789abcdef0123')
     expect(wrapped.usage).toEqual({ frames: 1, blocks: 2 })
+  })
+
+  it('reports an outbound EnvelopeLimitError as a usage-limit closure, and still throws to the caller', () => {
+    // A sealer already AT the frame-count bound: the very next seal() throws.
+    const ws = new FakeSocket()
+    const onViolation = vi.fn()
+    const channel = {
+      sealer: new EnvelopeSealer(KEY_S2C, DIR_S2C, 2 ** 24),
+      opener: new EnvelopeOpener(KEY_C2S, DIR_C2S),
+    }
+    const wrapped = wrapWithEnvelope(ws.asLike(), channel, onViolation)
+
+    expect(() => wrapped.send('{"a":1}')).toThrow(EnvelopeLimitError)
+
+    expect(ws.sent).toHaveLength(0)
+    expect(onViolation).toHaveBeenCalledTimes(1)
+    const fault = firstFault(onViolation)
+    expect(fault.kind).toBe('usage-limit')
+    expect(fault.cause).toBeInstanceOf(EnvelopeLimitError)
+  })
+
+  it('reports an oversized outbound plaintext as internal, NOT a peer violation', () => {
+    // `EnvelopeViolationError` from `seal()` is this process's own mistake —
+    // something upstream tried to send more than the 1 MiB frame allows —
+    // never the peer's, unlike the same error class thrown by `open()`.
+    const ws = new FakeSocket()
+    const onViolation = vi.fn()
+    const wrapped = wrapWithEnvelope(
+      ws.asLike(),
+      makeServerChannel(),
+      onViolation
+    )
+
+    expect(() => wrapped.send(new Uint8Array(1024 * 1024 + 1))).toThrow(
+      EnvelopeViolationError
+    )
+
+    expect(ws.sent).toHaveLength(0)
+    expect(onViolation).toHaveBeenCalledTimes(1)
+    const fault = firstFault(onViolation)
+    expect(fault.kind).toBe('internal')
+    expect(fault.cause.cause).toBeInstanceOf(EnvelopeViolationError)
   })
 })
 

@@ -38,6 +38,7 @@ import {
 import {
   type EnvelopeChannel,
   type EnvelopeStream,
+  type EnvelopeStreamFaultKind,
   wrapWithEnvelope,
 } from './mbp1/envelope-message-stream'
 import { PairFloodControl } from './mbp1/flood-control'
@@ -271,9 +272,43 @@ const PAIR_PRE_AUTH_DEADLINE_MS = 150_000
  */
 const RECONNECT_PRE_AUTH_DEADLINE_MS = 15_000
 
-/** RFC 6455 close codes used when the envelope stream refuses a frame (§10). */
-const WS_CLOSE_PROTOCOL_ERROR = 1002
-const WS_CLOSE_INTERNAL_ERROR = 1011
+/** RFC 6455 close codes used when the envelope stream refuses a frame (§10).
+ *  Exported so tests can assert on the exact wire value rather than
+ *  duplicating it as an untethered magic number. */
+export const WS_CLOSE_PROTOCOL_ERROR = 1002
+export const WS_CLOSE_INTERNAL_ERROR = 1011
+/**
+ * §10 usage-bound closure (`EnvelopeLimitError`): a direction reached its
+ * frame- or block-count bound and this connection MUST be re-established via
+ * reconnect (§8) with fresh keys. Neither 1002 nor 1011 fits — this is not
+ * the peer breaking §10, and it is not this process malfunctioning; it is
+ * the backstop for the exact condition §10 requires to happen before either
+ * bound is exceeded. Sending 1011 here (as an internal error) told a
+ * conforming client this process crashed, when the designed response is to
+ * silently reconnect instead of surfacing an error to the user.
+ *
+ * RFC 6455 §7.4.2 reserves 1000-2999 for the protocol/extensions/IANA-
+ * registered schemes and 3000-3999 for IANA-registered libraries — using
+ * either for a code with a meaning specific to this application would
+ * misuse the registry the same way 1002/1011 would. 4000-4999 is reserved
+ * for exactly this: private use "by prior agreement between WebSocket
+ * applications", which MBP1 endpoints are. `4001` is arbitrary within that
+ * range; what matters is only that it differs from 1002/1011 so a client can
+ * branch on it.
+ */
+export const WS_CLOSE_ENVELOPE_USAGE_LIMIT = 4001
+
+/** Maps an envelope-stream fault to the RFC 6455 close code the wiring sends. */
+function closeCodeForEnvelopeFault(kind: EnvelopeStreamFaultKind): number {
+  switch (kind) {
+    case 'peer-violation':
+      return WS_CLOSE_PROTOCOL_ERROR
+    case 'usage-limit':
+      return WS_CLOSE_ENVELOPE_USAGE_LIMIT
+    case 'internal':
+      return WS_CLOSE_INTERNAL_ERROR
+  }
+}
 
 function isLoopbackHost(host: string): boolean {
   return LOOPBACK_HOSTS.has(host)
@@ -1468,13 +1503,13 @@ export class WebSocketBridgeServer {
     // continue from the handshake (`/pair` has already sealed
     // `credentialCommitted`).
     const envelope = wrapWithEnvelope(ws, channel, (fault) => {
-      // §10: any gap, repeat, tampered frame, or post-activation text frame
-      // closes immediately. The close code separates "the peer broke the
-      // protocol" from "this process did" without naming which check failed —
-      // every §10 violation reports the same 1002 (§11).
-      ws.close(
-        fault.fromPeer ? WS_CLOSE_PROTOCOL_ERROR : WS_CLOSE_INTERNAL_ERROR
-      )
+      // §10: any gap, repeat, tampered frame, post-activation text frame, or
+      // usage-bound reached (inbound or outbound) closes immediately. The
+      // close code separates "the peer broke the protocol", "this process
+      // did", and "a usage bound was reached — reconnect" without naming
+      // which check failed — every §10 violation of a given kind reports the
+      // same code (§11).
+      ws.close(closeCodeForEnvelopeFault(fault.kind))
     })
     const conn = new BridgeConnection(envelope, {
       sessionKey,

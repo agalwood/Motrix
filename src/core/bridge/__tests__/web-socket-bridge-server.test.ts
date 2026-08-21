@@ -1,8 +1,21 @@
+import { EventEmitter } from 'node:events'
 import type { Browser } from '@core/bridge/bridge-connection'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
+import {
+  DIR_C2S,
+  DIR_S2C,
+  EnvelopeOpener,
+  EnvelopeSealer,
+  MAX_ENVELOPE_FRAMES,
+} from '@core/bridge/mbp1/envelope'
 import type { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
-import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
+import {
+  WebSocketBridgeServer,
+  WS_CLOSE_ENVELOPE_USAGE_LIMIT,
+  WS_CLOSE_PROTOCOL_ERROR,
+} from '@core/bridge/web-socket-bridge-server'
+import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
 import { EngineState } from '@shared/types/engine'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import WebSocket from 'ws'
@@ -269,5 +282,87 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
 
     conn.dispose()
     paired.wire.ws.close()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Envelope-fault -> WS close-code wiring
+// ---------------------------------------------------------------------------
+
+/**
+ * A minimal `WebSocketLike` double, exercised directly against
+ * `adoptAuthenticatedSession` rather than through a real upgrade: the fault
+ * classification these tests cover lives entirely in what the envelope
+ * stream reports and how the wiring maps it to a close code, none of which
+ * depends on a real socket or a completed handshake.
+ */
+class FakeExtensionSocket extends EventEmitter {
+  readyState = 1
+  readonly closedWith: Array<[number | undefined, string | undefined]> = []
+
+  send(): void {
+    // Unused: these tests only drive the inbound path.
+  }
+
+  close(code?: number, reason?: string): void {
+    this.closedWith.push([code, reason])
+    this.readyState = 3
+  }
+
+  asLike(): WebSocketLike {
+    return this as unknown as WebSocketLike
+  }
+}
+
+describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault close codes', () => {
+  let server: WebSocketBridgeServer
+  const KEY = new Uint8Array(32).fill(3)
+  const IDENTITY = {
+    kind: 'extension' as const,
+    browser: 'chromium' as const,
+    extensionId: EXTENSION_ID,
+  }
+
+  beforeEach(async () => {
+    server = new WebSocketBridgeServer({
+      pairing: makeStatefulFakePairing(),
+      registry: makeFakeRegistry(),
+      motrixVersion: '2.0',
+      runtime: 'electron',
+      ffmpegAvailable: true,
+      localToken: 'test-token',
+    })
+    await server.start()
+  })
+
+  afterEach(async () => {
+    await server.stop()
+  })
+
+  it('closes with the usage-limit code — not protocol-error or internal-error — when an inbound §10 bound is reached', () => {
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      sealer: new EnvelopeSealer(KEY, DIR_S2C),
+      // Already AT the frame-count bound: the very next open() throws
+      // EnvelopeLimitError before it even looks at the frame's contents.
+      opener: new EnvelopeOpener(KEY, DIR_C2S, MAX_ENVELOPE_FRAMES),
+    })
+
+    ws.emit('message', Buffer.alloc(8 + 16), true)
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_ENVELOPE_USAGE_LIMIT, undefined]])
+  })
+
+  it('still closes with the protocol-error code for an ordinary peer violation', () => {
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      sealer: new EnvelopeSealer(KEY, DIR_S2C),
+      opener: new EnvelopeOpener(KEY, DIR_C2S),
+    })
+
+    // §10: a text frame after channel activation is a protocol violation.
+    ws.emit('message', Buffer.from('not an envelope'), false)
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_PROTOCOL_ERROR, undefined]])
   })
 })
