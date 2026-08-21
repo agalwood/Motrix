@@ -148,30 +148,42 @@ main owns its `CancellationTokenSource`, and the matching cancel query aborts it
 ## Native Messaging host
 
 `packages/native-host/` is a standalone Rust executable spawned by Chromium or
-Firefox. It reads only the endpoint port, fetches a nonce over loopback, and
-returns `{ action: 'requestPair', port, nonce }`. It must not expose the local
-CLI token or depend on system Node.js or Electron. Production extension IDs
-come from `src/shared/config/native-messaging-extensions.json`; development IDs
-may be added only through `MOTRIX_DEV_TRUSTED_EXTENSIONS` and must never ship as
+Firefox. It reads `endpoint.json`, probes `GET /discovery` for liveness
+(§4.1), and fetches exactly one `POST /nonce` with `X-Motrix-Bridge: 1`
+(§4.2) once liveness succeeds — the launch-poll loop probes liveness every
+~200ms but never fetches more than one nonce per resolution attempt. It
+must not expose the local CLI token itself to the extension or depend on
+system Node.js or Electron. Production extension IDs come from
+`src/shared/config/native-messaging-extensions.json`; development IDs may
+be added only through `MOTRIX_DEV_TRUSTED_EXTENSIONS` and must never ship as
 production defaults.
 
-**Pending migration — do not treat the host as MBP1-ready. RELEASE GATE:**
-`probe.rs` still issues `GET /nonce` with no custom header, which the bridge
-now 404s, so the shipped host's `requestPair` path is broken until it is
-ported to `POST /nonce` with `X-Motrix-Bridge: 1`. Nothing in CI catches this:
-the host's own test asserts the old request line, so it passes against a
-server that no longer serves it. That migration is Line B work, tracked
-separately, and this branch MUST NOT ship until it lands.
+For a `bootstrap` request, the host also mints a §9.2 NM attestation ticket
+(`mint_ticket_for_bootstrap` in `main.rs`), returned as `nmTicket` in
+`{ action: 'requestPair', port, nonce, nmTicket? }`, whenever every trusted
+input is available: an argv-extracted caller identity, an owner-checked
+`localToken` and ASCII `generation` from `endpoint.json`, and the
+extension's `bindingPub`. A missing input degrades to a ticketless reply
+rather than fabricating one — ticketless resolves to `unverified` on the
+server, the same outcome as presenting no ticket at all, which is safer
+than a structurally broken ticket (§9.2 aborts on that). `localToken`
+itself never reaches the wire, only the MAC key it derives.
 
-**Second RELEASE GATE, same root cause:** the host does not mint NM tickets at
-all yet — no `ticket` or `local_token` code exists anywhere in
-`packages/native-host/src/`. So even after the request-line fix above lands,
-the `official` / `attested-non-official` identity tier stays unreachable:
-every extension resolves no better than `unverified` until a Line B change
-adds ticket minting on the host side. `localToken` is now persisted correctly
-on the server (§9.2), but persistence on one side of an attestation is not
-attestation — do not claim ticket-based identity works until the host mints
-tickets too.
+`endpoint.json`'s `localToken`/`generation` are trusted for minting only
+when the file passes a `#[cfg(unix)]` 0600 owner-and-mode check on the
+already-open handle (§9.1); a file that fails it still yields a port, but
+those two fields are dropped. That check is Unix-only: on Windows,
+`localToken` and `generation` pass through unchecked, and the attestation
+root rests on default per-user `%APPDATA%` NTFS isolation rather than on
+anything this code verifies. §9.1's "0600 owner-only" wording is itself
+Unix-specific, so this is not a spec violation — but do not read the
+ticket-minting path above as attesting anything stronger than that on
+Windows.
+
+The Flatpak companion and broker (`motrix-flatpak-native-host`,
+`motrix-native-host-broker`) share `probe.rs`, so they pick up the
+`POST /nonce` / `X-Motrix-Bridge: 1` migration, but remain ticketless by
+design — neither calls `mint_ticket`. That scope decision stands.
 
 ## Verification
 
