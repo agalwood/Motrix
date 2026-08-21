@@ -1798,7 +1798,14 @@ describe('Commands.UpdateSettings', () => {
       {},
       { fixedPort: 'auto' }
     )
-    const after = makeSettingsLike(PROXY_OFF, {}, {}, {}, {}, { fixedPort: 16900 })
+    const after = makeSettingsLike(
+      PROXY_OFF,
+      {},
+      {},
+      {},
+      {},
+      { fixedPort: 16900 }
+    )
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),

@@ -215,7 +215,9 @@ function migrateV8ToV9(data: Record<string, unknown>): Record<string, unknown> {
  * merge two migrations that claim the same version — the one already on the
  * trunk keeps the number.
  */
-function migrateV9ToV10(data: Record<string, unknown>): Record<string, unknown> {
+function migrateV9ToV10(
+  data: Record<string, unknown>
+): Record<string, unknown> {
   const bridge = (data.bridge ?? {}) as Record<string, unknown>
   const instanceId =
     typeof bridge.instanceId === 'string' && bridge.instanceId !== ''
