@@ -1468,8 +1468,15 @@
         "pairToast": {
           "title": "{{name}} wants to connect to Motrix",
           "from": "From {{browser}}",
-          "allow": "Allow",
-          "deny": "Don’t allow"
+          "deny": "Don't allow",
+          "pairCode": "Pairing code",
+          "pairCodeHint": "Type this code in the extension",
+          "identityLabel": {
+            "official": "Official Motrix extension",
+            "attested": "Verified extension",
+            "unverified": "Unverified extension"
+          },
+          "identityUnverifiedWarning": "This extension's identity could not be verified. Only continue if you trust it."
         },
         "pairUnavailable": "This pairing request is no longer pending — retry pairing from the browser extension.",
         "trustedExtensions": "Trusted extensions",

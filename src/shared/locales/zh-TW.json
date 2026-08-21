@@ -1455,8 +1455,15 @@
         "pairToast": {
           "title": "{{name}} 想要連線至 Motrix",
           "from": "來自 {{browser}}",
-          "allow": "允許",
-          "deny": "不允許"
+          "deny": "不允許",
+          "pairCode": "配對碼",
+          "pairCodeHint": "請在擴充功能中輸入此配對碼",
+          "identityLabel": {
+            "official": "Motrix 官方擴充功能",
+            "attested": "已驗證的擴充功能",
+            "unverified": "未驗證的擴充功能"
+          },
+          "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。"
         },
         "pairUnavailable": "此配對要求已不再待處理，請從瀏覽器擴充功能重新配對。",
         "trustedExtensions": "受信任的擴充功能",

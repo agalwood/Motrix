@@ -196,32 +196,119 @@ describe('toast', () => {
       expect(onDeny).toHaveBeenCalledOnce()
     })
 
-    it('renders extension copy (title/browser) for an extension-kind request', async () => {
-      render(<Toaster />)
-      add({
-        id: 'chromium:ext-1:nonce',
-        timeout: 0,
-        priority: 'high',
-        data: {
-          pairRequest: {
-            kind: 'extension',
-            pairingNonce: 'nonce',
-            extensionId: 'ext-1',
-            identity: 'official',
-            code: '1234-5678',
-            browser: 'chromium',
-            onAllow: vi.fn(),
-            onDeny: vi.fn(),
+    describe('extension pairing branch (§5 identity tri-state)', () => {
+      function extensionPairRequest(
+        overrides: Partial<{
+          identity: 'official' | 'attested-non-official' | 'unverified'
+          onDeny: () => void
+        }> = {}
+      ) {
+        return {
+          kind: 'extension' as const,
+          pairingNonce: 'nonce',
+          extensionId: 'ext-1',
+          identity: overrides.identity ?? 'official',
+          code: '1234-5678',
+          browser: 'chromium' as const,
+          onDeny: overrides.onDeny ?? vi.fn(),
+        }
+      }
+
+      it('renders extension copy (title/browser) and the grouped pairing code, with no Allow button', async () => {
+        render(<Toaster />)
+        add({
+          id: 'chromium:ext-official:nonce',
+          timeout: 0,
+          priority: 'high',
+          data: {
+            pairRequest: extensionPairRequest({ identity: 'official' }),
           },
-        },
+        })
+
+        expect(
+          // MBP1 forbids displaying the self-reported extension name (§5);
+          // the title interpolates the extension id instead.
+          await screen.findByText('ext-1 wants to connect to Motrix')
+        ).toBeInTheDocument()
+        expect(screen.getByText('From Chrome / Edge')).toBeInTheDocument()
+        // §7.1: rendered verbatim — already grouped XXXX-XXXX by the caller.
+        expect(screen.getByText('1234-5678')).toBeInTheDocument()
+        expect(
+          screen.queryByRole('button', { name: 'Allow', hidden: true })
+        ).not.toBeInTheDocument()
       })
 
-      expect(
-        // MBP1 forbids displaying the self-reported extension name (§5); the
-        // title interpolates the extension id instead.
-        await screen.findByText('ext-1 wants to connect to Motrix')
-      ).toBeInTheDocument()
-      expect(screen.getByText('From Chrome / Edge')).toBeInTheDocument()
+      it('official: shows a Motrix-branded identity label and no warning styling', async () => {
+        render(<Toaster />)
+        add({
+          id: 'chromium:ext-official-2:nonce',
+          timeout: 0,
+          priority: 'high',
+          data: {
+            pairRequest: extensionPairRequest({ identity: 'official' }),
+          },
+        })
+        expect(
+          await screen.findByText('Official Motrix extension')
+        ).toBeInTheDocument()
+        expect(screen.queryByText(/could not be verified/i)).toBeNull()
+      })
+
+      it('attested-non-official: shows a generic verified label with no Motrix branding and no warning', async () => {
+        render(<Toaster />)
+        add({
+          id: 'chromium:ext-attested:nonce',
+          timeout: 0,
+          priority: 'high',
+          data: {
+            pairRequest: extensionPairRequest({
+              identity: 'attested-non-official',
+            }),
+          },
+        })
+        const label = await screen.findByText('Verified extension')
+        expect(label).toBeInTheDocument()
+        expect(label.textContent).not.toMatch(/Motrix/)
+        expect(screen.queryByText(/could not be verified/i)).toBeNull()
+      })
+
+      it('unverified: warning styling plus the raw claimed id — never a friendly name', async () => {
+        const { baseElement } = render(<Toaster />)
+        add({
+          id: 'chromium:ext-unverified:nonce',
+          timeout: 0,
+          priority: 'high',
+          data: {
+            pairRequest: extensionPairRequest({ identity: 'unverified' }),
+          },
+        })
+
+        expect(
+          await screen.findByText('Unverified extension')
+        ).toBeInTheDocument()
+        expect(screen.getByText(/could not be verified/i)).toBeInTheDocument()
+        expect(screen.getByText('ext-1')).toBeInTheDocument()
+        expect(screen.getByText('1234-5678')).toBeInTheDocument()
+        expect(baseElement.querySelector('svg.text-amber-500')).not.toBeNull()
+        // No self-reported friendly name exists in the payload at all, and
+        // none is fabricated for display.
+        expect(screen.queryByText('Motrix Extension')).toBeNull()
+      })
+
+      it('clicking "Don\'t allow" calls onDeny — the only decision affordance left for an extension prompt', async () => {
+        render(<Toaster />)
+        const onDeny = vi.fn()
+        add({
+          id: 'chromium:ext-deny:nonce',
+          timeout: 0,
+          priority: 'high',
+          data: { pairRequest: extensionPairRequest({ onDeny }) },
+        })
+        await userEvent.click(
+          screen.getByRole('button', { name: "Don't allow", hidden: true })
+        )
+        expect(onDeny).toHaveBeenCalledOnce()
+      })
     })
 
     it('routes the × close button through the toast onClose (dismiss-as-deny wiring)', async () => {

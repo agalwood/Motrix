@@ -1455,8 +1455,15 @@
         "pairToast": {
           "title": "{{name}} 想连接 Motrix",
           "from": "来自 {{browser}}",
-          "allow": "允许",
-          "deny": "拒绝"
+          "deny": "拒绝",
+          "pairCode": "配对码",
+          "pairCodeHint": "在扩展中输入此配对码",
+          "identityLabel": {
+            "official": "Motrix 官方扩展",
+            "attested": "已验证的扩展",
+            "unverified": "未验证的扩展"
+          },
+          "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。"
         },
         "pairUnavailable": "该配对请求已失效——请在浏览器扩展中重新发起配对。",
         "trustedExtensions": "受信任的扩展",

@@ -404,8 +404,11 @@ describe('usePairRequestPrompts', () => {
     render(<Host />)
     findListener(BridgeEvents.PairRequested)(EXT_A)
     const data = findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n').data
-      .pairRequest as { onAllow: () => void }
-    data.onAllow()
+      .pairRequest as { onDeny: () => void }
+    // An extension prompt has no onAllow at all (see PairRequestToastData) —
+    // Deny is the only decision affordance, and it still sends no `decision`
+    // field: approval under MBP1 is proven by typing the code, not a click.
+    data.onDeny()
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith('bridge:resolvePair', {
         kind: 'extension',
