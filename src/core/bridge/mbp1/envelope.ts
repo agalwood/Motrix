@@ -28,7 +28,18 @@ export type EnvelopeDirection = typeof DIR_C2S | typeof DIR_S2C
 /** Malformed frame, dirTag/key mismatch, GCM auth failure, or out-of-order `seq` (§10, §11 `protocolViolation`). */
 export class EnvelopeViolationError extends Error {}
 
-/** A direction has reached its 2^24-frame or 2^30-block usage bound and MUST reconnect (§10). */
+/**
+ * A direction has reached its 2^24-frame or 2^30-block usage bound and MUST
+ * reconnect (§10). Thrown by both `EnvelopeSealer.seal` (outbound) and
+ * `EnvelopeOpener.open` (inbound): the remedy is identical either way — close
+ * the connection and re-establish it with fresh keys — so this is kept
+ * distinct from `EnvelopeViolationError` even on the inbound side, where the
+ * frame that trips it is otherwise entirely well-formed and authentic. A peer
+ * that kept sending past the point where §10 required it to reconnect failed
+ * a MUST, but it is not the same failure mode as a forged or replayed frame,
+ * and the caller's response — reconnect, don't accuse — is the same as when
+ * this side is the one approaching the bound.
+ */
 export class EnvelopeLimitError extends Error {}
 
 const AAD = utf8ToBytes('MBP1/env/v1')
@@ -145,19 +156,36 @@ export class EnvelopeSealer {
  * failure throws `EnvelopeViolationError`, which the caller MUST treat as an
  * immediate connection close (§10, §11).
  *
- * `startSeq` (default 0, the real starting point for a fresh connection) is
- * the same kind of resume seam as `EnvelopeSealer`'s constructor arguments —
- * an ordinary constructor argument, not a production-only setter.
+ * Also enforces the same §10 usage bounds as `EnvelopeSealer`: this
+ * direction MUST reconnect with fresh keys before it has opened
+ * `MAX_ENVELOPE_FRAMES` frames or `MAX_ENVELOPE_BLOCKS` encrypted blocks,
+ * regardless of which side is sending — the advantage bound the limits exist
+ * to protect grows with frames processed under a key, not with frames a
+ * single side chose to seal. Exceeding either throws `EnvelopeLimitError`.
+ *
+ * `startSeq`/`startBlockCount` (both default 0, the real starting point for
+ * a fresh connection — there is no in-place rekey in v1, so production code
+ * never passes non-default values) are the same kind of resume seam as
+ * `EnvelopeSealer`'s constructor arguments — ordinary constructor arguments,
+ * not a production-only setter, so the usage bounds are reachable and
+ * verifiable from a test.
  */
 export class EnvelopeOpener {
   private readonly key: Uint8Array
   private readonly dir: EnvelopeDirection
   private seq: number
+  private blockCount: number
 
-  constructor(key: Uint8Array, dir: EnvelopeDirection, startSeq = 0) {
+  constructor(
+    key: Uint8Array,
+    dir: EnvelopeDirection,
+    startSeq = 0,
+    startBlockCount = 0
+  ) {
     this.key = key
     this.dir = dir
     this.seq = startSeq
+    this.blockCount = startBlockCount
   }
 
   open(frame: Uint8Array): Uint8Array {
@@ -175,6 +203,17 @@ export class EnvelopeOpener {
     if (frame.length - SEQ_LENGTH - TAG_LENGTH > MAX_PLAINTEXT_LENGTH) {
       throw new EnvelopeViolationError(
         'envelope frame carries more than the 1 MiB plaintext limit'
+      )
+    }
+    // §10 frame-count usage bound. Unlike the block bound below, this reads
+    // only our own counter — nothing from `frame` — so there is no
+    // "unauthenticated data" concern in checking it this early: once this
+    // direction has opened MAX_ENVELOPE_FRAMES frames, no further frame is
+    // admissible no matter what it contains, exactly mirroring where
+    // `EnvelopeSealer.seal` checks it, before doing any work.
+    if (this.seq >= MAX_ENVELOPE_FRAMES) {
+      throw new EnvelopeLimitError(
+        'envelope frame-count usage bound reached (2^24 frames); reconnect required'
       )
     }
 
@@ -206,7 +245,25 @@ export class EnvelopeOpener {
       throw new EnvelopeViolationError('envelope GCM authentication failed')
     }
 
+    // §10 block-count usage bound, counted from the AUTHENTICATED plaintext
+    // rather than the frame's declared length, and checked only now that GCM
+    // has verified this frame. AES-GCM ciphertext and plaintext are the same
+    // length, so the two lengths agree for every frame that reaches this
+    // line — they diverge only for a frame that fails authentication, and
+    // that frame already threw above without ever reaching here. Checking
+    // pre-decryption on the declared length instead would let an
+    // unauthenticated, possibly forged frame dictate whether this direction
+    // is told to reconnect, which is the same mistake as letting it move
+    // `blockCount` at all.
+    const blocks = blockCountFor(plaintext.length)
+    if (this.blockCount + blocks > MAX_ENVELOPE_BLOCKS) {
+      throw new EnvelopeLimitError(
+        'envelope encrypted-block usage bound reached (2^30 blocks); reconnect required'
+      )
+    }
+
     this.seq += 1
+    this.blockCount += blocks
     return plaintext
   }
 }
