@@ -512,6 +512,19 @@ export class SettingsManager {
       )
     }
 
+    // Merge bridge settings. `instanceId` uses `.catch('')`
+    // (bridge-settings.ts), so parsing a partial patch on its own would
+    // silently reset the durable instance id to the unseeded '' sentinel —
+    // there is no repair path once that happens (seeding runs only for
+    // fresh defaults and the v8->v9 migration). Merge onto the current
+    // value first, exactly like proxy/speedLimit above.
+    if (partial.bridge) {
+      next.bridge = bridgeSettingsSchema.parse({
+        ...next.bridge,
+        ...partial.bridge,
+      })
+    }
+
     // Merge plugins
     if (partial.plugins !== undefined) {
       next.plugins = {

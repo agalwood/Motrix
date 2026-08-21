@@ -793,6 +793,27 @@ describe('SettingsManager', () => {
       expect(scopes.updateApp).toBe(true)
     })
 
+    it('merges bridge namespace on partial update', async () => {
+      const result = await manager.update({ bridge: { fixedPort: 16900 } })
+      expect(result.saved).toBe(true)
+      expect(manager.get().bridge.fixedPort).toBe(16900)
+    })
+
+    it('does not reset instanceId to the unseeded sentinel on a partial bridge update', async () => {
+      // Regression guard: `bridgeSettingsSchema` declares
+      // `instanceId: z.string().catch('')`, so parsing a partial patch
+      // directly (rather than merging onto the current value first) would
+      // silently reset the durable instance id to the unseeded sentinel —
+      // and there is no repair path once that happens.
+      const before = manager.get().bridge.instanceId
+      expect(before).not.toBe('')
+
+      await manager.update({ bridge: { fixedPort: 16900 } })
+
+      expect(manager.get().bridge.instanceId).toBe(before)
+      expect(manager.get().bridge.fixedPort).toBe(16900)
+    })
+
     it('does not set requiresAppRestart when browserBridgeEnabled changes', async () => {
       // browserBridgeEnabled is hot-applied via BridgeManager.setEnabled() —
       // no app restart needed.
