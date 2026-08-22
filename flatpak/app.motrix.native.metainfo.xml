@@ -76,6 +76,21 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.20" date="2026-08-22">
+      <description>
+        <p>
+          Linux HTTPS downloads now use the system CA trust store without
+          disabling certificate verification, and desktop, Server, Docker,
+          and Flatpak packages use aria2 1.37.0-motrix.6. Download performance
+          profiles support up to 64 connections, settings persist reliably,
+          and structured logs redact sensitive data. AppImage publishing is
+          restored for x64 and arm64 with opt-in desktop integration, while
+          tracker recovery, NAT retries, and desktop window controls are more
+          reliable. Windows packages remain unsigned, and prerelease Snap
+          runs stop after source validation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.19" date="2026-08-19">
       <description>
         <p>
