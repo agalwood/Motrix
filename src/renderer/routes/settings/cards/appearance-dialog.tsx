@@ -40,7 +40,12 @@ import type { SettingsCardDialogProps } from './card-types'
 
 type AppearanceFields = Pick<
   MotrixAppSettings,
-  'theme' | 'language' | 'traySpeedometer' | 'runMode' | 'liquidGlassEffect'
+  | 'theme'
+  | 'language'
+  | 'traySpeedometer'
+  | 'runMode'
+  | 'liquidGlassEffect'
+  | 'lightweightMode'
 >
 
 // Source of truth: src/shared/schemas/app-settings.ts (DEFAULT_APP_SETTINGS).
@@ -52,6 +57,7 @@ const DEFAULTS: AppearanceFields = {
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
   runMode: DEFAULT_APP_SETTINGS.runMode,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
+  lightweightMode: DEFAULT_APP_SETTINGS.lightweightMode,
 }
 
 const LANGUAGE_OPTIONS = SUPPORTED_LOCALES.map(({ code, nativeName }) => ({
@@ -87,6 +93,7 @@ export function AppearanceDialog({
             traySpeedometer: all.app.traySpeedometer,
             runMode: all.app.runMode,
             liquidGlassEffect: all.app.liquidGlassEffect,
+            lightweightMode: all.app.lightweightMode,
           })
         }
       })
@@ -309,6 +316,31 @@ export function AppearanceDialog({
                             </SelectGroup>
                           </SelectContent>
                         </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {transport.platform !== 'web' && (
+                <FormField
+                  control={form.control}
+                  name="lightweightMode"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t('settings.appearance.lightweightMode')}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t('settings.appearance.lightweightModeDesc')}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
                     </FormItem>
                   )}

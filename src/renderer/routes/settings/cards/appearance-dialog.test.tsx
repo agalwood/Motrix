@@ -30,6 +30,7 @@ const FIXTURE = {
     language: 'en-US',
     traySpeedometer: false,
     runMode: 1, // RunMode.Standard — numeric enum
+    lightweightMode: false,
     launchAtStartup: false,
     defaultSaveDir: '/x',
     notifyOnComplete: true,
@@ -112,6 +113,29 @@ describe('<AppearanceDialog>', () => {
       app: { theme: 'dark' },
     })
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('hydrates and submits lightweight mode independently', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const lightweight = await screen.findByRole('switch', {
+      name: 'Lightweight mode',
+    })
+    const user = userEvent.setup()
+
+    expect(lightweight).not.toBeChecked()
+    await user.click(lightweight)
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { lightweightMode: true },
+    })
   })
 
   it('waits for the host locale event after persisting a language change', async () => {

@@ -220,6 +220,9 @@ export interface MotrixAppSettings {
     magnet: boolean
   }
   runMode: RunMode
+  /** Release renderer windows while the desktop UI is closed. Background
+   *  services such as downloads, notifications, and the tray keep running. */
+  lightweightMode: boolean
   traySpeedometer: boolean
   magnetFileSelection: boolean
   /** Master switch for the WebSocket bridge that lets browser extensions

@@ -23,7 +23,8 @@ export const appSettingsSchema = z.object({
     })
     .catch({ magnet: true }),
   runMode: z.enum(RunMode).catch(RunMode.Standard),
-  traySpeedometer: z.boolean().catch(false),
+  lightweightMode: z.boolean().catch(false),
+  traySpeedometer: z.boolean().catch(true),
   magnetFileSelection: z.boolean().catch(true),
   browserBridgeEnabled: z.boolean().catch(true),
   liquidGlassEffect: z.boolean().catch(false),

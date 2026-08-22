@@ -78,6 +78,9 @@ typings/
 # vuepress build output
 .vuepress/dist
 
+# Local generated analysis and report artifacts
+/outputs/
+
 # Serverless directories
 .serverless/
 

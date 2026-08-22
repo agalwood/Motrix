@@ -68,24 +68,30 @@ vi.mock('./tray-speedometer', () => ({
 }))
 
 import { RunMode } from '@shared/constants'
+import { Events } from '@shared/protocol/events'
 import { setupTray, type TrayDeps } from './tray'
 
 const originalPlatform = process.platform
 const trayMenu = { kind: 'tray-menu' }
 const toggleMainWindow = vi.fn()
 
-function createDeps(): TrayDeps {
+function createDeps(
+  appSettings: {
+    lightweightMode: boolean
+    runMode: RunMode
+    traySpeedometer: boolean
+  } = {
+    lightweightMode: false,
+    runMode: RunMode.Standard,
+    traySpeedometer: false,
+  }
+): TrayDeps {
   return {
     eventBus: {
       off: vi.fn(),
       on: vi.fn(),
     },
-    settingsManager: {
-      getApp: () => ({
-        runMode: RunMode.Standard,
-        traySpeedometer: false,
-      }),
-    },
+    settingsManager: { getApp: () => appSettings },
     menuManager: {
       getTrayMenu: () => trayMenu,
       onTrayRebuilt: vi.fn(),
@@ -142,6 +148,68 @@ describe('setupTray', () => {
     await vi.waitFor(() => {
       expect(trayConstructor).toHaveBeenCalledWith(icon)
     })
+
+    handle.destroy()
+  })
+
+  it.each(['win32', 'linux'] as const)(
+    'forces a tray for lightweight HideTray on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+
+      const handle = setupTray(
+        createDeps({
+          lightweightMode: true,
+          runMode: RunMode.HideTray,
+          traySpeedometer: false,
+        })
+      )
+
+      await vi.waitFor(() => {
+        expect(trayConstructor).toHaveBeenCalled()
+      })
+
+      handle.destroy()
+    }
+  )
+
+  it('creates and removes the forced tray as lightweight mode changes', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const deps = createDeps({
+      lightweightMode: false,
+      runMode: RunMode.HideTray,
+      traySpeedometer: false,
+    })
+    const handle = setupTray(deps)
+    expect(trayConstructor).not.toHaveBeenCalled()
+
+    const settingsChanged = (
+      deps.eventBus.on as unknown as ReturnType<typeof vi.fn>
+    ).mock.calls.find(([event]) => event === Events.SettingsChanged)?.[1] as
+      | ((payload: unknown) => void)
+      | undefined
+    settingsChanged?.({
+      old: {
+        app: { lightweightMode: false, runMode: RunMode.HideTray },
+      },
+      updated: {
+        app: { lightweightMode: true, runMode: RunMode.HideTray },
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(trayConstructor).toHaveBeenCalled()
+    })
+
+    settingsChanged?.({
+      old: {
+        app: { lightweightMode: true, runMode: RunMode.HideTray },
+      },
+      updated: {
+        app: { lightweightMode: false, runMode: RunMode.HideTray },
+      },
+    })
+    expect(trayInstance.destroy).toHaveBeenCalledOnce()
 
     handle.destroy()
   })

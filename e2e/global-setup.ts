@@ -15,6 +15,30 @@ const REQUIRED_ARTIFACTS = [
 ]
 
 export default async function globalSetup() {
+  // Keep direct `pnpm exec playwright ...` invocations safe as well as the
+  // package scripts: existing build artifacts do not prove that pnpm left the
+  // Electron runtime (including its legal files) fully hydrated.
+  const electronRuntime = spawnSync(
+    'pnpm',
+    ['run', 'ensure:electron-runtime'],
+    {
+      stdio: 'inherit',
+      cwd: ROOT,
+      shell: process.platform === 'win32',
+    }
+  )
+  if (electronRuntime.error) throw electronRuntime.error
+  if (electronRuntime.signal) {
+    throw new Error(
+      `Electron runtime check was killed by ${electronRuntime.signal}`
+    )
+  }
+  if (electronRuntime.status !== 0) {
+    throw new Error(
+      `Electron runtime check exited with status ${electronRuntime.status ?? 'unknown'}`
+    )
+  }
+
   const missing = REQUIRED_ARTIFACTS.filter(
     (rel) => !existsSync(path.join(ROOT, rel))
   )

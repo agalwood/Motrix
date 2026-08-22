@@ -46,7 +46,7 @@ function migrateV2ToV3(data: Record<string, unknown>): Record<string, unknown> {
     app: {
       ...app,
       runMode: app.runMode ?? 1,
-      traySpeedometer: app.traySpeedometer ?? false,
+      traySpeedometer: app.traySpeedometer ?? true,
     },
   }
 }

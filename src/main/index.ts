@@ -97,7 +97,7 @@ import {
   TrackerSyncer,
 } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
-import { APP_ID, RunMode } from '@shared/constants'
+import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
 import { Events } from '@shared/protocol/events'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
@@ -154,6 +154,7 @@ import { createOsNotificationBridge } from './notifications/os-bridge'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
 import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
+import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
@@ -176,6 +177,7 @@ import {
 } from './window/liquid-glass'
 import { initializeRendererUrlPolicy } from './window/renderer-url-policy'
 import { WindowManager } from './window/window-manager'
+import { resolveMainWindowStartupPlan } from './window/window-startup-plan'
 
 // ─── Platform Early Setup ───────────────────────────────
 
@@ -313,6 +315,15 @@ const settingsManager = new SettingsManager(settingsPath, {
       old.app.liquidGlassEffect !== updated.app.liquidGlassEffect
     ) {
       setTimeout(() => windowManager?.recreate('main'), 100)
+    }
+    if (
+      windowManager &&
+      (old.app.lightweightMode !== updated.app.lightweightMode ||
+        old.app.runMode !== updated.app.runMode)
+    ) {
+      // Let the settings IPC response reach its renderer before a newly
+      // enabled policy is allowed to release any hidden window.
+      setTimeout(() => windowManager?.reconcileWindowRetention(), 100)
     }
     if (
       speedLimitController &&
@@ -1380,6 +1391,17 @@ async function initializeMainProcess(): Promise<void> {
         ? 'onboarding'
         : requested,
     onSessionEnd: prepareForSessionEnd,
+    retentionPolicy: {
+      releaseMainOnDismiss: () => {
+        const appSettings = settingsManager.getApp()
+        return resolveDesktopBackgroundPolicy({
+          lightweightMode: appSettings.lightweightMode,
+          platform: process.platform,
+          runMode: appSettings.runMode,
+        }).releaseMainWindowWhenHidden
+      },
+      prewarmAddTask: () => !settingsManager.getApp().lightweightMode,
+    },
   })
   // Apply the persisted theme before opening windows. Renderer-drawn Windows
   // controls inherit the same theme through CSS without native overlay sync.
@@ -1416,9 +1438,19 @@ async function initializeMainProcess(): Promise<void> {
 
   if (gate.isAccepted()) {
     const runMode = settingsManager.getApp().runMode
-    windowManager.open('main', {
-      show: !launcher.wasOpenedAtLogin && runMode !== RunMode.TrayOnly,
+    const backgroundPolicy = resolveDesktopBackgroundPolicy({
+      lightweightMode: settingsManager.getApp().lightweightMode,
+      platform: process.platform,
+      runMode,
     })
+    const mainWindowPlan = resolveMainWindowStartupPlan({
+      openedAtLogin: launcher.wasOpenedAtLogin,
+      runMode,
+      releaseWhenHidden: backgroundPolicy.releaseMainWindowWhenHidden,
+    })
+    if (mainWindowPlan.create) {
+      windowManager.open('main', { show: mainWindowPlan.show })
+    }
   } else {
     const disposeDisclaimerIpc = registerDisclaimerIpc({
       gate,
@@ -2339,6 +2371,7 @@ async function initializeMainProcess(): Promise<void> {
 
   setTimeout(() => {
     if (!mainProcessWork.isAccepting()) return
+    if (settingsManager.getApp().lightweightMode) return
     log.info('precreating add-task window')
     windowManager.precreate('add-task')
   }, 2000)

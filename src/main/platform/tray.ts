@@ -8,6 +8,7 @@ import { Events } from '@shared/protocol/events'
 import type { AppSettings } from '@shared/types/settings'
 import { app, type Menu, Tray } from 'electron'
 import type { MenuManager } from '../menu/menu-manager'
+import { resolveDesktopBackgroundPolicy } from './desktop-background-policy'
 import type { createProtocolManager } from './protocol-manager'
 import type { TrayIconProvider } from './tray-icon'
 import { createIconProvider } from './tray-icon'
@@ -179,17 +180,35 @@ export function setupTray(deps: TrayDeps): TrayHandle {
       updated: AppSettings
     }
 
-    // Run mode changed
-    if (oldSettings.app.runMode !== updated.app.runMode) {
+    // Run mode and lightweight mode jointly decide whether a tray reopen
+    // surface is required.
+    if (
+      oldSettings.app.runMode !== updated.app.runMode ||
+      oldSettings.app.lightweightMode !== updated.app.lightweightMode
+    ) {
       const newMode = updated.app.runMode
-      log.info({ runMode: newMode }, 'run mode changed')
+      const policy = resolveDesktopBackgroundPolicy({
+        lightweightMode: updated.app.lightweightMode,
+        platform: process.platform,
+        runMode: newMode,
+      })
+      log.info(
+        {
+          keepTray: policy.keepTray,
+          lightweightMode: updated.app.lightweightMode,
+          runMode: newMode,
+        },
+        'desktop background policy changed'
+      )
 
-      if (newMode === RunMode.HideTray) {
-        destroyTray()
-      } else if (!tray) {
+      if (policy.keepTray && !tray) {
         createTray().catch((err) => log.error({ err }, 'tray creation failed'))
+      } else if (!policy.keepTray) {
+        destroyTray()
       }
-      syncDockVisibility(newMode)
+      if (oldSettings.app.runMode !== newMode) {
+        syncDockVisibility(newMode)
+      }
     }
 
     // Speedometer toggled
@@ -219,9 +238,15 @@ export function setupTray(deps: TrayDeps): TrayHandle {
 
   // ─── Init ───────────────────────────────────────────────
 
-  const runMode = settingsManager.getApp().runMode
+  const appSettings = settingsManager.getApp()
+  const runMode = appSettings.runMode
+  const policy = resolveDesktopBackgroundPolicy({
+    lightweightMode: appSettings.lightweightMode,
+    platform: process.platform,
+    runMode,
+  })
 
-  if (runMode !== RunMode.HideTray) {
+  if (policy.keepTray) {
     createTray().catch((err) => log.error({ err }, 'tray creation failed'))
   }
   syncDockVisibility(runMode)
@@ -231,7 +256,7 @@ export function setupTray(deps: TrayDeps): TrayHandle {
   eventBus.on(Events.EngineActiveChanged, onEngineActiveChanged)
   eventBus.on(Events.StatsUpdated, onStatsUpdated)
 
-  log.info({ runMode }, 'tray setup complete')
+  log.info({ keepTray: policy.keepTray, runMode }, 'tray setup complete')
 
   // ─── Handle ─────────────────────────────────────────────
 

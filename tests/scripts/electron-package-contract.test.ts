@@ -227,7 +227,7 @@ describe('Electron package contracts', () => {
     }
 
     expect(manifest.scripts?.['smoke:electron-package']).toBe(
-      'node scripts/smoke-electron-package.mjs'
+      'pnpm run ensure:electron-runtime && node scripts/smoke-electron-package.mjs'
     )
     expect(
       parseSmokeArguments([
