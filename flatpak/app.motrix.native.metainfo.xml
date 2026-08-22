@@ -76,6 +76,18 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.21" date="2026-08-22">
+      <description>
+        <p>
+          Release assembly now accepts the AppImage-first Linux metadata
+          emitted by electron-builder and normalizes updater compatibility
+          fields to the DEB package. This recovery beta also includes system
+          CA trust-store support, aria2 1.37.0-motrix.6, performance profiles,
+          reliable settings and engine recovery, structured log redaction,
+          and opt-in AppImage desktop integration from beta.20.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.20" date="2026-08-22">
       <description>
         <p>

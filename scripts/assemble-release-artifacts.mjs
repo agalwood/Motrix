@@ -375,11 +375,6 @@ async function verifyManifestAssets(
   const uniqueFiles = new Map()
 
   const expectedLegacyName = target.legacyAssetName(version)
-  if (manifest.legacyFile.url !== expectedLegacyName) {
-    throw new Error(
-      `${target.name}/${manifestName}: legacy path must reference ${expectedLegacyName}`
-    )
-  }
 
   for (const file of manifest.files) {
     const key = file.url.toLowerCase()
