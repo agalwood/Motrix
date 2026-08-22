@@ -58,7 +58,7 @@ function createMockChildProcess() {
 
 // ─── Standard aria2 --version output ─────────────────────────
 
-const ARIA2_VERSION_OUTPUT = `aria2 version 1.37.0-motrix.6
+const ARIA2_VERSION_OUTPUT = `aria2 version 1.37.0-motrix.10
 Copyright (C) 2006, 2019 Tatsuhiro Tsujikawa
 
 This program is free software; you can redistribute it and/or modify
@@ -112,7 +112,7 @@ describe('Aria2ProcessManager', () => {
         ['--version'],
         expect.any(Function)
       )
-      expect(report.version).toBe('1.37.0-motrix.6')
+      expect(report.version).toBe('1.37.0-motrix.10')
       expect(report.features).toContain('BitTorrent')
       expect(report.features).toContain('SQLite3-Persistence')
       expect(report.hasSqlitePersistence).toBe(true)

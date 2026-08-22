@@ -101,7 +101,7 @@ modules:
         set -e
         output="$(src/aria2c --version)"
         printf '%s\n' "$output"
-        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.6'
+        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.10'
         for feature in \
           'Async DNS' \
           'BitTorrent' \
@@ -123,8 +123,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/motrixapp/aria2.git
-        tag: v1.37.0-motrix.6
-        commit: 7e3efdb0db9678efdc93cab6007125286d06bff1
+        tag: v1.37.0-motrix.10
+        commit: 9c48eda5343ee9060ce2136494bdbe3c0a892e8c
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+-motrix\.\d+)$
@@ -136,9 +136,9 @@ modules:
         commands:
           - |
             sed -i -E \
-              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.6]/' \
+              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.10]/' \
               configure.ac
-            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.6]' configure.ac
+            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.10]' configure.ac
       - type: script
         dest-filename: autogen.sh
         commands:

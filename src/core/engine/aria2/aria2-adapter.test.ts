@@ -48,7 +48,7 @@ function featureReport(
   overrides: Partial<EngineFeatureReport> = {}
 ): EngineFeatureReport {
   return {
-    version: '1.37.0-motrix.6',
+    version: '1.37.0-motrix.10',
     features: ['SQLite3-Persistence'],
     hasSqlitePersistence: true,
     hasBtSeedUnverified: true,

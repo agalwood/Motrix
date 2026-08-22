@@ -164,7 +164,7 @@ describe('third-party notice generator', () => {
 
     expect(bundle.packageCount).toBeGreaterThan(100)
     expect(inventory).toContain('| @xyflow/react | 12.11.3 |')
-    expect(inventory).toContain('| aria2 | 1.37.0-motrix.6 |')
+    expect(inventory).toContain('| aria2 | 1.37.0-motrix.10 |')
     expect(inventory).toContain('| motrix.filename-template | 1.1.1 |')
     expect(inventory).toContain('Apple San Francisco tray font')
     expect(licenses).toContain('GNU GENERAL PUBLIC LICENSE')
