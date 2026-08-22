@@ -14,7 +14,7 @@ import {
   addTaskFormSchema,
   formValuesToTaskCreateRequests,
 } from '@shared/schemas/add-task'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type DeepPartial,
   FormProvider,
@@ -59,7 +59,41 @@ export function AddTaskForm({
     defaultValues: { ...BASE_DEFAULTS, ...defaultValues } as AddTaskFormValues,
   })
 
-  useExternalHydration(form, subscribeEvents)
+  const clipboardAutofillRequest = useRef(0)
+
+  // Read once for each actual open. The desktop add-task window is precreated
+  // while hidden, so only its user-triggered SetAddTaskMode event starts a
+  // read; an in-page dialog is already visible when this form mounts.
+  const autofillClipboardLinks = useCallback(async () => {
+    const request = ++clipboardAutofillRequest.current
+    if (form.getValues('tab') !== 'links') return
+    if (form.getValues('urls')) return
+    try {
+      const settings = (await transport.invoke(Queries.GetSettings)) as {
+        app?: { autofillClipboardLinks?: boolean }
+      }
+      if (
+        request !== clipboardAutofillRequest.current ||
+        settings?.app?.autofillClipboardLinks === false
+      ) {
+        return
+      }
+      const content = (await platform.readClipboard()).trim()
+      if (request !== clipboardAutofillRequest.current || !content) return
+      const lines = parseUrlLines(content)
+      if (lines.length === 0 || !lines.every((line) => line.valid)) return
+      if (form.getValues('urls')) return
+      form.setValue(
+        'urls' as never,
+        lines.map((line) => line.url).join('\n') as never,
+        { shouldValidate: true }
+      )
+    } catch {
+      // Best effort — the clipboard may be unreadable (web permissions).
+    }
+  }, [form, platform])
+
+  useExternalHydration(form, subscribeEvents, autofillClipboardLinks)
 
   // Backfill saveDir from user settings when nothing populated it via
   // URL params or an external hydration event. Without this the form
@@ -87,41 +121,16 @@ export function AddTaskForm({
     }
   }, [form])
 
-  // One-shot clipboard autofill: when the dialog opens on the Links tab
-  // with an empty URL field, read the clipboard once and prefill it when
-  // every non-empty line is a downloadable link (http/https/ftp/magnet).
-  // Gated by the autofillClipboardLinks setting; never a background
-  // watcher, and external hydration always wins because it resets the form.
+  // Only immediately visible in-page dialogs read on mount. Desktop opens are
+  // triggered by useExternalHydration after SetAddTaskMode resets the
+  // precreated form, so precreation never accesses the clipboard and external
+  // prefill always wins.
   useEffect(() => {
-    if (form.getValues('tab') !== 'links') return
-    if (form.getValues('urls')) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const settings = (await transport.invoke(Queries.GetSettings)) as {
-          app?: { autofillClipboardLinks?: boolean }
-        }
-        if (cancelled || settings?.app?.autofillClipboardLinks === false) {
-          return
-        }
-        const content = (await platform.readClipboard()).trim()
-        if (cancelled || !content) return
-        const lines = parseUrlLines(content)
-        if (lines.length === 0 || !lines.every((line) => line.valid)) return
-        if (form.getValues('urls')) return
-        form.setValue(
-          'urls' as never,
-          lines.map((line) => line.url).join('\n') as never,
-          { shouldValidate: true }
-        )
-      } catch {
-        // Best effort — the clipboard may be unreadable (web permissions).
-      }
-    })()
+    if (!subscribeEvents) void autofillClipboardLinks()
     return () => {
-      cancelled = true
+      clipboardAutofillRequest.current += 1
     }
-  }, [form, platform])
+  }, [autofillClipboardLinks, subscribeEvents])
 
   const onSubmit = useCallback(
     async (values: AddTaskFormValues) => {

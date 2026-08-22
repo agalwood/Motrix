@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import type { PlatformServices } from '@renderer/platform/services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
+import { Events } from '@shared/protocol/events'
 import { AddTaskForm } from './add-task-form'
 
 vi.mock('@renderer/lib/transport', () => ({
@@ -79,6 +80,31 @@ describe('AddTaskForm', () => {
         'https://example.com/f.zip'
       )
     )
+  })
+
+  it('only reads the clipboard after a precreated window is shown', async () => {
+    vi.mocked(mockServices.readClipboard).mockResolvedValue(
+      'https://example.com/after-show.zip'
+    )
+    renderForm({ subscribeEvents: true })
+    expect(mockServices.readClipboard).not.toHaveBeenCalled()
+
+    const { transport } = await import('@renderer/lib/transport')
+    const setModeListener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([channel]) => channel === Events.SetAddTaskMode)?.[1]
+    expect(setModeListener).toBeTypeOf('function')
+
+    act(() => {
+      setModeListener?.({ mode: 'links' })
+    })
+
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveValue(
+        'https://example.com/after-show.zip'
+      )
+    )
+    expect(mockServices.readClipboard).toHaveBeenCalledOnce()
   })
 
   it('does not prefill when the setting is turned off', async () => {

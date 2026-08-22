@@ -12,7 +12,8 @@ import type { UseFormReturn } from 'react-hook-form'
 
 export function useExternalHydration(
   form: UseFormReturn<AddTaskFormValues>,
-  enabled: boolean
+  enabled: boolean,
+  onModeHydrated?: () => void
 ) {
   useEffect(() => {
     if (!enabled) return
@@ -67,6 +68,7 @@ export function useExternalHydration(
       form.reset(defaults as Partial<AddTaskFormValues>, {
         keepErrors: false,
       })
+      onModeHydrated?.()
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)
@@ -78,5 +80,5 @@ export function useExternalHydration(
       transport.off(Events.ProtocolTorrentFile, onProtocol)
       transport.off(Events.SetAddTaskMode, onSetMode)
     }
-  }, [form, enabled])
+  }, [form, enabled, onModeHydrated])
 }

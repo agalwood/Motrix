@@ -116,6 +116,34 @@ describe('useExternalHydration', () => {
     expect(values.urls).toBe('https://a/b')
   })
 
+  it('notifies after SetAddTaskMode resets the form', () => {
+    const { result } = renderHook(() =>
+      useForm({
+        defaultValues: {
+          tab: 'links',
+          urls: 'https://old.example/file.zip',
+          saveDir: '/preset',
+        },
+      })
+    )
+    const onSetMode = vi.fn(() => {
+      expect(result.current.getValues('urls')).toBe('')
+    })
+    renderHook(() =>
+      useExternalHydration(
+        result.current as unknown as UseFormReturn<AddTaskFormValues>,
+        true,
+        onSetMode
+      )
+    )
+
+    act(() => {
+      fire(Events.SetAddTaskMode, { mode: 'links' })
+    })
+
+    expect(onSetMode).toHaveBeenCalledOnce()
+  })
+
   it('SetAddTaskMode replaces dirty URL content from external opens', () => {
     const { result } = renderHook(() =>
       useForm({

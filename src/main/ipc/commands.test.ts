@@ -626,11 +626,20 @@ describe('buildCommandHandlers', () => {
 
   it('ShowAddTaskWindow opens the add-task window', async () => {
     const ctx = fakeCtx()
-    ;(ctx.windowManager as any).open = vi.fn()
+    const send = vi.fn()
+    ;(ctx.windowManager as any).open = vi.fn(() => ({
+      isDestroyed: vi.fn(() => false),
+      webContents: {
+        isLoading: vi.fn(() => false),
+        once: vi.fn(),
+        send,
+      },
+    }))
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(ctx)
     const result = await handlers[Commands.ShowAddTaskWindow]?.()
     expect(ctx.windowManager.open).toHaveBeenCalledWith('add-task')
+    expect(send).toHaveBeenCalledWith(Events.SetAddTaskMode, { mode: 'links' })
     expect(result).toEqual({ ok: true })
   })
 
@@ -809,7 +818,9 @@ describe('buildCommandHandlers', () => {
     const send = vi.fn()
     const ctx = fakeCtx()
     ctx.windowManager.open.mockReturnValue({
+      isDestroyed: vi.fn(() => false),
       webContents: {
+        isLoading: vi.fn(() => true),
         once: vi.fn((_event: string, handler: () => void) => {
           didFinishLoad = handler
         }),

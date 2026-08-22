@@ -1055,10 +1055,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     [Commands.ShowAddTaskWindow]: async (rawPayload: unknown) => {
       const { prefill } = showAddTaskWindowSchema.parse(rawPayload ?? {})
       const win = windowManager.open('add-task')
-      if (prefill) {
-        win.webContents.once('did-finish-load', () => {
-          win.webContents.send(Events.SetAddTaskMode, prefill)
-        })
+      const showPayload = prefill ?? { mode: 'links' }
+      const sendShow = () => {
+        if (!win.isDestroyed()) {
+          win.webContents.send(Events.SetAddTaskMode, showPayload)
+        }
+      }
+      if (win.webContents.isLoading()) {
+        win.webContents.once('did-finish-load', sendShow)
+      } else {
+        sendShow()
       }
       return { ok: true }
     },
