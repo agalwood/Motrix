@@ -33,3 +33,18 @@ codegen-units = 1
 lto = true
 panic = "abort"
 strip = true
+
+# Windows-only, and already in the dependency graph: `home` pulls the same
+# windows-sys 0.61.2, so enabling these namespaces adds no new crate. Feature
+# gating keeps the compiled surface to the DACL/token calls `endpoint.rs` needs
+# out of the 239 namespaces this crate can expose.
+[target."cfg(windows)".dependencies.windows-sys]
+version = "0.61.2"
+features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Memory",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+]
