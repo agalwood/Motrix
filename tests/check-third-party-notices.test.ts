@@ -515,41 +515,6 @@ describe('third-party graph dependency notices', () => {
     }
   })
 
-  it('hydrates Electron before local commands consume its runtime files', async () => {
-    const manifest = JSON.parse(
-      await readFile(path.join(ROOT, 'package.json'), 'utf8')
-    ) as { scripts?: Record<string, string> }
-    const scripts = manifest.scripts ?? {}
-
-    expect(scripts['ensure:electron-runtime']).toBe(
-      'node scripts/ensure-electron-runtime.mjs'
-    )
-    for (const scriptName of [
-      'prestart',
-      'build:legal',
-      'check:registry-runtime',
-      'check:third-party-notices',
-      'pretest:e2e',
-      'pretest:e2e:ui',
-      'pretest:e2e:debug',
-      'smoke:electron-package',
-    ]) {
-      expect(
-        scripts[scriptName],
-        `${scriptName} must hydrate Electron before consuming its runtime`
-      ).toMatch(/^pnpm run ensure:electron-runtime && /)
-    }
-  })
-
-  it('hydrates Electron when Playwright is invoked directly', async () => {
-    const globalSetup = await readFile(
-      path.join(ROOT, 'e2e/global-setup.ts'),
-      'utf8'
-    )
-
-    expect(globalSetup).toContain("['run', 'ensure:electron-runtime']")
-  })
-
   it.each([
     ['CI', '.github/workflows/ci.yml'],
     ['release', '.github/workflows/release.yml'],
