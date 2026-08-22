@@ -22,8 +22,8 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.21 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.21)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.21.md) before
+download [v2.0.0-beta.22 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.22)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.22.md) before
 installing it.
 
 Back up your existing Motrix data and downloads before testing. Migration from
@@ -162,7 +162,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.21'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.22'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
