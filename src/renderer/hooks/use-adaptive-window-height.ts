@@ -16,8 +16,9 @@ interface Options {
 /**
  * Adaptively resizes the host Electron window to fit the form's natural
  * content height, clamped to `[minHeight, maxHeight]`. Above `maxHeight`,
- * content scrolls internally (the form root owns an `overflow-y-auto`
- * container whose `scrollHeight` still reports natural content).
+ * content scrolls internally. The measured element must sit inside that
+ * scroll viewport so its `scrollHeight` can shrink with the natural content
+ * instead of being floored by the viewport's current height.
  *
  * Measures the element matching `contentSelector` (default
  * `[data-adaptive-content]`) via `scrollHeight`. Adds `chromeHeight` to

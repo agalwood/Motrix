@@ -175,7 +175,7 @@ describe('useAdaptiveWindowHeight', () => {
     cleanup()
   })
 
-  it('re-measures when ResizeObserver fires', async () => {
+  it('restores the smaller height after content expands and collapses', async () => {
     const { transport } = await import('@renderer/lib/transport')
     const { setScrollHeight, cleanup } = mountContentElement(400)
     renderHook(() =>
@@ -197,6 +197,14 @@ describe('useAdaptiveWindowHeight', () => {
     expect(transport.invoke).toHaveBeenLastCalledWith(Commands.ResizeWindow, {
       width: 520,
       height: 650,
+    })
+    setScrollHeight(320)
+    act(() => {
+      MockResizeObserver.instances[0].trigger()
+    })
+    expect(transport.invoke).toHaveBeenLastCalledWith(Commands.ResizeWindow, {
+      width: 520,
+      height: 360,
     })
     cleanup()
   })
