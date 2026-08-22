@@ -1,3 +1,4 @@
+import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
   EngineCapability,
@@ -22,7 +23,7 @@ import type {
 } from '../engine-adapter'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
-import { isNotFoundError } from './error-utils'
+import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
 
 /**
  * Per-multicall cap for removeDownloadResults. One unbounded batch must
@@ -35,7 +36,12 @@ import { isNotFoundError } from './error-utils'
  */
 const REMOVE_RESULT_CHUNK_SIZE = 100
 
-import { buildFeatureReport, hasDurableRemoveSemantics } from './feature-report'
+import {
+  buildFeatureReport,
+  hasDurableRemoveSemantics,
+  isMotrixFork,
+  STANDARD_ARIA2_CONNECTION_LIMIT,
+} from './feature-report'
 import {
   translateGlobalStat,
   translatePeer,
@@ -44,6 +50,7 @@ import {
 } from './translate'
 
 export class Aria2Adapter implements EngineAdapter {
+  private readonly log = getLogger('aria2-adapter')
   private capability: EngineCapability = {
     http: true,
     ftp: true,
@@ -59,6 +66,7 @@ export class Aria2Adapter implements EngineAdapter {
     hasBtSaveMetadata: false,
     hasMoveStorage: false,
   }
+  private connectionOptionLimit: number | null = null
 
   private btCompleteHandlers: Array<(engineTaskId: string) => void> = []
   private downloadCompleteHandlers: Array<(engineTaskId: string) => void> = []
@@ -159,6 +167,55 @@ export class Aria2Adapter implements EngineAdapter {
    */
   setFeatureReport(report: EngineFeatureReport): void {
     this.featureReport = report
+    this.connectionOptionLimit = isMotrixFork(report)
+      ? null
+      : STANDARD_ARIA2_CONNECTION_LIMIT
+  }
+
+  private capConnectionOptions(
+    options: Record<string, string | string[]>,
+    limit: number
+  ): Record<string, string | string[]> {
+    const compatible = { ...options }
+    for (const key of ['split', 'max-connection-per-server']) {
+      const value = compatible[key]
+      if (typeof value !== 'string') continue
+      const parsed = Number.parseInt(value, 10)
+      if (Number.isFinite(parsed) && parsed > limit) {
+        compatible[key] = String(limit)
+      }
+    }
+    return compatible
+  }
+
+  private async addUriWithConnectionFallback(
+    uris: string[],
+    options: Record<string, string | string[]>
+  ): Promise<string> {
+    const firstOptions =
+      this.connectionOptionLimit === null
+        ? options
+        : this.capConnectionOptions(options, this.connectionOptionLimit)
+
+    try {
+      return await this.rpc.addUri(uris, firstOptions)
+    } catch (error) {
+      const fallbackOptions = this.capConnectionOptions(
+        firstOptions,
+        STANDARD_ARIA2_CONNECTION_LIMIT
+      )
+      const changed = Object.keys(fallbackOptions).some(
+        (key) => fallbackOptions[key] !== firstOptions[key]
+      )
+      if (!changed || !isConnectionLimitRangeError(error)) throw error
+
+      this.connectionOptionLimit = STANDARD_ARIA2_CONNECTION_LIMIT
+      this.log.warn(
+        { err: error },
+        'aria2 rejected connection options; retrying with compatibility limit'
+      )
+      return this.rpc.addUri(uris, fallbackOptions)
+    }
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
@@ -242,7 +299,10 @@ export class Aria2Adapter implements EngineAdapter {
       options.gid = requestedGid
     }
 
-    const actualGid = await this.rpc.addUri(params.uris, options)
+    const actualGid = await this.addUriWithConnectionFallback(
+      params.uris,
+      options
+    )
     if (
       requestedGid !== undefined &&
       actualGid.toLowerCase() !== requestedGid.toLowerCase()

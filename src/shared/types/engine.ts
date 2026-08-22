@@ -79,6 +79,12 @@ export interface EngineRestartRequiredPayload {
   changedKeys: string[]
 }
 
+/** Emitted when the pre-spawn binary probe selects compatibility limits. */
+export interface EngineCompatibilityWarningPayload {
+  version: string
+  connectionLimit: number
+}
+
 export interface EngineProcessInfo {
   pid: number
   name: string

@@ -2133,6 +2133,10 @@
     "engineFailure": {
       "title": "Download engine failed"
     },
+    "engineCompatibility": {
+      "title": "Non-Motrix aria2 detected",
+      "body": "aria2 {{version}} is not the Motrix fork. Connection settings are limited to at most {{limit}}, and SQLite history persistence is unavailable. Restore the bundled aria2_motrix engine for full support."
+    },
     "engineRestartRequired": {
       "title": "Restart the download engine to apply settings",
       "body": "Your settings are saved. Restart the download engine when convenient.",

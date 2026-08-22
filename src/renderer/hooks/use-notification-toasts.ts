@@ -75,11 +75,9 @@ const FOCUSED_ERROR_TOAST_ID = 'notification-error'
  * failed query (transport not ready yet, etc.) is swallowed — a later
  * engine event or app reload will retry it.
  *
- * Only `severity === 'error'` rows toast at all — `task-complete`/info rows
- * stay silent (they still land in the bell badge / `/notifications` page via
- * `useNotifications()`); this is purely the "surface it now, loudly" path
- * for errors while the user is looking at the app (plus the always-on
- * sticky engine-failure surface above).
+ * Only `severity === 'error'` rows and the engine-compatibility warning toast
+ * at all — `task-complete`/info rows stay silent (they still land in the bell
+ * badge / `/notifications` page via `useNotifications()`).
  *
  * Mount exactly once at the top of the app tree (AppLayout), mirroring
  * `useToastEvents`/`usePairRequestPrompts`: `t` and `i18n` are threaded
@@ -176,7 +174,9 @@ export function useNotificationToasts(): void {
 
     const handler = (...args: unknown[]) => {
       const n = args[0] as AppNotification
-      if (n.severity !== 'error') return
+      const isCompatibilityWarning =
+        n.kind === NotificationKinds.EngineCompatibility
+      if (n.severity !== 'error' && !isCompatibilityWarning) return
 
       // Bullet 1: engine-failure rows get the sticky action-bearing toast —
       // no foreground gate, no FOCUSED_ERROR_TOAST_ID coalescing.
@@ -207,7 +207,7 @@ export function useNotificationToasts(): void {
         title: resolve(n.titleKey, n.titleParams),
         description:
           n.bodyKey != null ? resolve(n.bodyKey, n.bodyParams) : undefined,
-        type: 'error',
+        type: isCompatibilityWarning ? 'warning' : 'error',
       })
     }
 

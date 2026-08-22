@@ -4,6 +4,7 @@ import { ENGINE_RPC_PORT } from '@shared/constants'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import {
+  type EngineCompatibilityWarningPayload,
   type EngineDiagnosticReport,
   type EngineFailureInfo,
   type EngineFailurePayload,
@@ -27,6 +28,10 @@ import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
 import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { recommend } from './aria2/aria2-tuning'
+import {
+  isMotrixFork,
+  STANDARD_ARIA2_CONNECTION_LIMIT,
+} from './aria2/feature-report'
 import { checkPort, findAvailablePort } from './port-check'
 
 const log = getLogger('engine')
@@ -184,18 +189,72 @@ export class EngineSupervisor {
     previous: EngineSettings,
     next: EngineSettings
   ): Promise<void> {
+    const persistedNext = await this.persistCompatibilityLimits(next)
     if (this.state !== EngineState.Ready) return
 
+    const compatiblePrevious = this.applyCompatibilityLimits(previous)
+    const compatibleNext = this.applyCompatibilityLimits(persistedNext)
     const params: Record<string, string> = {}
     for (const [key, option] of Object.entries(HOT_ENGINE_OPTIONS) as Array<
       [keyof typeof HOT_ENGINE_OPTIONS, string]
     >) {
-      if (previous[key] !== next[key]) {
-        params[option] = String(next[key])
+      if (compatiblePrevious[key] !== compatibleNext[key]) {
+        params[option] = String(compatibleNext[key])
       }
     }
     if (Object.keys(params).length === 0) return
     await this.rpcClient.changeGlobalOption(params)
+  }
+
+  private applyCompatibilityLimits(settings: EngineSettings): EngineSettings {
+    const report = this.featureReport
+    if (!report || isMotrixFork(report)) return settings
+
+    return {
+      ...settings,
+      maxConnectionPerServer: Math.min(
+        settings.maxConnectionPerServer,
+        STANDARD_ARIA2_CONNECTION_LIMIT
+      ),
+      split: Math.min(settings.split, STANDARD_ARIA2_CONNECTION_LIMIT),
+    }
+  }
+
+  private async persistCompatibilityLimits(
+    settings: EngineSettings
+  ): Promise<EngineSettings> {
+    const compatible = this.applyCompatibilityLimits(settings)
+    if (
+      compatible.maxConnectionPerServer === settings.maxConnectionPerServer &&
+      compatible.split === settings.split
+    ) {
+      return settings
+    }
+
+    const persisted: EngineSettings = {
+      ...compatible,
+      // Named profiles re-apply their fixed values during validation. Move
+      // the adjusted settings to custom so 16 remains the durable truth.
+      performanceProfile: 'custom',
+    }
+    try {
+      await this.settingsManager.update({
+        engine: {
+          performanceProfile: persisted.performanceProfile,
+          maxConnectionPerServer: persisted.maxConnectionPerServer,
+          split: persisted.split,
+        },
+      })
+    } catch (error) {
+      // A settings write failure must not revive the original startup crash.
+      // The in-memory compatibility values still let this engine run safely.
+      log.warn(
+        { err: error },
+        'failed to persist aria2 compatibility limits; using runtime limits'
+      )
+      return compatible
+    }
+    return persisted
   }
 
   private async resolveRuntimeEngineSettings(
@@ -296,6 +355,13 @@ export class EngineSupervisor {
       // and nothing calls adapter.connect() in production — inject the report
       // we just probed so the gate reflects the real engine version.
       this.adapter.setFeatureReport(featureReport)
+      if (!isMotrixFork(featureReport)) {
+        const payload: EngineCompatibilityWarningPayload = {
+          version: featureReport.version,
+          connectionLimit: STANDARD_ARIA2_CONNECTION_LIMIT,
+        }
+        this.eventBus.emit(Events.EngineCompatibilityWarning, payload)
+      }
 
       // Step 2: Ensure config and build args
       phase = 'config'
@@ -305,8 +371,10 @@ export class EngineSupervisor {
       if (this.stopping) return
 
       const configuredEngineSettings = this.settingsManager.getEngine()
-      const engineSettings = await this.resolveRuntimeEngineSettings(
-        configuredEngineSettings
+      const engineSettings = this.applyCompatibilityLimits(
+        await this.resolveRuntimeEngineSettings(
+          await this.persistCompatibilityLimits(configuredEngineSettings)
+        )
       )
       const proxy = this.settingsManager.getProxy()
       // Provider is wired by the shell (Task 8) before start() in production;

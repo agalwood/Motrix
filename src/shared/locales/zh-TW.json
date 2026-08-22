@@ -1734,6 +1734,10 @@
     "engineFailure": {
       "title": "下載引擎失敗"
     },
+    "engineCompatibility": {
+      "title": "偵測到非 Motrix 版 aria2",
+      "body": "目前的 aria2 {{version}} 不是 Motrix fork。連線設定已限制為不超過 {{limit}}，且 SQLite 歷史持久化無法使用。請還原內建 aria2_motrix 引擎以取得完整支援。"
+    },
     "engineRestartRequired": {
       "title": "重新啟動下載引擎以套用設定",
       "body": "設定已儲存，您可以在方便時重新啟動下載引擎。",

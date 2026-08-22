@@ -2113,6 +2113,10 @@
     "engineFailure": {
       "title": "下载引擎故障"
     },
+    "engineCompatibility": {
+      "title": "检测到非 Motrix 版 aria2",
+      "body": "当前 aria2 {{version}} 不是 Motrix fork。连接设置已限制为不超过 {{limit}}，且 SQLite 历史持久化不可用。请恢复内置 aria2_motrix 引擎以获得完整支持。"
+    },
     "engineRestartRequired": {
       "title": "重启下载引擎以应用设置",
       "body": "设置已保存，可在方便时重启下载引擎。",

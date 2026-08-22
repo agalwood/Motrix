@@ -34,6 +34,7 @@ import {
 } from '@core/inspector-activity'
 import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
+import { registerEngineCompatibilitySubscriber } from '@core/notifications/engine-compatibility-subscriber'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
@@ -817,21 +818,34 @@ async function handlePolledTasks(
       }
     } else {
       const id = newTaskId()
-      taskManager.set(id, { ...translated, id })
+      const discoveredTask: DownloadTask = { ...translated, id }
+      const persistParent = (): Promise<void> => persistTask(discoveredTask)
+      try {
+        if (taskInspectorActivityRuntime) {
+          await taskInspectorActivityRuntime.parentTaskCreated(
+            discoveredTask,
+            persistParent
+          )
+        } else {
+          await persistParent()
+        }
+      } catch (err) {
+        // Nothing has been published yet. Leave the engine row ownerless so
+        // the next poll retries the complete parent write with no Activity FK
+        // race and no in-memory task that would disappear after restart.
+        log.warn(
+          { err, gid: raw.gid, taskId: id },
+          'engine task adoption failed'
+        )
+        continue
+      }
+      taskManager.set(id, discoveredTask)
       log.info(
         { gid: raw.gid, taskId: id, name: translated.name },
         'new task discovered from engine'
       )
-      // Persist identity right away so a subsequent crash within the
-      // 15s auto-save window doesn't re-discover the same gid as a
-      // *different* motrix task on next launch — that would orphan the
-      // freshly minted id and confuse any downstream sidecar tables
-      // that join on motrix_id. requestSave coalesces if multiple
-      // orphans land in the same poll tick.
-      void sessionManager
-        .requestSave()
-        .catch((err) => log.warn({ err, taskId: id }, 'discovery save failed'))
-      // Orphan adopt: sync task_files too if engine has files for this gid.
+      // The complete parent is durable now, so FK-backed sidecars can be
+      // written immediately instead of waiting for a later batch save.
       if (translated.fileCount > 0) {
         runShellAsyncWork('task-files orphan sync', () =>
           syncTaskFilesIfMissing(id, raw.gid)
@@ -1010,6 +1024,11 @@ async function startEngineAndRestore(
   // within the boot that produced it), THEN subscribe.
   registerEngineFailureSubscriber({
     motrixDb,
+    eventBus,
+    notificationCenter,
+    log,
+  })
+  registerEngineCompatibilitySubscriber({
     eventBus,
     notificationCenter,
     log,

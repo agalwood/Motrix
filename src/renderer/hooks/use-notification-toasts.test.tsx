@@ -3,6 +3,7 @@ import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { EngineFailureReason, EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
+import { NotificationKinds } from '@shared/types/notification'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNotificationToasts } from './use-notification-toasts'
@@ -205,6 +206,35 @@ describe('useNotificationToasts', () => {
     })
 
     expect(toastAddMock).not.toHaveBeenCalled()
+  })
+
+  it('surfaces the engine compatibility notification as a warning toast', () => {
+    renderHook(() => useNotificationToasts())
+
+    act(() => {
+      fire(
+        Events.NotificationAdded,
+        notification({
+          severity: 'warning',
+          kind: NotificationKinds.EngineCompatibility,
+          titleKey: 'notification.engineCompatibility.title',
+          titleParams: null,
+          bodyKey: 'notification.engineCompatibility.body',
+          bodyParams: { version: '1.37.0', limit: '16' },
+          taskId: null,
+        })
+      )
+    })
+
+    expect(toastAddMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'notification-error',
+        title: 'Non-Motrix aria2 detected',
+        description:
+          'aria2 1.37.0 is not the Motrix fork. Connection settings are limited to at most 16, and SQLite history persistence is unavailable. Restore the bundled aria2_motrix engine for full support.',
+        type: 'warning',
+      })
+    )
   })
 
   it('bullet 1: kind engine-failure toasts the STICKY variant via close-then-add, with no foreground gate', () => {

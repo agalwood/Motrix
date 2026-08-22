@@ -34,6 +34,7 @@ import {
 } from '@core/inspector-activity'
 import { newTaskId } from '@core/lib/ids'
 import { getLogger, initLogger } from '@core/logger'
+import { registerEngineCompatibilitySubscriber } from '@core/notifications/engine-compatibility-subscriber'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
@@ -742,7 +743,22 @@ async function main() {
         dirty = true
       } else {
         const id = newTaskId()
-        taskManager.set(id, { ...translated, id })
+        const discoveredTask: DownloadTask = { ...translated, id }
+        try {
+          await taskInspectorActivityRuntime.parentTaskCreated(
+            discoveredTask,
+            () => persistTask(discoveredTask)
+          )
+        } catch (err) {
+          // Persistence rejected before publication. The next poll can retry
+          // adoption without exposing a task whose Activity parent is absent.
+          log.warn(
+            { err, gid: raw.gid, taskId: id },
+            'engine task adoption failed'
+          )
+          continue
+        }
+        taskManager.set(id, discoveredTask)
         log.info(
           { gid: raw.gid, taskId: id, name: translated.name },
           'new task discovered from engine'
@@ -1097,6 +1113,11 @@ async function main() {
     // startServer() runs) — reused here via closure.
     registerEngineFailureSubscriber({
       motrixDb: db,
+      eventBus,
+      notificationCenter,
+      log,
+    })
+    registerEngineCompatibilitySubscriber({
       eventBus,
       notificationCenter,
       log,

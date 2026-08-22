@@ -1,4 +1,5 @@
 import { ErrorCode } from '@shared/errors'
+import type { EngineFeatureReport } from '@shared/types/engine'
 import type { Mock } from 'vitest'
 import { describe, expect, it, vi } from 'vitest'
 import type { CreateDownloadParams } from '../engine-adapter'
@@ -41,6 +42,20 @@ function createMockRpc(): Aria2RpcClient {
     exportSession: vi.fn(),
     requeueDownloadResult: vi.fn(),
   } as unknown as Aria2RpcClient
+}
+
+function featureReport(
+  overrides: Partial<EngineFeatureReport> = {}
+): EngineFeatureReport {
+  return {
+    version: '1.37.0-motrix.10',
+    features: ['SQLite3-Persistence'],
+    hasSqlitePersistence: true,
+    hasBtSeedUnverified: true,
+    hasBtSaveMetadata: true,
+    hasMoveStorage: false,
+    ...overrides,
+  }
 }
 
 // ─── Fixtures ───────────────────────────────────────────────
@@ -482,6 +497,120 @@ describe('Aria2Adapter', () => {
           'max-connection-per-server': '8',
         })
       )
+    })
+
+    it('pre-caps connection options after the shell detects official aria2', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setFeatureReport(
+        featureReport({
+          version: '1.37.0',
+          features: [],
+          hasSqlitePersistence: false,
+        })
+      )
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        connections: 64,
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({
+          split: '16',
+          'max-connection-per-server': '16',
+        })
+      )
+    })
+
+    it('preserves high connection options for the Motrix fork', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setFeatureReport(featureReport())
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        connections: 64,
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({
+          split: '64',
+          'max-connection-per-server': '64',
+        })
+      )
+    })
+
+    it('retries errorCode=28 once at 16 and remembers the discovered limit', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri)
+        .mockRejectedValueOnce(
+          new Error(
+            'errorCode=28: max-connection-per-server must be between 1 and 16'
+          )
+        )
+        .mockResolvedValueOnce('gid-first')
+        .mockResolvedValueOnce('gid-second')
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.createDownload({
+          uris: ['first'],
+          saveDir: '/d',
+          connections: 64,
+        })
+      ).resolves.toBe('gid-first')
+      await adapter.createDownload({
+        uris: ['second'],
+        saveDir: '/d',
+        connections: 64,
+      })
+
+      expect(rpc.addUri).toHaveBeenNthCalledWith(
+        1,
+        ['first'],
+        expect.objectContaining({
+          split: '64',
+          'max-connection-per-server': '64',
+        })
+      )
+      expect(rpc.addUri).toHaveBeenNthCalledWith(
+        2,
+        ['first'],
+        expect.objectContaining({
+          split: '16',
+          'max-connection-per-server': '16',
+        })
+      )
+      expect(rpc.addUri).toHaveBeenNthCalledWith(
+        3,
+        ['second'],
+        expect.objectContaining({
+          split: '16',
+          'max-connection-per-server': '16',
+        })
+      )
+    })
+
+    it('does not retry unrelated addUri failures', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockRejectedValue(new Error('connection refused'))
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.createDownload({
+          uris: ['u'],
+          saveDir: '/d',
+          connections: 64,
+        })
+      ).rejects.toThrow('connection refused')
+      expect(rpc.addUri).toHaveBeenCalledOnce()
     })
 
     it('auto profile applies per-file tuning without sending global disk-cache', async () => {
