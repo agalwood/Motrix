@@ -44,7 +44,7 @@ vi.mock('./port-check', () => ({
 // ─── Mock factories ─────────────────────────────────────────
 
 const FEATURE_REPORT: EngineFeatureReport = {
-  version: '1.37.0',
+  version: '1.37.0-motrix.6',
   features: ['Async DNS', 'BitTorrent', 'SQLite3-Persistence'],
   hasSqlitePersistence: true,
   hasBtSeedUnverified: false,
@@ -248,6 +248,99 @@ describe('EngineSupervisor', () => {
       // degrades to "always trust not-found".
       await supervisor.start('/usr/bin/aria2c')
       expect(adapter.setFeatureReport).toHaveBeenCalledWith(FEATURE_REPORT)
+    })
+
+    it('detects an official binary before spawn and starts with compatibility limits', async () => {
+      const officialReport: EngineFeatureReport = {
+        ...FEATURE_REPORT,
+        version: '1.37.0',
+        features: ['Async DNS', 'BitTorrent'],
+        hasSqlitePersistence: false,
+      }
+      vi.mocked(processManager.probe).mockResolvedValue(officialReport)
+      const configured = settings.getEngine()
+      vi.mocked(settings.getEngine).mockReturnValue({
+        ...configured,
+        performanceProfile: 'custom',
+        maxConnectionPerServer: 64,
+        split: 32,
+      })
+      const warning = vi.fn()
+      eventBus.on(Events.EngineCompatibilityWarning, warning)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(warning).toHaveBeenCalledWith({
+        version: '1.37.0',
+        connectionLimit: 16,
+      })
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxConnectionPerServer: 16,
+          split: 16,
+        }),
+        false,
+        expect.anything(),
+        expect.anything()
+      )
+      expect(rpcClient.getVersion).not.toHaveBeenCalled()
+      expect(settings.update).toHaveBeenCalledWith({
+        engine: {
+          performanceProfile: 'custom',
+          maxConnectionPerServer: 16,
+          split: 16,
+        },
+      })
+      expect(
+        vi.mocked(processManager.probe).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(processManager.spawn).mock.invocationCallOrder[0]
+      )
+    })
+
+    it('keeps starting with runtime limits if persisting compatibility settings fails', async () => {
+      vi.mocked(processManager.probe).mockResolvedValue({
+        ...FEATURE_REPORT,
+        version: '1.37.0',
+        features: ['Async DNS', 'BitTorrent'],
+        hasSqlitePersistence: false,
+      })
+      vi.mocked(settings.update).mockRejectedValue(new Error('disk full'))
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxConnectionPerServer: 16,
+          split: 16,
+        }),
+        false,
+        expect.anything(),
+        expect.anything()
+      )
+    })
+
+    it('keeps Motrix fork connection settings above the official ceiling', async () => {
+      const configured = settings.getEngine()
+      vi.mocked(settings.getEngine).mockReturnValue({
+        ...configured,
+        performanceProfile: 'custom',
+        maxConnectionPerServer: 64,
+        split: 32,
+      })
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxConnectionPerServer: 64,
+          split: 32,
+        }),
+        true,
+        expect.anything(),
+        expect.anything()
+      )
     })
 
     it('does not overwrite persisted tuning settings during engine start', async () => {
@@ -921,6 +1014,44 @@ describe('EngineSupervisor', () => {
         'user-agent': 'Motrix/Test',
         'bt-enable-lpd': 'false',
         'save-session-interval': '30',
+      })
+    })
+
+    it('caps hot connection changes for a detected official aria2 binary', async () => {
+      vi.mocked(processManager.probe).mockResolvedValue({
+        ...FEATURE_REPORT,
+        version: '1.37.0',
+        features: ['Async DNS', 'BitTorrent'],
+        hasSqlitePersistence: false,
+      })
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.changeGlobalOption).mockClear()
+      vi.mocked(settings.update).mockClear()
+      const settingsValue = settings.getEngine()
+
+      await supervisor.applyEngineSettings(
+        {
+          ...settingsValue,
+          maxConnectionPerServer: 8,
+          split: 8,
+        },
+        {
+          ...settingsValue,
+          maxConnectionPerServer: 64,
+          split: 32,
+        }
+      )
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
+        'max-connection-per-server': '16',
+        split: '16',
+      })
+      expect(settings.update).toHaveBeenCalledWith({
+        engine: {
+          performanceProfile: 'custom',
+          maxConnectionPerServer: 16,
+          split: 16,
+        },
       })
     })
   })

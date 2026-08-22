@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFeatureReport,
   hasDurableRemoveSemantics,
+  isMotrixFork,
   semverGte,
 } from './feature-report'
 
@@ -46,6 +47,20 @@ describe('semverGte', () => {
 
   it('fails closed on unparseable components', () => {
     expect(semverGte('1.x.0', '1.37.0')).toBe(false)
+  })
+})
+
+describe('isMotrixFork', () => {
+  it('requires both the Motrix version suffix and fork-only persistence feature', () => {
+    expect(
+      isMotrixFork(
+        buildFeatureReport('1.37.0-motrix.6', ['SQLite3-Persistence'])
+      )
+    ).toBe(true)
+    expect(
+      isMotrixFork(buildFeatureReport('1.37.0', ['SQLite3-Persistence']))
+    ).toBe(false)
+    expect(isMotrixFork(buildFeatureReport('1.37.0-motrix.6', []))).toBe(false)
   })
 })
 

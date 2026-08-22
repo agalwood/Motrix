@@ -259,6 +259,37 @@ describe('MainProcessWorkCoordinator', () => {
     expect(orphanId).toBeGreaterThan(retiredGate)
   })
 
+  it('persists an engine-discovered parent before Activity samples and publication', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/main/index.ts'),
+      'utf8'
+    )
+    const handler = source.indexOf('async function handlePolledTasks(')
+    const discoveredTask = source.indexOf(
+      'const discoveredTask: DownloadTask =',
+      handler
+    )
+    const persistParent = source.indexOf(
+      'persistTask(discoveredTask)',
+      discoveredTask
+    )
+    const parentBarrier = source.indexOf(
+      'taskInspectorActivityRuntime.parentTaskCreated(',
+      persistParent
+    )
+    const publish = source.indexOf(
+      'taskManager.set(id, discoveredTask)',
+      parentBarrier
+    )
+    const samples = source.indexOf('recordSamples(tasks)', publish)
+
+    expect(discoveredTask).toBeGreaterThan(handler)
+    expect(persistParent).toBeGreaterThan(discoveredTask)
+    expect(parentBarrier).toBeGreaterThan(persistParent)
+    expect(publish).toBeGreaterThan(parentBarrier)
+    expect(samples).toBeGreaterThan(publish)
+  })
+
   it('starts bridge cancellation and stops the engine before awaiting general shell work', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/main/index.ts'),

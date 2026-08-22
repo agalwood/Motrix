@@ -320,6 +320,37 @@ describe('server lifecycle production wiring', () => {
     expect(orphanId).toBeGreaterThan(retiredGate)
   })
 
+  it('persists an engine-discovered parent before Activity samples and publication', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/server/index.ts'),
+      'utf8'
+    )
+    const handler = source.indexOf('async function handlePolledTasks(')
+    const discoveredTask = source.indexOf(
+      'const discoveredTask: DownloadTask =',
+      handler
+    )
+    const parentBarrier = source.indexOf(
+      'taskInspectorActivityRuntime.parentTaskCreated(',
+      discoveredTask
+    )
+    const persistParent = source.indexOf(
+      'persistTask(discoveredTask)',
+      parentBarrier
+    )
+    const publish = source.indexOf(
+      'taskManager.set(id, discoveredTask)',
+      persistParent
+    )
+    const samples = source.indexOf('recordSamples(tasks)', publish)
+
+    expect(discoveredTask).toBeGreaterThan(handler)
+    expect(parentBarrier).toBeGreaterThan(discoveredTask)
+    expect(persistParent).toBeGreaterThan(parentBarrier)
+    expect(publish).toBeGreaterThan(persistParent)
+    expect(samples).toBeGreaterThan(publish)
+  })
+
   it('constructs shutdown before early acquisitions, producers, or HTTP ingress', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/server/index.ts'),

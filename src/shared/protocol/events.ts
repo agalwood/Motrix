@@ -96,6 +96,9 @@ export const Events = {
   // Payload: EngineFailurePayload (Task 13). NOT included in
   // ForwardableEvents — internal main-process producer signal only.
   EngineFailureOccurred: 'event:engineFailureOccurred',
+  // Payload: EngineCompatibilityWarningPayload. Internal shell signal; the
+  // resulting durable NotificationAdded event is what reaches renderers.
+  EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
 } as const
 

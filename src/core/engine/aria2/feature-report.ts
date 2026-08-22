@@ -6,6 +6,23 @@ import {
 // aria2 gained --bt-seed-unverified and --bt-save-metadata in 1.37.0.
 const BT_FEATURES_MIN_VERSION = '1.37.0'
 
+/** Official aria2's per-task connection ceiling. */
+export const STANDARD_ARIA2_CONNECTION_LIMIT = 16
+
+/**
+ * Identify the Motrix fork from the pre-spawn `aria2c --version` report.
+ * Both markers are required: the version suffix establishes lineage and the
+ * feature token confirms the fork-only persistence capability is present.
+ */
+export function isMotrixFork(
+  report: Pick<EngineFeatureReport, 'version' | 'hasSqlitePersistence'>
+): boolean {
+  return (
+    /^\d+\.\d+\.\d+-motrix\.\d+$/i.test(report.version) &&
+    report.hasSqlitePersistence
+  )
+}
+
 /**
  * Single source for turning an aria2 (version, enabled-features) pair into an
  * EngineFeatureReport. Both the process-probe path (Aria2ProcessManager,
