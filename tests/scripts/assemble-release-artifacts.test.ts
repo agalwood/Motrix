@@ -533,33 +533,19 @@ describe('assembleReleaseArtifacts', () => {
     ).rejects.toThrow(/linux-x64: unexpected release asset .*arm64\.deb/)
   })
 
-  it('rejects a legacy path that is not the target updater asset', async () => {
+  it('normalizes Linux legacy metadata to the DEB updater asset', async () => {
     const fixture = await createFixture()
-    await writeManifest(
-      fixture.paths.linuxX64Manifest,
-      VERSION,
-      [
-        {
-          name: fixture.names.linuxX64Deb,
-          content: fixture.contents.linuxX64Deb,
-        },
-        {
-          name: fixture.names.linuxX64Rpm,
-          content: fixture.contents.linuxX64Rpm,
-        },
-      ],
-      fixture.names.linuxX64Rpm
-    )
+    await assembleReleaseArtifacts({
+      inputDirectory: fixture.input,
+      outputDirectory: fixture.output,
+      version: VERSION,
+    })
 
-    await expect(
-      assembleReleaseArtifacts({
-        inputDirectory: fixture.input,
-        outputDirectory: fixture.output,
-        version: VERSION,
-      })
-    ).rejects.toThrow(
-      'linux-x64/latest-linux.yml: legacy path must reference Motrix_2.0.0_amd64.deb'
-    )
+    const manifest = load(
+      await readFile(path.join(fixture.output, 'latest-linux.yml'), 'utf8')
+    ) as { path: string; sha512: string }
+    expect(manifest.path).toBe(fixture.names.linuxX64Deb)
+    expect(manifest.sha512).toBe(sha512(fixture.contents.linuxX64Deb))
   })
 
   it('does not delete or overwrite a non-empty output directory', async () => {
@@ -698,7 +684,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxX64AppImage, content: contents.linuxX64AppImage },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
-    names.linuxX64Deb
+    names.linuxX64AppImage
   )
   await writeManifest(
     linuxX64BetaManifest,
@@ -709,7 +695,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxX64AppImage, content: contents.linuxX64AppImage },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
-    names.linuxX64Deb
+    names.linuxX64AppImage
   )
 
   const linuxArm64 = await makeTarget(input, 'linux-arm64')
@@ -743,7 +729,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxArm64AppImage, content: contents.linuxArm64AppImage },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
-    names.linuxArm64Deb
+    names.linuxArm64AppImage
   )
   await writeManifest(
     path.join(linuxArm64, 'beta-linux-arm64.yml'),
@@ -754,7 +740,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxArm64AppImage, content: contents.linuxArm64AppImage },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
-    names.linuxArm64Deb
+    names.linuxArm64AppImage
   )
 
   const windows = await makeTarget(input, 'win32-x64')
