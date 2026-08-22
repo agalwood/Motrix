@@ -7,6 +7,9 @@ packages:
 # electron-builder and native-module rebuild tooling (see
 # .claude/rules/electron-vite.md).
 nodeLinker: hoisted
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
 
 # pnpm 11 build-script gate (replaces onlyBuiltDependencies /
 # ignoredBuiltDependencies — packages not listed have their scripts skipped):
