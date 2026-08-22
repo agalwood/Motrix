@@ -183,11 +183,8 @@ export function AddTaskForm({
 
   return (
     <FormProvider {...form}>
-      <div
-        data-adaptive-content
-        className="flex max-h-[calc(100vh-40px)] flex-col overflow-y-auto"
-      >
-        <div className="mb-16 px-4 py-2">
+      <div className="flex max-h-[calc(100vh-40px)] flex-col overflow-y-auto">
+        <div data-adaptive-content className="px-4 pt-2 pb-[72px]">
           <TabsSection />
         </div>
       </div>

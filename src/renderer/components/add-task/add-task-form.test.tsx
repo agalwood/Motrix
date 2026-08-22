@@ -47,6 +47,15 @@ describe('AddTaskForm', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 
+  it('measures natural content separately from the scroll viewport', () => {
+    const { container } = renderForm()
+    const content = container.querySelector('[data-adaptive-content]')
+
+    expect(content).toBeInTheDocument()
+    expect(content).not.toHaveClass('overflow-y-auto')
+    expect(content?.parentElement).toHaveClass('overflow-y-auto')
+  })
+
   it('disables submit when urls are empty', () => {
     renderForm()
     const submit = screen.getByRole('button', { name: /download/i })
