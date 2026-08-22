@@ -29,6 +29,41 @@ async function readJson(relativePath: string): Promise<unknown> {
 }
 
 describe('Electron package contracts', () => {
+  it('hydrates Electron before local commands consume its runtime files', async () => {
+    const manifest = (await readJson('package.json')) as {
+      scripts?: Record<string, string>
+    }
+    const scripts = manifest.scripts ?? {}
+
+    expect(scripts['ensure:electron-runtime']).toBe(
+      'node scripts/ensure-electron-runtime.mjs'
+    )
+    for (const scriptName of [
+      'prestart',
+      'build:legal',
+      'check:registry-runtime',
+      'check:third-party-notices',
+      'pretest:e2e',
+      'pretest:e2e:ui',
+      'pretest:e2e:debug',
+      'smoke:electron-package',
+    ]) {
+      expect(
+        scripts[scriptName],
+        `${scriptName} must hydrate Electron before consuming its runtime`
+      ).toMatch(/^pnpm run ensure:electron-runtime && /)
+    }
+  })
+
+  it('hydrates Electron when Playwright is invoked directly', async () => {
+    const globalSetup = await readFile(
+      path.join(REPOSITORY_ROOT, 'e2e/global-setup.ts'),
+      'utf8'
+    )
+
+    expect(globalSetup).toContain("['run', 'ensure:electron-runtime']")
+  })
+
   it('packages only the generated staged application', async () => {
     const config = (await readJson('electron-builder.json')) as {
       asarUnpack?: string[]
@@ -227,7 +262,7 @@ describe('Electron package contracts', () => {
     }
 
     expect(manifest.scripts?.['smoke:electron-package']).toBe(
-      'node scripts/smoke-electron-package.mjs'
+      'pnpm run ensure:electron-runtime && node scripts/smoke-electron-package.mjs'
     )
     expect(
       parseSmokeArguments([

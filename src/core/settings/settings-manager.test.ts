@@ -932,7 +932,7 @@ describe('SettingsManager', () => {
     it('applies default values for new tray fields', async () => {
       const app = manager.getApp()
       expect(app.runMode).toBe(1) // RunMode.Standard
-      expect(app.traySpeedometer).toBe(false)
+      expect(app.traySpeedometer).toBe(true)
     })
   })
 

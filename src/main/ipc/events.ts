@@ -1,15 +1,17 @@
 import type { EventBus } from '@core/events/event-bus'
 import { subscribeForwardableEvents } from '@core/events/forward-events'
-import { Events } from '@shared/protocol/events'
+import { type EventChannel, Events } from '@shared/protocol/events'
+import type { WindowId } from '@shared/types/window'
 import type { WindowManager } from '../window/window-manager'
 
-function sendToAddTaskWhenReady(
+function sendToWindowWhenReady(
   windowManager: WindowManager,
-  channel: string,
+  id: WindowId,
+  channel: EventChannel,
   args: unknown[]
 ): void {
-  windowManager.show('add-task')
-  const win = windowManager.get('add-task')
+  windowManager.show(id)
+  const win = windowManager.get(id)
   if (!win || win.isDestroyed()) return
 
   const send = () => {
@@ -41,10 +43,7 @@ export function setupEventForwarding(
   eventBus.on(
     Events.NavigateTo as Parameters<typeof eventBus.on>[0],
     (...args) => {
-      const win = windowManager.get('main')
-      if (win && !win.isDestroyed()) {
-        win.webContents.send(Events.NavigateTo, ...args)
-      }
+      sendToWindowWhenReady(windowManager, 'main', Events.NavigateTo, args)
     }
   )
 
@@ -52,7 +51,12 @@ export function setupEventForwarding(
   eventBus.on(
     Events.MagnetFileSelection as Parameters<typeof eventBus.on>[0],
     (...args) => {
-      sendToAddTaskWhenReady(windowManager, Events.MagnetFileSelection, args)
+      sendToWindowWhenReady(
+        windowManager,
+        'add-task',
+        Events.MagnetFileSelection,
+        args
+      )
     }
   )
 }

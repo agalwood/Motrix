@@ -959,7 +959,9 @@
       "runMode": "Run as",
       "runModeStandard": "Standard application",
       "runModeTray": "Tray application",
-      "runModeHideTray": "Hide tray application"
+      "runModeHideTray": "Hide tray application",
+      "lightweightMode": "Lightweight mode",
+      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded."
     },
     "advanced": {
       "rpc": {

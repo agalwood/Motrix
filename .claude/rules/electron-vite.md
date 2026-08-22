@@ -1,6 +1,6 @@
 ---
 description: Build outputs, Electron loading policy, pnpm scripts, and native ABI boundaries
-paths: ["electron-builder.json", "pnpm-workspace.yaml", "package.json", "Dockerfile", "vite.*.config.ts", "scripts/dev.mjs", "scripts/postinstall.mjs", "scripts/ensure-native-abi.mjs", "scripts/native-binary-target.mjs", "scripts/stage-*-app.mjs", "scripts/verify-*-package.mjs", "scripts/before-*-*.mjs", "src/main/index.ts", "src/main/window/renderer-url-policy*", "src/main/window/window-manager*", "src/preload/**"]
+paths: ["electron-builder.json", "pnpm-workspace.yaml", "package.json", "Dockerfile", "vite.*.config.ts", "scripts/dev.mjs", "scripts/postinstall.mjs", "scripts/ensure-electron-runtime.mjs", "scripts/ensure-native-abi.mjs", "scripts/native-binary-target.mjs", "scripts/stage-*-app.mjs", "scripts/verify-*-package.mjs", "scripts/before-*-*.mjs", "src/main/index.ts", "src/main/window/renderer-url-policy*", "src/main/window/window-manager*", "src/preload/**"]
 ---
 
 # Electron + Vite
@@ -44,8 +44,10 @@ and packaged-file checks.
 - Install-script permission is controlled by pnpm 11 `allowBuilds`. Keep
   `electron` allowed for compatibility, but do not rely on `pnpm install` to
   hydrate Electron 43: it exposes `install.js` as a package bin without a
-  `postinstall` script. Packaging and legal-check workflows must explicitly
-  run `node node_modules/electron/install.js` before consuming `dist/`.
+  `postinstall` script. Local workflows that consume Electron or its licenses
+  must run `pnpm run ensure:electron-runtime` first; that command validates the
+  entire payload and repairs partial installs safely. CI/container workflows
+  may invoke `install.js` directly when they immediately validate the result.
 - Native modules such as `better-sqlite3` must match the active ABI. Tests use
   the Node ABI; Electron and E2E use the Electron ABI. Preserve the
   `ensure-native-abi.mjs` hooks when changing test or start scripts.

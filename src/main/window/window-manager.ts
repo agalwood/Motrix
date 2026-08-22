@@ -33,6 +33,14 @@ export interface WindowManagerDeps {
   onSessionEnd?: () => void
   /** Frozen renderer trust policy shared with IPC sender validation. */
   rendererUrlPolicy?: RendererUrlPolicy
+  /** Live policy so a settings change affects the next window dismissal
+   * without rebuilding the manager or restarting the application. */
+  retentionPolicy?: WindowRetentionPolicy
+}
+
+export interface WindowRetentionPolicy {
+  releaseMainOnDismiss(): boolean
+  prewarmAddTask(): boolean
 }
 
 export class WindowManager {
@@ -135,7 +143,7 @@ export class WindowManager {
     }
 
     if (win.isVisible() && win.isFocused()) {
-      win.hide()
+      this.close(id)
     } else {
       win.show()
       win.focus()
@@ -154,23 +162,49 @@ export class WindowManager {
 
     const config = WINDOW_CONFIGS[id]
 
-    if (config.closeBehavior === 'hide') {
+    if (config.closeBehavior === 'hide' && !this.shouldReleaseOnDismiss(id)) {
       this.saveBounds(id)
       win.hide()
     } else {
-      this.clearBoundsTimer(id)
-      win.webContents.removeAllListeners()
-      win.removeAllListeners()
-      win.destroy()
-      this.windows.set(id, null)
+      this.release(id)
     }
+  }
+
+  release(id: WindowId): void {
+    const win = this.windows.get(id)
+    if (!win || win.isDestroyed()) return
+
+    this.saveBounds(id)
+    this.clearBoundsTimer(id)
+    win.webContents.removeAllListeners()
+    win.removeAllListeners()
+    win.destroy()
+    this.windows.set(id, null)
   }
 
   closeAndRecycle(id: WindowId): void {
     this.close(id)
     const config = WINDOW_CONFIGS[id]
-    if (config.closeBehavior === 'destroy') {
+    if (
+      config.closeBehavior === 'destroy' &&
+      (id !== 'add-task' || this.shouldPrewarmAddTask())
+    ) {
       this.precreate(id)
+    }
+  }
+
+  /** Reconcile already-created hidden windows after lightweight mode changes. */
+  reconcileWindowRetention(): void {
+    const main = this.get('main')
+    if (main && !main.isVisible() && this.shouldReleaseOnDismiss('main')) {
+      this.release('main')
+    }
+
+    const addTask = this.get('add-task')
+    if (this.shouldPrewarmAddTask()) {
+      if (!addTask) this.precreate('add-task')
+    } else if (addTask && !addTask.isVisible()) {
+      this.release('add-task')
     }
   }
 
@@ -180,12 +214,7 @@ export class WindowManager {
     const shouldShow = existing?.isVisible() ?? true
 
     if (existing) {
-      this.saveBounds(id)
-      this.clearBoundsTimer(id)
-      existing.webContents.removeAllListeners()
-      existing.removeAllListeners()
-      existing.destroy()
-      this.windows.set(id, null)
+      this.release(id)
     }
 
     const win = this.registerWindow(id, shouldShow)
@@ -292,6 +321,12 @@ export class WindowManager {
     }
     this.deps.loadUrl(win, config.route)
     this.setupCloseHandler(id, win)
+    win.once('closed', () => {
+      this.clearBoundsTimer(id)
+      if (this.windows.get(id) === win) {
+        this.windows.set(id, null)
+      }
+    })
 
     return win
   }
@@ -302,6 +337,17 @@ export class WindowManager {
       clearTimeout(timer)
       this.boundsTimers.delete(id)
     }
+  }
+
+  private shouldReleaseOnDismiss(id: WindowId): boolean {
+    return (
+      id === 'main' &&
+      this.deps.retentionPolicy?.releaseMainOnDismiss() === true
+    )
+  }
+
+  private shouldPrewarmAddTask(): boolean {
+    return this.deps.retentionPolicy?.prewarmAddTask() ?? true
   }
 
   private createBrowserWindow(
@@ -438,8 +484,9 @@ export class WindowManager {
 
     win.on('close', (event) => {
       if (config.closeBehavior === 'hide' && !this.willQuit) {
-        event.preventDefault()
         this.saveBounds(id)
+        if (this.shouldReleaseOnDismiss(id)) return
+        event.preventDefault()
         win.hide()
       }
     })

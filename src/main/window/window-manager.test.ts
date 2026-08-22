@@ -51,6 +51,7 @@ vi.mock('electron', () => {
     })
     isDestroyed = vi.fn(() => this._destroyed)
     isVisible = vi.fn(() => this._visible)
+    isFocused = vi.fn(() => true)
     getBounds = vi.fn(() => ({ ...this._bounds }))
     setBounds = vi.fn(
       (b: { x: number; y: number; width: number; height: number }) => {
@@ -436,6 +437,48 @@ describe('WindowManager', () => {
     expect(win?.hide).toHaveBeenCalled()
   })
 
+  it('close releases main window when the live retention policy requests it', () => {
+    const sm = createMockSettingsManager()
+    const wm = new WindowManager({
+      settingsManager: sm,
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      retentionPolicy: {
+        releaseMainOnDismiss: () => true,
+        prewarmAddTask: () => false,
+      },
+    })
+
+    const win = wm.open('main')
+    wm.close('main')
+
+    expect(win.hide).not.toHaveBeenCalled()
+    expect(win.destroy).toHaveBeenCalledOnce()
+    expect(wm.get('main')).toBeNull()
+    expect(sm.update).toHaveBeenCalledWith({
+      windowState: { main: expect.any(Object) },
+    })
+  })
+
+  it('toggle releases a focused main window in lightweight mode', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      retentionPolicy: {
+        releaseMainOnDismiss: () => true,
+        prewarmAddTask: () => false,
+      },
+    })
+
+    const win = wm.open('main')
+    win.show()
+    wm.toggle('main')
+
+    expect(win.destroy).toHaveBeenCalledOnce()
+    expect(wm.get('main')).toBeNull()
+  })
+
   it('stops converting main-window close into hide after update quit starts', () => {
     const wm = new WindowManager({
       settingsManager: createMockSettingsManager(),
@@ -462,6 +505,38 @@ describe('WindowManager', () => {
 
     expect(updateClose.preventDefault).not.toHaveBeenCalled()
     expect(win.hide).not.toHaveBeenCalled()
+  })
+
+  it('allows a native main-window close to destroy the renderer in lightweight mode', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      retentionPolicy: {
+        releaseMainOnDismiss: () => true,
+        prewarmAddTask: () => false,
+      },
+    })
+    const win = wm.open('main')
+    const closeListener = (
+      win.on as unknown as ReturnType<typeof vi.fn>
+    ).mock.calls.find(([event]) => event === 'close')?.[1] as
+      | ((event: { preventDefault(): void }) => void)
+      | undefined
+    const closeEvent = { preventDefault: vi.fn() }
+
+    closeListener?.(closeEvent)
+
+    expect(closeEvent.preventDefault).not.toHaveBeenCalled()
+    expect(win.hide).not.toHaveBeenCalled()
+
+    const closedListener = (
+      win.once as unknown as ReturnType<typeof vi.fn>
+    ).mock.calls.find(([event]) => event === 'closed')?.[1] as
+      | (() => void)
+      | undefined
+    closedListener?.()
+    expect(wm.get('main')).toBeNull()
   })
 
   it('reports both early and terminal Windows session-end signals', () => {
@@ -497,6 +572,63 @@ describe('WindowManager', () => {
 
     wm.open('add-task')
     wm.close('add-task')
+    expect(wm.get('add-task')).toBeNull()
+  })
+
+  it('does not recycle add-task in lightweight mode', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      retentionPolicy: {
+        releaseMainOnDismiss: () => true,
+        prewarmAddTask: () => false,
+      },
+    })
+
+    wm.open('add-task')
+    wm.closeAndRecycle('add-task')
+
+    expect(wm.get('add-task')).toBeNull()
+    expect(
+      (BrowserWindow as unknown as { instances: unknown[] }).instances
+    ).toHaveLength(1)
+  })
+
+  it('preserves add-task recycling in the default retention mode', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+    })
+
+    wm.open('add-task')
+    wm.closeAndRecycle('add-task')
+
+    expect(wm.get('add-task')).not.toBeNull()
+    expect(
+      (BrowserWindow as unknown as { instances: unknown[] }).instances
+    ).toHaveLength(2)
+  })
+
+  it('reconciles a hidden prewarmed add-task after lightweight mode is enabled', () => {
+    let lightweight = false
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      retentionPolicy: {
+        releaseMainOnDismiss: () => lightweight,
+        prewarmAddTask: () => !lightweight,
+      },
+    })
+
+    wm.precreate('add-task')
+    const prewarmed = wm.get('add-task')
+    lightweight = true
+    wm.reconcileWindowRetention()
+
+    expect(prewarmed?.destroy).toHaveBeenCalledOnce()
     expect(wm.get('add-task')).toBeNull()
   })
 

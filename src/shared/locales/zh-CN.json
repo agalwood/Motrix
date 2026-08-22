@@ -946,7 +946,9 @@
       "runMode": "运行方式",
       "runModeStandard": "标准应用",
       "runModeTray": "托盘应用",
-      "runModeHideTray": "隐藏托盘"
+      "runModeHideTray": "隐藏托盘",
+      "lightweightMode": "轻量模式",
+      "lightweightModeDesc": "关闭主窗口后释放界面内存，后台下载继续运行。Windows 和 Linux 会保留托盘入口；重新打开会稍慢，未保存的界面状态将被丢弃。"
     },
     "about": {
       "appIconAlt": "Motrix 应用图标",

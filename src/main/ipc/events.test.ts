@@ -49,9 +49,10 @@ describe('setupEventForwarding', () => {
   })
 
   describe('NavigateTo', () => {
-    it('forwards NavigateTo to main window webContents when main window exists', () => {
+    it('shows main and forwards NavigateTo when its renderer is loaded', () => {
+      vi.useFakeTimers()
       const eventBus = new EventBus()
-      const mainWin = createFakeWindow(false)
+      const mainWin = createFakeWindow(false, false)
       const wm = createWindowManager(mainWin)
 
       setupEventForwarding(eventBus, wm)
@@ -60,13 +61,16 @@ describe('setupEventForwarding', () => {
         '/settings'
       )
 
-      expect(mainWin.webContents.send).toHaveBeenCalledWith(
+      expect(wm.show).toHaveBeenCalledWith('main')
+      vi.advanceTimersByTime(100)
+      expect(mainWin.webContents.send).toHaveBeenCalledExactlyOnceWith(
         Events.NavigateTo,
         '/settings'
       )
+      vi.useRealTimers()
     })
 
-    it('does not send NavigateTo when main window is missing', () => {
+    it('shows main but tolerates a legal gate that leaves it unavailable', () => {
       const eventBus = new EventBus()
       const wm = createWindowManager(null)
 
@@ -78,6 +82,7 @@ describe('setupEventForwarding', () => {
           '/settings'
         )
       }).not.toThrow()
+      expect(wm.show).toHaveBeenCalledWith('main')
     })
 
     it('does not send NavigateTo when main window is destroyed', () => {
@@ -91,7 +96,35 @@ describe('setupEventForwarding', () => {
         '/settings'
       )
 
+      expect(wm.show).toHaveBeenCalledWith('main')
       expect(mainWin.webContents.send).not.toHaveBeenCalled()
+    })
+
+    it('waits for a newly-created main renderer before navigation', () => {
+      vi.useFakeTimers()
+      const eventBus = new EventBus()
+      const mainWin = createFakeWindow(false, true)
+      const wm = createWindowManager(mainWin)
+
+      setupEventForwarding(eventBus, wm)
+      eventBus.emit(
+        Events.NavigateTo as Parameters<typeof eventBus.emit>[0],
+        '/downloads'
+      )
+
+      expect(mainWin.webContents.send).not.toHaveBeenCalled()
+      const didFinishLoad = mainWin.webContents.once.mock.calls.find(
+        ([event]) => event === 'did-finish-load'
+      )?.[1] as (() => void) | undefined
+      expect(didFinishLoad).toBeInstanceOf(Function)
+
+      didFinishLoad?.()
+      vi.advanceTimersByTime(100)
+      expect(mainWin.webContents.send).toHaveBeenCalledExactlyOnceWith(
+        Events.NavigateTo,
+        '/downloads'
+      )
+      vi.useRealTimers()
     })
   })
 
