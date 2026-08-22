@@ -76,6 +76,17 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.22" date="2026-08-22">
+      <description>
+        <p>
+          Bundled aria2 is updated to 1.37.0-motrix.10. Motrix now detects
+          non-Motrix aria2 builds before spawning them, warns the user, and
+          applies a durable 16-connection compatibility limit. This beta also
+          fixes engine task-adoption races, adds a lightweight desktop mode,
+          and improves the New Task window's clipboard and sizing behavior.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.21" date="2026-08-22">
       <description>
         <p>
