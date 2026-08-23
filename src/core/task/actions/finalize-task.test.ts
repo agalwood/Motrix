@@ -934,7 +934,7 @@ describe('finalizeTask BT branch', () => {
     expect(deps.adapter.addTorrent).toHaveBeenCalledWith({
       metadata: expect.any(Uint8Array),
       saveDir: '/d/torrent',
-      selectedFiles: [0, 1],
+      selectedFiles: [1, 2],
       seedTime: 60,
       seedRatio: 1.5,
       btSeedUnverified: true,

@@ -805,12 +805,12 @@ async function handlePolledTasks(
         // Sync task_files whenever the engine reports a non-empty file
         // list — covers BT/magnet metadata arrival, fresh tasks, AND
         // legacy tasks restored from a prior session where the auto-sync
-        // trigger never ran. The helper's own db-emptiness check serves
-        // as the early-exit, so the cost is ~one prepared-statement query
-        // per task per poll once synced.
+        // trigger never ran, plus placeholder rows written by older magnet
+        // swaps. The helper validates structural completeness before its
+        // early-exit, so the steady-state cost remains ~one prepared query.
         if (merged.fileCount > 0) {
           runShellAsyncWork('task-files sync', () =>
-            syncTaskFilesIfMissing(existing.id, merged.engineTaskId)
+            syncTaskFilesIfIncomplete(existing.id, merged.engineTaskId)
           )
         }
         if (!publishedTerminal) taskManager.set(existing.id, merged)
@@ -848,7 +848,7 @@ async function handlePolledTasks(
       // written immediately instead of waiting for a later batch save.
       if (translated.fileCount > 0) {
         runShellAsyncWork('task-files orphan sync', () =>
-          syncTaskFilesIfMissing(id, raw.gid)
+          syncTaskFilesIfIncomplete(id, raw.gid)
         )
       }
       dirty = true
@@ -868,7 +868,7 @@ async function handlePolledTasks(
   if (dirty) publishTaskUpdate()
 }
 
-async function syncTaskFilesIfMissing(
+async function syncTaskFilesIfIncomplete(
   taskId: string,
   engineTaskId: string
 ): Promise<void> {
@@ -1139,7 +1139,7 @@ async function startEngineAndRestore(
       if (!task.bt) continue
       if (task.fileCount === 0) continue
       runShellAsyncWork('startup task-files sync', () =>
-        syncTaskFilesIfMissing(task.id, task.engineTaskId)
+        syncTaskFilesIfIncomplete(task.id, task.engineTaskId)
       )
     }
 

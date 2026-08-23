@@ -116,6 +116,7 @@ async function reAddBt(
   const storageLayout = getBtStorageLayout(task)
   const parsedLayout = storageLayout ? await parseBtFileLayout(metadata) : null
   const completed = task.status === TaskStatus.Completed
+  const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
     saveDir: storageLayout
@@ -134,7 +135,8 @@ async function reAddBt(
           : buildStagingOutputFilePaths(parsedLayout, storageLayout)
         : undefined,
     gid: reservedGid,
-    selectedFiles: task.bt?.selectedFiles,
+    // AddTorrentParams is engine-native; the task aggregate stays 0-based.
+    selectedFiles: selectedFiles?.map((index) => index + 1),
     checkIntegrity: true,
     pause: false,
     isPrivate: task.bt?.isPrivate ?? false,
