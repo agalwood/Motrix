@@ -218,7 +218,7 @@ export function translateBtExtension(
     trackers: (raw.bittorrent.announceList ?? []).flat(),
     selectedFiles: (raw.files ?? [])
       .filter((f) => f.selected === 'true')
-      .map((f) => Number(f.index)),
+      .map((f) => Number(f.index) - 1),
     peersInSwarm: 0,
     seedsInSwarm: 0,
     announceList: raw.bittorrent.announceList ?? [],
@@ -405,7 +405,7 @@ export function translateRawToTask(raw: Aria2RawStatus): DownloadTask {
 
 export function translateRawFile(raw: Aria2RawFile): TaskFile {
   return {
-    index: Number(raw.index),
+    index: Number(raw.index) - 1,
     path: raw.path,
     size: Number(raw.length),
     completedBytes: Number(raw.completedLength),

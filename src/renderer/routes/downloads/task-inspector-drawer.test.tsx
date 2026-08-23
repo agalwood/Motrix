@@ -249,6 +249,28 @@ describe('TaskInspectorDrawer', () => {
     expect(screen.queryByRole('button', { name: '/' })).toBeNull()
   })
 
+  it('shows the final BT destination instead of its internal workspace', () => {
+    const selection = createSelectionStore<DownloadTask>((t) => t.id)
+    const tasks = [
+      fake({
+        id: 'a',
+        type: TaskType.Bt,
+        kind: TaskKind.Bt,
+        diskPath: '/downloads/.motrix/61282448e78c1fc29ac1/p',
+        finalPath: '/downloads/sample-data',
+      }),
+    ]
+    selection.getState().setItems([...tasks])
+    selection.getState().select('a')
+
+    render(<TestHarness selection={selection} tasks={tasks} />)
+
+    expect(screen.getByText('/downloads/sample-data')).toBeInTheDocument()
+    expect(
+      screen.queryByText('/downloads/.motrix/61282448e78c1fc29ac1/p')
+    ).not.toBeInTheDocument()
+  })
+
   it('does not switch inspector content during marquee preview', () => {
     const selection = createSelectionStore<DownloadTask>((t) => t.id)
     const tasks = [

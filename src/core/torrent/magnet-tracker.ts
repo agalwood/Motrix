@@ -25,6 +25,14 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '@core/task/apply-terminal-transition'
+import {
+  acquireBtInfoHashAdmission,
+  btTaskTargetDir,
+  canonicalBtPath,
+  isBtInfoHashRegistered,
+  normalizeBtInfoHash,
+  TorrentDuplicateConflictError,
+} from '@core/task/bt-duplicate-policy'
 import { btWorkspacePath } from '@core/task/bt-storage-layout'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import type { TaskManager } from '@core/task/task-manager'
@@ -405,6 +413,24 @@ export class MagnetTracker {
     saveDir: string,
     provenance?: { source?: TaskSource; sourceMeta?: SourceMeta }
   ): Promise<string> {
+    const requestedInfoHash = extractInfoHash(uri)
+    if (requestedInfoHash === UNKNOWN_INFO_HASH) {
+      return this.submitUnderAdmission(uri, saveDir, provenance)
+    }
+
+    const release = await acquireBtInfoHashAdmission(requestedInfoHash)
+    try {
+      return await this.submitUnderAdmission(uri, saveDir, provenance)
+    } finally {
+      release()
+    }
+  }
+
+  private async submitUnderAdmission(
+    uri: string,
+    saveDir: string,
+    provenance?: { source?: TaskSource; sourceMeta?: SourceMeta }
+  ): Promise<string> {
     if (this.stopped) {
       throw new Error('MagnetTracker is stopped')
     }
@@ -415,6 +441,41 @@ export class MagnetTracker {
       if (this.stopped) return ''
       log.info({ gid, uri }, 'magnet added (file selection disabled)')
       return ''
+    }
+
+    const requestedInfoHash = extractInfoHash(uri)
+    if (requestedInfoHash !== UNKNOWN_INFO_HASH) {
+      const requestedDir = canonicalBtPath(saveDir)
+      const sameContent = this.taskManager
+        .getAll()
+        .filter(
+          (task) =>
+            normalizeBtInfoHash(task.infoHash ?? '') === requestedInfoHash &&
+            task.status !== TaskStatus.Removed
+        )
+      const sameDirectory = sameContent.find(
+        (task) => btTaskTargetDir(task) === requestedDir
+      )
+      if (sameDirectory) {
+        log.info(
+          { infoHash: requestedInfoHash, taskId: sameDirectory.id },
+          'magnet submit reused existing content owner'
+        )
+        return sameDirectory.id
+      }
+
+      const active = sameContent.find(isBtInfoHashRegistered)
+      if (active) {
+        throw new TorrentDuplicateConflictError({
+          reason: 'active-info-hash',
+          infoHash: requestedInfoHash,
+          targetDir: requestedDir,
+          existingTaskId: active.id,
+          existingTaskName: active.name,
+          existingTaskStatus: active.status,
+          canCreateCopy: false,
+        })
+      }
     }
 
     const metadataDir = await mkdtemp(join(tmpdir(), 'motrix-magnet-metadata-'))

@@ -923,14 +923,14 @@ describe('Aria2Adapter', () => {
 
       expect(files).toHaveLength(2)
       expect(files[0]).toEqual({
-        index: 1,
+        index: 0,
         path: '/tmp/downloads/file1.txt',
         size: 1048576,
         completedBytes: 524288,
         selected: true,
       })
       expect(files[1]).toEqual({
-        index: 2,
+        index: 1,
         path: '/tmp/downloads/file2.txt',
         size: 2097152,
         completedBytes: 0,

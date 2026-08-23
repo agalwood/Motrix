@@ -41,10 +41,10 @@ export function AddTaskWindow() {
       <PlatformServicesProvider services={electronServices}>
         <AddTaskForm
           defaultValues={defaultValues}
-          onSubmitSuccess={() =>
+          onSubmitSuccess={(taskId) =>
             void electronServices.closeHost({
               showMain: true,
-              navigateMainTo: '/downloads',
+              navigateMainTo: `/downloads/all?task=${encodeURIComponent(taskId)}`,
             })
           }
           onCancel={() => void electronServices.closeHost({ showMain: true })}

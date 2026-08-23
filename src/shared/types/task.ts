@@ -150,6 +150,7 @@ export interface BtExtension {
   seeds: number
   ratio: number
   trackers: string[]
+  /** Selected torrent files using the domain's 0-based indices. */
   selectedFiles: number[]
 
   peersInSwarm: number
@@ -269,6 +270,7 @@ export interface BridgeSourceMeta {
 export type SourceMeta = BridgeSourceMeta | null
 
 export interface TaskFile {
+  /** Engine-neutral 0-based file index. */
   index: number
   path: string
   size: number

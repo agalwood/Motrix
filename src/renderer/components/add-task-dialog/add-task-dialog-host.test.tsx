@@ -57,7 +57,7 @@ function renderWithRouter() {
       <Routes>
         <Route path="/" element={null} />
         <Route
-          path="/downloads"
+          path="/downloads/all"
           element={<div data-testid="downloads-route" />}
         />
       </Routes>
@@ -87,7 +87,7 @@ describe('AddTaskDialogHost', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  it('navigates to /downloads and closes dialog on submit success', () => {
+  it('navigates to the stable task and closes on submit success', () => {
     useAddTaskDialogStore.setState({ open: true, prefill: undefined })
     renderWithRouter()
     expect(screen.queryByTestId('downloads-route')).toBeNull()

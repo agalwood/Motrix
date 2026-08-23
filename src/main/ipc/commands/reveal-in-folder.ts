@@ -4,7 +4,9 @@ import type { DownloadTask } from '@shared/types/task'
 
 export interface RevealInFolderDeps {
   shell: { showItemInFolder: (path: string) => void }
-  getTask: (taskId: string) => Pick<DownloadTask, 'diskPath'> | undefined
+  getTask: (
+    taskId: string
+  ) => Pick<DownloadTask, 'diskPath' | 'finalPath'> | undefined
 }
 
 export interface RevealInFolderPayload {
@@ -36,7 +38,12 @@ export function createRevealInFolderHandler(deps: RevealInFolderDeps) {
       throw new AppError(ErrorCode.TaskNotFound, `Task not found: ${taskId}`)
     }
 
-    const taskPath = task.diskPath
+    // Indexed BT downloads intentionally live in an internal
+    // `.motrix/<workspace>/p` staging tree until finalization. Revealing that
+    // path leaks an implementation identifier and disagrees with the target
+    // path shown by the Inspector, so user-facing navigation follows the
+    // stable final destination whenever one is known.
+    const taskPath = task.finalPath || task.diskPath
     if (
       typeof taskPath !== 'string' ||
       taskPath.trim() === '' ||

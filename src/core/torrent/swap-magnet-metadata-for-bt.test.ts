@@ -679,6 +679,7 @@ describe('swapMagnetMetadataForBt', () => {
       .calls[0][1]
     expect(tmTask.id).toBe('m-mag')
     expect(tmTask.createdAt).toBe(1700000000)
+    expect(tmTask.bt?.selectedFiles).toEqual([0, 1])
   })
 
   it('records MetadataReady-to-Downloading after durability and before publication', async () => {
@@ -817,7 +818,11 @@ describe('swapMagnetMetadataForBt', () => {
     expect(queuedAutosaveStarted).toBe(false)
 
     releaseActivity()
-    await expect(swapPromise).resolves.toEqual({ gid: reservedGid })
+    await expect(swapPromise).resolves.toEqual({
+      outcome: 'created',
+      gid: reservedGid,
+      taskId: 'm-mag',
+    })
     await queuedAutosave
 
     expect(taskManager.getByEngineTaskId(reservedGid)?.id).toBe('m-mag')
@@ -983,7 +988,9 @@ describe('swapMagnetMetadataForBt', () => {
         }
       )
     ).resolves.toEqual({
+      outcome: 'created',
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
+      taskId: 'm-mag',
     })
 
     expect(taskManager.set).toHaveBeenCalled()

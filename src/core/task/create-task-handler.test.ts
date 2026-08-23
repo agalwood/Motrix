@@ -2,9 +2,18 @@ import { initLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskType, TransitionPhase } from '@shared/types/task'
+import {
+  makeDefaultBtExtension,
+  makeDownloadTask,
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
+import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
 
 // Stub `mkdir` (and the other `fs.*` calls inadvertently dragged
@@ -186,7 +195,7 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
     set,
     add,
     remove,
-    getAll: vi.fn(),
+    getAll: vi.fn(() => []),
     getById: vi.fn(),
     getByEngineTaskId: vi.fn(),
     clear: vi.fn(),
@@ -242,6 +251,101 @@ function lastAddedTask(deps: { add: ReturnType<typeof vi.fn> }): DownloadTask {
 }
 
 describe('handleCreateTask', () => {
+  it('reuses an exact active torrent before allocating storage or an engine gid', async () => {
+    const bytes = makePublicTorrentFixture()
+    const parsed = await parseBtFileLayout(bytes)
+    const deps = makeDeps()
+    const existing = makeDownloadTask({
+      id: 'existing-task',
+      engineTaskId: 'existing-gid',
+      name: 'public-torrent',
+      kind: TaskKind.Bt,
+      type: TaskType.Bt,
+      status: TaskStatus.Seeding,
+      saveDir: '/d',
+      createdAt: 1,
+      updatedAt: 1,
+      filename: 'public-torrent',
+      diskPath: '/d/public-torrent',
+      finalPath: '/d/public-torrent',
+      finalName: 'public-torrent',
+      infoHash: parsed.infoHash,
+      bt: makeDefaultBtExtension({ selectedFiles: [0] }),
+      source: 'user',
+      sourceMeta: null,
+      instances: [
+        {
+          instanceId: 'primary:existing-task',
+          motrixId: 'existing-task',
+          gid: 'existing-gid',
+          phase: TaskInstancePhase.BtDownload,
+          status: TaskStatus.Seeding,
+          progress: 1,
+          totalBytes: 1024,
+          downloadedBytes: 1024,
+          uploadedBytes: 0,
+          diskPath: '/d/public-torrent',
+          transitionPhase: TransitionPhase.Idle,
+          uris: [],
+          uriHash: null,
+          payload: {},
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    })
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([existing])
+    vi.mocked(deps.taskManager.getById).mockReturnValue(existing)
+
+    await expect(
+      handleCreateTask(
+        {
+          type: 'bt',
+          payload: {
+            kind: 'torrent-base64',
+            base64: Buffer.from(bytes).toString('base64'),
+          },
+          selectedFiles: [0],
+          saveDir: '/d',
+        },
+        deps
+      )
+    ).resolves.toEqual({
+      outcome: 'reused',
+      gid: 'existing-gid',
+      taskId: 'existing-task',
+    })
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+    expect(deps.pick).not.toHaveBeenCalled()
+    expect(deps.persist).not.toHaveBeenCalled()
+  })
+
+  it('does not silently suffix orphaned torrent files without confirmation', async () => {
+    const bytes = makePublicTorrentFixture()
+    const deps = makeDeps()
+    deps.finalNamePicker.isTaken = vi.fn(async () => true)
+
+    await expect(
+      handleCreateTask(
+        {
+          type: 'bt',
+          payload: {
+            kind: 'torrent-base64',
+            base64: Buffer.from(bytes).toString('base64'),
+          },
+          selectedFiles: [0],
+          saveDir: '/d',
+        },
+        deps
+      )
+    ).rejects.toMatchObject({
+      conflict: { reason: 'existing-files', canCreateCopy: true },
+    })
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+    expect(deps.pick).not.toHaveBeenCalled()
+    expect(deps.persist).not.toHaveBeenCalled()
+  })
+
   it('rejects invalid payload with AppError', async () => {
     await expect(handleCreateTask({ junk: true }, makeDeps())).rejects.toThrow(
       AppError

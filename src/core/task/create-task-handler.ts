@@ -18,7 +18,10 @@ import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
-import type { TaskCreateRequest } from '@shared/schemas/add-task'
+import type {
+  TaskCreateRequest,
+  TaskCreateSuccessResult,
+} from '@shared/schemas/add-task'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import type { BeforeCreateHttpContextDTO } from '@shared/types/plugin-hooks'
 import type {
@@ -39,6 +42,14 @@ import {
 import { isTorrentLikeType } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type Database from 'better-sqlite3'
+import {
+  acquireBtInfoHashAdmission,
+  existingFilesConflict,
+  extractMagnetInfoHash,
+  inspectBtDuplicate,
+  reservedBtFinalNames,
+  TorrentDuplicateConflictError,
+} from './bt-duplicate-policy'
 import {
   type BtStoragePlan,
   btStoragePayload,
@@ -129,6 +140,9 @@ export interface CreateTaskDeps {
   /** Dispatch an AdaptedMux to the shared MuxPipeline. Must be paired with
    *  resolveToMux — both present or both absent. */
   dispatchMux?: (adapted: AdaptedMux) => Promise<{ taskId: string }>
+  /** Re-adds a terminal BT task against its final layout with integrity
+   * checking. Shell command handlers inject the existing reAddTask action. */
+  reuseExistingBt?: (taskId: string) => Promise<void>
 }
 
 export interface CreateTaskOptions {
@@ -164,7 +178,40 @@ export async function handleCreateTask(
   rawRequest: unknown,
   deps: CreateTaskDeps,
   opts: CreateTaskOptions = {}
-): Promise<{ gid: string; taskId: string }> {
+): Promise<TaskCreateSuccessResult> {
+  const parsed = taskCreateRequestSchema.safeParse(rawRequest)
+  if (!parsed.success || parsed.data.type !== 'bt') {
+    return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+  }
+
+  const req = parsed.data
+  let infoHash =
+    req.payload.kind === 'magnet'
+      ? extractMagnetInfoHash(req.payload.uri)
+      : null
+  if (!infoHash && req.payload.kind === 'torrent-base64') {
+    try {
+      const bytes = req.torrentBytes ?? decodeBase64ToBytes(req.payload.base64)
+      infoHash = (await parseBtFileLayout(bytes)).infoHash
+    } catch {
+      // The canonical create path below owns parse-error handling and logging.
+    }
+  }
+  if (!infoHash) return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+
+  const release = await acquireBtInfoHashAdmission(infoHash)
+  try {
+    return await handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+  } finally {
+    release()
+  }
+}
+
+async function handleCreateTaskUnderAdmission(
+  rawRequest: unknown,
+  deps: CreateTaskDeps,
+  opts: CreateTaskOptions = {}
+): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (!parsed.success) {
     throw new AppError(
@@ -222,12 +269,67 @@ export async function handleCreateTask(
     }
   }
 
+  const btInfoHash =
+    req.type !== 'bt'
+      ? null
+      : (parsedBtLayout?.infoHash ??
+        (req.payload.kind === 'magnet'
+          ? extractMagnetInfoHash(req.payload.uri)
+          : null))
+
+  if (req.type === 'bt' && btInfoHash) {
+    const admission = inspectBtDuplicate(deps.taskManager.getAll(), {
+      infoHash: btInfoHash,
+      saveDir: effectiveSaveDir,
+      selectedFiles: req.selectedFiles,
+      duplicatePolicy: req.duplicatePolicy,
+      excludeTaskId: req.existingTaskId,
+    })
+    if (admission.action === 'conflict') {
+      throw new TorrentDuplicateConflictError(admission.conflict)
+    }
+    if (admission.action === 'reuse') {
+      const didRecheck = admission.recheck && Boolean(deps.reuseExistingBt)
+      if (didRecheck) {
+        await deps.reuseExistingBt?.(admission.task.id)
+      }
+      const owner =
+        deps.taskManager.getById(admission.task.id) ?? admission.task
+      return {
+        outcome: didRecheck ? 'rechecked' : 'reused',
+        gid: owner.engineTaskId,
+        taskId: owner.id,
+      }
+    }
+  }
+
   // 1. Decide final on-disk name (handles collisions).
   const desiredName = deriveDesiredName(req, torrentInfoName)
-  const finalName = await deps.finalNamePicker.pick(
-    effectiveSaveDir,
-    desiredName
-  )
+  if (
+    req.type === 'bt' &&
+    btInfoHash &&
+    req.duplicatePolicy === 'reuse' &&
+    deps.finalNamePicker.isTaken &&
+    (await deps.finalNamePicker.isTaken(effectiveSaveDir, desiredName))
+  ) {
+    throw existingFilesConflict(btInfoHash, effectiveSaveDir)
+  }
+  const reservedNames =
+    req.type === 'bt'
+      ? reservedBtFinalNames(
+          deps.taskManager.getAll(),
+          effectiveSaveDir,
+          req.existingTaskId
+        )
+      : undefined
+  const finalName =
+    req.type === 'bt'
+      ? await deps.finalNamePicker.pick(
+          effectiveSaveDir,
+          desiredName,
+          reservedNames
+        )
+      : await deps.finalNamePicker.pick(effectiveSaveDir, desiredName)
 
   const taskType = deriveTaskType(req)
   const finalPath = path.join(effectiveSaveDir, finalName)
@@ -392,6 +494,7 @@ export async function handleCreateTask(
           }
           const muxDispatchResult = await deps.dispatchMux(adaptedMux)
           return {
+            outcome: 'created',
             gid: muxDispatchResult.taskId,
             taskId: muxDispatchResult.taskId,
           }
@@ -604,12 +707,16 @@ export async function handleCreateTask(
     finalPath,
     finalName,
     torrentMetaPath,
+    infoHash: btInfoHash,
     // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
     // persists is_private to db. Other bt fields are filled in by the next poll
     // cycle via translateBtExtension; mergeTask preserves isPrivate via the
     // saved.isPrivate injection wired in Task 4.
     bt: isBtLike
-      ? makeDefaultBtExtension({ isPrivate: isPrivateFromTorrent })
+      ? makeDefaultBtExtension({
+          isPrivate: isPrivateFromTorrent,
+          selectedFiles: req.type === 'bt' ? req.selectedFiles : [],
+        })
       : undefined,
     // Provenance: defaults to 'user'. Bridge receiver passes 'bridge' +
     // BridgeSourceMeta via CreateTaskOptions to attribute rows correctly.
@@ -617,10 +724,7 @@ export async function handleCreateTask(
     sourceMeta: opts.sourceMeta ?? null,
     instances: [primaryInstance],
   })
-  const createReservedTask = async (): Promise<{
-    gid: string
-    taskId: string
-  }> => {
+  const createReservedTask = async (): Promise<TaskCreateSuccessResult> => {
     deps.taskManager.reserveEngineTaskId(gid)
 
     const persistParent = async (): Promise<void> => {
@@ -741,7 +845,7 @@ export async function handleCreateTask(
     // initial Queued/zero state, handlePolledTasks's dirty guard might
     // not emit either).
 
-    return { gid, taskId }
+    return { outcome: 'created', gid, taskId }
   }
 
   return deps.runTaskMutation
@@ -820,11 +924,6 @@ function extractMagnetDn(uri: string): string | null {
   } catch {
     return match[1]
   }
-}
-
-function extractMagnetInfoHash(uri: string): string | null {
-  const match = uri.match(/xt=urn:btih:([A-Za-z0-9]+)/)
-  return match ? match[1] : null
 }
 
 function decodeBase64ToBytes(b64: string): Uint8Array {

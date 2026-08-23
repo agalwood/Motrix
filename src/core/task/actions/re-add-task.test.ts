@@ -116,7 +116,7 @@ describe('reAddTask (BT path)', () => {
         saveDir: '/tmp/sample',
         checkIntegrity: true,
         pause: false,
-        selectedFiles: [0],
+        selectedFiles: [1],
       })
     )
   })
@@ -687,9 +687,9 @@ describe('reAddTask reserved GID ownership', () => {
 })
 
 describe('characterization: reAddTask adapter call params', () => {
-  it('reAddBt passes selectedFiles AS STORED through to addTorrent (no transform)', async () => {
-    // Uses a non-trivial multi-index value to make the "passed through as-is"
-    // invariant unmistakable. Task 5 must not silently transform this array.
+  it('reAddBt converts 0-based task selection to native 1-based indices', async () => {
+    // Uses a non-trivial multi-index value so an accidental pass-through is
+    // visible: the task aggregate is engine-neutral, AddTorrentParams is not.
     const task = makeBtTask({
       bt: makeDefaultBtExtension({ selectedFiles: [0, 2], isPrivate: true }),
     })
@@ -697,7 +697,7 @@ describe('characterization: reAddTask adapter call params', () => {
     await reAddTask('t1', deps)
     const arg = (deps.adapter.addTorrent as ReturnType<typeof vi.fn>).mock
       .calls[0][0]
-    expect(arg.selectedFiles).toEqual(task.bt!.selectedFiles)
+    expect(arg.selectedFiles).toEqual([1, 3])
     expect(arg.checkIntegrity).toBe(true)
     expect(arg.pause).toBe(false)
     expect(arg.isPrivate).toBe(task.bt!.isPrivate)

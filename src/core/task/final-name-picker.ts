@@ -10,14 +10,27 @@ export interface FsProbe {
 }
 
 export interface FinalNamePicker {
-  pick(saveDir: string, desiredName: string): Promise<string>
+  pick(
+    saveDir: string,
+    desiredName: string,
+    reservedNames?: readonly string[]
+  ): Promise<string>
+  isTaken?(dir: string, name: string): Promise<boolean>
 }
 
 export class FinalNamePickerImpl implements FinalNamePicker {
   constructor(private readonly fs: FsProbe) {}
 
-  async pick(saveDir: string, desiredName: string): Promise<string> {
-    if (!(await this.isTaken(saveDir, desiredName))) {
+  async pick(
+    saveDir: string,
+    desiredName: string,
+    reservedNames: readonly string[] = []
+  ): Promise<string> {
+    const reserved = new Set(reservedNames)
+    if (
+      !reserved.has(desiredName) &&
+      !(await this.isTaken(saveDir, desiredName))
+    ) {
       return desiredName
     }
 
@@ -25,7 +38,10 @@ export class FinalNamePickerImpl implements FinalNamePicker {
 
     for (let n = 1; n <= MAX_DEDUP_ATTEMPTS; n++) {
       const candidate = ext ? `${base} (${n})${ext}` : `${base} (${n})`
-      if (!(await this.isTaken(saveDir, candidate))) {
+      if (
+        !reserved.has(candidate) &&
+        !(await this.isTaken(saveDir, candidate))
+      ) {
         return candidate
       }
     }
@@ -36,7 +52,7 @@ export class FinalNamePickerImpl implements FinalNamePicker {
     )
   }
 
-  private async isTaken(dir: string, name: string): Promise<boolean> {
+  async isTaken(dir: string, name: string): Promise<boolean> {
     const finalPath = path.join(dir, name)
     const tempPath = finalPath + INCOMPLETE_SUFFIX
     const [f, t] = await Promise.all([

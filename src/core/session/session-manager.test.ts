@@ -2378,7 +2378,7 @@ describe('SessionManager', () => {
         // override the bt block would carry [0, 1, 2].
         files: [
           {
-            index: '0',
+            index: '1',
             path: '/tmp/multi/a.bin',
             length: '100',
             completedLength: '0',
@@ -2386,7 +2386,7 @@ describe('SessionManager', () => {
             uris: [],
           },
           {
-            index: '1',
+            index: '2',
             path: '/tmp/multi/b.bin',
             length: '200',
             completedLength: '0',
@@ -2394,7 +2394,7 @@ describe('SessionManager', () => {
             uris: [],
           },
           {
-            index: '2',
+            index: '3',
             path: '/tmp/multi/c.bin',
             length: '300',
             completedLength: '0',
@@ -2490,7 +2490,7 @@ describe('SessionManager', () => {
           },
           files: [
             {
-              index: '0',
+              index: '1',
               path: '/tmp/multi/a.bin',
               length: '100',
               completedLength: '0',
@@ -2498,7 +2498,7 @@ describe('SessionManager', () => {
               uris: [],
             },
             {
-              index: '1',
+              index: '2',
               path: '/tmp/multi/b.bin',
               length: '200',
               completedLength: '0',
@@ -2506,7 +2506,7 @@ describe('SessionManager', () => {
               uris: [],
             },
             {
-              index: '2',
+              index: '3',
               path: '/tmp/multi/c.bin',
               length: '300',
               completedLength: '0',

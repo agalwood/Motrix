@@ -24,6 +24,8 @@ export interface BtOutputFilePath {
 }
 
 export interface ParsedBtFileLayout {
+  /** Canonical lowercase hexadecimal BitTorrent content identity. */
+  infoHash: string
   torrentRootName: string
   multiFile: boolean
   isPrivate: boolean
@@ -51,6 +53,12 @@ export async function parseBtFileLayout(
   metadata: Uint8Array
 ): Promise<ParsedBtFileLayout> {
   const parsed = await parseTorrent(metadata)
+  if (
+    typeof parsed.infoHash !== 'string' ||
+    !/^[a-f0-9]{40}$/i.test(parsed.infoHash)
+  ) {
+    throw new UnsafeTorrentPathError('Torrent contains no valid info hash')
+  }
   const torrentRootName = validatePathComponent(parsed.name, 'torrent name')
   const parsedFiles = parsed.files ?? []
   if (parsedFiles.length === 0) {
@@ -85,6 +93,7 @@ export async function parseBtFileLayout(
   })
 
   return {
+    infoHash: parsed.infoHash.toLowerCase(),
     torrentRootName,
     multiFile,
     isPrivate: parsed.private === true,

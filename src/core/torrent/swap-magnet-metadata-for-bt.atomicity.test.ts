@@ -178,7 +178,9 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
 
       removeFaultTrigger(db, seam)
       await expect(swapMagnetMetadataForBt(input, deps)).resolves.toEqual({
+        outcome: 'created',
         gid: expect.stringMatching(/^[0-9a-f]{16}$/),
+        taskId,
       })
       const secondGid = tracking.addedGids[1]
 

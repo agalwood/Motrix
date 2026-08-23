@@ -1,5 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@renderer/components/ui/alert-dialog'
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -13,6 +23,8 @@ import {
   type AddTaskFormValues,
   addTaskFormSchema,
   formValuesToTaskCreateRequests,
+  type TaskCreateCommandResult,
+  type TaskCreateRequest,
 } from '@shared/schemas/add-task'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -32,7 +44,7 @@ import { useExternalHydration } from './use-external-hydration'
 
 interface AddTaskFormProps {
   defaultValues?: DeepPartial<AddTaskFormValues>
-  onSubmitSuccess?: (gid: string) => void
+  onSubmitSuccess?: (taskId: string) => void
   onCancel: () => void
   subscribeEvents?: boolean
 }
@@ -51,7 +63,12 @@ export function AddTaskForm({
   subscribeEvents = true,
 }: AddTaskFormProps) {
   const platform = usePlatformServices()
+  const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
+  const [duplicateConflict, setDuplicateConflict] = useState<{
+    request: TaskCreateRequest
+    result: Extract<TaskCreateCommandResult, { outcome: 'conflict' }>
+  } | null>(null)
 
   const form = useForm<AddTaskFormValues>({
     resolver: zodResolver(addTaskFormSchema) as Resolver<AddTaskFormValues>,
@@ -137,37 +154,71 @@ export function AddTaskForm({
       setSubmitting(true)
       try {
         const requests = formValuesToTaskCreateRequests(values)
-        const gids: string[] = []
+        const successes: Array<
+          Extract<TaskCreateCommandResult, { gid: string }>
+        > = []
         let failed = 0
+        let blockedByConflict = false
         for (const request of requests) {
           try {
             const result = (await transport.invoke(
               Commands.CreateTask,
               request
-            )) as { gid: string }
-            gids.push(result.gid)
+            )) as TaskCreateCommandResult
+            if (result.outcome === 'conflict') {
+              setDuplicateConflict({ request, result })
+              blockedByConflict = true
+              break
+            }
+            successes.push(result)
           } catch (err) {
             failed += 1
             console.error(err)
           }
         }
-        if (failed === 0) {
+        if (blockedByConflict) return
+        if (failed === 0 && successes.length > 0) {
           platform.notify('info', 'task.add.created')
-        } else if (gids.length > 0) {
+        } else if (successes.length > 0) {
           platform.notify('warn', 'task.add.createdPartial', {
-            ok: gids.length,
+            ok: successes.length,
             failed,
           })
-        } else {
+        } else if (failed > 0) {
           platform.notify('error', 'task.add.createFailed')
         }
-        if (gids.length > 0) onSubmitSuccess?.(gids[0])
+        if (successes.length > 0) {
+          onSubmitSuccess?.(successes[0].taskId ?? successes[0].gid)
+        }
       } finally {
         setSubmitting(false)
       }
     },
-    [platform, onSubmitSuccess]
+    [onSubmitSuccess, platform]
   )
+
+  const createSeparateCopy = useCallback(async () => {
+    if (!duplicateConflict) return
+    setSubmitting(true)
+    try {
+      const result = (await transport.invoke(Commands.CreateTask, {
+        ...duplicateConflict.request,
+        duplicatePolicy: 'create-copy',
+      })) as TaskCreateCommandResult
+      if (result.outcome === 'conflict') {
+        setDuplicateConflict({ request: duplicateConflict.request, result })
+        return
+      }
+      setDuplicateConflict(null)
+      platform.notify('info', 'task.add.createdCopy')
+      onSubmitSuccess?.(result.taskId)
+    } catch (error) {
+      console.error(error)
+      platform.notify('error', 'task.add.createFailed')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [duplicateConflict, onSubmitSuccess, platform])
 
   // ⌘↵ / Ctrl+Enter submit
   useEffect(() => {
@@ -195,6 +246,46 @@ export function AddTaskForm({
           submitting={submitting}
         />
       </div>
+      <AlertDialog
+        open={duplicateConflict !== null}
+        onOpenChange={(open) => !open && setDuplicateConflict(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('task.add.duplicate.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                `task.add.duplicate.${duplicateConflict?.result.conflict.reason}`,
+                {
+                  name:
+                    duplicateConflict?.result.conflict.existingTaskName ??
+                    t('task.add.duplicate.filesOnDisk'),
+                }
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            {duplicateConflict?.result.conflict.existingTaskId && (
+              <AlertDialogAction
+                onClick={() => {
+                  const taskId =
+                    duplicateConflict.result.conflict.existingTaskId
+                  setDuplicateConflict(null)
+                  if (taskId) onSubmitSuccess?.(taskId)
+                }}
+              >
+                {t('task.add.duplicate.showExisting')}
+              </AlertDialogAction>
+            )}
+            {duplicateConflict?.result.conflict.canCreateCopy && (
+              <AlertDialogAction onClick={() => void createSeparateCopy()}>
+                {t('task.add.duplicate.createCopy')}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </FormProvider>
   )
 }

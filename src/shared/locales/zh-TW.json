@@ -796,7 +796,17 @@
       "saveDirEmpty": "選擇資料夾...",
       "changeSaveDir": "變更儲存目錄",
       "created": "已新增任務",
+      "createdCopy": "已新增獨立副本",
       "createdPartial": "已新增 {{ok}} 個，{{failed}} 個失敗",
+      "duplicate": {
+        "title": "此 Torrent 已經存在",
+        "active-info-hash": "「{{name}}」正在執行。aria2 無法同時執行兩個內容相同的 Torrent 任務。",
+        "selection-mismatch": "「{{name}}」使用相同儲存目錄，但檔案選取不同。Motrix 不會覆寫它，也不會靜默建立重新命名的副本。",
+        "existing-files": "目標位置已存在「{{name}}」，但對應的任務記錄無法使用。Motrix 不會覆寫這些檔案。",
+        "filesOnDisk": "Torrent 檔案",
+        "showExisting": "顯示現有任務",
+        "createCopy": "建立獨立副本"
+      },
       "adding": "正在新增...",
       "interpretedMagnet": "已偵測到 Magnet 連結",
       "interpretedCurl": "已解析 cURL 命令",

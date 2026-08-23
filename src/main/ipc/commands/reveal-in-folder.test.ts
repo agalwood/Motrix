@@ -8,7 +8,10 @@ describe('revealInFolder', () => {
       shell,
       getTask: (taskId) =>
         taskId === 'task-1'
-          ? { diskPath: '/Users/me/Downloads/file.iso' }
+          ? {
+              diskPath: '/Users/me/Downloads/file.iso',
+              finalPath: '/Users/me/Downloads/file.iso',
+            }
           : undefined,
     })
 
@@ -16,6 +19,23 @@ describe('revealInFolder', () => {
 
     expect(shell.showItemInFolder).toHaveBeenCalledWith(
       '/Users/me/Downloads/file.iso'
+    )
+  })
+
+  it('hides an indexed BT workspace behind its stable final path', async () => {
+    const shell = { showItemInFolder: vi.fn() }
+    const handler = createRevealInFolderHandler({
+      shell,
+      getTask: () => ({
+        diskPath: '/Users/me/Downloads/.motrix/61282448e78c1fc29ac1/p',
+        finalPath: '/Users/me/Downloads/sample-data',
+      }),
+    })
+
+    await handler({ taskId: 'task-bt' })
+
+    expect(shell.showItemInFolder).toHaveBeenCalledWith(
+      '/Users/me/Downloads/sample-data'
     )
   })
 
@@ -37,7 +57,7 @@ describe('revealInFolder', () => {
     const shell = { showItemInFolder: vi.fn() }
     const handler = createRevealInFolderHandler({
       shell,
-      getTask: () => ({ diskPath }),
+      getTask: () => ({ diskPath, finalPath: '' }),
     })
 
     await handler({ taskId: 'task-unc' })
@@ -54,7 +74,7 @@ describe('revealInFolder', () => {
     const shell = { showItemInFolder: vi.fn() }
     const handler = createRevealInFolderHandler({
       shell,
-      getTask: () => ({ diskPath }),
+      getTask: () => ({ diskPath, finalPath: '' }),
     })
 
     await expect(handler({ taskId: 'task-device' })).rejects.toThrow(
@@ -67,7 +87,10 @@ describe('revealInFolder', () => {
     const shell = { showItemInFolder: vi.fn() }
     const handler = createRevealInFolderHandler({
       shell,
-      getTask: () => ({ diskPath: '../downloads/file.iso' }),
+      getTask: () => ({
+        diskPath: '../downloads/file.iso',
+        finalPath: '',
+      }),
     })
 
     await expect(handler({ taskId: 'task-relative' })).rejects.toThrow(

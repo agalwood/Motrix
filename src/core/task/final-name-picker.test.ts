@@ -26,6 +26,11 @@ describe('FinalNamePicker.pick', () => {
     expect(await picker.pick('/d', 'foo.mp4')).toBe('foo (1).mp4')
   })
 
+  it('reserves names owned by tasks whose payload is still staged elsewhere', async () => {
+    const picker = new FinalNamePickerImpl(makeFs(new Set()))
+    expect(await picker.pick('/d', 'foo.mp4', ['foo.mp4'])).toBe('foo (1).mp4')
+  })
+
   it('increments through (1), (2), (3)', async () => {
     const picker = new FinalNamePickerImpl(
       makeFs(new Set(['/d/foo.mp4', '/d/foo (1).mp4', '/d/foo (2).mp4']))

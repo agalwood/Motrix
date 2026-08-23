@@ -808,7 +808,17 @@
       "saveDirEmpty": "Choose a folder…",
       "changeSaveDir": "Change save directory",
       "created": "Task added",
+      "createdCopy": "Separate copy added",
       "createdPartial": "{{ok}} added · {{failed}} failed",
+      "duplicate": {
+        "title": "This torrent already exists",
+        "active-info-hash": "{{name}} is already active. aria2 cannot run the same torrent content twice at the same time.",
+        "selection-mismatch": "{{name}} uses the same destination with a different file selection. Motrix will not overwrite it or silently create a renamed copy.",
+        "existing-files": "{{name}} already exists in this destination, but its task record is unavailable. Motrix will not overwrite it.",
+        "filesOnDisk": "Torrent files",
+        "showExisting": "Show existing task",
+        "createCopy": "Create separate copy"
+      },
       "adding": "Adding…",
       "interpretedMagnet": "Magnet link detected",
       "interpretedCurl": "cURL command parsed",

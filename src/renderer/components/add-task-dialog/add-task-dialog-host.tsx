@@ -43,11 +43,14 @@ export function AddTaskDialogHost() {
   // ~300-500ms, and the user can close the dialog (Esc / outside-click)
   // during that window. If they did, the store is already closed —
   // navigating would yank them off whatever route they switched to.
-  const onSubmitSuccess = useCallback(() => {
-    if (!useAddTaskDialogStore.getState().open) return
-    close()
-    navigate('/downloads')
-  }, [close, navigate])
+  const onSubmitSuccess = useCallback(
+    (taskId: string) => {
+      if (!useAddTaskDialogStore.getState().open) return
+      close()
+      navigate(`/downloads/all?task=${encodeURIComponent(taskId)}`)
+    },
+    [close, navigate]
+  )
 
   // Register the web close handler so webServices.closeHost() works.
   useEffect(() => {
