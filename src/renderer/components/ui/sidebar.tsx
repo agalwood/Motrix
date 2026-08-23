@@ -273,7 +273,7 @@ function SidebarTrigger({
       variant="ghost"
       size="icon"
       className={cn(
-        'size-7 [&>svg]:opacity-50 hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75',
+        'size-7 [&>svg]:opacity-65 hover:[&>svg]:opacity-90 focus-visible:[&>svg]:opacity-90',
         className
       )}
       onClick={(event) => {

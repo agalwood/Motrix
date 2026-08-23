@@ -52,6 +52,7 @@ vi.mock('electron', () => {
     isDestroyed = vi.fn(() => this._destroyed)
     isVisible = vi.fn(() => this._visible)
     isFocused = vi.fn(() => true)
+    isMaximized = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
     setBounds = vi.fn(
       (b: { x: number; y: number; width: number; height: number }) => {
@@ -153,6 +154,65 @@ describe('WindowManager', () => {
       .options
     expect(options.titleBarStyle).toBe('hidden')
     expect(options.titleBarOverlay).toBeUndefined()
+  })
+
+  it('publishes the owning window maximize state after load and on changes', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'win32',
+    })
+
+    const win = wm.open('main')
+    const webContentsListeners = (
+      win.webContents.on as unknown as ReturnType<typeof vi.fn>
+    ).mock.calls
+    const windowListeners = (win.on as unknown as ReturnType<typeof vi.fn>).mock
+      .calls
+    const didFinishLoad = webContentsListeners.find(
+      ([event]) => event === 'did-finish-load'
+    )?.[1] as (() => void) | undefined
+    const maximize = windowListeners.find(
+      ([event]) => event === 'maximize'
+    )?.[1] as (() => void) | undefined
+    const unmaximize = windowListeners.find(
+      ([event]) => event === 'unmaximize'
+    )?.[1] as (() => void) | undefined
+    const resized = windowListeners.find(
+      ([event]) => event === 'resized'
+    )?.[1] as (() => void) | undefined
+
+    didFinishLoad?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false }
+    )
+
+    vi.mocked(win.isMaximized).mockReturnValue(true)
+    maximize?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: true }
+    )
+
+    // macOS can finish a manual resize without sending unmaximize. The final
+    // geometry event must still reconcile the renderer caption state.
+    vi.mocked(win.isMaximized).mockReturnValue(false)
+    resized?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false }
+    )
+
+    vi.mocked(win.isMaximized).mockReturnValue(true)
+    maximize?.()
+    vi.mocked(win.isMaximized).mockReturnValue(false)
+    unmaximize?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false }
+    )
   })
 
   it('uses the explicit secure Electron renderer defaults', () => {

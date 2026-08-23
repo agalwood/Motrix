@@ -4,6 +4,10 @@ export interface LocaleChangedPayload {
   language: SupportedLocale
 }
 
+export interface WindowMaximizedChangedPayload {
+  maximized: boolean
+}
+
 export const Events = {
   TaskUpdated: 'event:taskUpdated',
   TaskFilesUpdated: 'event:taskFilesUpdated',
@@ -100,6 +104,9 @@ export const Events = {
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
+  // Renderer-local shell state. Electron sends this directly to the owning
+  // BrowserWindow instead of broadcasting it through the core event bus.
+  WindowMaximizedChanged: 'event:windowMaximizedChanged',
 } as const
 
 export type EventChannel = (typeof Events)[keyof typeof Events]
