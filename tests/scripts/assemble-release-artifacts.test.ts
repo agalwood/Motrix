@@ -47,7 +47,9 @@ describe('assembleReleaseArtifacts', () => {
     expect(await readdir(fixture.output)).toEqual(
       expect.arrayContaining([
         'Motrix-2.0.0-arm64.AppImage',
+        'Motrix-2.0.0-arm64.AppImage.zsync',
         'Motrix-2.0.0-x86_64.AppImage',
+        'Motrix-2.0.0-x86_64.AppImage.zsync',
         'Motrix-2.0.0.aarch64.rpm',
         'Motrix-2.0.0.x86_64.rpm',
         'Motrix-Native-Host-2.0.0-linux-arm64.tar.gz',
@@ -445,10 +447,7 @@ describe('assembleReleaseArtifacts', () => {
 
     const rejected = await createFixture()
     await writeFile(
-      path.join(
-        path.dirname(rejected.paths.linuxX64Deb),
-        'Motrix-2.0.0-x64.AppImage.blockmap'
-      ),
+      `${rejected.paths.linuxX64AppImage}.blockmap`,
       'orphaned AppImage blockmap'
     )
     await expect(
@@ -458,7 +457,22 @@ describe('assembleReleaseArtifacts', () => {
         version: VERSION,
       })
     ).rejects.toThrow(
-      'linux-x64: unexpected release asset Motrix-2.0.0-x64.AppImage.blockmap'
+      'linux-x64: unexpected release asset Motrix-2.0.0-x86_64.AppImage.blockmap'
+    )
+
+    const zsyncBlockmap = await createFixture()
+    await writeFile(
+      `${zsyncBlockmap.paths.linuxX64Zsync}.blockmap`,
+      'orphaned zsync blockmap'
+    )
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: zsyncBlockmap.input,
+        outputDirectory: zsyncBlockmap.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'linux-x64: unexpected release asset Motrix-2.0.0-x86_64.AppImage.zsync.blockmap'
     )
 
     const companionBlockmap = await createFixture()
@@ -477,7 +491,7 @@ describe('assembleReleaseArtifacts', () => {
     )
   })
 
-  it('flattens the AppImage asset and records it in both Linux manifests', async () => {
+  it('flattens AppImage/zsync assets but keeps zsync out of updater manifests', async () => {
     const fixture = await createFixture()
 
     await assembleReleaseArtifacts({
@@ -491,7 +505,9 @@ describe('assembleReleaseArtifacts', () => {
     expect(output).toEqual(
       expect.arrayContaining([
         'Motrix-2.0.0-x86_64.AppImage',
+        'Motrix-2.0.0-x86_64.AppImage.zsync',
         'Motrix-2.0.0-arm64.AppImage',
+        'Motrix-2.0.0-arm64.AppImage.zsync',
       ])
     )
 
@@ -504,7 +520,24 @@ describe('assembleReleaseArtifacts', () => {
         await readFile(path.join(fixture.output, manifestName), 'utf8')
       ) as { files: Array<{ url: string }> }
       expect(manifest.files.map((file) => file.url)).toContain(appImage)
+      expect(manifest.files.some((file) => file.url.endsWith('.zsync'))).toBe(
+        false
+      )
     }
+  })
+
+  it('requires a zsync sidecar for every Linux AppImage', async () => {
+    const fixture = await createFixture()
+    await unlink(fixture.paths.linuxX64Zsync)
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'required release asset Motrix-2.0.0-x86_64.AppImage.zsync is missing'
+    )
   })
 
   it('rejects Linux artifacts swapped between x64 and arm64 inputs', async () => {
@@ -577,25 +610,34 @@ async function createFixture(version = VERSION) {
     linuxArm64Companion: `Motrix-Native-Host-${version}-linux-arm64.tar.gz`,
     linuxArm64Rpm: `Motrix-${version}.aarch64.rpm`,
     linuxArm64AppImage: `Motrix-${version}-arm64.AppImage`,
+    linuxArm64Zsync: `Motrix-${version}-arm64.AppImage.zsync`,
     linuxX64Deb: `Motrix_${version}_amd64.deb`,
     linuxX64Companion: `Motrix-Native-Host-${version}-linux-x64.tar.gz`,
     linuxX64Rpm: `Motrix-${version}.x86_64.rpm`,
     linuxX64AppImage: `Motrix-${version}-x86_64.AppImage`,
+    linuxX64Zsync: `Motrix-${version}-x86_64.AppImage.zsync`,
     macArm64Dmg: `Motrix-${version}-arm64.dmg`,
     macArm64Zip: `Motrix-${version}-arm64.zip`,
     macX64Dmg: `Motrix-${version}-x64.dmg`,
     macX64Zip: `Motrix-${version}-x64.zip`,
     windowsExe: `Motrix-Setup-${version}.exe`,
   }
+  const linuxArm64AppImageContent = Buffer.from('Linux arm64 AppImage')
+  const linuxX64AppImageContent = Buffer.from('Linux x64 AppImage')
   const contents = {
     linuxArm64Deb: Buffer.from('Linux arm64 deb'),
     linuxArm64Companion: Buffer.from('Linux arm64 Flatpak companion'),
     linuxArm64Rpm: Buffer.from('Linux arm64 rpm'),
-    linuxArm64AppImage: Buffer.from('Linux arm64 AppImage'),
+    linuxArm64AppImage: linuxArm64AppImageContent,
+    linuxArm64Zsync: makeZsync(
+      names.linuxArm64AppImage,
+      linuxArm64AppImageContent
+    ),
     linuxX64Deb: Buffer.from('Linux x64 deb'),
     linuxX64Companion: Buffer.from('Linux x64 Flatpak companion'),
     linuxX64Rpm: Buffer.from('Linux x64 rpm'),
-    linuxX64AppImage: Buffer.from('Linux x64 AppImage'),
+    linuxX64AppImage: linuxX64AppImageContent,
+    linuxX64Zsync: makeZsync(names.linuxX64AppImage, linuxX64AppImageContent),
     macArm64Dmg: Buffer.from('macOS arm64 DMG'),
     macArm64Zip: Buffer.from('macOS arm64 ZIP'),
     macX64Dmg: Buffer.from('macOS x64 DMG'),
@@ -673,6 +715,11 @@ async function createFixture(version = VERSION) {
     names.linuxX64AppImage,
     contents.linuxX64AppImage
   )
+  const linuxX64Zsync = await writeAsset(
+    linuxX64,
+    names.linuxX64Zsync,
+    contents.linuxX64Zsync
+  )
   const linuxX64Manifest = path.join(linuxX64, 'latest-linux.yml')
   const linuxX64BetaManifest = path.join(linuxX64, 'beta-linux.yml')
   await writeManifest(
@@ -718,6 +765,11 @@ async function createFixture(version = VERSION) {
     linuxArm64,
     names.linuxArm64AppImage,
     contents.linuxArm64AppImage
+  )
+  const linuxArm64Zsync = await writeAsset(
+    linuxArm64,
+    names.linuxArm64Zsync,
+    contents.linuxArm64Zsync
   )
   const linuxArm64Manifest = path.join(linuxArm64, 'latest-linux-arm64.yml')
   await writeManifest(
@@ -771,9 +823,11 @@ async function createFixture(version = VERSION) {
       linuxArm64Manifest,
       linuxArm64Rpm: linuxArm64Rpm.path,
       linuxArm64AppImage: linuxArm64AppImage.path,
+      linuxArm64Zsync: linuxArm64Zsync.path,
       linuxX64Deb: linuxX64Deb.path,
       linuxX64Companion: linuxX64Companion.path,
       linuxX64AppImage: linuxX64AppImage.path,
+      linuxX64Zsync: linuxX64Zsync.path,
       linuxX64BetaManifest,
       linuxX64Manifest,
       macArm64Manifest,
@@ -828,4 +882,17 @@ async function writeManifest(
 
 function sha512(content: Buffer) {
   return createHash('sha512').update(content).digest('base64')
+}
+
+function makeZsync(name: string, content: Buffer) {
+  return Buffer.from(
+    'zsync: 0.6.2\n' +
+      `Filename: ${name}\n` +
+      'Blocksize: 2048\n' +
+      `Length: ${content.length}\n` +
+      'Hash-Lengths: 1,2,4\n' +
+      `URL: ${name}\n` +
+      `SHA-1: ${createHash('sha1').update(content).digest('hex')}\n\n` +
+      'checksum-payload'
+  )
 }

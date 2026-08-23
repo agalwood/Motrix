@@ -211,7 +211,7 @@ importers:
         specifier: 43.4.0
         version: 43.4.0(supports-color@7.2.0)
       electron-builder:
-        specifier: ^26.15.7
+        specifier: 26.15.7
         version: 26.15.7(electron-builder-squirrel-windows@26.15.7)(supports-color@7.2.0)
       esbuild:
         specifier: ^0.28.2

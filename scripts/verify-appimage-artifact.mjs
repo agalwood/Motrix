@@ -5,6 +5,16 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
+import {
+  assertAppImageRuntimeMetadata,
+  expectedAppImageName,
+  expectedZsyncName,
+  inspectAppImageRuntime,
+  inspectEmbeddedBlockmap,
+  nativeUpdateInformation,
+  verifyZsyncFile,
+} from './appimage-artifact.mjs'
+
 // Release-time verification for the Linux AppImage target. Unlike a config-only
 // check, this inspects the BUILT artifact itself:
 //   1. Exactly one AppImage exists for the built architecture, named per the
@@ -13,7 +23,11 @@ import { promisify } from 'node:util'
 //   3. Its header is an ELF carrying the AppImage type-2 magic, and its ELF
 //      machine matches the target architecture (a wrong-arch or non-AppImage
 //      file with the right name is rejected).
-//   4. The desktop entry embedded INSIDE the AppImage declares all three
+//   4. Its runtime is static, has no legacy libfuse.so.2 dependency/loading
+//      logic, and preserves a valid electron-updater embedded blockmap.
+//   5. Its native AppImage update information selects stable `latest` or beta
+//      `latest-pre`, and the matching per-architecture zsync is valid.
+//   6. The desktop entry embedded INSIDE the AppImage declares all three
 //      handler MimeTypes a browser needs (bittorrent, magnet, motrix:) — read
 //      out of the artifact, not from the source config.
 // The runtime self-integration (src/main/platform/appimage-integration.ts) is a
@@ -27,24 +41,13 @@ export const REQUIRED_MIME_TYPES = [
   'x-scheme-handler/motrix',
 ]
 
-// electron-builder's `${arch}` macro for the AppImage target (builder-util
-// getArtifactArchName): x64 -> x86_64, arm64 -> arm64.
-const APPIMAGE_ARCH = {
-  x64: 'x86_64',
-  arm64: 'arm64',
-}
-
 // ELF e_machine values (offset 18, little-endian u16).
 const ELF_MACHINE = {
   x64: 0x3e, // EM_X86_64
   arm64: 0xb7, // EM_AARCH64
 }
 
-export function expectedAppImageName(version, arch) {
-  const archName = APPIMAGE_ARCH[arch]
-  if (!archName) throw new Error(`Unsupported AppImage arch: ${arch}`)
-  return `Motrix-${version}-${archName}.AppImage`
-}
+export { expectedAppImageName }
 
 export function assertDesktopMimeTypes(mimeValue) {
   const mime = typeof mimeValue === 'string' ? mimeValue : ''
@@ -153,11 +156,15 @@ export async function verifyAppimageArtifact({
   statFile = stat,
   readArtifactHead = readHead,
   extractMimeType = defaultExtractMimeType,
+  inspectRuntime = inspectAppImageRuntime,
+  assertRuntimeMetadata = assertAppImageRuntimeMetadata,
+  inspectBlockmap = inspectEmbeddedBlockmap,
+  verifyZsync = verifyZsyncFile,
 }) {
   if (!version) throw new Error('Expected release version')
   if (!arch) throw new Error('Expected target architecture')
-  if (!APPIMAGE_ARCH[arch])
-    throw new Error(`Unsupported AppImage arch: ${arch}`)
+  // expectedAppImageName owns the supported-architecture contract.
+  expectedAppImageName(version, arch)
 
   const entries = await readdir(directory)
   const appImages = entries.filter((name) => name.endsWith('.AppImage'))
@@ -174,7 +181,21 @@ export async function verifyAppimageArtifact({
     )
   }
 
+  const zsyncs = entries.filter((name) => name.endsWith('.AppImage.zsync'))
+  if (zsyncs.length !== 1) {
+    throw new Error(
+      `Expected exactly one AppImage zsync for ${arch}, found ${zsyncs.length}: ${zsyncs.join(', ')}`
+    )
+  }
+  const expectedZsync = expectedZsyncName(version, arch)
+  if (zsyncs[0] !== expectedZsync) {
+    throw new Error(
+      `Unexpected AppImage zsync name ${zsyncs[0]}; expected ${expectedZsync}`
+    )
+  }
+
   const artifactPath = path.join(directory, expected)
+  const zsyncPath = path.join(directory, expectedZsync)
 
   const info = await statFile(artifactPath)
   if (!info.isFile()) throw new Error(`${expected} is not a regular file`)
@@ -188,10 +209,18 @@ export async function verifyAppimageArtifact({
   const head = await readArtifactHead(artifactPath, 64)
   assertAppImageHeader(head, arch)
 
+  const runtime = await inspectRuntime(artifactPath, arch)
+  assertRuntimeMetadata(runtime, {
+    updateInformation: nativeUpdateInformation(version, arch),
+    requireUnsigned: true,
+  })
+  await inspectBlockmap(artifactPath)
+  await verifyZsync({ appImagePath: artifactPath, zsyncPath })
+
   const mime = await extractMimeType(artifactPath)
   assertDesktopMimeTypes(mime)
 
-  return { appImage: expected }
+  return { appImage: expected, zsync: expectedZsync }
 }
 
 function readArg(name) {
@@ -206,5 +235,5 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       readArg('--version') ?? process.env.GITHUB_REF_NAME?.replace(/^v/, ''),
     arch: readArg('--arch'),
   })
-  console.log(`Verified AppImage ${result.appImage}`)
+  console.log(`Verified AppImage ${result.appImage} and ${result.zsync}`)
 }

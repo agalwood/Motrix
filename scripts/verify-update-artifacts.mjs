@@ -4,6 +4,7 @@ import { access, readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { load } from 'js-yaml'
+import { verifyZsyncFile } from './appimage-artifact.mjs'
 import { parseStrictSemVer } from './release-metadata.mjs'
 
 const MANIFEST_PLATFORMS = [
@@ -96,9 +97,20 @@ export async function verifyUpdateArtifacts({
     }
   }
 
+  const zsyncAssets = []
+  for (const name of verified.keys()) {
+    if (!name.endsWith('.AppImage')) continue
+    const zsync = `${name}.zsync`
+    await verifyZsyncFile({
+      appImagePath: path.join(directory, name),
+      zsyncPath: path.join(directory, zsync),
+    })
+    zsyncAssets.push(zsync)
+  }
+
   return {
     manifests: manifests.map((manifest) => manifest.name),
-    assets: [...verified.keys()],
+    assets: [...verified.keys(), ...zsyncAssets],
   }
 }
 

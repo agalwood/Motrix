@@ -38,6 +38,10 @@ describe('verifyUpdateArtifacts', () => {
     await writeFile(path.join(fixture, rpmName), rpm)
     await writeFile(path.join(fixture, appImageName), appImage)
     await writeFile(
+      path.join(fixture, `${appImageName}.zsync`),
+      zsync(appImageName, appImage)
+    )
+    await writeFile(
       path.join(fixture, 'latest-linux-arm64.yml'),
       manifest(
         [
@@ -53,7 +57,7 @@ describe('verifyUpdateArtifacts', () => {
       verifyUpdateArtifacts({ directory: fixture, version: '2.0.0' })
     ).resolves.toEqual({
       manifests: ['latest-linux-arm64.yml'],
-      assets: [debName, rpmName, appImageName],
+      assets: [debName, rpmName, appImageName, `${appImageName}.zsync`],
     })
   })
 
@@ -282,6 +286,19 @@ function manifest(
     `version: ${version}\nfiles:\n${files}` +
     `path: ${legacyName}\n` +
     `sha512: ${legacySha512 ?? sha512(legacy.content)}\n`
+  )
+}
+
+function zsync(name: string, content: Buffer) {
+  return (
+    'zsync: 0.6.2\n' +
+    `Filename: ${name}\n` +
+    'Blocksize: 2048\n' +
+    `Length: ${content.length}\n` +
+    'Hash-Lengths: 1,2,4\n' +
+    `URL: ${name}\n` +
+    `SHA-1: ${createHash('sha1').update(content).digest('hex')}\n\n` +
+    'checksum-payload'
   )
 }
 

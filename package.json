@@ -94,7 +94,7 @@
     "@types/yauzl": "^3.4.0",
     "@vitest/coverage-v8": "^4.1.10",
     "electron": "43.4.0",
-    "electron-builder": "^26.15.7",
+    "electron-builder": "26.15.7",
     "esbuild": "^0.28.2",
     "js-yaml": "^5.3.0",
     "jsdom": "^30.0.1",

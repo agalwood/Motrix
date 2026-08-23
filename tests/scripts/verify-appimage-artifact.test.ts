@@ -51,6 +51,10 @@ function ports(
     readArtifactHead: async () =>
       overrides.head ?? makeHead(overrides.arch ?? 'x64'),
     extractMimeType: async () => overrides.mime ?? FULL_MIME,
+    inspectRuntime: async () => ({}),
+    assertRuntimeMetadata: () => {},
+    inspectBlockmap: async () => ({}),
+    verifyZsync: async () => ({}),
   }
 }
 
@@ -60,10 +64,15 @@ afterEach(async () => {
   )
 })
 
-async function makeDir(files: string[]) {
+async function makeDir(files: string[], addZsync = true) {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'motrix-appimage-'))
   tempDirs.push(dir)
   for (const name of files) await writeFile(path.join(dir, name), name)
+  if (addZsync && !files.some((name) => name.endsWith('.AppImage.zsync'))) {
+    for (const name of files.filter((name) => name.endsWith('.AppImage'))) {
+      await writeFile(path.join(dir, `${name}.zsync`), 'zsync')
+    }
+  }
   return dir
 }
 
@@ -144,7 +153,22 @@ describe('verifyAppimageArtifact', () => {
         arch: 'x64',
         ...ports(),
       })
-    ).resolves.toEqual({ appImage: 'Motrix-2.0.0-x86_64.AppImage' })
+    ).resolves.toEqual({
+      appImage: 'Motrix-2.0.0-x86_64.AppImage',
+      zsync: 'Motrix-2.0.0-x86_64.AppImage.zsync',
+    })
+  })
+
+  it('requires the architecture-specific zsync sidecar', async () => {
+    const dir = await makeDir(['Motrix-2.0.0-x86_64.AppImage'], false)
+    await expect(
+      verifyAppimageArtifact({
+        directory: dir,
+        version: VERSION,
+        arch: 'x64',
+        ...ports(),
+      })
+    ).rejects.toThrow('Expected exactly one AppImage zsync')
   })
 
   it('rejects a missing AppImage', async () => {
