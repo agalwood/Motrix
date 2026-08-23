@@ -512,7 +512,20 @@ describe('handleCreateTask', () => {
     )
     const task = lastAddedTask(deps)
     expect(task.finalName).toBe('ubuntu-25.10-desktop-amd64.iso')
-    expect(task.diskPath).toBe('/d/ubuntu-25.10-desktop-amd64.iso.motrix')
+    expect(task.diskPath).toMatch(/^\/d\/\.motrix\/[a-f0-9]{20}$/)
+    expect(task.instances[0].payload.btStorageLayout).toMatchObject({
+      version: 1,
+      strategy: 'indexed-staging',
+      workspacePath: task.diskPath,
+      payloadEntry: 'p',
+      torrentRootName: 'ubuntu-25.10-desktop-amd64.iso',
+      multiFile: false,
+    })
+    const [, , options] = deps.addTorrent.mock.calls[0]
+    expect(options).toMatchObject({
+      dir: task.diskPath,
+      'index-out': ['1=p'],
+    })
   })
 
   it('falls back to "torrent" literal when bytes are unparseable', async () => {
@@ -529,6 +542,27 @@ describe('handleCreateTask', () => {
     )
     const task = lastAddedTask(deps)
     expect(task.finalName).toBe('torrent')
+  })
+
+  it('rejects a parseable torrent with an unsafe root path', async () => {
+    const deps = makeDeps({ addTorrentGid: 'gid-bt' })
+    const bytes = buildMinimalTorrentBytes('..', false)
+
+    await expect(
+      handleCreateTask(
+        {
+          type: 'bt',
+          payload: {
+            kind: 'torrent-base64',
+            base64: Buffer.from(bytes).toString('base64'),
+          },
+          selectedFiles: [0],
+          saveDir: '/d',
+        },
+        deps
+      )
+    ).rejects.toMatchObject({ code: ErrorCode.TorrentParseFailed })
+    expect(deps.addTorrent).not.toHaveBeenCalled()
   })
 
   it('dispatches magnet via rpcClient.addUri', async () => {
@@ -1620,8 +1654,9 @@ describe('characterization: aria2 RPC args', () => {
     expect(options['select-file']).toBe('1,3')
     // Private torrent: bt-tracker forced to empty string
     expect(options['bt-tracker']).toBe('')
-    // BT dir = diskPath = saveDir/displayName.motrix
-    expect(options.dir).toBe('/dl/private-torrent.motrix')
+    // Valid torrent metadata uses a short, task-stable staging workspace.
+    expect(options.dir).toMatch(/^\/dl\/\.motrix\/[a-f0-9]{20}$/)
+    expect(options['index-out']).toEqual(['1=p'])
     // No `out` for BT tasks
     expect(options.out).toBeUndefined()
   })

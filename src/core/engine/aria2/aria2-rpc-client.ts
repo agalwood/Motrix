@@ -92,7 +92,7 @@ export class Aria2RpcClient {
   addTorrent(
     torrentBase64: string,
     uris?: string[],
-    options?: Record<string, string>
+    options?: Record<string, string | string[]>
   ): Promise<string> {
     const params: unknown[] = [torrentBase64]
     if (uris !== undefined) params.push(uris)

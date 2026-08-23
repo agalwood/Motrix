@@ -18,7 +18,9 @@ import {
   canReseed,
   canResume,
   canRetry,
+  canRetryMagnetMetadata,
   canStopSeeding,
+  getTaskRetryKind,
   isFinalizing,
 } from './task-actions'
 
@@ -40,6 +42,16 @@ function muxInstance(status: TaskStatus): TaskInstance {
     payload: {},
     createdAt: 0,
     updatedAt: 0,
+  }
+}
+
+function magnetMetadataInstance(uri = 'magnet:?xt=urn:btih:abc'): TaskInstance {
+  return {
+    ...muxInstance(TaskStatus.Error),
+    instanceId: 'meta:t1',
+    gid: 'meta-gid',
+    phase: TaskInstancePhase.MagnetMetadataResolution,
+    uris: [uri],
   }
 }
 
@@ -423,5 +435,33 @@ describe('canAttemptRetry', () => {
     })
     expect(canRetry(task) && canRebuildTaskInputs(task)).toBe(expected)
     expect(canAttemptRetry(task)).toBe(expected)
+  })
+
+  it('offers a distinct retry for failed magnet metadata without a sidecar', () => {
+    const task = makeTask({
+      kind: TaskKind.Bt,
+      status: TaskStatus.Error,
+      type: TaskType.Magnet,
+      torrentMetaPath: null,
+      instances: [magnetMetadataInstance()],
+    })
+
+    expect(canRebuildTaskInputs(task)).toBe(false)
+    expect(canRetryMagnetMetadata(task)).toBe(true)
+    expect(getTaskRetryKind(task)).toBe('magnet-metadata')
+    expect(canAttemptRetry(task)).toBe(true)
+  })
+
+  it('does not offer metadata retry without a persisted magnet URI', () => {
+    const task = makeTask({
+      kind: TaskKind.Bt,
+      status: TaskStatus.Error,
+      type: TaskType.Magnet,
+      torrentMetaPath: null,
+      instances: [magnetMetadataInstance('https://example.com/not-magnet')],
+    })
+
+    expect(canRetryMagnetMetadata(task)).toBe(false)
+    expect(getTaskRetryKind(task)).toBeNull()
   })
 })

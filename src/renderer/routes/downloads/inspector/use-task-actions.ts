@@ -13,6 +13,7 @@ import {
   canReseed,
   canResume,
   canStopSeeding,
+  getTaskRetryKind,
 } from '@shared/types/task-actions'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -276,14 +277,14 @@ export function useTaskActions(
       if (
         modifier?.alt &&
         selected.length === 1 &&
-        canAttemptRetry(selected[0])
+        getTaskRetryKind(selected[0]) === 'torrent-readd'
       ) {
         await altReAddSingle(selected[0])
         return
       }
-      await directReAdd(canAttemptRetry)
+      await dispatchSubset(Commands.RetryTasks, canAttemptRetry)
     },
-    [selected, altReAddSingle, directReAdd]
+    [selected, altReAddSingle, dispatchSubset]
   )
 
   const onRemove = useCallback((modifier?: { shift: boolean }) => {

@@ -7,7 +7,7 @@ import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { CliPackageManager } from '@shared/types/cli-tool'
-import { TaskStatus, TaskType } from '@shared/types/task'
+import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
@@ -213,6 +213,7 @@ function fakeCtx() {
     },
     magnetTracker: {
       submit: vi.fn().mockResolvedValue(undefined),
+      retryMetadata: vi.fn().mockResolvedValue(undefined),
     },
     activityRecorder: NOOP_TASK_ACTIVITY_RECORDER,
     persistTask: vi.fn().mockResolvedValue(undefined),
@@ -297,6 +298,31 @@ describe('buildCommandHandlers', () => {
     expect(handlers[Commands.ParseTorrent]).toBeInstanceOf(Function)
     expect(handlers[Commands.AddTorrentTask]).toBeInstanceOf(Function)
     expect(handlers[Commands.AddMagnetTask]).toBeInstanceOf(Function)
+  })
+
+  it('routes RetryTasks for unresolved magnet metadata to MagnetTracker', async () => {
+    const ctx = fakeCtx()
+    vi.mocked(ctx.taskManager.getById).mockReturnValue({
+      id: 'magnet-timeout',
+      status: TaskStatus.Error,
+      type: TaskType.Magnet,
+      torrentMetaPath: null,
+      instances: [
+        {
+          phase: TaskInstancePhase.MagnetMetadataResolution,
+          uris: ['magnet:?xt=urn:btih:timeout'],
+        },
+      ],
+    } as never)
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+
+    await expect(
+      handlers[Commands.RetryTasks]?.(['magnet-timeout'])
+    ).resolves.toEqual({ succeeded: ['magnet-timeout'], failed: [] })
+
+    expect(ctx.magnetTracker.retryMetadata).toHaveBeenCalledWith(
+      'magnet-timeout'
+    )
   })
 
   it('admits RemoveTask through the mutation lock and Session persistence queue', async () => {

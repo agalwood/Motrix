@@ -1,6 +1,7 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { getLogger } from '@core/logger'
 import type { MotrixDatabase } from '@core/session/motrix-database'
+import { getBtPayloadPath } from '@core/task/bt-storage-layout'
 import type { TaskManager } from '@core/task/task-manager'
 import { relativizeTorrentPath } from '@shared/lib/path-ext'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
@@ -23,6 +24,7 @@ interface Deps {
 function relativize(absolutePath: string, task: DownloadTask): string {
   return relativizeTorrentPath(
     absolutePath,
+    getBtPayloadPath(task),
     task.diskPath,
     task.finalPath,
     task.saveDir

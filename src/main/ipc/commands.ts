@@ -83,6 +83,7 @@ import {
 import { EngineRecoveryAction } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
+import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
@@ -750,6 +751,20 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         await runBulkTaskAction(taskIds, reAddDeps, (id) =>
           reAddTask(id, reAddDeps)
         )
+      )
+    },
+
+    [Commands.RetryTasks]: async (rawPayload: unknown) => {
+      const taskIds = taskIdsPayloadSchema.parse(rawPayload)
+      return toBulkTaskCommandResult(
+        await runBulkTaskAction(taskIds, reAddDeps, async (id) => {
+          const task = taskManager.getById(id)
+          if (task && canRetryMagnetMetadata(task)) {
+            await magnetTracker.retryMetadata(id)
+            return
+          }
+          await reAddTask(id, reAddDeps)
+        })
       )
     },
 

@@ -10,6 +10,14 @@ import type {
   TaskWithInstancesAndFiles,
 } from '@core/session/motrix-database'
 import type { TaskTransitionRecordInput } from '@core/task/actions/shared'
+import {
+  type BtStoragePlan,
+  btStoragePayload,
+  createBtStoragePlan,
+  type ParsedBtFileLayout,
+  parseBtFileLayout,
+  UnsafeTorrentPathError,
+} from '@core/task/bt-storage-layout'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import { toTempPath } from '@core/task/paths'
 import type { TaskManager } from '@core/task/task-manager'
@@ -54,9 +62,7 @@ export interface SwapMagnetMetadataDeps {
   taskManager: TaskManager
   adapter: EngineAdapter
   magnetTracker: MagnetTracker
-  /** Collision-safe on-disk name picker — same instance createTaskHandler
-   *  uses, so a resolved magnet lands in the identical `<name>.motrix`
-   *  container scheme as every other task. */
+  /** Collision-safe final on-disk name picker shared with createTaskHandler. */
   finalNamePicker: FinalNamePicker
   /** Persists the resolved .torrent bytes so finalize's reseed and
    *  reAddTask can recover them (they read `torrentMetaPath`). */
@@ -171,15 +177,33 @@ async function swapMagnetMetadataForBtUnderMutation(
   // cancelling the metadata fetch. If picker/mkdir/persist rejects, the
   // original cache + metadataDir remain usable and the selection can retry.
   //
-  // Mirror createTaskHandler's BT branch: collision-safe final name, an
-  // in-flight `<name>.motrix` container, and durable `.torrent` bytes.
+  // Mirror createTaskHandler's BT branch: collision-safe final name, a short
+  // indexed workspace when metadata is valid, and durable `.torrent` bytes.
   const desiredName = (name ?? existing.task.name).replace(
     METADATA_NAME_PREFIX,
     ''
   )
   const finalName = await finalNamePicker.pick(saveDir, desiredName)
   const finalPath = path.join(saveDir, finalName)
-  const diskPath = toTempPath(finalPath)
+  let btStoragePlan: BtStoragePlan | null = null
+  let parsedBtLayout: ParsedBtFileLayout | null = null
+  try {
+    parsedBtLayout = await parseBtFileLayout(torrentBytes)
+    btStoragePlan = createBtStoragePlan(taskId, saveDir, parsedBtLayout)
+  } catch (err) {
+    if (err instanceof UnsafeTorrentPathError) {
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        'Torrent contains an unsafe file path',
+        err
+      )
+    }
+    log.warn(
+      { err, taskId },
+      'failed to parse resolved magnet metadata for indexed staging; using legacy layout'
+    )
+  }
+  const diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
   let torrentMetaPath: string
   try {
     await mkdir(diskPath, { recursive: true })
@@ -297,8 +321,8 @@ async function swapMagnetMetadataForBtUnderMutation(
   const now = Date.now()
   // The confirmation dialog lets the user change saveDir after metadata
   // resolution. Persist that validated root on the hidden reservation so a
-  // restarted cleanup can authorize the new `<name>.motrix` artifact without
-  // trusting a path embedded only in the instance payload. Cleanup restores
+  // restarted cleanup can authorize the new task-derived artifact without
+  // trusting an arbitrary path embedded only in instance payload. Cleanup restores
   // previousGraph (including the original finalPath) when it completes.
   const reservationTask: TaskRow = {
     ...previousGraph.task,
@@ -325,6 +349,7 @@ async function swapMagnetMetadataForBtUnderMutation(
           withMagnetCleanupQuarantined(
             {
               ...previousMetadataInstance.payload,
+              ...(btStoragePlan ? btStoragePayload(btStoragePlan.layout) : {}),
               metadataDir: diskPath,
             },
             true
@@ -429,7 +454,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     transitionPhase: TransitionPhase.Idle,
     uris: [],
     uriHash: null,
-    payload: {},
+    payload: btStoragePlan ? btStoragePayload(btStoragePlan.layout) : {},
     createdAt: now,
     updatedAt: now,
   }
@@ -441,6 +466,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     finalPath,
     finalName,
     torrentMetaPath,
+    isPrivate: parsedBtLayout?.isPrivate ?? existing.task.isPrivate,
     aggStatus: TaskStatus.Downloading,
     finishedAt: null,
     errorMessage: null,
@@ -469,7 +495,9 @@ async function swapMagnetMetadataForBtUnderMutation(
       // TorrentParser emits 0-based indices, but aria2's --select-file uses
       // 1-based indices; passing `0` makes aria2 reject the option.
       selectedFiles: selectedFiles.map((i) => i + 1),
+      outputFilePaths: btStoragePlan?.outputFilePaths,
       pause: false,
+      isPrivate: parsedBtLayout?.isPrivate ?? false,
     })
     if (addedGid !== newGid) {
       throw new Error(

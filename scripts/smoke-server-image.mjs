@@ -1026,9 +1026,16 @@ export async function smokeServerImage(options) {
       timeoutMs
     )
     await assertHostFile(
-      path.join(volumes.downloadsDir, 'sample-data', 'sample-data', 'test.bin'),
+      path.join(volumes.downloadsDir, 'sample-data', 'test.bin'),
       await readFile(TORRENT_DATA_FILE)
     )
+    if (
+      await pathExists(
+        path.join(volumes.downloadsDir, 'sample-data', 'sample-data')
+      )
+    ) {
+      throw new Error('BT output retained the duplicated torrent root')
+    }
     await rpc(url, operatorToken, 'command', 'command:setTaskBtTracker', {
       engineGid: finalBtTask.engineTaskId,
       trackers: [trackerUrl],

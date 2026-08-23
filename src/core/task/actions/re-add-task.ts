@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { newEngineTaskId } from '@core/lib/ids'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
@@ -11,6 +12,12 @@ import {
 import type { EngineAdapter } from '../../engine/engine-adapter'
 import type { Logger } from '../../logger'
 import { applyTerminalTransition } from '../apply-terminal-transition'
+import {
+  buildFinalOutputFilePaths,
+  buildStagingOutputFilePaths,
+  getBtStorageLayout,
+  parseBtFileLayout,
+} from '../bt-storage-layout'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
@@ -83,13 +90,13 @@ async function readBtMetadata(
 /**
  * Where aria2 should write this re-add.
  *
- * A Completed reseed points at `finalPath`: finalize already renamed the
- * container away from `.motrix`, and that is where the seedable content
- * lives (`diskPath` has been normalized to the same value anyway).
+ * A legacy Completed reseed points at `finalPath`: finalize already renamed
+ * the temporary output and that is where the seedable content lives
+ * (`diskPath` has been normalized to the same value anyway).
  *
  * A retry of a failed or removed download is the opposite case — finalize
- * never ran, so the partial content is still in the in-flight `.motrix`
- * container that `createTaskHandler` passed as `dir` at add time. Pointing
+ * never ran, so the partial content is still in the in-flight location that
+ * `createTaskHandler` passed as `dir` at add time. Pointing
  * `checkIntegrity` at `finalPath` there would scan an empty directory and
  * restart the download from zero.
  */
@@ -106,9 +113,26 @@ async function reAddBt(
   reservedGid: string,
   metadata: Uint8Array
 ): Promise<string> {
+  const storageLayout = getBtStorageLayout(task)
+  const parsedLayout = storageLayout ? await parseBtFileLayout(metadata) : null
+  const completed = task.status === TaskStatus.Completed
   return deps.adapter.addTorrent({
     metadata,
-    saveDir: reAddSaveDir(task),
+    saveDir: storageLayout
+      ? completed
+        ? path.dirname(task.finalPath)
+        : storageLayout.workspacePath
+      : reAddSaveDir(task),
+    outputFilePaths:
+      storageLayout && parsedLayout
+        ? completed
+          ? buildFinalOutputFilePaths(
+              parsedLayout,
+              task.finalPath,
+              storageLayout
+            )
+          : buildStagingOutputFilePaths(parsedLayout, storageLayout)
+        : undefined,
     gid: reservedGid,
     selectedFiles: task.bt?.selectedFiles,
     checkIntegrity: true,

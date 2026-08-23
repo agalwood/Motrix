@@ -14,13 +14,11 @@ vi.mock('@renderer/components/ui/toast', () => ({
 }))
 
 import '@renderer/lib/i18n'
-import { transport } from '@renderer/lib/transport'
 import { DownloadErrorCode } from '@shared/errors'
-import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { TaskRow } from './task-row'
 
@@ -189,7 +187,7 @@ describe('TaskRow', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('shows the retry button for a BT error task with its sidecar and dispatches ReAddTask', () => {
+    it('does not add a retry button to a BT error row with a sidecar', () => {
       render(
         <TaskRow
           task={fake({
@@ -202,14 +200,12 @@ describe('TaskRow', () => {
           rowProps={rowProps}
         />
       )
-      const retryButton = screen.getByRole('button', { name: 'Retry' })
-      fireEvent.click(retryButton)
-      expect(transport.invoke).toHaveBeenCalledWith(Commands.ReAddTasks, [
-        'bt-error',
-      ])
+      expect(
+        screen.queryByRole('button', { name: 'Retry' })
+      ).not.toBeInTheDocument()
     })
 
-    it('reveals the retry button once a memoized magnet task gains its torrentMetaPath sidecar', () => {
+    it('keeps retry out of a memoized magnet row after a sidecar appears', () => {
       const errored = fake({
         id: 'magnet-error',
         status: TaskStatus.Error,
@@ -225,15 +221,15 @@ describe('TaskRow', () => {
         screen.queryByRole('button', { name: 'Retry' })
       ).not.toBeInTheDocument()
 
-      // Same task id, same status/progress/speeds/error fields — only
-      // torrentMetaPath changes. The memoized row must still re-render.
       rerender(
         <TaskRow
           task={{ ...errored, torrentMetaPath: '/sidecar/magnet.torrent' }}
           rowProps={rowProps}
         />
       )
-      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Retry' })
+      ).not.toBeInTheDocument()
     })
   })
 })

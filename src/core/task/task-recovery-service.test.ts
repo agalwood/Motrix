@@ -1,6 +1,7 @@
 import { ErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
 import {
+  TaskInstancePhase,
   TaskKind,
   TaskStatus,
   TaskType,
@@ -216,6 +217,62 @@ describe('TaskRecoveryServiceImpl.recoverOnStartup', () => {
       { taskId: 'bt-1', action: RecoveryAction.ResumeFromRename },
     ])
     expect(report.errors).toHaveLength(0)
+  })
+
+  it('probes the indexed payload instead of the sidecar workspace on recovery', async () => {
+    const workspacePath = '/d/.motrix/0123456789abcdefabcd'
+    const task = makeTask({
+      id: 'bt-indexed',
+      saveDir: '/d',
+      diskPath: workspacePath,
+      finalPath: '/d/final-name',
+      instances: [
+        {
+          instanceId: 'primary:bt-indexed',
+          motrixId: 'bt-indexed',
+          gid: 'gid-indexed',
+          phase: TaskInstancePhase.BtDownload,
+          status: TaskStatus.Finalizing,
+          progress: 1,
+          totalBytes: 10,
+          downloadedBytes: 10,
+          uploadedBytes: 0,
+          diskPath: workspacePath,
+          transitionPhase: TransitionPhase.Renaming,
+          uris: [],
+          uriHash: null,
+          payload: {
+            btStorageLayout: {
+              version: 1,
+              strategy: 'indexed-staging',
+              workspacePath,
+              payloadEntry: 'p',
+              torrentRootName: 'original-name',
+              multiFile: true,
+            },
+          },
+          createdAt: 1,
+          updatedAt: 2,
+        },
+      ],
+    })
+    const fs = makeFs(new Set([`${workspacePath}/p`]))
+    const finalizeTask = vi.fn(async () => {})
+    const deps = makeDeps({
+      taskManager: {
+        getAll: vi.fn(() => [task]),
+        persist: vi.fn(async () => {}),
+      },
+      fs,
+      finalizeTask,
+    })
+
+    const report = await new TaskRecoveryServiceImpl(deps).recoverOnStartup()
+
+    expect(fs.pathExists).toHaveBeenCalledWith(`${workspacePath}/p`)
+    expect(fs.pathExists).not.toHaveBeenCalledWith(workspacePath)
+    expect(finalizeTask).toHaveBeenCalledWith('bt-indexed')
+    expect(report.recovered[0]?.action).toBe(RecoveryAction.ResumeFromRename)
   })
 
   it('treats an existing same diskPath/finalPath as final_only and records recovered before reseed', async () => {

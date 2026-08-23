@@ -39,7 +39,14 @@ import {
 import { isTorrentLikeType } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type Database from 'better-sqlite3'
-import parseTorrent from 'parse-torrent'
+import {
+  type BtStoragePlan,
+  btStoragePayload,
+  createBtStoragePlan,
+  type ParsedBtFileLayout,
+  parseBtFileLayout,
+  UnsafeTorrentPathError,
+} from './bt-storage-layout'
 import type { FinalNamePicker } from './final-name-picker'
 import { toTempPath } from './paths'
 import type { TaskManager } from './task-manager'
@@ -139,7 +146,7 @@ export interface CreateTaskOptions {
  *   1. Resolve `finalName` via FinalNamePicker (collision-safe).
  *   2. Persist torrent bytes (BT torrent-base64 only) via TorrentMetaStore.
  *   3. Build engine-agnostic create params with path overrides so on-disk
- *      artifacts land at `diskPath` (the `.motrix` in-flight location).
+ *      artifacts land in the task's in-flight location.
  *   4. Call the EngineAdapter to obtain the engine gid.
  *   5. Register the fully-populated DownloadTask with TaskManager so
  *      subsequent polling updates merge onto an already-present record
@@ -174,6 +181,7 @@ export async function handleCreateTask(
   const effectiveSaveDir = deps.prepareSaveDir
     ? await deps.prepareSaveDir(requestedSaveDir)
     : requestedSaveDir
+  const taskId = newTaskId()
 
   log.info(
     {
@@ -191,19 +199,25 @@ export async function handleCreateTask(
   // 'torrent' when neither displayName nor magnet dn= is provided.
   let torrentBytes: Uint8Array | null = null
   let torrentInfoName: string | null = null
+  let parsedBtLayout: ParsedBtFileLayout | null = null
   let isPrivateFromTorrent = false
   if (req.type === 'bt' && req.payload.kind === 'torrent-base64') {
     torrentBytes = req.torrentBytes ?? decodeBase64ToBytes(req.payload.base64)
     try {
-      const meta = await parseTorrent(torrentBytes)
-      if (typeof meta.name === 'string' && meta.name.trim()) {
-        torrentInfoName = meta.name.trim()
-      }
-      isPrivateFromTorrent = meta.private === true
+      parsedBtLayout = await parseBtFileLayout(torrentBytes)
+      torrentInfoName = parsedBtLayout.torrentRootName
+      isPrivateFromTorrent = parsedBtLayout.isPrivate
     } catch (err) {
+      if (err instanceof UnsafeTorrentPathError) {
+        throw new AppError(
+          ErrorCode.TorrentParseFailed,
+          'Torrent contains an unsafe file path',
+          err
+        )
+      }
       log.warn(
         { err },
-        'failed to parse torrent for name extraction; falling back'
+        'failed to parse torrent for indexed staging; falling back to legacy layout'
       )
     }
   }
@@ -217,9 +231,10 @@ export async function handleCreateTask(
 
   const taskType = deriveTaskType(req)
   const finalPath = path.join(effectiveSaveDir, finalName)
-  const diskPath = toTempPath(finalPath)
-
-  const taskId = newTaskId()
+  const btStoragePlan: BtStoragePlan | null = parsedBtLayout
+    ? createBtStoragePlan(taskId, effectiveSaveDir, parsedBtLayout)
+    : null
+  const diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
   // Anchor "now" early so the hook DTO's requestedAt and the persisted
   // task row share a clock — they are written in the same SQLite
   // transaction when plugin metadata is staged.
@@ -243,10 +258,12 @@ export async function handleCreateTask(
   }
 
   // 2.5. Pre-create the on-disk slot before handing off to aria2.
-  // Both task families keep a `.motrix` suffix during download, but
-  // `diskPath` means different things:
-  //   - BT/Magnet: `diskPath` IS a container directory aria2 populates
-  //     (`dir = diskPath`, `out` dropped). Pre-creating it also
+  // `diskPath` means different things by task family:
+  //   - Parsed .torrent: `diskPath` is a short task workspace and index-out
+  //     maps payload files below `<diskPath>/p`.
+  //   - Unresolved magnet / legacy BT: `diskPath` is the traditional
+  //     `<finalName>.motrix` container.
+  //     For both BT layouts, pre-creating the engine `dir` also
   //     guarantees `aria2.addTorrent`'s metadata write
   //     (`<diskPath>/<sha1>.torrent`) succeeds at add time. Without
   //     this dir, the save fails silently; the resulting task gets a
@@ -272,10 +289,10 @@ export async function handleCreateTask(
   }
 
   // 3. Build engine-agnostic create params per task family and dispatch
-  // through the EngineAdapter. Path options always point at `diskPath`
-  // (the `.motrix` in-flight location): for HTTP that means
-  // dir=saveDir + filename=<name>.motrix; for BT/magnet dir=diskPath
-  // with no `out`. The adapter is responsible for the aria2 wire shape.
+  // through the EngineAdapter. For HTTP, dir=saveDir and out uses the
+  // incomplete suffix. For BT/magnet, dir=diskPath and `out` is absent;
+  // parsed torrents additionally carry per-file output mappings. The adapter
+  // is responsible for the aria2 wire shape.
   let pluginStaged: { commit: (cb: () => void) => void } | undefined
   let dispatchEngine: (reservedGid: string) => Promise<string>
   // Shared by the HTTP and magnet branches — both dispatch through
@@ -480,6 +497,7 @@ export async function handleCreateTask(
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
       // 1-based, and addTorrent serializes selectedFiles with a raw join.
       selectedFiles: req.selectedFiles.map((i) => i + 1),
+      outputFilePaths: btStoragePlan?.outputFilePaths,
       dlLimit: req.dlLimit,
       ulLimit: req.ulLimit,
       seedRatio: req.seedRatio,
@@ -564,7 +582,7 @@ export async function handleCreateTask(
     transitionPhase: TransitionPhase.Idle,
     uris: deriveUris(req),
     uriHash: null,
-    payload: {},
+    payload: btStoragePlan ? btStoragePayload(btStoragePlan.layout) : {},
     createdAt: now,
     updatedAt: now,
   }

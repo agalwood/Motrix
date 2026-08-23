@@ -21,7 +21,12 @@ import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import type { TrackerManager } from '@core/tracker'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
-import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+} from '@shared/types/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { ServerCommandContext } from './commands'
@@ -125,6 +130,7 @@ function makeFakeCtx() {
     } as unknown as ActivationDispatcher,
     magnetTracker: {
       submit: vi.fn().mockResolvedValue(undefined),
+      retryMetadata: vi.fn().mockResolvedValue(undefined),
       cancel: vi.fn().mockResolvedValue('removed'),
       observe: vi.fn().mockReturnValue(false),
       dispose: vi.fn(),
@@ -507,6 +513,33 @@ describe('server plural task commands', () => {
     )
 
     await expect(handlers[Commands.PauseTasks]?.([])).rejects.toThrow()
+  })
+
+  it('RetryTasks routes unresolved magnet metadata to MagnetTracker', async () => {
+    const ctx = makeFakeCtx()
+    vi.mocked(ctx.taskManager.getById).mockReturnValue({
+      id: 'magnet-timeout',
+      status: TaskStatus.Error,
+      type: TaskType.Magnet,
+      torrentMetaPath: null,
+      instances: [
+        {
+          phase: TaskInstancePhase.MagnetMetadataResolution,
+          uris: ['magnet:?xt=urn:btih:timeout'],
+        },
+      ],
+    } as never)
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await expect(
+      handlers[Commands.RetryTasks]?.(['magnet-timeout'])
+    ).resolves.toEqual({ succeeded: ['magnet-timeout'], failed: [] })
+
+    expect(ctx.magnetTracker.retryMetadata).toHaveBeenCalledWith(
+      'magnet-timeout'
+    )
   })
 })
 

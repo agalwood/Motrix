@@ -13,6 +13,9 @@ export const Commands = {
   ResumeTasks: 'command:resumeTasks',
   RemoveTasks: 'command:removeTasks',
   ReAddTasks: 'command:reAddTasks',
+  // Generic user Retry. Shell handlers route sidecar-backed torrents to
+  // re-add and unresolved magnets to a fresh metadata-resolution attempt.
+  RetryTasks: 'command:retryTasks',
   StopSeedingTasks: 'command:stopSeedingTasks',
   SetSelectedFiles: 'command:setSelectedFiles',
   UpdateSettings: 'command:updateSettings',

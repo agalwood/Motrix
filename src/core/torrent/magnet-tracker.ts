@@ -25,6 +25,7 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '@core/task/apply-terminal-transition'
+import { btWorkspacePath } from '@core/task/bt-storage-layout'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
@@ -56,6 +57,10 @@ const HEX_INFO_HASH_RE = /^[a-fA-F0-9]{40}$/
 const BASE32_INFO_HASH_RE = /^[A-Z2-7]{32}$/i
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 const UNKNOWN_INFO_HASH = '0'.repeat(40)
+const METADATA_TIMEOUT_MULTIPLIER_PAYLOAD_KEY =
+  'metadataTimeoutMultiplier' as const
+const INITIAL_METADATA_TIMEOUT_MULTIPLIER = 1
+const RETRY_METADATA_TIMEOUT_MULTIPLIER = 2
 
 /** Outcome of magnet metadata cleanup attempt. `removed` means aria2
  *  has confirmed the GID is no longer alive — safe for callers to
@@ -144,6 +149,7 @@ interface MetadataInstanceCache {
   failedSwapCleanup: boolean
   hiddenTombstone: boolean
   restoreGraph?: TaskWithInstancesAndFiles
+  timeoutMultiplier: number
   timer: ReturnType<typeof setTimeout>
   cleanupAttempts: number
   cleanupFirstFailureAt?: number
@@ -276,6 +282,7 @@ export class MagnetTracker {
         failedSwapCleanup: isHiddenTombstone && cleanupArtifactPaths.length > 0,
         hiddenTombstone: isHiddenTombstone,
         restoreGraph: restoreGraph ?? undefined,
+        timeoutMultiplier: metadataTimeoutMultiplier(metaInst.payload),
         timer: setTimeout(() => {}, 0),
         cleanupAttempts:
           isQuarantined && !isHiddenTombstone ? MAX_CLEANUP_ATTEMPTS : 0,
@@ -293,7 +300,7 @@ export class MagnetTracker {
           RETRY_DELAY_MS
         )
       } else if (!isTerminalError) {
-        entry.timer = this.armTimeout(metaInst.gid)
+        entry.timer = this.armTimeout(metaInst.gid, entry.timeoutMultiplier)
       }
     }
   }
@@ -364,6 +371,7 @@ export class MagnetTracker {
       failedSwapCleanup: true,
       hiddenTombstone: scheduleCleanup,
       restoreGraph: input.restoreGraph,
+      timeoutMultiplier: INITIAL_METADATA_TIMEOUT_MULTIPLIER,
       timer: setTimeout(() => {}, 0),
       cleanupAttempts: 0,
       quarantined: scheduleCleanup,
@@ -551,6 +559,7 @@ export class MagnetTracker {
             cleanupArtifactPaths: [],
             failedSwapCleanup: false,
             hiddenTombstone: false,
+            timeoutMultiplier: INITIAL_METADATA_TIMEOUT_MULTIPLIER,
             timer: this.armTimeout(reservedGid),
             cleanupAttempts: 0,
             quarantined: false,
@@ -628,6 +637,216 @@ export class MagnetTracker {
           reservedGid,
           metadataDir
         )
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Retry a failed pre-sidecar magnet metadata resolution in place. The
+   * durable parent identity and magnet URI are retained, while the engine GID
+   * and temporary directory are always replaced. Manual retries receive
+   * twice the configured metadata timeout; later retries stay at 2x.
+   */
+  async retryMetadata(taskId: string): Promise<void> {
+    if (this.stopped) {
+      throw new Error('MagnetTracker is stopped')
+    }
+    await this.runTaskMutation(taskId, () =>
+      this.retryMetadataUnderMutation(taskId)
+    )
+  }
+
+  private async retryMetadataUnderMutation(taskId: string): Promise<void> {
+    const pair = this.db.getTask(taskId)
+    const metaInst = pair?.instances.find(
+      (instance) =>
+        instance.phase === TaskInstancePhase.MagnetMetadataResolution
+    )
+    const magnetUri = metaInst?.uris.find((uri) =>
+      uri.toLowerCase().startsWith('magnet:?')
+    )
+    if (
+      !pair ||
+      pair.task.taskType !== TaskType.Magnet ||
+      pair.task.aggStatus !== TaskStatus.Error ||
+      pair.task.torrentMetaPath !== null ||
+      pair.instances.length !== 1 ||
+      !metaInst ||
+      !magnetUri ||
+      isMagnetCleanupTombstoneHidden(metaInst)
+    ) {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        `task ${taskId} is not a retryable magnet metadata task`
+      )
+    }
+
+    // A timeout publishes Error before it attempts engine cleanup, so a fast
+    // click can arrive while the old GID is still shielded. Serialize behind
+    // that cleanup and require authoritative absence before creating a new
+    // sibling GID.
+    const previousEntry = this.findCacheEntryByTaskId(taskId)
+    if (previousEntry) {
+      previousEntry.cleanupAttempts = 0
+      previousEntry.cleanupFirstFailureAt = undefined
+      previousEntry.quarantined = false
+      await this.cleanupCacheEntryUnderMutation(previousEntry)
+      if (this.cache.get(previousEntry.gid) === previousEntry) {
+        throw new AppError(
+          ErrorCode.MagnetCleanupPending,
+          `previous magnet metadata attempt for task ${taskId} is still being cleaned up`
+        )
+      }
+    }
+
+    const metadataDir = await mkdtemp(join(tmpdir(), 'motrix-magnet-metadata-'))
+    let reservedGid: string
+    try {
+      reservedGid = this.reserveNewEngineGid()
+    } catch (err) {
+      await this.cleanupMetadataDir(metadataDir)
+      throw err
+    }
+
+    const now = Date.now()
+    const terminal = applyTerminalTransition(
+      terminalFieldsFromRow(pair.task),
+      TaskStatus.FetchingMetadata,
+      {},
+      now
+    )
+    const updatedTask: TaskRow = {
+      ...pair.task,
+      aggStatus: terminal.status,
+      finishedAt: terminal.finishedAt,
+      errorMessage: terminal.errorMessage,
+      errorCode: terminal.errorCode,
+      errorDetailKey: terminal.errorDetailKey,
+      errorDetailParams: terminal.errorDetailParams,
+      diagnosisRevision: terminal.diagnosisRevision,
+      updatedAt: now,
+    }
+    const updatedInstance: TaskInstanceRow = {
+      ...metaInst,
+      gid: reservedGid,
+      status: TaskStatus.FetchingMetadata,
+      progress: 0,
+      totalBytes: 0,
+      downloadedBytes: 0,
+      uploadedBytes: 0,
+      diskPath: metadataDir,
+      transitionPhase: TransitionPhase.Idle,
+      payload: metadataFetchPayload(
+        metadataDir,
+        RETRY_METADATA_TIMEOUT_MULTIPLIER
+      ),
+      updatedAt: now,
+    }
+    const previousDownloadTask = taskRowToDownloadTask(
+      pair.task,
+      pair.instances
+    )
+    let activeInstance = updatedInstance
+    let retryTask = taskRowToDownloadTask(updatedTask, [activeInstance])
+    let entry: MetadataInstanceCache | null = null
+    let persisted = false
+    let reservedOwnerInstalled = false
+    let engineDispatchStarted = false
+
+    try {
+      await this.runExclusivePersistence(async () => {
+        this.db.saveTaskWithInstances({
+          task: updatedTask,
+          instances: [activeInstance],
+        })
+        await this.recordExactTransition(previousDownloadTask, retryTask, now)
+      })
+      persisted = true
+
+      this.taskManager.setReservedEngineTaskOwner(
+        taskId,
+        retryTask,
+        reservedGid
+      )
+      reservedOwnerInstalled = true
+      entry = {
+        gid: reservedGid,
+        taskId,
+        instanceId: activeInstance.instanceId,
+        magnetUri,
+        saveDir: pair.task.finalPath,
+        metadataDir,
+        torrentMetaPath: null,
+        torrentMetaDir: this.lifecycle.torrentMetaDir ?? null,
+        cleanupArtifactPaths: [],
+        failedSwapCleanup: false,
+        hiddenTombstone: false,
+        timeoutMultiplier: RETRY_METADATA_TIMEOUT_MULTIPLIER,
+        timer: this.armTimeout(reservedGid, RETRY_METADATA_TIMEOUT_MULTIPLIER),
+        cleanupAttempts: 0,
+        quarantined: false,
+      }
+      this.cache.set(reservedGid, entry)
+
+      engineDispatchStarted = true
+      const returnedGid = await this.rpcClient.addUri([magnetUri], {
+        'bt-metadata-only': 'true',
+        dir: metadataDir,
+        'follow-torrent': 'false',
+        gid: reservedGid,
+      })
+      if (returnedGid !== entry.gid) {
+        activeInstance = await this.rebindSubmittedMetadataGid(
+          updatedTask,
+          activeInstance,
+          entry,
+          returnedGid
+        )
+        retryTask = taskRowToDownloadTask(updatedTask, [activeInstance])
+      }
+
+      this.taskManager.set(taskId, retryTask)
+      this.lifecycle.publishTaskUpdate()
+      log.info(
+        {
+          gid: activeInstance.gid,
+          taskId,
+          timeoutMultiplier: RETRY_METADATA_TIMEOUT_MULTIPLIER,
+        },
+        'magnet metadata retry started'
+      )
+    } catch (err) {
+      if (engineDispatchStarted && entry) {
+        const marked = await this.markMetadataFailure(
+          entry,
+          'Magnet metadata retry submission failed',
+          DownloadErrorCode.BtMetadataFailed
+        )
+        if (marked) await this.cleanupCacheEntryUnderMutation(entry)
+      } else {
+        const cached = this.cache.get(reservedGid)
+        if (cached?.taskId === taskId) {
+          clearTimeout(cached.timer)
+          this.cache.delete(reservedGid)
+        }
+        const ownerRolledBack =
+          reservedOwnerInstalled &&
+          this.taskManager.rollbackReservedEngineTaskOwner(
+            taskId,
+            reservedGid,
+            previousDownloadTask
+          )
+        if (!ownerRolledBack) {
+          this.taskManager.releaseEngineTaskIdReservation(reservedGid)
+        }
+        if (persisted) {
+          await this.runExclusivePersistence(() => {
+            this.db.saveTaskWithInstances(pair)
+            this.taskManager.set(taskId, previousDownloadTask)
+          })
+        }
+        await this.cleanupMetadataDir(metadataDir)
       }
       throw err
     }
@@ -821,11 +1040,14 @@ export class MagnetTracker {
     return this.stopPromise
   }
 
-  private armTimeout(gid: string): ReturnType<typeof setTimeout> {
+  private armTimeout(
+    gid: string,
+    timeoutMultiplier = INITIAL_METADATA_TIMEOUT_MULTIPLIER
+  ): ReturnType<typeof setTimeout> {
     const timeoutSec = this.settingsManager.getEngine().magnetResolveTimeout
     return setTimeout(
       () => void this.trackCallback(() => this.handleTimeout(gid)),
-      timeoutSec * 1000
+      timeoutSec * timeoutMultiplier * 1000
     )
   }
 
@@ -921,7 +1143,7 @@ export class MagnetTracker {
     clearTimeout(entry.timer)
     this.cache.delete(reservedGid)
     entry.gid = returnedGid
-    entry.timer = this.armTimeout(returnedGid)
+    entry.timer = this.armTimeout(returnedGid, entry.timeoutMultiplier)
     this.cache.set(returnedGid, entry)
 
     const reboundInstance: TaskInstanceRow = {
@@ -1808,6 +2030,29 @@ export class MagnetTracker {
 
 // ─── helpers ─────────────────────────────────────────────────
 
+function metadataFetchPayload(
+  metadataDir: string,
+  timeoutMultiplier: number
+): Record<string, unknown> {
+  return withMagnetCleanupTombstoneHidden(
+    withMagnetCleanupQuarantined(
+      {
+        metadataDir,
+        [METADATA_TIMEOUT_MULTIPLIER_PAYLOAD_KEY]: timeoutMultiplier,
+      },
+      false
+    ),
+    false
+  )
+}
+
+function metadataTimeoutMultiplier(payload: Record<string, unknown>): number {
+  return payload[METADATA_TIMEOUT_MULTIPLIER_PAYLOAD_KEY] ===
+    RETRY_METADATA_TIMEOUT_MULTIPLIER
+    ? RETRY_METADATA_TIMEOUT_MULTIPLIER
+    : INITIAL_METADATA_TIMEOUT_MULTIPLIER
+}
+
 function truncateName(uri: string): string {
   if (uri.length <= 64) return uri
   return `${uri.slice(0, 60)}…`
@@ -1852,6 +2097,17 @@ function isSafeSwapCleanupArtifactPath(
     dirname(normalized) === saveDir &&
     basename(normalized).length > '.motrix'.length &&
     normalized.toLowerCase().endsWith('.motrix')
+  ) {
+    return true
+  }
+
+  const indexedWorkspace = saveDir
+    ? resolve(btWorkspacePath(entry.taskId, saveDir))
+    : ''
+  if (
+    normalized === metadataDir &&
+    normalized === indexedWorkspace &&
+    dirname(normalized) === resolve(saveDir, '.motrix')
   ) {
     return true
   }

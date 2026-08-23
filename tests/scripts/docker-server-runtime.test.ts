@@ -175,6 +175,10 @@ describe('Docker Server runtime staging contract', () => {
       imageSmoke.indexOf("new Set(['seeding', 'completed'])")
     )
     expect(imageSmoke).toContain('engineGid: finalBtTask.engineTaskId')
+    expect(imageSmoke).toContain(
+      "path.join(volumes.downloadsDir, 'sample-data', 'test.bin')"
+    )
+    expect(imageSmoke).not.toContain("'sample-data', 'sample-data', 'test.bin'")
     expect(imageSmoke).toContain("randomBytes(24).toString('hex')")
     expect(imageSmoke).toContain('downloadedBytes: lastTask.downloadedBytes')
     expect(imageSmoke).toContain('totalBytes: lastTask.totalBytes')

@@ -302,6 +302,17 @@ function createMockEventBus(): MockEventBus {
   return { emit: vi.fn<(event: string, payload: unknown) => void>() }
 }
 
+function buildSingleFileTorrent(name: string): Uint8Array {
+  const nameField = `4:name${Buffer.byteLength(name, 'utf8')}:${name}`
+  const prefix = Buffer.from(
+    `d4:infod6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
+    'utf8'
+  )
+  return new Uint8Array(
+    Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
+  )
+}
+
 // ─── Tests ──────────────────────────────────────────────────────
 
 describe('swapMagnetMetadataForBt', () => {
@@ -1035,6 +1046,47 @@ describe('swapMagnetMetadataForBt', () => {
       -1
     )?.[1]
     expect(tmTask.type).toBe(TaskType.Bt)
+  })
+
+  it('uses indexed short staging after magnet metadata resolves', async () => {
+    const torrent = buildSingleFileTorrent('very-long-original-name.iso')
+
+    await swapMagnetMetadataForBt(
+      {
+        taskId: 'm-mag',
+        base64: Buffer.from(torrent).toString('base64'),
+        selectedFiles: [0],
+        saveDir: '/Downloads',
+        name: 'User friendly name.iso',
+      },
+      {
+        db,
+        taskManager,
+        adapter: adapter as never,
+        magnetTracker: magnetTracker as never as MagnetTracker,
+        publishTaskUpdate: () =>
+          eventBus.emit(Events.TaskUpdated, taskManager.getAll()),
+        publishTaskUpdateNow: () =>
+          eventBus.emit(Events.TaskUpdated, taskManager.getAll()),
+        finalNamePicker: finalNamePicker as never,
+        torrentMetaStore: torrentMetaStore as never,
+        runTaskMutation: runImmediately,
+        runExclusivePersistence: persistImmediately,
+      }
+    )
+
+    const params = adapter.addTorrent.mock.calls[0][0]
+    expect(params.saveDir).toMatch(/^\/Downloads\/\.motrix\/[a-f0-9]{20}$/)
+    expect(params.outputFilePaths).toEqual([
+      { fileIndex: 0, relativePath: 'p' },
+    ])
+    expect(
+      db.getTask('m-mag')?.instances[0].payload.btStorageLayout
+    ).toMatchObject({
+      workspacePath: params.saveDir,
+      payloadEntry: 'p',
+      torrentRootName: 'very-long-original-name.iso',
+    })
   })
 
   it('passes 1-based file indices to adapter.addTorrent (aria2 --select-file)', async () => {

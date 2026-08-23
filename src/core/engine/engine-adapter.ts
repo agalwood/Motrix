@@ -15,6 +15,13 @@ import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { FileAllocation } from '@shared/types/tuning'
 
+export interface OutputFilePath {
+  /** Engine-neutral, zero-based file index. */
+  fileIndex: number
+  /** Output path relative to `saveDir`. */
+  relativePath: string
+}
+
 export interface AddTorrentParams {
   metadata: Uint8Array
   saveDir: string
@@ -26,6 +33,9 @@ export interface AddTorrentParams {
    *  these are 1-based (matching aria2's `select-file`). The create path is
    *  responsible for converting its 0-based request indices before calling. */
   selectedFiles?: number[]
+  /** Optional per-file output mapping. The adapter translates indices and
+   * option syntax to the target engine. */
+  outputFilePaths?: OutputFilePath[]
   seedTime?: number
   seedRatio?: number
   btSeedUnverified?: boolean
