@@ -76,6 +76,15 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.25" date="2026-08-24">
+      <description>
+        <p>
+          Carries the beta.24 user-facing changes and corrects the protected
+          AppImage no-FUSE smoke test to verify electron-builder's actual
+          motrix.desktop entry before publication.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.24" date="2026-08-24">
       <description>
         <p>
