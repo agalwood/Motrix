@@ -1041,7 +1041,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       if (win && !win.isDestroyed()) {
         const [currentWidth, currentHeight] = win.getSize()
         if (currentWidth !== params.width || currentHeight !== params.height) {
-          win.setSize(params.width, params.height, true)
+          // Electron #42258: setSize cannot shrink non-resizable windows on
+          // Windows and Linux. Partial bounds preserve the window position.
+          win.setBounds({ width: params.width, height: params.height }, true)
         }
       }
       return { ok: true }
