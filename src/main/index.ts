@@ -62,6 +62,7 @@ import {
 } from '@core/stats'
 import {
   pauseTask as pauseTaskAction,
+  reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
 import { finalizeTask } from '@core/task/actions/finalize-task'
@@ -2023,6 +2024,25 @@ async function initializeMainProcess(): Promise<void> {
 
   const nativeMessagingInstaller = createNativeMessagingInstaller()
   const createBridgeRuntime = async () => {
+    const bridgeReAddDeps = {
+      taskManager,
+      adapter,
+      eventBus,
+      log,
+      persistTask,
+      persistTaskWithOccurrence,
+      occurrenceDispatcher,
+      recordTransition: (input: RuntimeTransitionInput) =>
+        activeTaskInspectorActivityRuntime.recordTransition(input),
+      runTaskMutation: <T>(
+        taskIds: readonly string[],
+        operation: () => Promise<T>
+      ) =>
+        activeTaskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
+      publishTaskUpdate,
+      publishTaskUpdateNow,
+      torrentMetaStore,
+    }
     const createTaskDeps = {
       adapter,
       settingsManager,
@@ -2059,6 +2079,8 @@ async function initializeMainProcess(): Promise<void> {
         await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
         await mainProcessWork.waitForStartup()
       },
+      reuseExistingBt: (taskId: string) =>
+        reAddTaskAction(taskId, bridgeReAddDeps),
     }
     // Deps for the deleteFiles-aware task/remove (Spec 4) — a SEPARATE path
     // from the extension download/cancel closure below (which is always

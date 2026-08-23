@@ -35,6 +35,7 @@ export enum ErrorCode {
   StunDetectionFailed = 'STUN_DETECTION_FAILED',
   // Torrent
   TorrentParseFailed = 'TORRENT_PARSE_FAILED',
+  TorrentDuplicateConflict = 'TORRENT_DUPLICATE_CONFLICT',
   MagnetResolveFailed = 'MAGNET_RESOLVE_FAILED',
   MagnetResolveTimeout = 'MAGNET_RESOLVE_TIMEOUT',
   /** Plan B: aria2 cleanup of the magnet metadata fetch is still

@@ -796,7 +796,17 @@
       "saveDirEmpty": "选择文件夹…",
       "changeSaveDir": "更改保存目录",
       "created": "任务已添加",
+      "createdCopy": "独立副本已添加",
       "createdPartial": "已添加 {{ok}} 个，{{failed}} 个失败",
+      "duplicate": {
+        "title": "此种子已经存在",
+        "active-info-hash": "“{{name}}”正在运行。aria2 无法同时运行两个内容相同的种子任务。",
+        "selection-mismatch": "“{{name}}”使用了相同保存目录，但文件选择不同。Motrix 不会覆盖它，也不会静默创建重命名副本。",
+        "existing-files": "目标位置已经存在“{{name}}”，但对应任务记录不可用。Motrix 不会覆盖这些文件。",
+        "filesOnDisk": "种子文件",
+        "showExisting": "查看已有任务",
+        "createCopy": "创建独立副本"
+      },
       "adding": "添加中…",
       "interpretedMagnet": "已识别磁力链接",
       "interpretedCurl": "已解析 cURL 命令",

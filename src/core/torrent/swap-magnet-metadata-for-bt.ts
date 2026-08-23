@@ -11,6 +11,10 @@ import type {
 } from '@core/session/motrix-database'
 import type { TaskTransitionRecordInput } from '@core/task/actions/shared'
 import {
+  existingFilesConflict,
+  reservedBtFinalNames,
+} from '@core/task/bt-duplicate-policy'
+import {
   type BtStoragePlan,
   btStoragePayload,
   createBtStoragePlan,
@@ -24,6 +28,7 @@ import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { AppError, ErrorCode } from '@shared/errors'
+import type { TaskCreateSuccessResult } from '@shared/schemas/add-task'
 import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -55,6 +60,7 @@ export interface SwapMagnetMetadataInput {
   /** Resolved torrent display name. When provided, replaces the
    *  `[METADATA] …` placeholder name on the task row. */
   name?: string
+  duplicatePolicy?: 'reuse' | 'create-copy'
 }
 
 export interface SwapMagnetMetadataDeps {
@@ -98,7 +104,7 @@ export interface SwapMagnetMetadataDeps {
 export async function swapMagnetMetadataForBt(
   input: SwapMagnetMetadataInput,
   deps: SwapMagnetMetadataDeps
-): Promise<{ gid: string }> {
+): Promise<TaskCreateSuccessResult> {
   return deps.runTaskMutation([input.taskId], () =>
     swapMagnetMetadataForBtUnderMutation(input, deps)
   )
@@ -114,8 +120,15 @@ export async function swapMagnetMetadataForBt(
 async function swapMagnetMetadataForBtUnderMutation(
   input: SwapMagnetMetadataInput,
   deps: SwapMagnetMetadataDeps
-): Promise<{ gid: string }> {
-  const { taskId, base64, selectedFiles, saveDir, name } = input
+): Promise<TaskCreateSuccessResult> {
+  const {
+    taskId,
+    base64,
+    selectedFiles,
+    saveDir,
+    name,
+    duplicatePolicy = 'reuse',
+  } = input
   const {
     db,
     taskManager,
@@ -179,17 +192,10 @@ async function swapMagnetMetadataForBtUnderMutation(
   //
   // Mirror createTaskHandler's BT branch: collision-safe final name, a short
   // indexed workspace when metadata is valid, and durable `.torrent` bytes.
-  const desiredName = (name ?? existing.task.name).replace(
-    METADATA_NAME_PREFIX,
-    ''
-  )
-  const finalName = await finalNamePicker.pick(saveDir, desiredName)
-  const finalPath = path.join(saveDir, finalName)
   let btStoragePlan: BtStoragePlan | null = null
   let parsedBtLayout: ParsedBtFileLayout | null = null
   try {
     parsedBtLayout = await parseBtFileLayout(torrentBytes)
-    btStoragePlan = createBtStoragePlan(taskId, saveDir, parsedBtLayout)
   } catch (err) {
     if (err instanceof UnsafeTorrentPathError) {
       throw new AppError(
@@ -202,6 +208,27 @@ async function swapMagnetMetadataForBtUnderMutation(
       { err, taskId },
       'failed to parse resolved magnet metadata for indexed staging; using legacy layout'
     )
+  }
+  const desiredName = (name ?? existing.task.name).replace(
+    METADATA_NAME_PREFIX,
+    ''
+  )
+  if (
+    parsedBtLayout &&
+    duplicatePolicy === 'reuse' &&
+    finalNamePicker.isTaken &&
+    (await finalNamePicker.isTaken(saveDir, desiredName))
+  ) {
+    throw existingFilesConflict(parsedBtLayout.infoHash, saveDir)
+  }
+  const finalName = await finalNamePicker.pick(
+    saveDir,
+    desiredName,
+    reservedBtFinalNames(taskManager.getAll(), saveDir, taskId)
+  )
+  const finalPath = path.join(saveDir, finalName)
+  if (parsedBtLayout) {
+    btStoragePlan = createBtStoragePlan(taskId, saveDir, parsedBtLayout)
   }
   const diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
   let torrentMetaPath: string
@@ -466,6 +493,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     finalPath,
     finalName,
     torrentMetaPath,
+    infoHash: parsedBtLayout?.infoHash ?? existing.task.infoHash,
     isPrivate: parsedBtLayout?.isPrivate ?? existing.task.isPrivate,
     aggStatus: TaskStatus.Downloading,
     finishedAt: null,
@@ -737,7 +765,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     'magnet metadata swapped for bt_download instance'
   )
 
-  return { gid: newGid }
+  return { outcome: 'created', gid: newGid, taskId }
 }
 
 interface FailedSwapArtifacts {

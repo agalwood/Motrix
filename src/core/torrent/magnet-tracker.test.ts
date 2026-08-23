@@ -19,6 +19,8 @@ import { Events } from '@shared/protocol/events'
 import { magnetFileSelectionPayloadSchema } from '@shared/schemas/add-task'
 import type { DownloadTask } from '@shared/types/task'
 import {
+  makeDefaultBtExtension,
+  makeDownloadTask,
   TaskInstancePhase,
   TaskKind,
   TaskStatus,
@@ -407,6 +409,76 @@ describe('MagnetTracker', () => {
       'follow-torrent': 'false',
       gid: expect.stringMatching(/^[a-f0-9]{16}$/),
     })
+  })
+
+  it('reuses a same-directory seed and rejects a second active directory', async () => {
+    const dir = await makeTempDir()
+    const infoHash = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+    const existing = makeDownloadTask({
+      id: 'existing-seed',
+      engineTaskId: 'existing-gid',
+      name: 'sample-data',
+      kind: TaskKind.Bt,
+      type: TaskType.Bt,
+      status: TaskStatus.Seeding,
+      saveDir: dir,
+      createdAt: 1,
+      updatedAt: 1,
+      filename: 'sample-data',
+      diskPath: path.join(dir, 'sample-data'),
+      finalPath: path.join(dir, 'sample-data'),
+      finalName: 'sample-data',
+      infoHash,
+      bt: makeDefaultBtExtension({ selectedFiles: [0] }),
+      source: 'user',
+      sourceMeta: null,
+      instances: [
+        {
+          instanceId: 'primary:existing-seed',
+          motrixId: 'existing-seed',
+          gid: 'existing-gid',
+          phase: TaskInstancePhase.BtDownload,
+          status: TaskStatus.Seeding,
+          progress: 1,
+          totalBytes: 1024,
+          downloadedBytes: 1024,
+          uploadedBytes: 0,
+          diskPath: path.join(dir, 'sample-data'),
+          transitionPhase: TransitionPhase.Idle,
+          uris: [],
+          uriHash: null,
+          payload: {},
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    })
+    taskManager.set(existing.id, existing)
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+
+    await expect(
+      tracker.submit(`magnet:?xt=urn:btih:${infoHash}`, dir)
+    ).resolves.toBe(existing.id)
+    expect(rpc.addUri).not.toHaveBeenCalled()
+
+    const otherDir = await makeTempDir()
+    await expect(
+      tracker.submit(`magnet:?xt=urn:btih:${infoHash}`, otherDir)
+    ).rejects.toMatchObject({
+      conflict: {
+        reason: 'active-info-hash',
+        existingTaskId: existing.id,
+        canCreateCopy: false,
+      },
+    })
+    expect(rpc.addUri).not.toHaveBeenCalled()
   })
 
   it('reserves and silently owns the caller GID before aria2 can expose it', async () => {

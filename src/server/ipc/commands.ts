@@ -35,7 +35,16 @@ import type {
   TaskActionDeps,
   TaskTransitionRecordInput,
 } from '@core/task/actions/shared'
-import { handleCreateTask } from '@core/task/create-task-handler'
+import {
+  acquireBtInfoHashAdmission,
+  inspectBtDuplicate,
+  taskCreateConflictResult,
+} from '@core/task/bt-duplicate-policy'
+import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import {
+  type CreateTaskDeps,
+  handleCreateTask,
+} from '@core/task/create-task-handler'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
@@ -57,6 +66,7 @@ import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { EngineRecoveryAction } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
+import { TaskStatus } from '@shared/types/task'
 import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
@@ -202,7 +212,7 @@ export function buildServerCommandHandlers(
     auditLog: hookAuditLog,
   })
 
-  const createDeps = {
+  const createDeps: CreateTaskDeps = {
     adapter,
     settingsManager,
     finalNamePicker,
@@ -271,6 +281,7 @@ export function buildServerCommandHandlers(
     publishTaskUpdate,
     publishTaskUpdateNow,
   }
+  createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
@@ -371,8 +382,36 @@ export function buildServerCommandHandlers(
             const saveDir = await downloadPathPolicy.prepareSaveDir(
               req.saveDir || settingsManager.getApp().defaultSaveDir
             )
-            await magnetTracker.submit(req.payload.uri, saveDir)
-            return { ok: true }
+            let taskId: string
+            try {
+              taskId = await magnetTracker.submit(req.payload.uri, saveDir)
+            } catch (error) {
+              const conflict = taskCreateConflictResult(error)
+              if (conflict) return conflict
+              throw error
+            }
+            if (!taskId) return { ok: true }
+            const existing = taskManager.getById(taskId)
+            if (
+              existing?.status === TaskStatus.Completed ||
+              existing?.status === TaskStatus.Error
+            ) {
+              await reAddTask(taskId, reAddDeps)
+              const owner = taskManager.getById(taskId) ?? existing
+              return {
+                outcome: 'rechecked',
+                gid: owner.engineTaskId,
+                taskId,
+              }
+            }
+            return {
+              outcome:
+                existing?.status === TaskStatus.FetchingMetadata
+                  ? 'created'
+                  : 'reused',
+              gid: existing?.engineTaskId ?? '',
+              taskId,
+            }
           }
         } else {
           await activatePluginsForTask('bt', '')
@@ -383,33 +422,85 @@ export function buildServerCommandHandlers(
           // survive (no duplicate row appears).
           if (req.payload.kind === 'torrent-base64' && req.existingTaskId) {
             const saveDir = await downloadPathPolicy.prepareSaveDir(req.saveDir)
-            return swapMagnetMetadataForBt(
-              {
-                taskId: req.existingTaskId,
-                base64: req.payload.base64,
-                selectedFiles: req.selectedFiles,
-                saveDir,
-                name: req.displayName,
-              },
-              {
-                db: motrixDatabase,
-                taskManager,
-                adapter,
-                magnetTracker,
-                finalNamePicker,
-                torrentMetaStore,
-                publishTaskUpdate,
-                publishTaskUpdateNow,
-                recordTransition,
-                runTaskMutation,
-                runExclusivePersistence: (operation) =>
-                  taskPersistence.runExclusivePersistence(operation),
+            const layout = await parseBtFileLayout(
+              Buffer.from(req.payload.base64, 'base64')
+            ).catch(() => null)
+            const releaseAdmission = layout
+              ? await acquireBtInfoHashAdmission(layout.infoHash)
+              : null
+            try {
+              const admission = layout
+                ? inspectBtDuplicate(taskManager.getAll(), {
+                    infoHash: layout.infoHash,
+                    saveDir,
+                    selectedFiles: req.selectedFiles,
+                    duplicatePolicy: req.duplicatePolicy,
+                    excludeTaskId: req.existingTaskId,
+                  })
+                : { action: 'create' as const }
+              if (admission.action === 'conflict') {
+                return { outcome: 'conflict', conflict: admission.conflict }
               }
-            )
+              if (admission.action === 'reuse') {
+                await removeTask(
+                  req.existingTaskId,
+                  { deleteWithFiles: false },
+                  removeDeps
+                )
+                if (admission.recheck) {
+                  await reAddTask(admission.task.id, reAddDeps)
+                }
+                const owner =
+                  taskManager.getById(admission.task.id) ?? admission.task
+                return {
+                  outcome: admission.recheck ? 'rechecked' : 'reused',
+                  gid: owner.engineTaskId,
+                  taskId: owner.id,
+                }
+              }
+              try {
+                return await swapMagnetMetadataForBt(
+                  {
+                    taskId: req.existingTaskId,
+                    base64: req.payload.base64,
+                    selectedFiles: req.selectedFiles,
+                    saveDir,
+                    name: req.displayName,
+                    duplicatePolicy: req.duplicatePolicy,
+                  },
+                  {
+                    db: motrixDatabase,
+                    taskManager,
+                    adapter,
+                    magnetTracker,
+                    finalNamePicker,
+                    torrentMetaStore,
+                    publishTaskUpdate,
+                    publishTaskUpdateNow,
+                    recordTransition,
+                    runTaskMutation,
+                    runExclusivePersistence: (operation) =>
+                      taskPersistence.runExclusivePersistence(operation),
+                  }
+                )
+              } catch (error) {
+                const conflict = taskCreateConflictResult(error)
+                if (conflict) return conflict
+                throw error
+              }
+            } finally {
+              releaseAdmission?.()
+            }
           }
         }
       }
-      return handleCreateTask(request, createDeps)
+      try {
+        return await handleCreateTask(request, createDeps)
+      } catch (error) {
+        const conflict = taskCreateConflictResult(error)
+        if (conflict) return conflict
+        throw error
+      }
     },
 
     [Commands.PauseTask]: async (taskId: string) => {

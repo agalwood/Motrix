@@ -107,6 +107,9 @@ const btTaskRequestSchema = z
     // meaningful for torrent-base64 payloads originating from a
     // MagnetFileSelection event flow.
     existingTaskId: z.string().min(1).optional(),
+    // Duplicate torrent handling is conservative by default. A separate copy
+    // is created only after the user explicitly confirms the conflict.
+    duplicatePolicy: z.enum(['reuse', 'create-copy']).default('reuse'),
   })
   .superRefine((value, ctx) => {
     if (
@@ -125,7 +128,34 @@ export const taskCreateRequestSchema = z.discriminatedUnion('type', [
   httpTaskRequestSchema,
   btTaskRequestSchema,
 ])
-export type TaskCreateRequest = z.infer<typeof taskCreateRequestSchema>
+export type TaskCreateRequest = z.input<typeof taskCreateRequestSchema>
+
+export const torrentDuplicateConflictSchema = z.object({
+  reason: z.enum(['active-info-hash', 'selection-mismatch', 'existing-files']),
+  infoHash: z.string().length(40),
+  targetDir: z.string(),
+  existingTaskId: z.string().nullable(),
+  existingTaskName: z.string().nullable(),
+  existingTaskStatus: z.string().nullable(),
+  canCreateCopy: z.boolean(),
+})
+
+export type TorrentDuplicateConflict = z.infer<
+  typeof torrentDuplicateConflictSchema
+>
+
+export type TaskCreateSuccessResult = {
+  outcome: 'created' | 'reused' | 'rechecked'
+  gid: string
+  taskId: string
+}
+
+export type TaskCreateCommandResult =
+  | TaskCreateSuccessResult
+  | {
+      outcome: 'conflict'
+      conflict: TorrentDuplicateConflict
+    }
 
 // ── URL params ──────────────────────────────────────────────
 

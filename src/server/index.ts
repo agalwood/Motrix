@@ -63,6 +63,7 @@ import {
 } from '@core/stats'
 import {
   pauseTask as pauseTaskAction,
+  reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
 import { finalizeTask } from '@core/task/actions/finalize-task'
@@ -1424,6 +1425,11 @@ async function main() {
           supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
         prepareSaveDir: (requested: string) =>
           downloadPathPolicy.prepareSaveDir(requested),
+        reuseExistingBt: (taskId: string) =>
+          reAddTaskAction(taskId, {
+            ...taskActionDeps,
+            torrentMetaStore,
+          }),
       }
       const taskActionDeps = {
         taskManager,

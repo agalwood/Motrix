@@ -1,4 +1,10 @@
 import { Button } from '@renderer/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@renderer/components/ui/tooltip'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { FileText, Film, Image, Music } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -68,21 +74,32 @@ export function FileTypeFilters() {
   }
 
   return (
-    <div className="flex gap-1">
-      {FILTERS.map(({ id, icon, exts }) => (
-        <Button
-          key={id}
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          onClick={() => addByExts(exts)}
-          aria-label={t(`task.add.filterBy.${id}`)}
-          title={t(`task.add.filterBy.${id}`)}
-          className="h-7 gap-0.5 px-2 text-muted-foreground hover:text-foreground"
-        >
-          {icon}
-        </Button>
-      ))}
-    </div>
+    <TooltipProvider>
+      <div className="flex gap-1">
+        {FILTERS.map(({ id, icon, exts }) => {
+          const label = t(`task.add.filterBy.${id}`)
+
+          return (
+            <Tooltip key={id}>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => addByExts(exts)}
+                    aria-label={label}
+                    className="h-7 gap-0.5 px-2 text-muted-foreground hover:text-foreground"
+                  />
+                }
+              >
+                {icon}
+              </TooltipTrigger>
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </div>
+    </TooltipProvider>
   )
 }

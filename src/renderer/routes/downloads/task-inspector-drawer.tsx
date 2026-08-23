@@ -149,12 +149,14 @@ export function TaskInspectorDrawer({
                       }
                     >
                       <HardDrive className="mr-1 size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{single.diskPath}</span>
+                      <span className="truncate">
+                        {single.finalPath || single.diskPath}
+                      </span>
                     </Button>
                     <CopyButton
                       variant="ghost"
                       className="ml-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
-                      content={single.diskPath}
+                      content={single.finalPath || single.diskPath}
                     />
                   </div>
                 )}

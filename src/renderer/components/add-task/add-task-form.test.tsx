@@ -254,4 +254,58 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
   })
+
+  it('requires confirmation before creating a renamed torrent copy', async () => {
+    const onSubmitSuccess = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    let createCalls = 0
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') return { app: {} }
+      createCalls += 1
+      if (createCalls === 1) {
+        return {
+          outcome: 'conflict',
+          conflict: {
+            reason: 'selection-mismatch',
+            infoHash: 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+            targetDir: '/d',
+            existingTaskId: 'existing-task',
+            existingTaskName: 'sample-data',
+            existingTaskStatus: 'completed',
+            canCreateCopy: true,
+          },
+        }
+      }
+      return {
+        outcome: 'created',
+        gid: 'copy-gid',
+        taskId: 'copy-task',
+      }
+    })
+    renderForm({ onSubmitSuccess })
+
+    await user.type(
+      screen.getByRole('textbox'),
+      'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+    )
+    await user.click(screen.getByRole('button', { name: /download/i }))
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'This torrent already exists',
+      })
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('button', { name: 'Create separate copy' })
+    )
+
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenLastCalledWith(
+        'command:createTask',
+        expect.objectContaining({ duplicatePolicy: 'create-copy' })
+      )
+    )
+    expect(onSubmitSuccess).toHaveBeenCalledWith('copy-task')
+  })
 })

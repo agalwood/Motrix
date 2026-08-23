@@ -68,4 +68,15 @@ describe('torrent summary controls', () => {
 
     expect(screen.getByTestId('selected-files')).toHaveTextContent('4,1,2,3')
   })
+
+  it('shows a tooltip for each file type filter', async () => {
+    const user = userEvent.setup()
+    render(<TorrentControls onClear={vi.fn()} />)
+
+    for (const label of ['Video', 'Audio', 'Image', 'Document']) {
+      await user.hover(screen.getByRole('button', { name: label }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(label)
+      await user.unhover(screen.getByRole('button', { name: label }))
+    }
+  })
 })
