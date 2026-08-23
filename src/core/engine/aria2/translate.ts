@@ -218,6 +218,9 @@ export function translateBtExtension(
     trackers: (raw.bittorrent.announceList ?? []).flat(),
     selectedFiles: (raw.files ?? [])
       .filter((f) => f.selected === 'true')
+      // aria2 numbers files from 1; the engine-neutral domain uses 0-based
+      // indices (the same convention as TorrentFileInfo and selection
+      // commands). Keep that engine detail inside this adapter boundary.
       .map((f) => Number(f.index) - 1),
     peersInSwarm: 0,
     seedsInSwarm: 0,
@@ -405,6 +408,7 @@ export function translateRawToTask(raw: Aria2RawStatus): DownloadTask {
 
 export function translateRawFile(raw: Aria2RawFile): TaskFile {
   return {
+    // aria2.getFiles is 1-based; TaskFile is engine-neutral and 0-based.
     index: Number(raw.index) - 1,
     path: raw.path,
     size: Number(raw.length),

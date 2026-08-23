@@ -142,6 +142,14 @@ describe('activity calendar day model', () => {
     expect(projected.at(-1)?.dateKey).toBe(cells.at(-1)?.dateKey)
   })
 
+  it('omits a short leading partial month that would overlap the next label', () => {
+    const cells = buildActivityCells(snapshot(), new Date(2026, 7, 23, 12))
+    const labels = activityMonthLabels(cells)
+
+    expect(new Date(labels[0]?.dateMs ?? 0).getMonth()).toBe(8)
+    expect(labels[0]?.cellIndex).toBe(7)
+  })
+
   it('omits the duplicated trailing month label only in a full-year view', () => {
     const cells = buildActivityCells(snapshot(), new Date(2026, 6, 29, 12))
     const fullYearLabels = activityMonthLabels(cells)

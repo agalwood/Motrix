@@ -135,6 +135,7 @@ async function reAddBt(
           : buildStagingOutputFilePaths(parsedLayout, storageLayout)
         : undefined,
     gid: reservedGid,
+    // AddTorrentParams is engine-native; the task aggregate stays 0-based.
     selectedFiles: selectedFiles?.map((index) => index + 1),
     checkIntegrity: true,
     pause: false,

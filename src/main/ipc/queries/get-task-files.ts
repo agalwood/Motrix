@@ -43,11 +43,18 @@ export function createGetTaskFilesHandler(deps: Deps) {
     }))
     if (!task) return base
 
-    if (task.status === TaskStatus.Completed) {
+    // Magnet swaps in affected builds persisted selected-index placeholders
+    // with empty paths and zero sizes. Treat those rows like an empty cache so
+    // an available engine result can supply the real structure immediately;
+    // the polling sync repairs the durable rows independently.
+    const needsStructure =
+      base.length === 0 || base.some((file) => file.path.length === 0)
+
+    if (task.status === TaskStatus.Completed && !needsStructure) {
       for (const f of base) f.completedBytes = f.size
       return base
     }
-    if (!ACTIVE_STATES.has(task.status)) {
+    if (!ACTIVE_STATES.has(task.status) && !needsStructure) {
       return base
     }
     // Coordinator-managed media tasks (Mux/Hls) have no aria2 handle
@@ -59,13 +66,11 @@ export function createGetTaskFilesHandler(deps: Deps) {
     }
     try {
       const live = await deps.engine.getTaskFiles(task.engineTaskId)
-      // db is the source of structure (path/size/selected) once the
-      // auto-sync trigger has run. Until then — i.e. on the first
-      // GetTaskFiles call after a fresh task starts, before the poll
-      // cycle has populated task_files — fall back to engine for the
-      // full structure too. The persistence-side write happens out of
-      // band in the poll handler; we don't side-effect from a query.
-      if (base.length === 0 && live.length > 0) {
+      // db is the source of structure (path/size/selected) once the auto-sync
+      // has produced complete rows. Before that — an empty fresh-task cache
+      // or legacy magnet placeholders — fall back to engine for the full
+      // structure. Persistence remains owned by polling; this query is pure.
+      if (needsStructure && live.length > 0) {
         return live.map((f) => ({
           index: f.index,
           path: relativize(f.path, task),
@@ -80,6 +85,9 @@ export function createGetTaskFilesHandler(deps: Deps) {
       }
     } catch (err) {
       log.warn({ err, taskId }, 'engine.getTaskFiles failed; degrading to 0')
+    }
+    if (task.status === TaskStatus.Completed) {
+      for (const f of base) f.completedBytes = f.size
     }
     return base
   }

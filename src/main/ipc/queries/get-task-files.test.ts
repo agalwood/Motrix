@@ -183,6 +183,57 @@ describe('getTaskFiles handler', () => {
     expect(result[0]?.selected).toBe(true)
   })
 
+  it('replaces persisted magnet placeholders from engine for a completed task', async () => {
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        { fileIndex: 0, path: '', size: 0, selected: true },
+        { fileIndex: 1, path: '', size: 0, selected: true },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() => mkTask({ status: TaskStatus.Completed })),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: '/Downloads/Show.motrix/episode-01.mkv',
+          size: 1_500_000_000,
+          completedBytes: 1_500_000_000,
+          selected: true,
+        },
+        {
+          index: 1,
+          path: '/Downloads/Show.motrix/episode-02.mkv',
+          size: 1_600_000_000,
+          completedBytes: 1_600_000_000,
+          selected: true,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+    const result = await handler('t1')
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        index: 0,
+        path: 'episode-01.mkv',
+        size: 1_500_000_000,
+      }),
+      expect.objectContaining({
+        index: 1,
+        path: 'episode-02.mkv',
+        size: 1_600_000_000,
+      }),
+    ])
+    expect(engine.getTaskFiles).toHaveBeenCalledWith('gid1')
+  })
+
   it('relativizes absolute file path against task.diskPath (single-file BT)', async () => {
     // aria2 returns the absolute disk path including the .motrix container.
     // Provider must strip the diskPath prefix so the UI shows just the

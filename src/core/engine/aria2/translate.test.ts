@@ -130,6 +130,38 @@ describe('translateRawToTask path fields', () => {
     expect(task.finalName).toBe('my-torrent')
   })
 
+  it('BT: normalizes aria2 selected file indices to 0-based domain indices', () => {
+    const task = translateRawToTask(
+      makeRaw({
+        bittorrent: {
+          announceList: [],
+          mode: 'multi',
+          info: { name: 'my-torrent' },
+        },
+        files: [
+          {
+            index: '1',
+            path: '/downloads/my-torrent.motrix/a.bin',
+            length: '400',
+            completedLength: '0',
+            selected: 'true',
+            uris: [],
+          },
+          {
+            index: '3',
+            path: '/downloads/my-torrent.motrix/c.bin',
+            length: '600',
+            completedLength: '0',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      })
+    )
+
+    expect(task.bt?.selectedFiles).toEqual([0, 2])
+  })
+
   // Adopted orphans (restore Pass 1 / poll discovery) mint their display
   // name from aria2's on-disk file name — which carries the `.motrix`
   // in-flight placeholder for HTTP tasks. The internal suffix must never

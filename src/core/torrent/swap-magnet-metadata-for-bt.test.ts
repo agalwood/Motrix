@@ -250,6 +250,7 @@ function makeMetaInstance(motrixId: string, gid: string): TaskInstanceRow {
 
 interface MockAdapter {
   addTorrent: ReturnType<typeof vi.fn>
+  getTaskFiles: ReturnType<typeof vi.fn>
   forceRemoveTask: ReturnType<typeof vi.fn>
   removeDownloadResult: ReturnType<typeof vi.fn>
 }
@@ -260,6 +261,7 @@ function createMockAdapter(): MockAdapter {
       if (!params.gid) throw new Error('test expected a caller-reserved gid')
       return params.gid
     }),
+    getTaskFiles: vi.fn(async () => []),
     forceRemoveTask: vi.fn().mockResolvedValue(undefined),
     removeDownloadResult: vi.fn().mockResolvedValue(undefined),
   }
@@ -680,6 +682,65 @@ describe('swapMagnetMetadataForBt', () => {
     expect(tmTask.id).toBe('m-mag')
     expect(tmTask.createdAt).toBe(1700000000)
     expect(tmTask.bt?.selectedFiles).toEqual([0, 1])
+  })
+
+  it('persists complete engine file metadata instead of index placeholders', async () => {
+    adapter.getTaskFiles.mockResolvedValueOnce([
+      {
+        index: 0,
+        path: '/Downloads/Show.motrix/episode-01.mkv',
+        size: 1_500_000_000,
+        completedBytes: 0,
+        selected: true,
+      },
+      {
+        index: 1,
+        path: '/Downloads/Show.motrix/episode-02.mkv',
+        size: 1_600_000_000,
+        completedBytes: 0,
+        selected: false,
+      },
+    ])
+
+    const result = await swapMagnetMetadataForBt(
+      {
+        taskId: 'm-mag',
+        base64: 'BASE64TORRENT==',
+        selectedFiles: [0],
+        saveDir: '/Downloads',
+        name: 'Show',
+      },
+      {
+        db,
+        taskManager,
+        adapter: adapter as never,
+        magnetTracker: magnetTracker as never as MagnetTracker,
+        publishTaskUpdate: () =>
+          eventBus.emit(Events.TaskUpdated, taskManager.getAll()),
+        publishTaskUpdateNow: () =>
+          eventBus.emit(Events.TaskUpdated, taskManager.getAll()),
+        finalNamePicker: finalNamePicker as never,
+        torrentMetaStore: torrentMetaStore as never,
+        runTaskMutation: runImmediately,
+        runExclusivePersistence: persistImmediately,
+      }
+    )
+
+    expect(adapter.getTaskFiles).toHaveBeenCalledWith(result.gid)
+    expect(db.getTaskFiles('m-mag')).toEqual([
+      {
+        fileIndex: 0,
+        path: '/Downloads/Show.motrix/episode-01.mkv',
+        size: 1_500_000_000,
+        selected: true,
+      },
+      {
+        fileIndex: 1,
+        path: '/Downloads/Show.motrix/episode-02.mkv',
+        size: 1_600_000_000,
+        selected: false,
+      },
+    ])
   })
 
   it('records MetadataReady-to-Downloading after durability and before publication', async () => {
