@@ -250,6 +250,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain(
         `--lowest-speed-limit=${DEFAULT_ENGINE_SETTINGS.lowestSpeedLimit}`
       )
+      expect(args).toContain('--remote-time=false')
     })
 
     it('injects all BitTorrent flags', () => {
@@ -288,6 +289,7 @@ describe('Aria2ConfigBuilder', () => {
         maxTries: 0,
         retryWait: 5,
         lowestSpeedLimit: 1024,
+        remoteTime: true,
         btMaxPeers: 256,
         btEnableLpd: false,
         seedRatio: 2,
@@ -303,6 +305,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--max-tries=0')
       expect(args).toContain('--retry-wait=5')
       expect(args).toContain('--lowest-speed-limit=1024')
+      expect(args).toContain('--remote-time=true')
       expect(args).toContain('--bt-max-peers=256')
       expect(args).toContain('--bt-enable-lpd=false')
       expect(args).toContain('--seed-ratio=2')

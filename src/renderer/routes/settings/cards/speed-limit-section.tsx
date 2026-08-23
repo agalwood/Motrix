@@ -24,6 +24,7 @@ import type { SpeedPoint } from '@shared/types/stats'
 import { type ComponentProps, forwardRef, useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { CompactLimitInput } from './compact-limit-input'
 import { type DownloadsFields, KB, MBPS } from './downloads-form'
 
 const TIME_INPUT_CLS = 'h-8 w-24 bg-background font-mono tabular-nums'
@@ -252,58 +253,41 @@ export function SpeedLimitSection({
   const adaptiveEnabled = settings.auto.adaptive.enabled
   const summary = effectSummary(settings, t)
 
-  const kbLimitRow = (name: KbLimitName, labelKey: string, descKey: string) => (
+  const kbLimitRow = (
+    name: KbLimitName,
+    labelKey: string,
+    descKey: string,
+    zeroAction: 'unlimited' | 'inherit'
+  ) => (
     <FormField
       control={form.control}
       name={name}
-      render={({ field }) => {
-        const unlimited = (field.value as number) <= 0
-        return (
-          <FormItem className="flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-1">
-              <FormLabel>{t(labelKey)}</FormLabel>
-              <FormDescription className="text-xs">
-                {t(descKey)}
-              </FormDescription>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <div className="relative">
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    className="h-8 w-32 pr-12"
-                    value={Math.round((field.value as number) / KB)}
-                    onChange={(event) => {
-                      const value = Number.parseInt(event.target.value, 10)
-                      field.onChange(Number.isFinite(value) ? value * KB : 0)
-                    }}
-                  />
-                </FormControl>
-                <span
-                  className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[11px] text-muted-foreground"
-                  aria-hidden
-                >
-                  KB/s
-                </span>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                disabled={unlimited}
-                onClick={() => field.onChange(0)}
-              >
-                {t(
-                  unlimited
-                    ? 'settings.downloads.speedLimit.unlimited'
-                    : 'settings.downloads.speedLimit.setUnlimited'
-                )}
-              </Button>
-            </div>
-          </FormItem>
-        )
-      }}
+      render={({ field }) => (
+        <FormItem className="flex items-start justify-between gap-4">
+          <div className="min-w-0 space-y-1">
+            <FormLabel>{t(labelKey)}</FormLabel>
+            <FormDescription className="text-xs">{t(descKey)}</FormDescription>
+          </div>
+          <FormControl>
+            <CompactLimitInput
+              value={Math.round((field.value as number) / KB)}
+              onValueChange={(value) => field.onChange(value * KB)}
+              unit="KB/s"
+              zeroAction={zeroAction}
+              zeroLabel={t(
+                zeroAction === 'inherit'
+                  ? 'settings.downloads.speedLimit.standardLimit'
+                  : 'settings.downloads.speedLimit.unlimited'
+              )}
+              resetLabel={t(
+                zeroAction === 'inherit'
+                  ? 'settings.downloads.speedLimit.useStandardLimit'
+                  : 'settings.downloads.speedLimit.setUnlimited'
+              )}
+            />
+          </FormControl>
+        </FormItem>
+      )}
     />
   )
 
@@ -454,12 +438,14 @@ export function SpeedLimitSection({
       {kbLimitRow(
         'speedLimit.base.download',
         'settings.downloads.speedLimit.baseDownload',
-        'settings.downloads.speedLimit.baseDownloadDesc'
+        'settings.downloads.speedLimit.baseDownloadDesc',
+        'unlimited'
       )}
       {kbLimitRow(
         'speedLimit.base.upload',
         'settings.downloads.speedLimit.baseUpload',
-        'settings.downloads.speedLimit.baseUploadDesc'
+        'settings.downloads.speedLimit.baseUploadDesc',
+        'unlimited'
       )}
 
       <Separator className="my-2" />
@@ -471,12 +457,14 @@ export function SpeedLimitSection({
       {kbLimitRow(
         'speedLimit.alt.download',
         'settings.downloads.speedLimit.altDownload',
-        'settings.downloads.speedLimit.altDownloadDesc'
+        'settings.downloads.speedLimit.altDownloadDesc',
+        'inherit'
       )}
       {kbLimitRow(
         'speedLimit.alt.upload',
         'settings.downloads.speedLimit.altUpload',
-        'settings.downloads.speedLimit.altUploadDesc'
+        'settings.downloads.speedLimit.altUploadDesc',
+        'inherit'
       )}
 
       {turtle === 'auto' && (

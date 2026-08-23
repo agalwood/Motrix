@@ -112,7 +112,7 @@ export function setupTray(deps: TrayDeps): TrayHandle {
 
     // Events
     tray.on('click', () => {
-      if (process.platform === 'win32') {
+      if (process.platform !== 'darwin') {
         toggleMainWindow()
         return
       }
@@ -120,9 +120,13 @@ export function setupTray(deps: TrayDeps): TrayHandle {
       if (currentMenu) tray?.popUpContextMenu(currentMenu)
     })
 
-    tray.on('right-click', () => {
-      if (currentMenu) tray?.popUpContextMenu(currentMenu)
-    })
+    // Electron only supports right-click and popUpContextMenu on macOS and
+    // Windows. Linux delegates the context action to setContextMenu above.
+    if (process.platform !== 'linux') {
+      tray.on('right-click', () => {
+        if (currentMenu) tray?.popUpContextMenu(currentMenu)
+      })
+    }
 
     // macOS: ignore double-click, enable drop
     if (process.platform === 'darwin') {

@@ -51,6 +51,7 @@ export const engineSettingsSchema = z
     fileAllocation: z
       .enum(['none', 'prealloc', 'trunc', 'falloc'])
       .catch('none'),
+    remoteTime: z.boolean().catch(false),
     diskCache: z
       .number()
       .int()

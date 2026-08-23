@@ -17,8 +17,10 @@ export function resolveDesktopBackgroundPolicy({
   platform,
   runMode,
 }: DesktopBackgroundPolicyInput): DesktopBackgroundPolicy {
-  const keepTray =
-    runMode !== RunMode.HideTray || (lightweightMode && platform !== 'darwin')
+  // HideTray is a macOS-only mode because the Dock remains a reliable reopen
+  // surface there. Windows and Linux must always keep the tray, including for
+  // stale or manually edited settings that contain the unsupported value.
+  const keepTray = platform !== 'darwin' || runMode !== RunMode.HideTray
 
   return {
     keepTray,

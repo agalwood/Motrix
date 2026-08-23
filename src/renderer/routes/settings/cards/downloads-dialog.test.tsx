@@ -47,6 +47,7 @@ const FIXTURE = {
     retryWait: 10,
     lowestSpeedLimit: 0,
     fileAllocation: 'none',
+    remoteTime: false,
     diskCache: 32 * 1024 * 1024,
     sessionSaveInterval: 15,
     magnetResolveTimeout: 120,
@@ -226,6 +227,31 @@ describe('<DownloadsDialog>', () => {
     expect(screen.queryByText(/restart to apply changes/i)).toBeNull()
   })
 
+  it('selects the file modification time source and submits the aria2 setting', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const user = userEvent.setup()
+    const modifiedTime = await screen.findByRole('combobox', {
+      name: /file modification time/i,
+    })
+    expect(modifiedTime).toHaveTextContent(/^local$/i)
+
+    await user.click(modifiedTime)
+    await user.click(await screen.findByRole('option', { name: /^server$/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: { remoteTime: true },
+    })
+  })
+
   it('renders the speed modes with user-facing names', async () => {
     render(
       <DownloadsDialog
@@ -315,6 +341,70 @@ describe('<DownloadsDialog>', () => {
       speedLimit: { base: { download: 1024 * 1024 } },
     })
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('groups compact reset actions with their speed limit inputs', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings) {
+        return {
+          ...FIXTURE,
+          speedLimit: {
+            ...DEFAULT_SPEED_LIMIT_SETTINGS,
+            base: {
+              ...DEFAULT_SPEED_LIMIT_SETTINGS.base,
+              download: 1024 * 1024,
+            },
+          },
+        }
+      }
+      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+    })
+
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const user = userEvent.setup()
+    const baseDown = (await screen.findByLabelText(
+      /standard download limit/i
+    )) as HTMLInputElement
+    const altDown = screen.getByLabelText(
+      /low-speed download limit/i
+    ) as HTMLInputElement
+    const setUnlimited = screen.getByRole('button', {
+      name: /set unlimited/i,
+    })
+    const useStandard = screen
+      .getAllByRole('button', { name: /use standard limit/i })
+      .find((button) =>
+        button.closest('[data-slot="button-group"]')?.contains(altDown)
+      )
+
+    const standardGroup = setUnlimited.closest('[data-slot="button-group"]')
+    expect(standardGroup).toContainElement(baseDown)
+    expect(standardGroup).toHaveClass('w-40')
+    expect(useStandard).toBeDefined()
+
+    await user.click(setUnlimited)
+    await user.click(useStandard as HTMLElement)
+
+    expect(baseDown).toHaveValue('')
+    expect(baseDown).toHaveAttribute('placeholder', 'Unlimited')
+    expect(altDown).toHaveValue('')
+    expect(altDown).toHaveAttribute('placeholder', 'Standard limit')
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      speedLimit: {
+        base: { download: 0 },
+        alt: { download: 0 },
+      },
+    })
   })
 
   it('switching the turtle state to auto submits a turtle patch', async () => {

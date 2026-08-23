@@ -48,16 +48,19 @@ describe('resolveDesktopBackgroundPolicy', () => {
     }
   )
 
-  it('preserves legacy HideTray behavior when lightweight mode is disabled', () => {
-    expect(
-      resolveDesktopBackgroundPolicy({
-        lightweightMode: false,
-        platform: 'win32',
-        runMode: RunMode.HideTray,
+  it.each<NodeJS.Platform>(['win32', 'linux'])(
+    'keeps a reopen surface for unsupported HideTray on %s',
+    (platform) => {
+      expect(
+        resolveDesktopBackgroundPolicy({
+          lightweightMode: false,
+          platform,
+          runMode: RunMode.HideTray,
+        })
+      ).toEqual({
+        keepTray: true,
+        releaseMainWindowWhenHidden: false,
       })
-    ).toEqual({
-      keepTray: false,
-      releaseMainWindowWhenHidden: false,
-    })
-  })
+    }
+  )
 })

@@ -209,7 +209,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                 control={form.control}
                 name="proxy.port"
                 render={({ field }) => (
-                  <FormItem className="w-28 space-y-0">
+                  <FormItem className="w-30 space-y-0">
                     <FormControl>
                       <InputGroup className="h-8">
                         <InputGroupAddon align="inline-start">

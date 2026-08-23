@@ -1004,6 +1004,7 @@ describe('EngineSupervisor', () => {
         split: 32,
         userAgent: 'Motrix/Test',
         btEnableLpd: false,
+        remoteTime: true,
         sessionSaveInterval: 30,
         fileAllocation: 'prealloc',
         diskCache: 32 * 1024 * 1024,
@@ -1013,6 +1014,7 @@ describe('EngineSupervisor', () => {
         split: '32',
         'user-agent': 'Motrix/Test',
         'bt-enable-lpd': 'false',
+        'remote-time': 'true',
         'save-session-interval': '30',
       })
     })

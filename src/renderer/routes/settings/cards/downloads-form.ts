@@ -23,6 +23,7 @@ export type EngineFields = Pick<
   | 'retryWait'
   | 'lowestSpeedLimit'
   | 'fileAllocation'
+  | 'remoteTime'
   | 'diskCache'
   | 'sessionSaveInterval'
   | 'magnetResolveTimeout'
@@ -55,6 +56,7 @@ export const ENGINE_DEFAULTS: EngineFields = {
   retryWait: DEFAULT_ENGINE_SETTINGS.retryWait,
   lowestSpeedLimit: DEFAULT_ENGINE_SETTINGS.lowestSpeedLimit,
   fileAllocation: DEFAULT_ENGINE_SETTINGS.fileAllocation,
+  remoteTime: DEFAULT_ENGINE_SETTINGS.remoteTime,
   diskCache: DEFAULT_ENGINE_SETTINGS.diskCache,
   sessionSaveInterval: DEFAULT_ENGINE_SETTINGS.sessionSaveInterval,
   magnetResolveTimeout: DEFAULT_ENGINE_SETTINGS.magnetResolveTimeout,
