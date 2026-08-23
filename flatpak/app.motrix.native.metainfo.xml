@@ -76,6 +76,17 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.24" date="2026-08-24">
+      <description>
+        <p>
+          BitTorrent and Magnet tasks now preserve authoritative file metadata,
+          avoid long staging paths, and reuse compatible existing content while
+          reporting explicit destination or selection conflicts. AppImage
+          delivery, Windows caption controls, activity labels, and New Task
+          file-filter tooltips are also improved.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.23" date="2026-08-23">
       <description>
         <p>
