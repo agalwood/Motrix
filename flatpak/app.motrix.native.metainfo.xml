@@ -76,6 +76,17 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.23" date="2026-08-23">
+      <description>
+        <p>
+          Downloads can now use either the local completion time or the
+          server-provided modification time. Appearance settings and tray
+          behavior follow macOS, Windows, and Linux conventions more closely,
+          Settings controls use a more consistent compact layout, and the New
+          Task window can shrink correctly on Windows.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.22" date="2026-08-22">
       <description>
         <p>
