@@ -1384,7 +1384,11 @@ describe('release workflow publication contract', () => {
     expect(cleanSmokeCommand).toContain('[[ ! -e /dev/fuse ]]')
     expect(cleanSmokeCommand).toContain('libfuse.so.2')
     expect(cleanSmokeCommand).toContain('--appimage-updateinformation')
-    expect(cleanSmokeCommand).toContain('--appimage-extract')
+    expect(cleanSmokeCommand).toMatch(
+      /--appimage-extract \\\n\s+motrix\.desktop/
+    )
+    expect(cleanSmokeCommand).toContain('test -f squashfs-root/motrix.desktop')
+    expect(cleanSmokeCommand).not.toContain('app.motrix.native.desktop')
 
     const upload = buildSteps.find(
       (step) => step.name === 'Upload target release input'
