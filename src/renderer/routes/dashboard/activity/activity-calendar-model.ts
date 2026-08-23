@@ -504,6 +504,15 @@ export function activityMonthLabels(
     }
   }
 
+  // A partial month with fewer than three visible week columns does not leave
+  // enough room for both short labels, so prefer the next complete month.
+  const leadingLabelIsPartial =
+    labels[0] && new Date(labels[0].dateMs).getDate() !== 1
+
+  if (leadingLabelIsPartial && labels[1] && labels[1].cellIndex <= 14) {
+    labels.shift()
+  }
+
   // A 53-week projection commonly begins and ends in the same named month
   // across adjacent years. Repeating that month at both edges reads like a
   // duplicate heading, so keep the leading label only for the full-year view.
