@@ -473,17 +473,26 @@ async function swapMagnetMetadataForBtUnderMutation(
     errorCode: null,
     updatedAt: now,
   }
-  const selectedFileRows = selectedFiles.map((fileIndex) => ({
+  // This is only a crash-safe fallback for the narrow window between engine
+  // acceptance and the authoritative getFiles read below. The former code
+  // persisted these placeholders as the final graph, while the background
+  // sync treated any existing row as complete; Files then showed blank names
+  // and 0 B forever.
+  let taskFileRows = selectedFiles.map((fileIndex) => ({
     fileIndex,
-    // aria2 populates the actual path on next poll; persisting the user's
-    // selected indices is what matters here. The poller updates `path` and
-    // `size` when it observes the row.
     path: '',
     size: 0,
     selected: true,
   }))
+  const restoredDownloadTask = taskRowToDownloadTask(updatedTask, [newInstance])
   const updatedDownloadTask = {
-    ...taskRowToDownloadTask(updatedTask, [newInstance]),
+    ...restoredDownloadTask,
+    bt: restoredDownloadTask.bt
+      ? {
+          ...restoredDownloadTask.bt,
+          selectedFiles: [...selectedFiles],
+        }
+      : undefined,
     // Carry over original createdAt so the row stays in its list slot.
     createdAt: existing.task.createdAt,
   }
@@ -504,11 +513,33 @@ async function swapMagnetMetadataForBtUnderMutation(
         `engine returned gid ${addedGid} instead of reserved gid ${newGid}`
       )
     }
+    try {
+      const liveFiles = await adapter.getTaskFiles(newGid)
+      if (liveFiles.length > 0) {
+        // Persist every torrent file, including unselected rows, so the Files
+        // tab can render the complete structure and selection state before
+        // the first polling tick.
+        taskFileRows = liveFiles.map((file) => ({
+          fileIndex: file.index,
+          path: file.path,
+          size: file.size,
+          selected: file.selected,
+        }))
+      }
+    } catch (err) {
+      // Engine acceptance already succeeded. Keep the durable placeholder
+      // graph and let the polling repair path retry rather than turning a
+      // transient read failure into a destructive swap rollback.
+      log.warn(
+        { err, taskId, newGid },
+        'could not hydrate magnet swap file metadata; polling will retry'
+      )
+    }
     await deps.runExclusivePersistence(async () => {
       db.saveTaskWithInstancesAndFiles({
         task: updatedTask,
         instances: [newInstance],
-        files: selectedFileRows,
+        files: taskFileRows,
       })
       if (
         recordTransition &&

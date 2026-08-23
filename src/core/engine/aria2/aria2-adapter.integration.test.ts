@@ -159,10 +159,12 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         return result.length === 2 ? result : null
       }, 3000)
       expect(files).toHaveLength(2)
-      const f1 = files.find((f) => f.index === 1)
-      const f2 = files.find((f) => f.index === 2)
-      expect(f1?.selected).toBe(true)
-      expect(f2?.selected).toBe(false)
+      // AddTorrentParams is aria2-native (1-based), while TaskFile is a
+      // domain model and therefore exposes 0-based indexes.
+      const firstFile = files.find((f) => f.index === 0)
+      const secondFile = files.find((f) => f.index === 1)
+      expect(firstFile?.selected).toBe(true)
+      expect(secondFile?.selected).toBe(false)
 
       await discardTask(adapter, gid)
     }, 10_000)

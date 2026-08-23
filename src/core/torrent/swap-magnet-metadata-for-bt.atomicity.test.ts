@@ -616,6 +616,7 @@ function createTrackingAdapter(options?: {
   return {
     adapter: {
       addTorrent,
+      getTaskFiles: vi.fn(async () => []),
       forceRemoveTask,
       removeDownloadResult,
     } as unknown as EngineAdapter,
