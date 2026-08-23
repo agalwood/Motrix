@@ -643,14 +643,14 @@ describe('buildCommandHandlers', () => {
     expect(result).toEqual({ ok: true })
   })
 
-  it('ResizeWindow resolves sender to BrowserWindow and calls setSize', async () => {
-    const setSize = vi.fn()
+  it('ResizeWindow uses bounds so non-resizable windows can shrink', async () => {
+    const setBounds = vi.fn()
     const getSize = vi.fn(() => [800, 600])
     const isDestroyed = vi.fn(() => false)
     fromWebContentsMock.mockReturnValueOnce({
       isDestroyed,
       getSize,
-      setSize,
+      setBounds,
     })
     const ctx = fakeCtx()
     // @ts-expect-error partial ctx
@@ -661,7 +661,7 @@ describe('buildCommandHandlers', () => {
       height: 300,
     })
     expect(fromWebContentsMock).toHaveBeenCalledWith(fakeSender)
-    expect(setSize).toHaveBeenCalledWith(400, 300, true)
+    expect(setBounds).toHaveBeenCalledWith({ width: 400, height: 300 }, true)
     expect(result).toEqual({ ok: true })
   })
 
