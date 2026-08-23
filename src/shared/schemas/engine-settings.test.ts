@@ -83,3 +83,24 @@ describe('engineSettingsSchema dnsMode', () => {
     }
   )
 })
+
+describe('engineSettingsSchema remoteTime', () => {
+  it('uses the local modification time by default', () => {
+    expect(DEFAULT_ENGINE_SETTINGS.remoteTime).toBe(false)
+  })
+
+  it.each([true, false])('accepts %s', (remoteTime) => {
+    expect(engineSettingsSchema.parse({ remoteTime }).remoteTime).toBe(
+      remoteTime
+    )
+  })
+
+  it.each(['server', 1, null])(
+    'recovers invalid persisted value %s to false',
+    (bad) => {
+      expect(engineSettingsSchema.parse({ remoteTime: bad }).remoteTime).toBe(
+        false
+      )
+    }
+  )
+})

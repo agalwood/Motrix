@@ -193,6 +193,7 @@ export interface EngineSettings {
 
   // Disk & session
   fileAllocation: FileAllocation
+  remoteTime: boolean
   diskCache: number
   sessionSaveInterval: number
 

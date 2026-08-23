@@ -114,6 +114,7 @@ export class Aria2ConfigBuilder {
       `--seed-ratio=${settings.seedRatio}`,
       `--seed-time=${settings.seedTime}`,
       `--file-allocation=${settings.fileAllocation}`,
+      `--remote-time=${settings.remoteTime}`,
       `--disk-cache=${settings.diskCache}`,
       `--save-session-interval=${settings.sessionSaveInterval}`
     )

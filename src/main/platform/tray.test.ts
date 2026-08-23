@@ -173,7 +173,7 @@ describe('setupTray', () => {
     }
   )
 
-  it('creates and removes the forced tray as lightweight mode changes', async () => {
+  it('keeps a tray for stale Linux HideTray as lightweight mode changes', async () => {
     Object.defineProperty(process, 'platform', { value: 'linux' })
     const deps = createDeps({
       lightweightMode: false,
@@ -181,7 +181,9 @@ describe('setupTray', () => {
       traySpeedometer: false,
     })
     const handle = setupTray(deps)
-    expect(trayConstructor).not.toHaveBeenCalled()
+    await vi.waitFor(() => {
+      expect(trayConstructor).toHaveBeenCalledOnce()
+    })
 
     const settingsChanged = (
       deps.eventBus.on as unknown as ReturnType<typeof vi.fn>
@@ -197,10 +199,6 @@ describe('setupTray', () => {
       },
     })
 
-    await vi.waitFor(() => {
-      expect(trayConstructor).toHaveBeenCalled()
-    })
-
     settingsChanged?.({
       old: {
         app: { lightweightMode: true, runMode: RunMode.HideTray },
@@ -209,7 +207,8 @@ describe('setupTray', () => {
         app: { lightweightMode: false, runMode: RunMode.HideTray },
       },
     })
-    expect(trayInstance.destroy).toHaveBeenCalledOnce()
+    expect(trayConstructor).toHaveBeenCalledOnce()
+    expect(trayInstance.destroy).not.toHaveBeenCalled()
 
     handle.destroy()
   })
@@ -256,32 +255,50 @@ describe('setupTray', () => {
     handle.destroy()
   })
 
-  it.each(['darwin', 'linux'] as const)(
-    'preserves the tray-menu behavior on %s left click',
-    async (platform) => {
-      Object.defineProperty(process, 'platform', { value: platform })
+  it('opens the tray menu on macOS click', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
 
-      const handle = setupTray(createDeps())
+    const handle = setupTray(createDeps())
 
-      await vi.waitFor(() => {
-        expect(trayInstance.on).toHaveBeenCalledWith(
-          'click',
-          expect.any(Function)
-        )
-      })
-
-      getTrayHandler('click')()
-
-      expect(trayInstance.popUpContextMenu).toHaveBeenCalledExactlyOnceWith(
-        trayMenu
+    await vi.waitFor(() => {
+      expect(trayInstance.on).toHaveBeenCalledWith(
+        'click',
+        expect.any(Function)
       )
-      expect(toggleMainWindow).not.toHaveBeenCalled()
+    })
 
-      if (platform === 'linux') {
-        expect(trayInstance.setContextMenu).toHaveBeenCalledWith(trayMenu)
-      }
+    getTrayHandler('click')()
 
-      handle.destroy()
-    }
-  )
+    expect(trayInstance.popUpContextMenu).toHaveBeenCalledExactlyOnceWith(
+      trayMenu
+    )
+    expect(toggleMainWindow).not.toHaveBeenCalled()
+
+    handle.destroy()
+  })
+
+  it('toggles the main window on Linux activation and uses the bound menu', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+
+    const handle = setupTray(createDeps())
+
+    await vi.waitFor(() => {
+      expect(trayInstance.on).toHaveBeenCalledWith(
+        'click',
+        expect.any(Function)
+      )
+    })
+
+    getTrayHandler('click')()
+
+    expect(toggleMainWindow).toHaveBeenCalledOnce()
+    expect(trayInstance.setContextMenu).toHaveBeenCalledWith(trayMenu)
+    expect(trayInstance.popUpContextMenu).not.toHaveBeenCalled()
+    expect(trayInstance.on).not.toHaveBeenCalledWith(
+      'right-click',
+      expect.any(Function)
+    )
+
+    handle.destroy()
+  })
 })

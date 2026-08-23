@@ -91,7 +91,11 @@ export function AppearanceDialog({
             theme: all.app.theme,
             language: all.app.language,
             traySpeedometer: all.app.traySpeedometer,
-            runMode: all.app.runMode,
+            runMode:
+              transport.platform !== 'darwin' &&
+              all.app.runMode === RunMode.HideTray
+                ? RunMode.Standard
+                : all.app.runMode,
             liquidGlassEffect: all.app.liquidGlassEffect,
             lightweightMode: all.app.lightweightMode,
           })
@@ -133,21 +137,34 @@ export function AppearanceDialog({
     value: AppearanceFields['theme']
     label: string
   }>
-  const runModeOptions = [
-    {
-      value: String(RunMode.Standard),
-      label: t('settings.appearance.runModeStandard'),
-    },
-    {
-      value: String(RunMode.TrayOnly),
-      label: t('settings.appearance.runModeTray'),
-    },
-    {
-      value: String(RunMode.HideTray),
-      label: t('settings.appearance.runModeHideTray'),
-    },
-  ]
-  const showMacOnly = transport.platform === 'darwin'
+  const isMac = transport.platform === 'darwin'
+  const isLinux = transport.platform === 'linux'
+  const showRunMode = transport.platform !== 'web'
+  const runModeOptions = isMac
+    ? [
+        {
+          value: String(RunMode.Standard),
+          label: t('settings.appearance.runModeStandard'),
+        },
+        {
+          value: String(RunMode.TrayOnly),
+          label: t('settings.appearance.runModeTray'),
+        },
+        {
+          value: String(RunMode.HideTray),
+          label: t('settings.appearance.runModeHideTray'),
+        },
+      ]
+    : [
+        {
+          value: String(RunMode.Standard),
+          label: t('settings.appearance.runModeStandardDesktop'),
+        },
+        {
+          value: String(RunMode.TrayOnly),
+          label: t('settings.appearance.runModeTrayDesktop'),
+        },
+      ]
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -177,7 +194,7 @@ export function AppearanceDialog({
                           if (value !== null) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="w-32" size="sm">
+                        <SelectTrigger className="w-30" size="sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -212,7 +229,7 @@ export function AppearanceDialog({
                           if (isSupportedLocale(value)) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="min-w-32 max-w-64" size="sm">
+                        <SelectTrigger className="min-w-30 max-w-64" size="sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -233,7 +250,7 @@ export function AppearanceDialog({
                 )}
               />
 
-              {showMacOnly && (
+              {isMac && (
                 <FormField
                   control={form.control}
                   name="traySpeedometer"
@@ -258,7 +275,7 @@ export function AppearanceDialog({
                 />
               )}
 
-              {showMacOnly && (
+              {isMac && (
                 <FormField
                   control={form.control}
                   name="liquidGlassEffect"
@@ -283,13 +300,26 @@ export function AppearanceDialog({
                 />
               )}
 
-              {showMacOnly && (
+              {showRunMode && (
                 <FormField
                   control={form.control}
                   name="runMode"
                   render={({ field }) => (
                     <FormItem className="flex items-start justify-between gap-4">
-                      <FormLabel>{t('settings.appearance.runMode')}</FormLabel>
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t(
+                            isMac
+                              ? 'settings.appearance.runMode'
+                              : 'settings.appearance.runModeLaunch'
+                          )}
+                        </FormLabel>
+                        {isLinux && (
+                          <FormDescription className="text-xs">
+                            {t('settings.appearance.runModeLinuxDesc')}
+                          </FormDescription>
+                        )}
+                      </div>
                       <FormControl>
                         <Select
                           items={runModeOptions}

@@ -239,7 +239,7 @@ export function MediaToolsSection() {
                 min={256}
                 max={65536}
                 data-testid="media-staging-mb-input"
-                className="w-24 h-8"
+                className="w-30 h-8"
                 value={field.value}
                 onChange={(e) => {
                   const n = Number.parseInt(e.target.value, 10)
@@ -274,7 +274,7 @@ export function MediaToolsSection() {
                 min={60}
                 max={3600}
                 data-testid="media-op-timeout-sec-input"
-                className="w-24 h-8"
+                className="w-30 h-8"
                 value={field.value}
                 onChange={(e) => {
                   const n = Number.parseInt(e.target.value, 10)

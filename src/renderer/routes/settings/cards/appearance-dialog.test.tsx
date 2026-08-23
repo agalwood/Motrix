@@ -55,6 +55,10 @@ beforeAll(() => {
 
 beforeEach(async () => {
   await i18n.changeLanguage('en-US')
+  Object.defineProperty(transport, 'platform', {
+    configurable: true,
+    value: 'darwin',
+  })
   vi.stubGlobal('ResizeObserver', MockResizeObserver)
   vi.mocked(transport.invoke).mockReset()
   vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
@@ -82,11 +86,91 @@ describe('<AppearanceDialog>', () => {
       expect(themeTrigger).not.toHaveTextContent(/^system$/)
       expect(languageTrigger).toHaveTextContent(/^English$/)
       expect(languageTrigger).not.toHaveTextContent(/^en-US$/)
-      expect(languageTrigger).toHaveClass('min-w-32', 'max-w-64')
+      expect(languageTrigger).toHaveClass('min-w-30', 'max-w-64')
       expect(languageTrigger).not.toHaveClass('w-32')
-      expect(runModeTrigger).toHaveTextContent(/^Standard application$/)
+      expect(runModeTrigger).toHaveTextContent(/^Dock & Menu Bar$/)
       expect(runModeTrigger).not.toHaveTextContent(/^1$/)
     })
+
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(
+      screen.getByRole('combobox', {
+        name: 'Show app in',
+      })
+    )
+    expect(
+      await screen.findByRole('option', { name: 'Dock & Menu Bar' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Menu Bar Only' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Dock Only' })
+    ).toBeInTheDocument()
+  })
+
+  it.each(['win32', 'linux'] as const)(
+    'uses launch behavior labels on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+
+      const runModeTrigger = await screen.findByRole('combobox', {
+        name: 'When opening Motrix',
+      })
+      expect(runModeTrigger).toHaveTextContent(/^Open Main Window$/)
+
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      await user.click(runModeTrigger)
+      expect(
+        await screen.findByRole('option', { name: 'Open Main Window' })
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('option', { name: 'Start in System Tray' })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: 'Dock Only' })).toBeNull()
+
+      if (platform === 'linux') {
+        expect(
+          screen.getByText(/depend on your desktop environment/i)
+        ).toBeInTheDocument()
+      }
+    }
+  )
+
+  it('does not show desktop run-mode settings on the web', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: 'Theme' })
+      ).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('combobox', { name: 'Show app in' })).toBeNull()
+    expect(
+      screen.queryByRole('combobox', { name: 'When opening Motrix' })
+    ).toBeNull()
   })
 
   it('hydrates and submits dirty changes', async () => {

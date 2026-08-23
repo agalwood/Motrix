@@ -175,7 +175,7 @@ export function BitTorrentDialog({
                         type="number"
                         min={1024}
                         max={65535}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
@@ -204,7 +204,7 @@ export function BitTorrentDialog({
                         type="number"
                         min={1024}
                         max={65535}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
@@ -262,7 +262,7 @@ export function BitTorrentDialog({
                         type="number"
                         min={1}
                         max={1000}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
@@ -343,7 +343,7 @@ export function BitTorrentDialog({
                         min={0}
                         max={100}
                         step={0.1}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) =>
                           field.onChange(Number.parseFloat(e.target.value) || 0)
@@ -371,7 +371,7 @@ export function BitTorrentDialog({
                         type="number"
                         min={0}
                         max={525600}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
@@ -435,7 +435,7 @@ export function BitTorrentDialog({
                           type="number"
                           min={1}
                           max={168}
-                          className="w-24 h-8"
+                          className="w-30 h-8"
                           value={field.value}
                           onChange={(e) => {
                             const n = Number.parseInt(e.target.value, 10)
@@ -499,7 +499,7 @@ export function BitTorrentDialog({
                           min={1000}
                           max={30000}
                           step={500}
-                          className="w-28 h-8"
+                          className="w-30 h-8"
                           value={field.value}
                           onChange={(e) => {
                             const n = Number.parseInt(e.target.value, 10)
@@ -542,7 +542,7 @@ export function BitTorrentDialog({
                           min={500}
                           max={10000}
                           step={100}
-                          className="w-24 h-8"
+                          className="w-30 h-8"
                           value={field.value}
                           onChange={(e) => {
                             const n = Number.parseInt(e.target.value, 10)
@@ -582,7 +582,7 @@ export function BitTorrentDialog({
                         min={0}
                         max={1}
                         step={0.05}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) =>
                           field.onChange(Number.parseFloat(e.target.value) || 0)
@@ -614,7 +614,7 @@ export function BitTorrentDialog({
                           type="number"
                           min={5}
                           max={200}
-                          className="w-24 h-8"
+                          className="w-30 h-8"
                           value={field.value}
                           onChange={(e) => {
                             const n = Number.parseInt(e.target.value, 10)

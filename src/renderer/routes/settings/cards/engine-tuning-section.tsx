@@ -48,6 +48,16 @@ export function EngineTuningSection({
       label: t('settings.downloads.disk.fileAllocationFalloc'),
     },
   ] as const
+  const modifiedTimeOptions = [
+    {
+      value: 'local',
+      label: t('settings.downloads.disk.modifiedTimeLocal'),
+    },
+    {
+      value: 'server',
+      label: t('settings.downloads.disk.modifiedTimeServer'),
+    },
+  ] as const
   const numericRow = (
     name: keyof EngineFields,
     labelKey: string,
@@ -177,6 +187,42 @@ export function EngineTuningSection({
                 <SelectContent>
                   <SelectGroup>
                     {fileAllocationOptions.map(({ label, value }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="engine.remoteTime"
+        render={({ field }) => (
+          <FormItem className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <FormLabel>{t('settings.downloads.disk.modifiedTime')}</FormLabel>
+              <FormDescription className="text-xs">
+                {t('settings.downloads.disk.modifiedTimeDesc')}
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Select
+                items={modifiedTimeOptions}
+                value={field.value ? 'server' : 'local'}
+                onValueChange={(value) => {
+                  if (value !== null) field.onChange(value === 'server')
+                }}
+              >
+                <SelectTrigger className="w-30" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {modifiedTimeOptions.map(({ label, value }) => (
                       <SelectItem key={value} value={value}>
                         {label}
                       </SelectItem>

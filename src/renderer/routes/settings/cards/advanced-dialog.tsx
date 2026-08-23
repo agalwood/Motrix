@@ -131,7 +131,7 @@ export function AdvancedDialog({
                         type="number"
                         min={1024}
                         max={65535}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
@@ -257,7 +257,7 @@ export function AdvancedDialog({
                       <Input
                         type="number"
                         min={-1}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         disabled={!persistenceOn}
                         value={field.value}
                         onChange={(e) => {

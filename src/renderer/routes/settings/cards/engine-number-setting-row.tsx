@@ -63,7 +63,7 @@ export function EngineNumberSettingRow({
                   min={bounds.min}
                   max={bounds.max}
                   step={bounds.step}
-                  className="h-8 w-28"
+                  className="w-30 h-8"
                   value={displayed}
                   onChange={(event) => {
                     const value = Number.parseInt(event.target.value, 10)

@@ -62,6 +62,7 @@ const HOT_ENGINE_OPTIONS = {
   btEnableLpd: 'bt-enable-lpd',
   seedRatio: 'seed-ratio',
   seedTime: 'seed-time',
+  remoteTime: 'remote-time',
   sessionSaveInterval: 'save-session-interval',
 } as const satisfies Partial<Record<keyof EngineSettings, string>>
 

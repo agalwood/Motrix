@@ -240,7 +240,7 @@ export function NetworkDialog({
                           if (value !== null) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="w-35" size="sm">
+                        <SelectTrigger className="w-30" size="sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -274,7 +274,7 @@ export function NetworkDialog({
                         type="number"
                         min={1200}
                         max={7200}
-                        className="w-24 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
@@ -424,7 +424,7 @@ export function NetworkDialog({
                         type="number"
                         min={300}
                         max={86400}
-                        className="w-28 h-8"
+                        className="w-30 h-8"
                         value={field.value}
                         onChange={(e) => {
                           const n = Number.parseInt(e.target.value, 10)
