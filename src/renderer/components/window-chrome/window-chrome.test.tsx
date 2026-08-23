@@ -1,16 +1,39 @@
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { Commands } from '@shared/protocol/commands'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { Events } from '@shared/protocol/events'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { shouldShowDesktopWindowControls, WindowChrome } from './window-chrome'
+
+type IpcListener = (...args: unknown[]) => void
+const ipcListeners = new Map<string, Set<IpcListener>>()
+
+function emit(channel: string, ...args: unknown[]): void {
+  for (const listener of ipcListeners.get(channel) ?? []) listener(...args)
+}
 
 beforeAll(() => {
   // stub the preload bridge read by the module on import
   vi.stubGlobal(
     'window',
     Object.assign(window, {
-      motrix: { platform: 'darwin', invoke: vi.fn() },
+      motrix: {
+        platform: 'darwin',
+        invoke: vi.fn(),
+        on: vi.fn((channel: string, listener: IpcListener) => {
+          let listeners = ipcListeners.get(channel)
+          if (!listeners) {
+            listeners = new Set()
+            ipcListeners.set(channel, listeners)
+          }
+          listeners.add(listener)
+        }),
+        off: vi.fn((channel: string, listener: IpcListener) => {
+          ipcListeners.get(channel)?.delete(listener)
+        }),
+        getPathForFile: vi.fn(),
+      },
     })
   )
 })
@@ -29,6 +52,7 @@ function setPlatform(platform: NodeJS.Platform) {
 
 beforeEach(() => {
   setPlatform('darwin')
+  ipcListeners.clear()
   vi.mocked(window.motrix?.invoke).mockClear()
 })
 
@@ -208,7 +232,7 @@ describe('WindowChrome', () => {
   )
 
   it.each(['linux', 'win32'] as const)(
-    'renders aligned 28 px %s caption hit targets with 16 px icons',
+    'renders aligned 28 px %s caption hit targets with 10 px glyphs',
     (platform) => {
       setPlatform(platform)
       const { container } = render(<WindowChrome variant="overlay" />)
@@ -220,15 +244,45 @@ describe('WindowChrome', () => {
       expect(controls).toHaveClass('gap-2', 'pe-3.5', 'pt-3.5')
       const buttons = [
         screen.getByRole('button', { name: 'Minimize' }),
-        screen.getByRole('button', { name: 'Maximize or restore' }),
+        screen.getByRole('button', { name: 'Maximize' }),
         screen.getByRole('button', { name: 'Close' }),
       ]
       for (const button of buttons) {
         expect(button).toHaveClass('size-7')
-        expect(button.querySelector('svg')).toHaveClass('size-4')
+        expect(button.querySelector('svg')).toHaveClass('size-2.5')
+        expect(button.querySelector('svg')).toHaveAttribute(
+          'viewBox',
+          '0 0 10 10'
+        )
       }
+      expect(
+        buttons.map((button) =>
+          button.querySelector('svg')?.getAttribute('data-caption-icon')
+        )
+      ).toEqual(['minimize', 'maximize', 'close'])
     }
   )
+
+  it('switches the maximize action and glyph to restore with window state', () => {
+    setPlatform('win32')
+    render(<WindowChrome variant="overlay" />)
+
+    expect(screen.getByRole('button', { name: 'Maximize' })).toHaveAttribute(
+      'title',
+      'Maximize'
+    )
+
+    act(() => {
+      emit(Events.WindowMaximizedChanged, { maximized: true })
+    })
+
+    const restore = screen.getByRole('button', { name: 'Restore' })
+    expect(restore).toHaveAttribute('title', 'Restore')
+    expect(restore.querySelector('svg')).toHaveAttribute(
+      'data-caption-icon',
+      'restore'
+    )
+  })
 
   it('uses theme-aware caption colors with a readable destructive hover', () => {
     setPlatform('win32')
@@ -239,15 +293,15 @@ describe('WindowChrome', () => {
 
     expect(minimize).toHaveClass(
       'text-foreground',
-      '[&>svg]:opacity-50',
+      '[&>svg]:opacity-65',
       'hover:bg-accent',
       'hover:text-accent-foreground',
-      'hover:[&>svg]:opacity-75',
+      'hover:[&>svg]:opacity-90',
       'dark:hover:bg-accent/50'
     )
     expect(close).toHaveClass(
       'text-foreground',
-      '[&>svg]:opacity-50',
+      '[&>svg]:opacity-65',
       'hover:bg-destructive',
       'hover:text-white',
       'hover:[&>svg]:opacity-100',
@@ -263,9 +317,7 @@ describe('WindowChrome', () => {
       render(<WindowChrome variant="overlay" />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Maximize or restore' })
-      )
+      fireEvent.click(screen.getByRole('button', { name: 'Maximize' }))
       fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
       expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
@@ -287,9 +339,7 @@ describe('WindowChrome', () => {
     setPlatform('win32')
     render(<WindowChrome variant="titled" maximizable={false} />)
 
-    expect(
-      screen.getByRole('button', { name: 'Maximize or restore' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Maximize' })).toBeDisabled()
   })
 
   it('aligns app and caption controls on the shared compact baseline', () => {

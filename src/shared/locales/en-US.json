@@ -96,7 +96,8 @@
   },
   "chrome": {
     "minimize": "Minimize",
-    "toggleMaximize": "Maximize or restore",
+    "maximize": "Maximize",
+    "restore": "Restore",
     "close": "Close",
     "toggleSidebar": "Toggle sidebar",
     "newTask": "New task"

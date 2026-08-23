@@ -1,6 +1,9 @@
 import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
-import { Events } from '@shared/protocol/events'
+import {
+  Events,
+  type WindowMaximizedChangedPayload,
+} from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds } from '@shared/types/settings'
 import { BrowserWindow, screen, shell } from 'electron'
@@ -319,6 +322,7 @@ export class WindowManager {
       // buttons visible during attach(), so apply the preview override last.
       win.setWindowButtonVisibility(false)
     }
+    this.setupWindowStateTracking(win)
     this.deps.loadUrl(win, config.route)
     this.setupCloseHandler(id, win)
     win.once('closed', () => {
@@ -495,6 +499,25 @@ export class WindowManager {
       win.on('query-session-end', () => this.deps.onSessionEnd?.())
       win.on('session-end', () => this.deps.onSessionEnd?.())
     }
+  }
+
+  private setupWindowStateTracking(win: BrowserWindow): void {
+    const publish = () => {
+      if (win.isDestroyed()) return
+      const payload: WindowMaximizedChangedPayload = {
+        maximized: win.isMaximized(),
+      }
+      win.webContents.send(Events.WindowMaximizedChanged, payload)
+    }
+
+    // did-finish-load supplies the initial snapshot; maximize/unmaximize keep
+    // it correct for caption clicks, title-bar double-clicks, and OS actions.
+    // Cocoa can leave the maximized state via a manual resize without emitting
+    // unmaximize, so reconcile once the resize gesture finishes as well.
+    win.webContents.on('did-finish-load', publish)
+    win.on('maximize', publish)
+    win.on('unmaximize', publish)
+    win.on('resized', publish)
   }
 
   private setupBoundsTracking(id: WindowId, win: BrowserWindow): void {

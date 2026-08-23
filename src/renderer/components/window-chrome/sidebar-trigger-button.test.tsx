@@ -71,4 +71,13 @@ describe('SidebarTriggerButton', () => {
       'Toggle sidebar'
     )
   })
+
+  it('shares the window-chrome icon opacity treatment', () => {
+    renderWithProviders()
+    expect(screen.getByRole('button', { name: /toggle sidebar/i })).toHaveClass(
+      '[&>svg]:opacity-65',
+      'hover:[&>svg]:opacity-90',
+      'focus-visible:[&>svg]:opacity-90'
+    )
+  })
 })

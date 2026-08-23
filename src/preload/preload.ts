@@ -81,8 +81,14 @@ const BUFFERED_CHANNELS = new Set<string>([
   // Window URLs carry the initial locale, but a change can still land between
   // navigation and LanguageSync's effect. Replay the latest change on mount.
   Events.LocaleChanged,
+  // The main process publishes the current value on did-finish-load. Buffer it
+  // until WindowChrome mounts so reloads while maximized render Restore.
+  Events.WindowMaximizedChanged,
 ])
-const REPLAY_LATEST_CHANNELS = new Set<string>([Events.LocaleChanged])
+const REPLAY_LATEST_CHANNELS = new Set<string>([
+  Events.LocaleChanged,
+  Events.WindowMaximizedChanged,
+])
 const replayBuffer = new Map<string, unknown[][]>()
 const eagerListeners = new Map<string, IpcListener>()
 

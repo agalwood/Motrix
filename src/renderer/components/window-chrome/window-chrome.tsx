@@ -1,10 +1,65 @@
+import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { DESKTOP_WINDOW_CHROME_HEIGHT } from '@shared/constants/window-chrome'
 import { Commands } from '@shared/protocol/commands'
-import { MinusIcon, SquareIcon, XIcon } from 'lucide-react'
+import {
+  Events,
+  type WindowMaximizedChangedPayload,
+} from '@shared/protocol/events'
 import type React from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+type CaptionIconName = 'close' | 'maximize' | 'minimize' | 'restore'
+
+function CaptionIcon({ name }: { name: CaptionIconName }) {
+  return (
+    <svg
+      aria-hidden
+      className="size-2.5"
+      data-caption-icon={name}
+      viewBox="0 0 10 10"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {name === 'minimize' && <path d="M0 5h10v1H0z" fill="currentColor" />}
+      {name === 'maximize' && (
+        <rect
+          x="0.5"
+          y="0.5"
+          width="9"
+          height="9"
+          rx="1.5"
+          stroke="currentColor"
+        />
+      )}
+      {name === 'restore' && (
+        <>
+          <path
+            d="M2.5 2V1.5a1 1 0 0 1 1-1h4a2 2 0 0 1 2 2v4a1 1 0 0 1-1 1H8"
+            stroke="currentColor"
+          />
+          <rect
+            x="0.5"
+            y="2.5"
+            width="7"
+            height="7"
+            rx="1"
+            stroke="currentColor"
+          />
+        </>
+      )}
+      {name === 'close' && (
+        <path
+          d="m0.5 0.5 9 9m0-9-9 9"
+          stroke="currentColor"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  )
+}
 
 function DesktopWindowControls({
   maximizable,
@@ -14,6 +69,14 @@ function DesktopWindowControls({
   separateFromActions: boolean
 }) {
   const { t } = useTranslation()
+  const [maximized, setMaximized] = useState(false)
+  useIpcEvent(Events.WindowMaximizedChanged, (...args) => {
+    const payload = args[0] as WindowMaximizedChangedPayload | undefined
+    if (typeof payload?.maximized === 'boolean') {
+      setMaximized(payload.maximized)
+    }
+  })
+
   const minimize = () => {
     void transport.invoke(Commands.MinimizeCurrentWindow)
   }
@@ -25,11 +88,12 @@ function DesktopWindowControls({
   }
 
   const buttonClassName =
-    'app-no-drag flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground outline-none transition-colors [&>svg]:opacity-50 hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-30'
+    'app-no-drag flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground outline-none transition-colors [&>svg]:opacity-65 hover:[&>svg]:opacity-90 focus-visible:[&>svg]:opacity-90 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-30'
   const standardButtonClassName = cn(
     buttonClassName,
     'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50'
   )
+  const maximizeLabel = maximized ? t('chrome.restore') : t('chrome.maximize')
 
   return (
     <div
@@ -46,17 +110,17 @@ function DesktopWindowControls({
         aria-label={t('chrome.minimize')}
         title={t('chrome.minimize')}
       >
-        <MinusIcon aria-hidden className="size-4" strokeWidth={1.5} />
+        <CaptionIcon name="minimize" />
       </button>
       <button
         type="button"
         className={standardButtonClassName}
         disabled={!maximizable}
         onClick={toggleMaximize}
-        aria-label={t('chrome.toggleMaximize')}
-        title={t('chrome.toggleMaximize')}
+        aria-label={maximizeLabel}
+        title={maximizeLabel}
       >
-        <SquareIcon aria-hidden className="size-4" strokeWidth={1.5} />
+        <CaptionIcon name={maximized ? 'restore' : 'maximize'} />
       </button>
       <button
         type="button"
@@ -68,7 +132,7 @@ function DesktopWindowControls({
         aria-label={t('chrome.close')}
         title={t('chrome.close')}
       >
-        <XIcon aria-hidden className="size-4" strokeWidth={1.5} />
+        <CaptionIcon name="close" />
       </button>
     </div>
   )

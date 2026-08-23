@@ -49,7 +49,7 @@ function emit(channel: string, ...args: unknown[]): void {
   }
 }
 
-describe('preload locale replay buffer', () => {
+describe('preload latest-value replay buffers', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -86,6 +86,19 @@ describe('preload locale replay buffer', () => {
     expect(callback).toHaveBeenLastCalledWith({ language: 'en-US' })
     await Promise.resolve()
     expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  it('replays only the latest maximize state before chrome subscribes', async () => {
+    await import('./preload')
+    emit(Events.WindowMaximizedChanged, { maximized: false })
+    emit(Events.WindowMaximizedChanged, { maximized: true })
+
+    const callback = vi.fn()
+    mocks.exposed?.on(Events.WindowMaximizedChanged, callback)
+    await Promise.resolve()
+
+    expect(callback).toHaveBeenCalledOnce()
+    expect(callback).toHaveBeenCalledWith({ maximized: true })
   })
 })
 
