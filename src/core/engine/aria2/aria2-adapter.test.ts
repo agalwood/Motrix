@@ -1086,6 +1086,42 @@ describe('Aria2Adapter', () => {
       expect(opts).not.toHaveProperty('select-file')
     })
 
+    it('maps zero-based output paths to repeated aria2 index-out options', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addTorrent).mockResolvedValue('g')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.addTorrent({
+        metadata: new Uint8Array([0]),
+        saveDir: '/d/.motrix/abc',
+        outputFilePaths: [
+          { fileIndex: 0, relativePath: 'p/movie.mkv' },
+          { fileIndex: 2, relativePath: 'p/sub/readme.txt' },
+        ],
+      })
+
+      const [, , opts] = vi.mocked(rpc.addTorrent).mock.calls[0] as [
+        string,
+        string[],
+        Record<string, string | string[]>,
+      ]
+      expect(opts['index-out']).toEqual(['1=p/movie.mkv', '3=p/sub/readme.txt'])
+    })
+
+    it('rejects traversal in an output file mapping before RPC dispatch', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.addTorrent({
+          metadata: new Uint8Array([0]),
+          saveDir: '/d',
+          outputFilePaths: [{ fileIndex: 0, relativePath: '../escape' }],
+        })
+      ).rejects.toThrow('Invalid torrent output file mapping')
+      expect(rpc.addTorrent).not.toHaveBeenCalled()
+    })
+
     it('forwards and returns a caller-reserved 16-hex gid', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addTorrent).mockResolvedValue('a1b2c3d4e5f60718')

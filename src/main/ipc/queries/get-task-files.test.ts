@@ -1,5 +1,11 @@
 import type { DownloadTask } from '@shared/types/task'
-import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it, vi } from 'vitest'
 import { createGetTaskFilesHandler } from './get-task-files'
@@ -253,6 +259,70 @@ describe('getTaskFiles handler', () => {
       engine,
     } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
     const result = await handler('t1')
+    expect(result[0]?.path).toBe('CD1/track01.flac')
+  })
+
+  it('hides the indexed payload entry from in-flight file paths', async () => {
+    const workspacePath = '/Users/x/Downloads/.motrix/0123456789abcdefabcd'
+    const absolutePath = `${workspacePath}/p/CD1/track01.flac`
+    const db = { getTaskFiles: vi.fn(() => []) }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          status: TaskStatus.Downloading,
+          diskPath: workspacePath,
+          saveDir: '/Users/x/Downloads',
+          instances: [
+            {
+              instanceId: 'primary:t1',
+              motrixId: 't1',
+              gid: 'gid1',
+              phase: TaskInstancePhase.BtDownload,
+              status: TaskStatus.Downloading,
+              progress: 0,
+              totalBytes: 0,
+              downloadedBytes: 0,
+              uploadedBytes: 0,
+              diskPath: workspacePath,
+              transitionPhase: TransitionPhase.Idle,
+              uris: [],
+              uriHash: null,
+              payload: {
+                btStorageLayout: {
+                  version: 1,
+                  strategy: 'indexed-staging',
+                  workspacePath,
+                  payloadEntry: 'p',
+                  torrentRootName: 'Original album name',
+                  multiFile: true,
+                },
+              },
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        })
+      ),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: absolutePath,
+          size: 50,
+          completedBytes: 20,
+          selected: true,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+    const result = await handler('t1')
+
     expect(result[0]?.path).toBe('CD1/track01.flac')
   })
 })

@@ -133,8 +133,38 @@ export function canRebuildTaskInputs(t: DownloadTask): boolean {
   return false
 }
 
+/**
+ * A failed magnet metadata attempt can be replayed from the persisted magnet
+ * URI even though no `.torrent` sidecar exists yet. This is deliberately
+ * narrower than torrent re-add: only the metadata-resolution phase is
+ * accepted, and removed/non-terminal tasks are excluded.
+ */
+export function canRetryMagnetMetadata(t: DownloadTask): boolean {
+  return (
+    t.status === TaskStatus.Error &&
+    t.type === TaskType.Magnet &&
+    t.torrentMetaPath == null &&
+    t.instances.some(
+      (instance) =>
+        instance.phase === TaskInstancePhase.MagnetMetadataResolution &&
+        instance.uris.some((uri) => uri.toLowerCase().startsWith('magnet:?'))
+    )
+  )
+}
+
+export type TaskRetryKind = 'torrent-readd' | 'magnet-metadata'
+
+/** Resolve the concrete replay operation behind the generic Retry UI. */
+export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
+  if (!canRetry(t)) return null
+  if (canRebuildTaskInputs(t)) return 'torrent-readd'
+  if (canRetryMagnetMetadata(t)) return 'magnet-metadata'
+  return null
+}
+
 /** A retry the UI should actually offer: the task is in a retryable status
- *  AND its engine dispatch can be rebuilt from the persisted record. */
+ *  AND its engine dispatch can be rebuilt from the persisted record. This
+ *  includes pre-sidecar magnet metadata retries as a distinct operation. */
 export function canAttemptRetry(t: DownloadTask): boolean {
-  return canRetry(t) && canRebuildTaskInputs(t)
+  return getTaskRetryKind(t) !== null
 }

@@ -1,5 +1,11 @@
 import type { DownloadTask } from '@shared/types/task'
-import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -54,6 +60,36 @@ function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
     finalPath: '/tmp/sample',
     finalName: 'sample',
     ...overrides,
+  })
+}
+
+function makeRetryableMagnetMetadataTask(id: string): DownloadTask {
+  return makeTask({
+    id,
+    status: TaskStatus.Error,
+    kind: TaskKind.Bt,
+    type: TaskType.Magnet,
+    torrentMetaPath: null,
+    instances: [
+      {
+        instanceId: `meta:${id}`,
+        motrixId: id,
+        gid: `gid-${id}`,
+        phase: TaskInstancePhase.MagnetMetadataResolution,
+        status: TaskStatus.Error,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/tmp/metadata',
+        transitionPhase: TransitionPhase.Idle,
+        uris: ['magnet:?xt=urn:btih:timeout'],
+        uriHash: null,
+        payload: {},
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    ],
   })
 }
 
@@ -133,7 +169,7 @@ describe('useTaskActions', () => {
     expect(openAddTaskDialog).toHaveBeenCalled()
   })
 
-  it('onRetry({ alt: true }) on multi falls back to direct ReAddTask', async () => {
+  it('onRetry({ alt: true }) on multi falls back to generic RetryTasks', async () => {
     const tasks = [
       makeRetryableErrorTask({ id: 'a' }),
       makeRetryableErrorTask({ id: 'b' }),
@@ -141,9 +177,21 @@ describe('useTaskActions', () => {
     const { result } = renderHook(() => useTaskActions(tasks))
     await result.current.onRetry({ alt: true })
     expect(openAddTaskDialog).not.toHaveBeenCalled()
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.ReAddTasks, [
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, [
       'a',
       'b',
+    ])
+  })
+
+  it('routes magnet metadata Retry directly even when Alt is pressed', async () => {
+    const tasks = [makeRetryableMagnetMetadataTask('magnet-timeout')]
+    const { result } = renderHook(() => useTaskActions(tasks))
+
+    await result.current.onRetry({ alt: true })
+
+    expect(openAddTaskDialog).not.toHaveBeenCalled()
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, [
+      'magnet-timeout',
     ])
   })
 
@@ -155,9 +203,10 @@ describe('useTaskActions', () => {
       // persisted, so the uris alone are not the original request.
       makeTask({ id: 'h', status: TaskStatus.Error }),
       makeRetryableErrorTask({ id: 'e' }),
+      makeRetryableMagnetMetadataTask('magnet'),
     ]
     const { result } = renderHook(() => useTaskActions(tasks))
-    expect(result.current.retryCount).toBe(1) // only 'e'
+    expect(result.current.retryCount).toBe(2) // sidecar BT + metadata magnet
   })
 
   it('onRetry() dispatches nothing for a Mux-kind Error task', async () => {

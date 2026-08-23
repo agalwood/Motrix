@@ -100,6 +100,17 @@ function makePrimaryInstance(
   }
 }
 
+function buildSingleFileTorrent(name: string): Uint8Array {
+  const nameField = `4:name${Buffer.byteLength(name, 'utf8')}:${name}`
+  const prefix = Buffer.from(
+    `d4:infod6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
+    'utf8'
+  )
+  return new Uint8Array(
+    Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
+  )
+}
+
 describe('finalizeTask HTTP/FTP branch', () => {
   it('performs removeDownloadResult → rename → status=Completed', async () => {
     const deps = makeDeps()
@@ -546,6 +557,74 @@ describe('finalizeTask BT branch', () => {
       ...overrides,
     } as Partial<DownloadTask>)
   }
+
+  it('renames only the indexed payload and reseeds through the restored final name', async () => {
+    const workspacePath = '/d/.motrix/0123456789abcdefabcd'
+    const renameAtomic = vi.fn(async () => {})
+    const removePathRecursive = vi.fn(async () => {})
+    const rebaseTaskFilePaths = vi.fn()
+    const deps = makeDeps({
+      fs: { renameAtomic, removePathRecursive },
+      rebaseTaskFilePaths,
+      torrentMetaStore: {
+        read: vi.fn(async () => buildSingleFileTorrent('original.iso')),
+      },
+    })
+    ;(deps.adapter.getTaskFiles as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        index: 0,
+        path: `${workspacePath}/p`,
+        size: 1,
+        completedBytes: 0,
+        selected: false,
+      },
+    ])
+    const task = makeBtTask({
+      saveDir: '/d',
+      diskPath: workspacePath,
+      finalPath: '/d/User chosen.iso',
+      finalName: 'User chosen.iso',
+      instances: [
+        makePrimaryInstance({
+          phase: TaskInstancePhase.BtDownload,
+          diskPath: workspacePath,
+          payload: {
+            btStorageLayout: {
+              version: 1,
+              strategy: 'indexed-staging',
+              workspacePath,
+              payloadEntry: 'p',
+              torrentRootName: 'original.iso',
+              multiFile: false,
+            },
+          },
+        }),
+      ],
+    })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(renameAtomic).toHaveBeenCalledWith(
+      `${workspacePath}/p`,
+      '/d/User chosen.iso'
+    )
+    expect(rebaseTaskFilePaths).toHaveBeenCalledWith(
+      't1',
+      `${workspacePath}/p`,
+      '/d/User chosen.iso'
+    )
+    expect(removePathRecursive).toHaveBeenCalledWith(workspacePath)
+    expect(removePathRecursive).not.toHaveBeenCalledWith('/d/User chosen.iso')
+    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        saveDir: '/d',
+        outputFilePaths: [{ fileIndex: 0, relativePath: 'User chosen.iso' }],
+      })
+    )
+  })
 
   it('transitions status→Finalizing before rename', async () => {
     const deps = makeDeps()

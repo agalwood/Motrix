@@ -20,6 +20,7 @@ import { DownloadErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import {
+  TaskInstancePhase,
   TaskKind,
   TaskStatus,
   TaskType,
@@ -96,6 +97,27 @@ const task: DownloadTask = {
     magnetUri: null,
     sequentialDownload: false,
   },
+}
+
+function magnetMetadataInstance(taskId: string): DownloadTask['instances'][0] {
+  return {
+    instanceId: `meta:${taskId}`,
+    motrixId: taskId,
+    gid: 'metadata-gid',
+    phase: TaskInstancePhase.MagnetMetadataResolution,
+    status: TaskStatus.Error,
+    progress: 0,
+    totalBytes: 0,
+    downloadedBytes: 0,
+    uploadedBytes: 0,
+    diskPath: '/tmp/metadata',
+    transitionPhase: TransitionPhase.Idle,
+    uris: ['magnet:?xt=urn:btih:timeout'],
+    uriHash: null,
+    payload: {},
+    createdAt: 1,
+    updatedAt: 2,
+  }
 }
 
 describe('OverviewTab', () => {
@@ -204,7 +226,7 @@ describe('OverviewTab', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('shows retry for a BT error task with its sidecar and dispatches ReAddTask', () => {
+    it('shows retry for a BT error task with its sidecar and dispatches RetryTasks', () => {
       renderOverviewTab({
         ...task,
         id: 'bt-error',
@@ -216,8 +238,32 @@ describe('OverviewTab', () => {
       })
       const retryButton = screen.getByRole('button', { name: 'Retry' })
       fireEvent.click(retryButton)
-      expect(transport.invoke).toHaveBeenCalledWith(Commands.ReAddTasks, [
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, [
         'bt-error',
+      ])
+    })
+
+    it('adds Retry to the timeout Alert for unresolved magnet metadata', () => {
+      renderOverviewTab({
+        ...task,
+        id: 'magnet-timeout',
+        status: TaskStatus.Error,
+        kind: TaskKind.Bt,
+        type: TaskType.Magnet,
+        torrentMetaPath: null,
+        errorCode: DownloadErrorCode.Timeout,
+        instances: [magnetMetadataInstance('magnet-timeout')],
+      })
+
+      expect(screen.getByText('Download timed out')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Check your connection speed and stability, then retry'
+        )
+      ).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, [
+        'magnet-timeout',
       ])
     })
   })

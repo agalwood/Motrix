@@ -1,4 +1,3 @@
-import { Button } from '@renderer/components/ui/button'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
@@ -6,14 +5,8 @@ import { getProgressBarTone } from '@renderer/lib/task-status-ui'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
-import {
-  canAttemptRetry,
-  canRebuildTaskInputs,
-} from '@shared/types/task-actions'
-import { RotateCcw } from 'lucide-react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useTaskActions } from './inspector/use-task-actions'
 import { StatusPill } from './status-pill'
 import { TASK_GRID_MIN_WIDTH, TASK_GRID_TEMPLATE } from './task-column-header'
 
@@ -29,7 +22,6 @@ export interface TaskRowProps {
 
 function TaskRowBase({ task, rowProps }: TaskRowProps) {
   const { t, i18n } = useTranslation()
-  const { onRetry } = useTaskActions([task])
   const pct = Math.round(task.progress * 100)
   const showDash = (value: number) =>
     value <= 0 || task.status === TaskStatus.Completed
@@ -52,8 +44,6 @@ function TaskRowBase({ task, rowProps }: TaskRowProps) {
         { t, exists: (key) => i18n.exists(key) }
       )
     : null
-  const showRetry = isError && canAttemptRetry(task)
-
   return (
     <div
       role="option"
@@ -102,23 +92,7 @@ function TaskRowBase({ task, rowProps }: TaskRowProps) {
           </span>
         </div>
       </div>
-      <span className="flex items-center gap-1">
-        <StatusPill status={task.status} />
-        {showRetry && (
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={t('panel.downloads.action.retry')}
-            title={t('panel.downloads.action.retry')}
-            onClick={(e) => {
-              e.stopPropagation()
-              void onRetry()
-            }}
-          >
-            <RotateCcw data-icon="inline-start" />
-          </Button>
-        )}
-      </span>
+      <StatusPill status={task.status} />
       <span className="tabular-nums">
         {showDash(task.downloadSpeed)
           ? '—'
@@ -154,11 +128,6 @@ export const TaskRow = memo(TaskRowBase, (prev, next) => {
     a.errorMessage === b.errorMessage &&
     a.errorDetailKey === b.errorDetailKey &&
     a.errorDetailParams === b.errorDetailParams &&
-    a.diagnosisRevision === b.diagnosisRevision &&
-    // canRetry is fully determined by `status` (already compared above);
-    // canRebuildTaskInputs depends on kind/type/torrentMetaPath/uris, none
-    // of which are otherwise tracked here, so compare the derived gate
-    // directly rather than every raw field it happens to read today.
-    canRebuildTaskInputs(a) === canRebuildTaskInputs(b)
+    a.diagnosisRevision === b.diagnosisRevision
   )
 })

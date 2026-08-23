@@ -17,6 +17,7 @@ import {
   type TaskTransitionRecordInput,
 } from './actions/shared'
 import { applyTerminalTransition } from './apply-terminal-transition'
+import { getBtPayloadPath } from './bt-storage-layout'
 import { applyDiagnosisUpgrade } from './diagnosis-upgrade'
 import { fireAfterComplete, fireOnError } from './hook-dispatch'
 import type { OccurrenceDispatcher } from './occurrences/occurrence-dispatcher'
@@ -325,13 +326,14 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
   }
 
   private async inspectFs(task: DownloadTask): Promise<FsState> {
-    if (task.diskPath === task.finalPath) {
+    const temporaryPath = getBtPayloadPath(task) ?? task.diskPath
+    if (temporaryPath === task.finalPath) {
       return (await this.deps.fs.pathExists(task.finalPath))
         ? 'final_only'
         : 'neither'
     }
     const [temp, final] = await Promise.all([
-      this.deps.fs.pathExists(task.diskPath),
+      this.deps.fs.pathExists(temporaryPath),
       this.deps.fs.pathExists(task.finalPath),
     ])
     if (temp && final) return 'both'

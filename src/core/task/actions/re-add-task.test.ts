@@ -20,6 +20,17 @@ import { reAddTask } from './re-add-task'
 
 const RESERVED_GID = '0123456789abcdef'
 
+function buildSingleFileTorrent(name: string): Uint8Array {
+  const nameField = `4:name${Buffer.byteLength(name, 'utf8')}:${name}`
+  const prefix = Buffer.from(
+    `d4:infod6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
+    'utf8'
+  )
+  return new Uint8Array(
+    Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
+  )
+}
+
 function makeBtTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
   return makeDownloadTask({
     id: 't1',
@@ -109,6 +120,60 @@ describe('reAddTask (BT path)', () => {
       })
     )
   })
+
+  it.each([
+    {
+      label: 'completed reseed',
+      status: TaskStatus.Completed,
+      expectedSaveDir: '/tmp',
+      expectedOutput: 'User chosen.iso',
+    },
+    {
+      label: 'failed download retry',
+      status: TaskStatus.Error,
+      expectedSaveDir: '/tmp/.motrix/0123456789abcdefabcd',
+      expectedOutput: 'p',
+    },
+  ])(
+    'restores indexed paths for $label',
+    async ({ status, expectedSaveDir, expectedOutput }) => {
+      const workspacePath = '/tmp/.motrix/0123456789abcdefabcd'
+      const task = withPrimaryInstance(
+        makeBtTask({
+          status,
+          diskPath:
+            status === TaskStatus.Completed
+              ? '/tmp/User chosen.iso'
+              : workspacePath,
+          finalPath: '/tmp/User chosen.iso',
+          finalName: 'User chosen.iso',
+        })
+      )
+      task.instances[0].payload = {
+        btStorageLayout: {
+          version: 1,
+          strategy: 'indexed-staging',
+          workspacePath,
+          payloadEntry: 'p',
+          torrentRootName: 'original.iso',
+          multiFile: false,
+        },
+      }
+      const deps = makeDeps(task)
+      ;(
+        deps.torrentMetaStore.read as ReturnType<typeof vi.fn>
+      ).mockResolvedValue(buildSingleFileTorrent('original.iso'))
+
+      await reAddTask('t1', deps)
+
+      expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          saveDir: expectedSaveDir,
+          outputFilePaths: [{ fileIndex: 0, relativePath: expectedOutput }],
+        })
+      )
+    }
+  )
 
   it('writes the new gid to the task and sets status Seeding', async () => {
     const task = makeBtTask()

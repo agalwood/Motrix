@@ -873,7 +873,13 @@ async function syncTaskFilesIfMissing(
   engineTaskId: string
 ): Promise<void> {
   try {
-    if (motrixDb.getTaskFiles(taskId).length > 0) return
+    const persisted = motrixDb.getTaskFiles(taskId)
+    // Magnet confirmation persists selected indices immediately, before the
+    // replacement aria2 task has exposed real paths. Treat those placeholder
+    // rows as missing so the first authoritative file list replaces them.
+    if (persisted.length > 0 && persisted.every((file) => file.path !== '')) {
+      return
+    }
     // task_files has FK on task_metadata.motrix_id. The metadata row is
     // written by the periodic SessionManager.save() (15s default) — for
     // a freshly-created task, polling fires the file sync each tick from
@@ -898,6 +904,28 @@ async function syncTaskFilesIfMissing(
   } catch (err) {
     log.warn({ err, taskId }, 'task_files initial sync failed')
   }
+}
+
+function rebaseTaskFilePaths(
+  taskId: string,
+  sourceRoot: string,
+  finalRoot: string
+): void {
+  const rows = motrixDb.getTaskFiles(taskId)
+  let changed = false
+  const rebased = rows.map((row) => {
+    if (!row.path) return row
+    const relative = path.relative(sourceRoot, row.path)
+    if (relative.startsWith('..') || path.isAbsolute(relative)) return row
+    changed = true
+    return {
+      ...row,
+      path: relative === '' ? finalRoot : path.join(finalRoot, relative),
+    }
+  })
+  if (!changed) return
+  motrixDb.replaceTaskFiles(taskId, rebased)
+  eventBus.emit(Events.TaskFilesUpdated, { taskId })
 }
 
 // ─── Task persistence / finalize wiring ─────────────────
@@ -982,6 +1010,7 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
     adapter,
     fs: { renameAtomic, removePathRecursive },
     torrentMetaStore,
+    rebaseTaskFilePaths,
     settings: { get: getFinalizeSettings },
     eventBus,
     activityRecorder,

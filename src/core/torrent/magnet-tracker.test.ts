@@ -11,6 +11,7 @@ import type {
   TaskWithInstances,
   TaskWithInstancesAndFiles,
 } from '@core/session/motrix-database'
+import { btWorkspacePath } from '@core/task/bt-storage-layout'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import type { TaskManager } from '@core/task/task-manager'
 import { DownloadErrorCode, ErrorCode } from '@shared/errors'
@@ -2101,6 +2102,132 @@ describe('MagnetTracker', () => {
     )
   })
 
+  it('retries timed-out metadata under the same task with a fresh GID and double timeout', async () => {
+    const dir = await makeTempDir()
+    settings = createMockSettingsManager({
+      magnetFileSelection: true,
+      magnetResolveTimeout: 1,
+    })
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:retry-timeout',
+      dir
+    )
+    const firstOptions = rpc.addUri.mock.calls[0][1]
+    await vi.advanceTimersByTimeAsync(1_000)
+    await vi.waitFor(() => {
+      expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+      expect(
+        tracker.observe({ gid: firstOptions?.gid, status: 'removed' } as never)
+      ).toBe(false)
+    })
+
+    await tracker.retryMetadata(taskId)
+
+    const secondOptions = rpc.addUri.mock.calls[1][1]
+    expect(rpc.addUri).toHaveBeenCalledTimes(2)
+    expect(secondOptions?.gid).not.toBe(firstOptions?.gid)
+    expect(secondOptions?.dir).not.toBe(firstOptions?.dir)
+    expect(db.getTask(taskId)).toMatchObject({
+      task: {
+        motrixId: taskId,
+        aggStatus: TaskStatus.FetchingMetadata,
+        errorCode: null,
+        errorMessage: null,
+      },
+      instances: [
+        {
+          gid: secondOptions?.gid,
+          payload: { metadataTimeoutMultiplier: 2 },
+        },
+      ],
+    })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+  })
+
+  it('restores the doubled retry timeout from the persisted metadata payload', async () => {
+    const dir = await makeTempDir()
+    settings = createMockSettingsManager({
+      magnetFileSelection: true,
+      magnetResolveTimeout: 1,
+    })
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:retry-restart',
+      dir
+    )
+    await vi.advanceTimersByTimeAsync(1_000)
+    await vi.waitFor(() => {
+      expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+    })
+    await tracker.retryMetadata(taskId)
+    await tracker.stopAndDrain()
+
+    const restarted = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    restarted.primeFromDatabase()
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+  })
+
+  it('does not start a metadata retry until old GID cleanup is confirmed', async () => {
+    const dir = await makeTempDir()
+    settings = createMockSettingsManager({
+      magnetFileSelection: true,
+      magnetResolveTimeout: 1,
+    })
+    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:retry-cleanup-pending',
+      dir
+    )
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    await expect(tracker.retryMetadata(taskId)).rejects.toMatchObject({
+      code: ErrorCode.MagnetCleanupPending,
+    })
+    expect(rpc.addUri).toHaveBeenCalledTimes(1)
+  })
+
   it('error event path also forceRemoves by aria2 GID', async () => {
     const dir = await makeTempDir()
     rpc.addUri.mockResolvedValue('g-meta-err')
@@ -2856,6 +2983,44 @@ describe('MagnetTracker', () => {
       tracker.observe({ gid: 'g-path-guard', status: 'removed' } as never)
     ).toBe(true)
     await tracker.stopAndDrain()
+  })
+
+  it('cleans only the indexed workspace derived from the failed swap task id', async () => {
+    const root = await makeTempDir()
+    const saveDir = path.join(root, 'downloads')
+    const taskId = 'm-indexed-cleanup'
+    const workspacePath = btWorkspacePath(taskId, saveDir)
+    await mkdir(workspacePath, { recursive: true })
+    await writeFile(path.join(workspacePath, 'partial.bin'), 'partial')
+
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    tracker.registerFailedSwapCleanup({
+      taskId,
+      instanceId: `meta:${taskId}`,
+      gid: 'g-indexed-cleanup',
+      magnetUri: 'magnet:?xt=urn:btih:indexed-cleanup',
+      saveDir,
+      metadataDir: workspacePath,
+      torrentMetaPath: null,
+      artifactPaths: [workspacePath],
+      deleteParentOnSuccess: false,
+    })
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    vi.useRealTimers()
+    await vi.waitFor(async () => {
+      await expect(access(workspacePath)).rejects.toMatchObject({
+        code: 'ENOENT',
+      })
+      expect(tracker.hasPendingSwapCleanup(taskId)).toBe(false)
+    })
   })
 
   it('primeFromDatabase shields a normal metadata Error without a new timeout', () => {

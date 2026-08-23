@@ -15,6 +15,12 @@ import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type Database from 'better-sqlite3'
 import type { AddTorrentParams } from '../../engine/engine-adapter'
 import { applyTerminalTransition } from '../apply-terminal-transition'
+import {
+  buildFinalOutputFilePaths,
+  getBtPayloadPath,
+  getBtStorageLayout,
+  parseBtFileLayout,
+} from '../bt-storage-layout'
 import { fireAfterComplete, fireOnError } from '../hook-dispatch'
 import { normalizeTerminalRuntimeMetrics } from '../normalize-terminal-runtime-metrics'
 import type { OccurrenceDispatcher } from '../occurrences/occurrence-dispatcher'
@@ -98,6 +104,12 @@ export interface FinalizeTaskDeps {
   torrentMetaStore: {
     read(metaPath: string): Promise<Uint8Array>
   }
+  /** Rebase persisted task_files after the staging payload is renamed. */
+  rebaseTaskFilePaths?: (
+    taskId: string,
+    sourceRoot: string,
+    finalRoot: string
+  ) => void
   settings: {
     get(): { bt: { seedTime: number; seedRatio: number } }
   }
@@ -371,6 +383,9 @@ async function finalizeBt(
   }
   const desiredFinalPath = finalizeOutcome.finalFilePath ?? task.finalPath
   await persistDesiredFinalPath(task, desiredFinalPath, deps)
+  const storageLayout = getBtStorageLayout(task)
+  const stagingPayloadPath = getBtPayloadPath(task)
+  const renameSource = stagingPayloadPath ?? task.diskPath
 
   // Settle the retiring gid's contribution INTO the baseline before we
   // forceRemove it. Two reasons:
@@ -397,9 +412,13 @@ async function finalizeBt(
   // `--bt-remove-unselected-file=true` cleanup may have raced past
   // (cleanup can run on a later event-loop tick than forceRemove
   // returns; if rename happens in between, aria2 looks at the old
-  // diskPath and silent-skips). All paths are absolute, rooted at
-  // task.diskPath; we relativize so we can re-apply under finalPath.
-  const unselectedRelPaths = await snapshotUnselectedRelPaths(task, deps)
+  // staging location and silent-skips). All paths are absolute, rooted at the
+  // actual payload path; we relativize so we can re-apply under finalPath.
+  const unselectedRelPaths = await snapshotUnselectedRelPaths(
+    task,
+    deps,
+    renameSource
+  )
 
   // Stop the active seeding task BEFORE rename + re-add. `removeDownloadResult`
   // alone is insufficient: it only clears tasks already in stopped/error/
@@ -417,7 +436,7 @@ async function finalizeBt(
   await deps.adapter.removeDownloadResult(task.engineTaskId)
 
   try {
-    await deps.fs.renameAtomic(task.diskPath, desiredFinalPath)
+    await deps.fs.renameAtomic(renameSource, desiredFinalPath)
   } catch (e) {
     const cause = (e as Error).message
     const errorMessage = `Failed to rename directory: ${cause}`
@@ -430,6 +449,27 @@ async function finalizeBt(
     throw new AppError(ErrorCode.TaskFinalizeRenameFailed, errorMessage, e)
   }
   const completedAt = Date.now()
+
+  if (storageLayout) {
+    try {
+      deps.rebaseTaskFilePaths?.(task.id, renameSource, desiredFinalPath)
+    } catch (err) {
+      deps.log.warn(
+        { err, taskId: task.id },
+        'finalize_bt_task_file_path_rebase_failed'
+      )
+    }
+    if (!isSameOrDescendant(desiredFinalPath, storageLayout.workspacePath)) {
+      try {
+        await deps.fs.removePathRecursive(storageLayout.workspacePath)
+      } catch (err) {
+        deps.log.warn(
+          { err, taskId: task.id, workspacePath: storageLayout.workspacePath },
+          'finalize_bt_workspace_cleanup_failed'
+        )
+      }
+    }
+  }
 
   // Commit staged metadata now that the rename succeeded. The commit is a
   // sync SQLite tx; the callback is empty because the rename above already
@@ -612,6 +652,8 @@ async function finalizeBtAfterRename(
     ? task.bt.selectedFiles
     : undefined
   try {
+    const storageLayout = getBtStorageLayout(task)
+    const parsedLayout = storageLayout ? await parseBtFileLayout(bytes) : null
     const actualGid = await deps.adapter.addTorrent({
       metadata: bytes,
       // aria2 lays files out at `<dir>/<info.name>/...` (multi-file) or
@@ -619,7 +661,15 @@ async function finalizeBtAfterRename(
       // `<saveDir>/<finalName>.motrix/...`; after rename those files live
       // under `<finalPath>/...`. Pointing aria2 at `task.finalPath` makes
       // its `<dir>/<info.name>` lookup hit the existing on-disk layout.
-      saveDir: task.finalPath,
+      saveDir: storageLayout ? path.dirname(task.finalPath) : task.finalPath,
+      outputFilePaths:
+        storageLayout && parsedLayout
+          ? buildFinalOutputFilePaths(
+              parsedLayout,
+              task.finalPath,
+              storageLayout
+            )
+          : undefined,
       selectedFiles,
       seedTime: bt.seedTime,
       seedRatio: seedRatioForNewGid,
@@ -822,8 +872,8 @@ async function persistTaskState(
 
 /**
  * Capture relative paths of unselected files while the gid is still alive.
- * Returns paths relative to `task.diskPath` so the caller can re-rebase
- * them under `task.finalPath` after rename. Empty result for tasks that
+ * Returns paths relative to the supplied source root so the caller can
+ * re-rebase them under `task.finalPath` after rename. Empty result for tasks that
  * downloaded all files (no select-file used) — `getTaskFiles` reports
  * every file as `selected: true` in that case.
  *
@@ -833,7 +883,8 @@ async function persistTaskState(
  */
 async function snapshotUnselectedRelPaths(
   task: DownloadTask,
-  deps: FinalizeTaskDeps
+  deps: FinalizeTaskDeps,
+  sourceRoot = task.diskPath
 ): Promise<string[]> {
   try {
     const files = await deps.adapter.getTaskFiles(task.engineTaskId)
@@ -842,13 +893,13 @@ async function snapshotUnselectedRelPaths(
       if (f.selected) continue
       // aria2 reports absolute paths under the task's `dir`. Relativize
       // so the caller can apply the same rel-path under finalPath.
-      const rel = path.relative(task.diskPath, f.path)
+      const rel = path.relative(sourceRoot, f.path)
       // Defensive: if aria2 ever returns a path outside diskPath
       // (shouldn't, but escape '..' would let us walk into the user's
       // filesystem), skip it.
-      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
         deps.log.warn(
-          { taskId: task.id, filePath: f.path, diskPath: task.diskPath },
+          { taskId: task.id, filePath: f.path, diskPath: sourceRoot },
           'finalize_bt_unselected_path_outside_disk_path'
         )
         continue
@@ -865,6 +916,14 @@ async function snapshotUnselectedRelPaths(
   }
 }
 
+function isSameOrDescendant(candidate: string, parent: string): boolean {
+  const relative = path.relative(parent, candidate)
+  return (
+    relative === '' ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  )
+}
+
 /**
  * Remove unselected files under finalPath. Idempotent — overlapping
  * with aria2's own cleanup is fine. Errors are logged but never
@@ -878,6 +937,7 @@ async function cleanupUnselectedAfterRename(
 ): Promise<void> {
   let removed = 0
   for (const rel of relPaths) {
+    if (rel === '' || rel === '.') continue
     const target = path.join(task.finalPath, rel)
     try {
       await deps.fs.removePathRecursive(target)

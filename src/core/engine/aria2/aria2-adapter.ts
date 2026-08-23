@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
@@ -460,7 +461,7 @@ export class Aria2Adapter implements EngineAdapter {
     }
     const requestedGid =
       params.gid ?? (typeof extraGid === 'string' ? extraGid : undefined)
-    const opts: Record<string, string> = {
+    const opts: Record<string, string | string[]> = {
       dir: params.saveDir,
       pause: String(params.pause ?? false),
     }
@@ -473,6 +474,33 @@ export class Aria2Adapter implements EngineAdapter {
     }
     if (params.selectedFiles?.length) {
       opts['select-file'] = params.selectedFiles.join(',')
+    }
+    if (params.outputFilePaths?.length) {
+      const seen = new Set<number>()
+      opts['index-out'] = params.outputFilePaths.map(
+        ({ fileIndex, relativePath }) => {
+          const components = relativePath.replace(/\\/g, '/').split('/')
+          if (
+            !Number.isSafeInteger(fileIndex) ||
+            fileIndex < 0 ||
+            seen.has(fileIndex) ||
+            relativePath.length === 0 ||
+            relativePath.includes('\0') ||
+            path.isAbsolute(relativePath) ||
+            /^[A-Za-z]:[\\/]/.test(relativePath) ||
+            components.some(
+              (component) =>
+                component.length === 0 ||
+                component === '.' ||
+                component === '..'
+            )
+          ) {
+            throw new TypeError('Invalid torrent output file mapping')
+          }
+          seen.add(fileIndex)
+          return `${fileIndex + 1}=${relativePath}`
+        }
+      )
     }
     if (params.seedTime !== undefined) {
       opts['seed-time'] = String(params.seedTime)
@@ -499,7 +527,7 @@ export class Aria2Adapter implements EngineAdapter {
     }
     if (params.extraEngineOptions) {
       for (const [k, v] of Object.entries(params.extraEngineOptions)) {
-        opts[k] = v as string
+        opts[k] = v
       }
     }
     if (requestedGid !== undefined) {
