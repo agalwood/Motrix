@@ -542,11 +542,14 @@ describe('general CI native-host split contract', () => {
       'tests/scripts/flatpak-native-host.test.ts'
     )
     for (const test of [
+      'tests/scripts/appimage-artifact.test.ts',
       'tests/scripts/electron-package-contract.test.ts',
+      'tests/scripts/finalize-appimage-artifact.test.ts',
       'tests/scripts/native-binary-target.test.ts',
       'tests/scripts/release-signing-input.test.ts',
       'tests/scripts/stage-electron-app.test.ts',
       'tests/scripts/verify-electron-package.test.ts',
+      'tests/scripts/verify-appimage-artifact.test.ts',
     ]) {
       expect(contractCommand).toContain(test)
     }
@@ -1297,6 +1300,20 @@ describe('release workflow publication contract', () => {
     expect(verificationCommand).toContain('sha256sum')
     expect(verificationCommand).toContain('beta) expected_count=4')
     expect(verificationCommand).toContain('stable) expected_count=8')
+
+    const nativeMetadata = steps.find(
+      (step) =>
+        step.name === 'Verify native AppImage update metadata distribution'
+    )
+    const nativeMetadataCommand = stringField(
+      nativeMetadata as LooseRecord,
+      'run'
+    )
+    expect(nativeMetadataCommand).toContain('release/*.AppImage.zsync')
+    expect(nativeMetadataCommand).toContain('dl.motrix.app/releases/')
+    expect(nativeMetadataCommand).toContain(
+      'github.com/agalwood/Motrix/releases/download/'
+    )
   })
 
   it('uploads only stable and beta metadata from target builds', () => {
@@ -1331,6 +1348,11 @@ describe('release workflow publication contract', () => {
     expect(releaseSource).toContain('release/*.AppImage')
 
     const buildJob = targetMatrix(releaseWorkflow).job
+    const buildSteps = jobSteps(buildJob)
+    const toolInstall = buildSteps.find(
+      (step) => step.name === 'Install Linux packaging tools'
+    )
+    expect(stringField(toolInstall as LooseRecord, 'run')).toContain('zsync')
     const linuxVerification = jobSteps(buildJob).find(
       (step) => step.name === 'Verify Linux package formats'
     )
@@ -1353,6 +1375,52 @@ describe('release workflow publication contract', () => {
     expect(stringField(appImageVerification as LooseRecord, 'run')).toContain(
       'scripts/verify-appimage-artifact.mjs'
     )
+
+    const cleanSmoke = buildSteps.find(
+      (step) => step.name === 'Smoke test AppImage without system FUSE2'
+    )
+    const cleanSmokeCommand = stringField(cleanSmoke as LooseRecord, 'run')
+    expect(cleanSmokeCommand).toContain('docker run --rm --network none')
+    expect(cleanSmokeCommand).toContain('[[ ! -e /dev/fuse ]]')
+    expect(cleanSmokeCommand).toContain('libfuse.so.2')
+    expect(cleanSmokeCommand).toContain('--appimage-updateinformation')
+    expect(cleanSmokeCommand).toContain('--appimage-extract')
+
+    const upload = buildSteps.find(
+      (step) => step.name === 'Upload target release input'
+    )
+    const uploadPaths = stringField(
+      asRecord(upload?.with, 'release upload'),
+      'path'
+    )
+    expect(uploadPaths).toContain('release/*.AppImage.zsync')
+  })
+
+  it('pins the modern AppImage toolset and finalization hook', () => {
+    const builderConfig = asRecord(
+      JSON.parse(
+        readFileSync(path.join(ROOT, 'electron-builder.json'), 'utf8')
+      ) as unknown,
+      'electron-builder config'
+    )
+    expect(
+      stringField(asRecord(builderConfig.toolsets, 'toolsets'), 'appimage')
+    ).toBe('1.0.3')
+    expect(stringField(builderConfig, 'artifactBuildCompleted')).toBe(
+      './scripts/finalize-appimage-artifact.mjs'
+    )
+    const packageJson = asRecord(
+      JSON.parse(
+        readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+      ) as unknown,
+      'package.json'
+    )
+    expect(
+      stringField(
+        asRecord(packageJson.devDependencies, 'dev dependencies'),
+        'electron-builder'
+      )
+    ).toBe('26.15.7')
   })
 
   it('publishes required Flatpak companions outside updater manifests', () => {

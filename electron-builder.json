@@ -3,6 +3,9 @@
   "appId": "app.motrix.native",
   "productName": "Motrix",
   "copyright": "Copyright © 2026 Dr_rOot",
+  "toolsets": {
+    "appimage": "1.0.3"
+  },
   "asar": true,
   "asarUnpack": [
     "**/node_modules/{better-sqlite3,bindings,file-uri-to-path}/**",
@@ -227,6 +230,7 @@
   },
   "beforePack": "./scripts/before-pack-verify.mjs",
   "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",
+  "artifactBuildCompleted": "./scripts/finalize-appimage-artifact.mjs",
   "detectUpdateChannel": true,
   "generateUpdatesFilesForAllChannels": true,
   "publish": {

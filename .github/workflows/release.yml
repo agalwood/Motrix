@@ -11,7 +11,8 @@
 #   - a native GitHub-hosted runner;
 #   - a packages/native-host/build.mjs Rust target.
 #
-# The Linux AppImage is published for x64 and arm64. It self-integrates its
+# The Linux AppImage is published for x64 and arm64 with the static AppImage
+# runtime and per-architecture native zsync metadata. It self-integrates its
 # desktop entry and URL-scheme handlers at runtime under the user's XDG data
 # tree (src/main/platform/appimage-integration.ts). Snap has its own
 # strict-confinement build and Store promotion workflows. 32-bit targets remain
@@ -191,8 +192,8 @@ jobs:
           sudo apt-get update
           # squashfs-tools provides `unsquashfs`, used by
           # verify-appimage-artifact.mjs to read the AppImage's embedded
-          # desktop entry.
-          sudo apt-get install --yes rpm squashfs-tools
+          # desktop entry. zsync provides the canonical `zsyncmake` generator.
+          sudo apt-get install --yes rpm squashfs-tools zsync
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -379,6 +380,47 @@ jobs:
           --version "${{ needs.preflight.outputs.version }}"
           --arch ${{ matrix.arch }}
 
+      - name: Smoke test AppImage without system FUSE2
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          case "$TARGET_ARCH" in
+            x64) artifact_arch='x86_64' ;;
+            arm64) artifact_arch='arm64' ;;
+            *) echo "Unsupported AppImage arch: $TARGET_ARCH" >&2; exit 1 ;;
+          esac
+          case "$RELEASE_CHANNEL" in
+            stable) native_release='latest' ;;
+            beta) native_release='latest-pre' ;;
+            *) echo "Unsupported release channel: $RELEASE_CHANNEL" >&2; exit 1 ;;
+          esac
+          appimage="Motrix-${RELEASE_VERSION}-${artifact_arch}.AppImage"
+          update_info="gh-releases-zsync|agalwood|Motrix|${native_release}|Motrix-*-${artifact_arch}.AppImage.zsync"
+          docker run --rm --network none \
+            --mount "type=bind,src=$PWD/release,dst=/artifacts,readonly" \
+            --workdir /tmp \
+            --env "APPIMAGE_FILE=/artifacts/${appimage}" \
+            --env "EXPECTED_UPDATE=${update_info}" \
+            ubuntu:24.04 \
+            bash -eu -o pipefail -c '
+              [[ ! -e /dev/fuse ]]
+              if find /lib /usr/lib -name "libfuse.so.2*" -print -quit |
+                grep -q .; then
+                echo "Clean container unexpectedly contains libfuse.so.2" >&2
+                exit 1
+              fi
+              actual="$($APPIMAGE_FILE --appimage-updateinformation)"
+              [[ "$actual" == "$EXPECTED_UPDATE" ]]
+              "$APPIMAGE_FILE" --appimage-extract \
+                app.motrix.native.desktop >/tmp/appimage-extract.log
+              test -f squashfs-root/app.motrix.native.desktop
+            '
+
       - name: Package Flatpak native host companion
         if: matrix.platform == 'linux'
         env:
@@ -448,6 +490,7 @@ jobs:
           name: release-input-${{ matrix.target }}
           path: |
             release/*.AppImage
+            release/*.AppImage.zsync
             release/*.blockmap
             release/beta*.yml
             release/*.deb
@@ -2433,4 +2476,52 @@ jobs:
               echo "Published manifest did not converge at dl.motrix.app: ${name}" >&2
               exit 1
             fi
+          done
+
+      - name: Verify native AppImage update metadata distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          zsyncs=(release/*.AppImage.zsync)
+          if (( ${#zsyncs[@]} != 2 )); then
+            echo "Expected two architecture-specific zsync assets" >&2
+            exit 1
+          fi
+          for zsync in "${zsyncs[@]}"; do
+            name="$(basename "$zsync")"
+            expected="$(sha256sum "$zsync" | cut -d ' ' -f 1)"
+            aws s3api head-object \
+              --bucket "$R2_BUCKET" \
+              --key "$name" \
+              --endpoint-url "$endpoint" \
+              > /dev/null
+            for provider in generic github; do
+              downloaded="${RUNNER_TEMP}/${provider}-${name}"
+              matched='false'
+              for attempt in {1..12}; do
+                case "$provider" in
+                  generic)
+                    url="https://dl.motrix.app/releases/${name}?release=${GITHUB_SHA}&attempt=${attempt}"
+                    ;;
+                  github)
+                    url="https://github.com/agalwood/Motrix/releases/download/${GITHUB_REF_NAME}/${name}?attempt=${attempt}"
+                    ;;
+                esac
+                if curl --fail --location --silent --show-error \
+                  "$url" --output "$downloaded"; then
+                  actual="$(sha256sum "$downloaded" | cut -d ' ' -f 1)"
+                  if [[ "$actual" == "$expected" ]]; then
+                    matched='true'
+                    break
+                  fi
+                fi
+                sleep 5
+              done
+              if [[ "$matched" != 'true' ]]; then
+                echo "Published zsync did not converge via ${provider}: ${name}" >&2
+                exit 1
+              fi
+            done
           done

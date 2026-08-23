@@ -137,6 +137,7 @@ jobs:
           src/main/bridge/native-messaging-extensions.test.ts
           src/main/bridge/snap-environment.test.ts
           tests/scripts/assemble-release-artifacts.test.ts
+          tests/scripts/appimage-artifact.test.ts
           tests/scripts/before-pack-verify.test.ts
           tests/scripts/compose-server.test.ts
           tests/scripts/container-platform-metadata.test.ts
@@ -145,6 +146,7 @@ jobs:
           tests/scripts/docker-server-docs.test.ts
           tests/scripts/electron-package-contract.test.ts
           tests/scripts/flatpak-native-host.test.ts
+          tests/scripts/finalize-appimage-artifact.test.ts
           tests/scripts/native-binary-target.test.ts
           tests/scripts/obsidian-docs.test.ts
           tests/scripts/release-metadata.test.ts
@@ -161,6 +163,7 @@ jobs:
           tests/scripts/smoke-server-package.test.ts
           tests/scripts/stage-server-app.test.ts
           tests/scripts/verify-electron-package.test.ts
+          tests/scripts/verify-appimage-artifact.test.ts
           tests/scripts/verify-container-publication.test.ts
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts

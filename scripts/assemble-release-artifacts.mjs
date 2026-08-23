@@ -54,6 +54,7 @@ export const RELEASE_TARGETS = [
       `Motrix_${version}_amd64.deb`,
       `Motrix-${version}.x86_64.rpm`,
       `Motrix-${version}-x86_64.AppImage`,
+      `Motrix-${version}-x86_64.AppImage.zsync`,
       flatpakCompanionArchiveName(version, 'x64'),
     ],
     manifestAssetNames: (version) => [
@@ -71,6 +72,7 @@ export const RELEASE_TARGETS = [
       `Motrix_${version}_arm64.deb`,
       `Motrix-${version}.aarch64.rpm`,
       `Motrix-${version}-arm64.AppImage`,
+      `Motrix-${version}-arm64.AppImage.zsync`,
       flatpakCompanionArchiveName(version, 'arm64'),
     ],
     manifestAssetNames: (version) => [
@@ -103,6 +105,7 @@ const RELEASE_ASSET_EXTENSIONS = [
   '.snap',
   '.tar.gz',
   '.zip',
+  '.zsync',
 ]
 
 export async function assembleReleaseArtifacts({
@@ -280,7 +283,7 @@ async function collectTargetFiles(directory, target, version, manifestNames) {
   const requiredAssets = new Set(target.assetNames(version))
   const optionalBlockmaps = new Set(
     [...requiredAssets]
-      .filter((name) => !name.endsWith('.tar.gz'))
+      .filter((name) => /\.(?:dmg|exe|zip)$/u.test(name))
       .map((name) => `${name}.blockmap`)
   )
   for (const source of candidates) {
