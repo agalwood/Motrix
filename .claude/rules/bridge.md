@@ -59,9 +59,11 @@ now dual-purpose: the native-messaging host also derives its §9.2 ticket-MAC
 key from it (`ticketKey = HKDF(UTF8(localToken), "MBP1/nm-ticket/v1", "mac",
 32)`) but MUST NOT expose it to the extension. `localToken` persists across
 bridge restarts — only `serverGeneration` rotates on every start
-(`loadOrCreateBridgeIdentity`) — so an NM ticket minted before a restart
-downgrades to `unverified` instead of aborting on a stale-generation MAC
-mismatch. The nonce route is now `POST /nonce` and requires
+(`loadOrCreateBridgeIdentity`) — so an NM ticket minted before a restart takes
+the §9.2 semantic-downgrade path instead of aborting on a stale-generation MAC
+mismatch: the ticket then contributes nothing, and identity falls back to what
+the verified origin alone establishes (§9.2 only-raise — a stale ticket is
+never worse than presenting none). The nonce route is now `POST /nonce` and requires
 `X-Motrix-Bridge: 1`; the former `GET /nonce` is gone and 404s.
 
 While bound to a loopback host, every route and upgrade rejects a `Host` header
@@ -128,6 +130,10 @@ The close codes are:
   channel close (regardless of code) via §8 and derives fresh keys.
 - **`1011` (internal error)**: this process is broken (a bug, not a protocol
   event).
+
+The extension client cannot mirror this table: a browser's `WebSocket.close`
+refuses every code outside 1000/3000–4999, so the client sends `4001` for a
+usage bound (either direction) and a bare close for everything else (§11).
 
 On-disk state lives under `<userData>/bridge/`: `pairing.json`,
 `registry.json`, `endpoint.json` (mode 0600), `local-token` (mode 0600), and
@@ -215,15 +221,17 @@ than a structurally broken ticket (§9.2 aborts on that). `localToken`
 itself never reaches the wire, only the MAC key it derives.
 
 `endpoint.json`'s `localToken`/`generation` are trusted for minting only
-when the file passes a `#[cfg(unix)]` 0600 owner-and-mode check on the
-already-open handle (§9.1); a file that fails it still yields a port, but
-those two fields are dropped. That check is Unix-only: on Windows,
-`localToken` and `generation` pass through unchecked, and the attestation
-root rests on default per-user `%APPDATA%` NTFS isolation rather than on
-anything this code verifies. §9.1's "0600 owner-only" wording is itself
-Unix-specific, so this is not a spec violation — but do not read the
-ticket-minting path above as attesting anything stronger than that on
-Windows.
+when the file passes `is_owner_only` on the already-open handle (§9.1); a
+file that fails it still yields a port, but those two fields are dropped. On
+Unix that is a 0600 owner-and-mode check. On Windows it is the deliberately
+weaker analogue documented on `is_owner_only` itself: owner = current process
+user, and every DACL entry either a deny-family ACE or a plain allow ACE for
+that user, `LocalSystem`, or `BUILTIN\Administrators` — any other ACE type
+(the conditional/object allow variants included) fails the check closed and
+drops the fields. SYSTEM and Administrators are admitted because they can
+already rewrite anything the user owns, which means an administrator can
+*read* `localToken` on Windows — do not read the ticket-minting path above
+as attesting anything stronger than that there.
 
 On Flatpak, only the **broker** (`motrix-native-host-broker`) speaks HTTP:
 `probe_bridge` reaches `probe.rs` through `resolve_endpoint`, so the broker

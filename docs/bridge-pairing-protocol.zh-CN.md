@@ -646,7 +646,9 @@ origin；Firefox：扩展 ID 参数）。NM host 读取它并铸造一张一次�
 2. 扩展 → host：`{ "action": "bootstrap", "protocolVersion": 1,
    "bindingPub": "<b64url 32 bytes>" }`。
 3. host 读取 `endpoint.json`（0600 owner-only——这份文件所有权*就是*
-   attestation 信任根），对记录端口做存活检查（TCP / `/discovery` 探测；
+   attestation 信任根；Windows 对应物是 owner = 当前用户，且 DACL 只向该
+   用户、`LocalSystem` 与 `BUILTIN\Administrators` 授权，对无法证明无害的
+   ACE 类型一律 fail closed），对记录端口做存活检查（TCP / `/discovery` 探测；
    未认证即足够——MBP1 客户端会在下游自行认证 server），必要时唤醒
    Motrix，经 `POST /nonce` 取得新 nonce，铸造 ticket，然后应答：
    `{ "action": "requestPair", "protocolVersion": 1, "port": <n>,
@@ -818,6 +820,11 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
 `4001` 位于 [RFC 6455] §7.4.2 为应用间约定保留的私有段；没有合适的标准码可用——
 `1002` 会指控对端犯了并未发生的违规，而 `1011` 会把一个例行的、规范要求的转换
 说成缺陷。
+
+只有 server 能发出全部三个码：浏览器的 WebSocket API 拒绝 1000/3000–4999
+之外的一切关闭码，因此扩展客户端在自身 §10 用量上限触发时发送 `4001`，其余
+故障一律裸关闭（对端收到 `1005`，"no status received"）。这种不对称之所以
+合规，正是因为下一条规则。
 
 **客户端 MUST NOT 依据关闭码分支。** 已建立的 envelope 信道的任何关闭都意味着
 "按 §8 重建",一个从不知晓这些数字的合规客户端行为依然正确——这些码的作用是让

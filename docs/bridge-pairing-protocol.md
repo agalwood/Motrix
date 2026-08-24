@@ -753,7 +753,10 @@ is the **only** ticket type in MBP1.
 2. Extension → host: `{ "action": "bootstrap", "protocolVersion": 1,
    "bindingPub": "<b64url 32 bytes>" }`.
 3. The host reads `endpoint.json` (0600 owner-only — that file ownership *is*
-   the attestation root), checks liveness of the recorded port (TCP /
+   the attestation root; the Windows analogue is owner = current user plus a
+   DACL admitting only that user, `LocalSystem`, and
+   `BUILTIN\Administrators`, failing closed on any ACE type the check cannot
+   prove harmless), checks liveness of the recorded port (TCP /
    `/discovery` probe; unauthenticated is sufficient — the MBP1 client
    authenticates the server itself downstream), wakes Motrix if needed,
    obtains a fresh nonce via `POST /nonce`, mints the ticket, and replies:
@@ -956,6 +959,12 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
 application agreement; no standard code fits, since `1002` would accuse the
 peer of a violation that did not occur and `1011` would claim a defect for a
 routine, spec-mandated transition.
+
+Only a server can send all three codes: the browser WebSocket API refuses
+every close code outside 1000/3000–4999, so an extension client sends `4001`
+when one of its own §10 usage bounds trips and a bare close (surfacing as
+`1005`, "no status received") for every other fault. That asymmetry is
+conformant because of the next rule.
 
 **Clients MUST NOT branch on the close code.** Every close of an established
 envelope channel means "re-establish it via §8", and a conforming client that
