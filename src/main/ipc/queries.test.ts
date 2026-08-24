@@ -226,6 +226,12 @@ describe('buildQueryHandlers', () => {
     expect(handlers[Queries.GetUpdateState]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetEngineStatus]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetEngineDiagnostics]).toBeInstanceOf(Function)
+    expect(handlers[Queries.GetLinuxDefaultAssociations]).toBeInstanceOf(
+      Function
+    )
+    expect(handlers[Queries.GetWindowsDefaultAssociations]).toBeInstanceOf(
+      Function
+    )
     expect(handlers[Queries.GetTaskFiles]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetNatStatus]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetNatDiagnostic]).toBeInstanceOf(Function)

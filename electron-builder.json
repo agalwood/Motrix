@@ -86,14 +86,6 @@
       "schemes": ["magnet"]
     }
   ],
-  "fileAssociations": [
-    {
-      "ext": "torrent",
-      "mimeType": "application/x-bittorrent",
-      "name": "Torrent",
-      "role": "Viewer"
-    }
-  ],
   "mac": {
     "category": "public.app-category.utilities",
     "type": "distribution",
@@ -106,6 +98,14 @@
     "entitlements": "build/entitlements.mac.plist",
     "entitlementsInherit": "build/entitlements.mac.plist",
     "darkModeSupport": true,
+    "fileAssociations": [
+      {
+        "ext": "torrent",
+        "mimeType": "application/x-bittorrent",
+        "name": "Torrent",
+        "role": "Viewer"
+      }
+    ],
     "extendInfo": {
       "NSLocalNetworkUsageDescription": "Motrix uses the local network for UPnP port mapping and discovering download peers."
     },
@@ -171,6 +171,14 @@
     "category": "Network",
     "synopsis": "Full-featured download manager",
     "description": "Motrix is a full-featured download manager that supports HTTP, FTP, BitTorrent and Magnet downloads.",
+    "fileAssociations": [
+      {
+        "ext": "torrent",
+        "mimeType": "application/x-bittorrent",
+        "name": "Torrent",
+        "role": "Viewer"
+      }
+    ],
     "mimeTypes": [
       "application/x-bittorrent",
       "x-scheme-handler/magnet",

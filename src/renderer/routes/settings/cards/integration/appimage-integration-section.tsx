@@ -24,10 +24,17 @@ function parseView(value: unknown): SupportedView | null {
   return view.supported === true ? view : null
 }
 
-export function AppImageIntegrationSection() {
+export interface AppImageIntegrationSectionProps {
+  onIntegrationChange?: () => void
+}
+
+export function AppImageIntegrationSection({
+  onIntegrationChange,
+}: AppImageIntegrationSectionProps = {}) {
   const { t } = useTranslation()
   const [view, setView] = useState<SupportedView | null>(null)
   const [busy, setBusy] = useState(false)
+  const [lastAction, setLastAction] = useState<'enable' | 'remove' | null>(null)
 
   useEffect(() => {
     let stale = false
@@ -57,9 +64,15 @@ export function AppImageIntegrationSection() {
       | typeof Commands.EnableAppImageIntegration
       | typeof Commands.RemoveAppImageIntegration
   ) => {
+    const action =
+      channel === Commands.RemoveAppImageIntegration ? 'remove' : 'enable'
     setBusy(true)
+    setLastAction(null)
     try {
-      setView(parseView(await transport.invoke(channel)))
+      const next = parseView(await transport.invoke(channel))
+      setView(next)
+      setLastAction(action)
+      onIntegrationChange?.()
     } catch {
       // Keep the current view; the main process logs the failure.
     } finally {
@@ -131,7 +144,11 @@ export function AppImageIntegrationSection() {
             {t('settings.integration.appimage.status.failedTitle')}
           </AlertTitle>
           <AlertDescription>
-            {t('settings.integration.appimage.status.failedDetail')}
+            {t(
+              lastAction === 'remove'
+                ? 'settings.integration.appimage.status.removeBlockedDetail'
+                : 'settings.integration.appimage.status.failedDetail'
+            )}
           </AlertDescription>
         </Alert>
       )}

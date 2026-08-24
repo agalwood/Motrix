@@ -43,6 +43,7 @@ export interface IntegrationRecord {
   // The scheme/mime default handlers recorded before we overrode them, so a
   // later removal can restore what the user had.
   previousSchemeHandler: string | null
+  previousTorrentHandler: string | null
   previousMagnetHandler: string | null
   // Random per-install id embedded in our desktop entry as an ownership proof.
   // A copyable marker key alone cannot prove WE wrote a file (a foreign file
@@ -62,6 +63,7 @@ export const DEFAULT_INTEGRATION_RECORD: IntegrationRecord = {
   status: null,
   nmConsent: 'unset',
   previousSchemeHandler: null,
+  previousTorrentHandler: null,
   previousMagnetHandler: null,
   installId: null,
   iconSha256: null,
@@ -91,6 +93,10 @@ const integrationRecordSchema = z
       .string()
       .nullable()
       .catch(DEFAULT_INTEGRATION_RECORD.previousSchemeHandler),
+    previousTorrentHandler: z
+      .string()
+      .nullable()
+      .catch(DEFAULT_INTEGRATION_RECORD.previousTorrentHandler),
     previousMagnetHandler: z
       .string()
       .nullable()
@@ -163,6 +169,7 @@ export function isSafeInstallId(id: string | null): id is string {
 }
 
 const SCHEME_MIME = 'x-scheme-handler/motrix'
+const TORRENT_MIME = 'application/x-bittorrent'
 const MAGNET_MIME = 'x-scheme-handler/magnet'
 const MIME_TYPES =
   'application/x-bittorrent;x-scheme-handler/magnet;x-scheme-handler/motrix;'
@@ -174,6 +181,15 @@ export function resolveXdgDataHome(
   const configured = env.XDG_DATA_HOME
   if (configured && path.isAbsolute(configured)) return configured
   return path.join(homedir, '.local', 'share')
+}
+
+export function resolveXdgConfigHome(
+  env: NodeJS.ProcessEnv,
+  homedir: string
+): string {
+  const configured = env.XDG_CONFIG_HOME
+  if (configured && path.isAbsolute(configured)) return configured
+  return path.join(homedir, '.config')
 }
 
 export function applicationsDir(dataHome: string): string {
@@ -529,6 +545,114 @@ async function setDefaultAndVerify(
   return current === targetId
 }
 
+export interface MimeAppsEditResult {
+  content: string
+  changed: boolean
+}
+
+// Remove only one desktop id from one MIME key in [Default Applications].
+// Other groups, comments, keys, and fallback handlers are preserved byte-for-
+// byte except for the matching value line. This is the missing inverse of
+// `xdg-mime default`, which intentionally has no `unset` verb.
+export function removeDesktopIdFromMimeApps(
+  content: string,
+  mime: string,
+  desktopId: string
+): MimeAppsEditResult {
+  const newline = content.includes('\r\n') ? '\r\n' : '\n'
+  const hadTrailingNewline = content.endsWith('\n')
+  const lines = content.split(/\r?\n/)
+  if (hadTrailingNewline) lines.pop()
+
+  let inDefaults = false
+  let changed = false
+  const next: string[] = []
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (line.startsWith('[') && line.endsWith(']')) {
+      inDefaults = line === '[Default Applications]'
+      next.push(rawLine)
+      continue
+    }
+    if (!inDefaults || line === '' || line.startsWith('#')) {
+      next.push(rawLine)
+      continue
+    }
+
+    const eq = rawLine.indexOf('=')
+    if (eq < 0 || rawLine.slice(0, eq).trim() !== mime) {
+      next.push(rawLine)
+      continue
+    }
+    const handlers = rawLine
+      .slice(eq + 1)
+      .split(';')
+      .map((value) => value.trim())
+      .filter(Boolean)
+    const remaining = handlers.filter((value) => value !== desktopId)
+    if (remaining.length === handlers.length) {
+      next.push(rawLine)
+      continue
+    }
+
+    changed = true
+    if (remaining.length > 0) {
+      next.push(`${rawLine.slice(0, eq + 1)}${remaining.join(';')};`)
+    }
+  }
+
+  return {
+    content: `${next.join(newline)}${hadTrailingNewline ? newline : ''}`,
+    changed,
+  }
+}
+
+function userMimeAppsPaths(deps: AppImageIntegrationDeps): string[] {
+  const configHome = resolveXdgConfigHome(deps.env, deps.homedir)
+  const dataHome = resolveXdgDataHome(deps.env, deps.homedir)
+  const desktopNames = (deps.env.XDG_CURRENT_DESKTOP ?? '')
+    .split(':')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => /^[a-z0-9_-]+$/.test(value))
+  return [
+    ...desktopNames.map((name) =>
+      path.join(configHome, `${name}-mimeapps.list`)
+    ),
+    path.join(configHome, 'mimeapps.list'),
+    ...desktopNames.map((name) =>
+      path.join(applicationsDir(dataHome), `${name}-mimeapps.list`)
+    ),
+    path.join(applicationsDir(dataHome), 'mimeapps.list'),
+  ].filter((value, index, all) => all.indexOf(value) === index)
+}
+
+async function clearOwnedDefaultAndVerify(
+  deps: AppImageIntegrationDeps,
+  mime: string
+): Promise<boolean> {
+  for (const filePath of userMimeAppsPaths(deps)) {
+    let content: string
+    try {
+      content = await deps.fs.readText(filePath)
+    } catch (err) {
+      if (isEnoent(err)) continue
+      deps.log.warn({ err, filePath, mime }, 'cannot read user mimeapps file')
+      return false
+    }
+    const edit = removeDesktopIdFromMimeApps(content, mime, DESKTOP_ENTRY_ID)
+    if (!edit.changed) continue
+    try {
+      await deps.fs.writeText(filePath, edit.content)
+    } catch (err) {
+      deps.log.warn({ err, filePath, mime }, 'cannot update user mimeapps file')
+      return false
+    }
+  }
+
+  const current = await queryDefaultHandlerResult(deps, mime)
+  return current.ok && current.id !== DESKTOP_ENTRY_ID
+}
+
 async function updateDesktopDatabase(
   deps: AppImageIntegrationDeps,
   dataHome: string
@@ -585,7 +709,13 @@ function desktopSearchDirs(env: NodeJS.ProcessEnv, dataHome: string): string[] {
   for (const base of dataDirs) {
     if (path.isAbsolute(base)) dirs.push(path.join(base, 'applications'))
   }
-  return dirs
+  dirs.push(
+    path.join(dataHome, 'flatpak', 'exports', 'share', 'applications'),
+    '/var/lib/flatpak/exports/share/applications',
+    '/var/lib/snapd/desktop/applications',
+    '/app/share/applications'
+  )
+  return dirs.filter((value, index, all) => all.indexOf(value) === index)
 }
 
 function isEnoent(err: unknown): boolean {
@@ -662,14 +792,15 @@ async function installSelfIntegration(
     const usable = await resolvesToUsableHandler(deps, dataHome, q.id)
     return { ok: true, value: usable ? q.id : current }
   }
-  // Both captures are read-only queries on different mimes — run concurrently.
+  // All captures are read-only queries on different mimes — run concurrently.
   // (The later set/restore calls that write the shared mimeapps.list stay
   // sequential.)
-  const [schemeCap, magnetCap] = await Promise.all([
+  const [schemeCap, torrentCap, magnetCap] = await Promise.all([
     capturePrevious(SCHEME_MIME, record.previousSchemeHandler),
+    capturePrevious(TORRENT_MIME, record.previousTorrentHandler),
     capturePrevious(MAGNET_MIME, record.previousMagnetHandler),
   ])
-  if (!schemeCap.ok || !magnetCap.ok) {
+  if (!schemeCap.ok || !torrentCap.ok || !magnetCap.ok) {
     deps.log.warn(
       {},
       'cannot query current default handlers; aborting to avoid losing them'
@@ -683,6 +814,7 @@ async function installSelfIntegration(
     }
   }
   const previousSchemeHandler = schemeCap.value
+  const previousTorrentHandler = torrentCap.value
   const previousMagnetHandler = magnetCap.value
 
   const base: IntegrationRecord = {
@@ -692,6 +824,7 @@ async function installSelfIntegration(
     desktopId: DESKTOP_ENTRY_ID,
     installId,
     previousSchemeHandler,
+    previousTorrentHandler,
     previousMagnetHandler,
   }
 
@@ -704,6 +837,7 @@ async function installSelfIntegration(
   if (
     record.installId !== installId ||
     record.previousSchemeHandler !== previousSchemeHandler ||
+    record.previousTorrentHandler !== previousTorrentHandler ||
     record.previousMagnetHandler !== previousMagnetHandler
   ) {
     await deps.store.save(failed)
@@ -788,17 +922,25 @@ async function installSelfIntegration(
     SCHEME_MIME,
     DESKTOP_ENTRY_ID
   )
+  const torrentOk = await setDefaultAndVerify(
+    deps,
+    TORRENT_MIME,
+    DESKTOP_ENTRY_ID
+  )
   // Mirror protocol-manager: only claim the magnet default when the setting is
   // on; otherwise leave whatever the user already had.
   let magnetOk = true
   if (deps.getMagnetEnabled()) {
     magnetOk = await setDefaultAndVerify(deps, MAGNET_MIME, DESKTOP_ENTRY_ID)
+  } else {
+    magnetOk = await restoreDefault(deps, MAGNET_MIME, previousMagnetHandler)
   }
 
-  const status: IntegrationStatus = schemeOk && magnetOk ? 'healthy' : 'failed'
+  const status: IntegrationStatus =
+    schemeOk && torrentOk && magnetOk ? 'healthy' : 'failed'
   if (status === 'failed') {
     deps.log.warn(
-      { schemeOk, magnetOk },
+      { schemeOk, torrentOk, magnetOk },
       'appimage default handler verification failed'
     )
   }
@@ -809,14 +951,14 @@ async function installSelfIntegration(
 // enabled and not already ours; hand it back to the recorded prior handler
 // when disabled and currently ours. Returns the record, updated if a new
 // previous handler was captured (so a later revert restores the handler the
-// user was actually using, not a stale one). Best-effort — command failures
-// are logged inside the helpers and never block the rest of self-heal.
+// user was actually using, not a stale one). A failed mutation marks the
+// integration failed so settings never claim a preference was applied.
 async function reconcileMagnetDefault(
   deps: AppImageIntegrationDeps,
   record: IntegrationRecord
 ): Promise<IntegrationRecord> {
   const q = await queryDefaultHandlerResult(deps, MAGNET_MIME)
-  if (!q.ok) return record
+  if (!q.ok) return { ...record, status: 'failed' }
   if (deps.getMagnetEnabled()) {
     if (q.id === DESKTOP_ENTRY_ID) return record
     // About to overwrite whatever is currently the magnet handler — capture it
@@ -833,11 +975,20 @@ async function reconcileMagnetDefault(
         await deps.store.save(next)
       }
     }
-    await setDefaultAndVerify(deps, MAGNET_MIME, DESKTOP_ENTRY_ID)
-    return next
+    const applied = await setDefaultAndVerify(
+      deps,
+      MAGNET_MIME,
+      DESKTOP_ENTRY_ID
+    )
+    return applied ? next : { ...next, status: 'failed' }
   }
   if (q.id === DESKTOP_ENTRY_ID) {
-    await restoreDefault(deps, MAGNET_MIME, record.previousMagnetHandler)
+    const restored = await restoreDefault(
+      deps,
+      MAGNET_MIME,
+      record.previousMagnetHandler
+    )
+    if (!restored) return { ...record, status: 'failed' }
   }
   return record
 }
@@ -898,6 +1049,62 @@ async function selfHeal(
   return next
 }
 
+// Read-only status validation for the settings query. Persisted `healthy` is
+// only trusted while the owned entry/icon still match and all required
+// defaults reflect the current preference. A previous failed transaction is
+// never silently upgraded here; retry remains an explicit enable/startup step.
+export async function inspectSystemIntegration(
+  deps: AppImageIntegrationDeps
+): Promise<IntegrationRecord> {
+  const record = await deps.store.load()
+  if (
+    record.decision !== 'accepted' ||
+    record.owner !== 'self' ||
+    record.status !== 'healthy'
+  ) {
+    return record
+  }
+
+  const dataHome = resolveXdgDataHome(deps.env, deps.homedir)
+  let desktopOk = false
+  let iconOk = false
+  try {
+    const content = await deps.fs.readText(desktopEntryFilePath(dataHome))
+    desktopOk =
+      classifyDesktopFile(content, deps.appImagePath, record.installId) === 'ok'
+  } catch {
+    desktopOk = false
+  }
+  if (record.iconSha256) {
+    try {
+      iconOk =
+        sha256Hex(await deps.fs.readBytes(iconFilePath(dataHome))) ===
+        record.iconSha256
+    } catch {
+      iconOk = false
+    }
+  }
+
+  const [scheme, torrent, magnet] = await Promise.all([
+    queryDefaultHandlerResult(deps, SCHEME_MIME),
+    queryDefaultHandlerResult(deps, TORRENT_MIME),
+    queryDefaultHandlerResult(deps, MAGNET_MIME),
+  ])
+  const defaultsOk =
+    scheme.ok &&
+    scheme.id === DESKTOP_ENTRY_ID &&
+    torrent.ok &&
+    torrent.id === DESKTOP_ENTRY_ID &&
+    magnet.ok &&
+    (deps.getMagnetEnabled()
+      ? magnet.id === DESKTOP_ENTRY_ID
+      : magnet.id !== DESKTOP_ENTRY_ID)
+
+  return desktopOk && iconOk && defaultsOk
+    ? record
+    : { ...record, status: 'failed' }
+}
+
 // Reverse-order teardown driven from the settings page. NM removal is a Layer 3a
 // TODO. Restores the recorded defaults FIRST and only deletes our files if the
 // restore succeeded — otherwise a deleted desktop would leave a dangling
@@ -928,17 +1135,22 @@ export async function removeSystemIntegration(
     SCHEME_MIME,
     record.previousSchemeHandler
   )
+  const torrentRestored = await restoreDefault(
+    deps,
+    TORRENT_MIME,
+    record.previousTorrentHandler
+  )
   const magnetRestored = await restoreDefault(
     deps,
     MAGNET_MIME,
     record.previousMagnetHandler
   )
-  if (!schemeRestored || !magnetRestored) {
+  if (!schemeRestored || !torrentRestored || !magnetRestored) {
     // Could not safely reclaim the defaults — keep the desktop file so the
     // default is not left pointing at a deleted entry. Persist `failed` for a
     // later retry from settings.
     deps.log.warn(
-      { schemeRestored, magnetRestored },
+      { schemeRestored, torrentRestored, magnetRestored },
       'aborting appimage removal: could not restore mime defaults'
     )
     const stuck: IntegrationRecord = { ...record, status: 'failed' }
@@ -980,8 +1192,8 @@ export async function removeSystemIntegration(
 // Restore a previously-recorded default handler. Returns whether the mime is
 // now in a safe state (either no longer ours, or successfully repointed and
 // re-verified). Returns false — blocking desktop deletion — when the default is
-// still ours but we cannot safely reclaim it (no recorded previous, unsafe
-// previous id, or the set/verify failed).
+// still ours but we cannot safely reclaim it (the owned mimeapps entry could
+// not be cleared, the previous id is unsafe, or set/verify failed).
 async function restoreDefault(
   deps: AppImageIntegrationDeps,
   mime: string,
@@ -994,12 +1206,7 @@ async function restoreDefault(
   // are about to remove.
   if (!query.ok) return false
   if (query.id !== DESKTOP_ENTRY_ID) return true // user re-pointed it; nothing to do
-  // TODO(Layer 3a+): when there was no prior handler we cannot cleanly "unset"
-  // the default via `xdg-mime` (there is no unset verb). Clearing our line from
-  // the user's mimeapps.list is the documented mechanism but is fiddly across
-  // desktops, so for now we fail-safe: keep our desktop file (removal reports
-  // `failed`) rather than delete it and leave a default pointing at nothing.
-  if (!previous) return false // no safe handler to restore to
+  if (!previous) return clearOwnedDefaultAndVerify(deps, mime)
   if (!isSafeDesktopId(previous)) {
     deps.log.warn({ mime, previous }, 'recorded previous handler is unsafe')
     return false

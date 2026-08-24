@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockSetAsDefault,
   mockRemoveDefault,
+  mockIsDefault,
   mockIsPackaged,
   mockSend,
   mockReadFile,
@@ -10,6 +11,7 @@ const {
 } = vi.hoisted(() => ({
   mockSetAsDefault: vi.fn(),
   mockRemoveDefault: vi.fn(),
+  mockIsDefault: vi.fn(),
   mockIsPackaged: { value: true },
   mockSend: vi.fn(),
   mockReadFile: vi.fn(),
@@ -20,6 +22,7 @@ vi.mock('electron', () => ({
   app: {
     setAsDefaultProtocolClient: mockSetAsDefault,
     removeAsDefaultProtocolClient: mockRemoveDefault,
+    isDefaultProtocolClient: mockIsDefault,
     get isPackaged() {
       return mockIsPackaged.value
     },
@@ -81,6 +84,12 @@ describe('createProtocolManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsPackaged.value = true
+    mockSetAsDefault.mockReturnValue(true)
+    mockRemoveDefault.mockReturnValue(true)
+    mockIsDefault.mockImplementation((protocol: string) => {
+      if (protocol !== 'magnet') return false
+      return mockSetAsDefault.mock.calls.some(([value]) => value === 'magnet')
+    })
   })
 
   describe('register', () => {
@@ -101,7 +110,7 @@ describe('createProtocolManager', () => {
         deliverToAddTask,
         onOpenPluginDetail,
       })
-      pm.register()
+      expect(pm.register()).toEqual({ magnetMatchesSetting: true })
 
       expect(mockSetAsDefault).toHaveBeenCalledWith('motrix')
       expect(mockSetAsDefault).toHaveBeenCalledWith('magnet')
@@ -124,7 +133,7 @@ describe('createProtocolManager', () => {
         deliverToAddTask,
         onOpenPluginDetail,
       })
-      pm.register()
+      expect(pm.register()).toEqual({ magnetMatchesSetting: true })
 
       expect(mockSetAsDefault).toHaveBeenCalledWith('motrix')
       expect(mockRemoveDefault).toHaveBeenCalledWith('magnet')
@@ -148,9 +157,33 @@ describe('createProtocolManager', () => {
         deliverToAddTask,
         onOpenPluginDetail,
       })
-      pm.register()
+      expect(pm.register()).toEqual({ magnetMatchesSetting: null })
 
       expect(mockSetAsDefault).not.toHaveBeenCalled()
+    })
+
+    it('leaves Windows scheme registration to the installer', () => {
+      const {
+        getWindow,
+        settingsManager,
+        torrentParser,
+        onOpenAddTask,
+        deliverToAddTask,
+        onOpenPluginDetail,
+      } = makeDeps(true)
+      const pm = createProtocolManager({
+        getWindow,
+        settingsManager,
+        torrentParser,
+        onOpenAddTask,
+        deliverToAddTask,
+        onOpenPluginDetail,
+        platform: 'win32',
+      })
+      expect(pm.register()).toEqual({ magnetMatchesSetting: null })
+
+      expect(mockSetAsDefault).not.toHaveBeenCalled()
+      expect(mockRemoveDefault).not.toHaveBeenCalled()
     })
 
     it('skips Electron scheme registration in an AppImage (integration owns it)', () => {
@@ -171,10 +204,33 @@ describe('createProtocolManager', () => {
         onOpenPluginDetail,
         isAppImage: true,
       })
-      pm.register()
+      expect(pm.register()).toEqual({ magnetMatchesSetting: null })
 
       expect(mockSetAsDefault).not.toHaveBeenCalled()
       expect(mockRemoveDefault).not.toHaveBeenCalled()
+    })
+
+    it('reports when the effective magnet default does not match the setting', () => {
+      const {
+        getWindow,
+        settingsManager,
+        torrentParser,
+        onOpenAddTask,
+        deliverToAddTask,
+        onOpenPluginDetail,
+      } = makeDeps(true)
+      mockSetAsDefault.mockReturnValue(false)
+      mockIsDefault.mockReturnValue(false)
+      const pm = createProtocolManager({
+        getWindow,
+        settingsManager,
+        torrentParser,
+        onOpenAddTask,
+        deliverToAddTask,
+        onOpenPluginDetail,
+      })
+
+      expect(pm.register()).toEqual({ magnetMatchesSetting: false })
     })
   })
 

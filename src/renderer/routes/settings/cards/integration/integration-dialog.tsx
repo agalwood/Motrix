@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -15,7 +16,8 @@ import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import type { AppSettings } from '@shared/types/settings'
-import { useEffect } from 'react'
+import { CircleAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -59,6 +61,8 @@ export function IntegrationDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const [protocolRevision, setProtocolRevision] = useState(0)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const form = useForm<IntegrationFormValues>({
     resolver: zodResolver(integrationFormSchema),
     defaultValues: DEFAULTS,
@@ -90,6 +94,7 @@ export function IntegrationDialog({
   }, [open])
 
   const onSubmit = form.handleSubmit(async (values) => {
+    setSaveError(null)
     const dirty = pickDirty(values, form.formState.dirtyFields) as
       | Partial<{
           app: Partial<IntegrationFormValues['app']>
@@ -101,7 +106,13 @@ export function IntegrationDialog({
       return
     }
     const patch = dirty as Partial<AppSettings>
-    await transport.invoke(Commands.UpdateSettings, patch)
+    const result = (await transport.invoke(Commands.UpdateSettings, patch)) as {
+      protocolAssociationApplied?: boolean
+    }
+    if (result.protocolAssociationApplied === false) {
+      setSaveError(t('settings.integration.system.protocolMagnetApplyFailed'))
+      return
+    }
     onClose()
   })
 
@@ -129,8 +140,12 @@ export function IntegrationDialog({
                 >
                   {t('settings.integration.system.title')}
                 </h3>
-                <SystemProtocolsSection />
-                <AppImageIntegrationSection />
+                <SystemProtocolsSection refreshRevision={protocolRevision} />
+                <AppImageIntegrationSection
+                  onIntegrationChange={() =>
+                    setProtocolRevision((revision) => revision + 1)
+                  }
+                />
               </section>
 
               <Separator />
@@ -185,6 +200,12 @@ export function IntegrationDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {saveError && (
+            <Alert variant="destructive" className="mr-auto">
+              <CircleAlert aria-hidden="true" />
+              <AlertDescription>{saveError}</AlertDescription>
+            </Alert>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

@@ -13,6 +13,7 @@ import {
   type IntegrationRecord,
   type IntegrationStore,
   iconFilePath,
+  inspectSystemIntegration,
   isOwnedBySelf,
   isSafeAppImagePath,
   isSafeDesktopId,
@@ -22,6 +23,7 @@ import {
   parseDesktopEntry,
   parseExecValue,
   parseIntegrationRecord,
+  removeDesktopIdFromMimeApps,
   removeSystemIntegration,
   resolveXdgDataHome,
   runStartupIntegration,
@@ -68,7 +70,8 @@ function createFakeFs(
   seed: Record<string, string> = {},
   // Paths that "exist" but throw a non-ENOENT error on read (e.g. permission
   // denied) — used to prove we never clobber an unreadable foreign file.
-  unreadable: Set<string> = new Set()
+  unreadable: Set<string> = new Set(),
+  onWrite?: (filePath: string, data: string) => void
 ): IntegrationFs & {
   files: Map<string, string>
 } {
@@ -77,6 +80,7 @@ function createFakeFs(
     files,
     writeText: vi.fn(async (p: string, data: string) => {
       files.set(p, data)
+      onWrite?.(p, data)
     }),
     readText: vi.fn(async (p: string) => {
       if (unreadable.has(p))
@@ -101,6 +105,19 @@ function createFakeFs(
       if (value === undefined) throw new Error(`ENOENT: ${src}`)
       files.set(dest, value)
     }),
+  }
+}
+
+function syncFakeDefaultsFromMimeApps(xdg: FakeXdg, content: string): void {
+  for (const mime of [
+    'x-scheme-handler/motrix',
+    'application/x-bittorrent',
+    'x-scheme-handler/magnet',
+  ]) {
+    const escaped = mime.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const value = new RegExp(`^${escaped}=([^;]+);`, 'mu').exec(content)?.[1]
+    if (value) xdg.defaults.set(mime, value)
+    else xdg.defaults.delete(mime)
   }
 }
 
@@ -225,6 +242,35 @@ describe('isSafeDesktopId', () => {
     expect(isSafeDesktopId('firefox')).toBe(false)
     expect(isSafeDesktopId('has space.desktop')).toBe(false)
     expect(isSafeDesktopId('')).toBe(false)
+  })
+})
+
+describe('removeDesktopIdFromMimeApps', () => {
+  it('removes only the owned default and preserves fallback handlers', () => {
+    const source = [
+      '# keep',
+      '[Default Applications]',
+      'x-scheme-handler/magnet=motrix-appimage.desktop;firefox.desktop;',
+      'application/pdf=org.pwmt.zathura.desktop;',
+      '',
+      '[Added Associations]',
+      'x-scheme-handler/magnet=motrix-appimage.desktop;',
+      '',
+    ].join('\n')
+
+    expect(
+      removeDesktopIdFromMimeApps(
+        source,
+        'x-scheme-handler/magnet',
+        DESKTOP_ENTRY_ID
+      )
+    ).toEqual({
+      changed: true,
+      content: source.replace(
+        'x-scheme-handler/magnet=motrix-appimage.desktop;firefox.desktop;',
+        'x-scheme-handler/magnet=firefox.desktop;'
+      ),
+    })
   })
 })
 
@@ -603,8 +649,13 @@ describe('runStartupIntegration', () => {
       // previous default (a phantom id would not be).
       [`${dataHome0}/applications/firefox.desktop`]:
         '[Desktop Entry]\nType=Application\nExec=/usr/bin/firefox %u\n',
+      [`${dataHome0}/applications/transmission.desktop`]:
+        '[Desktop Entry]\nType=Application\nExec=/usr/bin/transmission %f\n',
     })
-    const xdg = createFakeXdg({ 'x-scheme-handler/motrix': 'firefox.desktop' })
+    const xdg = createFakeXdg({
+      'x-scheme-handler/motrix': 'firefox.desktop',
+      'application/x-bittorrent': 'transmission.desktop',
+    })
     const prompt = vi.fn(async () => true)
     await runStartupIntegration(baseDeps({ store, fs, xdg, prompt }))
 
@@ -618,6 +669,7 @@ describe('runStartupIntegration', () => {
 
     // previous handler recorded before override
     expect(store.record.previousSchemeHandler).toBe('firefox.desktop')
+    expect(store.record.previousTorrentHandler).toBe('transmission.desktop')
     // final state healthy, self-owned, with a persisted id + icon hash
     expect(store.record.decision).toBe('accepted')
     expect(store.record.owner).toBe('self')
@@ -645,6 +697,7 @@ describe('runStartupIntegration', () => {
     expect(setIndex).toBeGreaterThan(dbIndex)
     // default was verified by re-query afterwards
     expect(xdg.defaults.get('x-scheme-handler/motrix')).toBe(DESKTOP_ENTRY_ID)
+    expect(xdg.defaults.get('application/x-bittorrent')).toBe(DESKTOP_ENTRY_ID)
   })
 
   it('fails closed without writing when the AppImage path has control chars', async () => {
@@ -857,6 +910,74 @@ describe('runStartupIntegration', () => {
     expect(xdg.defaults.get('x-scheme-handler/motrix')).toBe(DESKTOP_ENTRY_ID)
   })
 
+  it('clears an owned magnet default when there was no previous handler', async () => {
+    const dataHome = '/home/u/.local/share'
+    const desktopPath = desktopEntryFilePath(dataHome)
+    const mimeAppsPath = '/home/u/.config/mimeapps.list'
+    const store = createFakeStore({
+      decision: 'accepted',
+      owner: 'self',
+      status: 'healthy',
+      desktopId: DESKTOP_ENTRY_ID,
+      installId: TEST_INSTALL_ID,
+    })
+    const xdg = createFakeXdg({
+      'x-scheme-handler/motrix': DESKTOP_ENTRY_ID,
+      'x-scheme-handler/magnet': DESKTOP_ENTRY_ID,
+    })
+    const fs = createFakeFs(
+      {
+        [desktopPath]: ownedEntry(APPIMAGE),
+        [ICON_SOURCE]: 'PNGDATA',
+        [mimeAppsPath]:
+          '[Default Applications]\nx-scheme-handler/magnet=motrix-appimage.desktop;\n',
+      },
+      new Set(),
+      (filePath, content) => {
+        if (filePath === mimeAppsPath) {
+          syncFakeDefaultsFromMimeApps(xdg, content)
+          xdg.defaults.set('x-scheme-handler/motrix', DESKTOP_ENTRY_ID)
+        }
+      }
+    )
+
+    await runStartupIntegration(
+      baseDeps({ store, fs, xdg, getMagnetEnabled: () => false })
+    )
+
+    expect(xdg.defaults.has('x-scheme-handler/magnet')).toBe(false)
+    expect(store.record.status).toBe('healthy')
+    expect(fs.files.get(mimeAppsPath)).not.toContain(
+      'x-scheme-handler/magnet=motrix-appimage.desktop;'
+    )
+  })
+
+  it('marks reconciliation failed when an owned magnet default cannot be cleared', async () => {
+    const dataHome = '/home/u/.local/share'
+    const store = createFakeStore({
+      decision: 'accepted',
+      owner: 'self',
+      status: 'healthy',
+      desktopId: DESKTOP_ENTRY_ID,
+      installId: TEST_INSTALL_ID,
+    })
+    const fs = createFakeFs({
+      [desktopEntryFilePath(dataHome)]: ownedEntry(APPIMAGE),
+      [ICON_SOURCE]: 'PNGDATA',
+    })
+    const xdg = createFakeXdg({
+      'x-scheme-handler/motrix': DESKTOP_ENTRY_ID,
+      'x-scheme-handler/magnet': DESKTOP_ENTRY_ID,
+    })
+
+    await runStartupIntegration(
+      baseDeps({ store, fs, xdg, getMagnetEnabled: () => false })
+    )
+
+    expect(xdg.defaults.get('x-scheme-handler/magnet')).toBe(DESKTOP_ENTRY_ID)
+    expect(store.record.status).toBe('failed')
+  })
+
   it('persists the install id before writing files (crash recovery)', async () => {
     const store = createFakeStore({ decision: 'unset' })
     const fs = createFakeFs({ [ICON_SOURCE]: 'PNGDATA' })
@@ -1030,6 +1151,41 @@ describe('enableSystemIntegration', () => {
   })
 })
 
+describe('inspectSystemIntegration', () => {
+  it('downgrades a stale persisted healthy state without mutating the store', async () => {
+    const dataHome = '/home/u/.local/share'
+    const desktopPath = desktopEntryFilePath(dataHome)
+    const iconPath = iconFilePath(dataHome)
+    const store = createFakeStore({
+      decision: 'accepted',
+      owner: 'self',
+      status: 'healthy',
+      desktopId: DESKTOP_ENTRY_ID,
+      installId: TEST_INSTALL_ID,
+      iconSha256: sha256Hex('PNGDATA'),
+    })
+    const fs = createFakeFs({
+      [desktopPath]: ownedEntry(APPIMAGE),
+      [iconPath]: 'PNGDATA',
+    })
+    const xdg = createFakeXdg({
+      'x-scheme-handler/motrix': DESKTOP_ENTRY_ID,
+      'application/x-bittorrent': DESKTOP_ENTRY_ID,
+    })
+    const deps = baseDeps({ store, fs, xdg, getMagnetEnabled: () => false })
+
+    await expect(inspectSystemIntegration(deps)).resolves.toMatchObject({
+      status: 'healthy',
+    })
+    fs.files.delete(desktopPath)
+    await expect(inspectSystemIntegration(deps)).resolves.toMatchObject({
+      status: 'failed',
+    })
+    expect(store.record.status).toBe('healthy')
+    expect(store.save).not.toHaveBeenCalled()
+  })
+})
+
 describe('removeSystemIntegration', () => {
   it('is a no-op for an externally-owned integration', async () => {
     const store = createFakeStore({
@@ -1060,6 +1216,7 @@ describe('removeSystemIntegration', () => {
       installId: TEST_INSTALL_ID,
       iconSha256: sha256Hex('PNGDATA'),
       previousSchemeHandler: 'firefox.desktop',
+      previousTorrentHandler: 'transmission.desktop',
     })
     const fs = createFakeFs({
       [desktopPath]: ownedEntry(APPIMAGE),
@@ -1067,14 +1224,68 @@ describe('removeSystemIntegration', () => {
       // The recorded previous handler must still resolve for restore to run.
       [`${dataHome}/applications/firefox.desktop`]:
         '[Desktop Entry]\nType=Application\nExec=/usr/bin/firefox %u\n',
+      [`${dataHome}/applications/transmission.desktop`]:
+        '[Desktop Entry]\nType=Application\nExec=/usr/bin/transmission %f\n',
     })
-    const xdg = createFakeXdg({ 'x-scheme-handler/motrix': DESKTOP_ENTRY_ID })
+    const xdg = createFakeXdg({
+      'x-scheme-handler/motrix': DESKTOP_ENTRY_ID,
+      'application/x-bittorrent': DESKTOP_ENTRY_ID,
+    })
     await removeSystemIntegration(baseDeps({ store, fs, xdg }))
     expect(fs.files.has(desktopPath)).toBe(false)
     expect(fs.files.has(iconPath)).toBe(false)
     expect(xdg.defaults.get('x-scheme-handler/motrix')).toBe('firefox.desktop')
+    expect(xdg.defaults.get('application/x-bittorrent')).toBe(
+      'transmission.desktop'
+    )
     expect(store.record.decision).toBe('declined')
     expect(store.record.owner).toBe(null)
+  })
+
+  it('removes a first integration when none of the defaults had a prior handler', async () => {
+    const dataHome = '/home/u/.local/share'
+    const desktopPath = desktopEntryFilePath(dataHome)
+    const iconPath = iconFilePath(dataHome)
+    const mimeAppsPath = '/home/u/.config/mimeapps.list'
+    const store = createFakeStore({
+      decision: 'accepted',
+      owner: 'self',
+      status: 'healthy',
+      desktopId: DESKTOP_ENTRY_ID,
+      installId: TEST_INSTALL_ID,
+      iconSha256: sha256Hex('PNGDATA'),
+    })
+    const xdg = createFakeXdg({
+      'x-scheme-handler/motrix': DESKTOP_ENTRY_ID,
+      'application/x-bittorrent': DESKTOP_ENTRY_ID,
+      'x-scheme-handler/magnet': DESKTOP_ENTRY_ID,
+    })
+    const fs = createFakeFs(
+      {
+        [desktopPath]: ownedEntry(APPIMAGE),
+        [iconPath]: 'PNGDATA',
+        [mimeAppsPath]: [
+          '[Default Applications]',
+          'x-scheme-handler/motrix=motrix-appimage.desktop;',
+          'application/x-bittorrent=motrix-appimage.desktop;',
+          'x-scheme-handler/magnet=motrix-appimage.desktop;',
+          '',
+        ].join('\n'),
+      },
+      new Set(),
+      (filePath, content) => {
+        if (filePath === mimeAppsPath) {
+          syncFakeDefaultsFromMimeApps(xdg, content)
+        }
+      }
+    )
+
+    const next = await removeSystemIntegration(baseDeps({ store, fs, xdg }))
+
+    expect(next.decision).toBe('declined')
+    expect(fs.files.has(desktopPath)).toBe(false)
+    expect(fs.files.has(iconPath)).toBe(false)
+    expect([...xdg.defaults.values()]).not.toContain(DESKTOP_ENTRY_ID)
   })
 
   it('does not restore the default when it is no longer owned by Motrix', async () => {
@@ -1230,7 +1441,7 @@ describe('removeSystemIntegration', () => {
     expect(next.status).toBe('failed')
   })
 
-  it('keeps the desktop file when there is no recorded previous handler to restore', async () => {
+  it('keeps the desktop file when no editable file contains the owned default', async () => {
     const dataHome = '/home/u/.local/share'
     const desktopPath = desktopEntryFilePath(dataHome)
     const store = createFakeStore({

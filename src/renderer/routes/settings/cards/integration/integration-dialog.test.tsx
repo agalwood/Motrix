@@ -7,6 +7,7 @@ import {
   CliToolReason,
 } from '@shared/types/cli-tool'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@renderer/lib/transport', () => ({
@@ -79,6 +80,7 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   } as unknown as typeof ResizeObserver
 }
 
+import { transport } from '@renderer/lib/transport'
 import { IntegrationDialog } from './integration-dialog'
 
 describe('IntegrationDialog scaffold', () => {
@@ -142,5 +144,62 @@ describe('IntegrationDialog scaffold', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       /only in the desktop app/i
     )
+  })
+
+  it('keeps the dialog open when the saved magnet association was rejected', async () => {
+    const onClose = vi.fn()
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') {
+        return {
+          app: {
+            browserBridgeEnabled: false,
+            protocols: { magnet: false },
+          },
+          media: {
+            ffmpegBinaryPath: '',
+            ffmpegStagingMB: 1024,
+            ffmpegOpTimeoutSec: 300,
+          },
+        }
+      }
+      if (channel === 'command:updateSettings') {
+        return { ok: true, protocolAssociationApplied: false }
+      }
+      if (
+        channel === 'bridge:listPaired' ||
+        channel === 'bridge:listTrusted' ||
+        channel === 'bridge:listPendingPairRequests'
+      ) {
+        return []
+      }
+      if (channel === 'query:getFfmpegDetection') {
+        return { active: null, candidates: [] }
+      }
+      if (channel === 'query:getAppImageIntegrationStatus') {
+        return { supported: false }
+      }
+      return {}
+    })
+    const user = userEvent.setup()
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={onClose}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+
+    await user.click(
+      await screen.findByRole('switch', {
+        name: 'Open magnet links with Motrix',
+      })
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(
+      await screen.findByText(/desktop association could not be changed/i)
+    ).toBeVisible()
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

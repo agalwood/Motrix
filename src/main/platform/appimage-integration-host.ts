@@ -15,6 +15,7 @@ import {
   type IntegrationFs,
   type IntegrationRecord,
   type IntegrationStore,
+  inspectSystemIntegration,
   parseIntegrationRecord,
   removeSystemIntegration,
   runStartupIntegration,
@@ -167,11 +168,25 @@ export async function setupAppImageIntegration(
   }
 }
 
-// Settings status query (Queries.GetAppImageIntegrationStatus): reads the
-// persisted record without running any integration step.
-export async function getAppImageIntegrationView(): Promise<AppImageIntegrationView> {
-  if (!appImageEnvironmentPath()) return { supported: false }
-  return toView(await createHostStore().load())
+// Settings status query (Queries.GetAppImageIntegrationStatus): validates the
+// persisted healthy state without mutating desktop files or defaults.
+export async function getAppImageIntegrationView(
+  opts: SetupAppImageIntegrationOptions
+): Promise<AppImageIntegrationView> {
+  const appImagePath = appImageEnvironmentPath()
+  if (!appImagePath) return { supported: false }
+  const deps = buildDeps(appImagePath, opts, async () => false)
+  try {
+    return toView(await inspectSystemIntegration(deps))
+  } catch (err) {
+    deps.log.warn({ err }, 'appimage integration status validation failed')
+    const record = await deps.store.load()
+    return toView(
+      record.decision === 'accepted' && record.owner === 'self'
+        ? { ...record, status: 'failed' }
+        : record
+    )
+  }
 }
 
 // Settings action (Commands.EnableAppImageIntegration). The user clicked the
@@ -204,6 +219,29 @@ export async function removeAppImageIntegrationFromSettings(
     return toView(await removeSystemIntegration(deps))
   } catch (err) {
     deps.log.warn({ err }, 'manual appimage integration removal failed')
+    return toView(await deps.store.load())
+  }
+}
+
+// Apply a saved magnet preference immediately for an existing self-owned
+// AppImage integration. This deliberately does not prompt or create a new
+// integration: users who declined (or have an externally-owned package) keep
+// that decision, while an accepted integration no longer needs an app restart
+// before its magnet default converges.
+export async function reconcileAppImageIntegrationFromSettings(
+  opts: SetupAppImageIntegrationOptions
+): Promise<AppImageIntegrationView> {
+  const appImagePath = appImageEnvironmentPath()
+  if (!appImagePath) return { supported: false }
+  const deps = buildDeps(appImagePath, opts, async () => false)
+  try {
+    const current = await deps.store.load()
+    if (current.decision !== 'accepted' || current.owner !== 'self') {
+      return toView(current)
+    }
+    return toView(await runStartupIntegration(deps))
+  } catch (err) {
+    deps.log.warn({ err }, 'appimage settings reconciliation failed')
     return toView(await deps.store.load())
   }
 }
