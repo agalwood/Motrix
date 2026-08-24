@@ -139,6 +139,35 @@ function makeCtx(over: Record<string, unknown> = {}) {
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('reports Linux associations as unsupported on the web server', async () => {
+    const handlers = buildServerQueryHandlers(makeCtx() as never)
+
+    await expect(
+      handlers[Queries.GetLinuxDefaultAssociations]?.()
+    ).resolves.toEqual({
+      supported: false,
+      packageKind: null,
+      registered: false,
+      canSetTorrentDefault: false,
+      torrent: null,
+      magnet: null,
+    })
+  })
+
+  it('reports Windows associations as unsupported on the web server', async () => {
+    const handlers = buildServerQueryHandlers(makeCtx() as never)
+
+    await expect(
+      handlers[Queries.GetWindowsDefaultAssociations]?.()
+    ).resolves.toEqual({
+      supported: false,
+      registered: false,
+      scope: null,
+      torrent: false,
+      magnet: false,
+    })
+  })
+
   it('publishes the validated path policy instead of reparsing the environment', async () => {
     const handlers = buildServerQueryHandlers(
       makeCtx({

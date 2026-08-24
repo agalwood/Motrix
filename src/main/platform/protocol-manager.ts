@@ -21,6 +21,9 @@ export interface ProtocolManagerDeps {
   // and mutates the XDG default — that would race the integration's
   // external-owner detection and corrupt the recorded prior default handler.
   isAppImage?: boolean
+  // Windows associations are installer-owned so they can participate in the
+  // protected Default Apps UI and be removed reliably on uninstall/update.
+  platform?: NodeJS.Platform
   // Open (or focus) the add-task window with URL prefill. Wired in
   // main/index.ts to open the window + dispatch SetAddTaskMode once the
   // renderer's first paint + useEffect have completed.
@@ -33,6 +36,10 @@ export interface ProtocolManagerDeps {
   // marketplace detail route. Navigation-only by contract: the deeplink must
   // never carry or trigger an install (.claude/rules/plugin-registry.md).
   onOpenPluginDetail: (pluginId: string) => void
+}
+
+export interface ProtocolRegistrationResult {
+  magnetMatchesSetting: boolean | null
 }
 
 interface TorrentPayload {
@@ -79,25 +86,42 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
 
   return {
     register() {
-      if (!app.isPackaged) return
+      if (!app.isPackaged) return { magnetMatchesSetting: null }
+
+      if ((deps.platform ?? process.platform) === 'win32') {
+        log.info('windows: scheme registration owned by installer')
+        return { magnetMatchesSetting: null }
+      }
 
       // In an AppImage, the desktop self-integration owns scheme registration;
       // calling Electron's registrar here would fight it. See ProtocolManagerDeps.
       if (deps.isAppImage) {
         log.info('appimage: scheme registration owned by desktop integration')
-        return
+        return { magnetMatchesSetting: null }
       }
-
-      app.setAsDefaultProtocolClient('motrix')
 
       const magnetEnabled = deps.settingsManager.getApp().protocols.magnet
-      if (magnetEnabled) {
-        app.setAsDefaultProtocolClient('magnet')
-      } else {
-        app.removeAsDefaultProtocolClient('magnet')
-      }
+      try {
+        app.setAsDefaultProtocolClient('motrix')
+        if (magnetEnabled) {
+          app.setAsDefaultProtocolClient('magnet')
+        } else {
+          app.removeAsDefaultProtocolClient('magnet')
+        }
 
-      log.info({ magnetEnabled }, 'protocols registered')
+        const magnetIsDefault = app.isDefaultProtocolClient('magnet')
+        const magnetMatchesSetting = magnetEnabled
+          ? magnetIsDefault
+          : !magnetIsDefault
+        log.info(
+          { magnetEnabled, magnetMatchesSetting },
+          'protocols registered'
+        )
+        return { magnetMatchesSetting }
+      } catch (err) {
+        log.warn({ err, magnetEnabled }, 'protocol registration failed')
+        return { magnetMatchesSetting: false }
+      }
     },
 
     handle(url: string) {

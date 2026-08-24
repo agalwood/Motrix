@@ -143,6 +143,35 @@ describe('AppImageIntegrationSection', () => {
     ).toBeInTheDocument()
   })
 
+  it('explains why a safe removal was blocked', async () => {
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === Queries.GetAppImageIntegrationStatus) {
+        return {
+          supported: true,
+          decision: 'accepted',
+          owner: 'self',
+          status: 'healthy',
+        }
+      }
+      if (channel === Commands.RemoveAppImageIntegration) {
+        return {
+          supported: true,
+          decision: 'accepted',
+          owner: 'self',
+          status: 'failed',
+        }
+      }
+      throw new Error(`unexpected channel: ${channel}`)
+    })
+    render(<AppImageIntegrationSection />)
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Remove desktop integration' })
+    )
+    expect(
+      await screen.findByText(/kept its desktop entry to avoid leaving/u)
+    ).toBeVisible()
+  })
+
   it('blocks removal for an externally-owned integration', async () => {
     statusOnly({
       supported: true,

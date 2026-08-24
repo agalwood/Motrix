@@ -1,7 +1,5 @@
-import { execFile } from 'node:child_process'
-import { access, rm } from 'node:fs/promises'
+import { rm } from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -106,10 +104,13 @@ import type { ContextStore } from '../commands/context-store'
 import type { UpdateManager } from '../core/update-manager'
 import {
   enableAppImageIntegrationFromSettings,
+  reconcileAppImageIntegrationFromSettings,
   removeAppImageIntegrationFromSettings,
 } from '../platform/appimage-integration-host'
 import { syncAutoLaunch } from '../platform/auto-launch'
+import { setLinuxDefaultTorrentHandler } from '../platform/linux-default-apps'
 import type { createProtocolManager } from '../platform/protocol-manager'
+import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { WindowManager } from '../window/window-manager'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
@@ -119,51 +120,9 @@ import { NatCommandHandlers } from './nat-commands'
 import { applyNatPrivacyGate } from './nat-settings-gate'
 import { registerTrustedIpcHandler } from './trusted-ipc'
 
-const execFileAsync = promisify(execFile)
-
-const TORRENT_MIME_TYPE = 'application/x-bittorrent'
 const cliInstallRequestSchema = z
   .object({ packageManager: z.enum(CLI_INSTALL_PACKAGE_MANAGERS) })
   .strict()
-
-// .desktop ID is non-deterministic across electron-builder versions / linux
-// distros (productName / executableName / appId all map to it differently).
-// Probe a small list of likely names against the standard application
-// directories so we only call xdg-mime with a real handler.
-const LINUX_DESKTOP_CANDIDATES = [
-  'motrix.desktop',
-  'motrix-turbo.desktop',
-  'app.motrix.native.desktop',
-]
-
-async function findInstalledMotrixDesktopFile(): Promise<string | null> {
-  const home = process.env.HOME
-  const dirs = [
-    '/usr/share/applications',
-    '/usr/local/share/applications',
-    home ? path.join(home, '.local/share/applications') : null,
-  ].filter((d): d is string => Boolean(d))
-
-  for (const dir of dirs) {
-    for (const name of LINUX_DESKTOP_CANDIDATES) {
-      try {
-        await access(path.join(dir, name))
-        return name
-      } catch {
-        // not in this dir, keep probing
-      }
-    }
-  }
-  return null
-}
-
-async function setLinuxDefaultTorrentHandler(): Promise<void> {
-  const desktopId = await findInstalledMotrixDesktopFile()
-  if (!desktopId) {
-    throw new Error('motrix .desktop file not found in known locations')
-  }
-  await execFileAsync('xdg-mime', ['default', desktopId, TORRENT_MIME_TYPE])
-}
 
 export interface CommandContext {
   cliToolService: Pick<CliToolService, 'install'>
@@ -983,6 +942,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
       // Build a patched partial that reflects the user's dialog choice.
       const partialObj = partial as Record<string, unknown> | null | undefined
+      const appPartial = partialObj?.app as
+        | { protocols?: { magnet?: unknown } }
+        | undefined
+      const magnetPreferenceSubmitted =
+        typeof appPartial?.protocols?.magnet === 'boolean'
       const patched = {
         ...partialObj,
         nat: {
@@ -994,6 +958,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
       const result = await settingsManager.update(patched)
       const newFull = settingsManager.get()
+      let protocolAssociationApplied: boolean | undefined
 
       if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
         updateManager.setChannel(newFull.app.updateChannel)
@@ -1007,8 +972,24 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       ) {
         await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
       }
-      if (oldFull.app.protocols.magnet !== newFull.app.protocols.magnet) {
-        protocolManager.register()
+      if (
+        magnetPreferenceSubmitted ||
+        oldFull.app.protocols.magnet !== newFull.app.protocols.magnet
+      ) {
+        const registration = protocolManager.register()
+        if (registration?.magnetMatchesSetting !== null) {
+          protocolAssociationApplied = registration?.magnetMatchesSetting
+        }
+        const appImageView = await reconcileAppImageIntegrationFromSettings({
+          getMagnetEnabled: () => newFull.app.protocols.magnet,
+        })
+        if (
+          appImageView.supported &&
+          appImageView.decision === 'accepted' &&
+          appImageView.owner === 'self'
+        ) {
+          protocolAssociationApplied = appImageView.status === 'healthy'
+        }
       }
 
       if (proxyChanged(oldFull.proxy, newFull.proxy)) {
@@ -1052,7 +1033,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         )
       }
 
-      return result
+      return protocolAssociationApplied === undefined
+        ? result
+        : { ...result, protocolAssociationApplied }
     },
 
     [Commands.RestartEngine]: async () => {
@@ -1210,7 +1193,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
       if (process.platform === 'win32') {
         try {
-          await shell.openExternal('ms-settings:defaultapps')
+          await shell.openExternal(await resolveWindowsDefaultAppsSettingsUrl())
           return { ok: true, action: 'opened-settings' as const }
         } catch {
           await shell.openExternal(

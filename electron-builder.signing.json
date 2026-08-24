@@ -84,14 +84,6 @@
       "schemes": ["magnet"]
     }
   ],
-  "fileAssociations": [
-    {
-      "ext": "torrent",
-      "mimeType": "application/x-bittorrent",
-      "name": "Torrent",
-      "role": "Viewer"
-    }
-  ],
   "mac": {
     "category": "public.app-category.utilities",
     "type": "distribution",
@@ -104,6 +96,14 @@
     "entitlements": "signing-build-resources/entitlements.mac.plist",
     "entitlementsInherit": "signing-build-resources/entitlements.mac.plist",
     "darkModeSupport": true,
+    "fileAssociations": [
+      {
+        "ext": "torrent",
+        "mimeType": "application/x-bittorrent",
+        "name": "Torrent",
+        "role": "Viewer"
+      }
+    ],
     "extendInfo": {
       "NSLocalNetworkUsageDescription": "Motrix uses the local network for UPnP port mapping and discovering download peers."
     },

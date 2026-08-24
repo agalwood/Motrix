@@ -6,13 +6,40 @@ import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
 import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
+import { WINDOWS_DEFAULT_APPS_SETTINGS_URL } from '../platform/windows-default-apps'
 import type { CommandContext } from './commands'
 import { buildCommandHandlers, registerCommandHandlers } from './commands'
+
+const { resolveWindowsDefaultAppsSettingsUrlMock } = vi.hoisted(() => ({
+  resolveWindowsDefaultAppsSettingsUrlMock: vi.fn(
+    async () => 'ms-settings:defaultapps'
+  ),
+}))
+const { reconcileAppImageIntegrationFromSettingsMock } = vi.hoisted(() => ({
+  reconcileAppImageIntegrationFromSettingsMock: vi.fn(
+    async (_options: {
+      getMagnetEnabled: () => boolean
+    }): Promise<AppImageIntegrationView> => ({ supported: false })
+  ),
+}))
+
+vi.mock('../platform/appimage-integration-host', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  reconcileAppImageIntegrationFromSettings:
+    reconcileAppImageIntegrationFromSettingsMock,
+}))
+
+vi.mock('../platform/windows-default-apps', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  resolveWindowsDefaultAppsSettingsUrl:
+    resolveWindowsDefaultAppsSettingsUrlMock,
+}))
 
 // Mock electron so BrowserWindow.fromWebContents can be stubbed in the
 // Window-bound command tests. ipcMain/dialog are not invoked by buildCommandHandlers,
@@ -839,6 +866,42 @@ describe('buildCommandHandlers', () => {
     )
   })
 
+  it('opens the compatible Default Apps page on Windows', async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      'platform'
+    )
+    if (!platformDescriptor) throw new Error('process.platform is unavailable')
+
+    openExternalMock.mockReset()
+    openExternalMock.mockResolvedValue(undefined)
+    resolveWindowsDefaultAppsSettingsUrlMock.mockReset()
+    resolveWindowsDefaultAppsSettingsUrlMock.mockResolvedValue(
+      WINDOWS_DEFAULT_APPS_SETTINGS_URL
+    )
+    Object.defineProperty(process, 'platform', {
+      ...platformDescriptor,
+      value: 'win32',
+    })
+
+    try {
+      const handlers = buildCommandHandlers(
+        fakeCtx() as unknown as CommandContext
+      )
+
+      await expect(
+        handlers[Commands.RequestDefaultTorrentHandler]?.()
+      ).resolves.toEqual({ ok: true, action: 'opened-settings' })
+      expect(openExternalMock).toHaveBeenCalledOnce()
+      expect(openExternalMock).toHaveBeenCalledWith(
+        WINDOWS_DEFAULT_APPS_SETTINGS_URL
+      )
+      expect(resolveWindowsDefaultAppsSettingsUrlMock).toHaveBeenCalledOnce()
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor)
+    }
+  })
+
   it('forwards add-task prefill only after the window finishes loading', async () => {
     let didFinishLoad: (() => void) | undefined
     const send = vi.fn()
@@ -1073,6 +1136,116 @@ describe('Commands.UpdateSettings', () => {
     scopes: { download: false, updateApp: false, updateTrackers: false },
   }
   const PROXY_ON = { ...PROXY_OFF, enabled: true, host: 'p.example', port: 80 }
+
+  it('applies a saved magnet preference immediately to protocol owners', async () => {
+    reconcileAppImageIntegrationFromSettingsMock.mockClear()
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(PROXY_OFF, {
+      protocols: { magnet: false },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      protocols: { magnet: true },
+    })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const protocolManager = {
+      register: vi.fn(() => ({ magnetMatchesSetting: true })),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      protocolManager,
+    } as unknown as CommandContext)
+
+    const updateResult = await handlers[Commands.UpdateSettings]?.({
+      app: { protocols: { magnet: true } },
+    })
+
+    expect(protocolManager.register).toHaveBeenCalledOnce()
+    expect(reconcileAppImageIntegrationFromSettingsMock).toHaveBeenCalledOnce()
+    const options =
+      reconcileAppImageIntegrationFromSettingsMock.mock.calls[0]?.[0]
+    expect(options?.getMagnetEnabled()).toBe(true)
+    expect(updateResult).toMatchObject({ protocolAssociationApplied: true })
+  })
+
+  it('returns an explicit association failure after saving the preference', async () => {
+    reconcileAppImageIntegrationFromSettingsMock.mockResolvedValueOnce({
+      supported: true,
+      decision: 'accepted',
+      owner: 'self',
+      status: 'failed',
+    })
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(PROXY_OFF, {
+      protocols: { magnet: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      protocols: { magnet: false },
+    })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      protocolManager: {
+        register: vi.fn(() => ({ magnetMatchesSetting: null })),
+      },
+    } as unknown as CommandContext)
+
+    await expect(
+      handlers[Commands.UpdateSettings]?.({
+        app: { protocols: { magnet: false } },
+      })
+    ).resolves.toMatchObject({ protocolAssociationApplied: false })
+    expect(settingsManager.update).toHaveBeenCalledOnce()
+  })
+
+  it('retries an explicitly submitted magnet preference even when already saved', async () => {
+    reconcileAppImageIntegrationFromSettingsMock.mockClear()
+    const ctx = fakeCtx()
+    const settings = makeSettingsLike(PROXY_OFF, {
+      protocols: { magnet: false },
+    })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValue(settings),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const protocolManager = {
+      register: vi.fn(() => ({ magnetMatchesSetting: true })),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      protocolManager,
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { protocols: { magnet: false } },
+    })
+
+    expect(protocolManager.register).toHaveBeenCalledOnce()
+    expect(reconcileAppImageIntegrationFromSettingsMock).toHaveBeenCalled()
+  })
 
   it('does not invoke proxyApplier when proxy unchanged', async () => {
     const ctx = fakeCtx()

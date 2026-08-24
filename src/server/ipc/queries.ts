@@ -179,6 +179,23 @@ export function buildServerQueryHandlers(
 
     [Queries.GetSystemProxy]: async () => null,
 
+    [Queries.GetLinuxDefaultAssociations]: async () => ({
+      supported: false,
+      packageKind: null,
+      registered: false,
+      canSetTorrentDefault: false,
+      torrent: null,
+      magnet: null,
+    }),
+
+    [Queries.GetWindowsDefaultAssociations]: async () => ({
+      supported: false,
+      registered: false,
+      scope: null,
+      torrent: false,
+      magnet: false,
+    }),
+
     [Queries.GetTrackerList]: async () => trackerManager.getCuratedList(),
 
     [Queries.GetTrackerSources]: async () =>
