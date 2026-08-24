@@ -512,6 +512,48 @@ describe('ReconnectSession (§8)', () => {
       expect(h.authenticated).toBeNull()
     })
 
+    it('fails authFailed when the durable promotion outlives the deadline, instead of accepting late', async () => {
+      const mutualKey = new Uint8Array(32).fill(9)
+      const provisional = makeCredential({
+        state: 'provisional',
+        mutualKeyB64: toBase64Url(mutualKey),
+      })
+      let clock = T0
+      const h = makeHarness({
+        now: () => clock,
+        findForAuth: (id) => (id === CREDENTIAL_ID ? provisional : null),
+        // The store transaction is durable but slow: it resolves only after
+        // the §8 deadline has already passed.
+        promoteOnReconnect: async () => {
+          clock = T0 + 10_000
+        },
+      })
+      h.session.start()
+      const { S } = challengeFrom(h)
+      const { frame } = buildResponse({
+        mutualKey,
+        S,
+        credentialId: CREDENTIAL_ID,
+        browser: 'chromium',
+        verifiedOrigin: ORIGIN,
+        instanceId: INSTANCE_ID,
+      })
+
+      clock = T0 + 9_999
+      await h.text(frame)
+
+      // §6.7 durable-first is untouched: the promotion itself still ran…
+      expect(h.promoteOnReconnect).toHaveBeenCalledExactlyOnceWith(
+        CREDENTIAL_ID
+      )
+      // …but the exchange missed §8's 10 s deadline, so no accept, no
+      // channel, and the same uniform failure a late response gets.
+      expect(h.sent.some((f) => f.type === 'reconnectAccept')).toBe(false)
+      expect(h.error()).toEqual({ type: 'pairError', code: 'authFailed' })
+      expect(h.closed).toEqual(['authFailed'])
+      expect(h.authenticated).toBeNull()
+    })
+
     it('accepts a response that arrives just under the 10 s deadline', async () => {
       const mutualKey = new Uint8Array(32).fill(9)
       const credential = makeCredential({

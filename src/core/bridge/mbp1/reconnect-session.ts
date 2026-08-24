@@ -309,6 +309,16 @@ export class ReconnectSession {
       authenticated = promoted
     }
 
+    // §8's 10 s deadline covers the whole exchange, including the durable
+    // promotion await above — never send an accept the client's own deadline
+    // has already abandoned. The promotion itself stands either way (§6.7
+    // durable-first), so the next reconnect finds a committed credential;
+    // this attempt just fails with the same uniform code a late response gets.
+    if (this.deps.now() >= this.deadlineAt) {
+      this.fail('authFailed')
+      return
+    }
+
     const macServer = reconnectMacServer(key, this.challengeS, c, rt)
     const acceptFrame = {
       type: 'reconnectAccept',
