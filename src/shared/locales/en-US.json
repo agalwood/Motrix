@@ -976,7 +976,10 @@
       "runModeTrayDesktop": "Start in System Tray",
       "runModeLinuxDesc": "System tray availability and activation behavior depend on your desktop environment.",
       "lightweightMode": "Lightweight mode",
-      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded."
+      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded.",
+      "fontFamily": "Font",
+      "fontFamilyDesc": "Specify a custom font to override the default font.",
+      "fontFamilyPlaceholder": "e.g. Roboto"
     },
     "advanced": {
       "rpc": {

@@ -31,6 +31,7 @@ export const appSettingsSchema = z.object({
   warnBeforeQuit: z.boolean().catch(true),
   checkForUpdatesOnLaunch: z.boolean().catch(true),
   updateChannel: appUpdateChannelSchema.catch('stable'),
+  fontFamily: z.string().catch(''),
 })
 
 export const DEFAULT_APP_SETTINGS: MotrixAppSettings = appSettingsSchema.parse(

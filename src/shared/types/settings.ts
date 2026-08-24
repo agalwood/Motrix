@@ -239,6 +239,7 @@ export interface MotrixAppSettings {
   /** Application release channel. Stable never accepts prerelease versions;
    *  beta accepts beta and subsequent stable versions. Default stable. */
   updateChannel: AppUpdateChannel
+  fontFamily: string
 }
 
 export interface NatSettings {

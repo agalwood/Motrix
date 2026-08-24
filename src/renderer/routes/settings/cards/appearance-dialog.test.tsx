@@ -1,3 +1,4 @@
+import { applyFontFamily } from '@renderer/components/font-sync'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
@@ -5,6 +6,10 @@ import { Queries } from '@shared/protocol/queries'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@renderer/components/font-sync', () => ({
+  applyFontFamily: vi.fn(),
+}))
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
@@ -37,6 +42,7 @@ const FIXTURE = {
     protocols: { magnet: true },
     magnetFileSelection: true,
     liquidGlassEffect: false,
+    fontFamily: 'Arial',
   },
 }
 
@@ -60,7 +66,17 @@ beforeEach(async () => {
     value: 'darwin',
   })
   vi.stubGlobal('ResizeObserver', MockResizeObserver)
+  Object.defineProperty(window, 'queryLocalFonts', {
+    writable: true,
+    configurable: true,
+    value: vi.fn(async () => [
+      { family: 'Arial' },
+      { family: 'Fira Code' },
+      { family: 'Roboto' },
+    ]),
+  })
   vi.mocked(transport.invoke).mockReset()
+  vi.mocked(applyFontFamily).mockReset()
   vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
     if (channel === Queries.GetSettings) return FIXTURE
     return { saved: true, requiresRestart: false, changedRestartKeys: [] }
@@ -79,7 +95,7 @@ describe('<AppearanceDialog>', () => {
     )
 
     await waitFor(() => {
-      const [themeTrigger, languageTrigger, runModeTrigger] =
+      const [themeTrigger, languageTrigger, fontTrigger, runModeTrigger] =
         screen.getAllByRole('combobox')
 
       expect(themeTrigger).toHaveTextContent(/^System$/)
@@ -88,11 +104,14 @@ describe('<AppearanceDialog>', () => {
       expect(languageTrigger).not.toHaveTextContent(/^en-US$/)
       expect(languageTrigger).toHaveClass('min-w-30', 'max-w-64')
       expect(languageTrigger).not.toHaveClass('w-32')
+      expect(fontTrigger).not.toBeDisabled
+      expect(fontTrigger).toHaveValue('Arial')
       expect(runModeTrigger).toHaveTextContent(/^Dock & Menu Bar$/)
       expect(runModeTrigger).not.toHaveTextContent(/^1$/)
     })
 
     const user = userEvent.setup({ pointerEventsCheck: 0 })
+
     await user.click(
       screen.getByRole('combobox', {
         name: 'Show app in',
@@ -199,6 +218,62 @@ describe('<AppearanceDialog>', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('updates font family input and filters options', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+
+    const fontInput = await screen.findByLabelText('Font')
+    await waitFor(() => expect(fontInput).not.toBeDisabled())
+
+    expect(screen.getByPlaceholderText(/e\.g\. Roboto/i)).toBeInTheDocument()
+
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.clear(fontInput)
+    await user.type(fontInput, 'Fira')
+
+    expect(fontInput).toHaveValue('Fira')
+    expect(
+      await screen.findByRole('option', { name: 'Fira Code' })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Arial' })).toBeNull()
+  })
+
+  it('hydrates font family and submits dirty font changes optimistically', async () => {
+    const onClose = vi.fn()
+    render(
+      <AppearanceDialog
+        open
+        onClose={onClose}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+
+    const fontInput = await screen.findByLabelText('Font')
+    await waitFor(() => expect(fontInput).not.toBeDisabled())
+
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.clear(fontInput)
+    await user.type(fontInput, 'Roboto')
+
+    // Select the font option to close the combobox popover & remove inert state
+    const fontOption = await screen.findByRole('option', { name: 'Roboto' })
+    await user.click(fontOption)
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { fontFamily: 'Roboto' },
+    })
+    expect(applyFontFamily).toHaveBeenCalledWith('Roboto')
+    expect(onClose).toHaveBeenCalled()
+  })
   it('hydrates and submits lightweight mode independently', async () => {
     render(
       <AppearanceDialog
