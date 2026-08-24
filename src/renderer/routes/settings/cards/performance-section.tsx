@@ -1,3 +1,4 @@
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { Badge } from '@renderer/components/ui/badge'
 import {
   FormControl,
@@ -11,7 +12,6 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from '@renderer/components/ui/select'
 import {
@@ -134,9 +134,9 @@ export function PerformanceSection({
                     applyPerformanceProfile(profile)
                   }}
                 >
-                  <SelectTrigger className="w-40" size="sm">
+                  <SettingsSelectTrigger className="min-w-40">
                     <SelectValue />
-                  </SelectTrigger>
+                  </SettingsSelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       {performanceProfileOptions.map(({ label, value }) => (

@@ -1,5 +1,5 @@
-import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
 import { ENGINE_PERFORMANCE_PROFILES } from '@shared/constants/engine-performance-profiles'
 import { Commands } from '@shared/protocol/commands'
@@ -68,7 +68,8 @@ const FIXTURE = {
 }
 
 describe('<DownloadsDialog>', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en-US')
     vi.mocked(transport.invoke).mockReset()
     toastAddMock.mockReset()
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
@@ -242,6 +243,8 @@ describe('<DownloadsDialog>', () => {
       name: /file modification time/i,
     })
     expect(modifiedTime).toHaveTextContent(/^local$/i)
+    expect(modifiedTime).toHaveClass('min-w-30', 'max-w-64')
+    expect(modifiedTime).not.toHaveClass('w-30')
 
     await user.click(modifiedTime)
     await user.click(await screen.findByRole('option', { name: /^server$/i }))
@@ -250,6 +253,25 @@ describe('<DownloadsDialog>', () => {
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       engine: { remoteTime: true },
     })
+  })
+
+  it('allows the localized file modification value to size intrinsically', async () => {
+    await i18n.changeLanguage('zh-CN')
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const modifiedTime = await screen.findByRole('combobox', {
+      name: '文件修改时间',
+    })
+    expect(modifiedTime).toHaveTextContent('本地修改时间')
+    expect(modifiedTime).toHaveClass('min-w-30', 'max-w-64')
+    expect(modifiedTime).not.toHaveClass('w-30')
   })
 
   it('renders the speed modes with user-facing names', async () => {

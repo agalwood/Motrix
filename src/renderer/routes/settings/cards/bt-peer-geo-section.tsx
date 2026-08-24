@@ -1,3 +1,4 @@
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { Button } from '@renderer/components/ui/button'
 import {
   Form,
@@ -13,7 +14,6 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from '@renderer/components/ui/select'
 import { Spinner } from '@renderer/components/ui/spinner'
@@ -227,9 +227,9 @@ export function BtPeerGeoSection() {
                     }}
                     disabled={!enabled}
                   >
-                    <SelectTrigger className="w-56" size="sm">
+                    <SettingsSelectTrigger className="min-w-56 max-w-80">
                       <SelectValue />
-                    </SelectTrigger>
+                    </SettingsSelectTrigger>
                     <SelectContent>
                       <SelectGroup>
                         {sourceOptions.map(({ disabled, label, value }) => (

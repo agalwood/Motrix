@@ -1,4 +1,5 @@
 import { PresetChips } from '@renderer/components/settings-kit/preset-chips'
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
   FormControl,
   FormDescription,
@@ -12,7 +13,6 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
@@ -164,8 +164,8 @@ export function EngineTuningSection({
         control={form.control}
         name="engine.fileAllocation"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
+          <FormItem className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 flex-1 space-y-1">
               <FormLabel>
                 {t('settings.downloads.disk.fileAllocation')}
               </FormLabel>
@@ -181,9 +181,9 @@ export function EngineTuningSection({
                   if (value !== null) field.onChange(value)
                 }}
               >
-                <SelectTrigger className="w-30" size="sm">
+                <SettingsSelectTrigger>
                   <SelectValue />
-                </SelectTrigger>
+                </SettingsSelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     {fileAllocationOptions.map(({ label, value }) => (
@@ -202,8 +202,8 @@ export function EngineTuningSection({
         control={form.control}
         name="engine.remoteTime"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
+          <FormItem className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 flex-1 space-y-1">
               <FormLabel>{t('settings.downloads.disk.modifiedTime')}</FormLabel>
               <FormDescription className="text-xs">
                 {t('settings.downloads.disk.modifiedTimeDesc')}
@@ -217,9 +217,9 @@ export function EngineTuningSection({
                   if (value !== null) field.onChange(value === 'server')
                 }}
               >
-                <SelectTrigger className="w-30" size="sm">
+                <SettingsSelectTrigger>
                   <SelectValue />
-                </SelectTrigger>
+                </SettingsSelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     {modifiedTimeOptions.map(({ label, value }) => (

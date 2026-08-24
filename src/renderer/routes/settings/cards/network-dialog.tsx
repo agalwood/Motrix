@@ -1,4 +1,5 @@
 import { EndpointList } from '@renderer/components/settings-kit/endpoint-list'
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -163,8 +164,8 @@ export function NetworkDialog({
                 control={form.control}
                 name="engine.dnsMode"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
+                  <FormItem className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <FormLabel>{t('settings.network.dns.mode')}</FormLabel>
                       <FormDescription className="text-xs">
                         {t('settings.network.dns.modeDesc')}
@@ -178,9 +179,9 @@ export function NetworkDialog({
                           if (value !== null) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="w-35" size="sm">
+                        <SettingsSelectTrigger>
                           <SelectValue />
-                        </SelectTrigger>
+                        </SettingsSelectTrigger>
                         <SelectContent>
                           <SelectGroup>
                             {dnsModeOptions.map(({ label, value }) => (
