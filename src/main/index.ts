@@ -122,7 +122,6 @@ import { BridgeManager } from './bridge/bridge-manager'
 import { isPackagedLinuxFlatpak } from './bridge/flatpak-environment'
 import {
   isElectronSelfUpdateSupported,
-  isLegacySnapDefaultSaveDir,
   resolvePackagedLinuxSnapEnvironment,
 } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
@@ -156,6 +155,7 @@ import { createOsNotificationBridge } from './notifications/os-bridge'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
 import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
+import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
@@ -278,6 +278,10 @@ const settingsFlatpakEnvironment =
     isPackaged: app.isPackaged,
     env: process.env,
   })
+const defaultSaveDirOptions = resolveDefaultSaveDirOptions({
+  snapEnvironment: settingsSnapEnvironment,
+  getSystemDownloadsDir: () => app.getPath('downloads'),
+})
 const cliToolService = new CliToolService({
   directInstallSupported:
     !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
@@ -286,18 +290,7 @@ const settingsManager = new SettingsManager(settingsPath, {
   liquidGlassEffectDefault: shouldEnableLiquidGlassByDefault({
     isDev: platform.isDev,
   }),
-  ...(settingsFlatpakEnvironment
-    ? { defaultSaveDir: app.getPath('downloads') }
-    : settingsSnapEnvironment
-      ? {
-          defaultSaveDir: path.join(
-            settingsSnapEnvironment.realHome,
-            'Downloads'
-          ),
-          isLegacyDefaultSaveDir: (value: string) =>
-            isLegacySnapDefaultSaveDir(value, settingsSnapEnvironment),
-        }
-      : {}),
+  ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
     // Forward GeoIP changes to the manager so it can swap the in-memory
@@ -1391,10 +1384,10 @@ async function initializeMainProcess(): Promise<void> {
   //
   // - MOTRIX_RPC_PORT lets each test pick a free random port so it
   //   doesn't clash with a developer's running aria2 instance.
-  // - MOTRIX_DEFAULT_SAVE_DIR redirects aria2's output away from the
-  //   user's real ~/Downloads (SettingsManager.seedSentinels falls
-  //   back to that when defaultSaveDir is empty), preventing test
-  //   files from leaking into the developer's home directory.
+  // - MOTRIX_DEFAULT_SAVE_DIR redirects aria2's output away from the user's
+  //   platform Downloads directory (SettingsManager.seedSentinels uses that
+  //   when defaultSaveDir is empty), preventing test files from leaking into
+  //   the developer's real download directory.
   //
   // Both are persisted into the (tmp) settings file under
   // MOTRIX_USER_DATA, which is itself per-test. They are merged into

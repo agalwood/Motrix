@@ -11,8 +11,8 @@ export const appSettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   language: supportedLocaleSchema.catch(DEFAULT_LOCALE),
   // Empty string is a sentinel: SettingsManager (main/server) seeds the
-  // absolute path (~/Downloads) on first load. The renderer never observes ''
-  // because settings are loaded before the UI mounts.
+  // absolute platform download directory on first load. The renderer never
+  // observes '' because settings are loaded before the UI mounts.
   defaultSaveDir: z.string().catch(''),
   notifyOnComplete: z.boolean().catch(true),
   notifyOnError: z.boolean().catch(true),
