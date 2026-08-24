@@ -1,3 +1,4 @@
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -20,7 +21,6 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
@@ -194,9 +194,9 @@ export function AppearanceDialog({
                           if (value !== null) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="w-30" size="sm">
+                        <SettingsSelectTrigger>
                           <SelectValue />
-                        </SelectTrigger>
+                        </SettingsSelectTrigger>
                         <SelectContent>
                           <SelectGroup>
                             {themeOptions.map((option) => (
@@ -229,9 +229,9 @@ export function AppearanceDialog({
                           if (isSupportedLocale(value)) field.onChange(value)
                         }}
                       >
-                        <SelectTrigger className="min-w-30 max-w-64" size="sm">
+                        <SettingsSelectTrigger>
                           <SelectValue />
-                        </SelectTrigger>
+                        </SettingsSelectTrigger>
                         <SelectContent>
                           <SelectGroup>
                             {LANGUAGE_OPTIONS.map((option) => (
@@ -330,9 +330,9 @@ export function AppearanceDialog({
                             }
                           }}
                         >
-                          <SelectTrigger className="w-48" size="sm">
+                          <SettingsSelectTrigger className="min-w-48">
                             <SelectValue />
-                          </SelectTrigger>
+                          </SettingsSelectTrigger>
                           <SelectContent>
                             <SelectGroup>
                               {runModeOptions.map((option) => (

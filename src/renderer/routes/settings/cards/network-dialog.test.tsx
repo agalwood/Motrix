@@ -1,5 +1,5 @@
-import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { i18n } from '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -56,7 +56,8 @@ const FIXTURE = {
 }
 
 describe('<NetworkDialog>', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en-US')
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     vi.mocked(transport.invoke).mockReset()
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
@@ -113,7 +114,10 @@ describe('<NetworkDialog>', () => {
       ).toBeInTheDocument()
     )
     const user = userEvent.setup()
-    await user.click(screen.getByRole('combobox', { name: /dns lookup/i }))
+    const dnsMode = screen.getByRole('combobox', { name: /dns lookup/i })
+    expect(dnsMode).toHaveClass('min-w-30', 'max-w-64')
+    expect(dnsMode).not.toHaveClass('w-35')
+    await user.click(dnsMode)
     await user.click(await screen.findByRole('option', { name: /system dns/i }))
     await user.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => {
@@ -122,6 +126,32 @@ describe('<NetworkDialog>', () => {
       })
     })
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('allows the longest localized DNS value to size intrinsically', async () => {
+    await i18n.changeLanguage('zh-CN')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === Queries.GetSettings) {
+        return { ...FIXTURE, engine: { dnsMode: 'engine' } }
+      }
+      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+    })
+
+    render(
+      <NetworkDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.network.title"
+        descKey="settings.cards.network.desc"
+      />
+    )
+
+    const dnsMode = await screen.findByRole('combobox', {
+      name: 'DNS 解析方式',
+    })
+    expect(dnsMode).toHaveTextContent('引擎内置解析器')
+    expect(dnsMode).toHaveClass('min-w-30', 'max-w-64')
+    expect(dnsMode).not.toHaveClass('w-35')
   })
 
   it('Import from system populates host/port/protocol', async () => {
