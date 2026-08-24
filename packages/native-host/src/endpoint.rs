@@ -48,8 +48,12 @@ fn is_owner_only(file: &File) -> bool {
 /// attestation. So this requires:
 ///
 ///   1. the file's owner SID is the current process user, and
-///   2. no DACL entry grants access to any SID other than that user,
-///      `LocalSystem`, or `BUILTIN\Administrators`.
+///   2. every DACL entry is either a deny-family ACE (which can only subtract
+///      access) or a plain `ACCESS_ALLOWED_ACE` whose SID is that user,
+///      `LocalSystem`, or `BUILTIN\Administrators`. Any other ACE type —
+///      the conditional/object allow variants included — fails the check
+///      closed, because it can grant access under rules this code does not
+///      evaluate (see `ace_policy`).
 ///
 /// SYSTEM and Administrators are admitted because they can already rewrite
 /// anything the user owns; excluding them would reject every normal file in
@@ -108,6 +112,63 @@ fn is_owner_only(file: &File) -> bool {
     verdict
 }
 
+/// How one DACL ACE bears on the owner-only question, decided purely by its
+/// `AceType` byte. Split from the FFI walk so the policy is a total function
+/// unit-tested on every platform, not just where the FFI compiles.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod ace_policy {
+    /// `AceType` byte values from `winnt.h`. The ACE format is stable ABI, so
+    /// restating them keeps this policy decidable off Windows; the
+    /// `#[cfg(windows)]` assertions below pin each one to `windows_sys` so
+    /// the two can never drift on the platform that matters.
+    const ACE_ACCESS_ALLOWED: u8 = 0;
+    const ACE_ACCESS_DENIED: u8 = 1;
+    const ACE_ACCESS_DENIED_OBJECT: u8 = 6;
+    const ACE_ACCESS_DENIED_CALLBACK: u8 = 10;
+    const ACE_ACCESS_DENIED_CALLBACK_OBJECT: u8 = 12;
+
+    #[cfg(windows)]
+    const _: () = {
+        use windows_sys::Win32::System::SystemServices as ss;
+        assert!(ss::ACCESS_ALLOWED_ACE_TYPE == ACE_ACCESS_ALLOWED as u32);
+        assert!(ss::ACCESS_DENIED_ACE_TYPE == ACE_ACCESS_DENIED as u32);
+        assert!(ss::ACCESS_DENIED_OBJECT_ACE_TYPE == ACE_ACCESS_DENIED_OBJECT as u32);
+        assert!(ss::ACCESS_DENIED_CALLBACK_ACE_TYPE == ACE_ACCESS_DENIED_CALLBACK as u32);
+        assert!(
+            ss::ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE == ACE_ACCESS_DENIED_CALLBACK_OBJECT as u32
+        );
+    };
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    pub(super) enum AceDisposition {
+        /// A plain `ACCESS_ALLOWED_ACE`: grants to its SID, which must
+        /// therefore be one of the admitted SIDs.
+        GrantsToSid,
+        /// A deny-family ACE: whatever its condition or object filter, a deny
+        /// can only subtract access, so it can never widen who may write.
+        NeverGrants,
+        /// Everything else: the conditional/object allow variants
+        /// (`ACCESS_ALLOWED_OBJECT/CALLBACK[_OBJECT]`, compound), audit/alarm
+        /// types that belong in a SACL rather than a DACL, and every type
+        /// newer than this binary. Any of these can (or might) grant access
+        /// under rules this code does not evaluate, so a file carrying one
+        /// cannot be proven owner-only: fail closed rather than
+        /// allow-by-omission.
+        Unsupported,
+    }
+
+    pub(super) fn classify_ace_type(ace_type: u8) -> AceDisposition {
+        match ace_type {
+            ACE_ACCESS_ALLOWED => AceDisposition::GrantsToSid,
+            ACE_ACCESS_DENIED
+            | ACE_ACCESS_DENIED_OBJECT
+            | ACE_ACCESS_DENIED_CALLBACK
+            | ACE_ACCESS_DENIED_CALLBACK_OBJECT => AceDisposition::NeverGrants,
+            _ => AceDisposition::Unsupported,
+        }
+    }
+}
+
 /// The decision itself, split out so the `unsafe` above stays about resource
 /// lifetime and this stays about policy.
 #[cfg(windows)]
@@ -116,7 +177,6 @@ fn dacl_is_owner_only(
     dacl: *mut windows_sys::Win32::Security::ACL,
 ) -> bool {
     use windows_sys::Win32::Security::{ACCESS_ALLOWED_ACE, ACE_HEADER, EqualSid, GetAce, PSID};
-    use windows_sys::Win32::System::SystemServices::ACCESS_ALLOWED_ACE_TYPE;
 
     if owner.is_null() || dacl.is_null() {
         // A null DACL is Win32 for "unprotected", not "empty".
@@ -154,12 +214,14 @@ fn dacl_is_owner_only(
         }
         // SAFETY: every ACE begins with an `ACE_HEADER`, whatever its type.
         let ace_type = unsafe { (*(ace as *const ACE_HEADER)).AceType };
-        if u32::from(ace_type) != ACCESS_ALLOWED_ACE_TYPE {
-            // A deny ACE only removes access, and an audit/alarm ACE grants
-            // none; neither can widen who may write the file.
-            continue;
+        match ace_policy::classify_ace_type(ace_type) {
+            ace_policy::AceDisposition::NeverGrants => continue,
+            // An ACE this code cannot prove harmless could widen who may
+            // write the file, so the file cannot root an attestation.
+            ace_policy::AceDisposition::Unsupported => return false,
+            ace_policy::AceDisposition::GrantsToSid => {}
         }
-        // SAFETY: the type check above establishes this ACE is an
+        // SAFETY: `GrantsToSid` establishes this ACE is a plain
         // ACCESS_ALLOWED_ACE, whose `SidStart` is the first DWORD of its SID.
         let sid = unsafe { &raw const (*(ace as *const ACCESS_ALLOWED_ACE)).SidStart } as PSID;
         // SAFETY: both operands are live SIDs — `sid` inside the caller's
@@ -272,8 +334,9 @@ fn copy_sid(sid: windows_sys::Win32::Security::PSID) -> Option<Vec<u8>> {
     Some(buffer)
 }
 
-/// On Windows, `%APPDATA%` ACLs are the documented boundary in place of a
-/// Unix owner/mode check; `localToken`/`generation` pass through unchecked.
+/// Reads `endpoint.json`, keeping the ticket-minting fields only when the
+/// file passes the platform's `is_owner_only` above (§9.1): Unix mode-0600
+/// owner check, or its deliberately-weaker Windows owner+DACL analogue.
 pub fn read_endpoint(file_path: &Path) -> Option<EndpointFile> {
     let file = File::open(file_path).ok()?;
     let owner_only = is_owner_only(&file);
@@ -320,6 +383,54 @@ mod tests {
     }
 
     #[test]
+    fn plain_allow_aces_carry_the_sid_check() {
+        use super::ace_policy::{AceDisposition, classify_ace_type};
+        assert_eq!(classify_ace_type(0), AceDisposition::GrantsToSid);
+    }
+
+    #[test]
+    fn deny_family_aces_never_grant() {
+        use super::ace_policy::{AceDisposition, classify_ace_type};
+        // ACCESS_DENIED (1), ACCESS_DENIED_OBJECT (6),
+        // ACCESS_DENIED_CALLBACK (10), ACCESS_DENIED_CALLBACK_OBJECT (12):
+        // whatever their condition or object filter, a deny can only subtract
+        // access, so skipping them can never hide a widening grant.
+        for deny in [1u8, 6, 10, 12] {
+            assert_eq!(
+                classify_ace_type(deny),
+                AceDisposition::NeverGrants,
+                "type {deny}"
+            );
+        }
+    }
+
+    #[test]
+    fn conditional_object_and_unknown_ace_types_fail_closed() {
+        use super::ace_policy::{AceDisposition, classify_ace_type};
+        // The allow variants a conditional or object-filtered grant rides in:
+        // ACCESS_ALLOWED_COMPOUND (4), ACCESS_ALLOWED_OBJECT (5),
+        // ACCESS_ALLOWED_CALLBACK (9), ACCESS_ALLOWED_CALLBACK_OBJECT (11).
+        // Each grants access under rules this code does not evaluate, so
+        // treating any of them as harmless would be allow-by-omission.
+        for granting in [4u8, 5, 9, 11] {
+            assert_eq!(
+                classify_ace_type(granting),
+                AceDisposition::Unsupported,
+                "type {granting}"
+            );
+        }
+        // Audit/alarm types belong in a SACL, not a DACL; 17+ are label,
+        // attribute, and future types. Fail closed on every one of them.
+        for other in [2u8, 3, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 21, 42, 255] {
+            assert_eq!(
+                classify_ace_type(other),
+                AceDisposition::Unsupported,
+                "type {other}"
+            );
+        }
+    }
+
+    #[test]
     fn returns_none_for_missing_or_malformed_file() {
         let missing = temp_file("missing.json");
         assert_eq!(read_endpoint(&missing), None);
@@ -348,7 +459,7 @@ mod tests {
         {
             let user = std::env::var("USERNAME").expect("USERNAME");
             set_dacl(&path, &["/inheritance:r"]);
-            set_dacl(&path, &[&format!("/grant:r{user}:F")]);
+            set_dacl(&path, &["/grant:r", &format!("{user}:F")]);
         }
         let endpoint = read_endpoint(&path).expect("endpoint parses");
         assert_eq!(endpoint.port, 55_809);
@@ -358,10 +469,14 @@ mod tests {
 
     /// Windows has no `chmod`, so the DACL is set with `icacls` — present on
     /// every Windows install, and it exercises the same code path a tampered
-    /// file would. `/inheritance:r` is essential in both tests: without it the
-    /// file keeps whatever `%TEMP%` grants, which differs between a developer
-    /// machine and a CI runner and would make these tests environment-dependent
-    /// rather than assertions about `is_owner_only`.
+    /// file would. Two details are load-bearing. `/inheritance:r` in both
+    /// tests: without it the file keeps whatever `%TEMP%` grants, which
+    /// differs between a developer machine and a CI runner and would make
+    /// these tests environment-dependent rather than assertions about
+    /// `is_owner_only`. And `icacls`'s grammar makes `/grant[:r]` and its
+    /// `Sid:perm` two separate argv entries — fused into one token, `icacls`
+    /// exits non-zero and the `assert!` below aborts the test before it can
+    /// assert anything about the DACL.
     #[cfg(windows)]
     fn set_dacl(path: &std::path::Path, args: &[&str]) {
         let status = std::process::Command::new("icacls")
@@ -390,7 +505,7 @@ mod tests {
         // Drop inheritance, then grant the current user alone full control.
         let user = std::env::var("USERNAME").expect("USERNAME");
         set_dacl(&path, &["/inheritance:r"]);
-        set_dacl(&path, &[&format!("/grant:r{user}:F")]);
+        set_dacl(&path, &["/grant:r", &format!("{user}:F")]);
 
         let endpoint = read_endpoint(&path).expect("endpoint parses");
         assert_eq!(endpoint.port, 55_809);
@@ -408,10 +523,10 @@ mod tests {
         let path = write_endpoint_fixture("endpoint-win-lax.json");
         let user = std::env::var("USERNAME").expect("USERNAME");
         set_dacl(&path, &["/inheritance:r"]);
-        set_dacl(&path, &[&format!("/grant:r{user}:F")]);
+        set_dacl(&path, &["/grant:r", &format!("{user}:F")]);
         // `*S-1-1-0` is Everyone, by SID so the test does not depend on the
         // runner's display language.
-        set_dacl(&path, &["/grant:*S-1-1-0:(W)"]);
+        set_dacl(&path, &["/grant", "*S-1-1-0:(W)"]);
 
         let endpoint = read_endpoint(&path).expect("endpoint parses");
         assert_eq!(endpoint.port, 55_809);
