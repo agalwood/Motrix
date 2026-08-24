@@ -617,10 +617,46 @@ describe('PairSession', () => {
       expect(h.dialogs[0].identity).toBe('attested-non-official')
     })
 
-    it('downgrades an unknown-generation ticket to unverified', async () => {
+    it('resolves an unknown-generation downgrade from the verified origin: allowlisted stays official (§9.2 only-raise)', async () => {
       const h = makeHarness({ official: true })
       const ticket = mintTicket({ serverGeneration: 'some-older-generation' })
       const client0 = new ClientDouble({ code: '00000000', ticket })
+      await openSession(h, client0.hello())
+      expect(h.dialogs[0].identity).toBe('official')
+      expect(h.deps.isOfficialId).toHaveBeenCalledWith('chromium', EXTENSION_ID)
+    })
+
+    it('resolves an expired-ticket downgrade from the verified origin (§9.2 only-raise)', async () => {
+      const h = makeHarness({ official: true })
+      const ticket = mintTicket({ exp: Math.floor(T0 / 1000) - 1 })
+      const client0 = new ClientDouble({ code: '00000000', ticket })
+      await openSession(h, client0.hello())
+      expect(h.dialogs[0].identity).toBe('official')
+    })
+
+    it('resolves a downgraded ticket from a non-allowlisted Chromium origin as attested-non-official, matching the ticketless outcome', async () => {
+      const h = makeHarness({ official: false })
+      const ticket = mintTicket({ serverGeneration: 'some-older-generation' })
+      const client0 = new ClientDouble({ code: '00000000', ticket })
+      await openSession(h, client0.hello())
+      expect(h.dialogs[0].identity).toBe('attested-non-official')
+    })
+
+    it('keeps a downgraded Firefox ticket at unverified: a moz-extension origin cannot raise it', async () => {
+      const origin = 'moz-extension://8c1a0d6e-1f2b-4c3d-9e0a-5b6c7d8e9f01'
+      const h = makeHarness({ browser: 'firefox', verifiedOrigin: origin })
+      const ticket = mintTicket({
+        browser: 'firefox',
+        callerId: 'motrix@example.org',
+        serverGeneration: 'some-older-generation',
+      })
+      const client0 = new ClientDouble({
+        code: '00000000',
+        ticket,
+        browser: 'firefox',
+        verifiedOrigin: origin,
+        claimedExtensionId: 'motrix@example.org',
+      })
       await openSession(h, client0.hello())
       expect(h.dialogs[0].identity).toBe('unverified')
     })

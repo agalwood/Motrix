@@ -578,13 +578,11 @@ export class PairSession {
       // not change this: it applies equally to the `official` row and the spec
       // accepts it there. The user-facing boundary is the pairing code, the
       // approval dialog, and the global prompt caps (§7.3) — never the Origin.
-      const identity: IdentityTriState =
-        frame.browser === 'firefox'
-          ? 'unverified'
-          : this.deps.isOfficialId(frame.browser, frame.claimedExtensionId)
-            ? 'official'
-            : 'attested-non-official'
-      return { identity, bindingPub: null, digest: null }
+      return {
+        identity: this.originIdentity(frame),
+        bindingPub: null,
+        digest: null,
+      }
     }
 
     const verdict = verifyNmTicket(frame.nmTicket, {
@@ -612,18 +610,41 @@ export class PairSession {
       return null
     }
 
-    // §9.2 `attested` proves *which* caller it is; the immutable allowlist,
-    // and only the allowlist, decides whether that caller is official (§5). A
-    // downgrade proves nothing, so it lands in `unverified` regardless of what
-    // the origin would otherwise have supported.
+    // §9.2's two boundary rules, in order: a structural abort outranks
+    // identity and was handled above, and a surviving ticket's contribution
+    // can only *raise* an identity, never lower one. `attested` proves
+    // *which* caller it is — the immutable allowlist, and only the allowlist,
+    // then decides whether that caller is official (§5). A semantic
+    // downgrade contributes nothing, so identity falls back to what the
+    // verified origin alone establishes — the exact ticketless outcome, so a
+    // stale ticket is never worse for a caller than presenting none.
     const identity: IdentityTriState =
       verdict.kind === 'attested'
         ? this.deps.isOfficialId(frame.browser, verdict.callerId)
           ? 'official'
           : 'attested-non-official'
-        : 'unverified'
+        : this.originIdentity(frame)
 
     return { identity, bindingPub: verdict.deferredProof.bindingPub, digest }
+  }
+
+  /**
+   * §5's origin-only identity: what the connection proves with no ticket
+   * contribution. A surviving Chromium session's origin host already agrees
+   * with `claimedExtensionId` (checked before `resolveIdentity`), so the id
+   * is proven and the allowlist alone splits `official` from
+   * `attested-non-official`; a Firefox `moz-extension://<UUID>` origin maps
+   * to no Gecko id, so it stays `unverified`.
+   */
+  private originIdentity(frame: {
+    browser: Browser
+    claimedExtensionId: string
+  }): IdentityTriState {
+    return frame.browser === 'firefox'
+      ? 'unverified'
+      : this.deps.isOfficialId(frame.browser, frame.claimedExtensionId)
+        ? 'official'
+        : 'attested-non-official'
   }
 
   private helloBindingKey(frame: {

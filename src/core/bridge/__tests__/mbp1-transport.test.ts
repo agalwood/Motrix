@@ -549,7 +549,10 @@ describe('§9 NM attestation over the wire', () => {
   beforeEach(async () => {
     // The Gecko id, not the moz-extension UUID, is what a ticket attests.
     h = await makeHarness({
-      allowlist: [['firefox', 'motrix@example.org']],
+      allowlist: [
+        ['firefox', 'motrix@example.org'],
+        ['chromium', OFFICIAL_ID],
+      ],
     })
   })
 
@@ -595,7 +598,7 @@ describe('§9 NM attestation over the wire', () => {
     hs.wire.ws.close()
   })
 
-  it('downgrades a ticket from an unknown generation to unverified', async () => {
+  it('keeps a Firefox unknown-generation downgrade at unverified: its origin cannot raise it', async () => {
     const ticket = mintTicket({
       localToken: LOCAL_TOKEN,
       serverGeneration: 'gen-from-a-previous-start',
@@ -611,6 +614,25 @@ describe('§9 NM attestation over the wire', () => {
     })
 
     expect(h.dialogs.latest().identity).toBe('unverified')
+    hs.wire.ws.close()
+  })
+
+  it('resolves a Chromium unknown-generation downgrade from its verified origin: allowlisted stays official (§9.2 only-raise)', async () => {
+    const ticket = mintTicket({
+      localToken: LOCAL_TOKEN,
+      serverGeneration: 'gen-from-a-previous-start',
+      browser: 'chromium',
+      callerId: OFFICIAL_ID,
+    })
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+      ticket,
+    })
+
+    expect(h.dialogs.latest().identity).toBe('official')
     hs.wire.ws.close()
   })
 
