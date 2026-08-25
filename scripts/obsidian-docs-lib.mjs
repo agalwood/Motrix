@@ -12,6 +12,17 @@ import path from 'node:path'
 
 export const TASK_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/
 export const LOCAL_CONTEXT_FILE = '.obsidian-doc-context.json'
+export const MAX_CREATE_CONTENT_BYTES = 512 * 1024
+
+const DOCUMENT_DIRECTORY_KEYS = Object.freeze({
+  'archive-plans': 'archivePlans',
+  decisions: 'decisions',
+  evidence: 'evidence',
+  'legacy-import': 'legacyImport',
+  plans: 'activePlans',
+  publication: 'publication',
+  specs: 'activeSpecs',
+})
 
 const TASK_LINE_PATTERN =
   /^(\s*-\s+\[)([ xX])(\]\s+\[([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\]\s+)(.+)$/
@@ -150,6 +161,71 @@ export function assertActivePlanMarkdownPath(config, vaultPath) {
     )
   }
   return vaultPath
+}
+
+export function resolveCreateDocumentPath(config, kind, filename) {
+  const directoryKey = DOCUMENT_DIRECTORY_KEYS[kind]
+  if (!directoryKey) {
+    throw new Error(
+      `Document directory must be one of: ${Object.keys(
+        DOCUMENT_DIRECTORY_KEYS
+      ).join(', ')}`
+    )
+  }
+  if (typeof filename !== 'string' || !filename.endsWith('.md')) {
+    throw new Error('Document path must end with .md')
+  }
+  return assertProjectMarkdownPath(
+    config,
+    projectPath(config, directoryKey, filename)
+  )
+}
+
+export function inspectDocument(config, vaultPath) {
+  assertProjectMarkdownPath(config, vaultPath)
+  const code = `(async()=>{const path=${JSON.stringify(
+    vaultPath
+  )};const entry=app.vault.getAbstractFileByPath(path);return JSON.stringify({exists:Boolean(entry),markdown:Boolean(entry&&entry.extension==="md")})})()`
+  return evaluateObsidian(config, code)
+}
+
+export function createDocument(config, options, dependencies = {}) {
+  const vaultPath = resolveCreateDocumentPath(
+    config,
+    options.kind,
+    options.filename
+  )
+  const content = options.content ?? ''
+  if (typeof content !== 'string') {
+    throw new Error('Document content must be a string')
+  }
+  if (content.includes('\0')) {
+    throw new Error('Document content must not contain NUL characters')
+  }
+  if (Buffer.byteLength(content, 'utf8') > MAX_CREATE_CONTENT_BYTES) {
+    throw new Error(
+      `Document content must not exceed ${MAX_CREATE_CONTENT_BYTES} bytes`
+    )
+  }
+  const inspect = dependencies.inspect ?? inspectDocument
+  const runner = dependencies.run ?? runObsidian
+  const existing = inspect(config, vaultPath)
+  if (existing.exists && !existing.markdown) {
+    throw new Error(`Vault path is not a Markdown file: ${vaultPath}`)
+  }
+  if (existing.exists && options.overwrite !== true) {
+    throw new Error(
+      `Document already exists; pass --overwrite to replace it: ${vaultPath}`
+    )
+  }
+  const args = ['create', `path=${vaultPath}`, `content=${content}`]
+  if (options.overwrite === true) args.push('overwrite')
+  runner(config, args)
+  return {
+    created: !existing.exists,
+    overwritten: existing.exists,
+    path: vaultPath,
+  }
 }
 
 export function parseTaskLines(content) {

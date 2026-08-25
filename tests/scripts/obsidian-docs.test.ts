@@ -14,12 +14,14 @@ import { parseArguments } from '../../scripts/obsidian-docs.mjs'
 import {
   assertProjectMarkdownPath,
   clearLocalContext,
+  createDocument,
   deriveProgress,
   loadDocsConfig,
   parseEvalJson,
   parseTaskLines,
   projectPath,
   readLocalContext,
+  resolveCreateDocumentPath,
   selectPlanDocuments,
   validateActivePlanDocuments,
   validateDocsConfig,
@@ -232,6 +234,22 @@ describe('CLI parsing', () => {
     })
   })
 
+  it('parses create input and overwrite options', () => {
+    expect(
+      parseArguments([
+        'create',
+        'decisions',
+        'sample.md',
+        '--from',
+        '/tmp/sample.md',
+        '--overwrite',
+      ])
+    ).toEqual({
+      positional: ['create', 'decisions', 'sample.md'],
+      options: { from: '/tmp/sample.md', overwrite: true },
+    })
+  })
+
   it('parses Obsidian eval output without exposing its prefix', () => {
     expect(parseEvalJson('=> {"ok":true}\n')).toEqual({ ok: true })
     expect(parseEvalJson('debug\n=> [1,2,3]\n')).toEqual([1, 2, 3])
@@ -277,6 +295,123 @@ describe('CLI parsing', () => {
     } finally {
       rmSync(repoRoot, { force: true, recursive: true })
     }
+  })
+})
+
+describe('document creation', () => {
+  it('resolves configured directories and invokes Obsidian without a shell', () => {
+    const calls: Array<{ args: string[]; config: unknown }> = []
+    const result = createDocument(
+      config,
+      {
+        content: '# Decision\n',
+        filename: 'media/sample.md',
+        kind: 'decisions',
+        overwrite: true,
+      },
+      {
+        inspect: () => ({ exists: true, markdown: true }),
+        run: (receivedConfig: unknown, args: string[]) => {
+          calls.push({ args, config: receivedConfig })
+          return ''
+        },
+      }
+    )
+
+    expect(result).toEqual({
+      created: false,
+      overwritten: true,
+      path: 'projects/example/40-decisions/media/sample.md',
+    })
+    expect(calls).toEqual([
+      {
+        args: [
+          'create',
+          'path=projects/example/40-decisions/media/sample.md',
+          'content=# Decision\n',
+          'overwrite',
+        ],
+        config,
+      },
+    ])
+  })
+
+  it('leaves overwrite disabled unless it is explicitly requested', () => {
+    const calls: string[][] = []
+    createDocument(
+      config,
+      {
+        filename: 'sample.md',
+        kind: 'decisions',
+      },
+      {
+        inspect: () => ({ exists: false, markdown: false }),
+        run: (_receivedConfig: unknown, args: string[]) => {
+          calls.push(args)
+          return ''
+        },
+      }
+    )
+
+    expect(calls).toEqual([
+      ['create', 'path=projects/example/40-decisions/sample.md', 'content='],
+    ])
+  })
+
+  it('rejects an existing document before invoking the create command', () => {
+    const run = () => {
+      throw new Error('create should not run')
+    }
+    expect(() =>
+      createDocument(
+        config,
+        {
+          filename: 'sample.md',
+          kind: 'decisions',
+        },
+        {
+          inspect: () => ({ exists: true, markdown: true }),
+          run,
+        }
+      )
+    ).toThrow(/already exists/)
+  })
+
+  it('rejects unknown directories, traversal, and non-Markdown paths', () => {
+    expect(() =>
+      resolveCreateDocumentPath(config, 'unknown', 'sample.md')
+    ).toThrow(/must be one of/)
+    expect(() =>
+      resolveCreateDocumentPath(config, 'decisions', '../sample.md')
+    ).toThrow(/safe relative path/)
+    expect(() =>
+      resolveCreateDocumentPath(config, 'decisions', 'sample.txt')
+    ).toThrow(/must end with .md/)
+  })
+
+  it('rejects content that cannot be passed safely to the CLI', () => {
+    expect(() =>
+      createDocument(
+        config,
+        {
+          content: 'unsafe\0content',
+          filename: 'sample.md',
+          kind: 'decisions',
+        },
+        { inspect: () => ({ exists: false, markdown: false }) }
+      )
+    ).toThrow(/NUL/)
+    expect(() =>
+      createDocument(
+        config,
+        {
+          content: 'x'.repeat(512 * 1024 + 1),
+          filename: 'sample.md',
+          kind: 'decisions',
+        },
+        { inspect: () => ({ exists: false, markdown: false }) }
+      )
+    ).toThrow(/must not exceed/)
   })
 })
 

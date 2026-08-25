@@ -50,6 +50,7 @@
     "docs": "node scripts/obsidian-docs.mjs",
     "docs:clear": "node scripts/obsidian-docs.mjs clear",
     "docs:context": "node scripts/obsidian-docs.mjs context",
+    "docs:create": "node scripts/obsidian-docs.mjs create",
     "docs:doctor": "node scripts/obsidian-docs.mjs doctor",
     "docs:list": "node scripts/obsidian-docs.mjs list",
     "docs:status": "node scripts/obsidian-docs.mjs status",

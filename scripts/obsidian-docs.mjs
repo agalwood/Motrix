@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
+import { lstatSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   checkActivePlans,
   clearLocalContext,
+  createDocument,
   getGitState,
   listDocuments,
   loadDocsConfig,
@@ -48,6 +50,7 @@ ignored obsidian-docs.config.json and customize it before using vault commands.
 
 Usage:
   pnpm run docs:doctor
+  pnpm run docs:create -- <directory> <path.md> [--from <file> | --stdin] [--overwrite]
   pnpm run docs:list -- plans|specs [--all] [--include-indexes]
   pnpm run docs:use -- <plan-id>
   pnpm run docs:clear
@@ -56,12 +59,41 @@ Usage:
   pnpm run docs:task -- done <task-id> [plan-id] --commit <git-ref>
   pnpm run docs:task -- todo <task-id> [plan-id]
   pnpm run docs:check -- [--format json]
+
+Create directories:
+  specs, plans, decisions, evidence, publication, archive-plans, legacy-import
 `)
 }
 
 function requireValue(value, label) {
   if (!value) throw new Error(`${label} is required`)
   return value
+}
+
+function readCreateContent(options) {
+  const hasFile = options.from !== undefined
+  const hasStdin = options.stdin !== undefined
+  if (hasFile && hasStdin) {
+    throw new Error('Use only one of --from or --stdin')
+  }
+  if (hasFile) {
+    if (typeof options.from !== 'string') {
+      throw new Error('--from requires a file path')
+    }
+    const sourcePath = path.resolve(REPO_ROOT, options.from)
+    const stats = lstatSync(sourcePath)
+    if (stats.isSymbolicLink() || !stats.isFile()) {
+      throw new Error('--from must reference a regular file, not a symlink')
+    }
+    return readFileSync(sourcePath, 'utf8')
+  }
+  if (hasStdin) {
+    if (options.stdin !== true) {
+      throw new Error('--stdin does not accept a value')
+    }
+    return readFileSync(0, 'utf8')
+  }
+  return ''
 }
 
 function formatDocumentTable(documents) {
@@ -115,6 +147,26 @@ export function main(argv = process.argv.slice(2)) {
     return
   }
   const config = loadDocsConfig(REPO_ROOT, options.config)
+  if (command === 'create') {
+    const kind = requireValue(args[0], 'document directory')
+    const filename = requireValue(args[1], 'document path')
+    if (args.length !== 2) {
+      throw new Error('create requires a document directory and path')
+    }
+    if (options.overwrite !== undefined && options.overwrite !== true) {
+      throw new Error('--overwrite does not accept a value')
+    }
+    const result = createDocument(config, {
+      content: readCreateContent(options),
+      filename,
+      kind,
+      overwrite: options.overwrite === true,
+    })
+    console.log(
+      `${result.overwritten ? 'Overwrote' : 'Created'} ${result.path}`
+    )
+    return
+  }
   if (command === 'doctor') {
     const version = runObsidian(config, ['version'])
     const vault = runObsidian(config, ['vault', 'info=name'])
