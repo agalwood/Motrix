@@ -76,6 +76,17 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.26" date="2026-08-25">
+      <description>
+        <p>
+          Interrupted HTTP and FTP downloads now resume only after Motrix
+          verifies their checkpoints and remote resource identity. Windows and
+          Linux gain safer default-app controls, new installs use the platform
+          Downloads directory, localized Settings controls fit their content,
+          and built-in User-Agent presets are refreshed.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.25" date="2026-08-24">
       <description>
         <p>
