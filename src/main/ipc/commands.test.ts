@@ -1217,10 +1217,10 @@ describe('Commands.UpdateSettings', () => {
     reconcileAppImageIntegrationFromSettingsMock.mockClear()
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: false },
+      app: { protocols: { magnet: false } },
     })
     const after = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: true },
+      app: { protocols: { magnet: true } },
     })
     const settingsManager = {
       ...ctx.settingsManager,
@@ -1261,10 +1261,10 @@ describe('Commands.UpdateSettings', () => {
     })
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: true },
+      app: { protocols: { magnet: true } },
     })
     const after = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: false },
+      app: { protocols: { magnet: false } },
     })
     const settingsManager = {
       ...ctx.settingsManager,
@@ -1295,7 +1295,7 @@ describe('Commands.UpdateSettings', () => {
     reconcileAppImageIntegrationFromSettingsMock.mockClear()
     const ctx = fakeCtx()
     const settings = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: false },
+      app: { protocols: { magnet: false } },
     })
     const settingsManager = {
       ...ctx.settingsManager,
