@@ -70,6 +70,7 @@ import { finalizeTask } from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { handleCreateTask } from '@core/task/create-task-handler'
+import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
 import {
@@ -1398,6 +1399,7 @@ async function main() {
       }
       const createTaskDeps = {
         adapter,
+        directResourceValidator: new DirectResourceValidatorService(),
         settingsManager,
         finalNamePicker,
         torrentMetaStore,

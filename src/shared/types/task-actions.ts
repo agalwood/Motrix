@@ -1,3 +1,4 @@
+import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
 import {
   type DownloadTask,
   TaskInstancePhase,
@@ -117,20 +118,23 @@ export function isTorrentLike(t: DownloadTask): boolean {
  * the persisted .torrent sidecar: with it, `addTorrent` reproduces the
  * original add exactly.
  *
- * Everything else (HTTP/FTP/metalink) is FALSE, even though the uris
- * survive. The rest of the add — request headers, cookies, referer,
- * per-task proxy, the `out` filename — is never persisted; `reAddTask`
- * recovers it only from aria2's still-resident stopped result, which is
- * gone after a restart or once aria2 purges the row. A retry built from
- * the uris alone silently re-downloads with different request semantics:
- * an authenticated download becomes an unauthenticated one, a
- * referer-gated URL 403s. Re-enabling this needs a persisted replay
- * recipe — tracked in the plan's Follow-ups.
+ * A direct task is rebuildable only when its versioned instance recipe proves
+ * that the original request had URI-only semantics. Legacy tasks and tasks
+ * created with headers, cookies, referer, proxy, or any other per-task engine
+ * option remain conservatively blocked: those values are intentionally not
+ * persisted because they may contain credentials.
  */
 export function canRebuildTaskInputs(t: DownloadTask): boolean {
   if (isMediaKind(t.kind)) return false
   if (isTorrentLike(t)) return t.torrentMetaPath != null
-  return false
+  if (t.kind !== TaskKind.Direct) return false
+
+  const primary = t.instances.find(
+    (instance) => instance.phase === TaskInstancePhase.HttpDownload
+  )
+  return (
+    Boolean(primary?.uris.length) && isUriOnlyDirectReplay(primary?.payload)
+  )
 }
 
 /**
@@ -152,12 +156,39 @@ export function canRetryMagnetMetadata(t: DownloadTask): boolean {
   )
 }
 
-export type TaskRetryKind = 'torrent-readd' | 'magnet-metadata'
+export type TaskRetryKind = 'torrent-readd' | 'direct-readd' | 'magnet-metadata'
+
+const NON_RETRYABLE_DIRECT_RECOVERY_ERRORS = new Set([
+  'task.recovery.startup.resumeCheckpointMissing',
+  'task.recovery.startup.resumeCredentialsRequired',
+  'task.recovery.startup.resumePathInvalid',
+  'task.recovery.startup.resumeSourceChanged',
+  'task.recovery.startup.resumeRangeUnsupported',
+  'task.recovery.startup.resumeValidationFailed',
+])
 
 /** Resolve the concrete replay operation behind the generic Retry UI. */
 export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
   if (!canRetry(t)) return null
-  if (canRebuildTaskInputs(t)) return 'torrent-readd'
+  if (canRebuildTaskInputs(t)) {
+    if (isTorrentLike(t)) return 'torrent-readd'
+    // Removed direct tasks are user-retired occurrences. Only an Error is an
+    // eligible direct retry; this also prevents the generic retry surface from
+    // silently resurrecting a task the user explicitly removed.
+    // Recovery errors that need new credentials or an explicit safe restart
+    // are also excluded: replaying the same recipe/path would deterministically
+    // fail again and must not be presented as a usable Retry action.
+    if (
+      t.kind === TaskKind.Direct &&
+      t.status === TaskStatus.Error &&
+      !(
+        t.errorDetailKey &&
+        NON_RETRYABLE_DIRECT_RECOVERY_ERRORS.has(t.errorDetailKey)
+      )
+    ) {
+      return 'direct-readd'
+    }
+  }
   if (canRetryMagnetMetadata(t)) return 'magnet-metadata'
   return null
 }

@@ -69,6 +69,9 @@ function createMockSettingsManager(): SettingsManager {
       sessionSaveInterval: 60,
       fileAllocation: 'none',
       diskCache: 33554432,
+      sqlite3Persistence: true,
+      sqlite3DbPath: '',
+      sqlite3HistoryLimit: -1,
     })),
     getApp: vi.fn(() => ({
       defaultSaveDir: '/Users/test/Downloads',
@@ -95,6 +98,7 @@ function createMockProcessManager(): Aria2ProcessManager {
     kill: vi.fn(),
     isRunning: vi.fn(() => true),
     getPid: vi.fn(() => 12345),
+    getRecentStderr: vi.fn(() => ''),
     inspectPort: vi.fn().mockResolvedValue(null),
     forceTerminateVerified: vi.fn().mockResolvedValue(undefined),
     onExit: null,
@@ -105,6 +109,12 @@ function createMockProcessManager(): Aria2ProcessManager {
 function createMockConfigBuilder(): Aria2ConfigBuilder {
   return {
     ensureUserConfig: vi.fn().mockResolvedValue('/tmp/aria2.conf'),
+    hasSavedSession: vi.fn().mockResolvedValue(false),
+    quarantineSqliteDatabase: vi.fn().mockResolvedValue({
+      databasePath: '/tmp/aria2.db',
+      quarantineBasePath: '/tmp/aria2.db.corrupt-test',
+      moved: ['/tmp/aria2.db.corrupt-test'],
+    }),
     buildArgs: vi.fn(() => ['--conf-path=/tmp/aria2.conf']),
   } as unknown as Aria2ConfigBuilder
 }
@@ -248,6 +258,80 @@ describe('EngineSupervisor', () => {
       // degrades to "always trust not-found".
       await supervisor.start('/usr/bin/aria2c')
       expect(adapter.setFeatureReport).toHaveBeenCalledWith(FEATURE_REPORT)
+    })
+
+    it('does not probe or load the text session while SQLite persistence is active', async () => {
+      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.hasSavedSession).not.toHaveBeenCalled()
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.anything(),
+        true,
+        expect.anything(),
+        expect.anything()
+      )
+    })
+
+    it('loads an existing text session when SQLite is disabled in settings', async () => {
+      const configured = settings.getEngine()
+      vi.mocked(settings.getEngine).mockReturnValue({
+        ...configured,
+        sqlite3Persistence: false,
+      })
+      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.hasSavedSession).toHaveBeenCalledOnce()
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({ sqlite3Persistence: false }),
+        true,
+        expect.anything(),
+        expect.anything(),
+        true
+      )
+    })
+
+    it('loads an existing text session when the binary lacks SQLite support', async () => {
+      vi.mocked(processManager.probe).mockResolvedValue({
+        ...FEATURE_REPORT,
+        version: '1.37.0',
+        features: ['Async DNS', 'BitTorrent'],
+        hasSqlitePersistence: false,
+      })
+      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.hasSavedSession).toHaveBeenCalledOnce()
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.anything(),
+        false,
+        expect.anything(),
+        expect.anything(),
+        true
+      )
+    })
+
+    it('starts without input-file when the text session is missing', async () => {
+      const configured = settings.getEngine()
+      vi.mocked(settings.getEngine).mockReturnValue({
+        ...configured,
+        sqlite3Persistence: false,
+      })
+      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(false)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.hasSavedSession).toHaveBeenCalledOnce()
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.objectContaining({ sqlite3Persistence: false }),
+        true,
+        expect.anything(),
+        expect.anything()
+      )
     })
 
     it('detects an official binary before spawn and starts with compatibility limits', async () => {
@@ -436,6 +520,52 @@ describe('EngineSupervisor', () => {
       expect(supervisor.getState()).toBe(EngineState.Failed)
       expect(processManager.gracefulStop).toHaveBeenCalledWith(5_000)
       expect(rpcClient.disconnect).toHaveBeenCalled()
+    })
+
+    it('quarantines proven aria2 SQLite corruption and retries once with text persistence', async () => {
+      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
+      vi.mocked(processManager.getRecentStderr).mockReturnValue(
+        'SQLite error: database disk image is malformed'
+      )
+      vi.mocked(rpcClient.connect)
+        .mockRejectedValueOnce(new Error('Connection refused'))
+        .mockResolvedValueOnce(undefined)
+
+      const failures: EngineFailurePayload[] = []
+      eventBus.on(Events.EngineFailureOccurred, (payload) => {
+        failures.push(payload as EngineFailurePayload)
+      })
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+      expect(configBuilder.quarantineSqliteDatabase).toHaveBeenCalledOnce()
+      expect(settings.update).toHaveBeenCalledWith({
+        engine: { sqlite3Persistence: false },
+      })
+      expect(processManager.spawn).toHaveBeenCalledTimes(2)
+      expect(configBuilder.buildArgs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sqlite3Persistence: false }),
+        true,
+        expect.anything(),
+        expect.anything(),
+        true
+      )
+      expect(failures).toHaveLength(0)
+    })
+
+    it('does not downgrade SQLite for lock or disk failures', async () => {
+      vi.mocked(processManager.getRecentStderr).mockReturnValue(
+        'SQLite error: database is locked'
+      )
+      vi.mocked(rpcClient.connect).mockRejectedValue(
+        new Error('Connection refused')
+      )
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(supervisor.getState()).toBe(EngineState.Failed)
+      expect(configBuilder.quarantineSqliteDatabase).not.toHaveBeenCalled()
+      expect(settings.update).not.toHaveBeenCalled()
     })
   })
 

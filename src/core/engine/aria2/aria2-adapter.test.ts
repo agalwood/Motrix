@@ -398,6 +398,86 @@ describe('Aria2Adapter', () => {
       })
     })
 
+    it('maps checkpoint recovery to native checkpoint-only aria2 options', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('checkpoint-gid')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['http://example.com/f.zip'],
+        saveDir: '/tmp',
+        resumePolicy: 'checkpoint',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['http://example.com/f.zip'],
+        expect.objectContaining({
+          'always-resume': 'true',
+          continue: 'false',
+        })
+      )
+    })
+
+    it('maps sequential-prefix recovery to aria2 continue options', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('prefix-gid')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['http://example.com/f.zip'],
+        saveDir: '/tmp',
+        resumePolicy: 'sequential-prefix',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['http://example.com/f.zip'],
+        expect.objectContaining({
+          'always-resume': 'true',
+          continue: 'true',
+        })
+      )
+    })
+
+    it('applies recovery safety options after extra engine options', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('safe-gid')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['http://example.com/f.zip'],
+        saveDir: '/tmp',
+        resumePolicy: 'sequential-prefix',
+        extraEngineOptions: {
+          'always-resume': 'false',
+          continue: 'false',
+        },
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['http://example.com/f.zip'],
+        expect.objectContaining({
+          'always-resume': 'true',
+          continue: 'true',
+        })
+      )
+    })
+
+    it('does not inject resume options for ordinary new downloads', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('new-gid')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['http://example.com/f.zip'],
+        saveDir: '/tmp',
+        resumePolicy: 'none',
+      })
+
+      const options = vi.mocked(rpc.addUri).mock.calls[0][1]
+      expect(options).not.toHaveProperty('always-resume')
+      expect(options).not.toHaveProperty('continue')
+    })
+
     it('forwards pause:true as aria2 pause option', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('gid789')

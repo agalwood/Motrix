@@ -853,6 +853,12 @@
         "torrentMetaMissing": "无法恢复此 BT 任务:.torrent 元数据文件丢失。请删除任务并重新添加。",
         "reAddFailed": "无法恢复此任务:引擎拒绝重新添加请求。请删除任务并手动重新添加。",
         "dirtyMetadata": "无法恢复此任务:缺少恢复所需的标识信息。",
+        "resumeCheckpointMissing": "已保留部分文件，但续传检查点已丢失。请安全地重新下载或重新添加任务。",
+        "resumeCredentialsRequired": "已保留部分文件，但此下载需要无法自动重放的请求凭据。",
+        "resumePathInvalid": "由于保存的输出路径无效，已保留部分文件且未自动恢复。",
+        "resumeSourceChanged": "远端文件在下载开始后发生变化，已保留部分文件且未继续写入。",
+        "resumeRangeUnsupported": "服务器不支持安全的范围续传，已保留部分文件且未继续写入。",
+        "resumeValidationFailed": "Motrix 无法确认远端文件是否未发生变化，已保留部分文件且未继续写入。",
         "mediaInterrupted": "媒体下载因应用重启而中断,无法恢复。请重新添加以重试。"
       }
     },

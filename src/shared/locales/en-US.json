@@ -866,6 +866,12 @@
         "torrentMetaMissing": "Cannot recover this BitTorrent task: the .torrent metadata file is missing. Please remove and re-add the task.",
         "reAddFailed": "Cannot recover this task: the engine rejected the re-add request. Please remove and re-add manually.",
         "dirtyMetadata": "Cannot recover this task: it is missing the identifying information needed to resume.",
+        "resumeCheckpointMissing": "The partial file was preserved, but its resume checkpoint is missing. Restart safely or re-add the task.",
+        "resumeCredentialsRequired": "The partial file was preserved, but this download needs request credentials that cannot be replayed automatically.",
+        "resumePathInvalid": "The partial file was preserved because its stored output path is invalid.",
+        "resumeSourceChanged": "The partial file was preserved because the remote file changed since the download started.",
+        "resumeRangeUnsupported": "The partial file was preserved because the server does not support safe range resume.",
+        "resumeValidationFailed": "The partial file was preserved because Motrix could not verify that the remote file is unchanged.",
         "mediaInterrupted": "This media download was interrupted by an app restart and can't be resumed. Re-add it to retry."
       }
     },

@@ -314,6 +314,24 @@ describe('Aria2ProcessManager', () => {
 
       expect(onError).toHaveBeenCalledWith(err)
     })
+
+    it('retains a bounded stderr tail for startup diagnosis and resets it on spawn', async () => {
+      const firstChild = createMockChildProcess()
+      const secondChild = createMockChildProcess()
+      mockSpawnFn
+        .mockReturnValueOnce(firstChild)
+        .mockReturnValueOnce(secondChild)
+
+      await manager.spawn('/usr/bin/aria2c', [])
+      const firstStderrHandler = firstChild.stderr.on.mock.calls[0]?.[1]
+      firstStderrHandler?.(Buffer.from('database disk image is malformed'))
+      expect(manager.getRecentStderr()).toContain(
+        'database disk image is malformed'
+      )
+
+      await manager.spawn('/usr/bin/aria2c', [])
+      expect(manager.getRecentStderr()).toBe('')
+    })
   })
 
   describe('gracefulStop', () => {

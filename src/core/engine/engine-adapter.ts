@@ -22,6 +22,16 @@ export interface OutputFilePath {
   relativePath: string
 }
 
+/**
+ * Engine-neutral policy for re-attaching an existing direct-download output.
+ *
+ * - `none`: create a new download without resume-specific engine options.
+ * - `checkpoint`: resume only through the engine's native control/checkpoint
+ *   metadata.
+ * - `sequential-prefix`: resume an already-verified contiguous file prefix.
+ */
+export type DownloadResumePolicy = 'none' | 'checkpoint' | 'sequential-prefix'
+
 export interface AddTorrentParams {
   metadata: Uint8Array
   saveDir: string
@@ -76,6 +86,8 @@ export interface CreateDownloadParams {
   dlLimit?: number
   ulLimit?: number
   pause?: boolean
+  /** Defaults to `none`. Callers must select a recovery policy explicitly. */
+  resumePolicy?: DownloadResumePolicy
 
   // Tuning hints
   performanceProfile?: EnginePerformanceProfile
