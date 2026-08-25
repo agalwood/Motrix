@@ -184,9 +184,9 @@ describe('usePairRequestPrompts', () => {
     expect(
       findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n')
     ).toMatchObject({
-      // MBP1 forbids displaying the self-reported extension name (§5); the
-      // title interpolates the extension id instead.
-      title: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa wants to connect to Motrix',
+      // MBP1 forbids displaying the self-reported extension name (§5), and
+      // the raw id is meaningless in a title — the toast body shows it once.
+      title: 'A browser extension wants to connect to Motrix',
       description: 'From Chrome / Edge',
     })
   })

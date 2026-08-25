@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@renderer/lib/i18n'
@@ -226,16 +226,48 @@ describe('toast', () => {
         })
 
         expect(
-          // MBP1 forbids displaying the self-reported extension name (§5);
-          // the title interpolates the extension id instead.
-          await screen.findByText('ext-1 wants to connect to Motrix')
+          // MBP1 forbids displaying the self-reported extension name (§5),
+          // and the raw id means nothing to a person in a title — it appears
+          // exactly once, in the dedicated mono line below.
+          await screen.findByText(
+            'A browser extension wants to connect to Motrix'
+          )
         ).toBeInTheDocument()
+        expect(screen.getByText('ext-1')).toBeInTheDocument()
         expect(screen.getByText('From Chrome / Edge')).toBeInTheDocument()
         // §7.1: rendered verbatim — already grouped XXXX-XXXX by the caller.
         expect(screen.getByText('1234-5678')).toBeInTheDocument()
         expect(
           screen.queryByRole('button', { name: 'Allow', hidden: true })
         ).not.toBeInTheDocument()
+      })
+
+      it('copies the display-form pairing code from the code box', async () => {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        })
+        render(<Toaster />)
+        add({
+          id: 'chromium:ext-copy:nonce',
+          timeout: 0,
+          priority: 'high',
+          data: {
+            pairRequest: extensionPairRequest({ identity: 'official' }),
+          },
+        })
+
+        await userEvent.click(
+          await screen.findByRole('button', {
+            name: 'Copy pairing code',
+            hidden: true,
+          })
+        )
+        await waitFor(() =>
+          expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+            '1234-5678'
+          )
+        )
       })
 
       it('official: shows a Motrix-branded identity label and no warning styling', async () => {

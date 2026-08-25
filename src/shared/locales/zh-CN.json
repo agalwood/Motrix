@@ -1453,10 +1453,11 @@
           "addAction": "添加"
         },
         "pairToast": {
-          "title": "{{name}} 想连接 Motrix",
+          "title": "浏览器扩展请求连接 Motrix",
           "from": "来自 {{browser}}",
           "deny": "拒绝",
           "pairCode": "配对码",
+          "copyCode": "复制配对码",
           "pairCodeHint": "在扩展中输入此配对码",
           "identityLabel": {
             "official": "Motrix 官方扩展",

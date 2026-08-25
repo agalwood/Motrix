@@ -1453,10 +1453,11 @@
           "addAction": "新增"
         },
         "pairToast": {
-          "title": "{{name}} 想要連線至 Motrix",
+          "title": "瀏覽器擴充功能請求連線至 Motrix",
           "from": "來自 {{browser}}",
           "deny": "不允許",
           "pairCode": "配對碼",
+          "copyCode": "複製配對碼",
           "pairCodeHint": "請在擴充功能中輸入此配對碼",
           "identityLabel": {
             "official": "Motrix 官方擴充功能",

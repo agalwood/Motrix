@@ -1,4 +1,5 @@
 import { Toast } from '@base-ui/react/toast'
+import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { SEVERITY_ICONS } from '@renderer/components/ui/severity-icons'
@@ -73,11 +74,10 @@ export function pairRequestCopy(
         denyLabel: t('settings.integration.cli.pairToast.deny'),
       }
     : {
-        // MBP1 forbids displaying the self-reported extension name, so this
-        // interpolates the extension id instead as a placeholder.
-        title: t('settings.integration.browser.pairToast.title', {
-          name: payload.extensionId,
-        }),
+        // MBP1 forbids displaying the self-reported extension name (§5),
+        // and the raw extension id means nothing to a person in a headline —
+        // the toast body shows it exactly once, in its own mono line.
+        title: t('settings.integration.browser.pairToast.title'),
         description: t('settings.integration.browser.pairToast.from', {
           browser: payload.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox',
         }),
@@ -216,9 +216,20 @@ function ToastList() {
               </p>
             )}
             <div className="mt-1 flex flex-col gap-1 rounded border border-border bg-muted/30 px-2 py-1.5">
-              <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                {t('settings.integration.browser.pairToast.pairCode')}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                  {t('settings.integration.browser.pairToast.pairCode')}
+                </span>
+                <CopyButton
+                  content={pairRequest.code}
+                  size="xs"
+                  variant="ghost"
+                  aria-label={t(
+                    'settings.integration.browser.pairToast.copyCode'
+                  )}
+                  className="-my-0.5 -me-1 size-6 p-0 text-muted-foreground hover:text-foreground"
+                />
+              </div>
               {/* The §7.1 PAKE password, rendered verbatim — never
                *  reformatted and never logged (§7.1/§11). */}
               <span className="text-center font-mono text-base font-semibold tracking-widest">
