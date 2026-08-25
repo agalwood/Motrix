@@ -1453,8 +1453,7 @@
           "addAction": "添加"
         },
         "pairToast": {
-          "title": "浏览器扩展请求连接 Motrix",
-          "from": "来自 {{browser}}",
+          "title": "{{browser}} 扩展请求连接 Motrix",
           "deny": "拒绝",
           "pairCode": "配对码",
           "copyCode": "复制配对码",

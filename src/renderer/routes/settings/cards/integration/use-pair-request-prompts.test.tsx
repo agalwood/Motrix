@@ -185,9 +185,10 @@ describe('usePairRequestPrompts', () => {
       findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n')
     ).toMatchObject({
       // MBP1 forbids displaying the self-reported extension name (§5), and
-      // the raw id is meaningless in a title — the toast body shows it once.
-      title: 'A browser extension wants to connect to Motrix',
-      description: 'From Chrome / Edge',
+      // the raw id is meaningless in a title — it is the description, shown
+      // once; the browser rides in the title instead of a "From …" row.
+      title: 'A Chrome / Edge extension wants to connect to Motrix',
+      description: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     })
   })
 

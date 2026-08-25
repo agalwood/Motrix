@@ -1466,8 +1466,7 @@
           "addAction": "Add"
         },
         "pairToast": {
-          "title": "A browser extension wants to connect to Motrix",
-          "from": "From {{browser}}",
+          "title": "A {{browser}} extension wants to connect to Motrix",
           "deny": "Don't allow",
           "pairCode": "Pairing code",
           "copyCode": "Copy pairing code",

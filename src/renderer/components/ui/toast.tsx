@@ -76,11 +76,12 @@ export function pairRequestCopy(
     : {
         // MBP1 forbids displaying the self-reported extension name (§5),
         // and the raw extension id means nothing to a person in a headline —
-        // the toast body shows it exactly once, in its own mono line.
-        title: t('settings.integration.browser.pairToast.title'),
-        description: t('settings.integration.browser.pairToast.from', {
+        // it is the description instead, shown exactly once. The browser
+        // rides in the title, so there is no separate "From …" row.
+        title: t('settings.integration.browser.pairToast.title', {
           browser: payload.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox',
         }),
+        description: payload.extensionId,
         // No allowLabel: an extension prompt has no Allow affordance (see
         // `PairRequestToastData`'s doc comment).
         denyLabel: t('settings.integration.browser.pairToast.deny'),
@@ -200,14 +201,11 @@ function ToastList() {
             <Toast.Title className="text-sm font-medium">
               {copy.title}
             </Toast.Title>
-            <Toast.Description className="text-xs text-muted-foreground">
-              {copy.description}
-            </Toast.Description>
             {/* Raw id, not the self-reported name (§5) — same font-mono
              *  truncate treatment as the trusted-extensions table. */}
-            <div className="truncate font-mono text-[11px] text-muted-foreground">
-              {pairRequest.extensionId}
-            </div>
+            <Toast.Description className="truncate font-mono text-[11px] text-muted-foreground">
+              {copy.description}
+            </Toast.Description>
             {isUnverified && (
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 {t(

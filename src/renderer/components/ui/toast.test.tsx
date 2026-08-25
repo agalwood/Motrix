@@ -228,13 +228,14 @@ describe('toast', () => {
         expect(
           // MBP1 forbids displaying the self-reported extension name (§5),
           // and the raw id means nothing to a person in a title — it appears
-          // exactly once, in the dedicated mono line below.
+          // exactly once, in the mono description line. The browser rides in
+          // the title instead of a separate "From …" row.
           await screen.findByText(
-            'A browser extension wants to connect to Motrix'
+            'A Chrome / Edge extension wants to connect to Motrix'
           )
         ).toBeInTheDocument()
         expect(screen.getByText('ext-1')).toBeInTheDocument()
-        expect(screen.getByText('From Chrome / Edge')).toBeInTheDocument()
+        expect(screen.queryByText('From Chrome / Edge')).toBeNull()
         // §7.1: rendered verbatim — already grouped XXXX-XXXX by the caller.
         expect(screen.getByText('1234-5678')).toBeInTheDocument()
         expect(
