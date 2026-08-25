@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DirectoryPicker } from './directory-picker'
 
 const pickSaveDirMock = vi.fn()
@@ -25,6 +25,10 @@ function Wrapper(props: { initial: string; variant: 'compact' | 'input' }) {
 }
 
 describe('<DirectoryPicker>', () => {
+  beforeEach(() => {
+    pickSaveDirMock.mockReset()
+  })
+
   it('input variant renders input + browse button', () => {
     render(<Wrapper initial="/x" variant="input" />)
     expect(screen.getByDisplayValue('/x')).toBeInTheDocument()
@@ -53,5 +57,31 @@ describe('<DirectoryPicker>', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /browse/i }))
     expect(screen.getByTestId('value')).toHaveTextContent('/keep')
+  })
+
+  it('ignores repeated clicks while a picker request is pending', async () => {
+    let resolvePick!: (path: string | null) => void
+    pickSaveDirMock.mockImplementationOnce(
+      () =>
+        new Promise<string | null>((resolve) => {
+          resolvePick = resolve
+        })
+    )
+    render(<Wrapper initial="/current" variant="compact" />)
+    const button = screen.getByRole('button')
+
+    fireEvent.click(button)
+    fireEvent.click(button)
+
+    expect(pickSaveDirMock).toHaveBeenCalledTimes(1)
+    expect(button).toBeDisabled()
+
+    resolvePick('/picked')
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(screen.getByTestId('value')).toHaveTextContent('/picked')
+
+    pickSaveDirMock.mockResolvedValueOnce(null)
+    fireEvent.click(button)
+    await waitFor(() => expect(pickSaveDirMock).toHaveBeenCalledTimes(2))
   })
 })

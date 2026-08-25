@@ -2,6 +2,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { usePlatformServices } from '@renderer/platform/services'
 import { Folder } from 'lucide-react'
+import { useRef, useState } from 'react'
 import {
   type FieldPath,
   type FieldValues,
@@ -29,14 +30,26 @@ export function DirectoryPicker<TFields extends FieldValues>({
   const { pickSaveDir } = usePlatformServices()
   const { setValue, control } = useFormContext<TFields>()
   const current = (useWatch({ control, name }) ?? '') as string
+  const pickInFlight = useRef(false)
+  const [isPicking, setIsPicking] = useState(false)
+  const pickerDisabled = disabled || isPicking
 
   const handlePick = async () => {
-    const picked = await pickSaveDir(current || undefined)
-    if (picked) {
-      setValue(name, picked as never, {
-        shouldValidate: true,
-        shouldDirty: true,
-      })
+    if (disabled || pickInFlight.current) return
+
+    pickInFlight.current = true
+    setIsPicking(true)
+    try {
+      const picked = await pickSaveDir(current || undefined)
+      if (picked) {
+        setValue(name, picked as never, {
+          shouldValidate: true,
+          shouldDirty: true,
+        })
+      }
+    } finally {
+      pickInFlight.current = false
+      setIsPicking(false)
     }
   }
 
@@ -47,7 +60,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
         onClick={handlePick}
         aria-label={t('settings.common.changeDirectory')}
         title={current || undefined}
-        disabled={disabled}
+        disabled={pickerDisabled}
         className="group flex w-full items-center gap-2.5 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-ring hover:bg-accent/30 disabled:opacity-50"
       >
         {prefixLabel && (
@@ -78,7 +91,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
         value={current}
         placeholder={placeholder}
         readOnly
-        disabled={disabled}
+        disabled={pickerDisabled}
         className="flex-1 text-xs [direction:rtl] [text-align:left] h-8"
       />
       <Button
@@ -86,7 +99,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
         variant="outline"
         size="sm"
         onClick={handlePick}
-        disabled={disabled}
+        disabled={pickerDisabled}
       >
         <Folder className="mr-1 h-3 w-3" />
         {t('settings.common.browse')}

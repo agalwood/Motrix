@@ -96,7 +96,13 @@ import { TaskStatus } from '@shared/types/task'
 import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  type OpenDialogOptions,
+  shell,
+} from 'electron'
 import { z } from 'zod'
 import type { BridgeManager } from '../bridge/bridge-manager'
 import type { CliToolService } from '../cli/cli-tool-service'
@@ -614,6 +620,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return res.response === 1
     },
   })
+  const saveDirPickersInFlight = new WeakSet<WebContents>()
 
   return {
     [Commands.InstallCliTool]: async (payload: unknown) =>
@@ -1113,15 +1120,30 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.PickSaveDir]: async (params: { defaultPath?: string }) => {
-      const result = await dialog.showOpenDialog({
-        properties: ['openDirectory'],
-        defaultPath: params.defaultPath,
-      })
-      if (result.canceled || result.filePaths.length === 0) {
-        return null
+    [Commands.PickSaveDir]: async (
+      sender: WebContents,
+      params: { defaultPath?: string }
+    ) => {
+      if (saveDirPickersInFlight.has(sender)) return null
+
+      saveDirPickersInFlight.add(sender)
+      try {
+        const options: OpenDialogOptions = {
+          properties: ['openDirectory'],
+          defaultPath: params.defaultPath,
+        }
+        const parent = BrowserWindow.fromWebContents(sender)
+        const result =
+          parent && !parent.isDestroyed()
+            ? await dialog.showOpenDialog(parent, options)
+            : await dialog.showOpenDialog(options)
+        if (result.canceled || result.filePaths.length === 0) {
+          return null
+        }
+        return { path: result.filePaths[0] }
+      } finally {
+        saveDirPickersInFlight.delete(sender)
       }
-      return { path: result.filePaths[0] }
     },
 
     // ResizeWindow needs event.sender — the wrapper in registerCommandHandlers
@@ -1580,6 +1602,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.CloseCurrentWindow ||
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
+      channel === Commands.PickSaveDir ||
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext
     ) {
