@@ -11,6 +11,8 @@
     "@motrix/mdxp",
     "@motrix/nat",
     "@motrix/plugin-manifest-schema",
+    "@noble/curves",
+    "@noble/hashes",
     "ajv",
     "better-sqlite3",
     "chokidar",
