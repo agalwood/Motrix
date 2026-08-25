@@ -969,7 +969,10 @@
       "runModeTrayDesktop": "在系统托盘中启动",
       "runModeLinuxDesc": "系统托盘的可用性和激活方式取决于桌面环境。",
       "lightweightMode": "轻量模式",
-      "lightweightModeDesc": "关闭主窗口后释放界面内存，后台下载继续运行。Windows 和 Linux 会保留托盘入口；重新打开会稍慢，未保存的界面状态将被丢弃。"
+      "lightweightModeDesc": "关闭主窗口后释放界面内存，后台下载继续运行。Windows 和 Linux 会保留托盘入口；重新打开会稍慢，未保存的界面状态将被丢弃。",
+      "fontFamily": "字体",
+      "fontFamilyDesc": "指定自定义字体以覆盖默认字体。",
+      "fontFamilyPlaceholder": "例如 Roboto"
     },
     "about": {
       "appIconAlt": "Motrix 应用图标",

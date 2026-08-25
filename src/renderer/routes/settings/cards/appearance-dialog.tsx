@@ -1,3 +1,5 @@
+import { applyFontFamily } from '@renderer/components/font-sync'
+import { FontCombobox } from '@renderer/components/settings-kit/font-combobox'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -33,7 +35,7 @@ import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
 import { useTheme } from 'next-themes'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
@@ -46,6 +48,7 @@ type AppearanceFields = Pick<
   | 'runMode'
   | 'liquidGlassEffect'
   | 'lightweightMode'
+  | 'fontFamily'
 >
 
 // Source of truth: src/shared/schemas/app-settings.ts (DEFAULT_APP_SETTINGS).
@@ -58,6 +61,7 @@ const DEFAULTS: AppearanceFields = {
   runMode: DEFAULT_APP_SETTINGS.runMode,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
   lightweightMode: DEFAULT_APP_SETTINGS.lightweightMode,
+  fontFamily: DEFAULT_APP_SETTINGS.fontFamily,
 }
 
 const LANGUAGE_OPTIONS = SUPPORTED_LOCALES.map(({ code, nativeName }) => ({
@@ -77,14 +81,43 @@ export function AppearanceDialog({
   const { t } = useTranslation()
   const { setTheme } = useTheme()
   const form = useForm<AppearanceFields>({ defaultValues: DEFAULTS })
+  const [systemFonts, setSystemFonts] = useState<string[]>([])
+  const [isLoadingFonts, setIsLoadingFonts] = useState(true)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
+    async function loadSystemFonts() {
+      if ('queryLocalFonts' in window) {
+        try {
+          const fontData = await (
+            window as unknown as {
+              queryLocalFonts: () => Promise<Array<{ family: string }>>
+            }
+          ).queryLocalFonts()
+          const families = Array.from(
+            new Set(fontData.map((f: { family: string }) => f.family))
+          ).sort()
+          setSystemFonts(families)
+        } catch {
+          // Keep systemFonts empty if permission denied
+        } finally {
+          setIsLoadingFonts(false)
+        }
+      } else {
+        setIsLoadingFonts(false)
+      }
+    }
+    void loadSystemFonts()
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
     let cancelled = false
     transport
       .invoke(Queries.GetSettings)
       .then((data) => {
         if (cancelled) return
+        if (form.formState.isDirty) return
+
         const all = data as AppSettings
         if (all?.app) {
           form.reset({
@@ -98,6 +131,7 @@ export function AppearanceDialog({
                 : all.app.runMode,
             liquidGlassEffect: all.app.liquidGlassEffect,
             lightweightMode: all.app.lightweightMode,
+            fontFamily: all.app.fontFamily,
           })
         }
       })
@@ -107,7 +141,7 @@ export function AppearanceDialog({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [open, form])
 
   const onSubmit = form.handleSubmit(async (values) => {
     const dirty = pickDirty(values, form.formState.dirtyFields)
@@ -115,9 +149,14 @@ export function AppearanceDialog({
       onClose()
       return
     }
-    await transport.invoke(Commands.UpdateSettings, { app: dirty })
-    if (dirty.theme !== undefined) setTheme(dirty.theme)
-    onClose()
+    try {
+      await transport.invoke(Commands.UpdateSettings, { app: dirty })
+      if (dirty.theme !== undefined) setTheme(dirty.theme)
+      if (dirty.fontFamily !== undefined) applyFontFamily(dirty.fontFamily)
+      onClose()
+    } catch (error) {
+      console.error('Failed to update settings:', error)
+    }
   })
 
   const themeOptions = [
@@ -169,7 +208,7 @@ export function AppearanceDialog({
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
+        className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-175"
         initialFocus={false}
       >
         <DialogHeader className="shrink-0 px-6 pt-6">
@@ -179,7 +218,7 @@ export function AppearanceDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form className="space-y-4">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <FormField
                 control={form.control}
                 name="theme"
@@ -245,6 +284,34 @@ export function AppearanceDialog({
                           </SelectGroup>
                         </SelectContent>
                       </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="fontFamily"
+                render={({ field }) => (
+                  <FormItem className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <FormLabel>
+                        {t('settings.appearance.fontFamily')}
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        {t('settings.appearance.fontFamilyDesc')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <FontCombobox
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        systemFonts={systemFonts}
+                        isLoading={isLoadingFonts}
+                        placeholder={t(
+                          'settings.appearance.fontFamilyPlaceholder'
+                        )}
+                      />
                     </FormControl>
                   </FormItem>
                 )}

@@ -969,7 +969,10 @@
       "runModeTrayDesktop": "在系統匣中啟動",
       "runModeLinuxDesc": "系統匣的可用性和啟用方式取決於桌面環境。",
       "lightweightMode": "輕量模式",
-      "lightweightModeDesc": "關閉主視窗後釋放介面記憶體，背景下載會繼續運作。Windows 和 Linux 會保留系統匣入口；重新開啟會稍慢，未儲存的介面狀態將被捨棄。"
+      "lightweightModeDesc": "關閉主視窗後釋放介面記憶體，背景下載會繼續運作。Windows 和 Linux 會保留系統匣入口；重新開啟會稍慢，未儲存的介面狀態將被捨棄。",
+      "fontFamily": "字型",
+      "fontFamilyDesc": "指定自訂字型以覆蓋預設字型。",
+      "fontFamilyPlaceholder": "例如 Roboto"
     },
     "advanced": {
       "rpc": {
