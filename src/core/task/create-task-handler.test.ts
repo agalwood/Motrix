@@ -363,6 +363,7 @@ describe('handleCreateTask', () => {
       unknownOption: 'UNKNOWN_OPTION_SECRET_159',
     }
 
+    const deps = makeDeps()
     await handleCreateTask(
       {
         type: 'http',
@@ -382,7 +383,7 @@ describe('handleCreateTask', () => {
         ],
         proxy: `http://user:${secrets.proxy}@proxy.example:8080`,
       },
-      makeDeps(),
+      deps,
       {
         extraEngineOptions: {
           referer: `https://origin.example/watch?token=${secrets.referer}`,
@@ -421,6 +422,20 @@ describe('handleCreateTask', () => {
       | { params: { gid: string } }
       | undefined
     expect(dispatchFields?.params.gid).toMatch(/^[0-9a-f]{16}$/)
+
+    const taskPayload = lastAddedTask(deps).instances[0]?.payload
+    expect(taskPayload).toEqual({
+      directReplay: {
+        version: 1,
+        connections: 8,
+        requestModifiers: ['headers', 'proxy', 'extraEngineOptions'],
+        replayability: 'requires-credentials',
+      },
+    })
+    const serializedPayload = JSON.stringify(taskPayload)
+    for (const secret of Object.values(secrets)) {
+      expect(serializedPayload).not.toContain(secret)
+    }
   })
 
   it('redacts plugin-rewritten URIs without reducing the result to a count', async () => {
@@ -447,6 +462,7 @@ describe('handleCreateTask', () => {
         staged: { commitMetadata: vi.fn() },
       }),
     } as unknown as Deps['orchestrator']
+    const deps = makeDeps()
 
     await handleCreateTask(
       {
@@ -456,7 +472,7 @@ describe('handleCreateTask', () => {
         filename: 'file.zip',
         headers: [],
       },
-      { ...makeDeps(), orchestrator }
+      { ...deps, orchestrator }
     )
 
     const resultLog = logInfo.mock.calls.find(
@@ -465,6 +481,18 @@ describe('handleCreateTask', () => {
     expect(resultLog?.[0]).toMatchObject({
       rewrittenUris: ['https://cdn.example/file.zip'],
       contributors: { uris: 'plugin-rewriter' },
+    })
+    const task = lastAddedTask(deps)
+    expect(task.uris).toEqual([
+      `https://cdn.example/file.zip?signature=${rewrittenSecret}`,
+    ])
+    expect(task.instances[0]?.uris).toEqual(task.uris)
+    expect(task.instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+      },
     })
     expect(JSON.stringify(logInfo.mock.calls)).not.toContain(rewrittenSecret)
   })
@@ -487,6 +515,82 @@ describe('handleCreateTask', () => {
       ['https://a/b'],
       expect.objectContaining({ dir: '/d' })
     )
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+      },
+    })
+  })
+
+  it('persists a captured validator for a public direct download', async () => {
+    const deps = makeDeps()
+    const resourceValidator = {
+      kind: 'strong-etag' as const,
+      value: '"release-v1"',
+      contentLength: 4096,
+      capturedAt: 7,
+    }
+    const capture = vi.fn().mockResolvedValue(resourceValidator)
+    deps.directResourceValidator = { capture }
+
+    await handleCreateTask(httpRequest(), deps)
+
+    expect(capture).toHaveBeenCalledWith('https://a/b')
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+        resourceValidator,
+      },
+    })
+  })
+
+  it('does not probe a direct request that depends on credentials', async () => {
+    const deps = makeDeps()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture }
+
+    await handleCreateTask(
+      {
+        ...httpRequest(),
+        headers: [{ name: 'Authorization', value: 'Bearer secret' }],
+      },
+      deps
+    )
+
+    expect(capture).not.toHaveBeenCalled()
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: ['headers'],
+        replayability: 'requires-credentials',
+      },
+    })
+  })
+
+  it('does not attach one validator to an ambiguous mirror set', async () => {
+    const deps = makeDeps()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture }
+
+    await handleCreateTask(
+      {
+        ...httpRequest(),
+        uris: [
+          'https://mirror-a.example/file',
+          'https://mirror-b.example/file',
+        ],
+      },
+      deps
+    )
+
+    expect(capture).not.toHaveBeenCalled()
+    expect(
+      lastAddedTask(deps).instances[0]?.payload.directReplay
+    ).not.toHaveProperty('resourceValidator')
   })
 
   it('uses the host-prepared save directory for task and aria2 paths', async () => {
@@ -1107,6 +1211,14 @@ describe('handleCreateTask CreateTaskOptions', () => {
     expect(options.header).toEqual(['X-A: 1', 'X-B: 2'])
     expect(options['load-cookies']).toBe('/tmp/jar.txt')
     expect(options.referer).toBe('http://page')
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        connections: 1,
+        requestModifiers: ['extraEngineOptions'],
+        replayability: 'requires-credentials',
+      },
+    })
   })
 })
 

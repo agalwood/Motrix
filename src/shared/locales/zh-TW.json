@@ -853,6 +853,12 @@
         "torrentMetaMissing": "無法復原此 BitTorrent 任務: 缺少 .torrent 中繼資料檔案。請移除後重新新增任務。",
         "reAddFailed": "無法復原此任務: 引擎拒絕重新新增要求。請移除後手動重新新增。",
         "dirtyMetadata": "無法復原此任務: 缺少繼續下載所需的識別資訊。",
+        "resumeCheckpointMissing": "已保留部分檔案，但續傳檢查點已遺失。請安全地重新下載或重新新增任務。",
+        "resumeCredentialsRequired": "已保留部分檔案，但此下載需要無法自動重播的請求憑證。",
+        "resumePathInvalid": "由於儲存的輸出路徑無效，已保留部分檔案且未自動復原。",
+        "resumeSourceChanged": "遠端檔案在下載開始後發生變更，已保留部分檔案且未繼續寫入。",
+        "resumeRangeUnsupported": "伺服器不支援安全的範圍續傳，已保留部分檔案且未繼續寫入。",
+        "resumeValidationFailed": "Motrix 無法確認遠端檔案是否未發生變更，已保留部分檔案且未繼續寫入。",
         "mediaInterrupted": "此媒體下載因應用程式重新啟動而中斷，無法繼續。請重新新增後再試。"
       }
     },

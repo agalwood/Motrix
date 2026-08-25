@@ -1,4 +1,5 @@
-import { access, copyFile, mkdir } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { access, copyFile, mkdir, rename } from 'node:fs/promises'
 import path from 'node:path'
 import { proxyToAria2Options } from '@core/proxy/serializers'
 import type { EngineSettings, ProxySettings } from '@shared/types/settings'
@@ -35,6 +36,60 @@ export class Aria2ConfigBuilder {
   }
 
   /**
+   * Return whether the standard aria2 text session is available for startup.
+   * Any access failure is treated as unavailable so a missing or unreadable
+   * fallback file never prevents the engine from launching.
+   */
+  async hasSavedSession(): Promise<boolean> {
+    try {
+      await access(this.saveSessionPath)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  resolveSqliteDbPath(settings: Pick<EngineSettings, 'sqlite3DbPath'>): string {
+    return settings.sqlite3DbPath?.trim() || this.defaultDbPath
+  }
+
+  /**
+   * Move a corrupt aria2 persistence database and its SQLite companions aside.
+   * The files remain recoverable for diagnostics and are never overwritten.
+   */
+  async quarantineSqliteDatabase(
+    settings: Pick<EngineSettings, 'sqlite3DbPath'>,
+    token = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}`
+  ): Promise<{
+    databasePath: string
+    quarantineBasePath: string
+    moved: string[]
+  }> {
+    const databasePath = this.resolveSqliteDbPath(settings)
+    const quarantineBasePath = `${databasePath}.corrupt-${token}`
+    const moved: string[] = []
+    for (const suffix of ['', '-wal', '-shm', '-journal']) {
+      const source = `${databasePath}${suffix}`
+      const destination = `${quarantineBasePath}${suffix}`
+      try {
+        await rename(source, destination)
+        moved.push(destination)
+      } catch (error) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          continue
+        }
+        throw error
+      }
+    }
+    return { databasePath, quarantineBasePath, moved }
+  }
+
+  /**
    * @param settings — current engine settings (read for L2/L3 values).
    * @param hasSqlitePersistence — whether the binary supports
    *   `--enable-sqlite3-persistence` (the aria2_motrix fork). Default
@@ -48,12 +103,16 @@ export class Aria2ConfigBuilder {
    * @param effective — effective speed limits from SpeedLimitController
    *   (bytes/sec; 0 = unlimited). On cold start the EngineSupervisor passes
    *   the controller's computed value, or { 0, 0 } if no provider is wired.
+   * @param loadTextSession — load the standard aria2.session fallback. The
+   *   supervisor enables this only when SQLite persistence is inactive and
+   *   the file was verified to exist.
    */
   buildArgs(
     settings: EngineSettings,
     hasSqlitePersistence = true,
     proxy: ProxySettings | null | undefined,
-    effective: { download: number; upload: number }
+    effective: { download: number; upload: number },
+    loadTextSession = false
   ): string[] {
     // Layer order in the produced argv:
     //   L4 conf-path → L2 engine bindings → L3 user-tunable → L1 invariants
@@ -83,6 +142,11 @@ export class Aria2ConfigBuilder {
       `--dht-file-path6=${this.dht6FilePath}`,
       `--save-session=${this.saveSessionPath}`
     )
+    const sqliteActive =
+      hasSqlitePersistence && settings.sqlite3Persistence === true
+    if (loadTextSession && !sqliteActive) {
+      args.push(`--input-file=${this.saveSessionPath}`)
+    }
     if (hasSqlitePersistence) {
       const dbPath = settings.sqlite3DbPath?.trim() || this.defaultDbPath
       args.push(

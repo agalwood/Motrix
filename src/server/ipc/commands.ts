@@ -45,6 +45,7 @@ import {
   type CreateTaskDeps,
   handleCreateTask,
 } from '@core/task/create-task-handler'
+import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
@@ -214,6 +215,7 @@ export function buildServerCommandHandlers(
 
   const createDeps: CreateTaskDeps = {
     adapter,
+    directResourceValidator: new DirectResourceValidatorService(),
     settingsManager,
     finalNamePicker,
     torrentMetaStore,

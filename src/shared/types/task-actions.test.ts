@@ -55,6 +55,27 @@ function magnetMetadataInstance(uri = 'magnet:?xt=urn:btih:abc'): TaskInstance {
   }
 }
 
+function directInstance(
+  replayability: 'uri-only' | 'requires-credentials'
+): TaskInstance {
+  const requestModifiers =
+    replayability === 'uri-only' ? [] : (['headers'] as const)
+  return {
+    ...muxInstance(TaskStatus.Error),
+    instanceId: 'primary:t1',
+    gid: 'direct-gid',
+    phase: TaskInstancePhase.HttpDownload,
+    uris: ['https://example.com/x'],
+    payload: {
+      directReplay: {
+        version: 1,
+        requestModifiers,
+        replayability,
+      },
+    },
+  }
+}
+
 function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
   return makeDownloadTask({
     id: 't1',
@@ -330,16 +351,59 @@ describe('canRebuildTaskInputs', () => {
     ).toBe(true)
   })
 
-  // HTTP/FTP is false even WITH uris: headers, cookies, referer, per-task
-  // proxy and `out` are not persisted anywhere, so a uris-only re-add is a
-  // different request than the one that failed.
-  it('returns false for HTTP even with uris', () => {
+  it('returns true for public HTTP with a valid uri-only recipe', () => {
     expect(
       canRebuildTaskInputs(
         makeTask({
           kind: TaskKind.Direct,
           type: TaskType.Http,
           uris: ['http://example.com/x'],
+          instances: [directInstance('uri-only')],
+        })
+      )
+    ).toBe(true)
+  })
+
+  it('returns false for legacy HTTP without a recipe', () => {
+    expect(
+      canRebuildTaskInputs(
+        makeTask({
+          kind: TaskKind.Direct,
+          type: TaskType.Http,
+          uris: ['http://example.com/x'],
+        })
+      )
+    ).toBe(false)
+  })
+
+  it('returns false for HTTP whose request modifiers require credentials', () => {
+    expect(
+      canRebuildTaskInputs(
+        makeTask({
+          kind: TaskKind.Direct,
+          type: TaskType.Http,
+          uris: ['http://example.com/x'],
+          instances: [directInstance('requires-credentials')],
+        })
+      )
+    ).toBe(false)
+  })
+
+  it('returns false for a malformed or unknown recipe version', () => {
+    const instance = directInstance('uri-only')
+    instance.payload = {
+      directReplay: {
+        version: 2,
+        requestModifiers: [],
+        replayability: 'uri-only',
+      },
+    }
+    expect(
+      canRebuildTaskInputs(
+        makeTask({
+          kind: TaskKind.Direct,
+          type: TaskType.Http,
+          instances: [instance],
         })
       )
     ).toBe(false)
@@ -450,6 +514,44 @@ describe('canAttemptRetry', () => {
     expect(canRetryMagnetMetadata(task)).toBe(true)
     expect(getTaskRetryKind(task)).toBe('magnet-metadata')
     expect(canAttemptRetry(task)).toBe(true)
+  })
+
+  it('offers direct-readd only for an errored uri-only direct task', () => {
+    const errorTask = makeTask({
+      kind: TaskKind.Direct,
+      type: TaskType.Http,
+      status: TaskStatus.Error,
+      instances: [directInstance('uri-only')],
+    })
+    const removedTask = makeTask({
+      ...errorTask,
+      status: TaskStatus.Removed,
+    })
+
+    expect(canRebuildTaskInputs(errorTask)).toBe(true)
+    expect(getTaskRetryKind(errorTask)).toBe('direct-readd')
+    expect(canAttemptRetry(errorTask)).toBe(true)
+    expect(canRebuildTaskInputs(removedTask)).toBe(true)
+    expect(getTaskRetryKind(removedTask)).toBeNull()
+    expect(canAttemptRetry(removedTask)).toBe(false)
+  })
+
+  it.each([
+    'task.recovery.startup.resumeCheckpointMissing',
+    'task.recovery.startup.resumeCredentialsRequired',
+    'task.recovery.startup.resumePathInvalid',
+  ])('does not offer a doomed direct retry for %s', (errorDetailKey) => {
+    const task = makeTask({
+      kind: TaskKind.Direct,
+      type: TaskType.Http,
+      status: TaskStatus.Error,
+      errorDetailKey,
+      instances: [directInstance('uri-only')],
+    })
+
+    expect(canRebuildTaskInputs(task)).toBe(true)
+    expect(getTaskRetryKind(task)).toBeNull()
+    expect(canAttemptRetry(task)).toBe(false)
   })
 
   it('does not offer metadata retry without a persisted magnet URI', () => {

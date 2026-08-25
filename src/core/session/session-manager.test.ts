@@ -251,6 +251,7 @@ function seedAsPair(
     finishedAt?: number | null
     errorMessage?: string | null
     errorCode?: DownloadErrorCode | null
+    payload?: Record<string, unknown>
   }
 ): void {
   const isBtLike =
@@ -312,7 +313,7 @@ function seedAsPair(
         transitionPhase: opts.transitionPhase ?? TransitionPhase.Idle,
         uris: opts.uris ?? [],
         uriHash: opts.uriHash ?? null,
-        payload: {},
+        payload: opts.payload ?? {},
         createdAt: opts.createdAt ?? 0,
         updatedAt: opts.updatedAt ?? 0,
       },
@@ -326,7 +327,7 @@ function createMockAdapter(): EngineAdapter {
     disconnect: vi.fn(),
     getCapabilities: vi.fn(),
     getFeatureReport: vi.fn(),
-    createDownload: vi.fn(async () => 'gid-mock'),
+    createDownload: vi.fn(async ({ gid }) => gid ?? 'gid-mock'),
     pauseTask: vi.fn(),
     resumeTask: vi.fn(),
     removeTask: vi.fn(),
@@ -338,7 +339,7 @@ function createMockAdapter(): EngineAdapter {
     getTaskFiles: vi.fn(),
     getTaskPieces: vi.fn(),
     getGlobalStats: vi.fn(),
-    addTorrent: vi.fn(async () => 'gid-mock'),
+    addTorrent: vi.fn(async ({ gid }) => gid ?? 'gid-mock'),
     removeDownloadResult: vi.fn(),
     getUploadLength: vi.fn(),
     listActiveAndWaiting: vi.fn(async () => []),
@@ -1304,8 +1305,8 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'fresh-gid-002'
+      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
@@ -1319,7 +1320,8 @@ describe('SessionManager', () => {
         expect.objectContaining({ checkIntegrity: true })
       )
       const restored = taskManager.getAll().find((t) => t.id === 'm-bt-002')
-      expect(restored?.engineTaskId).toBe('fresh-gid-002')
+      expect(restored?.engineTaskId).toMatch(/^[0-9a-f]{16}$/)
+      expect(restored?.engineTaskId).not.toBe('lost-gid')
       expect(restored?.status).not.toBe(TaskStatus.Error)
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -1367,8 +1369,8 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'fresh-gid-progress'
+      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
@@ -1855,15 +1857,289 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'fresh-gid-004'
+      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
 
       expect(adapter.createDownload).toHaveBeenCalledTimes(1)
+      expect(adapter.createDownload).toHaveBeenCalledWith({
+        uris: ['http://example.com/file.zip'],
+        gid: expect.stringMatching(/^[0-9a-f]{16}$/),
+        saveDir: '/tmp',
+        filename: 'file.zip.motrix',
+        connections: undefined,
+        pause: false,
+        resumePolicy: 'none',
+      })
       const restored = taskManager.getAll().find((t) => t.id === 'm-http-004')
-      expect(restored?.engineTaskId).toBe('fresh-gid-004')
+      expect(restored?.engineTaskId).toMatch(/^[0-9a-f]{16}$/)
+      expect(restored?.engineTaskId).not.toBe('lost-http')
+    })
+
+    it('re-adds HTTP at the exact .motrix path when an aria2 checkpoint exists', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-http-checkpoint-')
+      )
+      const diskPath = path.join(tempDir, 'archive.zip.motrix')
+      try {
+        fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+        fs.writeFileSync(`${diskPath}.aria2`, Buffer.alloc(16, 0x62))
+        seedAsPair(db, {
+          motrixId: 'm-http-checkpoint',
+          gid: 'lost-http-checkpoint',
+          name: 'archive.zip',
+          diskPath,
+          finalPath: path.join(tempDir, 'archive.zip'),
+          finalName: 'archive.zip',
+          uris: ['https://example.com/archive.zip'],
+          status: TaskStatus.Downloading,
+          payload: {
+            directReplay: {
+              version: 1,
+              connections: 4,
+              requestModifiers: [],
+              replayability: 'uri-only',
+            },
+          },
+        })
+        ;(
+          adapter.createDownload as ReturnType<typeof vi.fn>
+        ).mockImplementation(async ({ gid }: { gid?: string }) => gid ?? '')
+
+        await sessionManager.restore()
+
+        expect(adapter.createDownload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            saveDir: tempDir,
+            filename: 'archive.zip.motrix',
+            connections: 4,
+            resumePolicy: 'checkpoint',
+          })
+        )
+        expect(taskManager.getById('m-http-checkpoint')?.status).toBe(
+          TaskStatus.Downloading
+        )
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it('validates a checkpoint source and dispatches it with If-Range', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-http-validator-')
+      )
+      const diskPath = path.join(tempDir, 'archive.zip.motrix')
+      const resourceValidator = {
+        kind: 'strong-etag' as const,
+        value: '"release-v1"',
+        contentLength: 4096,
+        capturedAt: 7,
+      }
+      const verify = vi.fn().mockResolvedValue({
+        outcome: 'unchanged' as const,
+        ifRange: resourceValidator.value,
+      })
+      try {
+        fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+        fs.writeFileSync(`${diskPath}.aria2`, Buffer.alloc(16, 0x62))
+        seedAsPair(db, {
+          motrixId: 'm-http-validator',
+          gid: 'lost-http-validator',
+          name: 'archive.zip',
+          diskPath,
+          finalPath: path.join(tempDir, 'archive.zip'),
+          finalName: 'archive.zip',
+          uris: ['https://example.com/archive.zip'],
+          status: TaskStatus.Downloading,
+          payload: {
+            directReplay: {
+              version: 1,
+              requestModifiers: [],
+              replayability: 'uri-only',
+              resourceValidator,
+            },
+          },
+        })
+        sessionManager = new SessionManager(
+          taskManager,
+          rpc,
+          db,
+          adapter,
+          undefined,
+          undefined,
+          { verify }
+        )
+
+        await sessionManager.restore()
+
+        expect(verify).toHaveBeenCalledWith(
+          'https://example.com/archive.zip',
+          resourceValidator
+        )
+        expect(adapter.createDownload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            headers: { 'If-Range': '"release-v1"' },
+            resumePolicy: 'checkpoint',
+          })
+        )
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it.each([
+      ['source-changed', 'task.recovery.startup.resumeSourceChanged'] as const,
+      [
+        'range-unsupported',
+        'task.recovery.startup.resumeRangeUnsupported',
+      ] as const,
+      ['unverifiable', 'task.recovery.startup.resumeValidationFailed'] as const,
+    ])(
+      'blocks checkpoint recovery when source validation is %s',
+      async (outcome, errorDetailKey) => {
+        const tempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), 'motrix-http-validator-blocked-')
+        )
+        const diskPath = path.join(tempDir, 'archive.zip.motrix')
+        const partial = Buffer.from('preserve-partial')
+        const checkpoint = Buffer.from('preserve-checkpoint')
+        const resourceValidator = {
+          kind: 'strong-etag' as const,
+          value: '"release-v1"',
+          contentLength: 4096,
+          capturedAt: 7,
+        }
+        const verify = vi.fn().mockResolvedValue({ outcome, ifRange: null })
+        try {
+          fs.writeFileSync(diskPath, partial)
+          fs.writeFileSync(`${diskPath}.aria2`, checkpoint)
+          seedAsPair(db, {
+            motrixId: `m-http-validator-${outcome}`,
+            gid: `lost-http-validator-${outcome}`,
+            name: 'archive.zip',
+            diskPath,
+            finalPath: path.join(tempDir, 'archive.zip'),
+            finalName: 'archive.zip',
+            uris: ['https://example.com/archive.zip'],
+            status: TaskStatus.Downloading,
+            payload: {
+              directReplay: {
+                version: 1,
+                requestModifiers: [],
+                replayability: 'uri-only',
+                resourceValidator,
+              },
+            },
+          })
+          sessionManager = new SessionManager(
+            taskManager,
+            rpc,
+            db,
+            adapter,
+            undefined,
+            undefined,
+            { verify }
+          )
+
+          await sessionManager.restore()
+
+          expect(adapter.createDownload).not.toHaveBeenCalled()
+          expect(
+            taskManager.getById(`m-http-validator-${outcome}`)
+          ).toMatchObject({ status: TaskStatus.Error, errorDetailKey })
+          expect(fs.readFileSync(diskPath)).toEqual(partial)
+          expect(fs.readFileSync(`${diskPath}.aria2`)).toEqual(checkpoint)
+        } finally {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
+    )
+
+    it('preserves a non-empty HTTP partial when its checkpoint is missing', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-http-no-checkpoint-')
+      )
+      const diskPath = path.join(tempDir, 'partial.bin.motrix')
+      const bytes = Buffer.from('do-not-overwrite')
+      try {
+        fs.writeFileSync(diskPath, bytes)
+        seedAsPair(db, {
+          motrixId: 'm-http-no-checkpoint',
+          gid: 'lost-http-no-checkpoint',
+          name: 'partial.bin',
+          diskPath,
+          finalPath: path.join(tempDir, 'partial.bin'),
+          finalName: 'partial.bin',
+          uris: ['https://example.com/partial.bin'],
+          status: TaskStatus.Downloading,
+        })
+
+        await sessionManager.restore()
+
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(taskManager.getById('m-http-no-checkpoint')).toMatchObject({
+          status: TaskStatus.Error,
+          errorDetailKey: 'task.recovery.startup.resumeCheckpointMissing',
+        })
+        expect(fs.readFileSync(diskPath)).toEqual(bytes)
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it('does not replay a direct task whose request credentials were not persisted', async () => {
+      seedAsPair(db, {
+        motrixId: 'm-http-credentials',
+        gid: 'lost-http-credentials',
+        name: 'private.zip',
+        diskPath: '/tmp/private.zip.motrix',
+        finalPath: '/tmp/private.zip',
+        finalName: 'private.zip',
+        uris: ['https://example.com/private.zip'],
+        status: TaskStatus.Downloading,
+        payload: {
+          directReplay: {
+            version: 1,
+            requestModifiers: ['headers'],
+            replayability: 'requires-credentials',
+          },
+        },
+      })
+
+      await sessionManager.restore()
+
+      expect(adapter.createDownload).not.toHaveBeenCalled()
+      expect(taskManager.getById('m-http-credentials')).toMatchObject({
+        status: TaskStatus.Error,
+        errorDetailKey: 'task.recovery.startup.resumeCredentialsRequired',
+      })
+    })
+
+    it('persists the reserved recovery gid before dispatching HTTP', async () => {
+      seedAsPair(db, {
+        motrixId: 'm-http-durable-gid',
+        gid: 'lost-http-durable-gid',
+        name: 'durable.bin',
+        diskPath: '/tmp/durable.bin.motrix',
+        finalPath: '/tmp/durable.bin',
+        finalName: 'durable.bin',
+        uris: ['https://example.com/durable.bin'],
+        status: TaskStatus.Downloading,
+      })
+      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => {
+          expect(db.getTask('m-http-durable-gid')?.instances[0]?.gid).toBe(gid)
+          return gid ?? ''
+        }
+      )
+
+      await sessionManager.restore()
+
+      expect(taskManager.getById('m-http-durable-gid')?.engineTaskId).toMatch(
+        /^[0-9a-f]{16}$/
+      )
     })
 
     it('preserves a no-live-gid HTTP rename intent for startup recovery instead of re-adding', async () => {
@@ -2153,8 +2429,8 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'fresh-http-gid'
+      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
@@ -2166,7 +2442,7 @@ describe('SessionManager', () => {
         .getAll()
         .find((t) => t.id === 'm-http-paused')
       expect(restored?.status).toBe(TaskStatus.Paused)
-      expect(restored?.engineTaskId).toBe('fresh-http-gid')
+      expect(restored?.engineTaskId).toMatch(/^[0-9a-f]{16}$/)
     })
 
     it('does not pause Downloading HTTP task on re-add', async () => {
@@ -2192,8 +2468,8 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'fresh-http-dl-gid'
+      ;(adapter.createDownload as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
@@ -2233,8 +2509,8 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'new-paused-gid'
+      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
@@ -2280,8 +2556,8 @@ describe('SessionManager', () => {
       rpc.tellActive = vi.fn(async () => [])
       rpc.tellWaiting = vi.fn(async () => [])
       rpc.tellStopped = vi.fn(async () => [])
-      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'new-downloading-gid'
+      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await sessionManager.restore()
@@ -2750,8 +3026,8 @@ describe('SessionManager', () => {
       })
       taskManager.add(errored)
 
-      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockResolvedValue(
-        'fresh-legacy-gid'
+      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
       )
 
       await session.recoverLegacyTaskLost()
@@ -2759,7 +3035,8 @@ describe('SessionManager', () => {
       expect(adapter.addTorrent).toHaveBeenCalledTimes(1)
       const recovered = taskManager.getAll().find((t) => t.id === 'm-legacy')
       expect(recovered?.status).not.toBe(TaskStatus.Error)
-      expect(recovered?.engineTaskId).toBe('fresh-legacy-gid')
+      expect(recovered?.engineTaskId).toMatch(/^[0-9a-f]{16}$/)
+      expect(recovered?.engineTaskId).not.toBe('legacy-gid')
 
       fs.rmSync(torrentDir, { recursive: true, force: true })
     })
@@ -3055,7 +3332,11 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     const sm = new SessionManager(taskManager, rpc, db, adapter)
 
     db.saveTaskWithInstances({
-      task: makeTaskRow('m-orphan', TaskKind.Direct),
+      task: {
+        ...makeTaskRow('m-orphan', TaskKind.Direct),
+        finalPath: '/tmp/m-orphan.mp4',
+        finalName: 'm-orphan.mp4',
+      },
       instances: [
         {
           ...makeInstanceRow(
@@ -3064,6 +3345,7 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
             'g-orphan',
             TaskInstancePhase.HttpDownload
           ),
+          diskPath: '/tmp/m-orphan.mp4.motrix',
           uris: ['https://example.com/lost.mp4'],
           status: TaskStatus.Paused,
         },

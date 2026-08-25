@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
@@ -319,22 +322,24 @@ function makeBtErrorTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
 }
 
 function makeHttpTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
-  return makeDownloadTask({
-    id: 't2',
-    engineTaskId: 'old-http-gid',
-    name: 'file.zip',
-    status: TaskStatus.Error,
-    saveDir: '/tmp',
-    errorMessage: 'connection reset',
-    finishedAt: 1234,
-    uris: ['https://example.com/file.zip'],
-    fileCount: 1,
-    filename: 'file.zip',
-    diskPath: '/tmp',
-    finalPath: '/tmp/file.zip',
-    finalName: 'file.zip',
-    ...overrides,
-  })
+  return withPrimaryInstance(
+    makeDownloadTask({
+      id: 't2',
+      engineTaskId: 'old-http-gid',
+      name: 'file.zip',
+      status: TaskStatus.Error,
+      saveDir: '/tmp',
+      errorMessage: 'connection reset',
+      finishedAt: 1234,
+      uris: ['https://example.com/file.zip'],
+      fileCount: 1,
+      filename: 'file.zip',
+      diskPath: '/tmp/file.zip.motrix',
+      finalPath: '/tmp/file.zip',
+      finalName: 'file.zip',
+      ...overrides,
+    })
+  )
 }
 
 function withPrimaryInstance(task: DownloadTask): DownloadTask {
@@ -367,10 +372,177 @@ function withPrimaryInstance(task: DownloadTask): DownloadTask {
 }
 
 describe('reAddTask (HTTP path)', () => {
-  it('rejects an HTTP retry up front: the replay inputs are not persisted', async () => {
-    // uris survive, but headers/cookies/referer/proxy/out do not — a
-    // uris-only re-add would issue a different request than the one that
-    // failed, so canRebuildTaskInputs refuses before any engine call.
+  it('retries a URI-only HTTP task at its exact .motrix output path', async () => {
+    const task = makeHttpTask()
+    task.instances[0].payload = {
+      directReplay: {
+        version: 1,
+        connections: 6,
+        requestModifiers: [],
+        replayability: 'uri-only',
+      },
+    }
+    const deps = makeDeps(task)
+
+    await reAddTask('t2', deps)
+
+    expect(deps.adapter.createDownload).toHaveBeenCalledWith({
+      uris: ['https://example.com/file.zip'],
+      gid: RESERVED_GID,
+      saveDir: '/tmp',
+      filename: 'file.zip.motrix',
+      connections: 6,
+      pause: false,
+      resumePolicy: 'none',
+    })
+    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    expect(deps.taskManager.set).toHaveBeenCalledWith(
+      't2',
+      expect.objectContaining({
+        engineTaskId: RESERVED_GID,
+        status: TaskStatus.Downloading,
+      })
+    )
+  })
+
+  it('uses checkpoint resume for a non-empty HTTP partial with .aria2 state', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-readd-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+      fs.writeFileSync(`${diskPath}.aria2`, Buffer.alloc(16, 0x62))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          resourceValidator: {
+            kind: 'strong-etag',
+            value: '"release-v1"',
+            contentLength: 4096,
+            capturedAt: 7,
+          },
+        },
+      }
+      const deps = makeDeps(task)
+      const verify = vi.fn().mockResolvedValue({
+        outcome: 'unchanged' as const,
+        ifRange: '"release-v1"',
+      })
+
+      await reAddTask('t2', {
+        ...deps,
+        directResourceValidator: { verify },
+      })
+
+      expect(verify).toHaveBeenCalledWith(
+        'https://example.com/file.zip',
+        expect.objectContaining({ value: '"release-v1"' })
+      )
+      expect(deps.adapter.createDownload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          saveDir: tempDir,
+          filename: 'file.zip.motrix',
+          headers: { 'If-Range': '"release-v1"' },
+          resumePolicy: 'checkpoint',
+        })
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a changed checkpoint source before touching the engine', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-changed-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('partial'))
+      fs.writeFileSync(`${diskPath}.aria2`, Buffer.from('checkpoint'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          resourceValidator: {
+            kind: 'strong-etag',
+            value: '"release-v1"',
+            capturedAt: 7,
+          },
+        },
+      }
+      const deps = makeDeps(task)
+      const directResourceValidator = {
+        verify: vi.fn().mockResolvedValue({
+          outcome: 'source-changed',
+          ifRange: null,
+        }),
+      }
+
+      await expect(
+        reAddTask('t2', { ...deps, directResourceValidator })
+      ).rejects.toMatchObject({ code: ErrorCode.TaskNotRetryable })
+
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+      expect(deps.persistTask).not.toHaveBeenCalled()
+      expect(fs.readFileSync(diskPath)).toEqual(Buffer.from('partial'))
+      expect(fs.readFileSync(`${diskPath}.aria2`)).toEqual(
+        Buffer.from('checkpoint')
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects HTTP retry before engine mutation when a partial has no checkpoint', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-blocked-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('partial'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+        },
+      }
+      const deps = makeDeps(task)
+
+      await expect(reAddTask('t2', deps)).rejects.toMatchObject({
+        code: ErrorCode.TaskNotRetryable,
+      })
+
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+      expect(deps.persistTask).not.toHaveBeenCalled()
+      expect(fs.readFileSync(diskPath)).toEqual(Buffer.from('partial'))
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects legacy HTTP retry up front when no replay recipe exists', async () => {
     const task = makeHttpTask()
     const deps = makeDeps(task)
 
@@ -379,8 +551,6 @@ describe('reAddTask (HTTP path)', () => {
     })
 
     expect(deps.adapter.createDownload).not.toHaveBeenCalled()
-    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
-    expect(deps.adapter.getEngineTaskOptions).not.toHaveBeenCalled()
     expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
   })
 })

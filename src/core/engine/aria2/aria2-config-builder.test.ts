@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ─── Mock node:fs/promises ───────────────────────────────────
 
-const { mockAccess, mockCopyFile, mockMkdir } = vi.hoisted(() => ({
+const { mockAccess, mockCopyFile, mockMkdir, mockRename } = vi.hoisted(() => ({
   mockAccess: vi.fn(),
   mockCopyFile: vi.fn(),
   mockMkdir: vi.fn(),
+  mockRename: vi.fn(),
 }))
 
 vi.mock('node:fs/promises', () => ({
@@ -13,10 +14,12 @@ vi.mock('node:fs/promises', () => ({
     access: mockAccess,
     copyFile: mockCopyFile,
     mkdir: mockMkdir,
+    rename: mockRename,
   },
   access: mockAccess,
   copyFile: mockCopyFile,
   mkdir: mockMkdir,
+  rename: mockRename,
 }))
 
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
@@ -80,6 +83,68 @@ describe('Aria2ConfigBuilder', () => {
     })
   })
 
+  describe('hasSavedSession', () => {
+    it('returns true when the text session exists', async () => {
+      mockAccess.mockResolvedValue(undefined)
+
+      await expect(builder.hasSavedSession()).resolves.toBe(true)
+      expect(mockAccess).toHaveBeenCalledWith(
+        '/home/user/.config/motrix/aria2.session'
+      )
+    })
+
+    it('returns false instead of throwing when the text session is unavailable', async () => {
+      mockAccess.mockRejectedValue(new Error('ENOENT: no such file'))
+
+      await expect(builder.hasSavedSession()).resolves.toBe(false)
+    })
+  })
+
+  describe('SQLite recovery paths', () => {
+    it('resolves the configured database path or the user-data default', () => {
+      expect(builder.resolveSqliteDbPath({ sqlite3DbPath: '' })).toBe(
+        '/home/user/.config/motrix/aria2.db'
+      )
+      expect(
+        builder.resolveSqliteDbPath({ sqlite3DbPath: '/custom/tasks.db' })
+      ).toBe('/custom/tasks.db')
+    })
+
+    it('quarantines the database and existing WAL companions without deleting them', async () => {
+      mockRename
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(
+          Object.assign(new Error('missing'), { code: 'ENOENT' })
+        )
+        .mockRejectedValueOnce(
+          Object.assign(new Error('missing'), { code: 'ENOENT' })
+        )
+
+      await expect(
+        builder.quarantineSqliteDatabase({ sqlite3DbPath: '' }, 'incident-1')
+      ).resolves.toEqual({
+        databasePath: '/home/user/.config/motrix/aria2.db',
+        quarantineBasePath:
+          '/home/user/.config/motrix/aria2.db.corrupt-incident-1',
+        moved: [
+          '/home/user/.config/motrix/aria2.db.corrupt-incident-1',
+          '/home/user/.config/motrix/aria2.db.corrupt-incident-1-wal',
+        ],
+      })
+      expect(mockRename).toHaveBeenNthCalledWith(
+        1,
+        '/home/user/.config/motrix/aria2.db',
+        '/home/user/.config/motrix/aria2.db.corrupt-incident-1'
+      )
+      expect(mockRename).toHaveBeenNthCalledWith(
+        2,
+        '/home/user/.config/motrix/aria2.db-wal',
+        '/home/user/.config/motrix/aria2.db.corrupt-incident-1-wal'
+      )
+    })
+  })
+
   describe('buildArgs', () => {
     it('builds args array with default settings', () => {
       const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
@@ -120,6 +185,44 @@ describe('Aria2ConfigBuilder', () => {
       const saveSessionArg = args.find((a) => a.startsWith('--save-session='))
       expect(saveSessionArg).toBe(
         '--save-session=/home/user/.config/motrix/aria2.session'
+      )
+    })
+
+    it('loads the text session only when requested by the supervisor', () => {
+      const withoutInput = builder.buildArgs(
+        DEFAULT_ENGINE_SETTINGS,
+        false,
+        null,
+        { download: 0, upload: 0 }
+      )
+      const withInput = builder.buildArgs(
+        DEFAULT_ENGINE_SETTINGS,
+        false,
+        null,
+        { download: 0, upload: 0 },
+        true
+      )
+
+      expect(withoutInput).not.toContain(
+        '--input-file=/home/user/.config/motrix/aria2.session'
+      )
+      expect(withInput).toContain(
+        '--input-file=/home/user/.config/motrix/aria2.session'
+      )
+    })
+
+    it('never combines text-session loading with active SQLite persistence', () => {
+      const args = builder.buildArgs(
+        makeEngineSettings({ sqlite3Persistence: true }),
+        true,
+        null,
+        { download: 0, upload: 0 },
+        true
+      )
+
+      expect(args).toContain('--enable-sqlite3-persistence=true')
+      expect(args).not.toContain(
+        '--input-file=/home/user/.config/motrix/aria2.session'
       )
     })
 

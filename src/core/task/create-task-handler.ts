@@ -58,6 +58,11 @@ import {
   parseBtFileLayout,
   UnsafeTorrentPathError,
 } from './bt-storage-layout'
+import {
+  buildDirectReplayRecipe,
+  type DirectReplayRecipe,
+} from './direct-replay-recipe'
+import type { DirectResourceValidatorService } from './direct-resource-validator'
 import type { FinalNamePicker } from './final-name-picker'
 import { toTempPath } from './paths'
 import type { TaskManager } from './task-manager'
@@ -73,6 +78,8 @@ export interface CreateTaskDeps {
   taskManager: TaskManager
   activityRecorder: TaskActivityRecorder
   eventBus: { emit(event: string, payload: unknown): void }
+  /** Optional best-effort capture of a non-secret HTTP resource validator. */
+  directResourceValidator?: Pick<DirectResourceValidatorService, 'capture'>
   /**
    * Coalesced TaskUpdated publication (TaskUpdatePublisher.publish). Both
    * create-side broadcasts are non-terminal (announce a new owned task /
@@ -397,6 +404,8 @@ async function handleCreateTaskUnderAdmission(
   // is responsible for the aria2 wire shape.
   let pluginStaged: { commit: (cb: () => void) => void } | undefined
   let dispatchEngine: (reservedGid: string) => Promise<string>
+  let directReplay: DirectReplayRecipe | null = null
+  let canonicalUris = deriveUris(req)
   // Shared by the HTTP and magnet branches — both dispatch through
   // createDownload with an identical log line; only their params differ.
   const dispatchCreateDownload =
@@ -589,6 +598,33 @@ async function handleCreateTaskUnderAdmission(
       }
     }
 
+    // Persist only the request-shape capability needed to decide whether a
+    // future retry can be reconstructed from TaskInstance. Paths and URIs are
+    // already canonical fields on the instance; modifier VALUES remain
+    // engine-call-only so credentials never enter motrix.db.
+    directReplay = buildDirectReplayRecipe(params)
+    if (
+      directReplay.replayability === 'uri-only' &&
+      deps.directResourceValidator &&
+      params.uris.length === 1
+    ) {
+      try {
+        const resourceValidator = await deps.directResourceValidator.capture(
+          params.uris[0] as string
+        )
+        if (resourceValidator) {
+          directReplay = { ...directReplay, resourceValidator }
+        }
+      } catch (error) {
+        // Validator capture is an optional safety enhancement. A HEAD failure
+        // must not make an otherwise valid download impossible to create.
+        log.debug(
+          { err: error, taskId },
+          'direct resource validator capture skipped'
+        )
+      }
+    }
+    canonicalUris = [...params.uris]
     dispatchEngine = dispatchCreateDownload(params)
   } else if (req.payload.kind === 'torrent-base64') {
     // Torrent bytes were decoded earlier for name/private extraction; they
@@ -683,9 +719,13 @@ async function handleCreateTaskUnderAdmission(
     uploadedBytes: 0,
     diskPath,
     transitionPhase: TransitionPhase.Idle,
-    uris: deriveUris(req),
+    uris: canonicalUris,
     uriHash: null,
-    payload: btStoragePlan ? btStoragePayload(btStoragePlan.layout) : {},
+    payload: btStoragePlan
+      ? btStoragePayload(btStoragePlan.layout)
+      : directReplay
+        ? { directReplay }
+        : {},
     createdAt: now,
     updatedAt: now,
   }
@@ -699,7 +739,7 @@ async function handleCreateTaskUnderAdmission(
     saveDir: effectiveSaveDir,
     createdAt: now,
     updatedAt: now,
-    uris: deriveUris(req),
+    uris: canonicalUris,
     dlLimit: req.type === 'bt' ? (req.dlLimit ?? 0) : 0,
     ulLimit: req.type === 'bt' ? (req.ulLimit ?? 0) : 0,
     filename: finalName,

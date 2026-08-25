@@ -26,6 +26,7 @@ import type { Aria2Adapter } from './aria2/aria2-adapter'
 import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
+import { isSqliteCorruptionDiagnostic } from './aria2/aria2-sqlite-recovery'
 import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { recommend } from './aria2/aria2-tuning'
 import {
@@ -90,6 +91,8 @@ export class EngineSupervisor {
   // Resets to 0 on every new EngineSupervisor (i.e. every boot) — it is
   // deliberately NOT persisted or derived from anything durable.
   private failureSeq = 0
+  private sqliteFallbackActive = false
+  private sqliteFallbackAttempted = false
 
   constructor(
     private eventBus: EventBus,
@@ -103,10 +106,7 @@ export class EngineSupervisor {
     // Wire up process exit handler
     this.processManager.onExit = (code, _signal) => {
       if (this.stopping || this.suppressExitHandling) return
-      if (
-        this.state === EngineState.Ready ||
-        this.state === EngineState.Starting
-      ) {
+      if (this.state === EngineState.Ready) {
         this.handleUnexpectedExit(code)
       }
     }
@@ -139,6 +139,8 @@ export class EngineSupervisor {
     this.stopping = false
     this.binaryPath = binaryPath
     this.restartAttempts = 0
+    this.sqliteFallbackActive = false
+    this.sqliteFallbackAttempted = false
     await this.doStart()
   }
 
@@ -346,6 +348,7 @@ export class EngineSupervisor {
     this.failure = null
 
     let phase: 'probe' | 'config' | 'spawn' | 'rpc' = 'probe'
+    let engineSettings: EngineSettings | null = null
 
     try {
       const featureReport = await this.processManager.probe(this.binaryPath)
@@ -372,11 +375,14 @@ export class EngineSupervisor {
       if (this.stopping) return
 
       const configuredEngineSettings = this.settingsManager.getEngine()
-      const engineSettings = this.applyCompatibilityLimits(
+      const resolvedEngineSettings = this.applyCompatibilityLimits(
         await this.resolveRuntimeEngineSettings(
           await this.persistCompatibilityLimits(configuredEngineSettings)
         )
       )
+      engineSettings = this.sqliteFallbackActive
+        ? { ...resolvedEngineSettings, sqlite3Persistence: false }
+        : resolvedEngineSettings
       const proxy = this.settingsManager.getProxy()
       // Provider is wired by the shell (Task 8) before start() in production;
       // the { 0, 0 } (unlimited) fallback only fires in tests or if start()
@@ -385,12 +391,26 @@ export class EngineSupervisor {
         download: 0,
         upload: 0,
       }
-      const args = this.configBuilder.buildArgs(
-        engineSettings,
-        featureReport.hasSqlitePersistence,
-        proxy,
-        effective
-      )
+      const sqliteActive =
+        featureReport.hasSqlitePersistence &&
+        engineSettings.sqlite3Persistence === true
+      const loadTextSession =
+        !sqliteActive && (await this.configBuilder.hasSavedSession())
+      if (this.stopping) return
+      const args = loadTextSession
+        ? this.configBuilder.buildArgs(
+            engineSettings,
+            featureReport.hasSqlitePersistence,
+            proxy,
+            effective,
+            true
+          )
+        : this.configBuilder.buildArgs(
+            engineSettings,
+            featureReport.hasSqlitePersistence,
+            proxy,
+            effective
+          )
       this.lastStartArgs = args
 
       // Step 3: Port check
@@ -439,16 +459,7 @@ export class EngineSupervisor {
       this.startHealthCheck()
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err)
-      const reason =
-        phase === 'probe'
-          ? EngineFailureReason.BinaryUnavailable
-          : phase === 'spawn'
-            ? EngineFailureReason.SpawnFailed
-            : phase === 'rpc'
-              ? EngineFailureReason.RpcUnavailable
-              : EngineFailureReason.Unknown
-      this.recordFailure(reason, this.lastError)
-      log.error({ err: this.lastError }, 'start failed')
+      const stderr = this.processManager.getRecentStderr?.() ?? ''
 
       // A process can be alive even though RPC connection failed. Always
       // tear down a process spawned by this supervisor before entering Failed;
@@ -464,8 +475,79 @@ export class EngineSupervisor {
         }
       }
       this.rpcClient.disconnect()
+
+      if (
+        engineSettings &&
+        (await this.tryActivateSqliteFallback(
+          engineSettings,
+          `${this.lastError}\n${stderr}`
+        ))
+      ) {
+        this.setState(EngineState.Restarting)
+        await this.doStart()
+        return
+      }
+
+      const reason =
+        phase === 'probe'
+          ? EngineFailureReason.BinaryUnavailable
+          : phase === 'spawn'
+            ? EngineFailureReason.SpawnFailed
+            : phase === 'rpc'
+              ? EngineFailureReason.RpcUnavailable
+              : EngineFailureReason.Unknown
+      this.recordFailure(reason, this.lastError)
+      log.error({ err: this.lastError }, 'start failed')
       this.setState(EngineState.Failed)
     }
+  }
+
+  private async tryActivateSqliteFallback(
+    settings: EngineSettings,
+    diagnostic: string
+  ): Promise<boolean> {
+    if (
+      this.sqliteFallbackAttempted ||
+      this.sqliteFallbackActive ||
+      !this.featureReport?.hasSqlitePersistence ||
+      !settings.sqlite3Persistence ||
+      !isSqliteCorruptionDiagnostic(diagnostic)
+    ) {
+      return false
+    }
+
+    this.sqliteFallbackAttempted = true
+    let quarantine: Awaited<
+      ReturnType<Aria2ConfigBuilder['quarantineSqliteDatabase']>
+    > | null = null
+    try {
+      quarantine = await this.configBuilder.quarantineSqliteDatabase(settings)
+    } catch (error) {
+      // Disabling the backend still gives the text session a chance to start.
+      // Keep the original database untouched if the recoverable move failed.
+      log.warn({ err: error }, 'failed to quarantine corrupt aria2 database')
+    }
+
+    this.sqliteFallbackActive = true
+    try {
+      await this.settingsManager.update({
+        engine: { sqlite3Persistence: false },
+      })
+    } catch (error) {
+      log.warn(
+        { err: error },
+        'failed to persist aria2 SQLite fallback setting; using runtime fallback'
+      )
+    }
+    log.warn(
+      {
+        databasePath: quarantine?.databasePath,
+        quarantinePaths: quarantine?.moved,
+        textSessionAvailable: await this.configBuilder.hasSavedSession(),
+      },
+      'corrupt aria2 SQLite persistence quarantined; retrying with text session'
+    )
+    return true
   }
 
   private handleUnexpectedExit(code: number | null): void {

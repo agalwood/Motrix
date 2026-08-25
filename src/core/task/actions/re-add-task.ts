@@ -1,16 +1,22 @@
 import path from 'node:path'
 import { newEngineTaskId } from '@core/lib/ids'
 import { AppError, ErrorCode } from '@shared/errors'
+import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus } from '@shared/types/task'
+import { TaskInstancePhase, TaskStatus } from '@shared/types/task'
 import {
   canRebuildTaskInputs,
   canReseed,
   canRetry,
+  isTorrentLike,
 } from '@shared/types/task-actions'
-import type { EngineAdapter } from '../../engine/engine-adapter'
+import type {
+  CreateDownloadParams,
+  EngineAdapter,
+} from '../../engine/engine-adapter'
 import type { Logger } from '../../logger'
+import { DirectRecoveryPlanner } from '../../session/direct-recovery-planner'
 import { applyTerminalTransition } from '../apply-terminal-transition'
 import {
   buildFinalOutputFilePaths,
@@ -18,6 +24,7 @@ import {
   getBtStorageLayout,
   parseBtFileLayout,
 } from '../bt-storage-layout'
+import { DirectResourceValidatorService } from '../direct-resource-validator'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
@@ -26,6 +33,7 @@ export interface ReAddTaskDeps extends TaskActionDeps {
   persistTask: NonNullable<TaskActionDeps['persistTask']>
   torrentMetaStore: TorrentMetaStore
   createEngineTaskId?: () => string
+  directResourceValidator?: Pick<DirectResourceValidatorService, 'verify'>
 }
 
 async function bestEffortRemove(
@@ -147,6 +155,78 @@ async function reAddBt(
       ? Number.parseFloat(opts['seed-ratio'])
       : undefined,
   })
+}
+
+const directRecoveryPlanner = new DirectRecoveryPlanner()
+const directResourceValidator = new DirectResourceValidatorService()
+
+async function buildDirectReAddParams(
+  task: DownloadTask,
+  resourceValidator: Pick<DirectResourceValidatorService, 'verify'>
+): Promise<Omit<CreateDownloadParams, 'gid'>> {
+  const primary = task.instances.find(
+    (instance) => instance.phase === TaskInstancePhase.HttpDownload
+  )
+  const recipe = parseDirectReplayRecipe(primary?.payload)
+  if (!primary || !recipe || recipe.replayability !== 'uri-only') {
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      `Task ${task.id} cannot be retried: its direct replay recipe is unavailable`
+    )
+  }
+
+  const plan = await directRecoveryPlanner.plan({
+    primary,
+    finalPath: task.finalPath,
+  })
+  if (
+    plan.kind === 'blocked' ||
+    plan.kind === 'invalid' ||
+    plan.kind === 'finalization-candidate' ||
+    !plan.saveDir ||
+    !plan.filename
+  ) {
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      `Task ${task.id} cannot be retried safely: ${plan.reason}`
+    )
+  }
+
+  let ifRange: string | null = null
+  if (plan.kind === 'checkpoint' && recipe.resourceValidator) {
+    if (primary.uris.length !== 1) {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        `Task ${task.id} cannot be retried safely: ambiguous-validator-source`
+      )
+    }
+    const validation = await resourceValidator.verify(
+      primary.uris[0] as string,
+      recipe.resourceValidator
+    )
+    if (validation.outcome !== 'unchanged') {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        `Task ${task.id} cannot be retried safely: ${validation.outcome}`
+      )
+    }
+    ifRange = validation.ifRange
+  }
+
+  return {
+    uris: primary.uris,
+    saveDir: plan.saveDir,
+    filename: plan.filename,
+    connections: recipe.connections,
+    ...(ifRange ? { headers: { 'If-Range': ifRange } } : {}),
+    pause: false,
+    resumePolicy:
+      plan.kind === 'checkpoint'
+        ? 'checkpoint'
+        : plan.reason === 'temp-file-empty'
+          ? 'sequential-prefix'
+          : 'none',
+  }
 }
 
 /**
@@ -339,7 +419,14 @@ async function reAddTaskUnderMutation(
   // Resolve local prerequisites before touching the old engine GID or
   // installing a durable reservation. From the reservation onward, the only
   // fallible operation before publication is the engine dispatch itself.
-  const torrentMetadata = await readBtMetadata(task, deps)
+  const torrentLike = isTorrentLike(task)
+  const torrentMetadata = torrentLike ? await readBtMetadata(task, deps) : null
+  const directParams = torrentLike
+    ? null
+    : await buildDirectReAddParams(
+        task,
+        deps.directResourceValidator ?? directResourceValidator
+      )
   let opts: EngineTaskOptions | null = null
   try {
     opts = await deps.adapter.getEngineTaskOptions(task.engineTaskId)
@@ -352,11 +439,7 @@ async function reAddTaskUnderMutation(
   await bestEffortRemove(deps.adapter, task.engineTaskId, deps.log)
 
   const now = Date.now()
-  // Both entry gates force torrent-like (canRebuildTaskInputs and canReseed
-  // each require it) and reAddBt re-adds as a checkIntegrity-verified
-  // torrent, so even a retried Error/Removed task publishes Seeding — the
-  // integrity pass decides whether aria2 actually downloads anything more.
-  const status = TaskStatus.Seeding
+  const status = torrentLike ? TaskStatus.Seeding : TaskStatus.Downloading
   const reservedGid = newEngineTaskId(deps.createEngineTaskId, 'reAddTask')
   const reservedOwner = withReservedGid(task, reservedGid, now)
   const candidate = withReservedGid(task, reservedGid, now, status)
@@ -383,10 +466,11 @@ async function reAddTaskUnderMutation(
   )
 
   try {
-    // HTTP/FTP retry is disabled until the persisted replay recipe lands (see
-    // plan Follow-ups); reconstruct the HTTP re-add path from git history when
-    // it does.
-    await reAddBt(task, opts, deps, reservedGid, torrentMetadata)
+    if (torrentLike && torrentMetadata) {
+      await reAddBt(task, opts, deps, reservedGid, torrentMetadata)
+    } else if (directParams) {
+      await deps.adapter.createDownload({ ...directParams, gid: reservedGid })
+    }
   } catch (error) {
     await handleFailedEngineAdd(
       error,

@@ -300,6 +300,18 @@ export class Aria2Adapter implements EngineAdapter {
       options.gid = requestedGid
     }
 
+    // Resume controls are product safety invariants, not passthrough options.
+    // Apply them last so a replay recipe cannot silently weaken or broaden
+    // the recovery policy selected by SessionManager.
+    const resumePolicy = params.resumePolicy ?? 'none'
+    if (resumePolicy === 'checkpoint') {
+      options['always-resume'] = 'true'
+      options.continue = 'false'
+    } else if (resumePolicy === 'sequential-prefix') {
+      options['always-resume'] = 'true'
+      options.continue = 'true'
+    }
+
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
       options

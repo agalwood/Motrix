@@ -1,6 +1,7 @@
 import fs from 'node:fs'
-import { newTaskId } from '@core/lib/ids'
+import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
+import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -35,12 +36,14 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
+import { DirectResourceValidatorService } from '../task/direct-resource-validator'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
 import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
+import { DirectRecoveryPlanner } from './direct-recovery-planner'
 import type {
   MotrixDatabase,
   TaskInstanceRow,
@@ -226,7 +229,15 @@ export class SessionManager {
      * them so they are not adopted as phantom standalone tasks. Optional so test
      * and non-media callers can omit it.
      */
-    private mediaTmpRoot?: string
+    private mediaTmpRoot?: string,
+    private directRecoveryPlanner: Pick<
+      DirectRecoveryPlanner,
+      'plan'
+    > = new DirectRecoveryPlanner(),
+    private directResourceValidator: Pick<
+      DirectResourceValidatorService,
+      'verify'
+    > = new DirectResourceValidatorService()
   ) {}
 
   runExclusivePersistence<T>(operation: () => T | Promise<T>): Promise<T> {
@@ -1132,16 +1143,14 @@ export class SessionManager {
       }
       try {
         const bytes = fs.readFileSync(taskPart.torrentMetaPath)
-        const newGid = await this.adapter.addTorrent({
-          metadata: bytes,
-          saveDir: primary?.diskPath || taskPart.finalPath || '/',
-          pause: taskPart.aggStatus === TaskStatus.Paused,
-          checkIntegrity: true,
-        })
-        return this.adoptByPair(
-          pair,
-          newGid,
-          this.statusAfterSuccessfulReAdd(pair)
+        return this.dispatchRecoveryCandidate(pair, (gid) =>
+          this.adapter.addTorrent({
+            metadata: bytes,
+            gid,
+            saveDir: primary?.diskPath || taskPart.finalPath || '/',
+            pause: taskPart.aggStatus === TaskStatus.Paused,
+            checkIntegrity: true,
+          })
         )
       } catch (err) {
         log.warn(
@@ -1156,34 +1165,170 @@ export class SessionManager {
     }
 
     if (primary && primary.uris.length > 0) {
-      try {
-        const newGid = await this.adapter.createDownload({
-          uris: primary.uris,
-          saveDir: primary.diskPath || taskPart.finalPath || '/',
-          filename: taskPart.finalName,
-          pause: taskPart.aggStatus === TaskStatus.Paused,
-        })
-        return this.adoptByPair(
-          pair,
-          newGid,
-          this.statusAfterSuccessfulReAdd(pair)
-        )
-      } catch (err) {
-        log.warn(
-          { err, motrixId: taskPart.motrixId },
-          'HTTP re-add failed during restore'
-        )
+      const recipe = parseDirectReplayRecipe(primary.payload)
+      if (recipe?.replayability === 'requires-credentials') {
         return this.markRecoverErrorFromPair(
           pair,
-          'task.recovery.startup.reAddFailed'
+          'task.recovery.startup.resumeCredentialsRequired'
         )
       }
+
+      const plan = await this.directRecoveryPlanner.plan({
+        primary,
+        finalPath: taskPart.finalPath,
+      })
+      if (plan.kind === 'finalization-candidate') {
+        return this.promoteDirectFinalizationCandidate(pair)
+      }
+      if (plan.kind === 'blocked') {
+        return this.markRecoverErrorFromPair(
+          pair,
+          plan.reason === 'checkpoint-missing'
+            ? 'task.recovery.startup.resumeCheckpointMissing'
+            : 'task.recovery.startup.resumePathInvalid'
+        )
+      }
+      if (
+        plan.kind === 'invalid' ||
+        !plan.diskPath ||
+        !plan.saveDir ||
+        !plan.filename
+      ) {
+        return this.markRecoverErrorFromPair(
+          pair,
+          'task.recovery.startup.resumePathInvalid'
+        )
+      }
+
+      const resumePolicy =
+        plan.kind === 'checkpoint'
+          ? 'checkpoint'
+          : plan.reason === 'temp-file-empty'
+            ? 'sequential-prefix'
+            : 'none'
+      let ifRange: string | null = null
+      if (plan.kind === 'checkpoint' && recipe?.resourceValidator) {
+        if (primary.uris.length !== 1) {
+          return this.markRecoverErrorFromPair(
+            pair,
+            'task.recovery.startup.resumeValidationFailed'
+          )
+        }
+        const validation = await this.directResourceValidator.verify(
+          primary.uris[0] as string,
+          recipe.resourceValidator
+        )
+        if (validation.outcome !== 'unchanged') {
+          const errorDetailKey =
+            validation.outcome === 'source-changed'
+              ? 'task.recovery.startup.resumeSourceChanged'
+              : validation.outcome === 'range-unsupported'
+                ? 'task.recovery.startup.resumeRangeUnsupported'
+                : 'task.recovery.startup.resumeValidationFailed'
+          return this.markRecoverErrorFromPair(pair, errorDetailKey)
+        }
+        ifRange = validation.ifRange
+      }
+      return this.dispatchRecoveryCandidate(pair, (gid) =>
+        this.adapter.createDownload({
+          uris: primary.uris,
+          gid,
+          saveDir: plan.saveDir as string,
+          filename: plan.filename as string,
+          connections: recipe?.connections,
+          ...(ifRange ? { headers: { 'If-Range': ifRange } } : {}),
+          pause: taskPart.aggStatus === TaskStatus.Paused,
+          resumePolicy,
+        })
+      )
     }
 
     return this.markRecoverErrorFromPair(
       pair,
       'task.recovery.startup.dirtyMetadata'
     )
+  }
+
+  /**
+   * A final output with no remaining temporary file means the prior process
+   * crossed the filesystem boundary but crashed before persisting completion.
+   * Recreate the durable rename intent so TaskRecoveryService can reconcile
+   * it instead of dispatching a second download.
+   */
+  private async promoteDirectFinalizationCandidate(
+    pair: TaskWithInstances
+  ): Promise<DownloadTask> {
+    const now = Date.now()
+    const task = taskRowToDownloadTask(pair.task, pair.instances)
+    task.status = TaskStatus.Finalizing
+    task.updatedAt = now
+    for (const instance of task.instances) {
+      instance.status = TaskStatus.Finalizing
+      instance.updatedAt = now
+    }
+    setTaskTransitionPhase(task, TransitionPhase.Renaming)
+    await this.persistTask(task)
+    return task
+  }
+
+  /**
+   * Persist the replacement GID before dispatching it. If the app crashes
+   * after aria2 accepts the task (or the RPC response is lost), the next
+   * restore pass owns that exact GID and cannot mint a duplicate public task.
+   */
+  private async dispatchRecoveryCandidate(
+    pair: TaskWithInstances,
+    dispatch: (gid: string) => Promise<string>
+  ): Promise<DownloadTask> {
+    const gid = newEngineTaskId(undefined, 'SessionManager recovery')
+    const nextStatus = this.statusAfterSuccessfulReAdd(pair)
+    const candidate = this.adoptByPair(pair, gid, nextStatus)
+    await this.persistTask(candidate)
+
+    try {
+      const actualGid = await dispatch(gid)
+      if (actualGid.toLowerCase() !== gid.toLowerCase()) {
+        throw new Error(
+          `Engine returned gid ${actualGid} instead of reserved gid ${gid}`
+        )
+      }
+      return candidate
+    } catch (err) {
+      log.warn(
+        { err, motrixId: pair.task.motrixId, gid },
+        'engine re-add failed during restore'
+      )
+
+      let cleanupComplete = false
+      try {
+        await this.adapter.forceRemoveTask(gid)
+      } catch (cleanupError) {
+        log.debug(
+          { err: cleanupError, motrixId: pair.task.motrixId, gid },
+          'restore re-add force-remove did not settle'
+        )
+      }
+      try {
+        await this.adapter.removeDownloadResult(gid)
+        cleanupComplete = true
+      } catch (cleanupError) {
+        log.warn(
+          { err: cleanupError, motrixId: pair.task.motrixId, gid },
+          'restore re-add result cleanup failed'
+        )
+      }
+
+      return cleanupComplete
+        ? this.markRecoverErrorFromPair(
+            pair,
+            'task.recovery.startup.reAddFailed'
+          )
+        : this.markRecoverErrorTask(
+            candidate,
+            pair.task.aggStatus,
+            'task.recovery.startup.reAddFailed'
+          )
+    }
   }
 
   /**
@@ -1203,10 +1348,18 @@ export class SessionManager {
     pair: TaskWithInstances,
     errorDetailKey: string
   ): Promise<DownloadTask> {
-    const now = Date.now()
     const previousStatus = pair.task.aggStatus
     const primary = pair.instances[0]
     const task = this.adoptByPair(pair, primary?.gid ?? '')
+    return this.markRecoverErrorTask(task, previousStatus, errorDetailKey)
+  }
+
+  private async markRecoverErrorTask(
+    task: DownloadTask,
+    previousStatus: TaskStatus,
+    errorDetailKey: string
+  ): Promise<DownloadTask> {
+    const now = Date.now()
     const errored: DownloadTask = {
       ...task,
       ...applyTerminalTransition(

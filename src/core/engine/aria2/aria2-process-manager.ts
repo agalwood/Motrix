@@ -20,6 +20,7 @@ import { buildFeatureReport } from './feature-report'
 const log = getLogger('aria2')
 
 const OWNER_RECORD_VERSION = 1
+const STDERR_TAIL_LIMIT = 32 * 1024
 const OWNER_MARKER_PREFIXES = [
   '--conf-path=',
   '--save-session=',
@@ -58,6 +59,7 @@ export class Aria2ProcessManager {
   private running = false
   private readonly ownershipFilePath: string | null
   private readonly inspector: Aria2ProcessInspector
+  private recentStderr = ''
 
   onExit: ((code: number | null, signal: string | null) => void) | null = null
   onError: ((err: Error) => void) | null = null
@@ -102,6 +104,7 @@ export class Aria2ProcessManager {
     args: string[],
     env?: NodeJS.ProcessEnv
   ): Promise<void> {
+    this.recentStderr = ''
     const options: SpawnOptions = {
       stdio: ['ignore', 'pipe', 'pipe'],
     }
@@ -129,7 +132,11 @@ export class Aria2ProcessManager {
     })
 
     child.stderr?.on('data', (data: Buffer) => {
-      log.warn({ data: data.toString().trim() }, 'aria2 stderr')
+      const text = data.toString()
+      this.recentStderr = `${this.recentStderr}${text}`.slice(
+        -STDERR_TAIL_LIMIT
+      )
+      log.warn({ data: text.trim() }, 'aria2 stderr')
     })
 
     child.on('exit', (code, signal) => {
@@ -184,6 +191,11 @@ export class Aria2ProcessManager {
 
   getPid(): number | null {
     return this.process?.pid ?? null
+  }
+
+  /** Last bounded stderr tail from the current or most recent spawn attempt. */
+  getRecentStderr(): string {
+    return this.recentStderr
   }
 
   async inspectPort(
