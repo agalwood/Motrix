@@ -11,12 +11,28 @@ export const WINDOWS_DEFAULT_APPS_SETTINGS_URL = 'ms-settings:defaultapps'
 const WINDOWS_CAPABILITIES_REGISTRY_PATH = 'Software\\Motrix\\Capabilities'
 const WINDOWS_TORRENT_PROGID = 'Motrix.File.Torrent'
 const WINDOWS_MAGNET_PROGID = 'Motrix.Url.Magnet'
-const WINDOWS_USER_CHOICE_KEYS = {
+const WINDOWS_ASSOCIATION_KEYS = {
   torrent:
-    'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.torrent\\UserChoice',
+    'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.torrent',
   magnet:
-    'Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\magnet\\UserChoice',
+    'Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\magnet',
 } as const
+const WINDOWS_USER_CHOICE_SUFFIXES = [
+  'UserChoiceLatest\\ProgId',
+  'UserChoiceLatest',
+  'UserChoice',
+] as const
+
+type WindowsAssociation = keyof typeof WINDOWS_ASSOCIATION_KEYS
+
+interface WindowsUserChoiceResult {
+  ok: boolean
+  progId: string | null
+}
+
+interface ReadWindowsUserChoiceDeps {
+  queryProgId?: (key: string) => Promise<string | null>
+}
 
 export type WindowsRegistrationScope = 'user' | 'machine'
 
@@ -29,8 +45,8 @@ interface GetWindowsDefaultAssociationsDeps {
   platform?: NodeJS.Platform
   hasRegistration?: (scope: WindowsRegistrationScope) => Promise<boolean | null>
   readUserChoice?: (
-    association: 'torrent' | 'magnet'
-  ) => Promise<{ ok: boolean; progId: string | null }>
+    association: WindowsAssociation
+  ) => Promise<WindowsUserChoiceResult>
 }
 
 /**
@@ -85,30 +101,44 @@ async function hasWindowsRegistration(
   }
 }
 
-async function readWindowsUserChoice(
-  association: 'torrent' | 'magnet'
-): Promise<{ ok: boolean; progId: string | null }> {
+async function queryWindowsRegistryProgId(key: string): Promise<string | null> {
   const systemRoot = process.env.SystemRoot ?? 'C:\\Windows'
   const regExe = path.win32.join(systemRoot, 'System32', 'reg.exe')
 
   try {
     const { stdout } = await execFileAsync(
       regExe,
-      [
-        'query',
-        `HKCU\\${WINDOWS_USER_CHOICE_KEYS[association]}`,
-        '/v',
-        'ProgId',
-        '/reg:64',
-      ],
+      ['query', `HKCU\\${key}`, '/v', 'ProgId', '/reg:64'],
       { timeout: 2_000, windowsHide: true }
     )
-    const progId =
+    return (
       /^\s*ProgId\s+REG_\w+\s+(.+?)\s*$/imu.exec(stdout.toString())?.[1] ?? null
-    return { ok: progId !== null, progId }
+    )
   } catch {
-    return { ok: false, progId: null }
+    return null
   }
+}
+
+/**
+ * Windows 11 24H2+ records the effective choice in UserChoiceLatest and may
+ * leave the legacy UserChoice stale. Current builds nest ProgId one level
+ * deeper, while earlier builds used a direct value. Probe both Latest layouts
+ * before falling back to the legacy key so the verdict follows the handler
+ * Windows actually resolves.
+ */
+export async function readWindowsUserChoice(
+  association: WindowsAssociation,
+  deps: ReadWindowsUserChoiceDeps = {}
+): Promise<WindowsUserChoiceResult> {
+  const queryProgId = deps.queryProgId ?? queryWindowsRegistryProgId
+  const baseKey = WINDOWS_ASSOCIATION_KEYS[association]
+
+  for (const suffix of WINDOWS_USER_CHOICE_SUFFIXES) {
+    const progId = await queryProgId(`${baseKey}\\${suffix}`)
+    if (progId !== null) return { ok: true, progId }
+  }
+
+  return { ok: false, progId: null }
 }
 
 export async function getWindowsDefaultAssociations(
