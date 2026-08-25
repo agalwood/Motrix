@@ -3,6 +3,7 @@ import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { SEVERITY_ICONS } from '@renderer/components/ui/severity-icons'
+import { browserDisplayName } from '@renderer/lib/browser-name'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import {
@@ -79,7 +80,7 @@ export function pairRequestCopy(
         // it is the description instead, shown exactly once. The browser
         // rides in the title, so there is no separate "From …" row.
         title: t('settings.integration.browser.pairToast.title', {
-          browser: payload.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox',
+          browser: browserDisplayName(payload.browser),
         }),
         // The full id, verbatim — it must be comparable against
         // chrome://extensions character by character; only the label is terse.

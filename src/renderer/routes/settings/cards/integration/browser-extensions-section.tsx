@@ -12,6 +12,7 @@ import {
   FormLabel,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
+import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
 import { TriangleAlertIcon } from 'lucide-react'
@@ -95,7 +96,7 @@ export function BrowserExtensionsSection() {
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono">{it.name || it.id}</span>
                 <span className="text-muted-foreground">
-                  {it.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox'}
+                  {browserDisplayName(it.browser)}
                   {it.lastActiveAt
                     ? ` · ${t('settings.integration.browser.lastActive')}: ${new Date(it.lastActiveAt).toLocaleString()}`
                     : ''}
