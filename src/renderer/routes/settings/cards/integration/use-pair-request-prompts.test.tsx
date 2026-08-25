@@ -188,7 +188,9 @@ describe('usePairRequestPrompts', () => {
       // the raw id is meaningless in a title — it is the description, shown
       // once; the browser rides in the title instead of a "From …" row.
       title: 'A Chrome / Edge extension wants to connect to Motrix',
-      description: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      // The full id, comparable against chrome://extensions; only the
+      // label is terse.
+      description: 'ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     })
   })
 

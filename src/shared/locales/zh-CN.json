@@ -1454,6 +1454,7 @@
         },
         "pairToast": {
           "title": "{{browser}} 扩展请求连接 Motrix",
+          "extensionId": "ID：{{id}}",
           "deny": "拒绝",
           "pairCode": "配对码",
           "copyCode": "复制配对码",

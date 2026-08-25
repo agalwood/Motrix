@@ -234,7 +234,7 @@ describe('toast', () => {
             'A Chrome / Edge extension wants to connect to Motrix'
           )
         ).toBeInTheDocument()
-        expect(screen.getByText('ext-1')).toBeInTheDocument()
+        expect(screen.getByText('ID: ext-1')).toBeInTheDocument()
         expect(screen.queryByText('From Chrome / Edge')).toBeNull()
         // §7.1: rendered verbatim — already grouped XXXX-XXXX by the caller.
         expect(screen.getByText('1234-5678')).toBeInTheDocument()
@@ -320,7 +320,7 @@ describe('toast', () => {
           await screen.findByText('Unverified extension')
         ).toBeInTheDocument()
         expect(screen.getByText(/could not be verified/i)).toBeInTheDocument()
-        expect(screen.getByText('ext-1')).toBeInTheDocument()
+        expect(screen.getByText('ID: ext-1')).toBeInTheDocument()
         expect(screen.getByText('1234-5678')).toBeInTheDocument()
         expect(baseElement.querySelector('svg.text-amber-500')).not.toBeNull()
         // No self-reported friendly name exists in the payload at all, and

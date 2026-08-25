@@ -81,7 +81,11 @@ export function pairRequestCopy(
         title: t('settings.integration.browser.pairToast.title', {
           browser: payload.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox',
         }),
-        description: payload.extensionId,
+        // The full id, verbatim — it must be comparable against
+        // chrome://extensions character by character; only the label is terse.
+        description: t('settings.integration.browser.pairToast.extensionId', {
+          id: payload.extensionId,
+        }),
         // No allowLabel: an extension prompt has no Allow affordance (see
         // `PairRequestToastData`'s doc comment).
         denyLabel: t('settings.integration.browser.pairToast.deny'),
