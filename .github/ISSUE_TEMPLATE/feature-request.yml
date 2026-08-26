@@ -17,6 +17,8 @@ body:
       options:
         - label: I searched the [open and closed issues](https://github.com/agalwood/Motrix/issues?q=is%3Aissue) and did not find an existing request for this idea.
           required: true
+        - label: I reviewed the [FAQ](https://motrix.app/manual/faq/) and [Troubleshooting](https://motrix.app/manual/troubleshooting/) guides, but they did not resolve my issue.
+          required: true
         - label: This request describes one focused problem or capability.
           required: true
         - label: I agree to follow the [Code of Conduct](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.md).

@@ -19,6 +19,8 @@ body:
       options:
         - label: I searched the [open and closed issues](https://github.com/agalwood/Motrix/issues?q=is%3Aissue) and did not find an existing report for this problem.
           required: true
+        - label: I reviewed the [FAQ](https://motrix.app/manual/faq/) and [Troubleshooting](https://motrix.app/manual/troubleshooting/) guides, but they did not resolve my issue.
+          required: true
         - label: I tested a current Motrix Turbo v2 release, or explained below why I could not.
           required: true
         - label: I have removed sensitive information from the report, logs, and screenshots.
