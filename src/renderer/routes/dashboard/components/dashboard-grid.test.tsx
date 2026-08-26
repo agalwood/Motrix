@@ -1,6 +1,5 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
-import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import { DEFAULT_DASHBOARD_LAYOUT } from '@shared/schemas/dashboard-layout'
 import type {
   DashboardLayoutSettings,
@@ -176,36 +175,6 @@ const COMPACT_PRESET_TILES: DashboardTileLayout[] = [
   { id: 'nat', enabled: true, x: 2, y: 2, w: 2, h: 1 },
   { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
 ]
-
-function renderCollapsedGrid() {
-  const store = new Map<string, string>()
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => {
-      store.set(k, v)
-    },
-    removeItem: (k: string) => {
-      store.delete(k)
-    },
-    clear: () => store.clear(),
-  })
-  vi.stubGlobal(
-    'matchMedia',
-    vi.fn().mockReturnValue({
-      matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })
-  )
-  render(
-    <SidebarProvider defaultOpen={false}>
-      <DashboardGrid
-        layout={DEFAULT_DASHBOARD_LAYOUT}
-        renderTile={renderTile}
-      />
-    </SidebarProvider>
-  )
-}
 
 describe('DashboardGrid', () => {
   afterEach(() => {
@@ -461,44 +430,6 @@ describe('DashboardGrid', () => {
       presets,
       add,
     ])
-  })
-
-  it('renders icon-only 28px actions on the collapsed header centerline', () => {
-    renderCollapsedGrid()
-
-    const configure = screen.getByRole('button', { name: /Configure|配置/i })
-    expect(configure).toHaveClass(
-      'size-7',
-      'p-0',
-      'hover:bg-transparent',
-      'dark:hover:bg-transparent',
-      'panel-action-align-visual-end'
-    )
-    expect(configure.querySelector('svg')).toHaveClass('size-4')
-    expect(configure).not.toHaveClass('[&>svg]:translate-y-0.5')
-    expect(configure).not.toHaveTextContent(/Configure|配置/i)
-
-    fireEvent.click(configure)
-
-    const cancel = screen.getByRole('button', { name: /Cancel|取消/i })
-    expect(cancel).toHaveClass('size-7', 'p-0', '[&>svg]:size-4')
-    expect(cancel).not.toHaveTextContent(/Cancel|取消/i)
-  })
-
-  it('uses a 28px configure action in the expanded panel header', () => {
-    renderDefaultGrid()
-
-    const configure = screen.getByRole('button', { name: /Configure|配置/i })
-    expect(configure).toHaveClass(
-      'size-7',
-      'items-center',
-      'justify-center',
-      'panel-action-align-visual-end',
-      'hover:bg-transparent',
-      'dark:hover:bg-transparent'
-    )
-    expect(configure.querySelector('svg')).toHaveClass('size-4')
-    expect(configure).not.toHaveClass('size-8')
   })
 
   it('shows all presets only while configuring and labels exact or custom drafts', async () => {

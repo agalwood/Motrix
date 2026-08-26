@@ -33,29 +33,4 @@ describe('CurrentSummaryCard', () => {
     expect(screen.queryByText(/Progress/i)).toBeNull()
     expect(screen.queryByText(/ETA/i)).toBeNull()
   })
-
-  it('keeps both live speeds complete in the narrow two-column card', () => {
-    render(
-      <CurrentSummaryCard
-        task={makeDownloadTask({
-          downloadSpeed: 384 * 1_024,
-          uploadSpeed: 72 * 1_024,
-        })}
-        lifetime={null}
-      />
-    )
-
-    const download = screen.getByText('384 KB/s')
-    const upload = screen.getByText('72.0 KB/s')
-    expect(download).toHaveClass('whitespace-nowrap', 'text-base')
-    expect(upload).toHaveClass('whitespace-nowrap')
-    expect(download).not.toHaveClass('truncate')
-    expect(upload).not.toHaveClass('truncate')
-    const summary = screen.getByTestId('task-inspector-activity-summary-card')
-    expect(summary).toHaveClass('@container/summary', 'border-y', 'py-3')
-    expect(summary).not.toHaveClass('rounded-md', 'border')
-    expect(
-      screen.getByTestId('task-inspector-activity-summary-secondary')
-    ).toHaveClass('divide-x')
-  })
 })

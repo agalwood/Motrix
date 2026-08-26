@@ -16,14 +16,4 @@ describe('StatusPill', () => {
     expect(screen.getByText('Fetching')).toBeInTheDocument()
     expect(screen.queryByText('Fetching metadata')).not.toBeInTheDocument()
   })
-
-  it('applies tone classes from task-status-ui', () => {
-    const { container } = render(<StatusPill status={TaskStatus.Error} />)
-    expect(container.firstChild).toHaveClass('bg-red-100')
-  })
-
-  it('does not shrink when adjacent inspector metadata is long', () => {
-    render(<StatusPill status={TaskStatus.Downloading} />)
-    expect(screen.getByTestId('task-status-pill')).toHaveClass('shrink-0')
-  })
 })

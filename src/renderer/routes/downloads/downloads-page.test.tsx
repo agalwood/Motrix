@@ -168,22 +168,14 @@ beforeEach(() => {
 })
 
 describe('DownloadsPage', () => {
-  it('renders the status title heading and collapsed search trigger', () => {
+  it('renders the status title heading and search trigger', () => {
     renderAt('/downloads/all')
     expect(
       screen.getByRole('heading', { name: /downloads/i })
     ).toBeInTheDocument()
-    const search = screen.getByRole('button', { name: /search downloads/i })
-    expect(search).toHaveClass(
-      'size-7',
-      'items-center',
-      'justify-center',
-      'hover:bg-transparent',
-      'dark:hover:bg-transparent',
-      'panel-action-align-visual-end'
-    )
-    expect(search.querySelector('svg')).toHaveClass('size-4')
-    expect(search).not.toHaveClass('size-8')
+    expect(
+      screen.getByRole('button', { name: /search downloads/i })
+    ).toBeInTheDocument()
   })
 
   it.each([

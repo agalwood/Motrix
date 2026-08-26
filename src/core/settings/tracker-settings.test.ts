@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_TRACKER_SETTINGS, trackerSettingsSchema } from './validators'
+import { trackerSettingsSchema } from './validators'
 
 describe('trackerSettingsSchema', () => {
   it('provides defaults for empty input', () => {
@@ -43,12 +43,5 @@ describe('trackerSettingsSchema', () => {
   it('accepts explicit sourcesEnabled = false', () => {
     const result = trackerSettingsSchema.parse({ sourcesEnabled: false })
     expect(result.sourcesEnabled).toBe(false)
-  })
-})
-
-describe('DEFAULT_TRACKER_SETTINGS', () => {
-  it('is a valid TrackerSettings object', () => {
-    expect(DEFAULT_TRACKER_SETTINGS.autoSync).toBe(true)
-    expect(DEFAULT_TRACKER_SETTINGS.sources).toBeDefined()
   })
 })

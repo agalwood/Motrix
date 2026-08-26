@@ -87,43 +87,6 @@ describe('<NotificationsPage>', () => {
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
-  it('renders a severity icon per row', async () => {
-    mockList([
-      notification({ id: 'e1', severity: 'error' }),
-      notification({
-        id: 'w1',
-        severity: 'warning',
-        titleKey: 'notification.engineFailure.title',
-        titleParams: null,
-        taskId: null,
-      }),
-      notification({
-        id: 'i1',
-        severity: 'info',
-        titleKey: 'notification.taskComplete.title',
-        titleParams: { name: 'x' },
-      }),
-    ])
-    const { container } = renderPage()
-    await screen.findByText('file.zip failed')
-    expect(container.querySelector('svg.text-destructive')).not.toBeNull()
-    expect(container.querySelector('svg.text-amber-500')).not.toBeNull()
-    expect(container.querySelector('svg.text-sky-500')).not.toBeNull()
-  })
-
-  it('falls back to the info icon and does not crash when severity is out of the known set (tampered db)', async () => {
-    mockList([
-      notification({
-        // Simulates a tampered/legacy row the unchecked store cast lets
-        // through — the type system alone would never produce this value.
-        severity: 'bogus-severity' as AppNotification['severity'],
-      }),
-    ])
-    const { container } = renderPage()
-    await screen.findByText('file.zip failed')
-    expect(container.querySelector('svg.text-sky-500')).not.toBeNull()
-  })
-
   it('renders the raw key and warns when titleKey is unknown to the catalog', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockList([

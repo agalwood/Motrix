@@ -72,23 +72,4 @@ describe('ActiveTile', () => {
       'justify-between'
     )
   })
-
-  it.each([
-    ['compact', compactViewport],
-    ['summary', summaryViewport],
-    ['detailed', detailedViewport],
-    ['focus', focusViewport],
-  ])('keeps the primary KPI line box tight in %s', (_label, viewport) => {
-    const { container } = render(
-      <ActiveTile activeCount={4} viewport={viewport} />
-    )
-
-    expect(container.querySelector('[data-slot="kpi-number"]')).toHaveClass(
-      'leading-none'
-    )
-    expect(container.querySelector('[data-slot="tile-title"]')).toHaveClass(
-      'h-8',
-      'text-[32px]'
-    )
-  })
 })

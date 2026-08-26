@@ -242,24 +242,6 @@ const RAW_FILES: Aria2RawFile[] = [
 // ─── Tests ──────────────────────────────────────────────────
 
 describe('Aria2Adapter', () => {
-  describe('connect / disconnect', () => {
-    it('delegates connect to rpc client', async () => {
-      const rpc = createMockRpc()
-      const adapter = new Aria2Adapter(rpc)
-      await adapter.connect()
-      // connect is a no-op on adapter — RPC connection is
-      // managed by EngineSupervisor
-      expect(true).toBe(true)
-    })
-
-    it('delegates disconnect to rpc client', async () => {
-      const rpc = createMockRpc()
-      const adapter = new Aria2Adapter(rpc)
-      await adapter.disconnect()
-      expect(true).toBe(true)
-    })
-  })
-
   describe('getCapabilities / getFeatureReport', () => {
     it('returns conservative defaults before connect()', () => {
       const rpc = createMockRpc()

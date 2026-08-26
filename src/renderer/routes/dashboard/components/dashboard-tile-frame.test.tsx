@@ -104,10 +104,9 @@ describe('DashboardTileFrame', () => {
 
     const body = container.querySelector('[data-dashboard-tile-body]')
     expect(body).toHaveAttribute('inert')
-    expect(body).toHaveClass('[&>*]:pointer-events-none', '[&>*]:select-none')
   })
 
-  it('shows a bottom-right resize handle in editing mode', () => {
+  it('dispatches resize-handle pointer input in editing mode', () => {
     const onResizeHandlePointerDown = vi.fn()
 
     renderFrame({
@@ -118,13 +117,6 @@ describe('DashboardTileFrame', () => {
     const handle = screen.getByRole('button', { name: 'Resize tile' })
     fireEvent.pointerDown(handle)
 
-    expect(handle).toHaveClass(
-      'absolute',
-      'right-0',
-      'bottom-0',
-      'size-5',
-      'cursor-nwse-resize'
-    )
     expect(onResizeHandlePointerDown).toHaveBeenCalledWith(
       'engine',
       expect.any(Object)

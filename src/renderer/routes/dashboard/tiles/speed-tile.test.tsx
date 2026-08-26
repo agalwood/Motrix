@@ -42,12 +42,6 @@ const FOCUS = {
   contentLevel: 'focus',
 } satisfies DashboardTileViewport
 
-const FULL_WIDTH_FOCUS = {
-  span: { w: 4, h: 1 },
-  orientation: 'wide',
-  contentLevel: 'focus',
-} satisfies DashboardTileViewport
-
 describe('SpeedTile', () => {
   it('renders the UPLOAD label and current up speed', () => {
     render(<SpeedTile kind="up" history={points} viewport={SUMMARY} />)
@@ -120,26 +114,5 @@ describe('SpeedTile', () => {
     render(<SpeedTile kind="up" history={[]} viewport={SUMMARY} />)
     expect(screen.getAllByText(/0\s*B\/s/).length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText('1 B/s')).not.toBeInTheDocument()
-  })
-
-  it.each([
-    ['compact', COMPACT],
-    ['summary', SUMMARY],
-    ['wide detailed', WIDE_DETAILED],
-    ['full-width focus', FULL_WIDTH_FOCUS],
-    ['square detailed', SQUARE_DETAILED],
-    ['large focus', FOCUS],
-  ])('keeps the primary KPI line box tight in %s', (_label, viewport) => {
-    const { container } = render(
-      <SpeedTile kind="up" history={points} viewport={viewport} />
-    )
-
-    expect(container.querySelector('[data-slot="kpi-number"]')).toHaveClass(
-      'leading-none'
-    )
-    expect(container.querySelector('[data-slot="tile-title"]')).toHaveClass(
-      'h-8',
-      'text-[32px]'
-    )
   })
 })

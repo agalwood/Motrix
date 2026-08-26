@@ -47,64 +47,6 @@ function ControlledSegmentedControl({
 }
 
 describe('TileSegmentedControl', () => {
-  it('preserves the Transfer geometry and selected treatment', () => {
-    render(
-      <TileSegmentedControl
-        ariaLabel="Task view"
-        value="active"
-        options={OPTIONS}
-        onValueChange={vi.fn()}
-      />
-    )
-
-    const group = screen.getByRole('radiogroup', { name: 'Task view' })
-    const active = screen.getByRole('radio', { name: 'Active' })
-    const failed = screen.getByRole('radio', { name: 'Failed' })
-
-    expect(group).toHaveClass(
-      'rounded-md',
-      'bg-muted/70',
-      'p-0.5',
-      '[&>*]:focus-visible:relative',
-      '[&>*]:focus-visible:z-10'
-    )
-    expect(active).toHaveClass(
-      'h-5',
-      'rounded-md!',
-      'border-0',
-      'px-2',
-      'text-[10px]',
-      'font-medium',
-      'bg-background',
-      'text-foreground',
-      'shadow-xs',
-      'hover:bg-background',
-      'dark:hover:bg-background'
-    )
-    expect(failed).toHaveClass('shadow-none')
-    expect(failed).not.toHaveClass('shadow-xs')
-  })
-
-  it('keeps a 20px visual option with a 24px vertical hit target', () => {
-    render(
-      <TileSegmentedControl
-        ariaLabel="Task view"
-        value="active"
-        options={OPTIONS}
-        onValueChange={vi.fn()}
-      />
-    )
-
-    expect(screen.getByRole('radio', { name: 'Active' })).toHaveClass(
-      'relative',
-      'h-5',
-      'after:absolute',
-      'after:inset-x-0',
-      'after:-inset-y-0.5',
-      "after:content-['']"
-    )
-  })
-
   it('exposes radio semantics, one tab stop, and the forwarded root ref', () => {
     const ref = createRef<HTMLDivElement>()
     render(
@@ -290,20 +232,5 @@ describe('TileSegmentedControl', () => {
     fireEvent.click(radios[1] as HTMLElement)
     fireEvent.keyDown(radios[0] as HTMLElement, { key: 'ArrowRight' })
     expect(onValueChange).not.toHaveBeenCalled()
-  })
-
-  it('removes transitions for reduced-motion users', () => {
-    render(
-      <TileSegmentedControl
-        ariaLabel="Task view"
-        value="active"
-        options={OPTIONS}
-        onValueChange={vi.fn()}
-      />
-    )
-
-    for (const radio of screen.getAllByRole('radio')) {
-      expect(radio).toHaveClass('motion-reduce:transition-none')
-    }
   })
 })

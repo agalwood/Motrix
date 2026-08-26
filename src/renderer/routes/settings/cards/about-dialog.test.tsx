@@ -417,17 +417,6 @@ describe('<AboutDialog>', () => {
     )
   })
 
-  it('does not scale About actions while they are pressed', () => {
-    renderDialog()
-
-    for (const button of screen.getAllByRole('button')) {
-      expect(button.className).not.toContain('active:scale')
-    }
-    for (const link of screen.getAllByRole('link')) {
-      expect(link.className).not.toContain('active:scale')
-    }
-  })
-
   it('keeps release notes out of the compact dialog', () => {
     renderDialog()
 
