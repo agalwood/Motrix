@@ -1,4 +1,4 @@
-# Motrix Turbo — reproducible Flatpak validation and native builds.
+# Motrix — reproducible Flatpak validation and native builds.
 #
 # The canonical manifest keeps the application source pointed at a future
 # public release. CI replaces only that source with a git archive of the

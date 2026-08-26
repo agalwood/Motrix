@@ -1,4 +1,4 @@
-# Motrix Turbo — General CI
+# Motrix — General CI
 #
 # Validates plugin manifest schema parity (host façade of the published
 # @motrix/plugin-manifest-schema), lint, type-check, unit tests, and the

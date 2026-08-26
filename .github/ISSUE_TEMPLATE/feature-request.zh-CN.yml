@@ -19,7 +19,7 @@ body:
           required: true
         - label: 此 Issue 只描述一个明确的问题或功能点。
           required: true
-        - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.md)。
+        - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.zh-CN.md)。
           required: true
 
   - type: dropdown
