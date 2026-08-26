@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildWindowsDefaultAppsSettingsUrl,
   getWindowsDefaultAssociations,
+  readWindowsUserChoice,
   resolveWindowsDefaultAppsSettingsUrl,
   supportsRegisteredAppDefaultAppsQuery,
   WINDOWS_DEFAULT_APPS_SETTINGS_URL,
@@ -106,6 +107,35 @@ describe('Windows Default Apps settings', () => {
     })
     expect(hasRegistration).not.toHaveBeenCalled()
     expect(readUserChoice).not.toHaveBeenCalled()
+  })
+
+  it('uses Windows 11 UserChoiceLatest instead of a stale legacy value', async () => {
+    const queryProgId = vi.fn(async (key: string) => {
+      if (key.endsWith('UserChoiceLatest\\ProgId')) {
+        return key.includes('FileExts')
+          ? 'Motrix.File.Torrent'
+          : 'Motrix.Url.Magnet'
+      }
+      return 'Other.Stale.Handler'
+    })
+    const readUserChoice = (association: 'torrent' | 'magnet') =>
+      readWindowsUserChoice(association, { queryProgId })
+
+    await expect(
+      getWindowsDefaultAssociations({
+        platform: 'win32',
+        hasRegistration: vi.fn().mockResolvedValue(true),
+        readUserChoice,
+      })
+    ).resolves.toMatchObject({ torrent: true, magnet: true })
+    expect(queryProgId.mock.calls).toEqual([
+      [
+        'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.torrent\\UserChoiceLatest\\ProgId',
+      ],
+      [
+        'Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\magnet\\UserChoiceLatest\\ProgId',
+      ],
+    ])
   })
 
   it('reports current defaults for an all-users installation', async () => {

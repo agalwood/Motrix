@@ -827,6 +827,10 @@ describe('buildCommandHandlers', () => {
 
   it('returns a picked save directory and handles cancellation', async () => {
     showOpenDialogMock.mockReset()
+    fromWebContentsMock.mockReset()
+    const sender = {} as never
+    const parent = { isDestroyed: () => false }
+    fromWebContentsMock.mockReturnValue(parent)
     showOpenDialogMock
       .mockResolvedValueOnce({ canceled: true, filePaths: [] })
       .mockResolvedValueOnce({ canceled: false, filePaths: ['/downloads'] })
@@ -834,15 +838,52 @@ describe('buildCommandHandlers', () => {
     const handlers = buildCommandHandlers(fakeCtx())
 
     await expect(
-      handlers[Commands.PickSaveDir]?.({ defaultPath: '/tmp' })
+      handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/tmp' })
     ).resolves.toBeNull()
     await expect(
-      handlers[Commands.PickSaveDir]?.({ defaultPath: '/tmp' })
+      handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/tmp' })
     ).resolves.toEqual({ path: '/downloads' })
-    expect(showOpenDialogMock).toHaveBeenCalledWith({
+    expect(showOpenDialogMock).toHaveBeenCalledWith(parent, {
       properties: ['openDirectory'],
       defaultPath: '/tmp',
     })
+  })
+
+  it('ignores concurrent save-directory picks from the same window', async () => {
+    showOpenDialogMock.mockReset()
+    fromWebContentsMock.mockReset()
+    const sender = {} as never
+    const parent = { isDestroyed: () => false }
+    fromWebContentsMock.mockReturnValue(parent)
+    let resolvePick!: (result: {
+      canceled: boolean
+      filePaths: string[]
+    }) => void
+    showOpenDialogMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePick = resolve
+        })
+    )
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(fakeCtx())
+
+    const first = handlers[Commands.PickSaveDir]?.(sender, {
+      defaultPath: '/first',
+    })
+    await expect(
+      handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/second' })
+    ).resolves.toBeNull()
+    expect(showOpenDialogMock).toHaveBeenCalledOnce()
+
+    resolvePick({ canceled: false, filePaths: ['/picked'] })
+    await expect(first).resolves.toEqual({ path: '/picked' })
+
+    showOpenDialogMock.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    await expect(
+      handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/third' })
+    ).resolves.toBeNull()
+    expect(showOpenDialogMock).toHaveBeenCalledTimes(2)
   })
 
   it('opens only allow-listed external URL schemes', async () => {
@@ -968,6 +1009,9 @@ describe('buildCommandHandlers', () => {
     const menuContextRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.UpdateMenuContext
     )
+    const pickSaveDirRegistration = ipcHandleMock.mock.calls.find(
+      ([channel]) => channel === Commands.PickSaveDir
+    )
     const restartRegistration = ipcHandleMock.mock.calls.find(
       ([channel]) => channel === Commands.RestartEngine
     )
@@ -975,6 +1019,7 @@ describe('buildCommandHandlers', () => {
     expect(minimizeRegistration).toBeDefined()
     expect(toggleMaximizeRegistration).toBeDefined()
     expect(menuContextRegistration).toBeDefined()
+    expect(pickSaveDirRegistration).toBeDefined()
     expect(restartRegistration).toBeDefined()
 
     await closeRegistration?.[1]({ sender }, { showMain: true })
@@ -992,11 +1037,19 @@ describe('buildCommandHandlers', () => {
     })
     await toggleMaximizeRegistration?.[1]({ sender })
     await menuContextRegistration?.[1]({ sender }, { currentRoute: '/tasks' })
+    const pickerWindow = { isDestroyed: () => false }
+    fromWebContentsMock.mockReturnValueOnce(pickerWindow)
+    showOpenDialogMock.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    await pickSaveDirRegistration?.[1]({ sender }, { defaultPath: '/tmp' })
     await restartRegistration?.[1]({})
 
     expect(ctx.windowManager.getWindowIdBySender).toHaveBeenCalledWith(sender)
     expect(ctx.windowManager.closeAndRecycle).toHaveBeenCalledWith('main')
     expect(fromWebContentsMock).toHaveBeenCalledWith(sender)
+    expect(showOpenDialogMock).toHaveBeenCalledWith(pickerWindow, {
+      properties: ['openDirectory'],
+      defaultPath: '/tmp',
+    })
     expect(ctx.contextStore.merge).toHaveBeenCalledWith({
       currentRoute: '/tasks',
     })
