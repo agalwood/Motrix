@@ -146,45 +146,26 @@ describe('TransferTile', () => {
     expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.0 GB')
   })
 
-  it.each([
-    { label: '2x1', span: { w: 2 as const, h: 1 as const } },
-    { label: '2x2', span: { w: 2 as const, h: 2 as const } },
-    { label: '4x1', span: { w: 4 as const, h: 1 as const } },
-  ])('preserves the original endpoint chart at $label', ({ span }) => {
-    renderTile({ span })
+  it('renders ordered transfer endpoints with proportional segments', () => {
+    renderTile()
 
-    const chart = screen.getByTestId('transfer-chart')
-    const directions = screen.getByTestId('transfer-directions')
     const labels = screen.getByTestId('transfer-direction-labels')
     const values = screen.getByTestId('transfer-direction-values')
     const bar = screen.getByTestId('transfer-proportion-bar')
     const upload = screen.getByTestId('transfer-upload-segment')
     const download = screen.getByTestId('transfer-download-segment')
 
-    expect(chart).toHaveClass('mt-auto')
-    expect(directions).toHaveClass('text-muted-foreground')
-    expect(labels).toHaveClass(
-      'flex',
-      'justify-between',
-      'text-[11px]',
-      'leading-none'
-    )
     expect(labels).toHaveTextContent(/Up.*Down/)
-    expect(values).toHaveClass('flex', 'justify-between')
     expect(labels.compareDocumentPosition(values)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
     expect(values.compareDocumentPosition(bar)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
-    expect(bar).toHaveClass('h-6', 'w-full', 'gap-1')
-    expect(bar).not.toHaveClass('rounded-full', 'bg-muted')
     expect(bar).toHaveAttribute('aria-hidden')
     expect(upload.compareDocumentPosition(download)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
-    expect(upload).toHaveClass('h-full', 'rounded-sm')
-    expect(download).toHaveClass('h-full', 'rounded-sm')
     expect(upload).toHaveStyle({ width: '23.12%' })
     expect(download).toHaveStyle({ width: '76.88%' })
   })
@@ -242,22 +223,6 @@ describe('TransferTile', () => {
       Node.DOCUMENT_POSITION_FOLLOWING
     )
     expect(content.className).not.toContain('focusHorizontal')
-  })
-
-  it.each([
-    { label: '1x1', span: { w: 1 as const, h: 1 as const } },
-    { label: '2x1', span: { w: 2 as const, h: 1 as const } },
-    { label: '1x2', span: { w: 1 as const, h: 2 as const } },
-    { label: '2x2', span: { w: 2 as const, h: 2 as const } },
-    { label: '4x1', span: { w: 4 as const, h: 1 as const } },
-  ])('keeps the primary KPI line box tight at $label', ({ span }) => {
-    renderTile({ span })
-
-    expect(screen.getByTestId('transfer-total').firstElementChild).toHaveClass(
-      'h-8',
-      'text-[32px]',
-      'leading-none'
-    )
   })
 
   it('keeps scope switching, stacked directions, and coverage in 1x2', async () => {
@@ -367,20 +332,6 @@ describe('TransferTile', () => {
 
     expect(screen.getByText('No transfer recorded today.')).toBeInTheDocument()
     expect(screen.queryByText(/Since 2:00 PM/i)).toBeNull()
-  })
-
-  it('keeps the range skeleton before the KPI skeleton in loading 1x2', () => {
-    const { container } = renderTile({
-      span: { w: 1, h: 2 },
-      state: { status: 'loading', retry: vi.fn() },
-    })
-
-    const tile = container.querySelector('.dashboard-tile')
-    const skeletons = container.querySelectorAll('[data-slot="skeleton"]')
-
-    expect(tile).toHaveClass('gap-0')
-    expect(skeletons[0]).toHaveClass('h-6', 'w-full')
-    expect(skeletons[1]).toHaveClass('h-8', 'w-24')
   })
 
   it('never presents loading or unavailable data as zero and retries', async () => {

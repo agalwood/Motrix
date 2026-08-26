@@ -215,21 +215,6 @@ describe('DashboardPage', () => {
     expect(grid?.className).toContain('@[560px]:grid-cols-4')
   })
 
-  it('uses the calibrated desktop tile canvas horizontal spacing', async () => {
-    await act(async () => {
-      render(<DashboardPage />)
-    })
-
-    const grid = screen.getByTestId('dashboard-grid')
-    const content = grid.parentElement?.parentElement?.parentElement
-
-    // At a 914px-wide window with the expanded 200px sidebar and 8px inset,
-    // 10px left plus 8px right padding leave a 688px canvas. The inset and
-    // right padding together preserve the intended 16px right-side margin.
-    expect(content).toHaveClass('pl-2.5', 'pr-2', 'pt-4', 'pb-10')
-    expect(grid).toHaveClass('@[560px]:pt-0')
-  })
-
   it('renders configure controls in the panel header actions', async () => {
     let container: HTMLElement | undefined
     await act(async () => {

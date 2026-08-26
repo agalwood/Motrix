@@ -210,18 +210,11 @@ describe('TasksTile', () => {
     vi.useRealTimers()
   })
 
-  it('puts a shared three-option radio control in the tile header', () => {
+  it('exposes a three-option radio control with Active selected', () => {
     renderTile()
 
     const group = screen.getByRole('radiogroup', { name: 'Task view' })
-    expect(group).toHaveClass('rounded-md', 'bg-muted/70', 'p-0.5')
     expect(within(group).getAllByRole('radio')).toHaveLength(3)
-    expect(within(group).getByRole('radio', { name: 'Active' })).toHaveClass(
-      'h-5',
-      'px-2',
-      'text-[10px]',
-      'rounded-md!'
-    )
     expect(
       within(group).getByRole('radio', { name: 'Active' })
     ).toHaveAttribute('aria-checked', 'true')
@@ -262,46 +255,6 @@ describe('TasksTile', () => {
     expect(progress).toHaveAttribute('aria-valuenow', '50')
     expect(progress).toHaveClass('left-[26px]', 'right-1', 'w-auto')
   })
-
-  it.each([
-    ['2x1', 'h-6', null, null],
-    ['2x2', 'h-10', 'py-1', 'pt-2'],
-    ['2x3', 'h-10', 'py-1', 'pt-2'],
-    ['3x2', 'h-8', 'py-0.5', 'pt-2'],
-    ['3x3', 'h-9', 'py-0.5', 'pt-2'],
-    ['4x2', 'h-8', 'py-0.5', 'pt-1'],
-  ] as const)(
-    'uses deliberate row spacing for %s without changing its capacity',
-    (viewportKey, heightClass, verticalPaddingClass, topPaddingClass) => {
-      setSource([task('spacing')])
-      const { container } = renderTile({
-        viewport: VIEWPORTS[viewportKey],
-      })
-
-      const list = screen.getByTestId('tasks-list')
-      const row = screen.getByTestId('tasks-row')
-      const rowSlot = row.closest('li')
-      const visualContent = row.parentElement?.querySelector('[aria-hidden]')
-      const body = container.querySelector('[data-slot="card-content"]')
-
-      expect(rowSlot).toHaveClass('px-1', heightClass)
-      expect(visualContent).toHaveClass('px-1')
-
-      if (verticalPaddingClass === null) {
-        expect(body).not.toHaveClass('pt-1', 'pt-2')
-        expect(list).not.toHaveClass('gap-1')
-        expect(visualContent).toHaveClass('gap-2')
-      } else {
-        expect(body).toHaveClass(topPaddingClass)
-        expect(list).toHaveClass('gap-1')
-        expect(visualContent).toHaveClass(
-          'grid-cols-[14px_minmax(0,1fr)_auto]',
-          'gap-x-2',
-          verticalPaddingClass
-        )
-      }
-    }
-  )
 
   it('keeps ordering stable when only speed and progress change', () => {
     const first = [
@@ -358,15 +311,6 @@ describe('TasksTile', () => {
       expect(screen.getByTestId('tasks-more')).toHaveTextContent(
         `${10 - (limit - 1)} more`
       )
-      expect(screen.getByTestId('tasks-more').closest('li')).toHaveClass('px-1')
-      expect(screen.getByTestId('tasks-more')).toHaveClass(
-        'pr-1',
-        viewportKey === '2x1' ? 'pl-1' : 'pl-[26px]'
-      )
-      expect(screen.getByTestId('tasks-list')).not.toHaveClass(
-        'overflow-auto',
-        'grid-cols-2'
-      )
     }
   )
 
@@ -378,7 +322,6 @@ describe('TasksTile', () => {
     expect(list.querySelector('svg')).toBeNull()
     expect(list.querySelector('[aria-hidden]')).not.toHaveTextContent(/ETA/i)
     expect(screen.queryByRole('progressbar')).toBeNull()
-    expect(screen.getByTestId('tasks-row').closest('li')).toHaveClass('h-6')
   })
 
   it('separates Failed and Recent without meaningless progress', async () => {

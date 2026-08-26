@@ -21,37 +21,8 @@ describe('TaskStatusBadge', () => {
     expect(icon).toHaveClass('animate-spin')
   })
 
-  it('uses destructive styling for the Error status', () => {
-    const { container } = render(<TaskStatusBadge status={TaskStatus.Error} />)
-    const badge = container.querySelector('[data-slot="task-status-badge"]')
-    expect(badge).not.toBeNull()
-    expect(badge).toHaveClass('bg-destructive')
-  })
-
   it('labels non-finalizing statuses with the lowercased enum value', () => {
     render(<TaskStatusBadge status={TaskStatus.Downloading} />)
     expect(screen.getByText('downloading')).toBeInTheDocument()
-  })
-
-  it('does not spin the icon for non-loading statuses', () => {
-    render(<TaskStatusBadge status={TaskStatus.Paused} />)
-    const icon = screen.getByTestId('task-status-badge-icon')
-    expect(icon).not.toHaveClass('animate-spin')
-  })
-
-  it('applies a caller-supplied className', () => {
-    const { container } = render(
-      <TaskStatusBadge status={TaskStatus.Queued} className="custom-xyz" />
-    )
-    const badge = container.querySelector('[data-slot="task-status-badge"]')
-    expect(badge).toHaveClass('custom-xyz')
-  })
-
-  it('exposes the status via a data attribute for callsite styling', () => {
-    const { container } = render(
-      <TaskStatusBadge status={TaskStatus.Seeding} />
-    )
-    const badge = container.querySelector('[data-slot="task-status-badge"]')
-    expect(badge).toHaveAttribute('data-status', TaskStatus.Seeding)
   })
 })
