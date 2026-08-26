@@ -23,7 +23,7 @@ body:
           required: true
         - label: 我已从描述、日志和截图中移除敏感信息。
           required: true
-        - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.md)。
+        - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.zh-CN.md)。
           required: true
 
   - type: input
