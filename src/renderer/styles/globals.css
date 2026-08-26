@@ -87,14 +87,25 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-tab-background: var(--tab-background);
-  --font-heading: var(--font-sans);
-  --font-sans: "Inter Variable", var(--font-cjk, sans-serif);
+  --font-heading: var(--app-font-sans);
+  --font-sans: var(--app-font-sans);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
+  /*
+   * Keep shadcn components on one semantic font token. Inter is bundled for
+   * consistent Latin text; system fonts cover scripts that Inter does not.
+   * The web renderer cannot reliably identify its host OS, so its base stack
+   * intentionally relies on the cross-platform system-ui fallback.
+   */
+  --app-font-sans:
+    "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
   --radius: 0.625rem;
   --dashboard-tile-radius: 18px;
   --window-chrome-safe-area-leading: 77px;
@@ -141,12 +152,49 @@
   --tab-background: oklch(0.95 0 0);
 }
 
-.platform-win32:lang(zh-CN) {
-  --font-cjk: "Microsoft YaHei";
+/*
+ * Inter intentionally has no CJK glyphs. Prefer each platform's native UI
+ * face for the active Chinese locale, following the same platform + :lang()
+ * model used by VS Code. The non-UI Windows aliases cover family-name
+ * variations while resolving to the same system font files.
+ */
+:root.platform-win32:lang(zh-CN) {
+  --app-font-sans:
+    "Inter Variable", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI",
+    sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
-.platform-win32:lang(zh-TW) {
-  --font-cjk: "Microsoft JhengHei";
+:root.platform-win32:lang(zh-TW) {
+  --app-font-sans:
+    "Inter Variable", "Microsoft JhengHei UI", "Microsoft JhengHei", "Segoe UI",
+    sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+:root.platform-darwin:lang(zh-CN) {
+  --app-font-sans:
+    "Inter Variable", "PingFang SC", "Hiragino Sans GB", -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif, "Apple Color Emoji";
+}
+
+:root.platform-darwin:lang(zh-TW) {
+  --app-font-sans:
+    "Inter Variable", "PingFang TC", "Hiragino Sans CNS", "Heiti TC",
+    -apple-system, BlinkMacSystemFont, system-ui, sans-serif,
+    "Apple Color Emoji";
+}
+
+:root.platform-linux:lang(zh-CN) {
+  --app-font-sans:
+    "Inter Variable", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC",
+    "Source Han Sans CN", system-ui, Ubuntu, "Droid Sans",
+    "WenQuanYi Micro Hei", sans-serif, "Noto Color Emoji";
+}
+
+:root.platform-linux:lang(zh-TW) {
+  --app-font-sans:
+    "Inter Variable", "Noto Sans CJK TC", "Noto Sans TC", "Source Han Sans TC",
+    "Source Han Sans TW", system-ui, Ubuntu, "Droid Sans",
+    "WenQuanYi Micro Hei", sans-serif, "Noto Color Emoji";
 }
 
 .platform-darwin.window-main .electron-window-chrome,
@@ -214,11 +262,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    @apply font-sans;
+  }
   body {
     @apply bg-background text-foreground;
-    font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-      var(--font-cjk, sans-serif);
     margin: 0;
     padding: 0;
   }
@@ -227,9 +276,6 @@
   }
   .platform-darwin.window-onboarding body {
     background: transparent;
-  }
-  html {
-    @apply font-sans;
   }
 }
 
