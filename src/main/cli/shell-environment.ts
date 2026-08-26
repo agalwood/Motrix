@@ -1,7 +1,9 @@
+import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { userInfo } from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import type { RunCommand } from './command-runner'
 import { runCommand } from './command-runner'
 
@@ -16,6 +18,7 @@ export interface ShellEnvironmentResolverOptions {
   platform?: NodeJS.Platform
   run?: RunCommand
   getLoginShell?: () => string | null
+  readWindowsPaths?: () => Promise<readonly string[]>
   accessFile?: typeof access
   statFile?: typeof stat
 }
@@ -26,6 +29,12 @@ export interface ShellEnvironmentSource {
 
 const SHELL_ENV_MARKER = '__MOTRIX_CLI_ENV__'
 const SHELL_ENV_COMMAND = `printf '${SHELL_ENV_MARKER}\\000'; env -0`
+const WINDOWS_FALLBACK_ROOT = 'C:\\Windows'
+const WINDOWS_PATH_REGISTRY_KEYS = [
+  'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment',
+  'HKCU\\Environment',
+] as const
+const execFileAsync = promisify(execFile)
 
 function envValue(
   env: NodeJS.ProcessEnv,
@@ -61,6 +70,81 @@ function stripPathQuotes(value: string): string {
   return value.length >= 2 && value.startsWith('"') && value.endsWith('"')
     ? value.slice(1, -1)
     : value
+}
+
+function parseWindowsRegistryPath(output: string): string | null {
+  return (
+    /^\s*Path\s+REG_(?:EXPAND_)?SZ\s+(.*?)\s*$/imu.exec(output)?.[1] ?? null
+  )
+}
+
+async function readWindowsRegistryPaths(
+  inheritedEnv: NodeJS.ProcessEnv
+): Promise<readonly string[]> {
+  const configuredRoot = envValue(inheritedEnv, 'SystemRoot', 'win32')
+  const systemRoot =
+    configuredRoot && path.win32.isAbsolute(configuredRoot)
+      ? configuredRoot
+      : WINDOWS_FALLBACK_ROOT
+  const regExe = path.win32.join(systemRoot, 'System32', 'reg.exe')
+  const results = await Promise.allSettled(
+    WINDOWS_PATH_REGISTRY_KEYS.map((key) =>
+      execFileAsync(regExe, ['query', key, '/v', 'Path'], {
+        timeout: 2_000,
+        windowsHide: true,
+        maxBuffer: 128_000,
+      })
+    )
+  )
+
+  return results.flatMap((result) => {
+    if (result.status !== 'fulfilled') return []
+    const value = parseWindowsRegistryPath(result.value.stdout.toString())
+    return value ? [value] : []
+  })
+}
+
+function expandWindowsEnvironmentVariables(
+  value: string,
+  env: NodeJS.ProcessEnv
+): string {
+  return value.replace(/%([^%]+)%/g, (match, key: string) => {
+    return envValue(env, key, 'win32') ?? match
+  })
+}
+
+function mergeWindowsPaths(
+  inheritedEnv: NodeJS.ProcessEnv,
+  registryPaths: readonly string[]
+): NodeJS.ProcessEnv {
+  const inheritedPath = envValue(inheritedEnv, 'PATH', 'win32') ?? ''
+  const paths = inheritedPath.split(';').filter(Boolean)
+  const knownPaths = new Set(
+    paths.map((value) =>
+      stripPathQuotes(value)
+        .replace(/[\\/]+$/, '')
+        .toLowerCase()
+    )
+  )
+
+  for (const registryPath of registryPaths) {
+    for (const rawValue of registryPath.split(';')) {
+      if (!rawValue) continue
+      const value = expandWindowsEnvironmentVariables(rawValue, inheritedEnv)
+      const normalized = stripPathQuotes(value)
+        .replace(/[\\/]+$/, '')
+        .toLowerCase()
+      if (!normalized || knownPaths.has(normalized)) continue
+      knownPaths.add(normalized)
+      paths.push(value)
+    }
+  }
+
+  const pathKey =
+    Object.keys(inheritedEnv).find(
+      (candidate) => candidate.toLowerCase() === 'path'
+    ) ?? 'PATH'
+  return { ...inheritedEnv, [pathKey]: paths.join(';') }
 }
 
 export async function resolveExecutable(
@@ -138,6 +222,7 @@ export class ShellEnvironmentResolver implements ShellEnvironmentSource {
   readonly #platform: NodeJS.Platform
   readonly #run: RunCommand
   readonly #getLoginShell: () => string | null
+  readonly #readWindowsPaths: () => Promise<readonly string[]>
   readonly #lookupDependencies: ExecutableLookupDependencies
   #cached: NodeJS.ProcessEnv | null = null
 
@@ -147,6 +232,9 @@ export class ShellEnvironmentResolver implements ShellEnvironmentSource {
     this.#run = options.run ?? runCommand
     this.#getLoginShell =
       options.getLoginShell ?? (() => getDefaultLoginShell(this.#inheritedEnv))
+    this.#readWindowsPaths =
+      options.readWindowsPaths ??
+      (() => readWindowsRegistryPaths(this.#inheritedEnv))
     this.#lookupDependencies = {
       platform: this.#platform,
       accessFile: options.accessFile,
@@ -155,13 +243,16 @@ export class ShellEnvironmentResolver implements ShellEnvironmentSource {
   }
 
   async resolve(forceRefresh = false): Promise<NodeJS.ProcessEnv> {
-    if (!forceRefresh && this.#cached) return { ...this.#cached }
-
     const inherited = { ...this.#inheritedEnv }
     if (this.#platform === 'win32') {
-      this.#cached = inherited
-      return { ...inherited }
+      try {
+        return mergeWindowsPaths(inherited, await this.#readWindowsPaths())
+      } catch {
+        return inherited
+      }
     }
+
+    if (!forceRefresh && this.#cached) return { ...this.#cached }
 
     const shell = this.#getLoginShell()
     if (!shell || !path.isAbsolute(shell)) {

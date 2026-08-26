@@ -71,6 +71,37 @@ describe('parseNullDelimitedEnvironment', () => {
 })
 
 describe('ShellEnvironmentResolver', () => {
+  it('sees Windows PATH entries written after the app started', async () => {
+    const readWindowsPaths = vi
+      .fn<() => Promise<readonly string[]>>()
+      .mockResolvedValueOnce(['C:\\Windows\\System32'])
+      .mockResolvedValueOnce([
+        'C:\\Windows\\System32;C:\\Program Files\\nodejs\\',
+        '%APPDATA%\\npm',
+      ])
+    const resolver = new ShellEnvironmentResolver({
+      inheritedEnv: {
+        Path: 'C:\\Motrix\\bin;C:\\Windows\\System32',
+        APPDATA: 'C:\\Users\\example\\AppData\\Roaming',
+      },
+      platform: 'win32',
+      readWindowsPaths,
+    })
+
+    await expect(resolver.resolve()).resolves.toMatchObject({
+      Path: 'C:\\Motrix\\bin;C:\\Windows\\System32',
+    })
+    await expect(resolver.resolve()).resolves.toMatchObject({
+      Path: [
+        'C:\\Motrix\\bin',
+        'C:\\Windows\\System32',
+        'C:\\Program Files\\nodejs\\',
+        'C:\\Users\\example\\AppData\\Roaming\\npm',
+      ].join(';'),
+    })
+    expect(readWindowsPaths).toHaveBeenCalledTimes(2)
+  })
+
   it('merges and caches the login-shell environment', async () => {
     const run = vi.fn().mockResolvedValue({
       code: 0,
