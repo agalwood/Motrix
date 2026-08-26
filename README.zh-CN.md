@@ -246,6 +246,12 @@ aria2（下载引擎）
 
 Electron 桌面应用和 Node headless 服务端共用同一个 core。通知、secret 存储等功能在两种环境中各有对应实现，但使用方式保持一致。
 
+## 🤝 参与贡献
+
+我们欢迎代码、测试、文档、翻译、Issue 反馈和设计建议等各种形式的贡献。创建 Pull Request 前，请阅读[贡献指南](./CONTRIBUTING.zh-CN.md)，了解开发流程、架构边界、实现规范和必要的验证要求。
+
+所有参与者都必须遵守[行为准则](./CODE_OF_CONDUCT.zh-CN.md)。如需报告疑似安全漏洞，请按照[安全策略](./SECURITY.zh-CN.md)私密提交，不要创建公开 Issue 或 Discussion。
+
 ## 📜 许可协议
 
 [MIT](./LICENSE) © 2018-present Dr_rOot

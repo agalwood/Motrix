@@ -264,6 +264,12 @@ aria2 (download engine)
 
 The Electron desktop app and the Node.js headless server share the same core. Platform-specific capabilities such as notifications and secret storage have separate implementations with consistent behavior.
 
+## 🤝 Contributing
+
+Contributions of code, tests, documentation, translations, issue reports, and design feedback are welcome. Before opening a pull request, read the [contribution guidelines](./CONTRIBUTING.md) for the development workflow, architecture boundaries, implementation standards, and required validation.
+
+All participants must follow the [Code of Conduct](./CODE_OF_CONDUCT.md). Report suspected vulnerabilities privately according to the [Security Policy](./SECURITY.md), not through a public issue or discussion.
+
 ##  📜  License
 
 [MIT](./LICENSE) © 2018-present Dr_rOot
