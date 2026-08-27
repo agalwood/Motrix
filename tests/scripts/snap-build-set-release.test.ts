@@ -106,9 +106,9 @@ describe('release-snap-build-set', () => {
       version: '2.0.0',
     })
     expect(runSnapcraft.mock.calls).toEqual([
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '20', 'latest/candidate']],
-      [['release', 'motrix', '21', 'latest/candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '20', 'candidate']],
+      [['release', 'motrix', '21', 'candidate']],
     ])
   })
 
@@ -150,12 +150,12 @@ describe('release-snap-build-set', () => {
       })
     ).rejects.toThrow(/previous revisions were restored/)
     expect(runSnapcraft.mock.calls).toEqual([
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '20', 'latest/candidate']],
-      [['release', 'motrix', '21', 'latest/candidate']],
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '10', 'latest/candidate']],
-      [['release', 'motrix', '11', 'latest/candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '20', 'candidate']],
+      [['release', 'motrix', '21', 'candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '10', 'candidate']],
+      [['release', 'motrix', '11', 'candidate']],
     ])
   })
 
@@ -201,10 +201,10 @@ describe('release-snap-build-set', () => {
       })
     ).rejects.toThrow(/previous revisions were restored/)
     expect(runSnapcraft.mock.calls).toEqual([
-      [['close', 'motrix', 'latest/candidate']],
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '10', 'latest/candidate']],
-      [['release', 'motrix', '11', 'latest/candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '10', 'candidate']],
+      [['release', 'motrix', '11', 'candidate']],
     ])
   })
 
@@ -232,7 +232,7 @@ describe('release-snap-build-set', () => {
       })
     ).rejects.toThrow(/previous revisions were restored/)
     expect(runSnapcraft.mock.calls.at(-1)).toEqual([
-      ['release', 'motrix', '10', 'latest/candidate'],
+      ['release', 'motrix', '10', 'candidate'],
     ])
   })
 
@@ -260,10 +260,10 @@ describe('release-snap-build-set', () => {
       })
     ).rejects.toThrow(/previous revisions were restored/)
     expect(runSnapcraft.mock.calls).toEqual([
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '20', 'latest/candidate']],
-      [['release', 'motrix', '21', 'latest/candidate']],
-      [['close', 'motrix', 'latest/candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '20', 'candidate']],
+      [['release', 'motrix', '21', 'candidate']],
+      [['close', 'motrix', 'candidate']],
     ])
   })
 
@@ -309,12 +309,12 @@ describe('release-snap-build-set', () => {
       })
     ).rejects.toThrow(/previous revisions were restored/)
     expect(runSnapcraft.mock.calls).toEqual([
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '20', 'latest/candidate']],
-      [['release', 'motrix', '21', 'latest/candidate']],
-      [['close', 'motrix', 'latest/candidate']],
-      [['release', 'motrix', '10', 'latest/candidate']],
-      [['release', 'motrix', '11', 'latest/candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '20', 'candidate']],
+      [['release', 'motrix', '21', 'candidate']],
+      [['close', 'motrix', 'candidate']],
+      [['release', 'motrix', '10', 'candidate']],
+      [['release', 'motrix', '11', 'candidate']],
     ])
   })
 
@@ -392,7 +392,7 @@ describe('release-snap-build-set', () => {
       })
     ).rejects.toThrow(/rollback failed and the target channel was closed/)
     expect(runSnapcraft.mock.calls.at(-1)).toEqual([
-      ['close', 'motrix', 'latest/candidate'],
+      ['close', 'motrix', 'candidate'],
     ])
   })
 

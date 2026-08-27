@@ -2,9 +2,11 @@
 #
 # Snap is deliberately independent from the GitHub Release workflow:
 #   - amd64 and arm64 are built on matching native Ubuntu runners;
-#   - pull requests and manual runs never receive Store credentials;
+#   - pull requests and ordinary manual builds never receive Store credentials;
 #   - protected stable and beta release tags publish a complete
 #     two-architecture build set to latest/edge only;
+#   - an explicit protected-main manual run can recover edge publication
+#     without moving or replacing an immutable release tag;
 #   - candidate and stable receive that exact build set through snap-promote.yml.
 
 name: Snap
@@ -38,6 +40,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      publish_edge:
+        description: Publish the protected main build to latest/edge
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -47,11 +55,21 @@ permissions:
 concurrency:
   group: >-
     ${{
-      github.event_name == 'push'
+      (
+        github.event_name == 'push'
+        || (
+          github.event_name == 'workflow_dispatch'
+          && inputs.publish_edge == true
+        )
+      )
       && 'snap-store-publication'
       || format('snap-{0}-{1}', github.event_name, github.ref)
     }}
-  cancel-in-progress: ${{ github.event_name != 'push' }}
+  cancel-in-progress: >-
+    ${{
+      github.event_name != 'push'
+      && inputs.publish_edge != true
+    }}
 
 jobs:
   preflight:
@@ -69,8 +87,8 @@ jobs:
       - name: Validate release metadata
         id: metadata
         env:
-          # Pull requests and manual runs validate package SemVer but cannot
-          # satisfy the tag-only publication branch below.
+          # Pull requests and manual runs validate package SemVer without
+          # pretending to be a protected release-tag event.
           RELEASE_EVENT_NAME: >-
             ${{
               github.event_name == 'push'
@@ -239,9 +257,16 @@ jobs:
   publish-edge:
     name: Publish complete build set to edge
     if: >-
-      github.event_name == 'push' &&
-      startsWith(github.ref, 'refs/tags/v') &&
-      github.ref_protected == true
+      (
+        github.event_name == 'push' &&
+        startsWith(github.ref, 'refs/tags/v') &&
+        github.ref_protected == true
+      ) || (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.publish_edge == true &&
+        github.ref == 'refs/heads/main' &&
+        github.ref_protected == true
+      )
     needs: [preflight, build]
     runs-on: ubuntu-24.04
     # Bounded pre-mutation steps plus a 45-minute release/rollback window.

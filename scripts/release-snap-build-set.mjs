@@ -52,6 +52,11 @@ function snapshotsMatch(left, right) {
   )
 }
 
+function snapcraftChannel(channel) {
+  const [track, risk, extra] = channel.split('/')
+  return track === 'latest' && risk && extra === undefined ? risk : channel
+}
+
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
@@ -174,6 +179,10 @@ export async function releaseSnapBuildSet({
     )
   }
   const approved = normalizeRevisions(revisions)
+  // Snap Store API responses use the canonical latest/<risk> spelling, while
+  // channel-restricted macaroons issued for the default track authorize the
+  // short risk name used by Snapcraft's mutation commands.
+  const mutationChannel = snapcraftChannel(channel)
   const snapshotOptions = {
     snapName,
     channel,
@@ -186,9 +195,14 @@ export async function releaseSnapBuildSet({
   try {
     // Treat even a rejected initial close as an uncertain mutation. The Store
     // may have committed the close before the CLI lost its response.
-    await runSnapcraft(['close', snapName, channel])
+    await runSnapcraft(['close', snapName, mutationChannel])
     for (const architecture of ARCHITECTURES) {
-      await runSnapcraft(['release', snapName, approved[architecture], channel])
+      await runSnapcraft([
+        'release',
+        snapName,
+        approved[architecture],
+        mutationChannel,
+      ])
     }
     await verifySnapStoreChannel({
       snapName,
@@ -202,14 +216,14 @@ export async function releaseSnapBuildSet({
     })
   } catch (releaseError) {
     try {
-      await runSnapcraft(['close', snapName, channel])
+      await runSnapcraft(['close', snapName, mutationChannel])
       for (const architecture of ARCHITECTURES) {
         if (previous[architecture]) {
           await runSnapcraft([
             'release',
             snapName,
             previous[architecture],
-            channel,
+            mutationChannel,
           ])
         }
       }
@@ -220,7 +234,7 @@ export async function releaseSnapBuildSet({
         // A rollback can fail after restoring only one architecture. Close the
         // target again so a partially restored public channel is not left
         // available. A closed channel is safer than a mixed build set.
-        await runSnapcraft(['close', snapName, channel])
+        await runSnapcraft(['close', snapName, mutationChannel])
       } catch (error) {
         containmentError = error
       }

@@ -166,7 +166,7 @@ describe('Snap build workflow contract', () => {
     }
   })
 
-  it('publishes protected stable and beta tags through the edge environment', () => {
+  it('publishes protected tags and explicit protected-main recovery runs through the edge environment', () => {
     const preflight = workflowJob(snapWorkflow, 'preflight')
     const preflightOutputs = asRecord(preflight.outputs, 'preflight outputs')
     const build = workflowJob(snapWorkflow, 'build')
@@ -180,6 +180,9 @@ describe('Snap build workflow contract', () => {
     expect(build).not.toHaveProperty('if')
     expect(condition).toContain("github.event_name == 'push'")
     expect(condition).toContain("startsWith(github.ref, 'refs/tags/v')")
+    expect(condition).toContain("github.event_name == 'workflow_dispatch'")
+    expect(condition).toContain('inputs.publish_edge == true')
+    expect(condition).toContain("github.ref == 'refs/heads/main'")
     expect(condition).toContain('github.ref_protected == true')
     expect(snapSource).not.toContain(
       "needs.preflight.outputs.prerelease == 'false'"
@@ -197,7 +200,24 @@ describe('Snap build workflow contract', () => {
       tags: ['v*'],
     })
     expect(triggers).toHaveProperty('pull_request')
-    expect(triggers).toHaveProperty('workflow_dispatch')
+    const manual = asRecord(
+      triggers.workflow_dispatch,
+      'workflow dispatch trigger'
+    )
+    const manualInputs = asRecord(manual.inputs, 'workflow dispatch inputs')
+    expect(asRecord(manualInputs.publish_edge, 'publish edge input')).toEqual({
+      description: 'Publish the protected main build to latest/edge',
+      required: true,
+      default: false,
+      type: 'boolean',
+    })
+    const concurrency = asRecord(snapWorkflow.concurrency, 'Snap concurrency')
+    expect(stringField(concurrency, 'group')).toContain(
+      'inputs.publish_edge == true'
+    )
+    expect(stringField(concurrency, 'cancel-in-progress')).toContain(
+      'inputs.publish_edge != true'
+    )
   })
 
   it('installs pinned verifier dependencies before verification and Store mutation', () => {
