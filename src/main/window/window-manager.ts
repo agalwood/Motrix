@@ -385,6 +385,10 @@ export class WindowManager {
       },
     })
 
+    win.on('page-title-updated', (event) => {
+      event.preventDefault()
+    })
+
     if (platform === 'win32' || platform === 'linux') {
       win.setAutoHideMenuBar(false)
       win.setMenuBarVisibility(false)
