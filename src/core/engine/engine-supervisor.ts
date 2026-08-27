@@ -64,7 +64,6 @@ const HOT_ENGINE_OPTIONS = {
   seedRatio: 'seed-ratio',
   seedTime: 'seed-time',
   remoteTime: 'remote-time',
-  sessionSaveInterval: 'save-session-interval',
 } as const satisfies Partial<Record<keyof EngineSettings, string>>
 
 function getBackoffDelay(attempt: number): number {
@@ -185,6 +184,16 @@ export class EngineSupervisor {
     await this.rpcClient.changeGlobalOption({
       'async-dns': String(asyncDns),
     })
+  }
+
+  /**
+   * HOT-update the default directory inherited by downloads created directly
+   * through aria2 JSON-RPC. Motrix-owned task creation continues to pass its
+   * selected directory per task.
+   */
+  async applyDefaultSaveDir(dir: string): Promise<void> {
+    if (this.state !== EngineState.Ready) return
+    await this.rpcClient.changeGlobalOption({ dir })
   }
 
   /** HOT-update changed runtime engine settings without restarting aria2. */
@@ -384,6 +393,7 @@ export class EngineSupervisor {
         ? { ...resolvedEngineSettings, sqlite3Persistence: false }
         : resolvedEngineSettings
       const proxy = this.settingsManager.getProxy()
+      const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir
       // Provider is wired by the shell (Task 8) before start() in production;
       // the { 0, 0 } (unlimited) fallback only fires in tests or if start()
       // runs before the controller attaches.
@@ -397,20 +407,14 @@ export class EngineSupervisor {
       const loadTextSession =
         !sqliteActive && (await this.configBuilder.hasSavedSession())
       if (this.stopping) return
-      const args = loadTextSession
-        ? this.configBuilder.buildArgs(
-            engineSettings,
-            featureReport.hasSqlitePersistence,
-            proxy,
-            effective,
-            true
-          )
-        : this.configBuilder.buildArgs(
-            engineSettings,
-            featureReport.hasSqlitePersistence,
-            proxy,
-            effective
-          )
+      const args = this.configBuilder.buildArgs(
+        engineSettings,
+        featureReport.hasSqlitePersistence,
+        proxy,
+        effective,
+        defaultSaveDir,
+        loadTextSession
+      )
       this.lastStartArgs = args
 
       // Step 3: Port check
@@ -444,6 +448,16 @@ export class EngineSupervisor {
       }
       phase = 'rpc'
       await this.rpcClient.connect(engineSettings.rpcPort)
+      if (this.stopping) {
+        this.rpcClient.disconnect()
+        await this.processManager.gracefulStop()
+        return
+      }
+      // Raw JSON-RPC clients commonly omit per-task options. Seed the global
+      // template so their new HTTP/FTP tasks retain aria2's historical Motrix
+      // resume behavior. Motrix-owned recovery still overrides `continue`
+      // explicitly per task where safety requires it.
+      await this.rpcClient.changeGlobalOption({ continue: 'true' })
 
       // Step 6: Ready
       if (this.stopping) {

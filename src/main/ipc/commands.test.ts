@@ -110,6 +110,7 @@ function fakeCtx() {
       restart: vi.fn(),
       applyEngineSettings: vi.fn().mockResolvedValue(undefined),
       applyAsyncDns: vi.fn().mockResolvedValue(undefined),
+      applyDefaultSaveDir: vi.fn().mockResolvedValue(undefined),
       recover: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
@@ -1161,6 +1162,7 @@ describe('Commands.UpdateSettings', () => {
       app: {
         launchAtStartup: false,
         protocols: { magnet: false },
+        defaultSaveDir: '/downloads',
         ...app,
       },
       nat: {
@@ -1346,6 +1348,38 @@ describe('Commands.UpdateSettings', () => {
     await handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
     expect(ctx.proxyApplier.apply).toHaveBeenCalledWith(PROXY_OFF, PROXY_ON)
     expect(ctx.supervisor.restart).not.toHaveBeenCalled()
+  })
+
+  it('hot-applies a changed default save directory', async () => {
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(PROXY_OFF, {
+      defaultSaveDir: '/downloads/old',
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      defaultSaveDir: '/downloads/new',
+    })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { defaultSaveDir: '/downloads/new' },
+    })
+
+    expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
+      '/downloads/new'
+    )
   })
 
   it('saves restart-required settings and publishes a reminder without restarting', async () => {

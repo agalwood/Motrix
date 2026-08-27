@@ -16,6 +16,7 @@ export const ENGINE_RESTART_REQUIRED_KEYS: ReadonlySet<keyof EngineSettings> =
     'sqlite3Persistence',
     'sqlite3DbPath',
     'sqlite3HistoryLimit',
+    'sessionSaveInterval',
   ])
 
 // Consumed by SettingsManager.update(), which reports requiresAppRestart to

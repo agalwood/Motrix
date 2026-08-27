@@ -1155,6 +1155,38 @@ describe('swapMagnetMetadataForBt', () => {
       payloadEntry: 'p',
       torrentRootName: 'very-long-original-name.iso',
     })
+    expect(params.prioritizePreviewPieces).toBeUndefined()
+  })
+
+  it('enables preview piece priority after video metadata resolves', async () => {
+    const torrent = buildSingleFileTorrent('Movie.mkv')
+
+    await swapMagnetMetadataForBt(
+      {
+        taskId: 'm-mag',
+        base64: Buffer.from(torrent).toString('base64'),
+        selectedFiles: [0],
+        saveDir: '/Downloads',
+      },
+      {
+        db,
+        taskManager,
+        adapter: adapter as never,
+        magnetTracker: magnetTracker as never as MagnetTracker,
+        publishTaskUpdate: () =>
+          eventBus.emit(Events.TaskUpdated, taskManager.getAll()),
+        publishTaskUpdateNow: () =>
+          eventBus.emit(Events.TaskUpdated, taskManager.getAll()),
+        finalNamePicker: finalNamePicker as never,
+        torrentMetaStore: torrentMetaStore as never,
+        runTaskMutation: runImmediately,
+        runExclusivePersistence: persistImmediately,
+      }
+    )
+
+    expect(adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({ prioritizePreviewPieces: true })
+    )
   })
 
   it('passes 1-based file indices to adapter.addTorrent (aria2 --select-file)', async () => {

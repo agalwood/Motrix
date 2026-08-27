@@ -619,6 +619,15 @@ describe('SettingsManager', () => {
       expect(result.changedRestartKeys).toContain('rpcSecret')
     })
 
+    it('requires an engine restart when the session save interval changes', async () => {
+      const result = await manager.update({
+        engine: { sessionSaveInterval: 30 },
+      })
+
+      expect(result.requiresRestart).toBe(true)
+      expect(result.changedRestartKeys).toContain('sessionSaveInterval')
+    })
+
     it('does not flag restart for non-restart keys', async () => {
       await manager.update({ engine: { performanceProfile: 'custom' } })
       const result = await manager.update({

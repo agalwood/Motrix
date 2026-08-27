@@ -104,6 +104,7 @@ describe('Aria2SegmentClient', () => {
     expect(options.header).toEqual(['Cookie: foo=bar'])
     expect(options['max-tries']).toBe('5')
     expect(options['retry-wait']).toBe('3')
+    expect(options.continue).toBe('false')
   })
 
   it('forceRemove forwards the gid to rpc', async () => {

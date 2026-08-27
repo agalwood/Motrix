@@ -898,5 +898,22 @@ describe('characterization: reAddTask adapter call params', () => {
     expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
       expect.objectContaining({ saveDir: '/tmp/sample' })
     )
+    const params = (deps.adapter.addTorrent as ReturnType<typeof vi.fn>).mock
+      .calls[0][0]
+    expect(params).not.toHaveProperty('prioritizePreviewPieces')
+  })
+
+  it('preserves preview piece priority when re-adding a video-only torrent', async () => {
+    const task = makeBtErrorTask()
+    const deps = makeDeps(task)
+    ;(deps.torrentMetaStore.read as ReturnType<typeof vi.fn>).mockResolvedValue(
+      buildSingleFileTorrent('Movie.mp4')
+    )
+
+    await reAddTask('t1', deps)
+
+    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({ prioritizePreviewPieces: true })
+    )
   })
 })

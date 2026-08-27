@@ -23,8 +23,10 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
-import type { EngineSettings } from '@shared/types/settings'
+import type { EngineSettings, ProxySettings } from '@shared/types/settings'
 import { Aria2ConfigBuilder } from './aria2-config-builder'
+
+const DEFAULT_SAVE_DIR = '/home/user/Downloads'
 
 function makeEngineSettings(
   overrides?: Partial<EngineSettings>
@@ -40,6 +42,23 @@ function makeEngineSettings(
 
 describe('Aria2ConfigBuilder', () => {
   let builder: Aria2ConfigBuilder
+
+  function buildArgs(
+    settings: EngineSettings,
+    hasSqlitePersistence: boolean,
+    proxy: ProxySettings | null | undefined,
+    effective: { download: number; upload: number },
+    loadTextSession = false
+  ): string[] {
+    return builder.buildArgs(
+      settings,
+      hasSqlitePersistence,
+      proxy,
+      effective,
+      DEFAULT_SAVE_DIR,
+      loadTextSession
+    )
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -147,7 +166,7 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('buildArgs', () => {
     it('builds args array with default settings', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -156,6 +175,9 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--enable-rpc=true')
       expect(args).toContain('--rpc-allow-origin-all=true')
       expect(args).toContain('--rpc-listen-all=false')
+      expect(
+        args.some((arg) => arg.startsWith('--rpc-max-request-size='))
+      ).toBe(false)
       expect(args).toContain(
         `--rpc-listen-port=${DEFAULT_ENGINE_SETTINGS.rpcPort}`
       )
@@ -176,8 +198,20 @@ describe('Aria2ConfigBuilder', () => {
       )
     })
 
+    it('uses the supplied default save directory for optionless RPC tasks', () => {
+      const args = builder.buildArgs(
+        DEFAULT_ENGINE_SETTINGS,
+        true,
+        null,
+        { download: 0, upload: 0 },
+        '/Volumes/Downloads with spaces'
+      )
+
+      expect(args).toContain('--dir=/Volumes/Downloads with spaces')
+    })
+
     it('includes save-session path in userConfigDir', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -189,13 +223,11 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('loads the text session only when requested by the supervisor', () => {
-      const withoutInput = builder.buildArgs(
-        DEFAULT_ENGINE_SETTINGS,
-        false,
-        null,
-        { download: 0, upload: 0 }
-      )
-      const withInput = builder.buildArgs(
+      const withoutInput = buildArgs(DEFAULT_ENGINE_SETTINGS, false, null, {
+        download: 0,
+        upload: 0,
+      })
+      const withInput = buildArgs(
         DEFAULT_ENGINE_SETTINGS,
         false,
         null,
@@ -212,7 +244,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('never combines text-session loading with active SQLite persistence', () => {
-      const args = builder.buildArgs(
+      const args = buildArgs(
         makeEngineSettings({ sqlite3Persistence: true }),
         true,
         null,
@@ -224,10 +256,37 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).not.toContain(
         '--input-file=/home/user/.config/motrix/aria2.session'
       )
+      expect(args).not.toContain('--auto-save-interval=10')
+    })
+
+    it.each([false, true])(
+      'uses a 10-second control-file interval without SQLite, loadTextSession=%s',
+      (loadTextSession) => {
+        const args = buildArgs(
+          DEFAULT_ENGINE_SETTINGS,
+          false,
+          null,
+          { download: 0, upload: 0 },
+          loadTextSession
+        )
+
+        expect(args).toContain('--auto-save-interval=10')
+      }
+    )
+
+    it('uses a 10-second control-file interval when SQLite is supported but disabled', () => {
+      const args = buildArgs(
+        makeEngineSettings({ sqlite3Persistence: false }),
+        true,
+        null,
+        { download: 0, upload: 0 }
+      )
+
+      expect(args).toContain('--auto-save-interval=10')
     })
 
     it('keeps DHT state inside the writable user config directory', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -248,7 +307,7 @@ describe('Aria2ConfigBuilder', () => {
         listenPort: 6882,
       }
 
-      const args = builder.buildArgs(custom, true, null, {
+      const args = buildArgs(custom, true, null, {
         download: 0,
         upload: 0,
       })
@@ -260,7 +319,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('always starts with --conf-path', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -269,11 +328,11 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('returns a new array on each call', () => {
-      const args1 = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args1 = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
-      const args2 = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args2 = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -288,7 +347,7 @@ describe('Aria2ConfigBuilder', () => {
         fileAllocation: 'falloc',
         diskCache: 33554432,
       }
-      const args = builder.buildArgs(settings, true, null, {
+      const args = buildArgs(settings, true, null, {
         download: 0,
         upload: 0,
       })
@@ -298,7 +357,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('includes default file-allocation and disk-cache', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -312,7 +371,7 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('L3 user-tunable flags', () => {
     it('injects all performance flags', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -332,7 +391,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('injects all network-reliability flags', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -357,7 +416,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('injects all BitTorrent flags', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -375,7 +434,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('injects session-save-interval', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -398,7 +457,7 @@ describe('Aria2ConfigBuilder', () => {
         seedRatio: 2,
         seedTime: 0,
       }
-      const args = builder.buildArgs(custom, true, null, {
+      const args = buildArgs(custom, true, null, {
         download: 0,
         upload: 0,
       })
@@ -424,7 +483,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('injects --enable-sqlite3-persistence with the configured boolean', () => {
-      const args = builder.buildArgs(baseSettings, true, null, {
+      const args = buildArgs(baseSettings, true, null, {
         download: 0,
         upload: 0,
       })
@@ -432,7 +491,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('uses default DB path when sqlite3DbPath is empty', () => {
-      const args = builder.buildArgs(baseSettings, true, null, {
+      const args = buildArgs(baseSettings, true, null, {
         download: 0,
         upload: 0,
       })
@@ -442,7 +501,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('uses explicit DB path when sqlite3DbPath is set', () => {
-      const args = builder.buildArgs(
+      const args = buildArgs(
         { ...baseSettings, sqlite3DbPath: '/custom/path/db.sqlite' },
         true,
         null,
@@ -455,7 +514,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('passes -1 history limit through verbatim', () => {
-      const args = builder.buildArgs(baseSettings, true, null, {
+      const args = buildArgs(baseSettings, true, null, {
         download: 0,
         upload: 0,
       })
@@ -464,25 +523,21 @@ describe('Aria2ConfigBuilder', () => {
 
     it('passes 0 and positive history limits through verbatim', () => {
       expect(
-        builder.buildArgs(
-          { ...baseSettings, sqlite3HistoryLimit: 0 },
-          true,
-          null,
-          { download: 0, upload: 0 }
-        )
+        buildArgs({ ...baseSettings, sqlite3HistoryLimit: 0 }, true, null, {
+          download: 0,
+          upload: 0,
+        })
       ).toContain('--sqlite3-history-limit=0')
       expect(
-        builder.buildArgs(
-          { ...baseSettings, sqlite3HistoryLimit: 10000 },
-          true,
-          null,
-          { download: 0, upload: 0 }
-        )
+        buildArgs({ ...baseSettings, sqlite3HistoryLimit: 10000 }, true, null, {
+          download: 0,
+          upload: 0,
+        })
       ).toContain('--sqlite3-history-limit=10000')
     })
 
     it('omits all three sqlite flags when hasSqlitePersistence=false', () => {
-      const args = builder.buildArgs(baseSettings, false, null, {
+      const args = buildArgs(baseSettings, false, null, {
         download: 0,
         upload: 0,
       })
@@ -498,7 +553,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('keeps L1 invariants at the tail regardless of flag injection', () => {
-      const args = builder.buildArgs(baseSettings, true, null, {
+      const args = buildArgs(baseSettings, true, null, {
         download: 0,
         upload: 0,
       })
@@ -512,7 +567,7 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('incomplete-suffix required defaults', () => {
     it('sets bt-save-metadata=true', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -520,7 +575,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('sets bt-metadata-only=false', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -528,7 +583,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('sets auto-file-renaming=false', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -536,7 +591,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('sets allow-overwrite=false', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -544,7 +599,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('sets rpc-save-upload-metadata=true', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -552,16 +607,14 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('emits the required defaults regardless of hasSqlitePersistence', () => {
-      const argsWith = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const argsWith = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
-      const argsWithout = builder.buildArgs(
-        DEFAULT_ENGINE_SETTINGS,
-        false,
-        null,
-        { download: 0, upload: 0 }
-      )
+      const argsWithout = buildArgs(DEFAULT_ENGINE_SETTINGS, false, null, {
+        download: 0,
+        upload: 0,
+      })
 
       for (const args of [argsWith, argsWithout]) {
         expect(args).toContain('--bt-save-metadata=true')
@@ -575,7 +628,7 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('buildArgs effective limits', () => {
     it('injects effective limits into the args', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 999,
         upload: 111,
       })
@@ -584,7 +637,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('emits 0/0 when unlimited', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -606,7 +659,7 @@ describe('Aria2ConfigBuilder', () => {
     }
 
     it('injects --all-proxy when proxy enabled and download scope on', () => {
-      const args = builder.buildArgs(makeEngineSettings(), true, baseProxy, {
+      const args = buildArgs(makeEngineSettings(), true, baseProxy, {
         download: 0,
         upload: 0,
       })
@@ -614,7 +667,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('injects --no-proxy when bypass list non-empty', () => {
-      const args = builder.buildArgs(
+      const args = buildArgs(
         makeEngineSettings(),
         true,
         {
@@ -627,7 +680,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('omits --no-proxy when bypass empty', () => {
-      const args = builder.buildArgs(makeEngineSettings(), true, baseProxy, {
+      const args = buildArgs(makeEngineSettings(), true, baseProxy, {
         download: 0,
         upload: 0,
       })
@@ -635,7 +688,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('omits proxy args when proxy is null', () => {
-      const args = builder.buildArgs(makeEngineSettings(), true, null, {
+      const args = buildArgs(makeEngineSettings(), true, null, {
         download: 0,
         upload: 0,
       })
@@ -643,7 +696,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('omits proxy args when scope off', () => {
-      const args = builder.buildArgs(
+      const args = buildArgs(
         makeEngineSettings(),
         true,
         {
@@ -656,7 +709,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('omits proxy args when proxy disabled', () => {
-      const args = builder.buildArgs(
+      const args = buildArgs(
         makeEngineSettings(),
         true,
         {
@@ -671,15 +724,24 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('L1 product-contract invariants', () => {
     it('sets force-save=true', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
       expect(args).toContain('--force-save=true')
     })
 
+    it('sets continue=false so task resume remains an explicit decision', () => {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+        download: 0,
+        upload: 0,
+      })
+
+      expect(args).toContain('--continue=false')
+    })
+
     it('sets pause=false on add', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -688,7 +750,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('keeps bt-seed-unverified=false (per-task only via finalizeTask)', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -696,7 +758,7 @@ describe('Aria2ConfigBuilder', () => {
     })
 
     it('sets bt-remove-unselected-file=true so partial placeholders are cleaned by aria2', () => {
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -706,7 +768,7 @@ describe('Aria2ConfigBuilder', () => {
     it('places L1 invariants after L3 user-tunable so duplicates resolve to L1', () => {
       // aria2 honors the LAST occurrence of a duplicated flag. The L1
       // contract guarantees a user-edited L4 conf cannot override these.
-      const args = builder.buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
         upload: 0,
       })
@@ -722,12 +784,10 @@ describe('Aria2ConfigBuilder', () => {
       ['engine', '--async-dns=true'],
       ['system', '--async-dns=false'],
     ] as const)('emits %s as %s', (dnsMode, flag) => {
-      const args = builder.buildArgs(
-        makeEngineSettings({ dnsMode }),
-        true,
-        null,
-        { download: 0, upload: 0 }
-      )
+      const args = buildArgs(makeEngineSettings({ dnsMode }), true, null, {
+        download: 0,
+        upload: 0,
+      })
 
       expect(args).toContain(flag)
     })

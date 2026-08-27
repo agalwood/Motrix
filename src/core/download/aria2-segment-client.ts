@@ -68,6 +68,7 @@ export class Aria2SegmentClient implements SegmentAria2 {
     }
   ): Promise<string> {
     const options: Record<string, string | string[]> = {
+      continue: 'false',
       dir: opts.dir,
       out: opts.out,
     }

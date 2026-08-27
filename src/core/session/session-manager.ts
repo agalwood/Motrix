@@ -36,6 +36,7 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
+import { shouldPrioritizeBtPreviewPiecesFromMetadata } from '../task/bt-storage-layout'
 import { DirectResourceValidatorService } from '../task/direct-resource-validator'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
@@ -1143,6 +1144,8 @@ export class SessionManager {
       }
       try {
         const bytes = fs.readFileSync(taskPart.torrentMetaPath)
+        const prioritizePreviewPieces =
+          await shouldPrioritizeBtPreviewPiecesFromMetadata(bytes)
         return this.dispatchRecoveryCandidate(pair, (gid) =>
           this.adapter.addTorrent({
             metadata: bytes,
@@ -1150,6 +1153,9 @@ export class SessionManager {
             saveDir: primary?.diskPath || taskPart.finalPath || '/',
             pause: taskPart.aggStatus === TaskStatus.Paused,
             checkIntegrity: true,
+            ...(prioritizePreviewPieces
+              ? { prioritizePreviewPieces: true }
+              : {}),
           })
         )
       } catch (err) {
@@ -1430,6 +1436,7 @@ export class SessionManager {
 
     try {
       const newGid = await this.rpc.addUri([magnetUri], {
+        'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: metadataDir,
         'follow-torrent': 'false',

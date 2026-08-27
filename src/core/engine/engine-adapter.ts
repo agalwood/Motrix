@@ -56,6 +56,9 @@ export interface AddTorrentParams {
   // file is still on disk from a prior session.
   checkIntegrity?: boolean
   isPrivate?: boolean
+  /** Prefer early and late pieces for a metadata-confirmed video-only
+   * torrent. Concrete adapters translate this product policy. */
+  prioritizePreviewPieces?: boolean
   // ── create-path additions ──
   dlLimit?: number
   ulLimit?: number

@@ -6,6 +6,7 @@ import {
   createBtStoragePlan,
   getBtStorageLayout,
   parseBtFileLayout,
+  shouldPrioritizeBtPreviewPieces,
 } from './bt-storage-layout'
 
 const FIXTURE_PATH = path.resolve(
@@ -69,6 +70,16 @@ describe('BT indexed storage layout', () => {
         plan.layout
       )
     ).toEqual([{ fileIndex: 0, relativePath: 'Linux image.iso' }])
+  })
+
+  it('prioritizes only metadata-confirmed video-only torrents', async () => {
+    const video = await parseBtFileLayout(singleFileTorrent('Movie.MP4'))
+    const mixed = await parseBtFileLayout(
+      new Uint8Array(readFileSync(FIXTURE_PATH))
+    )
+
+    expect(shouldPrioritizeBtPreviewPieces(video)).toBe(true)
+    expect(shouldPrioritizeBtPreviewPieces(mixed)).toBe(false)
   })
 
   it('rejects a torrent root that could escape the workspace', async () => {
