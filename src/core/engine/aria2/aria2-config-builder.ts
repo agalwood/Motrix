@@ -135,7 +135,6 @@ export class Aria2ConfigBuilder {
       '--enable-rpc=true',
       '--rpc-allow-origin-all=true',
       '--rpc-listen-all=false',
-      '--rpc-max-request-size=64M',
       `--rpc-listen-port=${settings.rpcPort}`,
       `--rpc-secret=${settings.rpcSecret}`,
       `--dir=${defaultSaveDir}`,

@@ -175,7 +175,9 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--enable-rpc=true')
       expect(args).toContain('--rpc-allow-origin-all=true')
       expect(args).toContain('--rpc-listen-all=false')
-      expect(args).toContain('--rpc-max-request-size=64M')
+      expect(
+        args.some((arg) => arg.startsWith('--rpc-max-request-size='))
+      ).toBe(false)
       expect(args).toContain(
         `--rpc-listen-port=${DEFAULT_ENGINE_SETTINGS.rpcPort}`
       )
