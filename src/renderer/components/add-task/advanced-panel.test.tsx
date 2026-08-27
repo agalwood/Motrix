@@ -1,12 +1,19 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { AddTaskLayoutProvider } from './add-task-layout-context'
 import { AdvancedPanel } from './advanced-panel'
 
-function Wrapper({ tab }: { tab: 'links' | 'torrent' }) {
+function Wrapper({
+  tab,
+  onAdvancedOpenChange,
+}: {
+  tab: 'links' | 'torrent'
+  onAdvancedOpenChange?: (expanded: boolean) => void
+}) {
   const form = useForm({
     defaultValues:
       tab === 'links'
@@ -26,9 +33,11 @@ function Wrapper({ tab }: { tab: 'links' | 'torrent' }) {
           },
   })
   return (
-    <FormProvider {...form}>
-      <AdvancedPanel />
-    </FormProvider>
+    <AddTaskLayoutProvider onAdvancedOpenChange={onAdvancedOpenChange}>
+      <FormProvider {...form}>
+        <AdvancedPanel />
+      </FormProvider>
+    </AddTaskLayoutProvider>
   )
 }
 
@@ -47,5 +56,19 @@ describe('AdvancedPanel', () => {
     await user.click(screen.getByRole('button', { name: /advanced/i }))
     expect(screen.getByLabelText(/dl limit/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/seed ratio/i)).toBeInTheDocument()
+  })
+
+  it('reports both expansion and collapse after layout commits', async () => {
+    const user = userEvent.setup()
+    const onAdvancedOpenChange = vi.fn()
+    render(<Wrapper tab="links" onAdvancedOpenChange={onAdvancedOpenChange} />)
+    expect(onAdvancedOpenChange).toHaveBeenLastCalledWith(false)
+
+    const trigger = screen.getByRole('button', { name: /advanced/i })
+    await user.click(trigger)
+    expect(onAdvancedOpenChange).toHaveBeenLastCalledWith(true)
+
+    await user.click(trigger)
+    expect(onAdvancedOpenChange).toHaveBeenLastCalledWith(false)
   })
 })

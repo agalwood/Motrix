@@ -16,6 +16,7 @@ import {
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
 import { transport } from '@renderer/lib/transport'
+import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -36,6 +37,7 @@ import {
   useWatch,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { AddTaskLayoutProvider } from './add-task-layout-context'
 import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
 import { TorrentTabPanel } from './torrent-tab-panel'
@@ -46,6 +48,8 @@ interface AddTaskFormProps {
   defaultValues?: DeepPartial<AddTaskFormValues>
   onSubmitSuccess?: (taskId: string) => void
   onCancel: () => void
+  onAdvancedOpenChange?: (expanded: boolean) => void
+  presentation?: 'dialog' | 'window'
   subscribeEvents?: boolean
 }
 
@@ -60,6 +64,8 @@ export function AddTaskForm({
   defaultValues,
   onSubmitSuccess,
   onCancel,
+  onAdvancedOpenChange,
+  presentation = 'window',
   subscribeEvents = true,
 }: AddTaskFormProps) {
   const platform = usePlatformServices()
@@ -233,60 +239,84 @@ export function AddTaskForm({
   }, [form, onSubmit])
 
   return (
-    <FormProvider {...form}>
-      <div className="flex max-h-[calc(100vh-40px)] flex-col overflow-y-auto">
-        <div data-adaptive-content className="px-4 pt-2 pb-[72px]">
-          <TabsSection />
+    <AddTaskLayoutProvider onAdvancedOpenChange={onAdvancedOpenChange}>
+      <FormProvider {...form}>
+        <div
+          data-slot="add-task-form-body"
+          className={cn(
+            'flex flex-col overflow-y-auto',
+            presentation === 'dialog'
+              ? 'min-h-0 flex-auto'
+              : 'max-h-[calc(100vh-40px)]'
+          )}
+        >
+          <div
+            data-adaptive-content
+            className={cn(
+              'px-4 pt-2',
+              presentation === 'dialog' ? 'pb-4' : 'pb-[72px]'
+            )}
+          >
+            <TabsSection />
+          </div>
         </div>
-      </div>
-      <div className="fixed left-0 bottom-0 w-full shrink-0 border-t-[0.5px] border-border bg-background px-4 py-3">
-        <FooterActionsBridge
-          onCancel={onCancel}
-          onSubmit={() => void form.handleSubmit(onSubmit)()}
-          submitting={submitting}
-        />
-      </div>
-      <AlertDialog
-        open={duplicateConflict !== null}
-        onOpenChange={(open) => !open && setDuplicateConflict(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('task.add.duplicate.title')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(
-                `task.add.duplicate.${duplicateConflict?.result.conflict.reason}`,
-                {
-                  name:
-                    duplicateConflict?.result.conflict.existingTaskName ??
-                    t('task.add.duplicate.filesOnDisk'),
-                }
+        <div
+          data-slot="add-task-form-footer"
+          className={cn(
+            'w-full shrink-0 border-t-[0.5px] border-border bg-background px-4 py-3',
+            presentation === 'window' && 'fixed bottom-0 left-0'
+          )}
+        >
+          <FooterActionsBridge
+            onCancel={onCancel}
+            onSubmit={() => void form.handleSubmit(onSubmit)()}
+            submitting={submitting}
+          />
+        </div>
+        <AlertDialog
+          open={duplicateConflict !== null}
+          onOpenChange={(open) => !open && setDuplicateConflict(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('task.add.duplicate.title')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  `task.add.duplicate.${duplicateConflict?.result.conflict.reason}`,
+                  {
+                    name:
+                      duplicateConflict?.result.conflict.existingTaskName ??
+                      t('task.add.duplicate.filesOnDisk'),
+                  }
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              {duplicateConflict?.result.conflict.existingTaskId && (
+                <AlertDialogAction
+                  onClick={() => {
+                    const taskId =
+                      duplicateConflict.result.conflict.existingTaskId
+                    setDuplicateConflict(null)
+                    if (taskId) onSubmitSuccess?.(taskId)
+                  }}
+                >
+                  {t('task.add.duplicate.showExisting')}
+                </AlertDialogAction>
               )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            {duplicateConflict?.result.conflict.existingTaskId && (
-              <AlertDialogAction
-                onClick={() => {
-                  const taskId =
-                    duplicateConflict.result.conflict.existingTaskId
-                  setDuplicateConflict(null)
-                  if (taskId) onSubmitSuccess?.(taskId)
-                }}
-              >
-                {t('task.add.duplicate.showExisting')}
-              </AlertDialogAction>
-            )}
-            {duplicateConflict?.result.conflict.canCreateCopy && (
-              <AlertDialogAction onClick={() => void createSeparateCopy()}>
-                {t('task.add.duplicate.createCopy')}
-              </AlertDialogAction>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </FormProvider>
+              {duplicateConflict?.result.conflict.canCreateCopy && (
+                <AlertDialogAction onClick={() => void createSeparateCopy()}>
+                  {t('task.add.duplicate.createCopy')}
+                </AlertDialogAction>
+              )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </FormProvider>
+    </AddTaskLayoutProvider>
   )
 }
 

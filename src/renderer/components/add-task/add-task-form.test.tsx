@@ -56,6 +56,22 @@ describe('AddTaskForm', () => {
     expect(content?.parentElement).toHaveClass('overflow-y-auto')
   })
 
+  it('keeps the footer inside an in-page dialog', () => {
+    const { container } = renderForm({ presentation: 'dialog' })
+    const body = container.querySelector('[data-slot="add-task-form-body"]')
+    const footer = container.querySelector('[data-slot="add-task-form-footer"]')
+
+    expect(body).toHaveClass('min-h-0', 'flex-auto')
+    expect(footer).not.toHaveClass('fixed', 'bottom-0', 'left-0')
+  })
+
+  it('keeps the footer fixed in the standalone Electron window', () => {
+    const { container } = renderForm()
+    const footer = container.querySelector('[data-slot="add-task-form-footer"]')
+
+    expect(footer).toHaveClass('fixed', 'bottom-0', 'left-0')
+  })
+
   it('disables submit when urls are empty', () => {
     renderForm()
     const submit = screen.getByRole('button', { name: /download/i })

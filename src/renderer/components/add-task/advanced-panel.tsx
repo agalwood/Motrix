@@ -16,14 +16,20 @@ import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { ChevronRight, CircleQuestionMark } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useLayoutEffect, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { useAddTaskLayoutChange } from './add-task-layout-context'
 
 export function AdvancedPanel() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const onLayoutChange = useAddTaskLayoutChange()
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
+
+  useLayoutEffect(() => {
+    onLayoutChange?.(open)
+  }, [onLayoutChange, open])
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>

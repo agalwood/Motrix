@@ -28,13 +28,17 @@ vi.mock('@renderer/components/add-task/add-task-form', () => ({
   AddTaskForm: ({
     onSubmitSuccess,
     onCancel,
+    onAdvancedOpenChange: _onAdvancedOpenChange,
+    presentation,
   }: {
     onSubmitSuccess?: (gid: string) => void
     onCancel: () => void
+    onAdvancedOpenChange?: (expanded: boolean) => void
+    presentation?: 'dialog' | 'window'
   }) => {
     submitSuccessRef.current = onSubmitSuccess
     return (
-      <div data-testid="add-task-form-stub">
+      <div data-testid="add-task-form-stub" data-presentation={presentation}>
         <button type="button" onClick={() => onSubmitSuccess?.('gid-1')}>
           stub-submit
         </button>
@@ -84,7 +88,39 @@ describe('AddTaskDialogHost', () => {
   it('renders dialog content when store is open', () => {
     useAddTaskDialogStore.setState({ open: true, prefill: undefined })
     renderWithRouter()
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveClass(
+      'max-w-[640px]',
+      'gap-0',
+      'overflow-hidden',
+      'p-0',
+      'transition-[height]',
+      'duration-200',
+      'ease-out',
+      'motion-reduce:transition-none',
+      'sm:max-w-[640px]'
+    )
+    expect(dialog.style.height).toBe('374px')
+    expect(dialog.style.maxHeight).toContain('760px')
+    expect(dialog.style.maxHeight).toContain('100vh')
+    expect(screen.getByTestId('add-task-form-stub')).toHaveAttribute(
+      'data-presentation',
+      'dialog'
+    )
+    expect(screen.getByRole('heading', { name: 'New Task' })).toHaveClass(
+      'pt-[14px]'
+    )
+    const close = screen.getByRole('button', { name: 'Close' })
+    expect(close).toHaveClass('top-3.5', 'right-3.5', 'size-7')
+    expect(close.querySelector('[data-caption-icon="close"]')).not.toBeNull()
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toHaveClass(
+      'transition-opacity',
+      'duration-150',
+      'data-open:animate-none',
+      'data-closed:animate-none',
+      'data-starting-style:opacity-0',
+      'data-ending-style:opacity-0'
+    )
   })
 
   it('navigates to the stable task and closes on submit success', () => {
