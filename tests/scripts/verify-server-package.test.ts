@@ -99,6 +99,11 @@ function fixtureContract() {
     ],
     resourceInputs: [
       {
+        source: 'LICENSE',
+        destination: 'LICENSE',
+        type: 'file',
+      },
+      {
         source: 'legal/notice.txt',
         destination: 'legal/notice.txt',
         type: 'file',
@@ -146,6 +151,7 @@ async function createStagedFixture(
       2
     )}\n`
   )
+  await writeFixtureFile(root, 'LICENSE', 'MIT License\n')
   await writeFixtureFile(
     root,
     'dist/server/index.mjs',
@@ -207,7 +213,7 @@ async function createStagedFixture(
     const engineBytes = nativeHeader('darwin', 'arm64')
     await writeFixtureFile(root, 'extra/darwin/arm64/aria2c', engineBytes)
     await chmod(path.join(root, 'extra/darwin/arm64/aria2c'), 0o755)
-    contract.resourceInputs.unshift({
+    contract.resourceInputs.splice(1, 0, {
       source: 'extra/{platform}/{arch}/{aria2Binary}',
       destination: 'bin/{aria2Binary}',
       type: 'file',
@@ -309,6 +315,17 @@ describe('verifyServerPackage', () => {
     await rm(path.join(fixture.stageRoot, 'dist/server/motrix-admin.mjs'))
 
     await expect(verifyFixture(fixture)).rejects.toThrow()
+  })
+
+  it('rejects a staged Server artifact without the Motrix license', async () => {
+    const fixture = await createStagedFixture()
+    await rm(path.join(fixture.stageRoot, 'LICENSE'))
+
+    await expect(verifyFixture(fixture)).rejects.toThrow('project-license')
+    const report = JSON.parse(await readFile(fixture.reportPath, 'utf8'))
+    expect(report.checks).toContainEqual(
+      expect.objectContaining({ id: 'project-license', passed: false })
+    )
   })
 
   it('rejects target drift and foreign native binaries', async () => {

@@ -194,6 +194,7 @@ describe('Docker Server runtime staging contract', () => {
     expect(imageSmoke).toContain('Save directory is not writable: /downloads')
     expect(imageSmoke).toContain('did not survive container restart')
     expect(imageSmoke).toContain("'SQLite3-Persistence'")
+    expect(imageSmoke).toContain("'test -s /app/LICENSE'")
     expect(imageSmoke).toContain("'test ! -e /usr/bin/aria2c'")
     expect(imageSmoke).toContain(
       '\'test "$(readlink /proc/$aria2_pid/exe)" = "/app/bin/aria2c"\''

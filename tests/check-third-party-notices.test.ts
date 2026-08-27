@@ -362,6 +362,7 @@ describe('third-party graph dependency notices', () => {
       ).toContain(`legal/${artifact}`)
     }
     for (const destination of [
+      'LICENSE',
       'THIRD_PARTY_NOTICES.md',
       'THIRD_PARTY_NOTICES.zh-CN.md',
       'THIRD_PARTY_LICENSES',

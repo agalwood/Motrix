@@ -593,6 +593,8 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
       'test -w /downloads',
       'test -w /data/tmp',
       'test ! -w /app',
+      'test -s /app/LICENSE',
+      'test -s /app/THIRD_PARTY_NOTICES.md',
       'test -s /data/motrix.db',
       'test "$MOTRIX_ARIA2_BIN" = "/app/bin/aria2c"',
       'test "$SSL_CERT_FILE" = "/etc/ssl/certs/ca-certificates.crt"',

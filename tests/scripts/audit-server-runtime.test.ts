@@ -255,6 +255,7 @@ describe('Server package contracts', () => {
       'motrix-admin.mjs',
     ])
     expect(contract.resourceInputs.map((entry) => entry.source)).toEqual([
+      'LICENSE',
       'THIRD_PARTY_LICENSES',
       'THIRD_PARTY_NOTICES.md',
       'THIRD_PARTY_NOTICES.zh-CN.md',
