@@ -19,6 +19,8 @@ body:
       options:
         - label: 我已搜索[现有及已关闭的 Issue](https://github.com/agalwood/Motrix/issues?q=is%3Aissue)，没有发现相同问题。
           required: true
+        - label: 我已阅读[常见问题](https://motrix.app/zh/manual/faq/)和[疑难排解](https://motrix.app/zh/manual/troubleshooting/)，没有解决这个问题。
+          required: true
         - label: 我已使用当前的 Motrix Turbo v2 版本进行测试；如果无法测试，我会在下文说明原因。
           required: true
         - label: 我已从描述、日志和截图中移除敏感信息。

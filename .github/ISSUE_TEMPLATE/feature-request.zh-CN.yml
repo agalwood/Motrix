@@ -17,6 +17,8 @@ body:
       options:
         - label: 我已搜索[现有及已关闭的 Issue](https://github.com/agalwood/Motrix/issues?q=is%3Aissue)，没有发现相同建议。
           required: true
+        - label: 我已阅读[常见问题](https://motrix.app/zh/manual/faq/)和[疑难排解](https://motrix.app/zh/manual/troubleshooting/)，没有解决这个问题。
+          required: true
         - label: 此 Issue 只描述一个明确的问题或功能点。
           required: true
         - label: 我同意遵守项目的[行为准则](https://github.com/agalwood/Motrix/blob/main/CODE_OF_CONDUCT.zh-CN.md)。
