@@ -59,6 +59,21 @@ describe('FileList', () => {
     expect(screen.getByText('subtitle.srt')).toBeDefined()
   })
 
+  it('preserves bracketed file-name display order', () => {
+    const path = '[aa1][bb2] cc3.ext'
+    render(
+      <FileList<TorrentFileInfo>
+        files={[{ index: 0, path, size: 1, extension: '.ext' }]}
+        selectedIndices={[]}
+        onSelectionChange={vi.fn()}
+      />
+    )
+
+    const fileName = screen.getByText(path)
+    expect(fileName).toHaveAttribute('dir', 'auto')
+    expect(fileName).not.toHaveClass('[direction:rtl]')
+  })
+
   it('calls onSelectionChange when toggling a file off', () => {
     const onSelectionChange = vi.fn()
     render(

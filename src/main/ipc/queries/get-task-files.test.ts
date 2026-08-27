@@ -376,4 +376,78 @@ describe('getTaskFiles handler', () => {
 
     expect(result[0]?.path).toBe('CD1/track01.flac')
   })
+
+  it('restores the torrent name for an indexed single-file payload', async () => {
+    const workspacePath = '/Users/x/Downloads/.motrix/0123456789abcdefabcd'
+    const absolutePath = `${workspacePath}/p`
+    const torrentRootName = 'ubuntu-25.10-desktop-amd64.iso'
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        {
+          fileIndex: 0,
+          path: absolutePath,
+          size: 6_500_000_000,
+          selected: true,
+        },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          status: TaskStatus.Downloading,
+          diskPath: workspacePath,
+          saveDir: '/Users/x/Downloads',
+          instances: [
+            {
+              instanceId: 'primary:t1',
+              motrixId: 't1',
+              gid: 'gid1',
+              phase: TaskInstancePhase.BtDownload,
+              status: TaskStatus.Downloading,
+              progress: 0,
+              totalBytes: 0,
+              downloadedBytes: 0,
+              uploadedBytes: 0,
+              diskPath: workspacePath,
+              transitionPhase: TransitionPhase.Idle,
+              uris: [],
+              uriHash: null,
+              payload: {
+                btStorageLayout: {
+                  version: 1,
+                  strategy: 'indexed-staging',
+                  workspacePath,
+                  payloadEntry: 'p',
+                  torrentRootName,
+                  multiFile: false,
+                },
+              },
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        })
+      ),
+    }
+    const engine = {
+      getTaskFiles: vi.fn(async () => [
+        {
+          index: 0,
+          path: absolutePath,
+          size: 6_500_000_000,
+          completedBytes: 3_250_000_000,
+          selected: true,
+        },
+      ]),
+    }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+    const result = await handler('t1')
+
+    expect(result[0]?.path).toBe(torrentRootName)
+  })
 })

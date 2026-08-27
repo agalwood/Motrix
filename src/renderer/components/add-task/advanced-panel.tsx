@@ -15,6 +15,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
+import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { ChevronRight, CircleQuestionMark } from 'lucide-react'
 import { type ReactNode, useLayoutEffect, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
@@ -77,7 +78,7 @@ function LinksAdvancedFields() {
         type="number"
         min={1}
         max={128}
-        defaultValue={5}
+        defaultValue={DEFAULT_ENGINE_SETTINGS.split}
       />
       <DenseField
         control={control}

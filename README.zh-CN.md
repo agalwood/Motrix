@@ -22,8 +22,8 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 ## 🧪 Beta 测试
 
 Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请从 GitHub Releases
-下载 [v2.0.0-beta.26](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.26)，
-并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.26.zh-CN.md)。
+下载 [v2.0.0-beta.27](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.27)，
+并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.27.zh-CN.md)。
 
 测试前请备份现有 Motrix 数据和下载文件。Motrix v1 数据的迁移路径尚未经过
 验证，请勿让本 beta 使用您唯一一份 v1 数据。条件允许时，建议通过独立的系统
@@ -122,17 +122,20 @@ pnpm exec motrix-plugin lint     # 检查打包产物
 访问 Motrix 官网 [motrix.app](https://motrix.app)，选择对应操作系统的安装包。macOS 用户通常下载 Apple Silicon 版本即可；如果使用较早的 Intel 芯片 Mac，请选择 Intel 版本。
 
 剩余发布门禁通过后，当前 beta 桌面安装包将通过上方链接的 GitHub 预发布版
-提供。本 beta 不发布 Snap；预发布 tag 的 Snap run 会在 source validation 后停止，
-不会构建或发布 Snap artifact。请根据操作系统和架构选择安装包：
+提供。受保护的发布 tag 也会把验证过的 Snap 构建发布到
+`latest/edge`。请根据操作系统和架构选择安装包：
 
 | 平台 | 架构 | 安装包 / 通道 | 选择建议 |
 |------|------|---------------|----------|
 | macOS 12+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
+| Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
 
 `.AppImage` 首次启动时会询问是否把桌面入口和 URL scheme 处理程序注册到你的用户数据目录；拒绝则不改动系统。之后随时可以在「设置 → 集成」中启用或移除该桌面集成。
-本 beta 不发布 Snap。Flatpak 会单独验证，不会随该版本 tag 发布。
+Snap Store 安装包使用严格限制。已批准的 `personal-files` interface 允许 Motrix
+为支持的浏览器注册 Native Messaging host，不会授予常规 Snap interface
+之外的通用文件访问权限。Flatpak 会单独验证，不会随该版本 tag 发布。
 同时不提供 Windows `arm64` 和任何 32 位安装包。Windows `x64` 安装包未签名，
 可能触发 Windows SmartScreen 警告。
 
@@ -153,7 +156,7 @@ Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compos
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.26'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.27'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

@@ -8,6 +8,7 @@ import {
   taskCreateRequestSchema,
   urlParamsToFormDefaults,
 } from './add-task'
+import { DEFAULT_ENGINE_SETTINGS } from './engine-settings'
 
 describe('addTaskFormSchema', () => {
   it('accepts minimal links tab', () => {
@@ -18,7 +19,7 @@ describe('addTaskFormSchema', () => {
     })
     expect(result.success).toBe(true)
     if (result.success && result.data.tab === 'links') {
-      expect(result.data.split).toBe(5)
+      expect(result.data.split).toBe(DEFAULT_ENGINE_SETTINGS.split)
     }
   })
 

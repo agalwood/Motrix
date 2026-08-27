@@ -58,7 +58,10 @@ export function useExternalHydration(
     const onSetMode = (...args: unknown[]) => {
       const parsed = setAddTaskModeEventPayloadSchema.safeParse(args[0])
       if (!parsed.success) return
-      const defaults = urlParamsToFormDefaults(parsed.data)
+      const defaults = {
+        ...urlParamsToFormDefaults(parsed.data),
+        split: form.getValues('split'),
+      }
       // A mode switch without an explicit saveDir must not wipe whatever
       // is already in the field (e.g. the user's defaultSaveDir that the
       // form backfilled at mount). Symmetric to onProtocol below.

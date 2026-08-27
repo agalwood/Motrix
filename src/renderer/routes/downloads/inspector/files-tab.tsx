@@ -28,7 +28,8 @@ function arraysEqualSorted(a: number[], b: number[]): boolean {
 
 export function FilesTab({ task }: { task: DownloadTask }) {
   const { t } = useTranslation()
-  const { files } = useTaskFiles(task.id)
+  const isActive = ACTIVE_DOWNLOAD.has(task.status)
+  const { files } = useTaskFiles(task.id, isActive)
   const initial = task.bt?.selectedFiles ?? []
   const [draft, setDraft] = useState<number[]>(initial)
   // Single-file tasks (HTTP/FTP always; single-file BT/Magnet/Metalink) have
@@ -58,9 +59,12 @@ export function FilesTab({ task }: { task: DownloadTask }) {
         onSelectionChange={isReadOnly ? undefined : setDraft}
         readOnly={isReadOnly}
         renderRowTrailing={(f) =>
-          ACTIVE_DOWNLOAD.has(task.status) ? (
+          isActive ? (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {Math.floor((f.completedBytes / Math.max(f.size, 1)) * 100)}%
+              {files.length === 1
+                ? Math.round(task.progress * 100)
+                : Math.floor((f.completedBytes / Math.max(f.size, 1)) * 100)}
+              %
             </span>
           ) : null
         }

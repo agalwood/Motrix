@@ -22,8 +22,8 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.26 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.26)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.26.md) before
+download [v2.0.0-beta.27 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.27)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.27.md) before
 installing it.
 
 Back up your existing Motrix data and downloads before testing. Migration from
@@ -124,25 +124,28 @@ Plugins are bundled as a single ES2020 module and run inside a QuickJS sandbox w
 Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
 
 After the remaining release gates pass, the current beta desktop packages
-will be distributed through the GitHub prerelease linked above. Snap is not
-published for this beta; prerelease tag runs stop after source validation and
-do not build or publish Snap artifacts. Choose the package that matches your
-operating system and architecture:
+will be distributed through the GitHub prerelease linked above. The protected
+release tag also publishes verified Snap builds to `latest/edge`. Choose the
+package that matches your operating system and architecture:
 
 | Platform | Architectures | Packages / channel | Recommendation |
 |----------|---------------|--------------------|----------------|
 | macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
 | Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
+| Linux (Snap Store) | `amd64`, `arm64` | `latest/edge` | Install the strictly confined beta with `sudo snap install motrix --edge` |
 
 The `.AppImage` asks on first launch whether to register its desktop entry and
 URL-scheme handlers under your user data directory; declining leaves your system
 untouched. You can enable or remove this desktop integration at any time from
 Settings → Integration.
-This beta does not publish a Snap. Flatpak is validated separately
-and is not published by the release tag. Windows `arm64` and all 32-bit
-packages are not available. Windows `x64` packages are unsigned and may
-trigger a Windows SmartScreen warning.
+The Snap Store package is strictly confined. Its approved `personal-files`
+interface permits Motrix to register Native Messaging hosts for supported
+browsers; it does not grant general access to files outside the normal Snap
+interfaces. Flatpak is validated separately and is not published by the
+release tag. Windows `arm64` and all 32-bit packages are not available.
+Windows `x64` packages are unsigned and may trigger a Windows SmartScreen
+warning.
 
 ### Command-line client
 
@@ -162,7 +165,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.26'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.27'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

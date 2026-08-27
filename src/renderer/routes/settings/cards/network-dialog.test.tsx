@@ -177,4 +177,51 @@ describe('<NetworkDialog>', () => {
       expect(screen.getByDisplayValue('10.0.0.1')).toBeInTheDocument()
     })
   })
+
+  it('disables download proxying when importing socks5', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === Queries.GetSettings) {
+        return {
+          ...FIXTURE,
+          proxy: {
+            ...FIXTURE.proxy,
+            enabled: true,
+            scopes: { ...FIXTURE.proxy.scopes, download: true },
+          },
+        }
+      }
+      if (channel === Queries.GetSystemProxy) {
+        return { protocol: 'socks5', host: '127.0.0.1', port: 1080 }
+      }
+      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+    })
+
+    render(
+      <NetworkDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.network.title"
+        descKey="settings.cards.network.desc"
+      />
+    )
+
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('button', { name: /import from system/i })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/does not support SOCKS5 proxies/i)
+      ).toBeInTheDocument()
+      expect(screen.getAllByRole('switch')[2]).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      )
+      expect(screen.getAllByRole('switch')[2]).toHaveAttribute(
+        'aria-checked',
+        'false'
+      )
+    })
+  })
 })

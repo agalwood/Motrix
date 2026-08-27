@@ -116,6 +116,33 @@ describe('useExternalHydration', () => {
     expect(values.urls).toBe('https://a/b')
   })
 
+  it('SetAddTaskMode preserves the hydrated split setting', () => {
+    const { result } = renderHook(() =>
+      useForm({
+        defaultValues: {
+          tab: 'links',
+          urls: '',
+          saveDir: '/preset',
+          split: 32,
+        },
+      })
+    )
+    renderHook(() =>
+      useExternalHydration(
+        result.current as unknown as UseFormReturn<AddTaskFormValues>,
+        true
+      )
+    )
+
+    act(() => {
+      fire(Events.SetAddTaskMode, { mode: 'links', url: 'https://a/b' })
+    })
+
+    expect((result.current.getValues() as Record<string, unknown>).split).toBe(
+      32
+    )
+  })
+
   it('notifies after SetAddTaskMode resets the form', () => {
     const { result } = renderHook(() =>
       useForm({

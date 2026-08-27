@@ -4,6 +4,7 @@ export function proxyToAria2Options(
   p: ProxySettings
 ): { allProxy: string; noProxy: string } | null {
   if (!p.enabled || !p.scopes.download) return null
+  if (p.protocol === 'socks5') return null
   if (!p.host || p.port <= 0) return null
   return {
     allProxy: buildProxyUrl(p),

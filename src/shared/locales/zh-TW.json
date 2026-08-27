@@ -1336,6 +1336,7 @@
         "scopesDesc": "選擇哪些流量要通過 Proxy。",
         "scopeDownload": "下載",
         "scopeDownloadDesc": "由引擎取得的檔案。",
+        "scopeDownloadSocks5Unsupported": "下載引擎不支援 SOCKS5 Proxy。",
         "scopeUpdateApp": "應用程式更新檢查",
         "scopeUpdateAppDesc": "Electron 自動更新程式的 HTTPS 呼叫。",
         "scopeUpdateTrackers": "Tracker 同步",

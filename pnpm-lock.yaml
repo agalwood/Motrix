@@ -207,6 +207,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.10
         version: 4.1.10(vitest@4.1.10)
+      cross-spawn:
+        specifier: ^7.0.6
+        version: 7.0.6
       electron:
         specifier: 43.4.0
         version: 43.4.0(supports-color@7.2.0)

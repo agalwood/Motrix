@@ -8,10 +8,6 @@ vi.mock('@renderer/lib/transport', () => ({
 vi.mock('@renderer/lib/open-add-task-dialog', () => ({
   openAddTaskDialog: vi.fn().mockResolvedValue(undefined),
 }))
-const { toastAddMock } = vi.hoisted(() => ({ toastAddMock: vi.fn() }))
-vi.mock('@renderer/components/ui/toast', () => ({
-  toast: { add: toastAddMock, close: vi.fn() },
-}))
 
 import '@renderer/lib/i18n'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
@@ -140,12 +136,10 @@ describe('OverviewTab', () => {
     expect(screen.queryByText('3/8')).not.toBeInTheDocument()
   })
 
-  it('copies a magnet URI for the info hash', async () => {
+  it('copies the raw info hash', async () => {
     renderOverviewTab(task)
     await userEvent.click(screen.getByRole('button'))
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'magnet:?xt=urn:btih:abc&dn=x'
-    )
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('abc')
   })
 
   describe('Error status', () => {

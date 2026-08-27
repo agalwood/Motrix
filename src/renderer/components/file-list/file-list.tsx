@@ -120,7 +120,8 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
               aria-label={file.path}
             />
             <span
-              className="min-w-0 flex-1 truncate text-xs [direction:rtl] [text-align:left]"
+              className="min-w-0 flex-1 truncate text-xs"
+              dir="auto"
               title={file.path}
             >
               {file.path}

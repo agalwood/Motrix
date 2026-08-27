@@ -31,6 +31,16 @@ describe('proxyToAria2Options', () => {
     expect(r).toEqual({ allProxy: 'http://p.example.com:8080', noProxy: '' })
   })
 
+  it('does not pass socks5 to aria2', () => {
+    expect(
+      proxyToAria2Options({
+        ...enabledHttp,
+        protocol: 'socks5',
+        scopes: { download: true, updateApp: false, updateTrackers: false },
+      })
+    ).toBeNull()
+  })
+
   it('joins bypass with comma', () => {
     const r = proxyToAria2Options({
       ...enabledHttp,

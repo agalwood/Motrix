@@ -271,6 +271,34 @@ describe('AddTaskForm', () => {
     expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
   })
 
+  it('uses the current performance profile split for new downloads', async () => {
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') {
+        return {
+          app: { defaultSaveDir: '/d', autofillClipboardLinks: true },
+          engine: { split: 32 },
+        }
+      }
+      return { outcome: 'created', gid: 'profile-gid', taskId: 'profile-task' }
+    })
+    renderForm()
+
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith('query:getSettings')
+    )
+    await user.type(screen.getByRole('textbox'), 'https://a/profile.zip')
+    await user.click(screen.getByRole('button', { name: /download/i }))
+
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'command:createTask',
+        expect.objectContaining({ connections: 32 })
+      )
+    )
+  })
+
   it('requires confirmation before creating a renamed torrent copy', async () => {
     const onSubmitSuccess = vi.fn()
     const user = userEvent.setup()

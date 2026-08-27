@@ -14,11 +14,11 @@
 // Signals:
 //   SIGINT / SIGTERM — cleanly kill Electron, exit the runner.
 
-import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import spawn from 'cross-spawn'
 import { build, createServer } from 'vite'
 
 const require = createRequire(import.meta.url)

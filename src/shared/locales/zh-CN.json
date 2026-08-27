@@ -1336,6 +1336,7 @@
         "scopesDesc": "选择哪些流量通过代理。",
         "scopeDownload": "下载",
         "scopeDownloadDesc": "由引擎下载的文件。",
+        "scopeDownloadSocks5Unsupported": "下载引擎不支持 SOCKS5 代理。",
         "scopeUpdateApp": "应用更新检查",
         "scopeUpdateAppDesc": "Electron 自动更新检查的 HTTPS 请求。",
         "scopeUpdateTrackers": "Tracker 同步",
