@@ -57,6 +57,11 @@
   ],
   "resourceInputs": [
     {
+      "source": "LICENSE",
+      "destination": "LICENSE",
+      "type": "file"
+    },
+    {
       "source": "THIRD_PARTY_LICENSES",
       "destination": "THIRD_PARTY_LICENSES",
       "type": "directory"

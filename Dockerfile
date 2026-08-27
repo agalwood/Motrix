@@ -74,6 +74,7 @@ COPY --from=build --chown=node:node /app/dist/server-app/bin/aria2c ./bin/aria2c
 COPY --from=full-root-production-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/extra/aria2.conf ./extra/aria2.conf
 COPY --from=build --chown=node:node /app/dist/builtin-plugins ./builtin-plugins
+COPY --from=build --chown=node:node /app/LICENSE ./LICENSE
 COPY --from=build --chown=node:node /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 COPY --from=build --chown=node:node /app/THIRD_PARTY_NOTICES.zh-CN.md ./THIRD_PARTY_NOTICES.zh-CN.md
 COPY --from=build --chown=node:node /app/THIRD_PARTY_LICENSES ./THIRD_PARTY_LICENSES

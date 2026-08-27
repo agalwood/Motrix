@@ -323,6 +323,24 @@ export async function verifyServerPackage(options) {
     }
     return `${tree.files.length} regular files and no symlinks`
   })
+  await check('project-license', async () => {
+    if (
+      typeof appManifest?.license !== 'string' ||
+      appManifest.license === ''
+    ) {
+      throw new Error('generated package.json has no project license')
+    }
+    const licensePath = path.join(stageRoot, 'LICENSE')
+    const info = await lstat(licensePath)
+    if (!info.isFile()) {
+      throw new Error('LICENSE is not a regular file')
+    }
+    const text = await readFile(licensePath, 'utf8')
+    if (text.trim() === '') {
+      throw new Error('LICENSE is empty')
+    }
+    return `Motrix ${appManifest.license} license is included`
+  })
   await check('bundled-engine', async () => {
     if (!engineInput) return 'runtime contract does not bundle an engine'
     const assetKey = `${target.platform}-${target.arch}`
