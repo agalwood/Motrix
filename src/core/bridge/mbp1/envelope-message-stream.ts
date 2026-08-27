@@ -222,26 +222,14 @@ class EnvelopeMessageStream implements EnvelopeStream {
   /**
    * Seals and sends.
    *
-   * Exactly one `seal` failure is a connection-level event: an
-   * `EnvelopeLimitError`. It is reported to `onViolation` — the same sink the
-   * inbound path uses — so a §10 usage bound hit while SENDING closes this
-   * connection the way one hit while receiving does, rather than leaving a
-   * socket open and silently dead. The reason is that the direction is
-   * *exhausted*: the bound has been reached, so no later `seal()` can ever
-   * succeed, and §10's remedy is to reconnect with fresh keys.
-   *
-   * Every other `seal` failure fails only this one write and is NOT reported.
-   * In practice that means the 1 MiB plaintext cap
-   * (`EnvelopeViolationError`) — which, unlike the same error class from
-   * `open()`, is OUR OWN mistake rather than the peer's: something upstream
-   * tried to hand this stream a frame that cannot be sent. All of `seal`'s
-   * guards run before it reads or advances `seq`/`blockCount`, and those
-   * counters advance only after the cipher completes, so a rejected frame
-   * leaves the channel byte-for-byte as it was and the next, smaller frame
-   * seals normally. Reporting it would tear down a healthy session — and
-   * because `onViolation` closes the socket synchronously, `readyState` is
-   * already CLOSING by the time `WebSocketMessageWriter.write` reports the
-   * failure, so not even the JSON-RPC error reply could still go out.
+   * A `seal` failure is a connection-level event. `EnvelopeLimitError` means
+   * the §10 usage bound requires a reconnect with fresh keys. An outbound
+   * `EnvelopeViolationError` means this process attempted to violate §10's
+   * 1 MiB plaintext limit; unlike the same class from inbound `open()`, that
+   * is an internal error rather than a peer protocol error. Both go to the
+   * fault sink before being rethrown so the WebSocket cannot remain live after
+   * the transport has refused an application frame. Any unexpected sealer
+   * failure is classified as internal for the same fail-closed reason.
    *
    * Either way the error is rethrown to the immediate caller —
    * `WebSocketMessageWriter.write` reports it on its own error emitter and
@@ -258,6 +246,16 @@ class EnvelopeMessageStream implements EnvelopeStream {
         // Not wrapped, for the same reason `faultFromOpen` does not wrap it:
         // the error's own message already reads as a usage-bound close.
         this.onViolation({ kind: 'usage-limit', cause: error })
+      } else {
+        this.onViolation({
+          kind: 'internal',
+          cause:
+            error instanceof Error
+              ? error
+              : new Error('envelope stream failed to seal an outbound frame', {
+                  cause: error,
+                }),
+        })
       }
       throw error
     }

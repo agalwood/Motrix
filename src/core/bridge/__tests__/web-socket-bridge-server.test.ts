@@ -15,6 +15,7 @@ import type { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-re
 import {
   WebSocketBridgeServer,
   WS_CLOSE_ENVELOPE_USAGE_LIMIT,
+  WS_CLOSE_INTERNAL_ERROR,
   WS_CLOSE_PROTOCOL_ERROR,
 } from '@core/bridge/web-socket-bridge-server'
 import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
@@ -389,12 +390,10 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
     expect(ws.closedWith).toEqual([[WS_CLOSE_ENVELOPE_USAGE_LIMIT, undefined]])
   })
 
-  it('leaves the session open when an outbound frame exceeds the 1 MiB cap', () => {
-    // The regression this pins: routing every seal() failure to the fault sink
-    // closed a healthy connection (1011) for one oversize payload. `seal`
-    // throws the cap check before it reads or advances `seq`/`blockCount`, so
-    // nothing needed closing — and once the socket is CLOSING, even the
-    // JSON-RPC error reply for the failed write cannot be sent.
+  it('closes with the internal-error code when an outbound frame exceeds the 1 MiB cap', () => {
+    // Outbound oversize is this process violating §10, not the peer violating
+    // it. The refused application frame can desynchronize request state, so
+    // the session fails closed with 1011 rather than staying half-usable.
     const ws = new FakeExtensionSocket()
     server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
       sealer: new EnvelopeSealer(KEY, DIR_S2C),
@@ -407,10 +406,8 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
       session.envelope.send(new Uint8Array(1024 * 1024 + 1))
     ).toThrow(EnvelopeViolationError)
 
-    expect(ws.closedWith).toEqual([])
-    expect(ws.readyState).toBe(1)
-    // Still live: the next, admissible frame goes out on the same channel.
-    session.envelope.send('{"jsonrpc":"2.0"}')
-    expect(ws.sent).toHaveLength(1)
+    expect(ws.closedWith).toEqual([[WS_CLOSE_INTERNAL_ERROR, undefined]])
+    expect(ws.readyState).toBe(3)
+    expect(ws.sent).toHaveLength(0)
   })
 })

@@ -239,6 +239,37 @@ export class Mbp1CredentialStore {
     })
   }
 
+  /**
+   * Revoke every credential bound to one verified extension origin.
+   *
+   * A browser profile reinstall changes `clientInstallationId`, and a failed
+   * rotation can leave a provisional successor beside the committed record.
+   * The renderer's revoke action names the transport identity
+   * (`browser` + Origin host), not either of those credential-internal values,
+   * so revocation must remove every matching committed and provisional record
+   * in one durable write. Revoking only the currently displayed credential
+   * would leave another installation slot able to authenticate immediately.
+   */
+  async revokeExtensionIdentity(
+    browser: Browser,
+    extensionId: string
+  ): Promise<number> {
+    return this.enqueue(async () => {
+      const next = this.credentials.filter(
+        (credential) =>
+          !principalMatchesExtensionIdentity(
+            credential.principal,
+            browser,
+            extensionId
+          )
+      )
+      const revoked = this.credentials.length - next.length
+      if (revoked === 0) return 0
+      await this.persist(next)
+      return revoked
+    })
+  }
+
   /** Drop provisionals that were never acked or used within the TTL (§6.7).
    *  Committed credentials are never swept — only explicit revocation or a
    *  rotation removes one. */
@@ -312,6 +343,24 @@ export class Mbp1CredentialStore {
       () => undefined
     )
     return result
+  }
+}
+
+function principalMatchesExtensionIdentity(
+  principal: CredentialPrincipal,
+  browser: Browser,
+  extensionId: string
+): boolean {
+  if (principal.browser !== browser) return false
+  try {
+    const origin = new URL(principal.verifiedOrigin)
+    const protocol =
+      browser === 'chromium' ? 'chrome-extension:' : 'moz-extension:'
+    return (
+      origin.protocol === protocol && origin.host === extensionId.toLowerCase()
+    )
+  } catch {
+    return false
   }
 }
 

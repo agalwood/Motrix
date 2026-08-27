@@ -143,11 +143,16 @@ pre-authentication 表中；它们绝不进入 live-session map，也不能驱�
 
 ```json
 { "app": "motrix-bridge", "apiVersion": 1,
-  "instanceId": "<persisted per-install UUID>", "appVersion": "2.0.0-beta.20" }
+  "instanceId": "<persisted per-install UUID>", "appVersion": "2.0.0-beta.20",
+  "runtime": "electron",
+  "extensionPairing": { "protocol": "mbp1", "versions": [1] },
+  "applicationProtocols": { "mdxp": ["1.0"] } }
 ```
 
-`instanceId` 是路由 hint，用于决定优先探测哪个候选端口，MUST NOT 当作安全
-信号。扩展 MUST 只在该端口上完成双向认证的 MBP1 会话之后才提交端口 pin。
+`instanceId` 是路由 hint，用于决定优先探测哪个候选端口。兼容性字段可让扩展在
+配对前停止并解释升级要求，但仍只是未认证 hint：MUST NOT 据此选择 legacy
+降级、授予信任或代替认证后的 capability 确认。扩展 MUST 只在该端口上完成
+双向认证的 MBP1 会话之后才提交端口 pin。
 
 ### 4.2 `POST /nonce`
 
@@ -479,7 +484,13 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   principal 两条），又保证 ack/commit 窗口内任意位置的 worker 死亡仍留下可
   重连状态（§6.7 两阶段提交所要求）。
   也使假 listener 无法靠重放 `authFailed` 诱使客户端丢弃唯一有效凭据。显式
-  吊销会关闭存活会话。
+  用户吊销 MUST 立即把存活会话标记为未授权，然后在移除展示/配对 bookkeeping
+  之前，持久删除 `{browser, verifiedOrigin}` 与所选扩展身份匹配的全部
+  committed 与 provisional 凭据。该持久撤销临界区一开始，server MUST 同步
+  取消相同 verified Origin 的所有待完成 `/pair` 与 `/v1` 会话，并在临界区结束
+  前拒绝其新 upgrade，防止已准入的握手在删除后签发或接管替代凭据。之后在
+  可能时发送经认证的吊销通知并关闭存活 WebSocket；短暂的通知排空窗口不接受
+  任何控制面请求，先前签发的 key 不能重连。
 - 凭据 principal：`{browser, verifiedOrigin, clientInstallationId}`。第二个
   浏览器 profile 是**新的 principal**，作为新凭据配对；签发或轮换一个凭据
   MUST NOT 影响另一个。
@@ -777,7 +788,10 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
   新 key。这组上界把 AES-GCM 机密性/完整性的合计 advantage 稳稳压在
   TLS 1.3 分析（RFC 8446 §5.5；另见 RFC 9053 §4.1.1）使用的 ≈2^-57 目标
   之下；MDXP 控制流量比它们低若干数量级。v1 不做原地 rekey。
-- 单帧明文上限 1 MiB。信道激活后的文本帧是协议违例。
+- 单帧明文上限 1 MiB。server 的 WebSocket parser MUST 把单条消息限制在对应的
+  最大 envelope 大小（1 MiB + 8-byte sequence + 16-byte tag），替换 transport
+  更大的默认值，使未认证对端无法先迫使其缓冲超大消息。配对/重连状态机仍独立
+  执行更严格的 16 KiB 认证前帧限制。信道激活后的文本帧是协议违例。
 
 由于 envelope key 源自 PAKE 或凭据派生，即使观察了完整握手，假端点或中继
 端点依然无法读取或修改 URL、cookie、header 或命令。
@@ -816,6 +830,9 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
 | `1002` | 任何 §10/§11 协议违规。统一码：从不指明是哪一项检查失败。 | 视本次尝试失败。 |
 | `4001` | 达到了 §10 的单方向用量上限（2^24 帧或 2^30 个加密块）。双方都没有失当。 | 按 §8 重连并导出新密钥。 |
 | `1011` | 关闭方自身的真实内部故障。 | 视为对端缺陷。 |
+
+尝试在 outbound 方向 seal 超过 1 MiB 明文上限的数据，是本地进程的内部故障，
+而非对端协议违规，因此以 `1011` 关闭；被拒绝的应用帧 MUST NOT 让会话继续存活。
 
 `4001` 位于 [RFC 6455] §7.4.2 为应用间约定保留的私有段；没有合适的标准码可用——
 `1002` 会指控对端犯了并未发生的违规，而 `1011` 会把一个例行的、规范要求的转换

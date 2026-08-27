@@ -175,11 +175,12 @@ export class ReconnectSession {
   }
 
   /**
-   * Ends the session without writing to the socket: the peer is gone, or the
-   * wiring's own pre-authentication deadline table is closing it. Mirrors
+   * Ends the session without writing to the socket: the peer is gone, the
+   * wiring's own pre-authentication deadline table is closing it, or explicit
+   * credential revocation is cancelling same-Origin handshakes. Mirrors
    * `PairSession.dispose`.
    */
-  dispose(_reason: 'socket-closed' | 'timeout'): void {
+  dispose(_reason: 'socket-closed' | 'timeout' | 'access-revoked'): void {
     if (this.state === 'closed') {
       return
     }
@@ -216,9 +217,11 @@ export class ReconnectSession {
     const c = fromBase64Url(parsed.data.C)
     const presentedMac = fromBase64Url(parsed.data.mac)
 
-    // §8: `browser`/`verifiedOrigin` here are the live connection's values,
-    // never anything the client claims — a stored principal that disagrees
-    // fails the MAC by construction (misbinding property).
+    // §8: `browser`/`verifiedOrigin` in RT are the live connection's values,
+    // never anything the client claims. That protects against an honest client
+    // replaying a credential with its stored transcript, but it is NOT enough
+    // when an attacker has stolen the key and recomputes the MAC for its own
+    // Origin; the explicit stored-principal comparison below closes that gap.
     const credential = this.deps.credentials.findForAuth(
       parsed.data.credentialId
     )
@@ -260,8 +263,10 @@ export class ReconnectSession {
       rt,
       presentedMac
     )
+    const principalMatches =
+      credential !== null && this.matchesLivePrincipal(credential)
 
-    if (credential === null || !macOk) {
+    if (credential === null || !macOk || !principalMatches) {
       this.fail('authFailed')
       return
     }
@@ -304,6 +309,13 @@ export class ReconnectSession {
         // "the store rejected the promote" from "the store accepted it but
         // then lost the record" apart.
         this.terminate('reconnectPromotedCredentialMissing')
+        return
+      }
+      if (!this.matchesLivePrincipal(promoted)) {
+        // A store replacement/race must not change the principal between MAC
+        // verification and adoption. Keep the peer-facing result uniform with
+        // every other credential authentication failure.
+        this.fail('authFailed')
         return
       }
       authenticated = promoted
@@ -357,6 +369,13 @@ export class ReconnectSession {
   ): boolean {
     const expected = reconnectMacClient(mutualKey, s, c, rt)
     return constantTimeEqual(expected, presentedMac)
+  }
+
+  private matchesLivePrincipal(credential: StoredCredential): boolean {
+    return (
+      credential.principal.browser === this.deps.browser &&
+      credential.principal.verifiedOrigin === this.deps.verifiedOrigin
+    )
   }
 
   private violation(): void {

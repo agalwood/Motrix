@@ -38,7 +38,6 @@ import {
   type BridgeStatusInfo,
   type Browser,
   type ClientIdentity,
-  clientKey,
   type PairRequestPayload,
   pairRequestKey,
   type ResolvePairParams,
@@ -709,16 +708,6 @@ export async function bootstrapBridge(args: {
     // after this bridge instance is gone.
     ownership.own('device-code', () => deviceCode.dispose())
 
-    pairing.on('revoked', async ({ identity, reason }) => {
-      const sessionKey = clientKey(identity)
-      const session = server.getSession(sessionKey)
-      if (!session) return
-      session.conn.sendNotification(Notifications.PairRevoked, { reason })
-      // Give the ext a tick to process the notification before close.
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      session.conn.dispose()
-    })
-
     const { installer, snap } = createNativeMessagingInstallation()
     let preserveNativeMessagingRegistration = false
     ownership.own('native-messaging-manifests', async () => {
@@ -788,7 +777,14 @@ export async function bootstrapBridge(args: {
     installIpcHandler(
       BridgeCommands.RevokePair,
       async (_e, params: { identity: ClientIdentity }) => {
-        await pairing.revoke(params.identity, 'user-revoked')
+        const reason = 'user-revoked'
+        if (params.identity.kind === 'extension') {
+          // Credential removal is the authorization boundary; it MUST land
+          // before display bookkeeping is updated or the old mutual key can
+          // reconnect immediately after the user clicks Revoke.
+          await server.revokeExtensionAccess(params.identity, reason)
+        }
+        await pairing.revoke(params.identity, reason)
         bus.emitRevoked({ identity: params.identity })
       }
     )

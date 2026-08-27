@@ -12,6 +12,7 @@ import {
   InitializeParamsSchema,
   Methods,
   makeMdxpError,
+  Notifications,
   Tools,
 } from '@motrix/mdxp'
 import { AppError, ErrorCode } from '@shared/errors'
@@ -22,6 +23,7 @@ import {
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
+import { ResponseError } from 'vscode-jsonrpc'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
 import type { Mbp1CredentialStore } from './credential-store'
@@ -35,6 +37,7 @@ import {
   registerWriteHandlers,
   type WriteHandlerDeps,
 } from './handlers/write-handlers'
+import { MAX_ENVELOPE_FRAME_BYTES } from './mbp1/envelope'
 import {
   type EnvelopeChannel,
   type EnvelopeStream,
@@ -251,6 +254,10 @@ export const BRIDGE_CANDIDATE_PORTS = [
 
 /** §4: total pre-authentication connections admitted per route at once. */
 const PRE_AUTH_CAP = 32
+/** Let a maximum-size active §10 envelope through while replacing `ws`'s
+ *  100 MiB default with a bound an unauthenticated peer cannot exceed. */
+export const MAX_WEBSOCKET_PAYLOAD_BYTES = MAX_ENVELOPE_FRAME_BYTES
+const REVOKE_NOTIFICATION_GRACE_MS = 50
 
 /**
  * How long a `/pair` connection may stay pre-authenticated.
@@ -390,6 +397,8 @@ function parseExtensionOrigin(origin: string): ExtensionPeer | null {
 /** A `/pair` connection held in the pre-authentication table (§4, §7.3). */
 interface PairPreAuthEntry {
   readonly ws: WebSocket
+  /** Verified Origin-derived identity used for revoke-critical cancellation. */
+  readonly sessionKey: string
   /** Assigned immediately after admission; `null` only inside `admit` itself. */
   session: PairSession | null
   /** Whether an approval dialog was actually shown for this session — the one
@@ -404,6 +413,8 @@ interface PairPreAuthEntry {
 /** A `/v1` connection held in the pre-authentication table (§4, §8). */
 interface ReconnectPreAuthEntry {
   readonly ws: WebSocket
+  /** Verified Origin-derived identity used for revoke-critical cancellation. */
+  readonly sessionKey: string
   session: ReconnectSession | null
 }
 
@@ -430,6 +441,10 @@ export class WebSocketBridgeServer {
   private boundHost: string | null = null
   private boundPort = 0
   private sessions = new Map<string, BridgeSession>()
+  /** Session keys in the durable-revocation critical section. Matching
+   *  pre-auth sessions are cancelled, new upgrades are refused, and any MBP1
+   *  flow that still finishes concurrently is refused again at adoption. */
+  private readonly revokingExtensionKeys = new Map<string, number>()
   // Open SSE connections (GET /mdxp/events) → their heartbeat timer + the
   // authenticated caller identity. The CLI `watch` firehose; a global
   // (non-session) push of $/task/* + $/stats. The identity is retained so a
@@ -495,7 +510,10 @@ export class WebSocketBridgeServer {
       this.closeSseForIdentity(identity)
     )
     this.http = createServer()
-    this.wss = new WebSocketServer({ noServer: true })
+    this.wss = new WebSocketServer({
+      noServer: true,
+      maxPayload: MAX_WEBSOCKET_PAYLOAD_BYTES,
+    })
 
     this.http.on('upgrade', (req, socket, head) => {
       // The base is a placeholder for relative-URL parsing only. The Host
@@ -566,6 +584,9 @@ export class WebSocketBridgeServer {
           apiVersion: 1,
           instanceId: mbp1.instanceId,
           appVersion: mbp1.appVersion,
+          runtime: this.opts.runtime,
+          extensionPairing: { protocol: 'mbp1', versions: [1] },
+          applicationProtocols: { mdxp: ['1.0'] },
         })
         return
       }
@@ -966,6 +987,147 @@ export class WebSocketBridgeServer {
     return this.sessions.get(sessionKey)
   }
 
+  /**
+   * Cancel an extension's pending handshakes, durably revoke its MBP1
+   * authorization, and disconnect its live session. Credential removal happens
+   * before UI bookkeeping: a UI/pairing-store failure may leave stale display
+   * state, but it can never leave the secret usable.
+   */
+  async revokeExtensionAccess(
+    identity: ClientIdentity & { kind: 'extension' },
+    reason: string
+  ): Promise<number> {
+    const mbp1 = this.mbp1
+    if (mbp1 === null) return 0
+    const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
+    this.revokingExtensionKeys.set(
+      sessionKey,
+      (this.revokingExtensionKeys.get(sessionKey) ?? 0) + 1
+    )
+    // Authorization stops synchronously, before either durable IO or the
+    // notification grace window can yield back to an inbound request.
+    this.sessions.get(sessionKey)?.conn.revokeAuthorization()
+    this.cancelPreAuthForSessionKey(sessionKey)
+    try {
+      const revoked = await mbp1.credentials.revokeExtensionIdentity(
+        identity.browser,
+        identity.extensionId
+      )
+      await this.disconnectExtensionSession(identity, reason)
+      return revoked
+    } catch (error) {
+      // Do not send an authenticated PairRevoked notice when persistence did
+      // not land (the peer would delete its only key while the server kept it),
+      // but keep this live transport fail-closed.
+      this.closeExtensionSessionNow(sessionKey)
+      throw error
+    } finally {
+      const remaining = (this.revokingExtensionKeys.get(sessionKey) ?? 1) - 1
+      if (remaining === 0) {
+        this.revokingExtensionKeys.delete(sessionKey)
+      } else {
+        this.revokingExtensionKeys.set(sessionKey, remaining)
+      }
+    }
+  }
+
+  /**
+   * End every handshake for this verified Origin before durable revocation
+   * yields. Otherwise a `/pair` admitted immediately before revoke could
+   * finish afterwards and mint/adopt a replacement credential.
+   */
+  private cancelPreAuthForSessionKey(sessionKey: string): void {
+    for (const entry of this.preAuthPair.takeWhere(
+      (candidate) => candidate.sessionKey === sessionKey
+    )) {
+      try {
+        entry.session?.dispose('access-revoked')
+      } catch {
+        // The authorization cutoff and durable delete must survive a broken
+        // dialog/flood-control teardown callback.
+      }
+      try {
+        this.recordPairOutcome(entry)
+      } catch {
+        // Outcome accounting is secondary to credential removal.
+      }
+      try {
+        entry.ws.close()
+      } catch {
+        // Already torn down; its close handler is idempotent.
+      }
+    }
+    for (const entry of this.preAuthReconnect.takeWhere(
+      (candidate) => candidate.sessionKey === sessionKey
+    )) {
+      try {
+        entry.session?.dispose('access-revoked')
+      } catch {
+        // Durable credential removal remains the fail-closed boundary.
+      }
+      try {
+        entry.ws.close()
+      } catch {
+        // Already torn down; its close handler is idempotent.
+      }
+    }
+  }
+
+  private async disconnectExtensionSession(
+    identity: ClientIdentity & { kind: 'extension' },
+    reason: string
+  ): Promise<void> {
+    const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
+    const notified = this.sessions.get(sessionKey)
+    if (!notified) return
+
+    notified.conn.revokeAuthorization()
+
+    try {
+      notified.conn.sendNotification(Notifications.PairRevoked, { reason })
+    } catch {
+      // A broken writer is already equivalent to a disconnected peer; the
+      // authorization cutoff below must still run.
+    }
+    await new Promise((resolve) =>
+      setTimeout(resolve, REVOKE_NOTIFICATION_GRACE_MS)
+    )
+
+    // Authentication can replace a map entry while the final notification is
+    // draining. Close both the notified record and whichever matching record
+    // is current so revocation cannot lose that race.
+    const current = this.sessions.get(sessionKey)
+    const targets =
+      current && current !== notified ? [notified, current] : [notified]
+    for (const target of targets) {
+      if (this.sessions.get(sessionKey) === target) {
+        this.sessions.delete(sessionKey)
+      }
+      this.closeSessionTransport(target)
+    }
+  }
+
+  private closeExtensionSessionNow(sessionKey: string): void {
+    const session = this.sessions.get(sessionKey)
+    if (!session) return
+    session.conn.revokeAuthorization()
+    this.sessions.delete(sessionKey)
+    this.closeSessionTransport(session)
+  }
+
+  private closeSessionTransport(session: BridgeSession): void {
+    try {
+      session.envelope.close(1000)
+    } catch {
+      // Closing is best-effort, but listener disposal below is not optional.
+    }
+    try {
+      session.conn.dispose()
+    } catch {
+      // Authorization was already cut and the session-map entry removed.
+    }
+  }
+
   /** Iterate active sessions (e.g. for broadcast). */
   *iterSessions(): IterableIterator<BridgeSession> {
     yield* this.sessions.values()
@@ -1276,9 +1438,18 @@ export class WebSocketBridgeServer {
     peer: ExtensionPeer,
     mbp1: Mbp1Wiring
   ): void {
-    // §4/§6.1: consuming the one-shot nonce is the FIRST thing that happens
-    // once the route is decided — before any session object, dialog, or
-    // flood-control slot exists.
+    const sessionKey = makeSessionKey(peer.browser, peer.extensionId)
+    // A revoke owns this verified Origin until durable removal and transport
+    // teardown finish. Refuse before consuming the one-shot nonce so the user
+    // can retry after the critical section rather than being forced to mint a
+    // new nonce for a request the server intentionally did not admit.
+    if (this.revokingExtensionKeys.has(sessionKey)) {
+      this.reject(socket, 401)
+      return
+    }
+    // §4/§6.1: after the server-owned revocation gate, consuming the one-shot
+    // nonce is the FIRST protocol admission action — before any session
+    // object, dialog, or flood-control slot exists.
     //
     // An unknown or replayed nonce is refused HERE rather than admitted and
     // failed with `pairError {expired}`. Requiring a live nonce to occupy a
@@ -1298,8 +1469,15 @@ export class WebSocketBridgeServer {
     // `pairHello` bound to the verified Origin.
 
     this.wss.handleUpgrade(req, socket, head, (ws) => {
+      // Defence in depth for a future asynchronous upgrade implementation:
+      // never admit a socket if revoke began after the pre-upgrade check.
+      if (this.revokingExtensionKeys.has(sessionKey)) {
+        ws.close()
+        return
+      }
       const entry: PairPreAuthEntry = {
         ws,
+        sessionKey,
         session: null,
         queuedDialog: false,
         confirmed: false,
@@ -1406,6 +1584,13 @@ export class WebSocketBridgeServer {
     peer: ExtensionPeer,
     mbp1: Mbp1Wiring
   ): void {
+    const sessionKey = makeSessionKey(peer.browser, peer.extensionId)
+    // Keep a revoke critical section closed to both credential reuse and new
+    // first-pair credential creation for the same verified Origin.
+    if (this.revokingExtensionKeys.has(sessionKey)) {
+      this.reject(socket, 401)
+      return
+    }
     // §8's closing requirement: reconnect attempts are rate-limited per
     // verified origin and globally. Refused HERE rather than after the upgrade,
     // for the same reason `/pair` refuses an unknown nonce before it: a
@@ -1422,7 +1607,11 @@ export class WebSocketBridgeServer {
     }
 
     this.wss.handleUpgrade(req, socket, head, (ws) => {
-      const entry: ReconnectPreAuthEntry = { ws, session: null }
+      if (this.revokingExtensionKeys.has(sessionKey)) {
+        ws.close()
+        return
+      }
+      const entry: ReconnectPreAuthEntry = { ws, sessionKey, session: null }
       if (!this.preAuthReconnect.admit(entry)) {
         ws.close()
         return
@@ -1523,6 +1712,17 @@ export class WebSocketBridgeServer {
     // MBP1 authenticated the transport below MDXP, so the session is
     // authorized on arrival. No handler grants this any more.
     conn.markAuthorized()
+    if (this.revokingExtensionKeys.has(sessionKey)) {
+      conn.revokeAuthorization()
+      this.closeSessionTransport({
+        conn,
+        extensionId: identity.extensionId,
+        browser: identity.browser,
+        startedAt,
+        envelope,
+      })
+      return
+    }
     this.applyHandlers(conn, null)
 
     const session: BridgeSession = {
@@ -1599,14 +1799,15 @@ export class WebSocketBridgeServer {
       params: unknown
     ): Promise<unknown> => {
       if (!ctx.isAuthorized()) {
-        // Reject (not sync-throw) so the MdxpError travels the same path as a
-        // dispatcher rejection and keeps its code on the wire.
+        const error = makeMdxpError(
+          ErrorCodes.PermissionDenied,
+          'session is not authorized; complete pairing first',
+          { appCode: 'pair.required' }
+        )
+        // vscode-jsonrpc preserves a ResponseError on the wire; rejecting its
+        // handler with the package's plain MdxpError shape collapses to -32603.
         return Promise.reject(
-          makeMdxpError(
-            ErrorCodes.PermissionDenied,
-            'session is not authorized; complete pairing first',
-            { appCode: 'pair.required' }
-          )
+          new ResponseError(error.code, error.message, error.data)
         )
       }
       return this.dispatchTracked(method, params, ctx)

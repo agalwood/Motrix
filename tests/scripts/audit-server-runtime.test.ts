@@ -298,9 +298,31 @@ describe('Server package contracts', () => {
       'extra/aria2.conf',
       'extra/{platform}/{arch}/{aria2Binary}',
     ])
-    expect(contract.runtimeRoots).toHaveLength(23)
-    expect(contract.runtimeRoots).toContain('mmdb-lib')
-    expect(contract.runtimeRoots).toContain('proxy-chain')
+    expect(contract.runtimeRoots).toEqual([
+      '@fastify/static',
+      '@fastify/websocket',
+      '@motrix/mdxp',
+      '@motrix/plugin-manifest-schema',
+      '@noble/curves',
+      '@noble/hashes',
+      'ajv',
+      'better-sqlite3',
+      'bittorrent-peerid',
+      'chokidar',
+      'fastify',
+      'i18next',
+      'libsodium-wrappers',
+      'parse-torrent',
+      'pino',
+      'quickjs-emscripten',
+      'undici',
+      'uuid',
+      'vscode-jsonrpc',
+      'write-file-atomic',
+      'ws',
+      'yauzl',
+      'zod',
+    ])
     expect(contract.runtimeRoots).not.toContain('electron-updater')
     expect(contract.runtimeRoots).not.toContain('@motrix/nat')
   })

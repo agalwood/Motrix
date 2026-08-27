@@ -78,9 +78,9 @@ pub struct ResolvedEndpoint {
 
 pub trait ResolveDeps {
     fn read_endpoint(&mut self) -> Option<EndpointFile>;
-    /// Cheap, unauthenticated liveness check (spec §4.1 `GET /discovery`).
-    /// Callers probe this on every poll iteration; it never consumes a
-    /// nonce.
+    /// Cheap, unauthenticated, Motrix-shaped liveness check (spec §4.1
+    /// `GET /discovery`). Callers probe this on every poll iteration; it
+    /// never consumes a nonce.
     fn probe_liveness(&mut self, port: u16, timeout: Duration) -> bool;
     /// One-shot nonce acquisition (spec §4.2 `POST /nonce`). Callers must
     /// call this only once liveness is already known, and at most once per
@@ -327,6 +327,25 @@ mod tests {
             1,
             "wake polling must not burn nonces"
         );
+    }
+
+    #[test]
+    fn incompatible_recorded_endpoint_does_not_block_user_requested_launch() {
+        let mut deps = FakeDeps::new();
+        deps.endpoints.push_back(endpoint(100));
+        deps.liveness.push_back(false);
+        deps.endpoints.push_back(endpoint(200));
+        deps.liveness.push_back(true);
+        deps.nonces.push_back(Some("nonce-new".into()));
+
+        let resolved = resolve_endpoint(true, &mut deps).expect("resolves after launch");
+        assert_eq!(resolved.endpoint.port, 200);
+        assert_eq!(deps.launch_calls, 1);
+        assert_eq!(
+            deps.liveness_calls,
+            vec![(100, PROBE_TIMEOUT), (200, PROBE_TIMEOUT)]
+        );
+        assert_eq!(deps.nonce_calls.len(), 1);
     }
 
     #[test]

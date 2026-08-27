@@ -71,6 +71,14 @@ that is not `127.0.0.1`, `localhost`, or `[::1]` with the bound port — the §4
 DNS-rebinding guard. It is inert for a non-loopback bind, which keeps its
 existing token + reverse-proxy model.
 
+`GET /discovery` additionally reports unauthenticated compatibility hints:
+`runtime`, `extensionPairing: { protocol: 'mbp1', versions: [1] }`, and
+`applicationProtocols: { mdxp: ['1.0'] }`. They may drive an upgrade message,
+but never trust, downgrade, or a port pin; authenticated initialization remains
+authoritative. The WebSocket parser caps messages at the largest valid active
+envelope (1 MiB plaintext + 24 bytes framing), while the state machines retain
+their stricter 16 KiB pre-authentication check.
+
 Nothing SPAKE2-adjacent may be logged at any level: the pairing code, `w`, any
 PAKE intermediate, derived keys, MACs, or NM tickets (§11). A `pairError` frame
 carries only its nine-code vocabulary (`unsupportedVersion`, `busy`,
@@ -129,11 +137,22 @@ The close codes are:
   spec-mandated transition. A conforming client reconnects on any established
   channel close (regardless of code) via §8 and derives fresh keys.
 - **`1011` (internal error)**: this process is broken (a bug, not a protocol
-  event).
+  event), including an outbound attempt to seal a plaintext over the 1 MiB
+  limit. Such a refused write closes the session rather than leaving
+  application state half-delivered.
 
 The extension client cannot mirror this table: a browser's `WebSocket.close`
 refuses every code outside 1000/3000–4999, so the client sends `4001` for a
 usage bound (either direction) and a bare close for everything else (§11).
+
+An explicit extension revoke first marks the live `BridgeConnection`
+unauthorized and not-ready, then durably removes every committed/provisional
+credential for its verified Origin before updating `PairingService`. The
+same Origin's pending `/pair` and `/v1` sessions are synchronously cancelled,
+and new upgrades are refused for the whole durable-revocation critical section.
+The best-effort `PairRevoked` notification may drain briefly, but dispatch is
+already denied; the underlying WebSocket is then closed and its session-map
+entry removed.
 
 On-disk state lives under `<userData>/bridge/`: `pairing.json`,
 `registry.json`, `endpoint.json` (mode 0600), `local-token` (mode 0600), and

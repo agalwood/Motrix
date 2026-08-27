@@ -8,10 +8,23 @@ use serde::Deserialize;
 pub const MAX_HTTP_HEADER_BYTES: usize = 16 * 1024;
 pub const MAX_HTTP_BODY_BYTES: usize = 64 * 1024;
 const MAX_HTTP_WIRE_BYTES: usize = 128 * 1024;
+const MAX_DISCOVERY_BODY_BYTES: usize = 4 * 1024;
+const MAX_DISCOVERY_FIELD_BYTES: usize = 128;
+const DISCOVERY_APP: &str = "motrix-bridge";
+const DISCOVERY_API_VERSION: u32 = 1;
 
 #[derive(Deserialize)]
 struct NonceResponse {
     nonce: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscoveryResponse {
+    app: String,
+    api_version: u32,
+    instance_id: String,
+    app_version: String,
 }
 
 #[derive(Clone, Copy)]
@@ -72,7 +85,24 @@ pub fn probe_liveness(port: u16, timeout: Duration) -> bool {
     let request = format!(
         "GET /discovery HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
     );
-    fetch_response_body(port, timeout, &request).is_some()
+    let Some(body) = fetch_response_body(port, timeout, &request) else {
+        return false;
+    };
+    if body.len() > MAX_DISCOVERY_BODY_BYTES {
+        return false;
+    }
+    let Ok(response) = serde_json::from_slice::<DiscoveryResponse>(&body) else {
+        return false;
+    };
+    response.app == DISCOVERY_APP
+        && response.api_version == DISCOVERY_API_VERSION
+        && is_reasonable_discovery_field(&response.instance_id)
+        && is_reasonable_discovery_field(&response.app_version)
+}
+
+fn is_reasonable_discovery_field(value: &str) -> bool {
+    (1..=MAX_DISCOVERY_FIELD_BYTES).contains(&value.len())
+        && value.bytes().all(|byte| byte.is_ascii_graphic())
 }
 
 fn remaining(deadline: Instant) -> Option<Duration> {
@@ -292,7 +322,10 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use super::{ChunkDecode, MAX_HTTP_BODY_BYTES, decode_chunked, fetch_nonce, probe_liveness};
+    use super::{
+        ChunkDecode, MAX_DISCOVERY_BODY_BYTES, MAX_DISCOVERY_FIELD_BYTES, MAX_HTTP_BODY_BYTES,
+        decode_chunked, fetch_nonce, probe_liveness,
+    };
 
     const NONCE: &str = "AbCdEfGhIjKlMnOpQrStUv";
 
@@ -426,18 +459,70 @@ mod tests {
         assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
     }
 
-    #[test]
-    fn probe_liveness_hits_discovery_and_accepts_2xx() {
-        let body =
-            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#;
-        let response = format!(
+    fn discovery_response(body: &str) -> Vec<u8> {
+        format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
             body.len()
-        );
-        let (port, server) = serve_once_capturing(vec![response.into_bytes()], Duration::ZERO);
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn probe_liveness_hits_discovery_and_accepts_motrix_shape() {
+        let body = r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0","extensionPairing":{"protocol":"mbp1"}}"#;
+        let (port, server) = serve_once_capturing(vec![discovery_response(body)], Duration::ZERO);
         assert!(probe_liveness(port, Duration::from_secs(1)));
         let request = server.join().expect("fake bridge thread");
         assert!(request.starts_with("GET /discovery HTTP/1.1\r\n"));
+    }
+
+    #[test]
+    fn probe_liveness_rejects_malformed_html_and_wrong_app_bodies() {
+        for body in [
+            r#"{"app":"motrix-bridge""#,
+            "<html><body>another service</body></html>",
+            r#"{"app":"other-service","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#,
+        ] {
+            let (port, server) =
+                serve_once_capturing(vec![discovery_response(body)], Duration::ZERO);
+            assert!(!probe_liveness(port, Duration::from_secs(1)), "{body}");
+            let request = server.join().expect("fake bridge thread");
+            assert!(request.starts_with("GET /discovery HTTP/1.1\r\n"));
+        }
+    }
+
+    #[test]
+    fn probe_liveness_rejects_incompatible_or_unreasonable_motrix_shape() {
+        for body in [
+            r#"{"app":"motrix-bridge","apiVersion":2,"instanceId":"i","appVersion":"2.0.0"}"#,
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"","appVersion":"2.0.0"}"#,
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"bad id","appVersion":"2.0.0"}"#,
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":""}"#,
+        ] {
+            let (port, server) =
+                serve_once_capturing(vec![discovery_response(body)], Duration::ZERO);
+            assert!(!probe_liveness(port, Duration::from_secs(1)), "{body}");
+            server.join().expect("fake bridge thread");
+        }
+    }
+
+    #[test]
+    fn probe_liveness_bounds_discovery_body_and_fields() {
+        let long_instance = "x".repeat(MAX_DISCOVERY_FIELD_BYTES + 1);
+        let body = format!(
+            r#"{{"app":"motrix-bridge","apiVersion":1,"instanceId":"{long_instance}","appVersion":"2.0.0"}}"#
+        );
+        let (port, server) = serve_once_capturing(vec![discovery_response(&body)], Duration::ZERO);
+        assert!(!probe_liveness(port, Duration::from_secs(1)));
+        server.join().expect("fake bridge thread");
+
+        let padding = "x".repeat(MAX_DISCOVERY_BODY_BYTES);
+        let body = format!(
+            r#"{{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0","padding":"{padding}"}}"#
+        );
+        let (port, server) = serve_once_capturing(vec![discovery_response(&body)], Duration::ZERO);
+        assert!(!probe_liveness(port, Duration::from_secs(1)));
+        server.join().expect("fake bridge thread");
     }
 
     #[test]

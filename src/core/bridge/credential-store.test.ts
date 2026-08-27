@@ -499,6 +499,56 @@ describe('Mbp1CredentialStore', () => {
     ])
   })
 
+  it('revokes every committed and provisional credential for an extension identity in one durable write', async () => {
+    const store = await open()
+    const firstInstall = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await store.commitFromPair(firstInstall.credentialId)
+    const successor = await store.offerProvisional(PRINCIPAL_A, 'official')
+    const secondInstall = await store.offerProvisional(
+      { ...PRINCIPAL_A, clientInstallationId: 'install-a2' },
+      'official'
+    )
+    await store.commitFromPair(secondInstall.credentialId)
+    const unrelated = await store.offerProvisional(PRINCIPAL_B, 'unverified')
+
+    const writesBeforeRevoke = writeCount.n
+    await expect(
+      store.revokeExtensionIdentity(
+        'chromium',
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      )
+    ).resolves.toBe(3)
+
+    expect(writeCount.n - writesBeforeRevoke).toBe(1)
+    expect(store.findForAuth(firstInstall.credentialId)).toBeNull()
+    expect(store.findForAuth(successor.credentialId)).toBeNull()
+    expect(store.findForAuth(secondInstall.credentialId)).toBeNull()
+    expect(store.findForAuth(unrelated.credentialId)).not.toBeNull()
+    expect((await readDoc()).credentials.map((c) => c.credentialId)).toEqual([
+      unrelated.credentialId,
+    ])
+  })
+
+  it('does not revoke a credential for a different browser or Origin host', async () => {
+    const store = await open()
+    const credential = await store.offerProvisional(PRINCIPAL_A, 'official')
+
+    await expect(
+      store.revokeExtensionIdentity(
+        'firefox',
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      )
+    ).resolves.toBe(0)
+    await expect(
+      store.revokeExtensionIdentity(
+        'chromium',
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+      )
+    ).resolves.toBe(0)
+
+    expect(store.findForAuth(credential.credentialId)).not.toBeNull()
+  })
+
   it('authenticates a provisional credential and rejects an unknown one', async () => {
     const store = await open()
     const offer = await store.offerProvisional(PRINCIPAL_A, 'official')

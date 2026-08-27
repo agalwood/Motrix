@@ -105,6 +105,26 @@ describe('PreAuthTable (§4)', () => {
     expect(onDeadline).not.toHaveBeenCalled()
   })
 
+  it('takeWhere synchronously removes matching entries and cancels only their deadlines', () => {
+    const onDeadline = vi.fn()
+    const table = new PreAuthTable<string>({
+      cap: 5,
+      deadlineMs: 10_000,
+      onDeadline,
+    })
+    table.admit('same-origin-pair')
+    table.admit('other-origin-pair')
+    table.admit('same-origin-reconnect')
+
+    expect(table.takeWhere((entry) => entry.startsWith('same-origin'))).toEqual(
+      ['same-origin-pair', 'same-origin-reconnect']
+    )
+    expect(table.size()).toBe(1)
+
+    vi.advanceTimersByTime(10_000)
+    expect(onDeadline).toHaveBeenCalledExactlyOnceWith('other-origin-pair')
+  })
+
   it('settle on an entry that already hit its deadline is a harmless no-op', () => {
     const onDeadline = vi.fn()
     const table = new PreAuthTable<string>({

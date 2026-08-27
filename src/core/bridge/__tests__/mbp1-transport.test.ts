@@ -1,10 +1,14 @@
 import { createServer as createHttpServer } from 'node:http'
 import { connect as netConnect } from 'node:net'
+import { MAX_ENVELOPE_PLAINTEXT_BYTES } from '@core/bridge/mbp1/envelope'
 import type { EnvelopeChannel } from '@core/bridge/mbp1/envelope-message-stream'
 import {
   BRIDGE_CANDIDATE_PORTS,
+  MAX_WEBSOCKET_PAYLOAD_BYTES,
   WebSocketBridgeServer,
 } from '@core/bridge/web-socket-bridge-server'
+import { ErrorCodes, Notifications } from '@motrix/mdxp'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser, ClientIdentity } from '@shared/protocol/bridge'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -47,6 +51,7 @@ interface Harness {
   server: WebSocketBridgeServer
   port: number
   dialogs: FakeDialogs
+  credentials: Awaited<ReturnType<typeof makeTempCredentialStore>>
   authenticated: Array<ClientIdentity & { kind: 'extension' }>
 }
 
@@ -58,6 +63,7 @@ async function makeHarness(
 ): Promise<Harness> {
   const dialogs = makeFakeDialogs()
   const authenticated: Array<ClientIdentity & { kind: 'extension' }> = []
+  const credentials = await makeTempCredentialStore()
   const server = new WebSocketBridgeServer({
     pairing: makeStatefulFakePairing(),
     registry: makeFakeRegistry(),
@@ -68,7 +74,7 @@ async function makeHarness(
     instanceId: INSTANCE_ID,
     serverGeneration: SERVER_GENERATION,
     appVersion: APP_VERSION,
-    credentials: await makeTempCredentialStore(),
+    credentials,
     isOfficialId: makeAllowlist(
       overrides.allowlist ?? [['chromium', OFFICIAL_ID]]
     ),
@@ -92,7 +98,15 @@ async function makeHarness(
     },
   })
   const port = await server.start(overrides.host ?? '127.0.0.1', 0)
-  return { server, port, dialogs, authenticated }
+  return { server, port, dialogs, credentials, authenticated }
+}
+
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 /** Send one raw HTTP request with a chosen `Host`, returning the status line. */
@@ -178,7 +192,7 @@ describe('MBP1 HTTP surfaces', () => {
     await h.server.stop()
   })
 
-  it('GET /discovery answers the four §4.1 fields with no-store, pre-auth', async () => {
+  it('GET /discovery answers routing and compatibility hints with no-store, pre-auth', async () => {
     const res = await fetch(`http://127.0.0.1:${h.port}/discovery`)
 
     expect(res.status).toBe(200)
@@ -188,6 +202,9 @@ describe('MBP1 HTTP surfaces', () => {
       apiVersion: 1,
       instanceId: INSTANCE_ID,
       appVersion: APP_VERSION,
+      runtime: 'electron',
+      extensionPairing: { protocol: 'mbp1', versions: [1] },
+      applicationProtocols: { mdxp: ['1.0'] },
     })
   })
 
@@ -424,6 +441,18 @@ describe('§4 ingress demux', () => {
     expect(challenge.type).toBe('reconnectChallenge')
     expect(challenge.protocolVersion).toBe(1)
     wire.ws.close()
+  })
+
+  it('closes an unauthenticated socket before buffering past the active-envelope payload cap', async () => {
+    const wire = await WireClient.open(
+      `ws://127.0.0.1:${h.port}/v1`,
+      OFFICIAL_ORIGIN
+    )
+    await wire.takeJson()
+
+    wire.ws.send(Buffer.alloc(MAX_WEBSOCKET_PAYLOAD_BYTES + 1))
+
+    await expect(wire.closed).resolves.toMatchObject({ code: 1009 })
   })
 
   it('refuses both routes when MBP1 is not wired', async () => {
@@ -819,6 +848,33 @@ describe('§6 first pair over the wire', () => {
 
     conn.dispose()
     hs.wire.ws.close()
+  })
+
+  it('accepts the largest valid active envelope while capping larger WebSocket messages', async () => {
+    const paired = await pairFully(h)
+    const initialized = utf8ToBytes(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'motrix/initialized',
+      })
+    )
+    const plaintext = new Uint8Array(MAX_ENVELOPE_PLAINTEXT_BYTES).fill(0x20)
+    plaintext.set(initialized)
+
+    paired.wire.sendBytes(paired.channel.sealer.seal(plaintext))
+    await vi.waitFor(() =>
+      expect(
+        h.server.getSession(`chromium:${OFFICIAL_ID}`)?.conn.isReady()
+      ).toBe(true)
+    )
+
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    await expect(
+      conn.sendRequest('system/ping', { sentAt: 17 })
+    ).resolves.toMatchObject({ sentAt: 17 })
+
+    conn.dispose()
+    paired.wire.ws.close()
   })
 
   it('closes on a text frame injected after channel activation (§10)', async () => {
@@ -1404,6 +1460,209 @@ describe('§8 reconnect over the wire', () => {
     back.wire.ws.close()
   })
 
+  it('durably rejects an old credential and closes its live session after UI-style revocation', async () => {
+    const paired = await pairFully(h)
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    await conn.sendRequest('motrix/initialize', initializeParams(OFFICIAL_ID))
+
+    let resolveRevokedNotice!: (notice: { reason: string }) => void
+    const revokedNotice = new Promise<{ reason: string }>((resolve) => {
+      resolveRevokedNotice = resolve
+    })
+    const requestDuringGrace = new Promise<unknown>((resolve, reject) => {
+      conn.onNotification(Notifications.PairRevoked, (notice) => {
+        resolveRevokedNotice(notice)
+        void conn.sendRequest('task/list', {}).then(resolve, reject)
+      })
+    })
+    const revoke = h.server.revokeExtensionAccess(
+      {
+        kind: 'extension',
+        browser: 'chromium',
+        extensionId: OFFICIAL_ID,
+      },
+      'user-revoked'
+    )
+
+    await expect(revokedNotice).resolves.toEqual({ reason: 'user-revoked' })
+    await expect(requestDuringGrace).rejects.toMatchObject({
+      code: ErrorCodes.PermissionDenied,
+    })
+    await expect(revoke).resolves.toBe(1)
+    await expect(paired.wire.closed).resolves.toMatchObject({ code: 1000 })
+    expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+    await expect(
+      reconnect({
+        port: h.port,
+        origin: OFFICIAL_ORIGIN,
+        instanceId: INSTANCE_ID,
+        credential: paired.credential,
+      })
+    ).rejects.toMatchObject({
+      frame: { type: 'pairError', code: 'authFailed' },
+    })
+
+    conn.dispose()
+  })
+
+  it('cancels same-origin pre-auth sessions and refuses replacement handshakes throughout revoke', async () => {
+    // Both sockets are admitted before revoke but deliberately remain
+    // pre-authenticated: `/pair` is silent, while `/v1` has only received the
+    // server challenge. Neither is present in the live-session map.
+    const pendingPair = await WireClient.open(
+      `ws://127.0.0.1:${h.port}/pair?nonce=${await fetchNonce(h.port)}`,
+      OFFICIAL_ORIGIN
+    )
+    const pendingReconnect = await WireClient.open(
+      `ws://127.0.0.1:${h.port}/v1`,
+      OFFICIAL_ORIGIN
+    )
+    await pendingReconnect.takeJson()
+
+    const durableEntered = deferred()
+    const allowDurableRevoke = deferred()
+    const revokeDurably = h.credentials.revokeExtensionIdentity.bind(
+      h.credentials
+    )
+    vi.spyOn(h.credentials, 'revokeExtensionIdentity').mockImplementation(
+      async (browser, extensionId) => {
+        durableEntered.resolve()
+        await allowDurableRevoke.promise
+        return revokeDurably(browser, extensionId)
+      }
+    )
+
+    const revoke = h.server.revokeExtensionAccess(
+      {
+        kind: 'extension',
+        browser: 'chromium',
+        extensionId: OFFICIAL_ID,
+      },
+      'user-revoked'
+    )
+    await durableEntered.promise
+
+    try {
+      // Cancellation happens synchronously before the durable await, closing
+      // both pre-auth state machines so neither can resume and adopt later.
+      await expect(pendingPair.closed).resolves.toMatchObject({
+        code: expect.any(Number),
+      })
+      await expect(pendingReconnect.closed).resolves.toMatchObject({
+        code: expect.any(Number),
+      })
+      expect(h.authenticated).toHaveLength(0)
+
+      // Hold durable revocation open to make the race deterministic. New pair
+      // and reconnect upgrades for this Origin are refused for the whole
+      // critical section. Pair refusal precedes nonce consumption.
+      const retryNonce = await fetchNonce(h.port)
+      await expect(
+        WireClient.open(
+          `ws://127.0.0.1:${h.port}/pair?nonce=${retryNonce}`,
+          OFFICIAL_ORIGIN
+        )
+      ).rejects.toThrow('unexpected-response 401')
+      await expect(
+        WireClient.open(`ws://127.0.0.1:${h.port}/v1`, OFFICIAL_ORIGIN)
+      ).rejects.toThrow('unexpected-response 401')
+
+      allowDurableRevoke.resolve()
+      await expect(revoke).resolves.toBe(0)
+
+      // The refused attempt did not burn its one-shot nonce; once the revoke
+      // section is complete the user can retry normally with the same value.
+      const after = await WireClient.open(
+        `ws://127.0.0.1:${h.port}/pair?nonce=${retryNonce}`,
+        OFFICIAL_ORIGIN
+      )
+      after.ws.close()
+      await after.closed
+    } finally {
+      // Keep teardown bounded if an assertion above fails before the durable
+      // operation is released.
+      allowDurableRevoke.resolve()
+      await revoke.catch(() => {})
+    }
+  })
+
+  it('cannot resurrect a credential whose durable offer returns after revoke completes', async () => {
+    const offerPersisted = deferred()
+    const allowOfferReturn = deferred()
+    const offerProvisional = h.credentials.offerProvisional.bind(h.credentials)
+    const delayedCredential: { value?: IssuedCredential } = {}
+    vi.spyOn(h.credentials, 'offerProvisional').mockImplementation(
+      async (principal, identity) => {
+        const offer = await offerProvisional(principal, identity)
+        delayedCredential.value = {
+          credentialId: offer.credentialId,
+          mutualKey: new Uint8Array(
+            Buffer.from(offer.mutualKeyB64, 'base64url')
+          ),
+          origin: principal.verifiedOrigin,
+          browser: principal.browser,
+        }
+        offerPersisted.resolve()
+        // Keep PairSession suspended after the real store has durably written
+        // the provisional. Revocation is therefore queued after that write,
+        // deletes it, and disposes the state machine before this call returns.
+        await allowOfferReturn.promise
+        return offer
+      }
+    )
+
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+    })
+    await runPake(hs, h.dialogs.latestCode())
+    await offerPersisted.promise
+
+    try {
+      await expect(
+        h.server.revokeExtensionAccess(
+          {
+            kind: 'extension',
+            browser: 'chromium',
+            extensionId: OFFICIAL_ID,
+          },
+          'user-revoked'
+        )
+      ).resolves.toBe(1)
+      await expect(hs.wire.closed).resolves.toMatchObject({
+        code: expect.any(Number),
+      })
+
+      // Let the pre-revoke async continuation run only after the revoking gate
+      // has cleared. `dispose('access-revoked')` keeps it closed, so it cannot
+      // emit the offer or adopt a live session after this point.
+      allowOfferReturn.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(h.authenticated).toHaveLength(0)
+      expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+
+      const credential = delayedCredential.value
+      if (credential === undefined) {
+        throw new Error('durable offer did not expose its credential')
+      }
+      await expect(
+        reconnect({
+          port: h.port,
+          origin: OFFICIAL_ORIGIN,
+          instanceId: INSTANCE_ID,
+          credential,
+        })
+      ).rejects.toMatchObject({
+        frame: { type: 'pairError', code: 'authFailed' },
+      })
+    } finally {
+      allowOfferReturn.resolve()
+    }
+  })
+
   it('reports authFailed identically for an unknown id and a bad MAC', async () => {
     const paired = await pairFully(h)
     paired.wire.ws.close()
@@ -1426,16 +1685,23 @@ describe('§8 reconnect over the wire', () => {
     }
   })
 
-  it('fails a credential bound to a different verified origin (misbinding)', async () => {
+  it('rejects a stolen credential even when the attacker recomputes its MAC for the live Origin', async () => {
     const paired = await pairFully(h)
     paired.wire.ws.close()
+    const stolenCredential = {
+      ...paired.credential,
+      // Model an active attacker that has credentialId + mutualKey and builds
+      // RT from its own live Origin instead of preserving the victim's stored
+      // principal. Without a server-side principal comparison this MAC passes.
+      origin: SIDELOADED_ORIGIN,
+    }
 
     await expect(
       reconnect({
         port: h.port,
         origin: SIDELOADED_ORIGIN,
         instanceId: INSTANCE_ID,
-        credential: paired.credential,
+        credential: stolenCredential,
       })
     ).rejects.toMatchObject({
       frame: { type: 'pairError', code: 'authFailed' },

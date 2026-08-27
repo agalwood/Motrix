@@ -46,7 +46,11 @@ const AAD = utf8ToBytes('MBP1/env/v1')
 const SEQ_LENGTH = 8
 const TAG_LENGTH = 16
 const BLOCK_SIZE = 16
-const MAX_PLAINTEXT_LENGTH = 1024 * 1024 // 1 MiB (§10)
+/** §10 maximum plaintext carried by one envelope. */
+export const MAX_ENVELOPE_PLAINTEXT_BYTES = 1024 * 1024
+/** Largest binary WebSocket message a conforming §10 envelope can produce. */
+export const MAX_ENVELOPE_FRAME_BYTES =
+  MAX_ENVELOPE_PLAINTEXT_BYTES + SEQ_LENGTH + TAG_LENGTH
 
 /** §10 usage bound: a direction MUST reconnect with fresh keys before sealing this many frames. */
 export const MAX_ENVELOPE_FRAMES = 2 ** 24
@@ -147,7 +151,7 @@ export class EnvelopeSealer {
 
   /** `frame = seq64BE ‖ AES-256-GCM(key, nonce, plaintext, aad)` (§10). */
   seal(plaintext: Uint8Array): Uint8Array {
-    if (plaintext.length > MAX_PLAINTEXT_LENGTH) {
+    if (plaintext.length > MAX_ENVELOPE_PLAINTEXT_BYTES) {
       throw new EnvelopeViolationError(
         `envelope plaintext of ${plaintext.length} bytes exceeds the 1 MiB frame limit`
       )
@@ -235,7 +239,7 @@ export class EnvelopeOpener {
     // up front, and refusing early is what actually protects us — an
     // authenticated peer holding the traffic key could otherwise make us
     // allocate and decrypt an arbitrarily large frame before anyone objects.
-    if (frame.length - SEQ_LENGTH - TAG_LENGTH > MAX_PLAINTEXT_LENGTH) {
+    if (frame.length - SEQ_LENGTH - TAG_LENGTH > MAX_ENVELOPE_PLAINTEXT_BYTES) {
       throw new EnvelopeViolationError(
         'envelope frame carries more than the 1 MiB plaintext limit'
       )

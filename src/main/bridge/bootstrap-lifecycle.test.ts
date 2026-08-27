@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { Mbp1CredentialStore } from '@core/bridge/credential-store'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
 import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
@@ -415,7 +416,7 @@ describe('desktop bridge bootstrap ownership', () => {
       expect(writeCalls[0]?.generation).not.toBe(writeCalls[1]?.generation)
     })
 
-    it('wires onExtensionAuthenticated end to end: ListPaired sees the client, RevokePair removes it, and the revoke-kick notifies + disposes the live session', async () => {
+    it('durably revokes MBP1 credentials before removing PairingService state and closing the live socket', async () => {
       const runtime = await bootstrapBridge(args())
       expect(runtime).not.toBeNull()
       if (!runtime) return
@@ -434,18 +435,43 @@ describe('desktop bridge bootstrap ownership', () => {
         runtime.server as unknown as {
           opts: {
             onExtensionAuthenticated?: (id: typeof identity) => void
+            credentials: Mbp1CredentialStore
           }
         }
       ).opts
       expect(opts.onExtensionAuthenticated).toBeTypeOf('function')
 
+      const credential = await opts.credentials.offerProvisional(
+        {
+          browser: identity.browser,
+          verifiedOrigin: `chrome-extension://${identity.extensionId}`,
+          clientInstallationId: 'install-a',
+        },
+        'official'
+      )
+      await opts.credentials.commitFromPair(credential.credentialId)
+      const successor = await opts.credentials.offerProvisional(
+        {
+          browser: identity.browser,
+          verifiedOrigin: `chrome-extension://${identity.extensionId}`,
+          clientInstallationId: 'install-a',
+        },
+        'official'
+      )
+
       // Inject a live session the way `adoptAuthenticatedSession` would,
       // so the revoke-kick has something to find and close.
-      const conn = { sendNotification: vi.fn(), dispose: vi.fn() }
+      const conn = {
+        sendNotification: vi.fn(),
+        revokeAuthorization: vi.fn(),
+        dispose: vi.fn(),
+      }
+      const envelope = { close: vi.fn() }
       ;(
         runtime.server as unknown as { sessions: Map<string, unknown> }
       ).sessions.set('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
         conn,
+        envelope,
         extensionId: identity.extensionId,
         browser: identity.browser,
         startedAt: Date.now(),
@@ -466,12 +492,19 @@ describe('desktop bridge bootstrap ownership', () => {
 
       await revokeHandler?.(undefined, { identity })
 
+      expect(opts.credentials.findForAuth(credential.credentialId)).toBeNull()
+      expect(opts.credentials.findForAuth(successor.credentialId)).toBeNull()
       expect(runtime.pairing.listPaired()).toHaveLength(0)
       expect(conn.sendNotification).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ reason: 'user-revoked' })
       )
-      await vi.waitFor(() => expect(conn.dispose).toHaveBeenCalledOnce())
+      expect(envelope.close).toHaveBeenCalledWith(1000)
+      expect(conn.revokeAuthorization).toHaveBeenCalled()
+      expect(conn.dispose).toHaveBeenCalledOnce()
+      expect(
+        runtime.server.getSession('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+      ).toBeUndefined()
 
       await runtime.shutdown()
     })

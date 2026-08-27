@@ -381,19 +381,24 @@ export class PairSession {
   }
 
   /**
-   * Ends the session without writing to the socket: by the time this runs the
-   * peer is gone (`socket-closed`) or the wiring's pre-auth deadline is
-   * closing it (`timeout`). The consumed attempt count is deliberately
-   * preserved (§7.2).
+   * Ends the session without writing to the socket: the peer is gone
+   * (`socket-closed`), the wiring's pre-auth deadline is closing it
+   * (`timeout`), or an explicit credential revoke is cancelling every
+   * same-Origin handshake (`access-revoked`). The consumed attempt count is
+   * deliberately preserved (§7.2).
    */
-  dispose(_reason: 'socket-closed' | 'timeout'): void {
+  dispose(_reason: 'socket-closed' | 'timeout' | 'access-revoked'): void {
     if (this.state === 'closed') {
       return
     }
     this.state = 'closed'
     this.discardRunState()
-    this.closeDialog()
-    this.releasePendingSlot()
+    try {
+      this.closeDialog()
+    } finally {
+      // A renderer/dialog teardown fault must not leak §7.3's pending slot.
+      this.releasePendingSlot()
+    }
   }
 
   // -- §6.1 pairHello ------------------------------------------------------

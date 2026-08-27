@@ -26,6 +26,7 @@ import { ReconnectSession } from './reconnect-session'
 const INSTANCE_ID = '0d9c2b7a-4e6f-4a1b-8c3d-2e5f7a9b1c4d'
 const EXTENSION_ID = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
 const ORIGIN = `chrome-extension://${EXTENSION_ID}`
+const ATTACKER_ORIGIN = 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const CREDENTIAL_ID = 'a5e3c9f0-1b2d-4e6f-8a9c-0d1e2f3a4b5c'
 const T0 = 1_755_600_000_000
 
@@ -627,6 +628,44 @@ describe('ReconnectSession (§8)', () => {
   })
 
   describe('scenario 5: misbinding — RT is built from the live connection, never the client claim (§8)', () => {
+    it('rejects a stolen key even when the attacker recomputes a valid MAC for its own live Origin', async () => {
+      const mutualKey = new Uint8Array(32).fill(9)
+      const credential = makeCredential({
+        state: 'committed',
+        committedAt: T0 - 1,
+        mutualKeyB64: toBase64Url(mutualKey),
+        principal: {
+          browser: 'chromium',
+          verifiedOrigin: ORIGIN,
+          clientInstallationId: 'install-0000-1111-2222',
+        },
+      })
+      const h = makeHarness({
+        verifiedOrigin: ATTACKER_ORIGIN,
+        findForAuth: (id) => (id === CREDENTIAL_ID ? credential : null),
+      })
+      const verify = spyOnVerify(h.session)
+      h.session.start()
+      const { S } = challengeFrom(h)
+      const { frame } = buildResponse({
+        mutualKey,
+        S,
+        credentialId: CREDENTIAL_ID,
+        browser: 'chromium',
+        verifiedOrigin: ATTACKER_ORIGIN,
+        instanceId: INSTANCE_ID,
+      })
+
+      await h.text(frame)
+
+      // Proves the cryptographic check itself passed: rejection is caused by
+      // binding the durable credential principal to the live connection.
+      expect(verify).toHaveReturnedWith(true)
+      expect(h.error()).toEqual({ type: 'pairError', code: 'authFailed' })
+      expect(h.promoteOnReconnect).not.toHaveBeenCalled()
+      expect(h.authenticated).toBeNull()
+    })
+
     it('fails the MAC when the client computed it against a different verifiedOrigin than the live connection', async () => {
       const mutualKey = new Uint8Array(32).fill(9)
       const credential = makeCredential({
@@ -648,7 +687,7 @@ describe('ReconnectSession (§8)', () => {
         S,
         credentialId: CREDENTIAL_ID,
         browser: 'chromium',
-        verifiedOrigin: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        verifiedOrigin: ATTACKER_ORIGIN,
         instanceId: INSTANCE_ID,
       })
 

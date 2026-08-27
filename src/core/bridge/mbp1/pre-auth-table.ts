@@ -74,6 +74,26 @@ export class PreAuthTable<T> {
   }
 
   /**
+   * Atomically removes every entry selected by `predicate`, cancelling each
+   * deadline and returning the removed entries for caller-owned teardown.
+   *
+   * The selection and removal deliberately happen in one synchronous pass:
+   * security-sensitive callers (for example credential revocation) must be
+   * able to establish that no matching pre-authentication session remains
+   * admitted before they begin asynchronous durable work.
+   */
+  takeWhere(predicate: (entry: T) => boolean): T[] {
+    const taken: T[] = []
+    for (const [entry, slot] of this.entries) {
+      if (!predicate(entry)) continue
+      clearTimeout(slot.timer)
+      this.entries.delete(entry)
+      taken.push(entry)
+    }
+    return taken
+  }
+
+  /**
    * Cancels every deadline timer and empties the table — the shutdown path.
    *
    * Pre-authentication entries never enter the live-session map, so a server

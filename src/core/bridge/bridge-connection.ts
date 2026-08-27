@@ -81,6 +81,17 @@ export class BridgeConnection {
     this.authorized = true
   }
 
+  /**
+   * Irreversibly cut off this live session before its WebSocket drains.
+   * Revocation notifications are best-effort and may need a short flush
+   * window, but inbound control-plane dispatch and outbound ready-session
+   * selection must stop immediately.
+   */
+  revokeAuthorization(): void {
+    this.authorized = false
+    this.ready = false
+  }
+
   /** Begin processing inbound frames. Call AFTER registering handlers. */
   listen(): void {
     if (this.listened) return

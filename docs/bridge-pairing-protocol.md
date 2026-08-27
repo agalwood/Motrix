@@ -166,12 +166,18 @@ Unauthenticated, replayable, **a hint and never a trust decision**. Response
 
 ```json
 { "app": "motrix-bridge", "apiVersion": 1,
-  "instanceId": "<persisted per-install UUID>", "appVersion": "2.0.0-beta.20" }
+  "instanceId": "<persisted per-install UUID>", "appVersion": "2.0.0-beta.20",
+  "runtime": "electron",
+  "extensionPairing": { "protocol": "mbp1", "versions": [1] },
+  "applicationProtocols": { "mdxp": ["1.0"] } }
 ```
 
 `instanceId` is a routing hint used to pick which candidate port to try first.
-It MUST NOT be treated as a security signal. Extensions MUST commit a port pin
-only after a mutually-authenticated MBP1 session on that port.
+The compatibility fields let an extension stop before pairing and explain an
+upgrade requirement, but remain unauthenticated hints: they MUST NOT select a
+legacy downgrade, grant trust, or replace post-authentication capability
+confirmation. Extensions MUST commit a port pin only after a
+mutually-authenticated MBP1 session on that port.
 
 ### 4.2 `POST /nonce`
 
@@ -557,7 +563,17 @@ Atomicity rules:
   commit window still leaves a reconnectable state, as §6.7's two-phase commit
   requires. This also denies a fake listener the ability to make the client
   discard its only valid credential by replaying `authFailed`. Explicit
-  revocation closes live sessions.
+  user revocation MUST immediately mark the live session unauthorized, then
+  durably delete every committed and provisional credential whose
+  `{browser, verifiedOrigin}` matches the selected extension identity before
+  removing display/pairing bookkeeping. At the start of that durable critical
+  section the server MUST cancel every pending `/pair` and `/v1` session for
+  the same verified Origin and refuse new upgrades for it until the section
+  ends, so an already-admitted handshake cannot mint or adopt a replacement
+  credential after the delete. It then sends the authenticated revocation
+  notification where possible and closes the live WebSocket; the short
+  notification-drain window admits no control-plane requests, and a previously
+  issued key cannot reconnect.
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
@@ -913,8 +929,13 @@ aad       = "MBP1/env/v1" (ASCII, 11 bytes)
   ≈2^-57 target used by the TLS 1.3 analysis (RFC 8446 §5.5; cf. RFC 9053
   §4.1.1); MDXP control traffic sits orders of magnitude below them. There is
   no in-place rekey in v1.
-- Maximum plaintext per frame: 1 MiB. Text frames after channel activation
-  are a protocol violation.
+- Maximum plaintext per frame: 1 MiB. The server's WebSocket parser MUST cap a
+  message at the corresponding maximum envelope size (1 MiB + 8-byte sequence
+  + 16-byte tag), replacing the transport's larger default so an unauthenticated
+  peer cannot force it to buffer an oversized message first. The stricter
+  16 KiB pre-authentication frame rule remains independently enforced by the
+  pairing/reconnect state machines. Text frames after channel activation are a
+  protocol violation.
 
 Because the envelope key is PAKE- or credential-derived, a fake or relayed
 endpoint that observed the full handshake still cannot read or modify URLs,
@@ -954,6 +975,10 @@ codes, `w`, PAKE intermediates, keys, MACs, or tickets at any log level.
 | `1002` | Any §10/§11 protocol violation. Uniform: it never says which check failed. | Treat this attempt as failed. |
 | `4001` | A §10 per-direction usage bound was reached (2^24 frames or 2^30 encrypted blocks). Neither side misbehaved. | Reconnect (§8) and derive fresh keys. |
 | `1011` | A genuine internal fault on the closing side. | Treat as a peer defect. |
+
+An outbound attempt to seal more than the 1 MiB plaintext limit is the local
+process's internal fault, not a peer protocol violation, and therefore closes
+with `1011`; the refused application frame MUST NOT leave the session live.
 
 `4001` sits in the private-use range [RFC 6455] §7.4.2 reserves for
 application agreement; no standard code fits, since `1002` would accuse the

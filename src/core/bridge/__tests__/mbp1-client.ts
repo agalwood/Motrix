@@ -448,10 +448,11 @@ export async function pairAndExchange(
  * §8 reconnect: open `/v1`, answer the challenge, activate the channel.
  *
  * `origin` is the LIVE connection's `Origin` header; `RT` is built from the
- * credential's own stored principal. For a legitimate client the two coincide,
- * and the gap between them is precisely the misbinding property: connecting
- * from a different origin with someone else's credential makes the server's
- * `RT` disagree with ours and the MAC fail.
+ * credential's supplied principal. A legitimate client persists those values;
+ * security tests may deliberately replace them to model an attacker that has
+ * stolen credentialId + mutualKey and recomputes RT for its own live Origin.
+ * The server must reject that case by comparing the durable principal, not by
+ * assuming the client will preserve it.
  */
 export async function reconnect(opts: {
   port: number
@@ -479,7 +480,9 @@ export async function reconnect(opts: {
   const rt = buildRT({
     protocolVersion: MBP1_PROTOCOL_VERSION,
     credentialId,
-    // The STORED principal, not `opts.origin` — see the doc comment above.
+    // The caller-supplied principal, not automatically `opts.origin` — see the
+    // doc comment above. This distinction lets tests model both honest drift
+    // and an active stolen-key attacker.
     browser: opts.credential.browser,
     verifiedOrigin: opts.credential.origin,
     instanceId: opts.instanceId,
