@@ -6,16 +6,13 @@ import {
   AlertTitle,
 } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
-import { toast } from '@renderer/components/ui/toast'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
-import { fetchTaskBtDetail } from '@renderer/hooks/use-task-bt-detail'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
-import { infoHashToMagnetUri } from '@renderer/lib/magnet'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { canAttemptRetry } from '@shared/types/task-actions'
@@ -186,26 +183,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
                   <CopyButton
                     variant="ghost"
                     className="has-[>svg]:px-0 p-0 h-[18px] w-[18px] rounded-md [&_svg:not([class*='size-'])]:size-3"
-                    content={async () => {
-                      let detail: Awaited<ReturnType<typeof fetchTaskBtDetail>>
-                      try {
-                        detail = await fetchTaskBtDetail(task.id)
-                      } catch (err) {
-                        // Abort the copy (CopyButton skips the clipboard
-                        // write on a rejected content) and say so — a
-                        // tracker-less magnet copied "successfully" can be
-                        // unusable for private torrents.
-                        toast.add({
-                          title: t('panel.downloads.action.copyUrlFailed'),
-                          type: 'error',
-                        })
-                        throw err
-                      }
-                      return infoHashToMagnetUri(task.infoHash ?? '', {
-                        name: task.name,
-                        trackers: detail.announceList.flat(),
-                      })
-                    }}
+                    content={task.infoHash}
                   />
                 </div>
               }

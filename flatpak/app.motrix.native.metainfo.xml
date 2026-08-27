@@ -76,6 +76,17 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.27" date="2026-08-27">
+      <description>
+        <p>
+          Protected beta tags now publish verified amd64 and arm64 Snap builds
+          to latest/edge. This release also adds Server GeoIP support, aligns
+          aria2 defaults and BitTorrent preview behavior, improves Windows
+          integration and cross-platform fonts, and fixes several packaging
+          and desktop details.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.26" date="2026-08-25">
       <description>
         <p>

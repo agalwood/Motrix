@@ -170,6 +170,35 @@ describe('FilesTab', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('uses task progress for a live single-file BT torrent', () => {
+    ;(useTaskFiles as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      files: [
+        {
+          index: 0,
+          path: 'ubuntu-25.10-desktop-amd64.iso',
+          size: 100,
+          selected: true,
+          completedBytes: 50,
+        },
+      ],
+      loading: false,
+      refetch: vi.fn(),
+    })
+
+    render(
+      <FilesTab
+        task={mockTask({
+          status: TaskStatus.Downloading,
+          progress: 0.53,
+          fileCount: 1,
+        })}
+      />
+    )
+
+    expect(screen.getByText('53%')).toBeInTheDocument()
+    expect(useTaskFiles).toHaveBeenCalledWith('t1', true)
+  })
+
   it('treats HTTP task as read-only regardless of file count', () => {
     ;(useTaskFiles as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       files: [

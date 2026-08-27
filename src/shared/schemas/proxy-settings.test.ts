@@ -44,6 +44,14 @@ describe('proxySettingsSchema', () => {
     })
   })
 
+  it('disables the unsupported download scope for socks5', () => {
+    const r = proxySettingsSchema.parse({
+      protocol: 'socks5',
+      scopes: { download: true },
+    })
+    expect(r.scopes.download).toBe(false)
+  })
+
   it('truncates bypass list past max via fallback', () => {
     const long = Array.from({ length: 100 }, (_, i) => `host${i}`)
     expect(proxySettingsSchema.parse({ bypass: long }).bypass).toEqual([])

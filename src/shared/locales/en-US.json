@@ -1349,6 +1349,7 @@
         "scopesDesc": "Choose which kinds of traffic go through the proxy.",
         "scopeDownload": "Downloads",
         "scopeDownloadDesc": "Files fetched by the engine.",
+        "scopeDownloadSocks5Unsupported": "The download engine does not support SOCKS5 proxies.",
         "scopeUpdateApp": "App update check",
         "scopeUpdateAppDesc": "Electron auto-updater HTTPS calls.",
         "scopeUpdateTrackers": "Tracker sync",

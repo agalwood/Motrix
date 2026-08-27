@@ -78,12 +78,43 @@ describe('useTaskFiles', () => {
     expect(transportMock.invoke).toHaveBeenCalledTimes(1)
   })
 
+  it('refetches live files when the matching task updates', async () => {
+    renderHook(() => useTaskFiles('t1', true))
+    await waitFor(() => expect(transportMock.invoke).toHaveBeenCalledTimes(1))
+    expect(transportMock.on).toHaveBeenCalledWith(
+      Events.TaskUpdated,
+      expect.any(Function)
+    )
+
+    act(() => {
+      listeners.get(Events.TaskUpdated)?.forEach((cb) => {
+        cb([{ id: 't1' }])
+      })
+    })
+
+    await waitFor(() => expect(transportMock.invoke).toHaveBeenCalledTimes(2))
+  })
+
+  it('does not subscribe to task updates when live refresh is disabled', async () => {
+    renderHook(() => useTaskFiles('t1'))
+    await waitFor(() => expect(transportMock.invoke).toHaveBeenCalledTimes(1))
+
+    expect(transportMock.on).not.toHaveBeenCalledWith(
+      Events.TaskUpdated,
+      expect.any(Function)
+    )
+  })
+
   it('unsubscribes on unmount', async () => {
-    const { unmount } = renderHook(() => useTaskFiles('t1'))
+    const { unmount } = renderHook(() => useTaskFiles('t1', true))
     await waitFor(() => expect(transportMock.on).toHaveBeenCalled())
     unmount()
     expect(transportMock.off).toHaveBeenCalledWith(
       Events.TaskFilesUpdated,
+      expect.any(Function)
+    )
+    expect(transportMock.off).toHaveBeenCalledWith(
+      Events.TaskUpdated,
       expect.any(Function)
     )
   })
