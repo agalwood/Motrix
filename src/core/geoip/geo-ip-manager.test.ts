@@ -9,6 +9,16 @@ import type { GeoIPDownloader } from './geo-ip-downloader'
 import { GeoIPManager } from './geo-ip-manager'
 import type { GeoIPService } from './geo-ip-service'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve
+    reject = onReject
+  })
+  return { promise, reject, resolve }
+}
+
 function makeFakeDownloader(): GeoIPDownloader {
   return {
     download: vi.fn().mockResolvedValue({
@@ -35,6 +45,25 @@ function makeFakeService(): GeoIPService {
     isLoaded: vi.fn(() => loaded),
     lookupCountry: vi.fn(() => ({ code: 'US', name: 'United States' })),
   } as unknown as GeoIPService
+}
+
+function deferServiceReload(service: GeoIPService) {
+  const started = deferred<void>()
+  const release = deferred<void>()
+  let loaded = false
+
+  service.reload = vi.fn(async () => {
+    started.resolve(undefined)
+    await release.promise
+    loaded = true
+    return true
+  })
+  service.close = vi.fn(() => {
+    loaded = false
+  })
+  service.isLoaded = vi.fn(() => loaded)
+
+  return { release, started }
 }
 
 interface Harness {
@@ -199,21 +228,141 @@ describe('GeoIPManager', () => {
   })
 
   it('reloads the service when GeoIP transitions from disabled to enabled', async () => {
+    const previous = h.settingsManager.get().geoip
     await h.manager.start()
-    await h.manager.onSettingsChanged(
-      { ...h.settingsManager.get().geoip, enabled: false },
-      { ...h.settingsManager.get().geoip, enabled: true }
-    )
+    await h.settingsManager.update({ geoip: { enabled: true } })
+    const next = h.settingsManager.get().geoip
+    const statuses: unknown[] = []
+    h.eventBus.on(Events.GeoIPStatusChanged, (status) => statuses.push(status))
+    await h.manager.onSettingsChanged(previous, next)
     expect(h.service.reload).toHaveBeenCalled()
+    expect(statuses).toEqual([
+      expect.objectContaining({ enabled: true, loaded: true }),
+    ])
   })
 
   it('closes the service when GeoIP transitions from enabled to disabled', async () => {
     await h.settingsManager.update({ geoip: { enabled: true } })
     await h.manager.start()
-    await h.manager.onSettingsChanged(
-      { ...h.settingsManager.get().geoip, enabled: true },
-      { ...h.settingsManager.get().geoip, enabled: false }
-    )
+    const previous = h.settingsManager.get().geoip
+    await h.settingsManager.update({ geoip: { enabled: false } })
+    const next = h.settingsManager.get().geoip
+    const statuses: unknown[] = []
+    h.eventBus.on(Events.GeoIPStatusChanged, (status) => statuses.push(status))
+    await h.manager.onSettingsChanged(previous, next)
     expect(h.service.close).toHaveBeenCalled()
+    expect(statuses).toEqual([
+      expect.objectContaining({ enabled: false, loaded: false }),
+    ])
+  })
+
+  it('keeps the service unloaded when disable overtakes a pending enable reload', async () => {
+    const reload = deferServiceReload(h.service)
+    const initiallyDisabled = structuredClone(h.settingsManager.get().geoip)
+    await h.manager.start()
+
+    await h.settingsManager.update({ geoip: { enabled: true } })
+    const enabled = structuredClone(h.settingsManager.get().geoip)
+    const enableChange = h.manager.onSettingsChanged(initiallyDisabled, enabled)
+    await reload.started.promise
+
+    await h.settingsManager.update({ geoip: { enabled: false } })
+    const disabledAgain = structuredClone(h.settingsManager.get().geoip)
+    const disableChange = h.manager.onSettingsChanged(enabled, disabledAgain)
+
+    reload.release.resolve(undefined)
+    await Promise.all([enableChange, disableChange])
+
+    expect(h.manager.getStatus()).toMatchObject({
+      enabled: false,
+      loaded: false,
+    })
+  })
+
+  it('keeps the service unloaded when a download finishes after disable', async () => {
+    const downloadStarted = deferred<void>()
+    const download = deferred<{ sizeBytes: number; version: string }>()
+    h.downloader.download = vi.fn(async () => {
+      downloadStarted.resolve(undefined)
+      return download.promise
+    })
+    await h.settingsManager.update({
+      geoip: { enabled: true, source: 'loyalsoldier' },
+    })
+    await h.manager.start()
+
+    const update = h.manager.triggerUpdate()
+    await downloadStarted.promise
+    const enabled = structuredClone(h.settingsManager.get().geoip)
+    await h.settingsManager.update({ geoip: { enabled: false } })
+    const disabled = structuredClone(h.settingsManager.get().geoip)
+    const disableChange = h.manager.onSettingsChanged(enabled, disabled)
+
+    download.resolve({ sizeBytes: 9_000_000, version: 'v1.2026.05' })
+    await Promise.all([update, disableChange])
+
+    expect(h.manager.getStatus()).toMatchObject({
+      enabled: false,
+      loaded: false,
+    })
+  })
+
+  it('waits for a pending enable reload before stop finishes unloaded', async () => {
+    const reload = deferServiceReload(h.service)
+    const initiallyDisabled = structuredClone(h.settingsManager.get().geoip)
+    await h.manager.start()
+    await h.settingsManager.update({ geoip: { enabled: true } })
+    const enabled = structuredClone(h.settingsManager.get().geoip)
+
+    const enableChange = h.manager.onSettingsChanged(initiallyDisabled, enabled)
+    await reload.started.promise
+
+    let stopSettled = false
+    const stop = h.manager.stop().then(() => {
+      stopSettled = true
+    })
+    await Promise.resolve()
+    const settledBeforeReload = stopSettled
+
+    reload.release.resolve(undefined)
+    await Promise.all([enableChange, stop])
+
+    expect(settledBeforeReload).toBe(false)
+    expect(h.manager.getStatus().loaded).toBe(false)
+  })
+
+  it('publishes an update as in-flight before status listeners can stop it', async () => {
+    const downloadStarted = deferred<void>()
+    const download = deferred<{ sizeBytes: number; version: string }>()
+    h.downloader.download = vi.fn(async () => {
+      downloadStarted.resolve(undefined)
+      return download.promise
+    })
+    await h.settingsManager.update({
+      geoip: { enabled: true, source: 'loyalsoldier' },
+    })
+    await h.manager.start()
+
+    const stopRequest: { promise?: Promise<void> } = {}
+    h.eventBus.on(Events.GeoIPStatusChanged, () => {
+      if (h.manager.getStatus().isDownloading && !stopRequest.promise) {
+        stopRequest.promise = h.manager.stop()
+      }
+    })
+    const update = h.manager.triggerUpdate()
+    await downloadStarted.promise
+    const pendingStop = stopRequest.promise
+    if (!pendingStop) throw new Error('status listener did not request stop')
+
+    let stopSettled = false
+    void pendingStop.then(() => {
+      stopSettled = true
+    })
+    await Promise.resolve()
+    expect(stopSettled).toBe(false)
+
+    download.resolve({ sizeBytes: 9_000_000, version: 'v1.2026.05' })
+    await Promise.all([update, pendingStop])
+    expect(h.manager.getStatus().loaded).toBe(false)
   })
 })

@@ -21,6 +21,7 @@
     "fastify",
     "i18next",
     "libsodium-wrappers",
+    "mmdb-lib",
     "parse-torrent",
     "pino",
     "quickjs-emscripten",

@@ -2,6 +2,8 @@ import path from 'node:path'
 import type { TaskActivityService } from '@core/activity'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
+import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
+import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
@@ -21,6 +23,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
@@ -92,6 +95,7 @@ export interface ServerQueryContext {
   settingsManager: SettingsManager
   trackerManager: TrackerManager
   engineAdapter: EngineAdapter
+  geoipManager: Pick<GeoIPManager, 'getStatus' | 'isEnabled' | 'lookupCountry'>
   notificationCenter: NotificationCenter
   pluginRegistry: PluginRegistry
   pluginGrants: GrantsManager
@@ -118,6 +122,7 @@ export function buildServerQueryHandlers(
     settingsManager,
     trackerManager,
     engineAdapter,
+    geoipManager,
     notificationCenter,
     pluginRegistry,
     pluginGrants,
@@ -152,6 +157,12 @@ export function buildServerQueryHandlers(
       taskManager,
     }),
 
+    [Queries.GetTaskPeers]: createGetTaskPeersHandler({
+      engineAdapter,
+      taskManager,
+      geoipManager,
+    }),
+
     [Queries.GetStats]: async () => statsAggregator.getStats(),
 
     [Queries.GetSpeedHistory]: async (params?: { limit?: number }) =>
@@ -176,6 +187,8 @@ export function buildServerQueryHandlers(
     [Queries.GetEngineDiagnostics]: async () => supervisor.diagnose(),
 
     [Queries.GetSettings]: async () => settingsManager.get(),
+
+    [Queries.GetGeoIPStatus]: createGetGeoIPStatusHandler({ geoipManager }),
 
     [Queries.GetSystemProxy]: async () => null,
 

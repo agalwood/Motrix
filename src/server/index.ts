@@ -23,6 +23,7 @@ import {
 } from '@core/engine/engine-supervisor'
 import { EventBus } from '@core/events/event-bus'
 import { pathExists } from '@core/fs/path-exists'
+import { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { LocaleCoordinator } from '@core/i18n/locale-coordinator'
 import {
   AsyncWorkTracker,
@@ -189,6 +190,7 @@ async function main() {
     drainDevWatcher: () => {},
     drainPluginHost: () => {},
     drainMagnet: () => {},
+    stopGeoIP: () => {},
     drainSession: () => {},
     disposeActivity: () => {},
     disposeTransferStats: () => {},
@@ -266,6 +268,7 @@ async function main() {
   // The closure captures the variable by reference so changes after assignment
   // are visible here.
   let speedLimitController: SpeedLimitController | undefined
+  let geoipManager: GeoIPManager | null = null
 
   const configuredDefaultSaveDir = resolveServerDefaultSaveDir(
     process.env,
@@ -283,11 +286,32 @@ async function main() {
         ) {
           void speedLimitController.recompute()
         }
+        const activeGeoipManager = geoipManager
+        if (
+          activeGeoipManager &&
+          (old.geoip.enabled !== updated.geoip.enabled ||
+            old.geoip.source !== updated.geoip.source)
+        ) {
+          runShellAsyncWork('geoip settings update', () =>
+            activeGeoipManager.onSettingsChanged(old.geoip, updated.geoip)
+          )
+        }
       },
     }
   )
   await settingsManager.load()
   if (!shellAsyncWork.isAccepting()) return
+  const activeGeoipManager = new GeoIPManager({
+    settingsManager,
+    eventBus,
+    dbPath: path.join(
+      runtimeDirectories.dataDir,
+      'geoip',
+      'GeoLite2-Country.mmdb'
+    ),
+  })
+  geoipManager = activeGeoipManager
+  shutdownActions.stopGeoIP = () => activeGeoipManager.stop()
   const hasDefaultSaveDirOverride = Boolean(
     process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim()
   )
@@ -871,6 +895,7 @@ async function main() {
   const commandHandlers = buildServerCommandHandlers({
     supervisor,
     settingsManager,
+    geoipManager: activeGeoipManager,
     dnsFallback: dnsFallbackConsumer,
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
@@ -925,6 +950,7 @@ async function main() {
     taskInspectorActivityRuntime: taskInspectorActivityQuery,
     supervisor,
     settingsManager,
+    geoipManager: activeGeoipManager,
     trackerManager,
     engineAdapter: adapter,
     notificationCenter,
@@ -1047,6 +1073,13 @@ async function main() {
   shutdownActions.closeBridge = () => bridgeRuntime?.shutdown()
 
   const startServer = async (): Promise<void> => {
+    await activeGeoipManager.start()
+    if (!shellAsyncWork.isAccepting()) {
+      await activeGeoipManager.stop()
+      return
+    }
+    log.info('GeoIPManager started')
+
     try {
       await pluginActivation.dispatch({ kind: 'startup' })
     } catch (err) {
@@ -1365,7 +1398,8 @@ async function main() {
       }
       return
     }
-    log.info({ port }, 'server listening')
+    const serverUrl = `http://localhost:${port}`
+    log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port

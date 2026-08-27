@@ -63,6 +63,9 @@ function makeFakeCtx() {
         magnetFileSelection: true,
       })),
     } as unknown as SettingsManager,
+    geoipManager: {
+      triggerUpdate: vi.fn(),
+    },
     rpcClient: {} as Aria2RpcClient,
     adapter: {} as EngineAdapter,
     trackerManager: {
@@ -440,6 +443,31 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.settingsManager.update).toHaveBeenCalledWith({
       app: { defaultSaveDir: '/downloads/media-canonical' },
     })
+  })
+})
+
+describe('server Commands.UpdateGeoIPDatabase', () => {
+  it('delegates the update to the shared GeoIP manager', async () => {
+    const ctx = makeFakeCtx()
+    const status = {
+      enabled: true,
+      hasDatabase: true,
+      loaded: true,
+      lastUpdatedAt: 1_800_000_000_000,
+      databaseVersion: 'v1',
+      sizeBytes: 9_000_000,
+      isDownloading: false,
+      lastError: null,
+    }
+    ctx.geoipManager.triggerUpdate.mockResolvedValue(status)
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await expect(handlers[Commands.UpdateGeoIPDatabase]?.()).resolves.toBe(
+      status
+    )
+    expect(ctx.geoipManager.triggerUpdate).toHaveBeenCalledOnce()
   })
 })
 

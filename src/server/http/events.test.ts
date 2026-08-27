@@ -12,9 +12,14 @@ describe('bindEventBroadcaster', () => {
     broadcaster.register(fakeSocket as never)
 
     bus.emit(Events.TaskUpdated, { id: 't1' })
+    bus.emit(Events.GeoIPStatusChanged, { enabled: true, loaded: true })
 
     expect(sent).toEqual([
       { channel: Events.TaskUpdated, args: [{ id: 't1' }] },
+      {
+        channel: Events.GeoIPStatusChanged,
+        args: [{ enabled: true, loaded: true }],
+      },
     ])
   })
 

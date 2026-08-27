@@ -15,6 +15,7 @@ export interface ServerShutdownActions {
   drainDevWatcher: ShutdownAction
   drainPluginHost: ShutdownAction
   drainMagnet: ShutdownAction
+  stopGeoIP: ShutdownAction
   drainSession: ShutdownAction
   disposeActivity: ShutdownAction
   disposeTransferStats: ShutdownAction
@@ -73,6 +74,7 @@ export function createServerShutdown(
         safely('dev-watcher', actions.drainDevWatcher),
         safely('plugin-host', actions.drainPluginHost),
         safely('magnet', actions.drainMagnet),
+        safely('geoip', actions.stopGeoIP),
         safely('speed-limit', actions.stopSpeedLimit),
       ])
       // A tracker mutation may have paused an active task. Keep both Session

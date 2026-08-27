@@ -4,6 +4,7 @@ import { recommend } from '@core/engine/aria2/aria2-tuning'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
+import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
@@ -26,6 +27,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
@@ -50,10 +52,8 @@ import { getLinuxDefaultAssociations } from '../platform/linux-default-apps'
 import { getWindowsDefaultAssociations } from '../platform/windows-default-apps'
 import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import { createGetEngineTaskOptionsHandler } from './queries/get-engine-task-options'
-import { createGetGeoIPStatusHandler } from './queries/get-geo-ip-status'
 import { createGetTaskBtTrackerHandler } from './queries/get-task-bt-tracker'
 import { createGetTaskFilesHandler } from './queries/get-task-files'
-import { createGetTaskPeersHandler } from './queries/get-task-peers'
 import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface QueryContext {
