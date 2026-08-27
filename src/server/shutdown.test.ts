@@ -22,6 +22,7 @@ function actions(
     closeBridge: step('close-bridge'),
     unsubscribeProducers: step('unsubscribe-producers'),
     drainMagnet: step('drain-magnet'),
+    stopGeoIP: step('stop-geoip'),
     drainSession: step('drain-session'),
     disposeActivity: step('dispose-activity'),
     disposeTransferStats: step('dispose-transfer-stats'),
@@ -53,6 +54,7 @@ describe('createServerShutdown', () => {
       'drain-dev-watcher',
       'drain-plugin-host',
       'drain-magnet',
+      'stop-geoip',
       'stop-speed-limit',
       'dispose-tracker',
       'drain-session',
@@ -221,6 +223,7 @@ describe('server startup/exit coordination', () => {
       'drain-dev-watcher',
       'drain-plugin-host',
       'drain-magnet',
+      'stop-geoip',
       'stop-speed-limit',
       'dispose-tracker',
       'drain-session',
@@ -371,6 +374,26 @@ describe('server lifecycle production wiring', () => {
     expect(listen).toBeGreaterThan(producers)
   })
 
+  it('reports a copyable HTTP URL after ingress starts', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/server/index.ts'),
+      'utf8'
+    )
+    const listen = source.indexOf('await app.listen({ port')
+    const serverUrl = source
+      .slice(listen)
+      .search(/const serverUrl = `http:\/\/localhost:\$\{port\}`/)
+    const listeningLog = source
+      .slice(listen)
+      .search(
+        /log\.info\(\{ port, url: serverUrl \}, `server listening at \$\{serverUrl\}`\)/
+      )
+
+    expect(listen).toBeGreaterThan(-1)
+    expect(serverUrl).toBeGreaterThan(0)
+    expect(listeningLog).toBeGreaterThan(0)
+  })
+
   it('wires TrackerManager stopAndDrain into production shutdown', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/server/index.ts'),
@@ -380,5 +403,38 @@ describe('server lifecycle production wiring', () => {
     expect(source).toContain(
       'shutdownActions.disposeTracker = () => trackerManager.stopAndDrain()'
     )
+  })
+
+  it('registers GeoIP cleanup before startup and starts it before HTTP ingress', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/server/index.ts'),
+      'utf8'
+    )
+    const manager = source.indexOf(
+      'const activeGeoipManager = new GeoIPManager('
+    )
+    const stopRegistration = source.indexOf(
+      'shutdownActions.stopGeoIP = () => activeGeoipManager.stop()'
+    )
+    const start = source.indexOf('await activeGeoipManager.start()')
+    const cancellationGuard = source.indexOf(
+      'if (!shellAsyncWork.isAccepting()) {',
+      start
+    )
+    const lateStop = source.indexOf(
+      'await activeGeoipManager.stop()',
+      cancellationGuard
+    )
+    const startedLog = source.indexOf("log.info('GeoIPManager started')", start)
+    const listen = source.indexOf('await app.listen(')
+
+    expect(manager).toBeGreaterThan(-1)
+    expect(stopRegistration).toBeGreaterThan(manager)
+    expect(start).toBeGreaterThan(stopRegistration)
+    expect(cancellationGuard).toBeGreaterThan(start)
+    expect(lateStop).toBeGreaterThan(cancellationGuard)
+    expect(startedLog).toBeGreaterThan(lateStop)
+    expect(source.slice(cancellationGuard, startedLog)).toContain('return')
+    expect(listen).toBeGreaterThan(startedLog)
   })
 })

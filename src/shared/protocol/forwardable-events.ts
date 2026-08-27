@@ -36,6 +36,8 @@ export const ForwardableEvents = [
   Events.UpdateDownloaded,
   Events.UpdateCancelled,
   Events.UpdateError,
+  Events.GeoIPUpdateProgress,
+  Events.GeoIPStatusChanged,
   Events.LocaleChanged,
   Events.PluginConfigChanged,
   Events.PluginGrantsChanged,

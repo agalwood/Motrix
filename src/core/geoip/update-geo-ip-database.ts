@@ -1,5 +1,5 @@
-import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import type { GeoIPStatus } from '@shared/types/geoip'
+import type { GeoIPManager } from './geo-ip-manager'
 
 export interface UpdateGeoIPDatabaseDeps {
   geoipManager: Pick<GeoIPManager, 'triggerUpdate'>

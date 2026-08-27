@@ -6,6 +6,8 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
 import type { EventBus } from '@core/events/event-bus'
+import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
+import { createUpdateGeoIPDatabaseHandler } from '@core/geoip/update-geo-ip-database'
 import { getLogger } from '@core/logger'
 import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
@@ -79,6 +81,7 @@ import type { createServerProxyApplier } from '../proxy/wiring'
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
+  geoipManager: Pick<GeoIPManager, 'triggerUpdate'>
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
   dnsFallback?: Pick<DnsFallbackConsumer, 'reset'>
   /**
@@ -144,6 +147,7 @@ export function buildServerCommandHandlers(
   const {
     supervisor,
     settingsManager,
+    geoipManager,
     dnsFallback,
     bindTaskRetry,
     adapter,
@@ -668,6 +672,10 @@ export function buildServerCommandHandlers(
 
       return result
     },
+
+    [Commands.UpdateGeoIPDatabase]: createUpdateGeoIPDatabaseHandler({
+      geoipManager,
+    }),
 
     [Commands.RequestDefaultTorrentHandler]: async () => ({ ok: false }),
 

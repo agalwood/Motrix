@@ -2,11 +2,13 @@ import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { Input } from '@renderer/components/ui/input'
+import { WindowChromeCaptionIcon } from '@renderer/components/window-chrome/window-chrome'
 import { transport } from '@renderer/lib/transport'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import {
@@ -14,6 +16,10 @@ import {
   __webPathPickerBus,
   webServices,
 } from '@renderer/platform/web-services'
+import {
+  ADD_TASK_COLLAPSED_HEIGHT,
+  ADD_TASK_MAX_HEIGHT,
+} from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import {
@@ -22,9 +28,10 @@ import {
   setAddTaskModeEventPayloadSchema,
   urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { useAdaptiveDialogHeight } from './use-adaptive-dialog-height'
 import { useAddTaskDialogStore } from './use-add-task-dialog-store'
 
 export function AddTaskDialogHost() {
@@ -34,6 +41,23 @@ export function AddTaskDialogHost() {
   const openWith = useAddTaskDialogStore((s) => s.openWith)
   const close = useAddTaskDialogStore((s) => s.close)
   const navigate = useNavigate()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const {
+    height: dialogHeight,
+    resetHeight: resetDialogHeight,
+    scheduleMeasurement: scheduleDialogHeightMeasurement,
+  } = useAdaptiveDialogHeight(dialogRef, {
+    collapsedHeight: ADD_TASK_COLLAPSED_HEIGHT,
+    maxHeight: ADD_TASK_MAX_HEIGHT,
+    open,
+  })
+  const onAdvancedOpenChange = useCallback(
+    (expanded: boolean) => {
+      if (expanded) scheduleDialogHeightMeasurement()
+      else resetDialogHeight()
+    },
+    [resetDialogHeight, scheduleDialogHeightMeasurement]
+  )
 
   // Web mirror of AddTaskWindow's electron behavior: after a successful
   // submit, close the dialog and route the main view to /downloads so
@@ -107,9 +131,20 @@ export function AddTaskDialogHost() {
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && close()}>
-        <DialogContent className="max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle>{t('task.add.title')}</DialogTitle>
+        <DialogContent
+          ref={dialogRef}
+          showCloseButton={false}
+          overlayClassName="transition-opacity duration-150 data-open:animate-none data-closed:animate-none data-starting-style:opacity-0 data-ending-style:opacity-0"
+          className="flex w-[calc(100%-2rem)] max-w-[640px] flex-col gap-0 overflow-hidden p-0 transition-[height] duration-200 ease-out motion-reduce:transition-none sm:max-w-[640px]"
+          style={{
+            height: dialogHeight,
+            maxHeight: `min(${ADD_TASK_MAX_HEIGHT}px, calc(100vh - 2rem))`,
+          }}
+        >
+          <DialogHeader className="h-10 shrink-0 justify-center px-4 pe-14">
+            <DialogTitle className="pt-[14px] text-[13px] font-semibold">
+              {t('task.add.title')}
+            </DialogTitle>
           </DialogHeader>
           <PlatformServicesProvider services={webServices}>
             <AddTaskForm
@@ -117,9 +152,17 @@ export function AddTaskDialogHost() {
               defaultValues={prefill}
               onSubmitSuccess={onSubmitSuccess}
               onCancel={close}
+              onAdvancedOpenChange={onAdvancedOpenChange}
+              presentation="dialog"
               subscribeEvents={false}
             />
           </PlatformServicesProvider>
+          <DialogClose
+            aria-label={t('chrome.close')}
+            className="app-no-drag absolute top-3.5 right-3.5 flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground outline-none transition-colors [&>svg]:opacity-65 hover:bg-accent hover:text-accent-foreground hover:[&>svg]:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:[&>svg]:opacity-90 dark:hover:bg-accent/50"
+          >
+            <WindowChromeCaptionIcon name="close" />
+          </DialogClose>
         </DialogContent>
       </Dialog>
       <WebPathPickerDialog />

@@ -15,8 +15,8 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.UpdateAvailable)
   })
 
-  it('has 48 total forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(48)
+  it('has 50 total forwardable events', () => {
+    expect(ForwardableEvents).toHaveLength(50)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {
@@ -78,6 +78,11 @@ describe('ForwardableEvents', () => {
 
   it('includes speed-limit events', () => {
     expect(ForwardableEvents).toContain(Events.SpeedLimitChanged)
+  })
+
+  it('includes GeoIP progress and status events', () => {
+    expect(ForwardableEvents).toContain(Events.GeoIPUpdateProgress)
+    expect(ForwardableEvents).toContain(Events.GeoIPStatusChanged)
   })
 
   it('includes all tracker events', () => {

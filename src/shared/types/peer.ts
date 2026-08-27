@@ -4,9 +4,9 @@ import type { CountryRef } from './geoip'
  * A single BitTorrent peer connected to a task. Translated from
  * aria2's `aria2.getPeers` response in core/engine/aria2/translate.ts.
  *
- * Country information is injected at the IPC layer (main/ipc/queries/
- * get-task-peers.ts) when the GeoIP service is enabled and a database is
- * loaded. The engine adapter never sees this field.
+ * Country information is injected by the shared task-peers query handler when
+ * the GeoIP service is enabled and a database is loaded. The engine adapter
+ * never sees this field.
  */
 export interface TaskPeer {
   /**
@@ -39,7 +39,7 @@ export interface TaskPeer {
   /** The peer is choking us (refusing to send pieces). */
   peerChoking: boolean
   /**
-   * Resolved country, populated only by the IPC handler when GeoIP is
+   * Resolved country, populated by the shared query handler when GeoIP is
    * enabled and the lookup succeeds. Undefined for clients on the
    * pre-Phase-2 contract; null for "GeoIP enabled but lookup missed".
    */

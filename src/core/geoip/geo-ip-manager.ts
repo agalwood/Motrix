@@ -55,6 +55,10 @@ export class GeoIPManager {
 
   private timer: ReturnType<typeof setInterval> | null = null
   private inFlight: Promise<GeoIPStatus> | null = null
+  private readerWork: Promise<void> = Promise.resolve()
+  private stopPromise: Promise<void> | null = null
+  private started = false
+  private stopped = false
   private isDownloading = false
   private lastError: string | null = null
   private currentSizeBytes = 0
@@ -69,11 +73,14 @@ export class GeoIPManager {
   }
 
   async start(): Promise<void> {
-    const settings = this.getSettings()
-    if (settings.enabled) {
+    if (this.started || this.stopped) return
+    this.started = true
+    await this.enqueueReaderWork(async () => {
+      if (!this.isEnabled()) return
       await this.service.open(this.dbPath)
       await this.refreshSize()
-    }
+    })
+    if (this.stopped) return
     this.timer = setInterval(() => {
       this.tick().catch((err) => {
         log.warn({ err }, 'auto-update tick failed')
@@ -81,18 +88,25 @@ export class GeoIPManager {
     }, this.schedulerIntervalMs)
   }
 
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    if (this.stopPromise) return this.stopPromise
+    this.stopped = true
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
     }
-    // Drain any in-flight auto-update so its file writes finish before
-    // the caller proceeds with teardown (matters for tests that delete
-    // the tmpdir right after stop()).
-    if (this.inFlight) {
-      await this.inFlight.catch(() => {})
-    }
-    this.service.close()
+    this.stopPromise = (async () => {
+      // Drain any in-flight auto-update so its file writes finish before
+      // the caller proceeds with teardown (matters for tests that delete
+      // the tmpdir right after stop()). The update can enqueue reader work,
+      // so read the normalized queue only after it settles.
+      if (this.inFlight) {
+        await this.inFlight.catch(() => {})
+      }
+      await this.readerWork
+      this.service.close()
+    })()
+    return this.stopPromise
   }
 
   isEnabled(): boolean {
@@ -119,30 +133,43 @@ export class GeoIPManager {
   }
 
   async triggerUpdate(): Promise<GeoIPStatus> {
+    if (this.stopped) {
+      throw new AppError(
+        ErrorCode.GeoIPDownloadFailed,
+        'GeoIP manager is stopped.'
+      )
+    }
     if (this.inFlight) return this.inFlight
-    this.inFlight = this.runUpdate().finally(() => {
-      this.inFlight = null
-    })
+    // Defer runUpdate by one microtask so inFlight is published before its
+    // first synchronous status event can reach lifecycle listeners.
+    this.inFlight = Promise.resolve()
+      .then(() => this.runUpdate())
+      .finally(() => {
+        this.inFlight = null
+      })
     return this.inFlight
   }
 
   /**
    * Hook called by the SettingsManager `onChange` glue when the geoip
-   * namespace mutates. Reloads the on-disk file when the user toggles
-   * `enabled` or rewires the source — the actual download is left to
-   * the user's explicit "Update now" press to keep the UX predictable.
+   * namespace mutates. Reloads or closes the on-disk reader when the user
+   * toggles `enabled`. Source-only changes need no reader churn because the
+   * next explicit or scheduled update reads the latest settings.
    */
   async onSettingsChanged(
     prev: GeoIPSettings,
     next: GeoIPSettings
   ): Promise<void> {
-    if (!prev.enabled && next.enabled) {
+    if (prev.enabled === next.enabled || this.stopped) return
+    await this.enqueueReaderWork(async () => {
+      if (!this.isEnabled()) {
+        this.service.close()
+        return
+      }
       await this.service.reload(this.dbPath)
       await this.refreshSize()
-    }
-    if (prev.enabled && !next.enabled) {
-      this.service.close()
-    }
+    })
+    if (!this.stopped) this.emitStatus()
   }
 
   // ─── internals ────────────────────────────────────────────────
@@ -190,7 +217,10 @@ export class GeoIPManager {
         this.dbPath,
         onProgress
       )
-      await this.service.reload(this.dbPath)
+      await this.enqueueReaderWork(async () => {
+        if (!this.isEnabled()) return
+        await this.service.reload(this.dbPath)
+      })
       this.currentSizeBytes = result.sizeBytes
       await this.settingsManager.update({
         geoip: {
@@ -222,6 +252,29 @@ export class GeoIPManager {
     } catch {
       this.currentSizeBytes = 0
     }
+  }
+
+  private enqueueReaderWork(
+    operation: () => void | Promise<void>
+  ): Promise<void> {
+    if (this.stopped) {
+      this.service.close()
+      return Promise.resolve()
+    }
+    const work = this.readerWork.then(async () => {
+      try {
+        if (!this.stopped) await operation()
+      } finally {
+        // A disable or stop can land while an async open/reload is reading the
+        // file. Re-check live state after it resolves so stale work cannot
+        // resurrect a reader that a newer lifecycle transition closed.
+        if (this.stopped || !this.isEnabled()) this.service.close()
+      }
+    })
+    // Keep a rejection-free tail for later transitions and shutdown while
+    // still returning the original promise to the caller.
+    this.readerWork = work.catch(() => {})
+    return work
   }
 
   private emitStatus(): void {

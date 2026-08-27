@@ -116,7 +116,21 @@ function makeCtx(over: Record<string, unknown> = {}) {
       getApp: vi.fn(() => ({ defaultSaveDir: '' })),
     },
     trackerManager: { getCuratedList: vi.fn(() => []) },
-    engineAdapter: { getTaskBtTracker: vi.fn() },
+    engineAdapter: { getTaskBtTracker: vi.fn(), getTaskPeers: vi.fn() },
+    geoipManager: {
+      getStatus: vi.fn(() => ({
+        enabled: false,
+        hasDatabase: false,
+        loaded: false,
+        lastUpdatedAt: 0,
+        databaseVersion: '',
+        sizeBytes: 0,
+        isDownloading: false,
+        lastError: null,
+      })),
+      isEnabled: vi.fn(() => false),
+      lookupCountry: vi.fn(() => null),
+    },
     notificationCenter: {
       list: vi.fn(() => []),
       unreadCount: vi.fn(() => 0),
@@ -382,6 +396,85 @@ describe('buildServerQueryHandlers — GetTaskPieces parity', () => {
       bitfield: 'c0',
     })
     expect(getTaskPieces).toHaveBeenCalledWith('gid-http')
+  })
+})
+
+describe('buildServerQueryHandlers — GeoIP parity', () => {
+  it('exposes the manager status through the web transport', async () => {
+    const status = {
+      enabled: true,
+      hasDatabase: true,
+      loaded: true,
+      lastUpdatedAt: 1_800_000_000_000,
+      databaseVersion: 'v1',
+      sizeBytes: 9_000_000,
+      isDownloading: false,
+      lastError: null,
+    }
+    const getStatus = vi.fn(() => status)
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        geoipManager: {
+          getStatus,
+          isEnabled: vi.fn(() => true),
+          lookupCountry: vi.fn(() => null),
+        },
+      }) as unknown as ServerQueryContext
+    )
+
+    await expect(handlers[Queries.GetGeoIPStatus]?.()).resolves.toBe(status)
+    expect(getStatus).toHaveBeenCalledOnce()
+  })
+
+  it('enriches task peers with countries in web mode', async () => {
+    const task = makeDownloadTask({ id: 'task-bt', engineTaskId: 'gid-bt' })
+    const getTaskPeers = vi.fn().mockResolvedValue([
+      {
+        id: '1.2.3.4:6881',
+        ip: '1.2.3.4',
+        port: 6881,
+        client: null,
+        clientVersion: null,
+        progress: 0.5,
+        downSpeed: 1024,
+        upSpeed: 0,
+        seeder: false,
+        amChoking: false,
+        peerChoking: true,
+      },
+    ])
+    const lookupCountry = vi.fn(() => ({
+      code: 'US',
+      name: 'United States',
+    }))
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        taskManager: {
+          getAll: vi.fn(() => [task]),
+          getById: vi.fn(() => task),
+        },
+        engineAdapter: {
+          getTaskBtTracker: vi.fn(),
+          getTaskPeers,
+        },
+        geoipManager: {
+          getStatus: vi.fn(),
+          isEnabled: vi.fn(() => true),
+          lookupCountry,
+        },
+      }) as unknown as ServerQueryContext
+    )
+
+    await expect(
+      handlers[Queries.GetTaskPeers]?.({ taskId: 'task-bt' })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        ip: '1.2.3.4',
+        country: { code: 'US', name: 'United States' },
+      }),
+    ])
+    expect(getTaskPeers).toHaveBeenCalledWith('gid-bt')
+    expect(lookupCountry).toHaveBeenCalledWith('1.2.3.4')
   })
 })
 

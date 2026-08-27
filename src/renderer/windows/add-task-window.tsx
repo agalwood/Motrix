@@ -3,6 +3,10 @@ import { useAdaptiveWindowHeight } from '@renderer/hooks/use-adaptive-window-hei
 import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import {
+  ADD_TASK_COLLAPSED_HEIGHT,
+  ADD_TASK_MAX_HEIGHT,
+} from '@shared/constants/add-task'
+import {
   addTaskUrlParamsSchema,
   urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
@@ -15,8 +19,8 @@ export function AddTaskWindow() {
 
   useAdaptiveWindowHeight({
     width: 640,
-    minHeight: 360,
-    maxHeight: 760,
+    minHeight: ADD_TASK_COLLAPSED_HEIGHT,
+    maxHeight: ADD_TASK_MAX_HEIGHT,
     enabled: __MOTRIX_TARGET__ === 'electron',
   })
 

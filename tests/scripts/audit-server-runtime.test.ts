@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { build, type UserConfig } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import { auditServerRuntime } from '../../scripts/audit-server-runtime.mjs'
 import {
@@ -10,6 +11,8 @@ import {
   validateServerRuntimeContract,
   validateServerSizeBudgets,
 } from '../../scripts/server-package-utils.mjs'
+import serverViteConfig from '../../vite.server.config'
+import workerViteConfig from '../../vite.worker.config'
 
 const ROOT = path.resolve(import.meta.dirname, '../..')
 const temporaryRoots: string[] = []
@@ -28,6 +31,35 @@ async function writeFixtureFile(
   const target = path.join(root, relativePath)
   await mkdir(path.dirname(target), { recursive: true })
   await writeFile(target, content)
+}
+
+async function scanInMemoryBuild(config: UserConfig): Promise<string[]> {
+  const result = await build({
+    ...config,
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      ...config.build,
+      emptyOutDir: false,
+      write: false,
+    },
+  })
+  if (!Array.isArray(result) && 'close' in result) {
+    await result.close()
+    throw new Error('unexpected Vite watch build')
+  }
+
+  const specifiers = new Set<string>()
+  const outputs = Array.isArray(result) ? result : [result]
+  for (const output of outputs) {
+    for (const item of output.output) {
+      if (item.type !== 'chunk') continue
+      for (const specifier of scanStaticModuleSpecifiers(item.code)) {
+        specifiers.add(specifier)
+      }
+    }
+  }
+  return [...specifiers].sort()
 }
 
 function fixtureContract() {
@@ -266,13 +298,33 @@ describe('Server package contracts', () => {
       'extra/aria2.conf',
       'extra/{platform}/{arch}/{aria2Binary}',
     ])
-    expect(contract.runtimeRoots).toHaveLength(21)
+    expect(contract.runtimeRoots).toHaveLength(22)
+    expect(contract.runtimeRoots).toContain('mmdb-lib')
     expect(contract.runtimeRoots).not.toContain('electron-updater')
     expect(contract.runtimeRoots).not.toContain('@motrix/nat')
   })
 })
 
 describe('Server built external audit', () => {
+  it('matches the actual Server and worker build externals to runtime roots', async () => {
+    const contract = validateServerRuntimeContract(
+      JSON.parse(
+        await readFile(
+          path.join(ROOT, 'scripts/server-runtime-dependencies.json'),
+          'utf8'
+        )
+      )
+    )
+    const specifiers = new Set<string>()
+    for (const config of [serverViteConfig, workerViteConfig]) {
+      for (const specifier of await scanInMemoryBuild(config)) {
+        specifiers.add(specifier)
+      }
+    }
+
+    expect(externalPackageRoots([...specifiers])).toEqual(contract.runtimeRoots)
+  })
+
   it('scans static ESM, side-effect, dynamic, export-from, and CJS imports', () => {
     const source = [
       'import value from "alpha/subpath";',

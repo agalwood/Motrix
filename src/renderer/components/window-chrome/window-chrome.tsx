@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 
 type CaptionIconName = 'close' | 'maximize' | 'minimize' | 'restore'
 
-function CaptionIcon({ name }: { name: CaptionIconName }) {
+export function WindowChromeCaptionIcon({ name }: { name: CaptionIconName }) {
   return (
     <svg
       aria-hidden
@@ -110,7 +110,7 @@ function DesktopWindowControls({
         aria-label={t('chrome.minimize')}
         title={t('chrome.minimize')}
       >
-        <CaptionIcon name="minimize" />
+        <WindowChromeCaptionIcon name="minimize" />
       </button>
       <button
         type="button"
@@ -120,7 +120,7 @@ function DesktopWindowControls({
         aria-label={maximizeLabel}
         title={maximizeLabel}
       >
-        <CaptionIcon name={maximized ? 'restore' : 'maximize'} />
+        <WindowChromeCaptionIcon name={maximized ? 'restore' : 'maximize'} />
       </button>
       <button
         type="button"
@@ -132,7 +132,7 @@ function DesktopWindowControls({
         aria-label={t('chrome.close')}
         title={t('chrome.close')}
       >
-        <CaptionIcon name="close" />
+        <WindowChromeCaptionIcon name="close" />
       </button>
     </div>
   )

@@ -1,3 +1,4 @@
+import { ADD_TASK_COLLAPSED_HEIGHT } from '@shared/constants/add-task'
 import type { WindowId } from '@shared/types/window'
 import { WindowRoutes } from '@shared/types/window'
 
@@ -41,7 +42,7 @@ export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
     id: 'add-task',
     title: 'New Task',
     width: 640,
-    height: 360,
+    height: ADD_TASK_COLLAPSED_HEIGHT,
     resizable: false,
     route: WindowRoutes['add-task'],
     closeBehavior: 'destroy',
