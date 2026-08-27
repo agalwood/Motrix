@@ -5,6 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
+import { VIDEO_FILE_EXTENSIONS } from '@shared/constants/file-types'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { FileText, Film, Image, Music } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -19,18 +20,7 @@ const FILTERS: Array<{
   {
     id: 'video',
     icon: <Film className="h-3.5 w-3.5" />,
-    exts: [
-      '.mp4',
-      '.mkv',
-      '.avi',
-      '.mov',
-      '.wmv',
-      '.flv',
-      '.webm',
-      '.m4v',
-      '.ts',
-      '.rmvb',
-    ],
+    exts: [...VIDEO_FILE_EXTENSIONS],
   },
   {
     id: 'audio',

@@ -23,6 +23,8 @@ import {
   buildStagingOutputFilePaths,
   getBtStorageLayout,
   parseBtFileLayout,
+  shouldPrioritizeBtPreviewPieces,
+  shouldPrioritizeBtPreviewPiecesFromMetadata,
 } from '../bt-storage-layout'
 import { DirectResourceValidatorService } from '../direct-resource-validator'
 import type { TorrentMetaStore } from '../torrent-meta-store'
@@ -124,6 +126,11 @@ async function reAddBt(
   const storageLayout = getBtStorageLayout(task)
   const parsedLayout = storageLayout ? await parseBtFileLayout(metadata) : null
   const completed = task.status === TaskStatus.Completed
+  const prioritizePreviewPieces =
+    !completed &&
+    (parsedLayout
+      ? shouldPrioritizeBtPreviewPieces(parsedLayout)
+      : await shouldPrioritizeBtPreviewPiecesFromMetadata(metadata))
   const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
@@ -148,6 +155,7 @@ async function reAddBt(
     checkIntegrity: true,
     pause: false,
     isPrivate: task.bt?.isPrivate ?? false,
+    ...(prioritizePreviewPieces ? { prioritizePreviewPieces: true } : {}),
     seedTime: opts?.['seed-time']
       ? Number.parseInt(opts['seed-time'], 10)
       : undefined,

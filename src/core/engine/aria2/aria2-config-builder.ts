@@ -103,6 +103,8 @@ export class Aria2ConfigBuilder {
    * @param effective — effective speed limits from SpeedLimitController
    *   (bytes/sec; 0 = unlimited). On cold start the EngineSupervisor passes
    *   the controller's computed value, or { 0, 0 } if no provider is wired.
+   * @param defaultSaveDir — application default used by JSON-RPC clients that
+   *   omit a per-task `dir` option.
    * @param loadTextSession — load the standard aria2.session fallback. The
    *   supervisor enables this only when SQLite persistence is inactive and
    *   the file was verified to exist.
@@ -112,6 +114,7 @@ export class Aria2ConfigBuilder {
     hasSqlitePersistence = true,
     proxy: ProxySettings | null | undefined,
     effective: { download: number; upload: number },
+    defaultSaveDir: string,
     loadTextSession = false
   ): string[] {
     // Layer order in the produced argv:
@@ -132,8 +135,10 @@ export class Aria2ConfigBuilder {
       '--enable-rpc=true',
       '--rpc-allow-origin-all=true',
       '--rpc-listen-all=false',
+      '--rpc-max-request-size=64M',
       `--rpc-listen-port=${settings.rpcPort}`,
       `--rpc-secret=${settings.rpcSecret}`,
+      `--dir=${defaultSaveDir}`,
       `--listen-port=${settings.listenPort}`,
       `--dht-listen-port=${settings.dhtListenPort}`,
       `--enable-dht=${settings.dhtEnabled}`,
@@ -144,6 +149,9 @@ export class Aria2ConfigBuilder {
     )
     const sqliteActive =
       hasSqlitePersistence && settings.sqlite3Persistence === true
+    if (!sqliteActive) {
+      args.push('--auto-save-interval=10')
+    }
     if (loadTextSession && !sqliteActive) {
       args.push(`--input-file=${this.saveSessionPath}`)
     }
@@ -202,6 +210,7 @@ export class Aria2ConfigBuilder {
       '--allow-overwrite=false',
       '--rpc-save-upload-metadata=true',
       '--force-save=true',
+      '--continue=false',
       '--pause=false',
       '--pause-metadata=false',
       '--bt-seed-unverified=false',

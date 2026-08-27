@@ -306,11 +306,10 @@ export class Aria2Adapter implements EngineAdapter {
     const resumePolicy = params.resumePolicy ?? 'none'
     if (resumePolicy === 'checkpoint') {
       options['always-resume'] = 'true'
-      options.continue = 'false'
     } else if (resumePolicy === 'sequential-prefix') {
       options['always-resume'] = 'true'
-      options.continue = 'true'
     }
+    options.continue = resumePolicy === 'sequential-prefix' ? 'true' : 'false'
 
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
@@ -530,6 +529,9 @@ export class Aria2Adapter implements EngineAdapter {
       // Private torrents must not announce to global trackers (BEP-27).
       // Override aria2's engine-wide bt-tracker default with empty string.
       opts['bt-tracker'] = ''
+    }
+    if (params.prioritizePreviewPieces) {
+      opts['bt-prioritize-piece'] = 'head=10M,tail=10M'
     }
     if (params.dlLimit !== undefined) {
       opts['max-download-limit'] = `${params.dlLimit}K`

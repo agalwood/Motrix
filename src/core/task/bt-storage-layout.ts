@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
+import { containsOnlyVideoFiles } from '@shared/constants/file-types'
 import type { DownloadTask } from '@shared/types/task'
 import parseTorrent from 'parse-torrent'
 
@@ -98,6 +99,30 @@ export async function parseBtFileLayout(
     multiFile,
     isPrivate: parsed.private === true,
     files,
+  }
+}
+
+/**
+ * Enable preview-oriented piece ordering only when validated torrent metadata
+ * proves that every declared file is a video. A mixed torrent stays on the
+ * engine's normal piece policy even when the user selects only its videos.
+ */
+export function shouldPrioritizeBtPreviewPieces(
+  parsed: ParsedBtFileLayout
+): boolean {
+  return containsOnlyVideoFiles(
+    parsed.files.map((file) => file.pathInsideRoot ?? parsed.torrentRootName)
+  )
+}
+
+/** Parse failures are an explicit "not proven video-only" result. */
+export async function shouldPrioritizeBtPreviewPiecesFromMetadata(
+  metadata: Uint8Array
+): Promise<boolean> {
+  try {
+    return shouldPrioritizeBtPreviewPieces(await parseBtFileLayout(metadata))
+  } catch {
+    return false
   }
 }
 

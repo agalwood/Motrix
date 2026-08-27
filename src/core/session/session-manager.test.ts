@@ -29,6 +29,17 @@ import { SessionManager } from './session-manager'
 
 // ─── Task factory ───────────────────────────────────────────
 
+function buildSingleFileTorrent(name: string): Uint8Array {
+  const nameField = `4:name${Buffer.byteLength(name, 'utf8')}:${name}`
+  const prefix = Buffer.from(
+    `d4:infod6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
+    'utf8'
+  )
+  return new Uint8Array(
+    Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
+  )
+}
+
 function createTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
   return makeDownloadTask({
     id: 'motrix-001',
@@ -1319,12 +1330,50 @@ describe('SessionManager', () => {
       expect(adapter.addTorrent).toHaveBeenCalledWith(
         expect.objectContaining({ checkIntegrity: true })
       )
+      const restoreParams = (adapter.addTorrent as ReturnType<typeof vi.fn>)
+        .mock.calls[0][0]
+      expect(restoreParams).not.toHaveProperty('prioritizePreviewPieces')
       const restored = taskManager.getAll().find((t) => t.id === 'm-bt-002')
       expect(restored?.engineTaskId).toMatch(/^[0-9a-f]{16}$/)
       expect(restored?.engineTaskId).not.toBe('lost-gid')
       expect(restored?.status).not.toBe(TaskStatus.Error)
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
+    })
+
+    it('restores preview piece priority for a lost video-only BT task', async () => {
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-restore-video-bt-')
+      )
+      const torrentPath = path.join(tmpDir, 'video.torrent')
+      fs.writeFileSync(torrentPath, buildSingleFileTorrent('Movie.MP4'))
+
+      seedAsPair(db, {
+        motrixId: 'm-bt-video',
+        gid: 'lost-video-gid',
+        name: 'Movie.MP4',
+        diskPath: '/tmp/Movie.MP4.motrix',
+        finalPath: '/tmp/Movie.MP4',
+        finalName: 'Movie.MP4',
+        torrentMetaPath: torrentPath,
+        status: TaskStatus.Downloading,
+      })
+      rpc.tellActive = vi.fn(async () => [])
+      rpc.tellWaiting = vi.fn(async () => [])
+      rpc.tellStopped = vi.fn(async () => [])
+      ;(adapter.addTorrent as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ gid }: { gid?: string }) => gid ?? ''
+      )
+
+      try {
+        await sessionManager.restore()
+
+        expect(adapter.addTorrent).toHaveBeenCalledWith(
+          expect.objectContaining({ prioritizePreviewPieces: true })
+        )
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true })
+      }
     })
 
     it('adoptByMetadata derives progress from saved mirror columns', async () => {
@@ -3491,6 +3540,7 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     expect(addUri).toHaveBeenCalledWith(
       ['magnet:?xt=urn:btih:abc'],
       expect.objectContaining({
+        'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: '/tmp/motrix-magnet-metadata-xyz',
         'follow-torrent': 'false',

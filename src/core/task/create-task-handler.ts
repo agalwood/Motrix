@@ -56,6 +56,7 @@ import {
   createBtStoragePlan,
   type ParsedBtFileLayout,
   parseBtFileLayout,
+  shouldPrioritizeBtPreviewPieces,
   UnsafeTorrentPathError,
 } from './bt-storage-layout'
 import {
@@ -642,6 +643,9 @@ async function handleCreateTaskUnderAdmission(
       seedRatio: req.seedRatio,
       // Replaces the old inline `options['bt-tracker'] = ''` set.
       isPrivate: isPrivateFromTorrent,
+      ...(parsedBtLayout && shouldPrioritizeBtPreviewPieces(parsedBtLayout)
+        ? { prioritizePreviewPieces: true }
+        : {}),
     }
     dispatchEngine = async (reservedGid) => {
       params.gid = reservedGid

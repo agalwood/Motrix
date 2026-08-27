@@ -1005,6 +1005,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         await proxyApplier.apply(oldFull.proxy, newFull.proxy)
       }
 
+      if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
+        await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+      }
+
       if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
         await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
       }

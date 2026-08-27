@@ -732,6 +732,28 @@ describe('handleCreateTask', () => {
       dir: task.diskPath,
       'index-out': ['1=p'],
     })
+    expect(options).not.toHaveProperty('bt-prioritize-piece')
+  })
+
+  it('enables preview piece priority for a video-only torrent', async () => {
+    const deps = makeDeps({ addTorrentGid: 'gid-bt' })
+    const bytes = buildMinimalTorrentBytes('Movie.MP4', false)
+
+    await handleCreateTask(
+      {
+        type: 'bt',
+        payload: {
+          kind: 'torrent-base64',
+          base64: Buffer.from(bytes).toString('base64'),
+        },
+        selectedFiles: [0],
+        saveDir: '/d',
+      },
+      deps
+    )
+
+    const [, , options] = deps.addTorrent.mock.calls[0]
+    expect(options['bt-prioritize-piece']).toBe('head=10M,tail=10M')
   })
 
   it('falls back to "torrent" literal when bytes are unparseable', async () => {
@@ -748,6 +770,8 @@ describe('handleCreateTask', () => {
     )
     const task = lastAddedTask(deps)
     expect(task.finalName).toBe('torrent')
+    const [, , options] = deps.addTorrent.mock.calls[0]
+    expect(options).not.toHaveProperty('bt-prioritize-piece')
   })
 
   it('rejects a parseable torrent with an unsafe root path', async () => {
@@ -789,6 +813,8 @@ describe('handleCreateTask', () => {
       ['magnet:?xt=urn:btih:x'],
       expect.any(Object)
     )
+    const [, options] = deps.addUri.mock.calls[0]
+    expect(options).not.toHaveProperty('bt-prioritize-piece')
   })
 })
 

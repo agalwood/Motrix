@@ -270,8 +270,38 @@ describe('EngineSupervisor', () => {
         expect.anything(),
         true,
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
+    })
+
+    it('passes the configured default save directory on cold start', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.anything(),
+        true,
+        expect.anything(),
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
+      )
+    })
+
+    it('initializes continue for raw JSON-RPC tasks before becoming Ready', async () => {
+      vi.mocked(rpcClient.changeGlobalOption).mockImplementation(
+        async (opts) => {
+          expect(opts).toEqual({ continue: 'true' })
+          expect(supervisor.getState()).toBe(EngineState.Starting)
+          return 'OK'
+        }
+      )
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenCalledOnce()
+      expect(supervisor.getState()).toBe(EngineState.Ready)
     })
 
     it('loads an existing text session when SQLite is disabled in settings', async () => {
@@ -290,6 +320,7 @@ describe('EngineSupervisor', () => {
         true,
         expect.anything(),
         expect.anything(),
+        '/Users/test/Downloads',
         true
       )
     })
@@ -311,6 +342,7 @@ describe('EngineSupervisor', () => {
         false,
         expect.anything(),
         expect.anything(),
+        '/Users/test/Downloads',
         true
       )
     })
@@ -330,7 +362,9 @@ describe('EngineSupervisor', () => {
         expect.objectContaining({ sqlite3Persistence: false }),
         true,
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
     })
 
@@ -365,7 +399,9 @@ describe('EngineSupervisor', () => {
         }),
         false,
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
       expect(rpcClient.getVersion).not.toHaveBeenCalled()
       expect(settings.update).toHaveBeenCalledWith({
@@ -401,7 +437,9 @@ describe('EngineSupervisor', () => {
         }),
         false,
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
     })
 
@@ -423,7 +461,9 @@ describe('EngineSupervisor', () => {
         }),
         true,
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
     })
 
@@ -455,7 +495,9 @@ describe('EngineSupervisor', () => {
         }),
         expect.anything(),
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
       expect(settings.update).not.toHaveBeenCalled()
     })
@@ -482,7 +524,9 @@ describe('EngineSupervisor', () => {
         }),
         expect.anything(),
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        '/Users/test/Downloads',
+        false
       )
     })
   })
@@ -548,6 +592,7 @@ describe('EngineSupervisor', () => {
         true,
         expect.anything(),
         expect.anything(),
+        '/Users/test/Downloads',
         true
       )
       expect(failures).toHaveLength(0)
@@ -1072,6 +1117,25 @@ describe('EngineSupervisor', () => {
     )
   })
 
+  describe('applyDefaultSaveDir', () => {
+    it('is a no-op unless Ready', async () => {
+      await supervisor.applyDefaultSaveDir('/downloads/next')
+
+      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
+    })
+
+    it('updates the global dir when Ready', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.changeGlobalOption).mockClear()
+
+      await supervisor.applyDefaultSaveDir('/downloads/next')
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenCalledExactlyOnceWith({
+        dir: '/downloads/next',
+      })
+    })
+  })
+
   describe('applySpeedLimits', () => {
     it('is a no-op unless Ready', async () => {
       await supervisor.applySpeedLimits({ download: 100, upload: 50 })
@@ -1098,7 +1162,9 @@ describe('EngineSupervisor', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
-        { download: 500, upload: 250 }
+        { download: 500, upload: 250 },
+        '/Users/test/Downloads',
+        false
       )
     })
 
@@ -1109,7 +1175,9 @@ describe('EngineSupervisor', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
-        { download: 0, upload: 0 }
+        { download: 0, upload: 0 },
+        '/Users/test/Downloads',
+        false
       )
     })
   })
@@ -1145,7 +1213,6 @@ describe('EngineSupervisor', () => {
         'user-agent': 'Motrix/Test',
         'bt-enable-lpd': 'false',
         'remote-time': 'true',
-        'save-session-interval': '30',
       })
     })
 

@@ -20,6 +20,7 @@ import {
   createBtStoragePlan,
   type ParsedBtFileLayout,
   parseBtFileLayout,
+  shouldPrioritizeBtPreviewPieces,
   UnsafeTorrentPathError,
 } from '@core/task/bt-storage-layout'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
@@ -535,6 +536,9 @@ async function swapMagnetMetadataForBtUnderMutation(
       outputFilePaths: btStoragePlan?.outputFilePaths,
       pause: false,
       isPrivate: parsedBtLayout?.isPrivate ?? false,
+      ...(parsedBtLayout && shouldPrioritizeBtPreviewPieces(parsedBtLayout)
+        ? { prioritizePreviewPieces: true }
+        : {}),
     })
     if (addedGid !== newGid) {
       throw new Error(

@@ -358,6 +358,7 @@ describe('Aria2Adapter', () => {
 
       expect(gid).toBe('gid123')
       expect(rpc.addUri).toHaveBeenCalledWith(['http://example.com/file.zip'], {
+        continue: 'false',
         dir: '/tmp',
         out: 'custom.zip',
         'max-download-limit': '1024',
@@ -376,6 +377,7 @@ describe('Aria2Adapter', () => {
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(['http://example.com/f.zip'], {
+        continue: 'false',
         dir: '/tmp',
       })
     })
@@ -389,6 +391,7 @@ describe('Aria2Adapter', () => {
         uris: ['http://example.com/f.zip'],
         saveDir: '/tmp',
         resumePolicy: 'checkpoint',
+        extraEngineOptions: { continue: 'true' },
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
@@ -444,7 +447,7 @@ describe('Aria2Adapter', () => {
       )
     })
 
-    it('does not inject resume options for ordinary new downloads', async () => {
+    it('forces continue off for ordinary new downloads after extra engine options', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('new-gid')
       const adapter = new Aria2Adapter(rpc)
@@ -453,11 +456,12 @@ describe('Aria2Adapter', () => {
         uris: ['http://example.com/f.zip'],
         saveDir: '/tmp',
         resumePolicy: 'none',
+        extraEngineOptions: { continue: 'true' },
       })
 
       const options = vi.mocked(rpc.addUri).mock.calls[0][1]
       expect(options).not.toHaveProperty('always-resume')
-      expect(options).not.toHaveProperty('continue')
+      expect(options?.continue).toBe('false')
     })
 
     it('forwards pause:true as aria2 pause option', async () => {
@@ -712,7 +716,10 @@ describe('Aria2Adapter', () => {
         totalSizeBytes: 10 * 1024 * 1024 * 1024,
       })
 
-      expect(rpc.addUri).toHaveBeenCalledWith(['u'], { dir: '/d' })
+      expect(rpc.addUri).toHaveBeenCalledWith(['u'], {
+        continue: 'false',
+        dir: '/d',
+      })
     })
 
     it('auto tuning preserves an explicit connection count', async () => {
@@ -1146,6 +1153,25 @@ describe('Aria2Adapter', () => {
       expect(call).toBeDefined()
       const [, , opts] = call as [string, string[], Record<string, string>]
       expect(opts).not.toHaveProperty('select-file')
+    })
+
+    it('maps preview piece priority only when requested by the product layer', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addTorrent).mockResolvedValue('g')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.addTorrent({
+        metadata: new Uint8Array([0]),
+        saveDir: '/d',
+        prioritizePreviewPieces: true,
+      })
+
+      const [, , opts] = vi.mocked(rpc.addTorrent).mock.calls[0] as [
+        string,
+        string[],
+        Record<string, string>,
+      ]
+      expect(opts['bt-prioritize-piece']).toBe('head=10M,tail=10M')
     })
 
     it('maps zero-based output paths to repeated aria2 index-out options', async () => {

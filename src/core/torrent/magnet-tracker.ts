@@ -629,6 +629,7 @@ export class MagnetTracker {
 
           engineDispatchStarted = true
           const returnedGid = await this.rpcClient.addUri([uri], {
+            'bt-load-saved-metadata': 'false',
             'bt-metadata-only': 'true',
             dir: metadataDir,
             'follow-torrent': 'false',
@@ -852,6 +853,7 @@ export class MagnetTracker {
 
       engineDispatchStarted = true
       const returnedGid = await this.rpcClient.addUri([magnetUri], {
+        'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: metadataDir,
         'follow-torrent': 'false',

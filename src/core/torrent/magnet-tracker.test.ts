@@ -404,6 +404,7 @@ describe('MagnetTracker', () => {
     const metadataDir = lastMetadataDir()
     expect(metadataDir).not.toBe(dir)
     expect(rpc.addUri).toHaveBeenCalledWith(['magnet:?xt=urn:btih:abc123'], {
+      'bt-load-saved-metadata': 'false',
       'bt-metadata-only': 'true',
       dir: metadataDir,
       'follow-torrent': 'false',
@@ -2206,6 +2207,8 @@ describe('MagnetTracker', () => {
 
     const secondOptions = rpc.addUri.mock.calls[1][1]
     expect(rpc.addUri).toHaveBeenCalledTimes(2)
+    expect(firstOptions?.['bt-load-saved-metadata']).toBe('false')
+    expect(secondOptions?.['bt-load-saved-metadata']).toBe('false')
     expect(secondOptions?.gid).not.toBe(firstOptions?.gid)
     expect(secondOptions?.dir).not.toBe(firstOptions?.dir)
     expect(db.getTask(taskId)).toMatchObject({

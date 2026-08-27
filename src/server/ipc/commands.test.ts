@@ -51,6 +51,7 @@ function makeFakeCtx() {
       start: vi.fn().mockResolvedValue(undefined),
       applyEngineSettings: vi.fn().mockResolvedValue(undefined),
       applyAsyncDns: vi.fn().mockResolvedValue(undefined),
+      applyDefaultSaveDir: vi.fn().mockResolvedValue(undefined),
     } as unknown as EngineSupervisor,
     dnsFallback: { reset: vi.fn() },
     settingsManager: {
@@ -153,9 +154,14 @@ function makeFakeCtx() {
 function makeSettings(
   proxy: typeof PROXY_OFF,
   tracker: { sourcesEnabled?: boolean; blacklistEnabled?: boolean } = {},
-  engine: { dnsMode?: 'auto' | 'system' | 'engine'; split?: number } = {}
+  engine: { dnsMode?: 'auto' | 'system' | 'engine'; split?: number } = {},
+  app: { defaultSaveDir?: string } = {}
 ) {
   return {
+    app: {
+      defaultSaveDir: '/downloads',
+      ...app,
+    },
     proxy,
     tracker: {
       sourcesEnabled: true,
@@ -200,6 +206,31 @@ describe('server Commands.UpdateSettings', () => {
     )
     await handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
     expect(ctx.proxyApplier.apply).toHaveBeenCalledWith(PROXY_OFF, PROXY_ON)
+  })
+
+  it('hot-applies a changed default save directory', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, {}, {}, { defaultSaveDir: '/downloads/old' })
+      )
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, {}, {}, { defaultSaveDir: '/downloads/new' })
+      )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { defaultSaveDir: '/downloads/new' },
+    })
+
+    expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
+      '/downloads/new'
+    )
   })
 
   it('hot-applies async-dns and resets the fallback latch when dnsMode changes', async () => {
