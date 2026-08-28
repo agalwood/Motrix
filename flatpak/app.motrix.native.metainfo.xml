@@ -76,6 +76,17 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.28" date="2026-08-28">
+      <description>
+        <p>
+          Direct-download naming and finalization are more reliable, empty RPC
+          passwords are supported, and SOCKS5 joins HTTP and HTTPS proxies in
+          covering BT HTTP traffic while peers, DHT, and UDP trackers stay
+          direct. This release also improves Windows CLI, NAT, torrent
+          associations, and Snap edge publication.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.27" date="2026-08-27">
       <description>
         <p>
