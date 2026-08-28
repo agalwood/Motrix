@@ -62,6 +62,34 @@ describe('createCommandRunner', () => {
     expect(Buffer.byteLength(result.stdout)).toBeLessThanOrEqual(64)
   })
 
+  it('spawns Windows executables directly when their path contains spaces', async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 42,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: vi.fn(),
+    })
+    const spawnProcess = vi.fn().mockReturnValue(child)
+    const run = createCommandRunner({
+      platform: 'win32',
+      spawnProcess: spawnProcess as never,
+    })
+
+    const pending = run('C:\\Program Files\\nodejs\\node.EXE', ['--version'])
+    child.emit('close', 0)
+
+    await expect(pending).resolves.toMatchObject({ code: 0 })
+    expect(spawnProcess).toHaveBeenCalledWith(
+      'C:\\Program Files\\nodejs\\node.EXE',
+      ['--version'],
+      expect.objectContaining({
+        shell: false,
+        detached: false,
+        windowsHide: true,
+      })
+    )
+  })
+
   it('kills a timed-out POSIX process group', async () => {
     if (process.platform === 'win32') return
     const run = createCommandRunner()
