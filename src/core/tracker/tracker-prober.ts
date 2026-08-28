@@ -4,6 +4,10 @@ import type {
   TrackerProtocol,
 } from '@shared/types/tracker'
 import { trackerLogger } from './logger'
+import {
+  createTrackerHttpClient,
+  type TrackerHttpClient,
+} from './tracker-http-client'
 
 const log = trackerLogger('prober')
 
@@ -28,9 +32,15 @@ export class TrackerProber {
       },
       'probe start'
     )
-    const results = await Promise.allSettled(
-      urls.map((url) => this.probeOne(url, opts))
-    )
+    const httpClient = await createTrackerHttpClient(opts.proxy)
+    let results: PromiseSettledResult<number>[]
+    try {
+      results = await Promise.allSettled(
+        urls.map((url) => this.probeOne(url, opts, httpClient))
+      )
+    } finally {
+      await httpClient.close()
+    }
 
     const mapped = results.map((r, i) => {
       const url = urls[i]
@@ -76,7 +86,11 @@ export class TrackerProber {
     return mapped
   }
 
-  private async probeOne(url: string, opts: ProbeOptions): Promise<number> {
+  private async probeOne(
+    url: string,
+    opts: ProbeOptions,
+    httpClient: TrackerHttpClient
+  ): Promise<number> {
     const protocol = this.detectProtocol(url)
     const start = Date.now()
 
@@ -84,13 +98,9 @@ export class TrackerProber {
       return this.probeUdp(url, opts.timeoutMs)
     }
 
-    const dispatcher = opts.proxy
-      ? await this.buildProxyAgent(opts.proxy)
-      : undefined
-    await fetch(url, {
+    await httpClient.fetch(url, {
       method: 'HEAD',
       signal: AbortSignal.timeout(opts.timeoutMs),
-      ...(dispatcher ? { dispatcher } : {}),
     })
     return Date.now() - start
   }
@@ -134,23 +144,5 @@ export class TrackerProber {
     if (url.startsWith('ws://')) return 'ws'
     if (url.startsWith('https://')) return 'https'
     return 'http'
-  }
-
-  private async buildProxyAgent(
-    proxy: ProxyConfig
-  ): Promise<import('undici').ProxyAgent | undefined> {
-    try {
-      const { ProxyAgent } = await import('undici')
-      let uri = proxy.server
-      if (proxy.username) {
-        const u = new URL(uri)
-        u.username = proxy.username
-        u.password = proxy.password ?? ''
-        uri = u.toString()
-      }
-      return new ProxyAgent(uri)
-    } catch {
-      return undefined
-    }
   }
 }

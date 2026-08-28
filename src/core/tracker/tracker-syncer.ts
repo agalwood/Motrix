@@ -5,6 +5,7 @@ import type {
   TrackerSource,
 } from '@shared/types/tracker'
 import { trackerLogger } from './logger'
+import { createTrackerHttpClient } from './tracker-http-client'
 
 const log = trackerLogger('syncer')
 
@@ -40,32 +41,40 @@ export class TrackerSyncer {
       { enabledSources: enabled.length, proxy: Boolean(proxy) },
       'fetch start'
     )
-    const dispatcher = proxy ? await this.buildProxyAgent(proxy) : undefined
+    const httpClient = await createTrackerHttpClient(proxy)
     const now = Date.now()
 
-    const entries = await Promise.allSettled(
-      enabled.map(async (src) => {
-        const start = Date.now()
-        const res = await fetch(`${src.url}?t=${now}`, {
-          signal: AbortSignal.timeout(30_000),
-          ...(dispatcher ? { dispatcher } : {}),
+    let entries: PromiseSettledResult<{
+      id: string
+      urls: string[]
+      elapsedMs: number
+    }>[]
+    try {
+      entries = await Promise.allSettled(
+        enabled.map(async (src) => {
+          const start = Date.now()
+          const res = await httpClient.fetch(`${src.url}?t=${now}`, {
+            signal: AbortSignal.timeout(30_000),
+          })
+          const text = await res.text()
+          const urls = [
+            ...new Set(
+              text
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(isValidTrackerLine)
+            ),
+          ]
+          return {
+            id: src.id,
+            urls,
+            elapsedMs: Date.now() - start,
+          }
         })
-        const text = await res.text()
-        const urls = [
-          ...new Set(
-            text
-              .split(/\r?\n/)
-              .map((line) => line.trim())
-              .filter(isValidTrackerLine)
-          ),
-        ]
-        return {
-          id: src.id,
-          urls,
-          elapsedMs: Date.now() - start,
-        }
-      })
-    )
+      )
+    } finally {
+      await httpClient.close()
+    }
 
     const seen = new Set<string>()
     const sourceStatus: Record<string, SourceFetchStatus> = {}
@@ -99,7 +108,10 @@ export class TrackerSyncer {
           elapsedMs: 0,
           error,
         }
-        log.warn({ id: src.id, url: src.url, error }, 'source fetch failed')
+        log.warn(
+          { id: src.id, url: src.url, error, err: entry.reason },
+          'source fetch failed'
+        )
       }
     }
 
@@ -115,23 +127,5 @@ export class TrackerSyncer {
     )
 
     return { trackers: [...seen], sourceStatus }
-  }
-
-  private async buildProxyAgent(
-    proxy: ProxyConfig
-  ): Promise<import('undici').ProxyAgent | undefined> {
-    try {
-      const { ProxyAgent } = await import('undici')
-      let uri = proxy.server
-      if (proxy.username) {
-        const url = new URL(uri)
-        url.username = proxy.username
-        url.password = proxy.password ?? ''
-        uri = url.toString()
-      }
-      return new ProxyAgent(uri)
-    } catch {
-      return undefined
-    }
   }
 }

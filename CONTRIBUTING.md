@@ -27,6 +27,8 @@ pnpm install
 pnpm start
 ```
 
+By default, `pnpm start` uses a separate user-data profile next to the regular Motrix profile (normally `Motrix-dev`), so development does not modify the installed application's data. To select another directory, set `MOTRIX_USER_DATA` to its absolute path before running `pnpm start`.
+
 Create your development branch from the latest `main` and target `main` with your pull request. The legacy `master` branch only preserves the v1 codebase and is frozen; do not submit new changes to it.
 
 Branch names use `<type>/<snake_case_topic>_<YYYYMMDD>`. You may place an issue number before the topic when one is available, for example `fix/1970_conduct_links_20260826`.
