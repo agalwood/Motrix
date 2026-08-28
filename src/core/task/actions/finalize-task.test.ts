@@ -132,6 +132,43 @@ describe('finalizeTask HTTP/FTP branch', () => {
     expect(task.transitionPhase).toBe(TransitionPhase.Idle)
   })
 
+  it('rebases the persisted file path after the staging file is renamed', async () => {
+    const rebaseTaskFilePaths = vi.fn()
+    const deps = makeDeps({ rebaseTaskFilePaths })
+    const task = makeTask()
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(rebaseTaskFilePaths).toHaveBeenCalledExactlyOnceWith(
+      't1',
+      '/d/foo.mp4.motrix',
+      '/d/foo.mp4'
+    )
+  })
+
+  it('still completes when rebasing the persisted file path fails', async () => {
+    const rebaseError = new Error('sqlite unavailable')
+    const rebaseTaskFilePaths = vi.fn(() => {
+      throw rebaseError
+    })
+    const deps = makeDeps({ rebaseTaskFilePaths })
+    const task = makeTask()
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await expect(finalizeTask('t1', deps)).resolves.toBeUndefined()
+
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(deps.log.warn).toHaveBeenCalledWith(
+      { err: rebaseError, taskId: 't1' },
+      'finalize_http_task_file_path_rebase_failed'
+    )
+  })
+
   it('HTTP completion forces an immediate publish, not a coalesced one', async () => {
     const publishTaskUpdate = vi.fn()
     const publishTaskUpdateNow = vi.fn()
@@ -1862,8 +1899,9 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     const orchestrator = makeOrchestrator(
       makeBeforeFinalizeCommit({ finalFilePath: '/d/foo-rewritten.mp4' })
     )
+    const rebaseTaskFilePaths = vi.fn()
     const deps: FinalizeTaskDeps = {
-      ...makeDeps(),
+      ...makeDeps({ rebaseTaskFilePaths }),
       orchestrator,
       auditLog: makeAuditLog(),
     }
@@ -1881,6 +1919,11 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     await finalizeTask('t1', deps)
 
     expect(deps.fs.renameAtomic).toHaveBeenCalledWith(
+      '/d/foo.mp4.motrix',
+      '/d/foo-rewritten.mp4'
+    )
+    expect(rebaseTaskFilePaths).toHaveBeenCalledWith(
+      't1',
       '/d/foo.mp4.motrix',
       '/d/foo-rewritten.mp4'
     )

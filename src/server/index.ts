@@ -52,6 +52,7 @@ import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
+import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
 import { SettingsManager } from '@core/settings/settings-manager'
@@ -616,6 +617,7 @@ async function main() {
       throw firstError
     }
   }
+  const proxyBridge = new ProxyBridgeManager()
   const supervisor = new EngineSupervisor(
     eventBus,
     settingsManager,
@@ -623,9 +625,16 @@ async function main() {
     configBuilder,
     trustStore,
     rpcClient,
-    adapter
+    adapter,
+    proxyBridge
   )
-  shutdownActions.stopEngine = () => supervisor.stop()
+  shutdownActions.stopEngine = async () => {
+    try {
+      await supervisor.stop()
+    } finally {
+      await proxyBridge.close()
+    }
+  }
   const sessionManager = new SessionManager(taskManager, rpcClient, db, adapter)
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
@@ -701,17 +710,21 @@ async function main() {
           publishTaskUpdate,
           publishTaskUpdateNow,
         }),
-    }
+    },
+    (settings) => proxyBridge.resolveForFetch(settings)
   )
   shutdownActions.disposeTracker = () => trackerManager.stopAndDrain()
 
   // ─── Proxy Applier ────────────────────────────────────────────
   // Server runtime has no Electron session, so the applier is
-  // constructed without `applyUpdateAppProxy`. The applier early-returns
-  // on the `download` scope until the engine is Ready, so this initial
-  // applyAll is mainly for symmetry with the main runtime and to prime
-  // the tracker proxy cache.
-  const proxyApplier = createServerProxyApplier(supervisor, trackerManager)
+  // constructed without `applyUpdateAppProxy`. The engine supervisor has
+  // already prepared any cold-start SOCKS5 bridge; applyAll keeps runtime
+  // scopes aligned and invalidates the tracker proxy cache.
+  const proxyApplier = createServerProxyApplier(
+    supervisor,
+    trackerManager,
+    proxyBridge
+  )
 
   // ─── Polling ──────────────────────────────────────────────────
   async function handlePolledTasks(

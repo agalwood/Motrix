@@ -22,11 +22,13 @@ vi.mock('node:fs/promises', () => ({
   rename: mockRename,
 }))
 
+import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
-import type { EngineSettings, ProxySettings } from '@shared/types/settings'
+import type { EngineSettings } from '@shared/types/settings'
 import { Aria2ConfigBuilder } from './aria2-config-builder'
 
 const DEFAULT_SAVE_DIR = '/home/user/Downloads'
+const TEST_RPC_SECRET = 'test-rpc-secret'
 
 function makeEngineSettings(
   overrides?: Partial<EngineSettings>
@@ -37,6 +39,10 @@ function makeEngineSettings(
     sqlite3DbPath: '',
     sqlite3HistoryLimit: -1,
     ...overrides,
+    rpcSecret:
+      overrides?.rpcSecret && overrides.rpcSecret.trim() !== ''
+        ? overrides.rpcSecret
+        : TEST_RPC_SECRET,
   }
 }
 
@@ -46,12 +52,12 @@ describe('Aria2ConfigBuilder', () => {
   function buildArgs(
     settings: EngineSettings,
     hasSqlitePersistence: boolean,
-    proxy: ProxySettings | null | undefined,
+    proxy: Aria2ProxyOptions | null | undefined,
     effective: { download: number; upload: number },
     loadTextSession = false
   ): string[] {
     return builder.buildArgs(
-      settings,
+      makeEngineSettings(settings),
       hasSqlitePersistence,
       proxy,
       effective,
@@ -181,9 +187,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain(
         `--rpc-listen-port=${DEFAULT_ENGINE_SETTINGS.rpcPort}`
       )
-      expect(args).toContain(
-        `--rpc-secret=${DEFAULT_ENGINE_SETTINGS.rpcSecret}`
-      )
+      expect(args).toContain(`--rpc-secret=${TEST_RPC_SECRET}`)
       expect(args).toContain(
         `--enable-dht=${DEFAULT_ENGINE_SETTINGS.dhtEnabled}`
       )
@@ -200,7 +204,7 @@ describe('Aria2ConfigBuilder', () => {
 
     it('uses the supplied default save directory for optionless RPC tasks', () => {
       const args = builder.buildArgs(
-        DEFAULT_ENGINE_SETTINGS,
+        makeEngineSettings(),
         true,
         null,
         { download: 0, upload: 0 },
@@ -208,6 +212,21 @@ describe('Aria2ConfigBuilder', () => {
       )
 
       expect(args).toContain('--dir=/Volumes/Downloads with spaces')
+    })
+
+    it('omits rpc-secret while keeping RPC loopback-only for an explicit empty secret', () => {
+      const args = builder.buildArgs(
+        { ...makeEngineSettings(), rpcSecret: '' },
+        true,
+        null,
+        { download: 0, upload: 0 },
+        DEFAULT_SAVE_DIR
+      )
+
+      expect(args.some((arg) => arg.startsWith('--rpc-secret='))).toBe(false)
+      expect(args).toContain('--rpc-allow-origin-all=false')
+      expect(args).not.toContain('--rpc-allow-origin-all=true')
+      expect(args).toContain('--rpc-listen-all=false')
     })
 
     it('includes save-session path in userConfigDir', () => {
@@ -648,14 +667,8 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('buildArgs proxy injection', () => {
     const baseProxy = {
-      enabled: true,
-      protocol: 'http' as const,
-      host: 'p.example.com',
-      port: 8080,
-      user: '',
-      password: '',
-      bypass: [] as string[],
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      allProxy: 'http://p.example.com:8080',
+      noProxy: '',
     }
 
     it('injects --all-proxy when proxy enabled and download scope on', () => {
@@ -672,7 +685,7 @@ describe('Aria2ConfigBuilder', () => {
         true,
         {
           ...baseProxy,
-          bypass: ['localhost', '127.0.0.1'],
+          noProxy: 'localhost,127.0.0.1',
         },
         { download: 0, upload: 0 }
       )
@@ -692,32 +705,6 @@ describe('Aria2ConfigBuilder', () => {
         download: 0,
         upload: 0,
       })
-      expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
-    })
-
-    it('omits proxy args when scope off', () => {
-      const args = buildArgs(
-        makeEngineSettings(),
-        true,
-        {
-          ...baseProxy,
-          scopes: { download: false, updateApp: false, updateTrackers: false },
-        },
-        { download: 0, upload: 0 }
-      )
-      expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
-    })
-
-    it('omits proxy args when proxy disabled', () => {
-      const args = buildArgs(
-        makeEngineSettings(),
-        true,
-        {
-          ...baseProxy,
-          enabled: false,
-        },
-        { download: 0, upload: 0 }
-      )
       expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
     })
   })

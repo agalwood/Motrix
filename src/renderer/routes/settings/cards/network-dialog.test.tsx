@@ -178,7 +178,7 @@ describe('<NetworkDialog>', () => {
     })
   })
 
-  it('disables download proxying when importing socks5', async () => {
+  it('keeps download proxying enabled when importing socks5', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
       if (channel === Queries.GetSettings) {
         return {
@@ -212,15 +212,17 @@ describe('<NetworkDialog>', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/does not support SOCKS5 proxies/i)
+        screen.getByText(
+          /BT proxy covers HTTP\(S\) only; peers, DHT, and UDP trackers stay direct/i
+        )
       ).toBeInTheDocument()
-      expect(screen.getAllByRole('switch')[2]).toHaveAttribute(
+      expect(screen.getAllByRole('switch')[2]).not.toHaveAttribute(
         'aria-disabled',
         'true'
       )
       expect(screen.getAllByRole('switch')[2]).toHaveAttribute(
         'aria-checked',
-        'false'
+        'true'
       )
     })
   })

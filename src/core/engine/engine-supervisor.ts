@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { getLogger } from '@core/logger'
+import type { ProxyBridgeResolver } from '@core/proxy/proxy-bridge-manager'
 import { ENGINE_RPC_PORT } from '@shared/constants'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
@@ -92,6 +93,7 @@ export class EngineSupervisor {
   private failureSeq = 0
   private sqliteFallbackActive = false
   private sqliteFallbackAttempted = false
+  private restartPromise: Promise<void> | null = null
 
   constructor(
     private eventBus: EventBus,
@@ -100,7 +102,8 @@ export class EngineSupervisor {
     private configBuilder: Aria2ConfigBuilder,
     private trustStore: Aria2TrustStore,
     private rpcClient: Aria2RpcClient,
-    private adapter: Aria2Adapter
+    private adapter: Aria2Adapter,
+    private proxyBridge: Pick<ProxyBridgeResolver, 'resolveForDownload'>
   ) {
     // Wire up process exit handler
     this.processManager.onExit = (code, _signal) => {
@@ -143,11 +146,24 @@ export class EngineSupervisor {
     await this.doStart()
   }
 
-  async restart(): Promise<void> {
+  restart(): Promise<void> {
+    if (this.restartPromise) return this.restartPromise
     if (!this.binaryPath) {
-      throw new Error('EngineSupervisor.restart called before start')
+      return Promise.reject(
+        new Error('EngineSupervisor.restart called before start')
+      )
     }
     const path = this.binaryPath
+    const restartPromise = this.performRestart(path).finally(() => {
+      if (this.restartPromise === restartPromise) {
+        this.restartPromise = null
+      }
+    })
+    this.restartPromise = restartPromise
+    return restartPromise
+  }
+
+  private async performRestart(path: string): Promise<void> {
     await this.stop()
     await this.start(path)
   }
@@ -392,7 +408,13 @@ export class EngineSupervisor {
       engineSettings = this.sqliteFallbackActive
         ? { ...resolvedEngineSettings, sqlite3Persistence: false }
         : resolvedEngineSettings
+      // Aria2RpcClient is long-lived and caches its credential. Refresh it on
+      // every start so an explicit settings rotation authenticates the first
+      // RPC sent to the newly spawned aria2 process.
+      this.rpcClient.setSecret(engineSettings.rpcSecret)
       const proxy = this.settingsManager.getProxy()
+      const resolvedProxy = await this.proxyBridge.resolveForDownload(proxy)
+      if (this.stopping) return
       const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir
       // Provider is wired by the shell (Task 8) before start() in production;
       // the { 0, 0 } (unlimited) fallback only fires in tests or if start()
@@ -407,10 +429,17 @@ export class EngineSupervisor {
       const loadTextSession =
         !sqliteActive && (await this.configBuilder.hasSavedSession())
       if (this.stopping) return
+      log.debug(
+        {
+          rpcPort: engineSettings.rpcPort,
+          rpcSecretLength: engineSettings.rpcSecret.length,
+        },
+        'preparing aria2 RPC configuration'
+      )
       const args = this.configBuilder.buildArgs(
         engineSettings,
         featureReport.hasSqlitePersistence,
-        proxy,
+        resolvedProxy,
         effective,
         defaultSaveDir,
         loadTextSession

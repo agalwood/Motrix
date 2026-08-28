@@ -26,6 +26,7 @@ const OWNER_MARKER_PREFIXES = [
   '--save-session=',
   '--sqlite3-db-path=',
 ] as const
+const REDACTED_ARG_PREFIXES = ['--rpc-secret=', '--all-proxy='] as const
 
 const ownerRecordSchema = z.object({
   version: z.literal(OWNER_RECORD_VERSION),
@@ -49,9 +50,59 @@ export interface ExpectedAria2Process {
 }
 
 function redactArgs(args: string[]): string[] {
-  return args.map((arg) =>
-    arg.startsWith('--rpc-secret=') ? '--rpc-secret=<redacted>' : arg
-  )
+  return args.map((arg) => {
+    const prefix = REDACTED_ARG_PREFIXES.find((candidate) =>
+      arg.startsWith(candidate)
+    )
+    return prefix ? `${prefix}<redacted>` : arg
+  })
+}
+
+function redactSensitiveText(text: string, args: string[]): string {
+  const sensitiveArgs = args.flatMap((arg) => {
+    const prefix = REDACTED_ARG_PREFIXES.find((candidate) =>
+      arg.startsWith(candidate)
+    )
+    return prefix ? [{ arg, prefix, value: arg.slice(prefix.length) }] : []
+  })
+  let redacted = text
+
+  for (const { arg, prefix } of sensitiveArgs) {
+    redacted = redacted.replaceAll(arg, `${prefix}<redacted>`)
+  }
+  for (const value of sensitiveArgs
+    .map(({ value }) => value)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)) {
+    redacted = redacted.replaceAll(value, '<redacted>')
+  }
+  return redacted
+}
+
+interface SpawnErrorDetails extends Error {
+  code?: string
+  errno?: string | number
+  syscall?: string
+  path?: string
+  spawnargs?: unknown[]
+}
+
+function redactSpawnError(error: Error, fallbackArgs: string[]) {
+  const details = error as SpawnErrorDetails
+  const spawnargs = Array.isArray(details.spawnargs)
+    ? details.spawnargs.filter((arg): arg is string => typeof arg === 'string')
+    : fallbackArgs
+  const candidateArgs = [...fallbackArgs, ...spawnargs]
+
+  return {
+    name: error.name,
+    message: redactSensitiveText(error.message, candidateArgs),
+    code: details.code,
+    errno: details.errno,
+    syscall: details.syscall,
+    path: details.path,
+    spawnargs: redactArgs(spawnargs),
+  }
 }
 
 export class Aria2ProcessManager {
@@ -128,11 +179,14 @@ export class Aria2ProcessManager {
     }
 
     child.stdout?.on('data', (data: Buffer) => {
-      log.debug({ data: data.toString().trim() }, 'aria2 stdout')
+      log.debug(
+        { data: redactSensitiveText(data.toString().trim(), args) },
+        'aria2 stdout'
+      )
     })
 
     child.stderr?.on('data', (data: Buffer) => {
-      const text = data.toString()
+      const text = redactSensitiveText(data.toString(), args)
       this.recentStderr = `${this.recentStderr}${text}`.slice(
         -STDERR_TAIL_LIMIT
       )
@@ -148,7 +202,7 @@ export class Aria2ProcessManager {
     })
 
     child.on('error', (err) => {
-      log.error({ err }, 'aria2 process error')
+      log.error({ err: redactSpawnError(err, args) }, 'aria2 process error')
       this.running = false
       this.process = null
       if (child.pid) void this.clearOwnershipRecord(child.pid)
@@ -228,10 +282,18 @@ export class Aria2ProcessManager {
       record.rpcPort === port &&
       this.samePath(record.binaryPath, expected.binaryPath) &&
       record.argumentMarkers.every((marker) => expected.args.includes(marker))
+    const expectedUsesRpcSecret = expected.args.some((arg) =>
+      arg.startsWith('--rpc-secret=')
+    )
+    // A private launch secret can authenticate a legacy orphan from the
+    // bundled executable alone. In explicit no-token mode there is no private
+    // marker, so require the mode-0600 ownership record before termination.
+    const identityMatches =
+      recordMatches || (expectedUsesRpcSecret && executableMatches)
 
     if (
       this.isAria2(inspected) &&
-      (recordMatches || executableMatches) &&
+      identityMatches &&
       launchFingerprintMatches
     ) {
       return this.toProcessInfo(
@@ -336,7 +398,10 @@ export class Aria2ProcessManager {
       commandLine.includes(marker)
     ).length
     const secret = expectedArgs.find((arg) => arg.startsWith('--rpc-secret='))
-    return markerMatches >= 2 && Boolean(secret && commandLine.includes(secret))
+    const authenticationModeMatches = secret
+      ? commandLine.includes(secret)
+      : !/(?:^|[\s"'])--rpc-secret(?:=|\s)/.test(commandLine)
+    return markerMatches >= 2 && authenticationModeMatches
   }
 
   private samePath(left: string, right: string): boolean {

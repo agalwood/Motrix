@@ -61,14 +61,9 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
   }, [userValue])
 
   const proxyEnabled = form.watch('proxy.enabled')
-  const proxyProtocol = form.watch('proxy.protocol')
-  const downloadProxyUnsupported = proxyProtocol === 'socks5'
 
   const updateProtocol = (protocol: ProxySettings['protocol']) => {
     form.setValue('proxy.protocol', protocol, { shouldDirty: true })
-    if (protocol === 'socks5' && form.getValues('proxy.scopes.download')) {
-      form.setValue('proxy.scopes.download', false, { shouldDirty: true })
-    }
   }
 
   const handleAuthToggle = (checked: boolean) => {
@@ -337,17 +332,12 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                         {t('settings.network.proxy.scopeDownload')}
                       </FormLabel>
                       <FormDescription className="text-xs">
-                        {t(
-                          downloadProxyUnsupported
-                            ? 'settings.network.proxy.scopeDownloadSocks5Unsupported'
-                            : 'settings.network.proxy.scopeDownloadDesc'
-                        )}
+                        {t('settings.network.proxy.scopeDownloadDesc')}
                       </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
                         checked={field.value}
-                        disabled={downloadProxyUnsupported}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>

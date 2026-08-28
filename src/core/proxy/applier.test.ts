@@ -1,6 +1,7 @@
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import { describe, expect, it, vi } from 'vitest'
 import { createProxyApplier } from './applier'
+import { proxyToAria2Options } from './serializers'
 
 const baseProxy = {
   ...DEFAULT_PROXY_SETTINGS,
@@ -13,6 +14,12 @@ function makeDeps() {
   return {
     engineSupervisor: { applyProxyChange: vi.fn() },
     trackerManager: { invalidateProxyCache: vi.fn() },
+    proxyBridge: {
+      reconcile: vi.fn().mockResolvedValue(undefined),
+      resolveForDownload: vi.fn(async (settings) =>
+        proxyToAria2Options(settings)
+      ),
+    },
     applyUpdateAppProxy: vi.fn(),
   }
 }
@@ -53,6 +60,32 @@ describe('proxyApplier.apply', () => {
     expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalledWith(null)
   })
 
+  it('routes SOCKS5 downloads through the resolved local bridge', async () => {
+    const deps = makeDeps()
+    deps.proxyBridge.resolveForDownload.mockResolvedValue({
+      allProxy: 'http://127.0.0.1:43123',
+      noProxy: '',
+    })
+    const applier = createProxyApplier(deps)
+
+    await applier.apply(
+      {
+        ...baseProxy,
+        scopes: { download: false, updateApp: false, updateTrackers: false },
+      },
+      {
+        ...baseProxy,
+        protocol: 'socks5',
+        scopes: { download: true, updateApp: false, updateTrackers: false },
+      }
+    )
+
+    expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalledWith({
+      allProxy: 'http://127.0.0.1:43123',
+      noProxy: '',
+    })
+  })
+
   it('skips engine when download scope unchanged and fields unchanged', async () => {
     const deps = makeDeps()
     const applier = createProxyApplier(deps)
@@ -84,6 +117,10 @@ describe('proxyApplier.apply', () => {
     const applier = createProxyApplier({
       engineSupervisor: { applyProxyChange: vi.fn() },
       trackerManager: { invalidateProxyCache: vi.fn() },
+      proxyBridge: {
+        reconcile: vi.fn().mockResolvedValue(undefined),
+        resolveForDownload: vi.fn().mockResolvedValue(null),
+      },
     })
     // should not throw
     await applier.apply(
@@ -112,6 +149,30 @@ describe('proxyApplier.apply', () => {
       }
     )
     expect(deps.trackerManager.invalidateProxyCache).toHaveBeenCalled()
+  })
+
+  it('reconciles the bridge when only updateTrackers flips off', async () => {
+    const deps = makeDeps()
+    const applier = createProxyApplier(deps)
+    const next = {
+      ...baseProxy,
+      protocol: 'socks5' as const,
+      enabled: false,
+      scopes: { download: false, updateApp: false, updateTrackers: false },
+    }
+
+    await applier.apply(
+      {
+        ...baseProxy,
+        protocol: 'socks5',
+        scopes: { download: false, updateApp: false, updateTrackers: true },
+      },
+      next
+    )
+
+    expect(deps.proxyBridge.reconcile).toHaveBeenCalledOnce()
+    expect(deps.proxyBridge.reconcile).toHaveBeenCalledWith(next)
+    expect(deps.proxyBridge.resolveForDownload).not.toHaveBeenCalled()
   })
 
   it('applyAll(current) treats old as fully-disabled', async () => {

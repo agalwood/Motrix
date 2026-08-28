@@ -1,6 +1,8 @@
 import { initLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
+import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
+import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -15,6 +17,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
 import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
+import { sanitizeRemoteFilename } from './direct-resource-validator'
+import { FinalNamePickerImpl } from './final-name-picker'
 
 // Stub `mkdir` (and the other `fs.*` calls inadvertently dragged
 // in via TorrentMetaStore) so unit tests don't touch the real
@@ -102,6 +106,7 @@ interface DepOverrides {
   pick?: (dir: string, name: string) => Promise<string>
   persist?: (id: string, bytes: Uint8Array) => Promise<string>
   defaultSaveDir?: string
+  proxySettings?: ProxySettings
   waitForEngineReady?: () => Promise<void>
   prepareSaveDir?: (requested: string) => Promise<string>
 }
@@ -182,6 +187,7 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
       performanceProfile: DEFAULT_ENGINE_SETTINGS.performanceProfile,
       maxConnectionPerServer: DEFAULT_ENGINE_SETTINGS.maxConnectionPerServer,
     }),
+    getProxy: () => overrides.proxySettings ?? DEFAULT_PROXY_SETTINGS,
   } as unknown as Deps['settingsManager']
   const finalNamePicker = { pick } as unknown as Deps['finalNamePicker']
   const torrentMetaStore = {
@@ -535,7 +541,7 @@ describe('handleCreateTask', () => {
 
     await handleCreateTask(httpRequest(), deps)
 
-    expect(capture).toHaveBeenCalledWith('https://a/b')
+    expect(capture).toHaveBeenCalledWith('https://a/b', {})
     expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
       directReplay: {
         version: 1,
@@ -939,6 +945,311 @@ describe('handleCreateTask with incomplete-suffix', () => {
     expect(task.finalName).toBe('archive.tar.gz')
   })
 
+  it('HTTP task: resolves a stable URL from final request params and prefers its explicit proxy', async () => {
+    const deps = makeDeps({
+      proxySettings: {
+        ...DEFAULT_PROXY_SETTINGS,
+        enabled: true,
+        host: 'global-proxy.example',
+        port: 3128,
+        bypass: ['localhost'],
+        scopes: { ...DEFAULT_PROXY_SETTINGS.scopes, download: true },
+      },
+    })
+    const probe = vi.fn().mockResolvedValue({
+      filename: '../../VSCodeUserSetup-x64-1.103.2.exe',
+      validator: null,
+    })
+    const capture = vi.fn().mockResolvedValue(null)
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: [
+          'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
+        ],
+        saveDir: '/d',
+        headers: [{ name: 'User-Agent', value: 'Motrix test' }],
+        proxy: 'http://proxy.example:8080',
+      },
+      deps
+    )
+
+    expect(probe).toHaveBeenCalledWith(
+      'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
+      {
+        headers: { 'User-Agent': 'Motrix test' },
+        proxy: 'http://proxy.example:8080',
+      }
+    )
+    expect(deps.pick).toHaveBeenCalledWith(
+      '/d',
+      'VSCodeUserSetup-x64-1.103.2.exe'
+    )
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://update.code.visualstudio.com/latest/win32-x64-user/stable'],
+      expect.objectContaining({
+        dir: '/d',
+        out: 'VSCodeUserSetup-x64-1.103.2.exe.motrix',
+      })
+    )
+    expect(lastAddedTask(deps).finalName).toBe(
+      'VSCodeUserSetup-x64-1.103.2.exe'
+    )
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('HTTP task: an explicit filename skips discovery but still captures a URI-only validator once', async () => {
+    const deps = makeDeps({
+      proxySettings: {
+        ...DEFAULT_PROXY_SETTINGS,
+        enabled: true,
+        host: 'proxy.example',
+        port: 8080,
+        bypass: ['localhost'],
+        scopes: { ...DEFAULT_PROXY_SETTINGS.scopes, download: true },
+      },
+    })
+    const probe = vi.fn()
+    const capture = vi.fn().mockResolvedValue({
+      kind: 'strong-etag' as const,
+      value: '"proxied-release"',
+      capturedAt: 9,
+    })
+    deps.directResourceValidator = {
+      capture,
+      probe,
+    }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: [
+          'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
+        ],
+        saveDir: '/d',
+        filename: 'chosen.exe',
+        headers: [],
+      },
+      deps
+    )
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).toHaveBeenCalledWith(
+      'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
+      {
+        proxy: 'http://proxy.example:8080',
+        noProxy: 'localhost',
+      }
+    )
+    expect(deps.pick).toHaveBeenCalledWith('/d', 'chosen.exe')
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+      },
+    })
+  })
+
+  it.each([
+    ['download.php', 'release.zip'],
+    ['api/file.bin', 'real-installer.exe'],
+  ])(
+    'HTTP task: probes a single URI ending in %s despite its apparent extension',
+    async (uriPath, remoteName) => {
+      const deps = makeDeps()
+      const probe = vi.fn().mockResolvedValue({
+        filename: remoteName,
+        validator: null,
+      })
+      deps.directResourceValidator = {
+        capture: vi.fn(),
+        probe,
+      }
+
+      await handleCreateTask(
+        {
+          type: 'http',
+          uris: [`https://example.com/${uriPath}`],
+          saveDir: '/d',
+          headers: [],
+        },
+        deps
+      )
+
+      expect(probe).toHaveBeenCalledOnce()
+      expect(deps.pick).toHaveBeenLastCalledWith('/d', remoteName)
+      expect(lastAddedTask(deps).finalName).toBe(remoteName)
+    }
+  )
+
+  it.each([
+    ['ASCII', `${'release'.repeat(80)}.zip`],
+    ['Chinese', `${'下载文件'.repeat(80)}.zip`],
+    ['emoji', `${'📦🚀'.repeat(80)}.zip`],
+  ])(
+    'HTTP task: keeps a deduplicated long %s filename within the filesystem byte limit',
+    async (_label, remoteName) => {
+      const safeRemoteName = sanitizeRemoteFilename(remoteName) as string
+      const picker = new FinalNamePickerImpl({
+        exists: vi.fn(
+          async (candidate) => candidate === `/d/${safeRemoteName}`
+        ),
+      })
+      const deps = makeDeps({
+        pick: (dir, name) => picker.pick(dir, name),
+      })
+      deps.directResourceValidator = {
+        capture: vi.fn(),
+        probe: vi.fn().mockResolvedValue({
+          filename: remoteName,
+          validator: null,
+        }),
+      }
+
+      await handleCreateTask(
+        {
+          type: 'http',
+          uris: ['https://example.com/stable'],
+          saveDir: '/d',
+          headers: [],
+        },
+        deps
+      )
+
+      const task = lastAddedTask(deps)
+      expect(task.finalName).toMatch(/ \(1\)\.zip$/)
+      expect(
+        Buffer.byteLength(`${task.finalName}.motrix`, 'utf8')
+      ).toBeLessThanOrEqual(255)
+      expect(Buffer.from(task.finalName, 'utf8').toString('utf8')).toBe(
+        task.finalName
+      )
+    }
+  )
+
+  it('HTTP task: reuses the filename probe validator without a second HEAD', async () => {
+    const deps = makeDeps()
+    const resourceValidator = {
+      kind: 'strong-etag' as const,
+      value: '"release-v1"',
+      contentLength: 4096,
+      capturedAt: 7,
+    }
+    const probe = vi.fn().mockResolvedValue({
+      filename: 'release.zip',
+      validator: resourceValidator,
+    })
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/stable'],
+        saveDir: '/d',
+        headers: [],
+      },
+      deps
+    )
+
+    expect(probe).toHaveBeenCalledOnce()
+    expect(capture).not.toHaveBeenCalled()
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+        resourceValidator,
+      },
+    })
+  })
+
+  it('HTTP task: follows the global download proxy and does not persist its validator for direct recovery', async () => {
+    const deps = makeDeps({
+      proxySettings: {
+        ...DEFAULT_PROXY_SETTINGS,
+        enabled: true,
+        host: 'proxy.example',
+        port: 8080,
+        user: 'proxy-user',
+        password: 'proxy-pass',
+        bypass: ['localhost', '*.internal'],
+        scopes: { ...DEFAULT_PROXY_SETTINGS.scopes, download: true },
+      },
+    })
+    const probe = vi.fn().mockResolvedValue({
+      filename: 'release.zip',
+      validator: {
+        kind: 'strong-etag' as const,
+        value: '"proxied-release"',
+        capturedAt: 8,
+      },
+    })
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/download.php'],
+        saveDir: '/d',
+        headers: [],
+      },
+      deps
+    )
+
+    expect(probe).toHaveBeenCalledWith('https://example.com/download.php', {
+      proxy: 'http://proxy-user:proxy-pass@proxy.example:8080',
+      noProxy: 'localhost,*.internal',
+    })
+    expect(capture).not.toHaveBeenCalled()
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+      },
+    })
+  })
+
+  it('HTTP task: metadata failure logs no signed URL or credential value', async () => {
+    const deps = makeDeps()
+    deps.directResourceValidator = {
+      capture: vi.fn(),
+      probe: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            'https://example.com/stable?token=URL_SECRET Authorization=AUTH_SECRET'
+          )
+        ),
+    }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/stable?token=URL_SECRET'],
+        saveDir: '/d',
+        headers: [{ name: 'Authorization', value: 'Bearer AUTH_SECRET' }],
+      },
+      deps
+    )
+
+    const serializedLogs = JSON.stringify({
+      debug: logDebug.mock.calls,
+      info: logInfo.mock.calls,
+      warn: logWarn.mock.calls,
+      error: logError.mock.calls,
+    })
+    expect(serializedLogs).not.toContain('URL_SECRET')
+    expect(serializedLogs).not.toContain('AUTH_SECRET')
+    expect(serializedLogs).toContain('example.com')
+    expect(lastAddedTask(deps).finalName).toBe('stable')
+  })
+
   it('delegates to FinalNamePicker and uses returned dedup name', async () => {
     const deps = makeDeps({ pick: async () => 'foo (1).mp4' })
     await handleCreateTask(
@@ -1310,6 +1621,100 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     }
   }
 
+  it('waits for mux fallback and a successful hook rewrite before probing metadata', async () => {
+    const order: string[] = []
+    const chainResult = makeChainCommit({
+      uris: ['https://cdn.example/api/file.bin'],
+      headers: [{ name: 'User-Agent', value: 'plugin-agent' }],
+      proxy: 'http://plugin-proxy.example:8080',
+      headerContributors: ['plugin-a'],
+      uriContributor: 'plugin-a',
+      proxyContributor: 'plugin-a',
+    })
+    const orchestrator = {
+      runBeforeCreateHttp: vi.fn(async () => {
+        order.push('hook')
+        return chainResult
+      }),
+      runBeforeFinalize: vi.fn(),
+      runParallel: vi.fn(),
+    } as unknown as Deps['orchestrator']
+    const resolveToMux = vi.fn(async () => {
+      order.push('mux')
+      return null
+    })
+    const dispatchMux = vi.fn()
+    const probe = vi.fn(async () => {
+      order.push('probe')
+      return { filename: 'rewritten.exe', validator: null }
+    })
+    const deps = makeDeps()
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://origin.example/stable'],
+        saveDir: '/d',
+        headers: [],
+      },
+      {
+        ...deps,
+        orchestrator,
+        resolveToMux,
+        dispatchMux,
+        directResourceValidator: { capture: vi.fn(), probe },
+      }
+    )
+
+    expect(order).toEqual(['mux', 'hook', 'probe'])
+    expect(probe).toHaveBeenCalledWith('https://cdn.example/api/file.bin', {
+      headers: { 'User-Agent': 'plugin-agent' },
+      proxy: 'http://plugin-proxy.example:8080',
+    })
+    expect(deps.addUri.mock.calls[0]?.[0]).toEqual([
+      'https://cdn.example/api/file.bin',
+    ])
+  })
+
+  it('keeps the rewritten URI basename when its metadata probe fails', async () => {
+    const orchestrator = makeOrchestrator(
+      makeChainCommit({
+        uris: ['https://cdn.example/release.zip'],
+        uriContributor: 'plugin-a',
+      })
+    )
+    const probe = vi.fn().mockRejectedValue(new Error('metadata unavailable'))
+    const capture = vi.fn()
+    const deps = makeDeps()
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://origin.example/stable'],
+        saveDir: '/d',
+        headers: [],
+      },
+      {
+        ...deps,
+        orchestrator,
+        directResourceValidator: { capture, probe },
+      }
+    )
+
+    expect(probe).toHaveBeenCalledWith('https://cdn.example/release.zip', {})
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.pick).toHaveBeenLastCalledWith('/d', 'release.zip')
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://cdn.example/release.zip'],
+      expect.objectContaining({ out: 'release.zip.motrix' })
+    )
+    expect(lastAddedTask(deps)).toMatchObject({
+      finalName: 'release.zip',
+      finalPath: '/d/release.zip',
+      diskPath: '/d/release.zip.motrix',
+    })
+  })
+
   it('uses merged uris and headers from the chain when present', async () => {
     const orchestrator = makeOrchestrator(
       makeChainCommit({
@@ -1326,10 +1731,15 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     )
     const auditLog = makeAuditLog()
     const deps = makeDeps({ addUriGid: 'gid-x' })
+    const probe = vi.fn().mockResolvedValue({
+      filename: 'rewritten-release.exe',
+      validator: null,
+    })
     const fullDeps = {
       ...deps,
       orchestrator,
       auditLog,
+      directResourceValidator: { capture: vi.fn(), probe },
     }
 
     await handleCreateTask(
@@ -1347,6 +1757,11 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     expect(deps.addUri.mock.calls[0][0]).toEqual(['https://cdn.example/b'])
     expect(options.header).toEqual(['X-Plugin: on', 'User-Agent: rewritten'])
     expect(options['all-proxy']).toBe('http://proxy.example:1080')
+    expect(options.out).toBe('rewritten-release.exe.motrix')
+    expect(probe).toHaveBeenCalledWith('https://cdn.example/b', {
+      headers: { 'X-Plugin': 'on', 'User-Agent': 'rewritten' },
+      proxy: 'http://proxy.example:1080',
+    })
     expect(auditLog?.log).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'chain.commit',
@@ -1395,7 +1810,14 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     const orchestrator = makeOrchestrator({ aborted: true, reason: 'boom' })
     const auditLog = makeAuditLog()
     const deps = makeDeps()
-    const fullDeps = { ...deps, orchestrator, auditLog }
+    const probe = vi.fn()
+    const capture = vi.fn()
+    const fullDeps = {
+      ...deps,
+      orchestrator,
+      auditLog,
+      directResourceValidator: { capture, probe },
+    }
 
     await expect(
       handleCreateTask(
@@ -1419,6 +1841,8 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     // engine never dispatched, task never registered
     expect(deps.addUri).not.toHaveBeenCalled()
     expect(deps.add).not.toHaveBeenCalled()
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
   })
 
   it('skips the chain for BT tasks (out of scope for T15)', async () => {
@@ -1704,6 +2128,8 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     const resolveToMux = vi.fn().mockResolvedValue(muxPair)
     const dispatchMux = vi.fn().mockResolvedValue({ taskId: 'mux-task-id' })
     const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
     const result = await handleCreateTask(
       {
         type: 'http',
@@ -1711,7 +2137,12 @@ describe('handleCreateTask mux pre-resolve seam', () => {
         saveDir: '/d',
         headers: [],
       },
-      { ...deps, resolveToMux, dispatchMux }
+      {
+        ...deps,
+        resolveToMux,
+        dispatchMux,
+        directResourceValidator: { capture, probe },
+      }
     )
     // dispatchMux was called, NOT the engine
     expect(dispatchMux).toHaveBeenCalledOnce()
@@ -1724,6 +2155,8 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     expect(adapted.videoUrl).toBe(muxPair.videoUrl)
     expect(adapted.audioUrl).toBe(muxPair.audioUrl)
     expect(adapted.container).toBe('mp4')
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
   })
 
   it("uses the resolver's title (sanitized) as the mux finalName, not the URL bvid", async () => {
@@ -1802,9 +2235,17 @@ describe('handleCreateTask mux pre-resolve seam', () => {
   })
 
   it('falls through to the normal HTTP path (engine.createDownload) when resolveToMux returns null', async () => {
-    const resolveToMux = vi.fn().mockResolvedValue(null)
+    let muxFinished = false
+    const resolveToMux = vi.fn(async () => {
+      muxFinished = true
+      return null
+    })
     const dispatchMux = vi.fn()
     const deps = makeDeps({ addUriGid: 'gid-http' })
+    const probe = vi.fn(async () => {
+      expect(muxFinished).toBe(true)
+      return { filename: 'release.zip', validator: null }
+    })
     const result = await handleCreateTask(
       {
         type: 'http',
@@ -1812,10 +2253,16 @@ describe('handleCreateTask mux pre-resolve seam', () => {
         saveDir: '/d',
         headers: [],
       },
-      { ...deps, resolveToMux, dispatchMux }
+      {
+        ...deps,
+        resolveToMux,
+        dispatchMux,
+        directResourceValidator: { capture: vi.fn(), probe },
+      }
     )
     expect(deps.addUri).toHaveBeenCalledOnce()
     expect(dispatchMux).not.toHaveBeenCalled()
+    expect(probe).toHaveBeenCalledOnce()
     expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
   })
 

@@ -24,6 +24,7 @@
     "mmdb-lib",
     "parse-torrent",
     "pino",
+    "proxy-chain",
     "quickjs-emscripten",
     "undici",
     "uuid",

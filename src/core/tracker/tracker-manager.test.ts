@@ -289,6 +289,38 @@ describe('TrackerManager', () => {
     expect(syncer.fetch).toHaveBeenCalledWith(expect.anything(), undefined)
   })
 
+  it('uses the resolved HTTP bridge for SOCKS5 tracker fetches', async () => {
+    settings.getProxy.mockReturnValue({
+      enabled: true,
+      protocol: 'socks5',
+      host: 'p.example.com',
+      port: 1080,
+      user: '',
+      password: '',
+      bypass: [],
+      scopes: { download: false, updateApp: false, updateTrackers: true },
+    })
+    const resolveProxyUrl = vi.fn().mockResolvedValue('http://127.0.0.1:43123')
+    const bridgedManager = new TrackerManager(
+      settings as never,
+      rpc as never,
+      eventBus as never,
+      syncer as never,
+      prober as never,
+      store as never,
+      undefined,
+      resolveProxyUrl
+    )
+
+    await bridgedManager.syncAndCurate()
+    bridgedManager.dispose()
+
+    expect(resolveProxyUrl).toHaveBeenCalledWith(settings.getProxy())
+    expect(syncer.fetch).toHaveBeenCalledWith(expect.anything(), {
+      server: 'http://127.0.0.1:43123',
+    })
+  })
+
   it('invalidateProxyCache is callable without throwing', () => {
     expect(() => manager.invalidateProxyCache()).not.toThrow()
   })

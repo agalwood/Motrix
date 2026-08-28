@@ -59,6 +59,15 @@ describe('proxyToAria2Options', () => {
     })
     expect(r?.allProxy).toBe('http://a%40b:p%3As@p.example.com:8080')
   })
+
+  it('brackets an IPv6 proxy host', () => {
+    const r = proxyToAria2Options({
+      ...enabledHttp,
+      host: '2001:db8::1',
+      scopes: { download: true, updateApp: false, updateTrackers: false },
+    })
+    expect(r?.allProxy).toBe('http://[2001:db8::1]:8080')
+  })
 })
 
 describe('proxyToElectronConfig', () => {

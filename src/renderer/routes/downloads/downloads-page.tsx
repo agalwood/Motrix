@@ -275,7 +275,7 @@ export function DownloadsPage() {
     ) : (
       <TaskListPanel
         tasks={filtered}
-        totalTasks={tasks.length}
+        hasAnyTasks={counts.all > 0}
         selection={useDownloadsSelection}
         filter={filter}
         search=""

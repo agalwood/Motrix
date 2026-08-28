@@ -51,7 +51,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-build-resources/torrent.ico':
     '7743ad382011e30236e91322164f0ebd20c283e634db44c36f314aa2abf2f5a8',
   'signing-policy/installer.nsh':
-    'b1238c611da39f9cdf8489de01f88f31cb377b67668353aad2d9d3d1e17701f5',
+    '779f44909b4ea67a564bb67976bebdf3c307332c1e970fa48ef04d4fcd3b469c',
   'signing-tool/package.json':
     'b8ddd0e1bb90198d99628eb8b5b8c3c2b8cbda4a3aee48f118a36244467fac51',
   'signing-tool/package-lock.json':

@@ -14,7 +14,7 @@ const HEADER_HEIGHT = 36
 
 export interface TaskListPanelProps {
   tasks: readonly DownloadTask[]
-  totalTasks: number
+  hasAnyTasks: boolean
   selection: SelectionStore<DownloadTask>
   filter: DownloadsTab
   search: string
@@ -23,7 +23,7 @@ export interface TaskListPanelProps {
 
 export function TaskListPanel({
   tasks,
-  totalTasks,
+  hasAnyTasks,
   selection,
   filter,
   search,
@@ -50,7 +50,7 @@ export function TaskListPanel({
       <EmptyTasks
         filter={filter}
         search={search}
-        totalTasks={totalTasks}
+        hasAnyTasks={hasAnyTasks}
         onClearSearch={onClearSearch}
       />
     )

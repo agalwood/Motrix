@@ -29,7 +29,7 @@ minimumReleaseAgeExclude:
   - lucide-react@1.24.0 || 1.31.0
   - react-i18next@17.0.9
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0 || 0.5.0'
-  - '@motrix/nat@0.1.0'
+  - '@motrix/nat@0.1.0 || 0.1.1'
   - '@motrix/cli@0.1.0'
   - '@motrix/plugin-manifest-schema@2.0.0'
   - '@hookform/resolvers@5.5.7 || 5.9.1'

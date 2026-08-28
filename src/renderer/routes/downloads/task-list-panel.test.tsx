@@ -12,7 +12,7 @@ describe('TaskListPanel', () => {
     render(
       <TaskListPanel
         tasks={[]}
-        totalTasks={0}
+        hasAnyTasks={false}
         selection={selection}
         filter="all"
         search=""

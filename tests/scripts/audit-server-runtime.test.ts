@@ -298,8 +298,9 @@ describe('Server package contracts', () => {
       'extra/aria2.conf',
       'extra/{platform}/{arch}/{aria2Binary}',
     ])
-    expect(contract.runtimeRoots).toHaveLength(22)
+    expect(contract.runtimeRoots).toHaveLength(23)
     expect(contract.runtimeRoots).toContain('mmdb-lib')
+    expect(contract.runtimeRoots).toContain('proxy-chain')
     expect(contract.runtimeRoots).not.toContain('electron-updater')
     expect(contract.runtimeRoots).not.toContain('@motrix/nat')
   })

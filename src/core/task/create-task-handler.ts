@@ -24,6 +24,7 @@ import type {
 } from '@shared/schemas/add-task'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import type { BeforeCreateHttpContextDTO } from '@shared/types/plugin-hooks'
+import type { ProxySettings } from '@shared/types/settings'
 import type {
   DownloadTask,
   SourceMeta,
@@ -63,13 +64,29 @@ import {
   buildDirectReplayRecipe,
   type DirectReplayRecipe,
 } from './direct-replay-recipe'
-import type { DirectResourceValidatorService } from './direct-resource-validator'
+import {
+  type DirectResourceMetadata,
+  type DirectResourceRequestOptions,
+  type DirectResourceValidatorService,
+  sanitizeRemoteFilename,
+} from './direct-resource-validator'
 import type { FinalNamePicker } from './final-name-picker'
 import { toTempPath } from './paths'
 import type { TaskManager } from './task-manager'
 import type { TorrentMetaStore } from './torrent-meta-store'
 
 const log = getLogger('create-task')
+
+type CreateDirectResourceValidator = Pick<
+  DirectResourceValidatorService,
+  'capture'
+> &
+  Partial<Pick<DirectResourceValidatorService, 'probe'>>
+
+interface DirectResourceRequestContext {
+  options: DirectResourceRequestOptions
+  usesGlobalProxy: boolean
+}
 
 export interface CreateTaskDeps {
   adapter: EngineAdapter
@@ -80,7 +97,7 @@ export interface CreateTaskDeps {
   activityRecorder: TaskActivityRecorder
   eventBus: { emit(event: string, payload: unknown): void }
   /** Optional best-effort capture of a non-secret HTTP resource validator. */
-  directResourceValidator?: Pick<DirectResourceValidatorService, 'capture'>
+  directResourceValidator?: CreateDirectResourceValidator
   /**
    * Coalesced TaskUpdated publication (TaskUpdatePublisher.publish). Both
    * create-side broadcasts are non-terminal (announce a new owned task /
@@ -330,7 +347,7 @@ async function handleCreateTaskUnderAdmission(
           req.existingTaskId
         )
       : undefined
-  const finalName =
+  let finalName =
     req.type === 'bt'
       ? await deps.finalNamePicker.pick(
           effectiveSaveDir,
@@ -340,11 +357,11 @@ async function handleCreateTaskUnderAdmission(
       : await deps.finalNamePicker.pick(effectiveSaveDir, desiredName)
 
   const taskType = deriveTaskType(req)
-  const finalPath = path.join(effectiveSaveDir, finalName)
+  let finalPath = path.join(effectiveSaveDir, finalName)
   const btStoragePlan: BtStoragePlan | null = parsedBtLayout
     ? createBtStoragePlan(taskId, effectiveSaveDir, parsedBtLayout)
     : null
-  const diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
+  let diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
   // Anchor "now" early so the hook DTO's requestedAt and the persisted
   // task row share a clock — they are written in the same SQLite
   // transaction when plugin metadata is staged.
@@ -407,6 +424,9 @@ async function handleCreateTaskUnderAdmission(
   let dispatchEngine: (reservedGid: string) => Promise<string>
   let directReplay: DirectReplayRecipe | null = null
   let canonicalUris = deriveUris(req)
+  let resourceMetadata: DirectResourceMetadata | null = null
+  let resourceProbeAttempted = false
+  let resourceProbeUsedGlobalProxy = false
   // Shared by the HTTP and magnet branches — both dispatch through
   // createDownload with an identical log line; only their params differ.
   const dispatchCreateDownload =
@@ -442,6 +462,18 @@ async function handleCreateTaskUnderAdmission(
       // Bridge cookie jar / referer; createDownload merges these raw AFTER
       // dir/out so a shell-supplied option can override (matches old order).
       extraEngineOptions: opts.extraEngineOptions,
+    }
+    let currentHttpDesiredName = desiredName
+    const pickHttpName = async (nextDesiredName: string): Promise<void> => {
+      if (nextDesiredName === currentHttpDesiredName) return
+      finalName = await deps.finalNamePicker.pick(
+        effectiveSaveDir,
+        nextDesiredName
+      )
+      currentHttpDesiredName = nextDesiredName
+      finalPath = path.join(effectiveSaveDir, finalName)
+      diskPath = toTempPath(finalPath)
+      params.filename = `${finalName}${INCOMPLETE_SUFFIX}`
     }
 
     // 3.4. Mux pre-resolve seam (desktop Add-Task path).
@@ -599,6 +631,50 @@ async function handleCreateTaskUnderAdmission(
       }
     }
 
+    // The hook may replace the source URI. Rebase the non-explicit fallback
+    // name onto that final URI before probing, so a failed/empty metadata
+    // response cannot resurrect the original request's basename.
+    if (!req.filename?.trim()) {
+      await pickHttpName(uriBasename(params.uris[0]) ?? 'download')
+    }
+
+    // Probe only after mux has declined the URL and the plugin chain has
+    // accepted and finalized its URI/header/proxy outputs. An aborted or
+    // rewritten request must never probe the stale user-supplied target.
+    // Manual names remain authoritative and skip filename discovery.
+    if (
+      !req.filename?.trim() &&
+      params.uris.length === 1 &&
+      deps.directResourceValidator?.probe
+    ) {
+      const uri = params.uris[0]
+      if (uri) {
+        resourceProbeAttempted = true
+        try {
+          const requestContext = directResourceRequestContext(
+            params,
+            deps.settingsManager
+          )
+          resourceProbeUsedGlobalProxy = requestContext.usesGlobalProxy
+          resourceMetadata = await deps.directResourceValidator.probe(
+            uri,
+            requestContext.options
+          )
+          const remoteName = resourceMetadata?.filename
+            ? sanitizeRemoteFilename(resourceMetadata.filename)
+            : null
+          if (remoteName) await pickHttpName(remoteName)
+        } catch {
+          // Fetch/proxy errors may echo signed URLs or credentials. Keep the
+          // optional fallback diagnostic limited to the non-secret host.
+          log.debug(
+            { host: safeHost(uri), taskId },
+            'remote resource metadata probe skipped'
+          )
+        }
+      }
+    }
+
     // Persist only the request-shape capability needed to decide whether a
     // future retry can be reconstructed from TaskInstance. Paths and URIs are
     // already canonical fields on the instance; modifier VALUES remain
@@ -610,10 +686,24 @@ async function handleCreateTaskUnderAdmission(
       params.uris.length === 1
     ) {
       try {
-        const resourceValidator = await deps.directResourceValidator.capture(
-          params.uris[0] as string
+        const uri = params.uris[0] as string
+        const requestContext = directResourceRequestContext(
+          params,
+          deps.settingsManager
         )
-        if (resourceValidator) {
+        const resourceValidator = resourceProbeAttempted
+          ? resourceMetadata?.validator
+          : await deps.directResourceValidator.capture(
+              uri,
+              requestContext.options
+            )
+        // SessionManager.verify currently has no proxy context. Persisting a
+        // validator observed through the global proxy would make recovery
+        // verify the same URI by a different (direct) route.
+        const validatorUsedGlobalProxy = resourceProbeAttempted
+          ? resourceProbeUsedGlobalProxy
+          : requestContext.usesGlobalProxy
+        if (resourceValidator && !validatorUsedGlobalProxy) {
           directReplay = { ...directReplay, resourceValidator }
         }
       } catch (error) {
@@ -934,6 +1024,39 @@ function deriveDesiredName(
   return 'torrent'
 }
 
+function directResourceRequestContext(
+  params: Pick<CreateDownloadParams, 'headers' | 'proxy'>,
+  settingsManager: SettingsManager
+): DirectResourceRequestContext {
+  const options: DirectResourceRequestOptions = {}
+  if (params.headers) options.headers = params.headers
+
+  const explicitProxy = params.proxy?.trim()
+  if (explicitProxy) {
+    options.proxy = explicitProxy
+    return { options, usesGlobalProxy: false }
+  }
+
+  const globalProxy = settingsManager.getProxy()
+  if (globalProxy.enabled && globalProxy.scopes.download) {
+    options.proxy = proxySettingsToUrl(globalProxy)
+    options.noProxy = globalProxy.bypass.join(',')
+    return { options, usesGlobalProxy: true }
+  }
+  return { options, usesGlobalProxy: false }
+}
+
+function proxySettingsToUrl(proxy: ProxySettings): string {
+  const auth = proxy.user
+    ? `${encodeURIComponent(proxy.user)}:${encodeURIComponent(proxy.password)}@`
+    : ''
+  const host =
+    proxy.host.includes(':') && !proxy.host.startsWith('[')
+      ? `[${proxy.host}]`
+      : proxy.host
+  return `${proxy.protocol}://${auth}${host}:${proxy.port}`
+}
+
 function uriBasename(uri: string | undefined): string | null {
   if (!uri) return null
   try {
@@ -942,9 +1065,9 @@ function uriBasename(uri: string | undefined): string | null {
     const last = parts[parts.length - 1]
     if (!last) return null
     try {
-      return decodeURIComponent(last)
+      return sanitizeRemoteFilename(decodeURIComponent(last))
     } catch {
-      return last
+      return sanitizeRemoteFilename(last)
     }
   } catch {
     return null
