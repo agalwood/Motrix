@@ -246,7 +246,7 @@ describe('PluginsPage', () => {
     fireEvent.change(screen.getByPlaceholderText('Find a plugin'), {
       target: { value: 'zzz' },
     })
-    expect(screen.getByText(/No plugins match "zzz"/)).toBeInTheDocument()
+    expect(screen.getByText(/No plugins match “zzz”/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
     expect(screen.getByText('Test Plugin')).toBeInTheDocument()
