@@ -29,14 +29,14 @@ const CubicGlassMotionLab = cubicGlassMotionLabModule?.CubicGlassMotionLab
 export interface EmptyTasksProps {
   filter: DownloadsTab
   search: string
-  totalTasks: number
+  hasAnyTasks: boolean
   onClearSearch: () => void
 }
 
 export function EmptyTasks({
   filter: _filter,
   search,
-  totalTasks,
+  hasAnyTasks,
   onClearSearch,
 }: EmptyTasksProps) {
   const { t } = useTranslation()
@@ -44,7 +44,7 @@ export function EmptyTasks({
   const [glassEffects, setGlassEffects] = useState<CubicGlassEffects>(() => ({
     ...DEFAULT_CUBIC_GLASS_EFFECTS,
   }))
-  if (totalTasks === 0) {
+  if (!hasAnyTasks) {
     return (
       <Empty
         ref={interactionRef}

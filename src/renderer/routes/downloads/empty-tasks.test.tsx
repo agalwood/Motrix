@@ -10,7 +10,7 @@ describe('EmptyTasks', () => {
       <EmptyTasks
         filter="all"
         search=""
-        totalTasks={0}
+        hasAnyTasks={false}
         onClearSearch={() => {}}
       />
     )
@@ -28,7 +28,7 @@ describe('EmptyTasks', () => {
       <EmptyTasks
         filter="all"
         search=""
-        totalTasks={0}
+        hasAnyTasks={false}
         onClearSearch={() => {}}
       />
     )
@@ -79,7 +79,7 @@ describe('EmptyTasks', () => {
       <EmptyTasks
         filter="all"
         search="xyz"
-        totalTasks={5}
+        hasAnyTasks
         onClearSearch={onClear}
       />
     )
@@ -96,7 +96,7 @@ describe('EmptyTasks', () => {
       <EmptyTasks
         filter="error"
         search=""
-        totalTasks={5}
+        hasAnyTasks
         onClearSearch={() => {}}
       />
     )

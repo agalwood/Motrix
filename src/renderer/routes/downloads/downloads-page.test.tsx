@@ -178,6 +178,22 @@ describe('DownloadsPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('shows the Glass Motion empty state when only removed tasks remain', () => {
+    setTaskList({ tasks: [task('removed', TaskStatus.Removed)] })
+    const { container } = renderAt('/downloads/all')
+
+    expect(screen.getByText(/no downloads yet/i)).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-slot="cubic-glass-gradient"]')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /tune glass motion/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/no tasks match this filter/i)
+    ).not.toBeInTheDocument()
+  })
+
   it.each([
     ['active', TaskStatus.Downloading],
     ['error', TaskStatus.Error],
