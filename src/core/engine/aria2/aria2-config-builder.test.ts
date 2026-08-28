@@ -22,8 +22,9 @@ vi.mock('node:fs/promises', () => ({
   rename: mockRename,
 }))
 
+import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
-import type { EngineSettings, ProxySettings } from '@shared/types/settings'
+import type { EngineSettings } from '@shared/types/settings'
 import { Aria2ConfigBuilder } from './aria2-config-builder'
 
 const DEFAULT_SAVE_DIR = '/home/user/Downloads'
@@ -51,7 +52,7 @@ describe('Aria2ConfigBuilder', () => {
   function buildArgs(
     settings: EngineSettings,
     hasSqlitePersistence: boolean,
-    proxy: ProxySettings | null | undefined,
+    proxy: Aria2ProxyOptions | null | undefined,
     effective: { download: number; upload: number },
     loadTextSession = false
   ): string[] {
@@ -666,14 +667,8 @@ describe('Aria2ConfigBuilder', () => {
 
   describe('buildArgs proxy injection', () => {
     const baseProxy = {
-      enabled: true,
-      protocol: 'http' as const,
-      host: 'p.example.com',
-      port: 8080,
-      user: '',
-      password: '',
-      bypass: [] as string[],
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      allProxy: 'http://p.example.com:8080',
+      noProxy: '',
     }
 
     it('injects --all-proxy when proxy enabled and download scope on', () => {
@@ -690,7 +685,7 @@ describe('Aria2ConfigBuilder', () => {
         true,
         {
           ...baseProxy,
-          bypass: ['localhost', '127.0.0.1'],
+          noProxy: 'localhost,127.0.0.1',
         },
         { download: 0, upload: 0 }
       )
@@ -710,32 +705,6 @@ describe('Aria2ConfigBuilder', () => {
         download: 0,
         upload: 0,
       })
-      expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
-    })
-
-    it('omits proxy args when scope off', () => {
-      const args = buildArgs(
-        makeEngineSettings(),
-        true,
-        {
-          ...baseProxy,
-          scopes: { download: false, updateApp: false, updateTrackers: false },
-        },
-        { download: 0, upload: 0 }
-      )
-      expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
-    })
-
-    it('omits proxy args when proxy disabled', () => {
-      const args = buildArgs(
-        makeEngineSettings(),
-        true,
-        {
-          ...baseProxy,
-          enabled: false,
-        },
-        { download: 0, upload: 0 }
-      )
       expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
     })
   })

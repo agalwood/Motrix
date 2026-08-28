@@ -177,6 +177,7 @@ describe('Electron package contracts', () => {
         'i18next',
         'libsodium-wrappers',
         'mmdb-lib',
+        'proxy-chain',
         'quickjs-emscripten',
         'undici',
         'uuid',

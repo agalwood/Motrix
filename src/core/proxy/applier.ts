@@ -1,7 +1,8 @@
 import { getLogger } from '@core/logger'
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import type { ProxySettings } from '@shared/types/settings'
-import { proxyToAria2Options, proxyToElectronConfig } from './serializers'
+import type { ProxyBridgeResolver } from './proxy-bridge-manager'
+import { proxyToElectronConfig } from './serializers'
 
 interface EngineSupervisorLike {
   applyProxyChange: (
@@ -16,6 +17,7 @@ interface TrackerManagerLike {
 export interface ProxyApplierDeps {
   engineSupervisor: EngineSupervisorLike
   trackerManager: TrackerManagerLike
+  proxyBridge: Pick<ProxyBridgeResolver, 'reconcile' | 'resolveForDownload'>
   applyUpdateAppProxy?: (
     cfg: { proxyRules: string; proxyBypassRules: string } | null
   ) => Promise<void> | void
@@ -28,8 +30,12 @@ export function createProxyApplier(deps: ProxyApplierDeps) {
     oldProxy: ProxySettings,
     newProxy: ProxySettings
   ): Promise<void> {
+    // Reconcile even when only the tracker scope changed, so a SOCKS5
+    // listener never outlives the settings that require it.
+    await deps.proxyBridge.reconcile(newProxy)
+
     if (scopeDirty(oldProxy, newProxy, 'download')) {
-      const opts = proxyToAria2Options(newProxy)
+      const opts = await deps.proxyBridge.resolveForDownload(newProxy)
       await deps.engineSupervisor.applyProxyChange(opts)
       log.info({ enabled: opts !== null }, 'download proxy applied')
     }

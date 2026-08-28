@@ -50,6 +50,7 @@ import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
+import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
 import { SettingsManager } from '@core/settings/settings-manager'
@@ -381,6 +382,7 @@ const fileCleanupService = new FileCleanupServiceImpl({
 
 let rpcClient: Aria2RpcClient
 let supervisor: EngineSupervisor
+let proxyBridge: ProxyBridgeManager
 let speedLimitController: SpeedLimitController
 let sessionManager: SessionManager
 let pollingScheduler: PollingScheduler
@@ -493,6 +495,7 @@ function performCleanup(): Promise<void> {
       safely('session', () => sessionManager?.stopAndDrain()),
       safely('engine', () => supervisor?.stop()),
     ])
+    await safely('proxy-bridge', () => proxyBridge?.close())
     await safely('main-process-work', () => acceptedWorkDrain)
     await safely('task-inspector-activity', () =>
       taskInspectorActivityRuntime?.dispose()
@@ -1542,6 +1545,7 @@ async function initializeMainProcess(): Promise<void> {
   rpcClient = new Aria2RpcClient(transport, protocol, engineSettings.rpcSecret)
   aria2Adapter = new Aria2Adapter(rpcClient)
   const adapter = aria2Adapter
+  proxyBridge = new ProxyBridgeManager()
   supervisor = new EngineSupervisor(
     eventBus,
     settingsManager,
@@ -1549,7 +1553,8 @@ async function initializeMainProcess(): Promise<void> {
     configBuilder,
     trustStore,
     rpcClient,
-    adapter
+    adapter,
+    proxyBridge
   )
 
   // Construct SpeedLimitController immediately after supervisor so
@@ -1934,10 +1939,15 @@ async function initializeMainProcess(): Promise<void> {
           publishTaskUpdate,
           publishTaskUpdateNow,
         }),
-    }
+    },
+    (settings) => proxyBridge.resolveForFetch(settings)
   )
 
-  const proxyApplier = createMainProxyApplier(supervisor, trackerManager)
+  const proxyApplier = createMainProxyApplier(
+    supervisor,
+    trackerManager,
+    proxyBridge
+  )
   const proxyReady = mainProcessWork
     .run(() => proxyApplier.applyAll(settingsManager.getProxy()))
     .catch((err) => log.warn({ err }, 'initial proxy apply failed'))

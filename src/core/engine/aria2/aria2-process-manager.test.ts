@@ -5,10 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // vi.mock is hoisted to top of file, so variables used inside the
 // factory must be declared with vi.hoisted() to avoid TDZ errors.
 
-const { mockExecFile, mockSpawnFn } = vi.hoisted(() => ({
-  mockExecFile: vi.fn(),
-  mockSpawnFn: vi.fn(),
-}))
+const { mockExecFile, mockSpawnFn, mockLogError, mockLogInfo } = vi.hoisted(
+  () => ({
+    mockExecFile: vi.fn(),
+    mockSpawnFn: vi.fn(),
+    mockLogError: vi.fn(),
+    mockLogInfo: vi.fn(),
+  })
+)
 
 vi.mock('node:child_process', () => {
   return {
@@ -17,6 +21,15 @@ vi.mock('node:child_process', () => {
     default: { execFile: mockExecFile, spawn: mockSpawnFn },
   }
 })
+
+vi.mock('@core/logger', () => ({
+  getLogger: () => ({
+    debug: vi.fn(),
+    error: mockLogError,
+    info: mockLogInfo,
+    warn: vi.fn(),
+  }),
+}))
 
 // Import after mocking
 import { Aria2ProcessManager } from './aria2-process-manager'
@@ -247,10 +260,12 @@ describe('Aria2ProcessManager', () => {
       const mockChild = createMockChildProcess()
       mockSpawnFn.mockReturnValue(mockChild)
 
-      const spawnPromise = manager.spawn('/usr/bin/aria2c', [
+      const args = [
         '--rpc-listen-port=16800',
         '--rpc-secret=test',
-      ])
+        '--all-proxy=http://local-user:local-password@127.0.0.1:43123',
+      ]
+      const spawnPromise = manager.spawn('/usr/bin/aria2c', args)
 
       // Simulate process ready (emitting no immediate error
       // means it's running). Resolve the promise by allowing
@@ -259,10 +274,19 @@ describe('Aria2ProcessManager', () => {
 
       await spawnPromise
 
-      expect(mockSpawnFn).toHaveBeenCalledWith(
-        '/usr/bin/aria2c',
-        ['--rpc-listen-port=16800', '--rpc-secret=test'],
-        { stdio: ['ignore', 'pipe', 'pipe'] }
+      expect(mockSpawnFn).toHaveBeenCalledWith('/usr/bin/aria2c', args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      expect(mockLogInfo).toHaveBeenCalledWith(
+        {
+          pid: 12345,
+          args: [
+            '--rpc-listen-port=16800',
+            '--rpc-secret=<redacted>',
+            '--all-proxy=<redacted>',
+          ],
+        },
+        'aria2 process spawned'
       )
       expect(manager.isRunning()).toBe(true)
       expect(manager.getPid()).toBe(12345)
@@ -315,6 +339,40 @@ describe('Aria2ProcessManager', () => {
       expect(onError).toHaveBeenCalledWith(err)
     })
 
+    it('redacts credentials carried by spawn errors', async () => {
+      const mockChild = createMockChildProcess()
+      mockSpawnFn.mockReturnValue(mockChild)
+      const args = [
+        '--rpc-secret=rpc-secret-value',
+        '--all-proxy=http://local-user:local-password@127.0.0.1:43123',
+      ]
+      await manager.spawn('/missing/aria2c', args)
+
+      const err = Object.assign(new Error(`spawn failed: ${args.join(' ')}`), {
+        code: 'ENOENT',
+        errno: -2,
+        path: '/missing/aria2c',
+        spawnargs: args,
+        syscall: 'spawn /missing/aria2c',
+      })
+      mockChild._emit('error', err)
+
+      expect(mockLogError).toHaveBeenCalledWith(
+        {
+          err: expect.objectContaining({
+            code: 'ENOENT',
+            message:
+              'spawn failed: --rpc-secret=<redacted> --all-proxy=<redacted>',
+            spawnargs: ['--rpc-secret=<redacted>', '--all-proxy=<redacted>'],
+          }),
+        },
+        'aria2 process error'
+      )
+      const serializedLog = JSON.stringify(mockLogError.mock.calls)
+      expect(serializedLog).not.toContain('rpc-secret-value')
+      expect(serializedLog).not.toContain('local-password')
+    })
+
     it('retains a bounded stderr tail for startup diagnosis and resets it on spawn', async () => {
       const firstChild = createMockChildProcess()
       const secondChild = createMockChildProcess()
@@ -322,12 +380,24 @@ describe('Aria2ProcessManager', () => {
         .mockReturnValueOnce(firstChild)
         .mockReturnValueOnce(secondChild)
 
-      await manager.spawn('/usr/bin/aria2c', [])
+      const sensitiveArgs = [
+        '--rpc-secret=rpc-secret-value',
+        '--all-proxy=http://local-user:local-password@127.0.0.1:43123',
+      ]
+      await manager.spawn('/usr/bin/aria2c', sensitiveArgs)
       const firstStderrHandler = firstChild.stderr.on.mock.calls[0]?.[1]
-      firstStderrHandler?.(Buffer.from('database disk image is malformed'))
+      firstStderrHandler?.(
+        Buffer.from(
+          `database disk image is malformed: ${sensitiveArgs.join(' ')}`
+        )
+      )
       expect(manager.getRecentStderr()).toContain(
         'database disk image is malformed'
       )
+      expect(manager.getRecentStderr()).toContain('--rpc-secret=<redacted>')
+      expect(manager.getRecentStderr()).toContain('--all-proxy=<redacted>')
+      expect(manager.getRecentStderr()).not.toContain('rpc-secret-value')
+      expect(manager.getRecentStderr()).not.toContain('local-password')
 
       await manager.spawn('/usr/bin/aria2c', [])
       expect(manager.getRecentStderr()).toBe('')

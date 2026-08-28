@@ -147,6 +147,12 @@ function createMockAdapter(): Aria2Adapter {
   } as unknown as Aria2Adapter
 }
 
+function createMockProxyBridge() {
+  return {
+    resolveForDownload: vi.fn().mockResolvedValue(null),
+  }
+}
+
 // ─── Tests ──────────────────────────────────────────────────
 
 describe('EngineSupervisor', () => {
@@ -157,6 +163,7 @@ describe('EngineSupervisor', () => {
   let trustStore: Aria2TrustStore
   let rpcClient: Aria2RpcClient
   let adapter: Aria2Adapter
+  let proxyBridge: ReturnType<typeof createMockProxyBridge>
   let supervisor: EngineSupervisor
 
   beforeEach(() => {
@@ -179,6 +186,7 @@ describe('EngineSupervisor', () => {
     trustStore = createMockTrustStore()
     rpcClient = createMockRpcClient()
     adapter = createMockAdapter()
+    proxyBridge = createMockProxyBridge()
 
     supervisor = new EngineSupervisor(
       eventBus,
@@ -187,7 +195,8 @@ describe('EngineSupervisor', () => {
       configBuilder,
       trustStore,
       rpcClient,
-      adapter
+      adapter,
+      proxyBridge
     )
   })
 
@@ -203,6 +212,40 @@ describe('EngineSupervisor', () => {
   })
 
   describe('start — happy path', () => {
+    it('resolves the download proxy before building aria2 arguments', async () => {
+      const resolved = {
+        allProxy: 'http://127.0.0.1:43123',
+        noProxy: 'localhost',
+      }
+      proxyBridge.resolveForDownload.mockResolvedValue(resolved)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(proxyBridge.resolveForDownload).toHaveBeenCalledWith(
+        settings.getProxy()
+      )
+      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(Boolean),
+        resolved,
+        expect.anything(),
+        expect.any(String),
+        expect.any(Boolean)
+      )
+    })
+
+    it('transitions Stopped → Starting → Ready', async () => {
+      const states: EngineState[] = []
+      eventBus.on(Events.EngineStateChanged, (state) => {
+        states.push(state as EngineState)
+      })
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(states).toEqual([EngineState.Starting, EngineState.Ready])
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+    })
+
     it('synchronizes the latest RPC secret on every start before authenticated calls', async () => {
       const initial = settings.getEngine()
       let current = initial
@@ -222,7 +265,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenLastCalledWith(
         expect.objectContaining({ rpcSecret: '' }),
         expect.any(Boolean),
-        expect.anything(),
+        null,
         expect.anything(),
         expect.any(String),
         expect.any(Boolean)
@@ -232,18 +275,6 @@ describe('EngineSupervisor', () => {
       ).toBeLessThan(
         vi.mocked(rpcClient.changeGlobalOption).mock.invocationCallOrder.at(-1)!
       )
-    })
-
-    it('transitions Stopped → Starting → Ready', async () => {
-      const states: EngineState[] = []
-      eventBus.on(Events.EngineStateChanged, (state) => {
-        states.push(state as EngineState)
-      })
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(states).toEqual([EngineState.Starting, EngineState.Ready])
-      expect(supervisor.getState()).toBe(EngineState.Ready)
     })
 
     it('calls probe → ensureConfig → buildArgs → spawn → connect', async () => {
@@ -301,7 +332,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.anything(),
         true,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -314,7 +345,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.anything(),
         true,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -350,7 +381,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.objectContaining({ sqlite3Persistence: false }),
         true,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         true
@@ -372,7 +403,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.anything(),
         false,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         true
@@ -393,7 +424,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.objectContaining({ sqlite3Persistence: false }),
         true,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -430,7 +461,7 @@ describe('EngineSupervisor', () => {
           split: 16,
         }),
         false,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -468,7 +499,7 @@ describe('EngineSupervisor', () => {
           split: 16,
         }),
         false,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -492,7 +523,7 @@ describe('EngineSupervisor', () => {
           split: 32,
         }),
         true,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -526,7 +557,7 @@ describe('EngineSupervisor', () => {
           minSplitSize: 20 * 1024 * 1024,
         }),
         expect.anything(),
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -555,7 +586,7 @@ describe('EngineSupervisor', () => {
           minSplitSize: 2 * 1024 * 1024,
         }),
         expect.anything(),
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         false
@@ -622,7 +653,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenLastCalledWith(
         expect.objectContaining({ sqlite3Persistence: false }),
         true,
-        expect.anything(),
+        null,
         expect.anything(),
         '/Users/test/Downloads',
         true
@@ -1238,7 +1269,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
-        expect.anything(),
+        null,
         { download: 500, upload: 250 },
         '/Users/test/Downloads',
         false
@@ -1251,7 +1282,7 @@ describe('EngineSupervisor', () => {
       expect(configBuilder.buildArgs).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
-        expect.anything(),
+        null,
         { download: 0, upload: 0 },
         '/Users/test/Downloads',
         false

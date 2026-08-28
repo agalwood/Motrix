@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { getLogger } from '@core/logger'
+import type { ProxyBridgeResolver } from '@core/proxy/proxy-bridge-manager'
 import { ENGINE_RPC_PORT } from '@shared/constants'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
@@ -101,7 +102,8 @@ export class EngineSupervisor {
     private configBuilder: Aria2ConfigBuilder,
     private trustStore: Aria2TrustStore,
     private rpcClient: Aria2RpcClient,
-    private adapter: Aria2Adapter
+    private adapter: Aria2Adapter,
+    private proxyBridge: Pick<ProxyBridgeResolver, 'resolveForDownload'>
   ) {
     // Wire up process exit handler
     this.processManager.onExit = (code, _signal) => {
@@ -411,6 +413,8 @@ export class EngineSupervisor {
       // RPC sent to the newly spawned aria2 process.
       this.rpcClient.setSecret(engineSettings.rpcSecret)
       const proxy = this.settingsManager.getProxy()
+      const resolvedProxy = await this.proxyBridge.resolveForDownload(proxy)
+      if (this.stopping) return
       const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir
       // Provider is wired by the shell (Task 8) before start() in production;
       // the { 0, 0 } (unlimited) fallback only fires in tests or if start()
@@ -435,7 +439,7 @@ export class EngineSupervisor {
       const args = this.configBuilder.buildArgs(
         engineSettings,
         featureReport.hasSqlitePersistence,
-        proxy,
+        resolvedProxy,
         effective,
         defaultSaveDir,
         loadTextSession

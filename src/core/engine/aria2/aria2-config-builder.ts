@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { access, copyFile, mkdir, rename } from 'node:fs/promises'
 import path from 'node:path'
-import { proxyToAria2Options } from '@core/proxy/serializers'
-import type { EngineSettings, ProxySettings } from '@shared/types/settings'
+import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import type { EngineSettings } from '@shared/types/settings'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
 export class Aria2ConfigBuilder {
@@ -95,11 +95,9 @@ export class Aria2ConfigBuilder {
    *   `--enable-sqlite3-persistence` (the aria2_motrix fork). Default
    *   true (the bundled binary). When false, the three SQLite flags
    *   are omitted so distro upstream aria2 builds still launch.
-   * @param proxy — current proxy settings. When non-null and proxy
-   *   is enabled with the `download` scope on, `--all-proxy` (and
-   *   optionally `--no-proxy`) are injected at L2.5. Disabled, scope
-   *   off, or null proxies emit no proxy flags so aria2 starts in
-   *   direct-connection mode.
+   * @param proxy — resolved aria2-compatible proxy options. SOCKS5 settings
+   *   are converted to a loopback HTTP endpoint before reaching this builder.
+   *   A null value starts aria2 in direct-connection mode.
    * @param effective — effective speed limits from SpeedLimitController
    *   (bytes/sec; 0 = unlimited). On cold start the EngineSupervisor passes
    *   the controller's computed value, or { 0, 0 } if no provider is wired.
@@ -112,7 +110,7 @@ export class Aria2ConfigBuilder {
   buildArgs(
     settings: EngineSettings,
     hasSqlitePersistence = true,
-    proxy: ProxySettings | null | undefined,
+    proxy: Aria2ProxyOptions | null | undefined,
     effective: { download: number; upload: number },
     defaultSaveDir: string,
     loadTextSession = false
@@ -196,12 +194,9 @@ export class Aria2ConfigBuilder {
 
     // ── L2.5 proxy (only when enabled & download scope on) ──
     if (proxy) {
-      const opts = proxyToAria2Options(proxy)
-      if (opts) {
-        args.push(`--all-proxy=${opts.allProxy}`)
-        if (opts.noProxy) {
-          args.push(`--no-proxy=${opts.noProxy}`)
-        }
+      args.push(`--all-proxy=${proxy.allProxy}`)
+      if (proxy.noProxy) {
+        args.push(`--no-proxy=${proxy.noProxy}`)
       }
     }
 

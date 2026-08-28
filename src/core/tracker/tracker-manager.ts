@@ -85,6 +85,18 @@ interface SettingsManager {
   getProxy(): ProxySettings
 }
 
+type ProxyUrlResolver = (settings: ProxySettings) => Promise<string | null>
+
+async function resolveProxyUrlWithoutBridge(
+  settings: ProxySettings
+): Promise<string | null> {
+  const proxyUrl = proxyToFetchUrl(settings)
+  if (proxyUrl && settings.protocol === 'socks5') {
+    throw new Error('SOCKS5 proxy bridge is not configured')
+  }
+  return proxyUrl
+}
+
 export class TrackerManager {
   private curated: CuratedTrackerList = {
     effective: [],
@@ -118,7 +130,8 @@ export class TrackerManager {
     private syncer: TrackerSyncer,
     private prober: TrackerProber,
     private store: TrackerStore,
-    private taskActions?: TrackerTaskActions
+    private taskActions?: TrackerTaskActions,
+    private proxyUrlResolver: ProxyUrlResolver = resolveProxyUrlWithoutBridge
   ) {
     this.eventBus.on(Events.EngineRecovered, this.handleEngineRecovered)
     this.eventBus.on(Events.EngineDisconnected, this.handleEngineDisconnected)
@@ -203,7 +216,8 @@ export class TrackerManager {
     )
 
     const proxySettings = this.settings.getProxy()
-    const proxyUrl = proxyToFetchUrl(proxySettings)
+    const proxyUrl = await this.proxyUrlResolver(proxySettings)
+    this.assertCurrent(generation)
     const proxy: ProxyConfig | undefined = proxyUrl
       ? { server: proxyUrl }
       : undefined
