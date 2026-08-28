@@ -15,7 +15,6 @@ import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
-import { proxyToUrl } from '@core/proxy/serializers'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
@@ -25,6 +24,7 @@ import type {
 } from '@shared/schemas/add-task'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import type { BeforeCreateHttpContextDTO } from '@shared/types/plugin-hooks'
+import type { ProxySettings } from '@shared/types/settings'
 import type {
   DownloadTask,
   SourceMeta,
@@ -1039,11 +1039,22 @@ function directResourceRequestContext(
 
   const globalProxy = settingsManager.getProxy()
   if (globalProxy.enabled && globalProxy.scopes.download) {
-    options.proxy = proxyToUrl(globalProxy)
+    options.proxy = proxySettingsToUrl(globalProxy)
     options.noProxy = globalProxy.bypass.join(',')
     return { options, usesGlobalProxy: true }
   }
   return { options, usesGlobalProxy: false }
+}
+
+function proxySettingsToUrl(proxy: ProxySettings): string {
+  const auth = proxy.user
+    ? `${encodeURIComponent(proxy.user)}:${encodeURIComponent(proxy.password)}@`
+    : ''
+  const host =
+    proxy.host.includes(':') && !proxy.host.startsWith('[')
+      ? `[${proxy.host}]`
+      : proxy.host
+  return `${proxy.protocol}://${auth}${host}:${proxy.port}`
 }
 
 function uriBasename(uri: string | undefined): string | null {
