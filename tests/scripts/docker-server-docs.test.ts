@@ -34,6 +34,8 @@ describe('public Docker Server documentation', () => {
         'MOTRIX_WEB_BIND_IP',
         'MOTRIX_MDXP_BIND_IP',
         'MOTRIX_BIND_IP',
+        'MOTRIX_ARIA2_RPC_LISTEN_ALL',
+        '16800',
         '/mdxp/events',
         '/healthz',
         '/api/diagnostics',

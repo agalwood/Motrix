@@ -160,6 +160,45 @@ Web UI on a LAN address while keeping MDXP on host loopback. Do not change the
 container's `MOTRIX_MDXP_HOST` to `127.0.0.1`: that loopback belongs to the
 container, so Docker port forwarding and other containers cannot reach it.
 
+### Raw aria2 RPC opt-in
+
+The aria2 engine RPC endpoint is separate from the Motrix Web/API and MDXP
+services. It stays on loopback (`127.0.0.1`) by default. Set
+`MOTRIX_ARIA2_RPC_LISTEN_ALL=true` only when an external aria2 RPC client must
+reach the engine. The Server refuses this mode when the RPC secret is empty;
+verify the RPC port and secret in **Settings > Advanced** before restarting.
+Browser integrations should prefer the Motrix extension and MDXP.
+
+The included Compose files pass this opt-in to the container but intentionally
+do not publish port 16800. A client in the same Compose network can connect to
+`http://server:16800/jsonrpc` after the opt-in is enabled. For a client on the
+Docker host, save this explicit override as `compose.aria2-rpc.yaml`:
+
+```yaml
+services:
+  server:
+    ports:
+      - "127.0.0.1:16800:16800"
+```
+
+Then recreate the service with both the listener and publication enabled:
+
+```bash
+export MOTRIX_ARIA2_RPC_LISTEN_ALL=true
+docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
+```
+
+To reach it from a trusted LAN, replace the host-side `127.0.0.1` in the
+override with the NAS's specific LAN address and permit that port in the host
+firewall. If the RPC port was changed in Motrix settings, update both sides of
+the mapping. Configure the external client with the same RPC secret; aria2
+expects it as a `token:<secret>` authentication parameter. Raw aria2 RPC is
+not governed by Motrix's operator authentication or download-path policy;
+possession of the RPC secret effectively grants control of the download
+engine. It is also not TLS-protected, so never publish it directly to the
+public Internet. Prefer a private Docker network, host loopback, VPN, or
+another authenticated encrypted tunnel.
+
 ### Reverse proxy on the Docker host
 
 The included [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) binds
@@ -454,6 +493,7 @@ detection.
 | `no matching manifest` | Confirm the NAS is 64-bit `amd64` or `arm64` with `docker info`; 32-bit ARM is unsupported. |
 | Startup reports `EACCES`, read-only, or a path failure | Compare `docker inspect ... .Config.User` with numeric ownership of both mounts. Correct ownership/ACLs; do not run privileged or as root. |
 | Port is already allocated | Change `MOTRIX_HTTP_PORT` or `MOTRIX_MDXP_PUBLIC_PORT`, and update `MOTRIX_PUBLIC_URL` if the Web port changes. |
+| External aria2 RPC client cannot connect | Confirm `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
 | Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, base64url text, and mode `0600`. |
 | Download directory is rejected or files are missing from the NAS share | Use an absolute container path below `MOTRIX_ALLOWED_SAVE_DIRS`; verify the intended host directory is mounted at that exact path and writable by the runtime UID/GID. |
 | Plugin install fails | Inspect `/api/diagnostics` and logs, retain `/data`, confirm package/source trust and network/TLS access, and mount any `MOTRIX_PLUGIN_IMPORT_DIRS` explicitly. Do not enable unmanaged plugins for a normal `.moext`, URL, or registry install. |
@@ -475,6 +515,7 @@ detection.
 | `MOTRIX_ALLOW_UNMANAGED_PLUGINS` | `false` | Allow plugin directories without install provenance |
 | `MOTRIX_OPERATOR_TOKEN` | generated file | Operator control-plane credential |
 | `MOTRIX_SECRETS_SEED` | generated lockbox | 64-hex-character plugin secret key |
+| `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | Opt in to an authenticated all-interface aria2 RPC listener; Docker port publication is still separate |
 | `MOTRIX_WEB_BIND_IP` | Compose: `0.0.0.0` | Host address publishing Web port 8080; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_MDXP_BIND_IP` | Compose: `0.0.0.0` | Host address publishing MDXP port 16801; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |

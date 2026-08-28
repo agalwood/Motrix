@@ -18,6 +18,7 @@ const MDXP_BIND_IP = interpolation(`MOTRIX_MDXP_BIND_IP:-${LEGACY_BIND_IP}`)
 const HTTP_PORT = interpolation('MOTRIX_HTTP_PORT:-8080')
 const MDXP_PORT = interpolation('MOTRIX_MDXP_PUBLIC_PORT:-16801')
 const PUBLIC_URL = interpolation('MOTRIX_PUBLIC_URL:-')
+const ARIA2_RPC_LISTEN_ALL = interpolation('MOTRIX_ARIA2_RPC_LISTEN_ALL:-false')
 
 function record(value: unknown, label: string): LooseRecord {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -58,6 +59,7 @@ describe('NAS-importable Compose contract', () => {
       ])
       expect(service.environment).toEqual({
         MOTRIX_ALLOWED_SAVE_DIRS: '/downloads',
+        MOTRIX_ARIA2_RPC_LISTEN_ALL: ARIA2_RPC_LISTEN_ALL,
         MOTRIX_DATA_DIR: '/data',
         MOTRIX_DEFAULT_SAVE_DIR: '/downloads',
         MOTRIX_MDXP_HOST: '0.0.0.0',

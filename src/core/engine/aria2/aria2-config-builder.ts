@@ -5,22 +5,29 @@ import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import type { EngineSettings } from '@shared/types/settings'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
+export interface Aria2ConfigBuilderOptions {
+  rpcListenAll?: boolean
+}
+
 export class Aria2ConfigBuilder {
   private readonly userConfPath: string
   private readonly defaultDbPath: string
   private readonly saveSessionPath: string
   private readonly dhtFilePath: string
   private readonly dht6FilePath: string
+  private readonly rpcListenAll: boolean
 
   constructor(
     private templatePath: string,
-    private userConfigDir: string
+    private userConfigDir: string,
+    options: Aria2ConfigBuilderOptions = {}
   ) {
     this.userConfPath = path.join(userConfigDir, 'aria2.conf')
     this.defaultDbPath = path.join(userConfigDir, 'aria2.db')
     this.saveSessionPath = path.join(userConfigDir, 'aria2.session')
     this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
     this.dht6FilePath = path.join(userConfigDir, 'dht6.dat')
+    this.rpcListenAll = options.rpcListenAll ?? false
   }
 
   async ensureUserConfig(): Promise<string> {
@@ -115,6 +122,12 @@ export class Aria2ConfigBuilder {
     defaultSaveDir: string,
     loadTextSession = false
   ): string[] {
+    if (this.rpcListenAll && settings.rpcSecret.trim() === '') {
+      throw new Error(
+        'External aria2 RPC access requires a non-empty RPC secret'
+      )
+    }
+
     // Layer order in the produced argv:
     //   L4 conf-path → L2 engine bindings → L3 user-tunable → L1 invariants
     //
@@ -132,7 +145,7 @@ export class Aria2ConfigBuilder {
     args.push(
       '--enable-rpc=true',
       `--rpc-allow-origin-all=${settings.rpcSecret === '' ? 'false' : 'true'}`,
-      '--rpc-listen-all=false',
+      `--rpc-listen-all=${this.rpcListenAll}`,
       `--rpc-listen-port=${settings.rpcPort}`
     )
     if (settings.rpcSecret !== '') {

@@ -605,6 +605,7 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
       "aria2_pid=$(for pid in $(pidof aria2c); do tr '\\0' '\\n' </proc/$pid/cmdline | grep -Fxq -- '--conf-path=/data/aria2.conf' && { echo $pid; break; }; done)",
       'test -n "$aria2_pid"',
       'test "$(readlink /proc/$aria2_pid/exe)" = "/app/bin/aria2c"',
+      "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--rpc-listen-all=false'",
       "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path=/data/dht.dat'",
       "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path6=/data/dht6.dat'",
     ].join('; '),
