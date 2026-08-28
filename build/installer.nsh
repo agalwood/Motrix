@@ -33,7 +33,7 @@
   ; resolves to Motrix rather than a generic class another client can replace.
   WriteRegStr SHELL_CONTEXT "Software\Classes\${MOTRIX_TORRENT_PROGID}" "" "Torrent File"
   WriteRegStr SHELL_CONTEXT "Software\Classes\${MOTRIX_TORRENT_PROGID}" "Content Type" "application/x-bittorrent"
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${MOTRIX_TORRENT_PROGID}\DefaultIcon" "" '"$appExe",0'
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${MOTRIX_TORRENT_PROGID}\DefaultIcon" "" '"$INSTDIR\resources\torrent.ico",0'
   WriteRegStr SHELL_CONTEXT "Software\Classes\${MOTRIX_TORRENT_PROGID}\shell" "" "open"
   WriteRegStr SHELL_CONTEXT "Software\Classes\${MOTRIX_TORRENT_PROGID}\shell\open\command" "" '"$appExe" "%1"'
   WriteRegStr SHELL_CONTEXT "Software\Classes\.torrent" "Content Type" "application/x-bittorrent"
@@ -80,6 +80,12 @@
 !macroend
 
 !macro customInstall
+  ; Keep the dedicated torrent icon at a stable installed path. `File`
+  ; resolves BUILD_RESOURCES_DIR to build/ for normal installers and to the
+  ; staged signing-build-resources/ directory for restricted signing builds.
+  ; Re-extracting it on every install also refreshes upgrades before the
+  ; association is rewritten and the shell icon cache is notified below.
+  File "/oname=$INSTDIR\resources\torrent.ico" "${BUILD_RESOURCES_DIR}\torrent.ico"
   !insertmacro deleteLegacyMotrixProtocolHandlers
   !insertmacro registerMotrixDefaultApps
 !macroend

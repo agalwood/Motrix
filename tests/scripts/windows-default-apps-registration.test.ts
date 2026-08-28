@@ -20,6 +20,7 @@ const TORRENT_ASSOCIATION = {
 }
 
 interface BuilderConfig {
+  directories?: { buildResources?: string }
   fileAssociations?: unknown
   linux?: { fileAssociations?: unknown }
   mac?: { fileAssociations?: unknown }
@@ -59,6 +60,7 @@ describe('Windows Default Apps registration', () => {
     const signingConfig = await readJson('electron-builder.signing.json')
 
     expect(config.fileAssociations).toBeUndefined()
+    expect(config.directories?.buildResources).toBe('build')
     expect(config.win?.fileAssociations).toBeUndefined()
     expect(config.mac?.fileAssociations).toEqual([TORRENT_ASSOCIATION])
     expect(config.linux?.fileAssociations).toEqual([TORRENT_ASSOCIATION])
@@ -69,6 +71,9 @@ describe('Windows Default Apps registration', () => {
     })
 
     expect(signingConfig.fileAssociations).toBeUndefined()
+    expect(signingConfig.directories?.buildResources).toBe(
+      'signing-build-resources'
+    )
     expect(signingConfig.win?.fileAssociations).toBeUndefined()
     expect(signingConfig.mac?.fileAssociations).toEqual([TORRENT_ASSOCIATION])
     expect(signingConfig.nsis).toMatchObject({
@@ -80,6 +85,7 @@ describe('Windows Default Apps registration', () => {
 
   it('advertises app-specific torrent and magnet ProgIDs without changing UserChoice', async () => {
     const installer = await readText('build/installer.nsh')
+    const install = nsisMacro(installer, 'customInstall')
     const register = nsisMacro(installer, 'registerMotrixDefaultApps')
 
     expect(nsisDefine(installer, 'MOTRIX_REGISTERED_APP_NAME')).toBe(
@@ -111,6 +117,17 @@ describe('Windows Default Apps registration', () => {
     expect(register).toContain(
       `"\${MOTRIX_CAPABILITIES_KEY}\\UrlAssociations" "magnet" "\${MOTRIX_MAGNET_PROGID}"`
     )
+    expect(register).toContain('"ApplicationIcon" \'"$appExe",0\'')
+    expect(register).toContain(
+      `\${MOTRIX_TORRENT_PROGID}\\DefaultIcon" "" '"$INSTDIR\\resources\\torrent.ico",0'`
+    )
+    expect(register).toContain(
+      `\${MOTRIX_MAGNET_PROGID}\\DefaultIcon" "" '"$appExe",0'`
+    )
+    expect(register).toContain(
+      `\${MOTRIX_PROTOCOL}\\DefaultIcon" "" '"$appExe",0'`
+    )
+    expect(register.match(/'"\$appExe",0'/gu)).toHaveLength(3)
     expect(register).toContain(
       `"Software\\Classes\\\${MOTRIX_TORRENT_PROGID}\\shell\\open\\command"`
     )
@@ -124,7 +141,14 @@ describe('Windows Default Apps registration', () => {
     expect(register).toContain(
       `"Software\\Classes\\.torrent\\OpenWithProgids" "\${MOTRIX_TORRENT_PROGID}"`
     )
-    expect(register).toContain('shell32::SHChangeNotify')
+    const installTorrentIcon = `File "/oname=$INSTDIR\\resources\\torrent.ico" "\${BUILD_RESOURCES_DIR}\\torrent.ico"`
+    expect(install).toContain(installTorrentIcon)
+    expect(install.indexOf(installTorrentIcon)).toBeLessThan(
+      install.indexOf('!insertmacro registerMotrixDefaultApps')
+    )
+    expect(register).toContain(
+      "System::Call 'shell32::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'"
+    )
     expect(installer).not.toContain('UserChoice')
   })
 
