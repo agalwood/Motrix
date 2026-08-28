@@ -228,10 +228,18 @@ export class Aria2ProcessManager {
       record.rpcPort === port &&
       this.samePath(record.binaryPath, expected.binaryPath) &&
       record.argumentMarkers.every((marker) => expected.args.includes(marker))
+    const expectedUsesRpcSecret = expected.args.some((arg) =>
+      arg.startsWith('--rpc-secret=')
+    )
+    // A private launch secret can authenticate a legacy orphan from the
+    // bundled executable alone. In explicit no-token mode there is no private
+    // marker, so require the mode-0600 ownership record before termination.
+    const identityMatches =
+      recordMatches || (expectedUsesRpcSecret && executableMatches)
 
     if (
       this.isAria2(inspected) &&
-      (recordMatches || executableMatches) &&
+      identityMatches &&
       launchFingerprintMatches
     ) {
       return this.toProcessInfo(
@@ -336,7 +344,10 @@ export class Aria2ProcessManager {
       commandLine.includes(marker)
     ).length
     const secret = expectedArgs.find((arg) => arg.startsWith('--rpc-secret='))
-    return markerMatches >= 2 && Boolean(secret && commandLine.includes(secret))
+    const authenticationModeMatches = secret
+      ? commandLine.includes(secret)
+      : !/(?:^|[\s"'])--rpc-secret(?:=|\s)/.test(commandLine)
+    return markerMatches >= 2 && authenticationModeMatches
   }
 
   private samePath(left: string, right: string): boolean {

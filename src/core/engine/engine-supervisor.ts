@@ -92,6 +92,7 @@ export class EngineSupervisor {
   private failureSeq = 0
   private sqliteFallbackActive = false
   private sqliteFallbackAttempted = false
+  private restartPromise: Promise<void> | null = null
 
   constructor(
     private eventBus: EventBus,
@@ -143,11 +144,24 @@ export class EngineSupervisor {
     await this.doStart()
   }
 
-  async restart(): Promise<void> {
+  restart(): Promise<void> {
+    if (this.restartPromise) return this.restartPromise
     if (!this.binaryPath) {
-      throw new Error('EngineSupervisor.restart called before start')
+      return Promise.reject(
+        new Error('EngineSupervisor.restart called before start')
+      )
     }
     const path = this.binaryPath
+    const restartPromise = this.performRestart(path).finally(() => {
+      if (this.restartPromise === restartPromise) {
+        this.restartPromise = null
+      }
+    })
+    this.restartPromise = restartPromise
+    return restartPromise
+  }
+
+  private async performRestart(path: string): Promise<void> {
     await this.stop()
     await this.start(path)
   }
@@ -392,6 +406,10 @@ export class EngineSupervisor {
       engineSettings = this.sqliteFallbackActive
         ? { ...resolvedEngineSettings, sqlite3Persistence: false }
         : resolvedEngineSettings
+      // Aria2RpcClient is long-lived and caches its credential. Refresh it on
+      // every start so an explicit settings rotation authenticates the first
+      // RPC sent to the newly spawned aria2 process.
+      this.rpcClient.setSecret(engineSettings.rpcSecret)
       const proxy = this.settingsManager.getProxy()
       const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir
       // Provider is wired by the shell (Task 8) before start() in production;
@@ -407,6 +425,13 @@ export class EngineSupervisor {
       const loadTextSession =
         !sqliteActive && (await this.configBuilder.hasSavedSession())
       if (this.stopping) return
+      log.debug(
+        {
+          rpcPort: engineSettings.rpcPort,
+          rpcSecretLength: engineSettings.rpcSecret.length,
+        },
+        'preparing aria2 RPC configuration'
+      )
       const args = this.configBuilder.buildArgs(
         engineSettings,
         featureReport.hasSqlitePersistence,

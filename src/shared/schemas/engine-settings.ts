@@ -15,7 +15,10 @@ export const engineSettingsSchema = z
   .object({
     // RPC & engine startup (RESTART)
     rpcPort: z.number().int().min(1024).max(65535).catch(16800),
-    rpcSecret: z.string().catch(''), // sentinel — SettingsManager seeds on first load
+    // Missing/invalid persisted values are a first-run sentinel seeded by
+    // SettingsManager while loading; live updates reject non-strings. An
+    // explicitly persisted empty string disables tokens.
+    rpcSecret: z.string().catch(''),
     listenPort: z.number().int().min(1024).max(65535).catch(6881),
     dhtListenPort: z.number().int().min(1024).max(65535).catch(6881),
     dhtEnabled: z.boolean().catch(true),

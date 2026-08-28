@@ -133,10 +133,14 @@ export class Aria2ConfigBuilder {
     // ── L2 engine binding ──
     args.push(
       '--enable-rpc=true',
-      '--rpc-allow-origin-all=true',
+      `--rpc-allow-origin-all=${settings.rpcSecret === '' ? 'false' : 'true'}`,
       '--rpc-listen-all=false',
-      `--rpc-listen-port=${settings.rpcPort}`,
-      `--rpc-secret=${settings.rpcSecret}`,
+      `--rpc-listen-port=${settings.rpcPort}`
+    )
+    if (settings.rpcSecret !== '') {
+      args.push(`--rpc-secret=${settings.rpcSecret}`)
+    }
+    args.push(
       `--dir=${defaultSaveDir}`,
       `--listen-port=${settings.listenPort}`,
       `--dht-listen-port=${settings.dhtListenPort}`,

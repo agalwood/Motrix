@@ -121,6 +121,7 @@ function createMockConfigBuilder(): Aria2ConfigBuilder {
 
 function createMockRpcClient(): Aria2RpcClient {
   return {
+    setSecret: vi.fn(),
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
     isConnected: vi.fn(() => true),
@@ -202,6 +203,37 @@ describe('EngineSupervisor', () => {
   })
 
   describe('start — happy path', () => {
+    it('synchronizes the latest RPC secret on every start before authenticated calls', async () => {
+      const initial = settings.getEngine()
+      let current = initial
+      vi.mocked(settings.getEngine).mockImplementation(() => current)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      current = { ...initial, rpcSecret: 'rotated-secret' }
+      await supervisor.restart()
+
+      current = { ...initial, rpcSecret: '' }
+      await supervisor.restart()
+
+      expect(rpcClient.setSecret).toHaveBeenNthCalledWith(1, initial.rpcSecret)
+      expect(rpcClient.setSecret).toHaveBeenNthCalledWith(2, 'rotated-secret')
+      expect(rpcClient.setSecret).toHaveBeenNthCalledWith(3, '')
+      expect(configBuilder.buildArgs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ rpcSecret: '' }),
+        expect.any(Boolean),
+        expect.anything(),
+        expect.anything(),
+        expect.any(String),
+        expect.any(Boolean)
+      )
+      expect(
+        vi.mocked(rpcClient.setSecret).mock.invocationCallOrder.at(-1)
+      ).toBeLessThan(
+        vi.mocked(rpcClient.changeGlobalOption).mock.invocationCallOrder.at(-1)!
+      )
+    })
+
     it('transitions Stopped → Starting → Ready', async () => {
       const states: EngineState[] = []
       eventBus.on(Events.EngineStateChanged, (state) => {
@@ -799,6 +831,51 @@ describe('EngineSupervisor', () => {
       await expect(supervisor.restart()).rejects.toThrow(
         'EngineSupervisor.restart called before start'
       )
+    })
+
+    it('coalesces concurrent restart requests into one stop/start cycle', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      const stopStarted = vi.fn()
+      let releaseStop!: () => void
+      const stopGate = new Promise<void>((resolve) => {
+        releaseStop = resolve
+      })
+      vi.mocked(processManager.gracefulStop).mockImplementationOnce(
+        async () => {
+          stopStarted()
+          await stopGate
+        }
+      )
+      const stopSpy = vi.spyOn(supervisor, 'stop')
+      const startSpy = vi.spyOn(supervisor, 'start')
+
+      const first = supervisor.restart()
+      const second = supervisor.restart()
+
+      expect(second).toBe(first)
+      expect(stopStarted).toHaveBeenCalledOnce()
+      expect(stopSpy).toHaveBeenCalledOnce()
+      expect(startSpy).not.toHaveBeenCalled()
+
+      releaseStop()
+      await Promise.all([first, second])
+
+      expect(stopSpy).toHaveBeenCalledOnce()
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect(startSpy).toHaveBeenCalledWith('/usr/bin/aria2c')
+    })
+
+    it('clears the single-flight guard after a restart failure', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(processManager.gracefulStop).mockRejectedValueOnce(
+        new Error('stop failed')
+      )
+
+      await expect(supervisor.restart()).rejects.toThrow('stop failed')
+      await expect(supervisor.restart()).resolves.toBeUndefined()
+
+      expect(processManager.gracefulStop).toHaveBeenCalledTimes(2)
+      expect(supervisor.getState()).toBe(EngineState.Ready)
     })
   })
 

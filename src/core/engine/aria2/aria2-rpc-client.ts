@@ -65,8 +65,13 @@ export class Aria2RpcClient {
 
   // ─── Secret injection ────────────────────────────────────────
 
+  /** Synchronize the credential used for all subsequent RPC calls. */
+  setSecret(secret: string): void {
+    this.secret = secret
+  }
+
   private withSecret(params: unknown[]): unknown[] {
-    return [`token:${this.secret}`, ...params]
+    return this.secret === '' ? params : [`token:${this.secret}`, ...params]
   }
 
   private call<T>(method: string, params: unknown[]): Promise<T> {

@@ -619,6 +619,49 @@ describe('SettingsManager', () => {
       expect(result.changedRestartKeys).toContain('rpcSecret')
     })
 
+    it('persists an explicit empty RPC secret and requires an engine restart', async () => {
+      const result = await manager.update({ engine: { rpcSecret: '' } })
+
+      expect(result.requiresRestart).toBe(true)
+      expect(result.changedRestartKeys).toContain('rpcSecret')
+      expect(manager.getEngine().rpcSecret).toBe('')
+
+      const persisted = JSON.parse(
+        mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+      ) as AppSettings
+      expect(persisted.engine.rpcSecret).toBe('')
+
+      mockedFs.writeFile.mockClear()
+      mockedFs.readFile.mockResolvedValue(JSON.stringify(persisted))
+      const reloaded = new SettingsManager(TEST_PATH)
+      await reloaded.load()
+
+      expect(reloaded.getEngine().rpcSecret).toBe('')
+      expect(mockedFs.writeFile).not.toHaveBeenCalled()
+    })
+
+    it.each([123, null, undefined])(
+      'rejects a non-string RPC secret update without changing state',
+      async (invalidSecret) => {
+        const currentRpcSecret = manager.getEngine().rpcSecret
+        mockedFs.writeFile.mockClear()
+
+        await expect(
+          manager.update({
+            engine: {
+              rpcSecret: invalidSecret as unknown as string,
+            },
+          })
+        ).rejects.toThrow(
+          'settings.engine.rpcSecret must be a string when provided'
+        )
+
+        expect(manager.getEngine().rpcSecret).toBe(currentRpcSecret)
+        expect(mockedFs.writeFile).not.toHaveBeenCalled()
+        expect(onChange).not.toHaveBeenCalled()
+      }
+    )
+
     it('requires an engine restart when the session save interval changes', async () => {
       const result = await manager.update({
         engine: { sessionSaveInterval: 30 },
@@ -946,10 +989,11 @@ describe('SettingsManager', () => {
   })
 
   describe('rpcSecret seeding', () => {
-    it('seeds rpcSecret with a generated value when empty after load', async () => {
+    it('preserves an explicitly persisted empty rpcSecret after load', async () => {
       const fileContent = JSON.stringify({
         version: CURRENT_SETTINGS_VERSION,
         engine: { rpcSecret: '' },
+        app: { defaultSaveDir: '/downloads' },
       })
       mockedFs.readFile.mockResolvedValue(fileContent)
       mockedFs.mkdir.mockResolvedValue(undefined)
@@ -958,12 +1002,74 @@ describe('SettingsManager', () => {
       const sm = new SettingsManager(TEST_PATH)
       await sm.load()
 
-      expect(sm.get().engine.rpcSecret).not.toBe('')
-      expect(sm.get().engine.rpcSecret.length).toBeGreaterThanOrEqual(8)
+      expect(sm.getEngine().rpcSecret).toBe('')
+      expect(mockedFs.writeFile).not.toHaveBeenCalled()
+    })
+
+    it('seeds rpcSecret when the persisted field is missing', async () => {
+      mockedFs.readFile.mockResolvedValue(
+        JSON.stringify({
+          version: CURRENT_SETTINGS_VERSION,
+          engine: { rpcPort: 16800 },
+        })
+      )
+      mockedFs.mkdir.mockResolvedValue(undefined)
+      mockedFs.writeFile.mockResolvedValue(undefined)
+
+      const sm = new SettingsManager(TEST_PATH)
+      await sm.load()
+
+      expect(sm.getEngine().rpcSecret).not.toBe('')
+      expect(sm.getEngine().rpcSecret.length).toBeGreaterThanOrEqual(8)
 
       const writtenJson = mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
-      const persisted = JSON.parse(writtenJson)
-      expect(persisted.engine.rpcSecret).toBe(sm.get().engine.rpcSecret)
+      const persisted = JSON.parse(writtenJson) as AppSettings
+      expect(persisted.engine.rpcSecret).toBe(sm.getEngine().rpcSecret)
+    })
+
+    it.each([123, null])(
+      'seeds rpcSecret when the persisted value is invalid',
+      async (invalidSecret) => {
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            engine: { rpcSecret: invalidSecret },
+          })
+        )
+        mockedFs.mkdir.mockResolvedValue(undefined)
+        mockedFs.writeFile.mockResolvedValue(undefined)
+
+        const sm = new SettingsManager(TEST_PATH)
+        await sm.load()
+
+        expect(sm.getEngine().rpcSecret).not.toBe('')
+        expect(sm.getEngine().rpcSecret.length).toBeGreaterThanOrEqual(8)
+        const persisted = JSON.parse(
+          mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+        ) as AppSettings
+        expect(persisted.engine.rpcSecret).toBe(sm.getEngine().rpcSecret)
+      }
+    )
+
+    it('preserves an explicit empty rpcSecret through migration', async () => {
+      mockedFs.readFile.mockResolvedValue(
+        JSON.stringify({
+          version: CURRENT_SETTINGS_VERSION - 1,
+          engine: { rpcSecret: '' },
+        })
+      )
+      mockedFs.mkdir.mockResolvedValue(undefined)
+      mockedFs.writeFile.mockResolvedValue(undefined)
+
+      const sm = new SettingsManager(TEST_PATH)
+      await sm.load()
+
+      expect(sm.getEngine().rpcSecret).toBe('')
+      const persisted = JSON.parse(
+        mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+      ) as AppSettings
+      expect(persisted.version).toBe(CURRENT_SETTINGS_VERSION)
+      expect(persisted.engine.rpcSecret).toBe('')
     })
   })
 })

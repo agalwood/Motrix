@@ -112,6 +112,27 @@ describe('Aria2RpcClient', () => {
       expect(call.params[1]).toEqual(['http://example.com/file.zip'])
     })
 
+    it('uses an updated secret for the next authenticated call', async () => {
+      await client.addUri(['http://example.com/before.zip'])
+
+      client.setSecret('rotated-secret')
+      await client.addUri(['http://example.com/after.zip'])
+
+      expect(fakeProtocol.calls[0]?.params[0]).toBe('token:my-secret')
+      expect(fakeProtocol.calls[1]?.params[0]).toBe('token:rotated-secret')
+    })
+
+    it('omits token injection from the first startup RPC after the secret is cleared', async () => {
+      client.setSecret('')
+
+      await client.changeGlobalOption({ continue: 'true' })
+
+      expect(fakeProtocol.calls[0]).toEqual({
+        method: 'aria2.changeGlobalOption',
+        params: [{ continue: 'true' }],
+      })
+    })
+
     it('does NOT inject secret for system.listMethods', async () => {
       fakeProtocol.nextResult = ['aria2.addUri', 'aria2.remove']
 

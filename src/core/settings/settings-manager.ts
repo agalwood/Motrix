@@ -123,6 +123,13 @@ function createDefaultSettings(
   }
 }
 
+function hasPersistedRpcSecret(settings: Record<string, unknown>): boolean {
+  return (
+    isPlainObject(settings.engine) &&
+    typeof settings.engine.rpcSecret === 'string'
+  )
+}
+
 export interface SettingsManagerOptions {
   defaultSaveDir?: string
   isLegacyDefaultSaveDir?: (value: string) => boolean
@@ -158,6 +165,7 @@ export class SettingsManager {
 
   async load(): Promise<void> {
     let parsed: Record<string, unknown>
+    let seedMissingRpcSecret = true
 
     try {
       const raw = await readFile(this.filePath, 'utf-8')
@@ -167,11 +175,15 @@ export class SettingsManager {
       }
       parsed = decoded
       const migrated = migrate(parsed)
+      // Empty is a supported explicit choice (local RPC with no token), while
+      // a missing or invalid field keeps the secure generated first-run
+      // default. Check presence after migration so legacy shapes participate.
+      seedMissingRpcSecret = !hasPersistedRpcSecret(migrated)
       this.settings = this.buildValidSettings(migrated as Partial<AppSettings>)
     } catch {
       // File missing, corrupt, or unreadable — use defaults
       this.settings = createDefaultSettings(this.liquidGlassEffectDefault)
-      this.seedSentinels()
+      this.seedSentinels(true)
       await this.save()
       return
     }
@@ -180,7 +192,7 @@ export class SettingsManager {
     // backfill write must surface to the caller instead of being mistaken for
     // corrupt input and overwriting otherwise-valid user settings with
     // defaults.
-    const seeded = this.seedSentinels()
+    const seeded = this.seedSentinels(seedMissingRpcSecret)
     const versionStale =
       !parsed.version || parsed.version !== CURRENT_SETTINGS_VERSION
     if (seeded || versionStale) {
@@ -188,9 +200,9 @@ export class SettingsManager {
     }
   }
 
-  private seedSentinels(): boolean {
+  private seedSentinels(seedMissingRpcSecret: boolean): boolean {
     let changed = false
-    if (this.settings.engine.rpcSecret === '') {
+    if (seedMissingRpcSecret && this.settings.engine.rpcSecret === '') {
       this.settings.engine.rpcSecret = generateRpcSecret()
       changed = true
     }
@@ -214,8 +226,7 @@ export class SettingsManager {
     await mkdir(dir, { recursive: true })
     // Atomic: writes to <path>.<rand>, fsyncs, renames over the
     // target. Crash mid-write leaves the OLD settings.json intact —
-    // critical because losing rpcSecret breaks aria2 RPC auth and
-    // losing user-customized fields silently resets the app.
+    // critical because losing user-customized fields silently resets the app.
     await writeFileAtomic(this.filePath, JSON.stringify(settings, null, 2), {
       encoding: 'utf-8',
     })
@@ -364,6 +375,17 @@ export class SettingsManager {
 
     // Merge engine settings
     if (partial.engine) {
+      if (
+        Object.hasOwn(partial.engine, 'rpcSecret') &&
+        typeof partial.engine.rpcSecret !== 'string'
+      ) {
+        // The schema's `.catch('')` is intentionally tolerant while loading
+        // damaged legacy files. At the live update boundary, however, only a
+        // literal string (including explicit "") may change authentication.
+        throw new TypeError(
+          'settings.engine.rpcSecret must be a string when provided'
+        )
+      }
       const merged = { ...next.engine, ...partial.engine }
       if (
         partial.engine.performanceProfile === undefined &&
