@@ -1,5 +1,32 @@
 import type { TrackerSource } from '@shared/types/tracker'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const undiciMock = vi.hoisted(() => {
+  const agents: Array<{
+    uri: string
+    close: ReturnType<typeof vi.fn>
+  }> = []
+
+  class ProxyAgent {
+    readonly close = vi.fn(async () => undefined)
+
+    constructor(readonly uri: string) {
+      agents.push(this)
+    }
+  }
+
+  return {
+    agents,
+    fetch: vi.fn(),
+    ProxyAgent,
+  }
+})
+
+vi.mock('undici', () => ({
+  fetch: undiciMock.fetch,
+  ProxyAgent: undiciMock.ProxyAgent,
+}))
+
 import { TrackerSyncer } from './tracker-syncer'
 
 const source = (id: string, url: string): TrackerSource => ({
@@ -15,8 +42,10 @@ describe('TrackerSyncer', () => {
   let syncer: TrackerSyncer
 
   beforeEach(() => {
-    syncer = new TrackerSyncer()
     vi.restoreAllMocks()
+    undiciMock.fetch.mockReset()
+    undiciMock.agents.length = 0
+    syncer = new TrackerSyncer()
   })
 
   it('returns empty result for empty sources', async () => {
@@ -61,6 +90,39 @@ describe('TrackerSyncer', () => {
     expect(result.sourceStatus.good.ok).toBe(true)
     expect(result.sourceStatus.bad.ok).toBe(false)
     expect(result.sourceStatus.bad.error).toBe('network error')
+  })
+
+  it('uses undici fetch with an HTTP ProxyAgent and closes the agent', async () => {
+    const globalFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(
+        new Error('global fetch must not be used with a proxy')
+      )
+    undiciMock.fetch
+      .mockResolvedValueOnce(new Response('udp://proxied.test:80/announce\n'))
+      .mockRejectedValueOnce(new Error('source unavailable'))
+
+    const result = await syncer.fetch(
+      [
+        source('proxied', 'http://lists.test/trackers.txt'),
+        source('failed', 'http://lists.test/unavailable.txt'),
+      ],
+      { server: 'http://127.0.0.1:7890' }
+    )
+
+    expect(globalFetch).not.toHaveBeenCalled()
+    expect(undiciMock.agents).toHaveLength(1)
+    expect(undiciMock.agents[0].uri).toBe('http://127.0.0.1:7890')
+    expect(undiciMock.fetch).toHaveBeenCalledTimes(2)
+    for (const [, init] of undiciMock.fetch.mock.calls) {
+      expect(init).toEqual(
+        expect.objectContaining({ dispatcher: undiciMock.agents[0] })
+      )
+    }
+    expect(undiciMock.agents[0].close).toHaveBeenCalledOnce()
+    expect(result.trackers).toEqual(['udp://proxied.test:80/announce'])
+    expect(result.sourceStatus.proxied.ok).toBe(true)
+    expect(result.sourceStatus.failed.ok).toBe(false)
   })
 
   it('populates SourceFetchStatus.urls with per-source URLs on success', async () => {
