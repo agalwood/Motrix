@@ -117,7 +117,7 @@ import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
 } from './download-path-policy'
-import { parseServerPort } from './environment'
+import { parseServerBoolean, parseServerPort } from './environment'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
@@ -394,7 +394,13 @@ async function main() {
   })
   const configBuilder = new Aria2ConfigBuilder(
     path.join(platform.extraResourceDir, 'aria2.conf'),
-    platform.userDataDir
+    platform.userDataDir,
+    {
+      rpcListenAll: parseServerBoolean(
+        process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
+        'MOTRIX_ARIA2_RPC_LISTEN_ALL'
+      ),
+    }
   )
   const trustStore = new Aria2TrustStore(platform.userDataDir)
 

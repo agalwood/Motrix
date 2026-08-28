@@ -147,6 +147,40 @@ Docker 能够转发流量，但不会单独把服务变成公网服务。最终�
 `MOTRIX_MDXP_HOST` 改为 `127.0.0.1`：该 loopback 属于容器，Docker 端口转发和其他容器
 都无法访问它。
 
+### 显式开启原始 aria2 RPC
+
+aria2 引擎 RPC endpoint 与 Motrix Web/API、MDXP 是相互独立的服务，默认只在
+loopback（`127.0.0.1`）监听。只有外部 aria2 RPC 客户端确实需要直连引擎时，才设置
+`MOTRIX_ARIA2_RPC_LISTEN_ALL=true`。RPC secret 为空时，Server 会拒绝开启该模式；
+重启前请先在**设置 > 高级设置**中确认 RPC 端口和 secret。
+浏览器集成应优先使用 Motrix 扩展和 MDXP。
+
+仓库自带的 Compose 文件会把该 opt-in 传入容器，但有意不发布 16800 端口。启用后，
+同一 Compose network 内的客户端可以连接 `http://server:16800/jsonrpc`。如果客户端
+运行在 Docker 宿主上，请把以下显式 override 保存为 `compose.aria2-rpc.yaml`：
+
+```yaml
+services:
+  server:
+    ports:
+      - "127.0.0.1:16800:16800"
+```
+
+然后同时启用 listener 和端口发布，并重建 service：
+
+```bash
+export MOTRIX_ARIA2_RPC_LISTEN_ALL=true
+docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
+```
+
+如果需要从可信 LAN 访问，请把 override 宿主侧的 `127.0.0.1` 换成 NAS 的具体 LAN
+地址，并在宿主 firewall 中只允许所需来源。若已在 Motrix 设置中修改 RPC 端口，
+映射两侧也要同步修改。外部客户端必须配置相同的 RPC secret；aria2 会把它作为
+`token:<secret>` 鉴权参数。原始 aria2 RPC 不受 Motrix operator 鉴权和下载路径
+策略约束；持有该 RPC secret 基本等同于获得下载引擎控制权。它也没有 TLS 保护，
+切勿直接发布到公网；优先使用私有 Docker network、宿主 loopback、VPN 或其他带
+鉴权的加密 tunnel。
+
 ### 运行在 Docker 宿主上的反向代理
 
 仓库提供的 [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) 会把两个已发布的
@@ -404,6 +438,7 @@ secret-store 状态和 FFmpeg 探测结果。
 | `no matching manifest` | 用 `docker info` 确认 NAS 是 64 位 `amd64` 或 `arm64`；不支持 32 位 ARM。 |
 | 启动报告 `EACCES`、只读或路径失败 | 对比 `docker inspect ... .Config.User` 与两个挂载的数字 owner。修正 owner/ACL；不要改用 privileged 或 root。 |
 | 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
+| 外部 aria2 RPC 客户端无法连接 | 确认 `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
 | Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为 base64url 文本且权限为 `0600`。 |
 | 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
 | 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
@@ -425,6 +460,7 @@ secret-store 状态和 FFmpeg 探测结果。
 | `MOTRIX_ALLOW_UNMANAGED_PLUGINS` | `false` | 允许没有安装来源记录的插件目录 |
 | `MOTRIX_OPERATOR_TOKEN` | 自动生成文件 | operator 控制面凭据 |
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
+| `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | 显式开启带鉴权、面向所有接口的 aria2 RPC listener；Docker 端口发布仍需单独配置 |
 | `MOTRIX_WEB_BIND_IP` | Compose：`0.0.0.0` | 发布 Web 8080 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_MDXP_BIND_IP` | Compose：`0.0.0.0` | 发布 MDXP 16801 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |

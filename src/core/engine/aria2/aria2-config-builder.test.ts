@@ -229,6 +229,46 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--rpc-listen-all=false')
     })
 
+    it('allows an explicit all-interface RPC listener with authentication', () => {
+      const externalBuilder = new Aria2ConfigBuilder(
+        '/app/extra/aria2.conf',
+        '/home/user/.config/motrix',
+        { rpcListenAll: true }
+      )
+
+      const args = externalBuilder.buildArgs(
+        makeEngineSettings(),
+        true,
+        null,
+        { download: 0, upload: 0 },
+        DEFAULT_SAVE_DIR
+      )
+
+      expect(args).toContain('--rpc-listen-all=true')
+      expect(args).not.toContain('--rpc-listen-all=false')
+    })
+
+    it.each(['', '   '])(
+      'refuses an all-interface RPC listener with a blank secret',
+      (rpcSecret) => {
+        const externalBuilder = new Aria2ConfigBuilder(
+          '/app/extra/aria2.conf',
+          '/home/user/.config/motrix',
+          { rpcListenAll: true }
+        )
+
+        expect(() =>
+          externalBuilder.buildArgs(
+            { ...makeEngineSettings(), rpcSecret },
+            true,
+            null,
+            { download: 0, upload: 0 },
+            DEFAULT_SAVE_DIR
+          )
+        ).toThrow('External aria2 RPC access requires a non-empty RPC secret')
+      }
+    )
+
     it('includes save-session path in userConfigDir', () => {
       const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
