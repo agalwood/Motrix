@@ -123,25 +123,26 @@ export function createCommandRunner(
     }
 
     return new Promise((resolve) => {
-      const useWindowsShell = platform === 'win32'
-      const batchShim = useWindowsShell && /\.(?:cmd|bat)$/i.test(command)
+      const isWindows = platform === 'win32'
+      const batchShim = isWindows && /\.(?:cmd|bat)$/i.test(command)
       const cap = Math.max(1, options?.maxBuffer ?? DEFAULT_MAX_BUFFER)
       let child: ReturnType<typeof spawn>
 
       try {
         child = spawnProcess(
-          useWindowsShell ? escapeCmdCommand(command) : command,
-          useWindowsShell
-            ? args.map((argument) => escapeCmdArgument(argument, batchShim))
+          batchShim ? escapeCmdCommand(command) : command,
+          batchShim
+            ? args.map((argument) => escapeCmdArgument(argument, true))
             : [...args],
           {
             cwd: options?.cwd,
             env: options?.env,
             stdio: ['ignore', 'pipe', 'pipe'],
-            shell: useWindowsShell
+            shell: batchShim
               ? windowsSystemBinary('cmd.exe', systemRoot)
               : false,
-            detached: !useWindowsShell,
+            detached: !isWindows,
+            windowsHide: isWindows,
           }
         )
       } catch (error) {
@@ -198,12 +199,12 @@ export function createCommandRunner(
       const killTree = () => {
         const pid = child.pid
         if (pid == null) return
-        if (useWindowsShell) {
+        if (isWindows) {
           try {
             const taskkill = spawnProcess(
               windowsSystemBinary('taskkill.exe', systemRoot),
               ['/pid', String(pid), '/t', '/f'],
-              { stdio: 'ignore', shell: false }
+              { stdio: 'ignore', shell: false, windowsHide: true }
             )
             // A failed spawn is normally reported asynchronously through the
             // child error event, outside the surrounding try/catch.
