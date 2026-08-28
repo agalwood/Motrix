@@ -247,7 +247,7 @@ describe('TaskInspectorActionBar', () => {
       />
     )
     fireEvent.click(screen.getByRole('button', { name: /Remove/ }))
-    expect(screen.getByText(/Remove "sample"\?/)).toBeDefined()
+    expect(screen.getByText(/Remove “sample”\?/)).toBeDefined()
   })
 
   describe('Copy URL', () => {

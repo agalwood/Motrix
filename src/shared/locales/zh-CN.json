@@ -9,7 +9,7 @@
   "operatorAdmin": {
     "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
     "errorPrefix": "motrix-admin：{{message}}",
-    "usageHint": "运行“motrix-admin --help”查看用法。",
+    "usageHint": "运行 `motrix-admin --help` 查看用法。",
     "pending": {
       "none": "没有待处理的配对请求。",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  剩余 {{ttl}}",
@@ -503,7 +503,7 @@
         "noTasks": "暂无下载任务",
         "noTasksCta": "点击 + 添加一个",
         "noMatchFilter": "没有任务匹配此筛选",
-        "noMatchSearch": "没有任务匹配 \"{{query}}\"",
+        "noMatchSearch": "没有任务匹配「{{query}}」",
         "clearSearch": "清除搜索",
         "unavailable": "任务暂不可用",
         "motion": {
@@ -735,7 +735,7 @@
         "removeTooltipBatch": "移除所选中的 {{n}} / {{total}}",
         "removeWithFilesShift": "按住 Shift 同时删除文件",
         "removeFilesEstimate": "将从磁盘删除 {{bytes}}",
-        "removeSingleTitle": "移除任务 \"{{name}}\" ？",
+        "removeSingleTitle": "移除任务「{{name}}」？",
         "removeAll_paused_Title": "移除 {{count}} 个已暂停任务？",
         "removeAll_seeding_Title": "移除 {{count}} 个做种中任务？",
         "removeAll_completed_Title": "移除 {{count}} 个已完成任务？",
@@ -800,9 +800,9 @@
       "createdPartial": "已添加 {{ok}} 个，{{failed}} 个失败",
       "duplicate": {
         "title": "此种子已经存在",
-        "active-info-hash": "“{{name}}”正在运行。aria2 无法同时运行两个内容相同的种子任务。",
-        "selection-mismatch": "“{{name}}”使用了相同保存目录，但文件选择不同。Motrix 不会覆盖它，也不会静默创建重命名副本。",
-        "existing-files": "目标位置已经存在“{{name}}”，但对应任务记录不可用。Motrix 不会覆盖这些文件。",
+        "active-info-hash": "「{{name}}」正在运行。aria2 无法同时运行两个内容相同的种子任务。",
+        "selection-mismatch": "「{{name}}」使用了相同保存目录，但文件选择不同。Motrix 不会覆盖它，也不会静默创建重命名副本。",
+        "existing-files": "目标位置已经存在「{{name}}」，但对应任务记录不可用。Motrix 不会覆盖这些文件。",
         "filesOnDisk": "种子文件",
         "showExisting": "查看已有任务",
         "createCopy": "创建独立副本"
@@ -837,7 +837,7 @@
     },
     "remove": {
       "title": "移除任务？",
-      "description": "\"{{name}}\" 将从下载列表中移除。",
+      "description": "「{{name}}」将从下载列表中移除。",
       "deleteFilesLabel": "同时删除已下载的文件",
       "confirm": "移除",
       "cancel": "取消",
@@ -1873,7 +1873,7 @@
       "byAuthor": "作者：{{name}}",
       "requires": "需要 Motrix {{range}}",
       "notInstalled": "未安装",
-      "notFound": "插件 \"{{id}}\" 不在插件注册表中",
+      "notFound": "插件「{{id}}」不在插件注册表中",
       "viewOnWebsite": "在 motrix.app 查看",
       "installPending": "从注册表直接安装即将推出，目前可先在这里或官网查看该插件的完整信息。",
       "updated": "更新于 {{date}}",
@@ -1892,7 +1892,7 @@
       "updateInstalled": "更新已安装。",
       "actionFailed": "操作未能完成。"
     },
-    "searchNoMatch": "没有与\"{{query}}\"匹配的插件",
+    "searchNoMatch": "没有与「{{query}}」匹配的插件",
     "clearSearch": "清除搜索",
     "tone": {
       "safe": "运行正常",
@@ -2154,7 +2154,7 @@
         "chinese": "简体中文"
       },
       "summary": "继续前，请阅读以下内容。",
-      "body": "Motrix 仅提供下载管理功能，不提供、存储、托管或推荐任何下载内容。您应确保通过 Motrix 获取、使用或分享的内容已获得合法授权，并遵守适用的著作权及其他法律法规。因您下载、使用或分享内容产生的责任由您自行承担。点击“同意并继续”即表示您已阅读并理解本声明。",
+      "body": "Motrix 仅提供下载管理功能，不提供、存储、托管或推荐任何下载内容。您应确保通过 Motrix 获取、使用或分享的内容已获得合法授权，并遵守适用的著作权及其他法律法规。因您下载、使用或分享内容产生的责任由您自行承担。点击「同意并继续」即表示您已阅读并理解本声明。",
       "highlights": {
         "downloadManagement": "仅提供下载管理功能",
         "authorized": "已获得合法授权",
