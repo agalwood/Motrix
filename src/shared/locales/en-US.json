@@ -9,7 +9,7 @@
   "operatorAdmin": {
     "help": "Usage:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nThe command talks only to the running Motrix server over container loopback.",
     "errorPrefix": "motrix-admin: {{message}}",
-    "usageHint": "Run 'motrix-admin --help' for usage.",
+    "usageHint": "Run `motrix-admin --help` for usage.",
     "pending": {
       "none": "No pending pairing requests.",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  expires in {{ttl}}",
@@ -82,7 +82,7 @@
       "message_other": "{{count}} downloads are still active.",
       "detail": "Quitting now will pause it. Are you sure you want to quit?",
       "quitButton": "Quit",
-      "dontAskAgain": "Don't ask again"
+      "dontAskAgain": "Don’t ask again"
     }
   },
   "nav": {
@@ -133,7 +133,7 @@
         "listenPort": "Listen port",
         "diagnostics": {
           "title": "Engine diagnostics",
-          "description": "Check engine, identify the process using Motrix's RPC port, and recover safely.",
+          "description": "Check engine, identify the process using Motrix’s RPC port, and recover safely.",
           "open": "Diagnose",
           "checking": "Running engine checks…",
           "runAgain": "Run again",
@@ -164,7 +164,7 @@
             "none": "No process is blocking the RPC port.",
             "unidentified": "The process using this port could not be identified. Motrix will not terminate it.",
             "current_app": "PID {{pid}} ({{name}}) is managed by this Motrix session.",
-            "verified_orphan": "PID {{pid}} ({{name}}) matches Motrix's bundled binary and private launch parameters, so it is safe to terminate.",
+            "verified_orphan": "PID {{pid}} ({{name}}) matches Motrix’s bundled binary and private launch parameters, so it is safe to terminate.",
             "external_aria2": "PID {{pid}} ({{name}}) is aria2, but Motrix cannot verify ownership. It will not be terminated automatically.",
             "other": "PID {{pid}} ({{name}}) is not a verified Motrix aria2 process and is protected.",
             "unknown": "PID {{pid}} could not be identified and is protected."
@@ -173,7 +173,7 @@
             "ready": "Motrix can communicate with aria2."
           },
           "reason": {
-            "port_in_use": "Motrix's RPC port is occupied, so aria2 engine could not start.",
+            "port_in_use": "Motrix’s RPC port is occupied, so aria2 engine could not start.",
             "binary_unavailable": "The bundled aria2 executable is missing or unavailable.",
             "spawn_failed": "The aria2 process could not be created.",
             "rpc_unavailable": "aria2 engine started but did not accept Motrix RPC connections.",
@@ -196,13 +196,13 @@
           "recoveredOnPort": "The aria2 engine recovered on RPC port {{port}}.",
           "recoveryFailed": "Engine recovery failed. Run diagnostics again for the latest status.",
           "fallback": {
-            "available": "Motrix's default port {{port}} is available and can be restored now.",
+            "available": "Motrix’s default port {{port}} is available and can be restored now.",
             "verifiedOrphan": "A verified leftover Motrix aria2 process (PID {{pid}}) is using the default port {{port}}. Motrix can safely stop it before restoring the port.",
             "blocked": "The default port {{port}} is used by PID {{pid}} ({{name}}), but Motrix cannot verify ownership. The process will not be terminated.",
             "unidentified": "The process using default port {{port}} could not be identified. Motrix will keep using the current port.",
             "restore": "Restore Motrix default port {{port}}",
-            "restoring": "Restoring Motrix's default port {{port}}…",
-            "restoredDefault": "Motrix's default RPC port {{port}} has been restored.",
+            "restoring": "Restoring Motrix’s default port {{port}}…",
+            "restoredDefault": "Motrix’s default RPC port {{port}} has been restored.",
             "confirm": {
               "title": "Stop the leftover process and restore port {{port}}?",
               "description": "PID {{pid}} is verified as a leftover Motrix aria2 process. It will be stopped, the default port {{port}} will be saved, and aria2 will restart.",
@@ -211,7 +211,7 @@
           },
           "confirmForce": {
             "title": "Force stop the leftover aria2 process?",
-            "description": "PID {{pid}} matches Motrix's bundled binary, private RPC secret, and data paths. It will be terminated immediately, then aria2 will restart on the Motrix RPC port.",
+            "description": "PID {{pid}} matches Motrix’s bundled binary, private RPC secret, and data paths. It will be terminated immediately, then aria2 will restart on the Motrix RPC port.",
             "action": "Force stop & recover"
           }
         }
@@ -505,7 +505,7 @@
         "noTasks": "No downloads yet",
         "noTasksCta": "Press + to add one",
         "noMatchFilter": "No tasks match this filter",
-        "noMatchSearch": "No tasks match \"{{query}}\"",
+        "noMatchSearch": "No tasks match “{{query}}”",
         "clearSearch": "Clear search",
         "unavailable": "Tasks unavailable",
         "motion": {
@@ -694,7 +694,7 @@
           "invalidLines_one": "Skipped {{count}} invalid line",
           "invalidLines_other": "Skipped {{count}} invalid lines",
           "editPlaceholder": "One tracker URL per line. http(s)/udp/ws(s) only.",
-          "editHint": "These trackers replace the task's effective bt-tracker list. Announce-list entries from the .torrent are unaffected."
+          "editHint": "These trackers replace the task’s effective bt-tracker list. Announce-list entries from the .torrent are unaffected."
         },
         "multi": {
           "totals": "Totals",
@@ -727,7 +727,7 @@
         "retry": "Retry",
         "openFolder": "Open folder",
         "copyUrl": "Copy URL",
-        "copyUrlFailed": "Copy failed: could not load the task's link details. Try again.",
+        "copyUrlFailed": "Copy failed: could not load the task’s link details. Try again.",
         "selectFiles": "Select files",
         "remove": "Remove",
         "removeConfirmWithFiles": "Also delete the downloaded file(s) from disk",
@@ -746,7 +746,7 @@
         "removeTooltipBatch": "Remove {{n}} of {{total}} selected",
         "removeWithFilesShift": "Hold Shift to also delete files",
         "removeFilesEstimate": "Will delete {{bytes}} from disk",
-        "removeSingleTitle": "Remove \"{{name}}\"?",
+        "removeSingleTitle": "Remove “{{name}}”?",
         "removeAll_paused_Title": "Remove {{count}} paused tasks?",
         "removeAll_seeding_Title": "Remove {{count}} seeding tasks?",
         "removeAll_completed_Title": "Remove {{count}} completed tasks?",
@@ -850,7 +850,7 @@
     },
     "remove": {
       "title": "Remove task?",
-      "description": "'{{name}}' will be removed from the download list.",
+      "description": "“{{name}}” will be removed from the download list.",
       "deleteFilesLabel": "Delete downloaded files",
       "confirm": "Remove",
       "cancel": "Cancel",
@@ -859,7 +859,7 @@
     },
     "recovery": {
       "toast": "Recovered {{count}} interrupted task(s). Click to review.",
-      "finalizeRenameFailed": "Failed to rename file. The download file remains with '.motrix' suffix.",
+      "finalizeRenameFailed": "Failed to rename file. The download file remains with .motrix suffix.",
       "reseedFailed": "Download complete, but seeding failed to start.",
       "metaMissing": "Torrent metadata is missing. Cannot start seeding.",
       "startup": {
@@ -872,7 +872,7 @@
         "resumeSourceChanged": "The partial file was preserved because the remote file changed since the download started.",
         "resumeRangeUnsupported": "The partial file was preserved because the server does not support safe range resume.",
         "resumeValidationFailed": "The partial file was preserved because Motrix could not verify that the remote file is unchanged.",
-        "mediaInterrupted": "This media download was interrupted by an app restart and can't be resumed. Re-add it to retry."
+        "mediaInterrupted": "This media download was interrupted by an app restart and can’t be resumed. Re-add it to retry."
       }
     },
     "error": {
@@ -1181,7 +1181,7 @@
         "split": "Split connections per file",
         "splitDesc": "Number of segments to fetch a single file with.",
         "minSplitSize": "Minimum segment size (MB)",
-        "minSplitSizeDesc": "Don't split a file smaller than this."
+        "minSplitSizeDesc": "Don’t split a file smaller than this."
       },
       "reliability": {
         "title": "Network reliability",
@@ -1418,12 +1418,12 @@
         "associationSetupRequired": "Setup required",
         "associationDefault": "Default",
         "associationNotDefault": "Not default",
-        "associationUnavailable": "Couldn't verify",
+        "associationUnavailable": "Couldn’t verify",
         "associationNotRegistered": "Not registered",
         "openWindowsSettings": "Open Windows settings",
         "defaultAssociationsLinux": "Linux file and link associations",
         "defaultAssociationsLinuxCheckingDesc": "Checking this Linux package and its current desktop associations…",
-        "defaultAssociationsLinuxUnavailableDesc": "Desktop association status isn't available from this app environment.",
+        "defaultAssociationsLinuxUnavailableDesc": "Desktop association status isn’t available from this app environment.",
         "defaultAssociationsLinuxDesc": "Motrix can set itself as the .torrent default for an installed deb or rpm package. Magnet changes take effect when you apply this dialog.",
         "defaultAssociationsLinuxAppImageDesc": "Use Desktop integration below to register or remove this AppImage safely. Motrix restores verified previous handlers before deleting its desktop entry.",
         "defaultAssociationsLinuxSandboxDesc": "This package publishes Motrix as a handler, but your desktop environment chooses the default app. Removing the package may not restore the previous default automatically.",
@@ -1443,8 +1443,8 @@
         "repairLinuxAssociations": "Repair associations",
         "viewLinuxInstructions": "View setup steps",
         "linuxActionSet": "Motrix is now the default for .torrent files.",
-        "linuxActionFallback": "Automatic setup isn't available for this package. Setup instructions were opened instead.",
-        "linuxActionFailed": "Couldn't update the Linux default. Check your desktop environment settings."
+        "linuxActionFallback": "Automatic setup isn’t available for this package. Setup instructions were opened instead.",
+        "linuxActionFailed": "Couldn’t update the Linux default. Check your desktop environment settings."
       },
       "browser": {
         "title": "Browser extensions",
@@ -1468,12 +1468,12 @@
           "title": "{{name}} wants to connect to Motrix",
           "from": "From {{browser}}",
           "allow": "Allow",
-          "deny": "Don't allow"
+          "deny": "Don’t allow"
         },
         "pairUnavailable": "This pairing request is no longer pending — retry pairing from the browser extension.",
         "trustedExtensions": "Trusted extensions",
         "trustedSummary": "{{count}} total",
-        "trustedGuidance": "If you installed a download extension other than the official Motrix one, paste the extension ID it provided here. You usually don't need this.",
+        "trustedGuidance": "If you installed a download extension other than the official Motrix one, paste the extension ID it provided here. You usually don’t need this.",
         "trustedEmpty": "Nothing here yet.",
         "headerId": "Extension ID",
         "headerBrowser": "Browser",
@@ -1555,7 +1555,7 @@
           "title": "{{name}} wants to pair with Motrix",
           "code": "Verification code: {{code}}",
           "allow": "Allow",
-          "deny": "Don't allow"
+          "deny": "Don’t allow"
         },
         "inbox": {
           "title": "Pending approvals",
@@ -1613,7 +1613,7 @@
           "fileMissing": "File does not exist at this path."
         }
       },
-      "pairResolveFailed": "Couldn't submit your decision — try again.",
+      "pairResolveFailed": "Couldn’t submit your decision — try again.",
       "appimage": {
         "title": "Desktop integration",
         "desc": "Register this Motrix AppImage with your desktop so browsers and magnet links can hand downloads to it.",
@@ -1630,8 +1630,8 @@
           "healthy": "Integrated with this desktop.",
           "notIntegrated": "Not integrated with this desktop.",
           "failedTitle": "Desktop integration incomplete",
-          "failedDetail": "Motrix couldn't register itself as the handler for its links. Browser hand-off may not work until you re-enable desktop integration.",
-          "removeBlockedDetail": "Motrix couldn't safely restore a verified previous handler, so it kept its desktop entry to avoid leaving a broken default. Choose another default app in your desktop settings, then try removing the integration again.",
+          "failedDetail": "Motrix couldn’t register itself as the handler for its links. Browser hand-off may not work until you re-enable desktop integration.",
+          "removeBlockedDetail": "Motrix couldn’t safely restore a verified previous handler, so it kept its desktop entry to avoid leaving a broken default. Choose another default app in your desktop settings, then try removing the integration again.",
           "externalManaged": "Desktop integration is provided by another Motrix install."
         },
         "movedHint": "If you move the AppImage while Motrix is closed, links may fail to launch until you start Motrix once from its new location."
@@ -1891,7 +1891,7 @@
       "byAuthor": "by {{name}}",
       "requires": "Requires Motrix {{range}}",
       "notInstalled": "Not installed",
-      "notFound": "Plugin \"{{id}}\" was not found in the registry",
+      "notFound": "Plugin “{{id}}” was not found in the registry",
       "viewOnWebsite": "View on motrix.app",
       "installPending": "Installing straight from the registry is coming soon. Until then you can review the plugin here and on the website.",
       "updated": "updated {{date}}",
@@ -1910,7 +1910,7 @@
       "updateInstalled": "Update installed.",
       "actionFailed": "The action could not be completed."
     },
-    "searchNoMatch": "No plugins match \"{{query}}\"",
+    "searchNoMatch": "No plugins match “{{query}}”",
     "clearSearch": "Clear search",
     "tone": {
       "safe": "Looks safe",
@@ -2139,7 +2139,7 @@
         "notInstalled": "FFmpeg is not installed on this system.",
         "versionMismatch": "FFmpeg {{version}} is installed.",
         "requiredByPlugin": "This plugin requires ffmpeg. Install it and try again.",
-        "optionalDegraded": "This plugin's media features will be unavailable until ffmpeg is installed."
+        "optionalDegraded": "This plugin’s media features will be unavailable until ffmpeg is installed."
       }
     }
   },
@@ -2184,7 +2184,7 @@
       "agree": "Agree & Continue",
       "quit": "Quit",
       "retry": "Retry",
-      "saveFailed": "Couldn't save your consent. Check disk space and try again."
+      "saveFailed": "Couldn’t save your consent. Check disk space and try again."
     }
   },
   "notification": {
@@ -2208,7 +2208,7 @@
     },
     "dnsFallback": {
       "title": "{{name}} retried with system DNS",
-      "body": "Motrix couldn't reach a DNS server, so it switched to system DNS for this session."
+      "body": "Motrix couldn’t reach a DNS server, so it switched to system DNS for this session."
     },
     "center": {
       "title": "Notifications",
