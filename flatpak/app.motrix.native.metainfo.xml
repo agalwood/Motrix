@@ -80,10 +80,11 @@
       <description>
         <p>
           Direct-download naming and finalization are more reliable, empty RPC
-          passwords are supported, and SOCKS5 joins HTTP and HTTPS proxies in
-          covering BT HTTP traffic while peers, DHT, and UDP trackers stay
-          direct. This release also improves Windows CLI, NAT, torrent
-          associations, and Snap edge publication.
+          passwords are supported, and SOCKS5 can carry ordinary and
+          BitTorrent-associated HTTP traffic through an authenticated local
+          bridge while peers, DHT, and UDP trackers stay direct. This release
+          also improves Windows CLI, NAT, torrent associations, and Snap edge
+          publication.
         </p>
       </description>
     </release>
