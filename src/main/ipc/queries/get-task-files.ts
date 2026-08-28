@@ -6,10 +6,11 @@ import {
   getBtPayloadPath,
   getBtStorageLayout,
 } from '@core/task/bt-storage-layout'
+import { toFinalPath } from '@core/task/paths'
 import type { TaskManager } from '@core/task/task-manager'
 import { relativizeTorrentPath } from '@shared/lib/path-ext'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
-import { TaskStatus } from '@shared/types/task'
+import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 
 const log = getLogger('TaskFilesProvider')
 
@@ -45,12 +46,31 @@ function relativize(absolutePath: string, task: DownloadTask): string {
   )
 }
 
+function toDisplayPath(physicalPath: string, task: DownloadTask): string {
+  const relativePath = relativize(physicalPath, task)
+
+  // Direct HTTP/FTP tasks contain exactly one logical output. Use the task's
+  // authoritative final name instead of guessing from the physical path:
+  // while active it ends in the reserved `.motrix` staging suffix, while a
+  // completed file may legitimately have `.motrix` as part of its real name.
+  // Keep Mux/BT/Magnet paths untouched because they can expose real payload
+  // structure rather than a single direct output.
+  if (
+    task.kind === TaskKind.Direct &&
+    (task.type === TaskType.Http || task.type === TaskType.Ftp)
+  ) {
+    if (task.finalName) return task.finalName
+    return toFinalPath(relativePath)
+  }
+  return relativePath
+}
+
 export function createGetTaskFilesHandler(deps: Deps) {
   return async function getTaskFiles(taskId: string): Promise<TaskFile[]> {
     const task = deps.taskManager.getById(taskId)
     const base: TaskFile[] = deps.db.getTaskFiles(taskId).map((row) => ({
       index: row.fileIndex,
-      path: task ? relativize(row.path, task) : row.path,
+      path: task ? toDisplayPath(row.path, task) : row.path,
       size: row.size,
       selected: row.selected,
       completedBytes: 0,
@@ -87,7 +107,7 @@ export function createGetTaskFilesHandler(deps: Deps) {
       if (needsStructure && live.length > 0) {
         return live.map((f) => ({
           index: f.index,
-          path: relativize(f.path, task),
+          path: toDisplayPath(f.path, task),
           size: f.size,
           selected: f.selected,
           completedBytes: f.completedBytes,

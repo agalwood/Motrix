@@ -212,6 +212,7 @@ async function finalizeHttp(
     return
   }
   const desiredFinalPath = finalizeOutcome.finalFilePath ?? task.finalPath
+  const renameSource = task.diskPath
   await persistDesiredFinalPath(task, desiredFinalPath, deps)
 
   // Refresh byte counters and piece length from aria2 BEFORE
@@ -230,7 +231,7 @@ async function finalizeHttp(
   await deps.adapter.removeDownloadResult(task.engineTaskId)
 
   try {
-    await deps.fs.renameAtomic(task.diskPath, desiredFinalPath)
+    await deps.fs.renameAtomic(renameSource, desiredFinalPath)
   } catch (e) {
     const cause = (e as Error).message
     const errorMessage = `Failed to rename file: ${cause}`
@@ -243,6 +244,20 @@ async function finalizeHttp(
     throw new AppError(ErrorCode.TaskFinalizeRenameFailed, errorMessage, e)
   }
   const completedAt = Date.now()
+
+  // task_files stores aria2's physical path while a direct download is in
+  // progress. Keep that durable structure aligned with the rename so restored
+  // completed tasks no longer point at the retired `.motrix` staging file.
+  // The Files query also projects a logical display name while downloading;
+  // this rebase fixes the underlying persisted path after completion.
+  try {
+    deps.rebaseTaskFilePaths?.(task.id, renameSource, desiredFinalPath)
+  } catch (err) {
+    deps.log.warn(
+      { err, taskId: task.id },
+      'finalize_http_task_file_path_rebase_failed'
+    )
+  }
 
   // Commit staged plugin metadata now that rename succeeded. The SQLite
   // tx body itself is empty here — the rename happened outside the tx

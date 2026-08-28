@@ -97,6 +97,206 @@ describe('getTaskFiles handler', () => {
     expect(result[0]?.completedBytes).toBe(100)
   })
 
+  it.each([TaskType.Http, TaskType.Ftp])(
+    'hides the direct-download staging suffix from persisted %s file rows',
+    async (type) => {
+      const db = {
+        getTaskFiles: vi.fn(() => [
+          {
+            fileIndex: 0,
+            path: 'C:\\Users\\x\\Downloads\\release.motrix.motrix',
+            size: 100,
+            selected: true,
+          },
+        ]),
+      }
+      const taskManager = {
+        getById: vi.fn(() =>
+          mkTask({
+            kind: TaskKind.Direct,
+            type,
+            status: TaskStatus.Paused,
+            saveDir: 'C:\\Users\\x\\Downloads',
+            diskPath: 'C:\\Users\\x\\Downloads\\release.motrix.motrix',
+            finalPath: 'C:\\Users\\x\\Downloads\\release.motrix',
+            finalName: 'release.motrix',
+          })
+        ),
+      }
+      const engine = { getTaskFiles: vi.fn() }
+      const handler = createGetTaskFilesHandler({
+        db,
+        taskManager,
+        engine,
+      } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+      const result = await handler('t1')
+
+      expect(result[0]?.path).toBe('release.motrix')
+      expect(db.getTaskFiles.mock.results[0]?.value[0]?.path).toBe(
+        'C:\\Users\\x\\Downloads\\release.motrix.motrix'
+      )
+      expect(engine.getTaskFiles).not.toHaveBeenCalled()
+    }
+  )
+
+  it('preserves a completed direct-download name that legitimately ends in .motrix', async () => {
+    const finalPath = 'C:\\Users\\x\\Downloads\\release.motrix'
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        {
+          fileIndex: 0,
+          path: finalPath,
+          size: 100,
+          selected: true,
+        },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          kind: TaskKind.Direct,
+          type: TaskType.Http,
+          status: TaskStatus.Completed,
+          saveDir: 'C:\\Users\\x\\Downloads',
+          diskPath: finalPath,
+          finalPath,
+          finalName: 'release.motrix',
+        })
+      ),
+    }
+    const engine = { getTaskFiles: vi.fn() }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+    const result = await handler('t1')
+
+    expect(result[0]?.path).toBe('release.motrix')
+    expect(engine.getTaskFiles).not.toHaveBeenCalled()
+  })
+
+  it('hides the suffix from a legacy completed HTTP row that still points at staging', async () => {
+    const db = {
+      getTaskFiles: vi.fn(() => [
+        {
+          fileIndex: 0,
+          path: 'C:\\Users\\x\\Downloads\\example.zip.motrix',
+          size: 100,
+          selected: true,
+        },
+      ]),
+    }
+    const taskManager = {
+      getById: vi.fn(() =>
+        mkTask({
+          kind: TaskKind.Direct,
+          type: TaskType.Http,
+          status: TaskStatus.Completed,
+          saveDir: 'C:\\Users\\x\\Downloads',
+          diskPath: 'C:\\Users\\x\\Downloads\\example.zip',
+          finalPath: 'C:\\Users\\x\\Downloads\\example.zip',
+          finalName: 'example.zip',
+        })
+      ),
+    }
+    const engine = { getTaskFiles: vi.fn() }
+    const handler = createGetTaskFilesHandler({
+      db,
+      taskManager,
+      engine,
+    } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+    const result = await handler('t1')
+
+    expect(result[0]?.path).toBe('example.zip')
+    expect(engine.getTaskFiles).not.toHaveBeenCalled()
+  })
+
+  it.each([TaskType.Http, TaskType.Ftp])(
+    'hides the direct-download staging suffix in the %s engine fallback',
+    async (type) => {
+      const physicalPath = 'C:\\Users\\x\\Downloads\\example.zip.motrix'
+      const db = { getTaskFiles: vi.fn(() => []) }
+      const taskManager = {
+        getById: vi.fn(() =>
+          mkTask({
+            kind: TaskKind.Direct,
+            type,
+            status: TaskStatus.Downloading,
+            saveDir: 'C:\\Users\\x\\Downloads',
+            diskPath: physicalPath,
+            finalPath: 'C:\\Users\\x\\Downloads\\example.zip',
+            finalName: 'example.zip',
+          })
+        ),
+      }
+      const engine = {
+        getTaskFiles: vi.fn(async () => [
+          {
+            index: 0,
+            path: physicalPath,
+            size: 100,
+            completedBytes: 40,
+            selected: true,
+          },
+        ]),
+      }
+      const handler = createGetTaskFilesHandler({
+        db,
+        taskManager,
+        engine,
+      } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+      const result = await handler('t1')
+
+      expect(result[0]?.path).toBe('example.zip')
+      expect(engine.getTaskFiles).toHaveBeenCalledWith('gid1')
+    }
+  )
+
+  it.each([
+    [TaskType.Bt, TaskKind.Bt],
+    [TaskType.Magnet, TaskKind.Bt],
+    [TaskType.Http, TaskKind.Mux],
+  ])(
+    'preserves a real .motrix payload name for %s/%s tasks',
+    async (type, kind) => {
+      const db = {
+        getTaskFiles: vi.fn(() => [
+          {
+            fileIndex: 0,
+            path: 'C:\\Users\\x\\Downloads\\payload.motrix',
+            size: 100,
+            selected: true,
+          },
+        ]),
+      }
+      const taskManager = {
+        getById: vi.fn(() =>
+          mkTask({
+            kind,
+            type,
+            status: TaskStatus.Paused,
+            saveDir: 'C:\\Users\\x\\Downloads',
+            diskPath: 'C:\\Users\\x\\Downloads\\torrent-staging',
+          })
+        ),
+      }
+      const handler = createGetTaskFilesHandler({
+        db,
+        taskManager,
+        engine: { getTaskFiles: vi.fn() },
+      } as unknown as Parameters<typeof createGetTaskFilesHandler>[0])
+
+      const result = await handler('t1')
+
+      expect(result[0]?.path).toBe('payload.motrix')
+    }
+  )
+
   it('degrades to 0 if engine.getTaskFiles throws', async () => {
     const db = {
       getTaskFiles: vi.fn(() => [
