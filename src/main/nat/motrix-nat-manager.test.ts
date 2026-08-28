@@ -9,6 +9,7 @@ function makeHarness() {
   const offConfig = vi.fn()
   const offReady = vi.fn()
   const offNetwork = vi.fn()
+  const setNetworkRoute = vi.fn()
   const events: NatEvent[] = []
   const pcpMap = vi.fn(async () =>
     mappingSucceeds
@@ -73,6 +74,7 @@ function makeHarness() {
       natPmpGetExternalIp: vi.fn(async () => ({ ok: false })),
       natPmpMap,
       pcpMap,
+      setNetworkRoute,
       setGatewayIp: vi.fn(),
       close: vi.fn(async () => {}),
     },
@@ -95,6 +97,7 @@ function makeHarness() {
     offReady,
     pcpMap,
     readyListeners,
+    setNetworkRoute,
     setEngineReady(value: boolean) {
       engineReady = value
     },
@@ -119,6 +122,10 @@ describe('MotrixNatManager', () => {
       retryAttempt: 0,
     })
     expect(harness.manager.getStatus().activeMappings).toHaveLength(2)
+    expect(harness.setNetworkRoute).toHaveBeenCalledWith({
+      gatewayIp: '192.168.1.1',
+      internalIp: '192.168.1.20',
+    })
     expect(harness.pcpMap).toHaveBeenCalledTimes(2)
     await harness.manager.stop()
   })

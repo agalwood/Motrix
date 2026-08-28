@@ -27,8 +27,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       '@motrix/nat':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.1.1
+        version: 0.1.1
       '@motrix/plugin-manifest-schema':
         specifier: ^2.1.0
         version: 2.1.0
@@ -938,8 +938,8 @@ packages:
   '@motrix/mdxp@0.5.0':
     resolution: {integrity: sha512-DImm/kxsH43PI2IV/p9jbJnlxe+We0wD45eRPuACSCUFKVgUfDeVpjqK76bXK0umO245Z7bjxXr8qm4AcS/ESA==}
 
-  '@motrix/nat@0.1.0':
-    resolution: {integrity: sha512-zyIsKtTyTQi7/Qr0WpM94QdB3WsYjtkwFA9SD5YX52qrf60B/jN43FKA+9aSs17Rg0TCHi6JP74RNYwBQPA6fQ==}
+  '@motrix/nat@0.1.1':
+    resolution: {integrity: sha512-ORkFuNXMLa8yLhlxRmoLh6WSWtOjhJ4q28Dcx4Wt44JSkB60gjNzuBV8CVCy2VtWc2BhxiOlel4f3RhJ7OmaXw==}
     engines: {node: '>=22'}
 
   '@motrix/plugin-manifest-schema@2.1.0':
@@ -5314,7 +5314,7 @@ snapshots:
       vscode-jsonrpc: 9.0.1
       zod: 4.4.3
 
-  '@motrix/nat@0.1.0': {}
+  '@motrix/nat@0.1.1': {}
 
   '@motrix/plugin-manifest-schema@2.1.0':
     dependencies:
