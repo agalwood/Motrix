@@ -27,6 +27,8 @@ pnpm install
 pnpm start
 ```
 
+默认情况下，`pnpm start` 会使用常规 Motrix 配置目录旁独立的用户数据目录（通常为 `Motrix-dev`），避免开发过程修改已安装应用的数据。如需使用其他目录，请在运行 `pnpm start` 前将 `MOTRIX_USER_DATA` 设为该目录的绝对路径。
+
 请从最新的 `main` 创建开发分支，并将 Pull Request 提交到 `main`。`master` 仅保留旧版 v1 代码，已经冻结；请勿向该分支提交新改动。
 
 分支名称使用 `<type>/<snake_case_topic>_<YYYYMMDD>` 格式。如果存在对应 Issue，可以在主题前加入 Issue 编号，例如 `fix/1970_conduct_links_20260826`。
