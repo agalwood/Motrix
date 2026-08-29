@@ -3,10 +3,19 @@ import type { DragState, MarqueeOverlayProps } from './types'
 import { useAutoScroll } from './use-auto-scroll'
 
 const Z_MARQUEE = 10
-const MIN_RECT_SIZE = 0.001
+const MIN_VISIBLE_RECT_SIZE = 0.001
 
-function rectTransform(x: number, y: number, width: number, height: number) {
-  return `translate3d(${x}px, ${y}px, 0) scale(${width}, ${height})`
+function setRectGeometry(
+  box: SVGRectElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  box.setAttribute('x', String(x))
+  box.setAttribute('y', String(y))
+  box.setAttribute('width', String(width))
+  box.setAttribute('height', String(height))
 }
 
 export function MarqueeOverlay(props: MarqueeOverlayProps) {
@@ -57,8 +66,7 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
     if (!box) return
 
     box.style.opacity = '0'
-    box.style.transform = rectTransform(0, 0, MIN_RECT_SIZE, MIN_RECT_SIZE)
-    box.style.willChange = ''
+    setRectGeometry(box, 0, 0, 0, 0)
   }, [])
 
   const paintDragFrame = useCallback(() => {
@@ -73,10 +81,10 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
     const maxY = Math.max(adjustedOriginY, drag.currentY)
     const minX = Math.min(drag.originX, drag.currentX)
     const maxX = Math.max(drag.originX, drag.currentX)
-    const width = Math.max(maxX - minX, MIN_RECT_SIZE)
-    const height = Math.max(maxY - minY, MIN_RECT_SIZE)
+    const width = Math.max(maxX - minX, MIN_VISIBLE_RECT_SIZE)
+    const height = Math.max(maxY - minY, MIN_VISIBLE_RECT_SIZE)
 
-    box.style.transform = rectTransform(minX, minY, width, height)
+    setRectGeometry(box, minX, minY, width, height)
     box.style.opacity = '1'
 
     const range = computeIndices(
@@ -148,9 +156,6 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
         const dy = drag.currentY - drag.originY
         if (Math.sqrt(dx * dx + dy * dy) < minDragDistance) return
         drag.active = true
-        if (boxRef.current) {
-          boxRef.current.style.willChange = 'transform'
-        }
       }
 
       updateAutoScrollPointer(event.clientY, drag.containerRect)
@@ -257,17 +262,14 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
         data-testid="marquee-box"
         x={0}
         y={0}
-        width={1}
-        height={1}
-        vectorEffect="non-scaling-stroke"
+        width={0}
+        height={0}
         style={{
-          fill: 'color-mix(in srgb, var(--color-primary, #2563eb) 22%, transparent)',
-          stroke: 'var(--color-primary, #2563eb)',
-          strokeWidth: 1.5,
+          fill: 'color-mix(in oklab, var(--color-ring, currentColor) 12%, transparent)',
+          stroke:
+            'color-mix(in oklab, var(--color-ring, currentColor) 78%, var(--color-foreground, currentColor))',
+          strokeWidth: 1,
           opacity: 0,
-          transform: rectTransform(0, 0, MIN_RECT_SIZE, MIN_RECT_SIZE),
-          transformBox: 'fill-box',
-          transformOrigin: '0 0',
         }}
       />
     </svg>
