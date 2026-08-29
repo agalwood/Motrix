@@ -70,12 +70,31 @@ function pathIsInside(root: string, candidate: string): boolean {
   )
 }
 
+async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel()
+  } catch {
+    // Preserve the install error if cancellation races a closed/erroring body.
+  }
+}
+
+async function cancelReader(
+  reader: ReadableStreamDefaultReader<Uint8Array>
+): Promise<void> {
+  try {
+    await reader.cancel()
+  } catch {
+    // Cancellation is best-effort and must not mask the bounded-read error.
+  }
+}
+
 async function readResponseBounded(response: Response): Promise<Buffer> {
   const declaredLength = Number(response.headers.get('content-length'))
   if (
     Number.isFinite(declaredLength) &&
     declaredLength > MAX_PLUGIN_PACKAGE_BYTES
   ) {
+    await cancelResponseBody(response)
     throw new AppError(
       ErrorCode.PluginManifestInvalid,
       'plugin.install.package_too_large'
@@ -91,18 +110,24 @@ async function readResponseBounded(response: Response): Promise<Buffer> {
   const chunks: Uint8Array[] = []
   let total = 0
   const reader = response.body.getReader()
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    total += value.byteLength
-    if (total > MAX_PLUGIN_PACKAGE_BYTES) {
-      await reader.cancel()
-      throw new AppError(
-        ErrorCode.PluginManifestInvalid,
-        'plugin.install.package_too_large'
-      )
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_PLUGIN_PACKAGE_BYTES) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.install.package_too_large'
+        )
+      }
+      chunks.push(value)
     }
-    chunks.push(value)
+  } catch (cause) {
+    await cancelReader(reader)
+    throw cause
+  } finally {
+    reader.releaseLock()
   }
   return Buffer.concat(chunks, total)
 }
@@ -162,6 +187,7 @@ export class ServerPluginInstallService {
         const url = this.parseHttpUrl(payload.url)
         const response = await this.fetchImpl(url, { redirect: 'follow' })
         if (!response.ok) {
+          await cancelResponseBody(response)
           throw new AppError(
             ErrorCode.PluginManifestInvalid,
             `plugin.install.url_download_failed: ${response.status}`

@@ -99,6 +99,44 @@ jobs:
           src/core/plugin/update/builtin-updater.test.ts
           src/core/plugin/update/signature.test.ts
 
+      # The runtime test repeats the real loopback proxy probe under Electron's
+      # embedded Node via ELECTRON_RUN_AS_NODE; keep the hydrated runtime above.
+      - name: Undici proxy compatibility (Node + Electron)
+        run: >-
+          pnpm exec vitest run
+          src/core/engine/aria2/aria2-adapter.test.ts
+          src/core/engine/aria2/aria2-config-builder.test.ts
+          src/core/engine/aria2/aria2-process-manager.test.ts
+          src/core/engine/aria2/aria2-trust-store.test.ts
+          src/core/engine/engine-supervisor.test.ts
+          src/core/proxy/applied-download-proxy-policy.test.ts
+          src/core/proxy/applier.test.ts
+          src/core/proxy/aria2-proxy-routing.test.ts
+          src/core/proxy/serializers.test.ts
+          src/core/session/session-manager.test.ts
+          src/core/task/actions/re-add-task.test.ts
+          src/core/task/create-task-handler.test.ts
+          src/core/task/direct-resource-validator.test.ts
+          src/core/task/direct-resource-validator.proxy-contract.test.ts
+          src/core/task/direct-resource-validator.proxy.test.ts
+          src/core/tracker/tracker-prober.test.ts
+          src/core/tracker/tracker-syncer.test.ts
+          src/main/ipc/commands.test.ts
+          src/server/ipc/commands.test.ts
+        env:
+          MOTRIX_REQUIRE_ELECTRON_PROXY_TEST: '1'
+
+      - name: Undici response and dispatcher lifecycle
+        run: >-
+          pnpm exec vitest run
+          src/core/geoip/geo-ip-downloader.test.ts
+          src/core/media/manifest-fetcher.test.ts
+          src/core/plugin/capabilities/http.proxy-lifecycle.test.ts
+          src/core/plugin/install/github-fetcher.test.ts
+          src/core/plugin/install/url-fetcher.test.ts
+          src/core/plugin/registry/registry-client.test.ts
+          src/server/plugin/install-service.test.ts
+
       - name: Schema parity check
         run: pnpm run check:schema-parity
 

@@ -15,7 +15,8 @@ export function buildDirectReplayRecipe(
   params: Pick<
     CreateDownloadParams,
     'connections' | 'headers' | 'proxy' | 'extraEngineOptions'
-  >
+  >,
+  ambientEngineRequestOptions = false
 ): DirectReplayRecipe {
   const requestModifiers: DirectReplayRequestModifier[] = []
 
@@ -23,6 +24,9 @@ export function buildDirectReplayRecipe(
   if (hasText(params.proxy)) requestModifiers.push('proxy')
   if (hasEntries(params.extraEngineOptions)) {
     requestModifiers.push('extraEngineOptions')
+  }
+  if (ambientEngineRequestOptions) {
+    requestModifiers.push('engineGlobalOptions')
   }
 
   return {
@@ -41,5 +45,5 @@ function hasEntries(value: object | undefined): boolean {
 }
 
 function hasText(value: string | undefined): boolean {
-  return value !== undefined && value.length > 0
+  return value !== undefined && value.trim().length > 0
 }

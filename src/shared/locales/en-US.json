@@ -1343,7 +1343,7 @@
         "showPassword": "Show password",
         "hidePassword": "Hide password",
         "bypass": "Bypass list",
-        "bypassDesc": "One host per line. Wildcards like `*.local` are allowed.",
+        "bypassDesc": "One exact host or CIDR per line. Use a leading dot like `.local` for subdomains (not the root domain); `*` wildcards are not supported for downloads.",
         "bypassScopeNote": "Downloads + App update only",
         "scopes": "Apply to",
         "scopesDesc": "Choose which kinds of traffic go through the proxy.",

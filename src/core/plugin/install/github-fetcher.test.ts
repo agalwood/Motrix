@@ -147,9 +147,11 @@ describe('downloadGithubMoext', () => {
   })
 
   it('rejects when GitHub returns non-200', async () => {
-    mockRequest.mockResolvedValueOnce(
-      jsonResponse({ message: 'not found' }, 404)
-    )
+    const destroy = vi.fn()
+    mockRequest.mockResolvedValueOnce({
+      statusCode: 404,
+      body: { json: async () => ({ message: 'not found' }), destroy },
+    })
     await expect(
       downloadGithubMoext(
         { owner: 'acme', repo: 'widget' },
@@ -158,6 +160,29 @@ describe('downloadGithubMoext', () => {
     ).rejects.toMatchObject({
       message: 'plugin.install.gh_release_unavailable: 404',
     })
+    expect(destroy).toHaveBeenCalledOnce()
+  })
+
+  it('cancels the metadata body when JSON decoding fails', async () => {
+    const destroy = vi.fn()
+    mockRequest.mockResolvedValueOnce({
+      statusCode: 200,
+      body: {
+        json: async () => {
+          throw new SyntaxError('invalid JSON')
+        },
+        destroy,
+      },
+    })
+
+    await expect(
+      downloadGithubMoext(
+        { owner: 'acme', repo: 'widget' },
+        path.join(tmp, 'x.moext')
+      )
+    ).rejects.toThrow('invalid JSON')
+
+    expect(destroy).toHaveBeenCalledOnce()
   })
 
   it('rejects when no asset ends with .moext', async () => {
@@ -181,6 +206,9 @@ describe('downloadGithubMoext', () => {
   })
 
   it('rejects when asset download itself fails', async () => {
+    const failedBody = Readable.from(Buffer.alloc(0))
+    const once = vi.spyOn(failedBody, 'once')
+    const destroy = vi.spyOn(failedBody, 'destroy')
     mockRequest
       .mockResolvedValueOnce(
         jsonResponse({
@@ -193,7 +221,7 @@ describe('downloadGithubMoext', () => {
           ],
         })
       )
-      .mockResolvedValueOnce(streamResponse(Buffer.alloc(0), 500))
+      .mockResolvedValueOnce({ statusCode: 500, body: failedBody, headers: {} })
     await expect(
       downloadGithubMoext(
         { owner: 'acme', repo: 'widget' },
@@ -201,6 +229,51 @@ describe('downloadGithubMoext', () => {
       )
     ).rejects.toMatchObject({
       message: 'plugin.install.gh_asset_download_failed: 500',
+    })
+    expect(once).toHaveBeenCalledWith('error', expect.any(Function))
+    expect(destroy).toHaveBeenCalledOnce()
+    expect(once.mock.invocationCallOrder[0]).toBeLessThan(
+      destroy.mock.invocationCallOrder[0] as number
+    )
+  })
+
+  it('cancels a failing asset stream and removes any destination file', async () => {
+    let emitted = false
+    const failedBody = new Readable({
+      read() {
+        if (emitted) return
+        emitted = true
+        this.push(Buffer.from('partial'))
+        this.destroy(new Error('asset stream failed'))
+      },
+    })
+    const destroy = vi.spyOn(failedBody, 'destroy')
+    mockRequest
+      .mockResolvedValueOnce(
+        jsonResponse({
+          tag_name: 'v0.1.0',
+          assets: [
+            {
+              name: 'x.moext',
+              browser_download_url: 'https://gh/assets/x.moext',
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        body: failedBody,
+        headers: {},
+      })
+    const destination = path.join(tmp, 'x.moext')
+
+    await expect(
+      downloadGithubMoext({ owner: 'acme', repo: 'widget' }, destination)
+    ).rejects.toThrow('asset stream failed')
+
+    expect(destroy).toHaveBeenCalled()
+    await expect(readFile(destination)).rejects.toMatchObject({
+      code: 'ENOENT',
     })
   })
 

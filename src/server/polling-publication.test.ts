@@ -38,7 +38,7 @@ describe('server poll tick publication', () => {
       path.resolve(process.cwd(), 'src/server/index.ts'),
       'utf8'
     )
-    const restore = source.indexOf('await sessionManager.restore()')
+    const restore = source.indexOf('await sessionManager.restore(')
     const recovery = source.indexOf('recoveryService.recoverOnStartup()')
     const publish = source.indexOf('publishTaskUpdateNow()', recovery)
 

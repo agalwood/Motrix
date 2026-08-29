@@ -1330,7 +1330,7 @@
         "showPassword": "显示密码",
         "hidePassword": "隐藏密码",
         "bypass": "绕过列表",
-        "bypassDesc": "每行一台主机，支持 `*.local` 通配符。",
+        "bypassDesc": "每行填写一个精确主机或 CIDR。用 `.local` 这样的前导点匹配子域（不含根域）；下载代理不支持 `*` 通配符。",
         "bypassScopeNote": "仅作用于下载与应用更新",
         "scopes": "应用于",
         "scopesDesc": "选择哪些流量通过代理。",

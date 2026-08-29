@@ -19,11 +19,24 @@ describe('fetchManifest', () => {
   })
 
   it('throws with the status on non-2xx', async () => {
-    const fetchImpl = vi.fn(async () => new Response('no', { status: 403 }))
+    const cancel = vi.fn()
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('no'))
+            },
+            cancel,
+          }),
+          { status: 403 }
+        )
+    )
     await expect(
       fetchManifest('https://h.example/m.m3u8', {
         fetchImpl: fetchImpl as unknown as typeof fetch,
       })
     ).rejects.toThrow(/403/)
+    expect(cancel).toHaveBeenCalledOnce()
   })
 })

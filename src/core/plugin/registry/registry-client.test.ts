@@ -254,6 +254,26 @@ describe('RegistryClient', () => {
     expect(await makeClient(impl).load()).toBeNull()
   })
 
+  it('cancels a non-ok registry response body', async () => {
+    const cancel = vi.fn()
+    const impl = vi.fn(async () =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('server error'))
+            },
+            cancel,
+          }),
+          { status: 500 }
+        )
+      )
+    ) as unknown as typeof fetch
+
+    expect(await makeClient(impl).load()).toBeNull()
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
   it('rejects an oversized Content-Length before reading the body', async () => {
     let signal: AbortSignal | undefined
     let cancelled = false
@@ -357,6 +377,40 @@ describe('RegistryClient', () => {
 
     expect(await pending).toBeNull()
     expect(signal?.aborted).toBe(true)
+  })
+
+  it('cancels a late response from a fetch implementation that ignores abort', async () => {
+    vi.useFakeTimers()
+    let resolveResponse!: (response: Response) => void
+    const deferred = new Promise<Response>((resolve) => {
+      resolveResponse = resolve
+    })
+    const impl = vi.fn(() => deferred) as unknown as typeof fetch
+    const client = makeClient(impl, {
+      statImpl: async () => {
+        throw new Error('no cache')
+      },
+    })
+
+    const pending = client.load()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(await pending).toBeNull()
+
+    const cancel = vi.fn()
+    resolveResponse(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{}'))
+          },
+          cancel,
+        })
+      )
+    )
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(cancel).toHaveBeenCalledOnce()
   })
 
   it('annotates entries with the host compatibility gate', async () => {

@@ -264,6 +264,8 @@ describe('Aria2ProcessManager', () => {
         '--rpc-listen-port=16800',
         '--rpc-secret=test',
         '--all-proxy=http://local-user:local-password@127.0.0.1:43123',
+        '--all-proxy-user=local-user',
+        '--all-proxy-passwd=local-password',
       ]
       const spawnPromise = manager.spawn('/usr/bin/aria2c', args)
 
@@ -284,6 +286,8 @@ describe('Aria2ProcessManager', () => {
             '--rpc-listen-port=16800',
             '--rpc-secret=<redacted>',
             '--all-proxy=<redacted>',
+            '--all-proxy-user=<redacted>',
+            '--all-proxy-passwd=<redacted>',
           ],
         },
         'aria2 process spawned'
@@ -345,6 +349,8 @@ describe('Aria2ProcessManager', () => {
       const args = [
         '--rpc-secret=rpc-secret-value',
         '--all-proxy=http://local-user:local-password@127.0.0.1:43123',
+        '--all-proxy-user=local-user',
+        '--all-proxy-passwd=local-password',
       ]
       await manager.spawn('/missing/aria2c', args)
 
@@ -362,8 +368,13 @@ describe('Aria2ProcessManager', () => {
           err: expect.objectContaining({
             code: 'ENOENT',
             message:
-              'spawn failed: --rpc-secret=<redacted> --all-proxy=<redacted>',
-            spawnargs: ['--rpc-secret=<redacted>', '--all-proxy=<redacted>'],
+              'spawn failed: --rpc-secret=<redacted> --all-proxy=<redacted> --all-proxy-user=<redacted> --all-proxy-passwd=<redacted>',
+            spawnargs: [
+              '--rpc-secret=<redacted>',
+              '--all-proxy=<redacted>',
+              '--all-proxy-user=<redacted>',
+              '--all-proxy-passwd=<redacted>',
+            ],
           }),
         },
         'aria2 process error'
@@ -383,6 +394,8 @@ describe('Aria2ProcessManager', () => {
       const sensitiveArgs = [
         '--rpc-secret=rpc-secret-value',
         '--all-proxy=http://local-user:local-password@127.0.0.1:43123',
+        '--all-proxy-user=local-user',
+        '--all-proxy-passwd=local-password',
       ]
       await manager.spawn('/usr/bin/aria2c', sensitiveArgs)
       const firstStderrHandler = firstChild.stderr.on.mock.calls[0]?.[1]
@@ -396,6 +409,10 @@ describe('Aria2ProcessManager', () => {
       )
       expect(manager.getRecentStderr()).toContain('--rpc-secret=<redacted>')
       expect(manager.getRecentStderr()).toContain('--all-proxy=<redacted>')
+      expect(manager.getRecentStderr()).toContain('--all-proxy-user=<redacted>')
+      expect(manager.getRecentStderr()).toContain(
+        '--all-proxy-passwd=<redacted>'
+      )
       expect(manager.getRecentStderr()).not.toContain('rpc-secret-value')
       expect(manager.getRecentStderr()).not.toContain('local-password')
 

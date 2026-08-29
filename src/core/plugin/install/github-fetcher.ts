@@ -67,11 +67,20 @@ async function cancelBody(body: unknown): Promise<void> {
   const stream = body as {
     destroy?: (error?: Error) => unknown
     cancel?: (reason?: unknown) => Promise<void>
+    once?: (event: 'error', listener: () => void) => unknown
   }
-  if (typeof stream.destroy === 'function') {
-    stream.destroy()
-  } else if (typeof stream.cancel === 'function') {
-    await stream.cancel().catch(() => undefined)
+  try {
+    if (typeof stream.destroy === 'function') {
+      // Undici BodyReadable emits RequestAbortedError asynchronously for an
+      // intentional destroy. Swallow that cleanup signal without waiting for
+      // a close event that can itself depend on dispatcher teardown.
+      stream.once?.('error', () => undefined)
+      stream.destroy()
+    } else if (typeof stream.cancel === 'function') {
+      await stream.cancel()
+    }
+  } catch {
+    // Response cleanup is best-effort and must not mask the install error.
   }
 }
 
@@ -109,12 +118,19 @@ export async function downloadGithubMoext(
     },
   })
   if (meta.statusCode !== 200) {
+    await cancelBody(meta.body)
     throw new AppError(
       ErrorCode.PluginManifestInvalid,
       `plugin.install.gh_release_unavailable: ${meta.statusCode}`
     )
   }
-  const body = (await meta.body.json()) as GhReleaseResponse
+  let body: GhReleaseResponse
+  try {
+    body = (await meta.body.json()) as GhReleaseResponse
+  } catch (cause) {
+    await cancelBody(meta.body)
+    throw cause
+  }
   const asset = body.assets.find((a) => a.name.endsWith('.moext'))
   if (!asset) {
     throw new AppError(
@@ -158,6 +174,7 @@ export async function downloadGithubMoext(
     assetUrl = resolveHttpsRedirect(location, assetUrl)
   }
   if (dl.statusCode !== 200) {
+    await cancelBody(dl.body)
     throw new AppError(
       ErrorCode.PluginManifestInvalid,
       `plugin.install.gh_asset_download_failed: ${dl.statusCode}`
@@ -179,6 +196,7 @@ export async function downloadGithubMoext(
     }
     await writeFile(destFile, Buffer.concat(chunks, total), { mode: 0o600 })
   } catch (cause) {
+    await cancelBody(dl.body)
     await rm(destFile, { force: true }).catch(() => undefined)
     throw cause
   }

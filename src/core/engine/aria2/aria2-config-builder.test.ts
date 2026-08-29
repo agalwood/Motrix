@@ -732,20 +732,176 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--no-proxy=localhost,127.0.0.1')
     })
 
-    it('omits --no-proxy when bypass empty', () => {
+    it('clears --no-proxy when bypass is empty', () => {
       const args = buildArgs(makeEngineSettings(), true, baseProxy, {
         download: 0,
         upload: 0,
       })
-      expect(args.some((a) => a.startsWith('--no-proxy='))).toBe(false)
+      expect(args).toContain('--no-proxy=')
     })
 
-    it('omits proxy args when proxy is null', () => {
+    it('explicitly clears all proxy sources when proxy is null', () => {
       const args = buildArgs(makeEngineSettings(), true, null, {
         download: 0,
         upload: 0,
       })
-      expect(args.some((a) => a.startsWith('--all-proxy='))).toBe(false)
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '--all-proxy=',
+          '--http-proxy=',
+          '--http-proxy-user=',
+          '--http-proxy-passwd=',
+          '--https-proxy=',
+          '--https-proxy-user=',
+          '--https-proxy-passwd=',
+          '--ftp-proxy=',
+          '--ftp-proxy-user=',
+          '--ftp-proxy-passwd=',
+          '--all-proxy-user=',
+          '--all-proxy-passwd=',
+          '--no-proxy=',
+          '--proxy-method=get',
+        ])
+      )
+    })
+
+    it('clears protocol-specific proxies even when all-proxy is enabled', () => {
+      const args = buildArgs(makeEngineSettings(), true, baseProxy, {
+        download: 0,
+        upload: 0,
+      })
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '--http-proxy=',
+          '--http-proxy-user=',
+          '--http-proxy-passwd=',
+          '--https-proxy=',
+          '--https-proxy-user=',
+          '--https-proxy-passwd=',
+          '--ftp-proxy=',
+          '--ftp-proxy-user=',
+          '--ftp-proxy-passwd=',
+        ])
+      )
+    })
+
+    it('pins decoded proxy credentials against stale aria2.conf values', () => {
+      const args = buildArgs(
+        makeEngineSettings(),
+        true,
+        {
+          allProxy: 'http://a%40b:p%3As@p.example.com:8080',
+          noProxy: '',
+        },
+        { download: 0, upload: 0 }
+      )
+
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '--all-proxy=http://p.example.com:8080',
+          '--all-proxy-user=a@b',
+          '--all-proxy-passwd=p:s',
+          '--proxy-method=get',
+        ])
+      )
+    })
+
+    it('accepts equivalent expanded IPv6 proxy authorities', () => {
+      const args = buildArgs(
+        makeEngineSettings(),
+        true,
+        {
+          allProxy: 'http://user:pass@[0:0:0:0:0:0:0:1]:8080',
+          noProxy: '',
+        },
+        { download: 0, upload: 0 }
+      )
+
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '--all-proxy=http://[0:0:0:0:0:0:0:1]:8080',
+          '--all-proxy-user=user',
+          '--all-proxy-passwd=pass',
+        ])
+      )
+    })
+
+    it('preserves an aria2-compatible legacy IPv4 proxy authority', () => {
+      const args = buildArgs(
+        makeEngineSettings(),
+        true,
+        {
+          allProxy: 'http://user:pass@127.1:8080',
+          noProxy: '',
+        },
+        { download: 0, upload: 0 }
+      )
+
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '--all-proxy=http://127.1:8080',
+          '--all-proxy-user=user',
+          '--all-proxy-passwd=pass',
+        ])
+      )
+    })
+
+    it('rejects a raw line break in no-proxy before aria2 reparses argv', () => {
+      expect(() =>
+        buildArgs(
+          makeEngineSettings(),
+          true,
+          {
+            allProxy: 'http://p.example.com:8080',
+            noProxy: 'localhost\nhttp-proxy=http://evil:8080',
+          },
+          { download: 0, upload: 0 }
+        )
+      ).toThrow('aria2 option values must not contain CR or LF')
+    })
+
+    it('rejects percent-encoded control characters in proxy credentials', () => {
+      expect(() =>
+        buildArgs(
+          makeEngineSettings(),
+          true,
+          {
+            allProxy:
+              'http://user%0Ahttp-proxy%3Dhttp%3A%2F%2Fevil:pass@p.example.com:8080',
+            noProxy: '',
+          },
+          { download: 0, upload: 0 }
+        )
+      ).toThrow('Unsupported aria2 proxy credentials')
+    })
+  })
+
+  describe('argv line integrity', () => {
+    it.each([
+      ['RPC secret', { rpcSecret: 'secret\nrpc-listen-all=true' }],
+      ['User-Agent', { userAgent: 'Motrix\nhttp-proxy=http://evil' }],
+    ])('rejects a line break in %s', (_label, overrides) => {
+      expect(() =>
+        builder.buildArgs(
+          makeEngineSettings(overrides),
+          true,
+          null,
+          { download: 0, upload: 0 },
+          DEFAULT_SAVE_DIR
+        )
+      ).toThrow('aria2 option values must not contain CR or LF')
+    })
+
+    it('rejects a line break in a path option', () => {
+      expect(() =>
+        builder.buildArgs(
+          makeEngineSettings(),
+          true,
+          null,
+          { download: 0, upload: 0 },
+          '/downloads\nhttp-proxy=http://evil'
+        )
+      ).toThrow('aria2 option values must not contain CR or LF')
     })
   })
 
@@ -782,6 +938,16 @@ describe('Aria2ConfigBuilder', () => {
         upload: 0,
       })
       expect(args).toContain('--bt-seed-unverified=false')
+    })
+
+    it('pins the HTTP headers mirrored by direct-resource metadata requests', () => {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+        download: 0,
+        upload: 0,
+      })
+
+      expect(args).toContain('--http-accept-gzip=true')
+      expect(args).toContain('--no-want-digest-header=false')
     })
 
     it('sets bt-remove-unselected-file=true so partial placeholders are cleaned by aria2', () => {

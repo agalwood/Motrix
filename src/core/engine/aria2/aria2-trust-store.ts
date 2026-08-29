@@ -7,6 +7,13 @@ import writeFileAtomic from 'write-file-atomic'
 const log = getLogger('aria2')
 
 const CA_BUNDLE_FILENAME = 'aria2-ca-bundle.pem'
+const PROXY_ENVIRONMENT_KEYS = new Set([
+  'http_proxy',
+  'https_proxy',
+  'ftp_proxy',
+  'all_proxy',
+  'no_proxy',
+])
 
 type Aria2CertificateSource = 'system' | 'bundled'
 
@@ -22,6 +29,14 @@ function normalizeCertificates(certificates: string[]): string[] {
       certificates.map((certificate) => certificate.trim()).filter(Boolean)
     ),
   ]
+}
+
+function withoutProxyEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      ([key]) => !PROXY_ENVIRONMENT_KEYS.has(key.toLowerCase())
+    )
+  )
 }
 
 export class Aria2TrustStore {
@@ -40,12 +55,16 @@ export class Aria2TrustStore {
     this.bundlePath = path.join(userConfigDir, CA_BUNDLE_FILENAME)
   }
 
-  async prepareEnvironment(): Promise<NodeJS.ProcessEnv | undefined> {
-    if (this.platform !== 'linux') return undefined
+  async prepareEnvironment(): Promise<NodeJS.ProcessEnv> {
+    // Motrix's applied proxy policy must be the only source of aria2 routing.
+    // aria2 otherwise imports protocol-specific proxy environment variables,
+    // which can override both all-proxy and the metadata client's route.
+    const childEnvironment = withoutProxyEnvironment(this.env)
+    if (this.platform !== 'linux') return childEnvironment
 
     if (this.env.SSL_CERT_FILE?.trim() || this.env.SSL_CERT_DIR?.trim()) {
       log.info('using caller-provided OpenSSL trust store for aria2')
-      return this.env
+      return childEnvironment
     }
 
     let certificates: string[] = []
@@ -78,7 +97,7 @@ export class Aria2TrustStore {
     )
 
     return {
-      ...this.env,
+      ...childEnvironment,
       SSL_CERT_FILE: this.bundlePath,
     }
   }

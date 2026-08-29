@@ -15,6 +15,14 @@ describe('direct replay recipe', () => {
     expect(parseDirectReplayRecipe({ directReplay: recipe })).toEqual(recipe)
   })
 
+  it('treats a whitespace-only proxy as no request modifier', () => {
+    expect(buildDirectReplayRecipe({ proxy: '  \t ' })).toEqual({
+      version: 1,
+      requestModifiers: [],
+      replayability: 'uri-only',
+    })
+  })
+
   it('records only modifier categories and never their sensitive values', () => {
     const secrets = [
       'Bearer AUTH_SECRET',
@@ -38,6 +46,14 @@ describe('direct replay recipe', () => {
     })
     const serialized = JSON.stringify(recipe)
     for (const secret of secrets) expect(serialized).not.toContain(secret)
+  })
+
+  it('records an unsafe ambient engine profile without persisting its values', () => {
+    expect(buildDirectReplayRecipe({}, true)).toEqual({
+      version: 1,
+      requestModifiers: ['engineGlobalOptions'],
+      replayability: 'requires-credentials',
+    })
   })
 
   it('accepts a bounded non-secret resource validator on a uri-only recipe', () => {

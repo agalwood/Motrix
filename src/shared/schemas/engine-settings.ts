@@ -11,6 +11,15 @@ export { MAX_CONNECTIONS_PER_SERVER } from '../constants/engine-performance-prof
 
 const AUTO_PERFORMANCE = ENGINE_PERFORMANCE_PROFILES.auto
 
+const controlFreeString = () =>
+  z.string().refine((value) => {
+    for (const character of value) {
+      const codePoint = character.codePointAt(0) ?? 0
+      if (codePoint <= 0x1f || codePoint === 0x7f) return false
+    }
+    return true
+  })
+
 export const engineSettingsSchema = z
   .object({
     // RPC & engine startup (RESTART)
@@ -18,7 +27,7 @@ export const engineSettingsSchema = z
     // Missing/invalid persisted values are a first-run sentinel seeded by
     // SettingsManager while loading; live updates reject non-strings. An
     // explicitly persisted empty string disables tokens.
-    rpcSecret: z.string().catch(''),
+    rpcSecret: controlFreeString().catch(''),
     listenPort: z.number().int().min(1024).max(65535).catch(6881),
     dhtListenPort: z.number().int().min(1024).max(65535).catch(6881),
     dhtEnabled: z.boolean().catch(true),
@@ -36,7 +45,7 @@ export const engineSettingsSchema = z
     minSplitSize: z.number().min(1048576).catch(AUTO_PERFORMANCE.minSplitSize),
 
     // Network reliability (HOT)
-    userAgent: z.string().catch('Motrix/2.0'),
+    userAgent: controlFreeString().catch('Motrix/2.0'),
     connectTimeout: z.number().int().min(1).max(600).catch(30),
     socketTimeout: z.number().int().min(1).max(600).catch(30),
     maxTries: z.number().int().min(0).max(100).catch(5),

@@ -52,6 +52,7 @@ import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
@@ -624,6 +625,7 @@ async function main() {
     }
   }
   const proxyBridge = new ProxyBridgeManager()
+  const appliedDownloadProxyPolicy = new AppliedDownloadProxyPolicy()
   const supervisor = new EngineSupervisor(
     eventBus,
     settingsManager,
@@ -632,7 +634,8 @@ async function main() {
     trustStore,
     rpcClient,
     adapter,
-    proxyBridge
+    proxyBridge,
+    appliedDownloadProxyPolicy
   )
   shutdownActions.stopEngine = async () => {
     try {
@@ -641,7 +644,21 @@ async function main() {
       await proxyBridge.close()
     }
   }
-  const sessionManager = new SessionManager(taskManager, rpcClient, db, adapter)
+  const sessionManager = new SessionManager(
+    taskManager,
+    rpcClient,
+    db,
+    adapter,
+    undefined,
+    undefined,
+    undefined,
+    () => {
+      const snapshot = appliedDownloadProxyPolicy.snapshot()
+      return snapshot
+        ? { ...snapshot, userAgent: settingsManager.getEngine().userAgent }
+        : null
+    }
+  )
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
   const persistTaskWithOccurrence =
@@ -929,6 +946,7 @@ async function main() {
     fileCleanupService,
     eventBus,
     proxyApplier,
+    appliedDownloadProxyPolicy,
     motrixDatabase: db,
     notificationCenter,
     taskPersistence: sessionManager,
@@ -1131,13 +1149,15 @@ async function main() {
       })
     }
 
-    runShellAsyncWork('initial proxy apply', async () => {
-      try {
-        await proxyApplier.applyAll(settingsManager.getProxy())
-      } catch (err) {
-        log.warn({ err }, 'initial proxy apply failed')
-      }
-    })
+    try {
+      const initialProxySettings = settingsManager.getProxy()
+      await appliedDownloadProxyPolicy.applyTransition(() =>
+        proxyApplier.applyAll(initialProxySettings)
+      )
+    } catch (err) {
+      log.warn({ err }, 'initial proxy apply failed')
+    }
+    if (!shellAsyncWork.isAccepting()) return
     runShellAsyncWork('tracker manager init', async () => {
       try {
         await trackerManager.init()
@@ -1270,9 +1290,12 @@ async function main() {
         dnsFallbackConsumer.consume
       )
 
-      await sessionManager.restore()
-      if (!shellAsyncWork.isAccepting()) return
-      await sessionManager.recoverLegacyTaskLost()
+      await appliedDownloadProxyPolicy.runWithSnapshot(
+        async (_snapshot, lease) => {
+          await sessionManager.restore(lease.assertCurrent)
+          await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
+        }
+      )
       if (!shellAsyncWork.isAccepting()) return
 
       // Plan B: re-prime MagnetTracker's in-memory cache from the
@@ -1453,6 +1476,7 @@ async function main() {
       const createTaskDeps = {
         adapter,
         directResourceValidator: new DirectResourceValidatorService(),
+        directResourceProxyPolicy: appliedDownloadProxyPolicy,
         settingsManager,
         finalNamePicker,
         torrentMetaStore,
@@ -1478,6 +1502,7 @@ async function main() {
         ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
         waitForEngineReady: () =>
           supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+        assertEngineReady: () => supervisor.assertReady(),
         prepareSaveDir: (requested: string) =>
           downloadPathPolicy.prepareSaveDir(requested),
         reuseExistingBt: (taskId: string) =>
@@ -1502,6 +1527,16 @@ async function main() {
         ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
         publishTaskUpdate,
         publishTaskUpdateNow,
+        getDirectResourceProxyOptions: () => {
+          const snapshot = appliedDownloadProxyPolicy.snapshot()
+          return snapshot
+            ? {
+                ...snapshot,
+                userAgent: settingsManager.getEngine().userAgent,
+              }
+            : null
+        },
+        directResourceProxyPolicy: appliedDownloadProxyPolicy,
       }
       const mdxpPort = parseServerPort(
         process.env.MOTRIX_MDXP_PORT,

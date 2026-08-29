@@ -21,6 +21,10 @@ import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
+import {
+  type AppliedDownloadProxyPolicy,
+  UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
+} from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import type { SettingsManager } from '@core/settings/settings-manager'
@@ -100,6 +104,7 @@ export interface ServerCommandContext {
   fileCleanupService: FileCleanupService
   eventBus: EventBus
   proxyApplier: ReturnType<typeof createServerProxyApplier>
+  appliedDownloadProxyPolicy: AppliedDownloadProxyPolicy
   motrixDatabase: MotrixDatabase
   notificationCenter: NotificationCenter
   taskPersistence: Pick<SessionManager, 'runExclusivePersistence'>
@@ -158,6 +163,7 @@ export function buildServerCommandHandlers(
     fileCleanupService,
     eventBus,
     proxyApplier,
+    appliedDownloadProxyPolicy,
     motrixDatabase,
     notificationCenter,
     taskPersistence,
@@ -220,6 +226,8 @@ export function buildServerCommandHandlers(
   const createDeps: CreateTaskDeps = {
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
+    directResourceProxyPolicy:
+      appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
     settingsManager,
     finalNamePicker,
     torrentMetaStore,
@@ -241,6 +249,7 @@ export function buildServerCommandHandlers(
     runTaskMutation,
     waitForEngineReady: () =>
       supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+    assertEngineReady: () => supervisor.assertReady(),
     prepareSaveDir: (requested: string) =>
       downloadPathPolicy.prepareSaveDir(requested),
   }
@@ -286,6 +295,16 @@ export function buildServerCommandHandlers(
     runTaskMutation,
     publishTaskUpdate,
     publishTaskUpdateNow,
+    getDirectResourceProxyOptions: () => {
+      const snapshot = (
+        appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY
+      ).snapshot()
+      return snapshot
+        ? { ...snapshot, userAgent: settingsManager.getEngine().userAgent }
+        : null
+    },
+    directResourceProxyPolicy:
+      appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
   // The DNS fallback consumer retries through the same deps bundle as
@@ -626,14 +645,31 @@ export function buildServerCommandHandlers(
           app: { ...saveDirPatch.data.app, defaultSaveDir },
         }
       }
+      const proxySubmitted =
+        typeof validatedPartial === 'object' &&
+        validatedPartial !== null &&
+        Object.hasOwn(validatedPartial, 'proxy')
       const oldFull = settingsManager.get()
       const result = await settingsManager.update(
         validatedPartial as Parameters<typeof settingsManager.update>[0]
       )
       const newFull = settingsManager.get()
 
-      if (proxyChanged(oldFull.proxy, newFull.proxy)) {
-        await proxyApplier.apply(oldFull.proxy, newFull.proxy)
+      const proxySettingsChanged = proxyChanged(oldFull.proxy, newFull.proxy)
+      if (
+        proxySettingsChanged ||
+        proxySubmitted ||
+        appliedDownloadProxyPolicy.snapshot() === null
+      ) {
+        await appliedDownloadProxyPolicy.applyTransition(() => {
+          const latestProxy = settingsManager.get().proxy
+          // Re-check after acquiring the writer, then reassert the entire
+          // latest proxy state. Incremental command-local diffs lose updates
+          // when concurrent commands modify different proxy scopes.
+          return proxyChanged(newFull.proxy, latestProxy)
+            ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
+            : proxyApplier.applyAll(latestProxy)
+        })
       }
 
       if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {

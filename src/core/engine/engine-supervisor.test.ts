@@ -1,5 +1,6 @@
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
@@ -22,6 +23,7 @@ import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
 import type { Aria2TrustStore } from './aria2/aria2-trust-store'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from './engine-adapter'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
@@ -144,6 +146,11 @@ function createMockTrustStore(): Aria2TrustStore {
 function createMockAdapter(): Aria2Adapter {
   return {
     setFeatureReport: vi.fn(),
+    inspectDirectResourceMetadataProfile: vi
+      .fn()
+      .mockResolvedValue(DIRECT_RESOURCE_METADATA_PROFILE),
+    setDirectResourceMetadataProfile: vi.fn(),
+    getDirectResourceMetadataProfile: vi.fn(() => null),
   } as unknown as Aria2Adapter
 }
 
@@ -234,6 +241,146 @@ describe('EngineSupervisor', () => {
       )
     })
 
+    it('commits the exact resolved route before publishing Ready', async () => {
+      const resolved = {
+        allProxy: 'http://bridge-user:bridge-pass@127.0.0.1:43123',
+        noProxy: 'localhost',
+      }
+      proxyBridge.resolveForDownload.mockResolvedValue(resolved)
+      const order: string[] = []
+      const policy = {
+        commit: vi.fn(() => {
+          order.push('commit')
+        }),
+        markUnavailable: vi.fn(),
+      }
+      eventBus.on(Events.EngineRecovered, () => order.push('ready'))
+      supervisor = new EngineSupervisor(
+        eventBus,
+        settings,
+        processManager,
+        configBuilder,
+        trustStore,
+        rpcClient,
+        adapter,
+        proxyBridge,
+        policy
+      )
+
+      await supervisor.start('/usr/bin/aria2c')
+      expect(policy.commit).toHaveBeenCalledWith(resolved)
+      expect(order).toEqual(['commit', 'ready'])
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+    })
+
+    it('repairs a proxy update persisted while the engine is Starting', async () => {
+      const before = {
+        enabled: true,
+        protocol: 'http' as const,
+        host: 'before.example',
+        port: 8080,
+        user: '',
+        password: '',
+        bypass: [],
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+        },
+      }
+      const after = { ...before, host: 'after.example' }
+      let current = before
+      vi.mocked(settings.getProxy).mockImplementation(() => current)
+      proxyBridge.resolveForDownload.mockImplementation(async (value) => ({
+        allProxy: `http://${value.host}:${value.port}`,
+        noProxy: value.bypass.join(','),
+      }))
+      let releaseConnect: (() => void) | undefined
+      vi.mocked(rpcClient.connect).mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseConnect = resolve
+          })
+      )
+      const policy = new AppliedDownloadProxyPolicy()
+      supervisor = new EngineSupervisor(
+        eventBus,
+        settings,
+        processManager,
+        configBuilder,
+        trustStore,
+        rpcClient,
+        adapter,
+        proxyBridge,
+        policy
+      )
+
+      const startup = supervisor.start('/usr/bin/aria2c')
+      await vi.waitFor(() => expect(rpcClient.connect).toHaveBeenCalled())
+      current = after
+      const earlyTransition = policy.applyTransition(() =>
+        supervisor
+          .applyProxyChange({
+            allProxy: 'http://after.example:8080',
+            noProxy: '',
+          })
+          .then((applied) =>
+            applied
+              ? {
+                  downloadProxy: 'applied' as const,
+                  appliedProxy: {
+                    allProxy: 'http://after.example:8080',
+                    noProxy: '',
+                  },
+                }
+              : { downloadProxy: 'unavailable' as const }
+          )
+      )
+      await earlyTransition
+      expect(policy.snapshot()).toBeNull()
+
+      releaseConnect?.()
+      await startup
+
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+      expect(policy.snapshot()).toEqual({
+        proxy: 'http://after.example:8080',
+        noProxy: '',
+      })
+      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'all-proxy': 'http://after.example:8080',
+          'no-proxy': '',
+          'proxy-method': 'get',
+        })
+      )
+    })
+
+    it('does not commit an applied route when startup fails', async () => {
+      const policy = {
+        commit: vi.fn(),
+        markUnavailable: vi.fn(),
+      }
+      vi.mocked(rpcClient.connect).mockRejectedValue(new Error('RPC down'))
+      supervisor = new EngineSupervisor(
+        eventBus,
+        settings,
+        processManager,
+        configBuilder,
+        trustStore,
+        rpcClient,
+        adapter,
+        proxyBridge,
+        policy
+      )
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(policy.commit).not.toHaveBeenCalled()
+      expect(policy.markUnavailable).toHaveBeenCalled()
+      expect(supervisor.getState()).toBe(EngineState.Failed)
+    })
+
     it('transitions Stopped → Starting → Ready', async () => {
       const states: EngineState[] = []
       eventBus.on(Events.EngineStateChanged, (state) => {
@@ -244,6 +391,45 @@ describe('EngineSupervisor', () => {
 
       expect(states).toEqual([EngineState.Starting, EngineState.Ready])
       expect(supervisor.getState()).toBe(EngineState.Ready)
+    })
+
+    it('publishes the sanitized metadata profile before Ready and clears it on stop', async () => {
+      const readyObserved = vi.fn()
+      eventBus.on(Events.EngineStateChanged, (state) => {
+        if (state === EngineState.Ready) readyObserved()
+      })
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(
+        adapter.inspectDirectResourceMetadataProfile
+      ).toHaveBeenCalledOnce()
+      expect(adapter.setDirectResourceMetadataProfile).toHaveBeenCalledWith(
+        DIRECT_RESOURCE_METADATA_PROFILE
+      )
+      expect(
+        vi
+          .mocked(adapter.setDirectResourceMetadataProfile)
+          .mock.invocationCallOrder.at(-1)
+      ).toBeLessThan(readyObserved.mock.invocationCallOrder[0] as number)
+
+      await supervisor.stop()
+      expect(adapter.setDirectResourceMetadataProfile).toHaveBeenLastCalledWith(
+        null
+      )
+    })
+
+    it('keeps the engine Ready with a fail-closed profile when inspection fails', async () => {
+      vi.mocked(adapter.inspectDirectResourceMetadataProfile).mockRejectedValue(
+        new Error('profile unavailable')
+      )
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+      expect(adapter.setDirectResourceMetadataProfile).toHaveBeenCalledWith(
+        null
+      )
     })
 
     it('synchronizes the latest RPC secret on every start before authenticated calls', async () => {
@@ -1381,7 +1567,19 @@ describe('EngineSupervisor', () => {
       })
       expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
         'all-proxy': 'http://p:80',
+        'http-proxy': '',
+        'http-proxy-user': '',
+        'http-proxy-passwd': '',
+        'https-proxy': '',
+        'https-proxy-user': '',
+        'https-proxy-passwd': '',
+        'ftp-proxy': '',
+        'ftp-proxy-user': '',
+        'ftp-proxy-passwd': '',
+        'all-proxy-user': '',
+        'all-proxy-passwd': '',
         'no-proxy': 'localhost',
+        'proxy-method': 'get',
       })
     })
 
@@ -1390,8 +1588,69 @@ describe('EngineSupervisor', () => {
       await supervisor.applyProxyChange(null)
       expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
         'all-proxy': '',
+        'http-proxy': '',
+        'http-proxy-user': '',
+        'http-proxy-passwd': '',
+        'https-proxy': '',
+        'https-proxy-user': '',
+        'https-proxy-passwd': '',
+        'ftp-proxy': '',
+        'ftp-proxy-user': '',
+        'ftp-proxy-passwd': '',
+        'all-proxy-user': '',
+        'all-proxy-passwd': '',
         'no-proxy': '',
+        'proxy-method': 'get',
       })
+    })
+
+    it('pins decoded all-proxy credentials during a hot update', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      await supervisor.applyProxyChange({
+        allProxy: 'http://a%40b:p%3As@p:80',
+        noProxy: '',
+      })
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          'all-proxy': 'http://p:80',
+          'all-proxy-user': 'a@b',
+          'all-proxy-passwd': 'p:s',
+          'proxy-method': 'get',
+        })
+      )
+    })
+
+    it('accepts equivalent expanded IPv6 proxy authorities during a hot update', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      await supervisor.applyProxyChange({
+        allProxy: 'http://user:pass@[0:0:0:0:0:0:0:1]:8080',
+        noProxy: '',
+      })
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          'all-proxy': 'http://[0:0:0:0:0:0:0:1]:8080',
+          'all-proxy-user': 'user',
+          'all-proxy-passwd': 'pass',
+        })
+      )
+    })
+
+    it('preserves an aria2-compatible legacy IPv4 proxy during a hot update', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      await supervisor.applyProxyChange({
+        allProxy: 'http://user:pass@127.1:8080',
+        noProxy: '',
+      })
+
+      expect(rpcClient.changeGlobalOption).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          'all-proxy': 'http://127.1:8080',
+          'all-proxy-user': 'user',
+          'all-proxy-passwd': 'pass',
+        })
+      )
     })
   })
 

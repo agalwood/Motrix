@@ -9,6 +9,7 @@ export const directReplayRequestModifierSchema = z.enum([
   'headers',
   'proxy',
   'extraEngineOptions',
+  'engineGlobalOptions',
 ])
 
 const validatorValueSchema = z
@@ -49,7 +50,7 @@ const directReplayV1Schema = z
   .object({
     version: z.literal(1),
     connections: z.number().int().min(1).max(128).optional(),
-    requestModifiers: z.array(directReplayRequestModifierSchema).max(3),
+    requestModifiers: z.array(directReplayRequestModifierSchema).max(4),
     replayability: z.enum(['uri-only', 'requires-credentials']),
     resourceValidator: directResourceValidatorSchema.optional(),
   })

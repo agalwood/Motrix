@@ -15,6 +15,17 @@ const FETCH_TIMEOUT_MS = 15_000
 export const MAX_REGISTRY_BYTES = 4 * 1024 * 1024
 const MAX_CACHE_BYTES = MAX_REGISTRY_BYTES + 64 * 1024
 
+async function cancelResponseBody(
+  response: Response,
+  reason?: unknown
+): Promise<void> {
+  try {
+    await response.body?.cancel(reason)
+  } catch {
+    // Preserve the refresh result when cancellation races a closed body.
+  }
+}
+
 const CacheEnvelopeSchema = z.object({
   cacheFormat: z.literal(2),
   etag: z.string().nullable(),
@@ -148,17 +159,29 @@ export class RegistryClient {
       const headers: Record<string, string> = {}
       if (this.cache?.etag) headers['if-none-match'] = this.cache.etag
 
-      const res = await Promise.race([
-        this.fetchImpl(this.url, { headers, signal: controller.signal }),
-        deadline,
-      ])
+      const fetchResponse = this.fetchImpl(this.url, {
+        headers,
+        signal: controller.signal,
+      }).then(async (response) => {
+        // A custom fetch implementation may ignore AbortSignal and resolve
+        // after the deadline already won the race. Dispose that late response
+        // instead of leaving its body and connection unowned.
+        if (controller.signal.aborted) {
+          await cancelResponseBody(response, controller.signal.reason)
+          throw controller.signal.reason
+        }
+        return response
+      })
+      const res = await Promise.race([fetchResponse, deadline])
 
       if (res.status === 304 && this.cache) {
+        await cancelResponseBody(res)
         this.cache = { ...this.cache, fetchedAt: this.now() }
         await this.persist()
         return this.cache.file
       }
       if (!res.ok) {
+        await cancelResponseBody(res)
         throw new Error(`registry responded ${res.status}`)
       }
 

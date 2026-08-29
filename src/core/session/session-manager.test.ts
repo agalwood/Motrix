@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -15,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
 import type { Aria2RawStatus } from '../engine/aria2/types'
 import type { EngineAdapter } from '../engine/engine-adapter'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { clearStoppedTasks } from '../task/actions/clear-stopped-tasks'
 import { stopSeedingTask } from '../task/actions/stop-seeding-task'
 import { TaskManager } from '../task/task-manager'
@@ -338,6 +340,9 @@ function createMockAdapter(): EngineAdapter {
     disconnect: vi.fn(),
     getCapabilities: vi.fn(),
     getFeatureReport: vi.fn(),
+    getDirectResourceMetadataProfile: vi.fn(
+      () => DIRECT_RESOURCE_METADATA_PROFILE
+    ),
     createDownload: vi.fn(async ({ gid }) => gid ?? 'gid-mock'),
     pauseTask: vi.fn(),
     resumeTask: vi.fn(),
@@ -1927,7 +1932,7 @@ describe('SessionManager', () => {
       expect(restored?.engineTaskId).not.toBe('lost-http')
     })
 
-    it('re-adds HTTP at the exact .motrix path when an aria2 checkpoint exists', async () => {
+    it('blocks an HTTP checkpoint that has no captured resource validator', async () => {
       const tempDir = fs.mkdtempSync(
         path.join(os.tmpdir(), 'motrix-http-checkpoint-')
       )
@@ -1959,17 +1964,13 @@ describe('SessionManager', () => {
 
         await sessionManager.restore()
 
-        expect(adapter.createDownload).toHaveBeenCalledWith(
-          expect.objectContaining({
-            saveDir: tempDir,
-            filename: 'archive.zip.motrix',
-            connections: 4,
-            resumePolicy: 'checkpoint',
-          })
-        )
-        expect(taskManager.getById('m-http-checkpoint')?.status).toBe(
-          TaskStatus.Downloading
-        )
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(taskManager.getById('m-http-checkpoint')).toMatchObject({
+          status: TaskStatus.Error,
+          errorDetailKey: 'task.recovery.startup.resumeValidationFailed',
+        })
+        expect(fs.existsSync(diskPath)).toBe(true)
+        expect(fs.existsSync(`${diskPath}.aria2`)).toBe(true)
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true })
       }
@@ -1986,9 +1987,13 @@ describe('SessionManager', () => {
         contentLength: 4096,
         capturedAt: 7,
       }
-      const verify = vi.fn().mockResolvedValue({
-        outcome: 'unchanged' as const,
-        ifRange: resourceValidator.value,
+      let currentUserAgent = 'Motrix/Verified'
+      const verify = vi.fn(async () => {
+        currentUserAgent = 'Motrix/Newer'
+        return {
+          outcome: 'unchanged' as const,
+          ifRange: resourceValidator.value,
+        }
       })
       try {
         fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
@@ -2018,18 +2023,29 @@ describe('SessionManager', () => {
           adapter,
           undefined,
           undefined,
-          { verify }
+          { verify },
+          () => ({
+            proxy: 'http://proxy.example:8080',
+            noProxy: '.internal',
+            userAgent: currentUserAgent,
+          })
         )
 
         await sessionManager.restore()
 
         expect(verify).toHaveBeenCalledWith(
           'https://example.com/archive.zip',
-          resourceValidator
+          resourceValidator,
+          {
+            proxy: 'http://proxy.example:8080',
+            noProxy: '.internal',
+            userAgent: 'Motrix/Verified',
+          }
         )
         expect(adapter.createDownload).toHaveBeenCalledWith(
           expect.objectContaining({
             headers: { 'If-Range': '"release-v1"' },
+            userAgent: 'Motrix/Verified',
             resumePolicy: 'checkpoint',
           })
         )
@@ -2037,6 +2053,81 @@ describe('SessionManager', () => {
         fs.rmSync(tempDir, { recursive: true, force: true })
       }
     })
+
+    it.each(['unchanged', 'source-changed', 'unverifiable'] as const)(
+      'does not persist a stale %s validation after proxy restart',
+      async (outcome) => {
+        const tempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), 'motrix-http-validator-proxy-lease-')
+        )
+        const diskPath = path.join(tempDir, 'archive.zip.motrix')
+        const resourceValidator = {
+          kind: 'strong-etag' as const,
+          value: '"release-v1"',
+          capturedAt: 7,
+        }
+        const policy = new AppliedDownloadProxyPolicy({
+          proxy: 'http://proxy.example:8080',
+          noProxy: '.internal',
+        })
+        const verify = vi.fn(async () => {
+          policy.markUnavailable()
+          return {
+            outcome,
+            ifRange: outcome === 'unchanged' ? resourceValidator.value : null,
+          }
+        })
+        try {
+          fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+          fs.writeFileSync(`${diskPath}.aria2`, Buffer.alloc(16, 0x62))
+          seedAsPair(db, {
+            motrixId: 'm-http-validator-proxy-lease',
+            gid: 'lost-http-validator-proxy-lease',
+            name: 'archive.zip',
+            diskPath,
+            finalPath: path.join(tempDir, 'archive.zip'),
+            finalName: 'archive.zip',
+            uris: ['https://example.com/archive.zip'],
+            status: TaskStatus.Downloading,
+            payload: {
+              directReplay: {
+                version: 1,
+                requestModifiers: [],
+                replayability: 'uri-only',
+                resourceValidator,
+              },
+            },
+          })
+          sessionManager = new SessionManager(
+            taskManager,
+            rpc,
+            db,
+            adapter,
+            undefined,
+            undefined,
+            { verify },
+            () => policy.snapshot()
+          )
+
+          await expect(
+            policy.runWithSnapshot((_snapshot, lease) =>
+              sessionManager.restore(lease.assertCurrent)
+            )
+          ).rejects.toThrow('applied download proxy policy changed')
+
+          expect(verify).toHaveBeenCalledOnce()
+          expect(adapter.createDownload).not.toHaveBeenCalled()
+          expect(
+            taskManager.getById('m-http-validator-proxy-lease')
+          ).toBeUndefined()
+          expect(
+            db.getTask('m-http-validator-proxy-lease')?.task.aggStatus
+          ).toBe(TaskStatus.Downloading)
+        } finally {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
+    )
 
     it.each([
       ['source-changed', 'task.recovery.startup.resumeSourceChanged'] as const,
@@ -2089,7 +2180,8 @@ describe('SessionManager', () => {
             adapter,
             undefined,
             undefined,
-            { verify }
+            { verify },
+            () => ({})
           )
 
           await sessionManager.restore()
@@ -2105,6 +2197,72 @@ describe('SessionManager', () => {
         }
       }
     )
+
+    it('does not verify a checkpoint when aria2 lacks mirrored header features', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-http-validator-feature-profile-')
+      )
+      const diskPath = path.join(tempDir, 'archive.zip.motrix')
+      const resourceValidator = {
+        kind: 'strong-etag' as const,
+        value: '"release-v1"',
+        capturedAt: 7,
+      }
+      const verify = vi.fn()
+      try {
+        fs.writeFileSync(diskPath, Buffer.from('partial'))
+        fs.writeFileSync(`${diskPath}.aria2`, Buffer.from('checkpoint'))
+        seedAsPair(db, {
+          motrixId: 'm-http-validator-feature-profile',
+          gid: 'lost-http-validator-feature-profile',
+          name: 'archive.zip',
+          diskPath,
+          finalPath: path.join(tempDir, 'archive.zip'),
+          finalName: 'archive.zip',
+          uris: ['https://example.com/archive.zip'],
+          status: TaskStatus.Downloading,
+          payload: {
+            directReplay: {
+              version: 1,
+              requestModifiers: [],
+              replayability: 'uri-only',
+              resourceValidator,
+            },
+          },
+        })
+        vi.mocked(adapter.getFeatureReport).mockReturnValue({
+          version: '1.37.0',
+          features: ['GZip'],
+          hasSqlitePersistence: false,
+          hasBtSeedUnverified: false,
+          hasBtSaveMetadata: false,
+          hasMoveStorage: false,
+        })
+        sessionManager = new SessionManager(
+          taskManager,
+          rpc,
+          db,
+          adapter,
+          undefined,
+          undefined,
+          { verify },
+          () => ({})
+        )
+
+        await sessionManager.restore()
+
+        expect(verify).not.toHaveBeenCalled()
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(
+          taskManager.getById('m-http-validator-feature-profile')
+        ).toMatchObject({
+          status: TaskStatus.Error,
+          errorDetailKey: 'task.recovery.startup.resumeValidationFailed',
+        })
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
 
     it('preserves a non-empty HTTP partial when its checkpoint is missing', async () => {
       const tempDir = fs.mkdtempSync(

@@ -9,7 +9,7 @@
 //   - Timeout: default 30 s; hard cap 300 s.
 //   - Redirect: 'follow' (up to 10), 'manual', or 'error' (reject any 3xx).
 //   - Range: `{start, end}` generates a `Range: bytes=start-end` header.
-//   - Proxy: `http://host:port` / `socks5://...` etc.; per-request override.
+//   - Proxy: `http://host:port` / `https://host:port`; per-request override.
 //   - Cookies: opt-in via cookies: 'jar' (reads jar before, captures after).
 //   - AbortSignal chaining: plugin's signal + internal timeout both abort.
 //   - JSON body shorthand: body.type === 'json' auto-serializes + Content-Type.
@@ -79,7 +79,7 @@ export interface HttpRequestOptions<R extends HttpResponseType = 'text'> {
   cookies?: 'jar' | 'none'
   /** Partial download via `Range: bytes=start-end`. */
   range?: { start: number; end: number }
-  /** `http://`, `https://`, or `socks5://` URL; per-request override. */
+  /** `http://` or `https://` URL; per-request override. */
   proxy?: string
   signal?: AbortSignal
 }
@@ -219,9 +219,107 @@ function buildBodyPayload(body: HttpRequestBody): {
   return { bodyStr: body.data as Uint8Array, contentType: null }
 }
 
-function pickDispatcher(proxy: string | undefined): Dispatcher {
-  if (!proxy) return sharedAgent
-  return new ProxyAgent({ uri: proxy })
+interface DispatcherLease {
+  dispatcher: Dispatcher
+  owned: boolean
+}
+
+function pickDispatcher(proxy: string | undefined): DispatcherLease {
+  if (!proxy) return { dispatcher: sharedAgent, owned: false }
+
+  let parsed: URL
+  try {
+    parsed = new URL(proxy)
+  } catch {
+    throw new HttpError('plugin.http.invalid_proxy', 'Invalid proxy URL')
+  }
+
+  if (parsed.protocol === 'socks:' || parsed.protocol === 'socks5:') {
+    // Undici 8.10's experimental SOCKS dispatcher does not own a TCP socket
+    // until after the SOCKS greeting. Abort/destroy therefore cannot close a
+    // proxy that accepts TCP and then stalls. Plugin-provided proxies cannot
+    // use the app's managed SOCKS-to-HTTP bridge, so fail closed instead of
+    // allowing an untrusted plugin to accumulate sockets and timers.
+    throw new HttpError(
+      'plugin.http.proxy_scheme_not_supported',
+      'SOCKS proxies are not supported for plugin HTTP requests'
+    )
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new HttpError(
+      'plugin.http.proxy_scheme_not_supported',
+      `Proxy scheme '${parsed.protocol}' is not supported`
+    )
+  }
+
+  return {
+    dispatcher: new ProxyAgent({ uri: parsed.toString() }),
+    owned: true,
+  }
+}
+
+async function destroyOwnedDispatcher(
+  lease: DispatcherLease | undefined
+): Promise<void> {
+  if (!lease?.owned) return
+  try {
+    await lease.dispatcher.destroy()
+  } catch {
+    // Teardown must not replace the request's result with a cleanup failure.
+  }
+}
+
+async function cancelResponseBody(body: unknown): Promise<void> {
+  const responseBody = body as {
+    destroy?: (error?: Error) => unknown
+    cancel?: (reason?: unknown) => Promise<void>
+    once?: (event: 'error', listener: () => void) => unknown
+  }
+  try {
+    if (typeof responseBody.destroy === 'function') {
+      // Undici BodyReadable emits RequestAbortedError asynchronously for an
+      // intentional destroy. A surrounding try/catch cannot catch an Event
+      // Emitter error, so attach the cleanup listener before destroying it.
+      responseBody.once?.('error', () => undefined)
+      responseBody.destroy()
+      return
+    }
+    if (typeof responseBody.cancel === 'function') {
+      await responseBody.cancel()
+    }
+  } catch {
+    // Cancellation is best-effort and must not replace the original error.
+  }
+}
+
+async function drainResponseBody(body: unknown): Promise<void> {
+  const responseBody = body as { dump?: () => Promise<void> }
+  try {
+    if (typeof responseBody.dump === 'function') {
+      await responseBody.dump()
+      return
+    }
+  } catch {
+    // Fall through to cancellation when draining fails.
+  }
+  await cancelResponseBody(body)
+}
+
+function abortError(
+  signal: AbortSignal,
+  timeoutMs: number
+): HttpError | undefined {
+  if (!signal.aborted) return undefined
+  if (signal.reason === 'timeout') {
+    return new HttpError(
+      'plugin.http.timeout',
+      `Request timed out after ${timeoutMs}ms`
+    )
+  }
+  if (signal.reason === 'plugin_abort') {
+    return new HttpError('plugin.http.aborted', 'Request aborted by plugin')
+  }
+  return new HttpError('plugin.http.aborted', 'Request aborted')
 }
 
 // ---------------------------------------------------------------------------
@@ -277,8 +375,6 @@ export class HttpCapabilityHost {
     const method = (opts.method ?? 'GET').toUpperCase() as Dispatcher.HttpMethod
     const redirect = opts.redirect ?? 'follow'
     const useCookies = opts.cookies === 'jar'
-    const dispatcher = pickDispatcher(opts.proxy)
-
     // ---- Outbound headers (Record, lowercased) ----
     const reqHeaders: Record<string, string> = {}
     if (opts.headers) {
@@ -302,20 +398,6 @@ export class HttpCapabilityHost {
     const internalCtrl = new AbortController()
     const cleanup: (() => void)[] = []
 
-    if (opts.signal) {
-      if (opts.signal.aborted) {
-        throw new HttpError('plugin.http.aborted', 'Request aborted by plugin')
-      }
-      const onPluginAbort = () => internalCtrl.abort('plugin_abort')
-      opts.signal.addEventListener('abort', onPluginAbort, { once: true })
-      cleanup.push(() =>
-        opts.signal?.removeEventListener('abort', onPluginAbort)
-      )
-    }
-
-    const timer = setTimeout(() => internalCtrl.abort('timeout'), timeoutMs)
-    cleanup.push(() => clearTimeout(timer))
-
     const doCleanup = () => {
       for (const fn of cleanup) fn()
     }
@@ -324,8 +406,28 @@ export class HttpCapabilityHost {
     let currentUrl = opts.url
     let redirected = false
     let hops = 0
+    let lease: DispatcherLease | undefined
 
     try {
+      if (opts.signal) {
+        if (opts.signal.aborted) {
+          throw new HttpError(
+            'plugin.http.aborted',
+            'Request aborted by plugin'
+          )
+        }
+        const onPluginAbort = () => internalCtrl.abort('plugin_abort')
+        opts.signal.addEventListener('abort', onPluginAbort, { once: true })
+        cleanup.push(() =>
+          opts.signal?.removeEventListener('abort', onPluginAbort)
+        )
+      }
+
+      const timer = setTimeout(() => internalCtrl.abort('timeout'), timeoutMs)
+      cleanup.push(() => clearTimeout(timer))
+
+      lease = pickDispatcher(opts.proxy)
+
       while (true) {
         // Cookie jar inject (uses currentUrl so cookies follow the host).
         if (useCookies && this.cookieJar) {
@@ -346,25 +448,11 @@ export class HttpCapabilityHost {
             headers: reqHeaders,
             body: bodyPayload,
             signal: internalCtrl.signal,
-            dispatcher,
+            dispatcher: lease.dispatcher,
           })
         } catch (err: unknown) {
-          if (internalCtrl.signal.aborted) {
-            const reason = internalCtrl.signal.reason
-            if (reason === 'timeout') {
-              throw new HttpError(
-                'plugin.http.timeout',
-                `Request timed out after ${timeoutMs}ms`
-              )
-            }
-            if (reason === 'plugin_abort') {
-              throw new HttpError(
-                'plugin.http.aborted',
-                'Request aborted by plugin'
-              )
-            }
-            throw new HttpError('plugin.http.aborted', 'Request aborted')
-          }
+          const aborted = abortError(internalCtrl.signal, timeoutMs)
+          if (aborted) throw aborted
           if (
             err instanceof Error &&
             (err.name === 'AbortError' ||
@@ -382,78 +470,83 @@ export class HttpCapabilityHost {
           )
         }
 
-        // Capture cookies from response on this hop.
-        if (useCookies && this.cookieJar) {
-          const rawSetCookie = response.headers['set-cookie']
-          const arr = Array.isArray(rawSetCookie)
-            ? rawSetCookie
-            : typeof rawSetCookie === 'string'
-              ? [rawSetCookie]
-              : []
-          if (arr.length > 0) {
-            this.cookieJar.captureFromResponseHeaders(currentUrl, arr)
+        try {
+          // Capture cookies from response on this hop.
+          if (useCookies && this.cookieJar) {
+            const rawSetCookie = response.headers['set-cookie']
+            const arr = Array.isArray(rawSetCookie)
+              ? rawSetCookie
+              : typeof rawSetCookie === 'string'
+                ? [rawSetCookie]
+                : []
+            if (arr.length > 0) {
+              this.cookieJar.captureFromResponseHeaders(currentUrl, arr)
+            }
           }
+
+          const status = response.statusCode
+          const location = response.headers.location
+          const isRedirect = status >= 300 && status < 400 && location
+
+          if (isRedirect) {
+            if (redirect === 'manual') {
+              // Surface the 3xx as-is.
+              return await buildResponse<R>(
+                response,
+                opts.responseType,
+                maxBodyBytes,
+                timeoutMs,
+                internalCtrl,
+                currentUrl,
+                redirected
+              )
+            }
+            if (redirect === 'error') {
+              await drainResponseBody(response.body)
+              throw new HttpError(
+                'plugin.http.redirect_not_allowed',
+                `redirect: 'error' set; refusing to follow ${status} to ${location}`
+              )
+            }
+            // redirect === 'follow'
+            if (hops >= MAX_REDIRECTS) {
+              await drainResponseBody(response.body)
+              throw new HttpError(
+                'plugin.http.too_many_redirects',
+                `Too many redirects (>${MAX_REDIRECTS})`
+              )
+            }
+            await drainResponseBody(response.body)
+            const loc = Array.isArray(location) ? (location[0] ?? '') : location
+            const nextUrl = new URL(loc, currentUrl)
+            // Re-validate the scheme and host confinement on every hop. Both
+            // only ran on the initial URL, so a 3xx Location to file:// (or to
+            // a host outside hostPermissions) would otherwise escape.
+            checkScheme(nextUrl)
+            this.checkHostPermitted(nextUrl.toString())
+            currentUrl = nextUrl.toString()
+            redirected = true
+            hops += 1
+            continue
+          }
+
+          return await buildResponse<R>(
+            response,
+            opts.responseType,
+            maxBodyBytes,
+            timeoutMs,
+            internalCtrl,
+            currentUrl,
+            redirected
+          )
+        } catch (error) {
+          await cancelResponseBody(response.body)
+          throw error
         }
-
-        const status = response.statusCode
-        const location = response.headers.location
-        const isRedirect = status >= 300 && status < 400 && location
-
-        if (isRedirect) {
-          if (redirect === 'manual') {
-            // Surface the 3xx as-is.
-            return await buildResponse<R>(
-              response,
-              opts.responseType,
-              maxBodyBytes,
-              internalCtrl,
-              currentUrl,
-              redirected,
-              doCleanup
-            )
-          }
-          if (redirect === 'error') {
-            await response.body.dump?.()
-            throw new HttpError(
-              'plugin.http.redirect_not_allowed',
-              `redirect: 'error' set; refusing to follow ${status} to ${location}`
-            )
-          }
-          // redirect === 'follow'
-          if (hops >= MAX_REDIRECTS) {
-            await response.body.dump?.()
-            throw new HttpError(
-              'plugin.http.too_many_redirects',
-              `Too many redirects (>${MAX_REDIRECTS})`
-            )
-          }
-          await response.body.dump?.()
-          const loc = Array.isArray(location) ? (location[0] ?? '') : location
-          const nextUrl = new URL(loc, currentUrl)
-          // Re-validate the scheme and host confinement on every hop. Both
-          // only ran on the initial URL, so a 3xx Location to file:// (or to
-          // a host outside hostPermissions) would otherwise escape.
-          checkScheme(nextUrl)
-          this.checkHostPermitted(nextUrl.toString())
-          currentUrl = nextUrl.toString()
-          redirected = true
-          hops += 1
-          continue
-        }
-
-        return await buildResponse<R>(
-          response,
-          opts.responseType,
-          maxBodyBytes,
-          internalCtrl,
-          currentUrl,
-          redirected,
-          doCleanup
-        )
       }
-    } catch (err) {
+    } finally {
       doCleanup()
-      throw err
+      await destroyOwnedDispatcher(lease)
     }
   }
 
@@ -507,10 +600,10 @@ async function buildResponse<R extends HttpResponseType>(
   response: Awaited<ReturnType<typeof undiciRequest>>,
   responseType: R,
   maxBodyBytes: number,
+  timeoutMs: number,
   internalCtrl: AbortController,
   finalUrl: string,
-  redirected: boolean,
-  doCleanup: () => void
+  redirected: boolean
 ): Promise<HttpResponse<R>> {
   const chunks: Buffer[] = []
   let totalBytes = 0
@@ -522,22 +615,31 @@ async function buildResponse<R extends HttpResponseType>(
       if (totalBytes > maxBodyBytes) {
         capped = true
         internalCtrl.abort('body_too_large')
-        response.body.destroy?.()
+        await cancelResponseBody(response.body)
         break
       }
       chunks.push(buf)
     }
-  } catch {
-    // Ignore stream errors that arise from aborting the body read.
+  } catch (error) {
+    await cancelResponseBody(response.body)
+    if (!capped) {
+      const aborted = abortError(internalCtrl.signal, timeoutMs)
+      if (aborted) throw aborted
+      throw new HttpError(
+        'plugin.http.network',
+        `Network error while reading response body: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
   }
-  doCleanup()
-
   if (capped) {
     throw new HttpError(
       'plugin.http.response_too_large',
       `Response body exceeded ${maxBodyBytes} bytes`
     )
   }
+
+  const aborted = abortError(internalCtrl.signal, timeoutMs)
+  if (aborted) throw aborted
 
   const rawBody = Buffer.concat(chunks)
   let parsedBody: unknown

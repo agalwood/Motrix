@@ -1,7 +1,13 @@
 import { initLogger } from '@core/logger'
+import {
+  AppliedDownloadProxyPolicy,
+  type AppliedDownloadProxySnapshot,
+} from '@core/proxy/applied-download-proxy-policy'
+import { proxyToDownloadRequestOptions } from '@core/proxy/serializers'
 import { AppError, ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
+import type { EngineFeatureReport } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -15,6 +21,7 @@ import {
 } from '@shared/types/task'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
 import { sanitizeRemoteFilename } from './direct-resource-validator'
@@ -107,6 +114,9 @@ interface DepOverrides {
   persist?: (id: string, bytes: Uint8Array) => Promise<string>
   defaultSaveDir?: string
   proxySettings?: ProxySettings
+  appliedProxySnapshot?: AppliedDownloadProxySnapshot
+  engineUserAgent?: string
+  engineFeatureReport?: EngineFeatureReport
   waitForEngineReady?: () => Promise<void>
   prepareSaveDir?: (requested: string) => Promise<string>
 }
@@ -179,6 +189,10 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
   // The mock rpc only needs the subset Aria2Adapter touches on the create
   // path (addUri/addTorrent + the three on* subscriptions).
   const adapter = new Aria2Adapter(rpcClient as never)
+  adapter.setDirectResourceMetadataProfile(DIRECT_RESOURCE_METADATA_PROFILE)
+  if (overrides.engineFeatureReport) {
+    adapter.setFeatureReport(overrides.engineFeatureReport)
+  }
   const settingsManager = {
     getApp: () => ({
       defaultSaveDir: overrides.defaultSaveDir ?? '/fallback',
@@ -186,9 +200,16 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
     getEngine: () => ({
       performanceProfile: DEFAULT_ENGINE_SETTINGS.performanceProfile,
       maxConnectionPerServer: DEFAULT_ENGINE_SETTINGS.maxConnectionPerServer,
+      userAgent: overrides.engineUserAgent,
     }),
     getProxy: () => overrides.proxySettings ?? DEFAULT_PROXY_SETTINGS,
   } as unknown as Deps['settingsManager']
+  const configuredRequestProxy = proxyToDownloadRequestOptions(
+    overrides.proxySettings ?? DEFAULT_PROXY_SETTINGS
+  )
+  const appliedProxySnapshot = Object.hasOwn(overrides, 'appliedProxySnapshot')
+    ? (overrides.appliedProxySnapshot ?? null)
+    : (configuredRequestProxy ?? { noProxy: '' })
   const finalNamePicker = { pick } as unknown as Deps['finalNamePicker']
   const torrentMetaStore = {
     persist,
@@ -217,6 +238,9 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
   const deps: ReturnType<typeof makeDeps> = {
     adapter,
     settingsManager,
+    directResourceProxyPolicy: new AppliedDownloadProxyPolicy(
+      appliedProxySnapshot
+    ),
     finalNamePicker,
     torrentMetaStore,
     taskManager,
@@ -408,24 +432,19 @@ describe('handleCreateTask', () => {
     expect(dispatch?.[0]).toMatchObject({
       method: 'createDownload',
       uriCount: 1,
-      params: {
-        uris: ['https://example.com/file.zip'],
-        saveDir: '/d',
-        filename: 'file.zip.motrix',
-        connections: 8,
-        headers: ['Authorization', 'Cookie'],
-        proxy: 'http://proxy.example:8080',
-        extraEngineOptions: {
-          referer: 'https://origin.example/watch',
-          'load-cookies': '[redacted-path]',
-          'unknown-option': '[redacted]',
-        },
-      },
+      saveDir: '/d',
+      filename: 'file.zip.motrix',
+      connections: 8,
     })
     const dispatchFields = dispatch?.[0] as
-      | { params: { gid: string } }
+      | { gid: string; params?: unknown; uris?: unknown; headers?: unknown }
       | undefined
-    expect(dispatchFields?.params.gid).toMatch(/^[0-9a-f]{16}$/)
+    expect(dispatchFields?.gid).toMatch(/^[0-9a-f]{16}$/)
+    expect(dispatchFields).not.toHaveProperty('params')
+    expect(dispatchFields).not.toHaveProperty('uris')
+    expect(dispatchFields).not.toHaveProperty('headers')
+    expect(dispatchFields).not.toHaveProperty('proxy')
+    expect(dispatchFields).not.toHaveProperty('extraEngineOptions')
 
     const taskPayload = lastAddedTask(deps).instances[0]?.payload
     expect(taskPayload).toEqual({
@@ -550,6 +569,132 @@ describe('handleCreateTask', () => {
         resourceValidator,
       },
     })
+  })
+
+  it('passes the effective engine User-Agent to metadata discovery', async () => {
+    const deps = makeDeps({ engineUserAgent: 'Motrix/Test' })
+    const probe = vi.fn(async () => {
+      vi.spyOn(deps.settingsManager, 'getEngine').mockReturnValue({
+        ...DEFAULT_ENGINE_SETTINGS,
+        userAgent: 'Motrix/Newer',
+      })
+      return { filename: null, validator: null }
+    })
+    deps.directResourceValidator = { capture: vi.fn(), probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/stable'],
+        saveDir: '/d',
+        headers: [],
+      },
+      deps
+    )
+
+    expect(probe).toHaveBeenCalledWith('https://example.com/stable', {
+      userAgent: 'Motrix/Test',
+    })
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://example.com/stable'],
+      expect.objectContaining({ 'user-agent': 'Motrix/Test' })
+    )
+  })
+
+  it('skips metadata when a concrete aria2 lacks mirrored header features', async () => {
+    const deps = makeDeps({
+      engineFeatureReport: {
+        version: '1.37.0',
+        features: ['GZip'],
+        hasSqlitePersistence: false,
+        hasBtSeedUnverified: false,
+        hasBtSaveMetadata: false,
+        hasMoveStorage: false,
+      },
+    })
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { probe, capture }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/stable'],
+        saveDir: '/d',
+        headers: [],
+      },
+      deps
+    )
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).toHaveBeenCalledOnce()
+  })
+
+  it('preserves unsafe ambient aria2 behavior and records it as non-replayable', async () => {
+    const deps = makeDeps()
+    ;(deps.adapter as Aria2Adapter).setDirectResourceMetadataProfile(null)
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { probe, capture }
+
+    await handleCreateTask(httpRequest(), deps)
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+      directReplay: {
+        version: 1,
+        requestModifiers: ['engineGlobalOptions'],
+        replayability: 'requires-credentials',
+      },
+    })
+    const options = deps.addUri.mock.calls[0]?.[1]
+    expect(options?.header).toEqual(['Accept: */*'])
+    expect(options).not.toHaveProperty('no-netrc')
+  })
+
+  it('skips metadata when passthrough engine options change HTTP semantics', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/stable'],
+        saveDir: '/d',
+        headers: [],
+      },
+      deps,
+      { extraEngineOptions: { referer: 'https://origin.example/' } }
+    )
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).toHaveBeenCalledOnce()
+  })
+
+  it('skips metadata when a task header cannot be represented by Fetch', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/stable'],
+        saveDir: '/d',
+        headers: [{ name: 'Host', value: 'other.example' }],
+      },
+      deps
+    )
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).toHaveBeenCalledOnce()
   })
 
   it('does not probe a direct request that depends on credentials', async () => {
@@ -981,6 +1126,7 @@ describe('handleCreateTask with incomplete-suffix', () => {
       {
         headers: { 'User-Agent': 'Motrix test' },
         proxy: 'http://proxy.example:8080',
+        noProxy: 'localhost',
       }
     )
     expect(deps.pick).toHaveBeenCalledWith(
@@ -998,6 +1144,184 @@ describe('handleCreateTask with incomplete-suffix', () => {
       'VSCodeUserSetup-x64-1.103.2.exe'
     )
     expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('HTTP task: rejects an explicit SOCKS proxy before metadata or durable intent', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await expect(
+      handleCreateTask(
+        {
+          type: 'http',
+          uris: ['https://downloads.example/stable'],
+          saveDir: '/d',
+          headers: [{ name: 'Authorization', value: 'Bearer secret' }],
+          proxy: 'socks5://proxy.example:1080',
+        },
+        deps
+      )
+    ).rejects.toThrow('Task proxy must use aria2-compatible HTTP or HTTPS')
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
+  })
+
+  it('HTTP task: downloads through legacy IPv4 proxy syntax without metadata I/O', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://downloads.example/stable'],
+        saveDir: '/d',
+        headers: [],
+        proxy: 'http://user:pass@127.1:8080',
+      },
+      deps
+    )
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://downloads.example/stable'],
+      expect.objectContaining({
+        'all-proxy': 'http://127.1:8080',
+        'all-proxy-user': 'user',
+        'all-proxy-passwd': 'pass',
+      })
+    )
+  })
+
+  it('HTTP task: never probes through malformed task proxy syntax', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await expect(
+      handleCreateTask(
+        {
+          type: 'http',
+          uris: ['https://downloads.example/stable'],
+          saveDir: '/d',
+          headers: [{ name: 'Authorization', value: 'Bearer secret' }],
+          proxy: 'http://proxy.example:8080/not-an-authority',
+        },
+        deps
+      )
+    ).rejects.toThrow('Task proxy must use aria2-compatible HTTP or HTTPS')
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
+  })
+
+  it('HTTP task: rejects control characters decoded from proxy credentials before metadata or durable intent', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await expect(
+      handleCreateTask(
+        {
+          type: 'http',
+          uris: ['https://downloads.example/stable'],
+          saveDir: '/d',
+          headers: [],
+          proxy:
+            'http://user%0Ahttp-proxy%3Dhttp%3A%2F%2Fevil:pass@proxy.example:8080',
+        },
+        deps
+      )
+    ).rejects.toThrow('Task proxy must use aria2-compatible HTTP or HTTPS')
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
+  })
+
+  it('HTTP task: skips metadata when the applied route is unavailable even with an explicit proxy', async () => {
+    const deps = makeDeps({ appliedProxySnapshot: null })
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { capture, probe }
+
+    await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://downloads.example/stable'],
+        saveDir: '/d',
+        headers: [{ name: 'Authorization', value: 'Bearer secret' }],
+        proxy: 'http://task-proxy.example:8080',
+      },
+      deps
+    )
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).toHaveBeenCalledOnce()
+  })
+
+  it('HTTP task: uses the applied snapshot instead of newer settings for metadata', async () => {
+    const deps = makeDeps({
+      proxySettings: {
+        ...DEFAULT_PROXY_SETTINGS,
+        enabled: true,
+        host: 'new-unapplied.example',
+        port: 9000,
+        scopes: { ...DEFAULT_PROXY_SETTINGS.scopes, download: true },
+      },
+      appliedProxySnapshot: {
+        proxy: 'http://old-applied.example:8080',
+        noProxy: '.internal',
+      },
+    })
+    const capture = vi.fn().mockResolvedValue(null)
+    deps.directResourceValidator = { capture }
+
+    await handleCreateTask(httpRequest(), deps)
+
+    expect(capture).toHaveBeenCalledWith('https://a/b', {
+      proxy: 'http://old-applied.example:8080',
+      noProxy: '.internal',
+    })
+  })
+
+  it('HTTP task: aborts before addUri when restart invalidates its metadata lease', async () => {
+    const deps = makeDeps()
+    let finishCapture: (() => void) | undefined
+    const captureGate = new Promise<void>((resolve) => {
+      finishCapture = resolve
+    })
+    const capture = vi.fn(async () => {
+      await captureGate
+      return null
+    })
+    deps.directResourceValidator = { capture }
+    deps.assertEngineReady = vi.fn()
+
+    const creating = handleCreateTask(httpRequest(), deps)
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledOnce())
+    ;(
+      deps.directResourceProxyPolicy as AppliedDownloadProxyPolicy
+    ).markUnavailable()
+    finishCapture?.()
+
+    await expect(creating).rejects.toThrow(
+      'applied download proxy policy changed'
+    )
+    expect(deps.addUri).not.toHaveBeenCalled()
   })
 
   it('HTTP task: an explicit filename skips discovery but still captures a URI-only validator once', async () => {
@@ -1049,6 +1373,11 @@ describe('handleCreateTask with incomplete-suffix', () => {
         version: 1,
         requestModifiers: [],
         replayability: 'uri-only',
+        resourceValidator: {
+          kind: 'strong-etag',
+          value: '"proxied-release"',
+          capturedAt: 9,
+        },
       },
     })
   })
@@ -1167,7 +1496,7 @@ describe('handleCreateTask with incomplete-suffix', () => {
     })
   })
 
-  it('HTTP task: follows the global download proxy and does not persist its validator for direct recovery', async () => {
+  it('HTTP task: persists a validator observed through the global download proxy without proxy credentials', async () => {
     const deps = makeDeps({
       proxySettings: {
         ...DEFAULT_PROXY_SETTINGS,
@@ -1206,13 +1535,22 @@ describe('handleCreateTask with incomplete-suffix', () => {
       noProxy: 'localhost,*.internal',
     })
     expect(capture).not.toHaveBeenCalled()
-    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
+    const payload = lastAddedTask(deps).instances[0]?.payload
+    expect(payload).toEqual({
       directReplay: {
         version: 1,
         requestModifiers: [],
         replayability: 'uri-only',
+        resourceValidator: {
+          kind: 'strong-etag',
+          value: '"proxied-release"',
+          capturedAt: 8,
+        },
       },
     })
+    expect(JSON.stringify(payload)).not.toContain('proxy-user')
+    expect(JSON.stringify(payload)).not.toContain('proxy-pass')
+    expect(JSON.stringify(payload)).not.toContain('proxy.example')
   })
 
   it('HTTP task: metadata failure logs no signed URL or credential value', async () => {
@@ -1755,7 +2093,13 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     expect(orchestrator?.runBeforeCreateHttp).toHaveBeenCalledOnce()
     const [, options] = deps.addUri.mock.calls[0]
     expect(deps.addUri.mock.calls[0][0]).toEqual(['https://cdn.example/b'])
-    expect(options.header).toEqual(['X-Plugin: on', 'User-Agent: rewritten'])
+    expect(options.header).toEqual([
+      'X-Plugin: on',
+      'User-Agent: rewritten',
+      'Cookie: ',
+      'Authorization: ',
+      'Accept: */*',
+    ])
     expect(options['all-proxy']).toBe('http://proxy.example:1080')
     expect(options.out).toBe('rewritten-release.exe.motrix')
     expect(probe).toHaveBeenCalledWith('https://cdn.example/b', {
@@ -1772,6 +2116,31 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
         finalHeaderCount: 2,
       })
     )
+  })
+
+  it('rejects a plugin-rewritten SOCKS proxy before metadata or durable intent', async () => {
+    const orchestrator = makeOrchestrator(
+      makeChainCommit({
+        proxy: 'socks5://proxy.example:1080',
+        proxyContributor: 'plugin-a',
+      })
+    )
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+
+    await expect(
+      handleCreateTask(httpRequest(), {
+        ...deps,
+        orchestrator,
+        directResourceValidator: { capture, probe },
+      })
+    ).rejects.toThrow('Task proxy must use aria2-compatible HTTP or HTTPS')
+
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
   })
 
   it('commits staged metadata inside the same transaction as task add', async () => {
@@ -1920,6 +2289,31 @@ describe('handleCreateTask engine-ready gate', () => {
     await handleCreateTask(httpRequest(), deps)
     expect(waitForEngineReady).toHaveBeenCalledOnce()
     expect(order).toEqual(['gate', 'adapter'])
+  })
+
+  it('waits for HTTP readiness before acquiring the applied-proxy lease', async () => {
+    const order: string[] = []
+    const deps = makeDeps({
+      waitForEngineReady: async () => {
+        order.push('gate')
+      },
+    })
+    const policy = deps.directResourceProxyPolicy
+    deps.directResourceProxyPolicy = {
+      snapshot: () => policy.snapshot(),
+      runWithSnapshot: (operation) => {
+        order.push('reader')
+        return policy.runWithSnapshot(operation)
+      },
+    }
+    deps.addUri.mockImplementation(async (_uris, options) => {
+      order.push('adapter')
+      return String(options.gid)
+    })
+
+    await handleCreateTask(httpRequest(), deps)
+
+    expect(order).toEqual(['gate', 'reader', 'adapter'])
   })
 
   it('throws and does NOT call the adapter when the gate rejects', async () => {
