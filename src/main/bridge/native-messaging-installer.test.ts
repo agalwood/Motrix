@@ -50,7 +50,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     })
     await installer.syncManifests({
       chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
     const chromeContent = JSON.parse(
       await readFile(
@@ -76,7 +76,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     })
     await installer.syncManifests({
       chromium: [],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
     const ff = JSON.parse(
       await readFile(
@@ -87,7 +87,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
         'utf-8'
       )
     )
-    expect(ff.allowed_extensions).toEqual(['motrix-bridge@motrix.app'])
+    expect(ff.allowed_extensions).toEqual(['motrix-extension@motrix.app'])
   })
 
   it('leaves host-side manifests to an external Flatpak companion', async () => {
@@ -107,7 +107,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
 
     await installer.syncManifests({
       chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
     await installer.unregister()
 
@@ -134,7 +134,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     })
     await installer.syncManifests({
       chromium: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
 
     expect(JSON.parse(await readFile(paths.chromium, 'utf-8'))).toEqual(
@@ -165,7 +165,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     })
     await installer.syncManifests({
       chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
 
     expect(JSON.parse(await readFile(paths.chromium, 'utf-8')).path).toBe(
@@ -183,7 +183,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     })
     await installer.syncManifests({
       chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
 
     const replacement = {
@@ -295,7 +295,7 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
         'chromewebstoreidaaaaaaaaaaaaaaaa',
         'edgeaddonsidbbbbbbbbbbbbbbbbbbbb',
       ],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
     const edge = JSON.parse(
       await readFile(
@@ -325,7 +325,7 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
         'chromewebstoreidaaaaaaaaaaaaaaaa',
         'edgeaddonsidbbbbbbbbbbbbbbbbbbbb',
       ],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
 
     const keyPaths = written.map(({ entry }) => entry.keyPath)
@@ -357,7 +357,7 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
     })
     await installer.syncManifests({
       chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
     expect(written).toEqual([])
   })
@@ -375,7 +375,7 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
     })
     await installer.syncManifests({
       chromium: ['chromewebstoreidaaaaaaaaaaaaaaaa'],
-      firefox: ['motrix-bridge@motrix.app'],
+      firefox: ['motrix-extension@motrix.app'],
     })
 
     await installer.unregister()
