@@ -2,9 +2,9 @@ import {
   INCOMPLETE_SUFFIX,
   MAX_DEDUP_ATTEMPTS,
 } from '@shared/constants/incomplete'
-import { EnvHttpProxyAgent, Socks5ProxyAgent } from 'undici'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  canMirrorAria2MetadataHeaders,
   DirectResourceValidatorService,
   sanitizeRemoteFilename,
 } from './direct-resource-validator'
@@ -17,6 +17,37 @@ function fetchSequence(...responses: Response[]) {
 }
 
 describe('DirectResourceValidatorService', () => {
+  it('fails closed only for concrete aria2 reports missing request features', () => {
+    const report = (
+      features: string[],
+      version = '1.37.0-motrix.10',
+      hasSqlitePersistence = true
+    ) => ({
+      version,
+      features,
+      hasSqlitePersistence,
+      hasBtSeedUnverified: false,
+      hasBtSaveMetadata: false,
+      hasMoveStorage: false,
+    })
+
+    expect(
+      canMirrorAria2MetadataHeaders(report(['GZip', 'Message Digest']))
+    ).toBe(true)
+    expect(canMirrorAria2MetadataHeaders(report(['GZip']))).toBe(false)
+    expect(canMirrorAria2MetadataHeaders(report(['Message Digest']))).toBe(
+      false
+    )
+    expect(
+      canMirrorAria2MetadataHeaders(
+        report(['GZip', 'Message Digest'], '1.37.0', false)
+      )
+    ).toBe(false)
+    expect(canMirrorAria2MetadataHeaders(report([], 'unknown', false))).toBe(
+      true
+    )
+  })
+
   it('distinguishes redirected source URLs whose path tokens both end in stable', async () => {
     const serviceFor = (filename: string) =>
       new DirectResourceValidatorService(
@@ -50,7 +81,38 @@ describe('DirectResourceValidatorService', () => {
     ])
   })
 
-  it('resolves a redirected Content-Disposition filename without leaking headers cross-origin', async () => {
+  it('ignores a non-ASCII legacy filename but accepts RFC 5987 UTF-8', async () => {
+    const legacy = new DirectResourceValidatorService(
+      fetchSequence(
+        new Response(null, {
+          headers: {
+            'Content-Disposition': 'attachment; filename="résumé.zip"',
+          },
+        })
+      ),
+      100
+    )
+    const extended = new DirectResourceValidatorService(
+      fetchSequence(
+        new Response(null, {
+          headers: {
+            'Content-Disposition':
+              "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.zip",
+          },
+        })
+      ),
+      100
+    )
+
+    await expect(
+      legacy.probe('https://downloads.example/fallback.exe')
+    ).resolves.toEqual({ filename: 'fallback.exe', validator: null })
+    await expect(
+      extended.probe('https://downloads.example/fallback.exe')
+    ).resolves.toEqual({ filename: 'résumé.zip', validator: null })
+  })
+
+  it('fails closed before a cross-origin redirect would strip request headers', async () => {
     const fetchImpl = fetchSequence(
       new Response(null, {
         status: 302,
@@ -68,13 +130,13 @@ describe('DirectResourceValidatorService', () => {
         },
       })
     )
-    const dispatcher = { close: vi.fn(async () => undefined) }
-    const makeDispatcher = vi.fn(async () => dispatcher)
+    const close = vi.fn(async () => undefined)
+    const makeProxyClient = vi.fn(async () => ({ fetch: fetchImpl, close }))
     const service = new DirectResourceValidatorService(
       fetchImpl,
       100,
       Date.now,
-      makeDispatcher
+      makeProxyClient
     )
 
     await expect(
@@ -87,72 +149,134 @@ describe('DirectResourceValidatorService', () => {
         proxy: 'http://proxy.example:8080',
         noProxy: 'localhost,*.internal',
       })
-    ).resolves.toEqual({
-      filename: 'VSCodeUserSetup-x64-1.103.2.exe',
-      validator: null,
-    })
+    ).resolves.toBeNull()
 
-    expect(makeDispatcher).toHaveBeenCalledWith({
+    expect(makeProxyClient).toHaveBeenCalledWith({
       proxy: 'http://proxy.example:8080',
       noProxy: 'localhost,*.internal',
     })
-    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl).toHaveBeenCalledOnce()
     expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(
       'https://update.example/latest/win32-x64-user/stable'
     )
     expect(fetchImpl.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
-        method: 'HEAD',
+        method: 'GET',
         headers: {
-          'accept-encoding': 'identity',
+          accept: '*/*',
+          'accept-encoding': 'deflate, gzip',
           authorization: 'Bearer secret',
+          cookie: '',
           'user-agent': 'Motrix test',
+          'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
           'x-api-key': 'also-secret',
         },
         redirect: 'manual',
-        dispatcher,
       })
     )
-    expect(fetchImpl.mock.calls[1]?.[1]).toEqual(
-      expect.objectContaining({
+    expect(fetchImpl.mock.calls[0]?.[1]).not.toHaveProperty('dispatcher')
+    expect(close).toHaveBeenCalledOnce()
+  })
+
+  it('follows a cross-origin redirect when every request header is replayable', async () => {
+    const fetchImpl = fetchSequence(
+      new Response(null, {
+        status: 302,
+        headers: { Location: 'https://cdn.example/release' },
+      }),
+      new Response(null, {
+        status: 200,
         headers: {
-          'accept-encoding': 'identity',
-          'user-agent': 'Motrix test',
+          'Content-Disposition': 'attachment; filename="release.zip"',
         },
       })
     )
-    expect(dispatcher.close).toHaveBeenCalledOnce()
+    const service = new DirectResourceValidatorService(fetchImpl, 100)
+
+    await expect(
+      service.probe('https://downloads.example/latest', {
+        headers: { Accept: 'application/octet-stream' },
+        userAgent: 'Motrix/2.0',
+      })
+    ).resolves.toEqual({ filename: 'release.zip', validator: null })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: {
+          accept: 'application/octet-stream',
+          'accept-encoding': 'deflate, gzip',
+          authorization: '',
+          cookie: '',
+          'user-agent': 'Motrix/2.0',
+          'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
+        },
+      })
+    )
   })
 
-  it('falls back to a body-cancelled Range GET and applies Content-Type extension', async () => {
-    const ranged = new Response(Uint8Array.of(1), {
-      status: 206,
+  it('replays sensitive headers across a same-origin redirect', async () => {
+    const fetchImpl = fetchSequence(
+      new Response(null, {
+        status: 302,
+        headers: { Location: '/release' },
+      }),
+      new Response(null, {
+        status: 200,
+        headers: {
+          'Content-Disposition': 'attachment; filename="release.zip"',
+        },
+      })
+    )
+    const service = new DirectResourceValidatorService(fetchImpl, 100)
+
+    await expect(
+      service.probe('https://downloads.example/latest', {
+        headers: { Authorization: 'Bearer secret' },
+      })
+    ).resolves.toEqual({ filename: 'release.zip', validator: null })
+
+    expect(fetchImpl.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer secret',
+        }),
+      })
+    )
+  })
+
+  it('cancels a metadata GET body and applies a Content-Type extension', async () => {
+    const response = new Response(Uint8Array.of(1), {
+      status: 200,
       headers: {
-        'Content-Range': 'bytes 0-0/1024',
         'Content-Type': 'application/vnd.microsoft.portable-executable',
       },
     })
-    const cancel = vi.spyOn(ranged.body as ReadableStream, 'cancel')
-    const fetchImpl = fetchSequence(new Response(null, { status: 405 }), ranged)
+    const cancel = vi.spyOn(response.body as ReadableStream, 'cancel')
+    const fetchImpl = fetchSequence(response)
     const service = new DirectResourceValidatorService(fetchImpl, 100)
 
     await expect(
       service.probe('https://update.example/latest/win32-x64-user/stable')
     ).resolves.toEqual({ filename: 'stable.exe', validator: null })
 
-    expect(fetchImpl.mock.calls[1]?.[1]).toEqual(
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
         method: 'GET',
         headers: {
-          'accept-encoding': 'identity',
-          range: 'bytes=0-0',
+          accept: '*/*',
+          'accept-encoding': 'deflate, gzip',
+          authorization: '',
+          cookie: '',
+          'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
         },
       })
     )
     expect(cancel).toHaveBeenCalledOnce()
   })
 
-  it('returns filename and validator from the same successful HEAD', async () => {
+  it('returns filename and validator from the same successful GET', async () => {
     const fetchImpl = fetchSequence(
       new Response(null, {
         status: 200,
@@ -179,16 +303,32 @@ describe('DirectResourceValidatorService', () => {
     expect(fetchImpl).toHaveBeenCalledOnce()
   })
 
+  it('rejects duplicate ETags merged into one response header', async () => {
+    const headers = new Headers({
+      'Content-Disposition': 'attachment; filename="release.zip"',
+    })
+    headers.append('ETag', '"release-v1"')
+    headers.append('ETag', '"release-v2"')
+    const fetchImpl = fetchSequence(
+      new Response(null, { status: 200, headers })
+    )
+    const service = new DirectResourceValidatorService(fetchImpl, 100, () => 7)
+
+    await expect(
+      service.probe('https://example.com/download.php')
+    ).resolves.toEqual({ filename: 'release.zip', validator: null })
+  })
+
   it('does not bypass a proxy that cannot be represented', async () => {
     const fetchImpl = vi.fn()
-    const makeDispatcher = vi.fn(async () => {
+    const makeProxyClient = vi.fn(async () => {
       throw new Error('unsupported proxy')
     })
     const service = new DirectResourceValidatorService(
       fetchImpl,
       100,
       Date.now,
-      makeDispatcher
+      makeProxyClient
     )
 
     await expect(
@@ -199,53 +339,44 @@ describe('DirectResourceValidatorService', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('uses EnvHttpProxyAgent for HTTP proxy+bypass and Socks5ProxyAgent for SOCKS5', async () => {
-    const response = () =>
+  it('uses a proxy-bound client instead of the direct fetch implementation', async () => {
+    const directFetch = vi.fn(async () => {
+      throw new Error('direct fetch must not run for a proxied probe')
+    })
+    const proxyFetch = fetchSequence(
       new Response(null, {
         status: 200,
         headers: {
           'Content-Disposition': 'attachment; filename="release.zip"',
         },
       })
-    const httpFetch = fetchSequence(response())
-    const socksFetch = fetchSequence(response())
-
-    await new DirectResourceValidatorService(httpFetch, 100).probe(
-      'https://example.com/download.php',
-      {
-        proxy: 'http://proxy.example:8080',
-        noProxy: 'localhost,*.internal',
-      }
     )
-    await new DirectResourceValidatorService(socksFetch, 100).probe(
-      'https://example.com/download.php',
-      { proxy: 'socks5://proxy.example:1080' }
+    const close = vi.fn(async () => undefined)
+    const makeProxyClient = vi.fn(async () => ({ fetch: proxyFetch, close }))
+    const service = new DirectResourceValidatorService(
+      directFetch,
+      100,
+      Date.now,
+      makeProxyClient
     )
-
-    const httpInit = httpFetch.mock.calls[0]?.[1] as
-      | { dispatcher?: unknown }
-      | undefined
-    const socksInit = socksFetch.mock.calls[0]?.[1] as
-      | { dispatcher?: unknown }
-      | undefined
-    expect(httpInit?.dispatcher).toBeInstanceOf(EnvHttpProxyAgent)
-    expect(socksInit?.dispatcher).toBeInstanceOf(Socks5ProxyAgent)
-  })
-
-  it('declines SOCKS5 metadata probing when a bypass list cannot be represented', async () => {
-    const fetchImpl = vi.fn()
-    const service = new DirectResourceValidatorService(fetchImpl, 100)
 
     await expect(
       service.probe('https://example.com/download.php', {
-        proxy: 'socks5://proxy.example:1080',
-        noProxy: 'localhost',
+        proxy: 'http://proxy.example:8080',
+        noProxy: 'localhost,*.internal',
       })
-    ).resolves.toBeNull()
-    expect(fetchImpl).not.toHaveBeenCalled()
+    ).resolves.toEqual({ filename: 'release.zip', validator: null })
+
+    expect(makeProxyClient).toHaveBeenCalledWith({
+      proxy: 'http://proxy.example:8080',
+      noProxy: 'localhost,*.internal',
+    })
+    expect(directFetch).not.toHaveBeenCalled()
+    expect(proxyFetch).toHaveBeenCalledOnce()
+    expect(close).toHaveBeenCalledOnce()
   })
 
-  it('captures a strong ETag and content length with HEAD', async () => {
+  it('captures a strong ETag and content length with GET', async () => {
     const fetchImpl = fetchSequence(
       new Response(null, {
         status: 200,
@@ -261,16 +392,80 @@ describe('DirectResourceValidatorService', () => {
       capturedAt: 7,
     })
     expect(fetchImpl).toHaveBeenCalledWith(
+      'https://example.com/file',
       expect.objectContaining({
-        href: 'https://example.com/file',
-      }),
-      expect.objectContaining({
-        method: 'HEAD',
-        headers: { 'accept-encoding': 'identity' },
+        method: 'GET',
+        headers: {
+          accept: '*/*',
+          'accept-encoding': 'deflate, gzip',
+          authorization: '',
+          cookie: '',
+          'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
+        },
         redirect: 'manual',
       })
     )
   })
+
+  it('uses the effective engine User-Agent unless the task overrides it', async () => {
+    const inheritedFetch = fetchSequence(new Response(null, { status: 200 }))
+    const overriddenFetch = fetchSequence(new Response(null, { status: 200 }))
+
+    await new DirectResourceValidatorService(inheritedFetch, 100).capture(
+      'https://example.com/file',
+      { userAgent: 'Motrix/2.0' }
+    )
+    await new DirectResourceValidatorService(overriddenFetch, 100).capture(
+      'https://example.com/file',
+      {
+        headers: { 'User-Agent': 'Task Agent' },
+        userAgent: 'Motrix/2.0',
+      }
+    )
+
+    expect(inheritedFetch.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'user-agent': 'Motrix/2.0' }),
+      })
+    )
+    expect(overriddenFetch.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'user-agent': 'Task Agent' }),
+      })
+    )
+  })
+
+  it('sends an explicitly empty effective User-Agent', async () => {
+    const fetchImpl = fetchSequence(new Response(null, { status: 200 }))
+
+    await new DirectResourceValidatorService(fetchImpl, 100).capture(
+      'https://example.com/file',
+      { userAgent: '' }
+    )
+
+    expect(fetchImpl.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'user-agent': '' }),
+      })
+    )
+  })
+
+  it.each([
+    [{ Host: 'other.example' }],
+    [{ Authorization: 'one', authorization: 'two' }],
+    [{ 'X-Test': 'safe\r\nInjected: yes' }],
+  ])(
+    'does not request metadata for an unrepresentable header map',
+    async (headers) => {
+      const fetchImpl = vi.fn()
+      const service = new DirectResourceValidatorService(fetchImpl, 100)
+
+      await expect(
+        service.probe('https://example.com/file', { headers })
+      ).resolves.toBeNull()
+      expect(fetchImpl).not.toHaveBeenCalled()
+    }
+  )
 
   it('falls back to Last-Modified only when content length is known', async () => {
     const fetchImpl = fetchSequence(
@@ -306,24 +501,101 @@ describe('DirectResourceValidatorService', () => {
     const service = new DirectResourceValidatorService(fetchImpl)
 
     await expect(
-      service.verify('https://example.com/file', {
-        kind: 'strong-etag',
-        value: '"release-v1"',
-        contentLength: 4096,
-        capturedAt: 1,
-      })
+      service.verify(
+        'https://example.com/file',
+        {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          contentLength: 4096,
+          capturedAt: 1,
+        },
+        { userAgent: 'Motrix/2.0' }
+      )
     ).resolves.toEqual({ outcome: 'unchanged', ifRange: '"release-v1"' })
     expect(fetchImpl).toHaveBeenCalledWith(
       'https://example.com/file',
       expect.objectContaining({
         method: 'GET',
         headers: {
-          'Accept-Encoding': 'identity',
-          Range: 'bytes=0-0',
-          'If-Range': '"release-v1"',
+          accept: '*/*',
+          'accept-encoding': 'deflate, gzip',
+          authorization: '',
+          cookie: '',
+          'user-agent': 'Motrix/2.0',
+          'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
+          range: 'bytes=0-0',
+          'if-range': '"release-v1"',
+        },
+        redirect: 'manual',
+        signal: expect.any(AbortSignal),
+      })
+    )
+  })
+
+  it('verifies through a proxy client and closes it without direct fallback', async () => {
+    const directFetch = vi.fn()
+    const proxyFetch = fetchSequence(
+      new Response(null, {
+        status: 206,
+        headers: {
+          ETag: '"release-v1"',
+          'Content-Range': 'bytes 0-0/4096',
         },
       })
     )
+    const close = vi.fn(async () => undefined)
+    const makeProxyClient = vi.fn(async () => ({ fetch: proxyFetch, close }))
+    const service = new DirectResourceValidatorService(
+      directFetch,
+      100,
+      () => 7,
+      makeProxyClient
+    )
+
+    await expect(
+      service.verify(
+        'https://example.com/file',
+        {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          contentLength: 4096,
+          capturedAt: 1,
+        },
+        { proxy: 'proxy.example:8080', noProxy: 'localhost' }
+      )
+    ).resolves.toEqual({ outcome: 'unchanged', ifRange: '"release-v1"' })
+
+    expect(makeProxyClient).toHaveBeenCalledWith({
+      proxy: 'proxy.example:8080',
+      noProxy: 'localhost',
+    })
+    expect(directFetch).not.toHaveBeenCalled()
+    expect(proxyFetch).toHaveBeenCalledOnce()
+    expect(close).toHaveBeenCalledOnce()
+  })
+
+  it('fails closed when a verification proxy cannot be represented', async () => {
+    const directFetch = vi.fn()
+    const makeProxyClient = vi.fn(async () => null)
+    const service = new DirectResourceValidatorService(
+      directFetch,
+      100,
+      Date.now,
+      makeProxyClient
+    )
+
+    await expect(
+      service.verify(
+        'https://example.com/file',
+        {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          capturedAt: 1,
+        },
+        { proxy: 'unsupported://proxy.example' }
+      )
+    ).resolves.toEqual({ outcome: 'unverifiable', ifRange: null })
+    expect(directFetch).not.toHaveBeenCalled()
   })
 
   it('classifies changed ETag or total length as source-changed', async () => {

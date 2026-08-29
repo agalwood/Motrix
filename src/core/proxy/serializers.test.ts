@@ -2,6 +2,7 @@ import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import { describe, expect, it } from 'vitest'
 import {
   proxyToAria2Options,
+  proxyToDownloadRequestOptions,
   proxyToElectronConfig,
   proxyToFetchUrl,
 } from './serializers'
@@ -68,6 +69,23 @@ describe('proxyToAria2Options', () => {
     })
     expect(r?.allProxy).toBe('http://[2001:db8::1]:8080')
   })
+
+  it('rejects control characters at the serialization boundary', () => {
+    expect(
+      proxyToAria2Options({
+        ...enabledHttp,
+        bypass: ['localhost\nhttp-proxy=http://evil'],
+        scopes: { download: true, updateApp: false, updateTrackers: false },
+      })
+    ).toBeNull()
+    expect(
+      proxyToAria2Options({
+        ...enabledHttp,
+        user: 'user\nhttp-proxy=http://evil',
+        scopes: { download: true, updateApp: false, updateTrackers: false },
+      })
+    ).toBeNull()
+  })
 })
 
 describe('proxyToElectronConfig', () => {
@@ -90,6 +108,29 @@ describe('proxyToElectronConfig', () => {
       scopes: { download: false, updateApp: true, updateTrackers: false },
     })
     expect(r?.proxyRules).toBe('socks5=socks5://p.example.com:8080')
+  })
+})
+
+describe('proxyToDownloadRequestOptions', () => {
+  it('returns null outside the enabled download scope', () => {
+    expect(proxyToDownloadRequestOptions(DEFAULT_PROXY_SETTINGS)).toBeNull()
+    expect(proxyToDownloadRequestOptions(enabledHttp)).toBeNull()
+  })
+
+  it('keeps the current proxy credentials and bypass only in request memory', () => {
+    expect(
+      proxyToDownloadRequestOptions({
+        ...enabledHttp,
+        protocol: 'socks5',
+        user: 'a@b',
+        password: 'p:s',
+        bypass: ['localhost', '127.0.0.0/8'],
+        scopes: { download: true, updateApp: false, updateTrackers: false },
+      })
+    ).toEqual({
+      proxy: 'socks5://a%40b:p%3As@p.example.com:8080',
+      noProxy: 'localhost,127.0.0.0/8',
+    })
   })
 })
 

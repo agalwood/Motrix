@@ -38,12 +38,19 @@ describe('validateHttpPatch', () => {
     expect(result.proxy).toBe('')
   })
 
-  it('accepts a valid socks5 proxy with credentials', () => {
+  it('accepts a valid HTTP task proxy with credentials', () => {
     const result = validateHttpPatch(
-      { proxy: 'socks5://user:pass@host:1080' },
+      { proxy: 'http://user:pass@host:1080' },
       makeOpts()
     )
-    expect(result.proxy).toBe('socks5://user:pass@host:1080')
+    expect(result.proxy).toBe('http://user:pass@host:1080')
+  })
+
+  it.each([
+    'socks5://user:pass@host:1080',
+    'http://user%0Aevil:pass@host:1080',
+  ])('rejects a task proxy aria2 cannot safely consume: %s', (proxy) => {
+    expect(() => validateHttpPatch({ proxy }, makeOpts())).toThrow(AppError)
   })
 
   it('accepts a headers array with name/value objects', () => {

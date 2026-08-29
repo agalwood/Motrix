@@ -26,7 +26,18 @@ const OWNER_MARKER_PREFIXES = [
   '--save-session=',
   '--sqlite3-db-path=',
 ] as const
-const REDACTED_ARG_PREFIXES = ['--rpc-secret=', '--all-proxy='] as const
+const REDACTED_ARG_PREFIXES = [
+  '--rpc-secret=',
+  '--all-proxy=',
+  '--http-proxy-user=',
+  '--http-proxy-passwd=',
+  '--https-proxy-user=',
+  '--https-proxy-passwd=',
+  '--ftp-proxy-user=',
+  '--ftp-proxy-passwd=',
+  '--all-proxy-user=',
+  '--all-proxy-passwd=',
+] as const
 
 const ownerRecordSchema = z.object({
   version: z.literal(OWNER_RECORD_VERSION),

@@ -1,6 +1,12 @@
 import path from 'node:path'
 import { getLogger } from '@core/logger'
+import type { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
+import {
+  extractAria2ProxyCredentials,
+  stripAria2ProxyCredentials,
+} from '@core/proxy/aria2-proxy-routing'
 import type { ProxyBridgeResolver } from '@core/proxy/proxy-bridge-manager'
+import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import { ENGINE_RPC_PORT } from '@shared/constants'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
@@ -34,6 +40,7 @@ import {
   isMotrixFork,
   STANDARD_ARIA2_CONNECTION_LIMIT,
 } from './aria2/feature-report'
+import type { DirectResourceMetadataProfile } from './engine-adapter'
 import { checkPort, findAvailablePort } from './port-check'
 
 const log = getLogger('engine')
@@ -48,6 +55,14 @@ const BACKOFF_MAX = 30_000
 const MAX_RESTARTS = 5
 const HEALTH_CHECK_INTERVAL = 30_000
 const MAX_CONSECUTIVE_FAILURES = 3
+
+function sameProxyOptions(
+  left: Aria2ProxyOptions | null,
+  right: Aria2ProxyOptions | null
+): boolean {
+  if (left === null || right === null) return left === right
+  return left.allProxy === right.allProxy && left.noProxy === right.noProxy
+}
 
 const HOT_ENGINE_OPTIONS = {
   maxConcurrentDownloads: 'max-concurrent-downloads',
@@ -103,7 +118,12 @@ export class EngineSupervisor {
     private trustStore: Aria2TrustStore,
     private rpcClient: Aria2RpcClient,
     private adapter: Aria2Adapter,
-    private proxyBridge: Pick<ProxyBridgeResolver, 'resolveForDownload'>
+    private proxyBridge: Pick<ProxyBridgeResolver, 'resolveForDownload'>,
+    private appliedDownloadProxyPolicy?: Pick<
+      AppliedDownloadProxyPolicy,
+      'commit' | 'markUnavailable'
+    > &
+      Partial<Pick<AppliedDownloadProxyPolicy, 'publishStartupRoute'>>
   ) {
     // Wire up process exit handler
     this.processManager.onExit = (code, _signal) => {
@@ -317,11 +337,38 @@ export class EngineSupervisor {
    */
   async applyProxyChange(
     opts: { allProxy: string; noProxy: string } | null
+  ): Promise<boolean> {
+    if (this.state !== EngineState.Ready) return false
+    await this.writeGlobalProxyOptions(opts)
+    return true
+  }
+
+  private async writeGlobalProxyOptions(
+    opts: Aria2ProxyOptions | null
   ): Promise<void> {
-    if (this.state !== EngineState.Ready) return
-    const params = opts
-      ? { 'all-proxy': opts.allProxy, 'no-proxy': opts.noProxy }
-      : { 'all-proxy': '', 'no-proxy': '' }
+    const proxyCredentials = opts
+      ? extractAria2ProxyCredentials(opts.allProxy)
+      : { username: '', password: '' }
+    const proxyEndpoint = opts ? stripAria2ProxyCredentials(opts.allProxy) : ''
+    if (!proxyCredentials || proxyEndpoint === null) {
+      throw new TypeError('Unsupported aria2 proxy credentials')
+    }
+    const params = {
+      'all-proxy': proxyEndpoint,
+      'http-proxy': '',
+      'http-proxy-user': '',
+      'http-proxy-passwd': '',
+      'https-proxy': '',
+      'https-proxy-user': '',
+      'https-proxy-passwd': '',
+      'ftp-proxy': '',
+      'ftp-proxy-user': '',
+      'ftp-proxy-passwd': '',
+      'all-proxy-user': proxyCredentials.username,
+      'all-proxy-passwd': proxyCredentials.password,
+      'no-proxy': opts?.noProxy ?? '',
+      'proxy-method': 'get',
+    }
     await this.rpcClient.changeGlobalOption(params)
   }
 
@@ -412,8 +459,9 @@ export class EngineSupervisor {
       // every start so an explicit settings rotation authenticates the first
       // RPC sent to the newly spawned aria2 process.
       this.rpcClient.setSecret(engineSettings.rpcSecret)
-      const proxy = this.settingsManager.getProxy()
-      const resolvedProxy = await this.proxyBridge.resolveForDownload(proxy)
+      const configuredProxy = structuredClone(this.settingsManager.getProxy())
+      const resolvedProxy =
+        await this.proxyBridge.resolveForDownload(configuredProxy)
       if (this.stopping) return
       const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir
       // Provider is wired by the shell (Task 8) before start() in production;
@@ -487,6 +535,22 @@ export class EngineSupervisor {
       // resume behavior. Motrix-owned recovery still overrides `continue`
       // explicitly per task where safety requires it.
       await this.rpcClient.changeGlobalOption({ continue: 'true' })
+      // Inspect only a sanitized compatibility decision. Raw global options
+      // can contain passwords, custom headers and cookie paths and must never
+      // be cached on the adapter or published to task composition.
+      let pendingMetadataProfile: DirectResourceMetadataProfile | null = null
+      try {
+        pendingMetadataProfile =
+          typeof this.adapter.inspectDirectResourceMetadataProfile ===
+          'function'
+            ? await this.adapter.inspectDirectResourceMetadataProfile()
+            : null
+      } catch (error) {
+        log.debug(
+          { err: error },
+          'aria2 HTTP metadata request profile inspection failed closed'
+        )
+      }
 
       // Step 6: Ready
       if (this.stopping) {
@@ -494,7 +558,35 @@ export class EngineSupervisor {
         await this.processManager.gracefulStop()
         return
       }
-      this.setState(EngineState.Ready)
+      const publishReady = () => {
+        this.adapter.setDirectResourceMetadataProfile?.(pendingMetadataProfile)
+        this.setState(EngineState.Ready)
+      }
+      if (this.appliedDownloadProxyPolicy?.publishStartupRoute) {
+        const published =
+          await this.appliedDownloadProxyPolicy.publishStartupRoute(
+            async () => {
+              // A proxy update can be persisted after buildArgs() captured its
+              // startup route but before aria2 connects. Re-resolve under the
+              // policy writer and repair aria2 before publishing Ready.
+              const latestConfiguredProxy = structuredClone(
+                this.settingsManager.getProxy()
+              )
+              const latestResolvedProxy =
+                await this.proxyBridge.resolveForDownload(latestConfiguredProxy)
+              if (!sameProxyOptions(resolvedProxy, latestResolvedProxy)) {
+                await this.writeGlobalProxyOptions(latestResolvedProxy)
+              }
+              return latestResolvedProxy
+            },
+            publishReady,
+            () => !this.stopping
+          )
+        if (!published) return
+      } else {
+        this.appliedDownloadProxyPolicy?.commit(resolvedProxy)
+        publishReady()
+      }
       this.lastError = null
       this.failure = null
       this.restartAttempts = 0
@@ -674,6 +766,11 @@ export class EngineSupervisor {
     const prev = this.state
     if (prev === newState) return
     this.state = newState
+
+    if (newState !== EngineState.Ready) {
+      this.adapter.setDirectResourceMetadataProfile?.(null)
+      this.appliedDownloadProxyPolicy?.markUnavailable()
+    }
 
     this.eventBus.emit(Events.EngineStateChanged, newState)
 
@@ -942,5 +1039,14 @@ export class EngineSupervisor {
       }, timeoutMs)
       this.eventBus.on(Events.EngineStateChanged, onState)
     })
+  }
+
+  assertReady(): void {
+    if (this.state !== EngineState.Ready) {
+      throw new AppError(
+        ErrorCode.EngineConnectionLost,
+        `engine is not ready (${this.state})`
+      )
+    }
   }
 }

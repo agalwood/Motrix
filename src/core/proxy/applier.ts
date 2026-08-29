@@ -1,13 +1,13 @@
 import { getLogger } from '@core/logger'
-import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import type { ProxySettings } from '@shared/types/settings'
+import type { DownloadProxyApplyResult } from './applied-download-proxy-policy'
 import type { ProxyBridgeResolver } from './proxy-bridge-manager'
 import { proxyToElectronConfig } from './serializers'
 
 interface EngineSupervisorLike {
   applyProxyChange: (
     opts: { allProxy: string; noProxy: string } | null
-  ) => Promise<void> | void
+  ) => Promise<boolean> | boolean
 }
 
 interface TrackerManagerLike {
@@ -29,14 +29,17 @@ export function createProxyApplier(deps: ProxyApplierDeps) {
   async function apply(
     oldProxy: ProxySettings,
     newProxy: ProxySettings
-  ): Promise<void> {
+  ): Promise<DownloadProxyApplyResult> {
+    let result: DownloadProxyApplyResult = { downloadProxy: 'unchanged' }
     // Reconcile even when only the tracker scope changed, so a SOCKS5
     // listener never outlives the settings that require it.
     await deps.proxyBridge.reconcile(newProxy)
 
     if (scopeDirty(oldProxy, newProxy, 'download')) {
       const opts = await deps.proxyBridge.resolveForDownload(newProxy)
-      await deps.engineSupervisor.applyProxyChange(opts)
+      result = (await deps.engineSupervisor.applyProxyChange(opts))
+        ? { downloadProxy: 'applied', appliedProxy: opts }
+        : { downloadProxy: 'unavailable' }
       log.info({ enabled: opts !== null }, 'download proxy applied')
     }
 
@@ -56,14 +59,29 @@ export function createProxyApplier(deps: ProxyApplierDeps) {
       deps.trackerManager.invalidateProxyCache()
       log.info('updateTrackers proxy invalidated')
     }
+
+    return result
   }
 
-  async function applyAll(current: ProxySettings): Promise<void> {
-    const allDisabled: ProxySettings = {
-      ...DEFAULT_PROXY_SETTINGS,
-      scopes: { download: false, updateApp: false, updateTrackers: false },
+  async function applyAll(
+    current: ProxySettings
+  ): Promise<DownloadProxyApplyResult> {
+    // This is also the recovery path after a partial/failed hot apply, so it
+    // must not infer work from a synthetic old value. Reassert every scope,
+    // including an explicitly direct download route, against the current
+    // persisted settings.
+    await deps.proxyBridge.reconcile(current)
+    const opts = await deps.proxyBridge.resolveForDownload(current)
+    const result: DownloadProxyApplyResult =
+      (await deps.engineSupervisor.applyProxyChange(opts))
+        ? { downloadProxy: 'applied', appliedProxy: opts }
+        : { downloadProxy: 'unavailable' }
+
+    if (deps.applyUpdateAppProxy) {
+      await deps.applyUpdateAppProxy(proxyToElectronConfig(current))
     }
-    await apply(allDisabled, current)
+    deps.trackerManager.invalidateProxyCache()
+    return result
   }
 
   return { apply, applyAll }

@@ -24,6 +24,7 @@ import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import { PluginHost } from '@core/plugin/host/plugin-host'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { migrate } from '@core/session/migrations'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -220,6 +221,7 @@ function makeBaseDeps(saveDir: string): Deps & {
   return {
     adapter,
     settingsManager,
+    directResourceProxyPolicy: new AppliedDownloadProxyPolicy({ noProxy: '' }),
     finalNamePicker,
     torrentMetaStore,
     taskManager,

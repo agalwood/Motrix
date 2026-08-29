@@ -1,5 +1,11 @@
+import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { getLogger } from '@core/logger'
+import {
+  extractAria2ProxyCredentials,
+  normalizeAria2TaskProxyUrl,
+  stripAria2ProxyCredentials,
+} from '@core/proxy/aria2-proxy-routing'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
   EngineCapability,
@@ -20,8 +26,10 @@ import { probeQuick } from '../../probe/disk-probe'
 import type {
   AddTorrentParams,
   CreateDownloadParams,
+  DirectResourceMetadataProfile,
   EngineAdapter,
 } from '../engine-adapter'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
@@ -36,6 +44,73 @@ import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
  * defaults to unlimited) and merges them into tellStopped.
  */
 const REMOVE_RESULT_CHUNK_SIZE = 100
+const RESERVED_TASK_PROXY_OPTIONS = new Set([
+  'all-proxy',
+  'all-proxy-user',
+  'all-proxy-passwd',
+  'http-proxy',
+  'http-proxy-user',
+  'http-proxy-passwd',
+  'https-proxy',
+  'https-proxy-user',
+  'https-proxy-passwd',
+  'ftp-proxy',
+  'ftp-proxy-user',
+  'ftp-proxy-passwd',
+  'no-proxy',
+  'proxy-method',
+])
+
+type FileAccess = (filePath: string) => Promise<void>
+
+const AMBIENT_HTTP_TEXT_OPTIONS = [
+  'referer',
+  'load-cookies',
+  'http-user',
+  'http-passwd',
+] as const
+
+const AMBIENT_HTTP_TRUE_OPTIONS = [
+  'conditional-get',
+  'dry-run',
+  'http-auth-challenge',
+  'http-no-cache',
+  'use-head',
+] as const
+
+/**
+ * Convert aria2's effective global options into a non-secret compatibility
+ * decision. User values are never returned or logged. A configured netrc is
+ * safe only when it is disabled or its effective file does not exist; a
+ * present file may change Authorization and must preserve the user's behavior.
+ */
+export async function directResourceMetadataProfileFromGlobalOptions(
+  options: Readonly<Record<string, string>>,
+  accessFile: FileAccess = access
+): Promise<DirectResourceMetadataProfile | null> {
+  if (
+    hasEffectiveCumulativeValue(options.header) ||
+    AMBIENT_HTTP_TEXT_OPTIONS.some((name) => options[name]?.length > 0) ||
+    AMBIENT_HTTP_TRUE_OPTIONS.some((name) => isAria2True(options[name])) ||
+    options['http-accept-gzip'] !== 'true' ||
+    options['no-want-digest-header'] !== 'false'
+  ) {
+    return null
+  }
+
+  if (!isAria2True(options['no-netrc'])) {
+    const netrcPath = options['netrc-path']?.trim()
+    if (!netrcPath) return null
+    try {
+      await accessFile(netrcPath)
+      return null
+    } catch (error) {
+      if (!isMissingPathError(error)) return null
+    }
+  }
+
+  return DIRECT_RESOURCE_METADATA_PROFILE
+}
 
 import {
   buildFeatureReport,
@@ -68,6 +143,8 @@ export class Aria2Adapter implements EngineAdapter {
     hasMoveStorage: false,
   }
   private connectionOptionLimit: number | null = null
+  private directResourceMetadataProfile: DirectResourceMetadataProfile | null =
+    null
 
   private btCompleteHandlers: Array<(engineTaskId: string) => void> = []
   private downloadCompleteHandlers: Array<(engineTaskId: string) => void> = []
@@ -75,7 +152,10 @@ export class Aria2Adapter implements EngineAdapter {
   private readonly rpcUnsubscribers: Array<() => void> = []
   private disposed = false
 
-  constructor(private rpc: Aria2RpcClient) {
+  constructor(
+    private rpc: Aria2RpcClient,
+    private readonly accessFile: FileAccess = access
+  ) {
     const unsubscribers = [
       this.rpc.onBtDownloadComplete((event) => {
         this.fanOut(this.btCompleteHandlers, event.gid)
@@ -92,6 +172,34 @@ export class Aria2Adapter implements EngineAdapter {
         this.rpcUnsubscribers.push(unsubscribe)
       }
     }
+  }
+
+  async inspectDirectResourceMetadataProfile(): Promise<DirectResourceMetadataProfile | null> {
+    try {
+      return await directResourceMetadataProfileFromGlobalOptions(
+        await this.rpc.getGlobalOption(),
+        this.accessFile
+      )
+    } catch (error) {
+      // The profile is a safety proof, not a startup dependency. RPC or file
+      // inspection failures disable optional probing/replay without exposing
+      // the possibly secret global option values in logs.
+      this.log.debug(
+        { err: error },
+        'aria2 HTTP metadata request profile is unavailable'
+      )
+      return null
+    }
+  }
+
+  setDirectResourceMetadataProfile(
+    profile: DirectResourceMetadataProfile | null
+  ): void {
+    this.directResourceMetadataProfile = profile
+  }
+
+  getDirectResourceMetadataProfile(): DirectResourceMetadataProfile | null {
+    return this.directResourceMetadataProfile
   }
 
   dispose(): void {
@@ -233,6 +341,15 @@ export class Aria2Adapter implements EngineAdapter {
         'aria2 addUri gid must contain exactly 16 hexadecimal characters'
       )
     }
+    const metadataProfile = params.directResourceMetadataProfile
+    if (
+      metadataProfile !== undefined &&
+      this.getDirectResourceMetadataProfile() !== metadataProfile
+    ) {
+      throw new Error(
+        'aria2 HTTP request profile changed before download dispatch'
+      )
+    }
     const options: Record<string, string | string[]> = {
       dir: params.saveDir,
     }
@@ -249,19 +366,85 @@ export class Aria2Adapter implements EngineAdapter {
       // engine state matches the persisted Motrix status.
       options.pause = 'true'
     }
-    if (params.headers) {
-      options.header = Object.entries(params.headers).map(
-        ([key, value]) => `${key}: ${value}`
-      )
+    const requestHeaders = Object.entries(params.headers ?? {})
+    if (metadataProfile === DIRECT_RESOURCE_METADATA_PROFILE) {
+      // An empty custom field suppresses aria2's built-in Cookie/AuthConfig
+      // values while preserving the exact field presence mirrored by Undici.
+      // Explicit task values always win.
+      if (!hasRequestHeader(requestHeaders, 'cookie')) {
+        requestHeaders.push(['Cookie', ''])
+      }
+      if (!hasRequestHeader(requestHeaders, 'authorization')) {
+        requestHeaders.push(['Authorization', ''])
+      }
+    }
+    if (
+      params.uris.every((uri) => /^https?:\/\//i.test(uri)) &&
+      !hasRequestHeader(requestHeaders, 'accept')
+    ) {
+      // A Metalink-enabled aria2 expands its built-in Accept value on the
+      // first HTTP request. Pin Motrix direct downloads to the exact value
+      // used by metadata validation so content negotiation cannot diverge.
+      requestHeaders.push(['Accept', '*/*'])
+    }
+    if (requestHeaders.length > 0) {
+      options.header = requestHeaders.map(([key, value]) => `${key}: ${value}`)
+    }
+    if (params.userAgent !== undefined) {
+      if (hasC0OrDel(params.userAgent)) {
+        throw new TypeError(
+          'Task User-Agent must not contain control characters'
+        )
+      }
+      options['user-agent'] = params.userAgent
     }
     if (params.connections != null) {
       options.split = String(params.connections)
       options['max-connection-per-server'] = String(params.connections)
     }
-    if (params.proxy?.trim()) options['all-proxy'] = params.proxy.trim()
+    if (metadataProfile === DIRECT_RESOURCE_METADATA_PROFILE) {
+      // Pin every scalar request semantic represented by the profile before
+      // passthrough options. A caller that intentionally supplies an engine
+      // option keeps the historical last-write-wins behavior below; such
+      // calls are excluded from metadata probing by CreateTaskHandler.
+      options.referer = ''
+      options['http-no-cache'] = 'false'
+      options['conditional-get'] = 'false'
+      options['use-head'] = 'false'
+      options['no-netrc'] = 'true'
+      options['http-user'] = ''
+      options['http-passwd'] = ''
+      options['http-auth-challenge'] = 'false'
+      options['http-accept-gzip'] = 'true'
+      options['no-want-digest-header'] = 'false'
+    }
     if (params.extraEngineOptions) {
-      for (const [k, v] of Object.entries(params.extraEngineOptions))
+      for (const [k, v] of Object.entries(params.extraEngineOptions)) {
+        if (RESERVED_TASK_PROXY_OPTIONS.has(k.toLowerCase())) {
+          throw new TypeError(`Reserved aria2 proxy option: ${k}`)
+        }
         options[k] = v
+      }
+    }
+    const taskProxy = params.proxy?.trim()
+    if (taskProxy) {
+      const normalizedProxy = normalizeAria2TaskProxyUrl(taskProxy)
+      if (!normalizedProxy) {
+        throw new TypeError(
+          'Task proxy must use aria2-compatible HTTP or HTTPS syntax'
+        )
+      }
+      const credentials = extractAria2ProxyCredentials(taskProxy)
+      const proxyWithoutCredentials = stripAria2ProxyCredentials(taskProxy)
+      if (!credentials || !proxyWithoutCredentials) {
+        throw new TypeError('Unsupported aria2 proxy credentials')
+      }
+      // Reapply the complete task proxy after passthrough options. Carry
+      // credentials only in aria2's dedicated fields: duplicating them in the
+      // URI also makes them more likely to appear in engine state or logs.
+      options['all-proxy'] = proxyWithoutCredentials
+      options['all-proxy-user'] = credentials.username
+      options['all-proxy-passwd'] = credentials.password
     }
 
     const automaticTuning =
@@ -541,6 +724,9 @@ export class Aria2Adapter implements EngineAdapter {
     }
     if (params.extraEngineOptions) {
       for (const [k, v] of Object.entries(params.extraEngineOptions)) {
+        if (RESERVED_TASK_PROXY_OPTIONS.has(k.toLowerCase())) {
+          throw new TypeError(`Reserved aria2 proxy option: ${k}`)
+        }
         opts[k] = v
       }
     }
@@ -749,4 +935,36 @@ export class Aria2Adapter implements EngineAdapter {
       )
     }
   }
+}
+
+function hasC0OrDel(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0
+    if (codePoint <= 0x1f || codePoint === 0x7f) return true
+  }
+  return false
+}
+
+function hasRequestHeader(
+  headers: ReadonlyArray<readonly [string, string]>,
+  expectedName: string
+): boolean {
+  return headers.some(([name]) => name.toLowerCase() === expectedName)
+}
+
+function hasEffectiveCumulativeValue(value: string | undefined): boolean {
+  return Boolean(value?.split('\n').some((line) => line.trim().length > 0))
+}
+
+function isAria2True(value: string | undefined): boolean {
+  return value?.toLowerCase() === 'true'
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+  )
 }

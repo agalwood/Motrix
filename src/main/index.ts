@@ -50,6 +50,7 @@ import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
@@ -330,6 +331,7 @@ const settingsManager = new SettingsManager(settingsPath, {
     }
   },
 })
+const appliedDownloadProxyPolicy = new AppliedDownloadProxyPolicy()
 
 // ─── aria2 Infrastructure ───────────────────────────────
 
@@ -1120,8 +1122,12 @@ async function startEngineAndRestore(
   }
 
   try {
-    await sessionManager.restore()
-    await sessionManager.recoverLegacyTaskLost()
+    await appliedDownloadProxyPolicy.runWithSnapshot(
+      async (_snapshot, lease) => {
+        await sessionManager.restore(lease.assertCurrent)
+        await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
+      }
+    )
 
     // Plan B: re-prime MagnetTracker's in-memory cache from the
     // restored db state so polling skips magnet metadata GIDs and
@@ -1554,7 +1560,8 @@ async function initializeMainProcess(): Promise<void> {
     trustStore,
     rpcClient,
     adapter,
-    proxyBridge
+    proxyBridge,
+    appliedDownloadProxyPolicy
   )
 
   // Construct SpeedLimitController immediately after supervisor so
@@ -1768,7 +1775,15 @@ async function initializeMainProcess(): Promise<void> {
     rpcClient,
     motrixDb,
     adapter,
-    mediaTmpDir
+    mediaTmpDir,
+    undefined,
+    undefined,
+    () => {
+      const snapshot = appliedDownloadProxyPolicy.snapshot()
+      return snapshot
+        ? { ...snapshot, userAgent: settingsManager.getEngine().userAgent }
+        : null
+    }
   )
   pollingScheduler = new PollingScheduler(
     rpcClient,
@@ -1948,8 +1963,13 @@ async function initializeMainProcess(): Promise<void> {
     trackerManager,
     proxyBridge
   )
+  const initialProxySettings = settingsManager.getProxy()
   const proxyReady = mainProcessWork
-    .run(() => proxyApplier.applyAll(settingsManager.getProxy()))
+    .run(() =>
+      appliedDownloadProxyPolicy.applyTransition(() =>
+        proxyApplier.applyAll(initialProxySettings)
+      )
+    )
     .catch((err) => log.warn({ err }, 'initial proxy apply failed'))
 
   if (
@@ -2046,10 +2066,18 @@ async function initializeMainProcess(): Promise<void> {
       publishTaskUpdate,
       publishTaskUpdateNow,
       torrentMetaStore,
+      getDirectResourceProxyOptions: () => {
+        const snapshot = appliedDownloadProxyPolicy.snapshot()
+        return snapshot
+          ? { ...snapshot, userAgent: settingsManager.getEngine().userAgent }
+          : null
+      },
+      directResourceProxyPolicy: appliedDownloadProxyPolicy,
     }
     const createTaskDeps = {
       adapter,
       directResourceValidator: new DirectResourceValidatorService(),
+      directResourceProxyPolicy: appliedDownloadProxyPolicy,
       settingsManager,
       finalNamePicker,
       torrentMetaStore,
@@ -2084,6 +2112,7 @@ async function initializeMainProcess(): Promise<void> {
         await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
         await mainProcessWork.waitForStartup()
       },
+      assertEngineReady: () => supervisor.assertReady(),
       reuseExistingBt: (taskId: string) =>
         reAddTaskAction(taskId, bridgeReAddDeps),
     }
@@ -2317,6 +2346,7 @@ async function initializeMainProcess(): Promise<void> {
     motrixDatabase: motrixDb,
     geoipManager,
     proxyApplier,
+    appliedDownloadProxyPolicy,
     pluginRegistry,
     pluginStateStore,
     // biome-ignore lint/style/noNonNullAssertion: assigned before registerCommandHandlers
@@ -2427,9 +2457,13 @@ async function initializeMainProcess(): Promise<void> {
   }
 
   void mainProcessWork
-    .startStartup(() =>
-      startEngineAndRestore(engineSettings.sessionSaveInterval, adapter)
-    )
+    .startStartup(async () => {
+      // Finish the non-engine proxy scopes before startup commits the exact
+      // aria2 route. This prevents a late non-Ready apply result from
+      // overwriting the Ready snapshot.
+      await proxyReady
+      return startEngineAndRestore(engineSettings.sessionSaveInterval, adapter)
+    })
     .catch((err) => {
       log.error({ err }, 'engine start/restore failed')
     })

@@ -3,7 +3,11 @@ import type { EngineFeatureReport } from '@shared/types/engine'
 import type { Mock } from 'vitest'
 import { describe, expect, it, vi } from 'vitest'
 import type { CreateDownloadParams } from '../engine-adapter'
-import { Aria2Adapter } from './aria2-adapter'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
+import {
+  Aria2Adapter,
+  directResourceMetadataProfileFromGlobalOptions,
+} from './aria2-adapter'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import type { Aria2RawFile, Aria2RawGlobalStat, Aria2RawStatus } from './types'
 
@@ -32,6 +36,7 @@ function createMockRpc(): Aria2RpcClient {
     tellStopped: vi.fn(),
     getFiles: vi.fn(),
     getGlobalStat: vi.fn(),
+    getGlobalOption: vi.fn(),
     getVersion: vi.fn(),
     onBtDownloadComplete: vi.fn(),
     onDownloadComplete: vi.fn(),
@@ -242,6 +247,77 @@ const RAW_FILES: Aria2RawFile[] = [
 // ─── Tests ──────────────────────────────────────────────────
 
 describe('Aria2Adapter', () => {
+  describe('direct resource metadata profile', () => {
+    const safeOptions = {
+      'content-disposition-default-utf8': 'false',
+      'http-accept-gzip': 'true',
+      'no-want-digest-header': 'false',
+      'no-netrc': 'true',
+    }
+
+    it('accepts the controlled HTTP baseline without retaining raw options', async () => {
+      await expect(
+        directResourceMetadataProfileFromGlobalOptions(safeOptions)
+      ).resolves.toBe(DIRECT_RESOURCE_METADATA_PROFILE)
+
+      const rpc = createMockRpc()
+      vi.mocked(rpc.getGlobalOption).mockResolvedValue({
+        ...safeOptions,
+        'all-proxy-passwd': 'must-not-be-cached',
+      })
+      const adapter = new Aria2Adapter(rpc)
+      const profile = await adapter.inspectDirectResourceMetadataProfile()
+      adapter.setDirectResourceMetadataProfile(profile)
+
+      expect(adapter.getDirectResourceMetadataProfile()).toBe(
+        DIRECT_RESOURCE_METADATA_PROFILE
+      )
+      expect(adapter).not.toHaveProperty('globalOptions')
+    })
+
+    it.each([
+      ['header', 'X-Ambient: yes\n'],
+      ['referer', 'https://ref.example/'],
+      ['load-cookies', '/tmp/cookies.txt'],
+      ['http-user', 'alice'],
+      ['http-passwd', 'secret'],
+      ['conditional-get', 'true'],
+      ['dry-run', 'true'],
+      ['http-auth-challenge', 'true'],
+      ['http-no-cache', 'true'],
+      ['use-head', 'true'],
+    ])('rejects ambient %s request semantics', async (name, value) => {
+      await expect(
+        directResourceMetadataProfileFromGlobalOptions({
+          ...safeOptions,
+          [name]: value,
+        })
+      ).resolves.toBeNull()
+    })
+
+    it('rejects an active netrc but permits the default missing file', async () => {
+      const options = {
+        ...safeOptions,
+        'no-netrc': 'false',
+        'netrc-path': '/private/profile/.netrc',
+      }
+      await expect(
+        directResourceMetadataProfileFromGlobalOptions(
+          options,
+          vi.fn().mockResolvedValue(undefined)
+        )
+      ).resolves.toBeNull()
+
+      const missing = Object.assign(new Error('missing'), { code: 'ENOENT' })
+      await expect(
+        directResourceMetadataProfileFromGlobalOptions(
+          options,
+          vi.fn().mockRejectedValue(missing)
+        )
+      ).resolves.toBe(DIRECT_RESOURCE_METADATA_PROFILE)
+    })
+  })
+
   describe('getCapabilities / getFeatureReport', () => {
     it('returns conservative defaults before connect()', () => {
       const rpc = createMockRpc()
@@ -341,6 +417,74 @@ describe('Aria2Adapter', () => {
   })
 
   describe('createDownload', () => {
+    it('pins the metadata-owned baseline and preserves explicit credentials', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('profile-gid')
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setDirectResourceMetadataProfile(DIRECT_RESOURCE_METADATA_PROFILE)
+
+      await adapter.createDownload({
+        uris: ['https://example.com/file'],
+        saveDir: '/d',
+        headers: { Cookie: 'session=user', authorization: 'Bearer user' },
+        directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+        extraEngineOptions: {
+          referer: 'https://user.example/',
+          'use-head': 'true',
+        },
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['https://example.com/file'],
+        expect.objectContaining({
+          header: [
+            'Cookie: session=user',
+            'authorization: Bearer user',
+            'Accept: */*',
+          ],
+          referer: 'https://user.example/',
+          'use-head': 'true',
+          'http-no-cache': 'false',
+          'conditional-get': 'false',
+          'no-netrc': 'true',
+        })
+      )
+    })
+
+    it('adds empty Cookie and Authorization only for the safe profile', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('profile-gid')
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setDirectResourceMetadataProfile(DIRECT_RESOURCE_METADATA_PROFILE)
+
+      await adapter.createDownload({
+        uris: ['https://example.com/file'],
+        saveDir: '/d',
+        directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['https://example.com/file'],
+        expect.objectContaining({
+          header: ['Cookie: ', 'Authorization: ', 'Accept: */*'],
+        })
+      )
+    })
+
+    it('fails before addUri when the published profile is unavailable', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.createDownload({
+          uris: ['https://example.com/file'],
+          saveDir: '/d',
+          directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+        })
+      ).rejects.toThrow('request profile changed')
+      expect(rpc.addUri).not.toHaveBeenCalled()
+    })
+
     it('translates params and calls addUri', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('gid123')
@@ -360,6 +504,7 @@ describe('Aria2Adapter', () => {
       expect(rpc.addUri).toHaveBeenCalledWith(['http://example.com/file.zip'], {
         continue: 'false',
         dir: '/tmp',
+        header: ['Accept: */*'],
         out: 'custom.zip',
         'max-download-limit': '1024',
         'max-upload-limit': '512',
@@ -379,6 +524,7 @@ describe('Aria2Adapter', () => {
       expect(rpc.addUri).toHaveBeenCalledWith(['http://example.com/f.zip'], {
         continue: 'false',
         dir: '/tmp',
+        header: ['Accept: */*'],
       })
     })
 
@@ -753,7 +899,7 @@ describe('Aria2Adapter', () => {
       await adapter.createDownload({
         uris: ['u'],
         saveDir: '/d',
-        proxy: 'http://p:1080',
+        proxy: 'http://a%40b:p%3As@p:1080',
         extraEngineOptions: { referer: 'https://r', 'load-cookies': '/c' },
       })
 
@@ -761,10 +907,198 @@ describe('Aria2Adapter', () => {
         ['u'],
         expect.objectContaining({
           'all-proxy': 'http://p:1080',
+          'all-proxy-user': 'a@b',
+          'all-proxy-passwd': 'p:s',
           referer: 'https://r',
           'load-cookies': '/c',
         })
       )
+      const proxy = vi.mocked(rpc.addUri).mock.calls[0]?.[1]?.['all-proxy']
+      expect(proxy).not.toContain('a%40b')
+      expect(proxy).not.toContain('p%3As')
+    })
+
+    it('pins the captured engine User-Agent as a per-task option', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        userAgent: 'Motrix/Applied',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({ 'user-agent': 'Motrix/Applied' })
+      )
+    })
+
+    it('pins the default HTTP Accept header against Metalink negotiation', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['https://downloads.example/release'],
+        saveDir: '/d',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['https://downloads.example/release'],
+        expect.objectContaining({ header: ['Accept: */*'] })
+      )
+    })
+
+    it('pins the default Accept header for uppercase HTTP schemes', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['HTTPS://downloads.example/release'],
+        saveDir: '/d',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['HTTPS://downloads.example/release'],
+        expect.objectContaining({ header: ['Accept: */*'] })
+      )
+    })
+
+    it('preserves a task-provided Accept header', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['https://downloads.example/release'],
+        saveDir: '/d',
+        headers: { aCcEpT: 'application/octet-stream' },
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['https://downloads.example/release'],
+        expect.objectContaining({
+          header: ['aCcEpT: application/octet-stream'],
+        })
+      )
+    })
+
+    it('pins an explicitly empty engine User-Agent', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        userAgent: '',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({ 'user-agent': '' })
+      )
+    })
+
+    it('rejects a task User-Agent containing persistent option controls', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.createDownload({
+          uris: ['u'],
+          saveDir: '/d',
+          userAgent: 'Motrix\nall-proxy=http://evil',
+        })
+      ).rejects.toThrow('Task User-Agent must not contain control characters')
+      expect(rpc.addUri).not.toHaveBeenCalled()
+    })
+
+    it('clears inherited global credentials for an unauthenticated task proxy', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        proxy: 'proxy.example:1080',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({
+          'all-proxy': 'proxy.example:1080',
+          'all-proxy-user': '',
+          'all-proxy-passwd': '',
+        })
+      )
+    })
+
+    it('preserves an aria2-compatible legacy IPv4 task proxy', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
+      const adapter = new Aria2Adapter(rpc)
+
+      await adapter.createDownload({
+        uris: ['u'],
+        saveDir: '/d',
+        proxy: 'http://user:pass@127.1:8080',
+      })
+
+      expect(rpc.addUri).toHaveBeenCalledWith(
+        ['u'],
+        expect.objectContaining({
+          'all-proxy': 'http://127.1:8080',
+          'all-proxy-user': 'user',
+          'all-proxy-passwd': 'pass',
+        })
+      )
+    })
+
+    it('rejects passthrough options that could override the applied proxy route', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.createDownload({
+          uris: ['u'],
+          saveDir: '/d',
+          extraEngineOptions: { 'http-proxy': 'http://other:8080' },
+        })
+      ).rejects.toThrow('Reserved aria2 proxy option')
+      expect(rpc.addUri).not.toHaveBeenCalled()
+    })
+
+    it.each(['socks5://proxy.example:1080', 'http://proxy.example:8080/path'])(
+      'rejects an unsupported task proxy before RPC: %s',
+      async (proxy) => {
+        const rpc = createMockRpc()
+        const adapter = new Aria2Adapter(rpc)
+
+        await expect(
+          adapter.createDownload({ uris: ['u'], saveDir: '/d', proxy })
+        ).rejects.toThrow('Task proxy must use aria2-compatible HTTP or HTTPS')
+        expect(rpc.addUri).not.toHaveBeenCalled()
+      }
+    )
+
+    it('rejects decoded control characters before aria2 persists task options', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.createDownload({
+          uris: ['u'],
+          saveDir: '/d',
+          proxy:
+            'http://user%0Ahttp-proxy%3Dhttp%3A%2F%2Fevil:pass@proxy.example:8080',
+        })
+      ).rejects.toThrow('Unsupported aria2 proxy credentials')
+      expect(rpc.addUri).not.toHaveBeenCalled()
     })
   })
 
@@ -1276,6 +1610,20 @@ describe('Aria2Adapter', () => {
           'bt-max-peers': '60',
         })
       )
+    })
+
+    it('rejects torrent passthrough options that could override the proxy route', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+
+      await expect(
+        adapter.addTorrent({
+          metadata: new Uint8Array(),
+          saveDir: '/d',
+          extraEngineOptions: { 'no-proxy': 'attacker.example' },
+        })
+      ).rejects.toThrow('Reserved aria2 proxy option')
+      expect(rpc.addTorrent).not.toHaveBeenCalled()
     })
 
     it('passes selectedFiles through as-is (index-neutral raw join)', async () => {

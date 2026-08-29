@@ -107,6 +107,17 @@ describe('validateEngineSettings', () => {
     expect(result.userAgent).toBe(DEFAULT_ENGINE_SETTINGS.userAgent)
   })
 
+  it('rejects control characters in RPC credentials and User-Agent', () => {
+    const result = validateEngineSettings({
+      ...DEFAULT_ENGINE_SETTINGS,
+      rpcSecret: 'secret\nrpc-listen-all=true',
+      userAgent: 'Motrix\nhttp-proxy=http://evil',
+    })
+
+    expect(result.rpcSecret).toBe('')
+    expect(result.userAgent).toBe(DEFAULT_ENGINE_SETTINGS.userAgent)
+  })
+
   it('uses the Motrix 2.0 default user agent', () => {
     expect(DEFAULT_ENGINE_SETTINGS.userAgent).toBe('Motrix/2.0')
   })

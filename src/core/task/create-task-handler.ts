@@ -9,12 +9,23 @@ import {
 import type {
   AddTorrentParams,
   CreateDownloadParams,
+  DirectResourceMetadataProfile,
   EngineAdapter,
 } from '@core/engine/engine-adapter'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '@core/engine/engine-adapter'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type {
+  AppliedDownloadProxyPolicyReader,
+  AppliedDownloadProxySnapshot,
+} from '@core/proxy/applied-download-proxy-policy'
+import {
+  extractAria2ProxyCredentials,
+  normalizeAria2TaskProxyUrl,
+  normalizeProxyUrl,
+} from '@core/proxy/aria2-proxy-routing'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
@@ -24,7 +35,6 @@ import type {
 } from '@shared/schemas/add-task'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import type { BeforeCreateHttpContextDTO } from '@shared/types/plugin-hooks'
-import type { ProxySettings } from '@shared/types/settings'
 import type {
   DownloadTask,
   SourceMeta,
@@ -65,6 +75,8 @@ import {
   type DirectReplayRecipe,
 } from './direct-replay-recipe'
 import {
+  canMirrorAria2MetadataHeaders,
+  canRepresentDirectResourceHeaders,
   type DirectResourceMetadata,
   type DirectResourceRequestOptions,
   type DirectResourceValidatorService,
@@ -83,11 +95,6 @@ type CreateDirectResourceValidator = Pick<
 > &
   Partial<Pick<DirectResourceValidatorService, 'probe'>>
 
-interface DirectResourceRequestContext {
-  options: DirectResourceRequestOptions
-  usesGlobalProxy: boolean
-}
-
 export interface CreateTaskDeps {
   adapter: EngineAdapter
   settingsManager: SettingsManager
@@ -98,6 +105,11 @@ export interface CreateTaskDeps {
   eventBus: { emit(event: string, payload: unknown): void }
   /** Optional best-effort capture of a non-secret HTTP resource validator. */
   directResourceValidator?: CreateDirectResourceValidator
+  /**
+   * Holds the engine's applied proxy generation stable from metadata discovery
+   * through the matching aria2 addUri dispatch.
+   */
+  directResourceProxyPolicy: AppliedDownloadProxyPolicyReader
   /**
    * Coalesced TaskUpdated publication (TaskUpdatePublisher.publish). Both
    * create-side broadcasts are non-terminal (announce a new owned task /
@@ -113,6 +125,12 @@ export interface CreateTaskDeps {
    *  adapter call so a cold-start request waits for aria2 instead of hitting
    *  a not-yet-connected RPC socket. Absent ⇒ no gate (back-compat / tests). */
   waitForEngineReady?: () => Promise<void>
+  /**
+   * Synchronous readiness check used while an applied-proxy read lease is
+   * held. It must not wait for a restart: a restarted engine belongs to a new
+   * applied-proxy generation and the current admission must fail closed.
+   */
+  assertEngineReady?: () => void
   /**
    * Host-owned save-directory preflight. Server injects containment and
    * writability enforcement; Electron may omit it because its native picker
@@ -205,6 +223,29 @@ export async function handleCreateTask(
   opts: CreateTaskOptions = {}
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
+  if (parsed.success && parsed.data.type === 'http') {
+    const policy = deps.directResourceProxyPolicy
+    // Cold-start waiting happens before taking the proxy read lease. Once the
+    // lease is held, a later disconnect must fail fast instead of waiting on
+    // a restart that belongs to a newer applied-route generation.
+    if (deps.waitForEngineReady) {
+      await deps.waitForEngineReady()
+    }
+    // Keep a runtime guard for untyped composition code: missing policy
+    // injection must disable metadata I/O instead of consulting newer,
+    // potentially unapplied SettingsManager values.
+    return policy
+      ? policy.runWithSnapshot((snapshot, lease) =>
+          handleCreateTaskUnderAdmission(
+            rawRequest,
+            deps,
+            opts,
+            snapshot,
+            lease.assertCurrent
+          )
+        )
+      : handleCreateTaskUnderAdmission(rawRequest, deps, opts, null)
+  }
   if (!parsed.success || parsed.data.type !== 'bt') {
     return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
   }
@@ -235,7 +276,9 @@ export async function handleCreateTask(
 async function handleCreateTaskUnderAdmission(
   rawRequest: unknown,
   deps: CreateTaskDeps,
-  opts: CreateTaskOptions = {}
+  opts: CreateTaskOptions = {},
+  appliedProxySnapshot?: AppliedDownloadProxySnapshot,
+  assertAppliedProxyCurrent?: () => void
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (!parsed.success) {
@@ -426,7 +469,9 @@ async function handleCreateTaskUnderAdmission(
   let canonicalUris = deriveUris(req)
   let resourceMetadata: DirectResourceMetadata | null = null
   let resourceProbeAttempted = false
-  let resourceProbeUsedGlobalProxy = false
+  const metadataHeadersSupported = canMirrorAria2MetadataHeaders(
+    deps.adapter.getFeatureReport?.()
+  )
   // Shared by the HTTP and magnet branches — both dispatch through
   // createDownload with an identical log line; only their params differ.
   const dispatchCreateDownload =
@@ -434,7 +479,14 @@ async function handleCreateTaskUnderAdmission(
     async (reservedGid: string): Promise<string> => {
       params.gid = reservedGid
       log.info(
-        { method: 'createDownload', uriCount: params.uris.length, params },
+        {
+          method: 'createDownload',
+          uriCount: params.uris.length,
+          gid: reservedGid,
+          saveDir: params.saveDir,
+          filename: params.filename,
+          connections: params.connections,
+        },
         'dispatching to engine'
       )
       return deps.adapter.createDownload(params)
@@ -456,6 +508,7 @@ async function handleCreateTaskUnderAdmission(
       saveDir: effectiveSaveDir,
       filename: `${finalName}${INCOMPLETE_SUFFIX}`,
       performanceProfile: engineSettings.performanceProfile,
+      userAgent: engineSettings.userAgent,
       connections: clampedConnections,
       headers: headersRecord,
       proxy: req.proxy,
@@ -631,6 +684,19 @@ async function handleCreateTaskUnderAdmission(
       }
     }
 
+    assertSupportedHttpTaskProxy(params.proxy)
+
+    const ambientMetadataProfile = metadataHeadersSupported
+      ? resolveDirectResourceMetadataProfile(deps.adapter)
+      : null
+    const metadataRequestProfile = canApplyDirectResourceMetadataProfile(
+      params,
+      ambientMetadataProfile
+    )
+    if (metadataRequestProfile) {
+      params.directResourceMetadataProfile = metadataRequestProfile
+    }
+
     // The hook may replace the source URI. Rebase the non-explicit fallback
     // name onto that final URI before probing, so a failed/empty metadata
     // response cannot resurrect the original request's basename.
@@ -645,6 +711,7 @@ async function handleCreateTaskUnderAdmission(
     if (
       !req.filename?.trim() &&
       params.uris.length === 1 &&
+      metadataRequestProfile !== null &&
       deps.directResourceValidator?.probe
     ) {
       const uri = params.uris[0]
@@ -653,13 +720,11 @@ async function handleCreateTaskUnderAdmission(
         try {
           const requestContext = directResourceRequestContext(
             params,
-            deps.settingsManager
+            appliedProxySnapshot ?? null
           )
-          resourceProbeUsedGlobalProxy = requestContext.usesGlobalProxy
-          resourceMetadata = await deps.directResourceValidator.probe(
-            uri,
-            requestContext.options
-          )
+          resourceMetadata = requestContext
+            ? await deps.directResourceValidator.probe(uri, requestContext)
+            : null
           const remoteName = resourceMetadata?.filename
             ? sanitizeRemoteFilename(resourceMetadata.filename)
             : null
@@ -679,9 +744,13 @@ async function handleCreateTaskUnderAdmission(
     // future retry can be reconstructed from TaskInstance. Paths and URIs are
     // already canonical fields on the instance; modifier VALUES remain
     // engine-call-only so credentials never enter motrix.db.
-    directReplay = buildDirectReplayRecipe(params)
+    directReplay = buildDirectReplayRecipe(
+      params,
+      ambientMetadataProfile === null
+    )
     if (
       directReplay.replayability === 'uri-only' &&
+      metadataRequestProfile !== null &&
       deps.directResourceValidator &&
       params.uris.length === 1
     ) {
@@ -689,21 +758,14 @@ async function handleCreateTaskUnderAdmission(
         const uri = params.uris[0] as string
         const requestContext = directResourceRequestContext(
           params,
-          deps.settingsManager
+          appliedProxySnapshot ?? null
         )
         const resourceValidator = resourceProbeAttempted
           ? resourceMetadata?.validator
-          : await deps.directResourceValidator.capture(
-              uri,
-              requestContext.options
-            )
-        // SessionManager.verify currently has no proxy context. Persisting a
-        // validator observed through the global proxy would make recovery
-        // verify the same URI by a different (direct) route.
-        const validatorUsedGlobalProxy = resourceProbeAttempted
-          ? resourceProbeUsedGlobalProxy
-          : requestContext.usesGlobalProxy
-        if (resourceValidator && !validatorUsedGlobalProxy) {
+          : requestContext
+            ? await deps.directResourceValidator.capture(uri, requestContext)
+            : null
+        if (resourceValidator) {
           directReplay = { ...directReplay, resourceValidator }
         }
       } catch (error) {
@@ -790,7 +852,10 @@ async function handleCreateTaskUnderAdmission(
 
   // Resolve readiness before publishing a durable create intent. A rejected
   // cold-start gate must not leave a queued task that was never dispatched.
-  if (deps.waitForEngineReady) {
+  if (req.type === 'http') {
+    assertAppliedProxyCurrent?.()
+    deps.assertEngineReady?.()
+  } else if (deps.waitForEngineReady) {
     await deps.waitForEngineReady()
   }
 
@@ -919,6 +984,10 @@ async function handleCreateTaskUnderAdmission(
     deps.taskManager.setReservedEngineTaskOwner(task.id, task, gid)
 
     try {
+      if (req.type === 'http') {
+        deps.assertEngineReady?.()
+        assertAppliedProxyCurrent?.()
+      }
       const actualGid = await dispatchEngine(gid)
       if (actualGid.toLowerCase() !== gid.toLowerCase()) {
         throw new Error(
@@ -1025,36 +1094,108 @@ function deriveDesiredName(
 }
 
 function directResourceRequestContext(
-  params: Pick<CreateDownloadParams, 'headers' | 'proxy'>,
-  settingsManager: SettingsManager
-): DirectResourceRequestContext {
+  params: Pick<
+    CreateDownloadParams,
+    | 'headers'
+    | 'proxy'
+    | 'extraEngineOptions'
+    | 'userAgent'
+    | 'directResourceMetadataProfile'
+  >,
+  appliedProxySnapshot: AppliedDownloadProxySnapshot
+): DirectResourceRequestOptions | null {
+  // Passthrough engine options can add cookies, a referer, headers, or other
+  // request semantics the metadata client cannot reconstruct safely.
+  if (
+    (params.extraEngineOptions &&
+      Object.keys(params.extraEngineOptions).length > 0) ||
+    params.directResourceMetadataProfile !== DIRECT_RESOURCE_METADATA_PROFILE ||
+    !canRepresentDirectResourceHeaders(params.headers)
+  ) {
+    return null
+  }
   const options: DirectResourceRequestOptions = {}
   if (params.headers) options.headers = params.headers
+  if (params.userAgent !== undefined) options.userAgent = params.userAgent
+  if (appliedProxySnapshot === null) return null
+  const globalProxy = appliedProxySnapshot
 
   const explicitProxy = params.proxy?.trim()
   if (explicitProxy) {
+    // aria2's task-level all-proxy accepts HTTP proxy syntax only. In
+    // particular, probing through Undici's SOCKS agent before aria2 rejects
+    // the task would expose request headers to a route the download never
+    // uses. Invalid or SOCKS task proxies therefore disable metadata I/O.
+    const metadataProxy = normalizeProxyUrl(explicitProxy)
+    if (!metadataProxy || metadataProxy.protocol === 'socks5:') return null
     options.proxy = explicitProxy
-    return { options, usesGlobalProxy: false }
+    // aria2's task-level all-proxy overrides only the proxy endpoint. Its
+    // global no-proxy list still applies, so metadata discovery must inherit
+    // the same bypass decision or it could send task headers to a proxy while
+    // the actual download connects directly.
+    if (globalProxy.noProxy) {
+      options.noProxy = globalProxy.noProxy
+    }
+    return options
   }
 
-  const globalProxy = settingsManager.getProxy()
-  if (globalProxy.enabled && globalProxy.scopes.download) {
-    options.proxy = proxySettingsToUrl(globalProxy)
-    options.noProxy = globalProxy.bypass.join(',')
-    return { options, usesGlobalProxy: true }
-  }
-  return { options, usesGlobalProxy: false }
+  if (globalProxy.proxy) options.proxy = globalProxy.proxy
+  if (globalProxy.noProxy) options.noProxy = globalProxy.noProxy
+  return options
 }
 
-function proxySettingsToUrl(proxy: ProxySettings): string {
-  const auth = proxy.user
-    ? `${encodeURIComponent(proxy.user)}:${encodeURIComponent(proxy.password)}@`
-    : ''
-  const host =
-    proxy.host.includes(':') && !proxy.host.startsWith('[')
-      ? `[${proxy.host}]`
-      : proxy.host
-  return `${proxy.protocol}://${auth}${host}:${proxy.port}`
+function resolveDirectResourceMetadataProfile(
+  adapter: EngineAdapter
+): DirectResourceMetadataProfile | null {
+  if (!adapter.getDirectResourceMetadataProfile) return null
+  try {
+    return adapter.getDirectResourceMetadataProfile()
+  } catch {
+    return null
+  }
+}
+
+function canApplyDirectResourceMetadataProfile(
+  params: Pick<CreateDownloadParams, 'uris' | 'extraEngineOptions'>,
+  profile: DirectResourceMetadataProfile | null
+): DirectResourceMetadataProfile | null {
+  if (
+    profile === null ||
+    (params.extraEngineOptions &&
+      Object.keys(params.extraEngineOptions).length > 0) ||
+    !params.uris.every(isCredentialFreeHttpUri)
+  ) {
+    return null
+  }
+  return profile
+}
+
+function isCredentialFreeHttpUri(uri: string): boolean {
+  try {
+    const parsed = new URL(uri)
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.username === '' &&
+      parsed.password === ''
+    )
+  } catch {
+    return false
+  }
+}
+
+function assertSupportedHttpTaskProxy(proxy: string | undefined): void {
+  const value = proxy?.trim()
+  if (
+    !value ||
+    (normalizeAria2TaskProxyUrl(value) &&
+      extractAria2ProxyCredentials(value) !== null)
+  ) {
+    return
+  }
+  throw new AppError(
+    ErrorCode.TaskCreateFailed,
+    'Task proxy must use aria2-compatible HTTP or HTTPS syntax; configure SOCKS5 as the global download proxy instead'
+  )
 }
 
 function uriBasename(uri: string | undefined): string | null {

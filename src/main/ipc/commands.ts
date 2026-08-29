@@ -34,6 +34,10 @@ import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
 import { scanForUpdates } from '@core/plugin/registry/update-scan'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import type { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
+import {
+  type AppliedDownloadProxyPolicy,
+  UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
+} from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import type { SettingsManager } from '@core/settings/settings-manager'
@@ -169,6 +173,7 @@ export interface CommandContext {
   motrixDatabase: MotrixDatabase
   geoipManager: GeoIPManager
   proxyApplier: ReturnType<typeof createMainProxyApplier>
+  appliedDownloadProxyPolicy: AppliedDownloadProxyPolicy
   pluginRegistry: PluginRegistry
   pluginStateStore: PluginStateStore
   pluginHost: PluginHost
@@ -252,6 +257,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     fileCleanupService,
     eventBus,
     notificationCenter,
+    appliedDownloadProxyPolicy,
     motrixDatabase,
     geoipManager,
     proxyApplier,
@@ -300,6 +306,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   const createDeps: CreateTaskDeps = {
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
+    directResourceProxyPolicy:
+      appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
     settingsManager,
     finalNamePicker,
     torrentMetaStore,
@@ -326,6 +334,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
       await waitForTasksReady?.()
     },
+    assertEngineReady: () => supervisor.assertReady(),
     // Lazy closures over bridgeManager.current so command-registration order
     // vs bridge bootstrap order never matters. When the bridge is disabled or
     // not yet started, resolveToMux returns null → HTTP fallback; dispatchMux
@@ -402,6 +411,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     runTaskMutation,
     publishTaskUpdate,
     publishTaskUpdateNow,
+    getDirectResourceProxyOptions: () => {
+      const snapshot = (
+        appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY
+      ).snapshot()
+      return snapshot
+        ? { ...snapshot, userAgent: settingsManager.getEngine().userAgent }
+        : null
+    },
+    directResourceProxyPolicy:
+      appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
   // The DNS fallback consumer retries through the same deps bundle as
@@ -951,6 +970,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
       // Build a patched partial that reflects the user's dialog choice.
       const partialObj = partial as Record<string, unknown> | null | undefined
+      const proxySubmitted =
+        typeof partialObj === 'object' &&
+        partialObj !== null &&
+        Object.hasOwn(partialObj, 'proxy')
       const appPartial = partialObj?.app as
         | { protocols?: { magnet?: unknown } }
         | undefined
@@ -967,6 +990,28 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
       const result = await settingsManager.update(patched)
       const newFull = settingsManager.get()
+
+      const proxySettingsChanged = proxyChanged(oldFull.proxy, newFull.proxy)
+      if (
+        proxySettingsChanged ||
+        proxySubmitted ||
+        appliedDownloadProxyPolicy.snapshot() === null
+      ) {
+        await appliedDownloadProxyPolicy.applyTransition(() => {
+          const latestProxy = settingsManager.get().proxy
+          // A command-local old value cannot describe concurrent updates
+          // across independent scopes. Stale commands do no work; the one
+          // matching the latest persisted value idempotently reasserts all
+          // proxy consumers, including aria2's explicit direct route.
+          return proxyChanged(newFull.proxy, latestProxy)
+            ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
+            : proxyApplier.applyAll(latestProxy)
+        })
+      }
+
+      // Proxy state is security-sensitive and settings are already durable at
+      // this point. Apply/fail-closed before unrelated shell side effects can
+      // reject and otherwise leave aria2 on the previous non-null route.
       let protocolAssociationApplied: boolean | undefined
 
       if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
@@ -999,10 +1044,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         ) {
           protocolAssociationApplied = appImageView.status === 'healthy'
         }
-      }
-
-      if (proxyChanged(oldFull.proxy, newFull.proxy)) {
-        await proxyApplier.apply(oldFull.proxy, newFull.proxy)
       }
 
       if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {

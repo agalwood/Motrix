@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -118,6 +119,7 @@ function fakeCtx() {
       // (engine-ready gate); the handler tests must stub it or task
       // creation throws "supervisor.waitUntilReady is not a function".
       waitUntilReady: vi.fn().mockResolvedValue(undefined),
+      assertReady: vi.fn(),
     },
     sessionManager: {
       save: vi.fn().mockResolvedValue(undefined),
@@ -210,9 +212,10 @@ function fakeCtx() {
       notify: vi.fn(() => ({ fresh: true })),
     },
     proxyApplier: {
-      apply: vi.fn().mockResolvedValue(undefined),
-      applyAll: vi.fn().mockResolvedValue(undefined),
+      apply: vi.fn().mockResolvedValue({ downloadProxy: 'unchanged' }),
+      applyAll: vi.fn().mockResolvedValue({ downloadProxy: 'unchanged' }),
     },
+    appliedDownloadProxyPolicy: new AppliedDownloadProxyPolicy({ noProxy: '' }),
     motrixDatabase: {
       database: undefined,
       deleteTask: vi.fn(),
@@ -1327,13 +1330,13 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.supervisor.restart).not.toHaveBeenCalled()
   })
 
-  it('invokes proxyApplier.apply when proxy fields changed', async () => {
+  it('reasserts every proxy scope when proxy fields changed', async () => {
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF)
     const after = makeSettingsLike(PROXY_ON)
     const settingsManager = {
       ...ctx.settingsManager,
-      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValue(after),
       update: vi.fn().mockResolvedValue({
         ok: true,
         requiresRestart: false,
@@ -1346,8 +1349,210 @@ describe('Commands.UpdateSettings', () => {
       protocolManager: { register: vi.fn() },
     } as unknown as CommandContext)
     await handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
-    expect(ctx.proxyApplier.apply).toHaveBeenCalledWith(PROXY_OFF, PROXY_ON)
+    expect(ctx.proxyApplier.applyAll).toHaveBeenCalledWith(PROXY_ON)
+    expect(ctx.proxyApplier.apply).not.toHaveBeenCalled()
     expect(ctx.supervisor.restart).not.toHaveBeenCalled()
+  })
+
+  it('commits the exact route returned by a proxy hot-apply', async () => {
+    const ctx = fakeCtx()
+    const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
+    const before = makeSettingsLike(PROXY_OFF)
+    const after = makeSettingsLike(PROXY_ON)
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValue(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    ;(ctx.proxyApplier.applyAll as ReturnType<typeof vi.fn>).mockResolvedValue({
+      downloadProxy: 'applied',
+      appliedProxy: {
+        allProxy: 'http://127.0.0.1:43123',
+        noProxy: '.internal',
+      },
+    })
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      appliedDownloadProxyPolicy: policy,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
+
+    expect(policy.snapshot()).toEqual({
+      proxy: 'http://127.0.0.1:43123',
+      noProxy: '.internal',
+    })
+  })
+
+  it('force-reapplies the same proxy after a failed hot apply', async () => {
+    const ctx = fakeCtx()
+    const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
+    const before = makeSettingsLike(PROXY_OFF)
+    const after = makeSettingsLike(PROXY_ON)
+    let current = before
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn(() => current),
+      update: vi.fn(async () => {
+        current = after
+        return {
+          ok: true,
+          requiresRestart: false,
+          changedRestartKeys: [],
+        }
+      }),
+    }
+    ;(ctx.proxyApplier.applyAll as ReturnType<typeof vi.fn>)
+      .mockRejectedValueOnce(new Error('RPC failed'))
+      .mockResolvedValueOnce({
+        downloadProxy: 'applied',
+        appliedProxy: {
+          allProxy: 'http://p.example:80',
+          noProxy: '',
+        },
+      })
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      appliedDownloadProxyPolicy: policy,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await expect(
+      handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
+    ).rejects.toThrow('RPC failed')
+    expect(policy.snapshot()).toBeNull()
+
+    await expect(
+      handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
+    ).resolves.toBeDefined()
+    expect(ctx.proxyApplier.apply).not.toHaveBeenCalled()
+    expect(ctx.proxyApplier.applyAll).toHaveBeenCalledTimes(2)
+    expect(ctx.proxyApplier.applyAll).toHaveBeenLastCalledWith(PROXY_ON)
+    expect(policy.snapshot()).toEqual({
+      proxy: 'http://p.example:80',
+      noProxy: '',
+    })
+  })
+
+  it('does not lose a download proxy when concurrent updates change different scopes', async () => {
+    const ctx = fakeCtx()
+    const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
+    const proxyA = {
+      ...PROXY_ON,
+      scopes: { download: true, updateApp: false, updateTrackers: false },
+    }
+    const proxyB = {
+      ...proxyA,
+      scopes: { download: true, updateApp: true, updateTrackers: false },
+    }
+    const before = makeSettingsLike(PROXY_OFF)
+    const afterA = makeSettingsLike(proxyA)
+    const afterB = makeSettingsLike(proxyB)
+    let current = before
+    let releaseReader!: () => void
+    const readerGate = new Promise<void>((resolve) => {
+      releaseReader = resolve
+    })
+    const reader = policy.runWithSnapshot(async () => readerGate)
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn(() => current),
+      update: vi.fn(async (partial: { proxy?: { scopes?: object } }) => {
+        current = partial.proxy?.scopes === proxyA.scopes ? afterA : afterB
+        return {
+          ok: true,
+          requiresRestart: false,
+          changedRestartKeys: [],
+        }
+      }),
+    }
+    ;(ctx.proxyApplier.applyAll as ReturnType<typeof vi.fn>).mockImplementation(
+      async (next) => ({
+        downloadProxy: 'applied',
+        appliedProxy: {
+          allProxy: `http://${next.host}:${next.port}`,
+          noProxy: '',
+        },
+      })
+    )
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      appliedDownloadProxyPolicy: policy,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    const first = handlers[Commands.UpdateSettings]?.({ proxy: proxyA })
+    await vi.waitFor(() => expect(current).toBe(afterA))
+    const second = handlers[Commands.UpdateSettings]?.({ proxy: proxyB })
+    await vi.waitFor(() => expect(current).toBe(afterB))
+    releaseReader()
+    await Promise.all([reader, first, second])
+
+    expect(ctx.proxyApplier.apply).not.toHaveBeenCalled()
+    expect(ctx.proxyApplier.applyAll).toHaveBeenCalledExactlyOnceWith(proxyB)
+    expect(policy.snapshot()).toEqual({
+      proxy: 'http://p.example:80',
+      noProxy: '',
+    })
+  })
+
+  it('applies proxy state before a later bridge side effect can fail', async () => {
+    const ctx = fakeCtx()
+    const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
+    const proxy = {
+      ...PROXY_ON,
+      scopes: { download: true, updateApp: false, updateTrackers: false },
+    }
+    const before = makeSettingsLike(PROXY_OFF, {
+      browserBridgeEnabled: false,
+    })
+    const after = makeSettingsLike(proxy, { browserBridgeEnabled: true })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValue(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    ;(ctx.proxyApplier.applyAll as ReturnType<typeof vi.fn>).mockResolvedValue({
+      downloadProxy: 'applied',
+      appliedProxy: {
+        allProxy: 'http://p.example:80',
+        noProxy: '',
+      },
+    })
+    ctx.bridgeManager.setEnabled.mockRejectedValueOnce(
+      new Error('bridge failed')
+    )
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      appliedDownloadProxyPolicy: policy,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await expect(
+      handlers[Commands.UpdateSettings]?.({
+        proxy,
+        app: { browserBridgeEnabled: true },
+      })
+    ).rejects.toThrow('bridge failed')
+
+    expect(ctx.proxyApplier.applyAll).toHaveBeenCalledWith(proxy)
+    expect(policy.snapshot()).toEqual({
+      proxy: 'http://p.example:80',
+      noProxy: '',
+    })
   })
 
   it('hot-applies a changed default save directory', async () => {

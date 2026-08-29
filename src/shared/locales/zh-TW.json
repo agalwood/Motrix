@@ -1330,7 +1330,7 @@
         "showPassword": "顯示密碼",
         "hidePassword": "隱藏密碼",
         "bypass": "略過清單",
-        "bypassDesc": "每行一個主機。可使用 `*.local` 等萬用字元。",
+        "bypassDesc": "每行填寫一個精確主機或 CIDR。使用 `.local` 這類前導點比對子網域（不含根網域）；下載 Proxy 不支援 `*` 萬用字元。",
         "bypassScopeNote": "僅下載與應用程式更新",
         "scopes": "套用至",
         "scopesDesc": "選擇哪些流量要通過 Proxy。",

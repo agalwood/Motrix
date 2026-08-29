@@ -22,7 +22,7 @@ describe('Aria2TrustStore', () => {
     await rm(userConfigDir, { recursive: true, force: true })
   })
 
-  it('does nothing outside Linux', async () => {
+  it('preserves non-proxy environment values outside Linux', async () => {
     const getCertificates = vi.fn()
     const trustStore = new Aria2TrustStore(userConfigDir, {
       platform: 'darwin',
@@ -30,8 +30,28 @@ describe('Aria2TrustStore', () => {
       getCertificates,
     })
 
-    await expect(trustStore.prepareEnvironment()).resolves.toBeUndefined()
+    await expect(trustStore.prepareEnvironment()).resolves.toEqual({
+      PATH: '/usr/bin',
+    })
     expect(getCertificates).not.toHaveBeenCalled()
+  })
+
+  it('removes every proxy environment spelling before spawning aria2', async () => {
+    const trustStore = new Aria2TrustStore(userConfigDir, {
+      platform: 'win32',
+      env: {
+        PATH: 'C:\\Windows',
+        http_proxy: 'http://user:secret@proxy.example:8080',
+        HTTPS_PROXY: 'http://proxy.example:8443',
+        Ftp_Proxy: 'http://proxy.example:2121',
+        ALL_PROXY: 'http://proxy.example:3128',
+        No_PrOxY: 'localhost,.internal',
+      },
+    })
+
+    await expect(trustStore.prepareEnvironment()).resolves.toEqual({
+      PATH: 'C:\\Windows',
+    })
   })
 
   it.each(['SSL_CERT_FILE', 'SSL_CERT_DIR'] as const)(
@@ -45,7 +65,7 @@ describe('Aria2TrustStore', () => {
         getCertificates,
       })
 
-      await expect(trustStore.prepareEnvironment()).resolves.toBe(env)
+      await expect(trustStore.prepareEnvironment()).resolves.toEqual(env)
       expect(getCertificates).not.toHaveBeenCalled()
     }
   )

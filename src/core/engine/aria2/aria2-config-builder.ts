@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { access, copyFile, mkdir, rename } from 'node:fs/promises'
 import path from 'node:path'
+import {
+  extractAria2ProxyCredentials,
+  stripAria2ProxyCredentials,
+} from '@core/proxy/aria2-proxy-routing'
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import type { EngineSettings } from '@shared/types/settings'
 import { dnsModeToAsyncDns } from './dns-fallback'
@@ -136,6 +140,16 @@ export class Aria2ConfigBuilder {
     // invariants cannot be silently undone by anything earlier in the
     // chain or by user edits in `aria2.conf`.
 
+    const proxyCredentials = proxy
+      ? extractAria2ProxyCredentials(proxy.allProxy)
+      : { username: '', password: '' }
+    const proxyEndpoint = proxy
+      ? stripAria2ProxyCredentials(proxy.allProxy)
+      : ''
+    if (!proxyCredentials || proxyEndpoint === null) {
+      throw new TypeError('Unsupported aria2 proxy credentials')
+    }
+
     const args: string[] = []
 
     // ── L4 base conf ──
@@ -205,13 +219,27 @@ export class Aria2ConfigBuilder {
       `--save-session-interval=${settings.sessionSaveInterval}`
     )
 
-    // ── L2.5 proxy (only when enabled & download scope on) ──
-    if (proxy) {
-      args.push(`--all-proxy=${proxy.allProxy}`)
-      if (proxy.noProxy) {
-        args.push(`--no-proxy=${proxy.noProxy}`)
-      }
-    }
+    // ── L2.5 proxy ──
+    // Always override every ambient/config-file proxy source. aria2 can read
+    // protocol-specific proxy values from aria2.conf and conventional proxy
+    // environment variables; leaving one unset would make the route differ
+    // from the applied snapshot used by metadata validation.
+    args.push(
+      `--all-proxy=${proxyEndpoint}`,
+      '--http-proxy=',
+      '--http-proxy-user=',
+      '--http-proxy-passwd=',
+      '--https-proxy=',
+      '--https-proxy-user=',
+      '--https-proxy-passwd=',
+      '--ftp-proxy=',
+      '--ftp-proxy-user=',
+      '--ftp-proxy-passwd=',
+      `--all-proxy-user=${proxyCredentials.username}`,
+      `--all-proxy-passwd=${proxyCredentials.password}`,
+      `--no-proxy=${proxy?.noProxy ?? ''}`,
+      '--proxy-method=get'
+    )
 
     // ── L1 product-contract invariants — DO NOT REMOVE without spec change ──
     args.push(
@@ -225,6 +253,8 @@ export class Aria2ConfigBuilder {
       '--pause=false',
       '--pause-metadata=false',
       '--bt-seed-unverified=false',
+      '--http-accept-gzip=true',
+      '--no-want-digest-header=false',
       // Remove unselected files when BT download completes. Without
       // this, piece-boundary writes leak partial / sparse placeholders
       // for every unselected file into saveDir, surfacing as confusing
@@ -234,6 +264,13 @@ export class Aria2ConfigBuilder {
       '--bt-remove-unselected-file=true'
     )
 
+    // aria2 does not consume argv directly: it rewrites each option into a
+    // line-oriented configuration stream. Reject line breaks at this single
+    // boundary so every current and future option value is protected from
+    // injecting a second configuration directive.
+    if (args.some((arg) => /[\r\n]/.test(arg))) {
+      throw new TypeError('aria2 option values must not contain CR or LF')
+    }
     return args
   }
 }

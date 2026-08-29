@@ -32,6 +32,16 @@ export interface OutputFilePath {
  */
 export type DownloadResumePolicy = 'none' | 'checkpoint' | 'sequential-prefix'
 
+/**
+ * Versioned aria2 HTTP request shape mirrored by DirectResourceValidator.
+ * Callers may persist only the identifier; it contains no header values or
+ * credentials.
+ */
+export const DIRECT_RESOURCE_METADATA_PROFILE =
+  'aria2-http-baseline-v1' as const
+export type DirectResourceMetadataProfile =
+  typeof DIRECT_RESOURCE_METADATA_PROFILE
+
 export interface AddTorrentParams {
   metadata: Uint8Array
   saveDir: string
@@ -76,6 +86,14 @@ export interface CreateDownloadParams {
   gid?: string
   filename?: string
   headers?: Record<string, string>
+  /** Effective engine User-Agent pinned for this request lifecycle. */
+  userAgent?: string
+  /**
+   * Internal proof that ambient aria2 HTTP options were compatible when the
+   * matching metadata request ran. Aria2 adapters re-check the profile before
+   * dispatch and pin the corresponding per-task request options.
+   */
+  directResourceMetadataProfile?: DirectResourceMetadataProfile
   // ── create-path additions (was Aria2TaskRequestAdapter) ──
   /** Requested per-server connections. Adapter maps to split +
    *  max-connection-per-server. Caller is responsible for clamping. */
@@ -115,6 +133,13 @@ export interface EngineAdapter {
    * Returns conservative defaults before `connect()` has run.
    */
   getFeatureReport(): EngineFeatureReport
+
+  /**
+   * Return the currently reproducible HTTP request profile, or null when
+   * ambient engine options (headers/cookies/auth/etc.) make metadata probing
+   * unsafe. Optional for non-aria2 adapters and lightweight test doubles.
+   */
+  getDirectResourceMetadataProfile?(): DirectResourceMetadataProfile | null
 
   createDownload(params: CreateDownloadParams): Promise<string>
   pauseTask(engineTaskId: string): Promise<void>

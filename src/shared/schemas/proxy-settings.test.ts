@@ -57,6 +57,20 @@ describe('proxySettingsSchema', () => {
     expect(proxySettingsSchema.parse({ bypass: long }).bypass).toEqual([])
   })
 
+  it('drops proxy fields and bypass lists containing control characters', () => {
+    const parsed = proxySettingsSchema.parse({
+      host: 'proxy.example\nhttp-proxy=evil',
+      user: 'user\rname',
+      password: 'pass\u007fword',
+      bypass: ['localhost', 'safe\nhttp-proxy=evil'],
+    })
+
+    expect(parsed.host).toBe('')
+    expect(parsed.user).toBe('')
+    expect(parsed.password).toBe('')
+    expect(parsed.bypass).toEqual([])
+  })
+
   it('parses partial scopes', () => {
     const r = proxySettingsSchema.parse({
       scopes: { download: true },

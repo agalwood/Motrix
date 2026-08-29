@@ -27,7 +27,10 @@ import {
   translateStatus,
 } from '../engine/aria2/translate'
 import type { Aria2RawStatus } from '../engine/aria2/types'
-import type { EngineAdapter } from '../engine/engine-adapter'
+import type {
+  DirectResourceMetadataProfile,
+  EngineAdapter,
+} from '../engine/engine-adapter'
 import {
   buildTerminalOccurrence,
   terminalSnapshotFromTask,
@@ -37,7 +40,11 @@ import {
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
 import { shouldPrioritizeBtPreviewPiecesFromMetadata } from '../task/bt-storage-layout'
-import { DirectResourceValidatorService } from '../task/direct-resource-validator'
+import {
+  canMirrorAria2MetadataHeaders,
+  type DirectResourceProxyOptionsProvider,
+  DirectResourceValidatorService,
+} from '../task/direct-resource-validator'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
@@ -238,7 +245,9 @@ export class SessionManager {
     private directResourceValidator: Pick<
       DirectResourceValidatorService,
       'verify'
-    > = new DirectResourceValidatorService()
+    > = new DirectResourceValidatorService(),
+    private getDirectResourceProxyOptions: DirectResourceProxyOptionsProvider = () =>
+      null
   ) {}
 
   runExclusivePersistence<T>(operation: () => T | Promise<T>): Promise<T> {
@@ -395,7 +404,7 @@ export class SessionManager {
     return { task: taskRow, instances }
   }
 
-  async restore(): Promise<void> {
+  async restore(assertProxyCurrent?: () => void): Promise<void> {
     // aria2 is the source of truth for engine lifecycle. motrix.db is a
     // metadata sidecar tracking task identity and the relationship between
     // a task and its instances. The loop is driven by aria2: every live
@@ -715,7 +724,7 @@ export class SessionManager {
         continue
       }
 
-      const task = await this.reAddOrMarkErrorFromPair(pair)
+      const task = await this.reAddOrMarkErrorFromPair(pair, assertProxyCurrent)
       this.taskManager.set(task.id, task)
     }
 
@@ -749,7 +758,7 @@ export class SessionManager {
   private static readonly LEGACY_LOST_MESSAGE =
     'Task lost: aria2 engine no longer has this download'
 
-  async recoverLegacyTaskLost(): Promise<void> {
+  async recoverLegacyTaskLost(assertProxyCurrent?: () => void): Promise<void> {
     const tasks = this.taskManager.getAll()
     for (const task of tasks) {
       if (
@@ -760,7 +769,10 @@ export class SessionManager {
       }
       const pair = this.db.getTask(task.id)
       if (!pair) continue
-      const fresh = await this.reAddOrMarkErrorFromPair(pair)
+      const fresh = await this.reAddOrMarkErrorFromPair(
+        pair,
+        assertProxyCurrent
+      )
       // reAddOrMarkErrorFromPair's Error outcome already persisted itself via
       // markRecoverErrorFromPair's persistTaskWithOccurrence; only its
       // successful-re-add outcome (adoptByPair alone, which never returns
@@ -1127,7 +1139,8 @@ export class SessionManager {
   }
 
   private async reAddOrMarkErrorFromPair(
-    pair: TaskWithInstances
+    pair: TaskWithInstances,
+    assertProxyCurrent?: () => void
   ): Promise<DownloadTask> {
     const taskPart = pair.task
     const primary = pair.instances[0]
@@ -1178,6 +1191,7 @@ export class SessionManager {
           'task.recovery.startup.resumeCredentialsRequired'
         )
       }
+      const requestOptions = this.getDirectResourceProxyOptions()
 
       const plan = await this.directRecoveryPlanner.plan({
         primary,
@@ -1213,6 +1227,23 @@ export class SessionManager {
             ? 'sequential-prefix'
             : 'none'
       let ifRange: string | null = null
+      const metadataProfile = canMirrorAria2MetadataHeaders(
+        this.adapter.getFeatureReport?.()
+      )
+        ? resolveDirectResourceMetadataProfile(this.adapter)
+        : null
+      if (plan.kind === 'checkpoint' && metadataProfile === null) {
+        return this.markRecoverErrorFromPair(
+          pair,
+          'task.recovery.startup.resumeValidationFailed'
+        )
+      }
+      if (plan.kind === 'checkpoint' && !recipe?.resourceValidator) {
+        return this.markRecoverErrorFromPair(
+          pair,
+          'task.recovery.startup.resumeValidationFailed'
+        )
+      }
       if (plan.kind === 'checkpoint' && recipe?.resourceValidator) {
         if (primary.uris.length !== 1) {
           return this.markRecoverErrorFromPair(
@@ -1220,10 +1251,16 @@ export class SessionManager {
             'task.recovery.startup.resumeValidationFailed'
           )
         }
-        const validation = await this.directResourceValidator.verify(
-          primary.uris[0] as string,
-          recipe.resourceValidator
-        )
+        const validation =
+          requestOptions &&
+          canMirrorAria2MetadataHeaders(this.adapter.getFeatureReport?.())
+            ? await this.directResourceValidator.verify(
+                primary.uris[0] as string,
+                recipe.resourceValidator,
+                requestOptions
+              )
+            : { outcome: 'unverifiable' as const, ifRange: null }
+        assertProxyCurrent?.()
         if (validation.outcome !== 'unchanged') {
           const errorDetailKey =
             validation.outcome === 'source-changed'
@@ -1235,18 +1272,25 @@ export class SessionManager {
         }
         ifRange = validation.ifRange
       }
-      return this.dispatchRecoveryCandidate(pair, (gid) =>
-        this.adapter.createDownload({
+      return this.dispatchRecoveryCandidate(pair, (gid) => {
+        assertProxyCurrent?.()
+        return this.adapter.createDownload({
           uris: primary.uris,
           gid,
           saveDir: plan.saveDir as string,
           filename: plan.filename as string,
           connections: recipe?.connections,
+          ...(plan.kind !== 'checkpoint' || metadataProfile === null
+            ? {}
+            : { directResourceMetadataProfile: metadataProfile }),
+          ...(requestOptions?.userAgent === undefined
+            ? {}
+            : { userAgent: requestOptions.userAgent }),
           ...(ifRange ? { headers: { 'If-Range': ifRange } } : {}),
           pause: taskPart.aggStatus === TaskStatus.Paused,
           resumePolicy,
         })
-      )
+      })
     }
 
     return this.markRecoverErrorFromPair(
@@ -1519,6 +1563,17 @@ export class SessionManager {
       category: null,
       instances: base.instances.map((i) => ({ ...i, motrixId: id })),
     }
+  }
+}
+
+function resolveDirectResourceMetadataProfile(
+  adapter: EngineAdapter
+): DirectResourceMetadataProfile | null {
+  if (!adapter.getDirectResourceMetadataProfile) return null
+  try {
+    return adapter.getDirectResourceMetadataProfile()
+  } catch {
+    return null
   }
 }
 

@@ -214,7 +214,7 @@ describe('MainProcessWorkCoordinator', () => {
       path.resolve(process.cwd(), 'src/main/index.ts'),
       'utf8'
     )
-    const restore = source.indexOf('await sessionManager.restore()')
+    const restore = source.indexOf('await sessionManager.restore(')
     const recovery = source.indexOf('recoveryService.recoverOnStartup()')
     // The post-recovery snapshot bypasses the coalescing window: the
     // renderer's first paint must not wait 16 ms behind a startup barrier.

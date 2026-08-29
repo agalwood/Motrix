@@ -1,9 +1,21 @@
 import path from 'node:path'
+import {
+  extractAria2ProxyCredentials,
+  normalizeAria2TaskProxyUrl,
+} from '@core/proxy/aria2-proxy-routing'
 import { AppError, ErrorCode } from '@shared/errors'
 import { z } from 'zod'
 import type { RoleBand } from './role-band'
 
-const PROXY_RE = /^(http|https|socks5):\/\/([^@]+@)?[^:/]+:\d+$/
+const taskProxySchema = z
+  .string()
+  .refine(
+    (value) =>
+      value === '' ||
+      (normalizeAria2TaskProxyUrl(value) !== null &&
+        extractAria2ProxyCredentials(value) !== null),
+    { message: 'must be an aria2-compatible HTTP or HTTPS task proxy' }
+  )
 
 export const HttpPatchSchema = z
   .object({
@@ -23,7 +35,7 @@ export const HttpPatchSchema = z
     headers: z
       .array(z.object({ name: z.string(), value: z.string() }))
       .optional(),
-    proxy: z.union([z.literal(''), z.string().regex(PROXY_RE)]).optional(),
+    proxy: taskProxySchema.optional(),
   })
   .strict()
 

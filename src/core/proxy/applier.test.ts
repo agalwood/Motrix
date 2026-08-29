@@ -12,7 +12,7 @@ const baseProxy = {
 
 function makeDeps() {
   return {
-    engineSupervisor: { applyProxyChange: vi.fn() },
+    engineSupervisor: { applyProxyChange: vi.fn().mockResolvedValue(true) },
     trackerManager: { invalidateProxyCache: vi.fn() },
     proxyBridge: {
       reconcile: vi.fn().mockResolvedValue(undefined),
@@ -28,7 +28,7 @@ describe('proxyApplier.apply', () => {
   it('routes to engine when download scope flips on', async () => {
     const deps = makeDeps()
     const applier = createProxyApplier(deps)
-    await applier.apply(
+    const result = await applier.apply(
       {
         ...baseProxy,
         scopes: { download: false, updateApp: false, updateTrackers: false },
@@ -41,6 +41,10 @@ describe('proxyApplier.apply', () => {
     expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalledWith({
       allProxy: 'http://p:80',
       noProxy: '',
+    })
+    expect(result).toEqual({
+      downloadProxy: 'applied',
+      appliedProxy: { allProxy: 'http://p:80', noProxy: '' },
     })
   })
 
@@ -68,7 +72,7 @@ describe('proxyApplier.apply', () => {
     })
     const applier = createProxyApplier(deps)
 
-    await applier.apply(
+    const result = await applier.apply(
       {
         ...baseProxy,
         scopes: { download: false, updateApp: false, updateTrackers: false },
@@ -84,6 +88,13 @@ describe('proxyApplier.apply', () => {
       allProxy: 'http://127.0.0.1:43123',
       noProxy: '',
     })
+    expect(result).toEqual({
+      downloadProxy: 'applied',
+      appliedProxy: {
+        allProxy: 'http://127.0.0.1:43123',
+        noProxy: '',
+      },
+    })
   })
 
   it('skips engine when download scope unchanged and fields unchanged', async () => {
@@ -93,8 +104,9 @@ describe('proxyApplier.apply', () => {
       ...baseProxy,
       scopes: { download: true, updateApp: false, updateTrackers: false },
     }
-    await applier.apply(both, both)
+    const result = await applier.apply(both, both)
     expect(deps.engineSupervisor.applyProxyChange).not.toHaveBeenCalled()
+    expect(result).toEqual({ downloadProxy: 'unchanged' })
   })
 
   it('routes to applyUpdateAppProxy when updateApp scope on and handler injected', async () => {
@@ -115,7 +127,9 @@ describe('proxyApplier.apply', () => {
 
   it('skips updateApp when handler is undefined', async () => {
     const applier = createProxyApplier({
-      engineSupervisor: { applyProxyChange: vi.fn() },
+      engineSupervisor: {
+        applyProxyChange: vi.fn().mockResolvedValue(true),
+      },
       trackerManager: { invalidateProxyCache: vi.fn() },
       proxyBridge: {
         reconcile: vi.fn().mockResolvedValue(undefined),
@@ -175,7 +189,7 @@ describe('proxyApplier.apply', () => {
     expect(deps.proxyBridge.resolveForDownload).not.toHaveBeenCalled()
   })
 
-  it('applyAll(current) treats old as fully-disabled', async () => {
+  it('applyAll(current) reasserts every proxy scope', async () => {
     const deps = makeDeps()
     const applier = createProxyApplier(deps)
     await applier.applyAll({
@@ -185,5 +199,48 @@ describe('proxyApplier.apply', () => {
     expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalled()
     expect(deps.applyUpdateAppProxy).toHaveBeenCalled()
     expect(deps.trackerManager.invalidateProxyCache).toHaveBeenCalled()
+  })
+
+  it('applyAll(current) explicitly clears a direct download route', async () => {
+    const deps = makeDeps()
+    const applier = createProxyApplier(deps)
+
+    const result = await applier.applyAll({
+      ...DEFAULT_PROXY_SETTINGS,
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: false,
+      },
+    })
+
+    expect(deps.proxyBridge.reconcile).toHaveBeenCalledOnce()
+    expect(deps.proxyBridge.resolveForDownload).toHaveBeenCalledOnce()
+    expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalledWith(null)
+    expect(deps.applyUpdateAppProxy).toHaveBeenCalledWith(null)
+    expect(deps.trackerManager.invalidateProxyCache).toHaveBeenCalledOnce()
+    expect(result).toEqual({
+      downloadProxy: 'applied',
+      appliedProxy: null,
+    })
+  })
+
+  it('reports unavailable when aria2 is not Ready', async () => {
+    const deps = makeDeps()
+    deps.engineSupervisor.applyProxyChange.mockResolvedValue(false)
+    const applier = createProxyApplier(deps)
+
+    const result = await applier.apply(
+      {
+        ...baseProxy,
+        scopes: { download: false, updateApp: false, updateTrackers: false },
+      },
+      {
+        ...baseProxy,
+        scopes: { download: true, updateApp: false, updateTrackers: false },
+      }
+    )
+
+    expect(result).toEqual({ downloadProxy: 'unavailable' })
   })
 })

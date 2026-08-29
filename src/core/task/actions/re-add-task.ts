@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { newEngineTaskId } from '@core/lib/ids'
+import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
@@ -13,6 +14,7 @@ import {
 } from '@shared/types/task-actions'
 import type {
   CreateDownloadParams,
+  DirectResourceMetadataProfile,
   EngineAdapter,
 } from '../../engine/engine-adapter'
 import type { Logger } from '../../logger'
@@ -26,7 +28,11 @@ import {
   shouldPrioritizeBtPreviewPieces,
   shouldPrioritizeBtPreviewPiecesFromMetadata,
 } from '../bt-storage-layout'
-import { DirectResourceValidatorService } from '../direct-resource-validator'
+import {
+  canMirrorAria2MetadataHeaders,
+  type DirectResourceProxyOptionsProvider,
+  DirectResourceValidatorService,
+} from '../direct-resource-validator'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
@@ -36,6 +42,8 @@ export interface ReAddTaskDeps extends TaskActionDeps {
   torrentMetaStore: TorrentMetaStore
   createEngineTaskId?: () => string
   directResourceValidator?: Pick<DirectResourceValidatorService, 'verify'>
+  getDirectResourceProxyOptions?: DirectResourceProxyOptionsProvider
+  directResourceProxyPolicy?: AppliedDownloadProxyPolicyReader
 }
 
 async function bestEffortRemove(
@@ -170,7 +178,11 @@ const directResourceValidator = new DirectResourceValidatorService()
 
 async function buildDirectReAddParams(
   task: DownloadTask,
-  resourceValidator: Pick<DirectResourceValidatorService, 'verify'>
+  adapter: EngineAdapter,
+  resourceValidator: Pick<DirectResourceValidatorService, 'verify'>,
+  getProxyOptions: DirectResourceProxyOptionsProvider,
+  assertProxyCurrent: (() => void) | undefined,
+  metadataHeadersSupported: boolean
 ): Promise<Omit<CreateDownloadParams, 'gid'>> {
   const primary = task.instances.find(
     (instance) => instance.phase === TaskInstancePhase.HttpDownload
@@ -182,6 +194,7 @@ async function buildDirectReAddParams(
       `Task ${task.id} cannot be retried: its direct replay recipe is unavailable`
     )
   }
+  const requestOptions = getProxyOptions()
 
   const plan = await directRecoveryPlanner.plan({
     primary,
@@ -201,6 +214,21 @@ async function buildDirectReAddParams(
   }
 
   let ifRange: string | null = null
+  const metadataProfile = metadataHeadersSupported
+    ? resolveDirectResourceMetadataProfile(adapter)
+    : null
+  if (plan.kind === 'checkpoint' && metadataProfile === null) {
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      `Task ${task.id} cannot be retried safely: metadata-request-profile-unsupported`
+    )
+  }
+  if (plan.kind === 'checkpoint' && !recipe.resourceValidator) {
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      `Task ${task.id} cannot be retried safely: resource-validator-unavailable`
+    )
+  }
   if (plan.kind === 'checkpoint' && recipe.resourceValidator) {
     if (primary.uris.length !== 1) {
       throw new AppError(
@@ -208,10 +236,24 @@ async function buildDirectReAddParams(
         `Task ${task.id} cannot be retried safely: ambiguous-validator-source`
       )
     }
+    if (requestOptions === null) {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        `Task ${task.id} cannot be retried safely: proxy-policy-unavailable`
+      )
+    }
+    if (!metadataHeadersSupported) {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        `Task ${task.id} cannot be retried safely: metadata-header-profile-unsupported`
+      )
+    }
     const validation = await resourceValidator.verify(
       primary.uris[0] as string,
-      recipe.resourceValidator
+      recipe.resourceValidator,
+      requestOptions
     )
+    assertProxyCurrent?.()
     if (validation.outcome !== 'unchanged') {
       throw new AppError(
         ErrorCode.TaskNotRetryable,
@@ -226,6 +268,12 @@ async function buildDirectReAddParams(
     saveDir: plan.saveDir,
     filename: plan.filename,
     connections: recipe.connections,
+    ...(plan.kind !== 'checkpoint' || metadataProfile === null
+      ? {}
+      : { directResourceMetadataProfile: metadataProfile }),
+    ...(requestOptions?.userAgent === undefined
+      ? {}
+      : { userAgent: requestOptions.userAgent }),
     ...(ifRange ? { headers: { 'If-Range': ifRange } } : {}),
     pause: false,
     resumePolicy:
@@ -234,6 +282,17 @@ async function buildDirectReAddParams(
         : plan.reason === 'temp-file-empty'
           ? 'sequential-prefix'
           : 'none',
+  }
+}
+
+function resolveDirectResourceMetadataProfile(
+  adapter: EngineAdapter
+): DirectResourceMetadataProfile | null {
+  if (!adapter.getDirectResourceMetadataProfile) return null
+  try {
+    return adapter.getDirectResourceMetadataProfile()
+  } catch {
+    return null
   }
 }
 
@@ -385,8 +444,30 @@ export async function reAddTask(
   taskId: string,
   deps: ReAddTaskDeps
 ): Promise<void> {
-  const reAdd = (): Promise<void> => reAddTaskUnderMutation(taskId, deps)
-  await deps.runTaskMutation([taskId], reAdd)
+  const run = (
+    getProxyOptions: DirectResourceProxyOptionsProvider,
+    assertProxyCurrent?: () => void
+  ) => {
+    const reAdd = (): Promise<void> =>
+      reAddTaskUnderMutation(taskId, deps, getProxyOptions, assertProxyCurrent)
+    return deps.runTaskMutation([taskId], reAdd)
+  }
+  if (deps.directResourceProxyPolicy) {
+    await deps.directResourceProxyPolicy.runWithSnapshot((snapshot, lease) => {
+      const providerOptions = deps.getDirectResourceProxyOptions?.()
+      const requestOptions = snapshot
+        ? {
+            ...snapshot,
+            ...(providerOptions?.userAgent === undefined
+              ? {}
+              : { userAgent: providerOptions.userAgent }),
+          }
+        : null
+      return run(() => requestOptions, lease.assertCurrent)
+    })
+    return
+  }
+  await run(deps.getDirectResourceProxyOptions ?? (() => null))
 }
 
 /**
@@ -397,7 +478,9 @@ export async function reAddTask(
  */
 async function reAddTaskUnderMutation(
   taskId: string,
-  deps: ReAddTaskDeps
+  deps: ReAddTaskDeps,
+  getProxyOptions: DirectResourceProxyOptionsProvider,
+  assertProxyCurrent?: () => void
 ): Promise<void> {
   const task = getTaskOrWarn(deps, taskId, 'reAddTask')
   if (!task) return
@@ -433,7 +516,11 @@ async function reAddTaskUnderMutation(
     ? null
     : await buildDirectReAddParams(
         task,
-        deps.directResourceValidator ?? directResourceValidator
+        deps.adapter,
+        deps.directResourceValidator ?? directResourceValidator,
+        getProxyOptions,
+        assertProxyCurrent,
+        canMirrorAria2MetadataHeaders(deps.adapter.getFeatureReport?.())
       )
   let opts: EngineTaskOptions | null = null
   try {
@@ -477,6 +564,7 @@ async function reAddTaskUnderMutation(
     if (torrentLike && torrentMetadata) {
       await reAddBt(task, opts, deps, reservedGid, torrentMetadata)
     } else if (directParams) {
+      assertProxyCurrent?.()
       await deps.adapter.createDownload({ ...directParams, gid: reservedGid })
     }
   } catch (error) {

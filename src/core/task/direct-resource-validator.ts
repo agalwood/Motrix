@@ -1,11 +1,21 @@
+import type { Socket } from 'node:net'
 import {
   INCOMPLETE_SUFFIX,
   MAX_DEDUP_ATTEMPTS,
 } from '@shared/constants/incomplete'
 import type { DirectResourceValidator } from '@shared/schemas/direct-replay-recipe'
+import type { EngineFeatureReport } from '@shared/types/engine'
+import type { Dispatcher } from 'undici'
+import { isMotrixFork } from '../engine/aria2/feature-report'
+import {
+  decideAria2ProxyRoute,
+  normalizeProxyUrl,
+} from '../proxy/aria2-proxy-routing'
 
 const DEFAULT_TIMEOUT_MS = 3_000
 const MAX_FILENAME_REDIRECTS = 5
+const ARIA2_REDIRECT_STATUSES = new Set([300, 301, 302, 303, 307, 308])
+const ARIA2_WANT_DIGEST = 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1'
 const MAX_FILESYSTEM_NAME_BYTES = 255
 const MAX_DEDUP_SUFFIX_BYTES = Buffer.byteLength(
   ` (${MAX_DEDUP_ATTEMPTS})`,
@@ -16,34 +26,66 @@ const MAX_FINAL_NAME_BYTES =
   Buffer.byteLength(INCOMPLETE_SUFFIX, 'utf8') -
   MAX_DEDUP_SUFFIX_BYTES
 
-interface ProxyDispatcher {
-  close?(): Promise<void> | void
-  destroy?(): Promise<void> | void
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>
+type UndiciRequestLike = typeof import('undici').request
+
+interface ResourceHttpResponse {
+  status: number
+  headers: Headers
+  cancel(): Promise<void> | void
 }
 
-interface ResourceRequestInit extends RequestInit {
-  /** Node/undici extension used by the main and server runtimes. */
-  dispatcher?: ProxyDispatcher
-}
+type ResourceRequestLike = (
+  input: string | URL,
+  init?: RequestInit
+) => Promise<ResourceHttpResponse>
 
-type FetchLike = (
-  input: string | URL | Request,
-  init?: ResourceRequestInit
-) => Promise<Response>
+interface ResourceHttpClient {
+  /** Production clients use request; injected tests may retain the fetch seam. */
+  request?: ResourceRequestLike
+  fetch?: FetchLike
+  close(): Promise<void> | void
+}
 
 interface ProxyDispatcherOptions {
   proxy: string
   noProxy?: string
 }
 
-type ProxyDispatcherFactory = (
+type ProxyHttpClientFactory = (
   options: ProxyDispatcherOptions
-) => Promise<ProxyDispatcher | null>
+) => Promise<ResourceHttpClient | null>
 
-export interface DirectResourceRequestOptions {
-  headers?: Readonly<Record<string, string>>
+export interface DirectResourceProxyOptions {
   proxy?: string
   noProxy?: string
+  /** aria2's effective global User-Agent for recovery validation requests. */
+  userAgent?: string
+}
+
+export interface DirectResourceRequestOptions
+  extends DirectResourceProxyOptions {
+  headers?: Readonly<Record<string, string>>
+}
+
+export type DirectResourceProxyOptionsProvider =
+  () => DirectResourceProxyOptions | null
+
+/**
+ * Exact probe headers are guaranteed only for the bundled Motrix fork with
+ * both corresponding compile-time features. An unprobed adapter reports
+ * `unknown`; retain that test/startup compatibility, but fail closed for any
+ * other concrete binary profile.
+ */
+export function canMirrorAria2MetadataHeaders(
+  report: EngineFeatureReport | null | undefined
+): boolean {
+  if (!report || report.version === 'unknown') return true
+  return (
+    isMotrixFork(report) &&
+    report.features.includes('GZip') &&
+    report.features.includes('Message Digest')
+  )
 }
 
 export interface DirectResourceMetadata {
@@ -65,8 +107,9 @@ const REDIRECT_SAFE_HEADERS = new Set([
   'pragma',
   'range',
   'user-agent',
+  'want-digest',
 ])
-
+const EMPTY_CREDENTIAL_HEADERS = new Set(['authorization', 'cookie'])
 const REQUEST_HEADER_DENYLIST = new Set([
   'connection',
   'content-length',
@@ -112,33 +155,160 @@ const CONTENT_TYPE_EXTENSIONS: Readonly<Record<string, string>> = {
   'video/webm': '.webm',
 }
 
-const createProxyDispatcher: ProxyDispatcherFactory = async ({
+const createProxyHttpClient: ProxyHttpClientFactory = async ({
   proxy,
   noProxy,
 }) => {
-  let parsed: URL
+  const parsed = normalizeProxyUrl(proxy)
+  if (!parsed) return null
+
+  const { request, Agent, ProxyAgent, Socks5ProxyAgent, buildConnector } =
+    await import('undici')
+  let proxyDispatcher: Dispatcher | undefined
+  let directDispatcher: Dispatcher | undefined
+  const socksSockets = new Set<Socket>()
+  let closed = false
   try {
-    parsed = new URL(proxy)
+    if (parsed.protocol === 'socks5:') {
+      const baseConnect = buildConnector({})
+      const connect: typeof baseConnect = (options, callback) => {
+        const hostname = unbracketHostname(options.hostname)
+        return baseConnect(
+          { ...options, hostname, host: hostname },
+          (error, socket) => {
+            if (error) {
+              callback(error, null)
+              return
+            }
+            if (!socket) {
+              callback(new Error('SOCKS connector returned no socket'), null)
+              return
+            }
+            if (closed) {
+              socket.destroy()
+              callback(new Error('SOCKS connector completed after close'), null)
+              return
+            }
+            // Socks5ProxyAgent does not own the TCP socket until its greeting
+            // finishes. Track it from connect so abort/teardown can also close
+            // a proxy that accepts TCP and then stalls during negotiation.
+            socksSockets.add(socket)
+            socket.once('close', () => socksSockets.delete(socket))
+            callback(null, socket)
+          }
+        )
+      }
+      proxyDispatcher = new Socks5ProxyAgent(parsed, { connect })
+    } else {
+      // aria2 treats an https:// proxy URI as an HTTP proxy declaration. Match
+      // the download engine instead of attempting TLS to a different endpoint.
+      const aria2Proxy = new URL(parsed)
+      if (aria2Proxy.protocol === 'https:') {
+        // Preserve the port selected while the URI still has HTTPS defaults.
+        // Changing protocol first would silently turn an omitted 443 into 80.
+        const effectivePort = aria2Proxy.port || '443'
+        aria2Proxy.protocol = 'http:'
+        aria2Proxy.port = effectivePort
+      }
+      proxyDispatcher = new ProxyAgent(aria2Proxy.toString())
+    }
+    directDispatcher = new Agent()
   } catch {
+    await destroyDispatcher(proxyDispatcher)
+    await destroyDispatcher(directDispatcher)
     return null
   }
 
-  const { EnvHttpProxyAgent, Socks5ProxyAgent } = await import('undici')
-  if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-    return new EnvHttpProxyAgent({
-      httpProxy: parsed.toString(),
-      httpsProxy: parsed.toString(),
-      noProxy: noProxy ?? '',
+  // A dispatcher is an Undici-internal protocol object. Bind it to request()
+  // from the same module instance so Node/Electron's embedded Undici can never
+  // receive a different major's handler contract.
+  const requestWithDispatcher: ResourceRequestLike = (input, init) => {
+    const route = decideAria2ProxyRoute(input, noProxy)
+    if (route === 'unsupported') {
+      return Promise.reject(new TypeError('Unsupported proxy route target'))
+    }
+    if (
+      route === 'proxy' &&
+      parsed.protocol === 'socks5:' &&
+      isBracketedIpv6Target(input)
+    ) {
+      // Undici 8.10 serializes an IPv6 SOCKS target as the literal domain
+      // "[::1]". Decline the optional request until upstream can encode ATYP 4.
+      return Promise.reject(new TypeError('Unsupported IPv6 SOCKS target'))
+    }
+    if (route !== 'proxy' || parsed.protocol !== 'socks5:' || !init?.signal) {
+      return requestResource(
+        request,
+        input,
+        init,
+        route === 'direct' ? directDispatcher : proxyDispatcher
+      )
+    }
+
+    // Socks5ProxyAgent does not own the TCP socket until its greeting
+    // completes. Its request promise therefore cannot abort a proxy that
+    // accepts TCP and stalls before the greeting response. Close the sockets
+    // tracked by our connector as soon as this request is aborted.
+    const signal = init.signal
+    const abortSockets = () => {
+      for (const socket of socksSockets) socket.destroy()
+    }
+    return new Promise<ResourceHttpResponse>((resolve, reject) => {
+      let settled = false
+      const succeed = (response: ResourceHttpResponse) => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', onAbort)
+        resolve(response)
+      }
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      }
+      const onAbort = () => {
+        abortSockets()
+        fail(new DOMException('The operation was aborted', 'AbortError'))
+      }
+
+      // Register before request() starts connecting so a very short timeout
+      // cannot race past our ownership of the pre-handshake TCP socket.
+      signal.addEventListener('abort', onAbort, { once: true })
+      if (signal.aborted) {
+        onAbort()
+        return
+      }
+      void requestResource(request, input, init, proxyDispatcher).then(
+        succeed,
+        fail
+      )
     })
   }
-  if (parsed.protocol === 'socks5:') {
-    // Socks5ProxyAgent has no NO_PROXY equivalent. Silently ignoring a global
-    // bypass list would change the user's routing policy, so decline the
-    // optional probe instead of sending it through the wrong route.
-    if (noProxy?.trim()) return null
-    return new Socks5ProxyAgent(parsed)
+
+  return {
+    request: requestWithDispatcher,
+    close: async () => {
+      if (closed) return
+      closed = true
+      for (const socket of socksSockets) {
+        socket.destroy()
+      }
+      socksSockets.clear()
+      if (parsed.protocol === 'socks5:') {
+        // Undici 8 waits for its fixed authentication timer even after a
+        // pre-handshake socket closes. Invoke package-owned teardown without
+        // extending our bounded metadata timeout while that timer settles.
+        void destroyDispatcher(proxyDispatcher)
+        await destroyDispatcher(directDispatcher)
+      } else {
+        await Promise.allSettled([
+          destroyDispatcher(directDispatcher),
+          destroyDispatcher(proxyDispatcher),
+        ])
+      }
+    },
   }
-  return null
 }
 
 export type DirectResourceValidationOutcome =
@@ -154,16 +324,15 @@ export interface DirectResourceValidationResult {
 
 /**
  * Captures and verifies non-secret HTTP validators for URI-only direct tasks.
- * A verifier never downloads a response body: capture uses HEAD, while resume
- * verification cancels a one-byte Range response immediately after headers.
+ * Every request uses GET like aria2 and cancels the response body immediately
+ * after headers; resume verification additionally requests a one-byte range.
  */
 export class DirectResourceValidatorService {
   constructor(
-    private readonly fetchImpl: FetchLike = (input, init) =>
-      globalThis.fetch(input, init as RequestInit),
+    private readonly fetchImpl: FetchLike | undefined = undefined,
     private readonly timeoutMs = DEFAULT_TIMEOUT_MS,
     private readonly now: () => number = Date.now,
-    private readonly proxyDispatcherFactory: ProxyDispatcherFactory = createProxyDispatcher
+    private readonly proxyHttpClientFactory: ProxyHttpClientFactory = createProxyHttpClient
   ) {}
 
   /** Resolve the filename and resumability validator in one bounded probe. */
@@ -173,50 +342,32 @@ export class DirectResourceValidatorService {
   ): Promise<DirectResourceMetadata | null> {
     const initialUrl = parseHttpUrl(uri)
     if (!initialUrl) return null
+    const headers = probeHeaders(options.headers, options.userAgent)
+    if (!headers) return null
 
-    const dispatcher = await this.resolveDispatcher(options)
-    if (dispatcher === null) return null
+    const client = await this.resolveHttpClient(options)
+    if (client === null) return null
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
-    const headers = probeHeaders(options.headers)
     try {
-      const head = await this.requestMetadata(
+      const metadata = await this.requestMetadata(
         initialUrl,
-        'HEAD',
+        uri,
         headers,
-        dispatcher,
+        client,
         controller.signal
       )
-      let validator: DirectResourceValidator | null = null
-      if (head && head.status >= 200 && head.status < 300) {
-        validator = readMetadataValidator(head, this.now())
-        const filename = filenameFromMetadata(initialUrl, head)
-        if (filename) return { filename, validator }
-      } else if (head && head.status !== 405 && head.status !== 501) {
+      if (!metadata || metadata.status < 200 || metadata.status >= 300) {
         return null
       }
-
-      if (controller.signal.aborted) {
-        return validator ? { filename: null, validator } : null
-      }
-      const ranged = await this.requestMetadata(
-        initialUrl,
-        'GET',
-        { ...headers, range: 'bytes=0-0' },
-        dispatcher,
-        controller.signal
-      )
-      if (!ranged || ranged.status < 200 || ranged.status >= 300) {
-        return validator ? { filename: null, validator } : null
-      }
       return {
-        filename: filenameFromMetadata(initialUrl, ranged),
-        validator: validator ?? readMetadataValidator(ranged, this.now()),
+        filename: filenameFromMetadata(initialUrl, metadata),
+        validator: readMetadataValidator(metadata, this.now()),
       }
     } finally {
       clearTimeout(timeout)
-      await closeDispatcher(dispatcher)
+      await closeHttpClient(client)
     }
   }
 
@@ -226,18 +377,20 @@ export class DirectResourceValidatorService {
   ): Promise<DirectResourceValidator | null> {
     const initialUrl = parseHttpUrl(uri)
     if (!initialUrl) return null
+    const headers = probeHeaders(options.headers, options.userAgent)
+    if (!headers) return null
 
-    const dispatcher = await this.resolveDispatcher(options)
-    if (dispatcher === null) return null
+    const client = await this.resolveHttpClient(options)
+    if (client === null) return null
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
     try {
       const metadata = await this.requestMetadata(
         initialUrl,
-        'HEAD',
-        probeHeaders(),
-        dispatcher,
+        uri,
+        headers,
+        client,
         controller.signal
       )
       if (!metadata || metadata.status < 200 || metadata.status >= 300) {
@@ -246,102 +399,99 @@ export class DirectResourceValidatorService {
       return readMetadataValidator(metadata, this.now())
     } finally {
       clearTimeout(timeout)
-      await closeDispatcher(dispatcher)
+      await closeHttpClient(client)
     }
   }
 
   async verify(
     uri: string,
-    expected: DirectResourceValidator
+    expected: DirectResourceValidator,
+    options: DirectResourceProxyOptions = {}
   ): Promise<DirectResourceValidationResult> {
-    const response = await this.request(uri, {
-      method: 'GET',
-      headers: {
-        'Accept-Encoding': 'identity',
-        Range: 'bytes=0-0',
-        'If-Range': expected.value,
-      },
-    })
-    if (!response) return { outcome: 'unverifiable', ifRange: null }
-    if (response.status !== 200 && response.status !== 206) {
-      await cancelBody(response)
+    const initialUrl = parseHttpUrl(uri)
+    if (!initialUrl) return { outcome: 'unverifiable', ifRange: null }
+    const client = await this.resolveHttpClient(options)
+    if (client === null) return { outcome: 'unverifiable', ifRange: null }
+    const headers = probeHeaders(undefined, options.userAgent)
+    if (!headers) {
+      await closeHttpClient(client)
       return { outcome: 'unverifiable', ifRange: null }
     }
+    headers.range = 'bytes=0-0'
+    headers['if-range'] = expected.value
 
-    const current = readValidator(response.headers, this.now())
-    const currentValue = validatorValueForKind(current, expected.kind)
-    if (!currentValue) {
-      await cancelBody(response)
-      return { outcome: 'unverifiable', ifRange: null }
-    }
-    if (currentValue !== expected.value) {
-      await cancelBody(response)
-      return { outcome: 'source-changed', ifRange: null }
-    }
-
-    const currentLength = totalResponseLength(response)
-    if (
-      expected.contentLength !== undefined &&
-      currentLength !== null &&
-      currentLength !== expected.contentLength
-    ) {
-      await cancelBody(response)
-      return { outcome: 'source-changed', ifRange: null }
-    }
-
-    const rangeSatisfied = response.status === 206
-    await cancelBody(response)
-    return rangeSatisfied
-      ? { outcome: 'unchanged', ifRange: expected.value }
-      : { outcome: 'range-unsupported', ifRange: null }
-  }
-
-  private async request(
-    uri: string,
-    init: RequestInit
-  ): Promise<Response | null> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
     try {
-      return await this.fetchImpl(uri, {
-        ...init,
-        redirect: 'follow',
-        signal: controller.signal,
-      })
-    } catch {
-      return null
+      const metadata = await this.requestMetadata(
+        initialUrl,
+        uri,
+        headers,
+        client,
+        controller.signal
+      )
+      if (!metadata || (metadata.status !== 200 && metadata.status !== 206)) {
+        return { outcome: 'unverifiable', ifRange: null }
+      }
+
+      const current = readMetadataValidator(metadata, this.now())
+      const currentValue = validatorValueForKind(current, expected.kind)
+      if (!currentValue) {
+        return { outcome: 'unverifiable', ifRange: null }
+      }
+      if (currentValue !== expected.value) {
+        return { outcome: 'source-changed', ifRange: null }
+      }
+
+      const currentLength = totalMetadataLength(metadata)
+      if (
+        expected.contentLength !== undefined &&
+        currentLength !== null &&
+        currentLength !== expected.contentLength
+      ) {
+        return { outcome: 'source-changed', ifRange: null }
+      }
+
+      return metadata.status === 206
+        ? { outcome: 'unchanged', ifRange: expected.value }
+        : { outcome: 'range-unsupported', ifRange: null }
     } finally {
       clearTimeout(timeout)
+      await closeHttpClient(client)
     }
   }
 
   private async requestMetadata(
     initialUrl: URL,
-    method: 'HEAD' | 'GET',
+    initialRequestUrl: string,
     initialHeaders: Record<string, string>,
-    dispatcher: ProxyDispatcher | undefined,
+    client: ResourceHttpClient,
     signal: AbortSignal
   ): Promise<ResourceMetadata | null> {
     let currentUrl = initialUrl
+    let currentRequestUrl = requestUrlPreservingAuthority(
+      initialRequestUrl,
+      initialUrl
+    )
+    if (!currentRequestUrl) return null
     let headers = initialHeaders
 
     for (let redirects = 0; redirects <= MAX_FILENAME_REDIRECTS; redirects++) {
-      let response: Response
+      let response: ResourceHttpResponse
       try {
-        response = await this.fetchImpl(currentUrl, {
-          method,
+        response = await issueResourceRequest(client, currentRequestUrl, {
+          method: 'GET',
           headers,
           redirect: 'manual',
           signal,
-          ...(dispatcher ? { dispatcher } : {}),
         })
       } catch {
         return null
       }
 
       const location = response.headers.get('location')
-      if (response.status >= 300 && response.status < 400 && location) {
-        await cancelBody(response)
+      if (ARIA2_REDIRECT_STATUSES.has(response.status) && location) {
+        await cancelResourceResponse(response)
         if (redirects === MAX_FILENAME_REDIRECTS) return null
         let nextUrl: URL
         try {
@@ -350,8 +500,17 @@ export class DirectResourceValidatorService {
           return null
         }
         if (!isHttpUrl(nextUrl)) return null
-        headers = redirectHeaders(headers, currentUrl, nextUrl)
+        const nextRequestUrl = redirectRequestUrl(
+          location,
+          currentRequestUrl,
+          nextUrl
+        )
+        if (!nextRequestUrl) return null
+        const nextHeaders = redirectHeaders(headers, currentUrl, nextUrl)
+        if (!nextHeaders) return null
+        headers = nextHeaders
         currentUrl = nextUrl
+        currentRequestUrl = nextRequestUrl
         continue
       }
 
@@ -360,20 +519,38 @@ export class DirectResourceValidatorService {
         headers: response.headers,
         status: response.status,
       }
-      await cancelBody(response)
+      await cancelResourceResponse(response)
       return metadata
     }
 
     return null
   }
 
-  private async resolveDispatcher(
-    options: DirectResourceRequestOptions
-  ): Promise<ProxyDispatcher | undefined | null> {
+  private async resolveHttpClient(
+    options: DirectResourceProxyOptions
+  ): Promise<ResourceHttpClient | null> {
     const proxy = options.proxy?.trim()
-    if (!proxy) return undefined
+    if (!proxy) {
+      if (!this.fetchImpl) {
+        try {
+          const { request, Agent } = await import('undici')
+          const dispatcher = new Agent()
+          return {
+            request: (input, init) =>
+              requestResource(request, input, init, dispatcher),
+            close: () => destroyDispatcher(dispatcher),
+          }
+        } catch {
+          return null
+        }
+      }
+      return {
+        fetch: this.fetchImpl,
+        close: async () => undefined,
+      }
+    }
     try {
-      return await this.proxyDispatcherFactory({
+      return await this.proxyHttpClientFactory({
         proxy,
         ...(options.noProxy === undefined ? {} : { noProxy: options.noProxy }),
       })
@@ -420,6 +597,14 @@ export function hasLikelyFileExtension(filename: string | null): boolean {
 function parseHttpUrl(uri: string): URL | null {
   try {
     const url = new URL(uri)
+    if (
+      hasC0SpaceOrDel(uri) ||
+      uri.includes('\\') ||
+      decideAria2ProxyRoute(uri) === 'unsupported' ||
+      requestUrlPreservingAuthority(uri, url) === null
+    ) {
+      return null
+    }
     return isHttpUrl(url) ? url : null
   } catch {
     return null
@@ -430,17 +615,155 @@ function isHttpUrl(url: URL): boolean {
   return url.protocol === 'http:' || url.protocol === 'https:'
 }
 
-function probeHeaders(
+function requestUrlPreservingAuthority(
+  input: string,
+  normalized: URL
+): string | null {
+  const authority = rawUrlAuthority(input)
+  const suffix = rawUrlPathAndSearch(input)
+  if (!authority || suffix === null) return null
+  const requestSuffix =
+    suffix === '' || suffix.startsWith('?') ? `/${suffix}` : suffix
+  if (requestSuffix !== `${normalized.pathname}${normalized.search}`) {
+    return null
+  }
+  return `${normalized.protocol}//${authority}${requestSuffix}`
+}
+
+function redirectRequestUrl(
+  location: string,
+  currentRequestUrl: string,
+  normalized: URL
+): string | null {
+  if (hasC0SpaceOrDel(location)) return null
+  const value = location.trim()
+  // aria2 treats backslashes as path text, while WHATWG can reinterpret them
+  // as authority separators for special URLs. Decline instead of probing a
+  // host the download engine would never select.
+  if (!value || value.includes('\\')) return null
+  if (unsafeRedirectReference(value)) return null
+
+  const absoluteScheme = /^([A-Za-z][A-Za-z\d+.-]*):\/\//.exec(value)?.[1]
+  if (
+    absoluteScheme !== undefined &&
+    absoluteScheme !== 'http' &&
+    absoluteScheme !== 'https'
+  ) {
+    return null
+  }
+
+  const authoritySource = /^[A-Za-z][A-Za-z\d+.-]*:\/\//.test(value)
+    ? value
+    : value.startsWith('//')
+      ? `${normalized.protocol}${value}`
+      : currentRequestUrl
+  const authority = rawUrlAuthority(authoritySource)
+  if (!authority) return null
+  if (authoritySource !== currentRequestUrl) {
+    const suffix = rawUrlPathAndSearch(authoritySource)
+    if (suffix === null) return null
+    const requestSuffix =
+      suffix === '' || suffix.startsWith('?') ? `/${suffix}` : suffix
+    if (requestSuffix !== `${normalized.pathname}${normalized.search}`) {
+      return null
+    }
+  }
+  const requestUrl = `${normalized.protocol}//${authority}${normalized.pathname}${normalized.search}`
+  return decideAria2ProxyRoute(requestUrl) === 'unsupported' ? null : requestUrl
+}
+
+function rawUrlAuthority(input: string): string | null {
+  const match = /^[\r\n\t ]*[A-Za-z][A-Za-z\d+.-]*:\/\/([^/?#]*)/.exec(input)
+  return match?.[1] || null
+}
+
+function rawUrlPathAndSearch(input: string): string | null {
+  const match = /^[\r\n\t ]*[A-Za-z][A-Za-z\d+.-]*:\/\/[^/?#]*([^#]*)/.exec(
+    input
+  )
+  return match?.[1] ?? null
+}
+
+function unsafeRedirectReference(value: string): boolean {
+  if (value.startsWith('?') || value.startsWith('#')) return true
+  if (hasC0SpaceOrDel(value)) return true
+  if (/^[A-Za-z][A-Za-z\d+.-]*:(?!\/\/)/.test(value)) return true
+
+  const withoutFragment = value.split('#', 1)[0] ?? ''
+  const path = withoutFragment.split('?', 1)[0] ?? ''
+  const querySeparator = withoutFragment.indexOf('?')
+  const query =
+    querySeparator === -1 ? null : withoutFragment.slice(querySeparator + 1)
+  if (/%2e/i.test(path)) return true
+  if (/[\^`{}]/.test(path)) return true
+  // aria2 preserves apostrophes in Location query text, while WHATWG's
+  // special-query serializer changes them to %27. It also preserves an empty
+  // query delimiter and percent-encodes the response's original non-ASCII
+  // bytes rather than re-encoding JavaScript code points as UTF-8.
+  if (query === '' || query?.includes("'") || hasNonAscii(value)) {
+    return true
+  }
+
+  const pathWithoutAuthority = /^[A-Za-z][A-Za-z\d+.-]*:\/\//.test(path)
+    ? path.slice(path.indexOf('/', path.indexOf('//') + 2))
+    : path.startsWith('//')
+      ? path.slice(path.indexOf('/', 2))
+      : path
+  return pathWithoutAuthority.includes('//')
+}
+
+export function canRepresentDirectResourceHeaders(
   input?: Readonly<Record<string, string>>
-): Record<string, string> {
+): boolean {
+  return normalizedTaskHeaders(input) !== null
+}
+
+function normalizedTaskHeaders(
+  input?: Readonly<Record<string, string>>
+): Record<string, string> | null {
   const result: Record<string, string> = {}
   for (const [rawName, value] of Object.entries(input ?? {})) {
-    const name = rawName.trim().toLowerCase()
-    if (!name || REQUEST_HEADER_DENYLIST.has(name)) continue
-    if (INVALID_HEADER_NAME.test(name) || /[\r\n]/.test(value)) continue
+    const name = rawName.toLowerCase()
+    if (
+      !name ||
+      rawName !== rawName.trim() ||
+      REQUEST_HEADER_DENYLIST.has(name) ||
+      INVALID_HEADER_NAME.test(name) ||
+      !/^[!#$%&'*+\-.^_`|~\dA-Za-z]+$/.test(rawName) ||
+      /[\r\n]/.test(value) ||
+      Object.hasOwn(result, name)
+    ) {
+      return null
+    }
     result[name] = value
   }
-  result['accept-encoding'] = 'identity'
+  return result
+}
+
+function probeHeaders(
+  input?: Readonly<Record<string, string>>,
+  userAgent?: string
+): Record<string, string> | null {
+  const result = normalizedTaskHeaders(input)
+  if (!result) return null
+  if (!Object.hasOwn(result, 'user-agent') && userAgent !== undefined) {
+    if (hasC0OrDel(userAgent)) return null
+    result['user-agent'] = userAgent
+  }
+  if (!Object.hasOwn(result, 'accept')) result.accept = '*/*'
+  // The bundled aria2.conf enables http-accept-gzip. Preserve an explicit task
+  // override; otherwise mirror aria2's compiled-with-zlib request value.
+  if (!Object.hasOwn(result, 'accept-encoding')) {
+    result['accept-encoding'] = 'deflate, gzip'
+  }
+  if (!Object.hasOwn(result, 'want-digest')) {
+    result['want-digest'] = ARIA2_WANT_DIGEST
+  }
+  // Metadata-eligible aria2 tasks carry the same empty custom fields. Their
+  // presence suppresses aria2's process-wide CookieStorage and AuthConfig
+  // factories without replacing an explicit task credential.
+  if (!Object.hasOwn(result, 'cookie')) result.cookie = ''
+  if (!Object.hasOwn(result, 'authorization')) result.authorization = ''
   return result
 }
 
@@ -448,13 +771,17 @@ function redirectHeaders(
   headers: Record<string, string>,
   from: URL,
   to: URL
-): Record<string, string> {
+): Record<string, string> | null {
   if (from.origin === to.origin) return headers
-  return Object.fromEntries(
-    Object.entries(headers).filter(([name]) =>
-      REDIRECT_SAFE_HEADERS.has(name.toLowerCase())
+  return Object.entries(headers).every(([name, value]) => {
+    const normalizedName = name.toLowerCase()
+    return (
+      REDIRECT_SAFE_HEADERS.has(normalizedName) ||
+      (value === '' && EMPTY_CREDENTIAL_HEADERS.has(normalizedName))
     )
-  )
+  })
+    ? headers
+    : null
 }
 
 function filenameFromMetadata(
@@ -524,7 +851,12 @@ function contentDispositionFilename(value: string | null): string | null {
       const extended = decodeExtendedFilename(rawValue)
       if (extended) return extended
     } else if (name === 'filename' && !basic) {
-      basic = rawValue
+      // aria2's default content-disposition-default-utf8=false interprets a
+      // legacy filename using locale-dependent bytes. Undici exposes a JS
+      // string instead, so only consume the portable ASCII subset here. For a
+      // non-ASCII legacy value, filenameFromMetadata falls back to the URL and
+      // pins that result as aria2's `out`; RFC 5987 filename* stays supported.
+      if (/^[\x20-\x7e]*$/.test(rawValue)) basic = rawValue
     }
   }
   return basic
@@ -585,16 +917,97 @@ function decodeExtendedFilename(value: string): string | null {
   return null
 }
 
-async function closeDispatcher(
-  dispatcher: ProxyDispatcher | undefined
-): Promise<void> {
-  if (!dispatcher) return
+async function closeHttpClient(client: ResourceHttpClient): Promise<void> {
   try {
-    if (dispatcher.destroy) await dispatcher.destroy()
-    else if (dispatcher.close) await dispatcher.close()
+    await client.close()
   } catch {
     // Best-effort teardown must not turn a filename fallback into a failure.
   }
+}
+
+async function issueResourceRequest(
+  client: ResourceHttpClient,
+  input: string | URL,
+  init: RequestInit
+): Promise<ResourceHttpResponse> {
+  if (client.request) return client.request(input, init)
+  if (!client.fetch) throw new TypeError('HTTP client has no request method')
+  const response = await client.fetch(input, init)
+  return {
+    status: response.status,
+    headers: response.headers,
+    cancel: () => cancelBody(response),
+  }
+}
+
+async function requestResource(
+  requestImpl: UndiciRequestLike,
+  input: string | URL,
+  init: RequestInit | undefined,
+  dispatcher: Dispatcher | undefined
+): Promise<ResourceHttpResponse> {
+  const response = await requestImpl(input, {
+    dispatcher,
+    method: init?.method ?? 'GET',
+    // Some Undici versions append synthesized fields (notably Host) to the
+    // supplied header object. Never let that mutate our per-hop replay set:
+    // doing so can either leak a stale authority or falsely block a safe
+    // cross-origin redirect.
+    headers:
+      init?.headers === undefined
+        ? undefined
+        : { ...(init.headers as Record<string, string>) },
+    signal: init?.signal ?? undefined,
+    maxRedirections: 0,
+  } as Parameters<UndiciRequestLike>[1])
+
+  // Contract tests retain their Response-based seam; production takes the
+  // lower-level Undici response branch and never applies Fetch defaults.
+  if (response instanceof Response) {
+    return {
+      status: response.status,
+      headers: response.headers,
+      cancel: () => cancelBody(response),
+    }
+  }
+
+  const headers = new Headers()
+  for (const [name, value] of Object.entries(response.headers)) {
+    if (Array.isArray(value)) {
+      for (const item of value) headers.append(name, item)
+    } else if (value !== undefined) {
+      headers.set(name, value)
+    }
+  }
+  return {
+    status: response.statusCode,
+    headers,
+    cancel: () => destroyResponseBody(response.body),
+  }
+}
+
+async function destroyResponseBody(
+  body: import('node:stream').Readable
+): Promise<void> {
+  if (body.closed) return
+  // Undici emits RequestAbortedError when a BodyReadable is destroyed. Install
+  // the listener first so cancellation cannot become an unhandled process-level
+  // error in Node or Electron. The owning client destroys its dispatcher next.
+  body.once('error', () => undefined)
+  body.destroy()
+  // Let Undici process the abort before a redirect reuses this dispatcher.
+  // Do not wait indefinitely for `close`: a malformed/truncated body may only
+  // settle when the owning dispatcher is destroyed in the caller's finally.
+  await new Promise<void>((resolve) => {
+    body.once('close', resolve)
+    setImmediate(resolve)
+  })
+}
+
+async function cancelResourceResponse(
+  response: ResourceHttpResponse
+): Promise<void> {
+  await Promise.resolve(response.cancel()).catch(() => {})
 }
 
 function readValidator(
@@ -608,10 +1021,10 @@ function readValidator(
   const etag = headers.get('etag')?.trim()
   if (
     etag &&
-    !etag.startsWith('W/') &&
-    etag.startsWith('"') &&
-    etag.endsWith('"') &&
-    !/[\r\n]/.test(etag) &&
+    // RFC entity-tag opaque bytes exclude DQUOTE, SP, controls and DEL.
+    // Reject non-Latin-1 code points too: a combined duplicate header such as
+    // `"a", "b"` must never be mistaken for one strong validator.
+    /^"[\x21\x23-\x7e\x80-\xff]*"$/.test(etag) &&
     etag.length <= 512
   ) {
     return {
@@ -677,13 +1090,58 @@ function parseContentLength(value: string | null): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null
 }
 
-function totalResponseLength(response: Response): number | null {
-  const contentRange = response.headers.get('content-range')
+function totalMetadataLength(metadata: ResourceMetadata): number | null {
+  const contentRange = metadata.headers.get('content-range')
   const match = contentRange?.match(/\/([0-9]+)$/)
   if (match?.[1]) return parseContentLength(match[1])
-  return response.status === 200
-    ? parseContentLength(response.headers.get('content-length'))
+  return metadata.status === 200
+    ? parseContentLength(metadata.headers.get('content-length'))
     : null
+}
+
+function unbracketHostname(hostname: string): string {
+  return hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname
+}
+
+function isBracketedIpv6Target(input: string | URL): boolean {
+  try {
+    const url = typeof input === 'string' ? new URL(input) : input
+    return url.hostname.startsWith('[') && url.hostname.endsWith(']')
+  } catch {
+    return true
+  }
+}
+
+function hasC0SpaceOrDel(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0
+    if (codePoint <= 0x20 || codePoint === 0x7f) return true
+  }
+  return false
+}
+
+function hasC0OrDel(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0
+    if (codePoint <= 0x1f || codePoint === 0x7f) return true
+  }
+  return false
+}
+
+function hasNonAscii(value: string): boolean {
+  for (const character of value) {
+    if ((character.codePointAt(0) ?? 0) > 0x7f) return true
+  }
+  return false
+}
+
+async function destroyDispatcher(
+  dispatcher: Dispatcher | undefined
+): Promise<void> {
+  if (!dispatcher) return
+  await dispatcher.destroy().catch(() => {})
 }
 
 async function cancelBody(response: Response): Promise<void> {

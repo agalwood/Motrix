@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
@@ -15,6 +16,7 @@ import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { describe, expect, it, vi } from 'vitest'
 import type { EngineAdapter } from '../../engine/engine-adapter'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '../../engine/engine-adapter'
 import type { EventBus } from '../../events/event-bus'
 import type { Logger } from '../../logger'
 import { TaskManager } from '../task-manager'
@@ -78,6 +80,10 @@ function makeDeps(task: DownloadTask | undefined) {
       retireEngineTaskIdReservation: vi.fn(() => true),
     } as unknown as TaskManager,
     adapter: {
+      getFeatureReport: vi.fn(),
+      getDirectResourceMetadataProfile: vi.fn(
+        () => DIRECT_RESOURCE_METADATA_PROFILE
+      ),
       getEngineTaskOptions: vi.fn().mockResolvedValue(null),
       forceRemoveTask: vi.fn().mockResolvedValue(undefined),
       removeDownloadResult: vi.fn().mockResolvedValue(undefined),
@@ -432,32 +438,149 @@ describe('reAddTask (HTTP path)', () => {
         },
       }
       const deps = makeDeps(task)
-      const verify = vi.fn().mockResolvedValue({
-        outcome: 'unchanged' as const,
-        ifRange: '"release-v1"',
+      let currentUserAgent = 'Motrix/Verified'
+      const verify = vi.fn(async () => {
+        currentUserAgent = 'Motrix/Newer'
+        return {
+          outcome: 'unchanged' as const,
+          ifRange: '"release-v1"',
+        }
       })
+      const proxyOptions = {
+        proxy: 'http://proxy.example:8080',
+        noProxy: '.internal',
+        userAgent: 'Motrix/Verified',
+      }
 
       await reAddTask('t2', {
         ...deps,
         directResourceValidator: { verify },
+        getDirectResourceProxyOptions: () => ({
+          ...proxyOptions,
+          userAgent: currentUserAgent,
+        }),
       })
 
       expect(verify).toHaveBeenCalledWith(
         'https://example.com/file.zip',
-        expect.objectContaining({ value: '"release-v1"' })
+        expect.objectContaining({ value: '"release-v1"' }),
+        proxyOptions
       )
       expect(deps.adapter.createDownload).toHaveBeenCalledWith(
         expect.objectContaining({
           saveDir: tempDir,
           filename: 'file.zip.motrix',
           headers: { 'If-Range': '"release-v1"' },
+          userAgent: 'Motrix/Verified',
           resumePolicy: 'checkpoint',
         })
+      )
+      expect(deps.adapter.createDownload).not.toHaveBeenCalledWith(
+        expect.objectContaining({ proxy: expect.anything() })
       )
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true })
     }
   })
+
+  it('rejects a checkpoint with no resource validator before mutation', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-no-validator-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('partial'))
+      fs.writeFileSync(`${diskPath}.aria2`, Buffer.from('checkpoint'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+        },
+      }
+      const deps = makeDeps(task)
+      const verify = vi.fn()
+
+      await expect(
+        reAddTask('t2', {
+          ...deps,
+          directResourceValidator: { verify },
+          getDirectResourceProxyOptions: () => ({}),
+        })
+      ).rejects.toMatchObject({ code: ErrorCode.TaskNotRetryable })
+
+      expect(verify).not.toHaveBeenCalled()
+      expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+      expect(deps.persistTask).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(fs.existsSync(diskPath)).toBe(true)
+      expect(fs.existsSync(`${diskPath}.aria2`)).toBe(true)
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it.each(['unchanged', 'source-changed', 'unverifiable'] as const)(
+    'rejects a stale %s validation result before durable intent',
+    async (outcome) => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-direct-readd-proxy-lease-')
+      )
+      const diskPath = path.join(tempDir, 'file.zip.motrix')
+      try {
+        fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+        fs.writeFileSync(`${diskPath}.aria2`, Buffer.alloc(16, 0x62))
+        const task = makeHttpTask({
+          diskPath,
+          finalPath: path.join(tempDir, 'file.zip'),
+        })
+        task.instances[0].diskPath = diskPath
+        task.instances[0].payload = {
+          directReplay: {
+            version: 1,
+            requestModifiers: [],
+            replayability: 'uri-only',
+            resourceValidator: {
+              kind: 'strong-etag',
+              value: '"release-v1"',
+              capturedAt: 7,
+            },
+          },
+        }
+        const deps = makeDeps(task)
+        const policy = new AppliedDownloadProxyPolicy({
+          proxy: 'http://proxy.example:8080',
+          noProxy: '.internal',
+        })
+        const verify = vi.fn(async () => {
+          policy.markUnavailable()
+          return {
+            outcome,
+            ifRange: outcome === 'unchanged' ? '"release-v1"' : null,
+          }
+        })
+
+        await expect(
+          reAddTask('t2', {
+            ...deps,
+            directResourceValidator: { verify },
+            directResourceProxyPolicy: policy,
+          })
+        ).rejects.toThrow('applied download proxy policy changed')
+
+        expect(verify).toHaveBeenCalledOnce()
+        expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+        expect(deps.persistTask).not.toHaveBeenCalled()
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    }
+  )
 
   it('rejects a changed checkpoint source before touching the engine', async () => {
     const tempDir = fs.mkdtempSync(
@@ -503,6 +626,104 @@ describe('reAddTask (HTTP path)', () => {
       expect(fs.readFileSync(`${diskPath}.aria2`)).toEqual(
         Buffer.from('checkpoint')
       )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not verify or resume when aria2 lacks mirrored header features', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-feature-profile-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('partial'))
+      fs.writeFileSync(`${diskPath}.aria2`, Buffer.from('checkpoint'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          resourceValidator: {
+            kind: 'strong-etag',
+            value: '"release-v1"',
+            capturedAt: 7,
+          },
+        },
+      }
+      const deps = makeDeps(task)
+      vi.mocked(deps.adapter.getFeatureReport).mockReturnValue({
+        version: '1.37.0',
+        features: ['Message Digest'],
+        hasSqlitePersistence: false,
+        hasBtSeedUnverified: false,
+        hasBtSaveMetadata: false,
+        hasMoveStorage: false,
+      })
+      const verify = vi.fn()
+
+      await expect(
+        reAddTask('t2', {
+          ...deps,
+          directResourceValidator: { verify },
+          getDirectResourceProxyOptions: () => ({}),
+        })
+      ).rejects.toMatchObject({ code: ErrorCode.TaskNotRetryable })
+
+      expect(verify).not.toHaveBeenCalled()
+      expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+      expect(deps.persistTask).not.toHaveBeenCalled()
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects checkpoint recovery before mutation when the ambient profile is unsafe', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-ambient-profile-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('partial'))
+      fs.writeFileSync(`${diskPath}.aria2`, Buffer.from('checkpoint'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          resourceValidator: {
+            kind: 'strong-etag',
+            value: '"release-v1"',
+            capturedAt: 7,
+          },
+        },
+      }
+      const deps = makeDeps(task)
+      deps.adapter.getDirectResourceMetadataProfile = vi.fn(() => null)
+      const verify = vi.fn()
+
+      await expect(
+        reAddTask('t2', {
+          ...deps,
+          directResourceValidator: { verify },
+          getDirectResourceProxyOptions: () => ({}),
+        })
+      ).rejects.toMatchObject({ code: ErrorCode.TaskNotRetryable })
+
+      expect(verify).not.toHaveBeenCalled()
+      expect(deps.persistTask).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.createDownload).not.toHaveBeenCalled()
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true })
     }
