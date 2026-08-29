@@ -88,14 +88,18 @@ afterEach(() => {
 })
 
 describe('MarqueeOverlay', () => {
-  it('keeps one box node mounted and updates its transform imperatively', () => {
+  it('keeps one box node mounted and updates its geometry imperatively', () => {
     const { container } = createMockContainer()
     renderOverlay(container)
     const initialBox = screen.getByTestId('marquee-box')
 
     expect(initialBox.style.opacity).toBe('0')
-    expect(initialBox.style.transform).toContain('scale(0.001, 0.001)')
-    expect(initialBox.style.willChange).toBe('')
+    expect(initialBox.getAttribute('x')).toBe('0')
+    expect(initialBox.getAttribute('y')).toBe('0')
+    expect(initialBox.getAttribute('width')).toBe('0')
+    expect(initialBox.getAttribute('height')).toBe('0')
+    expect(initialBox.style.transform).toBe('')
+    expect(initialBox.hasAttribute('vector-effect')).toBe(false)
     const overlay = initialBox.closest('svg')
     expect(overlay?.classList.contains('inset-0')).toBe(true)
     expect(overlay?.classList.contains('size-full')).toBe(true)
@@ -104,17 +108,82 @@ describe('MarqueeOverlay', () => {
     fireEvent.mouseMove(window, { clientX: 140, clientY: 220 })
     flushAnimationFrames()
 
-    const firstTransform = initialBox.style.transform
     expect(screen.getByTestId('marquee-box')).toBe(initialBox)
-    expect(firstTransform).toContain('translate3d(100px, 120px, 0)')
+    expect(initialBox.getAttribute('x')).toBe('100')
+    expect(initialBox.getAttribute('y')).toBe('120')
+    expect(initialBox.getAttribute('width')).toBe('40')
+    expect(initialBox.getAttribute('height')).toBe('100')
     expect(initialBox.style.opacity).toBe('1')
-    expect(initialBox.style.willChange).toBe('transform')
 
     fireEvent.mouseMove(window, { clientX: 180, clientY: 260 })
     flushAnimationFrames()
 
     expect(screen.getByTestId('marquee-box')).toBe(initialBox)
-    expect(initialBox.style.transform).not.toBe(firstTransform)
+    expect(initialBox.getAttribute('width')).toBe('80')
+    expect(initialBox.getAttribute('height')).toBe('140')
+  })
+
+  it('renders a horizontal drag without a degenerate scale transform', () => {
+    const { container } = createMockContainer()
+    const { onSelectionChange } = renderOverlay(container)
+
+    fireEvent.mouseDown(container, { clientX: 100, clientY: 120 })
+    fireEvent.mouseMove(window, { clientX: 180, clientY: 120 })
+    flushAnimationFrames()
+
+    const box = screen.getByTestId('marquee-box')
+    expect(box.getAttribute('x')).toBe('100')
+    expect(box.getAttribute('y')).toBe('120')
+    expect(box.getAttribute('width')).toBe('80')
+    expect(box.getAttribute('height')).toBe('0.001')
+    expect(box.style.transform).toBe('')
+    expect(onSelectionChange).toHaveBeenCalledWith(3, 3)
+  })
+
+  it('renders a vertical drag without a degenerate scale transform', () => {
+    const { container } = createMockContainer()
+    const { onSelectionChange } = renderOverlay(container)
+
+    fireEvent.mouseDown(container, { clientX: 100, clientY: 120 })
+    fireEvent.mouseMove(window, { clientX: 100, clientY: 220 })
+    flushAnimationFrames()
+
+    const box = screen.getByTestId('marquee-box')
+    expect(box.getAttribute('x')).toBe('100')
+    expect(box.getAttribute('y')).toBe('120')
+    expect(box.getAttribute('width')).toBe('0.001')
+    expect(box.getAttribute('height')).toBe('100')
+    expect(box.style.transform).toBe('')
+    expect(onSelectionChange).toHaveBeenCalledWith(3, 5)
+  })
+
+  it('preserves a subpixel axis without scaling the box', () => {
+    const { container } = createMockContainer()
+    renderOverlay(container)
+
+    fireEvent.mouseDown(container, { clientX: 100.25, clientY: 120.25 })
+    fireEvent.mouseMove(window, { clientX: 180.75, clientY: 120.5 })
+    flushAnimationFrames()
+
+    const box = screen.getByTestId('marquee-box')
+    expect(box.getAttribute('x')).toBe('100.25')
+    expect(box.getAttribute('y')).toBe('120.25')
+    expect(box.getAttribute('width')).toBe('80.5')
+    expect(box.getAttribute('height')).toBe('0.25')
+    expect(box.style.transform).toBe('')
+  })
+
+  it('uses theme-aware neutral colors for the selection box', () => {
+    const { container } = createMockContainer()
+    renderOverlay(container)
+
+    const box = screen.getByTestId('marquee-box')
+    expect(box.style.fill).toContain('var(--color-ring')
+    expect(box.style.fill).toContain('12%')
+    expect(box.style.stroke).toContain('var(--color-ring')
+    expect(box.style.stroke).toContain('78%')
+    expect(box.style.stroke).toContain('var(--color-foreground')
+    expect(box.style.strokeWidth).toBe('1')
   })
 
   it('updates drag geometry without a React update commit', () => {
@@ -193,11 +262,13 @@ describe('MarqueeOverlay', () => {
 
     expect(onSelectionChange).toHaveBeenCalledWith(3, 5)
     expect(onSelectionEnd).toHaveBeenCalledOnce()
-    expect(screen.getByTestId('marquee-box').style.opacity).toBe('0')
-    expect(screen.getByTestId('marquee-box').style.transform).toContain(
-      'scale(0.001, 0.001)'
-    )
-    expect(screen.getByTestId('marquee-box').style.willChange).toBe('')
+    const box = screen.getByTestId('marquee-box')
+    expect(box.style.opacity).toBe('0')
+    expect(box.getAttribute('x')).toBe('0')
+    expect(box.getAttribute('y')).toBe('0')
+    expect(box.getAttribute('width')).toBe('0')
+    expect(box.getAttribute('height')).toBe('0')
+    expect(box.style.transform).toBe('')
   })
 
   it('cancels a queued frame on mouseup', () => {
