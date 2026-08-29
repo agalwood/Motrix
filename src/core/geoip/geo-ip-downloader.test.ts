@@ -116,13 +116,51 @@ describe('GeoIPDownloader.download', () => {
   })
 
   it('surfaces non-2xx responses as download errors', async () => {
+    const cancel = vi.fn()
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response('not found', { status: 404, statusText: 'Not Found' })
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('not found'))
+          },
+          cancel,
+        }),
+        { status: 404, statusText: 'Not Found' }
+      )
     )
     const dl = new GeoIPDownloader()
     await expect(
       dl.download('https://example.com/db.mmdb', dbPath)
     ).rejects.toThrow(/http 404/)
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
+  it('releases and cancels the response body when streaming work throws', async () => {
+    const cancel = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array(1024))
+          },
+          cancel,
+        }),
+        { status: 200 }
+      )
+    )
+    const dl = new GeoIPDownloader({
+      timeoutMs: 60_000,
+      progressByteThreshold: 1,
+      progressTimeThresholdMs: 250,
+    })
+
+    await expect(
+      dl.download('https://example.com/db.mmdb', dbPath, () => {
+        throw new Error('progress failed')
+      })
+    ).rejects.toThrow('progress failed')
+
+    expect(cancel).toHaveBeenCalledOnce()
   })
 
   it('surfaces network failures', async () => {

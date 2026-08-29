@@ -15,6 +15,17 @@ const MMDB_METADATA_TAIL = 'MaxMind.com'
 
 export type ProgressListener = (progress: DownloadProgress) => void
 
+async function cancelResponseBody(
+  response: Response,
+  reason?: unknown
+): Promise<void> {
+  try {
+    await response.body?.cancel(reason)
+  } catch {
+    // Preserve the download error when cancellation races a closed body.
+  }
+}
+
 /**
  * Stream a `.mmdb` file from `url` into `dbPath` atomically.
  *
@@ -63,44 +74,44 @@ export class GeoIPDownloader {
       )
     }
 
-    if (!response.ok) {
-      clearTimeout(timeoutId)
-      throw new AppError(
-        ErrorCode.GeoIPDownloadFailed,
-        `http ${response.status} ${response.statusText} for ${url}`
-      )
-    }
-
-    const totalHeader = response.headers.get('content-length')
-    const bytesTotal = totalHeader ? Number.parseInt(totalHeader, 10) : -1
-    const version = deriveVersion(response.headers)
-
-    let bytesReceived = 0
-    let lastEmitBytes = 0
-    let lastEmitTime = Date.now()
-    const chunks: Uint8Array[] = []
-
-    const emit = (force = false) => {
-      const now = Date.now()
-      const elapsed = now - lastEmitTime
-      const delta = bytesReceived - lastEmitBytes
-      if (
-        !force &&
-        delta < this.options.progressByteThreshold &&
-        elapsed < this.options.progressTimeThresholdMs
-      ) {
-        return
-      }
-      lastEmitBytes = bytesReceived
-      lastEmitTime = now
-      onProgress?.({
-        bytesReceived,
-        bytesTotal,
-        percent: bytesTotal > 0 ? bytesReceived / bytesTotal : -1,
-      })
-    }
-
+    let bodyConsumed = false
     try {
+      if (!response.ok) {
+        throw new AppError(
+          ErrorCode.GeoIPDownloadFailed,
+          `http ${response.status} ${response.statusText} for ${url}`
+        )
+      }
+
+      const totalHeader = response.headers.get('content-length')
+      const bytesTotal = totalHeader ? Number.parseInt(totalHeader, 10) : -1
+      const version = deriveVersion(response.headers)
+
+      let bytesReceived = 0
+      let lastEmitBytes = 0
+      let lastEmitTime = Date.now()
+      const chunks: Uint8Array[] = []
+
+      const emit = (force = false) => {
+        const now = Date.now()
+        const elapsed = now - lastEmitTime
+        const delta = bytesReceived - lastEmitBytes
+        if (
+          !force &&
+          delta < this.options.progressByteThreshold &&
+          elapsed < this.options.progressTimeThresholdMs
+        ) {
+          return
+        }
+        lastEmitBytes = bytesReceived
+        lastEmitTime = now
+        onProgress?.({
+          bytesReceived,
+          bytesTotal,
+          percent: bytesTotal > 0 ? bytesReceived / bytesTotal : -1,
+        })
+      }
+
       const body = response.body
       if (!body) {
         throw new AppError(
@@ -110,62 +121,70 @@ export class GeoIPDownloader {
       }
 
       const reader = body.getReader()
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        if (value) {
-          chunks.push(value)
-          bytesReceived += value.byteLength
-          emit(false)
+      try {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          if (value) {
+            chunks.push(value)
+            bytesReceived += value.byteLength
+            emit(false)
+          }
         }
+      } finally {
+        reader.releaseLock()
       }
+      bodyConsumed = true
+
+      const buffer = Buffer.concat(chunks)
+      if (buffer.length < MIN_VALID_SIZE_BYTES) {
+        throw new AppError(
+          ErrorCode.GeoIPDatabaseInvalid,
+          `database too small (${buffer.length} bytes)`
+        )
+      }
+      if (!hasMmdbSentinel(buffer)) {
+        throw new AppError(
+          ErrorCode.GeoIPDatabaseInvalid,
+          'MaxMind.com metadata marker not found — file is not a valid .mmdb'
+        )
+      }
+
+      try {
+        // writeFileAtomic handles fsync + rename + tmp cleanup on
+        // failure, so we no longer need an explicit unlink in the
+        // catch path.
+        await writeFileAtomic(dbPath, buffer)
+      } catch (err) {
+        throw new AppError(
+          ErrorCode.GeoIPDownloadFailed,
+          `failed to install database: ${(err as Error).message}`,
+          err
+        )
+      }
+
+      onProgress?.({
+        bytesReceived,
+        bytesTotal: bytesTotal > 0 ? bytesTotal : bytesReceived,
+        percent: 1,
+      })
+
+      let installedSize = bytesReceived
+      try {
+        const s = await stat(dbPath)
+        installedSize = s.size
+      } catch {
+        // stat failure is non-fatal: bytesReceived from the stream is a
+        // safe approximation for status reporting.
+      }
+
+      return { sizeBytes: installedSize, version }
+    } catch (error) {
+      if (!bodyConsumed) await cancelResponseBody(response, error)
+      throw error
     } finally {
       clearTimeout(timeoutId)
     }
-
-    const buffer = Buffer.concat(chunks)
-    if (buffer.length < MIN_VALID_SIZE_BYTES) {
-      throw new AppError(
-        ErrorCode.GeoIPDatabaseInvalid,
-        `database too small (${buffer.length} bytes)`
-      )
-    }
-    if (!hasMmdbSentinel(buffer)) {
-      throw new AppError(
-        ErrorCode.GeoIPDatabaseInvalid,
-        'MaxMind.com metadata marker not found — file is not a valid .mmdb'
-      )
-    }
-
-    try {
-      // writeFileAtomic handles fsync + rename + tmp cleanup on
-      // failure, so we no longer need an explicit unlink in the
-      // catch path.
-      await writeFileAtomic(dbPath, buffer)
-    } catch (err) {
-      throw new AppError(
-        ErrorCode.GeoIPDownloadFailed,
-        `failed to install database: ${(err as Error).message}`,
-        err
-      )
-    }
-
-    onProgress?.({
-      bytesReceived,
-      bytesTotal: bytesTotal > 0 ? bytesTotal : bytesReceived,
-      percent: 1,
-    })
-
-    let installedSize = bytesReceived
-    try {
-      const s = await stat(dbPath)
-      installedSize = s.size
-    } catch {
-      // stat failure is non-fatal: bytesReceived from the stream is a
-      // safe approximation for status reporting.
-    }
-
-    return { sizeBytes: installedSize, version }
   }
 }
 

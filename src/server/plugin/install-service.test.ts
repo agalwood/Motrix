@@ -130,6 +130,86 @@ describe('ServerPluginInstallService', () => {
     )
   })
 
+  it('cancels a non-ok URL response body', async () => {
+    const cancel = vi.fn()
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('server error'))
+        },
+        cancel,
+      }),
+      { status: 503 }
+    )
+    const fetchImpl = vi.fn(async () => response) as unknown as typeof fetch
+    const { service, stage } = makeService({ fetchImpl })
+
+    await expect(
+      service.stage({
+        sourceType: 'url',
+        url: 'https://plugins.example/test.moext',
+      })
+    ).rejects.toMatchObject({
+      message: 'plugin.install.url_download_failed: 503',
+    })
+
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(stage).not.toHaveBeenCalled()
+  })
+
+  it('cancels a body rejected by its declared content length', async () => {
+    const cancel = vi.fn()
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1]))
+        },
+        cancel,
+      }),
+      {
+        status: 200,
+        headers: { 'content-length': String(5 * 1024 * 1024 + 1) },
+      }
+    )
+    const fetchImpl = vi.fn(async () => response) as unknown as typeof fetch
+    const { service, stage } = makeService({ fetchImpl })
+
+    await expect(
+      service.stage({
+        sourceType: 'url',
+        url: 'https://plugins.example/test.moext',
+      })
+    ).rejects.toMatchObject({ message: 'plugin.install.package_too_large' })
+
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(stage).not.toHaveBeenCalled()
+  })
+
+  it('cancels a streamed body when actual bytes exceed the limit', async () => {
+    const cancel = vi.fn()
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(5 * 1024 * 1024 + 1))
+        },
+        cancel,
+      }),
+      { status: 200 }
+    )
+    const fetchImpl = vi.fn(async () => response) as unknown as typeof fetch
+    const { service, stage } = makeService({ fetchImpl })
+
+    await expect(
+      service.stage({
+        sourceType: 'url',
+        url: 'https://plugins.example/test.moext',
+      })
+    ).rejects.toMatchObject({ message: 'plugin.install.package_too_large' })
+
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(stage).not.toHaveBeenCalled()
+  })
+
   it('rejects non-http URL sources before fetching', async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch
     const { service } = makeService({ fetchImpl })

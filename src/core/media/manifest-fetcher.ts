@@ -1,5 +1,13 @@
 const DEFAULT_MAX = 5 * 1024 * 1024
 
+async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel()
+  } catch {
+    // Preserve the HTTP error when body cancellation also fails.
+  }
+}
+
 export async function fetchManifest(
   url: string,
   opts: {
@@ -15,6 +23,7 @@ export async function fetchManifest(
     redirect: 'follow',
   })
   if (!res.ok) {
+    await cancelResponseBody(res)
     throw new Error(`manifest fetch failed: HTTP ${res.status}`)
   }
   const text = await res.text()

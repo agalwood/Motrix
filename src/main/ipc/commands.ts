@@ -28,6 +28,7 @@ import {
   type RegistryExpectation,
 } from '@core/plugin/install/registry-expectation'
 import type { SourceInput } from '@core/plugin/install/source-resolver'
+import { downloadUrlMoext } from '@core/plugin/install/url-fetcher'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
@@ -545,30 +546,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
       case 'url': {
         const target = path.join(downloadDir, `download-${Date.now()}.moext`)
-        // Streaming via undici keeps the install boundary uniform with github.
-        // undici v8 moved redirect handling out of request() options into a
-        // composed dispatcher; follow redirects so a 30x URL yields the bytes.
-        const { Agent, interceptors, request } = await import('undici')
-        const dispatcher = new Agent().compose(
-          interceptors.redirect({ maxRedirections: 5 })
-        )
-        const res = await request(p.url, { dispatcher })
-        if (res.statusCode !== 200) {
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            `plugin.install.url_download_failed: ${res.statusCode}`
-          )
-        }
-        const { createWriteStream } = await import('node:fs')
-        const { mkdir } = await import('node:fs/promises')
-        await mkdir(downloadDir, { recursive: true })
-        await new Promise<void>((resolve, reject) => {
-          const ws = createWriteStream(target)
-          res.body.on('error', reject)
-          ws.on('error', reject)
-          ws.on('finish', () => resolve())
-          res.body.pipe(ws)
-        })
+        await downloadUrlMoext(p.url, target)
         return target
       }
       case 'local':
