@@ -85,13 +85,27 @@ function clearInstances(): void {
 describe('ElectronNotifyHost', () => {
   beforeEach(() => {
     clearInstances()
+    FakeNotification.isSupported.mockClear()
     FakeNotification.isSupported.mockReturnValue(true)
   })
 
-  // Test 1: available === true when isSupported returns true.
-  it('available === true when Notification.isSupported() is true', () => {
+  // Constructing the host must not initialize Electron's native notification
+  // presenter. Electron 43 performs Windows shortcut registration as a side
+  // effect of Notification.isSupported().
+  it('does not query notification support during construction', () => {
+    new ElectronNotifyHost()
+
+    expect(FakeNotification.isSupported).not.toHaveBeenCalled()
+  })
+
+  // Test 1: support detection remains available on demand and is evaluated
+  // only once, matching the previous snapshot semantics.
+  it('resolves and caches availability lazily', () => {
     const host = new ElectronNotifyHost()
+
     expect(host.available).toBe(true)
+    expect(host.available).toBe(true)
+    expect(FakeNotification.isSupported).toHaveBeenCalledOnce()
   })
 
   // Test 2: show() constructs a Notification with the provided title/body.
@@ -153,14 +167,16 @@ describe('ElectronNotifyHost', () => {
     expect(first.closed).toBe(true)
   })
 
-  // Test 7: available === false — show() throws NotifyCapabilityError.
-  it('throws when available is false', async () => {
+  // Test 7: unsupported runtimes still fail when a notification is requested.
+  it('checks support on first use and throws when unavailable', async () => {
+    FakeNotification.isSupported.mockReturnValue(false)
     const host = new ElectronNotifyHost()
-    // Manually override available to simulate unsupported platform.
-    ;(host as unknown as { available: boolean }).available = false
 
     await expect(
       host.show('plugin-a', { title: 'Hi', body: 'x' })
     ).rejects.toMatchObject({ code: 'plugin.capability.unavailable' })
+    expect(host.available).toBe(false)
+    expect(FakeNotification.isSupported).toHaveBeenCalledOnce()
+    expect(instances).toHaveLength(0)
   })
 })

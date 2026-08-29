@@ -87,6 +87,7 @@ describe('createElectronCapabilityHost', () => {
 
   beforeEach(() => {
     db = makeDb()
+    MockNotification.isSupported.mockClear()
   })
 
   afterEach(() => {
@@ -107,6 +108,22 @@ describe('createElectronCapabilityHost', () => {
     })
 
     expect(host.http).toBeInstanceOf(HttpCapabilityHost)
+  })
+
+  it('does not initialize native notification support while wiring capabilities', async () => {
+    await createElectronCapabilityHost({
+      appVersion: '2.0.0',
+      hostLanguage: 'en-US',
+      db,
+      userDataDir: tmpdir(),
+      pluginsDir: path.join(tmpdir(), 'plugins'),
+      settingsManager: makeSettingsManager(),
+      configReader: () => ({}),
+      secretFieldsFor: () => new Set(),
+      manifestCommandIdsFor: () => new Set(),
+    })
+
+    expect(MockNotification.isSupported).not.toHaveBeenCalled()
   })
 
   it('returns a CapabilityHost with a functional storage host', async () => {

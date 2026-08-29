@@ -12,9 +12,18 @@ import {
 import { Notification } from 'electron'
 
 export class ElectronNotifyHost implements NotifyCapabilityHost {
-  readonly available: boolean = Notification.isSupported()
+  private notificationSupported: boolean | undefined
 
   private readonly active = new Map<string, Notification>()
+
+  get available(): boolean {
+    // Keep this check lazy. On Windows, Electron 43 initializes its toast
+    // activator from Notification.isSupported(), which creates or rewrites a
+    // per-user Start Menu shortcut. Constructing the capability host happens
+    // on every app launch, even when no plugin requests a notification.
+    this.notificationSupported ??= Notification.isSupported()
+    return this.notificationSupported
+  }
 
   async show(pluginId: string, opts: NotifyShowOpts): Promise<void> {
     if (!this.available) {
