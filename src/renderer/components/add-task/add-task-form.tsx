@@ -27,7 +27,6 @@ import {
   type TaskCreateCommandResult,
   type TaskCreateRequest,
 } from '@shared/schemas/add-task'
-import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type DeepPartial,
@@ -58,7 +57,6 @@ const BASE_DEFAULTS: DeepPartial<AddTaskFormValues> = {
   tab: 'links',
   urls: '',
   saveDir: '',
-  split: DEFAULT_ENGINE_SETTINGS.split,
 }
 
 export function AddTaskForm({
@@ -84,11 +82,6 @@ export function AddTaskForm({
   })
 
   const clipboardAutofillRequest = useRef(0)
-  const hasExplicitSplitDefault = useRef(
-    defaultValues !== undefined &&
-      'split' in defaultValues &&
-      defaultValues.split !== undefined
-  )
 
   // Read once for each actual open. The desktop add-task window is precreated
   // while hidden, so only its user-triggered SetAddTaskMode event starts a
@@ -124,30 +117,20 @@ export function AddTaskForm({
 
   useExternalHydration(form, subscribeEvents, autofillClipboardLinks)
 
-  // Backfill settings that affect each new task. URL params or explicit
-  // caller defaults retain precedence over this asynchronous hydration.
+  // Backfill the default save directory for each new task. Per-task advanced
+  // overrides stay empty unless the caller or user supplies them explicitly.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
         const settings = (await transport.invoke(Queries.GetSettings)) as {
           app?: { defaultSaveDir?: string }
-          engine?: { split?: number }
         }
         const dir = settings?.app?.defaultSaveDir
         if (!cancelled && dir && !form.getValues('saveDir')) {
           form.setValue('saveDir' as never, dir as never, {
             shouldValidate: false,
           })
-        }
-        const split = settings?.engine?.split
-        if (
-          !cancelled &&
-          !hasExplicitSplitDefault.current &&
-          !form.getFieldState('split').isDirty &&
-          typeof split === 'number'
-        ) {
-          form.setValue('split', split, { shouldValidate: false })
         }
       } catch {
         // Best effort — local defaults keep the form usable.

@@ -271,7 +271,7 @@ describe('AddTaskForm', () => {
     expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
   })
 
-  it('uses the current performance profile split for new downloads', async () => {
+  it('leaves connections unset so new downloads use the app setting', async () => {
     const user = userEvent.setup()
     const { transport } = await import('@renderer/lib/transport')
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
@@ -294,7 +294,7 @@ describe('AddTaskForm', () => {
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
         'command:createTask',
-        expect.objectContaining({ connections: 32 })
+        expect.not.objectContaining({ connections: expect.any(Number) })
       )
     )
   })

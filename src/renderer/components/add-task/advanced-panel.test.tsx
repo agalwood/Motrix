@@ -17,7 +17,7 @@ function Wrapper({
   const form = useForm({
     defaultValues:
       tab === 'links'
-        ? { tab: 'links', urls: '', saveDir: '/d', split: 5 }
+        ? { tab: 'links', urls: '', saveDir: '/d' }
         : {
             tab: 'torrent',
             source: 'magnet',
@@ -48,6 +48,7 @@ describe('AdvancedPanel', () => {
     await user.click(screen.getByRole('button', { name: /advanced/i }))
     expect(screen.getByLabelText(/filename/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/user-agent/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/connections/i)).toHaveValue(null)
   })
 
   it('renders Torrent-flavored fields when tab=torrent', async () => {

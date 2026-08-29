@@ -8,7 +8,6 @@ import {
   taskCreateRequestSchema,
   urlParamsToFormDefaults,
 } from './add-task'
-import { DEFAULT_ENGINE_SETTINGS } from './engine-settings'
 
 describe('addTaskFormSchema', () => {
   it('accepts minimal links tab', () => {
@@ -19,7 +18,7 @@ describe('addTaskFormSchema', () => {
     })
     expect(result.success).toBe(true)
     if (result.success && result.data.tab === 'links') {
-      expect(result.data.split).toBe(DEFAULT_ENGINE_SETTINGS.split)
+      expect(result.data.split).toBeUndefined()
     }
   })
 
@@ -227,17 +226,27 @@ describe('formValuesToTaskCreateRequest', () => {
       tab: 'links',
       urls: 'https://a/b\nhttps://c/d',
       saveDir: '/d',
-      split: 5,
     })
     expect(req).toEqual({
       type: 'http',
       uris: ['https://a/b', 'https://c/d'],
       saveDir: '/d',
       filename: undefined,
-      connections: 5,
       headers: [],
       proxy: undefined,
     })
+    expect(req).not.toHaveProperty('connections')
+  })
+
+  it('uses connections only when the task override is explicit', () => {
+    const req = formValuesToTaskCreateRequest({
+      tab: 'links',
+      urls: 'https://a/b',
+      saveDir: '/d',
+      split: 5,
+    })
+
+    expect(req).toMatchObject({ type: 'http', connections: 5 })
   })
 
   it('drops empty url lines', () => {
