@@ -23,12 +23,25 @@ import { buildQueryHandlers, registerQueryHandlers } from './queries'
 const ipcMocks = vi.hoisted(() => ({
   handle: vi.fn(),
   removeHandler: vi.fn(),
+  defaultResolveProxy: vi.fn(),
+  systemProxySession: {
+    setProxy: vi.fn(),
+    forceReloadProxyConfig: vi.fn(),
+    resolveProxy: vi.fn(),
+  },
+  fromPartition: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
   ipcMain: {
     handle: ipcMocks.handle,
     removeHandler: ipcMocks.removeHandler,
+  },
+  session: {
+    defaultSession: { resolveProxy: ipcMocks.defaultResolveProxy },
+    fromPartition: ipcMocks.fromPartition.mockReturnValue(
+      ipcMocks.systemProxySession
+    ),
   },
 }))
 
@@ -132,6 +145,37 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('reads the OS proxy through an isolated system-mode session', async () => {
+    ipcMocks.systemProxySession.setProxy.mockResolvedValue(undefined)
+    ipcMocks.systemProxySession.forceReloadProxyConfig.mockResolvedValue(
+      undefined
+    )
+    ipcMocks.systemProxySession.resolveProxy.mockResolvedValue(
+      'PROXY 10.0.0.1:8080'
+    )
+    const handlers = buildQueryHandlers({} as QueryContext)
+
+    await expect(handlers[Queries.GetSystemProxy]?.()).resolves.toEqual({
+      protocol: 'http',
+      host: '10.0.0.1',
+      port: 8080,
+    })
+    expect(ipcMocks.fromPartition).toHaveBeenCalledWith(
+      'motrix-system-proxy-probe',
+      { cache: false }
+    )
+    expect(ipcMocks.systemProxySession.setProxy).toHaveBeenCalledWith({
+      mode: 'system',
+    })
+    expect(
+      ipcMocks.systemProxySession.forceReloadProxyConfig
+    ).toHaveBeenCalledOnce()
+    expect(ipcMocks.systemProxySession.resolveProxy).toHaveBeenCalledWith(
+      'https://example.com'
+    )
+    expect(ipcMocks.defaultResolveProxy).not.toHaveBeenCalled()
+  })
+
   it('delegates CLI status to the shared singleton service', async () => {
     const status = { phase: 'ready', installCommand: 'npm install -g x' }
     const cliToolService = {
