@@ -56,6 +56,9 @@ import { createGetTaskBtTrackerHandler } from './queries/get-task-bt-tracker'
 import { createGetTaskFilesHandler } from './queries/get-task-files'
 import { registerTrustedIpcHandler } from './trusted-ipc'
 
+const SYSTEM_PROXY_PROBE_PARTITION = 'motrix-system-proxy-probe'
+const SYSTEM_PROXY_PROBE_URL = 'https://example.com'
+
 export interface QueryContext {
   cliToolService: Pick<CliToolService, 'getStatus'>
   taskManager: TaskManager
@@ -166,8 +169,18 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetUpdateState]: async () => updateManager.getState(),
 
     [Queries.GetSystemProxy]: async () => {
-      const chain = await session.defaultSession.resolveProxy(
-        'https://example.com'
+      // The default session carries Motrix's explicit app-update route, which
+      // can be `direct` even while the OS has a proxy configured. Probe with a
+      // separate in-memory session so importing system settings neither reads
+      // nor mutates the app's active route.
+      const systemProxySession = session.fromPartition(
+        SYSTEM_PROXY_PROBE_PARTITION,
+        { cache: false }
+      )
+      await systemProxySession.setProxy({ mode: 'system' })
+      await systemProxySession.forceReloadProxyConfig()
+      const chain = await systemProxySession.resolveProxy(
+        SYSTEM_PROXY_PROBE_URL
       )
       return parseElectronProxyChain(chain)
     },
