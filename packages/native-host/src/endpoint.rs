@@ -457,9 +457,7 @@ mod tests {
         // the permissions rather than inherit whatever %TEMP% happens to grant.
         #[cfg(windows)]
         {
-            let user = std::env::var("USERNAME").expect("USERNAME");
-            set_dacl(&path, &["/inheritance:r"]);
-            set_dacl(&path, &["/grant:r", &format!("{user}:F")]);
+            set_owner_only_dacl(&path);
         }
         let endpoint = read_endpoint(&path).expect("endpoint parses");
         assert_eq!(endpoint.port, 55_809);
@@ -488,6 +486,26 @@ mod tests {
     }
 
     #[cfg(windows)]
+    fn current_windows_user() -> String {
+        let output = std::process::Command::new("whoami")
+            .output()
+            .expect("run whoami");
+        assert!(output.status.success(), "whoami failed");
+        String::from_utf8(output.stdout)
+            .expect("whoami emits UTF-8")
+            .trim()
+            .to_owned()
+    }
+
+    #[cfg(windows)]
+    fn set_owner_only_dacl(path: &std::path::Path) {
+        let user = current_windows_user();
+        set_dacl(path, &["/setowner", &user]);
+        set_dacl(path, &["/inheritance:r"]);
+        set_dacl(path, &["/grant:r", &format!("{user}:F")]);
+    }
+
+    #[cfg(windows)]
     fn write_endpoint_fixture(name: &str) -> PathBuf {
         let path = temp_file(name);
         fs::write(
@@ -503,9 +521,7 @@ mod tests {
     fn owner_only_dacl_keeps_token_and_generation() {
         let path = write_endpoint_fixture("endpoint-win-strict.json");
         // Drop inheritance, then grant the current user alone full control.
-        let user = std::env::var("USERNAME").expect("USERNAME");
-        set_dacl(&path, &["/inheritance:r"]);
-        set_dacl(&path, &["/grant:r", &format!("{user}:F")]);
+        set_owner_only_dacl(&path);
 
         let endpoint = read_endpoint(&path).expect("endpoint parses");
         assert_eq!(endpoint.port, 55_809);
@@ -521,9 +537,7 @@ mod tests {
     #[test]
     fn dacl_granting_a_third_party_drops_token_fields() {
         let path = write_endpoint_fixture("endpoint-win-lax.json");
-        let user = std::env::var("USERNAME").expect("USERNAME");
-        set_dacl(&path, &["/inheritance:r"]);
-        set_dacl(&path, &["/grant:r", &format!("{user}:F")]);
+        set_owner_only_dacl(&path);
         // `*S-1-1-0` is Everyone, by SID so the test does not depend on the
         // runner's display language.
         set_dacl(&path, &["/grant", "*S-1-1-0:(W)"]);

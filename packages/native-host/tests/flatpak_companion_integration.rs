@@ -144,12 +144,17 @@ fn run_browser(installed: &Path, temp: &TempDir, origin: &str, wire: &[u8]) -> O
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn installed companion");
-    child
-        .stdin
-        .take()
-        .expect("companion stdin")
-        .write_all(wire)
-        .expect("write browser frame");
+    let mut stdin = child.stdin.take().expect("companion stdin");
+    if let Err(error) = stdin.write_all(wire) {
+        drop(stdin);
+        let output = child.wait_with_output().expect("wait for failed companion");
+        panic!(
+            "write browser frame: {error}; status: {}; stderr: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    drop(stdin);
     child.wait_with_output().expect("wait for companion")
 }
 
