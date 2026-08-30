@@ -138,7 +138,7 @@ describe.skipIf(
       eventBus: { emit() {} },
       publishTaskUpdate: () => {},
       publishTaskUpdateNow: () => {},
-      ffmpegBinaryPath: FFMPEG as string,
+      resolveFfmpegBinaryPath: async () => FFMPEG as string,
       makeDownloader: (tmpDir) =>
         new SegmentDownloader({ aria2: segmentClient, tmpDir }),
       decryptor: new SegmentDecryptor(),

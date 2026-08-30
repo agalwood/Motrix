@@ -75,7 +75,12 @@ export interface MediaCoordinatorDeps {
    */
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
-  ffmpegBinaryPath: string
+  /**
+   * Resolve the executable immediately before muxing. Media downloads can run
+   * for a long time, so a path captured at app startup may have been removed
+   * or superseded by a settings change before FFmpeg is actually spawned.
+   */
+  resolveFfmpegBinaryPath: () => Promise<string | null>
   makeDownloader: (tmpDir: string) => SegmentDownloader
   decryptor: SegmentDecryptor
   assemble: typeof assembleSegments
@@ -586,9 +591,14 @@ export class MediaTaskCoordinator {
       const ffmpeg = this.deps.makeFfmpeg()
       state.ffmpeg = ffmpeg
 
+      const ffmpegBinaryPath = await this.deps.resolveFfmpegBinaryPath()
+      if (!ffmpegBinaryPath) {
+        throw new Error('mux-failed: ffmpeg executable is unavailable')
+      }
+
       await ffmpeg.run(
         {
-          binaryPath: this.deps.ffmpegBinaryPath,
+          binaryPath: ffmpegBinaryPath,
           videoPath: videoAssembled,
           audioPath: audioAssembled,
           // Mux INTO the placeholder — the final name only appears on disk

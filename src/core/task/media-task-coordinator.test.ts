@@ -146,7 +146,7 @@ function makeDeps(overrides?: Partial<MediaCoordinatorDeps>): {
       recordDownloadCompleted: vi.fn(),
     },
     eventBus,
-    ffmpegBinaryPath: '/usr/bin/ffmpeg',
+    resolveFfmpegBinaryPath: vi.fn(async () => '/usr/bin/ffmpeg'),
     makeDownloader: (_tmpDir: string) => {
       const fake = makeDownloaderFake()
       downloaderFakes.push(fake)
@@ -397,6 +397,42 @@ describe('MediaTaskCoordinator.start', () => {
     const ffmpeg = ffmpegFakes[0]
     const jobArg = ffmpeg?.run.mock.calls[0]?.[0] as { fromMpegts: boolean }
     expect(jobArg?.fromMpegts).toBe(false)
+  })
+
+  it('resolves the current ffmpeg path immediately before muxing', async () => {
+    const resolveFfmpegBinaryPath = vi.fn(
+      async () => '/opt/homebrew/bin/ffmpeg'
+    )
+    const { deps, downloaderFakes, ffmpegFakes } = makeDeps({
+      resolveFfmpegBinaryPath,
+    })
+
+    await new MediaTaskCoordinator(deps).start(baseJob())
+
+    const jobArg = ffmpegFakes[0]?.run.mock.calls[0]?.[0] as {
+      binaryPath: string
+    }
+    expect(resolveFfmpegBinaryPath).toHaveBeenCalledOnce()
+    expect(jobArg.binaryPath).toBe('/opt/homebrew/bin/ffmpeg')
+    expect(
+      resolveFfmpegBinaryPath.mock.invocationCallOrder[0] ?? -1
+    ).toBeGreaterThan(downloaderFakes[0]?.run.mock.invocationCallOrder[0] ?? -1)
+  })
+
+  it('does not spawn ffmpeg when no executable is available at mux time', async () => {
+    const { deps, ffmpegFakes, taskManager } = makeDeps({
+      resolveFfmpegBinaryPath: vi.fn(async () => null),
+      mintTaskId: () => 'ffmpeg-missing-at-mux',
+    })
+
+    await expect(
+      new MediaTaskCoordinator(deps).start(baseJob())
+    ).rejects.toThrow('mux-failed: ffmpeg executable is unavailable')
+
+    expect(ffmpegFakes[0]?.run).not.toHaveBeenCalled()
+    expect(taskManager.getById('ffmpeg-missing-at-mux')?.errorMessage).toBe(
+      'mux-failed'
+    )
   })
 
   it('calls decryptor.decrypt for segments with keys', async () => {

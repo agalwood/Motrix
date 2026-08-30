@@ -128,6 +128,7 @@ import {
   resolvePackagedLinuxSnapEnvironment,
 } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
+import { resolveExecutable } from './cli/shell-environment'
 import { CommandRegistry } from './commands/command-registry'
 import { ContextStore } from './commands/context-store'
 import { registerAllCommands } from './commands/definitions'
@@ -168,6 +169,7 @@ import { createElectronPlatformServices } from './platform/services'
 import { setupTray } from './platform/tray'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
+import { resolveElectronFfmpegEnvPath } from './plugin/ffmpeg-detect-electron'
 import { resolvePluginHostLanguage } from './plugin/host-language'
 import { resolvePluginsDir } from './plugin/plugins-dir'
 import { createMainProxyApplier } from './proxy/wiring'
@@ -2174,15 +2176,20 @@ async function initializeMainProcess(): Promise<void> {
       publishTaskUpdateNow,
     }
     const ffmpegBinariesDir = path.join(platform.userDataDir, 'binaries')
-    // Honor the user's configured ffmpeg path (Settings → Media). Without this
-    // the locator ignored the setting and silently fell back to a bundled/PATH
-    // binary, so a working user-configured ffmpeg never took effect.
-    const ff = await locateFfmpeg({
-      manualPath: settingsManager.getMedia().ffmpegBinaryPath,
-      userDataBinariesDir: ffmpegBinariesDir,
-      platform: process.platform,
-      envPath: process.env.MOTRIX_FFMPEG_BIN ?? null,
-    })
+    // Resolve the configured/user-provided FFmpeg path without executing it.
+    // Running `ffmpeg -version` here would trigger Gatekeeper for quarantined
+    // user binaries during app startup, before any media task needs FFmpeg.
+    const resolveFfmpegLocation = () =>
+      locateFfmpeg(
+        {
+          manualPath: settingsManager.getMedia().ffmpegBinaryPath,
+          userDataBinariesDir: ffmpegBinariesDir,
+          platform: process.platform,
+          envPath: resolveElectronFfmpegEnvPath(),
+        },
+        (candidate) => resolveExecutable(candidate, process.env)
+      )
+    const ff = await resolveFfmpegLocation()
     const segmentAria2Client = new Aria2SegmentClient(rpcClient)
     segmentClient = segmentAria2Client
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
@@ -2232,6 +2239,8 @@ async function initializeMainProcess(): Promise<void> {
           (await torrentParser.parse(base64)).files.length,
       },
       ffmpegBinaryPath: ff.binaryPath,
+      resolveFfmpegBinaryPath: async () =>
+        (await resolveFfmpegLocation()).binaryPath,
       publishTaskUpdate,
       publishTaskUpdateNow,
       taskManager,

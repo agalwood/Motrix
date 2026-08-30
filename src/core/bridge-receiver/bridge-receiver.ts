@@ -73,6 +73,11 @@ export interface BridgeReceiverDeps {
   localize: (code: BridgeErrorCode) => string
   /** Path to ffmpeg binary. When null, hls/dash/mux submissions are rejected. */
   ffmpegBinaryPath: string | null
+  /**
+   * Live resolver used immediately before muxing. Defaults to the startup
+   * path for shells/tests that do not provide dynamic resolution.
+   */
+  resolveFfmpegBinaryPath?: () => Promise<string | null>
   taskManager: TaskManager
   activityRecorder: TaskActivityRecorder
   /** Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher),
@@ -214,7 +219,9 @@ export class BridgeReceiver {
         eventBus: eventBusWithEmit,
         publishTaskUpdate: deps.publishTaskUpdate,
         publishTaskUpdateNow: deps.publishTaskUpdateNow,
-        ffmpegBinaryPath: deps.ffmpegBinaryPath,
+        resolveFfmpegBinaryPath:
+          deps.resolveFfmpegBinaryPath ??
+          (() => Promise.resolve(deps.ffmpegBinaryPath)),
         pickName: deps.pickName,
         persist: deps.persistTask,
         persistTaskWithOccurrence: deps.persistTaskWithOccurrence,

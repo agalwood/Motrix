@@ -1,10 +1,10 @@
 import path from 'node:path'
+import { locateFfmpeg } from '@core/ffmpeg/ffmpeg-locator'
 import { AppCapabilityHost } from '@core/plugin/capabilities/app'
 import { CommandsCapabilityHost } from '@core/plugin/capabilities/commands'
 import { ConfigCapabilityHost } from '@core/plugin/capabilities/config'
 import { CryptoCapabilityHost } from '@core/plugin/capabilities/crypto'
 import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
-import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { FsStorageCapabilityHost } from '@core/plugin/capabilities/fs-storage'
 import { FsTaskCapabilityHost } from '@core/plugin/capabilities/fs-task'
 import { HttpCapabilityHost } from '@core/plugin/capabilities/http'
@@ -28,7 +28,8 @@ import { LibsodiumSecretStore } from '@core/plugin/secret-store-libsodium'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SupportedLocale } from '@shared/constants/locales'
 import type Database from 'better-sqlite3'
-import { makeElectronFfmpegDetect } from './ffmpeg-detect-electron'
+import { resolveExecutable } from '../cli/shell-environment'
+import { resolveElectronFfmpegEnvPath } from './ffmpeg-detect-electron'
 import { ElectronNotifyHost } from './notify-electron'
 
 export interface ElectronCapabilityHostOptions {
@@ -40,8 +41,8 @@ export interface ElectronCapabilityHostOptions {
   /** Root dir for per-plugin logs, storage, etc. */
   pluginsDir: string
   /**
-   * Provides live MediaSettings (read on every ffmpeg detect) plus any other
-   * settings the capability host needs going forward.
+   * Provides MediaSettings for non-executing FFmpeg path discovery plus any
+   * other settings the capability host needs going forward.
    */
   settingsManager: SettingsManager
   /** Provides stored config values for a plugin. */
@@ -107,13 +108,20 @@ export async function createElectronCapabilityHost(
     userDataDir: opts.userDataDir,
     envSeed: process.env.MOTRIX_SECRETS_SEED,
   })
-  const detectFfmpeg = makeElectronFfmpegDetect({
-    settingsManager: opts.settingsManager,
-    userDataDir: opts.userDataDir,
+  const ffmpegLocation = await locateFfmpeg(
+    {
+      manualPath: opts.settingsManager.get().media.ffmpegBinaryPath,
+      userDataBinariesDir: path.join(opts.userDataDir, 'binaries'),
+      platform: process.platform,
+      envPath: resolveElectronFfmpegEnvPath(),
+    },
+    (candidate) => resolveExecutable(candidate, process.env)
+  )
+  const ffmpeg = new FfmpegCapabilityHost({
+    detect: ffmpegLocation.binaryPath
+      ? { available: true, binaryPath: ffmpegLocation.binaryPath }
+      : { available: false },
   })
-  const ffmpegResult = await detectFfmpeg()
-  const ffmpegDetection = projectActiveToLegacy(ffmpegResult)
-  const ffmpeg = new FfmpegCapabilityHost({ detect: ffmpegDetection })
   const http = new HttpCapabilityHost() // per-plugin jar injected by Task 19 bridge
 
   return {
