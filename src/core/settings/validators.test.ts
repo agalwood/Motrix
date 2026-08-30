@@ -10,7 +10,26 @@ import {
   natSettingsSchema,
   validateAppSettings,
   validateEngineSettings,
+  windowStateSchema,
 } from './validators'
+
+describe('windowStateSchema', () => {
+  it('migrates legacy bounds to a non-maximized saved state', () => {
+    expect(
+      windowStateSchema.parse({
+        main: { x: 100, y: 100, width: 1024, height: 768 },
+      })
+    ).toEqual({
+      main: {
+        x: 100,
+        y: 100,
+        width: 1024,
+        height: 768,
+        maximized: false,
+      },
+    })
+  })
+})
 
 describe('validateEngineSettings', () => {
   it('returns defaults for empty object', () => {
