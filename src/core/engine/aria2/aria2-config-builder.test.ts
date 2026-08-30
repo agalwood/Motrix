@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ─── Mock node:fs/promises ───────────────────────────────────
@@ -28,7 +29,13 @@ import type { EngineSettings } from '@shared/types/settings'
 import { Aria2ConfigBuilder } from './aria2-config-builder'
 
 const DEFAULT_SAVE_DIR = '/home/user/Downloads'
+const TEMPLATE_PATH = '/app/extra/aria2.conf'
+const USER_CONFIG_DIR = '/home/user/.config/motrix'
 const TEST_RPC_SECRET = 'test-rpc-secret'
+
+function userFile(...segments: string[]): string {
+  return path.join(USER_CONFIG_DIR, ...segments)
+}
 
 function makeEngineSettings(
   overrides?: Partial<EngineSettings>
@@ -68,10 +75,7 @@ describe('Aria2ConfigBuilder', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    builder = new Aria2ConfigBuilder(
-      '/app/extra/aria2.conf',
-      '/home/user/.config/motrix'
-    )
+    builder = new Aria2ConfigBuilder(TEMPLATE_PATH, USER_CONFIG_DIR)
   })
 
   afterEach(() => {
@@ -85,7 +89,7 @@ describe('Aria2ConfigBuilder', () => {
 
       const confPath = await builder.ensureUserConfig()
 
-      expect(confPath).toBe('/home/user/.config/motrix/aria2.conf')
+      expect(confPath).toBe(userFile('aria2.conf'))
       expect(mockCopyFile).not.toHaveBeenCalled()
     })
 
@@ -97,13 +101,13 @@ describe('Aria2ConfigBuilder', () => {
 
       const confPath = await builder.ensureUserConfig()
 
-      expect(confPath).toBe('/home/user/.config/motrix/aria2.conf')
-      expect(mockMkdir).toHaveBeenCalledWith('/home/user/.config/motrix', {
+      expect(confPath).toBe(userFile('aria2.conf'))
+      expect(mockMkdir).toHaveBeenCalledWith(USER_CONFIG_DIR, {
         recursive: true,
       })
       expect(mockCopyFile).toHaveBeenCalledWith(
-        '/app/extra/aria2.conf',
-        '/home/user/.config/motrix/aria2.conf'
+        TEMPLATE_PATH,
+        userFile('aria2.conf')
       )
     })
   })
@@ -113,9 +117,7 @@ describe('Aria2ConfigBuilder', () => {
       mockAccess.mockResolvedValue(undefined)
 
       await expect(builder.hasSavedSession()).resolves.toBe(true)
-      expect(mockAccess).toHaveBeenCalledWith(
-        '/home/user/.config/motrix/aria2.session'
-      )
+      expect(mockAccess).toHaveBeenCalledWith(userFile('aria2.session'))
     })
 
     it('returns false instead of throwing when the text session is unavailable', async () => {
@@ -128,7 +130,7 @@ describe('Aria2ConfigBuilder', () => {
   describe('SQLite recovery paths', () => {
     it('resolves the configured database path or the user-data default', () => {
       expect(builder.resolveSqliteDbPath({ sqlite3DbPath: '' })).toBe(
-        '/home/user/.config/motrix/aria2.db'
+        userFile('aria2.db')
       )
       expect(
         builder.resolveSqliteDbPath({ sqlite3DbPath: '/custom/tasks.db' })
@@ -146,26 +148,24 @@ describe('Aria2ConfigBuilder', () => {
           Object.assign(new Error('missing'), { code: 'ENOENT' })
         )
 
+      const databasePath = userFile('aria2.db')
+      const quarantineBasePath = `${databasePath}.corrupt-incident-1`
       await expect(
         builder.quarantineSqliteDatabase({ sqlite3DbPath: '' }, 'incident-1')
       ).resolves.toEqual({
-        databasePath: '/home/user/.config/motrix/aria2.db',
-        quarantineBasePath:
-          '/home/user/.config/motrix/aria2.db.corrupt-incident-1',
-        moved: [
-          '/home/user/.config/motrix/aria2.db.corrupt-incident-1',
-          '/home/user/.config/motrix/aria2.db.corrupt-incident-1-wal',
-        ],
+        databasePath,
+        quarantineBasePath,
+        moved: [quarantineBasePath, `${quarantineBasePath}-wal`],
       })
       expect(mockRename).toHaveBeenNthCalledWith(
         1,
-        '/home/user/.config/motrix/aria2.db',
-        '/home/user/.config/motrix/aria2.db.corrupt-incident-1'
+        databasePath,
+        quarantineBasePath
       )
       expect(mockRename).toHaveBeenNthCalledWith(
         2,
-        '/home/user/.config/motrix/aria2.db-wal',
-        '/home/user/.config/motrix/aria2.db.corrupt-incident-1-wal'
+        `${databasePath}-wal`,
+        `${quarantineBasePath}-wal`
       )
     })
   })
@@ -177,7 +177,7 @@ describe('Aria2ConfigBuilder', () => {
         upload: 0,
       })
 
-      expect(args).toContain('--conf-path=/home/user/.config/motrix/aria2.conf')
+      expect(args).toContain(`--conf-path=${userFile('aria2.conf')}`)
       expect(args).toContain('--enable-rpc=true')
       expect(args).toContain('--rpc-allow-origin-all=true')
       expect(args).toContain('--rpc-listen-all=false')
@@ -231,8 +231,8 @@ describe('Aria2ConfigBuilder', () => {
 
     it('allows an explicit all-interface RPC listener with authentication', () => {
       const externalBuilder = new Aria2ConfigBuilder(
-        '/app/extra/aria2.conf',
-        '/home/user/.config/motrix',
+        TEMPLATE_PATH,
+        USER_CONFIG_DIR,
         { rpcListenAll: true }
       )
 
@@ -252,8 +252,8 @@ describe('Aria2ConfigBuilder', () => {
       'refuses an all-interface RPC listener with a blank secret',
       (rpcSecret) => {
         const externalBuilder = new Aria2ConfigBuilder(
-          '/app/extra/aria2.conf',
-          '/home/user/.config/motrix',
+          TEMPLATE_PATH,
+          USER_CONFIG_DIR,
           { rpcListenAll: true }
         )
 
@@ -276,9 +276,7 @@ describe('Aria2ConfigBuilder', () => {
       })
 
       const saveSessionArg = args.find((a) => a.startsWith('--save-session='))
-      expect(saveSessionArg).toBe(
-        '--save-session=/home/user/.config/motrix/aria2.session'
-      )
+      expect(saveSessionArg).toBe(`--save-session=${userFile('aria2.session')}`)
     })
 
     it('loads the text session only when requested by the supervisor', () => {
@@ -295,11 +293,9 @@ describe('Aria2ConfigBuilder', () => {
       )
 
       expect(withoutInput).not.toContain(
-        '--input-file=/home/user/.config/motrix/aria2.session'
+        `--input-file=${userFile('aria2.session')}`
       )
-      expect(withInput).toContain(
-        '--input-file=/home/user/.config/motrix/aria2.session'
-      )
+      expect(withInput).toContain(`--input-file=${userFile('aria2.session')}`)
     })
 
     it('never combines text-session loading with active SQLite persistence', () => {
@@ -312,9 +308,7 @@ describe('Aria2ConfigBuilder', () => {
       )
 
       expect(args).toContain('--enable-sqlite3-persistence=true')
-      expect(args).not.toContain(
-        '--input-file=/home/user/.config/motrix/aria2.session'
-      )
+      expect(args).not.toContain(`--input-file=${userFile('aria2.session')}`)
       expect(args).not.toContain('--auto-save-interval=10')
     })
 
@@ -349,12 +343,8 @@ describe('Aria2ConfigBuilder', () => {
         download: 0,
         upload: 0,
       })
-      expect(args).toContain(
-        '--dht-file-path=/home/user/.config/motrix/dht.dat'
-      )
-      expect(args).toContain(
-        '--dht-file-path6=/home/user/.config/motrix/dht6.dat'
-      )
+      expect(args).toContain(`--dht-file-path=${userFile('dht.dat')}`)
+      expect(args).toContain(`--dht-file-path6=${userFile('dht6.dat')}`)
     })
 
     it('uses custom settings values', () => {
@@ -554,9 +544,7 @@ describe('Aria2ConfigBuilder', () => {
         download: 0,
         upload: 0,
       })
-      expect(args).toContain(
-        '--sqlite3-db-path=/home/user/.config/motrix/aria2.db'
-      )
+      expect(args).toContain(`--sqlite3-db-path=${userFile('aria2.db')}`)
     })
 
     it('uses explicit DB path when sqlite3DbPath is set', () => {
@@ -567,9 +555,7 @@ describe('Aria2ConfigBuilder', () => {
         { download: 0, upload: 0 }
       )
       expect(args).toContain('--sqlite3-db-path=/custom/path/db.sqlite')
-      expect(args).not.toContain(
-        '--sqlite3-db-path=/home/user/.config/motrix/aria2.db'
-      )
+      expect(args).not.toContain(`--sqlite3-db-path=${userFile('aria2.db')}`)
     })
 
     it('passes -1 history limit through verbatim', () => {

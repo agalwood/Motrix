@@ -89,7 +89,10 @@ describe('Aria2TrustStore', () => {
       SSL_CERT_FILE: bundlePath,
     })
     expect(await readFile(bundlePath, 'utf8')).toBe(`${SYSTEM_CERTIFICATE}\n`)
-    expect((await stat(bundlePath)).mode & 0o777).toBe(0o600)
+    // Windows file modes are not POSIX; the 0o600 pin is for Unix OpenSSL.
+    if (process.platform !== 'win32') {
+      expect((await stat(bundlePath)).mode & 0o777).toBe(0o600)
+    }
   })
 
   it('falls back to bundled roots when the system store is empty', async () => {
