@@ -1530,9 +1530,11 @@ describe('Commands.UpdateSettings', () => {
       scopes: { download: true, updateApp: false, updateTrackers: false },
     }
     const before = makeSettingsLike(PROXY_OFF, {
-      browserBridgeEnabled: false,
+      app: { browserBridgeEnabled: false },
     })
-    const after = makeSettingsLike(proxy, { browserBridgeEnabled: true })
+    const after = makeSettingsLike(proxy, {
+      app: { browserBridgeEnabled: true },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValue(after),
@@ -1576,10 +1578,10 @@ describe('Commands.UpdateSettings', () => {
   it('hot-applies a changed default save directory', async () => {
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
-      defaultSaveDir: '/downloads/old',
+      app: { defaultSaveDir: '/downloads/old' },
     })
     const after = makeSettingsLike(PROXY_OFF, {
-      defaultSaveDir: '/downloads/new',
+      app: { defaultSaveDir: '/downloads/new' },
     })
     const settingsManager = {
       ...ctx.settingsManager,
