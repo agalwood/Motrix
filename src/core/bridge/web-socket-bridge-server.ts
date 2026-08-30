@@ -240,6 +240,7 @@ const EXTENSION_WS_CONTROL_PLANE = [
   Methods.TaskPause,
   Methods.TaskResume,
   Methods.TaskRemove,
+  Methods.TaskReveal,
   Methods.StatsGet,
   Methods.EngineStatus,
 ] as const
@@ -493,6 +494,7 @@ export class WebSocketBridgeServer {
         motrixVersion: opts.motrixVersion,
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
+        supportsTaskReveal: () => this.dispatcher.has(Methods.TaskReveal),
       })
     )
     // Revocation/rotation must reach live SSE firehose streams, not just future
@@ -873,11 +875,10 @@ export class WebSocketBridgeServer {
 
   /**
    * Register the v1 WRITE methods (`task/pause`, `task/resume`, `task/remove`,
-   * `download/add`) on the dispatcher. Call BEFORE start(). The write methods
-   * in `EXTENSION_WS_CONTROL_PLANE` (`task/pause`, `task/resume`,
-   * `task/remove`) are reachable both via the unary `POST /mdxp` transport and
-   * over the extension WebSocket for a paired session. `download/add` is
-   * excluded from the WebSocket surface — extensions add via `download/submit`.
+   * optional `task/reveal`, `download/add`) on the dispatcher. Call BEFORE
+   * start(). Pause/resume/remove are available on both unary and paired WS;
+   * `task/reveal` is deliberately paired-WS only, while `download/add` is unary
+   * only (extensions add via `download/submit`).
    */
   registerWriteMethods(deps: WriteHandlerDeps): void {
     registerWriteHandlers(this.dispatcher, deps)

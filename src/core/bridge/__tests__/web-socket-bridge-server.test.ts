@@ -20,14 +20,28 @@ import {
 } from '@core/bridge/web-socket-bridge-server'
 import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
 import { EngineState } from '@shared/types/engine'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { TaskStatus } from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from 'vitest'
 import WebSocket from 'ws'
 import {
   type Mbp1TestWiring,
   makeMbp1TestWiring,
   makeStatefulFakePairing,
 } from './fakes'
-import { mdxpOverChannel, pairAndExchange } from './mbp1-client'
+import {
+  initializeParams,
+  mdxpOverChannel,
+  pairAndExchange,
+} from './mbp1-client'
 
 const EXTENSION_ID = 'wsstextensionidaaaaaaaaaaaaaaaaa'
 const ORIGIN = `chrome-extension://${EXTENSION_ID}`
@@ -194,14 +208,25 @@ function makeFakeReadDeps(): ReadHandlerDeps {
   }
 }
 
-function makeFakeWriteDeps(): WriteHandlerDeps {
+function makeFakeWriteDeps(
+  revealTask?: (taskId: string) => Promise<void>
+): WriteHandlerDeps {
   return {
-    taskManager: { getById: () => undefined },
+    taskManager: {
+      getById: (id) =>
+        id === 'task-1'
+          ? makeDownloadTask({
+              id: 'task-1',
+              status: TaskStatus.Completed,
+            })
+          : undefined,
+    },
     pauseTask: async () => {},
     resumeTask: async () => {},
     removeTask: async () => {},
     createTask: async () => ({ taskId: 'new-task' }),
     parseTorrentFileCount: async () => 0,
+    ...(revealTask ? { revealTask } : {}),
   }
 }
 
@@ -209,6 +234,7 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
   let server: WebSocketBridgeServer
   let mbp1: Mbp1TestWiring
   let port: number
+  let revealTask: Mock<(taskId: string) => Promise<void>>
 
   beforeEach(async () => {
     mbp1 = await makeMbp1TestWiring([['chromium', EXTENSION_ID]])
@@ -228,7 +254,8 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
       ...mbp1.options,
     })
     server.registerReadMethods(makeFakeReadDeps())
-    server.registerWriteMethods(makeFakeWriteDeps())
+    revealTask = vi.fn(async (_taskId: string) => {})
+    server.registerWriteMethods(makeFakeWriteDeps(revealTask))
     port = await server.start()
   })
 
@@ -245,6 +272,11 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
       code: () => mbp1.dialogs.latestCode(),
     })
     const conn = mdxpOverChannel(paired.wire, paired.channel)
+    const initialized = await conn.sendRequest(
+      'motrix/initialize',
+      initializeParams(EXTENSION_ID)
+    )
+    expect(initialized.capabilities.taskReveal).toBe(true)
     conn.sendNotification('motrix/initialized', undefined as never)
 
     // task/list reaches the dispatcher and returns its shape.
@@ -254,6 +286,12 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     // stats/get reaches the dispatcher.
     const stats = await conn.sendRequest('stats/get', {})
     expect(stats).toHaveProperty('activeTasks')
+
+    // task/reveal is a user-gesture method on the paired extension surface.
+    await expect(
+      conn.sendRequest('task/reveal', { taskId: 'task-1' })
+    ).resolves.toEqual({ ok: true })
+    expect(revealTask).toHaveBeenCalledWith('task-1')
 
     // download/add is NOT wired on WS → MethodNotFound (-32601).
     await expect(

@@ -113,7 +113,7 @@
     "@fastify/websocket": "^11.3.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@hookform/resolvers": "^5.9.1",
-    "@motrix/mdxp": "^0.5.0",
+    "@motrix/mdxp": "^0.6.0",
     "@motrix/nat": "^0.1.1",
     "@motrix/plugin-manifest-schema": "^2.1.0",
     "@noble/curves": "2.0.1",

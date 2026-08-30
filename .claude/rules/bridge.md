@@ -187,7 +187,13 @@ For every new MDXP method:
 
 Paired extensions may use the WebSocket control plane for `task/list`,
 `task/get`, `task/pause`, `task/resume`, `task/remove`, `stats/get`, and
-`engine/status`; keep the `dispatcher.has()` and authorization gates.
+`engine/status`, plus the user-gesture-only `task/reveal`; keep the
+`dispatcher.has()` and authorization gates. `task/reveal` accepts only a
+public task id, derives the path inside the Electron shell, is not agent-facing,
+and must never be exposed by unary `/mdxp`. The headless server does not
+register it, and `motrix/initialize.capabilities.taskReveal` must be derived
+from the dispatcher's actual registration so older/headless peers report it as
+unsupported rather than advertising a dead method.
 `download/add` is unary-only, while extensions submit through
 `download/submit`. Renderer-only plural task commands must not enter MDXP.
 Unary `/mdxp` admits only methods marked agent-facing; dispatcher registration

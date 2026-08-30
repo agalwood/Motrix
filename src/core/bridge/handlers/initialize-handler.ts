@@ -10,6 +10,8 @@ export interface InitializeHandlerDeps {
   motrixVersion: string
   runtime: 'electron' | 'server'
   ffmpegAvailable: boolean
+  /** Read lazily so capabilities match the methods actually registered. */
+  supportsTaskReveal: () => boolean
 }
 
 /**
@@ -87,6 +89,7 @@ function buildResult(deps: InitializeHandlerDeps): InitializeResult {
         : ['direct'],
       progress: true,
       cancellation: true,
+      taskReveal: deps.supportsTaskReveal(),
     },
     serverAdapters: [],
   }

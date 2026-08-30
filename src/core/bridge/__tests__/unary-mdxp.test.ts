@@ -104,8 +104,8 @@ describe('unary POST /mdxp', () => {
     server.registerWriteMethods({
       taskManager: {
         getById: (id) =>
-          id === 'created-1'
-            ? makeDownloadTask({ id: 'created-1', status: TaskStatus.Queued })
+          id === 'created-1' || id === 'reveal-1'
+            ? makeDownloadTask({ id, status: TaskStatus.Queued })
             : undefined,
       },
       pauseTask: async () => {},
@@ -113,6 +113,7 @@ describe('unary POST /mdxp', () => {
       removeTask: async () => {},
       createTask: async () => ({ taskId: 'created-1' }),
       parseTorrentFileCount: async () => 1,
+      revealTask: async () => {},
     })
     port = await server.start()
   })
@@ -202,6 +203,21 @@ describe('unary POST /mdxp', () => {
         id: 5,
         method: 'download/submit',
         params: {},
+      },
+      { token: LOCAL_TOKEN }
+    )
+    expect(res.status).toBe(404)
+    expect(res.body.error?.code).toBe(ErrorCodes.CapabilityNotSupported)
+  })
+
+  it('rejects paired-UI-only task/reveal on the unary agent surface', async () => {
+    const res = await postMdxp(
+      port,
+      {
+        jsonrpc: '2.0',
+        id: 'reveal',
+        method: 'task/reveal',
+        params: { taskId: 'reveal-1' },
       },
       { token: LOCAL_TOKEN }
     )

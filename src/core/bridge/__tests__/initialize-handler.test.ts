@@ -8,6 +8,7 @@ const baseCapabilities = {
   motrixVersion: '2.0',
   runtime: 'electron' as const,
   ffmpegAvailable: true,
+  supportsTaskReveal: () => false,
 }
 
 const validClientInfo = {
@@ -82,6 +83,28 @@ describe('initialize handler', () => {
     const result = await handler(validClientInfo as never, makeCtx({}))
 
     expect(result.server.runtime).toBe('server')
+    expect(result.capabilities.taskReveal).toBe(false)
+  })
+
+  it('derives taskReveal from the currently registered shell capability', async () => {
+    let registered = false
+    const handler = createInitializeHandler({
+      ...baseCapabilities,
+      supportsTaskReveal: () => registered,
+    })
+
+    const beforeRegistration = await handler(
+      validClientInfo as never,
+      makeCtx({})
+    )
+    registered = true
+    const afterRegistration = await handler(
+      validClientInfo as never,
+      makeCtx({})
+    )
+
+    expect(beforeRegistration.capabilities.taskReveal).toBe(false)
+    expect(afterRegistration.capabilities.taskReveal).toBe(true)
   })
 
   it('rejects a mismatched extensionId on Chromium', async () => {
