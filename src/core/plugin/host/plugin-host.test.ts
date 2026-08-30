@@ -820,9 +820,14 @@ describe('PluginHost locale change propagation', () => {
   })
 
   it('continues locale fan-out when one active bridge throws', async () => {
-    const log = new LogCapabilityHost({
-      pluginLogsDir: path.join(root, 'logs'),
-    })
+    const pluginLog = {
+      trace: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      fatal: vi.fn(),
+    }
     const app = new AppCapabilityHost({
       appVersion: '2.5.0',
       platform: 'linux',
@@ -832,8 +837,8 @@ describe('PluginHost locale change propagation', () => {
     })
     const i18n = new I18nCapabilityHost({ hostLanguage: 'en-US' })
     const capHost = {
-      createLog: (id: string) => log.create(id),
-      getTail: (id: string, n: number) => log.getTail(id, n),
+      createLog: () => pluginLog,
+      getTail: () => [],
       appSnapshot: () => ({ ...app.snapshot(), locale: i18n.language }),
       i18nSnapshot: (pluginId: string) => ({
         language: i18n.language,
@@ -842,7 +847,7 @@ describe('PluginHost locale change propagation', () => {
       }),
       setLocale: (locale: SupportedLocale) => i18n.setLanguage(locale),
       onLocaleChange: (h: (lang: string) => void) => i18n.onChange(h),
-      flush: () => log.flush(),
+      flush: async () => {},
     } as unknown as CapabilityHost
 
     const host = new PluginHost({
@@ -882,6 +887,10 @@ describe('PluginHost locale change propagation', () => {
       'zh-CN',
       'ltr',
       expect.objectContaining({ greeting: '你好 Bob' })
+    )
+    expect(pluginLog.warn).toHaveBeenCalledWith(
+      'plugin locale broadcast failed',
+      { error: 'worker unavailable' }
     )
 
     await host.shutdown()
