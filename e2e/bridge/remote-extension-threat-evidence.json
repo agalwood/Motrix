@@ -17,7 +17,7 @@
         {
           "repository": "extension",
           "path": "packages/ext/src/background/mbp1/__tests__/bridge-route.test.ts",
-          "testName": "rejects a structurally manufactured plain-WS authority"
+          "testName": "rejects a structurally manufactured authority"
         },
         {
           "repository": "motrix",
@@ -277,12 +277,12 @@
         {
           "repository": "extension",
           "path": "packages/ext/src/background/__tests__/ConnectionManager.mbp1.test.ts",
-          "testName": "maps a remote pairing WebSocket open failure to one non-specific secure transport reason"
+          "testName": "maps a remote pairing WebSocket open failure to one non-specific transport reason"
         },
         {
           "repository": "extension",
           "path": "packages/ext/src/shared/__tests__/errorCopy.test.ts",
-          "testName": "describes a remote secure-transport failure without inventing a certificate diagnosis"
+          "testName": "describes a remote transport failure without inventing a certificate diagnosis"
         }
       ]
     },
