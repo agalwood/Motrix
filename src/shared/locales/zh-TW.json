@@ -1572,7 +1572,6 @@
         "notDetected": "未偵測到 FFmpeg",
         "refresh": "重新整理",
         "binaryPath": "自訂 FFmpeg 路徑",
-        "binaryPathDesc": "選填。留空會自動使用內建副本、環境變數覆寫或系統 PATH。自訂路徑會優先嘗試。",
         "browse": "瀏覽…",
         "download": {
           "action": "下載 FFmpeg"
