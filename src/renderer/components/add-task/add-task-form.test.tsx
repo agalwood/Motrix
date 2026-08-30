@@ -271,7 +271,36 @@ describe('AddTaskForm', () => {
     expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
   })
 
-  it('uses the current performance profile split for new downloads', async () => {
+  it('surfaces the create failure reason without Electron IPC prefixes', async () => {
+    const onSubmitSuccess = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    const reason =
+      'ffmpeg is required to download this video: its video and audio are separate streams that must be muxed. Install ffmpeg (or set MOTRIX_FFMPEG_BIN) and restart Motrix.'
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') return { app: {} }
+      throw new Error(
+        `Error invoking remote method 'command:createTask': AppError: ${reason}`
+      )
+    })
+    renderForm({ onSubmitSuccess })
+
+    await user.type(screen.getByRole('textbox'), 'https://a/video')
+    const submit = screen.getByRole('button', { name: /download/i })
+    await user.click(submit)
+
+    await waitFor(() =>
+      expect(mockServices.notify).toHaveBeenCalledWith(
+        'error',
+        'task.add.createFailedWithReason',
+        { reason }
+      )
+    )
+    expect(onSubmitSuccess).not.toHaveBeenCalled()
+    await waitFor(() => expect(submit).toBeEnabled())
+  })
+
+  it('leaves connections unset so new downloads use the app setting', async () => {
     const user = userEvent.setup()
     const { transport } = await import('@renderer/lib/transport')
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
@@ -294,7 +323,7 @@ describe('AddTaskForm', () => {
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
         'command:createTask',
-        expect.objectContaining({ connections: 32 })
+        expect.not.objectContaining({ connections: expect.any(Number) })
       )
     )
   })

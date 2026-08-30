@@ -8,9 +8,9 @@
 //     the active winner plus per-candidate state across the 4 detection
 //     layers (manual / userData / env / PATH) in a fixed order, regardless
 //     of which ones are configured. States: 'active' | 'available' |
-//     'missing' | 'unconfigured' | 'version_mismatch'. The last is reserved
-//     for a future semver gate and never emitted here. The `probe` argument
-//     is for test injection; production callers omit it.
+//     'missing' | 'untrusted' | 'unconfigured' | 'version_mismatch'. The last
+//     is reserved for a future semver gate and never emitted here. The `probe`
+//     argument is for test injection; production callers omit it.
 //
 // Used by shell wrappers (Electron + Server) that supply the candidate list.
 // This module MUST NOT import electron, @main/, or @server/.
@@ -23,10 +23,14 @@ import path from 'node:path'
 // Types
 // ---------------------------------------------------------------------------
 
+export type FfmpegDetectionFailureReason = 'missing' | 'untrusted'
+
 export interface FfmpegDetection {
   available: boolean
   binaryPath?: string
   version?: string
+  /** Why a host-specific preflight declined to execute this candidate. */
+  failureReason?: FfmpegDetectionFailureReason
 }
 
 // ---------------------------------------------------------------------------
@@ -139,10 +143,16 @@ export interface FfmpegDetectionInput {
 
 export type CandidateKind = 'manual' | 'userData' | 'env' | 'path'
 
+export interface FfmpegCandidate {
+  kind: CandidateKind
+  path: string | null
+}
+
 export type CandidateState =
   | 'active'
   | 'available'
   | 'missing'
+  | 'untrusted'
   | 'unconfigured'
   | 'version_mismatch'
 
@@ -161,6 +171,25 @@ function ffmpegBinName(platform: string): string {
 }
 
 /**
+ * Build the fixed-priority candidate list without touching the filesystem or
+ * executing any candidate. Startup discovery and explicit version probing use
+ * this same list so their precedence cannot drift.
+ */
+export function ffmpegCandidatesInOrder(
+  input: FfmpegDetectionInput
+): FfmpegCandidate[] {
+  return [
+    { kind: 'manual', path: input.manualPath || null },
+    {
+      kind: 'userData',
+      path: path.join(input.userDataBinariesDir, ffmpegBinName(input.platform)),
+    },
+    { kind: 'env', path: input.envPath },
+    { kind: 'path', path: 'ffmpeg' },
+  ]
+}
+
+/**
  * Probe all 4 detection layers in fixed order and return a per-candidate
  * report plus the active winner.
  *
@@ -174,7 +203,8 @@ function ffmpegBinName(platform: string): string {
  *    rewrite to an absolute path).
  *  - Probe succeeds but a higher-priority candidate already won →
  *    `'available'` (still includes version).
- *  - Probe fails → `'missing'`.
+ *  - Probe reports `failureReason: 'untrusted'` → `'untrusted'`.
+ *  - Any other probe failure → `'missing'`.
  *  - `'version_mismatch'` is reserved for a future semver gate; this
  *    function never emits it.
  *
@@ -184,21 +214,10 @@ export async function detectInOrder(
   input: FfmpegDetectionInput,
   probe: (binaryPath: string) => Promise<FfmpegDetection> = probeBinary
 ): Promise<FfmpegDetectionResult> {
-  const userDataCandidate = path.join(
-    input.userDataBinariesDir,
-    ffmpegBinName(input.platform)
-  )
-  const order: Array<{ kind: CandidateKind; path: string | null }> = [
-    { kind: 'manual', path: input.manualPath || null },
-    { kind: 'userData', path: userDataCandidate },
-    { kind: 'env', path: input.envPath },
-    { kind: 'path', path: 'ffmpeg' },
-  ]
-
   const candidates: FfmpegDetectionResult['candidates'] = []
   let active: FfmpegDetectionResult['active'] = null
 
-  for (const entry of order) {
+  for (const entry of ffmpegCandidatesInOrder(input)) {
     const p = entry.path
     if (!p) {
       candidates.push({ kind: entry.kind, path: null, state: 'unconfigured' })
@@ -227,7 +246,11 @@ export async function detectInOrder(
         })
       }
     } else {
-      candidates.push({ kind: entry.kind, path: p, state: 'missing' })
+      candidates.push({
+        kind: entry.kind,
+        path: p,
+        state: result.failureReason === 'untrusted' ? 'untrusted' : 'missing',
+      })
     }
   }
 

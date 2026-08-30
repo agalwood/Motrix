@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { DEFAULT_ENGINE_SETTINGS } from './engine-settings'
 
 const torrentFileSchema = z.object({
   index: z.number().int().nonnegative(),
@@ -22,12 +21,7 @@ const linksTabSchema = z.object({
   urls: z.string().min(1, { message: 'task.add.errors.urlsRequired' }),
   saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
   filename: z.string().optional(),
-  split: z
-    .number()
-    .int()
-    .min(1)
-    .max(128)
-    .default(DEFAULT_ENGINE_SETTINGS.split),
+  split: z.number().int().min(1).max(128).optional(),
   userAgent: z.string().optional(),
   referer: z.string().optional(),
   cookie: z.string().optional(),
@@ -269,7 +263,7 @@ export function formValuesToTaskCreateRequest(
       uris,
       saveDir: v.saveDir,
       filename: trimmed(v.filename),
-      connections: v.split,
+      ...(v.split === undefined ? {} : { connections: v.split }),
       headers,
       proxy: trimmed(v.allProxy),
     }

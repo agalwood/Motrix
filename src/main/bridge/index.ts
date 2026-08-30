@@ -376,6 +376,8 @@ export async function bootstrapBridge(args: {
   // T14/T15 media pipeline deps. Threaded here so T15 can inject real values.
   // Until T15 wires them, ffmpegBinaryPath=null disables the media pipeline.
   ffmpegBinaryPath: string | null
+  /** Re-resolves the current executable immediately before each mux. */
+  resolveFfmpegBinaryPath?: BridgeReceiverDeps['resolveFfmpegBinaryPath']
   /** Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher),
    *  threaded through BridgeReceiver into the MediaTaskCoordinator. */
   publishTaskUpdate: () => void
@@ -508,6 +510,7 @@ export async function bootstrapBridge(args: {
       bridgeBus: bus,
       localize,
       ffmpegBinaryPath: args.ffmpegBinaryPath,
+      resolveFfmpegBinaryPath: args.resolveFfmpegBinaryPath,
       publishTaskUpdate: args.publishTaskUpdate,
       publishTaskUpdateNow: args.publishTaskUpdateNow,
       taskManager: args.taskManager,

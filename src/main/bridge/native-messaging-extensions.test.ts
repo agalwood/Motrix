@@ -19,4 +19,17 @@ describe('native messaging extension allowlist', () => {
     ]
     expect(new Set(all).size).toBe(all.length)
   })
+
+  // Cross-repo contract: these literals must match the extension's real
+  // store identities. The Firefox ID is declared in
+  // motrix-extension/packages/ext/manifest.config.ts and pinned by a mirror
+  // test there; changing either side requires changing both.
+  it('allowlists the store-signed extension identities', () => {
+    expect(nativeMessagingExtensions.chromium).toContain(
+      'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+    )
+    expect(nativeMessagingExtensions.firefox).toContain(
+      'motrix-extension@motrix.app'
+    )
+  })
 })

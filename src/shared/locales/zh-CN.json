@@ -772,6 +772,7 @@
       "dropTorrent": "拖拽 .torrent 文件到此处，或点击选择",
       "clearSelection": "清除选择",
       "createFailed": "创建下载任务失败。",
+      "createFailedWithReason": "创建下载任务失败：{{reason}}",
       "parseFailed": "解析种子文件失败。",
       "urlsCount_other": "{{count}} 个 URL",
       "urlsWithInvalid": "{{valid}} 个有效，{{invalid}} 个无效",
@@ -1559,31 +1560,39 @@
         "notDetected": "未探测到 FFmpeg",
         "refresh": "刷新",
         "binaryPath": "自定义 FFmpeg 路径",
-        "binaryPathDesc": "可选。留空时会自动尝试内置副本、环境变量覆盖和系统 PATH。自定义路径优先级最高。",
         "browse": "浏览…",
+        "download": {
+          "action": "下载 FFmpeg"
+        },
         "detection": {
           "readyTitle": "FFmpeg {{version}}",
           "unavailableTitle": "FFmpeg 不可用",
+          "untrustedTitle": "FFmpeg 已被 macOS 阻止",
           "usingSource": "当前使用 {{source}}",
           "unavailableDesc": "请设置自定义路径、安装 FFmpeg，或将它加入 PATH 后刷新。",
+          "untrustedDesc": "文件存在，但未通过 macOS 安全验证。请安装可信版本，或在“隐私与安全性”中批准后刷新。",
           "showDetails": "显示检测详情",
           "hideDetails": "隐藏检测详情",
           "sourcesChecked_other": "已检查 {{count}} 个来源",
           "source": "来源",
           "location": "检测位置",
           "result": "结果",
+          "copyManagedPath": "复制 Motrix FFmpeg 路径",
+          "editCustomPath": "编辑自定义 FFmpeg 路径",
+          "finishEditingCustomPath": "完成编辑自定义 FFmpeg 路径",
           "notConfigured": "未设置"
         },
         "candidateKind": {
           "manual": "自定义路径",
-          "userData": "内置副本",
-          "env": "MOTRIX_FFMPEG_PATH",
+          "userData": "Motrix 数据目录",
+          "env": "MOTRIX_FFMPEG_BIN",
           "path": "系统 PATH"
         },
         "state": {
           "active": "使用中",
           "available": "已找到",
           "missing": "未找到",
+          "untrusted": "macOS 已阻止",
           "unconfigured": "未设置",
           "version_mismatch": "不受支持"
         },

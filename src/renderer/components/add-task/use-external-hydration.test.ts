@@ -116,7 +116,7 @@ describe('useExternalHydration', () => {
     expect(values.urls).toBe('https://a/b')
   })
 
-  it('SetAddTaskMode preserves the hydrated split setting', () => {
+  it('SetAddTaskMode clears a stale per-task connection override', () => {
     const { result } = renderHook(() =>
       useForm({
         defaultValues: {
@@ -138,9 +138,9 @@ describe('useExternalHydration', () => {
       fire(Events.SetAddTaskMode, { mode: 'links', url: 'https://a/b' })
     })
 
-    expect((result.current.getValues() as Record<string, unknown>).split).toBe(
-      32
-    )
+    expect(
+      (result.current.getValues() as Record<string, unknown>).split
+    ).toBeUndefined()
   })
 
   it('notifies after SetAddTaskMode resets the form', () => {

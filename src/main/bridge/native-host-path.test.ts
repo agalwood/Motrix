@@ -142,7 +142,7 @@ describe('resolveNativeHostBinaryPath', () => {
 
       await installer.syncManifests({
         chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-        firefox: ['motrix-bridge@motrix.app'],
+        firefox: ['motrix-extension@motrix.app'],
       })
 
       const manifest = JSON.parse(
@@ -192,7 +192,7 @@ describe('resolveNativeHostBinaryPath', () => {
 
         await installer.syncManifests({
           chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
-          firefox: ['motrix-bridge@motrix.app'],
+          firefox: ['motrix-extension@motrix.app'],
         })
 
         const manifest = JSON.parse(

@@ -783,6 +783,7 @@
       "dropTorrent": "Drop .torrent file here or click to select",
       "clearSelection": "Clear selection",
       "createFailed": "Failed to create download task.",
+      "createFailedWithReason": "Failed to create download task: {{reason}}",
       "parseFailed": "Failed to parse torrent file.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
@@ -1572,13 +1573,17 @@
         "notDetected": "FFmpeg not detected",
         "refresh": "Refresh",
         "binaryPath": "Custom FFmpeg path",
-        "binaryPathDesc": "Optional. Leave empty to use the bundled copy, environment override, or system PATH automatically. Custom paths are tried first.",
         "browse": "Browse…",
+        "download": {
+          "action": "Download FFmpeg"
+        },
         "detection": {
           "readyTitle": "FFmpeg {{version}}",
           "unavailableTitle": "FFmpeg is not available",
+          "untrustedTitle": "FFmpeg was blocked by macOS",
           "usingSource": "Using {{source}}",
           "unavailableDesc": "Set a custom path, install FFmpeg, or add it to PATH, then refresh.",
+          "untrustedDesc": "The file exists but did not pass macOS security verification. Install a trusted build or approve it in Privacy & Security, then refresh.",
           "showDetails": "Show detection details",
           "hideDetails": "Hide detection details",
           "sourcesChecked_one": "{{count}} source checked",
@@ -1586,18 +1591,22 @@
           "source": "Source",
           "location": "Checked location",
           "result": "Result",
+          "copyManagedPath": "Copy Motrix FFmpeg path",
+          "editCustomPath": "Edit custom FFmpeg path",
+          "finishEditingCustomPath": "Finish editing custom FFmpeg path",
           "notConfigured": "Not set"
         },
         "candidateKind": {
           "manual": "Custom path",
-          "userData": "Bundled copy",
-          "env": "MOTRIX_FFMPEG_PATH",
+          "userData": "Motrix data directory",
+          "env": "MOTRIX_FFMPEG_BIN",
           "path": "System PATH"
         },
         "state": {
           "active": "In use",
           "available": "Found",
           "missing": "Not found",
+          "untrusted": "Blocked by macOS",
           "unconfigured": "Not set",
           "version_mismatch": "Unsupported"
         },

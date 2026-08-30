@@ -15,7 +15,6 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { ChevronRight, CircleQuestionMark } from 'lucide-react'
 import { type ReactNode, useLayoutEffect, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
@@ -78,7 +77,6 @@ function LinksAdvancedFields() {
         type="number"
         min={1}
         max={128}
-        defaultValue={DEFAULT_ENGINE_SETTINGS.split}
       />
       <DenseField
         control={control}
@@ -170,7 +168,6 @@ interface DenseFieldProps {
   min?: number
   max?: number
   step?: string
-  defaultValue?: number
   multiline?: boolean
 }
 
@@ -183,7 +180,6 @@ function DenseField({
   min,
   max,
   step,
-  defaultValue,
   multiline,
 }: DenseFieldProps) {
   return (
@@ -227,7 +223,7 @@ function DenseField({
                   typeof field.value === 'number' ||
                   typeof field.value === 'string'
                     ? field.value
-                    : (defaultValue ?? '')
+                    : ''
                 }
                 onChange={(e) => {
                   if (type === 'number') {

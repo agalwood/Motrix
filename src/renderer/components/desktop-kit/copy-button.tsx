@@ -13,12 +13,14 @@ type CopyButtonProps = Omit<
   'onClick' | 'content'
 > & {
   content?: string | (() => string | Promise<string>)
+  iconPosition?: 'start' | 'end'
   onClick?: () => void | Promise<void>
   resetMs?: number
 }
 
 export function CopyButton({
   content,
+  iconPosition = 'start',
   onClick,
   resetMs = 1500,
   children,
@@ -59,8 +61,9 @@ export function CopyButton({
 
   return (
     <Button type="button" onClick={handleClick} {...rest}>
-      <Icon />
+      {iconPosition === 'start' && <Icon />}
       {children}
+      {iconPosition === 'end' && <Icon />}
     </Button>
   )
 }

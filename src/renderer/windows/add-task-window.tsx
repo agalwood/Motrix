@@ -1,4 +1,5 @@
 import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
+import { Toaster } from '@renderer/components/ui/toast'
 import { useAdaptiveWindowHeight } from '@renderer/hooks/use-adaptive-window-height'
 import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
@@ -55,6 +56,7 @@ export function AddTaskWindow() {
           subscribeEvents
         />
       </PlatformServicesProvider>
+      <Toaster />
     </div>
   )
 }

@@ -14,16 +14,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Electron mocks — hoisted so vi.mock factories can reference them.
 // ---------------------------------------------------------------------------
 
-const { MockNotification } = vi.hoisted(() => {
-  class MockNotification {
-    static isSupported = vi.fn(() => true)
-    on(_ev: string, _fn: () => void): void {}
-    show(): void {}
-    close(): void {}
-  }
+const { MockNotification, mockLocateFfmpeg, mockVersionDetectorFactory } =
+  vi.hoisted(() => {
+    class MockNotification {
+      static isSupported = vi.fn(() => true)
+      on(_ev: string, _fn: () => void): void {}
+      show(): void {}
+      close(): void {}
+    }
 
-  return { MockNotification }
-})
+    return {
+      MockNotification,
+      mockLocateFfmpeg: vi.fn(async () => ({
+        available: false,
+        binaryPath: null as string | null,
+        version: null,
+      })),
+      mockVersionDetectorFactory: vi.fn(() => async () => ({
+        active: null,
+        candidates: [],
+      })),
+    }
+  })
 
 // Note: no safeStorage mock — the Electron capability host no longer uses
 // Electron's keychain-backed safeStorage. Secrets are handled by the
@@ -36,13 +48,15 @@ vi.mock('electron', () => ({
   },
 }))
 
-// Mock ffmpeg-detect-electron to avoid spawning a real process. The factory
-// returns a closure that yields the enriched FfmpegDetectionResult shape.
+vi.mock('@core/ffmpeg/ffmpeg-locator', () => ({
+  locateFfmpeg: mockLocateFfmpeg,
+}))
+
+// The eager detector remains mocked as a regression sentinel: capability-host
+// construction must never invoke it because it executes `ffmpeg -version`.
 vi.mock('./ffmpeg-detect-electron', () => ({
-  makeElectronFfmpegDetect: vi.fn(() => async () => ({
-    active: null,
-    candidates: [],
-  })),
+  makeElectronFfmpegDetect: mockVersionDetectorFactory,
+  resolveElectronFfmpegEnvPath: vi.fn(() => null),
 }))
 
 // ---------------------------------------------------------------------------
@@ -88,6 +102,8 @@ describe('createElectronCapabilityHost', () => {
   beforeEach(() => {
     db = makeDb()
     MockNotification.isSupported.mockClear()
+    mockLocateFfmpeg.mockClear()
+    mockVersionDetectorFactory.mockClear()
   })
 
   afterEach(() => {
@@ -124,6 +140,31 @@ describe('createElectronCapabilityHost', () => {
     })
 
     expect(MockNotification.isSupported).not.toHaveBeenCalled()
+  })
+
+  it('locates FFmpeg without running the version detector at startup', async () => {
+    mockLocateFfmpeg.mockResolvedValueOnce({
+      available: true,
+      binaryPath: '/user-data/binaries/ffmpeg',
+      version: null,
+    })
+
+    const host = await createElectronCapabilityHost({
+      appVersion: '2.0.0',
+      hostLanguage: 'en-US',
+      db,
+      userDataDir: '/user-data',
+      pluginsDir: path.join(tmpdir(), 'plugins'),
+      settingsManager: makeSettingsManager(),
+      configReader: () => ({}),
+      secretFieldsFor: () => new Set(),
+      manifestCommandIdsFor: () => new Set(),
+    })
+
+    expect(mockLocateFfmpeg).toHaveBeenCalledOnce()
+    expect(mockVersionDetectorFactory).not.toHaveBeenCalled()
+    expect(host.ffmpeg.available).toBe(true)
+    expect(host.ffmpeg.version).toBeUndefined()
   })
 
   it('returns a CapabilityHost with a functional storage host', async () => {

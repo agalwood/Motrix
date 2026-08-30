@@ -204,6 +204,32 @@ describe('detectInOrder', () => {
     expect(r.candidates[1].state).toBe('missing')
   })
 
+  it('keeps a macOS trust failure distinct from a missing binary', async () => {
+    const probe = makeProbe({
+      '/data/binaries/ffmpeg': {
+        available: false,
+        binaryPath: '/data/binaries/ffmpeg',
+        failureReason: 'untrusted',
+      },
+    })
+    const r = await detectInOrder(
+      {
+        manualPath: '',
+        userDataBinariesDir: '/data/binaries',
+        platform: 'darwin',
+        envPath: null,
+      },
+      probe
+    )
+
+    expect(r.active).toBeNull()
+    expect(r.candidates[1]).toMatchObject({
+      kind: 'userData',
+      path: '/data/binaries/ffmpeg',
+      state: 'untrusted',
+    })
+  })
+
   it('derives the Windows userData candidate from the supplied platform', async () => {
     const probe = makeProbe({})
     const r = await detectInOrder(

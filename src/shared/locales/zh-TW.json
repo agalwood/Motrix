@@ -772,6 +772,7 @@
       "dropTorrent": "將 .torrent 檔案拖放到這裡，或按一下以選擇檔案",
       "clearSelection": "清除選取項目",
       "createFailed": "無法建立下載任務。",
+      "createFailedWithReason": "無法建立下載任務：{{reason}}",
       "parseFailed": "無法解析 Torrent 檔案。",
       "urlsCount_other": "{{count}} 個 URL",
       "urlsWithInvalid": "{{valid}} 個有效，{{invalid}} 個無效",
@@ -1559,31 +1560,39 @@
         "notDetected": "未偵測到 FFmpeg",
         "refresh": "重新整理",
         "binaryPath": "自訂 FFmpeg 路徑",
-        "binaryPathDesc": "選填。留空會自動使用內建副本、環境變數覆寫或系統 PATH。自訂路徑會優先嘗試。",
         "browse": "瀏覽...",
+        "download": {
+          "action": "下載 FFmpeg"
+        },
         "detection": {
           "readyTitle": "FFmpeg {{version}}",
           "unavailableTitle": "無法使用 FFmpeg",
+          "untrustedTitle": "FFmpeg 已被 macOS 阻擋",
           "usingSource": "使用 {{source}}",
           "unavailableDesc": "設定自訂路徑、安裝 FFmpeg 或將其加入 PATH，然後重新整理。",
+          "untrustedDesc": "檔案存在，但未通過 macOS 安全驗證。請安裝可信版本，或在「隱私權與安全性」中允許後重新整理。",
           "showDetails": "顯示偵測詳細資料",
           "hideDetails": "隱藏偵測詳細資料",
           "sourcesChecked_other": "已檢查 {{count}} 個來源",
           "source": "來源",
           "location": "檢查位置",
           "result": "結果",
+          "copyManagedPath": "複製 Motrix FFmpeg 路徑",
+          "editCustomPath": "編輯自訂 FFmpeg 路徑",
+          "finishEditingCustomPath": "完成編輯自訂 FFmpeg 路徑",
           "notConfigured": "未設定"
         },
         "candidateKind": {
           "manual": "自訂路徑",
-          "userData": "內建副本",
-          "env": "MOTRIX_FFMPEG_PATH",
+          "userData": "Motrix 資料目錄",
+          "env": "MOTRIX_FFMPEG_BIN",
           "path": "系統 PATH"
         },
         "state": {
           "active": "使用中",
           "available": "已找到",
           "missing": "找不到",
+          "untrusted": "macOS 已阻擋",
           "unconfigured": "未設定",
           "version_mismatch": "不支援"
         },

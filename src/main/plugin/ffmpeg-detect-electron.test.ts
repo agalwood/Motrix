@@ -13,6 +13,7 @@ vi.mock('@core/plugin/capabilities/ffmpeg-detect', () => ({
     active: null,
     candidates: [],
   })),
+  probeBinary: vi.fn(async () => ({ available: false })),
 }))
 
 // Import after mock is registered.
@@ -65,6 +66,7 @@ describe('makeElectronFfmpegDetect', () => {
     expect(mockedDetectInOrder).toHaveBeenCalledTimes(1)
     const arg = mockedDetectInOrder.mock.calls[0][0]
     expect(arg.manualPath).toBe('/custom/ffmpeg')
+    expect(mockedDetectInOrder.mock.calls[0][1]).toBeInstanceOf(Function)
   })
 
   it('joins userDataDir with "binaries" for userDataBinariesDir', async () => {
@@ -84,8 +86,8 @@ describe('makeElectronFfmpegDetect', () => {
     )
   })
 
-  it('reads MOTRIX_FFMPEG_PATH into envPath', async () => {
-    vi.stubEnv('MOTRIX_FFMPEG_PATH', '/opt/ff')
+  it('reads MOTRIX_FFMPEG_BIN into envPath', async () => {
+    vi.stubEnv('MOTRIX_FFMPEG_BIN', '/opt/ff')
     const { manager } = makeSettingsManager({
       ffmpegBinaryPath: '',
       ffmpegStagingMB: 4096,
@@ -98,6 +100,39 @@ describe('makeElectronFfmpegDetect', () => {
     await detect()
     const arg = mockedDetectInOrder.mock.calls[0][0]
     expect(arg.envPath).toBe('/opt/ff')
+  })
+
+  it('keeps MOTRIX_FFMPEG_PATH as a legacy fallback', async () => {
+    vi.stubEnv('MOTRIX_FFMPEG_PATH', '/legacy/ffmpeg')
+    const { manager } = makeSettingsManager({
+      ffmpegBinaryPath: '',
+      ffmpegStagingMB: 4096,
+      ffmpegOpTimeoutSec: 1800,
+    })
+    const detect = makeElectronFfmpegDetect({
+      settingsManager: manager,
+      userDataDir: '/tmp/userdata',
+    })
+    await detect()
+    const arg = mockedDetectInOrder.mock.calls[0][0]
+    expect(arg.envPath).toBe('/legacy/ffmpeg')
+  })
+
+  it('prefers MOTRIX_FFMPEG_BIN over the legacy spelling', async () => {
+    vi.stubEnv('MOTRIX_FFMPEG_BIN', '/current/ffmpeg')
+    vi.stubEnv('MOTRIX_FFMPEG_PATH', '/legacy/ffmpeg')
+    const { manager } = makeSettingsManager({
+      ffmpegBinaryPath: '',
+      ffmpegStagingMB: 4096,
+      ffmpegOpTimeoutSec: 1800,
+    })
+    const detect = makeElectronFfmpegDetect({
+      settingsManager: manager,
+      userDataDir: '/tmp/userdata',
+    })
+    await detect()
+    const arg = mockedDetectInOrder.mock.calls[0][0]
+    expect(arg.envPath).toBe('/current/ffmpeg')
   })
 
   it('passes the Electron host platform and normalizes an unset env path', async () => {

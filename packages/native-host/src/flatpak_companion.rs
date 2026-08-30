@@ -1356,7 +1356,7 @@ mod tests {
     use crate::resolve::{ResolveError, ResolveResult};
 
     const CHROMIUM_ID: &str = "ibpkjhgpbidfmbmomagmldcdlpbmchgi";
-    const FIREFOX_ID: &str = "motrix-bridge@motrix.app";
+    const FIREFOX_ID: &str = "motrix-extension@motrix.app";
     const NONCE: &str = "AbCdEfGhIjKlMnOpQrStUv";
 
     struct TempDir {
