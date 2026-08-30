@@ -26,7 +26,7 @@ const electronBinary = require('electron')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
-const RENDERER_PORT = Number(process.env.VITE_DEV_PORT ?? 5173)
+const RENDERER_PORT = Number(process.env.VITE_DEV_PORT ?? 15173)
 const RESTART_DEBOUNCE_MS = 200
 const ELECTRON_SHUTDOWN_TIMEOUT_MS = 45_000
 // Keep in sync with src/main/quit/termination-signals.ts.
