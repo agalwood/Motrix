@@ -5,7 +5,7 @@ import {
   type WindowMaximizedChangedPayload,
 } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
-import type { WindowBounds } from '@shared/types/settings'
+import type { WindowBounds, WindowState } from '@shared/types/settings'
 import { BrowserWindow, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { buildPlatformOptions } from './platform-options'
@@ -291,9 +291,12 @@ export class WindowManager {
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) return
 
-    const bounds = win.getBounds()
+    const state: WindowState = {
+      ...win.getNormalBounds(),
+      maximized: win.isMaximized(),
+    }
     this.deps.settingsManager
-      .update({ windowState: { [id]: bounds } })
+      .update({ windowState: { [id]: state } })
       .catch(() => {})
   }
 
@@ -546,16 +549,21 @@ export class WindowManager {
     if (!config.persistBounds) return
 
     const settings = this.deps.settingsManager.get()
-    const saved = settings.windowState[id] as WindowBounds | undefined
+    const saved = settings.windowState[id] as WindowState | undefined
     if (!saved) {
       win.center()
       return
     }
 
-    if (this.isBoundsVisible(saved)) {
-      win.setBounds(saved)
+    const { maximized = false, ...bounds } = saved
+    if (this.isBoundsVisible(bounds)) {
+      win.setBounds(bounds)
     } else {
       win.center()
+    }
+
+    if (maximized && config.maximizable) {
+      win.maximize()
     }
   }
 
