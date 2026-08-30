@@ -54,6 +54,8 @@ vi.mock('electron', () => {
     isFocused = vi.fn(() => true)
     isMaximized = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
+    getNormalBounds = vi.fn(() => ({ ...this._bounds }))
+    maximize = vi.fn()
     setBounds = vi.fn(
       (b: { x: number; y: number; width: number; height: number }) => {
         this._bounds = b
@@ -703,6 +705,51 @@ describe('WindowManager', () => {
 
     const win = wm.open('main')
     expect(win.setBounds).toHaveBeenCalledWith(savedBounds)
+  })
+
+  it('saves normal bounds and maximized state for a maximized window', () => {
+    const sm = createMockSettingsManager()
+    const wm = new WindowManager({
+      settingsManager: sm,
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+    })
+    const win = wm.open('main')
+    const normalBounds = { x: 120, y: 80, width: 1100, height: 760 }
+    vi.mocked(win.getNormalBounds).mockReturnValue(normalBounds)
+    vi.mocked(win.isMaximized).mockReturnValue(true)
+
+    wm.saveBounds('main')
+
+    expect(sm.update).toHaveBeenCalledWith({
+      windowState: { main: { ...normalBounds, maximized: true } },
+    })
+    expect(win.getBounds).not.toHaveBeenCalled()
+  })
+
+  it('restores normal bounds before re-maximizing a window', () => {
+    const savedState = {
+      x: 100,
+      y: 100,
+      width: 1024,
+      height: 768,
+      maximized: true,
+    }
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager({ main: savedState }),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+    })
+
+    const win = wm.open('main')
+
+    expect(win.setBounds).toHaveBeenCalledWith({
+      x: 100,
+      y: 100,
+      width: 1024,
+      height: 768,
+    })
+    expect(win.maximize).toHaveBeenCalledOnce()
   })
 
   it('ignores saved bounds if outside all screens', () => {

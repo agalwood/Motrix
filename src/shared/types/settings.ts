@@ -13,6 +13,10 @@ export interface WindowBounds {
   height: number
 }
 
+export interface WindowState extends WindowBounds {
+  maximized: boolean
+}
+
 export interface TrackerSettings {
   autoSync: boolean
   syncIntervalHours: number
@@ -144,7 +148,7 @@ export interface AppSettings {
   media: MediaSettings
   dashboard: DashboardLayoutSettings
   speedLimit: SpeedLimitSettings
-  windowState: Record<string, WindowBounds>
+  windowState: Record<string, WindowState>
 }
 
 export interface OnboardingState {

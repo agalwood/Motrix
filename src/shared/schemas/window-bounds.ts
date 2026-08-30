@@ -7,6 +7,10 @@ export const windowBoundsSchema = z.object({
   height: z.number().min(200),
 })
 
+export const savedWindowStateSchema = windowBoundsSchema.extend({
+  maximized: z.boolean().catch(false),
+})
+
 export const windowStateSchema = z
-  .record(z.string(), windowBoundsSchema)
+  .record(z.string(), savedWindowStateSchema)
   .catch({})
