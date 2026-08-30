@@ -2,11 +2,18 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CredentialPrincipal, StoredCredential } from './credential-store'
+import type {
+  CredentialPrincipal,
+  ExtensionIdentityAbsenceWitness,
+  StoredCredential,
+} from './credential-store'
 import {
+  CommittedExtensionCredentialError,
   Mbp1CredentialStore,
   PROVISIONAL_TTL_MS,
   principalKey,
+  withLiveCommittedExtensionWitness,
+  withLiveExtensionIdentityAbsenceWitness,
 } from './credential-store'
 
 /**
@@ -106,7 +113,7 @@ describe('Mbp1CredentialStore', () => {
     // Read the FILE, not the instance: the provisional must already be durable
     // by the time the caller is free to send `credentialOffer` (§6.7 step 1).
     const doc = await readDoc()
-    expect(doc.version).toBe(1)
+    expect(doc.version).toBe(2)
     expect(doc.pendingPromote).toBeNull()
     expect(doc.credentials).toHaveLength(1)
     expect(doc.credentials[0]).toMatchObject({
@@ -572,7 +579,321 @@ describe('Mbp1CredentialStore', () => {
     expect(doc.credentials[0]?.credentialId).toBe(second.credentialId)
   })
 
-  it('ignores malformed on-disk records', async () => {
+  it('issues nominal witnesses only for durably committed exact credentials', async () => {
+    const store = await open()
+    const offer = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await expect(
+      store.issueCommittedExtensionWitness(offer.credentialId)
+    ).rejects.toThrow(CommittedExtensionCredentialError.NotCommitted)
+
+    now = START + 100
+    await store.commitFromPair(offer.credentialId)
+    const witness = await store.issueCommittedExtensionWitness(
+      offer.credentialId
+    )
+    expect(witness).toMatchObject({
+      identity: {
+        kind: 'extension',
+        browser: 'chromium',
+        extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      },
+      identityTrust: 'official',
+      committedAt: START + 100,
+    })
+    expect(Object.isFrozen(witness)).toBe(true)
+    expect(Object.isFrozen(witness.identity)).toBe(true)
+    await expect(
+      withLiveCommittedExtensionWitness(witness, async () => 'live')
+    ).resolves.toBe('live')
+    await expect(
+      withLiveCommittedExtensionWitness({ ...witness }, async () => 'forged')
+    ).rejects.toThrow(CommittedExtensionCredentialError.InvalidWitness)
+
+    await store.revoke(offer.credentialId)
+    await expect(
+      withLiveCommittedExtensionWitness(witness, async () => 'replayed')
+    ).rejects.toThrow(CommittedExtensionCredentialError.NotCommitted)
+  })
+
+  it('keeps one authorization epoch across installations and rotation but invalidates the rotated witness', async () => {
+    const store = await open()
+    const first = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await store.commitFromPair(first.credentialId)
+    const firstWitness = await store.issueCommittedExtensionWitness(
+      first.credentialId
+    )
+
+    const secondInstallPrincipal = {
+      ...PRINCIPAL_A,
+      clientInstallationId: 'install-a-2',
+    }
+    const secondInstall = await store.offerProvisional(
+      secondInstallPrincipal,
+      'unverified'
+    )
+    await store.commitFromPair(secondInstall.credentialId)
+    const secondWitness = await store.issueCommittedExtensionWitness(
+      secondInstall.credentialId
+    )
+
+    const rotated = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await store.commitFromPair(rotated.credentialId)
+    const rotatedWitness = await store.issueCommittedExtensionWitness(
+      rotated.credentialId
+    )
+
+    expect(secondWitness.authorizationEpoch).toBe(
+      firstWitness.authorizationEpoch
+    )
+    expect(rotatedWitness.authorizationEpoch).toBe(
+      firstWitness.authorizationEpoch
+    )
+    expect(secondWitness.identityTrust).toBe('unverified')
+    await expect(
+      withLiveCommittedExtensionWitness(firstWitness, async () => undefined)
+    ).rejects.toThrow(CommittedExtensionCredentialError.NotCommitted)
+    await expect(
+      withLiveCommittedExtensionWitness(rotatedWitness, async () => undefined)
+    ).resolves.toBeUndefined()
+  })
+
+  it('issues only nominal, live absence witnesses after every identity credential is gone', async () => {
+    const store = await open()
+    const offer = await store.offerProvisional(PRINCIPAL_A, 'official')
+    const identity = {
+      browser: 'chromium' as const,
+      extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    }
+
+    await expect(
+      store.issueExtensionIdentityAbsenceWitness(
+        identity.browser,
+        identity.extensionId
+      )
+    ).rejects.toThrow(CommittedExtensionCredentialError.NotAbsent)
+
+    await store.revokeExtensionIdentity(identity.browser, identity.extensionId)
+    expect(store.findForAuth(offer.credentialId)).toBeNull()
+    const witness = await store.issueExtensionIdentityAbsenceWitness(
+      identity.browser,
+      identity.extensionId
+    )
+    await expect(
+      withLiveExtensionIdentityAbsenceWitness(witness, identity, async () =>
+        Promise.resolve('absent')
+      )
+    ).resolves.toBe('absent')
+    await expect(
+      withLiveExtensionIdentityAbsenceWitness(
+        { ...witness } as ExtensionIdentityAbsenceWitness,
+        identity,
+        async () => Promise.resolve('forged')
+      )
+    ).rejects.toThrow(CommittedExtensionCredentialError.InvalidWitness)
+
+    await store.offerProvisional(PRINCIPAL_A, 'official')
+    await expect(
+      withLiveExtensionIdentityAbsenceWitness(witness, identity, async () =>
+        Promise.resolve('stale')
+      )
+    ).rejects.toThrow(CommittedExtensionCredentialError.NotAbsent)
+  })
+
+  it('holds the credential queue while an absence-guarded cleanup runs', async () => {
+    const store = await open()
+    const identity = {
+      browser: 'chromium' as const,
+      extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    }
+    const witness = await store.issueExtensionIdentityAbsenceWitness(
+      identity.browser,
+      identity.extensionId
+    )
+    let release!: () => void
+    let entered!: () => void
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const started = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    const cleanup = withLiveExtensionIdentityAbsenceWitness(
+      witness,
+      identity,
+      async () => {
+        entered()
+        await blocked
+      }
+    )
+    await started
+
+    let offerSettled = false
+    const offer = store.offerProvisional(PRINCIPAL_A, 'official').then(() => {
+      offerSettled = true
+    })
+    await Promise.resolve()
+    expect(offerSettled).toBe(false)
+
+    release()
+    await cleanup
+    await offer
+    expect(offerSettled).toBe(true)
+  })
+
+  it('assigns a new authorization epoch after full identity revoke and re-pair', async () => {
+    const store = await open()
+    const first = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await store.commitFromPair(first.credentialId)
+    const firstWitness = await store.issueCommittedExtensionWitness(
+      first.credentialId
+    )
+
+    await store.revokeExtensionIdentity(
+      firstWitness.identity.browser,
+      firstWitness.identity.extensionId
+    )
+    now = START + 1_000
+    const repaired = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await store.commitFromPair(repaired.credentialId)
+    const repairedWitness = await store.issueCommittedExtensionWitness(
+      repaired.credentialId
+    )
+
+    expect(repairedWitness.authorizationEpoch).not.toBe(
+      firstWitness.authorizationEpoch
+    )
+  })
+
+  it('migrates v1 credentials for one verified identity to one durable epoch', async () => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await writeDoc({
+      version: 1,
+      credentials: [
+        credential({ credentialId: 'legacy-a' }),
+        credential({
+          credentialId: 'legacy-a-2',
+          principal: {
+            ...PRINCIPAL_A,
+            clientInstallationId: 'install-a-2',
+          },
+          identity: 'unverified',
+        }),
+      ],
+      pendingPromote: null,
+    })
+
+    const store = await open()
+    const migrated = await readDoc()
+    expect(migrated.version).toBe(2)
+    const epochs = migrated.credentials.map((entry) => entry.authorizationEpoch)
+    expect(new Set(epochs).size).toBe(1)
+    expect(epochs[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+    )
+    expect(
+      (await store.issueCommittedExtensionSnapshot()).witnesses
+    ).toHaveLength(2)
+
+    const durableMigration = await fs.readFile(filePath, 'utf-8')
+    await open()
+    await expect(fs.readFile(filePath, 'utf-8')).resolves.toBe(durableMigration)
+  })
+
+  it('safely migrates early v1 absence of predecessor and pending journal fields', async () => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    const earlyCredential = credential({ credentialId: 'early-beta' })
+    Reflect.deleteProperty(earlyCredential, 'predecessorId')
+    await fs.writeFile(
+      filePath,
+      JSON.stringify({ version: 1, credentials: [earlyCredential] }),
+      'utf-8'
+    )
+
+    const store = await open()
+    expect(store.findForAuth('early-beta')).toMatchObject({
+      predecessorId: null,
+      state: 'committed',
+    })
+    expect(await readDoc()).toMatchObject({
+      version: 2,
+      pendingPromote: null,
+    })
+  })
+
+  it('preserves and rejects a v2 document with conflicting epochs for one identity', async () => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await writeDoc({
+      version: 2,
+      credentials: [
+        credential({
+          credentialId: 'conflict-a',
+          authorizationEpoch: '11111111-1111-4111-8111-111111111111',
+        }),
+        credential({
+          credentialId: 'conflict-a-2',
+          principal: {
+            ...PRINCIPAL_A,
+            clientInstallationId: 'install-a-2',
+          },
+          authorizationEpoch: '22222222-2222-4222-8222-222222222222',
+        }),
+      ],
+      pendingPromote: null,
+    })
+    const before = await fs.readFile(filePath, 'utf-8')
+
+    await expect(open()).rejects.toThrow(
+      CommittedExtensionCredentialError.EpochConflict
+    )
+    await expect(fs.readFile(filePath, 'utf-8')).resolves.toBe(before)
+  })
+
+  it('returns frozen credential copies that cannot mutate store liveness', async () => {
+    const store = await open()
+    const offer = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await store.commitFromPair(offer.credentialId)
+    const listed = store.listCommitted()
+
+    expect(Object.isFrozen(listed[0])).toBe(true)
+    expect(Object.isFrozen(listed[0]?.principal)).toBe(true)
+    expect(() => {
+      ;(listed[0] as StoredCredential).state = 'provisional'
+    }).toThrow()
+    expect(store.findForAuth(offer.credentialId)?.state).toBe('committed')
+  })
+
+  it('bounds credential counts and rejects non-canonical revoke identities', async () => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        credentials: Array.from({ length: 16_385 }, () => null),
+        pendingPromote: null,
+      }),
+      'utf-8'
+    )
+    await expect(open()).rejects.toThrow('mbp1 credential storage rejected')
+
+    await fs.unlink(filePath)
+    const store = await open()
+    const offer = await store.offerProvisional(PRINCIPAL_A, 'official')
+    await expect(
+      store.revokeExtensionIdentity('chromium', 'A'.repeat(32))
+    ).rejects.toThrow(CommittedExtensionCredentialError.InvalidInput)
+    await expect(
+      store.offerProvisional(
+        {
+          ...PRINCIPAL_A,
+          verifiedOrigin: `chrome-extension://${'A'.repeat(32)}`,
+        },
+        'official'
+      )
+    ).rejects.toThrow(CommittedExtensionCredentialError.InvalidInput)
+    expect(store.findForAuth(offer.credentialId)).not.toBeNull()
+  })
+
+  it('preserves and rejects a document containing any malformed record', async () => {
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     await fs.writeFile(
       filePath,
@@ -588,19 +909,19 @@ describe('Mbp1CredentialStore', () => {
       'utf-8'
     )
 
-    const store = await open()
-
-    expect(store.listCommitted().map((c) => c.credentialId)).toEqual(['c1'])
+    const before = await fs.readFile(filePath, 'utf-8')
+    await expect(open()).rejects.toThrow('mbp1 credential storage rejected')
+    await expect(fs.readFile(filePath, 'utf-8')).resolves.toBe(before)
   })
 
-  it('starts empty when the file is missing or unparsable', async () => {
+  it('starts empty only when missing and preserves unparsable state', async () => {
     const missing = await open()
     expect(missing.listCommitted()).toEqual([])
 
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     await fs.writeFile(filePath, 'not json', 'utf-8')
-    const corrupt = await open()
-    expect(corrupt.listCommitted()).toEqual([])
+    await expect(open()).rejects.toThrow('mbp1 credential storage rejected')
+    await expect(fs.readFile(filePath, 'utf-8')).resolves.toBe('not json')
   })
 })
 

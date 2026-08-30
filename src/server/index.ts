@@ -3,6 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
+import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
+import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
@@ -114,6 +116,9 @@ import {
   type ServerBridgeRuntime,
 } from './bridge/bootstrap'
 import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
+import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
+import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
+import { establishServerProcessOwnershipAuthority } from './bridge/server-process-ownership-authority'
 import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
@@ -1031,7 +1036,10 @@ async function main() {
     bridgeQueryHandlers,
     eventBus,
     rendererDir,
-    operatorAuth: { operatorToken: operator.token },
+    operatorAuth: {
+      operatorToken: operator.token,
+      publicUrl: process.env.MOTRIX_PUBLIC_URL,
+    },
     healthCheck: () =>
       serverHealthSnapshot({
         accepting: shellAsyncWork.isAccepting(),
@@ -1545,6 +1553,16 @@ async function main() {
         { allowZero: true }
       )
       const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
+      const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
+      if (remoteExtensionConfig.status === 'invalid') {
+        log.warn(
+          {
+            code: remoteExtensionConfig.diagnostic.code,
+            variable: remoteExtensionConfig.diagnostic.variable,
+          },
+          'remote Extension configuration rejected; routes remain closed'
+        )
+      }
       const publicUrlWarning = diagnoseMdxpPublicUrl({
         mdxpHost,
         publicUrl: process.env.MOTRIX_PUBLIC_URL,
@@ -1558,12 +1576,80 @@ async function main() {
           'non-loopback MDXP bind has no usable MOTRIX_PUBLIC_URL; remote clients may not receive a usable approval URL'
         )
       }
+      const bridgeDataDirLockRecoveryAuthority =
+        await establishServerProcessOwnershipAuthority({
+          userDataDir: platform.userDataDir,
+          port,
+          assertControlPlaneOwnership: () => {
+            if (!app.server.listening) return false
+            const address = app.server.address()
+            return (
+              typeof address === 'object' &&
+              address !== null &&
+              address.port === port
+            )
+          },
+        })
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,
         motrixVersion: appVersion,
         eventBus,
+        bridgeDataDirLockRecoveryAuthority,
+        remoteExtensionConfig,
+        createExtensionReceiver: ({ dataDir, bridgeBus }) =>
+          new BridgeReceiver({
+            dataDir,
+            defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+            pickName: (saveDir, desired) =>
+              finalNamePicker.pick(saveDir, desired),
+            createTask: (request, _deps, options) =>
+              handleCreateTask(request, createTaskDeps, options),
+            removeTask: async (taskId) => {
+              if (!taskManager.getById(taskId)) return
+              await removeTask(
+                taskId,
+                { deleteWithFiles: false },
+                removeTaskDeps
+              )
+            },
+            submitMagnetForFileSelection: (uri, saveDir, sourceMeta) =>
+              magnetTracker.submit(uri, saveDir, {
+                source: 'bridge',
+                sourceMeta,
+              }),
+            isMagnetFileSelectionEnabled: () =>
+              settingsManager.getApp().magnetFileSelection,
+            eventBus,
+            bridgeBus,
+            localize: (code) => code,
+            // The Server currently advertises direct selection only. Keeping
+            // media disabled here makes that capability statement executable,
+            // while direct/magnet submissions reuse the same validated paths
+            // and cookie/header hygiene as Desktop.
+            ffmpegBinaryPath: null,
+            publishTaskUpdate,
+            publishTaskUpdateNow,
+            taskManager,
+            activityRecorder: taskActivityService,
+            segmentAria2: new Aria2SegmentClient(rpcClient),
+            tmpRoot: runtimeDirectories.tempDir,
+            persistTask,
+            persistTaskWithOccurrence,
+            occurrenceDispatcher,
+            parentTaskCreated: (task, persistParent) =>
+              taskInspectorActivityRuntime.parentTaskCreated(
+                task,
+                persistParent
+              ),
+            recordTransition: (input) =>
+              taskInspectorActivityRuntime.recordTransition(input),
+            runTaskMutation: (taskIds, operation) =>
+              taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
+            waitForReady: () =>
+              supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
+          }),
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
         verificationUri: process.env.MOTRIX_PUBLIC_URL,
@@ -1593,6 +1679,7 @@ async function main() {
       Object.assign(bridgeCommandHandlers, bridgeRuntime.bridgeCommandHandlers)
       Object.assign(bridgeQueryHandlers, bridgeRuntime.bridgeQueryHandlers)
       log.info({ port: bridgeRuntime.port }, 'MDXP bridge listening')
+      logRemoteExtensionPairingReady(log, remoteExtensionConfig)
     } catch (err) {
       log.error({ err }, 'MDXP bridge bootstrap failed — continuing without it')
     }

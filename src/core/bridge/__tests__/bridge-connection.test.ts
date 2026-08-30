@@ -86,6 +86,31 @@ describe('BridgeConnection', () => {
     expect(parsed.id).toBeUndefined()
   })
 
+  it('contains a notification write race after the socket has closed', async () => {
+    const ws = new FakeWebSocket()
+    const conn = new BridgeConnection(ws as never, {
+      sessionKey: 'chromium:abc',
+      extensionId: 'abc',
+      browser: 'chromium',
+      startedAt: 1000,
+    })
+    conn.listen()
+    ws.close()
+
+    expect(() =>
+      conn.sendNotification('$/task/progress', {
+        taskId: 't1',
+        bytesDone: 100,
+        bytesTotal: 1000,
+        speedBps: 50,
+        etaSec: 18,
+        phase: 'downloading',
+      })
+    ).not.toThrow()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(ws.sent).toHaveLength(0)
+  })
+
   it('motrix/initialized notification flips isReady to true', async () => {
     const ws = new FakeWebSocket()
     const conn = new BridgeConnection(ws as never, {

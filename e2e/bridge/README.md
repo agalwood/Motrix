@@ -94,6 +94,120 @@ node e2e/bridge/server-leg.mjs
 Exit `0` = all checks passed, `1` = a check failed, `2` = the server build is
 missing (rebuild the worktree).
 
+---
+
+## Remote browser Extension leg (Chromium + Firefox)
+
+This gate starts the real Server MBP1 runtime behind a local HTTPS/WSS reverse
+proxy and drives the production Extension builds in both browsers. It covers
+fresh pair, authority-scoped consent, sensitive header/Cookie stripping,
+browser restart reconnect, Server restart reconnect, durable revoke, and
+re-pair through both a `/bridge` reverse-proxy prefix and the proxy root. A
+separate Chromium case keeps two independent Servers paired in one persistent
+profile, proves consent does not leak between them, and verifies submissions
+follow the selected authority. The Firefox assertion also requires the
+ticketless remote identity to remain `unverified`.
+
+Build both Extension variants in the Extension checkout, then run from Motrix:
+
+```bash
+pnpm --filter @motrix/extension build:chromium
+pnpm --filter @motrix/extension build:firefox
+
+MOTRIX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/firefox \
+pnpm test:e2e:remote-extension
+```
+
+Before Playwright starts, the command verifies
+`remote-extension-threat-evidence.json`: every T01–T29 threat must retain at
+least one mapped test file and title across the two repositories. The Extension
+checkout is inferred from `MOTRIX_EXTENSION_BUILD`; set
+`MOTRIX_EXTENSION_REPO` explicitly only when the build lives outside its
+checkout. A removed/renamed test, missing threat, unsafe path, or symlinked
+evidence file fails the gate.
+
+Optional executable overrides are `MOTRIX_CHROMIUM_EXECUTABLE` and
+`MOTRIX_FIREFOX_EXECUTABLE`. The Firefox runner uses WebDriver BiDi's standard
+temporary-extension install command. Browser certificate bypasses are confined
+to this local test profile; the separate WSS integration suite proves trusted
+CA success and unknown-CA, expired, and wrong-host rejection without bypasses.
+Use Playwright's matching Chrome-for-Testing/Chromium build for Chromium. Some
+stable Google Chrome releases ignore automated unpacked-extension flags and
+will time out waiting for the Extension service worker; an explicit executable
+override must still point to a build that supports that test mode.
+
+### Pinning the compatible repository revisions
+
+The browser harness is a cross-repository contract. Do not record the current
+working-tree `HEAD` values before the implementation changes are committed.
+Create one implementation commit in each repository first, then copy
+`remote-extension-compatibility.example.json` to
+`remote-extension-compatibility.json` and replace both placeholders with those
+full 40-character lowercase commit SHAs. Verify the resulting pin from Motrix:
+
+```bash
+pnpm check:remote-extension-compatibility \
+  --manifest e2e/bridge/remote-extension-compatibility.json \
+  --motrix-repo . \
+  --extension-repo /absolute/path/to/motrix-extension
+```
+
+The verifier rejects placeholders, short or uppercase SHAs, protocol drift,
+fewer than five browser cases, a commit from the wrong repository, and any pin
+that is not an ancestor of the corresponding checkout's `HEAD`. Commit the
+verified manifest in a later Motrix commit; this avoids a self-referential
+Motrix SHA and makes the exact implementation pair reviewable.
+
+### Beta soak
+
+The soak runner repeats the same threat-gated five-case suite; one failing
+repetition fails the command. Its default is 20 repetitions / 100 browser
+cases, bounded to 100 repetitions so a bad environment cannot accidentally
+create an unbounded job:
+
+```bash
+MOTRIX_CHROMIUM_EXECUTABLE=/path/to/chrome-for-testing \
+MOTRIX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/firefox \
+MOTRIX_REMOTE_EXTENSION_SOAK_REPEATS=20 \
+pnpm test:e2e:remote-extension:soak
+```
+
+Archive the full output together with OS, browser versions, both implementation
+SHAs, repeat count, start/end time, and any proxy/network fault injection. A
+single ordinary E2E pass is regression evidence, not completion of the beta
+soak gate.
+
+For the release gate, use the evidence-producing wrapper after the compatible
+SHA manifest has been committed:
+
+```bash
+MOTRIX_CHROMIUM_EXECUTABLE=/path/to/chrome-for-testing \
+MOTRIX_FIREFOX_EXECUTABLE=/path/to/firefox \
+MOTRIX_EXTENSION_REPO=/absolute/path/to/motrix-extension \
+MOTRIX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/firefox \
+MOTRIX_REMOTE_EXTENSION_SOAK_EVIDENCE_DIR=/absolute/archive/remote-extension-soak \
+MOTRIX_REMOTE_EXTENSION_SOAK_FAULTS=none \
+pnpm test:e2e:remote-extension:release-soak
+```
+
+Release mode requires exactly 20 repetitions, clean repositories, Extension
+`HEAD` equal to its pin, and no Motrix changes after its implementation pin
+except the compatibility-manifest commit. After that source preflight it
+rebuilds both Extension variants from the pinned checkout, rejects build paths
+outside their expected repository directories or symbolic links, and hashes
+the fresh output. It records explicit browser versions and OS details, and
+writes `evidence.json` plus the full Playwright `playwright-report.json`. The
+report must parse to exactly 100 passed browser cases with no top-level or case
+errors. A failed browser run is archived as failed; a zero exit with a missing
+or invalid JSON report is archived as incomplete and still fails the gate. The
+evidence directory must not already exist, so a later run cannot overwrite an
+earlier record.
+
+## Server leg maintenance
+
 ### Env overrides (all optional)
 
 | Var | Default | Meaning |
@@ -130,6 +244,7 @@ git worktree remove --force ../motrix-turbo-srv
   The tests drive the *real* approval surface: `bridge:resolvePair` IPC on
   Electron, and the operator-gated `POST /rpc/command/bridge:resolvePair` on the
   server.
-- The other specs here — `pair-and-submit`, `receiver-direct`, `revoke` — are
-  `test.skip` stubs for the **browser-extension WebSocket** pairing path
-  (deferred), which is distinct from this CLI **HTTP** path.
+- `remote-extension-wss.spec.ts` and
+  `remote-extension-firefox-wss.spec.ts` are the active browser-extension WSS
+  lifecycle gates. The older `pair-and-submit`, `receiver-direct`, and `revoke`
+  files remain narrow placeholder scenarios and are not used as coverage proof.

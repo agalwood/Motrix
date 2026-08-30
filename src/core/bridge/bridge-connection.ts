@@ -116,7 +116,21 @@ export class BridgeConnection {
 
   /** Send a typed notification to the peer. */
   sendNotification: MdxpConnection['sendNotification'] = (name, params) => {
-    this.mdxp.sendNotification(name, params)
+    // Notifications are best-effort by JSON-RPC definition. The typed MDXP
+    // wrapper intentionally exposes a void return, while vscode-jsonrpc's raw
+    // writer returns a Promise that rejects if the socket closes between
+    // session lookup and write. Always observe that Promise here so a routine
+    // disconnect/revoke cannot become an unhandled process rejection.
+    try {
+      const pending =
+        params === undefined
+          ? this.mdxp.raw.sendNotification(name as string)
+          : this.mdxp.raw.sendNotification(name as string, params)
+      void pending.catch(() => {})
+    } catch {
+      // The connection may already be disposed. There is no request id to
+      // retry or report, and a later session must never receive this event.
+    }
   }
 
   dispose(): void {

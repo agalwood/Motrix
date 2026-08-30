@@ -13,6 +13,13 @@ tracked to implementation — see the Appendix C review log). Phase-A
 implementation may begin; the remaining Phase-A prerequisites in
 [§14](#14-review-and-implementation-gates) still apply.
 
+Release context: MBP1 is merged but not yet released. The browser Extension is
+also unpublished, and only a small number of historical Server beta builds
+exist. The supported profile therefore converges directly on MBP1; there is no
+legacy Extension bearer migration or downgrade window. The remote Server
+transport requirements in §4.4 are normative additions to the same MBP1 v1
+wire protocol, not a second ciphersuite or remote-only frame fork.
+
 Related documents: [RFC 9382] (SPAKE2), [RFC 5869] (HKDF), [RFC 8032]
 (edwards25519 encoding), [RFC 7914] (scrypt), [RFC 4648] (base32 background;
 MBP1 uses the Crockford alphabet defined in §7). The MDXP application protocol
@@ -44,6 +51,12 @@ candidate ports (16802–16806) remove that proof. MBP1 replaces it with:
    `official / attested-non-official / unverified` identity tri-state shown in
    the approval dialog.
 
+Remote Motrix Server uses the same SPAKE2, reconnect, credential commit, AEAD,
+and MDXP-inside-MBP1 ordering over WS or WSS. It deliberately omits NM tickets: a
+Chromium Origin remains verifiable at the WebSocket boundary, while remote
+Firefox is displayed as `unverified`. The pairing code is displayed only by an
+authenticated Server operator UI and typed by the user into the Extension.
+
 Roles: the **extension is party A** (initiator, uses point *M*), the **Motrix
 bridge server is party B** (responder, uses point *N*), exactly as prescribed
 by [RFC 9382] §3.1.
@@ -64,6 +77,16 @@ AEAD channel denies it plaintext, forgery, and tampering; what remains — its
 presence in the path, traffic sizes and timing, and being the port the
 extension pins — is an intrinsic residual of loopback port squatting and is
 documented, not claimed closed.
+
+For the remote Server profile, the network attacker additionally controls DNS,
+routes, redirects, reverse-proxy inputs, and unauthenticated discovery. Public
+PKI/WSS, when configured, authenticates the network authority and protects
+connection metadata; MBP1 authenticates continuity of the paired Server
+instance on both WS and WSS. Discovery remains an untrusted hint.
+Operator-session compromise, a compromised browser, Server host compromise,
+and a byte-identical clone of the complete Server data directory remain outside
+the cryptographic guarantee. The first supported deployment is one logical
+Server instance (or a sticky single backend), not active-active replication.
 
 ---
 
@@ -131,8 +154,10 @@ constant-time with respect to the scalar (noble-curves satisfies this).
 
 ## 4. Transport surfaces and ingress demultiplexing
 
-The bridge server listens on loopback, on the first free port of the candidate
-range **16802–16806** (falling back to an ephemeral port). Four surfaces are
+The Desktop bridge listens on loopback, on the first free port of the candidate
+range **16802–16806** (falling back to an ephemeral port). The remote Server
+profile exposes the same four logical surfaces behind an explicit disabled-by-
+default feature bundle and a public WS/WSS authority (§4.4). Four surfaces are
 relevant to MBP1:
 
 | Surface | Method | Auth | Purpose |
@@ -167,12 +192,15 @@ Unauthenticated, replayable, **a hint and never a trust decision**. Response
 ```json
 { "app": "motrix-bridge", "apiVersion": 1,
   "instanceId": "<persisted per-install UUID>", "appVersion": "2.0.0-beta.20",
-  "runtime": "electron",
+  "runtime": "electron" | "server",
   "extensionPairing": { "protocol": "mbp1", "versions": [1] },
   "applicationProtocols": { "mdxp": ["1.0"] } }
 ```
 
-`instanceId` is a routing hint used to pick which candidate port to try first.
+For Desktop, `instanceId` is a routing hint used to pick which candidate port
+to try first. For remote Server, it is a compatibility/identity hint only; the
+configured authority already fixes the route. In both profiles the value is
+unauthenticated until pair/reconnect proves it through the MBP1 transcript/MAC.
 The compatibility fields let an extension stop before pairing and explain an
 upgrade requirement, but remain unauthenticated hints: they MUST NOT select a
 legacy downgrade, grant trust, or replace post-authentication capability
@@ -187,8 +215,14 @@ header makes the request non-simple, cross-origin web pages are blocked by the
 browser preflight (the server grants no CORS). Response:
 
 ```json
-{ "nonce": "<one-shot opaque ASCII string>", "ttlSeconds": 60 }
+{ "nonce": "<22-char unpadded base64url>", "ttlSeconds": 60 }
 ```
+
+This exact two-key DTO is shared by local and remote MBP1 v1 clients; the
+remote profile MUST NOT remove `ttlSeconds`, add identity fields, or otherwise
+fork the response shape. `nonce` is the canonical unpadded base64url encoding
+of exactly 16 random bytes (22 characters; unused tail bits are zero). Both
+fields are unauthenticated short-lived hints.
 
 Nonces are one-shot, expire after 60 seconds, are consumed only by `/pair`,
 and MUST NOT be persisted by any party. The server MUST cap outstanding nonces
@@ -200,8 +234,149 @@ quotas where an origin exists.
 While bound to loopback, every HTTP route and WebSocket upgrade MUST reject
 (403) any request whose `Host` is not exactly `127.0.0.1[:port]`,
 `localhost[:port]`, or `[::1][:port]`. This closes DNS rebinding. (The server
-shell binding non-loopback keeps its existing token + reverse-proxy model and
-is out of MBP1 scope.)
+shell's CLI/agent bearer routes remain a separate audience and never authorize
+Extension `/pair` or `/v1`. The remote Extension Host rules are §4.4.)
+
+### 4.4 Remote Motrix Server profile
+
+Remote Extension support MUST be opt-in and fail closed. The canonical
+configuration inputs are:
+
+```text
+MOTRIX_REMOTE_EXTENSION_ENABLED=false
+MOTRIX_REMOTE_EXTENSION_PUBLIC_URL=ws(s)://host[:port][/base-path]
+MOTRIX_PUBLIC_URL=http(s)://operator-host[:port][/base-path]
+MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=false
+```
+
+When enabled, both public URLs are required. The WebSocket URL accepts only WS
+or WSS. The operator URL accepts HTTPS by default. An HTTP operator URL is
+accepted only when `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true` supplies a second,
+explicit opt-in; startup then warns that the operator token, pairing codes,
+session cookies, and administrator traffic lack TLS protection. This exception
+is for a trusted LAN only and is forbidden for Internet-facing or untrusted-LAN
+deployments. Neither operator scheme is rewritten or selected as a fallback.
+The parser MUST reject all other schemes, userinfo, query, fragment, raw Unicode
+whitespace, ASCII controls, backslashes, percent-encoded path separators
+(including layered encoding), unstable canonicalization, and overlong values.
+Invalid input closes only the remote Extension surface; CLI/agent and Desktop
+behavior remain independent. Diagnostics contain fixed codes and variable
+names, never full URLs, paths, codes, credentials, or tokens.
+
+The WS/WSS public URL's canonical pathname is the only route prefix. The Server
+accepts exactly `${prefix}/discovery`, `${prefix}/nonce`, `${prefix}/pair`, and
+`${prefix}/v1`, with no unprefixed alias. Discovery, nonce, and v1 accept no
+query; pair accepts exactly one canonical `nonce=<base64url>` query. An old
+`token` query therefore selects no remote route and is rejected before a
+pre-authentication socket or credential lookup exists. The Server compares a
+strictly parsed request Host's canonical hostname plus effective port to the
+configured public authority, rejects duplicate/malformed Host, and ignores
+arbitrary `X-Forwarded-Host`. Host validation is defense in depth, not an ACL:
+the origin listener MUST remain on loopback/private bind or behind a firewall,
+and only an explicitly configured trusted proxy may supply a source address.
+Arbitrary `X-Forwarded-For` is ignored.
+
+For WSS, TLS MAY terminate at a trusted reverse proxy and the browser-visible
+certificate MUST be trusted and hostname-valid. The proxy preserves Host,
+Origin, Upgrade, `Sec-WebSocket-Protocol`, and the exact base path. Explicit WS
+is also a production configuration: MBP1 still encrypts application payloads,
+but TLS does not protect server network identity or connection metadata. Clients
+warn without blocking. Neither side automatically upgrades, downgrades, or
+falls back between schemes.
+
+Remote first pair is ticketless: `pairHello` omits `nmTicket` and
+`ticketBindingKey`; there is no Native Messaging, candidate-port sweep, App
+launch, or local degraded-state warning. Pairing/reconnect use unchanged MBP1
+v1 frames. `/v1` has no credential query, old `?token=` is rejected by the
+public raw-route gate, raw MDXP is rejected, and CLI/operator bearers cannot
+enter either Extension route.
+
+The pairing code is released only through an authenticated operator snapshot or
+event channel. HTTP snapshot/mutation responses use `Cache-Control: no-store`;
+cookie-authenticated operator WebSockets require an Origin exactly matching the
+canonical `MOTRIX_PUBLIC_URL`, and mutation CSRF remains enforced. Codes do not
+enter URL, log, persistent browser storage, clipboard, CLI output, or
+notification text. The user reads the code and types it into the Extension.
+Origin/CSRF, HttpOnly, SameSite, no-store, and login-rate controls remain active
+in explicitly authorized HTTP mode, but they do not provide confidentiality or
+prevent an on-path attacker from reading or altering operator traffic.
+
+Nonce issuance, `/pair` pre-auth sockets, `/v1` pre-auth sockets, pending
+prompts, and discovery/nonce request rates each have independent global hard
+caps. Prompt dedup uses verified Origin but rotating forged Origins cannot evade
+global caps. `settings.bridge.instanceId` is stable across restart;
+`serverGeneration` rotates per process start and CLI `localToken` remains a
+separate credential/audience.
+
+All four routes are one atomic feature bundle. Until configuration, credential
+store, prompt controller/operator delivery, handlers/capability producer,
+bookkeeping, rate limits, and durable revoke are all present before listener
+start, every route—including `/nonce`—MUST stay 404. Feature-off, historical
+Server, wrong URL, and a proxy-generated 404 are intentionally indistinguishable
+to an unauthenticated client; only a valid discovery document can prove a
+version incompatibility.
+
+### 4.5 Remote Server deployment profile (beta)
+
+The first beta supports exactly one logical Motrix Server identity. Run one
+Server process for one data directory and route every Extension request for an
+authority to that same process. A reverse proxy may provide TLS termination,
+but round-robin/active-active backends, cloned data directories, and automatic
+failover to a different bridge identity are unsupported. The bridge data-dir
+lock and Server-process ownership record intentionally make accidental second
+writers fail closed; they are not a distributed lock.
+
+A minimal origin configuration is:
+
+```text
+MOTRIX_MDXP_HOST=127.0.0.1
+MOTRIX_MDXP_PORT=16801
+MOTRIX_REMOTE_EXTENSION_ENABLED=true
+MOTRIX_REMOTE_EXTENSION_PUBLIC_URL=wss://motrix.example/bridge
+MOTRIX_PUBLIC_URL=https://motrix.example
+```
+
+After the MBP1 listener and all four remote routes are ready, the Server logs
+the canonical `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` as
+`extensionServerAddress`. This is the exact address the user pastes into the
+Extension. The ordinary Server HTTP port (`PORT`, default 8080) is not the
+Extension address unless a reverse proxy on that port forwards all four routes
+to the bridge. The origin bridge port is `MOTRIX_MDXP_PORT` (default 16801), but
+users should normally copy the logged public address rather than reconstructing
+one from either listener port. Disabled or invalid remote configuration prints
+no pairing-ready address.
+
+The public reverse proxy maps `/bridge/discovery`, `/bridge/nonce`,
+`/bridge/pair`, and `/bridge/v1` to `http://127.0.0.1:16801` without stripping
+or rewriting `/bridge`. It MUST forward the original `Host`, `Origin`,
+`Upgrade`, `Connection`, and `Sec-WebSocket-Protocol` values. Do not expose
+port 16801 outside the host, do not set `MOTRIX_MDXP_HOST` to a public address,
+and do not use `X-Forwarded-Host` or `X-Forwarded-For` as an authentication
+signal. The proxy/firewall permits only the four exact paths and SHOULD add
+edge request/connection limits in addition to Motrix's conservative global
+limits. Because Motrix deliberately does not trust forwarded client addresses,
+origin-side per-client limits collapse to the proxy peer; edge per-IP limits
+are therefore required for an Internet-facing beta.
+
+When WSS is configured, the TLS certificate MUST chain to a trust anchor accepted
+by the target browser and cover the exact configured hostname. Self-signed
+certificates, hostname mismatch, and expired certificates are unsupported;
+explicit WS is supported but never selected as a fallback. Before
+enabling the feature, verify that the operator UI is reachable over its
+canonical HTTPS origin, that its authenticated event channel can display a
+pairing request/code, and that the proxy preserves the WebSocket subprotocol.
+If any required value is absent or invalid, keep
+`MOTRIX_REMOTE_EXTENSION_ENABLED=false`; the four public routes remain closed.
+
+Back up the bridge data directory only as part of a single-instance Server
+backup. Restoring it to a replacement host preserves the Server identity and
+existing Extension credentials, so the replacement MUST take over the same
+DNS name and trusted TLS identity and the old process MUST be offline. Cloning
+the backup into two live Servers is forbidden. To intentionally create a new
+Server identity, start from a fresh bridge data directory and pair every
+Extension again. Rollback to a historical token-era Server does not migrate
+credentials: disable the remote feature, forget the pairing in the Extension,
+upgrade Motrix, and perform a fresh MBP1 pair.
 
 ---
 
@@ -212,9 +387,9 @@ extension called is not the same as proving it is *official*:
 
 | State | Condition | UI |
 |---|---|---|
-| `official` | The proven caller identity — the Chromium verified `Origin` host, or the `callerId` inside a valid NM attestation ticket (§9) — appears on the immutable allowlist `src/shared/config/native-messaging-extensions.json` | May show Motrix branding |
-| `attested-non-official` | A valid ticket proves the exact caller ID, but that ID is not on the allowlist | Raw proven ID, no branding |
-| `unverified` | No attestation: any Firefox `/pair` without a ticket (a `moz-extension://<UUID>` origin cannot be mapped to a Gecko ID), and candidate-sweep peers | Warning styling, raw claimed ID |
+| `official` | The Chromium verified `Origin` host, or the `callerId` inside a valid NM attestation ticket (§9), appears on the immutable allowlist `src/shared/config/native-messaging-extensions.json` | May show Motrix branding |
+| `attested-non-official` | A valid ticket proves a non-allowlisted caller, or a ticketless Chromium WebSocket Origin proves a non-allowlisted extension ID | Raw proven ID, no branding |
+| `unverified` | Any Firefox `/pair` without a ticket (a `moz-extension://<UUID>` origin cannot be mapped to a Gecko ID), and local candidate-sweep peers without attestation | Warning styling, raw claimed ID |
 
 Rules:
 
@@ -226,6 +401,9 @@ Rules:
   server MUST reject the pairing. On Firefox, the `moz-extension://` origin
   cannot be checked against the claimed Gecko ID; without a ticket the state
   is `unverified`.
+- Ticketless Chromium is permitted in the remote profile, but Origin proof does
+  not promote a user-added registry entry to `official`; only the immutable
+  allowlist can do that. Ticketless remote Firefox always remains `unverified`.
 - The verified origin is bound to the session, the credential principal, the
   rate-limit keys, and the PAKE transcript (§6.4). Native local processes can
   forge any `Origin` header; origin binding raises the bar only inside
@@ -282,7 +460,7 @@ extension (A)                                Motrix (B)
 
 On receipt the server MUST, in order: validate the `?nonce=` (one-shot,
 unexpired) — an invalid nonce closes the socket before any further work;
-validate the Host header and `Origin`; enforce the pending-pair dedup (keyed
+validate the profile-specific Host rule (§4.3 or §4.4) and `Origin`; enforce the pending-pair dedup (keyed
 by verified origin) and the global pending cap and backoff (§7.3) **before
 creating any session state or dialog**; validate `nmTicket` if present (§9),
 requiring `nmTicket`'s `bindingPub` to equal `ticketBindingKey` and
@@ -295,8 +473,8 @@ queue exactly one approval dialog.
 { "type": "pairAccept", "protocolVersion": 1, "instanceId": "<UUID>" }
 ```
 
-Sent when the dialog is queued. The extension popup then prompts for the
-code. `pairAccept` carries no approval semantics — the extension MUST NOT
+Sent when the Desktop dialog or authenticated Server operator prompt is queued.
+The Extension popup then prompts for the code. `pairAccept` carries no approval semantics — the extension MUST NOT
 treat any server message as "the user approved"; only successful key
 confirmation proves that.
 
@@ -573,7 +751,14 @@ Atomicity rules:
   credential after the delete. It then sends the authenticated revocation
   notification where possible and closes the live WebSocket; the short
   notification-drain window admits no control-plane requests, and a previously
-  issued key cannot reconnect.
+  issued key cannot reconnect. Before the durable credential deletion, Server
+  deployments MUST persist a pending-revoke marker keyed by verified identity.
+  Startup restores that identity's deny gate and retries deletion before any
+  remote Extension listener opens. If deletion fails, no authenticated revoke
+  notification is sent, live/pre-auth sessions remain closed, bookkeeping stays
+  visible as “revocation incomplete,” and the gate remains closed across
+  restart. If the marker itself cannot be persisted, all four remote Extension
+  routes enter degraded/closed state rather than risk reviving the old key.
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
@@ -678,7 +863,8 @@ fields, a 16 KiB pre-authentication frame cap, and abort with
 `protocolViolation` on unknown types, out-of-order or duplicate messages,
 oversized frames, or schema-invalid JSON. The whole challenge–response MUST
 complete within **10 s** of the upgrade or the server closes the socket.
-After upgrade (Host and Origin checks as in §4.3/§5), the server speaks
+After upgrade (profile-specific Host checks as in §4.3/§4.4 and Origin checks
+as in §5), the server speaks
 first:
 
 ```json
@@ -958,7 +1144,8 @@ cookies, headers, or commands.
 | `rateLimited` | global backoff or attempt exhaustion | §7.3 |
 | `codeMismatch` | key confirmation failed | carries `attemptsRemaining` |
 | `expired` | nonce or code lifetime exceeded | |
-| `aborted` | user dismissed the dialog | |
+| `denied` | authenticated operator explicitly denied the prompt | terminal until an explicit retry |
+| `aborted` | PairSession/controller shut down without an operator decision | retryable; never infer denial |
 | `authFailed` | `/v1` challenge–response failed | uniform for unknown-ID and bad-MAC |
 | `protocolViolation` | malformed/out-of-order frame, bad point encoding, oversize | immediate close |
 | `pairingFailed` | internal failure (e.g. `w = 0`) | generic |
@@ -1001,12 +1188,22 @@ different meaning to `4001`.
 
 ## 12. Credential and pin lifecycle (extension side)
 
-- `PinStore` is a versioned store keyed by `credentialId` holding
+- Client credentials are scoped outside the MBP1 wire principal by a
+  `BackendAuthority`: `local`, or `{endpointId, canonicalWsBase}`. That
+  authority is a storage/lifecycle namespace only and MUST NOT be inserted into
+  `A_id`, `B_id`, `TT`, or reconnect MAC input. A URL change creates a new
+  authority scope; a display-name change does not.
+- `PinStore` is local-only and keyed by `credentialId`, holding
   `{port, instanceId}`. A pin is committed **only after** a
   mutually-authenticated session on that port — never from `/discovery`.
 - Pinned-port mismatch → full candidate sweep for the matching `instanceId`
   → re-commit only post-auth; otherwise clear the pin and fall back to fresh
   code-entry pairing.
+- Remote authorities perform no port sweep and store no pin. Their committed
+  credential durably includes the `authenticatedInstanceId`; reconnect uses
+  that retained identity rather than the discovery hint. If the same authority
+  retains a different authenticated instance, first pair/rotation MUST fail
+  with an explicit identity-change state until the user forgets the old scope.
 - `storage.local` credential entries carry `state: "provisional" |
   "committed"` and, for provisionals, the `unacked` / `commit-uncertain`
   sub-state (§6.7), plus an `activeCredentialId` pointer written **atomically
@@ -1092,9 +1289,10 @@ inputs.
 
 ## Appendix A — Security properties and acceptance criteria
 
-A malicious loopback listener replaying a real `instanceId` must not obtain:
-the pairing code, any credential, a completed MDXP initialize, or any
-download submission. Specifically:
+A malicious loopback listener, or a remote network endpoint serving forged
+discovery and replaying a real `instanceId`, must not obtain: the pairing code,
+any credential, a completed MDXP initialize, or any download submission.
+Specifically:
 
 - **Terminating MITM** (own PAKE with each side) cannot produce two confirmed
   keys without the code; a grinder test with adversarial key generation MUST
@@ -1119,6 +1317,15 @@ download submission. Specifically:
   or server generation; small-order `bindingPub` forgeries MUST be rejected.
 - **AEAD usage bounds** — sessions close before 2^24 frames or 2^30 encrypted
   blocks per direction (§10).
+- **Remote authority and transport** — production accepts canonical WS/WSS and
+  preserves the configured scheme. Redirects cannot change authority, discovery
+  cannot replace authenticated identity, and old query tokens/raw MDXP never
+  enter a session (§4.4). WSS adds PKI network identity and metadata protection;
+  MBP1 protects application payloads on both transports.
+- **Atomic exposure and revoke** — dependency omission keeps all four remote
+  routes at 404; revoke cuts authorization first, persists a restart-safe deny
+  marker, deletes credentials durably before notifying, and never reopens on a
+  failed delete (§4.4/§6.7).
 
 ## Appendix B — Externally-verified browser facts
 
@@ -1132,10 +1339,12 @@ build matrix per §14.3.
 | MV3 service-worker keepalive | From Chrome 116, WebSocket activity resets the 30 s service-worker idle timer; keepalive requires exchanging a message within each 30 s window | [Chrome developers: WebSockets in service workers](https://developer.chrome.com/docs/extensions/how-to/web-platform/websockets) |
 | Extension minimums | `minimum_chrome_version: "120"`, Gecko `strict_min_version: "121.0"` | `motrix-extension/packages/ext/manifest.config.ts` |
 
-Consequence of the Firefox rows: before probing loopback the extension MUST
-check `permissions.contains({origins:["http://127.0.0.1/*"]})`, request within
-a user gesture when missing, and show an explicit degraded state on refusal.
-The acceptance matrix covers Firefox 121–126, 127+, and manual revocation.
+The current Extension manifest uses required host access, so there is no
+actionable optional-host-permission reauthorization flow and UI MUST NOT offer
+one. If a future release narrows this to optional origins, it must check and
+request the exact local/remote authority only inside a user gesture, preserve
+credentials on refusal/revocation, and add Firefox 121–126, 127+, and manual
+revocation coverage before making that profile supported.
 
 ## Appendix C — Review log
 

@@ -297,6 +297,7 @@ export const PAIR_ERROR_CODES = [
   'rateLimited',
   'codeMismatch',
   'expired',
+  'denied',
   'aborted',
   'authFailed',
   'protocolViolation',

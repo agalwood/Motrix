@@ -31,6 +31,10 @@ export interface OperatorAuthOptions {
    * and the control plane never depends on the (non-fatal) bridge bootstrap.
    */
   operatorToken: string
+  /** Public operator URL advertised by MOTRIX_PUBLIC_URL. Cookie-authenticated
+   * event WebSockets must present this exact URL origin; scripts using Bearer
+   * authentication remain independent of browser Origin semantics. */
+  publicUrl?: string
   /** Injectable clock (tests). */
   now?: () => number
 }
@@ -69,6 +73,47 @@ function isSecure(req: FastifyRequest): boolean {
   )
 }
 
+function isWebSocketUpgrade(req: FastifyRequest): boolean {
+  return String(req.headers.upgrade ?? '').toLowerCase() === 'websocket'
+}
+
+function configuredPublicOrigin(value: string | undefined): string | null {
+  if (value === undefined) return null
+  try {
+    const parsed = new URL(value)
+    if (
+      (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
+      parsed.username !== '' ||
+      parsed.password !== ''
+    ) {
+      return null
+    }
+    return parsed.origin
+  } catch {
+    return null
+  }
+}
+
+function exactBrowserOrigin(
+  req: FastifyRequest,
+  publicOrigin: string | null
+): boolean {
+  const presented = req.headers.origin
+  if (typeof presented !== 'string' || presented.length === 0) return false
+  const expected =
+    publicOrigin ??
+    (() => {
+      const host = req.headers.host
+      if (typeof host !== 'string' || host.length === 0) return null
+      try {
+        return new URL(`${isSecure(req) ? 'https' : 'http'}://${host}`).origin
+      } catch {
+        return null
+      }
+    })()
+  return expected !== null && presented === expected
+}
+
 /** Deny a request. A normal `reply.send()` does NOT yield a clean HTTP response
  *  on a WebSocket UPGRADE request (the client just hangs), so for an upgrade we
  *  hijack and write a raw status line so the `ws` client gets `unexpected-response`. */
@@ -78,8 +123,7 @@ function deny(
   code: number,
   message: string
 ): FastifyReply | undefined {
-  const isUpgrade =
-    String(req.headers.upgrade ?? '').toLowerCase() === 'websocket'
+  const isUpgrade = isWebSocketUpgrade(req)
   if (isUpgrade) {
     reply.hijack()
     const text = code === 403 ? 'Forbidden' : 'Unauthorized'
@@ -117,6 +161,7 @@ export function registerOperatorAuth(
   opts: OperatorAuthOptions
 ): void {
   const now = opts.now ?? Date.now
+  const publicOrigin = configuredPublicOrigin(opts.publicUrl)
   const sessions = new Map<string, number>() // sessionId -> expiresAt
   let failedLogins: number[] = [] // timestamps of FAILED attempts only
 
@@ -132,15 +177,26 @@ export function registerOperatorAuth(
     return true
   }
 
-  const isOperator = (req: FastifyRequest): boolean => {
+  const authenticate = (req: FastifyRequest): 'bearer' | 'cookie' | null => {
     const tok = bearerToken(req)
-    if (tok && safeEqual(tok, opts.operatorToken)) return true
+    if (tok && safeEqual(tok, opts.operatorToken)) return 'bearer'
     return validSession(parseCookies(req.headers.cookie)[COOKIE])
+      ? 'cookie'
+      : null
   }
 
   // ── deny-by-default gate ────────────────────────────────────────────────
   app.addHook('onRequest', async (req, reply) => {
+    const path = req.url.split('?')[0]
+    if (path.startsWith('/rpc/') || path.startsWith('/api/')) {
+      // Operator responses can contain live pairing codes, task metadata, and
+      // other machine-owner state. Keep them out of browser/proxy caches even
+      // when the request is rejected or the caller used Bearer auth.
+      reply.header('cache-control', 'no-store')
+      reply.header('pragma', 'no-cache')
+    }
     if (isPublic(req.method, req.url)) return
+    const authentication = authenticate(req)
     // CSRF defense-in-depth on mutations: reject a present-but-cross-origin
     // Origin. SameSite=Strict is the primary defense; non-browser callers omit
     // Origin and authenticate by Bearer.
@@ -158,8 +214,15 @@ export function registerOperatorAuth(
         }
       }
     }
-    if (!isOperator(req)) {
+    if (authentication === null) {
       return deny(req, reply, 401, 'unauthorized')
+    }
+    if (
+      isWebSocketUpgrade(req) &&
+      authentication === 'cookie' &&
+      !exactBrowserOrigin(req, publicOrigin)
+    ) {
+      return deny(req, reply, 403, 'cross-origin forbidden')
     }
   })
 
@@ -197,7 +260,9 @@ export function registerOperatorAuth(
     }
   )
 
-  app.get('/rpc/auth/status', async (req) => ({ authed: isOperator(req) }))
+  app.get('/rpc/auth/status', async (req) => ({
+    authed: authenticate(req) !== null,
+  }))
 
   app.post('/rpc/auth/logout', async (req, reply) => {
     const id = parseCookies(req.headers.cookie)[COOKIE]

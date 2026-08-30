@@ -1,4 +1,5 @@
 import type { PairedClientInfo } from '@shared/protocol/bridge'
+import type { ExtensionPairingProjection } from './extension-pairing-projection'
 import type { PairedClient } from './pairing-service'
 
 /**
@@ -7,17 +8,24 @@ import type { PairedClient } from './pairing-service'
  * identity `kind` + its id (extension id or cli id) and, for an extension, the
  * `browser`.
  */
-export function toPairedClientInfo(p: PairedClient): PairedClientInfo {
+export function toPairedClientInfo(
+  p: PairedClient | ExtensionPairingProjection
+): PairedClientInfo {
   const base = {
-    name: p.name,
+    name: 'name' in p ? p.name : '',
     pairedAt: p.pairedAt,
     lastActiveAt: p.lastActiveAt,
   }
   if (p.identity.kind === 'extension') {
+    if (!('identityTrust' in p) || !('status' in p)) {
+      throw new Error('token-backed extension projection rejected')
+    }
     return {
       kind: 'extension',
       id: p.identity.extensionId,
       browser: p.identity.browser,
+      identityTrust: p.identityTrust,
+      status: p.status,
       ...base,
     }
   }

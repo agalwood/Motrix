@@ -112,7 +112,11 @@ function isBridgeStatusInfo(value: unknown): value is BridgeStatusInfo {
   return (
     typeof value === 'object' &&
     value !== null &&
-    typeof (value as { degraded?: unknown }).degraded === 'boolean'
+    typeof (value as { degraded?: unknown }).degraded === 'boolean' &&
+    ((value as { extensionPairingHealth?: unknown }).extensionPairingHealth ===
+      'ready' ||
+      (value as { extensionPairingHealth?: unknown }).extensionPairingHealth ===
+        'degraded')
   )
 }
 
@@ -205,7 +209,7 @@ export function usePendingPairRequests() {
     )
   }, [])
 
-  // Settled (denied/approved elsewhere, e.g. the pairing toast) and expired
+  // Settled (denied/approved elsewhere, or transport-aborted) and expired
   // (lapsed past TTL) both need to drop this row's Approve button promptly
   // rather than wait for focus/visibility or the 1s local prune — see
   // src/main/bridge/index.ts's PairRequestSettled / PairRequestExpired

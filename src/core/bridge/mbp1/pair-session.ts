@@ -47,6 +47,18 @@ import { timingSafeEqual } from 'node:crypto'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser } from '@shared/protocol/bridge'
 import type { CredentialPrincipal, IdentityTriState } from '../credential-store'
+import {
+  type NormalizedExtensionIdentity,
+  normalizeExtensionIdentity,
+  resolveNormalizedExtensionIdentity,
+} from '../extension-identity-resolver'
+import type {
+  PairingPromptEnqueueResult,
+  PairingPromptHandle,
+  PairingPromptSessionOutcome,
+  PairingPromptSettleResult,
+  PairingPromptTerminalOutcome,
+} from '../pairing-prompt-controller'
 import { fromBase64Url, toBase64Url } from './canonical'
 import { DIR_C2S, DIR_S2C, EnvelopeOpener, EnvelopeSealer } from './envelope'
 import {
@@ -90,10 +102,8 @@ import { buildAad, buildAId, buildBId, ticketDigest } from './transcript'
 /** Attempts a single pairing code allows before it dies (§7.2). */
 const MAX_ATTEMPTS = 3
 
-/** Pairing-code lifetime from the moment the dialog is queued (§7.2). */
+/** Pairing-code lifetime from the moment the prompt is queued (§7.2). */
 const CODE_LIFETIME_MS = 120_000
-
-const CHROMIUM_ORIGIN_SCHEME = 'chrome-extension://'
 
 /**
  * The §7.3 admission verdict. Structurally identical to
@@ -113,19 +123,13 @@ export interface PairDialogRequest {
   pairingNonce: string
   /**
    * The verified `Origin` this `/pair` connection presented (§5) — never a
-   * self-reported field. The shell's dialog controller keys its per-key
-   * prompt dedup on this, never on `claimedExtensionId`: on Firefox the
+   * self-reported field. The prompt controller keys its dedup on this, never
+   * on `claimedExtensionId`: on Firefox the
    * claimed id is self-reported, so keying on it would let one extension
    * suppress another's prompt by claiming its id. Internal bookkeeping only —
    * never surfaced to the renderer.
    */
   verifiedOrigin: string
-}
-
-/** A queued approval dialog. `dismissed` resolves when the user dismisses it. */
-export interface PairDialogHandle {
-  dismissed: Promise<void>
-  close(): void
 }
 
 /**
@@ -190,7 +194,7 @@ export interface PairSessionDeps {
    * from `attemptCount` and whether `onAuthenticated` fired.
    */
   release(verifiedOrigin: string): void
-  queueDialog(args: PairDialogRequest): PairDialogHandle
+  queueDialog(args: PairDialogRequest): PairingPromptEnqueueResult
   sendText(json: object): void
   sendBinary(frame: Uint8Array): void
   close(reason: string): void
@@ -199,10 +203,14 @@ export interface PairSessionDeps {
    * envelope endpoints — their sequence counters continue from the credential
    * exchange, so MDXP must reuse these instances rather than derive new ones.
    */
-  onAuthenticated(channel: {
-    sealer: EnvelopeSealer
-    opener: EnvelopeOpener
-  }): void
+  onAuthenticated(
+    channel: {
+      sealer: EnvelopeSealer
+      opener: EnvelopeOpener
+    },
+    /** The exact durable credential committed by this session. */
+    credentialId: string
+  ): void
   now(): number
   random(n: number): Uint8Array
 }
@@ -241,7 +249,7 @@ export class PairSession {
   private readonly deps: PairSessionDeps
   private state: PairState = 'awaiting-hello'
   private hello: HelloContext | null = null
-  private dialog: PairDialogHandle | null = null
+  private prompt: PairingPromptHandle | null = null
   private codeNormalized: string | null = null
   private codeExpiresAt = 0
   private w: bigint | null = null
@@ -304,7 +312,7 @@ export class PairSession {
 
     switch (envelope.data.type) {
       case 'pairHello':
-        this.onPairHello(body)
+        await this.onPairHello(body)
         return
       case 'pakeA':
         this.onPakeA(body)
@@ -349,10 +357,11 @@ export class PairSession {
       return
     }
 
+    const credentialId = ack.data.credentialId
     this.state = 'acked'
     try {
       // §6.7 step 3: durable first, then the message that announces it.
-      await this.deps.credentials.commitFromPair(ack.data.credentialId)
+      await this.deps.credentials.commitFromPair(credentialId)
     } catch {
       this.terminate('credentialCommitFailed')
       return
@@ -377,7 +386,7 @@ export class PairSession {
       return
     }
     this.state = 'committed'
-    this.deps.onAuthenticated(channel)
+    this.deps.onAuthenticated(channel, credentialId)
   }
 
   /**
@@ -388,13 +397,13 @@ export class PairSession {
    * deliberately preserved (§7.2).
    */
   dispose(_reason: 'socket-closed' | 'timeout' | 'access-revoked'): void {
-    if (this.state === 'closed') {
+    if (this.isClosed()) {
       return
     }
     this.state = 'closed'
     this.discardRunState()
     try {
-      this.closeDialog()
+      this.settlePrompt('aborted')
     } finally {
       // A renderer/dialog teardown fault must not leak §7.3's pending slot.
       this.releasePendingSlot()
@@ -403,7 +412,7 @@ export class PairSession {
 
   // -- §6.1 pairHello ------------------------------------------------------
 
-  private onPairHello(body: unknown): void {
+  private async onPairHello(body: unknown): Promise<void> {
     if (this.state !== 'awaiting-hello') {
       this.violation()
       return
@@ -432,30 +441,21 @@ export class PairSession {
       return
     }
 
-    // §5: on Chromium the verified `Origin` host proves the extension id, so a
-    // `claimedExtensionId` that disagrees with it is a rejected pairing. On
-    // Firefox a `moz-extension://<UUID>` origin cannot be mapped to a Gecko
-    // id, so there is nothing to compare. Host-header validation is the
-    // wiring's, since the header never reaches this module.
-    //
-    // Branches on the **derived** browser, not the frame's. The check above
-    // makes them equal, so this is belt and braces — but this is the check
-    // §5's whole identity proof rests on, and while it keyed off the client's
-    // own field a Chromium caller could declare `firefox` to skip it entirely
-    // and then claim any `claimedExtensionId` it liked. Identity resolved to
-    // `unverified`, which renders the *claimed* id in the dialog, so the
-    // payoff was showing the user a recognizable id from an extension that
-    // was not it. Never let this predicate depend on a frame field again.
-    if (
-      this.deps.browser === 'chromium' &&
-      this.deps.verifiedOrigin !==
-        `${CHROMIUM_ORIGIN_SCHEME}${frame.claimedExtensionId}`
-    ) {
+    // Normalize only the transport-derived browser/Origin. The helper uses
+    // the pairHello claim once for Chromium host equality, then discards it;
+    // Firefox's claimed Gecko id never enters normalized evidence. This runs
+    // before admission so a contradictory identity cannot occupy a §7.3 slot.
+    const normalizedIdentity = normalizeExtensionIdentity({
+      browser: this.deps.browser,
+      verifiedOrigin: this.deps.verifiedOrigin,
+      claimedExtensionId: frame.claimedExtensionId,
+    })
+    if (!normalizedIdentity.ok) {
       this.violation()
       return
     }
 
-    // §7.3, before any session state, ticket work, or dialog.
+    // §7.3, before any session state, ticket work, or prompt.
     const admission = this.deps.admit(this.deps.verifiedOrigin)
     if (!admission.ok) {
       // No slot was taken, so `releasePendingSlot` must stay a no-op — the
@@ -465,7 +465,7 @@ export class PairSession {
     }
     this.admitted = true
 
-    const resolved = this.resolveIdentity(frame)
+    const resolved = this.resolveIdentity(frame, normalizedIdentity.identity)
     if (resolved === null) {
       return
     }
@@ -511,20 +511,7 @@ export class PairSession {
     this.codeNormalized = code
     this.codeExpiresAt = this.deps.now() + CODE_LIFETIME_MS
 
-    this.dialog = this.deps.queueDialog({
-      browser: frame.browser,
-      claimedExtensionId: frame.claimedExtensionId,
-      identity: resolved.identity,
-      code: formatPairingCode(code),
-      pairingNonce: this.deps.pairNonce,
-      verifiedOrigin: this.deps.verifiedOrigin,
-    })
-    this.dialog.dismissed.then(
-      () => this.onDismissed(),
-      () => this.onDismissed()
-    )
-
-    // §6.1: sent when the dialog is queued, and carrying no approval
+    // §6.1: sent when the prompt is queued, and carrying no approval
     // semantics — only key confirmation proves the user approved.
     const acceptFrame = {
       type: 'pairAccept',
@@ -535,6 +522,58 @@ export class PairSession {
       this.terminate('pairAcceptInvalid')
       return
     }
+
+    let enqueued: PairingPromptEnqueueResult
+    try {
+      enqueued = this.deps.queueDialog({
+        browser: frame.browser,
+        claimedExtensionId: frame.claimedExtensionId,
+        identity: resolved.identity,
+        code: formatPairingCode(code),
+        pairingNonce: this.deps.pairNonce,
+        verifiedOrigin: this.deps.verifiedOrigin,
+      })
+    } catch {
+      this.fail('pairingFailed')
+      return
+    }
+    if (!enqueued.ok) {
+      // The refusal reason belongs to the local prompt adapter. Collapsing all
+      // of them avoids turning duplicate/capacity/scheduler state into a wire
+      // oracle and, critically, leaves no session waiting for a handle that
+      // does not exist.
+      this.fail('pairingFailed')
+      return
+    }
+
+    const prompt = enqueued.handle
+    this.prompt = prompt
+    prompt.terminal.then(
+      (outcome) => this.onPromptTerminal(outcome),
+      () => this.onPromptContractFailure()
+    )
+
+    let published: Awaited<PairingPromptHandle['published']>
+    try {
+      published = await prompt.published
+    } catch {
+      published = 'failed'
+    }
+    if (this.isClosed()) {
+      return
+    }
+    if (published !== 'delivered') {
+      // A code that never reached the authenticated shell UI cannot authorize
+      // anything. Fail generically, then settle the prompt as session-aborted
+      // during terminate(); callback errors and their details stay local.
+      this.fail('pairingFailed')
+      return
+    }
+    if (this.codeExpired()) {
+      this.expire()
+      return
+    }
+
     this.state = 'awaiting-pakeA'
     this.deps.sendText(acceptFrame)
   }
@@ -543,12 +582,15 @@ export class PairSession {
    * Applies §9.2's outcome table and §5's tri-state. Returns `null` once the
    * session has already been ended by an abort.
    */
-  private resolveIdentity(frame: {
-    browser: Browser
-    claimedExtensionId: string
-    nmTicket?: unknown
-    ticketBindingKey?: string
-  }): {
+  private resolveIdentity(
+    frame: {
+      browser: Browser
+      claimedExtensionId: string
+      nmTicket?: unknown
+      ticketBindingKey?: string
+    },
+    normalizedIdentity: NormalizedExtensionIdentity
+  ): {
     identity: IdentityTriState
     bindingPub: Uint8Array | null
     digest: Uint8Array | null
@@ -583,8 +625,17 @@ export class PairSession {
       // not change this: it applies equally to the `official` row and the spec
       // accepts it there. The user-facing boundary is the pairing code, the
       // approval dialog, and the global prompt caps (§7.3) — never the Origin.
+      const resolution = resolveNormalizedExtensionIdentity(
+        normalizedIdentity,
+        { kind: 'none' },
+        this.deps.isOfficialId
+      )
+      if (!resolution.ok) {
+        this.violation()
+        return null
+      }
       return {
-        identity: this.originIdentity(frame),
+        identity: resolution.identity,
         bindingPub: null,
         digest: null,
       }
@@ -623,33 +674,23 @@ export class PairSession {
     // downgrade contributes nothing, so identity falls back to what the
     // verified origin alone establishes — the exact ticketless outcome, so a
     // stale ticket is never worse for a caller than presenting none.
-    const identity: IdentityTriState =
+    const resolution = resolveNormalizedExtensionIdentity(
+      normalizedIdentity,
       verdict.kind === 'attested'
-        ? this.deps.isOfficialId(frame.browser, verdict.callerId)
-          ? 'official'
-          : 'attested-non-official'
-        : this.originIdentity(frame)
+        ? { kind: 'verified-nm-ticket', callerId: verdict.callerId }
+        : { kind: 'none' },
+      this.deps.isOfficialId
+    )
+    if (!resolution.ok) {
+      this.violation()
+      return null
+    }
 
-    return { identity, bindingPub: verdict.deferredProof.bindingPub, digest }
-  }
-
-  /**
-   * §5's origin-only identity: what the connection proves with no ticket
-   * contribution. A surviving Chromium session's origin host already agrees
-   * with `claimedExtensionId` (checked before `resolveIdentity`), so the id
-   * is proven and the allowlist alone splits `official` from
-   * `attested-non-official`; a Firefox `moz-extension://<UUID>` origin maps
-   * to no Gecko id, so it stays `unverified`.
-   */
-  private originIdentity(frame: {
-    browser: Browser
-    claimedExtensionId: string
-  }): IdentityTriState {
-    return frame.browser === 'firefox'
-      ? 'unverified'
-      : this.deps.isOfficialId(frame.browser, frame.claimedExtensionId)
-        ? 'official'
-        : 'attested-non-official'
+    return {
+      identity: resolution.identity,
+      bindingPub: verdict.deferredProof.bindingPub,
+      digest,
+    }
   }
 
   private helloBindingKey(frame: {
@@ -820,6 +861,19 @@ export class PairSession {
       this.terminate('confirmBInvalid')
       return
     }
+    let promptSettlement: PairingPromptSettleResult
+    try {
+      promptSettlement = this.settlePrompt('paired')
+    } catch {
+      this.fail('pairingFailed')
+      return
+    }
+    if (!promptSettlement.ok) {
+      // Denial, expiry, adapter disposal, or session teardown already won.
+      // Its terminal callback owns the corresponding wire outcome.
+      return
+    }
+
     this.confirmed = true
     this.deps.sendText(confirmBFrame)
 
@@ -833,11 +887,10 @@ export class PairSession {
     this.run = null
     this.w = null
     this.codeNormalized = null
-    this.closeDialog()
-    // The dialog is gone, so the §7.3 pending slot is free — and it must be
+    // The prompt is terminal, so the §7.3 pending slot is free — and it must be
     // freed here rather than at `dispose`, or a long-lived paired connection
     // would hold a slot for its whole lifetime and three of them would block
-    // every new dialog.
+    // every new prompt.
     this.releasePendingSlot()
 
     await this.issueCredential()
@@ -924,6 +977,10 @@ export class PairSession {
     return this.deps.now() >= this.codeExpiresAt
   }
 
+  private isClosed(): boolean {
+    return this.state === 'closed'
+  }
+
   /** A run that reached `pakeA` and ended without mutual confirmation (§7.2). */
   private failRun(): void {
     this.run = null
@@ -943,11 +1000,39 @@ export class PairSession {
     this.state = 'awaiting-pakeA'
   }
 
-  private onDismissed(): void {
-    if (this.confirmed || this.state === 'closed') {
+  private onPromptTerminal(outcome: PairingPromptTerminalOutcome): void {
+    if (
+      this.confirmed ||
+      this.state === 'closed' ||
+      this.state === 'committed'
+    ) {
       return
     }
-    this.fail('aborted')
+
+    if (outcome === 'paired') {
+      // Only this PairSession owns `paired`; observing it before the session
+      // marked mutual confirmation is a broken adapter contract, not approval.
+      this.fail('pairingFailed')
+      return
+    }
+    this.fail(
+      outcome === 'expired'
+        ? 'expired'
+        : outcome === 'denied'
+          ? 'denied'
+          : 'aborted'
+    )
+  }
+
+  private onPromptContractFailure(): void {
+    if (
+      this.confirmed ||
+      this.state === 'closed' ||
+      this.state === 'committed'
+    ) {
+      return
+    }
+    this.fail('pairingFailed')
   }
 
   private expire(): void {
@@ -990,24 +1075,29 @@ export class PairSession {
     }
     this.state = 'closed'
     this.discardRunState()
-    this.closeDialog()
-    this.releasePendingSlot()
-    this.deps.close(reason)
+    try {
+      this.settlePrompt('aborted')
+    } catch {
+      // The socket still closes and the admission slot is still released. A
+      // broken shell adapter cannot keep protocol state alive.
+    } finally {
+      this.releasePendingSlot()
+      this.deps.close(reason)
+    }
   }
 
-  /**
-   * Closes the approval dialog at most once. `PairDialogHandle.close` is not
-   * required to be idempotent, and the close sites overlap: key confirmation
-   * closes the dialog, and the later `dispose` on socket close would close it
-   * a second time.
-   */
-  private closeDialog(): void {
-    const dialog = this.dialog
-    if (dialog === null) {
-      return
+  private settlePrompt(
+    outcome: PairingPromptSessionOutcome
+  ): PairingPromptSettleResult {
+    const prompt = this.prompt
+    if (prompt === null) {
+      return { ok: false, reason: 'unavailable' }
     }
-    this.dialog = null
-    dialog.close()
+    const result = prompt.settle(outcome)
+    if (result.ok) {
+      this.prompt = null
+    }
+    return result
   }
 
   /** See `PairSessionDeps.release`: at most once, and only for a slot we took. */

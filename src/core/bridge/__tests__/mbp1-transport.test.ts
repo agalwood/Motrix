@@ -2,6 +2,8 @@ import { createServer as createHttpServer } from 'node:http'
 import { connect as netConnect } from 'node:net'
 import { MAX_ENVELOPE_PLAINTEXT_BYTES } from '@core/bridge/mbp1/envelope'
 import type { EnvelopeChannel } from '@core/bridge/mbp1/envelope-message-stream'
+import type { PairDialogRequest } from '@core/bridge/mbp1/pair-session'
+import type { PairingPromptEnqueueResult } from '@core/bridge/pairing-prompt-controller'
 import {
   BRIDGE_CANDIDATE_PORTS,
   MAX_WEBSOCKET_PAYLOAD_BYTES,
@@ -52,17 +54,25 @@ interface Harness {
   port: number
   dialogs: FakeDialogs
   credentials: Awaited<ReturnType<typeof makeTempCredentialStore>>
-  authenticated: Array<ClientIdentity & { kind: 'extension' }>
+  authenticated: Array<{
+    identity: ClientIdentity & { kind: 'extension' }
+    credentialId: string
+  }>
 }
 
 async function makeHarness(
   overrides: {
     allowlist?: ReadonlyArray<[Browser, string]>
     host?: string
+    queueMbp1Dialog?: (
+      args: PairDialogRequest,
+      dialogs: FakeDialogs
+    ) => PairingPromptEnqueueResult
+    extensionMbp1RoutesEnabled?: boolean
   } = {}
 ): Promise<Harness> {
   const dialogs = makeFakeDialogs()
-  const authenticated: Array<ClientIdentity & { kind: 'extension' }> = []
+  const authenticated: Harness['authenticated'] = []
   const credentials = await makeTempCredentialStore()
   const server = new WebSocketBridgeServer({
     pairing: makeStatefulFakePairing(),
@@ -78,8 +88,11 @@ async function makeHarness(
     isOfficialId: makeAllowlist(
       overrides.allowlist ?? [['chromium', OFFICIAL_ID]]
     ),
-    queueMbp1Dialog: (args) => dialogs.queue(args),
-    onExtensionAuthenticated: (identity) => authenticated.push(identity),
+    queueMbp1Dialog: (args) =>
+      overrides.queueMbp1Dialog?.(args, dialogs) ?? dialogs.queue(args),
+    extensionMbp1RoutesEnabled: overrides.extensionMbp1RoutesEnabled,
+    onExtensionAuthenticated: (identity, credentialId) =>
+      authenticated.push({ identity, credentialId }),
   })
   server.registerReadMethods({
     taskManager: { getAll: () => [], getById: () => undefined },
@@ -455,7 +468,7 @@ describe('§4 ingress demux', () => {
     await expect(wire.closed).resolves.toMatchObject({ code: 1009 })
   })
 
-  it('refuses both routes when MBP1 is not wired', async () => {
+  it('refuses all four Extension routes when MBP1 is not wired', async () => {
     const bare = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
@@ -479,8 +492,45 @@ describe('§4 ingress demux', () => {
       expect((await fetch(`http://127.0.0.1:${port}/discovery`)).status).toBe(
         404
       )
+      expect(
+        (
+          await fetch(`http://127.0.0.1:${port}/nonce`, {
+            method: 'POST',
+            headers: { 'X-Motrix-Bridge': '1' },
+          })
+        ).status
+      ).toBe(404)
     } finally {
       await bare.stop()
+    }
+  })
+
+  it('keeps all four routes closed behind the composition-root kill switch', async () => {
+    const closed = await makeHarness({ extensionMbp1RoutesEnabled: false })
+    try {
+      const nonce = closed.server.issuePairNonce()
+      await expect(
+        WireClient.open(
+          `ws://127.0.0.1:${closed.port}/pair?nonce=${nonce}`,
+          OFFICIAL_ORIGIN
+        )
+      ).rejects.toThrow()
+      await expect(
+        WireClient.open(`ws://127.0.0.1:${closed.port}/v1`, OFFICIAL_ORIGIN)
+      ).rejects.toThrow()
+      expect(
+        (await fetch(`http://127.0.0.1:${closed.port}/discovery`)).status
+      ).toBe(404)
+      expect(
+        (
+          await fetch(`http://127.0.0.1:${closed.port}/nonce`, {
+            method: 'POST',
+            headers: { 'X-Motrix-Bridge': '1' },
+          })
+        ).status
+      ).toBe(404)
+    } finally {
+      await closed.server.stop()
     }
   })
 })
@@ -792,7 +842,14 @@ describe('§6 first pair over the wire', () => {
     expect(session).toBeDefined()
     expect(Array.from(h.server.iterSessions())).toHaveLength(1)
     expect(h.authenticated).toEqual([
-      { kind: 'extension', browser: 'chromium', extensionId: OFFICIAL_ID },
+      {
+        identity: {
+          kind: 'extension',
+          browser: 'chromium',
+          extensionId: OFFICIAL_ID,
+        },
+        credentialId: credential.credentialId,
+      },
     ])
 
     conn.dispose()
@@ -1059,7 +1116,7 @@ describe('§6 first pair over the wire', () => {
     await hs.wire.closed
   })
 
-  it('aborts when the user dismisses the dialog', async () => {
+  it('reports an authenticated operator denial distinctly from shutdown', async () => {
     const hs = await startPair({
       port: h.port,
       origin: OFFICIAL_ORIGIN,
@@ -1070,7 +1127,7 @@ describe('§6 first pair over the wire', () => {
     h.dialogs.dismissLatest()
 
     const frame = await hs.wire.takeJson<{ type: string; code: string }>()
-    expect(frame).toMatchObject({ type: 'pairError', code: 'aborted' })
+    expect(frame).toMatchObject({ type: 'pairError', code: 'denied' })
     await hs.wire.closed
   })
 
@@ -1176,6 +1233,14 @@ describe('R3 adoption boundary', () => {
     const second = await pairFully(h)
     const secondSession = h.server.getSession(`chromium:${OFFICIAL_ID}`)
 
+    expect(second.credential.credentialId).not.toBe(
+      first.credential.credentialId
+    )
+    expect(h.authenticated.map(({ credentialId }) => credentialId)).toEqual([
+      first.credential.credentialId,
+      second.credential.credentialId,
+    ])
+
     // The key never went empty, and it now holds the newcomer.
     expect(secondSession).toBeDefined()
     expect(secondSession).not.toBe(firstSession)
@@ -1275,6 +1340,91 @@ describe('R4 §7.3 flood control', () => {
     })
     expect(h.dialogs.requests).toHaveLength(1)
   })
+
+  it('does not count a typed prompt refusal that published no code', async () => {
+    await h.server.stop()
+    let refuseNext = true
+    h = await makeHarness({
+      queueMbp1Dialog: (args, dialogs) => {
+        if (refuseNext) {
+          refuseNext = false
+          return { ok: false, reason: 'capacity' }
+        }
+        return dialogs.queue(args)
+      },
+    })
+
+    await expect(
+      startPair({
+        port: h.port,
+        origin: OFFICIAL_ORIGIN,
+        browser: 'chromium',
+        claimedExtensionId: OFFICIAL_ID,
+      })
+    ).rejects.toMatchObject({
+      frame: { type: 'pairError', code: 'pairingFailed' },
+    })
+
+    const peer = peerFor(11)
+    const next = await startPair({
+      port: h.port,
+      origin: peer.origin,
+      browser: 'chromium',
+      claimedExtensionId: peer.id,
+    })
+    expect(h.dialogs.requests).toHaveLength(1)
+    next.wire.ws.close()
+  })
+
+  it.each([
+    ['failed', () => Promise.resolve<'failed'>('failed')],
+    [
+      'rejected',
+      () =>
+        Promise.reject<'failed'>(new Error('secret publisher failure detail')),
+    ],
+  ] as const)(
+    'does not count a %s prompt publisher or leak an unhandled rejection',
+    async (_label, publication) => {
+      await h.server.stop()
+      let replaceNextPublication = true
+      h = await makeHarness({
+        queueMbp1Dialog: (args, dialogs) => {
+          const result = dialogs.queue(args)
+          if (!result.ok || !replaceNextPublication) return result
+          replaceNextPublication = false
+          return {
+            ok: true,
+            handle: {
+              ...result.handle,
+              published: publication(),
+            },
+          }
+        },
+      })
+
+      await expect(
+        startPair({
+          port: h.port,
+          origin: OFFICIAL_ORIGIN,
+          browser: 'chromium',
+          claimedExtensionId: OFFICIAL_ID,
+        })
+      ).rejects.toMatchObject({
+        frame: { type: 'pairError', code: 'pairingFailed' },
+      })
+
+      const peer = peerFor(12)
+      const next = await startPair({
+        port: h.port,
+        origin: peer.origin,
+        browser: 'chromium',
+        claimedExtensionId: peer.id,
+      })
+      expect(h.dialogs.requests).toHaveLength(2)
+      next.wire.ws.close()
+    }
+  )
 
   it('answers busy — not rateLimited — for a same-origin duplicate with no failures', async () => {
     // The two codes are distinct §11 rows and mean different things to the
@@ -1454,7 +1604,10 @@ describe('§8 reconnect over the wire', () => {
 
     expect(result.server.name).toBe('motrix')
     expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeDefined()
-    expect(h.authenticated).toHaveLength(2)
+    expect(h.authenticated.map(({ credentialId }) => credentialId)).toEqual([
+      paired.credential.credentialId,
+      paired.credential.credentialId,
+    ])
 
     conn.dispose()
     back.wire.ws.close()
@@ -1491,6 +1644,65 @@ describe('§8 reconnect over the wire', () => {
     await expect(revoke).resolves.toBe(1)
     await expect(paired.wire.closed).resolves.toMatchObject({ code: 1000 })
     expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+    await expect(
+      reconnect({
+        port: h.port,
+        origin: OFFICIAL_ORIGIN,
+        instanceId: INSTANCE_ID,
+        credential: paired.credential,
+      })
+    ).rejects.toMatchObject({
+      frame: { type: 'pairError', code: 'authFailed' },
+    })
+
+    conn.dispose()
+  })
+
+  it('cuts authorization synchronously and retains the identity gate when durable deletion fails', async () => {
+    const paired = await pairFully(h)
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    await conn.sendRequest('motrix/initialize', initializeParams(OFFICIAL_ID))
+    const revokedNotice = vi.fn()
+    conn.onNotification(Notifications.PairRevoked, revokedNotice)
+
+    const identity = {
+      kind: 'extension' as const,
+      browser: 'chromium' as const,
+      extensionId: OFFICIAL_ID,
+    }
+    const durableFailure = new Error('secret durable path')
+    vi.spyOn(h.credentials, 'revokeExtensionIdentity').mockRejectedValueOnce(
+      durableFailure
+    )
+
+    const lease = h.server.beginExtensionRevocation(identity)
+
+    // No await exists between the operator action and this cutoff. The live
+    // transport is already unauthorized while durable storage is untouched.
+    await expect(conn.sendRequest('task/list', {})).rejects.toMatchObject({
+      code: ErrorCodes.PermissionDenied,
+    })
+    await expect(
+      h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+    ).rejects.toBe(durableFailure)
+    expect(revokedNotice).not.toHaveBeenCalled()
+    expect(
+      h.credentials.findForAuth(paired.credential.credentialId)
+    ).not.toBeNull()
+    await expect(paired.wire.closed).resolves.toMatchObject({
+      code: expect.any(Number),
+    })
+
+    // Failure keeps the same verified identity closed. The retry reuses the
+    // nominal lease and only the successful durable delete permits completion.
+    await expect(
+      WireClient.open(`ws://127.0.0.1:${h.port}/v1`, OFFICIAL_ORIGIN)
+    ).rejects.toThrow('unexpected-response 401')
+    await expect(
+      h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+    ).resolves.toBe(1)
+    h.server.completeExtensionRevocation(lease)
+
     await expect(
       reconnect({
         port: h.port,

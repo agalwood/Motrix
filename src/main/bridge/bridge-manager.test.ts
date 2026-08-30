@@ -6,6 +6,7 @@ function makeRuntime(): BridgeRuntime {
   return {
     server: {} as unknown as BridgeRuntime['server'],
     pairing: {} as unknown as BridgeRuntime['pairing'],
+    extensionPairings: {} as unknown as BridgeRuntime['extensionPairings'],
     registry: {} as unknown as BridgeRuntime['registry'],
     bus: {} as unknown as BridgeRuntime['bus'],
     installer: {

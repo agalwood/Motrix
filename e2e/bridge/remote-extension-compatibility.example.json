@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "protocol": "MDXP-over-MBP1",
+  "extension": {
+    "repository": "motrix-extension",
+    "commit": "REPLACE_WITH_EXTENSION_IMPLEMENTATION_COMMIT"
+  },
+  "motrix": {
+    "repository": "motrix-app",
+    "commit": "REPLACE_WITH_MOTRIX_IMPLEMENTATION_COMMIT"
+  },
+  "e2e": {
+    "browserCases": 5,
+    "command": "pnpm test:e2e:remote-extension"
+  }
+}
