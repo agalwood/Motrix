@@ -59,6 +59,15 @@ const BASE_DEFAULTS: DeepPartial<AddTaskFormValues> = {
   saveDir: '',
 }
 
+function taskCreateFailureReason(error: unknown): string | null {
+  if (!(error instanceof Error)) return null
+  const reason = error.message
+    .replace(/^Error invoking remote method '[^']+':\s*/u, '')
+    .replace(/^(?:AppError|Error):\s*/u, '')
+    .trim()
+  return reason || null
+}
+
 export function AddTaskForm({
   defaultValues,
   onSubmitSuccess,
@@ -161,6 +170,7 @@ export function AddTaskForm({
           Extract<TaskCreateCommandResult, { gid: string }>
         > = []
         let failed = 0
+        let firstFailureReason: string | null = null
         let blockedByConflict = false
         for (const request of requests) {
           try {
@@ -176,6 +186,7 @@ export function AddTaskForm({
             successes.push(result)
           } catch (err) {
             failed += 1
+            firstFailureReason ??= taskCreateFailureReason(err)
             console.error(err)
           }
         }
@@ -188,7 +199,13 @@ export function AddTaskForm({
             failed,
           })
         } else if (failed > 0) {
-          platform.notify('error', 'task.add.createFailed')
+          if (firstFailureReason) {
+            platform.notify('error', 'task.add.createFailedWithReason', {
+              reason: firstFailureReason,
+            })
+          } else {
+            platform.notify('error', 'task.add.createFailed')
+          }
         }
         if (successes.length > 0) {
           onSubmitSuccess?.(successes[0].taskId ?? successes[0].gid)
@@ -217,7 +234,12 @@ export function AddTaskForm({
       onSubmitSuccess?.(result.taskId)
     } catch (error) {
       console.error(error)
-      platform.notify('error', 'task.add.createFailed')
+      const reason = taskCreateFailureReason(error)
+      if (reason) {
+        platform.notify('error', 'task.add.createFailedWithReason', { reason })
+      } else {
+        platform.notify('error', 'task.add.createFailed')
+      }
     } finally {
       setSubmitting(false)
     }

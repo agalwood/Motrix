@@ -783,6 +783,7 @@
       "dropTorrent": "Drop .torrent file here or click to select",
       "clearSelection": "Clear selection",
       "createFailed": "Failed to create download task.",
+      "createFailedWithReason": "Failed to create download task: {{reason}}",
       "parseFailed": "Failed to parse torrent file.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",

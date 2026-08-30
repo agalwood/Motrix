@@ -772,6 +772,7 @@
       "dropTorrent": "拖拽 .torrent 文件到此处，或点击选择",
       "clearSelection": "清除选择",
       "createFailed": "创建下载任务失败。",
+      "createFailedWithReason": "创建下载任务失败：{{reason}}",
       "parseFailed": "解析种子文件失败。",
       "urlsCount_other": "{{count}} 个 URL",
       "urlsWithInvalid": "{{valid}} 个有效，{{invalid}} 个无效",

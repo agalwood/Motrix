@@ -772,6 +772,7 @@
       "dropTorrent": "將 .torrent 檔案拖放到這裡，或按一下以選擇檔案",
       "clearSelection": "清除選取項目",
       "createFailed": "無法建立下載任務。",
+      "createFailedWithReason": "無法建立下載任務：{{reason}}",
       "parseFailed": "無法解析 Torrent 檔案。",
       "urlsCount_other": "{{count}} 個 URL",
       "urlsWithInvalid": "{{valid}} 個有效，{{invalid}} 個無效",
