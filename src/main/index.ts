@@ -8,6 +8,7 @@ import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
+import { HttpRpcTransport } from '@core/engine/aria2/http-rpc-transport'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
   PollingScheduler,
@@ -15,7 +16,6 @@ import {
 } from '@core/engine/aria2/polling-scheduler'
 import { translateRawToTask } from '@core/engine/aria2/translate'
 import type { Aria2RawStatus } from '@core/engine/aria2/types'
-import { WebSocketTransport } from '@core/engine/aria2/web-socket-transport'
 import {
   ENGINE_READY_TIMEOUT_MS,
   EngineSupervisor,
@@ -339,7 +339,7 @@ const appliedDownloadProxyPolicy = new AppliedDownloadProxyPolicy()
 
 // ─── aria2 Infrastructure ───────────────────────────────
 
-const transport = new WebSocketTransport()
+const transport = new HttpRpcTransport()
 const protocol = new JsonRpcProtocol(transport)
 const processManager = new Aria2ProcessManager({
   ownershipFilePath: path.join(platform.userDataDir, 'aria2-owner.json'),

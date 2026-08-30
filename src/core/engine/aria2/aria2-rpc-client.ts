@@ -1,4 +1,5 @@
 import type { JsonRpcProtocol } from './json-rpc-protocol'
+import type { RpcTransport } from './rpc-transport'
 import type {
   Aria2HistoryCount,
   Aria2HistoryFilter,
@@ -12,7 +13,6 @@ import type {
   Aria2SearchQuery,
   Aria2Version,
 } from './types'
-import type { WebSocketTransport } from './web-socket-transport'
 
 interface Aria2Event {
   gid: string
@@ -31,7 +31,7 @@ export class Aria2RpcClient {
   private notificationHandlers = new Map<string, Set<EventHandler>>()
 
   constructor(
-    private transport: WebSocketTransport,
+    private transport: RpcTransport,
     private protocol: JsonRpcProtocol,
     private secret: string
   ) {
@@ -43,7 +43,7 @@ export class Aria2RpcClient {
   // ─── Connection ──────────────────────────────────────────────
 
   async connect(port: number, retries = 10, delayMs = 500): Promise<void> {
-    const url = `ws://127.0.0.1:${port}/jsonrpc`
+    const url = `http://127.0.0.1:${port}/jsonrpc`
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
         await this.transport.connect(url)

@@ -1,4 +1,4 @@
-import type { WebSocketTransport } from './web-socket-transport'
+import type { RpcTransport } from './rpc-transport'
 
 interface PendingRequest {
   resolve: (value: unknown) => void
@@ -40,7 +40,7 @@ export class JsonRpcProtocol {
   private readonly timeoutMs: number
 
   constructor(
-    private transport: WebSocketTransport,
+    private transport: RpcTransport,
     options: JsonRpcProtocolOptions = {}
   ) {
     this.timeoutMs = options.timeoutMs ?? 10_000

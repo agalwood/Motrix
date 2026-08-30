@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2RpcClient } from './aria2-rpc-client'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
-import type { WebSocketTransport } from './web-socket-transport'
+import type { RpcTransport } from './rpc-transport'
 
 // ─── Fake JsonRpcProtocol ────────────────────────────────────
 // Records calls and lets tests control responses.
@@ -49,7 +49,7 @@ class FakeProtocol {
   }
 }
 
-// ─── Fake WebSocketTransport ─────────────────────────────────
+// ─── Fake RpcTransport ──────────────────────────────────────
 
 class FakeTransport {
   connect = vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined)
@@ -70,18 +70,18 @@ describe('Aria2RpcClient', () => {
     fakeTransport = new FakeTransport()
     fakeProtocol = new FakeProtocol()
     client = new Aria2RpcClient(
-      fakeTransport as unknown as WebSocketTransport,
+      fakeTransport as unknown as RpcTransport,
       fakeProtocol as unknown as JsonRpcProtocol,
       'my-secret'
     )
   })
 
   describe('connect / disconnect', () => {
-    it('connects to ws://127.0.0.1:{port}/jsonrpc', async () => {
+    it('connects to http://127.0.0.1:{port}/jsonrpc', async () => {
       await client.connect(16800)
 
       expect(fakeTransport.connect).toHaveBeenCalledWith(
-        'ws://127.0.0.1:16800/jsonrpc'
+        'http://127.0.0.1:16800/jsonrpc'
       )
     })
 

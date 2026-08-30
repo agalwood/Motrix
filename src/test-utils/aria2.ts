@@ -12,8 +12,8 @@ import path from 'node:path'
 import { aria2BinaryName } from '@shared/platform/aria2'
 import { Aria2Adapter } from '../core/engine/aria2/aria2-adapter'
 import { Aria2RpcClient } from '../core/engine/aria2/aria2-rpc-client'
+import { HttpRpcTransport } from '../core/engine/aria2/http-rpc-transport'
 import { JsonRpcProtocol } from '../core/engine/aria2/json-rpc-protocol'
-import { WebSocketTransport } from '../core/engine/aria2/web-socket-transport'
 
 export interface Aria2Handle {
   proc: ChildProcess
@@ -181,14 +181,14 @@ export async function waitForRpc(
 /**
  * Build an `Aria2Adapter` connected to a running test aria2. The caller is
  * responsible for disconnecting the transport during cleanup via the returned
- * `disconnect` callback (which tears down the shared WebSocket).
+ * `disconnect` callback (which tears down the HTTP RPC session).
  */
 export async function connectAdapter(handle: Aria2Handle): Promise<{
   adapter: Aria2Adapter
   rpc: Aria2RpcClient
   disconnect: () => void
 }> {
-  const transport = new WebSocketTransport()
+  const transport = new HttpRpcTransport()
   const protocol = new JsonRpcProtocol(transport)
   const rpc = new Aria2RpcClient(transport, protocol, handle.secret)
   await rpc.connect(handle.port)

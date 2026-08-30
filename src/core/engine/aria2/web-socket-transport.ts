@@ -1,10 +1,11 @@
 import WebSocket from 'ws'
+import type { RpcTransport } from './rpc-transport'
 
 type MessageHandler = (data: string) => void
 type CloseHandler = (code: number, reason: string) => void
 type ErrorHandler = (err: Error) => void
 
-export class WebSocketTransport {
+export class WebSocketTransport implements RpcTransport {
   private ws: WebSocket | null = null
   private connected = false
 

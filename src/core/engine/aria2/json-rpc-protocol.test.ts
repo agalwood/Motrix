@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JsonRpcProtocol } from './json-rpc-protocol'
-import type { WebSocketTransport } from './web-socket-transport'
+import type { RpcTransport } from './rpc-transport'
 
 class FakeTransport {
   private messageHandler: ((data: string) => void) | null = null
@@ -51,7 +51,7 @@ describe('JsonRpcProtocol', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     transport = new FakeTransport()
-    protocol = new JsonRpcProtocol(transport as unknown as WebSocketTransport, {
+    protocol = new JsonRpcProtocol(transport as unknown as RpcTransport, {
       timeoutMs: 5000,
     })
   })
