@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -6,6 +7,11 @@ import {
   APP_RESTART_REQUIRED_KEYS,
   ENGINE_RESTART_REQUIRED_KEYS,
 } from '@shared/constants/restart-keys'
+import type { BridgeSettings } from '@shared/schemas/bridge-settings'
+import {
+  bridgeSettingsSchema,
+  DEFAULT_BRIDGE_SETTINGS,
+} from '@shared/schemas/bridge-settings'
 import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
@@ -119,6 +125,11 @@ function createDefaultSettings(
     media: { ...DEFAULT_MEDIA_SETTINGS },
     dashboard: validateDashboardLayoutSettings({} as DashboardLayoutSettings),
     speedLimit: { ...DEFAULT_SPEED_LIMIT_SETTINGS },
+    // Fresh install: mint a real, durable instance id now rather than
+    // persisting the '' sentinel. Unlike rpcSecret/defaultSaveDir (seeded
+    // later by seedSentinels using instance-scoped defaults), the UUID
+    // needs no runtime context, so it is generated directly here.
+    bridge: { ...DEFAULT_BRIDGE_SETTINGS, instanceId: randomUUID() },
     windowState: {},
   }
 }
@@ -501,6 +512,19 @@ export class SettingsManager {
       )
     }
 
+    // Merge bridge settings. `instanceId` uses `.catch('')`
+    // (bridge-settings.ts), so parsing a partial patch on its own would
+    // silently reset the durable instance id to the unseeded '' sentinel —
+    // there is no repair path once that happens (seeding runs only for
+    // fresh defaults and the v8->v9 migration). Merge onto the current
+    // value first, exactly like proxy/speedLimit above.
+    if (partial.bridge) {
+      next.bridge = bridgeSettingsSchema.parse({
+        ...next.bridge,
+        ...partial.bridge,
+      })
+    }
+
     // Merge plugins
     if (partial.plugins !== undefined) {
       next.plugins = {
@@ -563,6 +587,7 @@ export class SettingsManager {
       speedLimit: validateSpeedLimitSettings(
         (raw.speedLimit ?? {}) as SpeedLimitSettings
       ),
+      bridge: bridgeSettingsSchema.parse((raw.bridge ?? {}) as BridgeSettings),
       windowState: windowStateSchema.parse(raw.windowState ?? {}),
     }
   }

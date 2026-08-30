@@ -1,4 +1,8 @@
-import { pairRequestCopy, toast } from '@renderer/components/ui/toast'
+import {
+  type PairRequestToastData,
+  pairRequestCopy,
+  toast,
+} from '@renderer/components/ui/toast'
 import { transport } from '@renderer/lib/transport'
 import {
   BridgeEvents,
@@ -34,9 +38,9 @@ function toPairRequestPayload(
         kind: 'extension',
         pairingNonce: info.pairingNonce,
         extensionId: info.extensionId,
-        extensionName: info.extensionName,
-        extensionVersion: info.extensionVersion,
         browser: info.browser,
+        identity: info.identity,
+        code: info.code,
       }
 }
 
@@ -114,16 +118,16 @@ export function usePairRequestPrompts(): void {
           payload.kind === 'cli'
             ? { kind: 'cli', requestId: payload.requestId, decision }
             : {
+                // MBP1 has no allow/deny decision for an extension prompt —
+                // approval is proven by typing the code into the extension,
+                // not by a click here (ui/toast.tsx renders no Allow button
+                // for this kind at all). `decision` is accepted but unused:
+                // both the Deny button and the × close reach here only via
+                // settle('deny').
                 kind: 'extension',
                 pairingNonce: payload.pairingNonce,
                 extensionId: payload.extensionId,
                 browser: payload.browser,
-                decision,
-                // addToRegistry is intentionally false: the bridge already
-                // requires the extension to be in the trusted registry
-                // before this prompt can fire. Promoting is done
-                // explicitly from the Integration settings card, not here.
-                addToRegistry: false,
               }
         try {
           await resolvePairWithFeedback(params, tRef.current)
@@ -146,19 +150,29 @@ export function usePairRequestPrompts(): void {
       // frozen to whatever `t` was current when the prompt was created.
       const { title, description } = pairRequestCopy(payload, tRef.current)
 
+      // Matches PairRequestToastData's per-kind shape: only `cli` gets an
+      // `onAllow` — an extension prompt has none to wire up. Annotated
+      // explicitly (rather than inlined in the `toast.add()` call below) to
+      // give the ternary's two closures a concrete expected type up front.
+      const pairRequestData: PairRequestToastData['pairRequest'] =
+        payload.kind === 'cli'
+          ? {
+              ...payload,
+              onAllow: () => void settle('allow'),
+              onDeny: () => void settle('deny'),
+            }
+          : {
+              ...payload,
+              onDeny: () => void settle('deny'),
+            }
+
       toast.add({
         id: key,
         title,
         description,
         timeout: 0,
         priority: 'high',
-        data: {
-          pairRequest: {
-            ...payload,
-            onAllow: () => void settle('allow'),
-            onDeny: () => void settle('deny'),
-          },
-        },
+        data: { pairRequest: pairRequestData },
         // Dismiss-as-deny: fires on the × close button, swipe-dismiss, and
         // our own programmatic `toast.close(key)` alike — the `settled`
         // guard above is what keeps the latter from double-sending.

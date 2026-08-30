@@ -12,6 +12,8 @@ function makeRuntime(): BridgeRuntime {
       unregister: vi.fn().mockResolvedValue(undefined),
     } as unknown as BridgeRuntime['installer'],
     endpointWriter: {} as unknown as BridgeRuntime['endpointWriter'],
+    port: 16802,
+    degraded: false,
     shutdown: vi.fn().mockResolvedValue(undefined),
     muxPipeline: undefined,
     getMediaSegmentGids: vi.fn().mockReturnValue([]),
@@ -168,5 +170,98 @@ describe('BridgeManager', () => {
     const mgr = new BridgeManager(factory)
     await mgr.start()
     expect(mgr.current).toBeNull()
+  })
+
+  describe('restart()', () => {
+    it('is a no-op when the bridge is not running', async () => {
+      const factory = vi.fn()
+      const mgr = new BridgeManager(factory)
+
+      await mgr.restart()
+
+      expect(factory).not.toHaveBeenCalled()
+      expect(mgr.current).toBeNull()
+    })
+
+    it('stops the current runtime and starts a fresh one', async () => {
+      const first = makeRuntime()
+      const second = makeRuntime()
+      const factory = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce(second)
+      const mgr = new BridgeManager(factory)
+      await mgr.start()
+
+      await mgr.restart()
+
+      expect(first.shutdown).toHaveBeenCalledTimes(1)
+      expect(factory).toHaveBeenCalledTimes(2)
+      expect(mgr.current).toBe(second)
+    })
+
+    it('keeps Native Messaging registered — does not unregister on restart', async () => {
+      const first = makeRuntime()
+      const second = makeRuntime()
+      const factory = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce(second)
+      const mgr = new BridgeManager(factory)
+      await mgr.start()
+
+      await mgr.restart()
+
+      expect(first.installer.unregister).not.toHaveBeenCalled()
+      expect(second.installer.unregister).not.toHaveBeenCalled()
+    })
+
+    it('serializes as one transition behind a concurrent setEnabled(false)', async () => {
+      const first = makeRuntime()
+      const second = makeRuntime()
+      let resolveSecondFactory: (runtime: BridgeRuntime) => void = () => {}
+      const secondFactoryResult = new Promise<BridgeRuntime>((resolve) => {
+        resolveSecondFactory = resolve
+      })
+      const factory = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockImplementationOnce(() => secondFactoryResult)
+      const mgr = new BridgeManager(factory)
+      await mgr.start()
+
+      const restarting = mgr.restart()
+      await vi.waitFor(() => expect(factory).toHaveBeenCalledTimes(2))
+      const disabling = mgr.setEnabled(false)
+      resolveSecondFactory(second)
+
+      await Promise.all([restarting, disabling])
+
+      // The disable that arrived after restart() was enqueued must win —
+      // never leave the bridge running after the user disabled it.
+      expect(second.shutdown).toHaveBeenCalledTimes(1)
+      expect(mgr.current).toBeNull()
+    })
+
+    it('no-ops when the bridge was stopped by a concurrent disable', async () => {
+      const first = makeRuntime()
+      let resolveStop: () => void = () => {}
+      const stopGate = new Promise<void>((resolve) => {
+        resolveStop = resolve
+      })
+      vi.mocked(first.shutdown).mockImplementationOnce(() => stopGate)
+      const factory = vi.fn().mockResolvedValueOnce(first)
+      const mgr = new BridgeManager(factory)
+      await mgr.start()
+
+      const disabling = mgr.setEnabled(false)
+      const restarting = mgr.restart()
+      resolveStop()
+
+      await Promise.all([disabling, restarting])
+
+      expect(factory).toHaveBeenCalledTimes(1)
+      expect(mgr.current).toBeNull()
+    })
   })
 })

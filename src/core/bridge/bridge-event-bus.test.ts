@@ -10,8 +10,8 @@ describe('BridgeEventBus', () => {
       kind: 'extension',
       pairingNonce: 'nonce-1',
       extensionId: 'ext-1',
-      extensionName: 'Test',
-      extensionVersion: '1',
+      identity: 'official',
+      code: '1234-5678',
       browser: 'chromium',
     })
     expect(received).toHaveLength(1)

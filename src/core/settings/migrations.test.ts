@@ -87,8 +87,8 @@ describe('migrate', () => {
 })
 
 describe('migration v3 → v4', () => {
-  it('targets version 9', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(9)
+  it('targets version 10', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(10)
   })
 
   it('adds dhtListenPort defaulting to listenPort value', () => {
@@ -175,7 +175,7 @@ describe('migration v5 → v6 (media namespace)', () => {
   it('migrates v5 → v6 by injecting media defaults', () => {
     const v5 = { version: 5, engine: {}, app: {} }
     const out = migrate(v5)
-    expect(out.version).toBe(9)
+    expect(out.version).toBe(CURRENT_SETTINGS_VERSION)
     expect(out.media).toEqual(DEFAULT_MEDIA_SETTINGS)
   })
 
@@ -198,8 +198,8 @@ describe('migration v5 → v6 (media namespace)', () => {
 })
 
 describe('migration v6 → v7 (speedLimit namespace)', () => {
-  it('targets version 9', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(9)
+  it('targets version 10', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(10)
   })
 
   it('v6→v7: maps a configured limit to base, turtle off', () => {
@@ -210,7 +210,7 @@ describe('migration v6 → v7 (speedLimit namespace)', () => {
         maxOverallUploadLimit: 256000,
       },
     })
-    expect(result.version).toBe(9)
+    expect(result.version).toBe(CURRENT_SETTINGS_VERSION)
     expect(
       (result.engine as Record<string, unknown>).maxOverallDownloadLimit
     ).toBeUndefined()
@@ -259,7 +259,7 @@ describe('migration v7 → v8 (application update channel)', () => {
   it('defaults existing users to stable', () => {
     const result = migrate({ version: 7, app: { theme: 'dark' } })
 
-    expect(result.version).toBe(9)
+    expect(result.version).toBe(CURRENT_SETTINGS_VERSION)
     expect(result.app).toEqual({ theme: 'dark', updateChannel: 'stable' })
   })
 
@@ -291,7 +291,7 @@ describe('migration v8 → v9 (performance profiles)', () => {
       },
     })
 
-    expect(result.version).toBe(9)
+    expect(result.version).toBe(CURRENT_SETTINGS_VERSION)
     expect(result.engine).toMatchObject({ performanceProfile: 'auto' })
   })
 
@@ -313,5 +313,58 @@ describe('migration v8 → v9 (performance profiles)', () => {
       minSplitSize: 2 * 1024 * 1024,
       diskCache: 48 * 1024 * 1024,
     })
+  })
+})
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+describe('migration v9 → v10 (bridge fixed port and instance id)', () => {
+  it('seeds fixedPort auto and a UUID instanceId for a plain v9 document', () => {
+    const result = migrate({ version: 9, app: { theme: 'dark' } })
+
+    expect(result.version).toBe(CURRENT_SETTINGS_VERSION)
+    const bridge = result.bridge as Record<string, unknown>
+    expect(bridge.fixedPort).toBe('auto')
+    expect(bridge.instanceId).toEqual(expect.stringMatching(UUID_PATTERN))
+  })
+
+  it('preserves an existing bridge object instead of clobbering it', () => {
+    const result = migrate({
+      version: 9,
+      bridge: { fixedPort: 16803, instanceId: 'already-set-id' },
+    })
+
+    expect(result.bridge).toEqual({
+      fixedPort: 16803,
+      instanceId: 'already-set-id',
+    })
+  })
+
+  it('mints a fresh instanceId only when one is not already present', () => {
+    const result = migrate({ version: 9, bridge: { fixedPort: 16803 } })
+
+    expect((result.bridge as Record<string, unknown>).fixedPort).toBe(16803)
+    expect((result.bridge as Record<string, unknown>).instanceId).toEqual(
+      expect.stringMatching(UUID_PATTERN)
+    )
+  })
+
+  it('never regenerates instanceId once the document is already at v10', () => {
+    const migratedOnce = migrate({ version: 9 })
+    const instanceId = (migratedOnce.bridge as Record<string, unknown>)
+      .instanceId
+    // Pins that seeding actually minted an id: without this, a migration that
+    // returned a bridge object with no instanceId would satisfy the equality
+    // below vacuously (undefined === undefined).
+    expect(instanceId).toEqual(expect.stringMatching(UUID_PATTERN))
+
+    // migrate() short-circuits at version === CURRENT_SETTINGS_VERSION
+    // (migrations.ts), so a v10 document never re-enters migrateV9ToV10.
+    const migratedTwice = migrate(migratedOnce)
+
+    expect((migratedTwice.bridge as Record<string, unknown>).instanceId).toBe(
+      instanceId
+    )
   })
 })

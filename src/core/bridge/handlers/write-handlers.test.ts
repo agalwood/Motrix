@@ -182,6 +182,67 @@ describe('task/remove', () => {
   })
 })
 
+describe('task/reveal', () => {
+  it('registers only when the shell provides the capability', async () => {
+    const revealTask = vi.fn(async () => {})
+    const { d } = setup({ revealTask })
+
+    await expect(
+      d.dispatch('task/reveal', { taskId: 'task-1' }, cliCtx)
+    ).resolves.toEqual({ ok: true })
+    expect(revealTask).toHaveBeenCalledOnce()
+    expect(revealTask).toHaveBeenCalledWith('task-1')
+
+    const withoutShell = setup({ revealTask: undefined }).d
+    await expect(
+      withoutShell.dispatch('task/reveal', { taskId: 'task-1' }, cliCtx)
+    ).rejects.toMatchObject({ code: ErrorCodes.CapabilityNotSupported })
+  })
+
+  it('requires a trusted task id before calling the shell', async () => {
+    const revealTask = vi.fn(async () => {})
+    const { d } = setup({ revealTask })
+
+    await expect(
+      d.dispatch('task/reveal', { taskId: 'missing' }, cliCtx)
+    ).rejects.toMatchObject({ code: ErrorCodes.ResourceUnavailable })
+    expect(revealTask).not.toHaveBeenCalled()
+  })
+
+  it('rejects caller-supplied paths at the schema boundary', async () => {
+    const revealTask = vi.fn(async () => {})
+    const { d } = setup({ revealTask })
+
+    await expect(
+      d.dispatch(
+        'task/reveal',
+        { taskId: 'task-1', path: '/caller/controlled' },
+        cliCtx
+      )
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
+    expect(revealTask).not.toHaveBeenCalled()
+  })
+
+  it('does not leak a path from a shell failure', async () => {
+    const secretPath = '/Users/alice/private/download.iso'
+    const { d } = setup({
+      revealTask: vi.fn(async () => {
+        throw new Error(`cannot reveal ${secretPath}`)
+      }),
+    })
+
+    try {
+      await d.dispatch('task/reveal', { taskId: 'task-1' }, cliCtx)
+      throw new Error('expected task/reveal to reject')
+    } catch (error) {
+      expect(error).toMatchObject({ code: ErrorCodes.ResourceUnavailable })
+      expect(String((error as { message?: unknown }).message)).not.toContain(
+        secretPath
+      )
+    }
+  })
+})
+
 describe('download/add', () => {
   it('creates a url download and returns the created task snapshot', async () => {
     const { d, deps } = setup()

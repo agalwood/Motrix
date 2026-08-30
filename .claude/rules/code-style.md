@@ -38,3 +38,20 @@ shared schema is the source of truth for its runtime constraints, inferred
 type, and defaults; do not create parallel interfaces or hand-written
 validators for the same contract. Pure cross-layer schemas belong in
 `src/shared/schemas/`; host-specific validation stays in its owning layer.
+
+## Comments Describe What Exists
+
+A comment in the present tense is a claim about the current code, and readers
+act on it. Describe an intended-but-unwritten consumer in the conditional, or
+as a `TODO`, and say plainly that nothing does it yet.
+
+This matters most for comments that assert a safety property. Two distinct
+bugs shipped behind such comments: a writer documented a "backstop" that
+reported failures which nothing reported, and a socket wedged silently
+forever; and a getter pair was documented as being read by a wiring layer that
+decided when to reconnect, when the only readers were tests. In both cases the
+comment was the reason no one looked.
+
+When a guard's justification depends on a case, check that it covers every
+case the code now reaches — a rationale that was true when written and is
+false for a later-added branch argues for the bug.

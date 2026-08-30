@@ -1,4 +1,5 @@
 export * from './app-settings'
+export * from './bridge-settings'
 export * from './dashboard-layout'
 export * from './engine-settings'
 export * from './geoip-settings'

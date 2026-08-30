@@ -4,6 +4,7 @@ import {
   BridgeCommands,
   BridgeEvents,
   BridgeQueries,
+  type BridgeStatusInfo,
   type ClientIdentity,
   type PairedClientInfo,
   type PairRequestPayload,
@@ -101,6 +102,62 @@ export function useTrustedExtensions() {
   )
 
   return { items, refresh, add, remove }
+}
+
+/** Narrows an untrusted `GetStatus` reply to {@link BridgeStatusInfo} — a
+ *  test double or an unrelated stub that resolves every query to `{}`
+ *  (`integration-dialog.test.tsx`'s convention) must degrade to "no status"
+ *  rather than render `status.port` as the literal string `"undefined"`. */
+function isBridgeStatusInfo(value: unknown): value is BridgeStatusInfo {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { degraded?: unknown }).degraded === 'boolean'
+  )
+}
+
+/**
+ * The bridge's current port policy (Task 21): the bound port, whether it
+ * degraded to an ephemeral port (§4), and the persisted `fixedPort`/
+ * `instanceId` settings that produced that outcome. `null` while loading AND
+ * when the bridge is disabled — `bridge:getStatus` has no handler installed
+ * in that state (`bootstrapBridge` returns early and never reaches
+ * `installIpcHandler`), so `transport.invoke` rejects; the settings UI has no
+ * separate "off" state to render here since the master switch (a form field,
+ * not this hook) already tells it that.
+ *
+ * Mount-fetch only, deliberately: no event announces a bridge port change
+ * (`SettingsChanged` never reaches the renderer for bridge settings — see
+ * `use-engine-display-status.ts`'s listener, which is dead for this purpose)
+ * and the settings dialog remounts every time it opens, which is enough to
+ * keep this current in the one place it's shown.
+ */
+export function useBridgeStatus(): BridgeStatusInfo | null {
+  const [status, setStatus] = useState<BridgeStatusInfo | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      let raw: unknown
+      try {
+        raw = await transport.invoke(
+          BridgeQueries.GetStatus as unknown as QueryChannel
+        )
+      } catch {
+        // Bridge disabled (no handler registered) or transport unavailable —
+        // either way there is no status to show.
+        if (!cancelled) setStatus(null)
+        return
+      }
+      if (cancelled) return
+      setStatus(isBridgeStatusInfo(raw) ? raw : null)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return status
 }
 
 export function usePairRequest(

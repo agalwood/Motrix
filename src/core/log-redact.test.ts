@@ -143,6 +143,30 @@ describe('redactLogFields', () => {
       })
     })
 
+    it('redacts MBP1 secrets but keeps its public and diagnostic fields', () => {
+      const out = redactLogFields(
+        {
+          mutualKeyB64: 'secret',
+          pairNonce: 'secret',
+          nmTicket: 'secret',
+          // Public by construction: `ticketBindingKey` travels in cleartext in
+          // pairHello and is bound into the transcript AAD, and `sessionKey` is
+          // the `${browser}:${extensionId}` session identifier. Redacting
+          // either would cost diagnosability and protect nothing.
+          ticketBindingKey: 'AAAA',
+          sessionKey: 'chromium:abcdef',
+        },
+        { profile: 'application' }
+      )
+      expect(out).toEqual({
+        mutualKeyB64: '[redacted]',
+        pairNonce: '[redacted]',
+        nmTicket: '[redacted]',
+        ticketBindingKey: 'AAAA',
+        sessionKey: 'chromium:abcdef',
+      })
+    })
+
     it('omits body and storage values even when they are nullish', () => {
       const out = redactLogFields(
         { body: null, storageValue: undefined, status: 'ready' },

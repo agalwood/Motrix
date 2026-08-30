@@ -377,13 +377,26 @@ jobs:
           from http.server import BaseHTTPRequestHandler, HTTPServer
           from pathlib import Path
 
-          body = b'{"nonce":"AbCdEfGhIjKlMnOpQrStUv"}'
+          discovery_body = (
+              b'{"app":"motrix-bridge","apiVersion":1,'
+              b'"instanceId":"flatpak-smoke","appVersion":"0.0.0-ci"}'
+          )
+          nonce_body = b'{"nonce":"AbCdEfGhIjKlMnOpQrStUv"}'
 
           class Handler(BaseHTTPRequestHandler):
               def do_GET(self):
-                  if self.path != '/nonce':
+                  if self.path != '/discovery':
                       self.send_error(404)
                       return
+                  self.send_json(discovery_body)
+
+              def do_POST(self):
+                  if self.path != '/nonce' or self.headers.get('X-Motrix-Bridge') != '1':
+                      self.send_error(404)
+                      return
+                  self.send_json(nonce_body)
+
+              def send_json(self, body):
                   self.send_response(200)
                   self.send_header('Content-Type', 'application/json')
                   self.send_header('Content-Length', str(len(body)))
@@ -395,6 +408,7 @@ jobs:
 
           server = HTTPServer(('127.0.0.1', 55809), Handler)
           Path(sys.argv[1]).write_text('ready', encoding='utf-8')
+          server.handle_request()
           server.handle_request()
           PY
           nonce_server_pid=$!
@@ -414,7 +428,7 @@ jobs:
               tr -d ' \n'
           )"
           test "$native_host_hex" = \
-            '460000007b22616374696f6e223a227265717565737450616972222c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
+            '5a0000007b22616374696f6e223a227265717565737450616972222c2270726f746f636f6c56657273696f6e223a312c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
 
           wait "$nonce_server_pid"
           nonce_server_pid=''

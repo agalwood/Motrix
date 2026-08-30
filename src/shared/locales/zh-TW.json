@@ -7,7 +7,7 @@
     "submit": "解鎖"
   },
   "operatorAdmin": {
-    "help": "用法:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "執行「motrix-admin --help」查看用法。",
     "pending": {
@@ -62,15 +62,15 @@
     "cancel": "取消",
     "save": "儲存",
     "close": "關閉",
-    "loading": "載入中...",
-    "name": "名稱:",
+    "loading": "載入中…",
+    "name": "名稱：",
     "error": "錯誤",
     "remove": "移除",
     "collapse": "收合",
     "apply": "套用",
     "confirm": "確認",
     "status": {
-      "finalizing": "正在完成..."
+      "finalizing": "正在完成…"
     },
     "reset": "重設",
     "showPassword": "顯示密碼",
@@ -79,7 +79,7 @@
   "quit": {
     "confirm": {
       "message_other": "仍有 {{count}} 個下載正在進行。",
-      "detail": "現在結束會暫停下載。確定要結束嗎?",
+      "detail": "現在結束會暫停下載。確定要結束嗎？",
       "quitButton": "結束",
       "dontAskAgain": "不要再詢問"
     }
@@ -120,8 +120,8 @@
         "startFailed": "aria2 引擎無法啟動",
         "state": {
           "ready": "就緒",
-          "starting": "啟動中...",
-          "reconnecting": "重新連線中...",
+          "starting": "啟動中…",
+          "reconnecting": "重新連線中…",
           "failed": "失敗",
           "disconnected": "已中斷連線",
           "stopped": "已停止"
@@ -134,11 +134,11 @@
           "title": "引擎診斷",
           "description": "檢查引擎、找出使用 Motrix RPC 連接埠的處理程序，並安全復原。",
           "open": "診斷",
-          "checking": "正在執行引擎檢查...",
+          "checking": "正在執行引擎檢查…",
           "runAgain": "再次執行",
           "loadFailed": "無法執行引擎診斷。",
           "currentStatus": "目前狀態",
-          "lastChecked": "檢查時間: {{time}}",
+          "lastChecked": "檢查時間：{{time}}",
           "checks": {
             "binary": "內建 aria2",
             "features": "引擎功能",
@@ -200,16 +200,16 @@
             "blocked": "預設連接埠 {{port}} 正由 PID {{pid}} ({{name}}) 使用，但 Motrix 無法確認擁有權，不會終止該處理程序。",
             "unidentified": "無法辨識使用預設連接埠 {{port}} 的處理程序。Motrix 會繼續使用目前的連接埠。",
             "restore": "還原 Motrix 預設連接埠 {{port}}",
-            "restoring": "正在還原 Motrix 預設連接埠 {{port}}...",
+            "restoring": "正在還原 Motrix 預設連接埠 {{port}}…",
             "restoredDefault": "已還原 Motrix 預設 RPC 連接埠 {{port}}。",
             "confirm": {
-              "title": "要停止遺留的處理程序並還原連接埠 {{port}} 嗎?",
+              "title": "要停止遺留的處理程序並還原連接埠 {{port}} 嗎？",
               "description": "已驗證 PID {{pid}} 是遺留的 Motrix aria2 處理程序。將停止此處理程序、儲存預設連接埠 {{port}}，然後重新啟動 aria2。",
               "action": "停止並還原連接埠 {{port}}"
             }
           },
           "confirmForce": {
-            "title": "要強制停止遺留的 aria2 處理程序嗎?",
+            "title": "要強制停止遺留的 aria2 處理程序嗎？",
             "description": "PID {{pid}} 符合 Motrix 的內建執行檔、私有 RPC 密鑰與資料路徑。系統會立即將其終止，然後在 Motrix RPC 連接埠重新啟動 aria2。",
             "action": "強制停止並復原"
           }
@@ -255,7 +255,7 @@
         "retry": "重試",
         "updated": "更新於 {{time}}",
         "outOfDate": "資料可能不是最新的",
-        "totalLabel": "{{scope}}傳輸總量: {{value}}"
+        "totalLabel": "{{scope}}傳輸總量：{{value}}"
       },
       "activity": {
         "title": "活動",
@@ -329,8 +329,8 @@
           "saved": "已儲存 {{percent}}%",
           "offline": "離線 · 上次已知的進度",
           "completed": "完成於 {{time}}",
-          "failed": "失敗: {{reason}}",
-          "technicalDetail": "技術詳細資料: {{detail}}"
+          "failed": "失敗：{{reason}}",
+          "technicalDetail": "技術詳細資料：{{detail}}"
         },
         "progressLabel": "{{name}} 的進度"
       },
@@ -345,7 +345,7 @@
         "resizeTile": "調整磚塊大小",
         "sizeGroup": "磚塊大小",
         "size": "{{width}} × {{height}}",
-        "currentSize": "目前大小: {{width}} × {{height}}",
+        "currentSize": "目前大小：{{width}} × {{height}}",
         "invalidCapacity": "沒有足夠空間容納此大小",
         "sizeLabels": {
           "compact": "精簡",
@@ -385,7 +385,7 @@
         "expandHint": "請放大視窗以設定儀表板版面。"
       },
       "errors": {
-        "tileFailed": "{{tile}}: 轉譯失敗",
+        "tileFailed": "{{tile}}：轉譯失敗",
         "retry": "重試"
       },
       "speedLimit": {
@@ -473,7 +473,7 @@
         "effective": "有效",
         "blacklist": "封鎖清單"
       },
-      "searchPlaceholder": "依 URL 篩選...",
+      "searchPlaceholder": "依 URL 篩選…",
       "syncNow": "立即同步"
     },
     "downloads": {
@@ -567,8 +567,8 @@
           },
           "download": "下載",
           "upload": "上傳",
-          "loading": "正在載入活動資料...",
-          "collecting": "正在收集傳輸資料...",
+          "loading": "正在載入活動資料…",
+          "collecting": "正在收集傳輸資料…",
           "noSessionHistory": "此應用程式工作階段尚無傳輸記錄。",
           "lifetimeEmpty": "尚無法取得累計歷程記錄。",
           "noTraffic": "目前沒有網路流量。",
@@ -589,11 +589,11 @@
           },
           "timeline": {
             "title": "任務歷程記錄",
-            "current": "目前: {{status}}",
+            "current": "目前：{{status}}",
             "cluster_other": "+{{count}} 個事件",
             "repeated": "{{label}} ×{{count}}",
             "truncated_other": "較早歷程記錄已截斷 {{count}} 個事件",
-            "truncatedAt": "最早截斷時間: {{time}}",
+            "truncatedAt": "最早截斷時間：{{time}}",
             "timeRange": "{{start}}–{{end}}",
             "detailTitle": "{{label}} 詳細資料",
             "destination": "{{event}} {{status}}",
@@ -716,7 +716,7 @@
         "retry": "重試",
         "openFolder": "開啟資料夾",
         "copyUrl": "複製 URL",
-        "copyUrlFailed": "複製失敗: 無法載入任務的連結詳細資料。請再試一次。",
+        "copyUrlFailed": "複製失敗：無法載入任務的連結詳細資料。請再試一次。",
         "selectFiles": "選擇檔案",
         "remove": "移除",
         "removeConfirmWithFiles": "同時從磁碟刪除已下載的檔案",
@@ -725,7 +725,7 @@
         "singleTaskFailed": "{{name}}: {{reason}}",
         "stopSeeding": "停止做種",
         "reseed": "重新做種",
-        "retryWithDialog": "以選項重試... (Alt + 按一下)",
+        "retryWithDialog": "以選項重試… (Alt + 按一下)",
         "finalizingTooltip": "任務正在完成，請稍候",
         "pauseTooltipBatch": "暫停已選取的 {{total}} 項中之 {{n}} 項",
         "resumeTooltipBatch": "繼續已選取的 {{total}} 項中之 {{n}} 項",
@@ -735,13 +735,13 @@
         "removeTooltipBatch": "移除已選取的 {{total}} 項中之 {{n}} 項",
         "removeWithFilesShift": "按住 Shift 可同時刪除檔案",
         "removeFilesEstimate": "將從磁碟刪除 {{bytes}}",
-        "removeSingleTitle": "要移除「{{name}}」嗎?",
-        "removeAll_paused_Title": "要移除 {{count}} 個已暫停的任務嗎?",
-        "removeAll_seeding_Title": "要移除 {{count}} 個做種中的任務嗎?",
-        "removeAll_completed_Title": "要移除 {{count}} 個已完成的任務嗎?",
-        "removeAll_error_Title": "要移除 {{count}} 個失敗的任務嗎?",
-        "removeAll_downloading_Title": "要移除 {{count}} 個進行中的任務嗎?",
-        "removeMixedTitle": "要移除 {{count}} 個任務嗎?"
+        "removeSingleTitle": "要移除「{{name}}」嗎？",
+        "removeAll_paused_Title": "要移除 {{count}} 個已暫停的任務嗎？",
+        "removeAll_seeding_Title": "要移除 {{count}} 個做種中的任務嗎？",
+        "removeAll_completed_Title": "要移除 {{count}} 個已完成的任務嗎？",
+        "removeAll_error_Title": "要移除 {{count}} 個失敗的任務嗎？",
+        "removeAll_downloading_Title": "要移除 {{count}} 個進行中的任務嗎？",
+        "removeMixedTitle": "要移除 {{count}} 個任務嗎？"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {
@@ -759,7 +759,7 @@
         "emptyHint": "請清除類型範圍或改用其他關鍵字"
       },
       "stale": {
-        "banner": "任務清單可能不是最新的，正在重新連線..."
+        "banner": "任務清單可能不是最新的，正在重新連線…"
       }
     }
   },
@@ -768,7 +768,7 @@
       "title": "新增任務",
       "links": "連結",
       "torrent": "Torrent",
-      "urlPlaceholder": "輸入 URL、Magnet 連結...",
+      "urlPlaceholder": "輸入 URL、Magnet 連結…",
       "dropTorrent": "將 .torrent 檔案拖放到這裡，或按一下以選擇檔案",
       "clearSelection": "清除選取項目",
       "createFailed": "無法建立下載任務。",
@@ -794,7 +794,7 @@
       "pickPathTitle": "選擇儲存目錄",
       "pickPathCustom": "自訂路徑",
       "saveTo": "儲存至",
-      "saveDirEmpty": "選擇資料夾...",
+      "saveDirEmpty": "選擇資料夾…",
       "changeSaveDir": "變更儲存目錄",
       "created": "已新增任務",
       "createdCopy": "已新增獨立副本",
@@ -808,7 +808,7 @@
         "showExisting": "顯示現有任務",
         "createCopy": "建立獨立副本"
       },
-      "adding": "正在新增...",
+      "adding": "正在新增…",
       "interpretedMagnet": "已偵測到 Magnet 連結",
       "interpretedCurl": "已解析 cURL 命令",
       "filterBy": {
@@ -825,8 +825,8 @@
       }
     },
     "detail": {
-      "peers": "對等節點: {{count}}",
-      "seeds": "種子: {{count}}"
+      "peers": "對等節點：{{count}}",
+      "seeds": "種子：{{count}}"
     },
     "torrent": {
       "fileSelected_other": "已選取 {{count}} 個檔案",
@@ -837,7 +837,7 @@
       "doc": "文件"
     },
     "remove": {
-      "title": "移除任務?",
+      "title": "移除任務？",
       "description": "「{{name}}」將從下載清單中移除。",
       "deleteFilesLabel": "刪除已下載的檔案",
       "confirm": "移除",
@@ -851,9 +851,9 @@
       "reseedFailed": "下載已完成，但無法開始做種。",
       "metaMissing": "缺少 Torrent 中繼資料，無法開始做種。",
       "startup": {
-        "torrentMetaMissing": "無法復原此 BitTorrent 任務: 缺少 .torrent 中繼資料檔案。請移除後重新新增任務。",
-        "reAddFailed": "無法復原此任務: 引擎拒絕重新新增要求。請移除後手動重新新增。",
-        "dirtyMetadata": "無法復原此任務: 缺少繼續下載所需的識別資訊。",
+        "torrentMetaMissing": "無法復原此 BitTorrent 任務：缺少 .torrent 中繼資料檔案。請移除後重新新增任務。",
+        "reAddFailed": "無法復原此任務：引擎拒絕重新新增要求。請移除後手動重新新增。",
+        "dirtyMetadata": "無法復原此任務：缺少繼續下載所需的識別資訊。",
         "resumeCheckpointMissing": "已保留部分檔案，但續傳檢查點已遺失。請安全地重新下載或重新新增任務。",
         "resumeCredentialsRequired": "已保留部分檔案，但此下載需要無法自動重播的請求憑證。",
         "resumePathInvalid": "由於儲存的輸出路徑無效，已保留部分檔案且未自動復原。",
@@ -867,9 +867,9 @@
       "detail": {
         "recoveryOutputConflict": "暫存檔與最終檔案皆存在，兩者均已保留以供手動檢查",
         "filesMissing": "應用程式重新啟動後找不到檔案",
-        "renameFileFailed": "無法重新命名檔案: {{cause}}",
-        "renameDirFailed": "無法重新命名目錄: {{cause}}",
-        "pluginChainAborted": "外掛程式鏈已中止: {{cause}}",
+        "renameFileFailed": "無法重新命名檔案：{{cause}}",
+        "renameDirFailed": "無法重新命名目錄：{{cause}}",
+        "pluginChainAborted": "外掛程式鏈已中止：{{cause}}",
         "magnetCleanupQuarantined": "Magnet 中繼資料清理作業已隔離",
         "muxFailed": "無法合併已下載的媒體"
       },
@@ -986,9 +986,9 @@
         "enableDesc": "將工作階段、進度與歷程記錄儲存在單一 SQLite 資料庫。停用後會還原為上游 aria2 行為 (文字工作階段與 .aria2 側邊檔案)。",
         "dbPath": "資料庫路徑",
         "dbPathDesc": "留空可使用其他引擎設定檔旁的預設位置。",
-        "dbPathPlaceholder": "預設值: <config>/aria2.db",
+        "dbPathPlaceholder": "預設值：<config>/aria2.db",
         "historyLimit": "歷程記錄保留數量",
-        "historyLimitDesc": "下載歷程記錄保留的最大列數。-1 = 無限制; 0 = 僅記憶體 (不儲存至資料庫)。"
+        "historyLimitDesc": "下載歷程記錄保留的最大列數。-1 = 無限制；0 = 僅記憶體 (不儲存至資料庫)。"
       }
     },
     "about": {
@@ -1005,16 +1005,16 @@
         "unsupported": "此 Motrix 建置版本不支援自動更新。請從官方網站下載最新版本。",
         "check": "檢查更新",
         "checkAction": "檢查",
-        "checking": "檢查中...",
-        "checkingTitle": "正在檢查更新...",
-        "checkingDescription": "正在連線至 Motrix 更新服務...",
+        "checking": "檢查中…",
+        "checkingTitle": "正在檢查更新…",
+        "checkingDescription": "正在連線至 Motrix 更新服務…",
         "upToDateTitle": "Motrix 已是最新版本",
         "upToDate": "版本 {{version}} 是目前可取得的最新版本。",
         "available": "Motrix {{version}} 可供更新。",
         "availableTitle": "Motrix {{version}} 可供更新",
         "availableDescription": "立即下載，並選擇要在何時重新啟動及安裝。",
         "download": "下載更新",
-        "downloading": "下載中...",
+        "downloading": "下載中…",
         "downloadingTitle": "正在下載 Motrix {{version}}",
         "downloadingDescription": "您可以關閉此視窗，下載會在背景繼續。",
         "downloadedTitle": "更新已可安裝",
@@ -1025,7 +1025,7 @@
         "cancelledDescription": "準備好後再試一次下載。",
         "errorTitle": "無法更新 Motrix",
         "errorDescription": "請檢查連線後再試一次。",
-        "error": "更新失敗: {{message}}",
+        "error": "更新失敗：{{message}}",
         "retry": "重試",
         "automaticChecks": "自動檢查",
         "automaticChecksDescription": "Motrix 開啟時",
@@ -1084,7 +1084,7 @@
         "lastUpdated": "上次更新",
         "neverUpdated": "從未",
         "updateNow": "立即更新",
-        "updating": "更新中...",
+        "updating": "更新中…",
         "source": "來源",
         "sourceDesc": "選擇下載 GeoLite2-Country.mmdb 檔案的來源。",
         "source.loyalsoldier": "Loyalsoldier (社群)",
@@ -1098,7 +1098,7 @@
         "autoUpdateDesc": "約每週檢查一次是否有新的資料庫。",
         "status.loaded": "已載入",
         "status.notDownloaded": "尚未下載資料庫",
-        "status.downloading": "下載中...",
+        "status.downloading": "下載中…",
         "status.error": "更新失敗"
       },
       "listen": {
@@ -1289,13 +1289,13 @@
         "estimateSuccess": "已依近期速度填入連線頻寬。",
         "estimateError": "無法讀取近期速度歷程記錄。請手動輸入頻寬。",
         "headroomPercent": "保留給其他應用程式",
-        "headroomPercentDesc": "目前保留 {{reserved}}%; Motrix 最多可使用 {{motrix}}%。",
+        "headroomPercentDesc": "目前保留 {{reserved}}%；Motrix 最多可使用 {{motrix}}%。",
         "effect": {
           "title": "目前效果",
-          "standard": "使用標準限制: 下載 {{download}}、上傳 {{upload}}。",
-          "lowSpeed": "目前使用低速限制: 下載 {{download}}、上傳 {{upload}}。",
+          "standard": "使用標準限制：下載 {{download}}、上傳 {{upload}}。",
+          "lowSpeed": "目前使用低速限制：下載 {{download}}、上傳 {{upload}}。",
           "noAutoRules": "未啟用自動規則。目前行為如同標準模式。",
-          "standardValues": "標準限制: 下載 {{download}}、上傳 {{upload}}。",
+          "standardValues": "標準限制：下載 {{download}}、上傳 {{upload}}。",
           "scheduleRule": "於 {{from}} 至 {{to}}{{nextDay}} 使用低速限制",
           "nextDay": "(隔日)",
           "adaptiveRule": "為其他應用程式保留 {{reserved}}% 的頻寬",
@@ -1342,7 +1342,7 @@
         "scopeUpdateTrackers": "Tracker 同步",
         "scopeUpdateTrackersDesc": "僅同步 Tracker 清單，不會代理 BT 流量。",
         "importFromSystem": "從系統匯入",
-        "importedToast": "已匯入系統 Proxy: {{host}}:{{port}}",
+        "importedToast": "已匯入系統 Proxy：{{host}}:{{port}}",
         "noSystemProxy": "未設定系統 Proxy。"
       },
       "nat": {
@@ -1376,10 +1376,10 @@
       }
     },
     "common": {
-      "browse": "瀏覽...",
+      "browse": "瀏覽…",
       "add": "新增",
       "remove": "移除",
-      "preset": "快速設定:",
+      "preset": "快速設定：",
       "noChange": "沒有變更可儲存",
       "setAsDefault": "設為預設值",
       "openHelp": "開啟說明",
@@ -1396,7 +1396,7 @@
         "protocolMagnetDesc": "從瀏覽器在 Motrix 開啟 Magnet 連結。",
         "torrentAssociation": "使用 Motrix 開啟 .torrent 檔案",
         "torrentAssociationDesc": "設定後，按兩下 .torrent 檔案即可在 Motrix 開啟。",
-        "torrentAssociationMacDesc": "在 Finder 中，以右鍵按一下任一 .torrent 檔案 → 取得資訊 → 打開檔案的應用程式 → 選擇 Motrix → 全部更改...",
+        "torrentAssociationMacDesc": "在 Finder 中，以右鍵按一下任一 .torrent 檔案 → 取得資訊 → 打開檔案的應用程式 → 選擇 Motrix → 全部更改…",
         "defaultAssociationsWindows": "種子檔案和 Magnet 連結的預設應用程式",
         "defaultAssociationsWindowsDesc": "在 Windows 預設應用程式中為 .torrent 檔案和 Magnet 連結選擇 Motrix。使用 Motrix 安裝程式安裝後，Motrix 才會顯示在清單中。",
         "torrentFiles": ".torrent 檔案",
@@ -1453,10 +1453,18 @@
           "addAction": "新增"
         },
         "pairToast": {
-          "title": "{{name}} 想要連線至 Motrix",
-          "from": "來自 {{browser}}",
-          "allow": "允許",
-          "deny": "不允許"
+          "title": "{{browser}} 擴充功能請求連線至 Motrix",
+          "extensionId": "ID：{{id}}",
+          "deny": "不允許",
+          "pairCode": "配對碼",
+          "copyCode": "複製配對碼",
+          "pairCodeHint": "請在擴充功能中輸入此配對碼",
+          "identityLabel": {
+            "official": "Motrix 官方擴充功能",
+            "attested": "已驗證的擴充功能",
+            "unverified": "未驗證的擴充功能"
+          },
+          "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。"
         },
         "pairUnavailable": "此配對要求已不再待處理，請從瀏覽器擴充功能重新配對。",
         "trustedExtensions": "受信任的擴充功能",
@@ -1471,6 +1479,10 @@
           "builtin": "內建",
           "userAdded": "已新增",
           "imported": "已匯入"
+        },
+        "degradedPort": {
+          "title": "Bridge 正在使用備用連接埠運行",
+          "description": "連接埠 16802–16806 皆無法使用，Bridge 改用連接埠 {{port}}。瀏覽器擴充功能依標準連接埠範圍偵測將無法自動找到它——請透過 Native Messaging 配對，或設定固定連接埠。Motrix CLI 與 Native Host 不受影響。"
         }
       },
       "cli": {
@@ -1499,9 +1511,9 @@
             "error": "失敗"
           },
           "action": {
-            "checking": "檢查中...",
+            "checking": "檢查中…",
             "install": "安裝",
-            "installing": "安裝中...",
+            "installing": "安裝中…",
             "checkAgain": "再次檢查"
           },
           "metadata": {
@@ -1541,7 +1553,7 @@
         },
         "pairToast": {
           "title": "{{name}} 想與 Motrix 配對",
-          "code": "驗證碼: {{code}}",
+          "code": "驗證碼：{{code}}",
           "allow": "允許",
           "deny": "不允許"
         },
@@ -1560,7 +1572,7 @@
         "notDetected": "未偵測到 FFmpeg",
         "refresh": "重新整理",
         "binaryPath": "自訂 FFmpeg 路徑",
-        "browse": "瀏覽...",
+        "browse": "瀏覽…",
         "download": {
           "action": "下載 FFmpeg"
         },
@@ -1601,7 +1613,7 @@
         "opTimeoutSec": "FFmpeg 逾時 (秒)",
         "opTimeoutSecDesc": "單一 FFmpeg 作業的最長時間。預設為 1800 秒 (30 分鐘)，上限為 3600。",
         "cleanupStaging": "清理暫存檔案",
-        "cleanupConfirm": "要移除所有 FFmpeg 暫存目錄嗎?",
+        "cleanupConfirm": "要移除所有 FFmpeg 暫存目錄嗎？",
         "restartHint": "已儲存。請重新啟動 Motrix，讓使用中的外掛程式偵測變更。",
         "restartNow": "立即重新啟動",
         "validation": {
@@ -1645,8 +1657,8 @@
     "app": {
       "title": "Motrix",
       "about": "關於 Motrix",
-      "preferences": "偏好設定...",
-      "checkForUpdates": "檢查更新...",
+      "preferences": "偏好設定…",
+      "checkForUpdates": "檢查更新…",
       "show": "顯示 Motrix",
       "hide": "隱藏 Motrix",
       "hideOthers": "隱藏其他項目",
@@ -1658,9 +1670,9 @@
     },
     "task": {
       "title": "任務",
-      "newTask": "新增任務...",
-      "newBtTask": "新增 BitTorrent 任務...",
-      "openFile": "開啟 Torrent 檔案...",
+      "newTask": "新增任務…",
+      "newBtTask": "新增 BitTorrent 任務…",
+      "openFile": "開啟 Torrent 檔案…",
       "taskList": "任務清單",
       "pauseTask": "暫停",
       "resumeTask": "繼續",
@@ -1735,7 +1747,7 @@
       "cdnBadge": "CDN"
     },
     "sync": {
-      "syncing": "同步中..."
+      "syncing": "同步中…"
     }
   },
   "plugin": {
@@ -1764,14 +1776,14 @@
         "unsupportedEncryption": "無法下載受 DRM 保護的內容",
         "authExpired": "工作階段已過期，請在瀏覽器重新整理頁面後再試一次",
         "notFound": "找不到資源 (404)",
-        "transientFailure": "重試後仍下載失敗: {{detail}}",
+        "transientFailure": "重試後仍下載失敗：{{detail}}",
         "rangeNotSatisfiable": "無法繼續下載，請重新開始下載",
         "diskFull": "磁碟空間已滿",
-        "diskWriteFailed": "無法寫入磁碟: {{detail}}",
+        "diskWriteFailed": "無法寫入磁碟：{{detail}}",
         "muxFailed": "合併音訊和影片時 ffmpeg 失敗",
         "muxAborted": "合併已取消",
         "cancelled": "已取消",
-        "internalError": "內部錯誤: {{detail}}"
+        "internalError": "內部錯誤：{{detail}}"
       }
     }
   },
@@ -1818,7 +1830,7 @@
     },
     "dnsFallback": {
       "title": "{{name}} 已改用系統 DNS 重試",
-      "body": "引擎無法聯繫任何 DNS 伺服器,本次工作階段已切換至系統解析器。"
+      "body": "引擎無法聯繫任何 DNS 伺服器，本次工作階段已切換至系統解析器。"
     },
     "center": {
       "title": "通知",
@@ -1865,14 +1877,14 @@
       "install": "安裝外掛程式",
       "pickLocal": "選擇本機 .moext 檔案",
       "localUnavailable": "此主機無法從本機檔案安裝。",
-      "localPrepareFailed": "無法準備此外掛程式檔案: {{detail}}",
+      "localPrepareFailed": "無法準備此外掛程式檔案：{{detail}}",
       "dropHint": "將 .moext 檔案拖放到這裡以檢查此外掛程式",
       "dragDisabledHint": "此環境不支援拖放。請使用 GitHub 位址或 URL。",
-      "warning": "安裝前請確認: 只有在信任作者，且預期其使用上列權限時才繼續。"
+      "warning": "安裝前請確認：只有在信任作者，且預期其使用上列權限時才繼續。"
     },
     "consent": {
-      "installTitle": "要安裝 {{name}} {{version}} 嗎?",
-      "upgradeTitle": "要將 {{name}} 升級至 {{version}} 嗎?",
+      "installTitle": "要安裝 {{name}} {{version}} 嗎？",
+      "upgradeTitle": "要將 {{name}} 升級至 {{version}} 嗎？",
       "notVerified": "此外掛程式未經驗證。請只安裝來自信任來源的外掛程式。",
       "confirm": "允許並安裝",
       "permissions": "必要權限",
@@ -1880,7 +1892,7 @@
       "hostPermissions": "主機存取權",
       "invokesCommands": "呼叫其他外掛程式的命令",
       "calleeMissing": "未安裝",
-      "source": "來源: {{type}} · {{url}}",
+      "source": "來源：{{type}} · {{url}}",
       "broadAccess": {
         "title": "廣泛的主機存取權",
         "body": "此外掛程式可讀取並修改任何 URL 的下載項目。只有在信任來源時才安裝。",
@@ -1904,12 +1916,12 @@
       "settings": "設定",
       "logs": "日誌",
       "about": "關於",
-      "loading": "載入中...",
+      "loading": "載入中…",
       "back": "全部外掛程式",
       "author": "作者",
       "homepage": "首頁",
       "uninstall": "解除安裝",
-      "uninstallConfirm": "要解除安裝此外掛程式嗎?其資料將一併移除。",
+      "uninstallConfirm": "要解除安裝此外掛程式嗎？其資料將一併移除。",
       "enabled": "已啟用",
       "disabled": "已停用",
       "access": "存取權",
@@ -1938,7 +1950,7 @@
       "viewIssue": "檢視問題",
       "removeTitle": "移除外掛程式",
       "removeDesc": "移除此外掛程式也會刪除其儲存在 Motrix 的資料。",
-      "uninstallConfirmTitle": "要解除安裝 {{name}} 嗎?",
+      "uninstallConfirmTitle": "要解除安裝 {{name}} 嗎？",
       "uninstallConfirmDesc": "這將從 Motrix 移除外掛程式及其已儲存的設定。"
     },
     "permissions": {
@@ -1972,7 +1984,7 @@
     "registry": {
       "availableTitle": "可用的外掛程式",
       "featured": "精選",
-      "byAuthor": "作者: {{name}}",
+      "byAuthor": "作者：{{name}}",
       "requires": "需要 Motrix {{range}}",
       "notInstalled": "未安裝",
       "notFound": "在 registry 中找不到外掛程式「{{id}}」",
@@ -1988,7 +2000,7 @@
       "updateTo": "更新至 v{{version}}",
       "refresh": "檢查更新",
       "builtinUpdateTitle": "更新內建外掛程式",
-      "builtinConsentLead": "此更新要求新的存取權:",
+      "builtinConsentLead": "此更新要求新的存取權：",
       "revertToBundled": "還原為內建版本",
       "restartRequired": "更新已安裝。請重新啟動 Motrix 以完成套用。",
       "updateInstalled": "更新已安裝。",
@@ -2004,8 +2016,8 @@
     },
     "card": {
       "advancedDetails": "進階詳細資料",
-      "commandsInvoked": "已呼叫的命令: {{count}}",
-      "commandsServing": "提供的命令: {{count}}",
+      "commandsInvoked": "已呼叫的命令：{{count}}",
+      "commandsServing": "提供的命令：{{count}}",
       "primaryAction": {
         "settings": "設定",
         "open": "開啟",
@@ -2052,7 +2064,7 @@
           "noSuggestions": "沒有外掛程式或命令建議"
         },
         "refresh": "重新整理",
-        "refreshing": "重新整理中...",
+        "refreshing": "重新整理中…",
         "refreshTooltip": "載入最新的成功呼叫",
         "renderGraphTooltip": "將此大量結果轉譯為圖表",
         "columns": {
@@ -2068,8 +2080,8 @@
           "moreCalls": "較多呼叫"
         },
         "loading": {
-          "graph": "正在載入呼叫歷程記錄...",
-          "metadata": "正在載入外掛程式詳細資料..."
+          "graph": "正在載入呼叫歷程記錄…",
+          "metadata": "正在載入外掛程式詳細資料…"
         },
         "globalEmpty": {
           "title": "尚無成功的跨外掛程式呼叫",

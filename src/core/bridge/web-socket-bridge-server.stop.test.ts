@@ -2,21 +2,25 @@ import {
   createServer as createHttpServer,
   request as httpRequest,
 } from 'node:http'
-import {
-  WebSocketMessageReader,
-  WebSocketMessageWriter,
-} from '@core/bridge/web-socket-message-stream'
-import { createMdxpConnection } from '@motrix/mdxp'
 import { TaskStatus } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
+import { type Mbp1TestWiring, makeMbp1TestWiring } from './__tests__/fakes'
+import {
+  fetchNonce,
+  mdxpOverChannel,
+  pairAndExchange,
+} from './__tests__/mbp1-client'
 import {
   type PairedClient,
   PairingService,
   type PairingStore,
 } from './pairing-service'
 import { WebSocketBridgeServer } from './web-socket-bridge-server'
+
+const EXTENSION_ID = 'stopextensionidaaaaaaaaaaaaaaaaa'
+const ORIGIN = `chrome-extension://${EXTENSION_ID}`
 
 function makePairingStore(): PairingStore {
   let list: PairedClient[] = []
@@ -42,7 +46,9 @@ function makeRegistryStore() {
   }
 }
 
-async function makeServer(): Promise<WebSocketBridgeServer> {
+async function makeServer(
+  mbp1: Mbp1TestWiring | null = null
+): Promise<WebSocketBridgeServer> {
   const pairing = new PairingService(makePairingStore())
   await pairing.load()
   const { TrustedExtensionRegistry } = await import(
@@ -53,20 +59,27 @@ async function makeServer(): Promise<WebSocketBridgeServer> {
   return new WebSocketBridgeServer({
     pairing,
     registry,
-    onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
     motrixVersion: '0.0.0-test',
     runtime: 'electron',
     ffmpegAvailable: false,
     localToken: 'test-local-token',
+    ...(mbp1 === null ? {} : mbp1.options),
   })
 }
 
-function connect(port: number, nonce: string): Promise<WebSocket> {
+/**
+ * Upgrade `/pair` and stop there, so the socket is live but PRE-authenticated.
+ * That is the interesting case for `stop()`: a pre-auth connection is held in
+ * `PreAuthTable`, never in `this.sessions`, so the dispose loop does not see it
+ * and only the `wss.clients` terminate loop can kill it.
+ */
+async function connectPreAuth(port: number): Promise<WebSocket> {
+  const nonce = await fetchNonce(port)
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(
-      `ws://127.0.0.1:${port}/pair?nonce=${nonce}&extensionId=testext&browser=chromium`,
+      `ws://127.0.0.1:${port}/pair?nonce=${nonce}`,
       'motrix-bridge.v1',
-      { origin: 'chrome-extension://abcdefghabcdefghabcdefghabcdefgh' }
+      { origin: ORIGIN }
     )
     ws.once('open', () => resolve(ws))
     ws.once('error', reject)
@@ -118,10 +131,9 @@ function postPause(port: number): Promise<void> {
 
 describe('WebSocketBridgeServer.stop', () => {
   it('resolves promptly even while an extension WebSocket is still open', async () => {
-    const server = await makeServer()
+    const server = await makeServer(await makeMbp1TestWiring())
     const port = await server.start('127.0.0.1', 0)
-    const nonce = server.issuePairNonce()
-    const ws = await connect(port, nonce)
+    const ws = await connectPreAuth(port)
 
     const result = await Promise.race([
       server.stop().then(() => 'stopped' as const),
@@ -175,7 +187,8 @@ describe('WebSocketBridgeServer.stop', () => {
   })
 
   it('drains an accepted WebSocket handler and rejects dispatch admitted after the gate closes', async () => {
-    const server = await makeServer()
+    const mbp1 = await makeMbp1TestWiring([['chromium', EXTENSION_ID]])
+    const server = await makeServer(mbp1)
     const handlerStarted = deferred()
     const releaseHandler = deferred()
     server.registerWriteMethods({
@@ -196,26 +209,15 @@ describe('WebSocketBridgeServer.stop', () => {
       parseTorrentFileCount: vi.fn(async () => 1),
     })
     const port = await server.start('127.0.0.1', 0)
-    const ws = await connect(port, server.issuePairNonce())
-    const conn = createMdxpConnection(
-      new WebSocketMessageReader(ws as never),
-      new WebSocketMessageWriter(ws as never)
-    )
-    conn.listen()
-    await conn.sendRequest('motrix/initialize', {
-      protocolVersion: '1.0',
-      client: {
-        kind: 'extension',
-        name: 'test',
-        version: '1',
-        extensionId: 'testext',
-        browser: 'chromium',
-        browserVersion: '1',
-        locale: 'en',
-      },
-      capabilities: {},
-      adapters: [],
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
     })
+    const ws = paired.wire.ws
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
     conn.sendNotification('motrix/initialized', undefined as never)
     const request = conn.sendRequest('task/pause', { taskId: 'task-1' })
     void request.catch(() => {})

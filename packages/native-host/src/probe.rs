@@ -5,14 +5,26 @@ use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 
-pub const PROBE_FETCH_TIMEOUT: Duration = Duration::from_secs(1);
 pub const MAX_HTTP_HEADER_BYTES: usize = 16 * 1024;
 pub const MAX_HTTP_BODY_BYTES: usize = 64 * 1024;
 const MAX_HTTP_WIRE_BYTES: usize = 128 * 1024;
+const MAX_DISCOVERY_BODY_BYTES: usize = 4 * 1024;
+const MAX_DISCOVERY_FIELD_BYTES: usize = 128;
+const DISCOVERY_APP: &str = "motrix-bridge";
+const DISCOVERY_API_VERSION: u32 = 1;
 
 #[derive(Deserialize)]
 struct NonceResponse {
     nonce: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscoveryResponse {
+    app: String,
+    api_version: u32,
+    instance_id: String,
+    app_version: String,
 }
 
 #[derive(Clone, Copy)]
@@ -35,11 +47,10 @@ enum ChunkDecode {
     Invalid,
 }
 
-pub fn probe_alive(port: u16) -> Option<String> {
-    probe_alive_with_timeout(port, PROBE_FETCH_TIMEOUT)
-}
-
-pub fn probe_alive_with_timeout(port: u16, timeout: Duration) -> Option<String> {
+/// Connects to loopback, sends `request` verbatim, and returns the decoded
+/// response body — shared connect/write/read scaffolding for both the
+/// nonce fetch and the discovery liveness probe below.
+fn fetch_response_body(port: u16, timeout: Duration, request: &str) -> Option<Vec<u8>> {
     if port == 0 || timeout.is_zero() {
         return None;
     }
@@ -49,15 +60,49 @@ pub fn probe_alive_with_timeout(port: u16, timeout: Duration) -> Option<String> 
     let _ = stream.set_nodelay(true);
 
     stream.set_write_timeout(Some(remaining(deadline)?)).ok()?;
-    let request = format!(
-        "GET /nonce HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
-    );
     stream.write_all(request.as_bytes()).ok()?;
     stream.flush().ok()?;
 
-    let body = read_response_body(&mut stream, deadline)?;
+    read_response_body(&mut stream, deadline)
+}
+
+/// `POST /nonce` (spec §4.2). The custom header makes the request
+/// non-simple so a browser preflights it; loopback callers like this one
+/// send it directly over a raw socket.
+pub fn fetch_nonce(port: u16, timeout: Duration) -> Option<String> {
+    let request = format!(
+        "POST /nonce HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAccept: application/json\r\nX-Motrix-Bridge: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    );
+    let body = fetch_response_body(port, timeout, &request)?;
     let response: NonceResponse = serde_json::from_slice(&body).ok()?;
     is_base64url_nonce(&response.nonce).then_some(response.nonce)
+}
+
+/// `GET /discovery` (spec §4.1): unauthenticated and replayable, so it is
+/// the cheap liveness check — callers reserve `fetch_nonce` for a single
+/// call once the bridge is known alive rather than burning a nonce per poll.
+pub fn probe_liveness(port: u16, timeout: Duration) -> bool {
+    let request = format!(
+        "GET /discovery HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
+    );
+    let Some(body) = fetch_response_body(port, timeout, &request) else {
+        return false;
+    };
+    if body.len() > MAX_DISCOVERY_BODY_BYTES {
+        return false;
+    }
+    let Ok(response) = serde_json::from_slice::<DiscoveryResponse>(&body) else {
+        return false;
+    };
+    response.app == DISCOVERY_APP
+        && response.api_version == DISCOVERY_API_VERSION
+        && is_reasonable_discovery_field(&response.instance_id)
+        && is_reasonable_discovery_field(&response.app_version)
+}
+
+fn is_reasonable_discovery_field(value: &str) -> bool {
+    (1..=MAX_DISCOVERY_FIELD_BYTES).contains(&value.len())
+        && value.bytes().all(|byte| byte.is_ascii_graphic())
 }
 
 fn remaining(deadline: Instant) -> Option<Duration> {
@@ -277,20 +322,24 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use super::{ChunkDecode, MAX_HTTP_BODY_BYTES, decode_chunked, probe_alive_with_timeout};
+    use super::{
+        ChunkDecode, MAX_DISCOVERY_BODY_BYTES, MAX_DISCOVERY_FIELD_BYTES, MAX_HTTP_BODY_BYTES,
+        decode_chunked, fetch_nonce, probe_liveness,
+    };
 
     const NONCE: &str = "AbCdEfGhIjKlMnOpQrStUv";
 
-    fn serve_once(parts: Vec<Vec<u8>>, delay: Duration) -> (u16, thread::JoinHandle<()>) {
+    fn serve_once_capturing(
+        parts: Vec<Vec<u8>>,
+        delay: Duration,
+    ) -> (u16, thread::JoinHandle<String>) {
         let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fake bridge");
         let port = listener.local_addr().expect("fake bridge address").port();
         let server = thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept probe");
             let mut request = [0_u8; 1024];
             let read = stream.read(&mut request).expect("read probe request");
-            let request = String::from_utf8_lossy(&request[..read]);
-            assert!(request.starts_with("GET /nonce HTTP/1.1\r\n"));
-            assert!(request.contains("\r\nConnection: close\r\n"));
+            let request = String::from_utf8_lossy(&request[..read]).into_owned();
             if !delay.is_zero() {
                 thread::sleep(delay);
             }
@@ -299,8 +348,28 @@ mod tests {
                     break;
                 }
             }
+            request
         });
         (port, server)
+    }
+
+    #[test]
+    fn fetch_nonce_sends_post_with_bridge_header_and_zero_length() {
+        let body = format!(r#"{{"nonce":"{NONCE}"}}"#);
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        let (port, server) = serve_once_capturing(vec![response.into_bytes()], Duration::ZERO);
+        assert_eq!(
+            fetch_nonce(port, Duration::from_secs(1)),
+            Some(NONCE.into())
+        );
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
+        assert!(request.contains("\r\nX-Motrix-Bridge: 1\r\n"));
+        assert!(request.contains("\r\nContent-Length: 0\r\n"));
+        assert!(request.contains("\r\nConnection: close\r\n"));
     }
 
     #[test]
@@ -310,12 +379,13 @@ mod tests {
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
             body.len()
         );
-        let (port, server) = serve_once(vec![response.into_bytes()], Duration::ZERO);
+        let (port, server) = serve_once_capturing(vec![response.into_bytes()], Duration::ZERO);
         assert_eq!(
-            probe_alive_with_timeout(port, Duration::from_secs(1)),
+            fetch_nonce(port, Duration::from_secs(1)),
             Some(NONCE.into())
         );
-        server.join().expect("fake bridge thread");
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
     }
 
     #[test]
@@ -327,24 +397,26 @@ mod tests {
             first_body.len()
         );
         let second = format!("{:X}\r\n{second_body}\r\n0\r\n\r\n", second_body.len());
-        let (port, server) = serve_once(
+        let (port, server) = serve_once_capturing(
             vec![first.into_bytes(), second.into_bytes()],
             Duration::ZERO,
         );
         assert_eq!(
-            probe_alive_with_timeout(port, Duration::from_secs(1)),
+            fetch_nonce(port, Duration::from_secs(1)),
             Some(NONCE.into())
         );
-        server.join().expect("fake bridge thread");
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
     }
 
     #[test]
     fn rejects_redirect_without_following_location() {
         let response =
             b"HTTP/1.1 302 Found\r\nLocation: http://example.com/\r\nContent-Length: 0\r\n\r\n";
-        let (port, server) = serve_once(vec![response.to_vec()], Duration::ZERO);
-        assert_eq!(probe_alive_with_timeout(port, Duration::from_secs(1)), None);
-        server.join().expect("fake bridge thread");
+        let (port, server) = serve_once_capturing(vec![response.to_vec()], Duration::ZERO);
+        assert_eq!(fetch_nonce(port, Duration::from_secs(1)), None);
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
     }
 
     #[test]
@@ -355,20 +427,22 @@ mod tests {
             invalid_body.len()
         )
         .into_bytes();
-        let (port, server) = serve_once(
+        let (port, server) = serve_once_capturing(
             vec![invalid_response, invalid_body.to_vec()],
             Duration::ZERO,
         );
-        assert_eq!(probe_alive_with_timeout(port, Duration::from_secs(1)), None);
-        server.join().expect("fake bridge thread");
+        assert_eq!(fetch_nonce(port, Duration::from_secs(1)), None);
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
 
         let oversized = format!(
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
             MAX_HTTP_BODY_BYTES + 1
         );
-        let (port, server) = serve_once(vec![oversized.into_bytes()], Duration::ZERO);
-        assert_eq!(probe_alive_with_timeout(port, Duration::from_secs(1)), None);
-        server.join().expect("fake bridge thread");
+        let (port, server) = serve_once_capturing(vec![oversized.into_bytes()], Duration::ZERO);
+        assert_eq!(fetch_nonce(port, Duration::from_secs(1)), None);
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
     }
 
     #[test]
@@ -378,12 +452,86 @@ mod tests {
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
             body.len()
         );
-        let (port, server) = serve_once(vec![response.into_bytes()], Duration::from_millis(100));
-        assert_eq!(
-            probe_alive_with_timeout(port, Duration::from_millis(20)),
-            None
+        let (port, server) =
+            serve_once_capturing(vec![response.into_bytes()], Duration::from_millis(100));
+        assert_eq!(fetch_nonce(port, Duration::from_millis(20)), None);
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("POST /nonce HTTP/1.1\r\n"));
+    }
+
+    fn discovery_response(body: &str) -> Vec<u8> {
+        format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn probe_liveness_hits_discovery_and_accepts_motrix_shape() {
+        let body = r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0","extensionPairing":{"protocol":"mbp1"}}"#;
+        let (port, server) = serve_once_capturing(vec![discovery_response(body)], Duration::ZERO);
+        assert!(probe_liveness(port, Duration::from_secs(1)));
+        let request = server.join().expect("fake bridge thread");
+        assert!(request.starts_with("GET /discovery HTTP/1.1\r\n"));
+    }
+
+    #[test]
+    fn probe_liveness_rejects_malformed_html_and_wrong_app_bodies() {
+        for body in [
+            r#"{"app":"motrix-bridge""#,
+            "<html><body>another service</body></html>",
+            r#"{"app":"other-service","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#,
+        ] {
+            let (port, server) =
+                serve_once_capturing(vec![discovery_response(body)], Duration::ZERO);
+            assert!(!probe_liveness(port, Duration::from_secs(1)), "{body}");
+            let request = server.join().expect("fake bridge thread");
+            assert!(request.starts_with("GET /discovery HTTP/1.1\r\n"));
+        }
+    }
+
+    #[test]
+    fn probe_liveness_rejects_incompatible_or_unreasonable_motrix_shape() {
+        for body in [
+            r#"{"app":"motrix-bridge","apiVersion":2,"instanceId":"i","appVersion":"2.0.0"}"#,
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"","appVersion":"2.0.0"}"#,
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"bad id","appVersion":"2.0.0"}"#,
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":""}"#,
+        ] {
+            let (port, server) =
+                serve_once_capturing(vec![discovery_response(body)], Duration::ZERO);
+            assert!(!probe_liveness(port, Duration::from_secs(1)), "{body}");
+            server.join().expect("fake bridge thread");
+        }
+    }
+
+    #[test]
+    fn probe_liveness_bounds_discovery_body_and_fields() {
+        let long_instance = "x".repeat(MAX_DISCOVERY_FIELD_BYTES + 1);
+        let body = format!(
+            r#"{{"app":"motrix-bridge","apiVersion":1,"instanceId":"{long_instance}","appVersion":"2.0.0"}}"#
         );
+        let (port, server) = serve_once_capturing(vec![discovery_response(&body)], Duration::ZERO);
+        assert!(!probe_liveness(port, Duration::from_secs(1)));
         server.join().expect("fake bridge thread");
+
+        let padding = "x".repeat(MAX_DISCOVERY_BODY_BYTES);
+        let body = format!(
+            r#"{{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0","padding":"{padding}"}}"#
+        );
+        let (port, server) = serve_once_capturing(vec![discovery_response(&body)], Duration::ZERO);
+        assert!(!probe_liveness(port, Duration::from_secs(1)));
+        server.join().expect("fake bridge thread");
+    }
+
+    #[test]
+    fn probe_liveness_rejects_non_2xx_and_dead_port() {
+        let response = b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".to_vec();
+        let (port, server) = serve_once_capturing(vec![response], Duration::ZERO);
+        assert!(!probe_liveness(port, Duration::from_secs(1)));
+        server.join().expect("fake bridge thread");
+        assert!(!probe_liveness(0, Duration::from_secs(1)));
     }
 
     #[test]

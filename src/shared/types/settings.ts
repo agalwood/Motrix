@@ -1,6 +1,7 @@
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { SupportedLocale } from '../constants/locales'
+import type { BridgeSettings } from '../schemas/bridge-settings'
 import type { GeoIPSettings } from './geoip'
 import type { PluginSettings } from './plugin'
 import type { TrackerSource } from './tracker'
@@ -148,6 +149,7 @@ export interface AppSettings {
   media: MediaSettings
   dashboard: DashboardLayoutSettings
   speedLimit: SpeedLimitSettings
+  bridge: BridgeSettings
   windowState: Record<string, WindowState>
 }
 

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@renderer/components/ui/select'
+import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import type { TrustedExtensionInfo } from '@shared/protocol/bridge'
 import { ChevronRight, Trash2 } from 'lucide-react'
@@ -151,9 +152,7 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
                       </div>
                     )}
                   </div>
-                  <span>
-                    {it.browser === 'chromium' ? 'Chrome / Edge' : 'Firefox'}
-                  </span>
+                  <span>{browserDisplayName(it.browser)}</span>
                   <Badge
                     variant={it.source === 'builtin' ? 'outline' : 'secondary'}
                     className="justify-self-start rounded text-[10px]"

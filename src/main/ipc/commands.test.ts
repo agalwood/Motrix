@@ -241,6 +241,7 @@ function fakeCtx() {
     bridgeManager: {
       current: null,
       setEnabled: vi.fn(),
+      restart: vi.fn(),
     },
     magnetTracker: {
       submit: vi.fn().mockResolvedValue(undefined),
@@ -1154,12 +1155,24 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  // Namespaces come in as one named object, not as trailing positional
+  // parameters: five defaulted `object` slots in a row means a call site can
+  // silently put its override in the wrong namespace and still type-check.
   function makeSettingsLike(
     proxy: object,
-    app: object = {},
-    nat: object = {},
-    tracker: object = {},
-    engine: object = {}
+    {
+      app = {},
+      nat = {},
+      tracker = {},
+      engine = {},
+      bridge = {},
+    }: {
+      app?: object
+      nat?: object
+      tracker?: object
+      engine?: object
+      bridge?: object
+    } = {}
   ) {
     return {
       app: {
@@ -1180,6 +1193,11 @@ describe('Commands.UpdateSettings', () => {
         blacklistEnabled: true,
         ...tracker,
       },
+      bridge: {
+        fixedPort: 'auto',
+        instanceId: 'instance-1',
+        ...bridge,
+      },
     }
   }
 
@@ -1199,10 +1217,10 @@ describe('Commands.UpdateSettings', () => {
     reconcileAppImageIntegrationFromSettingsMock.mockClear()
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: false },
+      app: { protocols: { magnet: false } },
     })
     const after = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: true },
+      app: { protocols: { magnet: true } },
     })
     const settingsManager = {
       ...ctx.settingsManager,
@@ -1243,10 +1261,10 @@ describe('Commands.UpdateSettings', () => {
     })
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: true },
+      app: { protocols: { magnet: true } },
     })
     const after = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: false },
+      app: { protocols: { magnet: false } },
     })
     const settingsManager = {
       ...ctx.settingsManager,
@@ -1277,7 +1295,7 @@ describe('Commands.UpdateSettings', () => {
     reconcileAppImageIntegrationFromSettingsMock.mockClear()
     const ctx = fakeCtx()
     const settings = makeSettingsLike(PROXY_OFF, {
-      protocols: { magnet: false },
+      app: { protocols: { magnet: false } },
     })
     const settingsManager = {
       ...ctx.settingsManager,
@@ -1512,9 +1530,11 @@ describe('Commands.UpdateSettings', () => {
       scopes: { download: true, updateApp: false, updateTrackers: false },
     }
     const before = makeSettingsLike(PROXY_OFF, {
-      browserBridgeEnabled: false,
+      app: { browserBridgeEnabled: false },
     })
-    const after = makeSettingsLike(proxy, { browserBridgeEnabled: true })
+    const after = makeSettingsLike(proxy, {
+      app: { browserBridgeEnabled: true },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValue(after),
@@ -1558,10 +1578,10 @@ describe('Commands.UpdateSettings', () => {
   it('hot-applies a changed default save directory', async () => {
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
-      defaultSaveDir: '/downloads/old',
+      app: { defaultSaveDir: '/downloads/old' },
     })
     const after = makeSettingsLike(PROXY_OFF, {
-      defaultSaveDir: '/downloads/new',
+      app: { defaultSaveDir: '/downloads/new' },
     })
     const settingsManager = {
       ...ctx.settingsManager,
@@ -1621,8 +1641,8 @@ describe('Commands.UpdateSettings', () => {
 
   it('hot-applies runtime engine settings without a restart reminder', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(PROXY_OFF, {}, {}, {}, { split: 16 })
-    const after = makeSettingsLike(PROXY_OFF, {}, {}, {}, { split: 32 })
+    const before = makeSettingsLike(PROXY_OFF, { engine: { split: 16 } })
+    const after = makeSettingsLike(PROXY_OFF, { engine: { split: 32 } })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1649,18 +1669,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls trackerManager.applySourcesChange when sourcesEnabled changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: false, blacklistEnabled: true }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: false, blacklistEnabled: true },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1684,18 +1698,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls trackerManager.applyBlacklistChange when blacklistEnabled changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: false }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: false },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1719,18 +1727,12 @@ describe('Commands.UpdateSettings', () => {
 
   it('calls both apply* methods when both toggle in one patch', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
-    const after = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: false, blacklistEnabled: false }
-    )
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: false, blacklistEnabled: false },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
@@ -1754,12 +1756,9 @@ describe('Commands.UpdateSettings', () => {
 
   it('does not call apply* methods when tracker toggles unchanged', async () => {
     const ctx = fakeCtx()
-    const settings = makeSettingsLike(
-      PROXY_OFF,
-      {},
-      {},
-      { sourcesEnabled: true, blacklistEnabled: true }
-    )
+    const settings = makeSettingsLike(PROXY_OFF, {
+      tracker: { sourcesEnabled: true, blacklistEnabled: true },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValue(settings),
@@ -1781,10 +1780,82 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.trackerManager.applyBlacklistChange).not.toHaveBeenCalled()
   })
 
+  it('calls bridgeManager.restart when bridge.fixedPort changes', async () => {
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(PROXY_OFF, {
+      bridge: { fixedPort: 'auto' },
+    })
+    const after = makeSettingsLike(PROXY_OFF, { bridge: { fixedPort: 16900 } })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const bridgeManager = {
+      current: null,
+      setEnabled: vi.fn(),
+      restart: vi.fn(),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      bridgeManager,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({
+      bridge: { fixedPort: 16900 },
+    })
+
+    expect(bridgeManager.restart).toHaveBeenCalledOnce()
+    expect(bridgeManager.setEnabled).not.toHaveBeenCalled()
+  })
+
+  it('does not call bridgeManager.restart when bridge.fixedPort is unchanged', async () => {
+    const ctx = fakeCtx()
+    const settings = makeSettingsLike(PROXY_OFF, {
+      bridge: { fixedPort: 'auto' },
+    })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValue(settings),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const bridgeManager = {
+      current: null,
+      setEnabled: vi.fn(),
+      restart: vi.fn(),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+      bridgeManager,
+      protocolManager: { register: vi.fn() },
+    } as unknown as CommandContext)
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { launchAtStartup: false },
+    })
+
+    expect(bridgeManager.restart).not.toHaveBeenCalled()
+  })
+
   it('reconfigures the updater after the persisted channel changes', async () => {
     const ctx = fakeCtx()
-    const before = makeSettingsLike(PROXY_OFF, { updateChannel: 'stable' })
-    const after = makeSettingsLike(PROXY_OFF, { updateChannel: 'beta' })
+    const before = makeSettingsLike(PROXY_OFF, {
+      app: { updateChannel: 'stable' },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      app: { updateChannel: 'beta' },
+    })
     const settingsManager = {
       ...ctx.settingsManager,
       get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),

@@ -103,6 +103,23 @@ describe('BridgeConnection', () => {
     expect(conn.isReady()).toBe(true)
   })
 
+  it('cuts authorization and readiness immediately when access is revoked', () => {
+    const ws = new FakeWebSocket()
+    const conn = new BridgeConnection(ws as never, {
+      sessionKey: 'chromium:abc',
+      extensionId: 'abc',
+      browser: 'chromium',
+      startedAt: 0,
+    })
+    conn.markAuthorized()
+    conn.markReady()
+
+    conn.revokeAuthorization()
+
+    expect(conn.isAuthorized()).toBe(false)
+    expect(conn.isReady()).toBe(false)
+  })
+
   it('dispose tears down the underlying mdxp connection', () => {
     const ws = new FakeWebSocket()
     const conn = new BridgeConnection(ws as never, {

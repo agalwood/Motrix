@@ -118,6 +118,7 @@ import {
   dialog,
   autoUpdater as nativeAutoUpdater,
   powerMonitor,
+  shell,
 } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
@@ -143,6 +144,7 @@ import { registerUpdateQuitPreparation } from './core/update-quit-preparation'
 import { setupExceptionHandler } from './exception-handler'
 import { registerApplicationMenuIpc } from './ipc/application-menu'
 import { registerCommandHandlers } from './ipc/commands'
+import { createRevealInFolderHandler } from './ipc/commands/reveal-in-folder'
 import { registerDisclaimerIpc } from './ipc/disclaimer'
 import { setupEventForwarding } from './ipc/events'
 import { registerNotificationIpc } from './ipc/notifications'
@@ -2192,6 +2194,10 @@ async function initializeMainProcess(): Promise<void> {
     const ff = await resolveFfmpegLocation()
     const segmentAria2Client = new Aria2SegmentClient(rpcClient)
     segmentClient = segmentAria2Client
+    const revealInFolder = createRevealInFolderHandler({
+      shell,
+      getTask: (taskId) => taskManager.getById(taskId),
+    })
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
     // SessionManager.restore() and the poll loop share the exact same root.
     return bootstrapBridge({
@@ -2199,6 +2205,10 @@ async function initializeMainProcess(): Promise<void> {
       motrixVersion: app.getVersion(),
       ffmpegAvailable: ff.available,
       enabled: true,
+      // Read fresh on every factory invocation (including a hot restart from
+      // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
+      // takes effect without a full app restart.
+      bridgeSettings: settingsManager.get().bridge,
       eventBus,
       createTaskDeps,
       activityRecorder: activeTaskActivityService,
@@ -2237,6 +2247,7 @@ async function initializeMainProcess(): Promise<void> {
         createTask: (req) => handleCreateTask(req, createTaskDeps),
         parseTorrentFileCount: async (base64: string) =>
           (await torrentParser.parse(base64)).files.length,
+        revealTask: (taskId) => revealInFolder({ taskId }),
       },
       ffmpegBinaryPath: ff.binaryPath,
       resolveFfmpegBinaryPath: async () =>

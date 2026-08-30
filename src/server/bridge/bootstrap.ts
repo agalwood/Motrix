@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import { BridgeOwnership } from '@core/bridge/bridge-ownership'
@@ -73,8 +73,8 @@ export interface ServerBridgeOptions {
  * (read/write methods + the stats/task firehose) on a configurable host:port.
  *
  * Mirrors the desktop bootstrap minus every Electron piece: NO
- * PairingDialogController (headless — `onPairRequest` fails closed; web-UI
- * approval is Spec 7), NO NativeMessagingInstaller (no browser NM on a server),
+ * PairingDialogController (headless; web-UI approval is Spec 7),
+ * NO NativeMessagingInstaller (no browser NM on a server),
  * NO ipcMain. The extension `download/submit` WS path is intentionally NOT wired
  * here — the server's value is the agent HTTP MDXP surface.
  */
@@ -98,7 +98,16 @@ export async function bootstrapBridgeForServer(
   // Agent /mdxp secret — self-minted, written to endpoint.json. Distinct from
   // the operator control-plane token (Spec 9 / F1): the two planes no longer
   // share a secret, so a leak/loss of one does not compromise the other.
+  // Per-start, deliberately NOT persisted like the desktop shell's
+  // `loadOrCreateBridgeIdentity`: extension pairing is headless-denied here
+  // (no NM tickets are ever minted against this token), so a restart
+  // invalidating every previously-issued Bearer token is a wanted property,
+  // not a gap.
   const localToken = randomBytes(32).toString('base64url')
+  // One generation for the life of this process, named here (rather than
+  // inlined at the endpoint write below) so a future second write site can't
+  // accidentally mint a fresh one and make every NM ticket look stale.
+  const serverGeneration = randomUUID()
 
   // Device-code pairing for cli/agent clients. The approval prompt is surfaced
   // in the WEB UI: bridge events are re-emitted onto the core EventBus, which
@@ -138,10 +147,13 @@ export async function bootstrapBridgeForServer(
   const server = new WebSocketBridgeServer({
     pairing,
     registry,
-    // Extension pairing stays headless-denied — a previously-paired extension
-    // can still reconnect via /v1 (findByToken). cli/agent clients pair through
-    // the device-code flow below, approved in the web UI.
-    onPairRequest: async () => ({ decision: 'deny', addToRegistry: false }),
+    // None of the six MBP1 options (instanceId, serverGeneration, appVersion,
+    // credentials, isOfficialId, queueMbp1Dialog) are wired for this runtime,
+    // so `/pair` and `/v1` both 404 (they resolve as a unit — see
+    // `resolveMbp1Wiring`): there is no extension WebSocket surface here at
+    // all, not even reconnect for a previously-paired extension. cli/agent
+    // clients pair through the device-code flow below instead, approved in
+    // the web UI.
     motrixVersion: opts.motrixVersion,
     runtime: 'server',
     ffmpegAvailable: false,
@@ -211,7 +223,7 @@ export async function bootstrapBridgeForServer(
     )
     // A failed atomic replace may still have created temporary/discovery state.
     ownership.own('endpoint', () => endpointWriter.clear())
-    await endpointWriter.write(port, localToken)
+    await endpointWriter.write(port, localToken, serverGeneration)
 
     return {
       server,

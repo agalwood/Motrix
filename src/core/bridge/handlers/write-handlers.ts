@@ -8,6 +8,7 @@ import {
   TaskPauseParamsSchema,
   TaskRemoveParamsSchema,
   TaskResumeParamsSchema,
+  TaskRevealParamsSchema,
 } from '@motrix/mdxp'
 import { clientKey } from '@shared/protocol/bridge'
 import type { TaskCreateRequest } from '@shared/schemas/add-task'
@@ -23,7 +24,8 @@ import type { MdxpDispatcher } from '../mdxp-dispatcher'
  * fake. Pause/resume are deliberately public-id actions: the core action owns
  * engine/media fan-out, durable publication, and transition recording.
  * `removeTask` keys by public id and honors `deleteFiles`; `createTask` +
- * `parseTorrentFileCount` back `download/add`.
+ * `parseTorrentFileCount` back `download/add`. `revealTask` is an optional
+ * Electron-shell capability: the headless server deliberately omits it.
  */
 export interface WriteHandlerDeps {
   taskManager: { getById(id: string): DownloadTask | undefined }
@@ -34,6 +36,8 @@ export interface WriteHandlerDeps {
   createTask: (req: TaskCreateRequest) => Promise<{ taskId: string }>
   /** File count of a base64 torrent — for the torrent select-all default. */
   parseTorrentFileCount: (base64: string) => Promise<number>
+  /** Reveal a task-owned output in the platform file manager. */
+  revealTask?: (taskId: string) => Promise<void>
 }
 
 const OK: OkResult = { ok: true }
@@ -54,7 +58,7 @@ function requireTask(
   return task
 }
 
-/** Register `task/pause`, `task/resume`, `task/remove`, `download/add`. */
+/** Register the v1 write surface, including optional shell capabilities. */
 export function registerWriteHandlers(
   dispatcher: MdxpDispatcher,
   deps: WriteHandlerDeps
@@ -90,6 +94,31 @@ export function registerWriteHandlers(
       return OK
     }
   )
+
+  if (deps.revealTask) {
+    const revealTask = deps.revealTask
+    dispatcher.register(
+      Methods.TaskReveal,
+      TaskRevealParamsSchema,
+      async (params): Promise<OkResult> => {
+        // Resolve the public id before crossing into the shell. The protocol
+        // never accepts a caller-supplied path; the Electron handler derives
+        // the destination from this trusted task record.
+        requireTask(deps, params.taskId)
+        try {
+          await revealTask(params.taskId)
+        } catch {
+          // Shell/OS errors can contain an absolute path. Keep that detail out
+          // of the remote response and expose only the capability-level fact.
+          throw makeMdxpError(
+            ErrorCodes.ResourceUnavailable,
+            'task output cannot be revealed'
+          )
+        }
+        return OK
+      }
+    )
+  }
 
   // Keyed replays (lost response, prompt retry) must return the first
   // submission's snapshot instead of minting a second task. Scoped by

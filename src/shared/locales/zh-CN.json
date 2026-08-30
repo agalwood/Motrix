@@ -1,7 +1,7 @@
 {
   "operatorUnlock": {
     "title": "解锁 Motrix",
-    "help": "此服务器需要 operator token。请在 host 上设置 MOTRIX_OPERATOR_TOKEN,或读取 <dataDir>/operator-token 中的 token,然后粘贴到下方。",
+    "help": "此服务器需要 operator token。请在 host 上设置 MOTRIX_OPERATOR_TOKEN，或读取 <dataDir>/operator-token 中的 token，然后粘贴到下方。",
     "placeholder": "Operator token",
     "error": "operator token 无效。请核对 host 上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
     "submit": "解锁"
@@ -385,7 +385,7 @@
         "expandHint": "扩大窗口后可配置仪表板布局。"
       },
       "errors": {
-        "tileFailed": "{{tile}}: 渲染出错",
+        "tileFailed": "{{tile}}：渲染出错",
         "retry": "重试"
       },
       "speedLimit": {
@@ -655,7 +655,7 @@
           "empty": "暂无连接节点",
           "col": {
             "country": "地区",
-            "endpoint": "IP : 端口",
+            "endpoint": "IP：端口",
             "client": "客户端",
             "down": "↓",
             "up": "↑",
@@ -825,7 +825,7 @@
       }
     },
     "detail": {
-      "peers": "节点: {{count}}",
+      "peers": "节点：{{count}}",
       "seeds": "Seeds: {{count}}"
     },
     "torrent": {
@@ -851,16 +851,16 @@
       "reseedFailed": "下载已完成，但做种启动失败。",
       "metaMissing": "Torrent 元数据丢失，无法开始做种。",
       "startup": {
-        "torrentMetaMissing": "无法恢复此 BT 任务:.torrent 元数据文件丢失。请删除任务并重新添加。",
-        "reAddFailed": "无法恢复此任务:引擎拒绝重新添加请求。请删除任务并手动重新添加。",
-        "dirtyMetadata": "无法恢复此任务:缺少恢复所需的标识信息。",
+        "torrentMetaMissing": "无法恢复此 BT 任务：.torrent 元数据文件丢失。请删除任务并重新添加。",
+        "reAddFailed": "无法恢复此任务：引擎拒绝重新添加请求。请删除任务并手动重新添加。",
+        "dirtyMetadata": "无法恢复此任务：缺少恢复所需的标识信息。",
         "resumeCheckpointMissing": "已保留部分文件，但续传检查点已丢失。请安全地重新下载或重新添加任务。",
         "resumeCredentialsRequired": "已保留部分文件，但此下载需要无法自动重放的请求凭据。",
         "resumePathInvalid": "由于保存的输出路径无效，已保留部分文件且未自动恢复。",
         "resumeSourceChanged": "远端文件在下载开始后发生变化，已保留部分文件且未继续写入。",
         "resumeRangeUnsupported": "服务器不支持安全的范围续传，已保留部分文件且未继续写入。",
         "resumeValidationFailed": "Motrix 无法确认远端文件是否未发生变化，已保留部分文件且未继续写入。",
-        "mediaInterrupted": "媒体下载因应用重启而中断,无法恢复。请重新添加以重试。"
+        "mediaInterrupted": "媒体下载因应用重启而中断，无法恢复。请重新添加以重试。"
       }
     },
     "error": {
@@ -1379,7 +1379,7 @@
       "browse": "浏览…",
       "add": "添加",
       "remove": "移除",
-      "preset": "快捷:",
+      "preset": "快捷：",
       "noChange": "无可保存的更改",
       "setAsDefault": "设为默认",
       "openHelp": "查看帮助",
@@ -1453,10 +1453,18 @@
           "addAction": "添加"
         },
         "pairToast": {
-          "title": "{{name}} 想连接 Motrix",
-          "from": "来自 {{browser}}",
-          "allow": "允许",
-          "deny": "拒绝"
+          "title": "{{browser}} 扩展请求连接 Motrix",
+          "extensionId": "ID：{{id}}",
+          "deny": "拒绝",
+          "pairCode": "配对码",
+          "copyCode": "复制配对码",
+          "pairCodeHint": "在扩展中输入此配对码",
+          "identityLabel": {
+            "official": "Motrix 官方扩展",
+            "attested": "已验证的扩展",
+            "unverified": "未验证的扩展"
+          },
+          "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。"
         },
         "pairUnavailable": "该配对请求已失效——请在浏览器扩展中重新发起配对。",
         "trustedExtensions": "受信任的扩展",
@@ -1471,6 +1479,10 @@
           "builtin": "内置",
           "userAdded": "已添加",
           "imported": "已导入"
+        },
+        "degradedPort": {
+          "title": "Bridge 正在使用备用端口运行",
+          "description": "端口 16802–16806 均不可用，Bridge 改用端口 {{port}}。浏览器扩展按标准端口范围探测将无法自动发现它——请通过 Native Messaging 配对，或设置固定端口。Motrix CLI 与 Native Host 不受影响。"
         }
       },
       "cli": {
@@ -1775,11 +1787,11 @@
       "localPrepareFailed": "无法准备此插件文件：{{detail}}",
       "dropHint": "将 .moext 文件拖至此处以检查该插件",
       "dragDisabledHint": "当前环境不支持拖拽。请使用 GitHub 地址或链接。",
-      "warning": "安装前请注意:只有信任作者并预期它会使用上述权限时,才继续安装。"
+      "warning": "安装前请注意：只有信任作者并预期它会使用上述权限时，才继续安装。"
     },
     "consent": {
-      "installTitle": "安装 {{name}} {{version}}?",
-      "upgradeTitle": "升级 {{name}} 到 {{version}}?",
+      "installTitle": "安装 {{name}} {{version}}？",
+      "upgradeTitle": "升级 {{name}} 到 {{version}}？",
       "notVerified": "此插件未经验证。仅在你信任来源时安装。",
       "confirm": "同意并安装",
       "permissions": "所需权限",
@@ -1787,7 +1799,7 @@
       "hostPermissions": "主机访问范围",
       "invokesCommands": "调用其他插件的命令",
       "calleeMissing": "未安装",
-      "source": "来源:{{type}} · {{url}}",
+      "source": "来源：{{type}} · {{url}}",
       "broadAccess": {
         "title": "广泛主机访问",
         "body": "此插件可读取并修改任意 URL 的下载。仅在你信任来源时安装。",
@@ -1816,7 +1828,7 @@
       "author": "作者",
       "homepage": "主页",
       "uninstall": "卸载",
-      "uninstallConfirm": "卸载此插件?其数据会被一并清除。",
+      "uninstallConfirm": "卸载此插件？其数据会被一并清除。",
       "enabled": "已启用",
       "disabled": "已禁用",
       "access": "权限",
@@ -1845,7 +1857,7 @@
       "viewIssue": "查看错误",
       "removeTitle": "移除插件",
       "removeDesc": "移除该插件会同时删除它在 Motrix 中存储的数据。",
-      "uninstallConfirmTitle": "确认卸载 {{name}}?",
+      "uninstallConfirmTitle": "确认卸载 {{name}}？",
       "uninstallConfirmDesc": "这将从 Motrix 中移除该插件及其存储的设置。"
     },
     "permissions": {
@@ -1911,8 +1923,8 @@
     },
     "card": {
       "advancedDetails": "高级详情",
-      "commandsInvoked": "发起的命令调用:{{count}}",
-      "commandsServing": "接受的命令调用:{{count}}",
+      "commandsInvoked": "发起的命令调用：{{count}}",
+      "commandsServing": "接受的命令调用：{{count}}",
       "primaryAction": {
         "settings": "设置",
         "open": "打开",
@@ -2197,7 +2209,7 @@
     },
     "dnsFallback": {
       "title": "{{name}} 已改用系统 DNS 重试",
-      "body": "引擎无法联系任何 DNS 服务器,本次会话已切换到系统解析器。"
+      "body": "引擎无法联系任何 DNS 服务器，本次会话已切换到系统解析器。"
     },
     "center": {
       "title": "通知",

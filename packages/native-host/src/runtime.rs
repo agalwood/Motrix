@@ -4,10 +4,10 @@ use std::time::{Duration, Instant};
 
 use crate::endpoint::{EndpointFile, read_endpoint};
 use crate::launcher::launch_motrix;
-use crate::probe::probe_alive_with_timeout;
+use crate::probe::{fetch_nonce, probe_liveness};
 use crate::resolve::{
-    LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, PROBE_TIMEOUT, ResolveDeps, ResolveError,
-    ResolveResult, poll_launched_endpoint, resolve_endpoint,
+    LAUNCH_POLL_INTERVAL, LAUNCH_POLL_TIMEOUT, ResolveDeps, ResolveError, ResolveResult,
+    poll_launched_endpoint, resolve_endpoint,
 };
 use crate::user_data::bridge_endpoint_path;
 
@@ -31,8 +31,12 @@ impl ResolveDeps for SystemResolveDeps {
         self.endpoint_path.as_deref().and_then(read_endpoint)
     }
 
-    fn probe(&mut self, port: u16, timeout: Duration) -> Option<String> {
-        probe_alive_with_timeout(port, timeout)
+    fn probe_liveness(&mut self, port: u16, timeout: Duration) -> bool {
+        probe_liveness(port, timeout)
+    }
+
+    fn fetch_nonce(&mut self, port: u16, timeout: Duration) -> Option<String> {
+        fetch_nonce(port, timeout)
     }
 
     fn launch(&mut self) -> bool {
@@ -48,27 +52,55 @@ impl ResolveDeps for SystemResolveDeps {
     }
 }
 
-pub fn resolve_direct(allow_launch: bool, bridge_data: Option<&Path>) -> ResolveResult {
-    let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
-    resolve_endpoint(allow_launch, &mut deps)
-}
+// There is deliberately no general-purpose `resolve_direct` helper here.
+//
+// One existed and was deleted: a `pub fn resolve_direct(allow_launch,
+// bridge_data)` that resolved the endpoint and answered
+// `ResolveResult::request_pair(..)`. It had no callers, and it was a trap
+// rather than merely dead code. `main.rs`'s live path does the same
+// resolution but branches on `HostRequest::Bootstrap` to mint a §9.2 ticket
+// and answers `request_pair_with_ticket`. So the deleted helper read as a
+// tidier, better-named version of that block while silently dropping
+// attestation — a future refactor replacing `main.rs` with a call to it would
+// type-check, read cleanly, keep every unit test green, and make every
+// extension resolve to `unverified`, putting the `official` /
+// `attested-non-official` tiers permanently out of reach. Only the three
+// integration tests would have caught it.
+//
+// If a ticketless direct resolve is ever genuinely wanted, write it at the
+// call site where the ticketless choice is visible, the way `probe_bridge`
+// below does.
 
+/// The broker's `Probe` operation: resolve the recorded endpoint without any
+/// launch capability, since only the host-side companion can start a Flatpak
+/// app. Delegating to [`resolve_endpoint`] with `allow_launch = false` keeps
+/// the "liveness, then exactly one nonce" sequence in one place instead of
+/// mirroring it here, where it could drift.
+///
+/// Deliberately ticketless (`request_pair`, never `request_pair_with_ticket`):
+/// the broker has no caller identity to attest — the browser talks to the
+/// companion, not to it — so the reply resolves to `unverified` by design.
+///
+/// A live bridge that refuses a nonce reports `NotRunning`, which the
+/// companion cannot distinguish from a bridge that is down, so it will launch
+/// and call `WaitForEndpoint`, fetching a second nonce. Bounded (two per
+/// resolution, never a loop) but real; removing it needs a broker-protocol
+/// response that separates the two, which the current versioned stdio
+/// contract cannot express without breaking older companions.
 pub fn probe_bridge(bridge_data: Option<&Path>) -> ResolveResult {
     let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
-    if let Some(endpoint) = deps.read_endpoint()
-        && let Some(nonce) = deps.probe(endpoint.port, PROBE_TIMEOUT)
-    {
-        return ResolveResult::request_pair(endpoint.port, nonce);
-    }
-    ResolveResult::Error {
-        error: ResolveError::NotRunning,
+    match resolve_endpoint(false, &mut deps) {
+        Ok(resolved) => ResolveResult::request_pair(resolved.endpoint.port, resolved.nonce),
+        Err(_) => ResolveResult::Error {
+            error: ResolveError::NotRunning,
+        },
     }
 }
 
 pub fn wait_for_bridge(bridge_data: Option<&Path>) -> ResolveResult {
     let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
     match poll_launched_endpoint(&mut deps, LAUNCH_POLL_TIMEOUT, LAUNCH_POLL_INTERVAL) {
-        Some((port, nonce)) => ResolveResult::request_pair(port, nonce),
+        Some(resolved) => ResolveResult::request_pair(resolved.endpoint.port, resolved.nonce),
         None => ResolveResult::Error {
             error: ResolveError::LaunchFailed,
         },

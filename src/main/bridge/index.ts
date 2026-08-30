@@ -1,8 +1,9 @@
-import { randomBytes } from 'node:crypto'
 import { homedir, platform as osPlatform } from 'node:os'
 import { join } from 'node:path'
 import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
+import { loadOrCreateBridgeIdentity } from '@core/bridge/bridge-identity'
 import { BridgeOwnership } from '@core/bridge/bridge-ownership'
+import { Mbp1CredentialStore } from '@core/bridge/credential-store'
 import { DeviceCodeService } from '@core/bridge/device-code-service'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
 import { FilePairingStore } from '@core/bridge/file-pairing-store'
@@ -18,7 +19,7 @@ import {
   UrlResolutionService,
 } from '@core/bridge/url-resolution-service'
 import {
-  type PairDecision,
+  BRIDGE_CANDIDATE_PORTS,
   WebSocketBridgeServer,
 } from '@core/bridge/web-socket-bridge-server'
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
@@ -34,13 +35,15 @@ import {
   BridgeCommands,
   BridgeEvents,
   BridgeQueries,
+  type BridgeStatusInfo,
+  type Browser,
   type ClientIdentity,
-  clientKey,
   type PairRequestPayload,
   pairRequestKey,
   type ResolvePairParams,
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
+import type { BridgeSettings } from '@shared/schemas/bridge-settings'
 import type { PluginManifest } from '@shared/types/plugin'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import { app, ipcMain } from 'electron'
@@ -215,6 +218,38 @@ export function parseDevTrustedExtensions(
   return out
 }
 
+/**
+ * §5's `isOfficialId`, backed by the immutable allowlist only. Deliberately
+ * never derived from `TrustedExtensionRegistry.has()`, which also admits
+ * `user-added` and `imported` entries — a source §5 forbids for the
+ * `official` tier (spec-coverage audit W1). Extracted so the two arrays that
+ * feed the registry (`BUILTIN_TRUSTED` + `parseDevTrustedExtensions`) can be
+ * unit-tested against this resolver without standing up a registry at all.
+ */
+export function resolveOfficialIds(
+  entries: ReadonlyArray<{ id: string; browser: 'chromium' | 'firefox' }>
+): (browser: Browser, id: string) => boolean {
+  const allowed = new Set(entries.map((e) => `${e.browser}:${e.id}`))
+  return (browser, id) => allowed.has(`${browser}:${id}`)
+}
+
+/** §4: `fixedPort` resolves to the candidate range, or pins a single port. */
+function resolveBridgePorts(
+  fixedPort: BridgeSettings['fixedPort']
+): readonly number[] {
+  return fixedPort === 'auto' ? BRIDGE_CANDIDATE_PORTS : [fixedPort]
+}
+
+/**
+ * How often `sweepExpiredProvisionals()` runs. §6.7 bounds a first-pair
+ * provisional's TTL to 10 minutes; sweeping on the same cadence keeps
+ * storage hygiene bounded without adding a second timescale to reason about.
+ * This is hygiene, not an auth boundary — `findForAuth` already rejects an
+ * expired provisional on its own — so a slow sweep only means slower
+ * cleanup, never a security gap.
+ */
+const CREDENTIAL_SWEEP_INTERVAL_MS = 10 * 60 * 1000
+
 export interface BridgeRuntime {
   server: WebSocketBridgeServer
   pairing: PairingService
@@ -222,6 +257,11 @@ export interface BridgeRuntime {
   bus: BridgeEventBus
   installer: NativeMessagingInstaller
   endpointWriter: EndpointFileWriter
+  /** The port actually bound (`startOnFirstFree`'s result). */
+  port: number
+  /** True once every candidate in `BRIDGE_CANDIDATE_PORTS`/the pinned port
+   *  was taken and the bridge fell back to an ephemeral port (§4). */
+  degraded: boolean
   shutdown: () => Promise<void>
   /**
    * The shared MuxPipeline used by BridgeReceiver. Exposed read-only so the
@@ -401,6 +441,12 @@ export async function bootstrapBridge(args: {
   // (youtube + bilibili → mux task via the url-resolver plugin).
   pluginRegistry: PluginRegistry
   pluginHost: PluginHost
+  /** `bridge.fixedPort` (port policy, §4) + `bridge.instanceId` (the §4.1
+   *  discovery routing hint) from persisted settings. */
+  bridgeSettings: BridgeSettings
+  /** Test-only override for `sweepExpiredProvisionals()`'s cadence —
+   *  production always relies on {@link CREDENTIAL_SWEEP_INTERVAL_MS}. */
+  credentialSweepIntervalMs?: number
 }): Promise<BridgeRuntime | null> {
   if (!args.enabled) {
     return null
@@ -423,10 +469,12 @@ export async function bootstrapBridge(args: {
   const devTrusted = parseDevTrustedExtensions(
     process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS
   )
-  const registry = new TrustedExtensionRegistry(registryStore, [
-    ...BUILTIN_TRUSTED,
-    ...devTrusted,
-  ])
+  // Computed from the immutable arrays BEFORE they enter the registry:
+  // `isOfficialId` must never read `TrustedExtensionRegistry`, which also
+  // admits `user-added`/`imported` entries (§5, spec-coverage audit W1).
+  const officialEntries = [...BUILTIN_TRUSTED, ...devTrusted]
+  const isOfficialId = resolveOfficialIds(officialEntries)
+  const registry = new TrustedExtensionRegistry(registryStore, officialEntries)
   await registry.load()
 
   const bus = new BridgeEventBus()
@@ -532,35 +580,35 @@ export async function bootstrapBridge(args: {
     await receiver.restoreInflight()
     receiver.start()
 
-    // Extracted so both the WebSocketBridgeServer constructor and
-    // createInitializeHandler share the same pairing-dialog flow.
-    // The closure captures `server` by reference — safe because onPairRequest
-    // is only ever called after `server` is fully constructed (during a WS
-    // upgrade, which can only happen after server.start()).
-    const onPairRequest = async (
-      req: Parameters<typeof dialog.requestDecision>[0]
-    ): Promise<PairDecision> => {
-      const decision = await dialog.requestDecision(
-        req,
-        server.issuePairNonce()
-      )
-      if (decision.decision === 'allow') {
-        bus.emitPaired({
-          identity: {
-            kind: 'extension',
-            browser: req.browser,
-            extensionId: req.extensionId,
-          },
-        })
-      }
-      return decision
-    }
+    // Machine-owner Bearer token for the unary POST /mdxp transport, AND the
+    // §9.1 attestation root the native host derives its ticket-MAC key from.
+    // MUST persist across restarts (§9.2) — a ticket minted before a restart
+    // must MAC-verify after one, downgrading to `unverified` on a stale
+    // `serverGeneration` rather than aborting outright. `serverGeneration`
+    // itself is the opposite: fresh per start, so a replayed pre-restart
+    // ticket cannot be mistaken for a live one.
+    const bridgeIdentity = await loadOrCreateBridgeIdentity(
+      join(dataDir, 'local-token')
+    )
 
-    // Machine-owner Bearer token for the unary POST /mdxp transport: generated
-    // per start, mirrored into endpoint.json (mode 0600), never sent to the
-    // renderer or logged. A stale token from an unclean shutdown is invalid after
-    // restart because a fresh one is minted here.
-    const localToken = randomBytes(32).toString('base64url')
+    // §6.7's durable credential store, shared by both the first-pair and
+    // reconnect session paths. Loaded BEFORE the listener starts — its
+    // journal replay must finish before /v1 accepts any authentication.
+    const credentials = await Mbp1CredentialStore.load(
+      join(dataDir, 'mbp1-credentials.json')
+    )
+    // Storage hygiene only (findForAuth already rejects an expired
+    // provisional on its own) — periodic so an unbounded number of crashed
+    // first-pair attempts cannot accumulate for the life of a long-running
+    // process.
+    const sweepTimer = setInterval(
+      () => void credentials.sweepExpiredProvisionals(),
+      args.credentialSweepIntervalMs ?? CREDENTIAL_SWEEP_INTERVAL_MS
+    )
+    sweepTimer.unref()
+    ownership.own('credential-sweep', () => {
+      clearInterval(sweepTimer)
+    })
 
     const server: WebSocketBridgeServer = new WebSocketBridgeServer({
       pairing,
@@ -568,12 +616,31 @@ export async function bootstrapBridge(args: {
       motrixVersion: args.motrixVersion,
       runtime: 'electron',
       ffmpegAvailable: args.ffmpegAvailable,
-      onPairRequest,
-      localToken,
+      localToken: bridgeIdentity.localToken,
       deviceCode,
       // A device-code pair/request surfaces the SAME approval prompt the
       // extension flow uses — emit on the bus, which forwards to the renderer.
       onPairRequested: (payload) => bus.emitPairRequested(payload),
+      instanceId: args.bridgeSettings.instanceId,
+      serverGeneration: bridgeIdentity.serverGeneration,
+      appVersion: args.motrixVersion,
+      credentials,
+      isOfficialId,
+      queueMbp1Dialog: (req) => dialog.queueMbp1Prompt(req),
+      // The only remaining signal that an extension became usable now that
+      // `motrix/initialize` mints nothing (R18-10): restores the paired-client
+      // list, RevokePair, and the revoke-kick by feeding the SAME
+      // `PairingService` bookkeeping the pre-MBP1 extension flow used. The
+      // token this mints is otherwise inert for an extension identity —
+      // `resolveBearer` only ever accepts a `cli` token — so its only job is
+      // list/revoke/kick, exactly as before. Best-effort: a persistence
+      // failure must not tear down the just-authenticated session.
+      onExtensionAuthenticated: (identity) => {
+        void pairing
+          .issueToken(identity, '')
+          .then(() => bus.emitPaired({ identity }))
+          .catch(() => {})
+      },
     })
 
     // Register the shell's domain handlers BEFORE start() — no race window where
@@ -606,7 +673,10 @@ export async function bootstrapBridge(args: {
     // Register before bind so even a partial listen failure closes every
     // socket/dispatcher resource the server may already own.
     ownership.own('server', () => server.stop())
-    const port = await server.start()
+    const { port, degraded } = await server.startOnFirstFree(
+      '127.0.0.1',
+      resolveBridgePorts(args.bridgeSettings.fixedPort)
+    )
 
     bus.on('TaskProgress', ({ sessionKey, params }) => {
       const session = server.getSession(sessionKey)
@@ -638,16 +708,6 @@ export async function bootstrapBridge(args: {
     // after this bridge instance is gone.
     ownership.own('device-code', () => deviceCode.dispose())
 
-    pairing.on('revoked', async ({ identity, reason }) => {
-      const sessionKey = clientKey(identity)
-      const session = server.getSession(sessionKey)
-      if (!session) return
-      session.conn.sendNotification(Notifications.PairRevoked, { reason })
-      // Give the ext a tick to process the notification before close.
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      session.conn.dispose()
-    })
-
     const { installer, snap } = createNativeMessagingInstallation()
     let preserveNativeMessagingRegistration = false
     ownership.own('native-messaging-manifests', async () => {
@@ -670,7 +730,11 @@ export async function bootstrapBridge(args: {
     // clear() is owned before write(): a faulting write may have replaced or
     // partially created the discovery file before rejecting.
     ownership.own('endpoint', () => endpointWriter.clear())
-    await endpointWriter.write(port, localToken)
+    await endpointWriter.write(
+      port,
+      bridgeIdentity.localToken,
+      bridgeIdentity.serverGeneration
+    )
 
     // Renderer IPC. Track exact channels as each registration succeeds; a
     // later duplicate/fault removes the earlier subset during rollback.
@@ -702,9 +766,25 @@ export async function bootstrapBridge(args: {
     ])
     installIpcHandler(BridgeQueries.ListTrusted, () => registry.list())
     installIpcHandler(
+      BridgeQueries.GetStatus,
+      (): BridgeStatusInfo => ({
+        port,
+        degraded,
+        fixedPort: args.bridgeSettings.fixedPort,
+        instanceId: args.bridgeSettings.instanceId,
+      })
+    )
+    installIpcHandler(
       BridgeCommands.RevokePair,
       async (_e, params: { identity: ClientIdentity }) => {
-        await pairing.revoke(params.identity, 'user-revoked')
+        const reason = 'user-revoked'
+        if (params.identity.kind === 'extension') {
+          // Credential removal is the authorization boundary; it MUST land
+          // before display bookkeeping is updated or the old mutual key can
+          // reconnect immediately after the user clicks Revoke.
+          await server.revokeExtensionAccess(params.identity, reason)
+        }
+        await pairing.revoke(params.identity, reason)
         bus.emitRevoked({ identity: params.identity })
       }
     )
@@ -810,6 +890,8 @@ export async function bootstrapBridge(args: {
       bus,
       installer,
       endpointWriter,
+      port,
+      degraded,
       shutdown: () => ownership.dispose(),
       muxPipeline: receiver.muxPipeline,
       getMediaSegmentGids: (taskId: string) =>

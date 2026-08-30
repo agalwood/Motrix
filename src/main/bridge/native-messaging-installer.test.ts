@@ -13,18 +13,22 @@ import {
 describe('computeManifestPaths', () => {
   it('returns correct macOS Chrome path', () => {
     const paths = computeManifestPaths('darwin', '/Users/me')
-    expect(paths.chromium).toContain(
+    expect(paths.chrome).toContain(
       '/Users/me/Library/Application Support/Google/Chrome/NativeMessagingHosts/app.motrix.bridge.json'
     )
     expect(paths.firefox).toContain(
       '/Users/me/Library/Application Support/Mozilla/NativeMessagingHosts/app.motrix.bridge.json'
     )
+    expect(paths.chromium).toBeUndefined()
   })
 
   it('returns correct Linux paths', () => {
     const paths = computeManifestPaths('linux', '/home/me')
-    expect(paths.chromium).toContain(
+    expect(paths.chrome).toContain(
       '/home/me/.config/google-chrome/NativeMessagingHosts/app.motrix.bridge.json'
+    )
+    expect(paths.chromium).toContain(
+      '/home/me/.config/chromium/NativeMessagingHosts/app.motrix.bridge.json'
     )
     expect(paths.firefox).toContain(
       '/home/me/.mozilla/native-messaging-hosts/app.motrix.bridge.json'
@@ -68,6 +72,33 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     )
   })
 
+  it('writes the chromium-family manifest to the Debian Chromium path on Linux', async () => {
+    const hostBinaryPath = '/opt/Motrix/resources/bin/motrix-native-host'
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath,
+      manifestRoot: dir,
+      platform: 'linux',
+    })
+    await installer.syncManifests({
+      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      firefox: ['motrix-extension@motrix.app'],
+    })
+    const chromium = JSON.parse(
+      await readFile(
+        join(
+          dir,
+          '.config/chromium/NativeMessagingHosts/app.motrix.bridge.json'
+        ),
+        'utf-8'
+      )
+    )
+    expect(chromium.name).toBe('app.motrix.bridge')
+    expect(chromium.path).toBe(hostBinaryPath)
+    expect(chromium.allowed_origins).toEqual([
+      'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/',
+    ])
+  })
+
   it('writes Firefox manifest with allowed_extensions', async () => {
     const installer = new NativeMessagingInstaller({
       hostBinaryPath: '/path/to/motrix-bridge-host',
@@ -100,9 +131,9 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     const paths = computeManifestPaths('linux', dir)
     const chromiumSentinel = Buffer.from('companion-owned-chromium')
     const firefoxSentinel = Buffer.from('companion-owned-firefox')
-    await mkdir(dirname(paths.chromium), { recursive: true })
+    await mkdir(dirname(paths.chrome), { recursive: true })
     await mkdir(dirname(paths.firefox), { recursive: true })
-    await writeFile(paths.chromium, chromiumSentinel)
+    await writeFile(paths.chrome, chromiumSentinel)
     await writeFile(paths.firefox, firefoxSentinel)
 
     await installer.syncManifests({
@@ -111,7 +142,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     })
     await installer.unregister()
 
-    expect(await readFile(paths.chromium)).toEqual(chromiumSentinel)
+    expect(await readFile(paths.chrome)).toEqual(chromiumSentinel)
     expect(await readFile(paths.firefox)).toEqual(firefoxSentinel)
   })
 
@@ -124,8 +155,8 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       type: 'stdio',
       allowed_origins: ['chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'],
     }
-    await mkdir(dirname(paths.chromium), { recursive: true })
-    await writeFile(paths.chromium, JSON.stringify(flatpakManifest))
+    await mkdir(dirname(paths.chrome), { recursive: true })
+    await writeFile(paths.chrome, JSON.stringify(flatpakManifest))
 
     const installer = new NativeMessagingInstaller({
       hostBinaryPath: '/opt/Motrix/resources/bin/motrix-native-host',
@@ -137,20 +168,20 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       firefox: ['motrix-extension@motrix.app'],
     })
 
-    expect(JSON.parse(await readFile(paths.chromium, 'utf-8'))).toEqual(
+    expect(JSON.parse(await readFile(paths.chrome, 'utf-8'))).toEqual(
       flatpakManifest
     )
     await installer.unregister()
-    expect(JSON.parse(await readFile(paths.chromium, 'utf-8'))).toEqual(
+    expect(JSON.parse(await readFile(paths.chrome, 'utf-8'))).toEqual(
       flatpakManifest
     )
   })
 
   it('repairs a stale file that only resembles a companion manifest', async () => {
     const paths = computeManifestPaths('linux', dir)
-    await mkdir(dirname(paths.chromium), { recursive: true })
+    await mkdir(dirname(paths.chrome), { recursive: true })
     await writeFile(
-      paths.chromium,
+      paths.chrome,
       JSON.stringify({
         name: 'app.motrix.bridge',
         path: '/tmp/motrix-flatpak-native-host',
@@ -168,7 +199,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       firefox: ['motrix-extension@motrix.app'],
     })
 
-    expect(JSON.parse(await readFile(paths.chromium, 'utf-8')).path).toBe(
+    expect(JSON.parse(await readFile(paths.chrome, 'utf-8')).path).toBe(
       hostBinaryPath
     )
   })
@@ -190,12 +221,15 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       name: 'app.motrix.bridge',
       path: `${dir}/.local/share/motrix/native-messaging/motrix-flatpak-native-host`,
     }
-    await writeFile(paths.chromium, JSON.stringify(replacement))
+    await writeFile(paths.chrome, JSON.stringify(replacement))
     await installer.unregister()
 
-    expect(JSON.parse(await readFile(paths.chromium, 'utf-8'))).toEqual(
+    expect(JSON.parse(await readFile(paths.chrome, 'utf-8'))).toEqual(
       replacement
     )
+    await expect(readFile(paths.chromium!, 'utf-8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
     await expect(readFile(paths.firefox, 'utf-8')).rejects.toMatchObject({
       code: 'ENOENT',
     })
@@ -205,7 +239,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
 describe('computeManifestPaths (win32)', () => {
   it('returns private-folder JSON paths for Chrome, Edge, and Firefox', () => {
     const paths = computeManifestPaths('win32', 'C:/Users/me')
-    expect(paths.chromium).toBe(
+    expect(paths.chrome).toBe(
       'C:/Users/me/AppData/Roaming/Motrix/bridge/manifests/chrome.json'
     )
     expect(paths.edge).toBe(
@@ -223,7 +257,7 @@ describe('computeManifestPaths (win32)', () => {
       'Z:/Profiles/me/Roaming'
     )
 
-    expect(paths.chromium).toBe(
+    expect(paths.chrome).toBe(
       'Z:/Profiles/me/Roaming/Motrix/bridge/manifests/chrome.json'
     )
     expect(paths.edge).toBe(

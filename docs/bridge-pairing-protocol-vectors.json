@@ -1,0 +1,190 @@
+{
+  "description": "Normative MBP1 cross-implementation test vectors (rev 2, post crypto-review round 1). Generated per docs/bridge-pairing-protocol.md. The generic SPAKE2 core was validated against all four RFC 9382 Appendix B P-256 vectors before generation. All byte strings are lowercase hex.",
+  "generator": {
+    "library": "@noble/curves 2.0.1, @noble/hashes 2.0.1, node:crypto AES-256-GCM",
+    "coreValidation": "RFC 9382 Appendix B vectors #1-#4 (P-256) reproduced exactly"
+  },
+  "spake2": [
+    {
+      "name": "first-pair, chromium, nm ticket present",
+      "inputs": {
+        "codeDisplayed": "MTX7-K2Q9",
+        "codeNormalized": "MTX7K2Q9",
+        "pairNonce": "vec-nonce-8f3a1c5e7b2d4a90",
+        "browser": "chromium",
+        "verifiedOrigin": "chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi",
+        "claimedExtensionId": "ibpkjhgpbidfmbmomagmldcdlpbmchgi",
+        "clientInstallationId": "5f0b6f9e-8a3d-4c5e-9b2a-7d1e4f6a8c0b",
+        "instanceId": "0d9c2b7a-4e6f-4a1b-8c3d-2e5f7a9b1c4d",
+        "x": "0338620bd18bc1b03c41f70e111cc55da580e334813857a12a27217e1f268561",
+        "y": "08bb7bfb987c3ebbfcdc49fd2a715c71a395daa30da45b3e5856d34c174b31fd",
+        "bindingSeed": "7f1d3b5a7c9e0f2b4d6a8c0e1f3b5d7a9c0e2f4b6d8a0c2e4f6a8b0d1e3f5a7c"
+      },
+      "intermediate": {
+        "scryptOutput": "fc4d0c833ae57e13e602333e0c7e3bc5aece387ef1ed853edccbf8059d334fa5bd11e785efe4a7456a91143c40ec9947b6a4387dc007af234179d41dd69e0f7b",
+        "w": "030955c2809b06563fa6991f9657d84ca270df221d810fdeab4a02e386f3a7d6",
+        "aId": "09000000000000004d4250312f412f763108000000000000006368726f6d69756d33000000000000006368726f6d652d657874656e73696f6e3a2f2f6962706b6a686770626964666d626d6f6d61676d6c6463646c70626d6368676920000000000000006962706b6a686770626964666d626d6f6d61676d6c6463646c70626d63686769240000000000000035663062366639652d386133642d346335652d396232612d376431653466366138633062",
+        "bId": "09000000000000004d4250312f422f76310d000000000000006d6f747269782d627269646765240000000000000030643963326237612d346536662d346131622d386333642d326535663761396231633464",
+        "bindingPub": "fd64b13bcbdd3fcaaac3953f6212c769495003162d404066e119f5fcc1551173",
+        "ticketDigest": "6cbcc5cad1addb2dd6ebb6b7390fefd289a8979b684d7fee97bd003ecc8a11dd",
+        "aad": "000000011a000000000000007665632d6e6f6e63652d386633613163356537623264346139302000000000000000fd64b13bcbdd3fcaaac3953f6212c769495003162d404066e119f5fcc155117320000000000000006cbcc5cad1addb2dd6ebb6b7390fefd289a8979b684d7fee97bd003ecc8a11dd"
+      },
+      "expected": {
+        "pA": "4376c5f717876c87d7c8699e41da8e91a08a31834489d537e299649415b0d272",
+        "pB": "138d71989e96d8871d8e9dcfdf0d8d0bc540b77c301c5b9753b65b2fb69588f7",
+        "K": "6b35b41137942fafeb209fb808786b24f8c952b9c1a69754b5df3ac2038b42b4",
+        "TT": "b00000000000000009000000000000004d4250312f412f763108000000000000006368726f6d69756d33000000000000006368726f6d652d657874656e73696f6e3a2f2f6962706b6a686770626964666d626d6f6d61676d6c6463646c70626d6368676920000000000000006962706b6a686770626964666d626d6f6d61676d6c6463646c70626d63686769240000000000000035663062366639652d386133642d346335652d396232612d376431653466366138633062520000000000000009000000000000004d4250312f422f76310d000000000000006d6f747269782d627269646765240000000000000030643963326237612d346536662d346131622d386333642d32653566376139623163346420000000000000004376c5f717876c87d7c8699e41da8e91a08a31834489d537e299649415b0d2722000000000000000138d71989e96d8871d8e9dcfdf0d8d0bc540b77c301c5b9753b65b2fb69588f720000000000000006b35b41137942fafeb209fb808786b24f8c952b9c1a69754b5df3ac2038b42b42000000000000000030955c2809b06563fa6991f9657d84ca270df221d810fdeab4a02e386f3a7d6",
+        "Ke": "34b8bb82b3afda9adb6a4a6aa562e181",
+        "Ka": "2aa9c8b9003fd06f54906f2287378107",
+        "KcA": "a7c63c598c280187336f7c6e2d1b54c9",
+        "KcB": "bcc1377e655fe466690e0960e297a211",
+        "cA": "66e8d23114d6717d08e48fc4d1fd1dd93186a82e31512f39bf07d41782b9182d",
+        "cB": "2261cb6da620f4982cf66cac8d38049dcfaff7d127fa255482830d9e6b73546c",
+        "ticketProof": "2d232ce6318a9bff5654dbf760d0091b20a78cfac56c6ca24178a197805d5ea658f1ca4a0a04cac8037a14d846a723a3f881d0212c560d03c2f888d3973f3502",
+        "trafficC2S": "248ff17bacfa39ebe2bbb851d552f9185924303c42a41da3f1ebbbfec70be692",
+        "trafficS2C": "b595581934dfe69513ed1b0814de366512bbb819d762d2a0338cc80683c361a2"
+      }
+    },
+    {
+      "name": "first-pair, same inputs, no nm ticket (AAD variant)",
+      "inputs": {
+        "note": "identical to vector 0 except nmTicket absent"
+      },
+      "intermediate": {
+        "aad": "000000011a000000000000007665632d6e6f6e63652d3866336131633565376232643461393000000000000000000000000000000000"
+      },
+      "expected": {
+        "TT": "b00000000000000009000000000000004d4250312f412f763108000000000000006368726f6d69756d33000000000000006368726f6d652d657874656e73696f6e3a2f2f6962706b6a686770626964666d626d6f6d61676d6c6463646c70626d6368676920000000000000006962706b6a686770626964666d626d6f6d61676d6c6463646c70626d63686769240000000000000035663062366639652d386133642d346335652d396232612d376431653466366138633062520000000000000009000000000000004d4250312f422f76310d000000000000006d6f747269782d627269646765240000000000000030643963326237612d346536662d346131622d386333642d32653566376139623163346420000000000000004376c5f717876c87d7c8699e41da8e91a08a31834489d537e299649415b0d2722000000000000000138d71989e96d8871d8e9dcfdf0d8d0bc540b77c301c5b9753b65b2fb69588f720000000000000006b35b41137942fafeb209fb808786b24f8c952b9c1a69754b5df3ac2038b42b42000000000000000030955c2809b06563fa6991f9657d84ca270df221d810fdeab4a02e386f3a7d6",
+        "KcA": "de6f99e25fc759c6450ffa20c68b9b09",
+        "KcB": "f4818bdb1c193105a143792e3afe2dd8",
+        "cA": "4f5b21aa75a995359c18c9ccfff2f73e376fc01a5a181b5ae8f493051bf47e25",
+        "cB": "46bcc0ed7aaa4c12dcd58ef27bd78b03287fdb89cb2d2dc0f22afbbe1ba8e985"
+      }
+    }
+  ],
+  "scryptW": {
+    "inputs": {
+      "codeNormalized": "MTX7K2Q9",
+      "pairNonce": "vec-nonce-8f3a1c5e7b2d4a90",
+      "params": {
+        "N": 16384,
+        "r": 8,
+        "p": 1,
+        "dkLen": 64
+      }
+    },
+    "expected": {
+      "scryptOutput": "fc4d0c833ae57e13e602333e0c7e3bc5aece387ef1ed853edccbf8059d334fa5bd11e785efe4a7456a91143c40ec9947b6a4387dc007af234179d41dd69e0f7b",
+      "w": "030955c2809b06563fa6991f9657d84ca270df221d810fdeab4a02e386f3a7d6"
+    }
+  },
+  "reconnect": {
+    "inputs": {
+      "mutualKey": "a3b1c5d7e9f0a2b4c6d8e0f1a3b5c7d9e1f0a2c4b6d8e0f2a4b6c8d0e2f4a6b8",
+      "credentialId": "9e8d7c6b-5a49-4838-a2b1-c0d9e8f7a6b5",
+      "browser": "chromium",
+      "verifiedOrigin": "chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi",
+      "instanceId": "0d9c2b7a-4e6f-4a1b-8c3d-2e5f7a9b1c4d",
+      "S": "5a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "C": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0"
+    },
+    "expected": {
+      "RT": "11000000000000004d4250312f7265636f6e6e6563742f763100000001240000000000000039653864376336622d356134392d343833382d613262312d63306439653866376136623508000000000000006368726f6d69756d33000000000000006368726f6d652d657874656e73696f6e3a2f2f6962706b6a686770626964666d626d6f6d61676d6c6463646c70626d63686769240000000000000030643963326237612d346536662d346131622d386333642d326535663761396231633464",
+      "macClient": "411e75c3111b2b01a7b2026483c8eca60b5774ff865c9e1710abb4cd2092223f",
+      "macServer": "cb9e88d0c47c78383ebbc298440f4d7e22b27ba745815c793b6c213eca49e410",
+      "trafficC2S": "e9869b90256c460b6aa4db4db38c9f9943c3de7ff3be4ff44e8b818c3b42155b",
+      "trafficS2C": "efd391ff3b3078d3b066bfd4dd816d6f17b90b8c04e9605474e82f52c427e057"
+    }
+  },
+  "nmTicket": {
+    "inputs": {
+      "v": 1,
+      "localToken": "vector-local-token-0123456789abcdef",
+      "serverGeneration": "3c2b1a09-8f7e-4d6c-b5a4-93827160f0e1",
+      "browser": "chromium",
+      "callerId": "ibpkjhgpbidfmbmomagmldcdlpbmchgi",
+      "exp": 1755600000,
+      "bindingPub": "fd64b13bcbdd3fcaaac3953f6212c769495003162d404066e119f5fcc1551173"
+    },
+    "expected": {
+      "ticketKey": "9238e0993a8d4f79617696cbb627e23b26e3ab0c84a7258cf2b7d0e8889f2169",
+      "canonical": "10000000000000006d6270312d6174746573746174696f6e0000000100000001240000000000000033633262316130392d386637652d346436632d623561342d39333832373136306630653108000000000000006368726f6d69756d20000000000000006962706b6a686770626964666d626d6f6d61676d6c6463646c70626d636867690000000068a454802000000000000000fd64b13bcbdd3fcaaac3953f6212c769495003162d404066e119f5fcc1551173",
+      "mac": "df162b79b6b77417d2ffbace670fb5f36d91cac485e982a575c1ff0698355f6d",
+      "ticketDigest": "6cbcc5cad1addb2dd6ebb6b7390fefd289a8979b684d7fee97bd003ecc8a11dd"
+    },
+    "mustReject": [
+      {
+        "case": "bindingPub = any small-order / torsion point encoding (full set)",
+        "bindingPub": [
+          "0100000000000000000000000000000000000000000000000000000000000000",
+          "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+          "0000000000000000000000000000000000000000000000000000000000000000",
+          "0000000000000000000000000000000000000000000000000000000000000080",
+          "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+          "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+          "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+          "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85"
+        ],
+        "reason": "every order-dividing-8 encoding rejected by §9.1 validation (identity, order-2, order-4, order-8)"
+      },
+      {
+        "case": "bindingPub = dirty (non-torsion-free) point",
+        "bindingPub": "98519eadf35b995233b51b5cd23e9cc5a28b639b5a4af0ec903cb960d81b7819",
+        "reason": "has a torsion component; rejected by the §9.1 torsion-free check"
+      },
+      {
+        "case": "ticketProof = (identity || 0) under bindingPub = identity",
+        "bindingPub": "0100000000000000000000000000000000000000000000000000000000000000",
+        "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "reason": "passes the bare verification equation for any message; stopped by key-level rejection of identity bindingPub"
+      },
+      {
+        "case": "ticketProof with S >= ell (S malleated by + ell)",
+        "signature": "2d232ce6318a9bff5654dbf760d0091b20a78cfac56c6ca24178a197805d5ea645c5c0a72467dc20da160c7b25a102b8f881d0212c560d03c2f888d3973f3512",
+        "reason": "RFC 8032 strict (zip215:false) rejects S >= ell"
+      },
+      {
+        "case": "ticketProof with a non-canonical R encoding (y = p)",
+        "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+        "reason": "RFC 8032 strict rejects non-canonical point encodings"
+      },
+      {
+        "case": "any single wire field of the ticket (v, purpose, ticketProtocolVersion, serverGeneration, browser, callerId, exp, bindingPub, mac) modified in transit",
+        "reason": "ticketDigest over the parsed wire fields bound into the PAKE AAD (§6.4) desynchronizes key confirmation → fail closed"
+      }
+    ],
+    "note": "A torsion-tweaked proof (R=rB+T, S=r+k·a) by a signer who KNOWS bindingPriv is a conformance caveat of noble's cofactored equation, NOT a forgery, and is intentionally not asserted as rejected (spec §9.1)."
+  },
+  "envelope": {
+    "inputs": {
+      "keyC2S": "248ff17bacfa39ebe2bbb851d552f9185924303c42a41da3f1ebbbfec70be692",
+      "keyS2C": "b595581934dfe69513ed1b0814de366512bbb819d762d2a0338cc80683c361a2",
+      "aad": "MBP1/env/v1",
+      "plaintext0": "7b226a736f6e727063223a22322e30222c226964223a312c226d6574686f64223a226d6f747269782f696e697469616c697a65222c22706172616d73223a7b7d7d",
+      "plaintext1": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b226f6b223a747275657d7d"
+    },
+    "expected": {
+      "frameC2S_seq0": "00000000000000003daa0ef6eebb730232c61a0e08a00e91b026e6dec7af011db8119962c7d928fdb78c5565c8c0e906868397da672a656826cd18aacd5e75dd768ac33387c6dd7ce5fea94332db95d7b5ceb265acedec4199",
+      "frameS2C_seq0": "0000000000000000191f552f87bb4ac78b464c2f07663454296bbed573e0e5c3d4fb22fb7f9a66a80033ac7966ed1a8f726e27c61c807f991ec6f85fb2b0e5f82d6e0c8879",
+      "frameC2S_seq1": "0000000000000001555f45a1e8cbdab1eb483bac32c47d48002b13be2c9f10d2c0b7a1a39896b932ff180a3acc5696d9461e9451e9253d611caa0d21dbe3d4b86ad01d7b82"
+    },
+    "mustReject": [
+      {
+        "case": "last ciphertext byte of frameC2S_seq0 XOR 0x01",
+        "reason": "gcm auth failure"
+      },
+      {
+        "case": "frameC2S_seq0 decrypted with the SAME key but dirTag 2",
+        "reason": "gcm auth failure (nonce direction tag); catches dirTag-ignoring implementations"
+      },
+      {
+        "case": "frameC2S_seq0 decrypted with the s2c key",
+        "reason": "gcm auth failure"
+      },
+      {
+        "case": "frameC2S_seq1 presented when expected seq is 0",
+        "reason": "strict sequence check"
+      }
+    ]
+  }
+}

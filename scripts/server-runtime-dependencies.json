@@ -14,6 +14,8 @@
     "@fastify/websocket",
     "@motrix/mdxp",
     "@motrix/plugin-manifest-schema",
+    "@noble/curves",
+    "@noble/hashes",
     "ajv",
     "better-sqlite3",
     "bittorrent-peerid",

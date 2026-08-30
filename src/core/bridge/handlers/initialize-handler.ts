@@ -5,32 +5,34 @@ import {
   makeMdxpError,
 } from '@motrix/mdxp'
 import type { MdxpSessionContext } from '../mdxp-session-context'
-import type { PairingService } from '../pairing-service'
-import type { TrustedExtensionRegistry } from '../trusted-extension-registry'
-import type { PairDecision, PairRequestArgs } from '../web-socket-bridge-server'
 
 export interface InitializeHandlerDeps {
   motrixVersion: string
   runtime: 'electron' | 'server'
   ffmpegAvailable: boolean
-  pairing: PairingService
-  registry: TrustedExtensionRegistry
-  onPairRequest: (args: PairRequestArgs) => Promise<PairDecision>
+  /** Read lazily so capabilities match the methods actually registered. */
+  supportsTaskReveal: () => boolean
 }
 
 /**
- * `motrix/initialize` request handler. Behaves differently depending
- * on whether the connection came in via `/pair` (`pairArgs != null`)
- * or `/v1` (`pairArgs === null`).
+ * `motrix/initialize` request handler — a capabilities exchange and nothing
+ * more.
  *
- * - first-pair: trigger PairingDialog, on allow mint token, on deny
- *   throw `-32003 Permission denied`
- * - reconnect: validate params extensionId matches session, return
- *   capabilities without a new token
+ * MBP1 authenticates *below* MDXP (docs/bridge-pairing-protocol.md §4, §6, §8):
+ * by the time a frame reaches this handler the connection has completed either
+ * the first-pair PAKE or the reconnect challenge–response, and the wiring has
+ * already marked it authorized. So there is no pairing decision to make here,
+ * no token to mint — extensions never receive a `pairToken` again — and no
+ * branch on how the connection arrived. Device-code (`cli`) pairing keeps its
+ * own independent mint in `DeviceCodeService`.
  *
- * Throws MdxpError-shaped objects with `code` matching MDXP error
- * conventions. vscode-jsonrpc auto-maps thrown values to JSON-RPC
- * error responses.
+ * What remains is one consistency assertion: a Chromium client must re-assert
+ * the extension id its verified `Origin` already proved. Both `kind` checks
+ * around it fail CLOSED rather than skipping that assertion, so a future
+ * non-extension principal can never reach it against an absent field.
+ *
+ * Throws MdxpError-shaped objects with `code` matching MDXP error conventions.
+ * vscode-jsonrpc auto-maps thrown values to JSON-RPC error responses.
  */
 export function createInitializeHandler(
   deps: InitializeHandlerDeps
@@ -40,67 +42,39 @@ export function createInitializeHandler(
 ) => Promise<InitializeResult> {
   return async (params, ctx) => {
     // Params are validated by the dispatcher before reaching here.
-    if (ctx.pendingPair === null) {
-      // Reconnect (/v1): the client must re-assert the SAME identity the paired
-      // token was issued for. v1 only admits extension reconnect, so fail CLOSED
-      // for any other kind rather than skipping the identity check — skipping
-      // would be a latent fail-open auth gate the moment a later spec issues
-      // cli/agent tokens. That later spec generalizes this to per-kind identity
-      // matching when it admits non-extension clients.
-      if (params.client.kind !== 'extension') {
-        throw makeMdxpError(
-          ErrorCodes.InvalidParams,
-          `unsupported client kind for reconnect: ${params.client.kind}`
-        )
-      }
-      // The /v1 route only ever creates extension sessions, but the handler
-      // must not assume it: fail CLOSED for any other session-identity kind so
-      // a future cli/agent session can never bypass the extensionId match by
-      // comparing against an absent field.
-      if (ctx.identity.kind !== 'extension') {
-        throw makeMdxpError(
-          ErrorCodes.InvalidParams,
-          `unsupported session kind for reconnect: ${ctx.identity.kind}`
-        )
-      }
-      if (params.client.extensionId !== ctx.identity.extensionId) {
-        throw makeMdxpError(
-          ErrorCodes.InvalidParams,
-          `extensionId mismatch: params=${params.client.extensionId}, session=${ctx.identity.extensionId}`
-        )
-      }
-      // A /v1 reconnect is authorized at upgrade (its token was verified),
-      // but assert it here too so the invariant holds at the one gate.
-      ctx.markAuthorized()
-      return buildResult(deps, undefined)
+    if (params.client.kind !== 'extension') {
+      throw makeMdxpError(
+        ErrorCodes.InvalidParams,
+        `unsupported client kind: ${params.client.kind}`
+      )
     }
-
-    const decision = await deps.onPairRequest(ctx.pendingPair)
-    if (decision.decision === 'deny') {
-      throw makeMdxpError(ErrorCodes.PermissionDenied, 'User denied pairing', {
-        appCode: 'pair.denied',
-      })
+    if (ctx.identity.kind !== 'extension') {
+      throw makeMdxpError(
+        ErrorCodes.InvalidParams,
+        `unsupported session kind: ${ctx.identity.kind}`
+      )
     }
-
-    const paired = await deps.pairing.issueToken(
-      {
-        kind: 'extension',
-        browser: ctx.pendingPair.browser,
-        extensionId: ctx.pendingPair.extensionId,
-      },
-      ctx.pendingPair.extensionName
-    )
-    // Pairing approved and token minted: this /pair connection may now drive
-    // control-plane / download methods. Until this point it was unauthorized.
-    ctx.markAuthorized()
-    return buildResult(deps, paired.token)
+    // §5: on Chromium the session's `extensionId` is the verified `Origin`
+    // host, which IS the extension id, so a disagreeing `params.client` is a
+    // client inconsistent with its own transport. On Firefox the session id is
+    // the `moz-extension://<UUID>` host, which cannot be mapped to the Gecko id
+    // the client reports — the same asymmetry `pair-session.ts` applies to
+    // `claimedExtensionId` — so there is nothing to compare, and comparing
+    // would reject every legitimate Firefox session.
+    if (
+      ctx.identity.browser === 'chromium' &&
+      params.client.extensionId !== ctx.identity.extensionId
+    ) {
+      throw makeMdxpError(
+        ErrorCodes.InvalidParams,
+        `extensionId mismatch: params=${params.client.extensionId}, session=${ctx.identity.extensionId}`
+      )
+    }
+    return buildResult(deps)
   }
 }
 
-function buildResult(
-  deps: InitializeHandlerDeps,
-  pairToken: string | undefined
-): InitializeResult {
+function buildResult(deps: InitializeHandlerDeps): InitializeResult {
   return {
     protocolVersion: '1.0',
     server: {
@@ -115,8 +89,8 @@ function buildResult(
         : ['direct'],
       progress: true,
       cancellation: true,
+      taskReveal: deps.supportsTaskReveal(),
     },
     serverAdapters: [],
-    ...(pairToken !== undefined ? { pairToken } : {}),
   }
 }

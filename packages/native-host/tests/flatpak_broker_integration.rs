@@ -74,25 +74,56 @@ fn probe_request() -> Vec<u8> {
     .expect("encode probe")
 }
 
-fn serve_nonce_once() -> (u16, JoinHandle<()>) {
+fn read_request(stream: &mut std::net::TcpStream) -> Vec<u8> {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .expect("set read timeout");
+    let mut request = Vec::new();
+    let mut buffer = [0_u8; 256];
+    while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+        let read = stream.read(&mut buffer).expect("read request");
+        assert_ne!(read, 0, "broker closed before request headers");
+        request.extend_from_slice(&buffer[..read]);
+    }
+    request
+}
+
+/// The broker's `probe_bridge` (Task B6) makes a liveness probe before the
+/// nonce fetch, exactly like the direct host: `GET /discovery` first, then a
+/// `POST /nonce` (which must carry `X-Motrix-Bridge: 1`). Answers both, on
+/// two separate connections, since `probe.rs` opens a fresh one per request.
+fn serve_bridge() -> (u16, JoinHandle<()>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fake bridge");
     let port = listener.local_addr().expect("fake bridge address").port();
     let handle = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept broker probe");
-        stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .expect("set read timeout");
-        let mut request = Vec::new();
-        let mut buffer = [0_u8; 256];
-        while !request.windows(4).any(|window| window == b"\r\n\r\n") {
-            let read = stream.read(&mut buffer).expect("read request");
-            assert_ne!(read, 0, "broker closed before request headers");
-            request.extend_from_slice(&buffer[..read]);
-        }
-        assert!(request.starts_with(b"GET /nonce HTTP/1.1\r\n"));
+        let (mut discovery_stream, _) = listener.accept().expect("accept discovery probe");
+        let discovery_request = read_request(&mut discovery_stream);
+        assert!(
+            discovery_request.starts_with(b"GET /discovery HTTP/1.1\r\n"),
+            "expected a liveness probe before the nonce fetch"
+        );
+        let discovery_body =
+            r#"{"app":"motrix-bridge","apiVersion":1,"instanceId":"i","appVersion":"2.0.0"}"#;
+        write!(
+            discovery_stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{discovery_body}",
+            discovery_body.len()
+        )
+        .expect("write discovery response");
+
+        let (mut nonce_stream, _) = listener.accept().expect("accept broker probe");
+        let request = read_request(&mut nonce_stream);
+        assert!(request.starts_with(b"POST /nonce HTTP/1.1\r\n"));
+        let bridge_header = b"\r\nX-Motrix-Bridge: 1\r\n";
+        assert!(
+            request
+                .windows(bridge_header.len())
+                .any(|window| window == bridge_header),
+            "nonce fetch is missing the X-Motrix-Bridge header"
+        );
         let body = format!(r#"{{"nonce":"{NONCE}"}}"#);
         write!(
-            stream,
+            nonce_stream,
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
             body.len()
         )
@@ -107,7 +138,7 @@ fn broker_probes_only_the_flatpak_xdg_bridge_and_returns_one_exact_frame() {
     let config_home = temp.path.join("config");
     let bridge = config_home.join("motrix/bridge");
     fs::create_dir_all(&bridge).expect("create bridge directory");
-    let (port, server) = serve_nonce_once();
+    let (port, server) = serve_bridge();
     fs::write(
         bridge.join("endpoint.json"),
         format!(r#"{{"port":{port},"pid":1,"writtenAt":0}}"#),

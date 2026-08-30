@@ -87,8 +87,8 @@ const EXT_A = {
   kind: 'extension',
   pairingNonce: 'n',
   extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  extensionName: 'Motrix Helper',
-  extensionVersion: '1.0',
+  identity: 'official',
+  code: '1234-5678',
   browser: 'chromium',
 }
 
@@ -184,8 +184,13 @@ describe('usePairRequestPrompts', () => {
     expect(
       findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n')
     ).toMatchObject({
-      title: 'Motrix Helper wants to connect to Motrix',
-      description: 'From Chrome / Edge',
+      // MBP1 forbids displaying the self-reported extension name (§5), and
+      // the raw id is meaningless in a title — it is the description, shown
+      // once; the browser rides in the title instead of a "From …" row.
+      title: 'A Chrome / Edge extension wants to connect to Motrix',
+      // The full id, comparable against chrome://extensions; only the
+      // label is terse.
+      description: 'ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     })
   })
 
@@ -398,20 +403,21 @@ describe('usePairRequestPrompts', () => {
     )
   })
 
-  it('extension pair request resolves via pairingNonce/extensionId/browser with addToRegistry=false', async () => {
+  it('extension pair request dismisses via pairingNonce/extensionId/browser — no decision under MBP1', async () => {
     render(<Host />)
     findListener(BridgeEvents.PairRequested)(EXT_A)
     const data = findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n').data
-      .pairRequest as { onAllow: () => void }
-    data.onAllow()
+      .pairRequest as { onDeny: () => void }
+    // An extension prompt has no onAllow at all (see PairRequestToastData) —
+    // Deny is the only decision affordance, and it still sends no `decision`
+    // field: approval under MBP1 is proven by typing the code, not a click.
+    data.onDeny()
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith('bridge:resolvePair', {
         kind: 'extension',
         pairingNonce: 'n',
         extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         browser: 'chromium',
-        decision: 'allow',
-        addToRegistry: false,
       })
     )
   })

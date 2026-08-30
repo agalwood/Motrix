@@ -48,7 +48,7 @@ const FLATPAK_COMPANION_SMOKE_ARCHIVE =
 const BROKER_NOT_RUNNING_FRAME_HEX =
   '4d584252010000001e0000007b226572726f72223a226d6f747269782d6e6f742d72756e6e696e67227d'
 const COMPANION_PAIR_FRAME_HEX =
-  '460000007b22616374696f6e223a227265717565737450616972222c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
+  '5a0000007b22616374696f6e223a227265717565737450616972222c2270726f746f636f6c56657273696f6e223a312c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
 
 const BUILTIN_SIGNATURE_DIGESTS = Object.freeze({
   'motrix.filename-template-1.1.1.moext.sig':
@@ -583,6 +583,9 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       workflow.includes('"$installed_companion" status') &&
       workflow.includes('"$installed_companion" uninstall') &&
       workflow.includes(`bridge_dir="\${XDG_CONFIG_HOME:?}/motrix/bridge"`) &&
+      workflow.includes("self.path != '/discovery'") &&
+      workflow.includes("self.path != '/nonce'") &&
+      workflow.includes("self.headers.get('X-Motrix-Bridge') != '1'") &&
       workflow.includes(
         'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'
       ) &&

@@ -1,17 +1,50 @@
+import { EventEmitter } from 'node:events'
 import type { Browser } from '@core/bridge/bridge-connection'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
-import type { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
-import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import {
-  WebSocketMessageReader,
-  WebSocketMessageWriter,
-} from '@core/bridge/web-socket-message-stream'
-import { createMdxpConnection } from '@motrix/mdxp'
+  DIR_C2S,
+  DIR_S2C,
+  EnvelopeLimitError,
+  EnvelopeOpener,
+  EnvelopeSealer,
+  EnvelopeViolationError,
+  MAX_ENVELOPE_FRAMES,
+} from '@core/bridge/mbp1/envelope'
+import type { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
+import {
+  WebSocketBridgeServer,
+  WS_CLOSE_ENVELOPE_USAGE_LIMIT,
+  WS_CLOSE_INTERNAL_ERROR,
+  WS_CLOSE_PROTOCOL_ERROR,
+} from '@core/bridge/web-socket-bridge-server'
+import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
 import { EngineState } from '@shared/types/engine'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { TaskStatus } from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from 'vitest'
 import WebSocket from 'ws'
-import { makeStatefulFakePairing } from './fakes'
+import {
+  type Mbp1TestWiring,
+  makeMbp1TestWiring,
+  makeStatefulFakePairing,
+} from './fakes'
+import {
+  initializeParams,
+  mdxpOverChannel,
+  pairAndExchange,
+} from './mbp1-client'
+
+const EXTENSION_ID = 'wsstextensionidaaaaaaaaaaaaaaaaa'
+const ORIGIN = `chrome-extension://${EXTENSION_ID}`
 
 function makeFakeRegistry(): TrustedExtensionRegistry {
   const allow = new Set<string>(['chromium:abc'])
@@ -24,15 +57,37 @@ function makeFakeRegistry(): TrustedExtensionRegistry {
   } as unknown as TrustedExtensionRegistry
 }
 
-describe('WebSocketBridgeServer (JSON-RPC)', () => {
+/** An upgrade attempt, resolving `true` only if the socket actually opened. */
+function tryUpgrade(
+  port: number,
+  path: string,
+  opts: { origin?: string; subprotocol?: string } = {}
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${port}${path}`,
+      opts.subprotocol === undefined ? [] : opts.subprotocol,
+      { origin: opts.origin }
+    )
+    ws.once('open', () => {
+      ws.terminate()
+      resolve(true)
+    })
+    ws.once('error', () => resolve(false))
+  })
+}
+
+describe('WebSocketBridgeServer upgrade gates', () => {
   let server: WebSocketBridgeServer
   let port: number
 
   beforeEach(async () => {
+    // Deliberately WITHOUT the six MBP1 options: this is a shell that has not
+    // wired MBP1, and both extension routes must fail closed rather than fall
+    // back to an unauthenticated surface.
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -45,221 +100,45 @@ describe('WebSocketBridgeServer (JSON-RPC)', () => {
     await server.stop()
   })
 
-  it('/pair flow returns pairToken via motrix/initialize', async () => {
-    const nonce = server.issuePairNonce()
-    const ws = new WebSocket(
-      `ws://127.0.0.1:${port}/pair?nonce=${nonce}&extensionId=abc&browser=chromium&extensionName=test&extensionVersion=0.1`,
-      'motrix-bridge.v1',
-      { origin: 'chrome-extension://abc' }
-    )
-    await new Promise<void>((resolve, reject) => {
-      ws.once('open', () => resolve())
-      ws.once('error', reject)
-    })
-
-    const reader = new WebSocketMessageReader(ws as never)
-    const writer = new WebSocketMessageWriter(ws as never)
-    const conn = createMdxpConnection(reader, writer)
-    conn.listen()
-
-    const result = await conn.sendRequest('motrix/initialize', {
-      protocolVersion: '1.0',
-      client: {
-        kind: 'extension',
-        name: 'motrix-extension',
-        version: '0.1',
-        extensionId: 'abc',
-        browser: 'chromium',
-        browserVersion: '120',
-        locale: 'en',
-      },
-      capabilities: { submitDownload: true },
-      adapters: [],
-    })
-
-    expect(result.protocolVersion).toBe('1.0')
-    expect(result.server.name).toBe('motrix')
-    expect(result.pairToken).toMatch(/^tok-/)
-
-    conn.dispose()
-    ws.close()
-  })
-
-  it('/v1 with valid token succeeds', async () => {
-    // First pair to get a token.
-    const nonce = server.issuePairNonce()
-    const pairWs = new WebSocket(
-      `ws://127.0.0.1:${port}/pair?nonce=${nonce}&extensionId=abc&browser=chromium`,
-      'motrix-bridge.v1',
-      { origin: 'chrome-extension://abc' }
-    )
-    await new Promise<void>((resolve) => pairWs.once('open', resolve))
-    const pairConn = createMdxpConnection(
-      new WebSocketMessageReader(pairWs as never),
-      new WebSocketMessageWriter(pairWs as never)
-    )
-    pairConn.listen()
-    const initResult = await pairConn.sendRequest('motrix/initialize', {
-      protocolVersion: '1.0',
-      client: {
-        kind: 'extension',
-        name: 'motrix-extension',
-        version: '0.1',
-        extensionId: 'abc',
-        browser: 'chromium',
-        browserVersion: '120',
-        locale: 'en',
-      },
-      capabilities: {},
-      adapters: [],
-    })
-    const token = initResult.pairToken
-    expect(token).toBeDefined()
-    pairConn.dispose()
-    pairWs.close()
-
-    // Now reconnect via /v1 with the token.
-    const v1Ws = new WebSocket(
-      `ws://127.0.0.1:${port}/v1?token=${token}`,
-      'motrix-bridge.v1',
-      { origin: 'chrome-extension://abc' }
-    )
-    await new Promise<void>((resolve, reject) => {
-      v1Ws.once('open', () => resolve())
-      v1Ws.once('error', reject)
-    })
-    const v1Conn = createMdxpConnection(
-      new WebSocketMessageReader(v1Ws as never),
-      new WebSocketMessageWriter(v1Ws as never)
-    )
-    v1Conn.listen()
-    const reconnectResult = await v1Conn.sendRequest('motrix/initialize', {
-      protocolVersion: '1.0',
-      client: {
-        kind: 'extension',
-        name: 'motrix-extension',
-        version: '0.1',
-        extensionId: 'abc',
-        browser: 'chromium',
-        browserVersion: '120',
-        locale: 'en',
-      },
-      capabilities: {},
-      adapters: [],
-    })
-    expect(reconnectResult.protocolVersion).toBe('1.0')
-    v1Conn.dispose()
-    v1Ws.close()
-  })
-
-  it('/v1 with invalid token closes with 401', async () => {
-    const ws = new WebSocket(
-      `ws://127.0.0.1:${port}/v1?token=bogus`,
-      'motrix-bridge.v1',
-      { origin: 'chrome-extension://abc' }
-    )
+  it('rejects a non-extension origin', async () => {
     await expect(
-      new Promise<void>((resolve, reject) => {
-        ws.once('open', resolve)
-        ws.once('error', reject)
+      tryUpgrade(port, '/v1', {
+        origin: 'https://evil.example',
+        subprotocol: 'motrix-bridge.v1',
       })
-    ).rejects.toThrow()
+    ).resolves.toBe(false)
   })
 
-  it('rejects upgrade without motrix-bridge.v1 subprotocol', async () => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/v1?token=x`, {
-      origin: 'chrome-extension://abc',
-    })
+  it('rejects an upgrade without the motrix-bridge.v1 subprotocol', async () => {
+    await expect(tryUpgrade(port, '/v1', { origin: ORIGIN })).resolves.toBe(
+      false
+    )
+  })
+
+  it('refuses both extension routes when MBP1 is not wired', async () => {
+    // The query is irrelevant on either route now — there is no `?token=` path
+    // and no legacy `/pair` identity query left to reach.
     await expect(
-      new Promise<void>((resolve, reject) => {
-        ws.once('open', resolve)
-        ws.once('error', reject)
+      tryUpgrade(port, '/v1?token=bogus', {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
       })
-    ).rejects.toThrow()
-  })
-
-  it('system/ping round-trip on /v1 session', async () => {
-    // Pair first
-    const nonce = server.issuePairNonce()
-    const pairWs = new WebSocket(
-      `ws://127.0.0.1:${port}/pair?nonce=${nonce}&extensionId=abc&browser=chromium`,
-      'motrix-bridge.v1',
-      { origin: 'chrome-extension://abc' }
-    )
-    await new Promise<void>((resolve) => pairWs.once('open', resolve))
-    const pc = createMdxpConnection(
-      new WebSocketMessageReader(pairWs as never),
-      new WebSocketMessageWriter(pairWs as never)
-    )
-    pc.listen()
-    const ir = await pc.sendRequest('motrix/initialize', {
-      protocolVersion: '1.0',
-      client: {
-        kind: 'extension',
-        name: 'x',
-        version: '1',
-        extensionId: 'abc',
-        browser: 'chromium',
-        browserVersion: '1',
-        locale: 'en',
-      },
-      capabilities: {},
-      adapters: [],
-    })
-    pc.dispose()
-    pairWs.close()
-
-    // Now /v1
-    const ws = new WebSocket(
-      `ws://127.0.0.1:${port}/v1?token=${ir.pairToken}`,
-      'motrix-bridge.v1',
-      { origin: 'chrome-extension://abc' }
-    )
-    await new Promise<void>((resolve) => ws.once('open', resolve))
-    const conn = createMdxpConnection(
-      new WebSocketMessageReader(ws as never),
-      new WebSocketMessageWriter(ws as never)
-    )
-    conn.listen()
-
-    const before = Date.now()
-    const pong = await conn.sendRequest('system/ping', { sentAt: before })
-    expect(pong.sentAt).toBe(before)
-    expect(pong.recvAt).toBeGreaterThanOrEqual(before)
-
-    conn.dispose()
-    ws.close()
-  })
-
-  it('GET /nonce returns a fresh nonce JSON', async () => {
-    const res = await fetch(`http://127.0.0.1:${port}/nonce`)
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { nonce: string }
-    expect(json.nonce).toMatch(/^[A-Za-z0-9_-]{16,}$/)
-  })
-
-  it('consumes a pairing nonce exactly once', async () => {
-    const nonce = server.issuePairNonce()
-    const pairUrl = `ws://127.0.0.1:${port}/pair?nonce=${nonce}&extensionId=abc&browser=chromium`
-    const first = new WebSocket(pairUrl, 'motrix-bridge.v1', {
-      origin: 'chrome-extension://abc',
-    })
-    await new Promise<void>((resolve, reject) => {
-      first.once('open', resolve)
-      first.once('error', reject)
-    })
-
-    const replay = new WebSocket(pairUrl, 'motrix-bridge.v1', {
-      origin: 'chrome-extension://abc',
-    })
+    ).resolves.toBe(false)
     await expect(
-      new Promise<void>((resolve, reject) => {
-        replay.once('open', resolve)
-        replay.once('error', reject)
+      tryUpgrade(port, '/pair?nonce=bogus', {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
       })
-    ).rejects.toThrow()
+    ).resolves.toBe(false)
+  })
 
-    first.close()
+  it('rejects an unknown path', async () => {
+    await expect(
+      tryUpgrade(port, '/nope', {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
+      })
+    ).resolves.toBe(false)
   })
 })
 
@@ -268,7 +147,6 @@ describe('WebSocketBridgeServer.start() bind guard', () => {
     return new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
@@ -330,78 +208,36 @@ function makeFakeReadDeps(): ReadHandlerDeps {
   }
 }
 
-function makeFakeWriteDeps(): WriteHandlerDeps {
+function makeFakeWriteDeps(
+  revealTask?: (taskId: string) => Promise<void>
+): WriteHandlerDeps {
   return {
-    taskManager: { getById: () => undefined },
+    taskManager: {
+      getById: (id) =>
+        id === 'task-1'
+          ? makeDownloadTask({
+              id: 'task-1',
+              status: TaskStatus.Completed,
+            })
+          : undefined,
+    },
     pauseTask: async () => {},
     resumeTask: async () => {},
     removeTask: async () => {},
     createTask: async () => ({ taskId: 'new-task' }),
     parseTorrentFileCount: async () => 0,
+    ...(revealTask ? { revealTask } : {}),
   }
-}
-
-/** Pair an extension via /pair + motrix/initialize and return the pairToken. */
-async function pairExtension(port: number): Promise<{ token: string }> {
-  const nonce = (await (
-    await fetch(`http://127.0.0.1:${port}/nonce`)
-  ).json()) as { nonce: string }
-  const ws = new WebSocket(
-    `ws://127.0.0.1:${port}/pair?nonce=${nonce.nonce}&extensionId=abc&browser=chromium`,
-    'motrix-bridge.v1',
-    { origin: 'chrome-extension://abc' }
-  )
-  await new Promise<void>((resolve) => ws.once('open', resolve))
-  const conn = createMdxpConnection(
-    new WebSocketMessageReader(ws as never),
-    new WebSocketMessageWriter(ws as never)
-  )
-  conn.listen()
-  const result = await conn.sendRequest('motrix/initialize', {
-    protocolVersion: '1.0',
-    client: {
-      kind: 'extension',
-      name: 'motrix-extension',
-      version: '0.1',
-      extensionId: 'abc',
-      browser: 'chromium',
-      browserVersion: '120',
-      locale: 'en',
-    },
-    capabilities: { submitDownload: true },
-    adapters: [],
-  })
-  conn.dispose()
-  ws.close()
-  return { token: result.pairToken as string }
-}
-
-/** Open a /v1 WebSocket with the given token, send motrix/initialized, return the connection. */
-async function openV1Session(
-  port: number,
-  token: string
-): Promise<{ conn: ReturnType<typeof createMdxpConnection>; ws: WebSocket }> {
-  const ws = new WebSocket(
-    `ws://127.0.0.1:${port}/v1?token=${token}`,
-    'motrix-bridge.v1',
-    { origin: 'chrome-extension://abc' }
-  )
-  await new Promise<void>((resolve) => ws.once('open', resolve))
-  const conn = createMdxpConnection(
-    new WebSocketMessageReader(ws as never),
-    new WebSocketMessageWriter(ws as never)
-  )
-  conn.listen()
-  // Signal ready (mirrors extension behaviour post-initialize on /v1).
-  conn.sendNotification('motrix/initialized', undefined as never)
-  return { conn, ws }
 }
 
 describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
   let server: WebSocketBridgeServer
+  let mbp1: Mbp1TestWiring
   let port: number
+  let revealTask: Mock<(taskId: string) => Promise<void>>
 
   beforeEach(async () => {
+    mbp1 = await makeMbp1TestWiring([['chromium', EXTENSION_ID]])
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: {
@@ -411,14 +247,15 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
         remove: async () => {},
         listManifestIds: () => [],
       } as unknown as TrustedExtensionRegistry,
-      onPairRequest: async () => ({ decision: 'allow', addToRegistry: false }),
       motrixVersion: '2.0',
       runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'test-token',
+      ...mbp1.options,
     })
     server.registerReadMethods(makeFakeReadDeps())
-    server.registerWriteMethods(makeFakeWriteDeps())
+    revealTask = vi.fn(async (_taskId: string) => {})
+    server.registerWriteMethods(makeFakeWriteDeps(revealTask))
     port = await server.start()
   })
 
@@ -427,9 +264,20 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
   })
 
   it('exposes the v1 control-plane over a paired extension WS but not download/add', async () => {
-    // Arrange: pair first to get a token, then open /v1.
-    const { token } = await pairExtension(port)
-    const { conn, ws } = await openV1Session(port, token)
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    const initialized = await conn.sendRequest(
+      'motrix/initialize',
+      initializeParams(EXTENSION_ID)
+    )
+    expect(initialized.capabilities.taskReveal).toBe(true)
+    conn.sendNotification('motrix/initialized', undefined as never)
 
     // task/list reaches the dispatcher and returns its shape.
     const list = await conn.sendRequest('task/list', {})
@@ -438,6 +286,12 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     // stats/get reaches the dispatcher.
     const stats = await conn.sendRequest('stats/get', {})
     expect(stats).toHaveProperty('activeTasks')
+
+    // task/reveal is a user-gesture method on the paired extension surface.
+    await expect(
+      conn.sendRequest('task/reveal', { taskId: 'task-1' })
+    ).resolves.toEqual({ ok: true })
+    expect(revealTask).toHaveBeenCalledWith('task-1')
 
     // download/add is NOT wired on WS → MethodNotFound (-32601).
     await expect(
@@ -449,6 +303,149 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     ).rejects.toMatchObject({ code: -32601 })
 
     conn.dispose()
-    ws.close()
+    paired.wire.ws.close()
+  })
+
+  it('round-trips system/ping inside the AEAD channel', async () => {
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+
+    const before = Date.now()
+    const pong = await conn.sendRequest('system/ping', { sentAt: before })
+    expect(pong.sentAt).toBe(before)
+    expect(pong.recvAt).toBeGreaterThanOrEqual(before)
+
+    conn.dispose()
+    paired.wire.ws.close()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Envelope-fault -> WS close-code wiring
+// ---------------------------------------------------------------------------
+
+/**
+ * A minimal `WebSocketLike` double, exercised directly against
+ * `adoptAuthenticatedSession` rather than through a real upgrade: the fault
+ * classification these tests cover lives entirely in what the envelope
+ * stream reports and how the wiring maps it to a close code, none of which
+ * depends on a real socket or a completed handshake.
+ */
+class FakeExtensionSocket extends EventEmitter {
+  readyState = 1
+  readonly closedWith: Array<[number | undefined, string | undefined]> = []
+  readonly sent: Array<string | Uint8Array> = []
+
+  send(data: string | Uint8Array): void {
+    this.sent.push(data)
+  }
+
+  close(code?: number, reason?: string): void {
+    this.closedWith.push([code, reason])
+    this.readyState = 3
+  }
+
+  asLike(): WebSocketLike {
+    return this as unknown as WebSocketLike
+  }
+}
+
+describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault close codes', () => {
+  let server: WebSocketBridgeServer
+  const KEY = new Uint8Array(32).fill(3)
+  const IDENTITY = {
+    kind: 'extension' as const,
+    browser: 'chromium' as const,
+    extensionId: EXTENSION_ID,
+  }
+
+  beforeEach(async () => {
+    server = new WebSocketBridgeServer({
+      pairing: makeStatefulFakePairing(),
+      registry: makeFakeRegistry(),
+      motrixVersion: '2.0',
+      runtime: 'electron',
+      ffmpegAvailable: true,
+      localToken: 'test-token',
+    })
+    await server.start()
+  })
+
+  afterEach(async () => {
+    await server.stop()
+  })
+
+  it('closes with the usage-limit code — not protocol-error or internal-error — when an inbound §10 bound is reached', () => {
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      sealer: new EnvelopeSealer(KEY, DIR_S2C),
+      // Already AT the frame-count bound: the very next open() throws
+      // EnvelopeLimitError before it even looks at the frame's contents.
+      opener: new EnvelopeOpener(KEY, DIR_C2S, MAX_ENVELOPE_FRAMES),
+    })
+
+    ws.emit('message', Buffer.alloc(8 + 16), true)
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_ENVELOPE_USAGE_LIMIT, undefined]])
+  })
+
+  it('still closes with the protocol-error code for an ordinary peer violation', () => {
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      sealer: new EnvelopeSealer(KEY, DIR_S2C),
+      opener: new EnvelopeOpener(KEY, DIR_C2S),
+    })
+
+    // §10: a text frame after channel activation is a protocol violation.
+    ws.emit('message', Buffer.from('not an envelope'), false)
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_PROTOCOL_ERROR, undefined]])
+  })
+
+  it('closes with the usage-limit code when an OUTBOUND §10 bound is reached', () => {
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      // Already AT the frame-count bound: the very next seal() throws, and no
+      // later one can ever succeed, so the connection must be re-established
+      // with fresh keys (§8) — the one seal failure that is a connection-level
+      // event rather than a single failed write.
+      sealer: new EnvelopeSealer(KEY, DIR_S2C, MAX_ENVELOPE_FRAMES),
+      opener: new EnvelopeOpener(KEY, DIR_C2S),
+    })
+    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    if (!session) throw new Error('session was not registered')
+
+    expect(() => session.envelope.send('{"jsonrpc":"2.0"}')).toThrow(
+      EnvelopeLimitError
+    )
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_ENVELOPE_USAGE_LIMIT, undefined]])
+  })
+
+  it('closes with the internal-error code when an outbound frame exceeds the 1 MiB cap', () => {
+    // Outbound oversize is this process violating §10, not the peer violating
+    // it. The refused application frame can desynchronize request state, so
+    // the session fails closed with 1011 rather than staying half-usable.
+    const ws = new FakeExtensionSocket()
+    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
+      sealer: new EnvelopeSealer(KEY, DIR_S2C),
+      opener: new EnvelopeOpener(KEY, DIR_C2S),
+    })
+    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    if (!session) throw new Error('session was not registered')
+
+    expect(() =>
+      session.envelope.send(new Uint8Array(1024 * 1024 + 1))
+    ).toThrow(EnvelopeViolationError)
+
+    expect(ws.closedWith).toEqual([[WS_CLOSE_INTERNAL_ERROR, undefined]])
+    expect(ws.readyState).toBe(3)
+    expect(ws.sent).toHaveLength(0)
   })
 })

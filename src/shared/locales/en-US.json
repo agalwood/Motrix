@@ -1466,10 +1466,18 @@
           "addAction": "Add"
         },
         "pairToast": {
-          "title": "{{name}} wants to connect to Motrix",
-          "from": "From {{browser}}",
-          "allow": "Allow",
-          "deny": "Don’t allow"
+          "title": "A {{browser}} extension wants to connect to Motrix",
+          "extensionId": "ID: {{id}}",
+          "deny": "Don't allow",
+          "pairCode": "Pairing code",
+          "copyCode": "Copy pairing code",
+          "pairCodeHint": "Type this code in the extension",
+          "identityLabel": {
+            "official": "Official Motrix extension",
+            "attested": "Verified extension",
+            "unverified": "Unverified extension"
+          },
+          "identityUnverifiedWarning": "This extension's identity could not be verified. Only continue if you trust it."
         },
         "pairUnavailable": "This pairing request is no longer pending — retry pairing from the browser extension.",
         "trustedExtensions": "Trusted extensions",
@@ -1484,6 +1492,10 @@
           "builtin": "Built-in",
           "userAdded": "Added",
           "imported": "Imported"
+        },
+        "degradedPort": {
+          "title": "Bridge running on a fallback port",
+          "description": "Ports 16802–16806 were unavailable, so the bridge bound port {{port}} instead. Browser extensions won't find it by probing the standard range — pair using native messaging, or set a fixed port. The Motrix CLI and native host are unaffected."
         }
       },
       "cli": {

@@ -94,6 +94,12 @@ describe('SettingsManager', () => {
       expect(settings.onboarding).toEqual(DEFAULT_ONBOARDING_STATE)
       expect(settings.dashboard).toEqual(DEFAULT_DASHBOARD_LAYOUT)
       expect(settings.dashboard.columns).toBe(DASHBOARD_COLUMNS)
+      expect(settings.bridge.fixedPort).toBe('auto')
+      expect(settings.bridge.instanceId).toEqual(
+        expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+        )
+      )
     })
 
     it('uses an injected Liquid Glass default when the file does not exist', async () => {
@@ -325,6 +331,67 @@ describe('SettingsManager', () => {
         defaultSaveDir: expect.stringMatching(/Downloads$/),
       })
       expect(settings.app.defaultSaveDir).not.toBe('')
+    })
+  })
+
+  describe('bridge settings', () => {
+    it('mints a different instanceId per fresh install', async () => {
+      mockedFs.readFile.mockRejectedValue(
+        Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      )
+      mockedFs.mkdir.mockResolvedValue(undefined)
+      mockedFs.writeFile.mockResolvedValue(undefined)
+
+      const first = new SettingsManager(TEST_PATH, { onChange })
+      await first.load()
+      const second = new SettingsManager(TEST_PATH, { onChange })
+      await second.load()
+
+      expect(first.get().bridge.instanceId).not.toBe('')
+      expect(second.get().bridge.instanceId).not.toBe('')
+      expect(first.get().bridge.instanceId).not.toBe(
+        second.get().bridge.instanceId
+      )
+    })
+
+    it('preserves a persisted instanceId across reload instead of regenerating it', async () => {
+      const saved = {
+        version: CURRENT_SETTINGS_VERSION,
+        engine: DEFAULT_ENGINE_SETTINGS,
+        app: DEFAULT_APP_SETTINGS,
+        plugins: {},
+        bridge: { fixedPort: 16804, instanceId: 'stable-instance-id' },
+      }
+      mockedFs.readFile.mockResolvedValue(JSON.stringify(saved))
+
+      await manager.load()
+
+      expect(manager.get().bridge).toEqual({
+        fixedPort: 16804,
+        instanceId: 'stable-instance-id',
+      })
+    })
+
+    it('seeds bridge settings when migrating a pre-v9 settings file', async () => {
+      const v8 = {
+        version: 8,
+        engine: DEFAULT_ENGINE_SETTINGS,
+        app: DEFAULT_APP_SETTINGS,
+        plugins: {},
+      }
+      mockedFs.readFile.mockResolvedValue(JSON.stringify(v8))
+      mockedFs.mkdir.mockResolvedValue(undefined)
+      mockedFs.writeFile.mockResolvedValue(undefined)
+
+      await manager.load()
+
+      expect(manager.get().version).toBe(CURRENT_SETTINGS_VERSION)
+      expect(manager.get().bridge.fixedPort).toBe('auto')
+      expect(manager.get().bridge.instanceId).toEqual(
+        expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+        )
+      )
     })
   })
 
@@ -724,6 +791,27 @@ describe('SettingsManager', () => {
       expect(scopes.download).toBe(true)
       // Must NOT be wiped by the second partial scopes patch.
       expect(scopes.updateApp).toBe(true)
+    })
+
+    it('merges bridge namespace on partial update', async () => {
+      const result = await manager.update({ bridge: { fixedPort: 16900 } })
+      expect(result.saved).toBe(true)
+      expect(manager.get().bridge.fixedPort).toBe(16900)
+    })
+
+    it('does not reset instanceId to the unseeded sentinel on a partial bridge update', async () => {
+      // Regression guard: `bridgeSettingsSchema` declares
+      // `instanceId: z.string().catch('')`, so parsing a partial patch
+      // directly (rather than merging onto the current value first) would
+      // silently reset the durable instance id to the unseeded sentinel —
+      // and there is no repair path once that happens.
+      const before = manager.get().bridge.instanceId
+      expect(before).not.toBe('')
+
+      await manager.update({ bridge: { fixedPort: 16900 } })
+
+      expect(manager.get().bridge.instanceId).toBe(before)
+      expect(manager.get().bridge.fixedPort).toBe(16900)
     })
 
     it('does not set requiresAppRestart when browserBridgeEnabled changes', async () => {

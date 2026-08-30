@@ -35,7 +35,7 @@ const nodeBuiltinSet = new Set(builtinModules)
 //      build time. `pino` is the canonical example — its grandchildren
 //      (pino-std-serializers, safe-stable-stringify, thread-stream,
 //      etc.) get dropped from the asar otherwise.
-const BUNDLED_PACKAGES = ['bittorrent-peerid', 'parse-torrent', 'pino']
+export const BUNDLED_PACKAGES = ['bittorrent-peerid', 'parse-torrent', 'pino']
 
 function matchesPackage(id: string, name: string): boolean {
   return id === name || id.startsWith(`${name}/`)

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -16,6 +16,7 @@ import {
   resolvePackagedLayout,
   scanRuntimeLog,
 } from '../../scripts/smoke-electron-package.mjs'
+import { BUNDLED_PACKAGES } from '../../vite.main.config'
 
 const REPOSITORY_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -148,6 +149,74 @@ describe('Electron package contracts', () => {
     }
   })
 
+  it('stages every externalized main-surface import as a runtime root', async () => {
+    // vite.main.config.ts externalizes every production dependency (minus
+    // BUNDLED_PACKAGES), so each bare runtime import under src/main,
+    // src/core, or src/shared becomes a require() in dist/main/index.cjs —
+    // and stage-electron-app.mjs only ships what the runtime contract
+    // lists. A dependency present in package.json but absent from the
+    // contract works in dev (full node_modules) and throws
+    // MODULE_NOT_FOUND in the packaged app; @noble/hashes shipped exactly
+    // that way.
+    const manifest = (await readJson('package.json')) as {
+      dependencies?: Record<string, string>
+      optionalDependencies?: Record<string, string>
+    }
+    const productionDeps = new Set([
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.optionalDependencies ?? {}),
+    ])
+    const contract = validateRuntimeDependencyContract(
+      await readJson('scripts/electron-runtime-dependencies.json')
+    )
+    const staged = new Set([
+      ...contract.common,
+      ...Object.values(contract.platforms).flatMap((platform) => [
+        ...platform.required,
+        ...platform.optional,
+      ]),
+    ])
+
+    const files: string[] = []
+    for (const surface of ['src/main', 'src/core', 'src/shared']) {
+      const entries = await readdir(path.join(REPOSITORY_ROOT, surface), {
+        recursive: true,
+        withFileTypes: true,
+      })
+      for (const entry of entries) {
+        if (!entry.isFile()) continue
+        if (!/\.tsx?$/.test(entry.name)) continue
+        if (/\.(test|spec)\./.test(entry.name)) continue
+        if (entry.parentPath.includes('__tests__')) continue
+        files.push(path.join(entry.parentPath, entry.name))
+      }
+    }
+    expect(files.length).toBeGreaterThan(100)
+
+    // Static `import`/`export ... from` (skipping type-only statements —
+    // verbatimModuleSyntax erases those) plus dynamic `import()`.
+    const specifierPattern =
+      /(?:^|\n)\s*(?:import|export)(?!\s+type\b)[^'"]*?\bfrom\s+['"]([^'"]+)['"]|\bimport\(\s*['"]([^'"]+)['"]/g
+    const missing = new Map<string, string>()
+    for (const file of files) {
+      const source = await readFile(file, 'utf8')
+      for (const match of source.matchAll(specifierPattern)) {
+        const specifier = match[1] ?? match[2]
+        const name = packageNameFromSpecifier(specifier ?? '')
+        if (name === undefined) continue
+        // Aliases, devDependencies, electron, and bare builtins never
+        // reach the packaged require path; bundled packages are inlined.
+        if (!productionDeps.has(name)) continue
+        if (BUNDLED_PACKAGES.includes(name)) continue
+        if (!staged.has(name)) {
+          missing.set(name, path.relative(REPOSITORY_ROOT, file))
+        }
+      }
+    }
+
+    expect(Object.fromEntries(missing)).toEqual({})
+  })
+
   it('declares the exact supported runtime roots and targets', async () => {
     const contract = validateRuntimeDependencyContract(
       await readJson('scripts/electron-runtime-dependencies.json')
@@ -170,6 +239,8 @@ describe('Electron package contracts', () => {
         '@motrix/mdxp',
         '@motrix/nat',
         '@motrix/plugin-manifest-schema',
+        '@noble/curves',
+        '@noble/hashes',
         'ajv',
         'better-sqlite3',
         'chokidar',
