@@ -114,8 +114,11 @@ describe('Flatpak native-host boundary', () => {
     expect(workflow).toContain(
       'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'
     )
+    expect(workflow).toContain("self.path != '/discovery'")
+    expect(workflow).toContain("self.path != '/nonce'")
+    expect(workflow).toContain("self.headers.get('X-Motrix-Bridge') != '1'")
     expect(workflow).toContain(
-      '460000007b22616374696f6e223a227265717565737450616972222c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
+      '5a0000007b22616374696f6e223a227265717565737450616972222c2270726f746f636f6c56657273696f6e223a312c22706f7274223a35353830392c226e6f6e6365223a224162436445664768496a4b6c4d6e4f70517253745576227d'
     )
   })
 })
