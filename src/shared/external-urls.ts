@@ -9,6 +9,8 @@ export const EXTERNAL_URLS = {
     repository: 'https://github.com/agalwood/Motrix/',
     author: 'https://github.com/agalwood/',
     issues: 'https://github.com/agalwood/Motrix/issues/',
+    ffmpegStaticReleases:
+      'https://github.com/motrixapp/ffmpeg-static/releases/latest',
   },
   motrix: {
     home: 'https://motrix.app/',
