@@ -41,6 +41,37 @@ fn user_data_for(home: &Path, app_data: &Path) -> PathBuf {
     resolve_native_host_user_data_dir(current_platform(), home, Some(app_data.as_os_str()))
 }
 
+#[cfg(unix)]
+fn set_endpoint_owner_only(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .expect("chmod endpoint fixture to 0600");
+}
+
+#[cfg(windows)]
+fn set_endpoint_owner_only(path: &Path) {
+    let identity = Command::new("whoami").output().expect("run whoami");
+    assert!(identity.status.success(), "whoami failed");
+    let user = String::from_utf8(identity.stdout)
+        .expect("whoami emits UTF-8")
+        .trim()
+        .to_owned();
+
+    for args in [
+        vec!["/setowner", user.as_str()],
+        vec!["/inheritance:r"],
+        vec!["/grant:r", &format!("{user}:F")],
+    ] {
+        let status = Command::new("icacls")
+            .arg(path)
+            .args(&args)
+            .status()
+            .expect("run icacls");
+        assert!(status.success(), "icacls {args:?} failed");
+    }
+}
+
 fn run_host(home: &Path, app_data: &Path, wire: &[u8]) -> Output {
     run_host_with_options(home, app_data, wire, None, &[])
 }
@@ -199,12 +230,7 @@ fn subprocess_returns_exact_pair_frame_and_never_logs_nonce_or_local_token() {
     // reads `localToken` here rather than dropping it via a lax-permission
     // fallback — the point of this test is that a read token still never
     // reaches the log, not that it goes unread.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o600))
-            .expect("chmod endpoint fixture to 0600");
-    }
+    set_endpoint_owner_only(&endpoint_path);
 
     let output = run_host(
         &temp.path,
@@ -346,12 +372,7 @@ fn bootstrap_request_returns_ticketed_pair_frame_and_never_leaks_secrets() {
         ),
     )
     .expect("write endpoint");
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o600))
-            .expect("chmod endpoint fixture to 0600");
-    }
+    set_endpoint_owner_only(&endpoint_path);
 
     let output = run_host_with_argv(
         &temp.path,
@@ -451,12 +472,7 @@ fn bootstrap_request_degrades_to_ticketless_without_caller_identity() {
         ),
     )
     .expect("write endpoint");
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&endpoint_path, fs::Permissions::from_mode(0o600))
-            .expect("chmod endpoint fixture to 0600");
-    }
+    set_endpoint_owner_only(&endpoint_path);
 
     // No argv at all: the host cannot extract a caller identity, so it must
     // never fabricate one — it degrades to ticketless instead of minting.
