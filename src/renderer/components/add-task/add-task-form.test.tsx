@@ -132,6 +132,83 @@ describe('AddTaskForm', () => {
     expect(mockServices.readClipboard).toHaveBeenCalledOnce()
   })
 
+  it('refreshes the default save directory when a precreated window is shown', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') {
+        return {
+          app: {
+            autofillClipboardLinks: false,
+            defaultSaveDir: '/downloads/new',
+          },
+        }
+      }
+      return { gid: 'test-gid' }
+    })
+    renderForm({
+      subscribeEvents: true,
+      defaultValues: {
+        tab: 'links',
+        urls: '',
+        saveDir: '/downloads/old',
+      },
+    })
+    expect(screen.getAllByTitle('/downloads/old').length).toBeGreaterThan(0)
+
+    const setModeListener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([channel]) => channel === Events.SetAddTaskMode)?.[1]
+    act(() => {
+      setModeListener?.({ mode: 'links' })
+    })
+
+    await waitFor(() =>
+      expect(screen.getAllByTitle('/downloads/new').length).toBeGreaterThan(0)
+    )
+    expect(screen.queryAllByTitle('/downloads/old')).toHaveLength(0)
+  })
+
+  it('preserves a dirty per-task save directory when the mode is refreshed', async () => {
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings') {
+        return {
+          app: {
+            autofillClipboardLinks: false,
+            defaultSaveDir: '/downloads/default',
+          },
+        }
+      }
+      return { gid: 'test-gid' }
+    })
+    vi.mocked(mockServices.pickSaveDir).mockResolvedValueOnce(
+      '/downloads/per-task'
+    )
+    renderForm({ subscribeEvents: true })
+
+    await user.click(screen.getByRole('button', { name: /change directory/i }))
+    await waitFor(() =>
+      expect(
+        screen.getAllByTitle('/downloads/per-task').length
+      ).toBeGreaterThan(0)
+    )
+
+    const setModeListener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([channel]) => channel === Events.SetAddTaskMode)?.[1]
+    await act(async () => {
+      setModeListener?.({ mode: 'links' })
+      await Promise.resolve()
+    })
+
+    expect(transport.invoke).toHaveBeenCalledTimes(2)
+    expect(screen.getAllByTitle('/downloads/per-task').length).toBeGreaterThan(
+      0
+    )
+    expect(screen.queryAllByTitle('/downloads/default')).toHaveLength(0)
+  })
+
   it('does not prefill when the setting is turned off', async () => {
     const { transport } = await import('@renderer/lib/transport')
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
