@@ -1,8 +1,19 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { Mbp1CredentialStore } from '@core/bridge/credential-store'
+import { BRIDGE_DATA_DIR_LOCK_FILE_NAME } from '@core/bridge/bridge-data-dir-lock'
+import { Mbp1CredentialStore } from '@core/bridge/credential-store'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
+import type { PairDialogRequest } from '@core/bridge/mbp1/pair-session'
+import type { PairingPromptEnqueueResult } from '@core/bridge/pairing-prompt-controller'
 import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
@@ -69,6 +80,10 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
     ffmpegAvailable: false,
     enabled: true,
     bridgeSettings: { fixedPort: 'auto', instanceId: 'test-instance-id' },
+    bridgeDataDirLockRecoveryAuthority: {
+      ownershipEpoch: 'T'.repeat(43),
+      assertExclusiveProcessOwnership: () => true,
+    },
     eventBus: { on: vi.fn(), off: vi.fn() },
     createTaskDeps: {} as never,
     activityRecorder: {} as never,
@@ -171,6 +186,96 @@ describe('desktop bridge bootstrap ownership', () => {
     await rm(userDataDir, { recursive: true, force: true })
   })
 
+  it('acquires the data-root lock before the first bridge store load', async () => {
+    const lockPath = join(userDataDir, 'bridge', BRIDGE_DATA_DIR_LOCK_FILE_NAME)
+    const load = vi.spyOn(PairingService.prototype, 'load')
+    load.mockImplementationOnce(async () => {
+      const document = JSON.parse(await readFile(lockPath, 'utf-8')) as {
+        ownershipEpoch?: unknown
+      }
+      expect(document.ownershipEpoch).toBe('T'.repeat(43))
+    })
+
+    const runtime = await bootstrapBridge(args())
+    expect(runtime).not.toBeNull()
+    await runtime?.shutdown()
+  })
+
+  it('holds the data-root lock through listener and store drain, then releases it', async () => {
+    const lockPath = join(userDataDir, 'bridge', BRIDGE_DATA_DIR_LOCK_FILE_NAME)
+    vi.mocked(WebSocketBridgeServer.prototype.stop).mockImplementation(
+      async () => {
+        expect((await lstat(lockPath)).isFile()).toBe(true)
+      }
+    )
+    vi.mocked(PairingService.prototype.stopAndDrain).mockImplementation(
+      async () => {
+        expect((await lstat(lockPath)).isFile()).toBe(true)
+      }
+    )
+
+    const runtime = await bootstrapBridge(args())
+    await runtime?.shutdown()
+
+    await expect(lstat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('releases the data-root lock when the first store load fails', async () => {
+    const failure = new Error('pairing store unavailable')
+    vi.spyOn(PairingService.prototype, 'load').mockRejectedValueOnce(failure)
+    const lockPath = join(userDataDir, 'bridge', BRIDGE_DATA_DIR_LOCK_FILE_NAME)
+
+    await expect(bootstrapBridge(args())).rejects.toBe(failure)
+    await expect(lstat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(
+      WebSocketBridgeServer.prototype.startOnFirstFree
+    ).not.toHaveBeenCalled()
+  })
+
+  it.runIf(process.platform !== 'win32')(
+    'repairs a projection writer residue before loading any bridge store',
+    async () => {
+      const bridgeDirectory = join(userDataDir, 'bridge')
+      await mkdir(bridgeDirectory, { recursive: true })
+      const projectionLock = join(
+        bridgeDirectory,
+        'extension-pairings.json.lock'
+      )
+      await writeFile(projectionLock, 'crashed writer', { mode: 0o600 })
+
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      await expect(lstat(projectionLock)).rejects.toMatchObject({
+        code: 'ENOENT',
+      })
+      await runtime?.shutdown()
+    }
+  )
+
+  it.runIf(process.platform !== 'win32')(
+    'keeps listeners closed when a projection residue is not a regular owned file',
+    async () => {
+      const bridgeDirectory = join(userDataDir, 'bridge')
+      await mkdir(bridgeDirectory, { recursive: true })
+      const target = join(userDataDir, 'do-not-remove')
+      const projectionLock = join(
+        bridgeDirectory,
+        'extension-pairings.json.lock'
+      )
+      await writeFile(target, 'preserved', { mode: 0o600 })
+      await symlink(target, projectionLock)
+
+      await expect(bootstrapBridge(args())).rejects.toThrow(
+        'extension-pairing-projection file rejected'
+      )
+      expect(
+        WebSocketBridgeServer.prototype.startOnFirstFree
+      ).not.toHaveBeenCalled()
+      await expect(readFile(target, 'utf-8')).resolves.toBe('preserved')
+      expect((await lstat(projectionLock)).isSymbolicLink()).toBe(true)
+    }
+  )
+
   it('drains receiver work published before restore rejects', async () => {
     const failure = new Error('receiver restore failed after resume')
     let receiverLive = false
@@ -253,6 +358,55 @@ describe('desktop bridge bootstrap ownership', () => {
     expect(EndpointFileWriter.prototype.write).not.toHaveBeenCalled()
     expect(activeChannels.size).toBe(0)
   })
+
+  it.each([
+    [false, 'test', true],
+    [true, 'test', false],
+    [false, 'production', false],
+  ] as const)(
+    'gates an env development id for isPackaged=%s NODE_ENV=%s',
+    async (isPackaged, nodeEnv, expectedOfficial) => {
+      const devId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      const previous = process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS
+      const previousNodeEnv = process.env.NODE_ENV
+      process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS = `chromium:${devId}`
+      process.env.NODE_ENV = nodeEnv
+      electron.isPackaged = isPackaged
+      snapRuntime.enabled = isPackaged
+      let runtime: Awaited<ReturnType<typeof bootstrapBridge>> = null
+
+      try {
+        runtime = await bootstrapBridge(args())
+        expect(runtime).not.toBeNull()
+        if (runtime === null) throw new Error('bridge did not start')
+        const manifests = vi
+          .mocked(NativeMessagingInstaller.prototype.syncManifests)
+          .mock.calls.at(-1)?.[0]
+        expect(manifests?.chromium.includes(devId)).toBe(expectedOfficial)
+
+        const mbp1 = (
+          runtime.server as unknown as {
+            mbp1: {
+              isOfficialId(browser: 'chromium', id: string): boolean
+            } | null
+          }
+        ).mbp1
+        expect(mbp1?.isOfficialId('chromium', devId)).toBe(expectedOfficial)
+      } finally {
+        await runtime?.shutdown()
+        if (previous === undefined) {
+          delete process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS
+        } else {
+          process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS = previous
+        }
+        if (previousNodeEnv === undefined) {
+          delete process.env.NODE_ENV
+        } else {
+          process.env.NODE_ENV = previousNodeEnv
+        }
+      }
+    }
+  )
 
   it.each(['EACCES', 'EPERM'] as const)(
     'keeps the bridge live when Snap manifest sync fails with %s',
@@ -388,7 +542,105 @@ describe('desktop bridge bootstrap ownership', () => {
     expect(shutdownOrder).toEqual(['server', 'pairing'])
   })
 
+  it('aborts and drains a pending MBP1 prompt during bridge shutdown', async () => {
+    const runtime = await bootstrapBridge(args())
+    expect(runtime).not.toBeNull()
+    if (!runtime) return
+
+    const request: PairDialogRequest = {
+      browser: 'chromium',
+      claimedExtensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      identity: 'official',
+      code: '1234-5678',
+      pairingNonce: 'nonce-shutdown',
+      verifiedOrigin: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    }
+    const queuePrompt = (
+      runtime.server as unknown as {
+        opts: {
+          queueMbp1Dialog?: (
+            value: PairDialogRequest
+          ) => PairingPromptEnqueueResult
+        }
+      }
+    ).opts.queueMbp1Dialog
+    expect(queuePrompt).toBeTypeOf('function')
+    if (!queuePrompt) return
+
+    const result = queuePrompt(request)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    await expect(result.handle.published).resolves.toBe('delivered')
+    const settled = vi.fn()
+    runtime.bus.on('PairRequestSettled', settled)
+
+    await runtime.shutdown()
+
+    await expect(result.handle.terminal).resolves.toBe('aborted')
+    expect(settled).toHaveBeenCalledExactlyOnceWith({
+      key: 'chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:nonce-shutdown',
+      outcome: 'aborted',
+    })
+    expect(queuePrompt(request)).toEqual({ ok: false, reason: 'disposed' })
+  })
+
   describe('MBP1 identity persistence (§9.2) and the Paired seam', () => {
+    const extensionIdentity = {
+      kind: 'extension' as const,
+      browser: 'chromium' as const,
+      extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    }
+
+    type LiveBridgeRuntime = NonNullable<
+      Awaited<ReturnType<typeof bootstrapBridge>>
+    >
+
+    function extensionServerOptions(runtime: LiveBridgeRuntime) {
+      return (
+        runtime.server as unknown as {
+          opts: {
+            onExtensionAuthenticated?: (
+              identity: typeof extensionIdentity,
+              credentialId: string
+            ) => void
+            credentials: Mbp1CredentialStore
+          }
+        }
+      ).opts
+    }
+
+    function revokeExtensionHandler() {
+      return electron.handle.mock.calls.find(
+        ([channel]) => channel === 'bridge:revokePair'
+      )?.[1] as
+        | ((
+            event: unknown,
+            params: { identity: typeof extensionIdentity }
+          ) => Promise<unknown>)
+        | undefined
+    }
+
+    async function commitAndProjectExtension(runtime: LiveBridgeRuntime) {
+      const opts = extensionServerOptions(runtime)
+      const credential = await opts.credentials.offerProvisional(
+        {
+          browser: extensionIdentity.browser,
+          verifiedOrigin: `chrome-extension://${extensionIdentity.extensionId}`,
+          clientInstallationId: 'install-a',
+        },
+        'official'
+      )
+      await opts.credentials.commitFromPair(credential.credentialId)
+      opts.onExtensionAuthenticated?.(
+        extensionIdentity,
+        credential.credentialId
+      )
+      await vi.waitFor(() =>
+        expect(runtime.extensionPairings.list()).toHaveLength(1)
+      )
+      return { opts, credential }
+    }
+
     it('persists localToken across a restart while rotating serverGeneration', async () => {
       const writeCalls: Array<{
         port: number
@@ -416,35 +668,22 @@ describe('desktop bridge bootstrap ownership', () => {
       expect(writeCalls[0]?.generation).not.toBe(writeCalls[1]?.generation)
     })
 
-    it('durably revokes MBP1 credentials before removing PairingService state and closing the live socket', async () => {
+    it('records the exact committed credential and durably revokes the whole extension identity', async () => {
       const runtime = await bootstrapBridge(args())
       expect(runtime).not.toBeNull()
       if (!runtime) return
-
-      const identity = {
-        kind: 'extension' as const,
-        browser: 'chromium' as const,
-        extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      }
 
       // Reach the real callback WebSocketBridgeServer's constructor was
       // given — the exact seam `adoptAuthenticatedSession` invokes on
       // every successful MBP1 authentication (Task 18's own tests prove
       // THAT call fires; this proves the desktop shell's closure).
-      const opts = (
-        runtime.server as unknown as {
-          opts: {
-            onExtensionAuthenticated?: (id: typeof identity) => void
-            credentials: Mbp1CredentialStore
-          }
-        }
-      ).opts
+      const opts = extensionServerOptions(runtime)
       expect(opts.onExtensionAuthenticated).toBeTypeOf('function')
 
       const credential = await opts.credentials.offerProvisional(
         {
-          browser: identity.browser,
-          verifiedOrigin: `chrome-extension://${identity.extensionId}`,
+          browser: extensionIdentity.browser,
+          verifiedOrigin: `chrome-extension://${extensionIdentity.extensionId}`,
           clientInstallationId: 'install-a',
         },
         'official'
@@ -452,8 +691,8 @@ describe('desktop bridge bootstrap ownership', () => {
       await opts.credentials.commitFromPair(credential.credentialId)
       const successor = await opts.credentials.offerProvisional(
         {
-          browser: identity.browser,
-          verifiedOrigin: `chrome-extension://${identity.extensionId}`,
+          browser: extensionIdentity.browser,
+          verifiedOrigin: `chrome-extension://${extensionIdentity.extensionId}`,
           clientInstallationId: 'install-a',
         },
         'official'
@@ -472,29 +711,35 @@ describe('desktop bridge bootstrap ownership', () => {
       ).sessions.set('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
         conn,
         envelope,
-        extensionId: identity.extensionId,
-        browser: identity.browser,
+        extensionId: extensionIdentity.extensionId,
+        browser: extensionIdentity.browser,
         startedAt: Date.now(),
       })
 
-      opts.onExtensionAuthenticated?.(identity)
-      await vi.waitFor(() =>
-        expect(runtime.pairing.listPaired()).toHaveLength(1)
+      opts.onExtensionAuthenticated?.(
+        extensionIdentity,
+        credential.credentialId
       )
-      expect(runtime.pairing.listPaired()[0]?.identity).toEqual(identity)
+      await vi.waitFor(() =>
+        expect(runtime.extensionPairings.list()).toHaveLength(1)
+      )
+      expect(runtime.extensionPairings.list()[0]?.identity).toEqual(
+        extensionIdentity
+      )
+      expect(runtime.extensionPairings.list()[0]).toMatchObject({
+        identityTrust: 'official',
+        status: 'ready',
+        pairedAt: expect.any(Number),
+      })
 
-      const revokeHandler = electron.handle.mock.calls.find(
-        ([channel]) => channel === 'bridge:revokePair'
-      )?.[1] as
-        | ((event: unknown, params: { identity: typeof identity }) => unknown)
-        | undefined
+      const revokeHandler = revokeExtensionHandler()
       expect(revokeHandler).toBeTypeOf('function')
 
-      await revokeHandler?.(undefined, { identity })
+      await revokeHandler?.(undefined, { identity: extensionIdentity })
 
       expect(opts.credentials.findForAuth(credential.credentialId)).toBeNull()
       expect(opts.credentials.findForAuth(successor.credentialId)).toBeNull()
-      expect(runtime.pairing.listPaired()).toHaveLength(0)
+      expect(runtime.extensionPairings.list()).toHaveLength(0)
       expect(conn.sendNotification).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ reason: 'user-revoked' })
@@ -507,6 +752,314 @@ describe('desktop bridge bootstrap ownership', () => {
       ).toBeUndefined()
 
       await runtime.shutdown()
+    })
+
+    it('keeps the credential durable but immediately quarantines an unprojectable authenticated session', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      const opts = extensionServerOptions(runtime)
+      const credential = await opts.credentials.offerProvisional(
+        {
+          browser: extensionIdentity.browser,
+          verifiedOrigin: `chrome-extension://${extensionIdentity.extensionId}`,
+          clientInstallationId: 'install-a',
+        },
+        'official'
+      )
+      await opts.credentials.commitFromPair(credential.credentialId)
+
+      const paired = vi.fn()
+      const errors = vi.fn()
+      runtime.bus.on('Paired', paired)
+      runtime.bus.on('Error', errors)
+      const conn = {
+        revokeAuthorization: vi.fn(),
+        dispose: vi.fn(),
+      }
+      const envelope = { close: vi.fn() }
+      ;(
+        runtime.server as unknown as { sessions: Map<string, unknown> }
+      ).sessions.set('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
+        conn,
+        envelope,
+        extensionId: extensionIdentity.extensionId,
+        browser: extensionIdentity.browser,
+        startedAt: Date.now(),
+      })
+      vi.spyOn(
+        runtime.extensionPairings,
+        'recordAuthenticated'
+      ).mockRejectedValueOnce(new Error('secret projection path'))
+
+      opts.onExtensionAuthenticated?.(
+        extensionIdentity,
+        credential.credentialId
+      )
+
+      await vi.waitFor(() =>
+        expect(errors).toHaveBeenCalledExactlyOnceWith({
+          code: 'extensionProjectionDegraded',
+          message:
+            'Extension pairing state could not be updated; access is closed until startup repair.',
+        })
+      )
+      expect(paired).not.toHaveBeenCalled()
+      expect(
+        opts.credentials.findForAuth(credential.credentialId)
+      ).not.toBeNull()
+      expect(conn.revokeAuthorization).toHaveBeenCalled()
+      expect(envelope.close).toHaveBeenCalledWith(1000)
+      expect(conn.dispose).toHaveBeenCalledOnce()
+      expect(
+        runtime.server.getSession('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+      ).toBeUndefined()
+
+      await runtime.shutdown()
+    })
+
+    it('retains a durable pending marker and deny gate when credential revocation fails', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      const { opts, credential } = await commitAndProjectExtension(runtime)
+      const errors = vi.fn()
+      const revoked = vi.fn()
+      runtime.bus.on('Error', errors)
+      runtime.bus.on('Revoked', revoked)
+      vi.spyOn(
+        runtime.server,
+        'deleteExtensionAuthorization'
+      ).mockRejectedValueOnce(
+        new Error('secret credential persistence failure')
+      )
+
+      await expect(
+        revokeExtensionHandler()?.(undefined, {
+          identity: extensionIdentity,
+        })
+      ).rejects.toThrow('extension revocation incomplete')
+
+      expect(runtime.extensionPairings.list()).toMatchObject([
+        { identity: extensionIdentity, status: 'cleanup-pending' },
+      ])
+      expect(
+        opts.credentials.findForAuth(credential.credentialId)
+      ).not.toBeNull()
+      expect(
+        runtime.extensionPairings.canAdmitIdentity(extensionIdentity)
+      ).toBe(false)
+      expect(revoked).not.toHaveBeenCalled()
+      expect(errors).toHaveBeenCalledExactlyOnceWith({
+        code: 'extensionRevocationIncomplete',
+        message:
+          'Extension revocation is incomplete; access remains closed and startup will retry it.',
+      })
+
+      await runtime.shutdown()
+    })
+
+    it('cuts live authorization before a blocked pending-revoke marker write', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      await commitAndProjectExtension(runtime)
+      const conn = {
+        revokeAuthorization: vi.fn(),
+        dispose: vi.fn(),
+      }
+      const envelope = { close: vi.fn() }
+      ;(
+        runtime.server as unknown as { sessions: Map<string, unknown> }
+      ).sessions.set('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
+        conn,
+        envelope,
+        extensionId: extensionIdentity.extensionId,
+        browser: extensionIdentity.browser,
+        startedAt: Date.now(),
+      })
+
+      let announceMarkerWrite!: () => void
+      const markerWriteEntered = new Promise<void>((resolve) => {
+        announceMarkerWrite = resolve
+      })
+      let releaseMarkerWrite!: () => void
+      const markerWriteReleased = new Promise<void>((resolve) => {
+        releaseMarkerWrite = resolve
+      })
+      const prepare = runtime.extensionPairings.prepareIdentityCleanup.bind(
+        runtime.extensionPairings
+      )
+      vi.spyOn(
+        runtime.extensionPairings,
+        'prepareIdentityCleanup'
+      ).mockImplementationOnce(async (identity) => {
+        announceMarkerWrite()
+        await markerWriteReleased
+        return prepare(identity)
+      })
+
+      const revoke = revokeExtensionHandler()?.(undefined, {
+        identity: extensionIdentity,
+      })
+      await markerWriteEntered
+
+      expect(conn.revokeAuthorization).toHaveBeenCalledOnce()
+      expect(
+        (
+          runtime.server as unknown as {
+            revokingExtensionKeys: Map<string, unknown>
+          }
+        ).revokingExtensionKeys.has('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+      ).toBe(true)
+
+      releaseMarkerWrite()
+      await expect(revoke).resolves.toBeUndefined()
+      expect(runtime.extensionPairings.list()).toEqual([])
+      expect(
+        (
+          runtime.server as unknown as {
+            revokingExtensionKeys: Map<string, unknown>
+          }
+        ).revokingExtensionKeys.has('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+      ).toBe(false)
+
+      await runtime.shutdown()
+    })
+
+    it('keeps admission closed and reports a fixed repair signal when projection cleanup fails after revocation', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      const { opts, credential } = await commitAndProjectExtension(runtime)
+      const revoked = vi.fn()
+      const errors = vi.fn()
+      runtime.bus.on('Revoked', revoked)
+      runtime.bus.on('Error', errors)
+      vi.spyOn(
+        runtime.extensionPairings,
+        'completeCleanup'
+      ).mockRejectedValueOnce(new Error('secret projection path'))
+
+      await expect(
+        revokeExtensionHandler()?.(undefined, {
+          identity: extensionIdentity,
+        })
+      ).rejects.toThrow('extension revocation incomplete')
+
+      expect(opts.credentials.findForAuth(credential.credentialId)).toBeNull()
+      expect(runtime.extensionPairings.list()).toMatchObject([
+        { identity: extensionIdentity, status: 'cleanup-pending' },
+      ])
+      expect(
+        runtime.extensionPairings.canAdmitIdentity(extensionIdentity)
+      ).toBe(false)
+      expect(revoked).not.toHaveBeenCalled()
+      expect(errors).toHaveBeenCalledExactlyOnceWith({
+        code: 'extensionRevocationIncomplete',
+        message:
+          'Extension revocation is incomplete; access remains closed and startup will retry it.',
+      })
+
+      await runtime.shutdown()
+    })
+
+    it('does not delete credentials when the pending-revoke marker cannot be persisted', async () => {
+      const runtime = await bootstrapBridge(args())
+      expect(runtime).not.toBeNull()
+      if (!runtime) return
+
+      const { opts, credential } = await commitAndProjectExtension(runtime)
+      const revoked = vi.fn()
+      const errors = vi.fn()
+      runtime.bus.on('Revoked', revoked)
+      runtime.bus.on('Error', errors)
+      vi.spyOn(
+        runtime.extensionPairings,
+        'prepareIdentityCleanup'
+      ).mockRejectedValueOnce(new Error('secret projection failure'))
+
+      await expect(
+        revokeExtensionHandler()?.(undefined, {
+          identity: extensionIdentity,
+        })
+      ).rejects.toThrow('extension revocation incomplete')
+
+      expect(
+        opts.credentials.findForAuth(credential.credentialId)
+      ).not.toBeNull()
+      expect(revoked).not.toHaveBeenCalled()
+      expect(errors).toHaveBeenCalledExactlyOnceWith({
+        code: 'extensionRevocationMarkerFailed',
+        message:
+          'Extension revocation could not be recorded; access is closed for this run, but restart may restore the old credential.',
+      })
+
+      await runtime.shutdown()
+    })
+
+    it('restores a durable pending revoke and finishes it before the next listener starts', async () => {
+      const first = await bootstrapBridge(args())
+      expect(first).not.toBeNull()
+      if (!first) return
+
+      const { credential } = await commitAndProjectExtension(first)
+      await first.extensionPairings.prepareIdentityCleanup(extensionIdentity)
+      await first.shutdown()
+      vi.mocked(WebSocketBridgeServer.prototype.startOnFirstFree).mockClear()
+
+      const second = await bootstrapBridge(args())
+      expect(second).not.toBeNull()
+      if (!second) return
+      const secondOptions = extensionServerOptions(second)
+
+      expect(
+        secondOptions.credentials.findForAuth(credential.credentialId)
+      ).toBeNull()
+      expect(second.extensionPairings.list()).toEqual([])
+      expect(
+        WebSocketBridgeServer.prototype.startOnFirstFree
+      ).toHaveBeenCalledOnce()
+
+      await second.shutdown()
+    })
+
+    it('keeps the listener closed when startup cannot finish a durable pending revoke', async () => {
+      const first = await bootstrapBridge(args())
+      expect(first).not.toBeNull()
+      if (!first) return
+
+      const { credential } = await commitAndProjectExtension(first)
+      await first.extensionPairings.prepareIdentityCleanup(extensionIdentity)
+      await first.shutdown()
+      vi.mocked(WebSocketBridgeServer.prototype.startOnFirstFree).mockClear()
+
+      const deleteFailure = vi
+        .spyOn(Mbp1CredentialStore.prototype, 'revokeExtensionIdentity')
+        .mockRejectedValueOnce(new Error('secret durable path'))
+      await expect(bootstrapBridge(args())).rejects.toThrow(
+        'extension revocation recovery failed'
+      )
+      expect(
+        WebSocketBridgeServer.prototype.startOnFirstFree
+      ).not.toHaveBeenCalled()
+      deleteFailure.mockRestore()
+
+      const recovered = await bootstrapBridge(args())
+      expect(recovered).not.toBeNull()
+      if (!recovered) return
+      expect(
+        extensionServerOptions(recovered).credentials.findForAuth(
+          credential.credentialId
+        )
+      ).toBeNull()
+      expect(recovered.extensionPairings.list()).toEqual([])
+
+      await recovered.shutdown()
     })
   })
 
@@ -527,6 +1080,7 @@ describe('desktop bridge bootstrap ownership', () => {
       await expect(handler?.()).resolves.toEqual({
         port: 19002,
         degraded: false,
+        extensionPairingHealth: 'ready',
         fixedPort: 'auto',
         instanceId: 'test-instance-id',
       })
@@ -546,6 +1100,7 @@ describe('desktop bridge bootstrap ownership', () => {
       await expect(getStatusHandler()?.()).resolves.toEqual({
         port: 54321,
         degraded: true,
+        extensionPairingHealth: 'ready',
         fixedPort: 'auto',
         instanceId: 'test-instance-id',
       })

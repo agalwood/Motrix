@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "threats": [
+    {
+      "id": "T01",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/bridge-route.test.ts",
+          "testName": "never emits a legacy token query parameter"
+        }
+      ]
+    },
+    {
+      "id": "T02",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/bridge-route.test.ts",
+          "testName": "rejects a structurally manufactured authority"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/server/bridge/remote-extension-wss.integration.test.ts",
+          "testName": "rejects an expired certificate even when that certificate is explicitly trusted"
+        }
+      ]
+    },
+    {
+      "id": "T03",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/__tests__/ConnectionManager.mbp1.test.ts",
+          "testName": "reconnects remote credentials with the authenticated instance id, not discovery hint"
+        }
+      ]
+    },
+    {
+      "id": "T04",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/server/bridge/remote-extension-wss.integration.test.ts",
+          "testName": "validates TLS hostname/CA, preserves Host/base path, pairs, and submits over WSS"
+        }
+      ]
+    },
+    {
+      "id": "T05",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/mbp1/pair-session.test.ts",
+          "testName": "rate-limits, closes, and invalidates the code on the third failure"
+        }
+      ]
+    },
+    {
+      "id": "T06",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/pairing-flow.test.ts",
+          "testName": "refuses to open /pair at all while the lockout is active"
+        }
+      ]
+    },
+    {
+      "id": "T07",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/server/http/operator-auth.test.ts",
+          "testName": "keeps an Extension pairing code behind operator auth and same-origin CSRF checks"
+        }
+      ]
+    },
+    {
+      "id": "T08",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/mbp1/pair-session.test.ts",
+          "testName": "rejects a chromium hello whose claimed id does not match the origin"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/mbp1/pair-session.test.ts",
+          "testName": "resolves a ticketless firefox caller as unverified"
+        }
+      ]
+    },
+    {
+      "id": "T09",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/credential-store.test.ts",
+          "testName": "isolates local, Server A, and Server B even when all reuse one credential id"
+        }
+      ]
+    },
+    {
+      "id": "T10",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/credential-store.test.ts",
+          "testName": "detects same-authority id collisions without leaking values"
+        }
+      ]
+    },
+    {
+      "id": "T11",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/credential-store.test.ts",
+          "testName": "survives repeated MV3 root reconstruction through commit-uncertain recovery, rotation, and revoke"
+        }
+      ]
+    },
+    {
+      "id": "T12",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/reconnect-flow.test.ts",
+          "testName": "reports authFailed (not protocolViolation) when it arrives as the very first frame"
+        }
+      ]
+    },
+    {
+      "id": "T13",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/__tests__/mbp1-transport.test.ts",
+          "testName": "cannot resurrect a credential whose durable offer returns after revoke completes"
+        }
+      ]
+    },
+    {
+      "id": "T14",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/main/bridge/bootstrap-lifecycle.test.ts",
+          "testName": "retains a durable pending marker and deny gate when credential revocation fails"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/main/bridge/bootstrap-lifecycle.test.ts",
+          "testName": "keeps the listener closed when startup cannot finish a durable pending revoke"
+        }
+      ]
+    },
+    {
+      "id": "T15",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/web-socket-bridge-server.authz.test.ts",
+          "testName": "gives an unauthenticated peer no MDXP surface to drive at all"
+        }
+      ]
+    },
+    {
+      "id": "T16",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/__tests__/remote-submit-policy.test.ts",
+          "testName": "strips cookies and every custom header by default without mutating the caller"
+        }
+      ]
+    },
+    {
+      "id": "T17",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/__tests__/initialize-handler.test.ts",
+          "testName": "derives taskReveal from the currently registered shell capability"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/server/bridge/bootstrap.test.ts",
+          "testName": "fails closed before listening when remote Extension has no download receiver"
+        }
+      ]
+    },
+    {
+      "id": "T18",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/server/bridge/remote-extension-wss.integration.test.ts",
+          "testName": "validates TLS hostname/CA, preserves Host/base path, pairs, and submits over WSS"
+        }
+      ]
+    },
+    {
+      "id": "T19",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/remote-discovery-service.test.ts",
+          "testName": "maps the browser redirect:error rejection to generic unavailable"
+        },
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/remote-nonce-service.test.ts",
+          "testName": "rejects a nonconforming fetch that returns a redirect"
+        }
+      ]
+    },
+    {
+      "id": "T20",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/__tests__/mbp1-transport.test.ts",
+          "testName": "closes on a replayed sealed frame after activation"
+        }
+      ]
+    },
+    {
+      "id": "T21",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/bridge-identity.test.ts",
+          "testName": "preserves identity on offline backup restore, resets on a fresh directory, and cannot distinguish a byte-identical clone"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/bridge-data-dir-lock.test.ts",
+          "testName": "fails with one redacted error while another process owns the lock"
+        }
+      ]
+    },
+    {
+      "id": "T22",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "e2e/bridge/remote-extension-wss.spec.ts",
+          "testName": "pair, consent, submit, restart, revoke, and re-pair over WSS"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/__tests__/bridge-connection.test.ts",
+          "testName": "contains a notification write race after the socket has closed"
+        }
+      ]
+    },
+    {
+      "id": "T23",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/__tests__/EndpointCatalogService.test.ts",
+          "testName": "retires only the old authority when an active Server URL changes"
+        },
+        {
+          "repository": "motrix",
+          "path": "e2e/bridge/remote-extension-wss.spec.ts",
+          "testName": "An authority-changing URL edit is a fresh trust boundary"
+        }
+      ]
+    },
+    {
+      "id": "T24",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/__tests__/ConnectionManager.mbp1.test.ts",
+          "testName": "maps a remote pairing WebSocket open failure to one non-specific transport reason"
+        },
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/shared/__tests__/errorCopy.test.ts",
+          "testName": "describes a remote transport failure without inventing a certificate diagnosis"
+        }
+      ]
+    },
+    {
+      "id": "T25",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/core/bridge/__tests__/mbp1-transport.test.ts",
+          "testName": "refuses all four Extension routes when MBP1 is not wired"
+        }
+      ]
+    },
+    {
+      "id": "T26",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/pairing-flow.test.ts",
+          "testName": "rejects a pairAccept whose protocolVersion is not 1, as unsupportedVersion"
+        },
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/remote-discovery-service.test.ts",
+          "testName": "treats a valid Desktop discovery document as the wrong target, not an upgrade verdict"
+        }
+      ]
+    },
+    {
+      "id": "T27",
+      "evidence": [
+        {
+          "repository": "extension",
+          "path": "packages/ext/src/background/mbp1/__tests__/credential-store.test.ts",
+          "testName": "survives repeated MV3 root reconstruction through commit-uncertain recovery, rotation, and revoke"
+        },
+        {
+          "repository": "motrix",
+          "path": "e2e/bridge/remote-extension-wss.spec.ts",
+          "testName": "pair, consent, submit, restart, revoke, and re-pair over WSS"
+        }
+      ]
+    },
+    {
+      "id": "T28",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "e2e/bridge/remote-extension-firefox-wss.spec.ts",
+          "testName": "real Firefox: unverified pair, consent, reconnect, revoke, and re-pair over WSS"
+        }
+      ]
+    },
+    {
+      "id": "T29",
+      "evidence": [
+        {
+          "repository": "motrix",
+          "path": "src/server/bridge/remote-extension-admission-policy.test.ts",
+          "testName": "bounds rotating source maps by the independent global window cap"
+        },
+        {
+          "repository": "motrix",
+          "path": "src/main/bridge/pairing-dialog-controller.test.ts",
+          "testName": "enforces the core global capacity without publishing a fourth code"
+        }
+      ]
+    }
+  ]
+}

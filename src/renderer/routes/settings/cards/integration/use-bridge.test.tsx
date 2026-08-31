@@ -19,6 +19,7 @@ describe('useBridgeStatus (Task 21)', () => {
     vi.mocked(transport.invoke).mockResolvedValue({
       port: 16802,
       degraded: false,
+      extensionPairingHealth: 'ready',
       fixedPort: 'auto',
       instanceId: 'abc-instance',
     })
@@ -30,6 +31,7 @@ describe('useBridgeStatus (Task 21)', () => {
       expect(result.current).toEqual({
         port: 16802,
         degraded: false,
+        extensionPairingHealth: 'ready',
         fixedPort: 'auto',
         instanceId: 'abc-instance',
       })
@@ -41,6 +43,7 @@ describe('useBridgeStatus (Task 21)', () => {
     vi.mocked(transport.invoke).mockResolvedValue({
       port: 54321,
       degraded: true,
+      extensionPairingHealth: 'ready',
       fixedPort: 'auto',
       instanceId: 'abc-instance',
     })
@@ -54,6 +57,7 @@ describe('useBridgeStatus (Task 21)', () => {
     vi.mocked(transport.invoke).mockResolvedValue({
       port: 18080,
       degraded: false,
+      extensionPairingHealth: 'ready',
       fixedPort: 18080,
       instanceId: 'abc-instance',
     })

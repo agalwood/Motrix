@@ -2,7 +2,10 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { loadOrCreateBridgeIdentity } from './bridge-identity'
+import {
+  loadOrCreateBridgeIdentity,
+  loadOrCreateBridgeInstanceId,
+} from './bridge-identity'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -85,5 +88,83 @@ describe('loadOrCreateBridgeIdentity', () => {
 
     const st = await fs.stat(tokenFilePath)
     expect(st.mode & 0o777).toBe(0o600)
+  })
+})
+
+describe('loadOrCreateBridgeInstanceId', () => {
+  let tmpDir: string
+  let instanceIdFilePath: string
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bridge-instance-id-'))
+    instanceIdFilePath = path.join(tmpDir, 'server-instance-id')
+  })
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true })
+  })
+
+  it('creates one stable owner-only UUID identity', async () => {
+    const first = await loadOrCreateBridgeInstanceId(instanceIdFilePath)
+    const second = await loadOrCreateBridgeInstanceId(instanceIdFilePath)
+
+    expect(first).toMatch(UUID_PATTERN)
+    expect(second).toBe(first)
+    if (process.platform !== 'win32') {
+      expect((await fs.stat(instanceIdFilePath)).mode & 0o777).toBe(0o600)
+    }
+  })
+
+  it('preserves identity on offline backup restore, resets on a fresh directory, and cannot distinguish a byte-identical clone', async () => {
+    const sourceDir = path.join(tmpDir, 'source-data')
+    const backupDir = path.join(tmpDir, 'offline-backup')
+    const cloneDir = path.join(tmpDir, 'unsupported-live-clone')
+    const freshDir = path.join(tmpDir, 'fresh-data')
+    const identityPath = (directory: string) =>
+      path.join(directory, 'bridge', 'server-instance-id')
+
+    const original = await loadOrCreateBridgeInstanceId(identityPath(sourceDir))
+    await fs.cp(sourceDir, backupDir, { recursive: true })
+    await fs.rm(sourceDir, { recursive: true, force: true })
+    await fs.cp(backupDir, sourceDir, { recursive: true })
+
+    await expect(
+      loadOrCreateBridgeInstanceId(identityPath(sourceDir))
+    ).resolves.toBe(original)
+    await expect(
+      loadOrCreateBridgeInstanceId(identityPath(freshDir))
+    ).resolves.not.toBe(original)
+
+    // A complete byte-identical clone necessarily carries the same transcript
+    // identity. This is why active-active clones are documented as forbidden,
+    // not advertised as automatically client-detectable.
+    await fs.cp(backupDir, cloneDir, { recursive: true })
+    await expect(
+      loadOrCreateBridgeInstanceId(identityPath(cloneDir))
+    ).resolves.toBe(original)
+  })
+
+  it('fails closed rather than silently replacing malformed identity state', async () => {
+    await fs.writeFile(instanceIdFilePath, 'not-an-instance-id', {
+      mode: 0o600,
+    })
+
+    await expect(
+      loadOrCreateBridgeInstanceId(instanceIdFilePath)
+    ).rejects.toThrow('bridge instance identity unavailable')
+    await expect(fs.readFile(instanceIdFilePath, 'utf8')).resolves.toBe(
+      'not-an-instance-id'
+    )
+  })
+
+  it('rejects a symbolic link instead of following it', async () => {
+    if (process.platform === 'win32') return
+    const target = path.join(tmpDir, 'target')
+    await fs.writeFile(target, '00000000-0000-4000-8000-000000000000')
+    await fs.symlink(target, instanceIdFilePath)
+
+    await expect(
+      loadOrCreateBridgeInstanceId(instanceIdFilePath)
+    ).rejects.toThrow('bridge instance identity unavailable')
   })
 })

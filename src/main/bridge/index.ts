@@ -1,11 +1,28 @@
+import { mkdir } from 'node:fs/promises'
 import { homedir, platform as osPlatform } from 'node:os'
 import { join } from 'node:path'
+import {
+  acquireBridgeDataDirLock,
+  type BridgeDataDirLockRecoveryAuthority,
+} from '@core/bridge/bridge-data-dir-lock'
 import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import { loadOrCreateBridgeIdentity } from '@core/bridge/bridge-identity'
 import { BridgeOwnership } from '@core/bridge/bridge-ownership'
-import { Mbp1CredentialStore } from '@core/bridge/credential-store'
+import {
+  type CommittedExtensionCredentialWitness,
+  Mbp1CredentialStore,
+} from '@core/bridge/credential-store'
 import { DeviceCodeService } from '@core/bridge/device-code-service'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
+import {
+  createExtensionIdentityResolver,
+  parseDevTrustedExtensions,
+} from '@core/bridge/extension-identity-resolver'
+import { ExtensionPairingProjectionService } from '@core/bridge/extension-pairing-projection'
+import {
+  FileExtensionPairingProjectionStore,
+  recoverExtensionPairingProjectionWriterLock,
+} from '@core/bridge/file-extension-pairing-projection-store'
 import { FilePairingStore } from '@core/bridge/file-pairing-store'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
@@ -30,13 +47,11 @@ import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import { handleCreateTask } from '@core/task/create-task-handler'
 import { Notifications } from '@motrix/mdxp'
-import nativeMessagingExtensions from '@shared/config/native-messaging-extensions.json'
 import {
   BridgeCommands,
   BridgeEvents,
   BridgeQueries,
   type BridgeStatusInfo,
-  type Browser,
   type ClientIdentity,
   type PairRequestPayload,
   pairRequestKey,
@@ -174,70 +189,21 @@ function camelize(code: string): string {
   return code.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())
 }
 
-// This file is also embedded into the Rust Flatpak companion. Keep one source
-// of truth for the manifest allowlist and Motrix's in-app trust registry.
-const BUILTIN_TRUSTED: Array<{
-  id: string
-  browser: 'chromium' | 'firefox'
-}> = [
-  ...nativeMessagingExtensions.chromium.map((id) => ({
-    id,
-    browser: 'chromium' as const,
-  })),
-  ...nativeMessagingExtensions.firefox.map((id) => ({
-    id,
-    browser: 'firefox' as const,
-  })),
-]
-
-/**
- * Parse `MOTRIX_DEV_TRUSTED_EXTENSIONS` — comma-separated
- * `<browser>:<id>` pairs (e.g.
- * `chromium:abcdefghijklmnopabcdefghijklmnop,firefox:moo@bar`).
- *
- * Used during development to allow an unpacked extension whose ID is
- * not yet in BUILTIN_TRUSTED to clear the NM `allowed_origins` gate.
- * Silently skips malformed entries so a typo cannot break startup.
- */
-export function parseDevTrustedExtensions(
-  raw: string | undefined
-): Array<{ id: string; browser: 'chromium' | 'firefox' }> {
-  if (!raw) return []
-  const out: Array<{ id: string; browser: 'chromium' | 'firefox' }> = []
-  for (const part of raw.split(',')) {
-    const trimmed = part.trim()
-    if (!trimmed) continue
-    const colon = trimmed.indexOf(':')
-    if (colon <= 0) continue
-    const browser = trimmed.slice(0, colon).trim()
-    const id = trimmed.slice(colon + 1).trim()
-    if (!id) continue
-    if (browser !== 'chromium' && browser !== 'firefox') continue
-    out.push({ id, browser })
-  }
-  return out
-}
-
-/**
- * §5's `isOfficialId`, backed by the immutable allowlist only. Deliberately
- * never derived from `TrustedExtensionRegistry.has()`, which also admits
- * `user-added` and `imported` entries — a source §5 forbids for the
- * `official` tier (spec-coverage audit W1). Extracted so the two arrays that
- * feed the registry (`BUILTIN_TRUSTED` + `parseDevTrustedExtensions`) can be
- * unit-tested against this resolver without standing up a registry at all.
- */
-export function resolveOfficialIds(
-  entries: ReadonlyArray<{ id: string; browser: 'chromium' | 'firefox' }>
-): (browser: Browser, id: string) => boolean {
-  const allowed = new Set(entries.map((e) => `${e.browser}:${e.id}`))
-  return (browser, id) => allowed.has(`${browser}:${id}`)
-}
-
 /** §4: `fixedPort` resolves to the candidate range, or pins a single port. */
 function resolveBridgePorts(
   fixedPort: BridgeSettings['fixedPort']
 ): readonly number[] {
   return fixedPort === 'auto' ? BRIDGE_CANDIDATE_PORTS : [fixedPort]
+}
+
+function extensionIdentityMatchesWitness(
+  identity: ClientIdentity & { kind: 'extension' },
+  witness: CommittedExtensionCredentialWitness
+): boolean {
+  return (
+    witness.identity.browser === identity.browser &&
+    witness.identity.extensionId === identity.extensionId
+  )
 }
 
 /**
@@ -253,6 +219,7 @@ const CREDENTIAL_SWEEP_INTERVAL_MS = 10 * 60 * 1000
 export interface BridgeRuntime {
   server: WebSocketBridgeServer
   pairing: PairingService
+  extensionPairings: ExtensionPairingProjectionService
   registry: TrustedExtensionRegistry
   bus: BridgeEventBus
   installer: NativeMessagingInstaller
@@ -444,6 +411,8 @@ export async function bootstrapBridge(args: {
   /** `bridge.fixedPort` (port policy, §4) + `bridge.instanceId` (the §4.1
    *  discovery routing hint) from persisted settings. */
   bridgeSettings: BridgeSettings
+  /** Electron single-instance ownership, acquired before bridge bootstrap. */
+  bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority
   /** Test-only override for `sweepExpiredProvisionals()`'s cadence —
    *  production always relies on {@link CREDENTIAL_SWEEP_INTERVAL_MS}. */
   credentialSweepIntervalMs?: number
@@ -455,95 +424,118 @@ export async function bootstrapBridge(args: {
     app.getPath('userData'),
     process.env.MOTRIX_BRIDGE_DATA_DIR
   )
-  // pairing.json lives under bridge/ alongside its siblings (registry.json,
-  // endpoint.json, receiver/) rather than at the userData root, so the whole
-  // bridge subsystem state is grouped in one place.
-  const pairingStore = new FilePairingStore(join(dataDir, 'pairing.json'))
-  const registryStore = new FileRegistryStoreAdapter(
-    join(dataDir, 'registry.json')
-  )
-
-  const pairing = new PairingService(pairingStore)
-  await pairing.load()
-
-  const devTrusted = parseDevTrustedExtensions(
-    process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS
-  )
-  // Computed from the immutable arrays BEFORE they enter the registry:
-  // `isOfficialId` must never read `TrustedExtensionRegistry`, which also
-  // admits `user-added`/`imported` entries (§5, spec-coverage audit W1).
-  const officialEntries = [...BUILTIN_TRUSTED, ...devTrusted]
-  const isOfficialId = resolveOfficialIds(officialEntries)
-  const registry = new TrustedExtensionRegistry(registryStore, officialEntries)
-  await registry.load()
-
-  const bus = new BridgeEventBus()
-  const dialog = new PairingDialogController(bus, args.getMainWindow)
-  // Device-code pairing for cli/agent clients (Spec 7b): the HTTP routes call
-  // request()/poll(); the renderer ResolvePair handler calls approve()/deny().
-  // onLifecycle re-emits the SAME settled/expired events the extension's
-  // PairingDialogController emits directly, so the renderer's approval inbox
-  // sees one lifecycle shape regardless of which pairing kind moved.
-  const deviceCode = new DeviceCodeService(pairing, {
-    onLifecycle: {
-      settled: (requestId, outcome) =>
-        bus.emitPairRequestSettled({
-          key: pairRequestKey({ kind: 'cli', requestId }),
-          outcome,
-        }),
-      expired: (requestId) =>
-        bus.emitPairRequestExpired({
-          key: pairRequestKey({ kind: 'cli', requestId }),
-        }),
-    },
-  })
-
-  // Forward bus events to the renderer. The webContents lookup is deferred
-  // (called per-event) so that window-recreation paths see the current window.
-  const forwardToRenderer = (channel: string, payload: unknown) => {
-    const win = args.getMainWindow()
-    win?.webContents.send(channel, payload)
-  }
-  bus.on('PairRequested', (p) => {
-    forwardToRenderer(BridgeEvents.PairRequested, p)
-    // #1: a device-code (cli) prompt has no PairingDialogController, so surface
-    // the window here — the same restore()/focus() the extension flow does.
-    if ((p as PairRequestPayload).kind === 'cli') {
-      const win = args.getMainWindow()
-      if (win) {
-        if (win.isMinimized()) win.restore()
-        win.focus()
-      }
-    }
-  })
-  bus.on('Paired', (p) => forwardToRenderer(BridgeEvents.Paired, p))
-  bus.on('Revoked', (p) => forwardToRenderer(BridgeEvents.Revoked, p))
-  bus.on('Error', (p) => forwardToRenderer(BridgeEvents.Error, p))
-  // Pending pair request lifecycle (pending -> settled | expired) — drives the
-  // approval inbox's live countdown/removal on the renderer side.
-  bus.on('PairRequestSettled', (p) =>
-    forwardToRenderer(BridgeEvents.PairRequestSettled, p)
-  )
-  bus.on('PairRequestExpired', (p) =>
-    forwardToRenderer(BridgeEvents.PairRequestExpired, p)
-  )
-
-  // ─── bridge receiver (subsystem ③) ───────────────────
-  // Constructed BEFORE WebSocketBridgeServer so that setHandlers() can
-  // reference receiver before server.start() is called — eliminating the
-  // race window where the server is listening but handlers aren't registered.
-  const receiverDataDir = join(dataDir, 'receiver')
-  const t = i18n.t.bind(i18n)
-  const localize = (code: string) =>
-    t(`bridge.receiver.error.${camelize(code)}`)
-
-  // Build the resolver once — shared between BridgeReceiver (extension submit-
-  // path) and the BridgeRuntime surface (desktop Add-Task path). A single
-  // instance ensures both paths see the same plugin registry state.
-  const resolveToMuxFn = makeResolveToMux(args.pluginRegistry, args.pluginHost)
+  await mkdir(dataDir, { recursive: true })
   const ownership = new BridgeOwnership()
-
   try {
+    // This is the first bridge-state acquisition. No store is loaded and no
+    // listener is constructed until the process owns the entire data root.
+    const dataDirLock = await acquireBridgeDataDirLock(dataDir, {
+      recoverExisting: args.bridgeDataDirLockRecoveryAuthority,
+    })
+    // BridgeOwnership disposes in reverse order, so registering the lock first
+    // keeps it held until every listener, callback and persistence queue drains.
+    ownership.own('bridge-data-dir-lock', () => dataDirLock.release())
+    await recoverExtensionPairingProjectionWriterLock(
+      join(dataDir, 'extension-pairings.json'),
+      dataDirLock
+    )
+    // pairing.json lives under bridge/ alongside its siblings (registry.json,
+    // endpoint.json, receiver/) rather than at the userData root, so the whole
+    // bridge subsystem state is grouped in one place.
+    const pairingStore = new FilePairingStore(join(dataDir, 'pairing.json'))
+    const registryStore = new FileRegistryStoreAdapter(
+      join(dataDir, 'registry.json')
+    )
+
+    const pairing = new PairingService(pairingStore)
+    await pairing.load()
+
+    const devTrusted = parseDevTrustedExtensions(
+      process.env.MOTRIX_DEV_TRUSTED_EXTENSIONS
+    )
+    const identityResolver = createExtensionIdentityResolver({
+      // `app.isPackaged` is authoritative for shipped builds. The NODE_ENV
+      // check also closes an unpackaged production build: an env-provided dev
+      // id never reaches the official tier in either production shape.
+      environment:
+        app.isPackaged || process.env.NODE_ENV === 'production'
+          ? 'production'
+          : 'non-production',
+      developmentEntries: devTrusted,
+    })
+    // The resolver owns immutable official inputs and never reads the registry,
+    // whose persisted user-added/imported entries therefore cannot raise trust.
+    const registry = new TrustedExtensionRegistry(registryStore, [
+      ...identityResolver.officialEntries,
+    ])
+    await registry.load()
+
+    const bus = new BridgeEventBus()
+    const dialog = new PairingDialogController(bus, args.getMainWindow)
+    // Device-code pairing for cli/agent clients (Spec 7b): the HTTP routes call
+    // request()/poll(); the renderer ResolvePair handler calls approve()/deny().
+    // onLifecycle re-emits the same renderer lifecycle DTOs as the extension
+    // prompt adapter, so the approval inbox sees one shape across pairing kinds.
+    const deviceCode = new DeviceCodeService(pairing, {
+      onLifecycle: {
+        settled: (requestId, outcome) =>
+          bus.emitPairRequestSettled({
+            key: pairRequestKey({ kind: 'cli', requestId }),
+            outcome,
+          }),
+        expired: (requestId) =>
+          bus.emitPairRequestExpired({
+            key: pairRequestKey({ kind: 'cli', requestId }),
+          }),
+      },
+    })
+
+    // Forward bus events to the renderer. The webContents lookup is deferred
+    // (called per-event) so that window-recreation paths see the current window.
+    const forwardToRenderer = (channel: string, payload: unknown) => {
+      const win = args.getMainWindow()
+      win?.webContents.send(channel, payload)
+    }
+    bus.on('PairRequested', (p) => {
+      forwardToRenderer(BridgeEvents.PairRequested, p)
+      // #1: a device-code (cli) prompt has no PairingDialogController, so surface
+      // the window here — the same restore()/focus() the extension flow does.
+      if ((p as PairRequestPayload).kind === 'cli') {
+        const win = args.getMainWindow()
+        if (win) {
+          if (win.isMinimized()) win.restore()
+          win.focus()
+        }
+      }
+    })
+    bus.on('Paired', (p) => forwardToRenderer(BridgeEvents.Paired, p))
+    bus.on('Revoked', (p) => forwardToRenderer(BridgeEvents.Revoked, p))
+    bus.on('Error', (p) => forwardToRenderer(BridgeEvents.Error, p))
+    // Pending pair request lifecycle (pending -> settled | expired) — drives the
+    // approval inbox's live countdown/removal on the renderer side.
+    bus.on('PairRequestSettled', (p) =>
+      forwardToRenderer(BridgeEvents.PairRequestSettled, p)
+    )
+    bus.on('PairRequestExpired', (p) =>
+      forwardToRenderer(BridgeEvents.PairRequestExpired, p)
+    )
+
+    // ─── bridge receiver (subsystem ③) ───────────────────
+    // Constructed BEFORE WebSocketBridgeServer so that setHandlers() can
+    // reference receiver before server.start() is called — eliminating the
+    // race window where the server is listening but handlers aren't registered.
+    const receiverDataDir = join(dataDir, 'receiver')
+    const t = i18n.t.bind(i18n)
+    const localize = (code: string) =>
+      t(`bridge.receiver.error.${camelize(code)}`)
+
+    // Build the resolver once — shared between BridgeReceiver (extension submit-
+    // path) and the BridgeRuntime surface (desktop Add-Task path). A single
+    // instance ensures both paths see the same plugin registry state.
+    const resolveToMuxFn = makeResolveToMux(
+      args.pluginRegistry,
+      args.pluginHost
+    )
     const receiver = new BridgeReceiver({
       dataDir: receiverDataDir,
       defaultSaveDir: args.defaultSaveDir,
@@ -597,6 +589,12 @@ export async function bootstrapBridge(args: {
     const credentials = await Mbp1CredentialStore.load(
       join(dataDir, 'mbp1-credentials.json')
     )
+    const extensionPairings = new ExtensionPairingProjectionService(
+      new FileExtensionPairingProjectionStore(
+        join(dataDir, 'extension-pairings.json')
+      )
+    )
+    await extensionPairings.load()
     // Storage hygiene only (findForAuth already rejects an expired
     // provisional on its own) — periodic so an unbounded number of crashed
     // first-pair attempts cannot accumulate for the life of a long-running
@@ -609,8 +607,28 @@ export async function bootstrapBridge(args: {
     ownership.own('credential-sweep', () => {
       clearInterval(sweepTimer)
     })
+    ownership.own('extension-pairings', () => extensionPairings.stopAndDrain())
 
-    const server: WebSocketBridgeServer = new WebSocketBridgeServer({
+    let server: WebSocketBridgeServer
+    const quarantineProjectionFailure = (
+      identity: ClientIdentity & { kind: 'extension' }
+    ): void => {
+      try {
+        const revokeLease = server.beginExtensionRevocation(identity)
+        server.retainFailedExtensionRevocation(revokeLease)
+      } catch {
+        // The fixed operator signal below remains the observable failure. A
+        // malformed callback identity must not leak its value or resurrect a
+        // session by escaping this quarantine path.
+      }
+      bus.emitError({
+        code: 'extensionProjectionDegraded',
+        message:
+          'Extension pairing state could not be updated; access is closed until startup repair.',
+      })
+    }
+
+    server = new WebSocketBridgeServer({
       pairing,
       registry,
       motrixVersion: args.motrixVersion,
@@ -625,23 +643,65 @@ export async function bootstrapBridge(args: {
       serverGeneration: bridgeIdentity.serverGeneration,
       appVersion: args.motrixVersion,
       credentials,
-      isOfficialId,
+      isOfficialId: (browser, id) => identityResolver.isOfficialId(browser, id),
       queueMbp1Dialog: (req) => dialog.queueMbp1Prompt(req),
+      canAdmitExtensionIdentity: (identity) =>
+        extensionPairings.canAdmitIdentity(identity),
       // The only remaining signal that an extension became usable now that
-      // `motrix/initialize` mints nothing (R18-10): restores the paired-client
-      // list, RevokePair, and the revoke-kick by feeding the SAME
-      // `PairingService` bookkeeping the pre-MBP1 extension flow used. The
-      // token this mints is otherwise inert for an extension identity —
-      // `resolveBearer` only ever accepts a `cli` token — so its only job is
-      // list/revoke/kick, exactly as before. Best-effort: a persistence
-      // failure must not tear down the just-authenticated session.
-      onExtensionAuthenticated: (identity) => {
-        void pairing
-          .issueToken(identity, '')
-          .then(() => bus.emitPaired({ identity }))
-          .catch(() => {})
+      // `motrix/initialize` mints nothing (R18-10): refresh the extension
+      // management projection from the authoritative MBP1 credential set, then
+      // emit the paired event. Best-effort: display persistence must not tear
+      // down the durable credential, but an unlisted session is not safe to
+      // keep usable in this process. Projection failure therefore gates and
+      // closes this identity until startup reconciliation can make it visible.
+      onExtensionAuthenticated: (identity, credentialId) => {
+        try {
+          void args
+            .trackAsyncWork(async () => {
+              const witness =
+                await credentials.issueCommittedExtensionWitness(credentialId)
+              if (!extensionIdentityMatchesWitness(identity, witness)) {
+                throw new Error('authenticated extension identity mismatch')
+              }
+              await extensionPairings.recordAuthenticated(witness, Date.now())
+              bus.emitPaired({ identity })
+            })
+            .catch(() => quarantineProjectionFailure(identity))
+        } catch {
+          quarantineProjectionFailure(identity)
+        }
       },
     })
+
+    // A crash may leave a durable pending-revoke marker after either side of
+    // credential deletion. Restore its verified-identity gate and finish the
+    // delete before any listener exists. Generic snapshot reconciliation must
+    // never infer that a surviving old credential cancels the operator's
+    // revoke intent.
+    for (const pending of extensionPairings
+      .list()
+      .filter((record) => record.status === 'cleanup-pending')) {
+      const serverLease = server.beginExtensionRevocation(pending.identity)
+      const projectionLease = await extensionPairings.prepareIdentityCleanup(
+        pending.identity
+      )
+      try {
+        await server.deleteExtensionAuthorization(serverLease, 'user-revoked')
+        const absenceWitness =
+          await credentials.issueExtensionIdentityAbsenceWitness(
+            pending.identity.browser,
+            pending.identity.extensionId
+          )
+        await extensionPairings.completeCleanup(projectionLease, absenceWitness)
+        server.completeExtensionRevocation(serverLease)
+      } catch {
+        server.retainFailedExtensionRevocation(serverLease)
+        throw new Error('extension revocation recovery failed')
+      }
+    }
+    await extensionPairings.reconcileCommitted(
+      await credentials.issueCommittedExtensionSnapshot()
+    )
 
     // Register the shell's domain handlers BEFORE start() — no race window where
     // the server is listening but handlers aren't yet registered. motrix/initialize
@@ -701,8 +761,8 @@ export async function bootstrapBridge(args: {
     ownership.own('stream-source', () => streamSource.detach(args.eventBus))
     streamSource.attach(args.eventBus)
 
-    // An initialize request may be blocked on the renderer's pairing prompt.
-    // Settle it before server.stop() drains accepted dispatcher work.
+    // Abort every code prompt before server.stop() tears down its PairSession,
+    // and await code-free terminal event publication during the drain.
     ownership.own('pairing-dialog', () => dialog.dispose())
     // Clear every device-code TTL timer so none fires — into a torn-down bus —
     // after this bridge instance is gone.
@@ -754,9 +814,13 @@ export async function bootstrapBridge(args: {
       installedIpcChannels.push(channel)
     }
 
-    installIpcHandler(BridgeQueries.ListPaired, () =>
-      pairing.listPaired().map(toPairedClientInfo)
-    )
+    installIpcHandler(BridgeQueries.ListPaired, () => [
+      ...extensionPairings.list().map(toPairedClientInfo),
+      ...pairing
+        .listPaired()
+        .filter((entry) => entry.identity.kind === 'cli')
+        .map(toPairedClientInfo),
+    ])
     // Merged snapshot: a cli device-code request and an extension /pair
     // prompt are both "pending pair requests" for the approval inbox — union
     // them so the renderer sees one list regardless of kind.
@@ -770,6 +834,8 @@ export async function bootstrapBridge(args: {
       (): BridgeStatusInfo => ({
         port,
         degraded,
+        extensionPairingHealth:
+          extensionPairings.getHealth() === 'ready' ? 'ready' : 'degraded',
         fixedPort: args.bridgeSettings.fixedPort,
         instanceId: args.bridgeSettings.instanceId,
       })
@@ -779,12 +845,48 @@ export async function bootstrapBridge(args: {
       async (_e, params: { identity: ClientIdentity }) => {
         const reason = 'user-revoked'
         if (params.identity.kind === 'extension') {
-          // Credential removal is the authorization boundary; it MUST land
-          // before display bookkeeping is updated or the old mutual key can
-          // reconnect immediately after the user clicks Revoke.
-          await server.revokeExtensionAccess(params.identity, reason)
+          const extensionIdentity = params.identity
+          // This synchronous call MUST precede every snapshot or durable
+          // projection await. It immediately de-authorizes live MDXP, cancels
+          // pre-auth sessions, and rejects new pair/reconnect attempts.
+          const serverLease = server.beginExtensionRevocation(extensionIdentity)
+          let markerPersisted = false
+
+          try {
+            const cleanupLease =
+              await extensionPairings.prepareIdentityCleanup(extensionIdentity)
+            markerPersisted = true
+            await server.deleteExtensionAuthorization(serverLease, reason)
+            const absenceWitness =
+              await credentials.issueExtensionIdentityAbsenceWitness(
+                extensionIdentity.browser,
+                extensionIdentity.extensionId
+              )
+            await extensionPairings.completeCleanup(
+              cleanupLease,
+              absenceWitness
+            )
+            server.completeExtensionRevocation(serverLease)
+          } catch {
+            // Never infer that persistence failure cancels a user revoke. The
+            // identity remains gated and its transport is closed. A durable
+            // marker is retried before the next listener; if the marker itself
+            // could not be written, the warning explicitly names the restart
+            // limitation instead of falsely reporting success.
+            server.retainFailedExtensionRevocation(serverLease)
+            bus.emitError({
+              code: markerPersisted
+                ? 'extensionRevocationIncomplete'
+                : 'extensionRevocationMarkerFailed',
+              message: markerPersisted
+                ? 'Extension revocation is incomplete; access remains closed and startup will retry it.'
+                : 'Extension revocation could not be recorded; access is closed for this run, but restart may restore the old credential.',
+            })
+            throw new Error('extension revocation incomplete')
+          }
+        } else {
+          await pairing.revoke(params.identity, reason)
         }
-        await pairing.revoke(params.identity, reason)
         bus.emitRevoked({ identity: params.identity })
       }
     )
@@ -829,9 +931,9 @@ export async function bootstrapBridge(args: {
       }
     )
 
-    // Renderer-side pair-decision command (sent back when user clicks Allow/Deny).
-    // Discriminated on kind: an extension settles the blocked /pair WebSocket; a
-    // cli approves/denies a device-code request by its requestId.
+    // Renderer-side pair command. A cli explicitly allows/denies a device-code
+    // request; an extension action is deny-only because approval is the PAKE
+    // code entered in the extension, never a Motrix button.
     installIpcHandler(
       BridgeCommands.ResolvePair,
       async (_e, params: ResolvePairParams): Promise<ResolvePairResult> => {
@@ -886,6 +988,7 @@ export async function bootstrapBridge(args: {
     return {
       server,
       pairing,
+      extensionPairings,
       registry,
       bus,
       installer,

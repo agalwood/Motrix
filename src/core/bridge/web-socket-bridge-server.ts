@@ -46,11 +46,7 @@ import {
 } from './mbp1/envelope-message-stream'
 import { PairFloodControl } from './mbp1/flood-control'
 import { NonceService } from './mbp1/nonce-service'
-import {
-  type PairDialogHandle,
-  type PairDialogRequest,
-  PairSession,
-} from './mbp1/pair-session'
+import { type PairDialogRequest, PairSession } from './mbp1/pair-session'
 import { PreAuthTable } from './mbp1/pre-auth-table'
 import { ReconnectRateLimit } from './mbp1/reconnect-rate-limit'
 import { ReconnectSession } from './mbp1/reconnect-session'
@@ -60,6 +56,7 @@ import {
   contextFromConnection,
   type MdxpSessionContext,
 } from './mdxp-session-context'
+import type { PairingPromptEnqueueResult } from './pairing-prompt-controller'
 import type { PairingService } from './pairing-service'
 import type { TrustedExtensionRegistry } from './trusted-extension-registry'
 import type { WebSocketLike } from './web-socket-message-stream'
@@ -134,12 +131,33 @@ export interface BridgeServerOptions {
    */
   isOfficialId?: (browser: Browser, id: string) => boolean
   /**
-   * Shows the §7.1 approval dialog. Error-free by construction: §7.3 admission
-   * (dedup, the global pending cap, and the failure lockout) is core's, runs
-   * *before* ticket validation, and is applied by this server through
-   * `PairFloodControl` — the shell only renders.
+   * Queues the §7.1 approval prompt. The prompt controller reports a typed
+   * refusal instead of manufacturing a handle when its own lifecycle cannot
+   * safely publish one.
    */
-  queueMbp1Dialog?: (args: PairDialogRequest) => PairDialogHandle
+  queueMbp1Dialog?: (args: PairDialogRequest) => PairingPromptEnqueueResult
+  /**
+   * Composition-root kill switch for the four Extension MBP1 routes. The
+   * credential/projection management runtime may be prepared while this is
+   * false, but `/discovery`, `/nonce`, `/pair`, and `/v1` remain indistinguishable
+   * from unknown routes. Omission preserves the Desktop/test default.
+   */
+  extensionMbp1RoutesEnabled?: boolean
+  /** Optional shell-owned raw request boundary for a prefixed/public MBP1
+   * surface. It must make Host, path, method, query, proxy and admission
+   * decisions without trusting framework-normalized URL fields. */
+  extensionMbp1RoutePolicy?: (
+    request: ExtensionMbp1RouteRequest
+  ) => ExtensionMbp1RouteDecision
+  /**
+   * Synchronous shell-owned admission gate for an Origin-derived extension
+   * identity. A `false` verdict (or a thrown error) refuses both MBP1 upgrade
+   * routes before a nonce, rate-limit allowance, pre-authentication slot, or
+   * session is consumed. Omission preserves the existing desktop behavior.
+   */
+  canAdmitExtensionIdentity?: (
+    identity: ClientIdentity & { kind: 'extension' }
+  ) => boolean
   /**
    * Fired once an extension session authenticates over MBP1 — first pair or
    * reconnect alike. It is the only remaining signal that an extension became
@@ -147,9 +165,32 @@ export interface BridgeServerOptions {
    * paired-client list, revoke command, and revoke-kick all hang off it.
    */
   onExtensionAuthenticated?: (
-    identity: ClientIdentity & { kind: 'extension' }
+    identity: ClientIdentity & { kind: 'extension' },
+    /** The exact credential that authenticated this transport. */
+    credentialId: string
   ) => void
 }
+
+export interface ExtensionMbp1RouteRequest {
+  readonly rawTarget: string
+  readonly method: string
+  readonly transport: 'http' | 'websocket'
+  readonly rawHeaders: readonly string[]
+  readonly directPeerAddress: string | undefined
+}
+
+export type ExtensionMbp1RouteName = 'discovery' | 'nonce' | 'pair' | 'v1'
+
+export type ExtensionMbp1RouteDecision =
+  | { readonly kind: 'not-extension' }
+  | { readonly kind: 'reject'; readonly status: 403 | 404 | 405 | 429 }
+  | {
+      readonly kind: 'route'
+      readonly route: ExtensionMbp1RouteName
+      readonly pairNonce?: string
+      /** Idempotent capacity lease release, owned by the handshake lifetime. */
+      readonly releaseAdmission?: () => void
+    }
 
 /**
  * The MBP1 options resolved as a unit. They arrive together or not at all: a
@@ -163,7 +204,7 @@ interface Mbp1Wiring {
   appVersion: string
   credentials: Mbp1CredentialStore
   isOfficialId: (browser: Browser, id: string) => boolean
-  queueMbp1Dialog: (args: PairDialogRequest) => PairDialogHandle
+  queueMbp1Dialog: (args: PairDialogRequest) => PairingPromptEnqueueResult
 }
 
 function resolveMbp1Wiring(opts: BridgeServerOptions): Mbp1Wiring | null {
@@ -208,6 +249,34 @@ export interface BridgeSession {
    *  §10 outbound frame/block counters. */
   envelope: EnvelopeStream
 }
+
+const EXTENSION_REVOCATION_LEASE_BRAND: unique symbol = Symbol(
+  'motrix.bridge.extension-revocation-lease'
+)
+
+/**
+ * Process-local proof that this server has already entered the synchronous
+ * revoke critical section for one verified Extension identity. The WeakMap
+ * claim, not the structural fields, is authoritative at runtime.
+ */
+export interface ExtensionRevocationLease {
+  readonly [EXTENSION_REVOCATION_LEASE_BRAND]: true
+  readonly identity: ClientIdentity & { kind: 'extension' }
+}
+
+interface ExtensionRevocationClaim {
+  readonly server: WebSocketBridgeServer
+  readonly sessionKey: string
+  readonly identity: ClientIdentity & { kind: 'extension' }
+  phase: 'gated' | 'credentials-deleted' | 'completed'
+  deletePromise: Promise<number> | null
+  revokedCount: number | null
+}
+
+const extensionRevocationClaims = new WeakMap<
+  object,
+  ExtensionRevocationClaim
+>()
 
 /**
  * Optional per-method handlers registered via `setHandlers()`. `motrix/initialize`
@@ -395,6 +464,35 @@ function parseExtensionOrigin(origin: string): ExtensionPeer | null {
   return { browser, extensionId: host, origin }
 }
 
+function normalizeRevocationIdentity(
+  identity: ClientIdentity & { kind: 'extension' }
+): ClientIdentity & { kind: 'extension' } {
+  if (
+    identity?.kind !== 'extension' ||
+    (identity.browser !== 'chromium' && identity.browser !== 'firefox') ||
+    typeof identity.extensionId !== 'string' ||
+    identity.extensionId.length === 0 ||
+    identity.extensionId.length > 256
+  ) {
+    throw new Error('extension revocation identity rejected')
+  }
+  const scheme =
+    identity.browser === 'chromium' ? 'chrome-extension' : 'moz-extension'
+  const parsed = parseExtensionOrigin(`${scheme}://${identity.extensionId}`)
+  if (
+    parsed === null ||
+    parsed.browser !== identity.browser ||
+    parsed.extensionId !== identity.extensionId
+  ) {
+    throw new Error('extension revocation identity rejected')
+  }
+  return Object.freeze({
+    kind: 'extension' as const,
+    browser: identity.browser,
+    extensionId: identity.extensionId,
+  })
+}
+
 /** A `/pair` connection held in the pre-authentication table (§4, §7.3). */
 interface PairPreAuthEntry {
   readonly ws: WebSocket
@@ -409,6 +507,7 @@ interface PairPreAuthEntry {
   /** §7.3's counter must move exactly once per session, whichever terminal
    *  path (success, deadline, close) gets there first. */
   outcomeRecorded: boolean
+  readonly releaseAdmission: () => void
 }
 
 /** A `/v1` connection held in the pre-authentication table (§4, §8). */
@@ -417,6 +516,7 @@ interface ReconnectPreAuthEntry {
   /** Verified Origin-derived identity used for revoke-critical cancellation. */
   readonly sessionKey: string
   session: ReconnectSession | null
+  readonly releaseAdmission: () => void
 }
 
 export class WebSocketBridgeServer {
@@ -445,7 +545,10 @@ export class WebSocketBridgeServer {
   /** Session keys in the durable-revocation critical section. Matching
    *  pre-auth sessions are cancelled, new upgrades are refused, and any MBP1
    *  flow that still finishes concurrently is refused again at adoption. */
-  private readonly revokingExtensionKeys = new Map<string, number>()
+  private readonly revokingExtensionKeys = new Map<
+    string,
+    ExtensionRevocationLease
+  >()
   // Open SSE connections (GET /mdxp/events) → their heartbeat timer + the
   // authenticated caller identity. The CLI `watch` firehose; a global
   // (non-session) push of $/task/* + $/stats. The identity is retained so a
@@ -477,6 +580,7 @@ export class WebSocketBridgeServer {
         try {
           entry.session?.dispose('timeout')
         } finally {
+          entry.releaseAdmission()
           // `dispose` deliberately does NOT close the socket — both session
           // modules read it as "the peer is already gone, or the wiring is
           // closing it" — so the wiring must close, or a peer that upgrades and
@@ -518,15 +622,22 @@ export class WebSocketBridgeServer {
     })
 
     this.http.on('upgrade', (req, socket, head) => {
-      // The base is a placeholder for relative-URL parsing only. The Host
-      // header is validated separately below and is never derived from here.
-      const url = new URL(req.url ?? '/', 'http://localhost')
+      const route = this.resolveExtensionMbp1Route(req, 'websocket')
+      if (route.kind === 'not-extension') return this.reject(socket, 404)
+      if (route.kind === 'reject') {
+        return this.reject(socket, route.status === 405 ? 404 : route.status)
+      }
+      if (route.route !== 'pair' && route.route !== 'v1') {
+        route.releaseAdmission?.()
+        return this.reject(socket, 404)
+      }
       const protoHeader = req.headers['sec-websocket-protocol'] ?? ''
 
       // §5: the verified origin, and every identity fact taken from it, comes
       // from this header alone.
       const peer = parseExtensionOrigin(req.headers.origin ?? '')
       if (peer === null) {
+        route.releaseAdmission?.()
         return this.reject(socket, 401)
       }
       if (
@@ -535,48 +646,76 @@ export class WebSocketBridgeServer {
           .map((s) => s.trim())
           .includes('motrix-bridge.v1')
       ) {
+        route.releaseAdmission?.()
         return this.reject(socket, 401)
       }
-      // §4.3/§6.1: before the route decides anything, before a nonce is
-      // consumed, and before any session object exists.
-      if (!this.hostHeaderAllowed(req)) {
-        return this.reject(socket, 403)
-      }
       const mbp1 = this.mbp1
-      if (mbp1 === null) {
+      if (mbp1 === null || this.opts.extensionMbp1RoutesEnabled === false) {
+        route.releaseAdmission?.()
         // Both routes speak MBP1 and nothing else (§4). A shell that has not
         // wired it has no extension WebSocket surface at all — the same 404 an
         // unknown path gets, so the response says nothing about which it was.
         return this.reject(socket, 404)
       }
 
-      if (url.pathname === '/pair') {
-        return this.handleMbp1PairUpgrade(req, socket, head, url, peer, mbp1)
+      const identity: ClientIdentity & { kind: 'extension' } = {
+        kind: 'extension',
+        browser: peer.browser,
+        extensionId: peer.extensionId,
       }
-      if (url.pathname === '/v1') {
-        return this.handleMbp1ReconnectUpgrade(req, socket, head, peer, mbp1)
+
+      if (route.route === 'pair') {
+        if (!this.canAdmitExtensionIdentity(identity)) {
+          route.releaseAdmission?.()
+          return this.reject(socket, 401)
+        }
+        return this.handleMbp1PairUpgrade(
+          req,
+          socket,
+          head,
+          route.pairNonce ?? '',
+          peer,
+          identity,
+          mbp1,
+          route.releaseAdmission ?? (() => undefined)
+        )
       }
+      if (route.route === 'v1') {
+        if (!this.canAdmitExtensionIdentity(identity)) {
+          route.releaseAdmission?.()
+          return this.reject(socket, 401)
+        }
+        return this.handleMbp1ReconnectUpgrade(
+          req,
+          socket,
+          head,
+          peer,
+          identity,
+          mbp1,
+          route.releaseAdmission ?? (() => undefined)
+        )
+      }
+      route.releaseAdmission?.()
       this.reject(socket, 404)
     })
 
     this.http.on('request', (req, res) => {
-      const pathname = new URL(req.url ?? '/', 'http://localhost').pathname
-      // §4.3 DNS-rebinding guard, ahead of every route including the CLI's.
-      // The body names no condition, so it is not an oracle for which check
-      // rejected the request (§11).
-      if (!this.hostHeaderAllowed(req)) {
-        writeJson(res, 403, {
-          error: { code: ErrorCodes.PermissionDenied, message: 'forbidden' },
-        })
+      const extensionRoute = this.resolveExtensionMbp1Route(req, 'http')
+      if (extensionRoute.kind === 'reject') {
+        res.writeHead(extensionRoute.status)
+        res.end()
         return
       }
       // GET /discovery — §4.1. Unauthenticated, replayable, and explicitly a
       // routing hint rather than a trust signal: an extension may pin a port
       // only after a mutually-authenticated MBP1 session on it. `instanceId`
       // is emitted verbatim, whatever the shell configured.
-      if (req.method === 'GET' && pathname === '/discovery') {
+      if (
+        extensionRoute.kind === 'route' &&
+        extensionRoute.route === 'discovery'
+      ) {
         const mbp1 = this.mbp1
-        if (mbp1 === null) {
+        if (mbp1 === null || this.opts.extensionMbp1RoutesEnabled === false) {
           res.writeHead(404)
           res.end()
           return
@@ -590,12 +729,49 @@ export class WebSocketBridgeServer {
           extensionPairing: { protocol: 'mbp1', versions: [1] },
           applicationProtocols: { mdxp: ['1.0'] },
         })
+        extensionRoute.releaseAdmission?.()
         return
       }
       // POST /nonce — §4.2. The former GET route is gone and now falls through
       // to the bare 404 below, which is what the spec requires.
-      if (req.method === 'POST' && pathname === '/nonce') {
+      if (extensionRoute.kind === 'route' && extensionRoute.route === 'nonce') {
+        // `/nonce` is part of the same Extension-only MBP1 surface as
+        // `/discovery`, `/pair`, and `/v1`. A shell which did not provide the
+        // complete MBP1 wiring must expose none of the four routes; issuing a
+        // nonce here would otherwise create a misleading partial surface and
+        // violate the dependency-omission gate.
+        if (
+          this.mbp1 === null ||
+          this.opts.extensionMbp1RoutesEnabled === false
+        ) {
+          res.writeHead(404)
+          res.end()
+          extensionRoute.releaseAdmission?.()
+          return
+        }
         this.handleNonceIssue(req, res)
+        extensionRoute.releaseAdmission?.()
+        return
+      }
+      if (extensionRoute.kind === 'route') {
+        extensionRoute.releaseAdmission?.()
+        res.writeHead(404)
+        res.end()
+        return
+      }
+      // §4.3 DNS-rebinding guard for every non-Extension route.
+      if (!this.hostHeaderAllowed(req)) {
+        writeJson(res, 403, {
+          error: { code: ErrorCodes.PermissionDenied, message: 'forbidden' },
+        })
+        return
+      }
+      let pathname: string
+      try {
+        pathname = new URL(req.url ?? '/', 'http://localhost').pathname
+      } catch {
+        res.writeHead(404)
+        res.end()
         return
       }
       // GET /mdxp/events — Server-Sent Events firehose for CLI/agents (watch).
@@ -752,6 +928,56 @@ export class WebSocketBridgeServer {
     this.boundPort = port
   }
 
+  private resolveExtensionMbp1Route(
+    req: IncomingMessage,
+    transport: 'http' | 'websocket'
+  ): ExtensionMbp1RouteDecision {
+    const policy = this.opts.extensionMbp1RoutePolicy
+    if (policy !== undefined) {
+      try {
+        return policy({
+          rawTarget: req.url ?? '/',
+          method: req.method ?? '',
+          transport,
+          rawHeaders: req.rawHeaders,
+          directPeerAddress: req.socket.remoteAddress,
+        })
+      } catch {
+        return { kind: 'reject', status: 404 }
+      }
+    }
+
+    let url: URL
+    try {
+      url = new URL(req.url ?? '/', 'http://localhost')
+    } catch {
+      return { kind: 'reject', status: 404 }
+    }
+    const route =
+      url.pathname === '/discovery'
+        ? 'discovery'
+        : url.pathname === '/nonce'
+          ? 'nonce'
+          : url.pathname === '/pair'
+            ? 'pair'
+            : url.pathname === '/v1'
+              ? 'v1'
+              : null
+    if (route === null) return { kind: 'not-extension' }
+    if (!this.hostHeaderAllowed(req)) return { kind: 'reject', status: 403 }
+    if (
+      (transport === 'http' && route !== 'discovery' && route !== 'nonce') ||
+      (transport === 'websocket' && route !== 'pair' && route !== 'v1')
+    ) {
+      return { kind: 'reject', status: 404 }
+    }
+    const expectedMethod = route === 'nonce' ? 'POST' : 'GET'
+    if (req.method !== expectedMethod) return { kind: 'reject', status: 404 }
+    return route === 'pair'
+      ? { kind: 'route', route, pairNonce: url.searchParams.get('nonce') ?? '' }
+      : { kind: 'route', route }
+  }
+
   /**
    * §4.3, scoped to a loopback bind. The non-loopback server shell keeps its
    * existing token + reverse-proxy model and is explicitly out of MBP1 scope;
@@ -784,8 +1010,12 @@ export class WebSocketBridgeServer {
     // they fire `onDeadline` into a stopped server — `unref()` keeps them from
     // holding the process open but does not stop them running while it lives.
     // Their sockets die with the `wss.clients` terminate loop further down.
-    this.preAuthPair.clear()
-    this.preAuthReconnect.clear()
+    for (const entry of this.preAuthPair.takeWhere(() => true)) {
+      entry.releaseAdmission()
+    }
+    for (const entry of this.preAuthReconnect.takeWhere(() => true)) {
+      entry.releaseAdmission()
+    }
     for (const session of this.sessions.values()) {
       session.conn.dispose()
     }
@@ -989,47 +1219,161 @@ export class WebSocketBridgeServer {
   }
 
   /**
-   * Cancel an extension's pending handshakes, durably revoke its MBP1
-   * authorization, and disconnect its live session. Credential removal happens
-   * before UI bookkeeping: a UI/pairing-store failure may leave stale display
-   * state, but it can never leave the secret usable.
+   * Enter the verified-identity revoke gate synchronously. This method performs
+   * every in-memory authorization cutoff before returning: live MDXP is marked
+   * unauthorized, admitted pair/reconnect handshakes are cancelled, and later
+   * upgrades/adoption observe the gate. It performs no I/O and is therefore the
+   * first operation a shell must call for an operator revoke.
+   *
+   * Re-entry for the same identity returns the existing nominal lease so an
+   * operator retry can resume a durable deletion that previously failed. The
+   * gate is released only by {@link completeExtensionRevocation}.
+   */
+  beginExtensionRevocation(
+    identity: ClientIdentity & { kind: 'extension' }
+  ): ExtensionRevocationLease {
+    const normalized = normalizeRevocationIdentity(identity)
+    const sessionKey = makeSessionKey(
+      normalized.browser,
+      normalized.extensionId
+    )
+    const existing = this.revokingExtensionKeys.get(sessionKey)
+
+    // Repeat the cutoff even for a resumed attempt: a test double or future
+    // transport must not be able to attach work between retry calls.
+    this.sessions.get(sessionKey)?.conn.revokeAuthorization()
+    this.cancelPreAuthForSessionKey(sessionKey)
+    if (existing !== undefined) return existing
+
+    const lease = { identity: normalized } as ExtensionRevocationLease
+    Object.defineProperty(lease, EXTENSION_REVOCATION_LEASE_BRAND, {
+      configurable: false,
+      enumerable: false,
+      value: true,
+      writable: false,
+    })
+    Object.freeze(lease)
+    extensionRevocationClaims.set(lease, {
+      server: this,
+      sessionKey,
+      identity: normalized,
+      phase: 'gated',
+      deletePromise: null,
+      revokedCount: null,
+    })
+    this.revokingExtensionKeys.set(sessionKey, lease)
+    return lease
+  }
+
+  /**
+   * Durably remove every credential for a gated identity, then notify and
+   * close its live session. A failed write closes the transport without a
+   * trusted revoke notification and deliberately retains the deny gate.
+   * Concurrent/repeated calls share one deletion attempt; a failed attempt may
+   * be retried with the same lease.
+   */
+  deleteExtensionAuthorization(
+    lease: ExtensionRevocationLease,
+    reason: string
+  ): Promise<number> {
+    const claim = this.requireExtensionRevocationClaim(lease)
+    if (claim.phase === 'completed') {
+      return Promise.reject(new Error('extension revocation lease rejected'))
+    }
+    if (claim.phase === 'credentials-deleted') {
+      return Promise.resolve(claim.revokedCount ?? 0)
+    }
+    if (claim.deletePromise !== null) return claim.deletePromise
+
+    const operation = this.deleteExtensionAuthorizationOnce(claim, reason)
+    claim.deletePromise = operation
+    void operation.catch(() => {
+      if (claim.phase === 'gated' && claim.deletePromise === operation) {
+        claim.deletePromise = null
+      }
+    })
+    return operation
+  }
+
+  /** Release a revoke gate only after credential deletion and every durable
+   * shell projection/marker cleanup have succeeded. */
+  completeExtensionRevocation(lease: ExtensionRevocationLease): void {
+    const claim = this.requireExtensionRevocationClaim(lease)
+    if (claim.phase !== 'credentials-deleted') {
+      throw new Error('extension revocation is incomplete')
+    }
+    if (this.revokingExtensionKeys.get(claim.sessionKey) !== lease) {
+      throw new Error('extension revocation lease rejected')
+    }
+    claim.phase = 'completed'
+    claim.deletePromise = null
+    this.revokingExtensionKeys.delete(claim.sessionKey)
+    extensionRevocationClaims.delete(lease)
+  }
+
+  /** Close any still-live transport while deliberately retaining the deny
+   * gate. Used when the shell cannot persist its pending-revoke marker. */
+  retainFailedExtensionRevocation(lease: ExtensionRevocationLease): void {
+    const claim = this.requireExtensionRevocationClaim(lease)
+    this.closeExtensionSessionNow(claim.sessionKey)
+  }
+
+  /**
+   * Backward-compatible all-in-one façade for callers that have no separate
+   * durable projection. New shell code must use begin → durable marker →
+   * delete → projection cleanup → complete so no pre-marker await window
+   * exists.
    */
   async revokeExtensionAccess(
     identity: ClientIdentity & { kind: 'extension' },
     reason: string
   ): Promise<number> {
+    const lease = this.beginExtensionRevocation(identity)
+    const revoked = await this.deleteExtensionAuthorization(lease, reason)
+    this.completeExtensionRevocation(lease)
+    return revoked
+  }
+
+  private async deleteExtensionAuthorizationOnce(
+    claim: ExtensionRevocationClaim,
+    reason: string
+  ): Promise<number> {
     const mbp1 = this.mbp1
-    if (mbp1 === null) return 0
-    const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
-    this.revokingExtensionKeys.set(
-      sessionKey,
-      (this.revokingExtensionKeys.get(sessionKey) ?? 0) + 1
-    )
-    // Authorization stops synchronously, before either durable IO or the
-    // notification grace window can yield back to an inbound request.
-    this.sessions.get(sessionKey)?.conn.revokeAuthorization()
-    this.cancelPreAuthForSessionKey(sessionKey)
+    if (mbp1 === null) {
+      claim.revokedCount = 0
+      claim.phase = 'credentials-deleted'
+      return 0
+    }
     try {
       const revoked = await mbp1.credentials.revokeExtensionIdentity(
-        identity.browser,
-        identity.extensionId
+        claim.identity.browser,
+        claim.identity.extensionId
       )
-      await this.disconnectExtensionSession(identity, reason)
+      claim.revokedCount = revoked
+      claim.phase = 'credentials-deleted'
+      await this.disconnectExtensionSession(claim.identity, reason)
       return revoked
     } catch (error) {
-      // Do not send an authenticated PairRevoked notice when persistence did
-      // not land (the peer would delete its only key while the server kept it),
-      // but keep this live transport fail-closed.
-      this.closeExtensionSessionNow(sessionKey)
+      // The old key may still be durable. Close without a trusted revoke
+      // notice, keep the identity gated, and allow an explicit retry to reuse
+      // this same lease.
+      this.closeExtensionSessionNow(claim.sessionKey)
       throw error
-    } finally {
-      const remaining = (this.revokingExtensionKeys.get(sessionKey) ?? 1) - 1
-      if (remaining === 0) {
-        this.revokingExtensionKeys.delete(sessionKey)
-      } else {
-        this.revokingExtensionKeys.set(sessionKey, remaining)
-      }
     }
+  }
+
+  private requireExtensionRevocationClaim(
+    lease: ExtensionRevocationLease
+  ): ExtensionRevocationClaim {
+    const claim = extensionRevocationClaims.get(lease)
+    if (
+      claim === undefined ||
+      claim.server !== this ||
+      this.revokingExtensionKeys.get(claim.sessionKey) !== lease
+    ) {
+      throw new Error('extension revocation lease rejected')
+    }
+    return claim
   }
 
   /**
@@ -1041,6 +1385,7 @@ export class WebSocketBridgeServer {
     for (const entry of this.preAuthPair.takeWhere(
       (candidate) => candidate.sessionKey === sessionKey
     )) {
+      entry.releaseAdmission()
       try {
         entry.session?.dispose('access-revoked')
       } catch {
@@ -1061,6 +1406,7 @@ export class WebSocketBridgeServer {
     for (const entry of this.preAuthReconnect.takeWhere(
       (candidate) => candidate.sessionKey === sessionKey
     )) {
+      entry.releaseAdmission()
       try {
         entry.session?.dispose('access-revoked')
       } catch {
@@ -1435,9 +1781,11 @@ export class WebSocketBridgeServer {
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
-    url: URL,
+    pairNonce: string,
     peer: ExtensionPeer,
-    mbp1: Mbp1Wiring
+    identity: ClientIdentity & { kind: 'extension' },
+    mbp1: Mbp1Wiring,
+    releaseAdmission: () => void
   ): void {
     const sessionKey = makeSessionKey(peer.browser, peer.extensionId)
     // A revoke owns this verified Origin until durable removal and transport
@@ -1445,6 +1793,7 @@ export class WebSocketBridgeServer {
     // can retry after the critical section rather than being forced to mint a
     // new nonce for a request the server intentionally did not admit.
     if (this.revokingExtensionKeys.has(sessionKey)) {
+      releaseAdmission()
       this.reject(socket, 401)
       return
     }
@@ -1460,8 +1809,8 @@ export class WebSocketBridgeServer {
     // stays silent could fill all 32 slots for the whole deadline at no cost.
     // `PairSessionDeps.nonceValid` therefore stays `true` for every session
     // this demux builds, and remains as the session's own defence in depth.
-    const pairNonce = url.searchParams.get('nonce') ?? ''
     if (!this.nonces.consume(pairNonce)) {
+      releaseAdmission()
       this.reject(socket, 401)
       return
     }
@@ -1473,6 +1822,7 @@ export class WebSocketBridgeServer {
       // Defence in depth for a future asynchronous upgrade implementation:
       // never admit a socket if revoke began after the pre-upgrade check.
       if (this.revokingExtensionKeys.has(sessionKey)) {
+        releaseAdmission()
         ws.close()
         return
       }
@@ -1483,10 +1833,12 @@ export class WebSocketBridgeServer {
         queuedDialog: false,
         confirmed: false,
         outcomeRecorded: false,
+        releaseAdmission,
       }
       if (!this.preAuthPair.admit(entry)) {
         // §4: the table is full. Nothing is constructed, so this attempt
         // cannot touch flood control or any live session.
+        entry.releaseAdmission()
         ws.close()
         return
       }
@@ -1514,32 +1866,35 @@ export class WebSocketBridgeServer {
         admit: (origin) => this.floodControl.admit(origin),
         release: (origin) => this.floodControl.release(origin),
         queueDialog: (args) => {
-          // The one §7.3 outcome flag the session does not expose.
-          entry.queuedDialog = true
-          return mbp1.queueMbp1Dialog(args)
+          const result = mbp1.queueMbp1Dialog(args)
+          // §7.3 counts a failed attempt only after the code-bearing prompt
+          // actually reached the shell. A typed enqueue refusal or failed
+          // publisher showed no code and must not penalize the peer.
+          if (result.ok) {
+            void result.handle.published.then(
+              (status) => {
+                if (status === 'delivered') entry.queuedDialog = true
+              },
+              () => {}
+            )
+          }
+          return result
         },
         sendText: (json) => sendText(ws, json),
         sendBinary: (frame) => sendBinary(ws, frame),
         // The reason names an internal step, so it stays off the wire and out
         // of every log (§11).
         close: () => ws.close(),
-        onAuthenticated: (channel) => {
+        onAuthenticated: (channel, credentialId) => {
           // Synchronous, in the same tick: no `await` may separate the
           // session's `committed` state from this handover, or the post-commit
           // drop guards swallow the client's first real frames.
           detachPreAuth()
           this.preAuthPair.settle(entry)
+          entry.releaseAdmission()
           entry.confirmed = true
           this.recordPairOutcome(entry)
-          this.adoptAuthenticatedSession(
-            ws,
-            {
-              kind: 'extension',
-              browser: peer.browser,
-              extensionId: peer.extensionId,
-            },
-            channel
-          )
+          this.adoptAuthenticatedSession(ws, identity, channel, credentialId)
         },
         now: () => Date.now(),
         random: (n) => new Uint8Array(randomBytes(n)),
@@ -1565,6 +1920,7 @@ export class WebSocketBridgeServer {
       ws.on('close', () => {
         detachPreAuth()
         this.preAuthPair.settle(entry)
+        entry.releaseAdmission()
         session.dispose('socket-closed')
         // §7.3 names the early disconnect explicitly: a guesser must not be
         // able to dodge the failure counter by closing the socket.
@@ -1575,20 +1931,24 @@ export class WebSocketBridgeServer {
 
   /**
    * `/v1` — the §8 challenge–response. The upgrade carries no credentials in
-   * the URL; a `?token=` query is simply ignored, because there is no token
-   * path left for it to reach.
+   * the URL. The public raw-route policy rejects every query (including a
+   * historical `?token=`) before this handler can run, and no token auth path
+   * exists behind it.
    */
   private handleMbp1ReconnectUpgrade(
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
     peer: ExtensionPeer,
-    mbp1: Mbp1Wiring
+    identity: ClientIdentity & { kind: 'extension' },
+    mbp1: Mbp1Wiring,
+    releaseAdmission: () => void
   ): void {
     const sessionKey = makeSessionKey(peer.browser, peer.extensionId)
     // Keep a revoke critical section closed to both credential reuse and new
     // first-pair credential creation for the same verified Origin.
     if (this.revokingExtensionKeys.has(sessionKey)) {
+      releaseAdmission()
       this.reject(socket, 401)
       return
     }
@@ -1603,17 +1963,25 @@ export class WebSocketBridgeServer {
     // requirement that an unknown `credentialId` and a bad MAC be
     // indistinguishable concerns what happens *after* admission.
     if (!this.reconnectRate.admit(peer.origin)) {
+      releaseAdmission()
       this.reject(socket, 429)
       return
     }
 
     this.wss.handleUpgrade(req, socket, head, (ws) => {
       if (this.revokingExtensionKeys.has(sessionKey)) {
+        releaseAdmission()
         ws.close()
         return
       }
-      const entry: ReconnectPreAuthEntry = { ws, sessionKey, session: null }
+      const entry: ReconnectPreAuthEntry = {
+        ws,
+        sessionKey,
+        session: null,
+        releaseAdmission,
+      }
       if (!this.preAuthReconnect.admit(entry)) {
+        entry.releaseAdmission()
         ws.close()
         return
       }
@@ -1628,17 +1996,15 @@ export class WebSocketBridgeServer {
         credentials: mbp1.credentials,
         sendText: (json) => sendText(ws, json),
         close: () => ws.close(),
-        onAuthenticated: (channel) => {
+        onAuthenticated: (channel, credential) => {
           detachPreAuth()
           this.preAuthReconnect.settle(entry)
+          entry.releaseAdmission()
           this.adoptAuthenticatedSession(
             ws,
-            {
-              kind: 'extension',
-              browser: peer.browser,
-              extensionId: peer.extensionId,
-            },
-            channel
+            identity,
+            channel,
+            credential.credentialId
           )
         },
         now: () => Date.now(),
@@ -1665,6 +2031,7 @@ export class WebSocketBridgeServer {
       ws.on('close', () => {
         detachPreAuth()
         this.preAuthReconnect.settle(entry)
+        entry.releaseAdmission()
         session.dispose('socket-closed')
       })
 
@@ -1686,7 +2053,8 @@ export class WebSocketBridgeServer {
   adoptAuthenticatedSession(
     ws: WebSocketLike,
     identity: ClientIdentity & { kind: 'extension' },
-    channel: EnvelopeChannel
+    channel: EnvelopeChannel,
+    credentialId: string
   ): void {
     // Byte-identical to `clientKey(identity)`, which the SSE revoke matcher
     // and `getSession` both rely on.
@@ -1751,7 +2119,22 @@ export class WebSocketBridgeServer {
     })
 
     conn.listen()
-    this.opts.onExtensionAuthenticated?.(identity)
+    // Deliberately synchronous and un-awaited: the session handover and the
+    // exact credential evidence are published in this adoption tick. The
+    // shell may schedule follow-up work, but cannot block the live transport.
+    this.opts.onExtensionAuthenticated?.(identity, credentialId)
+  }
+
+  private canAdmitExtensionIdentity(
+    identity: ClientIdentity & { kind: 'extension' }
+  ): boolean {
+    try {
+      return this.opts.canAdmitExtensionIdentity?.(identity) ?? true
+    } catch {
+      // Projection/recovery state is an authorization input. A broken gate
+      // must close the surface, not turn an upgrade into an uncaught error.
+      return false
+    }
   }
 
   /** §7.3's counter moves exactly once per `/pair` session, on whichever
@@ -1775,6 +2158,7 @@ export class WebSocketBridgeServer {
       entry.session?.dispose('timeout')
       this.recordPairOutcome(entry)
     } finally {
+      entry.releaseAdmission()
       // `dispose` deliberately does NOT close the socket — both session modules
       // read it as "the peer is already gone, or the wiring is closing it" — so
       // the wiring must, and must do so even if the bookkeeping above throws.

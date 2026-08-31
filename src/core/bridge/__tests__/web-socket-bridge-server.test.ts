@@ -19,6 +19,7 @@ import {
   WS_CLOSE_PROTOCOL_ERROR,
 } from '@core/bridge/web-socket-bridge-server'
 import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
+import type { ClientIdentity } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
@@ -81,6 +82,28 @@ describe('WebSocketBridgeServer upgrade gates', () => {
   let server: WebSocketBridgeServer
   let port: number
 
+  async function restartWithIdentityGate(
+    canAdmitExtensionIdentity: NonNullable<
+      ConstructorParameters<
+        typeof WebSocketBridgeServer
+      >[0]['canAdmitExtensionIdentity']
+    >
+  ): Promise<void> {
+    await server.stop()
+    const mbp1 = await makeMbp1TestWiring([['chromium', EXTENSION_ID]])
+    server = new WebSocketBridgeServer({
+      pairing: makeStatefulFakePairing(),
+      registry: makeFakeRegistry(),
+      motrixVersion: '2.0',
+      runtime: 'electron',
+      ffmpegAvailable: true,
+      localToken: 'test-token',
+      ...mbp1.options,
+      canAdmitExtensionIdentity,
+    })
+    port = await server.start()
+  }
+
   beforeEach(async () => {
     // Deliberately WITHOUT the six MBP1 options: this is a shell that has not
     // wired MBP1, and both extension routes must fail closed rather than fall
@@ -135,6 +158,71 @@ describe('WebSocketBridgeServer upgrade gates', () => {
   it('rejects an unknown path', async () => {
     await expect(
       tryUpgrade(port, '/nope', {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
+      })
+    ).resolves.toBe(false)
+  })
+
+  it('gates /pair before consuming its one-shot nonce', async () => {
+    let admissible = false
+    const gate = vi.fn(() => admissible)
+    await restartWithIdentityGate(gate)
+    const nonce = server.issuePairNonce()
+    const path = `/pair?nonce=${nonce}`
+
+    await expect(
+      tryUpgrade(port, path, {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
+      })
+    ).resolves.toBe(false)
+    expect(gate).toHaveBeenLastCalledWith({
+      kind: 'extension',
+      browser: 'chromium',
+      extensionId: EXTENSION_ID,
+    })
+
+    admissible = true
+    await expect(
+      tryUpgrade(port, path, {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
+      })
+    ).resolves.toBe(true)
+  })
+
+  it('gates /v1 before spending reconnect admission allowance', async () => {
+    let admissible = false
+    await restartWithIdentityGate(() => admissible)
+
+    // Ten rejected attempts would exhaust the normal per-Origin allowance if
+    // the shell gate ran after reconnect admission.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await expect(
+        tryUpgrade(port, '/v1', {
+          origin: ORIGIN,
+          subprotocol: 'motrix-bridge.v1',
+        })
+      ).resolves.toBe(false)
+    }
+
+    admissible = true
+    await expect(
+      tryUpgrade(port, '/v1', {
+        origin: ORIGIN,
+        subprotocol: 'motrix-bridge.v1',
+      })
+    ).resolves.toBe(true)
+  })
+
+  it('fails closed when the shell admission gate throws', async () => {
+    await restartWithIdentityGate(() => {
+      throw new Error('projection unavailable')
+    })
+
+    await expect(
+      tryUpgrade(port, `/pair?nonce=${server.issuePairNonce()}`, {
         origin: ORIGIN,
         subprotocol: 'motrix-bridge.v1',
       })
@@ -359,13 +447,19 @@ class FakeExtensionSocket extends EventEmitter {
 describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault close codes', () => {
   let server: WebSocketBridgeServer
   const KEY = new Uint8Array(32).fill(3)
+  const CREDENTIAL_ID = 'credential-used-by-this-transport'
   const IDENTITY = {
     kind: 'extension' as const,
     browser: 'chromium' as const,
     extensionId: EXTENSION_ID,
   }
+  let authenticated: Array<{
+    identity: ClientIdentity & { kind: 'extension' }
+    credentialId: string
+  }>
 
   beforeEach(async () => {
+    authenticated = []
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
@@ -373,6 +467,9 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
       runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'test-token',
+      onExtensionAuthenticated: (identity, credentialId) => {
+        authenticated.push({ identity, credentialId })
+      },
     })
     await server.start()
   })
@@ -383,12 +480,17 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
 
   it('closes with the usage-limit code — not protocol-error or internal-error — when an inbound §10 bound is reached', () => {
     const ws = new FakeExtensionSocket()
-    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
-      sealer: new EnvelopeSealer(KEY, DIR_S2C),
-      // Already AT the frame-count bound: the very next open() throws
-      // EnvelopeLimitError before it even looks at the frame's contents.
-      opener: new EnvelopeOpener(KEY, DIR_C2S, MAX_ENVELOPE_FRAMES),
-    })
+    server.adoptAuthenticatedSession(
+      ws.asLike(),
+      IDENTITY,
+      {
+        sealer: new EnvelopeSealer(KEY, DIR_S2C),
+        // Already AT the frame-count bound: the very next open() throws
+        // EnvelopeLimitError before it even looks at the frame's contents.
+        opener: new EnvelopeOpener(KEY, DIR_C2S, MAX_ENVELOPE_FRAMES),
+      },
+      CREDENTIAL_ID
+    )
 
     ws.emit('message', Buffer.alloc(8 + 16), true)
 
@@ -397,10 +499,15 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
 
   it('still closes with the protocol-error code for an ordinary peer violation', () => {
     const ws = new FakeExtensionSocket()
-    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
-      sealer: new EnvelopeSealer(KEY, DIR_S2C),
-      opener: new EnvelopeOpener(KEY, DIR_C2S),
-    })
+    server.adoptAuthenticatedSession(
+      ws.asLike(),
+      IDENTITY,
+      {
+        sealer: new EnvelopeSealer(KEY, DIR_S2C),
+        opener: new EnvelopeOpener(KEY, DIR_C2S),
+      },
+      CREDENTIAL_ID
+    )
 
     // §10: a text frame after channel activation is a protocol violation.
     ws.emit('message', Buffer.from('not an envelope'), false)
@@ -410,14 +517,19 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
 
   it('closes with the usage-limit code when an OUTBOUND §10 bound is reached', () => {
     const ws = new FakeExtensionSocket()
-    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
-      // Already AT the frame-count bound: the very next seal() throws, and no
-      // later one can ever succeed, so the connection must be re-established
-      // with fresh keys (§8) — the one seal failure that is a connection-level
-      // event rather than a single failed write.
-      sealer: new EnvelopeSealer(KEY, DIR_S2C, MAX_ENVELOPE_FRAMES),
-      opener: new EnvelopeOpener(KEY, DIR_C2S),
-    })
+    server.adoptAuthenticatedSession(
+      ws.asLike(),
+      IDENTITY,
+      {
+        // Already AT the frame-count bound: the very next seal() throws, and no
+        // later one can ever succeed, so the connection must be re-established
+        // with fresh keys (§8) — the one seal failure that is a connection-level
+        // event rather than a single failed write.
+        sealer: new EnvelopeSealer(KEY, DIR_S2C, MAX_ENVELOPE_FRAMES),
+        opener: new EnvelopeOpener(KEY, DIR_C2S),
+      },
+      CREDENTIAL_ID
+    )
     const session = server.getSession(`chromium:${EXTENSION_ID}`)
     if (!session) throw new Error('session was not registered')
 
@@ -433,10 +545,15 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
     // it. The refused application frame can desynchronize request state, so
     // the session fails closed with 1011 rather than staying half-usable.
     const ws = new FakeExtensionSocket()
-    server.adoptAuthenticatedSession(ws.asLike(), IDENTITY, {
-      sealer: new EnvelopeSealer(KEY, DIR_S2C),
-      opener: new EnvelopeOpener(KEY, DIR_C2S),
-    })
+    server.adoptAuthenticatedSession(
+      ws.asLike(),
+      IDENTITY,
+      {
+        sealer: new EnvelopeSealer(KEY, DIR_S2C),
+        opener: new EnvelopeOpener(KEY, DIR_C2S),
+      },
+      CREDENTIAL_ID
+    )
     const session = server.getSession(`chromium:${EXTENSION_ID}`)
     if (!session) throw new Error('session was not registered')
 
@@ -447,5 +564,23 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
     expect(ws.closedWith).toEqual([[WS_CLOSE_INTERNAL_ERROR, undefined]])
     expect(ws.readyState).toBe(3)
     expect(ws.sent).toHaveLength(0)
+  })
+
+  it('publishes the exact authenticating credential in the adoption tick', () => {
+    const ws = new FakeExtensionSocket()
+
+    server.adoptAuthenticatedSession(
+      ws.asLike(),
+      IDENTITY,
+      {
+        sealer: new EnvelopeSealer(KEY, DIR_S2C),
+        opener: new EnvelopeOpener(KEY, DIR_C2S),
+      },
+      CREDENTIAL_ID
+    )
+
+    expect(authenticated).toEqual([
+      { identity: IDENTITY, credentialId: CREDENTIAL_ID },
+    ])
   })
 })

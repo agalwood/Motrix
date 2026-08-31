@@ -89,6 +89,101 @@ node e2e/bridge/server-leg.mjs
 退出码：`0` = 全部检查通过，`1` = 某项检查失败，`2` = server build 缺失
 （需要重新构建 worktree）。
 
+---
+
+## 远程浏览器 Extension 链路（Chromium + Firefox）
+
+该门禁会把真实 Server MBP1 runtime 放在本地 HTTPS/WSS 反向代理之后，并在两个
+浏览器中驱动生产 Extension 构建。测试分别经过 `/bridge` 代理前缀和代理根路径，
+覆盖 fresh pair、按 authority 隔离的 consent、敏感 header/Cookie 剥离、浏览器重启
+重连、Server 重启重连、durable revoke 和 re-pair。独立 Chromium 场景还会在同一
+持久 profile 中保留两个 Server 的配对，证明 consent 不会跨 Server 泄漏，且提交始终
+跟随当前选中的 authority。Firefox 还必须断言无 NM ticket 的远程身份保持为
+`unverified`。
+
+先在 Extension checkout 构建两个产物，再从 Motrix 运行：
+
+```bash
+pnpm --filter @motrix/extension build:chromium
+pnpm --filter @motrix/extension build:firefox
+
+MOTRIX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/firefox \
+pnpm test:e2e:remote-extension
+```
+
+Playwright 启动前，该命令会先验证 `remote-extension-threat-evidence.json`：
+T01–T29 每项威胁都必须继续绑定至少一个双仓测试文件和测试标题。Extension checkout
+默认从 `MOTRIX_EXTENSION_BUILD` 推导；只有构建产物不在 checkout 内时才需要显式设置
+`MOTRIX_EXTENSION_REPO`。删除或重命名测试、缺少威胁 ID、不安全路径或符号链接证据都会
+使门禁失败。
+
+可用 `MOTRIX_CHROMIUM_EXECUTABLE` 与 `MOTRIX_FIREFOX_EXECUTABLE` 覆盖浏览器路径。
+Firefox runner 使用 WebDriver BiDi 标准临时扩展安装命令。证书绕过仅存在于本地
+测试 profile；独立 WSS integration suite 会在不绕过验证的情况下证明受信 CA
+成功，以及 unknown CA、过期证书和 hostname mismatch 必须失败。
+Chromium 应使用与 Playwright 匹配的 Chrome-for-Testing/Chromium 构建。部分正式版
+Google Chrome 会忽略自动加载 unpacked Extension 的参数，最终超时等待 service worker；
+即便显式设置可执行文件，也必须指向支持该测试模式的浏览器构建。
+
+### 固定双仓兼容版本
+
+浏览器 harness 是跨仓协议契约。两端实现改动提交之前，不得把当前 working tree 的
+旧 `HEAD` 写成兼容证据。先分别创建 Extension 与 Motrix 实现提交，再把
+`remote-extension-compatibility.example.json` 复制为
+`remote-extension-compatibility.json`，并将两个占位符替换为对应实现提交的完整
+40 位小写 SHA。然后在 Motrix 仓库执行：
+
+```bash
+pnpm check:remote-extension-compatibility \
+  --manifest e2e/bridge/remote-extension-compatibility.json \
+  --motrix-repo . \
+  --extension-repo /absolute/path/to/motrix-extension
+```
+
+验证器会拒绝占位符、短 SHA、大写 SHA、协议漂移、少于五个浏览器场景、来自错误仓库
+的提交，以及不是对应 checkout 当前 `HEAD` 祖先的提交。验证通过后，用一个更晚的
+Motrix 提交记录该清单；这样既避免 Motrix SHA 自引用，也能让审阅者精确复现兼容组合。
+
+### Beta soak
+
+Soak runner 会重复执行同一套带威胁前置门禁的五场景测试；任意一次失败都会令命令失败。
+默认执行 20 轮、共 100 个浏览器场景，并限制最多 100 轮，避免环境配置错误产生无界任务：
+
+```bash
+MOTRIX_CHROMIUM_EXECUTABLE=/path/to/chrome-for-testing \
+MOTRIX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/firefox \
+MOTRIX_REMOTE_EXTENSION_SOAK_REPEATS=20 \
+pnpm test:e2e:remote-extension:soak
+```
+
+必须归档完整输出，以及 OS、浏览器版本、两端实现 SHA、轮数、起止时间和所有代理/网络
+故障注入记录。一次普通 E2E 全绿只是回归证据，不能代替 beta soak 门禁。
+
+固定兼容 SHA 清单提交后，发布门禁必须改用自动生成证据的包装命令：
+
+```bash
+MOTRIX_CHROMIUM_EXECUTABLE=/path/to/chrome-for-testing \
+MOTRIX_FIREFOX_EXECUTABLE=/path/to/firefox \
+MOTRIX_EXTENSION_REPO=/absolute/path/to/motrix-extension \
+MOTRIX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/absolute/path/to/motrix-extension/packages/ext/dist/firefox \
+MOTRIX_REMOTE_EXTENSION_SOAK_EVIDENCE_DIR=/absolute/archive/remote-extension-soak \
+MOTRIX_REMOTE_EXTENSION_SOAK_FAULTS=none \
+pnpm test:e2e:remote-extension:release-soak
+```
+
+发布模式强制恰好 20 轮、两个仓库均干净、Extension `HEAD` 与固定 SHA 完全一致，且
+Motrix 实现 SHA 之后只能新增兼容清单。源码预检通过后，它会从固定 Extension checkout
+重新构建两个浏览器版本，拒绝仓库外或符号链接构建目录，并计算新产物哈希。它会记录显式
+浏览器版本与 OS 信息，生成 `evidence.json` 和完整的 Playwright
+`playwright-report.json`；报告必须能解析出恰好 100 个通过场景，且不得包含顶层或场景
+错误。浏览器失败会归档为 failed；即使进程返回 0，只要 JSON 报告缺失或无效也会归档为
+incomplete 并使门禁失败。证据目录必须是新目录，后续运行不能覆盖先前记录。
+
+## Server 链路维护
+
 ### 环境变量覆盖（全部可选）
 
 | 变量 | 默认值 | 含义 |
@@ -124,6 +219,7 @@ git worktree remove --force ../motrix-turbo-srv
 - **Pairing approval 是刻意保留的人工步骤**（没有 headless auto-approve）。
   测试驱动的是*真实* approval surface：Electron 上的 `bridge:resolvePair` IPC，
   以及 Server 上由 operator gate 保护的 `POST /rpc/command/bridge:resolvePair`。
-- 这里的其他 specs，包括 `pair-and-submit`、`receiver-direct`、`revoke`，都是
-  **browser-extension WebSocket** pairing path 的 `test.skip` stub（暂缓实现），
-  与当前 CLI **HTTP** path 是两条不同路径。
+- `remote-extension-wss.spec.ts` 与
+  `remote-extension-firefox-wss.spec.ts` 是当前启用的 browser-extension WSS
+  生命周期门禁。旧的 `pair-and-submit`、`receiver-direct`、`revoke` 仍是窄范围
+  placeholder，不能作为覆盖证据。

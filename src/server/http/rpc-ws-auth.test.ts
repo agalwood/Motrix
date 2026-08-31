@@ -17,7 +17,10 @@ describe('/rpc/events WebSocket auth', () => {
     bus = new EventBus()
     app = await createApp({
       eventBus: bus,
-      operatorAuth: { operatorToken: TOKEN },
+      operatorAuth: {
+        operatorToken: TOKEN,
+        publicUrl: 'https://motrix.example/operator',
+      },
     })
     await app.listen({ port: 0, host: '127.0.0.1' })
     port = (app.server.address() as AddressInfo).port
@@ -51,7 +54,10 @@ describe('/rpc/events WebSocket auth', () => {
   })
 
   it('accepts an upgrade carrying the operator cookie and streams events', async () => {
-    const ws = await connect({ cookie: await cookie() })
+    const ws = await connect({
+      cookie: await cookie(),
+      origin: 'https://motrix.example',
+    })
     const frame = new Promise<unknown>((resolve) => {
       ws.once('message', (data) => resolve(JSON.parse(String(data))))
     })
@@ -61,6 +67,16 @@ describe('/rpc/events WebSocket auth', () => {
       args: [{ id: 't1' }],
     })
     ws.close()
+  })
+
+  it.each([
+    ['missing Origin', {}],
+    ['wrong origin', { origin: 'https://evil.example' }],
+    ['wrong scheme', { origin: 'http://motrix.example' }],
+  ])('rejects a cookie upgrade with %s', async (_label, headers) => {
+    await expect(
+      connect({ cookie: await cookie(), ...headers })
+    ).rejects.toThrow('http 403')
   })
 
   it('accepts an upgrade with a Bearer operator token (host script)', async () => {

@@ -1442,6 +1442,7 @@
         "pairedEmpty": "还没有扩展连接到 Motrix。",
         "lastActive": "上次活跃",
         "revoke": "断开",
+        "disconnecting": "正在断开…",
         "addTrusted": {
           "add": "添加扩展",
           "idPlaceholder": "扩展 ID",
@@ -1483,6 +1484,10 @@
         "degradedPort": {
           "title": "Bridge 正在使用备用端口运行",
           "description": "端口 16802–16806 均不可用，Bridge 改用端口 {{port}}。浏览器扩展按标准端口范围探测将无法自动发现它——请通过 Native Messaging 配对，或设置固定端口。Motrix CLI 与 Native Host 不受影响。"
+        },
+        "pairingStateDegraded": {
+          "title": "扩展访问已暂时关闭",
+          "description": "Motrix 无法安全更新已配对扩展记录。本次运行中的现有扩展会话已关闭，新访问也已阻止。请重启 Motrix 以重试修复；此提示消失前，不要将下方列表视为完整记录。"
         }
       },
       "cli": {

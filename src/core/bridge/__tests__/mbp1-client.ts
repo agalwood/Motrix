@@ -12,6 +12,8 @@
 
 import { Buffer } from 'node:buffer'
 import { randomBytes } from 'node:crypto'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { createMdxpConnection, type MdxpConnection } from '@motrix/mdxp'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser } from '@shared/protocol/bridge'
@@ -116,10 +118,14 @@ export class WireClient {
   static async open(
     url: string,
     origin: string,
-    subprotocol: string | null = 'motrix-bridge.v1'
+    subprotocol: string | null = 'motrix-bridge.v1',
+    hostHeader?: string,
+    secureTransport?: { ca: string; servername: string }
   ): Promise<WireClient> {
     const ws = new WebSocket(url, subprotocol === null ? [] : subprotocol, {
       origin,
+      ...(hostHeader === undefined ? {} : { headers: { host: hostHeader } }),
+      ...secureTransport,
     })
     const client = new WireClient(ws)
     await new Promise<void>((resolve, reject) => {
@@ -191,6 +197,12 @@ export interface PairAttemptOptions {
   claimedExtensionId: string
   clientInstallationId?: string
   ticket?: ClientTicket
+  /** Test-only public surface prefix, such as `/bridge`. */
+  routePrefix?: string
+  /** Test-only reverse-proxy Host preserved at the raw boundary. */
+  hostHeader?: string
+  /** Test-only trusted-CA WSS/HTTPS transport through a TLS proxy. */
+  secureTransport?: { ca: string; servername: string }
   /**
    * The `verifiedOrigin` this client binds into `A_id`, when it must differ
    * from the origin it actually connects with. Only a misbinding test wants
@@ -215,8 +227,65 @@ export interface PairHandshake {
 }
 
 /** Fetch a nonce the way the native-messaging host does (§4.2). */
-export async function fetchNonce(port: number): Promise<string> {
-  const res = await fetch(`http://127.0.0.1:${port}/nonce`, {
+export async function fetchNonce(
+  port: number,
+  options: {
+    routePrefix?: string
+    hostHeader?: string
+    secureTransport?: { ca: string; servername: string }
+  } = {}
+): Promise<string> {
+  const prefix = options.routePrefix ?? ''
+  if (
+    options.hostHeader !== undefined ||
+    options.secureTransport !== undefined
+  ) {
+    return new Promise((resolve, reject) => {
+      const requestFn =
+        'secureTransport' in options && options.secureTransport !== undefined
+          ? httpsRequest
+          : httpRequest
+      const request = requestFn(
+        {
+          host: '127.0.0.1',
+          port,
+          path: `${prefix}/nonce`,
+          method: 'POST',
+          headers: {
+            'x-motrix-bridge': '1',
+            'content-length': '0',
+            ...(options.hostHeader === undefined
+              ? {}
+              : { host: options.hostHeader }),
+          },
+          ...('secureTransport' in options ? options.secureTransport : {}),
+        },
+        (response) => {
+          let body = ''
+          response.setEncoding('utf8')
+          response.on('data', (chunk) => {
+            body += chunk
+          })
+          response.once('end', () => {
+            if (response.statusCode !== 200) {
+              reject(
+                new Error(`POST /nonce failed with ${response.statusCode}`)
+              )
+              return
+            }
+            try {
+              resolve((JSON.parse(body) as { nonce: string }).nonce)
+            } catch (error) {
+              reject(error)
+            }
+          })
+        }
+      )
+      request.once('error', reject)
+      request.end()
+    })
+  }
+  const res = await fetch(`http://127.0.0.1:${port}${prefix}/nonce`, {
     method: 'POST',
     headers: { 'x-motrix-bridge': '1' },
   })
@@ -235,10 +304,15 @@ export async function fetchNonce(port: number): Promise<string> {
 export async function startPair(
   opts: PairAttemptOptions
 ): Promise<PairHandshake> {
-  const pairNonce = await fetchNonce(opts.port)
+  const pairNonce = await fetchNonce(opts.port, opts)
+  const prefix = opts.routePrefix ?? ''
+  const protocol = opts.secureTransport === undefined ? 'ws' : 'wss'
   const wire = await WireClient.open(
-    `ws://127.0.0.1:${opts.port}/pair?nonce=${pairNonce}`,
-    opts.origin
+    `${protocol}://127.0.0.1:${opts.port}${prefix}/pair?nonce=${pairNonce}`,
+    opts.origin,
+    'motrix-bridge.v1',
+    opts.hostHeader,
+    opts.secureTransport
   )
   const clientInstallationId = opts.clientInstallationId ?? 'install-1'
 
@@ -464,10 +538,18 @@ export async function reconnect(opts: {
   /** Corrupts the MAC, for the bad-MAC case. */
   corruptMac?: boolean
   query?: string
+  routePrefix?: string
+  hostHeader?: string
+  secureTransport?: { ca: string; servername: string }
 }): Promise<{ wire: WireClient; channel: EnvelopeChannel }> {
+  const prefix = opts.routePrefix ?? ''
+  const protocol = opts.secureTransport === undefined ? 'ws' : 'wss'
   const wire = await WireClient.open(
-    `ws://127.0.0.1:${opts.port}/v1${opts.query ?? ''}`,
-    opts.origin
+    `${protocol}://127.0.0.1:${opts.port}${prefix}/v1${opts.query ?? ''}`,
+    opts.origin,
+    'motrix-bridge.v1',
+    opts.hostHeader,
+    opts.secureTransport
   )
   const challenge = await wire.takeJson<{ type: string; S: string }>()
   if (challenge.type !== 'reconnectChallenge') {

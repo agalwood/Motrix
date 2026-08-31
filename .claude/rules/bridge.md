@@ -17,7 +17,8 @@ Import `ErrorCodes` and `makeMdxpError` from the package.
 - Extension WebSockets speak MBP1 (`docs/bridge-pairing-protocol.md`), which
   authenticates *below* MDXP. `/pair?nonce=...` runs the §6 first-pair
   handshake and `/v1` the §8 challenge–response; `/v1` carries **no**
-  credential in its URL and a `?token=` query is ignored. Only once a route
+  credential in its URL and every query, including `?token=`, is rejected by
+  the raw-route gate. Only once a route
   authenticates does MDXP start, inside the §10 AEAD envelope, and
   `motrix/initialize` is the client's first request there.
 - `WebSocketBridgeServer` always owns and registers `motrix/initialize`.

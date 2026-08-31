@@ -22,6 +22,13 @@ import type { IntegrationFormValues } from './integration-dialog'
 import { TrustedExtensionsSection } from './trusted-extensions-section'
 import { useBridgeStatus, usePairedExtensions } from './use-bridge'
 
+const IDENTITY_LABEL_KEYS = {
+  official: 'settings.integration.browser.pairToast.identityLabel.official',
+  'attested-non-official':
+    'settings.integration.browser.pairToast.identityLabel.attested',
+  unverified: 'settings.integration.browser.pairToast.identityLabel.unverified',
+} as const
+
 export function BrowserExtensionsSection() {
   const { t } = useTranslation()
   const form = useFormContext<IntegrationFormValues>()
@@ -71,6 +78,18 @@ export function BrowserExtensionsSection() {
         </Alert>
       )}
 
+      {status?.extensionPairingHealth === 'degraded' && (
+        <Alert className="border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] leading-4 text-destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>
+            {t('settings.integration.browser.pairingStateDegraded.title')}
+          </AlertTitle>
+          <AlertDescription className="text-destructive/80">
+            {t('settings.integration.browser.pairingStateDegraded.description')}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div
         className={cn(
           'space-y-2',
@@ -97,6 +116,7 @@ export function BrowserExtensionsSection() {
                 <span className="font-mono">{it.name || it.id}</span>
                 <span className="text-muted-foreground">
                   {browserDisplayName(it.browser)}
+                  {` · ${t(IDENTITY_LABEL_KEYS[it.identityTrust])}`}
                   {it.lastActiveAt
                     ? ` · ${t('settings.integration.browser.lastActive')}: ${new Date(it.lastActiveAt).toLocaleString()}`
                     : ''}
@@ -113,8 +133,13 @@ export function BrowserExtensionsSection() {
                     extensionId: it.id,
                   })
                 }
+                disabled={it.status === 'cleanup-pending'}
               >
-                {t('settings.integration.browser.revoke')}
+                {t(
+                  it.status === 'cleanup-pending'
+                    ? 'settings.integration.browser.disconnecting'
+                    : 'settings.integration.browser.revoke'
+                )}
               </Button>
             </div>
           ))

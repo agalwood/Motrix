@@ -394,6 +394,33 @@ describe('server lifecycle production wiring', () => {
     expect(listeningLog).toBeGreaterThan(0)
   })
 
+  it('advertises the Extension address only after the remote bridge is ready', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/server/index.ts'),
+      'utf8'
+    )
+    const runtimeAccepted = source.indexOf(
+      'bridgeRuntime = candidateBridgeRuntime'
+    )
+    const commandHandlersPublished = source.indexOf(
+      'Object.assign(bridgeCommandHandlers, bridgeRuntime.bridgeCommandHandlers)',
+      runtimeAccepted
+    )
+    const queryHandlersPublished = source.indexOf(
+      'Object.assign(bridgeQueryHandlers, bridgeRuntime.bridgeQueryHandlers)',
+      commandHandlersPublished
+    )
+    const pairingAddressLog = source.indexOf(
+      'logRemoteExtensionPairingReady(log, remoteExtensionConfig)',
+      queryHandlersPublished
+    )
+
+    expect(runtimeAccepted).toBeGreaterThan(-1)
+    expect(commandHandlersPublished).toBeGreaterThan(runtimeAccepted)
+    expect(queryHandlersPublished).toBeGreaterThan(commandHandlersPublished)
+    expect(pairingAddressLog).toBeGreaterThan(queryHandlersPublished)
+  })
+
   it('wires TrackerManager stopAndDrain into production shutdown', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/server/index.ts'),

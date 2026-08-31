@@ -16,6 +16,7 @@ const bridgeStatus = vi.hoisted(() => ({
   current: {
     port: 16802,
     degraded: false,
+    extensionPairingHealth: 'ready' as 'ready' | 'degraded',
     fixedPort: 'auto' as const,
     instanceId: 'test-instance',
   },
@@ -102,6 +103,7 @@ describe('IntegrationDialog scaffold', () => {
     bridgeStatus.current = {
       port: 16802,
       degraded: false,
+      extensionPairingHealth: 'ready',
       fixedPort: 'auto',
       instanceId: 'test-instance',
     }
@@ -233,6 +235,7 @@ describe('IntegrationDialog scaffold', () => {
     bridgeStatus.current = {
       port: 54321,
       degraded: true,
+      extensionPairingHealth: 'ready',
       fixedPort: 'auto',
       instanceId: 'test-instance',
     }
@@ -266,5 +269,31 @@ describe('IntegrationDialog scaffold', () => {
     expect(
       screen.queryByText('Bridge running on a fallback port')
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps a projection failure visible and warns that the paired list is incomplete', async () => {
+    bridgeStatus.current = {
+      port: 16802,
+      degraded: false,
+      extensionPairingHealth: 'degraded',
+      fixedPort: 'auto',
+      instanceId: 'test-instance',
+    }
+
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+
+    expect(
+      await screen.findByText('Extension access is temporarily closed')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/do not rely on the list below/i)
+    ).toBeInTheDocument()
   })
 })

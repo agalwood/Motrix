@@ -31,18 +31,19 @@ describe('BridgeEventBus', () => {
     expect(r).toHaveLength(2)
   })
 
-  it('emits PairRequestSettled with key + outcome', () => {
-    const bus = new BridgeEventBus()
-    const received: unknown[] = []
-    bus.on('PairRequestSettled', (p) => received.push(p))
-    bus.emitPairRequestSettled({
-      key: 'chromium:ext-1:nonce-1',
-      outcome: 'allowed',
-    })
-    expect(received).toEqual([
-      { key: 'chromium:ext-1:nonce-1', outcome: 'allowed' },
-    ])
-  })
+  it.each(['allowed', 'denied', 'aborted'] as const)(
+    'emits PairRequestSettled with the %s outcome',
+    (outcome) => {
+      const bus = new BridgeEventBus()
+      const received: unknown[] = []
+      bus.on('PairRequestSettled', (p) => received.push(p))
+      bus.emitPairRequestSettled({
+        key: 'chromium:ext-1:nonce-1',
+        outcome,
+      })
+      expect(received).toEqual([{ key: 'chromium:ext-1:nonce-1', outcome }])
+    }
+  )
 
   it('emits PairRequestExpired with key', () => {
     const bus = new BridgeEventBus()

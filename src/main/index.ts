@@ -2198,6 +2198,11 @@ async function initializeMainProcess(): Promise<void> {
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
     })
+    const bridgeDataDirLockRecoveryAuthority =
+      launcher.bridgeDataDirLockRecoveryAuthority
+    if (bridgeDataDirLockRecoveryAuthority === null) {
+      throw new Error('bridge single-instance ownership unavailable')
+    }
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
     // SessionManager.restore() and the poll loop share the exact same root.
     return bootstrapBridge({
@@ -2209,6 +2214,7 @@ async function initializeMainProcess(): Promise<void> {
       // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
       // takes effect without a full app restart.
       bridgeSettings: settingsManager.get().bridge,
+      bridgeDataDirLockRecoveryAuthority,
       eventBus,
       createTaskDeps,
       activityRecorder: activeTaskActivityService,
