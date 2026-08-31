@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
@@ -288,6 +290,13 @@ const settingsFlatpakEnvironment =
 const defaultSaveDirOptions = resolveDefaultSaveDirOptions({
   snapEnvironment: settingsSnapEnvironment,
   getSystemDownloadsDir: () => app.getPath('downloads'),
+  getHomeDir: homedir,
+  ensureDirectory: (directory) => mkdirSync(directory, { recursive: true }),
+  onSystemDownloadsDirError: (error, fallbackDir) =>
+    log.warn(
+      { err: error, fallbackDir },
+      'system downloads directory unavailable; using home fallback'
+    ),
 })
 const cliToolService = new CliToolService({
   directInstallSupported:
