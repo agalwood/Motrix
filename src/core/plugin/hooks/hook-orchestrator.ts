@@ -351,6 +351,13 @@ export class HookOrchestrator {
           taskId,
           signal: abort.signal,
           timeoutMs: timeout,
+          ctxPayload: {
+            sourceUrl: initial.sourceUrl,
+            createdBy: initial.createdBy,
+            requestedAt: initial.requestedAt,
+            task: initial.task,
+            filePath: initial.filePath,
+          },
         })
         this.opts.breaker?.success(entry.id, 'beforeFinalize')
       } catch (e) {

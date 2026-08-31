@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
+import type { PluginHookRuntime } from '@core/plugin/hooks/hook-runtime'
+import { StagedEffectStore } from '@core/plugin/hooks/staged-effects'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
@@ -76,6 +78,21 @@ vi.mock('./trusted-ipc', () => ({
     listener: (...args: unknown[]) => unknown
   ) => ipcHandleMock(channel, listener),
 }))
+
+function makePluginHooks(): PluginHookRuntime {
+  return {
+    orchestrator: {
+      runBeforeCreateHttp: vi.fn(async (initial) => ({
+        final: initial,
+        contributors: { headers: [] },
+        staged: new StagedEffectStore(),
+      })),
+    } as unknown as PluginHookRuntime['orchestrator'],
+    auditLog: {
+      log: vi.fn(async () => {}),
+    } as unknown as PluginHookRuntime['auditLog'],
+  }
+}
 
 function fakeCtx() {
   // Build the rpc spies first, then wrap them in a real Aria2Adapter so the
@@ -238,6 +255,7 @@ function fakeCtx() {
     pluginActivation: {
       dispatch: vi.fn().mockResolvedValue(undefined),
     },
+    pluginHooks: makePluginHooks(),
     bridgeManager: {
       current: null,
       setEnabled: vi.fn(),

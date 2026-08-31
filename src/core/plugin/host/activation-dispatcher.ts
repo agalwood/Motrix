@@ -1,6 +1,7 @@
 import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { PluginManifest } from '@shared/types/plugin'
+import { urlMatchesHostPermissions } from '../hooks/eligibility'
 import type { PluginRegistry } from '../plugin-registry'
 import {
   type ActiveMeta,
@@ -84,7 +85,7 @@ export class ActivationDispatcher {
       }
       if (
         event.kind === 'taskAdded' &&
-        !hostPermissionsMatch(reg.manifest.hostPermissions ?? [], event.url)
+        !urlMatchesHostPermissions(reg.manifest.hostPermissions, event.url)
       ) {
         skipped.push({
           id: dto.id,
@@ -227,46 +228,6 @@ function effectiveActivationSet(manifest: PluginManifest): Set<string> {
     set.add(`onCommand:${c.id}`)
   }
   return set
-}
-
-function hostPermissionsMatch(
-  patterns: ReadonlyArray<string>,
-  url: string
-): boolean {
-  if (patterns.length === 0) return false
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return false
-  }
-  const scheme = parsed.protocol.replace(':', '')
-  for (const p of patterns) {
-    if (p === '<all_urls>') return true
-    const m = /^(\*|https?):\/\/(\*|(?:\*\.)?[A-Za-z0-9.-]+)(\/.*)?$/.exec(p)
-    if (!m) continue
-    const [, patScheme, patHost, patPath] = m
-    if (patScheme !== '*' && patScheme !== scheme) continue
-    if (patHost !== '*' && !hostMatch(patHost, parsed.hostname)) continue
-    if (patPath && !pathMatch(patPath, parsed.pathname)) continue
-    return true
-  }
-  return false
-}
-
-function hostMatch(pattern: string, host: string): boolean {
-  if (pattern.startsWith('*.')) {
-    const suffix = pattern.slice(2)
-    return host === suffix || host.endsWith(`.${suffix}`)
-  }
-  return host === pattern
-}
-
-function pathMatch(pattern: string, p: string): boolean {
-  const re = new RegExp(
-    `^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`
-  )
-  return re.test(p)
 }
 
 // Re-export for test convenience.

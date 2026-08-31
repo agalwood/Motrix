@@ -6,6 +6,8 @@ import type { EventBus } from '@core/events/event-bus'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
+import type { PluginHookRuntime } from '@core/plugin/hooks/hook-runtime'
+import { StagedEffectStore } from '@core/plugin/hooks/staged-effects'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
@@ -44,6 +46,21 @@ const PROXY_OFF = {
   scopes: { download: false, updateApp: false, updateTrackers: false },
 }
 const PROXY_ON = { ...PROXY_OFF, enabled: true, host: 'p.example', port: 80 }
+
+function makePluginHooks(): PluginHookRuntime {
+  return {
+    orchestrator: {
+      runBeforeCreateHttp: vi.fn(async (initial) => ({
+        final: initial,
+        contributors: { headers: [] },
+        staged: new StagedEffectStore(),
+      })),
+    } as unknown as PluginHookRuntime['orchestrator'],
+    auditLog: {
+      log: vi.fn(async () => {}),
+    } as unknown as PluginHookRuntime['auditLog'],
+  }
+}
 
 function makeFakeCtx() {
   return {
@@ -137,6 +154,7 @@ function makeFakeCtx() {
     pluginActivation: {
       dispatch: vi.fn().mockResolvedValue(undefined),
     } as unknown as ActivationDispatcher,
+    pluginHooks: makePluginHooks(),
     magnetTracker: {
       submit: vi.fn().mockResolvedValue(undefined),
       retryMetadata: vi.fn().mockResolvedValue(undefined),
