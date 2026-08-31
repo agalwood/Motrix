@@ -10,10 +10,14 @@ import {
 import { useEffect } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 
+export interface AddTaskModeHydrationContext {
+  refreshDefaultSaveDir: boolean
+}
+
 export function useExternalHydration(
   form: UseFormReturn<AddTaskFormValues>,
   enabled: boolean,
-  onModeHydrated?: () => void
+  onModeHydrated?: (context: AddTaskModeHydrationContext) => void
 ) {
   useEffect(() => {
     if (!enabled) return
@@ -59,16 +63,18 @@ export function useExternalHydration(
       const parsed = setAddTaskModeEventPayloadSchema.safeParse(args[0])
       if (!parsed.success) return
       const defaults = urlParamsToFormDefaults(parsed.data)
+      const refreshDefaultSaveDir =
+        defaults.saveDir === undefined && !form.getFieldState('saveDir').isDirty
       // A mode switch without an explicit saveDir must not wipe whatever
-      // is already in the field (e.g. the user's defaultSaveDir that the
-      // form backfilled at mount). Symmetric to onProtocol below.
+      // is already in the field before the current default is refreshed.
+      // A dirty value is a per-task user override and remains authoritative.
       if (defaults.saveDir === undefined) {
         defaults.saveDir = form.getValues('saveDir')
       }
       form.reset(defaults as Partial<AddTaskFormValues>, {
         keepErrors: false,
       })
-      onModeHydrated?.()
+      onModeHydrated?.({ refreshDefaultSaveDir })
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)

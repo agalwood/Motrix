@@ -42,7 +42,10 @@ import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
 import { TorrentTabPanel } from './torrent-tab-panel'
 import { parseUrlLines } from './url-interpreters/multiline-url'
-import { useExternalHydration } from './use-external-hydration'
+import {
+  type AddTaskModeHydrationContext,
+  useExternalHydration,
+} from './use-external-hydration'
 
 interface AddTaskFormProps {
   defaultValues?: DeepPartial<AddTaskFormValues>
@@ -90,44 +93,62 @@ export function AddTaskForm({
     defaultValues: { ...BASE_DEFAULTS, ...defaultValues } as AddTaskFormValues,
   })
 
-  const clipboardAutofillRequest = useRef(0)
+  const openHydrationRequest = useRef(0)
 
-  // Read once for each actual open. The desktop add-task window is precreated
-  // while hidden, so only its user-triggered SetAddTaskMode event starts a
-  // read; an in-page dialog is already visible when this form mounts.
-  const autofillClipboardLinks = useCallback(async () => {
-    const request = ++clipboardAutofillRequest.current
-    if (form.getValues('tab') !== 'links') return
-    if (form.getValues('urls')) return
-    try {
-      const settings = (await transport.invoke(Queries.GetSettings)) as {
-        app?: { autofillClipboardLinks?: boolean }
+  // Refresh open-scoped settings for each actual open. The desktop add-task
+  // window is precreated while hidden, so its mount-time default directory can
+  // be stale by the time the user opens it. In-page dialogs are already visible
+  // when this form mounts and only need clipboard hydration here.
+  const hydrateOpenState = useCallback(
+    async (context?: AddTaskModeHydrationContext) => {
+      const request = ++openHydrationRequest.current
+      try {
+        const settings = (await transport.invoke(Queries.GetSettings)) as {
+          app?: {
+            autofillClipboardLinks?: boolean
+            defaultSaveDir?: string
+          }
+        }
+        if (request !== openHydrationRequest.current) return
+
+        if (
+          context?.refreshDefaultSaveDir &&
+          !form.getFieldState('saveDir').isDirty &&
+          typeof settings?.app?.defaultSaveDir === 'string'
+        ) {
+          form.setValue(
+            'saveDir' as never,
+            settings.app.defaultSaveDir as never,
+            { shouldDirty: false, shouldValidate: false }
+          )
+        }
+
+        if (form.getValues('tab') !== 'links') return
+        if (form.getValues('urls')) return
+        if (settings?.app?.autofillClipboardLinks === false) return
+
+        const content = (await platform.readClipboard()).trim()
+        if (request !== openHydrationRequest.current || !content) return
+        const lines = parseUrlLines(content)
+        if (lines.length === 0 || !lines.every((line) => line.valid)) return
+        if (form.getValues('urls')) return
+        form.setValue(
+          'urls' as never,
+          lines.map((line) => line.url).join('\n') as never,
+          { shouldValidate: true }
+        )
+      } catch {
+        // Best effort — local defaults keep the form usable and the clipboard
+        // may be unreadable under web permissions.
       }
-      if (
-        request !== clipboardAutofillRequest.current ||
-        settings?.app?.autofillClipboardLinks === false
-      ) {
-        return
-      }
-      const content = (await platform.readClipboard()).trim()
-      if (request !== clipboardAutofillRequest.current || !content) return
-      const lines = parseUrlLines(content)
-      if (lines.length === 0 || !lines.every((line) => line.valid)) return
-      if (form.getValues('urls')) return
-      form.setValue(
-        'urls' as never,
-        lines.map((line) => line.url).join('\n') as never,
-        { shouldValidate: true }
-      )
-    } catch {
-      // Best effort — the clipboard may be unreadable (web permissions).
-    }
-  }, [form, platform])
+    },
+    [form, platform]
+  )
 
-  useExternalHydration(form, subscribeEvents, autofillClipboardLinks)
+  useExternalHydration(form, subscribeEvents, hydrateOpenState)
 
-  // Backfill the default save directory for each new task. Per-task advanced
-  // overrides stay empty unless the caller or user supplies them explicitly.
+  // Backfill the default save directory for the initially mounted form.
+  // Desktop opens refresh it again through hydrateOpenState above.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -150,16 +171,15 @@ export function AddTaskForm({
     }
   }, [form])
 
-  // Only immediately visible in-page dialogs read on mount. Desktop opens are
-  // triggered by useExternalHydration after SetAddTaskMode resets the
-  // precreated form, so precreation never accesses the clipboard and external
-  // prefill always wins.
+  // Only immediately visible in-page dialogs read the clipboard on mount.
+  // Desktop opens are triggered after SetAddTaskMode resets the precreated
+  // form, so precreation never accesses the clipboard and external prefill wins.
   useEffect(() => {
-    if (!subscribeEvents) void autofillClipboardLinks()
+    if (!subscribeEvents) void hydrateOpenState()
     return () => {
-      clipboardAutofillRequest.current += 1
+      openHydrationRequest.current += 1
     }
-  }, [autofillClipboardLinks, subscribeEvents])
+  }, [hydrateOpenState, subscribeEvents])
 
   const onSubmit = useCallback(
     async (values: AddTaskFormValues) => {
