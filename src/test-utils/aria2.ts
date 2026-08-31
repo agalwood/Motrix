@@ -26,6 +26,7 @@ export interface SpawnAria2Options {
   baseDir: string
   port?: number
   secret?: string
+  waitForHttpRpc?: boolean
 }
 
 // Resolve the bundled binary path relative to the repo root.
@@ -38,6 +39,9 @@ export function bundledAria2ExtraDir(): string {
 }
 
 export function resolveBundledAria2(): string {
+  if (process.env.MOTRIX_ARIA2_TEST_BIN) {
+    return path.resolve(process.env.MOTRIX_ARIA2_TEST_BIN)
+  }
   return path.join(
     EXTRA_DIR,
     process.platform,
@@ -115,12 +119,14 @@ export async function spawnAria2ForTest(
   proc.stdout?.on('data', () => {})
   proc.stderr?.on('data', () => {})
 
-  try {
-    await waitForRpc(port, 5000)
-  } catch (err) {
-    // Bail out cleanly if RPC never comes up.
-    if (!proc.killed) proc.kill('SIGKILL')
-    throw err
+  if (opts.waitForHttpRpc !== false) {
+    try {
+      await waitForRpc(port, 5000)
+    } catch (err) {
+      // Bail out cleanly if RPC never comes up.
+      if (!proc.killed) proc.kill('SIGKILL')
+      throw err
+    }
   }
 
   return {

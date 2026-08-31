@@ -21,6 +21,7 @@ const log = getLogger('aria2')
 
 const OWNER_RECORD_VERSION = 1
 const STDERR_TAIL_LIMIT = 32 * 1024
+const RPC_DIAGNOSTIC_MARKER = 'RPC-DIAG'
 const OWNER_MARKER_PREFIXES = [
   '--conf-path=',
   '--save-session=',
@@ -190,10 +191,15 @@ export class Aria2ProcessManager {
     }
 
     child.stdout?.on('data', (data: Buffer) => {
-      log.debug(
-        { data: redactSensitiveText(data.toString().trim(), args) },
-        'aria2 stdout'
-      )
+      const text = redactSensitiveText(data.toString().trim(), args)
+      if (text.includes(RPC_DIAGNOSTIC_MARKER)) {
+        // Native RPC diagnostics are sparse (first queue/send per session and
+        // exceptional states).  Promote only those lines into production logs;
+        // ordinary aria2 stdout remains debug-only.
+        log.info({ data: text }, 'aria2 RPC diagnostic')
+      } else {
+        log.debug({ data: text }, 'aria2 stdout')
+      }
     })
 
     child.stderr?.on('data', (data: Buffer) => {
