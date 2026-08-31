@@ -12,6 +12,7 @@ import { createUpdateGeoIPDatabaseHandler } from '@core/geoip/update-geo-ip-data
 import { getLogger } from '@core/logger'
 import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
+import { NotificationKinds } from '@shared/types/notification'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { HookAuditLog } from '@core/plugin/hooks/audit-log'
@@ -42,6 +43,8 @@ import {
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import { resolveAutoparserExtensionWhitelist } from '@core/parser/autoparser-whitelist'
+import { PageLinkParser } from '@core/parser/page-link-parser'
 import {
   pauseTask,
   reAddTask,
@@ -61,6 +64,10 @@ import {
   taskCreateConflictResult,
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import {
+  FsCreateCollisionGuard,
+  TaskCreateSkippedError,
+} from '@core/task/create-collision-policy'
 import {
   type CreateTaskDeps,
   handleCreateTask,
@@ -88,6 +95,10 @@ import {
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import {
+  type ParsePageLinksResult,
+  parsePageLinksRequestSchema,
+} from '@shared/schemas/page-parse'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
@@ -126,6 +137,7 @@ import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { WindowManager } from '../window/window-manager'
+import { RenderedPageLinkParser } from '../parser/rendered-page-link-parser'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
 import { NatCommandHandlers } from './nat-commands'
@@ -233,6 +245,39 @@ function sendToAddTaskWindow(
 
 // biome-ignore lint/suspicious/noExplicitAny: sender is typed at registration
 type WebContents = any
+
+/**
+ * AutoParser strategy table: try the rendered-DOM parser first (covers SPA
+ * download pages whose links never appear in the served HTML), then fall
+ * back to the static HTML parser. The extension whitelist is resolved from
+ * settings.json edits (hot-reloaded) apply on the next parse.
+ */
+async function parsePageLinks(
+  input: unknown,
+  extensionWhitelist?: ReadonlySet<string>
+): Promise<ParsePageLinksResult> {
+  const parsed = parsePageLinksRequestSchema.safeParse(input)
+  if (!parsed.success) {
+    throw new AppError(
+      ErrorCode.IpcInvalidPayload,
+      'invalid ParsePageLinks payload'
+    )
+  }
+  try {
+    const rendered = await new RenderedPageLinkParser({
+      extensionFilter: extensionWhitelist,
+    }).parse(parsed.data)
+    if (rendered.links.length > 0) return rendered
+  } catch (error) {
+    getLogger('autoparser').warn(
+      'rendered parse failed, falling back to static: %s',
+      error
+    )
+  }
+  return new PageLinkParser({ extensionFilter: extensionWhitelist }).parse(
+    parsed.data
+  )
+}
 
 export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   const {
@@ -360,6 +405,22 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
       return mux.dispatch(adapted)
     },
+    // Destination-collision policy: skip (notify) when the final file exists
+    // or an active task owns the staging file; delete stale staging leftovers.
+    createCollisionGuard: new FsCreateCollisionGuard(),
+    notifyCreateSkipped: (info) =>
+      notificationCenter.notify({
+        sourceKey: `create-skip:${info.reason}:${info.path}:${Date.now()}`,
+        kind: NotificationKinds.TaskCreateSkipped,
+        severity: 'warning',
+        titleKey: 'notification.taskCreateSkipped.title',
+        titleParams: { name: info.name },
+        bodyKey:
+          info.reason === 'final-exists'
+            ? 'notification.taskCreateSkipped.bodyExists'
+            : 'notification.taskCreateSkipped.bodyActive',
+        bodyParams: { path: info.path },
+      }),
   }
 
   // Lazy closure over bridgeManager.current, mirroring resolveToMux/dispatchMux:
@@ -571,6 +632,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     try {
       result = await handleCreateTask(request, createDeps)
     } catch (error) {
+      // Destination-collision policy (HTTP): the file already exists or is
+      // already downloading. handleCreateTask already fired the
+      // notification; map the error to a no-op `skipped` outcome.
+      if (error instanceof TaskCreateSkippedError) {
+        return { outcome: 'skipped', ...error.info }
+      }
       const conflict = taskCreateConflictResult(error)
       if (conflict) return conflict
       throw error
@@ -648,6 +715,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ParseTorrent]: async ({ base64 }: { base64: string }) => {
       return torrentParser.parse(base64)
+    },
+
+    [Commands.ParsePageLinks]: async (request: unknown) => {
+      return parsePageLinks(
+        request,
+        resolveAutoparserExtensionWhitelist(settingsManager)
+      )
     },
 
     [Commands.AddTorrentTask]: async (params: {

@@ -4,6 +4,7 @@ export type NotificationSeverity = 'info' | 'warning' | 'error'
 export const NotificationKinds = {
   TaskError: 'task-error',
   TaskComplete: 'task-complete',
+  TaskCreateSkipped: 'task-create-skipped',
   EngineFailure: 'engine-failure',
   EngineCompatibility: 'engine-compatibility',
   EngineRestartRequired: 'engine-restart-required',

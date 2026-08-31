@@ -1,6 +1,10 @@
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
-import type { EngineSettings, SpeedLimitSettings } from '@shared/types/settings'
+import type {
+  EngineSettings,
+  SpeedLimitSettings,
+} from '@shared/types/settings'
 
 // ─── Form shape ────────────────────────────────────────────────────────────────
 // The form combines the engine settings subset with the full speedLimit
@@ -32,6 +36,15 @@ export type EngineFields = Pick<
 export interface DownloadsFields {
   engine: EngineFields
   speedLimit: SpeedLimitSettings
+  // app.autoparser and app.skipExistingFilesOnCreate live under the app
+  // namespace; submitting the dirty patch as { app: {...} } deep-merges into
+  // settings.app. Keep this Pick<> in sync with MotrixAppSettings.
+  app: {
+    skipExistingFilesOnCreate: boolean
+    autoparser: {
+      fileExtensionWhitelist: string[]
+    }
+  }
 }
 
 export const KB = 1024
@@ -66,4 +79,13 @@ export const DOWNLOADS_DEFAULTS: DownloadsFields = {
   engine: ENGINE_DEFAULTS,
   // Source of truth: src/shared/schemas/speed-limit.ts (DEFAULT_SPEED_LIMIT_SETTINGS).
   speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
+  // Source of truth: src/shared/schemas/app-settings.ts (DEFAULT_APP_SETTINGS).
+  app: {
+    skipExistingFilesOnCreate: DEFAULT_APP_SETTINGS.skipExistingFilesOnCreate,
+    autoparser: {
+      fileExtensionWhitelist: [
+        ...DEFAULT_APP_SETTINGS.autoparser.fileExtensionWhitelist,
+      ],
+    },
+  },
 }

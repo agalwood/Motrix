@@ -87,8 +87,8 @@ describe('migrate', () => {
 })
 
 describe('migration v3 → v4', () => {
-  it('targets version 10', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(10)
+  it('targets the current settings version', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(11)
   })
 
   it('adds dhtListenPort defaulting to listenPort value', () => {
@@ -198,8 +198,8 @@ describe('migration v5 → v6 (media namespace)', () => {
 })
 
 describe('migration v6 → v7 (speedLimit namespace)', () => {
-  it('targets version 10', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(10)
+  it('targets the current settings version', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(11)
   })
 
   it('v6→v7: maps a configured limit to base, turtle off', () => {
@@ -260,7 +260,7 @@ describe('migration v7 → v8 (application update channel)', () => {
     const result = migrate({ version: 7, app: { theme: 'dark' } })
 
     expect(result.version).toBe(CURRENT_SETTINGS_VERSION)
-    expect(result.app).toEqual({ theme: 'dark', updateChannel: 'stable' })
+    expect(result.app).toMatchObject({ theme: 'dark', updateChannel: 'stable' })
   })
 
   it.each(['stable', 'beta'] as const)(
@@ -268,14 +268,14 @@ describe('migration v7 → v8 (application update channel)', () => {
     (updateChannel) => {
       const result = migrate({ version: 7, app: { updateChannel } })
 
-      expect(result.app).toEqual({ updateChannel })
+      expect(result.app).toMatchObject({ updateChannel })
     }
   )
 
   it('repairs an invalid persisted channel to stable', () => {
     const result = migrate({ version: 7, app: { updateChannel: 'alpha' } })
 
-    expect(result.app).toEqual({ updateChannel: 'stable' })
+    expect(result.app).toMatchObject({ updateChannel: 'stable' })
   })
 })
 

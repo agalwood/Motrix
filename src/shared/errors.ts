@@ -38,6 +38,8 @@ export enum ErrorCode {
   TorrentDuplicateConflict = 'TORRENT_DUPLICATE_CONFLICT',
   MagnetResolveFailed = 'MAGNET_RESOLVE_FAILED',
   MagnetResolveTimeout = 'MAGNET_RESOLVE_TIMEOUT',
+  // AutoParser page-link extraction
+  PageParseFailed = 'PAGE_PARSE_FAILED',
   /** Plan B: aria2 cleanup of the magnet metadata fetch is still
    *  pending (RPC transient failure → MagnetTracker.cancel returned
    *  'quarantined'). Operations that would create a sibling aria2 GID

@@ -1,3 +1,5 @@
+import { DEFAULT_ENGINE_SETTINGS } from './engine-settings'
+import { parsePageLinksResultSchema } from './page-parse'
 import { z } from 'zod'
 
 const torrentFileSchema = z.object({
@@ -23,6 +25,30 @@ const linksTabSchema = z.object({
   filename: z.string().optional(),
   split: z.number().int().min(1).max(128).optional(),
   userAgent: z.string().optional(),
+  referer: z.string().optional(),
+  cookie: z.string().optional(),
+  authorization: z.string().optional(),
+  allProxy: z.string().optional(),
+})
+
+const autoparserTabSchema = z.object({
+  tab: z.literal('autoparser'),
+  pageUrl: z.string().min(1, { message: 'task.add.errors.pageUrlRequired' }),
+  // Set after a successful Commands.ParsePageLinks round-trip; the submit
+  // converter derives one task per selected link from it.
+  parseResult: parsePageLinksResultSchema,
+  selectedLinks: z
+    .array(z.number().int().nonnegative())
+    .min(1, { message: 'task.add.errors.noFilesSelected' }),
+  saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
+  split: z
+    .number()
+    .int()
+    .min(1)
+    .max(128)
+    .default(DEFAULT_ENGINE_SETTINGS.split),
+  userAgent: z.string().optional(),
+  // Referer defaults to the parsed page URL at submit time (anti-hotlinking).
   referer: z.string().optional(),
   cookie: z.string().optional(),
   authorization: z.string().optional(),
@@ -59,6 +85,7 @@ const torrentTabSchema = z
 
 export const addTaskFormSchema = z.discriminatedUnion('tab', [
   linksTabSchema,
+  autoparserTabSchema,
   torrentTabSchema,
 ])
 export type AddTaskFormValues = z.infer<typeof addTaskFormSchema>
@@ -144,6 +171,19 @@ export type TorrentDuplicateConflict = z.infer<
   typeof torrentDuplicateConflictSchema
 >
 
+/**
+ * The create was rejected by the destination-collision policy (HTTP only):
+ * the final file already exists, or an active task already owns the staging
+ * file. No task was created.
+ */
+export type TaskCreateSkippedResult = {
+  outcome: 'skipped'
+  reason: 'final-exists' | 'active-staging'
+  name: string
+  path: string
+  ownerTaskId: string | null
+}
+
 export type TaskCreateSuccessResult = {
   outcome: 'created' | 'reused' | 'rechecked'
   gid: string
@@ -152,6 +192,7 @@ export type TaskCreateSuccessResult = {
 
 export type TaskCreateCommandResult =
   | TaskCreateSuccessResult
+  | TaskCreateSkippedResult
   | {
       outcome: 'conflict'
       conflict: TorrentDuplicateConflict
@@ -161,7 +202,7 @@ export type TaskCreateCommandResult =
 
 export const addTaskUrlParamsSchema = z.object({
   w: z.literal('add-task').optional(),
-  mode: z.enum(['links', 'torrent']).default('links'),
+  mode: z.enum(['links', 'autoparser', 'torrent']).default('links'),
   url: z.string().trim().min(1).optional(),
   magnet: z.string().startsWith('magnet:?').optional(),
   saveDir: z.string().min(1).optional(),
@@ -228,16 +269,51 @@ function splitUrlLines(raw: string): string[] {
 export function formValuesToTaskCreateRequests(
   v: AddTaskFormValues
 ): TaskCreateRequest[] {
-  if (v.tab !== 'links') return [formValuesToTaskCreateRequest(v)]
-  const lines = splitUrlLines(v.urls)
-  const filename = lines.length === 1 ? v.filename : undefined
-  return lines.map((line) =>
-    formValuesToTaskCreateRequest({ ...v, urls: line, filename })
-  )
+  if (v.tab === 'links') {
+    const lines = splitUrlLines(v.urls)
+    const filename = lines.length === 1 ? v.filename : undefined
+    return lines.map((line) =>
+      formValuesToTaskCreateRequest({ ...v, urls: line, filename })
+    )
+  }
+  if (v.tab === 'autoparser') return autoparserValuesToTaskCreateRequests(v)
+  return [formValuesToTaskCreateRequest(v)]
+}
+
+/**
+ * One http task per checked AutoParser link. The page URL becomes the
+ * Referer (anti-hotlinking) unless the user overrode it; each task keeps
+ * the filename extracted from the link so the save name matches the list.
+ */
+function autoparserValuesToTaskCreateRequests(
+  v: Extract<AddTaskFormValues, { tab: 'autoparser' }>
+): TaskCreateRequest[] {
+  const byIndex = new Map(v.parseResult.links.map((l) => [l.index, l]))
+  const headers = [
+    ...compactHeader('User-Agent', v.userAgent),
+    ...compactHeader('Referer', trimmed(v.referer) ?? v.pageUrl),
+    ...compactHeader('Cookie', v.cookie),
+    ...compactHeader('Authorization', v.authorization),
+  ]
+  const requests: TaskCreateRequest[] = []
+  for (const index of v.selectedLinks) {
+    const link = byIndex.get(index)
+    if (!link) continue
+    requests.push({
+      type: 'http',
+      uris: [link.url],
+      saveDir: v.saveDir,
+      filename: link.filename,
+      connections: v.split,
+      headers,
+      proxy: trimmed(v.allProxy),
+    })
+  }
+  return requests
 }
 
 export function formValuesToTaskCreateRequest(
-  v: AddTaskFormValues
+  v: Exclude<AddTaskFormValues, { tab: 'autoparser' }>
 ): TaskCreateRequest {
   if (v.tab === 'links') {
     const uris = splitUrlLines(v.urls)
@@ -301,6 +377,13 @@ export function urlParamsToFormDefaults(
     return {
       tab: 'links',
       urls: p.magnet,
+      saveDir: p.saveDir,
+    }
+  }
+  if (p.mode === 'autoparser') {
+    return {
+      tab: 'autoparser',
+      pageUrl: p.url ?? '',
       saveDir: p.saveDir,
     }
   }

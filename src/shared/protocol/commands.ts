@@ -60,6 +60,8 @@ export const Commands = {
   ParseTorrent: 'command:parseTorrent',
   AddTorrentTask: 'command:addTorrentTask',
   AddMagnetTask: 'command:addMagnetTask',
+  // AutoParser: fetch a page and extract its downloadable file links
+  ParsePageLinks: 'command:parsePageLinks',
   // Re-open the file-selection dialog for a magnet that already resolved its
   // metadata (status=metadata_ready) but whose dialog was dismissed.
   ReopenMagnetFileSelection: 'command:reopenMagnetFileSelection',

@@ -768,6 +768,13 @@
       "title": "新建任务",
       "links": "链接",
       "torrent": "种子",
+      "autoparser": {
+        "label": "自动解析",
+        "parse": "解析",
+        "placeholder": "粘贴页面链接，自动发现可下载文件…",
+        "parseFailed": "页面解析失败。",
+        "empty": "未在该页面发现可下载文件。"
+      },
       "urlPlaceholder": "输入 URL、磁力链接…",
       "dropTorrent": "拖拽 .torrent 文件到此处，或点击选择",
       "clearSelection": "清除选择",
@@ -799,6 +806,7 @@
       "created": "任务已添加",
       "createdCopy": "独立副本已添加",
       "createdPartial": "已添加 {{ok}} 个，{{failed}} 个失败",
+      "skippedFile": "已跳过「{{name}}」：文件已存在或正在下载",
       "duplicate": {
         "title": "此种子已经存在",
         "active-info-hash": "「{{name}}」正在运行。aria2 无法同时运行两个内容相同的种子任务。",
@@ -821,7 +829,8 @@
         "urlsRequired": "至少需要一个 URL",
         "saveDirRequired": "必须指定保存目录",
         "noFilesSelected": "请至少选择一个文件",
-        "missingSource": "需要种子文件或 magnet 链接"
+        "missingSource": "需要种子文件或 magnet 链接",
+        "pageUrlRequired": "需要填写页面链接"
       }
     },
     "detail": {
@@ -1207,6 +1216,14 @@
         "title": "磁力链",
         "magnetResolveTimeout": "磁力链解析超时 (秒)",
         "magnetResolveTimeoutDesc": "等待元数据的最长时间。"
+      },
+      "autoparser": {
+        "skipExistingLabel": "跳过已存在的文件",
+        "skipExistingDescription": "当目标文件已存在或正在下载时，跳过创建而不是自动重命名。",
+        "whitelistLabel": "扩展名白名单",
+        "whitelistEmpty": "白名单为空，不会解析出任何文件。",
+        "whitelistPlaceholder": ".iso",
+        "whitelistDescription": "只有扩展名命中白名单的链接会被列为可下载文件，其他链接全部忽略。带点的小写扩展名，回车或点“添加”。也可直接编辑 settings.json（保存后自动生效）。"
       },
       "speedLimit": {
         "title": "速度限制",
@@ -2194,6 +2211,11 @@
     },
     "taskComplete": {
       "title": "{{name}} 下载完成"
+    },
+    "taskCreateSkipped": {
+      "title": "已跳过添加：{{name}}",
+      "bodyExists": "目标路径中已存在同名文件，未创建下载任务。",
+      "bodyActive": "该文件正在由另一个任务下载，未创建新任务。"
     },
     "engineFailure": {
       "title": "下载引擎故障"

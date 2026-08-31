@@ -829,11 +829,20 @@
         "image": "Image",
         "doc": "Document"
       },
+      "autoparser": {
+        "label": "Auto Parse",
+        "parse": "Parse",
+        "placeholder": "Paste a page URL to auto-discover downloadable files…",
+        "parseFailed": "Failed to parse page.",
+        "empty": "No downloadable files found on this page."
+      },
+      "skippedFile": "Skipped \"{{name}}\": the file already exists or is downloading",
       "errors": {
         "urlsRequired": "At least one URL is required",
         "saveDirRequired": "Save directory is required",
         "noFilesSelected": "Select at least one file",
-        "missingSource": "Torrent file or magnet link is required"
+        "missingSource": "Torrent file or magnet link is required",
+        "pageUrlRequired": "A page URL is required"
       }
     },
     "detail": {
@@ -1220,6 +1229,14 @@
         "title": "Magnet",
         "magnetResolveTimeout": "Magnet resolve timeout (s)",
         "magnetResolveTimeoutDesc": "How long to wait for metadata before giving up."
+      },
+      "autoparser": {
+        "skipExistingLabel": "Skip existing files",
+        "skipExistingDescription": "Skip creating a download when a file with the same name already exists or is already downloading, instead of auto-renaming.",
+        "whitelistLabel": "Extension whitelist",
+        "whitelistEmpty": "The whitelist is empty; no files will be found.",
+        "whitelistPlaceholder": ".iso",
+        "whitelistDescription": "Only links whose extension matches the whitelist are listed as downloadable; all others are ignored. Dot-prefixed lowercase extensions; press Enter or click Add. You can also edit settings.json directly — changes apply automatically on save."
       },
       "speedLimit": {
         "title": "Speed limits",
@@ -2214,6 +2231,11 @@
     },
     "taskComplete": {
       "title": "{{name}} finished downloading"
+    },
+    "taskCreateSkipped": {
+      "title": "Skipped adding: {{name}}",
+      "bodyExists": "A file with the same name already exists in the destination. No download task was created.",
+      "bodyActive": "This file is already being downloaded by another task. No new task was created."
     },
     "engineFailure": {
       "title": "Download engine failed"

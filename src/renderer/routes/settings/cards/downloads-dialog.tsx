@@ -19,6 +19,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
+import { AutoparserSection } from './autoparser-section'
 import {
   DOWNLOADS_DEFAULTS,
   type DownloadsFields,
@@ -56,6 +57,18 @@ export function DownloadsDialog({
           speedLimit: all?.speedLimit
             ? { ...DEFAULT_SPEED_LIMIT_SETTINGS, ...all.speedLimit }
             : DEFAULT_SPEED_LIMIT_SETTINGS,
+          app: {
+            skipExistingFilesOnCreate:
+              all?.app?.skipExistingFilesOnCreate ??
+              DOWNLOADS_DEFAULTS.app.skipExistingFilesOnCreate,
+            autoparser: all?.app?.autoparser
+              ? {
+                  fileExtensionWhitelist: [
+                    ...all.app.autoparser.fileExtensionWhitelist,
+                  ],
+                }
+              : DOWNLOADS_DEFAULTS.app.autoparser,
+          },
         })
       })
       .catch(() => {})
@@ -100,6 +113,8 @@ export function DownloadsDialog({
               <SpeedLimitSection form={form} />
               <Separator className="my-4" />
               <EngineTuningSection form={form} />
+              <Separator className="my-4" />
+              <AutoparserSection form={form} />
             </form>
           </Form>
         </div>

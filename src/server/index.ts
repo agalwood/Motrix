@@ -38,6 +38,7 @@ import { getLogger, initLogger } from '@core/logger'
 import { registerEngineCompatibilitySubscriber } from '@core/notifications/engine-compatibility-subscriber'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
+import { NotificationKinds } from '@shared/types/notification'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
 import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
@@ -73,6 +74,10 @@ import { finalizeTask } from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { handleCreateTask } from '@core/task/create-task-handler'
+import {
+  FsCreateCollisionGuard,
+  type TaskCreateSkippedInfo,
+} from '@core/task/create-collision-policy'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
@@ -1509,6 +1514,21 @@ async function main() {
           reAddTaskAction(taskId, {
             ...taskActionDeps,
             torrentMetaStore,
+          }),
+        // Destination-collision policy (same semantics as the desktop path).
+        createCollisionGuard: new FsCreateCollisionGuard(),
+        notifyCreateSkipped: (info: TaskCreateSkippedInfo) =>
+          notificationCenter.notify({
+            sourceKey: `create-skip:${info.reason}:${info.path}:${Date.now()}`,
+            kind: NotificationKinds.TaskCreateSkipped,
+            severity: 'warning',
+            titleKey: 'notification.taskCreateSkipped.title',
+            titleParams: { name: info.name },
+            bodyKey:
+              info.reason === 'final-exists'
+                ? 'notification.taskCreateSkipped.bodyExists'
+                : 'notification.taskCreateSkipped.bodyActive',
+            bodyParams: { path: info.path },
           }),
       }
       const taskActionDeps = {

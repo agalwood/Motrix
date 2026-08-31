@@ -28,6 +28,8 @@ import {
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import { resolveAutoparserExtensionWhitelist } from '@core/parser/autoparser-whitelist'
+import { PageLinkParser } from '@core/parser/page-link-parser'
 import {
   pauseTask,
   reAddTask,
@@ -47,6 +49,7 @@ import {
   taskCreateConflictResult,
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import { TaskCreateSkippedError } from '@core/task/create-collision-policy'
 import {
   type CreateTaskDeps,
   handleCreateTask,
@@ -392,6 +395,12 @@ export function buildServerCommandHandlers(
       return { ok: true }
     },
 
+    [Commands.ParsePageLinks]: async (request: unknown) => {
+      return new PageLinkParser({
+        extensionFilter: resolveAutoparserExtensionWhitelist(settingsManager),
+      }).parse(request)
+    },
+
     [Commands.CreateTask]: async (request: unknown) => {
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
@@ -522,6 +531,12 @@ export function buildServerCommandHandlers(
       try {
         return await handleCreateTask(request, createDeps)
       } catch (error) {
+        // Destination-collision policy (HTTP): file exists / already
+        // downloading. handleCreateTask already fired the notification; map
+        // the error to a no-op `skipped` outcome.
+        if (error instanceof TaskCreateSkippedError) {
+          return { outcome: 'skipped', ...error.info }
+        }
         const conflict = taskCreateConflictResult(error)
         if (conflict) return conflict
         throw error

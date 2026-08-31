@@ -82,6 +82,11 @@ import {
   type DirectResourceValidatorService,
   sanitizeRemoteFilename,
 } from './direct-resource-validator'
+import {
+  type CreateCollisionGuard,
+  TaskCreateSkippedError,
+  type TaskCreateSkippedInfo,
+} from './create-collision-policy'
 import type { FinalNamePicker } from './final-name-picker'
 import { toTempPath } from './paths'
 import type { TaskManager } from './task-manager'
@@ -184,8 +189,18 @@ export interface CreateTaskDeps {
    *  resolveToMux — both present or both absent. */
   dispatchMux?: (adapted: AdaptedMux) => Promise<{ taskId: string }>
   /** Re-adds a terminal BT task against its final layout with integrity
-   * checking. Shell command handlers inject the existing reAddTask action. */
+   *  checking. Shell command handlers inject the existing reAddTask action. */
   reuseExistingBt?: (taskId: string) => Promise<void>
+  /**
+   * Destination-collision policy for HTTP creates. Present in both shells:
+   * when the desired final file already exists (or an active task owns its
+   * staging file) the create is SKIPPED instead of auto-renamed; a stale
+   * staging file with no active owner is deleted so the new task owns a
+   * clean slot. Absent (tests) => legacy auto-dedup behavior.
+   */
+  createCollisionGuard?: CreateCollisionGuard
+  /** Best-effort notification when a create is skipped by the policy. */
+  notifyCreateSkipped?: (info: TaskCreateSkippedInfo) => void
 }
 
 export interface CreateTaskOptions {
@@ -218,6 +233,27 @@ export interface CreateTaskOptions {
  * `{ gid }` structurally — the extra field is harmless excess.
  */
 export async function handleCreateTask(
+  rawRequest: unknown,
+  deps: CreateTaskDeps,
+  opts: CreateTaskOptions = {}
+): Promise<TaskCreateSuccessResult> {
+  try {
+    return await handleCreateTaskWithBtAdmission(rawRequest, deps, opts)
+  } catch (err) {
+    if (err instanceof TaskCreateSkippedError) {
+      // The destination-collision policy rejected the create before any
+      // engine dispatch / registration / persistence happened. Best-effort
+      // notification here; the IPC boundary (createAndPersist / bridge
+      // wrapper) converts the error into a `skipped` outcome for the caller.
+      log.info(err.info, 'create skipped by destination collision policy')
+      deps.notifyCreateSkipped?.(err.info)
+      throw err
+    }
+    throw err
+  }
+}
+
+async function handleCreateTaskWithBtAdmission(
   rawRequest: unknown,
   deps: CreateTaskDeps,
   opts: CreateTaskOptions = {}
@@ -373,6 +409,35 @@ async function handleCreateTaskUnderAdmission(
 
   // 1. Decide final on-disk name (handles collisions).
   const desiredName = deriveDesiredName(req, torrentInfoName)
+
+  // HTTP name resolution runs the destination-collision policy before the
+  // pick: a taken name SKIPS the create (thrown as TaskCreateSkippedError,
+  // converted to a `skipped` outcome by the IPC boundary) instead of being
+  // auto-renamed to "<name> (1)". The guard also deletes a stale `.motrix`
+  // staging leftover so the pick below sees a clean slot. BT keeps its own
+  // duplicate-policy machinery (infoHash admission + reservedNames) below.
+  const resolveHttpFinalName = async (name: string): Promise<string> => {
+    if (
+      deps.createCollisionGuard &&
+      deps.settingsManager.getApp().skipExistingFilesOnCreate
+    ) {
+      const decision = await deps.createCollisionGuard.decide({
+        saveDir: effectiveSaveDir,
+        name,
+        tasks: deps.taskManager.getAll(),
+      })
+      if (decision.action === 'skip') {
+        throw new TaskCreateSkippedError({
+          reason: decision.reason ?? 'final-exists',
+          name,
+          path: decision.finalPath,
+          ownerTaskId: decision.ownerTaskId,
+        })
+      }
+    }
+    return deps.finalNamePicker.pick(effectiveSaveDir, name)
+  }
+
   if (
     req.type === 'bt' &&
     btInfoHash &&
@@ -397,7 +462,7 @@ async function handleCreateTaskUnderAdmission(
           desiredName,
           reservedNames
         )
-      : await deps.finalNamePicker.pick(effectiveSaveDir, desiredName)
+      : await resolveHttpFinalName(desiredName)
 
   const taskType = deriveTaskType(req)
   let finalPath = path.join(effectiveSaveDir, finalName)
@@ -519,10 +584,9 @@ async function handleCreateTaskUnderAdmission(
     let currentHttpDesiredName = desiredName
     const pickHttpName = async (nextDesiredName: string): Promise<void> => {
       if (nextDesiredName === currentHttpDesiredName) return
-      finalName = await deps.finalNamePicker.pick(
-        effectiveSaveDir,
-        nextDesiredName
-      )
+      // Route through resolveHttpFinalName so a probe/hook-derived name gets
+      // the same skip-on-collision policy as the initial pick.
+      finalName = await resolveHttpFinalName(nextDesiredName)
       currentHttpDesiredName = nextDesiredName
       finalPath = path.join(effectiveSaveDir, finalName)
       diskPath = toTempPath(finalPath)

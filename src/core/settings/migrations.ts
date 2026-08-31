@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-export const CURRENT_SETTINGS_VERSION = 10
+export const CURRENT_SETTINGS_VERSION = 11
 
 interface Migration {
   version: number
@@ -234,6 +234,43 @@ function migrateV9ToV10(
   }
 }
 
+// Inlined to avoid migrations.ts depending on @shared/schemas. Values must
+// match DEFAULT_AUTOPARSER_FILE_EXTENSION_WHITELIST in app-settings.ts.
+const DEFAULT_AUTOPARSER_WHITELIST_PLAIN = [
+  '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v',
+  '.mpg', '.mpeg', '.ts', '.rmvb',
+  '.iso', '.img', '.tar', '.tgz', '.zip', '.rar', '.7z', '.gz', '.bz2',
+  '.xz', '.zst', '.dmg',
+  '.safetensors', '.json', '.md', '.txt', '.gguf', '.ggml', '.ckpt',
+  '.pt', '.pth', '.onnx', '.bin', '.msgpack',
+]
+
+/**
+ * Seeds autoparser.fileExtensionWhitelist and skipExistingFilesOnCreate.
+ */
+function migrateV10ToV11(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const app = (data.app ?? {}) as Record<string, unknown>
+  const autoparser = (app.autoparser ?? {}) as Record<string, unknown>
+  return {
+    ...data,
+    version: 11,
+    app: {
+      ...app,
+      skipExistingFilesOnCreate:
+        typeof app.skipExistingFilesOnCreate === 'boolean'
+          ? app.skipExistingFilesOnCreate
+          : true,
+      autoparser: {
+        fileExtensionWhitelist: Array.isArray(autoparser.fileExtensionWhitelist)
+          ? (autoparser.fileExtensionWhitelist as string[])
+          : [...DEFAULT_AUTOPARSER_WHITELIST_PLAIN],
+      },
+    },
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -245,6 +282,7 @@ const migrations: Migration[] = [
   { version: 8, migrate: migrateV7ToV8 },
   { version: 9, migrate: migrateV8ToV9 },
   { version: 10, migrate: migrateV9ToV10 },
+  { version: 11, migrate: migrateV10ToV11 },
 ]
 
 export function migrate(

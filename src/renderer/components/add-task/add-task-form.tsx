@@ -38,6 +38,7 @@ import {
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { AddTaskLayoutProvider } from './add-task-layout-context'
+import { AutoparserTabPanel } from './autoparser-tab-panel'
 import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
 import { TorrentTabPanel } from './torrent-tab-panel'
@@ -198,6 +199,16 @@ export function AddTaskForm({
               Commands.CreateTask,
               request
             )) as TaskCreateCommandResult
+            if (result.outcome === 'skipped') {
+              // Destination-collision policy: the file already exists (or is
+              // already downloading). No task was created; the main process
+              // also logged a notification-center row. Notify per file so
+              // every skipped download is individually announced.
+              platform.notify('warn', 'task.add.skippedFile', {
+                name: result.name,
+              })
+              continue
+            }
             if (result.outcome === 'conflict') {
               setDuplicateConflict({ request, result })
               blockedByConflict = true
@@ -229,12 +240,20 @@ export function AddTaskForm({
         }
         if (successes.length > 0) {
           onSubmitSuccess?.(successes[0].taskId ?? successes[0].gid)
+        } else {
+          // Nothing was created: every request was skipped by the
+          // destination-collision policy (file already on disk /
+          // downloading), all CreateTask calls failed, or the request list
+          // was empty. The per-file warnings / error toast above already
+          // informed the user, so close instead of leaving the dialog
+          // seemingly stuck open. Conflict stays open for confirmation.
+          onCancel()
         }
       } finally {
         setSubmitting(false)
       }
     },
-    [onSubmitSuccess, platform]
+    [onCancel, onSubmitSuccess, platform]
   )
 
   const createSeparateCopy = useCallback(async () => {
@@ -247,6 +266,16 @@ export function AddTaskForm({
       })) as TaskCreateCommandResult
       if (result.outcome === 'conflict') {
         setDuplicateConflict({ request: duplicateConflict.request, result })
+        return
+      }
+      if (result.outcome === 'skipped') {
+        // Destination-collision policy skipped the copy (file exists /
+        // already downloading). The main process already notified the
+        // center; announce the file here too.
+        setDuplicateConflict(null)
+        platform.notify('warn', 'task.add.skippedFile', {
+          name: result.name,
+        })
         return
       }
       setDuplicateConflict(null)
@@ -373,6 +402,9 @@ function TabsSection() {
     >
       <TabsList className="shrink-0 bg-tab-background">
         <TabsTrigger value="links">{t('task.add.links')}</TabsTrigger>
+        <TabsTrigger value="autoparser">
+          {t('task.add.autoparser.label')}
+        </TabsTrigger>
         <TabsTrigger value="torrent">{t('task.add.torrent')}</TabsTrigger>
       </TabsList>
       <TabsContent
@@ -381,6 +413,13 @@ function TabsSection() {
         className="mt-2 flex min-h-0 min-w-0 flex-1 data-hidden:hidden"
       >
         <LinksTabPanel />
+      </TabsContent>
+      <TabsContent
+        value="autoparser"
+        keepMounted
+        className="mt-2 flex min-h-0 min-w-0 flex-1 data-hidden:hidden"
+      >
+        <AutoparserTabPanel />
       </TabsContent>
       <TabsContent
         value="torrent"
@@ -411,13 +450,21 @@ function FooterActionsBridge({
   const torrentMeta = useWatch<AddTaskFormValues, 'torrentMeta'>({
     name: 'torrentMeta',
   })
+  const parseResult = useWatch<AddTaskFormValues, 'parseResult'>({
+    name: 'parseResult',
+  })
+  const selectedLinks = useWatch<AddTaskFormValues, 'selectedLinks'>({
+    name: 'selectedLinks',
+  })
 
   const hasSaveDir = Boolean((saveDir ?? '').trim())
   const canSubmit =
     hasSaveDir &&
     (tab === 'links'
       ? Boolean((urls ?? '').trim())
-      : Boolean(torrentMeta) && (selectedFiles ?? []).length > 0)
+      : tab === 'autoparser'
+        ? Boolean(parseResult) && (selectedLinks ?? []).length > 0
+        : Boolean(torrentMeta) && (selectedFiles ?? []).length > 0)
 
   return (
     <FooterActions

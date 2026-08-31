@@ -245,6 +245,15 @@ export interface MotrixAppSettings {
   /** Application release channel. Stable never accepts prerelease versions;
    *  beta accepts beta and subsequent stable versions. Default stable. */
   updateChannel: AppUpdateChannel
+  /** When true, an HTTP create whose destination file already exists (or
+   *  whose staging file is owned by an active task) is skipped instead of
+   *  auto-renamed. Default false. */
+  skipExistingFilesOnCreate: boolean
+  /** AutoParser page-link extraction settings. */
+  autoparser: {
+    /** Dot-prefixed lowercase extensions surfaced by the AutoParser. */
+    fileExtensionWhitelist: string[]
+  }
 }
 
 export interface NatSettings {
