@@ -312,6 +312,27 @@ describe('Aria2ProcessManager', () => {
       })
     })
 
+    it('promotes sparse native RPC diagnostics into production logs', async () => {
+      const mockChild = createMockChildProcess()
+      mockSpawnFn.mockReturnValue(mockChild)
+
+      await manager.spawn('/usr/bin/aria2c', ['--rpc-secret=secret-value'])
+
+      const stdoutHandler = mockChild.stdout.on.mock.calls[0]?.[1]
+      stdoutHandler?.(
+        Buffer.from(
+          'RPC-DIAG CUID#7 first WebSocket response queued: bytes=42\n'
+        )
+      )
+
+      expect(mockLogInfo).toHaveBeenCalledWith(
+        {
+          data: 'RPC-DIAG CUID#7 first WebSocket response queued: bytes=42',
+        },
+        'aria2 RPC diagnostic'
+      )
+    })
+
     it('calls onExit when process exits', async () => {
       const mockChild = createMockChildProcess()
       mockSpawnFn.mockReturnValue(mockChild)

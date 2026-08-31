@@ -330,6 +330,15 @@ jobs:
             }
           }
 
+      - name: Verify staged Windows aria2 WebSocket contract
+        if: matrix.platform == 'win32'
+        env:
+          MOTRIX_ARIA2_TEST_BIN: ${{ matrix.resources_dir }}/extra/win32/${{ matrix.arch }}/aria2c.exe
+        run: >-
+          pnpm exec vitest run
+          src/core/engine/aria2/engine-websocket-contract.integration.test.ts
+          --reporter=verbose
+
       - name: Create isolated signing input
         if: >-
           github.event_name == 'push' &&

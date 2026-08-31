@@ -54,6 +54,41 @@ describe('Aria2TrustStore', () => {
     })
   })
 
+  it('removes external OpenSSL overrides from the bundled Windows engine', async () => {
+    const trustStore = new Aria2TrustStore(userConfigDir, {
+      platform: 'win32',
+      env: {
+        PATH: 'C:\\Windows',
+        OPENSSL_CONF: 'C:\\OpenSSL\\openssl.cnf',
+        OpenSSL_Conf_Include: 'C:\\OpenSSL\\includes',
+        OPENSSL_ENGINES: 'C:\\OpenSSL\\engines',
+        OPENSSL_MODULES: 'C:\\OpenSSL\\modules',
+        OPENSSL_ia32cap: '~0x200000200000000',
+        SSL_CERT_FILE: 'C:\\custom\\roots.pem',
+      },
+    })
+
+    await expect(trustStore.prepareEnvironment()).resolves.toEqual({
+      PATH: 'C:\\Windows',
+      // Trust overrides are separate from provider/config overrides and stay
+      // available for explicit caller policy.
+      SSL_CERT_FILE: 'C:\\custom\\roots.pem',
+    })
+  })
+
+  it('preserves OpenSSL overrides for a system aria2 outside Windows', async () => {
+    const env = {
+      PATH: '/usr/bin',
+      OPENSSL_CONF: '/etc/ssl/custom.cnf',
+    }
+    const trustStore = new Aria2TrustStore(userConfigDir, {
+      platform: 'darwin',
+      env,
+    })
+
+    await expect(trustStore.prepareEnvironment()).resolves.toEqual(env)
+  })
+
   it.each(['SSL_CERT_FILE', 'SSL_CERT_DIR'] as const)(
     'preserves a caller-provided %s',
     async (variable) => {
