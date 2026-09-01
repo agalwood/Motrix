@@ -180,11 +180,11 @@ export function usePairRequestPrompts(): void {
       })
     }
 
-    // Backend-driven lifecycle: the request reached a final decision
-    // (elsewhere — e.g. the Pending Approvals inbox, or another window)
-    // or lapsed past its TTL. Either way we close without ourselves
-    // sending a deny; the "no longer pending" feedback stays where it
-    // lives today — a late settle attempt via `resolvePairWithFeedback`.
+    // Backend-driven lifecycle: the request reached a non-TTL terminal
+    // outcome (approved, denied, or transport-aborted elsewhere) or lapsed
+    // past its TTL. Either way we close without ourselves sending a deny; the
+    // "no longer pending" feedback stays where it lives today — a late settle
+    // attempt via `resolvePairWithFeedback`.
     const closeSilently = (key: string) => {
       const state = prompts.get(key)
       if (state) {

@@ -5,6 +5,13 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser } from '@shared/protocol/bridge'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialPrincipal, IdentityTriState } from '../credential-store'
+import type {
+  PairingPromptCallbackStatus,
+  PairingPromptEnqueueResult,
+  PairingPromptSessionOutcome,
+  PairingPromptSettleResult,
+  PairingPromptTerminalOutcome,
+} from '../pairing-prompt-controller'
 import { hexToBytes, loadMbp1Vectors } from './__tests__/vectors'
 import {
   concatBytes,
@@ -59,6 +66,7 @@ interface DialogArgs {
   identity: IdentityTriState
   code: string
   pairingNonce: string
+  verifiedOrigin: string
 }
 
 interface Deferred<T> {
@@ -90,6 +98,8 @@ interface HarnessOptions {
     credentialId: string
     mutualKeyB64: string
   }>
+  enqueueFailure?: Extract<PairingPromptEnqueueResult, { ok: false }>['reason']
+  published?: Promise<PairingPromptCallbackStatus>
 }
 
 function makeHarness(opts: HarnessOptions = {}) {
@@ -98,11 +108,16 @@ function makeHarness(opts: HarnessOptions = {}) {
   const closed: string[] = []
   const dialogs: DialogArgs[] = []
   const order: string[] = []
-  const dismissals: Deferred<void>[] = []
-  const dialogClosed: number[] = []
+  const promptSettlements: PairingPromptTerminalOutcome[] = []
+  const prompts: Array<{
+    live: boolean
+    terminal: Deferred<PairingPromptTerminalOutcome>
+  }> = []
   const released: string[] = []
-  let authenticated: { sealer: EnvelopeSealer; opener: EnvelopeOpener } | null =
-    null
+  let authenticated: {
+    channel: { sealer: EnvelopeSealer; opener: EnvelopeOpener }
+    credentialId: string
+  } | null = null
 
   const replay = new TicketReplayCache()
   const replayAdd = vi.spyOn(replay, 'add').mockImplementation(function (
@@ -165,16 +180,24 @@ function makeHarness(opts: HarnessOptions = {}) {
       order.push('release')
       released.push(origin)
     }),
-    queueDialog: vi.fn((args: DialogArgs) => {
+    queueDialog: vi.fn((args: DialogArgs): PairingPromptEnqueueResult => {
       order.push('queueDialog')
       dialogs.push(args)
-      const d = deferred<void>()
-      dismissals.push(d)
-      const index = dismissals.length - 1
+      if (opts.enqueueFailure !== undefined) {
+        return { ok: false, reason: opts.enqueueFailure }
+      }
+      const terminal = deferred<PairingPromptTerminalOutcome>()
+      const record = { live: true, terminal }
+      prompts.push(record)
+      const index = prompts.length - 1
       return {
-        dismissed: d.promise,
-        close: () => {
-          dialogClosed.push(index)
+        ok: true,
+        handle: {
+          promptId: `prompt-${index + 1}`,
+          published: opts.published ?? Promise.resolve('delivered'),
+          terminal: terminal.promise,
+          settle: (outcome: PairingPromptSessionOutcome) =>
+            settlePrompt(index, outcome),
         },
       }
     }),
@@ -189,9 +212,9 @@ function makeHarness(opts: HarnessOptions = {}) {
     close: (reason: string) => {
       closed.push(reason)
     },
-    onAuthenticated: (channel) => {
+    onAuthenticated: (channel, credentialId) => {
       order.push('onAuthenticated')
-      authenticated = channel
+      authenticated = { channel, credentialId }
     },
     now: opts.now ?? (() => T0),
     random: opts.random ?? ((n: number) => new Uint8Array(randomBytes(n))),
@@ -207,12 +230,12 @@ function makeHarness(opts: HarnessOptions = {}) {
     closed,
     dialogs,
     order,
-    dismissals,
-    dialogClosed,
+    promptSettlements,
     released,
     replayAdd,
     offerProvisional,
     commitFromPair,
+    settlePrompt,
     get authenticated() {
       return authenticated
     },
@@ -231,6 +254,20 @@ function makeHarness(opts: HarnessOptions = {}) {
     error(): PairErrorFrame {
       return this.lastSent() as unknown as PairErrorFrame
     },
+  }
+
+  function settlePrompt(
+    index: number,
+    outcome: PairingPromptTerminalOutcome
+  ): PairingPromptSettleResult {
+    const prompt = prompts[index]
+    if (prompt === undefined || !prompt.live) {
+      return { ok: false, reason: 'unavailable' }
+    }
+    prompt.live = false
+    promptSettlements.push(outcome)
+    prompt.terminal.resolve(outcome)
+    return { ok: true, outcome }
   }
 }
 
@@ -508,6 +545,7 @@ describe('PairSession', () => {
       )
 
       expect(h.authenticated).not.toBeNull()
+      expect(h.authenticated?.credentialId).toBe('cred-1111-2222-3333')
       expect(h.order.indexOf('onAuthenticated')).toBeGreaterThan(
         h.order.lastIndexOf('sendBinary')
       )
@@ -823,7 +861,7 @@ describe('PairSession', () => {
       expect(h.error()).toEqual({ type: 'pairError', code: 'rateLimited' })
       expect(h.closed).toHaveLength(1)
       expect(h.session.attemptCount).toBe(3)
-      expect(h.dialogClosed).toEqual([0])
+      expect(h.promptSettlements).toEqual(['aborted'])
 
       // The code is dead: even the right one cannot start another run.
       const right = new ClientDouble({ code })
@@ -974,7 +1012,7 @@ describe('PairSession', () => {
 
       h.session.dispose('socket-closed')
       expect(h.session.attemptCount).toBe(1)
-      expect(h.dialogClosed).toEqual([0])
+      expect(h.promptSettlements).toEqual(['aborted'])
     })
 
     it('does not consume an attempt for a session that never reached pakeA', async () => {
@@ -993,10 +1031,97 @@ describe('PairSession', () => {
       expect(h.sent).toEqual([
         { type: 'pairAccept', protocolVersion: 1, instanceId: INSTANCE_ID },
       ])
-      expect(h.dialogClosed).toEqual([])
+      expect(h.promptSettlements).toEqual([])
       expect(h.order.indexOf('queueDialog')).toBeLessThan(
         h.order.indexOf('sendText')
       )
+    })
+  })
+
+  describe('prompt adapter fail-closed boundary', () => {
+    it('sends pairAccept only after the shell confirms prompt publication', async () => {
+      const publication = deferred<PairingPromptCallbackStatus>()
+      const h = makeHarness({ published: publication.promise })
+      const handling = h.text(helloFrame())
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(h.sent).toEqual([])
+      publication.resolve('delivered')
+      await handling
+
+      expect(h.sent).toEqual([
+        { type: 'pairAccept', protocolVersion: 1, instanceId: INSTANCE_ID },
+      ])
+    })
+
+    it.each([
+      'duplicate',
+      'capacity',
+      'disposed',
+      'invalid-origin',
+      'scheduling-failed',
+    ] as const)(
+      'collapses an enqueue %s refusal to pairingFailed',
+      async (enqueueFailure) => {
+        const h = makeHarness({ enqueueFailure })
+
+        await h.text(helloFrame())
+
+        expect(h.error()).toEqual({
+          type: 'pairError',
+          code: 'pairingFailed',
+        })
+        expect(h.closed).toHaveLength(1)
+        expect(h.promptSettlements).toEqual([])
+        expect(h.released).toEqual([ORIGIN])
+      }
+    )
+
+    it.each(['failed', 'not-configured'] as const)(
+      'closes generically when prompt publication is %s',
+      async (status) => {
+        const h = makeHarness({ published: Promise.resolve(status) })
+
+        await h.text(helloFrame())
+
+        expect(h.sent).toEqual([{ type: 'pairError', code: 'pairingFailed' }])
+        expect(h.promptSettlements).toEqual(['aborted'])
+        expect(h.closed).toHaveLength(1)
+      }
+    )
+
+    it('contains a rejected publisher without leaking its error or hanging', async () => {
+      const h = makeHarness({
+        published: Promise.reject(
+          new Error(`publisher-secret:${PAIR_NONCE}:1234-5678`)
+        ),
+      })
+
+      await h.text(helloFrame())
+
+      expect(h.sent).toEqual([{ type: 'pairError', code: 'pairingFailed' }])
+      expect(JSON.stringify(h.sent)).not.toContain('publisher-secret')
+      expect(JSON.stringify(h.sent)).not.toContain(PAIR_NONCE)
+      expect(h.promptSettlements).toEqual(['aborted'])
+    })
+
+    it('does not emit pairAccept after teardown wins a pending publication', async () => {
+      const publication = deferred<PairingPromptCallbackStatus>()
+      const h = makeHarness({ published: publication.promise })
+      const handling = h.text(helloFrame())
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(h.dialogs).toHaveLength(1)
+      expect(h.sent).toEqual([])
+      h.session.dispose('socket-closed')
+      publication.resolve('delivered')
+      await handling
+
+      expect(h.sent).toEqual([])
+      expect(h.promptSettlements).toEqual(['aborted'])
+      expect(h.released).toEqual([ORIGIN])
     })
   })
 
@@ -1013,7 +1138,7 @@ describe('PairSession', () => {
 
       expect(h.error()).toEqual({ type: 'pairError', code: 'expired' })
       expect(h.closed).toHaveLength(1)
-      expect(h.dialogClosed).toEqual([0])
+      expect(h.promptSettlements).toEqual(['aborted'])
     })
 
     it('still accepts a run that starts inside the window', async () => {
@@ -1041,18 +1166,29 @@ describe('PairSession', () => {
     })
   })
 
-  describe('scenario 8: dialog dismissal', () => {
-    it('aborts and closes when the user dismisses the dialog', async () => {
-      const h = makeHarness()
-      await openSession(h)
+  describe('scenario 8: prompt terminal outcome mapping', () => {
+    it.each([
+      ['denied', 'denied'],
+      ['expired', 'expired'],
+      ['aborted', 'aborted'],
+    ] as const)(
+      'maps controller %s to wire %s before confirmation',
+      async (terminal, wire) => {
+        const h = makeHarness()
+        await openSession(h)
 
-      h.dismissals[0].resolve()
-      await Promise.resolve()
-      await Promise.resolve()
+        expect(h.settlePrompt(0, terminal)).toEqual({
+          ok: true,
+          outcome: terminal,
+        })
+        await Promise.resolve()
+        await Promise.resolve()
 
-      expect(h.error()).toEqual({ type: 'pairError', code: 'aborted' })
-      expect(h.closed).toHaveLength(1)
-    })
+        expect(h.error()).toEqual({ type: 'pairError', code: wire })
+        expect(h.closed).toHaveLength(1)
+        expect(h.promptSettlements).toEqual([terminal])
+      }
+    )
 
     it('ignores a dismissal that arrives after the pairing already succeeded', async () => {
       const h = makeHarness()
@@ -1061,12 +1197,33 @@ describe('PairSession', () => {
       await runHandshake(h, client)
 
       const before = h.sent.length
-      h.dismissals[0].resolve()
+      expect(h.settlePrompt(0, 'denied')).toEqual({
+        ok: false,
+        reason: 'unavailable',
+      })
       await Promise.resolve()
       await Promise.resolve()
 
       expect(h.sent).toHaveLength(before)
       expect(h.closed).toEqual([])
+    })
+
+    it('lets denial win a same-turn confirm race without sending confirmB', async () => {
+      const h = makeHarness()
+      const code = await openSession(h)
+      const client = new ClientDouble({ code })
+      await h.text(client.pakeA())
+      const confirmA = client.confirmA(h.lastSent())
+
+      expect(h.settlePrompt(0, 'denied')).toEqual({
+        ok: true,
+        outcome: 'denied',
+      })
+      await h.text(confirmA)
+
+      expect(h.sent.some((frame) => frame.type === 'confirmB')).toBe(false)
+      expect(h.error()).toEqual({ type: 'pairError', code: 'denied' })
+      expect(h.closed).toHaveLength(1)
     })
   })
 
@@ -1100,19 +1257,19 @@ describe('PairSession', () => {
       // Released at confirmation, not at socket close: a paired connection
       // lives for hours, and three of them would otherwise block every dialog.
       expect(h.released).toEqual([ORIGIN])
-      expect(h.dialogClosed).toEqual([0])
+      expect(h.promptSettlements).toEqual(['paired'])
 
       h.session.dispose('socket-closed')
       expect(h.released).toEqual([ORIGIN])
-      // The dialog is closed exactly once too: `PairDialogHandle.close` is not
-      // required to be idempotent, and confirmation + dispose both reach it.
-      expect(h.dialogClosed).toEqual([0])
+      // The explicit terminal handle is settled exactly once: confirmation
+      // wins with `paired`, so later socket disposal cannot relabel it.
+      expect(h.promptSettlements).toEqual(['paired'])
     })
 
     it('frees the pending slot when the session ends without pairing', async () => {
       for (const end of [
         async (h: Harness) => {
-          h.dismissals[0].resolve()
+          h.settlePrompt(0, 'denied')
           await Promise.resolve()
           await Promise.resolve()
         },
@@ -1277,21 +1434,18 @@ describe('PairSession', () => {
       expect(h.closed).toHaveLength(1)
     })
 
-    it('reports a non-ASCII verified origin as pairingFailed', async () => {
-      // `enc()` refuses a non-ASCII string (§2), which would otherwise throw
-      // out of the frame handler while building A_id.
-      //
-      // Uses a Firefox origin throughout rather than declaring `firefox` over a
-      // `chrome-extension://` one. The old version did the latter to skip the
-      // Chromium origin/claimedId check and reach `enc()` — which is exactly
-      // the bypass that check now refuses, so the test was quietly relying on
-      // the defect it sat next to.
+    it('rejects a non-ASCII verified origin at the identity boundary', async () => {
+      // Raw Origin bytes must exactly match canonical `scheme//host`; allowing
+      // WHATWG's Unicode/percent normalization would create identity aliases.
       const h = makeHarness({
         browser: 'firefox',
         verifiedOrigin: 'moz-extension://ídentity',
       })
       await h.text(helloFrame({ browser: 'firefox' }))
-      expect(h.error()).toEqual({ type: 'pairError', code: 'pairingFailed' })
+      expect(h.error()).toEqual({
+        type: 'pairError',
+        code: 'protocolViolation',
+      })
       expect(h.dialogs).toHaveLength(0)
     })
 

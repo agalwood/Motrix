@@ -18,6 +18,13 @@ const DEFAULT_MAX_OUTSTANDING = 32
 const DEFAULT_RATE_PER_MINUTE = 60
 const DEFAULT_PER_ORIGIN_PER_MINUTE = 10
 const RATE_WINDOW_MS = 60_000
+export const MBP1_PAIR_NONCE_BYTES = 16
+const CANONICAL_MBP1_PAIR_NONCE = /^[A-Za-z0-9_-]{21}[AQgw]$/u
+
+/** Canonical unpadded base64url encoding of the 16-byte §4.2 nonce. */
+export function isCanonicalMbp1PairNonce(value: unknown): value is string {
+  return typeof value === 'string' && CANONICAL_MBP1_PAIR_NONCE.test(value)
+}
 
 export interface NonceServiceOptions {
   /** Nonce lifetime. Default 60s (§4.2). */
@@ -101,7 +108,10 @@ export class NonceService {
       this.originIssueTimes.set(verifiedOrigin, recentOrigin)
     }
 
-    const nonce = toBase64Url(randomBytes(16))
+    const nonce = toBase64Url(randomBytes(MBP1_PAIR_NONCE_BYTES))
+    if (!isCanonicalMbp1PairNonce(nonce)) {
+      throw new Error('mbp1 nonce generation failed')
+    }
     this.nonces.set(nonce, t + this.ttlMs)
     return { nonce, ttlSeconds: Math.floor(this.ttlMs / 1000) }
   }

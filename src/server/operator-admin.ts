@@ -31,6 +31,10 @@ const MAX_CLIENT_NAME_LENGTH = 80
 const MAX_CLIENT_VERSION_LENGTH = 32
 
 type PendingCliRequest = Extract<PendingPairRequestInfo, { kind: 'cli' }>
+type PendingExtensionRequest = Extract<
+  PendingPairRequestInfo,
+  { kind: 'extension' }
+>
 type Translate = (
   key: string,
   values?: Readonly<Record<string, string | number>>
@@ -48,7 +52,34 @@ const pendingCliRequestSchema: z.ZodType<PendingCliRequest> = z
   })
   .strict()
 
-const pendingResponseSchema = z.array(pendingCliRequestSchema).max(1_000)
+const pendingExtensionRequestSchema: z.ZodType<PendingExtensionRequest> = z
+  .object({
+    kind: z.literal('extension'),
+    pairingNonce: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
+    extensionId: z.string().min(1).max(256),
+    browser: z.enum(['chromium', 'firefox']),
+    identity: z.enum(['official', 'attested-non-official', 'unverified']),
+    code: z.string().regex(WIRE_USER_CODE_PATTERN),
+    verifiedOrigin: z.string().min(1).max(512).optional(),
+    originHost: z.string().min(1).max(256).optional(),
+    claimedExtensionId: z.string().min(1).max(256).optional(),
+    attestationClass: z
+      .enum(['official', 'attested-non-official', 'unverified'])
+      .optional(),
+    publicAuthority: z.string().min(1).max(512).optional(),
+    createdAt: z.number().int().nonnegative(),
+    expiresAt: z.number().int().nonnegative(),
+  })
+  .strict()
+
+const pendingPairRequestSchema: z.ZodType<PendingPairRequestInfo> = z.union([
+  pendingCliRequestSchema,
+  pendingExtensionRequestSchema,
+])
+
+const pendingResponseSchema: z.ZodType<PendingPairRequestInfo[]> = z
+  .array(pendingPairRequestSchema)
+  .max(1_000)
 
 const resolvePairResultSchema: z.ZodType<ResolvePairResult> =
   z.discriminatedUnion('ok', [
@@ -521,7 +552,14 @@ async function listPendingRequests(
         OperatorAdminErrorCode.PendingResponseInvalid
       )
     }
-    return parsed.data
+    // `motrix-admin` is intentionally CLI-only: Extension pairing approval is
+    // code-entry in the browser, not an operator allow/deny action. Validate
+    // the complete renderer-safe union first so a malformed Server response
+    // still fails closed, then project only CLI rows. In particular, never
+    // print or match an Extension's PAKE code.
+    return parsed.data.filter(
+      (request): request is PendingCliRequest => request.kind === 'cli'
+    )
   }
 
   throw new OperatorAdminError(

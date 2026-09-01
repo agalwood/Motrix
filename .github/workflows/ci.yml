@@ -520,6 +520,15 @@ jobs:
             }
           }
 
+      - name: Verify staged Windows aria2 WebSocket contract
+        if: matrix.platform == 'win32'
+        env:
+          MOTRIX_ARIA2_TEST_BIN: ${{ matrix.resources_dir }}/extra/win32/${{ matrix.arch }}/aria2c.exe
+        run: >-
+          pnpm exec vitest run
+          src/core/engine/aria2/engine-websocket-contract.integration.test.ts
+          --reporter=verbose
+
       - name: Upload Electron size report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

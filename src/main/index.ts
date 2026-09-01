@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
@@ -288,6 +290,13 @@ const settingsFlatpakEnvironment =
 const defaultSaveDirOptions = resolveDefaultSaveDirOptions({
   snapEnvironment: settingsSnapEnvironment,
   getSystemDownloadsDir: () => app.getPath('downloads'),
+  getHomeDir: homedir,
+  ensureDirectory: (directory) => mkdirSync(directory, { recursive: true }),
+  onSystemDownloadsDirError: (error, fallbackDir) =>
+    log.warn(
+      { err: error, fallbackDir },
+      'system downloads directory unavailable; using home fallback'
+    ),
 })
 const cliToolService = new CliToolService({
   directInstallSupported:
@@ -2198,6 +2207,11 @@ async function initializeMainProcess(): Promise<void> {
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
     })
+    const bridgeDataDirLockRecoveryAuthority =
+      launcher.bridgeDataDirLockRecoveryAuthority
+    if (bridgeDataDirLockRecoveryAuthority === null) {
+      throw new Error('bridge single-instance ownership unavailable')
+    }
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
     // SessionManager.restore() and the poll loop share the exact same root.
     return bootstrapBridge({
@@ -2209,6 +2223,7 @@ async function initializeMainProcess(): Promise<void> {
       // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
       // takes effect without a full app restart.
       bridgeSettings: settingsManager.get().bridge,
+      bridgeDataDirLockRecoveryAuthority,
       eventBus,
       createTaskDeps,
       activityRecorder: activeTaskActivityService,

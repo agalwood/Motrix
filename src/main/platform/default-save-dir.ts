@@ -8,6 +8,9 @@ export interface DefaultSaveDirOptionsInput {
     'instanceName' | 'realHome'
   > | null
   getSystemDownloadsDir: () => string
+  getHomeDir: () => string
+  ensureDirectory: (directory: string) => void
+  onSystemDownloadsDirError?: (error: unknown, fallbackDir: string) => void
 }
 
 export interface DefaultSaveDirOptions {
@@ -19,9 +22,19 @@ export interface DefaultSaveDirOptions {
 export function resolveDefaultSaveDirOptions({
   snapEnvironment,
   getSystemDownloadsDir,
+  getHomeDir,
+  ensureDirectory,
+  onSystemDownloadsDirError,
 }: DefaultSaveDirOptionsInput): DefaultSaveDirOptions {
   if (snapEnvironment === null) {
-    return { defaultSaveDir: getSystemDownloadsDir() }
+    try {
+      return { defaultSaveDir: getSystemDownloadsDir() }
+    } catch (error) {
+      const fallbackDir = join(getHomeDir(), 'Downloads')
+      ensureDirectory(fallbackDir)
+      onSystemDownloadsDirError?.(error, fallbackDir)
+      return { defaultSaveDir: fallbackDir }
+    }
   }
 
   // Electron resolves Downloads from Snap's revision-scoped HOME. Strict

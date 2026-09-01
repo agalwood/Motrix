@@ -14,6 +14,13 @@ const PROXY_ENVIRONMENT_KEYS = new Set([
   'all_proxy',
   'no_proxy',
 ])
+const WINDOWS_OPENSSL_OVERRIDE_KEYS = new Set([
+  'openssl_conf',
+  'openssl_conf_include',
+  'openssl_engines',
+  'openssl_modules',
+  'openssl_ia32cap',
+])
 
 type Aria2CertificateSource = 'system' | 'bundled'
 
@@ -39,6 +46,16 @@ function withoutProxyEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   )
 }
 
+function withoutWindowsOpenSSLOverrides(
+  env: NodeJS.ProcessEnv
+): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      ([key]) => !WINDOWS_OPENSSL_OVERRIDE_KEYS.has(key.toLowerCase())
+    )
+  )
+}
+
 export class Aria2TrustStore {
   private readonly platform: NodeJS.Platform
   private readonly env: NodeJS.ProcessEnv
@@ -59,7 +76,15 @@ export class Aria2TrustStore {
     // Motrix's applied proxy policy must be the only source of aria2 routing.
     // aria2 otherwise imports protocol-specific proxy environment variables,
     // which can override both all-proxy and the metadata client's route.
-    const childEnvironment = withoutProxyEnvironment(this.env)
+    let childEnvironment = withoutProxyEnvironment(this.env)
+    if (this.platform === 'win32') {
+      // The bundled Windows engine statically links OpenSSL and its providers.
+      // Do not let a machine-wide OpenSSL installation replace its config,
+      // provider path, or CPU dispatch.  These overrides also affect aria2's
+      // WebSocket SHA-1 and RPC-secret HMAC, so inheriting them can break local
+      // RPC even when no HTTPS request is made.
+      childEnvironment = withoutWindowsOpenSSLOverrides(childEnvironment)
+    }
     if (this.platform !== 'linux') return childEnvironment
 
     if (this.env.SSL_CERT_FILE?.trim() || this.env.SSL_CERT_DIR?.trim()) {

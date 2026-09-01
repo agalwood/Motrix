@@ -1,6 +1,6 @@
 import { DeviceCodeService } from '@core/bridge/device-code-service'
 import type { PairedClient, PairingService } from '@core/bridge/pairing-service'
-import { BridgeCommands } from '@shared/protocol/bridge'
+import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -224,6 +224,80 @@ describe('device-code approval is gated by the operator (the Codex bypass)', () 
     })
     expect(ok.statusCode).toBe(200)
     expect(dc.poll(requestId).status).toBe('approved')
+    await app.close()
+  })
+
+  it('keeps an Extension pairing code behind operator auth and same-origin CSRF checks', async () => {
+    const extensionRequest = {
+      kind: 'extension' as const,
+      pairingNonce: 'n'.repeat(43),
+      extensionId: 'a'.repeat(32),
+      browser: 'chromium' as const,
+      identity: 'official' as const,
+      code: 'JKLM-NPQR',
+      createdAt: 1,
+      expiresAt: 2,
+    }
+    const app = await createApp({
+      commandHandlers: {},
+      queryHandlers: {},
+      bridgeQueryHandlers: {
+        [BridgeQueries.ListPendingPairRequests]: async () => [extensionRequest],
+      },
+      bridgeCommandHandlers: {
+        [BridgeCommands.ResolvePair]: async () => ({ ok: true }),
+      },
+      operatorAuth: { operatorToken: TOKEN },
+    })
+    const pendingUrl = `/rpc/query/${encodeURIComponent(
+      BridgeQueries.ListPendingPairRequests
+    )}`
+    const dismissUrl = `/rpc/command/${encodeURIComponent(
+      BridgeCommands.ResolvePair
+    )}`
+
+    const anonymous = await app.inject({ method: 'POST', url: pendingUrl })
+    expect(anonymous.statusCode).toBe(401)
+    expect(anonymous.body).not.toContain(extensionRequest.code)
+    expect(anonymous.headers['cache-control']).toBe('no-store')
+
+    const authorized = await app.inject({
+      method: 'POST',
+      url: pendingUrl,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { args: [] },
+    })
+    expect(authorized.statusCode).toBe(200)
+    expect(authorized.json()).toEqual([extensionRequest])
+    expect(authorized.headers['cache-control']).toBe('no-store')
+    expect(authorized.headers.pragma).toBe('no-cache')
+    expect(pendingUrl).not.toContain(extensionRequest.code)
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/rpc/auth/login',
+      payload: { token: TOKEN },
+    })
+    const crossOriginDismiss = await app.inject({
+      method: 'POST',
+      url: dismissUrl,
+      headers: {
+        cookie: sessionCookie(login),
+        origin: 'https://evil.example',
+        host: 'motrix.example',
+      },
+      payload: {
+        args: [
+          {
+            kind: 'extension',
+            pairingNonce: extensionRequest.pairingNonce,
+            extensionId: extensionRequest.extensionId,
+            browser: extensionRequest.browser,
+          },
+        ],
+      },
+    })
+    expect(crossOriginDismiss.statusCode).toBe(403)
     await app.close()
   })
 })

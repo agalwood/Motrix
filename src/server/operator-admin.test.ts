@@ -43,6 +43,30 @@ function request(
   }
 }
 
+function extensionRequest(
+  overrides: Partial<{
+    pairingNonce: string
+    extensionId: string
+    browser: 'chromium' | 'firefox'
+    identity: 'official' | 'attested-non-official' | 'unverified'
+    code: string
+    createdAt: number
+    expiresAt: number
+  }> = {}
+) {
+  return {
+    kind: 'extension' as const,
+    pairingNonce: 'n'.repeat(43),
+    extensionId: 'a'.repeat(32),
+    browser: 'chromium' as const,
+    identity: 'official' as const,
+    code: 'JKLM-NPQR',
+    createdAt: NOW - 500,
+    expiresAt: NOW + 59_500,
+    ...overrides,
+  }
+}
+
 function harness(
   fetchMock: ReturnType<typeof vi.fn>,
   overrides: AdminOptions = {}
@@ -252,6 +276,51 @@ describe('runOperatorAdmin', () => {
     })
     expect(output).not.toContain(REQUEST_ID)
     expect(output).not.toContain(TOKEN)
+  })
+
+  it('validates the pending union but prints only CLI requests', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse([extensionRequest(), request()]))
+    const h = harness(fetchMock)
+
+    await expect(
+      runOperatorAdmin(['pairing', 'pending', '--json'], h.options)
+    ).resolves.toBe(OperatorAdminExitCode.Success)
+
+    const output = h.stdout.join('')
+    expect(JSON.parse(output).requests).toHaveLength(1)
+    expect(output).toContain('ABCD-EFGH')
+    expect(output).not.toContain('JKLM-NPQR')
+    expect(output).not.toContain('extension')
+  })
+
+  it('reports no CLI requests when only Extension pairing is pending', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse([extensionRequest()]))
+    const h = harness(fetchMock)
+
+    await expect(
+      runOperatorAdmin(['pairing', 'pending'], h.options)
+    ).resolves.toBe(OperatorAdminExitCode.Success)
+    expect(h.stdout).toEqual(['No pending pairing requests.'])
+    expect(h.stdout.join('')).not.toContain('JKLM-NPQR')
+  })
+
+  it('fails closed on a malformed Extension row instead of silently dropping it', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse([extensionRequest({ browser: 'safari' as never })])
+      )
+    const h = harness(fetchMock)
+
+    await expect(
+      runOperatorAdmin(['pairing', 'pending'], h.options)
+    ).resolves.toBe(OperatorAdminExitCode.Server)
+    expect(h.stdout).toEqual([])
+    expect(h.stderr.join('')).not.toContain('JKLM-NPQR')
   })
 
   it('sanitizes and bounds untrusted client metadata in JSON output', async () => {
