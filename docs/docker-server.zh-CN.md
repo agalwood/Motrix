@@ -328,13 +328,25 @@ docker compose exec server motrix-admin pairing deny ABCD-EFGH
 approve-latest、approve-all、远程 endpoint 或 token 参数。Web 审批仍是正常
 路径；这个入口只用于 headless 或恢复场景下的本机 operator 操作。
 
-在可信 LAN 中可以使用明文 HTTP，Motrix 不会强制 HTTPS。通过公网或不可信 LAN 访问时，
-必须同时使用可信反向代理终止 TLS，并用防火墙保护 origin 端口。把 8080 作为 Web
+普通 Web 界面在可信 LAN 中可以使用明文 HTTP。远程浏览器扩展配对要求更严格，因为
+operator 页面会传输长期 operator token 和配对码。可信局域网若要直接使用 HTTP，必须
+同时显式设置：
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
+export MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true
+```
+
+Motrix 会继续启用 Origin/CSRF 和 Cookie 防护，打印高风险警告，并输出扩展应填写的准确
+Server 地址。公网或不可信 LAN 绝不能开启这个 HTTP 例外：路径上的攻击者仍可能读取
+operator token、配对码、session Cookie 和管理操作。此类网络必须同时使用可信反向代理
+终止 TLS，并用防火墙保护 origin 端口。把 8080 作为 Web
 origin，并保留 cookie、Authorization header 和流式响应。MDXP 是独立的 HTTP/SSE 服务：
 远程客户端还需要一个启用 TLS、指向 16801 的代理/upstream。只转发 8080 不会发布
 MDXP，只转发 16801 也不会提供审批界面。不应通过禁用配对来实现这些保护；远程
-CLI/agent 配对仍然是一项需要 operator 审批的正常流程。浏览器扩展的首次配对是桌面应用/
-native messaging flow，headless server 不提供该流程。
+CLI/agent 与浏览器扩展配对都仍然需要 operator 审批。
 
 ## 下载路径与插件
 
@@ -467,6 +479,9 @@ secret-store 状态和 FFmpeg 探测结果。
 | `MOTRIX_MDXP_HOST` | runtime：`127.0.0.1`；Compose：`0.0.0.0` | 容器内 MDXP listener，不是宿主发布地址 |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP 监听端口；`0` 表示不使用固定发布端口 |
 | `MOTRIX_PUBLIC_URL` | 未设置 | 显式设置的外部可访问 Web 审批 URL，不是 MDXP URL；不会默认为 localhost |
+| `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | 显式开启浏览器扩展使用的四条远程 MBP1 路由 |
+| `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | 未设置 | Motrix Extension 中应填写的准确 WS/WSS Server 地址 |
+| `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | 在可信局域网显式接受 operator 凭据和管理流量暴露风险；不可信网络绝不能开启 |
 | `MOTRIX_FFMPEG_PATH` | 自动探测 | 可选的 FFmpeg 绝对路径 |
 | `MOTRIX_HOST_LANGUAGE` | 系统设置 | Server/插件语言覆盖值 |
 | `LOG_LEVEL` | `info` | 输出到容器 stdout 的 Pino 日志级别 |

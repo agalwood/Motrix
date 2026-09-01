@@ -7,7 +7,13 @@ import {
   MBP1_CREDENTIALS_FILENAME,
   Mbp1CredentialStore,
 } from '../credential-store'
-import type { PairDialogHandle, PairDialogRequest } from '../mbp1/pair-session'
+import type { PairDialogRequest } from '../mbp1/pair-session'
+import type {
+  PairingPromptEnqueueResult,
+  PairingPromptSessionOutcome,
+  PairingPromptSettleResult,
+  PairingPromptTerminalOutcome,
+} from '../pairing-prompt-controller'
 import { type PairedClient, PairingService } from '../pairing-service'
 import type { TrustedExtensionRegistry } from '../trusted-extension-registry'
 
@@ -120,17 +126,36 @@ export interface FakeDialogs {
   latest(): PairDialogRequest
   /** The display code of the most recent request. */
   latestCode(): string
-  /** How many dialogs were closed by the server. */
+  /** How many prompts reached one explicit terminal outcome. */
   closed: number
-  /** Resolve the newest dialog's `dismissed`, as the user dismissing it. */
+  /** Settle the newest prompt as an operator denial. */
   dismissLatest(): void
-  queue(args: PairDialogRequest): PairDialogHandle
+  queue(args: PairDialogRequest): PairingPromptEnqueueResult
 }
 
 export function makeFakeDialogs(): FakeDialogs {
   const requests: PairDialogRequest[] = []
-  const dismissals: Array<() => void> = []
+  const prompts: Array<{
+    live: boolean
+    resolve: (outcome: PairingPromptTerminalOutcome) => void
+    terminal: Promise<PairingPromptTerminalOutcome>
+  }> = []
   const state = { closed: 0 }
+
+  const settle = (
+    index: number,
+    outcome: PairingPromptTerminalOutcome
+  ): PairingPromptSettleResult => {
+    const prompt = prompts[index]
+    if (prompt === undefined || !prompt.live) {
+      return { ok: false, reason: 'unavailable' }
+    }
+    prompt.live = false
+    state.closed += 1
+    prompt.resolve(outcome)
+    return { ok: true, outcome }
+  }
+
   return {
     requests,
     get closed() {
@@ -147,23 +172,29 @@ export function makeFakeDialogs(): FakeDialogs {
       return this.latest().code
     },
     dismissLatest() {
-      const dismiss = dismissals.at(-1)
-      if (!dismiss) {
+      const index = prompts.length - 1
+      if (index < 0) {
         throw new Error('no pairing dialog was queued')
       }
-      dismiss()
+      settle(index, 'denied')
     },
     queue(args) {
       requests.push(args)
-      let resolve!: () => void
-      const dismissed = new Promise<void>((done) => {
+      let resolve!: (outcome: PairingPromptTerminalOutcome) => void
+      const terminal = new Promise<PairingPromptTerminalOutcome>((done) => {
         resolve = done
       })
-      dismissals.push(resolve)
+      const index = prompts.length
+      prompts.push({ live: true, resolve, terminal })
       return {
-        dismissed,
-        close: () => {
-          state.closed += 1
+        ok: true,
+        handle: {
+          promptId: `fake-prompt-${index + 1}`,
+          published: Promise.resolve('delivered'),
+          terminal,
+          settle: (outcome: PairingPromptSessionOutcome) => {
+            return settle(index, outcome)
+          },
         },
       }
     },
@@ -192,7 +223,7 @@ export interface Mbp1TestWiring {
     appVersion: string
     credentials: Mbp1CredentialStore
     isOfficialId: (browser: Browser, id: string) => boolean
-    queueMbp1Dialog: (args: PairDialogRequest) => PairDialogHandle
+    queueMbp1Dialog: (args: PairDialogRequest) => PairingPromptEnqueueResult
   }
 }
 

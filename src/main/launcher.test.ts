@@ -51,14 +51,32 @@ describe('setupLauncher', () => {
 
   it('exits immediately if lock not acquired', () => {
     mockRequestLock.mockReturnValue(false)
-    setupLauncher(callbacks)
+    const handle = setupLauncher(callbacks)
     expect(mockExit).toHaveBeenCalledWith(0)
+    expect(handle.bridgeDataDirLockRecoveryAuthority).toBeNull()
+    expect(mockOn).not.toHaveBeenCalled()
   })
 
   it('returns handle with wasOpenedAtLogin and flushDeferred', () => {
     const handle = setupLauncher(callbacks)
     expect(typeof handle.wasOpenedAtLogin).toBe('boolean')
     expect(typeof handle.flushDeferred).toBe('function')
+    expect(handle.bridgeDataDirLockRecoveryAuthority).toEqual({
+      ownershipEpoch: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u),
+      assertExclusiveProcessOwnership: expect.any(Function),
+    })
+    expect(
+      handle.bridgeDataDirLockRecoveryAuthority?.assertExclusiveProcessOwnership()
+    ).toBe(true)
+  })
+
+  it('creates a fresh recovery epoch for each successful process ownership session', () => {
+    const first = setupLauncher(callbacks)
+    const second = setupLauncher(callbacks)
+
+    expect(first.bridgeDataDirLockRecoveryAuthority?.ownershipEpoch).not.toBe(
+      second.bridgeDataDirLockRecoveryAuthority?.ownershipEpoch
+    )
   })
 
   it('detects wasOpenedAtLogin on macOS', () => {

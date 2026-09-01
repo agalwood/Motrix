@@ -67,7 +67,7 @@ export const BridgeEvents = {
   Paired: 'bridge:paired',
   Revoked: 'bridge:revoked',
   Error: 'bridge:error',
-  /** A pending pair request (cli or extension) reached a final decision. */
+  /** A pending request reached a non-TTL terminal outcome. */
   PairRequestSettled: 'bridge:pairRequestSettled',
   /** A pending pair request lapsed past its TTL without a decision. */
   PairRequestExpired: 'bridge:pairRequestExpired',
@@ -89,6 +89,8 @@ export type PairedClientInfo =
       id: string
       browser: Browser
       name: string
+      identityTrust: IdentityTriState
+      status: 'ready' | 'cleanup-pending'
       pairedAt: number
       lastActiveAt: number | null
     }
@@ -124,6 +126,10 @@ export interface BridgeStatusInfo {
    *  `fixedPort`) was taken and the bridge fell back to an ephemeral port —
    *  extension port-probing can no longer find it. */
   degraded: boolean
+  /** Whether the durable Extension credential-to-management projection is
+   * healthy. `degraded` means Extension access has been gated for this run and
+   * the paired list must not be interpreted as complete. */
+  extensionPairingHealth: 'ready' | 'degraded'
   /** The persisted port policy (`BridgeSettings.fixedPort`) that produced
    *  `port`/`degraded`. */
   fixedPort: 'auto' | number
@@ -224,6 +230,13 @@ export type PendingPairRequestInfo =
       browser: Browser
       identity: IdentityTriState
       code: string
+      /** Server operator evidence. Optional because the Desktop shell does
+       * not have a public authority and keeps its existing prompt shape. */
+      verifiedOrigin?: string
+      originHost?: string
+      claimedExtensionId?: string
+      attestationClass?: IdentityTriState
+      publicAuthority?: string
       createdAt: number
       expiresAt: number
     }
@@ -253,10 +266,11 @@ export function pairRequestKey(
 }
 
 /** Payload for {@link BridgeEvents.PairRequestSettled}: a pending pair
- *  request (identified by {@link pairRequestKey}) reached a final decision. */
+ *  request (identified by {@link pairRequestKey}) reached a non-TTL terminal
+ *  outcome. `aborted` is transport/session teardown, never operator denial. */
 export interface PairRequestSettledPayload {
   key: string
-  outcome: 'allowed' | 'denied'
+  outcome: 'allowed' | 'denied' | 'aborted'
 }
 
 /** Payload for {@link BridgeEvents.PairRequestExpired}: a pending pair

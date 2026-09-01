@@ -176,10 +176,13 @@ docker compose exec server motrix-admin pairing pending
 docker compose exec server motrix-admin pairing approve ABCD-EFGH
 ```
 
-远程 CLI 和 agent 客户端通过 device-code flow 配对。浏览器扩展通过 native messaging
-与桌面应用配对；headless server 不提供浏览器扩展的首次配对。只应在可信 LAN 上
-直接使用 HTTP；通过公网或不可信 LAN 访问时，必须配置 TLS 反向代理，并用防火墙保护
-源端口。Docker Hub/GHCR 镜像与 tag 选择、群晖
+远程 CLI 和 agent 客户端通过 device-code flow 配对。设置
+`MOTRIX_REMOTE_EXTENSION_ENABLED=true`，并把扩展中要填写的 WS/WSS 地址设为
+`MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` 后，浏览器扩展也可以与 headless Server 配对。
+operator 默认仍要求 HTTPS；可信局域网若要直接使用 HTTP，还必须显式设置
+`MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`，启动日志会持续提示风险。公网或不可信
+LAN 绝不能开启该选项，必须配置 TLS 反向代理，并用防火墙保护源端口。
+Docker Hub/GHCR 镜像与 tag 选择、群晖
 DSM 7 和飞牛 fnOS 安装、目录所有权、端口、诊断与备份/升级说明见
 [Docker Server 部署指南](./docs/docker-server.zh-CN.md)。
 

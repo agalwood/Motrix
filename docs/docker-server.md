@@ -369,17 +369,30 @@ The command intentionally has no approve-latest, approve-all, remote endpoint,
 or token argument. Web approval remains available and is the normal path; this
 is an optional local operator path for headless or recovery deployments.
 
-Plain HTTP can be appropriate for a trusted LAN; Motrix does not force HTTPS.
-For Internet or untrusted-LAN access, TLS termination at a trusted reverse
-proxy **and** firewall protection for the origin ports are required. Proxy port
+Plain HTTP can be appropriate for the ordinary Web UI on a trusted LAN. Remote
+browser-Extension pairing is stricter because the operator UI carries a
+long-lived operator token and pairing codes. To enable it with direct LAN HTTP,
+set all four values explicitly:
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
+export MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true
+```
+
+Motrix then keeps Origin/CSRF and cookie protections active, emits a startup
+warning, and prints the exact Extension Server address. Do not enable this HTTP
+exception on the Internet or an untrusted LAN: the operator token, pairing
+codes, session cookies, and administrator traffic remain visible to an on-path
+attacker. For those networks, TLS termination at a trusted reverse proxy
+**and** firewall protection for the origin ports are required. Proxy port
 8080 as the Web origin and preserve cookies, authorization headers, and
 streaming responses. MDXP is a separate HTTP/SSE service: remote clients need a
 TLS-enabled proxy/upstream to port 16801 as well. Forwarding only port 8080 does
 not publish MDXP, and forwarding only 16801 does not serve the approval UI.
 These protections must not be implemented by disabling pairing; remote
-CLI/agent pairing remains an operator-approved workflow. First-time browser
-extension pairing is a desktop/native-messaging flow and is not offered by the
-headless server.
+CLI/agent and browser-Extension pairing remain operator-approved workflows.
 
 ## Download paths and plugins
 
@@ -522,6 +535,9 @@ detection.
 | `MOTRIX_MDXP_HOST` | runtime: `127.0.0.1`; Compose: `0.0.0.0` | MDXP listener inside the container, not the host publish address |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP listen port; `0` disables a stable published port |
 | `MOTRIX_PUBLIC_URL` | unset | Explicit externally reachable Web approval URL, not the MDXP URL; never defaults to localhost |
+| `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | Opt in to the four remote browser-Extension MBP1 routes |
+| `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | unset | Exact WS/WSS Server address entered in Motrix Extension |
+| `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | Explicitly accept exposed operator credentials and traffic on a trusted-LAN HTTP deployment; never use on an untrusted network |
 | `MOTRIX_FFMPEG_PATH` | auto-detect | Optional absolute FFmpeg path |
 | `MOTRIX_HOST_LANGUAGE` | system setting | Server/plugin locale override |
 | `LOG_LEVEL` | `info` | Pino log level written to container stdout |

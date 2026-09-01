@@ -1,5 +1,5 @@
+import { parseDevTrustedExtensions } from '@core/bridge/extension-identity-resolver'
 import { describe, expect, it } from 'vitest'
-import { parseDevTrustedExtensions } from './index'
 
 describe('parseDevTrustedExtensions', () => {
   it('returns an empty list when env var is unset', () => {

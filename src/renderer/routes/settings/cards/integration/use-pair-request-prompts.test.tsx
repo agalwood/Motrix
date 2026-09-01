@@ -194,6 +194,28 @@ describe('usePairRequestPrompts', () => {
     })
   })
 
+  it('never copies an Extension pairing code to the clipboard while presenting it', () => {
+    const writeText = vi.fn()
+    const originalClipboard = navigator.clipboard
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    try {
+      render(<Host />)
+      findListener(BridgeEvents.PairRequested)(EXT_A)
+      expect(
+        findAddCall('chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:n')
+      ).toBeDefined()
+      expect(writeText).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      })
+    }
+  })
+
   it('over-limit sanity: 4 pending requests synthesize 4 prompts', async () => {
     invokeMock.mockResolvedValueOnce([
       cliPending('REQ1'),
@@ -336,17 +358,20 @@ describe('usePairRequestPrompts', () => {
     expect(invokeMock).not.toHaveBeenCalled()
   })
 
-  it('backend settle closes the prompt silently, without sending a deny', () => {
-    render(<Host />)
-    findListener(BridgeEvents.PairRequested)(CLI_A)
-    invokeMock.mockClear()
-    findListener(BridgeEvents.PairRequestSettled)({
-      key: 'cli:A',
-      outcome: 'allowed',
-    })
-    expect(toastCloseMock).toHaveBeenCalledWith('cli:A')
-    expect(invokeMock).not.toHaveBeenCalled()
-  })
+  it.each(['allowed', 'denied', 'aborted'] as const)(
+    'backend %s settle closes the prompt silently, without sending a deny',
+    (outcome) => {
+      render(<Host />)
+      findListener(BridgeEvents.PairRequested)(CLI_A)
+      invokeMock.mockClear()
+      findListener(BridgeEvents.PairRequestSettled)({
+        key: 'cli:A',
+        outcome,
+      })
+      expect(toastCloseMock).toHaveBeenCalledWith('cli:A')
+      expect(invokeMock).not.toHaveBeenCalled()
+    }
+  )
 
   it('duplicate PairRequested events for one key produce exactly one add', () => {
     render(<Host />)
@@ -500,7 +525,7 @@ describe('usePairRequestPrompts', () => {
       expect(toastAddMock).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'error',
-          title: "Couldn't submit your decision — try again.",
+          title: 'Couldn’t submit your decision — try again.',
         })
       )
     )

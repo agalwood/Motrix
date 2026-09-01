@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+import type { BridgeDataDirLockRecoveryAuthority } from '@core/bridge/bridge-data-dir-lock'
 import { getLogger } from '@core/logger'
 import { app } from 'electron'
 
@@ -9,6 +11,8 @@ export interface LauncherCallbacks {
 
 export interface LauncherHandle {
   wasOpenedAtLogin: boolean
+  /** OS-level process ownership proof used only for bridge crash recovery. */
+  bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority | null
   flushDeferred: () => void
 }
 
@@ -47,7 +51,22 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   if (!gotLock) {
     log.info('another instance is running, exiting')
     app.exit(0)
+    return {
+      wasOpenedAtLogin: false,
+      bridgeDataDirLockRecoveryAuthority: null,
+      flushDeferred: () => undefined,
+    }
   }
+
+  // One unpredictable epoch for this successful Electron single-instance
+  // ownership session. A restarted process receives a different epoch, which
+  // lets the bridge distinguish crash residue from its own still-live handle.
+  const ownershipEpoch = randomBytes(32).toString('base64url')
+  const bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority =
+    Object.freeze({
+      ownershipEpoch,
+      assertExclusiveProcessOwnership: () => true,
+    })
 
   // Detect login launch
   let wasOpenedAtLogin = false
@@ -121,6 +140,7 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
 
   return {
     wasOpenedAtLogin,
+    bridgeDataDirLockRecoveryAuthority,
     flushDeferred() {
       flushed = true
       for (const url of pendingUrls) {

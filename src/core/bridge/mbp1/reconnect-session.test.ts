@@ -316,6 +316,7 @@ describe('ReconnectSession (§8)', () => {
       )
       expect(h.authenticated).not.toBeNull()
       expect(h.authenticated?.credential).toBe(promoted)
+      expect(h.authenticated?.credential.credentialId).toBe(CREDENTIAL_ID)
       expect(h.authenticated?.credential.state).toBe('committed')
 
       // Traffic keys derived per §8, proven by round-tripping through a
@@ -477,6 +478,7 @@ describe('ReconnectSession (§8)', () => {
       expect(h.promoteOnReconnect).not.toHaveBeenCalled()
       expect(h.lastSent().type).toBe('reconnectAccept')
       expect(h.authenticated?.credential).toBe(committed)
+      expect(h.authenticated?.credential.credentialId).toBe(CREDENTIAL_ID)
     })
   })
 

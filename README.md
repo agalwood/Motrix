@@ -187,9 +187,13 @@ docker compose exec server motrix-admin pairing approve ABCD-EFGH
 ```
 
 Remote CLI and agent clients pair through the device-code flow. Browser
-extensions pair with the desktop app through native messaging; first-time
-extension pairing is not provided by the headless server. Direct HTTP is
-appropriate only on a trusted LAN. Internet or untrusted-LAN access requires a
+extensions can pair with the headless Server when
+`MOTRIX_REMOTE_EXTENSION_ENABLED=true` and
+`MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` is the WS/WSS address entered in the
+Extension. HTTPS remains the default operator requirement. A direct trusted-LAN
+HTTP operator additionally requires
+`MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true` and produces a startup warning;
+never enable it on the Internet or an untrusted LAN. Internet access requires a
 TLS reverse proxy and firewall rules around the origin ports. See the
 [Docker Server deployment guide](./docs/docker-server.md) for ownership setup,
 Docker Hub/GHCR image and tag selection, DSM 7 and fnOS installation, ports,

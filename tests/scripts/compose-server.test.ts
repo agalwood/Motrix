@@ -18,6 +18,15 @@ const MDXP_BIND_IP = interpolation(`MOTRIX_MDXP_BIND_IP:-${LEGACY_BIND_IP}`)
 const HTTP_PORT = interpolation('MOTRIX_HTTP_PORT:-8080')
 const MDXP_PORT = interpolation('MOTRIX_MDXP_PUBLIC_PORT:-16801')
 const PUBLIC_URL = interpolation('MOTRIX_PUBLIC_URL:-')
+const REMOTE_EXTENSION_ENABLED = interpolation(
+  'MOTRIX_REMOTE_EXTENSION_ENABLED:-false'
+)
+const REMOTE_EXTENSION_PUBLIC_URL = interpolation(
+  'MOTRIX_REMOTE_EXTENSION_PUBLIC_URL:-'
+)
+const ALLOW_INSECURE_OPERATOR_HTTP = interpolation(
+  'MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP:-false'
+)
 const ARIA2_RPC_LISTEN_ALL = interpolation('MOTRIX_ARIA2_RPC_LISTEN_ALL:-false')
 
 function record(value: unknown, label: string): LooseRecord {
@@ -59,6 +68,7 @@ describe('NAS-importable Compose contract', () => {
       ])
       expect(service.environment).toEqual({
         MOTRIX_ALLOWED_SAVE_DIRS: '/downloads',
+        MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP: ALLOW_INSECURE_OPERATOR_HTTP,
         MOTRIX_ARIA2_RPC_LISTEN_ALL: ARIA2_RPC_LISTEN_ALL,
         MOTRIX_DATA_DIR: '/data',
         MOTRIX_DEFAULT_SAVE_DIR: '/downloads',
@@ -66,6 +76,8 @@ describe('NAS-importable Compose contract', () => {
         MOTRIX_MDXP_PORT: 16801,
         MOTRIX_PLUGIN_DIR: '/data/plugins',
         MOTRIX_PUBLIC_URL: PUBLIC_URL,
+        MOTRIX_REMOTE_EXTENSION_ENABLED: REMOTE_EXTENSION_ENABLED,
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: REMOTE_EXTENSION_PUBLIC_URL,
         MOTRIX_TEMP_DIR: '/data/tmp',
       })
     }
