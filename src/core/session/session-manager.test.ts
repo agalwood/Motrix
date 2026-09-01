@@ -2296,6 +2296,57 @@ describe('SessionManager', () => {
       }
     })
 
+    it('resumes a single-connection HTTP partial without a checkpoint at restore', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-http-no-checkpoint-single-')
+      )
+      const diskPath = path.join(tempDir, 'partial.bin.motrix')
+      const bytes = Buffer.from('sequential-prefix-bytes')
+      try {
+        fs.writeFileSync(diskPath, bytes)
+        seedAsPair(db, {
+          motrixId: 'm-http-no-checkpoint-single',
+          gid: 'lost-http-no-checkpoint-single',
+          name: 'partial.bin',
+          diskPath,
+          finalPath: path.join(tempDir, 'partial.bin'),
+          finalName: 'partial.bin',
+          uris: ['https://example.com/partial.bin'],
+          status: TaskStatus.Downloading,
+          payload: {
+            directReplay: {
+              version: 1,
+              requestModifiers: [],
+              replayability: 'uri-only',
+              connections: 1,
+            },
+          },
+        })
+        ;(
+          adapter.createDownload as ReturnType<typeof vi.fn>
+        ).mockImplementation(async ({ gid }: { gid?: string }) => gid ?? '')
+
+        await sessionManager.restore()
+
+        // A single-connection partial is a valid contiguous prefix: restore
+        // resumes it in place instead of Error-marking or discarding it.
+        expect(adapter.createDownload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            saveDir: tempDir,
+            filename: 'partial.bin.motrix',
+            resumePolicy: 'sequential-prefix',
+            connections: 1,
+          })
+        )
+        expect(taskManager.getById('m-http-no-checkpoint-single')).toMatchObject({
+          status: TaskStatus.Downloading,
+        })
+        expect(fs.readFileSync(diskPath)).toEqual(bytes)
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
     it('does not replay a direct task whose request credentials were not persisted', async () => {
       seedAsPair(db, {
         motrixId: 'm-http-credentials',

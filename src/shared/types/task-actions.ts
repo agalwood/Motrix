@@ -158,8 +158,12 @@ export function canRetryMagnetMetadata(t: DownloadTask): boolean {
 
 export type TaskRetryKind = 'torrent-readd' | 'direct-readd' | 'magnet-metadata'
 
+// Recovery errors that need new credentials or an explicit safe restart are
+// also excluded from the generic direct retry surface. `resumeCheckpointMissing`
+// is deliberately NOT here: re-add now recovers a checkpoint-less partial by
+// sequential-resume (single connection) or a clean restart (multi-connection),
+// so a task marked with that key must stay retryable.
 const NON_RETRYABLE_DIRECT_RECOVERY_ERRORS = new Set([
-  'task.recovery.startup.resumeCheckpointMissing',
   'task.recovery.startup.resumeCredentialsRequired',
   'task.recovery.startup.resumePathInvalid',
   'task.recovery.startup.resumeSourceChanged',

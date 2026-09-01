@@ -293,6 +293,7 @@ export function buildServerCommandHandlers(
     eventBus,
     log,
     torrentMetaStore,
+    fileCleanupService,
     persistTask,
     recordTransition,
     runTaskMutation,

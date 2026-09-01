@@ -1200,12 +1200,25 @@ export class SessionManager {
       if (plan.kind === 'finalization-candidate') {
         return this.promoteDirectFinalizationCandidate(pair)
       }
-      if (plan.kind === 'blocked') {
+      // A non-empty partial without an aria2 checkpoint is the NORMAL state
+      // when the engine persists resume state in SQLite (the default
+      // --enable-sqlite3-persistence=true mode never writes .aria2 control
+      // files), not a corruption signal. A single-connection partial is a
+      // valid contiguous prefix and restores by sequential resume; a
+      // multi-connection partial cannot be integrity-verified, so it stays a
+      // recoverable Error and the Retry action restarts it.
+      const unverifiablePartial =
+        plan.kind === 'blocked' && plan.reason === 'checkpoint-missing'
+      if (plan.kind === 'blocked' && !unverifiablePartial) {
         return this.markRecoverErrorFromPair(
           pair,
-          plan.reason === 'checkpoint-missing'
-            ? 'task.recovery.startup.resumeCheckpointMissing'
-            : 'task.recovery.startup.resumePathInvalid'
+          'task.recovery.startup.resumePathInvalid'
+        )
+      }
+      if (unverifiablePartial && recipe?.connections !== 1) {
+        return this.markRecoverErrorFromPair(
+          pair,
+          'task.recovery.startup.resumeCheckpointMissing'
         )
       }
       if (
@@ -1223,7 +1236,7 @@ export class SessionManager {
       const resumePolicy =
         plan.kind === 'checkpoint'
           ? 'checkpoint'
-          : plan.reason === 'temp-file-empty'
+          : plan.reason === 'temp-file-empty' || unverifiablePartial
             ? 'sequential-prefix'
             : 'none'
       let ifRange: string | null = null

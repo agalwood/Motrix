@@ -468,6 +468,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     eventBus,
     log,
     torrentMetaStore,
+    fileCleanupService,
     persistTask,
     recordTransition,
     runTaskMutation,

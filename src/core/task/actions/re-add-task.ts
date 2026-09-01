@@ -33,6 +33,7 @@ import {
   type DirectResourceProxyOptionsProvider,
   DirectResourceValidatorService,
 } from '../direct-resource-validator'
+import type { FileCleanupService } from '../file-cleanup-service'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
@@ -44,6 +45,13 @@ export interface ReAddTaskDeps extends TaskActionDeps {
   directResourceValidator?: Pick<DirectResourceValidatorService, 'verify'>
   getDirectResourceProxyOptions?: DirectResourceProxyOptionsProvider
   directResourceProxyPolicy?: AppliedDownloadProxyPolicyReader
+  /**
+   * Remover used to discard an unverifiable partial before restarting a
+   * multi-connection direct download from scratch (`checkpoint-missing`).
+   * Both shells wire their `FileCleanupService`; absent at a call site, the
+   * restart path refuses rather than letting aria2 trip over the stale file.
+   */
+  fileCleanupService?: FileCleanupService
 }
 
 async function bestEffortRemove(
@@ -183,7 +191,11 @@ async function buildDirectReAddParams(
   getProxyOptions: DirectResourceProxyOptionsProvider,
   assertProxyCurrent: (() => void) | undefined,
   metadataHeadersSupported: boolean
-): Promise<Omit<CreateDownloadParams, 'gid'>> {
+): Promise<{
+  params: Omit<CreateDownloadParams, 'gid'>
+  /** The partial to discard before dispatch, or null when resuming in place. */
+  restartRequired: string | null
+}> {
   const primary = task.instances.find(
     (instance) => instance.phase === TaskInstancePhase.HttpDownload
   )
@@ -200,10 +212,22 @@ async function buildDirectReAddParams(
     primary,
     finalPath: task.finalPath,
   })
+
+  // A non-empty partial without an aria2 checkpoint (`checkpoint-missing`)
+  // cannot be integrity-verified: multi-connection downloads scatter pieces
+  // across the file, so resuming the "prefix" would corrupt it. When the
+  // replay recipe proves the original download used a single connection, the
+  // partial IS a valid contiguous prefix and sequential resume is safe.
+  // Otherwise the only safe action is discarding the partial and restarting.
+  const unverifiablePartial =
+    plan.kind === 'blocked' && plan.reason === 'checkpoint-missing'
+  const singleConnectionPartial =
+    unverifiablePartial && recipe.connections === 1
+
   if (
-    plan.kind === 'blocked' ||
     plan.kind === 'invalid' ||
     plan.kind === 'finalization-candidate' ||
+    (plan.kind === 'blocked' && !unverifiablePartial) ||
     !plan.saveDir ||
     !plan.filename
   ) {
@@ -264,24 +288,28 @@ async function buildDirectReAddParams(
   }
 
   return {
-    uris: primary.uris,
-    saveDir: plan.saveDir,
-    filename: plan.filename,
-    connections: recipe.connections,
-    ...(plan.kind !== 'checkpoint' || metadataProfile === null
-      ? {}
-      : { directResourceMetadataProfile: metadataProfile }),
-    ...(requestOptions?.userAgent === undefined
-      ? {}
-      : { userAgent: requestOptions.userAgent }),
-    ...(ifRange ? { headers: { 'If-Range': ifRange } } : {}),
-    pause: false,
-    resumePolicy:
-      plan.kind === 'checkpoint'
-        ? 'checkpoint'
-        : plan.reason === 'temp-file-empty'
-          ? 'sequential-prefix'
-          : 'none',
+    params: {
+      uris: primary.uris,
+      saveDir: plan.saveDir,
+      filename: plan.filename,
+      connections: recipe.connections,
+      ...(plan.kind !== 'checkpoint' || metadataProfile === null
+        ? {}
+        : { directResourceMetadataProfile: metadataProfile }),
+      ...(requestOptions?.userAgent === undefined
+        ? {}
+        : { userAgent: requestOptions.userAgent }),
+      ...(ifRange ? { headers: { 'If-Range': ifRange } } : {}),
+      pause: false,
+      resumePolicy:
+        plan.kind === 'checkpoint'
+          ? 'checkpoint'
+          : plan.reason === 'temp-file-empty' || singleConnectionPartial
+            ? 'sequential-prefix'
+            : 'none',
+    },
+    restartRequired:
+      unverifiablePartial && !singleConnectionPartial ? plan.diskPath : null,
   }
 }
 
@@ -531,6 +559,15 @@ async function reAddTaskUnderMutation(
       'reAddTask: getEngineTaskOptions failed; falling back to task fields'
     )
   }
+  // Discarding an unverifiable partial is only possible when a cleanup
+  // service is wired. Refuse before the durable barrier rather than tripping
+  // over the stale file at engine dispatch.
+  if (directParams?.restartRequired && !deps.fileCleanupService) {
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      `Task ${taskId} cannot be retried safely: checkpoint-missing (file cleanup unavailable)`
+    )
+  }
   await bestEffortRemove(deps.adapter, task.engineTaskId, deps.log)
 
   const now = Date.now()
@@ -565,7 +602,18 @@ async function reAddTaskUnderMutation(
       await reAddBt(task, opts, deps, reservedGid, torrentMetadata)
     } else if (directParams) {
       assertProxyCurrent?.()
-      await deps.adapter.createDownload({ ...directParams, gid: reservedGid })
+      if (directParams.restartRequired && deps.fileCleanupService) {
+        // Discard the unverifiable partial (+ stale .aria2 sidecar) so aria2
+        // restarts from zero instead of erroring on the existing file.
+        await deps.fileCleanupService.cleanup(
+          directParams.restartRequired,
+          task.type
+        )
+      }
+      await deps.adapter.createDownload({
+        ...directParams.params,
+        gid: reservedGid,
+      })
     }
   } catch (error) {
     await handleFailedEngineAdd(

@@ -537,7 +537,6 @@ describe('canAttemptRetry', () => {
   })
 
   it.each([
-    'task.recovery.startup.resumeCheckpointMissing',
     'task.recovery.startup.resumeCredentialsRequired',
     'task.recovery.startup.resumePathInvalid',
   ])('does not offer a doomed direct retry for %s', (errorDetailKey) => {
@@ -552,6 +551,20 @@ describe('canAttemptRetry', () => {
     expect(canRebuildTaskInputs(task)).toBe(true)
     expect(getTaskRetryKind(task)).toBeNull()
     expect(canAttemptRetry(task)).toBe(false)
+  })
+
+  it('keeps a checkpoint-missing task retryable (re-add recovers it)', () => {
+    const task = makeTask({
+      kind: TaskKind.Direct,
+      type: TaskType.Http,
+      status: TaskStatus.Error,
+      errorDetailKey: 'task.recovery.startup.resumeCheckpointMissing',
+      instances: [directInstance('uri-only')],
+    })
+
+    expect(canRebuildTaskInputs(task)).toBe(true)
+    expect(getTaskRetryKind(task)).toBe('direct-readd')
+    expect(canAttemptRetry(task)).toBe(true)
   })
 
   it('does not offer metadata retry without a persisted magnet URI', () => {

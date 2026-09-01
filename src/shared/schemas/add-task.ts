@@ -48,7 +48,9 @@ const autoparserTabSchema = z.object({
     .max(128)
     .default(DEFAULT_ENGINE_SETTINGS.split),
   userAgent: z.string().optional(),
-  // Referer defaults to the parsed page URL at submit time (anti-hotlinking).
+  // Referer is forwarded only when the user explicitly enters one, matching
+  // the links tab. It is never auto-derived from the page URL — an
+  // implicit Referer would mark the task as non-replayable and disable Retry.
   referer: z.string().optional(),
   cookie: z.string().optional(),
   authorization: z.string().optional(),
@@ -281,9 +283,12 @@ export function formValuesToTaskCreateRequests(
 }
 
 /**
- * One http task per checked AutoParser link. The page URL becomes the
- * Referer (anti-hotlinking) unless the user overrode it; each task keeps
- * the filename extracted from the link so the save name matches the list.
+ * One http task per checked AutoParser link. Headers are forwarded exactly as
+ * the user entered them (mirroring the links tab): the page URL is never
+ * auto-injected as a Referer. An implicit Referer would persist a
+ * `requires-credentials` replay recipe and hide the Retry button for the
+ * page-parsed task — the same link added directly stays retryable, so the
+ * AutoParser task must too.
  */
 function autoparserValuesToTaskCreateRequests(
   v: Extract<AddTaskFormValues, { tab: 'autoparser' }>
@@ -291,7 +296,7 @@ function autoparserValuesToTaskCreateRequests(
   const byIndex = new Map(v.parseResult.links.map((l) => [l.index, l]))
   const headers = [
     ...compactHeader('User-Agent', v.userAgent),
-    ...compactHeader('Referer', trimmed(v.referer) ?? v.pageUrl),
+    ...compactHeader('Referer', v.referer),
     ...compactHeader('Cookie', v.cookie),
     ...compactHeader('Authorization', v.authorization),
   ]

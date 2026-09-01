@@ -101,6 +101,98 @@ describe('addTaskFormSchema', () => {
   })
 })
 
+describe('autoparser submission (formValuesToTaskCreateRequests)', () => {
+  const parseResult = {
+    pageUrl: 'https://example.com/models/foo/files',
+    finalUrl: 'https://example.com/models/foo/files',
+    title: 'Foo',
+    links: [
+      {
+        index: 0,
+        url: 'https://example.com/models/foo/resolve/main/model.bin',
+        filename: 'model.bin',
+        extension: '.bin',
+        size: null,
+      },
+      {
+        index: 1,
+        url: 'https://example.com/models/foo/resolve/main/other.bin',
+        filename: 'other.bin',
+        extension: '.bin',
+        size: null,
+      },
+    ],
+  }
+
+  it('creates one request per checked link', () => {
+    const reqs = formValuesToTaskCreateRequests({
+      tab: 'autoparser',
+      pageUrl: parseResult.pageUrl,
+      parseResult,
+      selectedLinks: [0, 1],
+      saveDir: '/d',
+      split: 5,
+    })
+    expect(reqs).toHaveLength(2)
+    expect(reqs[0]).toMatchObject({
+      type: 'http',
+      uris: ['https://example.com/models/foo/resolve/main/model.bin'],
+      filename: 'model.bin',
+    })
+    expect(reqs[1]).toMatchObject({
+      type: 'http',
+      uris: ['https://example.com/models/foo/resolve/main/other.bin'],
+      filename: 'other.bin',
+    })
+  })
+
+  it('does NOT auto-inject the page URL as a Referer (same as links tab)', () => {
+    const [req] = formValuesToTaskCreateRequests({
+      tab: 'autoparser',
+      pageUrl: parseResult.pageUrl,
+      parseResult,
+      selectedLinks: [0],
+      saveDir: '/d',
+      split: 5,
+    }) as Array<{ headers: Array<{ name: string; value: string }> }>
+    expect(req.headers).toEqual([])
+  })
+
+  it('forwards only user-entered headers', () => {
+    const [req] = formValuesToTaskCreateRequests({
+      tab: 'autoparser',
+      pageUrl: parseResult.pageUrl,
+      parseResult,
+      selectedLinks: [0],
+      saveDir: '/d',
+      split: 5,
+      userAgent: 'Mozilla/5.0',
+      referer: 'https://example.com/ref',
+      cookie: 'k=v',
+      authorization: 'Bearer x',
+    }) as Array<{ headers: Array<{ name: string; value: string }> }>
+    expect(req.headers).toEqual([
+      { name: 'User-Agent', value: 'Mozilla/5.0' },
+      { name: 'Referer', value: 'https://example.com/ref' },
+      { name: 'Cookie', value: 'k=v' },
+      { name: 'Authorization', value: 'Bearer x' },
+    ])
+  })
+
+  it('drops a blank explicit referer instead of falling back to the page URL', () => {
+    const [req] = formValuesToTaskCreateRequests({
+      tab: 'autoparser',
+      pageUrl: parseResult.pageUrl,
+      parseResult,
+      selectedLinks: [0],
+      saveDir: '/d',
+      split: 5,
+      referer: '   ',
+    }) as Array<{ headers: Array<{ name: string; value: string }> }>
+    expect(req.headers).toEqual([])
+  })
+})
+
 describe('taskCreateRequestSchema', () => {
   it('accepts minimal http request', () => {
     const result = taskCreateRequestSchema.safeParse({

@@ -93,6 +93,14 @@ function makeDeps(task: DownloadTask | undefined) {
     torrentMetaStore: {
       read: vi.fn().mockResolvedValue(new Uint8Array([0x64, 0x38])),
     } as unknown as TorrentMetaStore,
+    fileCleanupService: {
+      cleanup: vi.fn(async (diskPath: string) => {
+        // Mirror FileCleanupServiceImpl's HTTP contract: remove the partial
+        // and any stale .aria2 sidecar.
+        await fs.promises.rm(diskPath, { recursive: true, force: true })
+        await fs.promises.rm(`${diskPath}.aria2`, { recursive: true, force: true })
+      }),
+    },
     eventBus: { emit: vi.fn() } as unknown as EventBus,
     log: {
       info: vi.fn(),
@@ -729,9 +737,9 @@ describe('reAddTask (HTTP path)', () => {
     }
   })
 
-  it('rejects HTTP retry before engine mutation when a partial has no checkpoint', async () => {
+  it('restarts a multi-connection HTTP retry from scratch when a partial has no checkpoint', async () => {
     const tempDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'motrix-direct-blocked-')
+      path.join(os.tmpdir(), 'motrix-direct-restart-')
     )
     const diskPath = path.join(tempDir, 'file.zip.motrix')
     try {
@@ -749,13 +757,98 @@ describe('reAddTask (HTTP path)', () => {
         },
       }
       const deps = makeDeps(task)
+      const cleanup = deps.fileCleanupService.cleanup as ReturnType<
+        typeof vi.fn
+      >
+
+      await expect(reAddTask('t2', deps)).resolves.toBeUndefined()
+
+      // The unverifiable partial is discarded and the download restarts.
+      expect(cleanup).toHaveBeenCalledWith(diskPath, task.type)
+      expect(fs.existsSync(diskPath)).toBe(false)
+      expect(deps.adapter.createDownload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          saveDir: tempDir,
+          filename: 'file.zip.motrix',
+          resumePolicy: 'none',
+        })
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('resumes a single-connection HTTP partial without a checkpoint via sequential-prefix', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-seqprefix-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('prefix'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          connections: 1,
+        },
+      }
+      const deps = makeDeps(task)
+      const cleanup = deps.fileCleanupService.cleanup as ReturnType<
+        typeof vi.fn
+      >
+
+      await expect(reAddTask('t2', deps)).resolves.toBeUndefined()
+
+      // Single-connection partials are valid contiguous prefixes — resume in
+      // place, never discard.
+      expect(cleanup).not.toHaveBeenCalled()
+      expect(fs.readFileSync(diskPath)).toEqual(Buffer.from('prefix'))
+      expect(deps.adapter.createDownload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          saveDir: tempDir,
+          filename: 'file.zip.motrix',
+          resumePolicy: 'sequential-prefix',
+          connections: 1,
+        })
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a checkpoint-missing restart when no file cleanup service is wired', async () => {
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-nocleanup-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.from('partial'))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+        },
+      }
+      const deps = { ...makeDeps(task), fileCleanupService: undefined }
 
       await expect(reAddTask('t2', deps)).rejects.toMatchObject({
         code: ErrorCode.TaskNotRetryable,
       })
 
-      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
       expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
       expect(deps.persistTask).not.toHaveBeenCalled()
       expect(fs.readFileSync(diskPath)).toEqual(Buffer.from('partial'))
     } finally {

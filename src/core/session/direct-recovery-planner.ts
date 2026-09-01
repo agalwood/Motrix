@@ -159,6 +159,12 @@ export class DirectRecoveryPlanner {
           tempStat.size
         )
       }
+      // `checkpoint-missing` is NOT a corruption signal. The aria2_motrix fork
+      // with the default `--enable-sqlite3-persistence=true` persists resume
+      // state in aria2.db and never writes `.aria2` control files, so a
+      // non-empty partial without one is the expected post-failure state.
+      // Callers treat a single-connection partial as a valid contiguous prefix
+      // (sequential resume) and a multi-connection partial as restartable.
       return this.result(
         resolved,
         'blocked',
