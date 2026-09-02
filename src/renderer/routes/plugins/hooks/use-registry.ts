@@ -83,11 +83,10 @@ function toUpdatesMap(
 }
 
 /**
- * Registry update scan. `enabled` gates the whole surface to the Electron
- * shell — the server registers no CheckPluginUpdates handler, so the web
- * renderer must never invoke it. Mount-time check is cache-only inside the
- * client TTL; `refresh()` forces a conditional refetch AND re-pulls the
- * directory so the available-section and badges move together.
+ * Registry update scan. Both shells expose CheckPluginUpdates; the server
+ * returns community updates only because builtin overlays ship with a new
+ * container image. Mount-time check is cache-only inside the client TTL;
+ * `refresh()` forces a conditional refetch and re-pulls the directory.
  */
 export function useRegistryUpdates(enabled: boolean): {
   refreshing: boolean

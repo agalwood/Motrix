@@ -21,17 +21,14 @@ interface Props {
 
 /**
  * Detail view for a registry plugin that is not installed — the landing
- * surface of the motrix://plugins/<id> deeplink. On Electron the panel
- * installs through PluginInstallDialog's fixed-source mode (the §6.3
- * verified flow in the main process); incompatible entries render the
- * button disabled (viewable but not installable). On web it stays
- * browse-only with the pending copy.
+ * surface of the motrix://plugins/<id> deeplink. Both hosts install through
+ * PluginInstallDialog's fixed-source mode and their shell-owned verified
+ * registry flow; incompatible entries remain viewable but not installable.
  */
 export function RegistryDetailPanel({ entry }: Props) {
   const { t, i18n } = useTranslation()
   const services = usePlatformServices()
   const [installOpen, setInstallOpen] = useState(false)
-  const isElectron = services.kind === 'electron'
   const { name, description, features } = registryListing(
     entry.listing,
     i18n.language
@@ -87,17 +84,15 @@ export function RegistryDetailPanel({ entry }: Props) {
                   })}
                 </Badge>
               )}
-              {isElectron && (
-                <Button
-                  size="sm"
-                  disabled={!entry.compatible}
-                  onClick={() => setInstallOpen(true)}
-                  data-testid="registry-install-btn"
-                >
-                  <Download className="size-3.5" />
-                  {t('plugins.registry.install')}
-                </Button>
-              )}
+              <Button
+                size="sm"
+                disabled={!entry.compatible}
+                onClick={() => setInstallOpen(true)}
+                data-testid="registry-install-btn"
+              >
+                <Download className="size-3.5" />
+                {t('plugins.registry.install')}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -111,11 +106,6 @@ export function RegistryDetailPanel({ entry }: Props) {
                 {t('plugins.registry.viewOnWebsite')}
               </Button>
             </div>
-            {!isElectron && (
-              <p className="text-xs text-muted-foreground">
-                {t('plugins.registry.installPending')}
-              </p>
-            )}
           </Card>
 
           {features.length > 0 && (

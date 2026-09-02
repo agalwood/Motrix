@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   acquireBridgeDataDirLock,
+  type BridgeDataDirLockHandle,
   type BridgeDataDirLockRecoveryAuthority,
 } from '@core/bridge/bridge-data-dir-lock'
 import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
@@ -18,6 +19,10 @@ import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { resolveCliPair } from '@core/bridge/resolve-cli-pair'
 import { toPairedClientInfo } from '@core/bridge/to-paired-client-info'
 import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
+import {
+  type ResolveOptions,
+  UrlResolutionService,
+} from '@core/bridge/url-resolution-service'
 import {
   type MethodHandlers,
   WebSocketBridgeServer,
@@ -36,6 +41,7 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { Handler } from '@shared/protocol/handler-types'
+import { CancellationTokenSource } from 'vscode-jsonrpc'
 import {
   isIssuedRemoteExtensionConfig,
   type RemoteExtensionConfig,
@@ -73,6 +79,9 @@ export interface ServerBridgeOptions {
   userDataDir: string
   host: string
   port: number
+  /** Persisted bridge port policy. Isolated tests may omit it and fall back to
+   * the requested listener port. */
+  fixedPort?: BridgeStatusInfo['fixedPort']
   motrixVersion: string
   /** The process-lifetime core EventBus (for the SSE firehose + re-emitting
    *  bridge approval events so the web broadcaster forwards them). */
@@ -96,8 +105,13 @@ export interface ServerBridgeOptions {
   /** Production supplies an authority derived from the already-bound main
    * control-plane port. Omitted only by isolated tests with a fresh data dir. */
   bridgeDataDirLockRecoveryAuthority?: BridgeDataDirLockRecoveryAuthority
+  /** Process-lifetime lock supplied by the Server composition root. When
+   * present, this runtime borrows it and never releases it on restart. */
+  bridgeDataDirLock?: BridgeDataDirLockHandle
   /** Parser-issued all-or-nothing remote Extension configuration. */
   remoteExtensionConfig?: RemoteExtensionConfig
+  /** Preloaded process-lifetime registry supplied by ServerBridgeManager. */
+  trustedExtensionRegistry?: TrustedExtensionRegistry
   /** Required when remote Extension support is enabled. Absence keeps the
    * public MBP1 surface from starting instead of exposing a connect-only shell. */
   createExtensionReceiver?: (context: {
@@ -124,10 +138,14 @@ export async function bootstrapBridgeForServer(
   const dataDir = join(opts.userDataDir, 'bridge')
   await mkdir(dataDir, { recursive: true })
   const ownership = new BridgeOwnership()
-  const dataDirLock = await acquireBridgeDataDirLock(dataDir, {
-    recoverExisting: opts.bridgeDataDirLockRecoveryAuthority,
-  })
-  ownership.own('bridge-data-dir-lock', () => dataDirLock.release())
+  const dataDirLock =
+    opts.bridgeDataDirLock ??
+    (await acquireBridgeDataDirLock(dataDir, {
+      recoverExisting: opts.bridgeDataDirLockRecoveryAuthority,
+    }))
+  if (opts.bridgeDataDirLock === undefined) {
+    ownership.own('bridge-data-dir-lock', () => dataDirLock.release())
+  }
   try {
     const pairing = new PairingService(
       new FilePairingStore(join(dataDir, 'pairing.json'))
@@ -193,13 +211,15 @@ export async function bootstrapBridgeForServer(
       await extensionReceiver.restoreInflight()
     }
     let boundPort = opts.port
-    const registry = new TrustedExtensionRegistry(
-      new FileRegistryStoreAdapter(join(dataDir, 'registry.json')),
-      extensionMbp1 === null
-        ? []
-        : [...extensionMbp1.identityResolver.officialEntries]
-    )
-    await registry.load()
+    const registry =
+      opts.trustedExtensionRegistry ??
+      new TrustedExtensionRegistry(
+        new FileRegistryStoreAdapter(join(dataDir, 'registry.json')),
+        extensionMbp1 === null
+          ? []
+          : [...extensionMbp1.identityResolver.officialEntries]
+      )
+    if (opts.trustedExtensionRegistry === undefined) await registry.load()
 
     // Machine-owner Bearer token for the unary/SSE transports (same model as the
     // desktop). On a NAS it lives in endpoint.json (readable only on the host); a
@@ -291,6 +311,17 @@ export async function bootstrapBridgeForServer(
       await extensionMbp1.recoverBeforeListen()
     }
 
+    const urlResolution = new UrlResolutionService(() =>
+      Array.from(server.iterSessions())
+        .filter((session) => session.conn.isReady())
+        .map((session) => session.conn)
+    )
+    const inFlightResolves = new Map<string, CancellationTokenSource>()
+    ownership.own('url-resolutions', () => {
+      for (const cts of inFlightResolves.values()) cts.cancel()
+      inFlightResolves.clear()
+    })
+
     // bridge:* RPC handlers the web renderer reaches via /rpc/{command,query}.
     const bridgeCommandHandlers: Record<string, Handler> = {
       [BridgeCommands.ResolvePair]: async (
@@ -321,6 +352,24 @@ export async function bootstrapBridgeForServer(
         await pairing.revoke(params.identity, 'user-revoked')
         bridgeBus.emitRevoked({ identity: params.identity })
       },
+      [BridgeCommands.AddTrusted]: async (params: {
+        id: string
+        browser: 'chromium' | 'firefox'
+        label?: string
+      }) => {
+        await registry.add(
+          params.id,
+          params.browser,
+          'user-added',
+          params.label
+        )
+      },
+      [BridgeCommands.RemoveTrusted]: async (params: {
+        id: string
+        browser: 'chromium' | 'firefox'
+      }) => {
+        await registry.remove(params.id, params.browser)
+      },
     }
     const bridgeQueryHandlers: Record<string, Handler> = {
       [BridgeQueries.ListPaired]: async () => [
@@ -333,6 +382,23 @@ export async function bootstrapBridgeForServer(
         ...(extensionMbp1?.prompts.listPending() ?? []),
       ],
       [BridgeQueries.ListTrusted]: async () => registry.list(),
+      [BridgeQueries.ProbeUrl]: async (url: string) => urlResolution.probe(url),
+      [BridgeQueries.ResolveUrl]: async (
+        requestId: string,
+        url: string,
+        options: ResolveOptions = {}
+      ) => {
+        const cts = new CancellationTokenSource()
+        inFlightResolves.set(requestId, cts)
+        try {
+          return await urlResolution.resolve(url, options, cts.token)
+        } finally {
+          inFlightResolves.delete(requestId)
+        }
+      },
+      [BridgeQueries.CancelResolveUrl]: async (requestId: string) => {
+        inFlightResolves.get(requestId)?.cancel()
+      },
       [BridgeQueries.GetStatus]: async (): Promise<BridgeStatusInfo> => ({
         port: boundPort,
         degraded: false,
@@ -341,7 +407,7 @@ export async function bootstrapBridgeForServer(
           extensionMbp1.extensionPairings.getHealth() === 'ready'
             ? 'ready'
             : 'degraded',
-        fixedPort: opts.port,
+        fixedPort: opts.fixedPort ?? opts.port,
         instanceId: extensionMbp1?.instanceId ?? 'extension-mbp1-disabled',
       }),
     }

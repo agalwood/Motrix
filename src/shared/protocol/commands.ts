@@ -1,5 +1,4 @@
 export const Commands = {
-  CreateDownload: 'command:createDownload',
   PauseTask: 'command:pauseTask',
   ResumeTask: 'command:resumeTask',
   RemoveTask: 'command:removeTask',

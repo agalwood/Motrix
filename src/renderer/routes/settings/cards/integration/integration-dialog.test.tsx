@@ -100,6 +100,7 @@ import { IntegrationDialog } from './integration-dialog'
 
 describe('IntegrationDialog scaffold', () => {
   beforeEach(() => {
+    transport.platform = 'darwin'
     bridgeStatus.current = {
       port: 16802,
       degraded: false,
@@ -128,6 +129,25 @@ describe('IntegrationDialog scaffold', () => {
       screen.getByRole('heading', { name: /command-line tools/i })
     ).toBeTruthy()
     expect(screen.getByRole('heading', { name: /media tools/i })).toBeTruthy()
+  })
+
+  it('hides desktop protocol associations in the web client', async () => {
+    transport.platform = 'web'
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+
+    expect(
+      screen.queryByRole('heading', { name: /system protocols/i })
+    ).not.toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: /browser extensions/i })
+    ).toBeInTheDocument()
   })
 
   it('places the local CLI card before paired remote tools', async () => {

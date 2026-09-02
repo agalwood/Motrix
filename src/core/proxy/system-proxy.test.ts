@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseElectronProxyChain } from './system-proxy'
+import { parseElectronProxyChain, parseProxyEnvironment } from './system-proxy'
 
 describe('parseElectronProxyChain', () => {
   it('returns null for DIRECT', () => {
@@ -47,5 +47,48 @@ describe('parseElectronProxyChain', () => {
     expect(parseElectronProxyChain('garbage')).toBeNull()
     expect(parseElectronProxyChain('PROXY')).toBeNull()
     expect(parseElectronProxyChain('PROXY foo')).toBeNull()
+  })
+})
+
+describe('parseProxyEnvironment', () => {
+  it('prefers HTTPS_PROXY and imports credentials plus NO_PROXY', () => {
+    expect(
+      parseProxyEnvironment({
+        HTTPS_PROXY: 'http://alice:p%40ss@proxy.example:3128',
+        HTTP_PROXY: 'http://fallback.example:8080',
+        NO_PROXY: 'localhost, 127.0.0.1, .internal',
+      })
+    ).toEqual({
+      protocol: 'http',
+      host: 'proxy.example',
+      port: 3128,
+      user: 'alice',
+      password: 'p@ss',
+      bypass: ['localhost', '127.0.0.1', '.internal'],
+    })
+  })
+
+  it('supports lowercase SOCKS and default ports', () => {
+    expect(parseProxyEnvironment({ all_proxy: 'socks5h://127.0.0.1' })).toEqual(
+      {
+        protocol: 'socks5',
+        host: '127.0.0.1',
+        port: 1080,
+      }
+    )
+  })
+
+  it('accepts a host and port without an explicit scheme', () => {
+    expect(parseProxyEnvironment({ http_proxy: 'proxy.local:8888' })).toEqual({
+      protocol: 'http',
+      host: 'proxy.local',
+      port: 8888,
+    })
+  })
+
+  it('returns null for absent, malformed, or unsupported proxy values', () => {
+    expect(parseProxyEnvironment({})).toBeNull()
+    expect(parseProxyEnvironment({ HTTPS_PROXY: 'not a proxy' })).toBeNull()
+    expect(parseProxyEnvironment({ HTTPS_PROXY: 'ftp://proxy:21' })).toBeNull()
   })
 })

@@ -31,6 +31,10 @@ const TEXT_KEY: Record<NatBucket, string> = {
 }
 
 export function NatBadge() {
+  return __MOTRIX_TARGET__ === 'electron' ? <ElectronNatBadge /> : null
+}
+
+function ElectronNatBadge() {
   const { t, i18n } = useTranslation()
   const services = usePlatformServices()
   const status = useNatStatus()

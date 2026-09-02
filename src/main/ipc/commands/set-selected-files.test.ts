@@ -84,14 +84,20 @@ describe('setSelectedFiles handler', () => {
     }
     const db = { replaceTaskFiles: vi.fn() }
     const eventBus = { emit: vi.fn() }
+    const runTaskMutation = vi.fn(
+      async (_taskIds: readonly string[], operation: () => Promise<unknown>) =>
+        operation()
+    )
     const handler = createSetSelectedFilesHandler({
       taskManager,
       engine,
       db,
       eventBus,
+      runTaskMutation,
     } as unknown as Parameters<typeof createSetSelectedFilesHandler>[0])
     await handler({ taskId: 't1', indices: [0, 1] })
 
+    expect(runTaskMutation).toHaveBeenCalledWith(['t1'], expect.any(Function))
     expect(engine.changeOption).toHaveBeenCalledWith('gid1', {
       'select-file': '1,2',
     })
@@ -111,6 +117,25 @@ describe('setSelectedFiles handler', () => {
     })
   })
 
+  it('rejects non-integer and duplicate indices before entering the task lock', async () => {
+    const runTaskMutation = vi.fn()
+    const handler = createSetSelectedFilesHandler({
+      taskManager: { getById: vi.fn(), set: vi.fn() },
+      engine: { changeOption: vi.fn(), getTaskFiles: vi.fn() },
+      db: { replaceTaskFiles: vi.fn() },
+      eventBus: { emit: vi.fn() },
+      runTaskMutation,
+    })
+
+    await expect(
+      handler({ taskId: 't1', indices: [0, 0] })
+    ).rejects.toBeInstanceOf(AppError)
+    await expect(
+      handler({ taskId: 't1', indices: [0.5] })
+    ).rejects.toBeInstanceOf(AppError)
+    expect(runTaskMutation).not.toHaveBeenCalled()
+  })
+
   it('changeOption failure: no db write, no emit, error rethrown', async () => {
     const taskManager = { getById: vi.fn(() => mkTask()), set: vi.fn() }
     const engine = {
@@ -126,6 +151,10 @@ describe('setSelectedFiles handler', () => {
       engine,
       db,
       eventBus,
+      runTaskMutation: async (
+        _taskIds: readonly string[],
+        operation: () => Promise<unknown>
+      ) => operation(),
     } as unknown as Parameters<typeof createSetSelectedFilesHandler>[0])
     await expect(handler({ taskId: 't1', indices: [0] })).rejects.toThrow()
     expect(db.replaceTaskFiles).not.toHaveBeenCalled()

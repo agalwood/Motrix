@@ -27,17 +27,12 @@ import { toast } from '@renderer/components/ui/toast'
 import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
 import type { ProxySettings } from '@shared/types/settings'
+import type { SystemProxyResult } from '@shared/types/system-proxy'
 import { ChevronDown, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { NetworkFields } from './network-dialog'
-
-interface SystemProxyResult {
-  protocol: 'http' | 'https' | 'socks5'
-  host: string
-  port: number
-}
 
 export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
   const { t } = useTranslation()
@@ -89,6 +84,15 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
     updateProtocol(detected.protocol)
     form.setValue('proxy.host', detected.host, { shouldDirty: true })
     form.setValue('proxy.port', detected.port, { shouldDirty: true })
+    form.setValue('proxy.user', detected.user ?? '', { shouldDirty: true })
+    form.setValue('proxy.password', detected.password ?? '', {
+      shouldDirty: true,
+    })
+    form.setValue('proxy.bypass', detected.bypass ?? [], { shouldDirty: true })
+    const hasAuth = Boolean(detected.user || detected.password)
+    setShowAuth(hasAuth)
+    seededRef.current = hasAuth
+    if (!hasAuth) setRevealPassword(false)
     // Importing implies the user wants to USE this proxy; flip the master
     // toggle on so the rest of the form reveals.
     if (!form.getValues('proxy.enabled')) {

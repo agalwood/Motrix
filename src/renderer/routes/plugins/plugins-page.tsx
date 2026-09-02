@@ -8,7 +8,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
-import { usePlatformServices } from '@renderer/platform/services'
 import { ListFilter, Plus, RefreshCw, Workflow } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,9 +27,7 @@ export function PluginsPage() {
   const pluginsLoaded = usePluginsStore((state) => state.loaded)
   const [installOpen, setInstallOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const services = usePlatformServices()
-  const isElectron = services.kind === 'electron'
-  const { refreshing, refresh } = useRegistryUpdates(isElectron)
+  const { refreshing, refresh } = useRegistryUpdates(true)
   const refreshLabel = t('plugins.registry.refresh')
 
   const filtered = useMemo(() => {
@@ -114,28 +111,26 @@ export function PluginsPage() {
           <TooltipContent side="bottom">{diagnosticsLabel}</TooltipContent>
         </Tooltip>
 
-        {isElectron && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void refresh()}
-                  disabled={refreshing}
-                  aria-label={refreshLabel}
-                  data-testid="registry-refresh-btn"
-                >
-                  <RefreshCw
-                    aria-hidden
-                    className={refreshing ? 'animate-spin' : undefined}
-                  />
-                </Button>
-              }
-            />
-            <TooltipContent side="bottom">{refreshLabel}</TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => void refresh()}
+                disabled={refreshing}
+                aria-label={refreshLabel}
+                data-testid="registry-refresh-btn"
+              >
+                <RefreshCw
+                  aria-hidden
+                  className={refreshing ? 'animate-spin' : undefined}
+                />
+              </Button>
+            }
+          />
+          <TooltipContent side="bottom">{refreshLabel}</TooltipContent>
+        </Tooltip>
       </div>
 
       <div

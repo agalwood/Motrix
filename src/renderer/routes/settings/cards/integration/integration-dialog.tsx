@@ -61,6 +61,7 @@ export function IntegrationDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const isWeb = transport.platform === 'web'
   const [protocolRevision, setProtocolRevision] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
   const form = useForm<IntegrationFormValues>({
@@ -130,25 +131,31 @@ export function IntegrationDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <FormProvider {...form}>
             <div className="flex flex-col gap-6">
-              <section
-                aria-labelledby="integration-system"
-                className="flex flex-col gap-3"
-              >
-                <h3
-                  id="integration-system"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  {t('settings.integration.system.title')}
-                </h3>
-                <SystemProtocolsSection refreshRevision={protocolRevision} />
-                <AppImageIntegrationSection
-                  onIntegrationChange={() =>
-                    setProtocolRevision((revision) => revision + 1)
-                  }
-                />
-              </section>
+              {!isWeb && (
+                <>
+                  <section
+                    aria-labelledby="integration-system"
+                    className="flex flex-col gap-3"
+                  >
+                    <h3
+                      id="integration-system"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {t('settings.integration.system.title')}
+                    </h3>
+                    <SystemProtocolsSection
+                      refreshRevision={protocolRevision}
+                    />
+                    <AppImageIntegrationSection
+                      onIntegrationChange={() =>
+                        setProtocolRevision((revision) => revision + 1)
+                      }
+                    />
+                  </section>
 
-              <Separator />
+                  <Separator />
+                </>
+              )}
 
               <section
                 aria-labelledby="integration-browser"

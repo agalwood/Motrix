@@ -81,13 +81,17 @@ import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { CommandHandlerMap } from '@shared/protocol/handler-types'
-import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
-import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import {
+  type TaskCreateCommandResult,
+  taskCreateRequestSchema,
+  torrentBatchCreateOptionsSchema,
+} from '@shared/schemas/add-task'
 import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
@@ -475,10 +479,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     { sourceType: 'registry' }
   >
 
-  const checkPluginUpdatesPayloadSchema = z
-    .object({ force: z.boolean().optional() })
-    .optional()
-
   const confirmPluginInstallPayloadSchema = z.object({
     stagingId: z.string().min(1),
     grants: z.record(z.string(), z.enum(['granted', 'denied'])),
@@ -625,27 +625,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         cliInstallRequestSchema.parse(payload) as CliInstallRequest
       ),
 
-    [Commands.CreateDownload]: async (params: {
-      uris: string[] | string
-      saveDir?: string
-    }) => {
-      const uris = Array.isArray(params.uris) ? params.uris : [params.uris]
-      log.info(
-        {
-          uris,
-          activePluginIds: pluginHost.allActive().map((p) => p.id),
-        },
-        'Commands.CreateDownload received'
-      )
-      await activatePluginsForTask('http', uris[0] ?? '')
-      return createAndPersist({
-        type: 'http',
-        uris,
-        saveDir: params.saveDir || settingsManager.getApp().defaultSaveDir,
-        headers: [],
-      })
-    },
-
     [Commands.ParseTorrent]: async ({ base64 }: { base64: string }) => {
       return torrentParser.parse(base64)
     },
@@ -784,6 +763,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       engine: adapter,
       db: motrixDatabase,
       eventBus,
+      runTaskMutation,
     }),
 
     [Commands.ReopenMagnetFileSelection]: async (taskId: string) => {
@@ -1088,13 +1068,57 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.NextTorrent]: async () => {
-      protocolManager.nextTorrent()
-      return { ok: true }
+      const advanced = await protocolManager.nextTorrent()
+      return { advanced }
     },
 
-    [Commands.DownloadAllTorrents]: async () => {
-      protocolManager.downloadAllTorrents()
-      return { ok: true }
+    [Commands.DownloadAllTorrents]: async (rawOptions: unknown) => {
+      const options = torrentBatchCreateOptionsSchema.parse(rawOptions)
+      const torrents = await protocolManager.downloadAllTorrents()
+      let succeeded = 0
+      let failed = 0
+      let firstTaskId: string | null = null
+
+      for (const [index, torrent] of torrents.entries()) {
+        try {
+          await activatePluginsForTask('bt', '')
+          const result = await createAndPersist({
+            type: 'bt',
+            payload: {
+              kind: 'torrent-base64',
+              base64: torrent.payload.dataBase64,
+            },
+            selectedFiles:
+              index === 0
+                ? options.selectedFiles
+                : torrent.meta.files.map((file) => file.index),
+            saveDir: options.saveDir,
+            dlLimit: options.dlLimit,
+            ulLimit: options.ulLimit,
+            seedRatio: options.seedRatio,
+            displayName: torrent.meta.name,
+          })
+          if (result.outcome === 'conflict') {
+            failed += 1
+            continue
+          }
+          succeeded += 1
+          firstTaskId ??= result.taskId
+        } catch (err) {
+          failed += 1
+          log.warn(
+            { err, torrent: torrent.payload.name },
+            'batch torrent creation failed'
+          )
+        }
+      }
+
+      return {
+        total: torrents.length,
+        succeeded,
+        failed,
+        firstTaskId,
+      }
     },
 
     // CloseCurrentWindow needs event.sender — the wrapper in registerCommandHandlers

@@ -15,6 +15,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
+import type { ParsedTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
@@ -26,6 +27,9 @@ import {
   formValuesToTaskCreateRequests,
   type TaskCreateCommandResult,
   type TaskCreateRequest,
+  type TorrentBatchCreateOptions,
+  type TorrentBatchCreateResult,
+  type TorrentQueueAdvanceResult,
 } from '@shared/schemas/add-task'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -44,6 +48,8 @@ import { TorrentTabPanel } from './torrent-tab-panel'
 import { parseUrlLines } from './url-interpreters/multiline-url'
 import {
   type AddTaskModeHydrationContext,
+  type TorrentQueueState,
+  type TorrentQueueUpdate,
   useExternalHydration,
 } from './use-external-hydration'
 
@@ -60,6 +66,11 @@ const BASE_DEFAULTS: DeepPartial<AddTaskFormValues> = {
   tab: 'links',
   urls: '',
   saveDir: '',
+}
+
+interface LocalTorrentQueue {
+  files: ParsedTorrentFile[]
+  currentIndex: number
 }
 
 function taskCreateFailureReason(error: unknown): string | null {
@@ -82,6 +93,13 @@ export function AddTaskForm({
   const platform = usePlatformServices()
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
+  const [advancingTorrent, setAdvancingTorrent] = useState(false)
+  const [batchSubmitting, setBatchSubmitting] = useState(false)
+  const [torrentQueue, setTorrentQueue] = useState<TorrentQueueState | null>(
+    null
+  )
+  const [localTorrentQueue, setLocalTorrentQueue] =
+    useState<LocalTorrentQueue | null>(null)
   const [duplicateConflict, setDuplicateConflict] = useState<{
     request: TaskCreateRequest
     result: Extract<TaskCreateCommandResult, { outcome: 'conflict' }>
@@ -145,7 +163,66 @@ export function AddTaskForm({
     [form, platform]
   )
 
-  useExternalHydration(form, subscribeEvents, hydrateOpenState)
+  const handleTorrentQueueChanged = useCallback(
+    (update: TorrentQueueUpdate) => {
+      setLocalTorrentQueue(null)
+      if (!update) {
+        setTorrentQueue(null)
+        setAdvancingTorrent(false)
+        return
+      }
+      setTorrentQueue((current) => ({
+        queuePosition:
+          'queuePosition' in update
+            ? update.queuePosition
+            : (current?.queuePosition ?? 1),
+        queueTotal: update.queueTotal,
+      }))
+      if ('queuePosition' in update) setAdvancingTorrent(false)
+    },
+    []
+  )
+
+  const hydrateLocalTorrent = useCallback(
+    (torrent: ParsedTorrentFile) => {
+      form.setValue('tab' as never, 'torrent' as never, { shouldDirty: true })
+      form.setValue('torrentMeta' as never, torrent.meta as never, {
+        shouldDirty: true,
+      })
+      form.setValue('source' as never, 'file' as never, { shouldDirty: true })
+      form.setValue('base64' as never, torrent.base64 as never, {
+        shouldDirty: true,
+      })
+      form.setValue('magnetUri' as never, undefined as never, {
+        shouldDirty: true,
+      })
+      form.setValue(
+        'selectedFiles' as never,
+        torrent.meta.files.map((file) => file.index) as never,
+        { shouldDirty: true, shouldValidate: true }
+      )
+    },
+    [form]
+  )
+
+  const handleLocalTorrentFilesLoaded = useCallback(
+    (files: ParsedTorrentFile[]) => {
+      if (files.length === 0) return
+      setLocalTorrentQueue({ files, currentIndex: 0 })
+      setTorrentQueue(
+        files.length > 1 ? { queuePosition: 1, queueTotal: files.length } : null
+      )
+      setAdvancingTorrent(false)
+    },
+    []
+  )
+
+  useExternalHydration(
+    form,
+    subscribeEvents,
+    hydrateOpenState,
+    handleTorrentQueueChanged
+  )
 
   // Backfill the default save directory for the initially mounted form.
   // Desktop opens refresh it again through hydrateOpenState above.
@@ -181,8 +258,173 @@ export function AddTaskForm({
     }
   }, [hydrateOpenState, subscribeEvents])
 
+  const hasNextQueuedTorrent = useCallback(
+    () =>
+      Boolean(
+        torrentQueue && torrentQueue.queuePosition < torrentQueue.queueTotal
+      ),
+    [torrentQueue]
+  )
+
+  const advanceTorrentQueue = useCallback(async () => {
+    setAdvancingTorrent(true)
+    if (localTorrentQueue) {
+      const nextIndex = localTorrentQueue.currentIndex + 1
+      const next = localTorrentQueue.files[nextIndex]
+      if (!next) {
+        setLocalTorrentQueue(null)
+        setTorrentQueue(null)
+        setAdvancingTorrent(false)
+        return false
+      }
+      hydrateLocalTorrent(next)
+      setLocalTorrentQueue({ ...localTorrentQueue, currentIndex: nextIndex })
+      setTorrentQueue({
+        queuePosition: nextIndex + 1,
+        queueTotal: localTorrentQueue.files.length,
+      })
+      setAdvancingTorrent(false)
+      return true
+    }
+    try {
+      const result = (await transport.invoke(
+        Commands.NextTorrent
+      )) as TorrentQueueAdvanceResult
+      if (!result.advanced) {
+        setTorrentQueue(null)
+        setAdvancingTorrent(false)
+      }
+      return result.advanced
+    } catch (error) {
+      console.error(error)
+      setAdvancingTorrent(false)
+      platform.notify('error', 'task.add.queueAdvanceFailed')
+      return true
+    }
+  }, [hydrateLocalTorrent, localTorrentQueue, platform])
+
+  const completeCurrentSubmission = useCallback(
+    async (taskId: string) => {
+      const values = form.getValues()
+      if (
+        hasNextQueuedTorrent() &&
+        values.tab === 'torrent' &&
+        values.source === 'file'
+      ) {
+        if (await advanceTorrentQueue()) return
+      }
+      setLocalTorrentQueue(null)
+      setTorrentQueue(null)
+      onSubmitSuccess?.(taskId)
+    },
+    [advanceTorrentQueue, form, hasNextQueuedTorrent, onSubmitSuccess]
+  )
+
+  const handleCancel = useCallback(async () => {
+    if (hasNextQueuedTorrent()) {
+      if (await advanceTorrentQueue()) return
+    }
+    onCancel()
+  }, [advanceTorrentQueue, hasNextQueuedTorrent, onCancel])
+
+  const handleDownloadAllTorrents = useCallback(async () => {
+    if (!hasNextQueuedTorrent()) return
+    setBatchSubmitting(true)
+    try {
+      const parsedValues = addTaskFormSchema.safeParse(form.getValues())
+      if (!parsedValues.success) return
+      const values = parsedValues.data
+      if (values.tab !== 'torrent' || values.source !== 'file') return
+      const currentRequest = formValuesToTaskCreateRequests(values)[0]
+      if (currentRequest?.type !== 'bt') return
+
+      let result: TorrentBatchCreateResult
+      if (localTorrentQueue) {
+        const requests: TaskCreateRequest[] = [
+          currentRequest,
+          ...localTorrentQueue.files
+            .slice(localTorrentQueue.currentIndex + 1)
+            .map((torrent) => ({
+              type: 'bt' as const,
+              payload: {
+                kind: 'torrent-base64' as const,
+                base64: torrent.base64,
+              },
+              selectedFiles: torrent.meta.files.map((file) => file.index),
+              saveDir: values.saveDir,
+              dlLimit: values.dlLimit,
+              ulLimit: values.ulLimit,
+              seedRatio: values.seedRatio,
+              displayName: torrent.meta.name,
+            })),
+        ]
+        let succeeded = 0
+        let failed = 0
+        let firstTaskId: string | null = null
+        for (const request of requests) {
+          try {
+            const created = (await transport.invoke(
+              Commands.CreateTask,
+              request
+            )) as TaskCreateCommandResult
+            if (created.outcome === 'conflict') {
+              failed += 1
+              continue
+            }
+            succeeded += 1
+            firstTaskId ??= created.taskId ?? created.gid
+          } catch (error) {
+            console.error(error)
+            failed += 1
+          }
+        }
+        result = {
+          total: requests.length,
+          succeeded,
+          failed,
+          firstTaskId,
+        }
+      } else {
+        const options: TorrentBatchCreateOptions = {
+          selectedFiles: values.selectedFiles,
+          saveDir: currentRequest.saveDir,
+          dlLimit: currentRequest.dlLimit,
+          ulLimit: currentRequest.ulLimit,
+          seedRatio: currentRequest.seedRatio,
+        }
+        result = (await transport.invoke(
+          Commands.DownloadAllTorrents,
+          options
+        )) as TorrentBatchCreateResult
+      }
+      setLocalTorrentQueue(null)
+      setTorrentQueue(null)
+      if (result.succeeded > 0) {
+        if (result.failed > 0) {
+          platform.notify('warn', 'task.add.createdPartial', {
+            ok: result.succeeded,
+            failed: result.failed,
+          })
+        } else {
+          platform.notify('info', 'task.add.batchCreated', {
+            count: result.succeeded,
+          })
+        }
+        if (result.firstTaskId) onSubmitSuccess?.(result.firstTaskId)
+      } else {
+        platform.notify('error', 'task.add.createFailed')
+      }
+    } catch (error) {
+      console.error(error)
+      platform.notify('error', 'task.add.createFailed')
+    } finally {
+      setBatchSubmitting(false)
+    }
+  }, [form, hasNextQueuedTorrent, localTorrentQueue, onSubmitSuccess, platform])
+
   const onSubmit = useCallback(
     async (values: AddTaskFormValues) => {
+      if (submitting || advancingTorrent || batchSubmitting) return
       setSubmitting(true)
       try {
         const requests = formValuesToTaskCreateRequests(values)
@@ -228,13 +470,21 @@ export function AddTaskForm({
           }
         }
         if (successes.length > 0) {
-          onSubmitSuccess?.(successes[0].taskId ?? successes[0].gid)
+          await completeCurrentSubmission(
+            successes[0].taskId ?? successes[0].gid
+          )
         }
       } finally {
         setSubmitting(false)
       }
     },
-    [onSubmitSuccess, platform]
+    [
+      advancingTorrent,
+      batchSubmitting,
+      completeCurrentSubmission,
+      platform,
+      submitting,
+    ]
   )
 
   const createSeparateCopy = useCallback(async () => {
@@ -251,7 +501,7 @@ export function AddTaskForm({
       }
       setDuplicateConflict(null)
       platform.notify('info', 'task.add.createdCopy')
-      onSubmitSuccess?.(result.taskId)
+      await completeCurrentSubmission(result.taskId)
     } catch (error) {
       console.error(error)
       const reason = taskCreateFailureReason(error)
@@ -263,7 +513,7 @@ export function AddTaskForm({
     } finally {
       setSubmitting(false)
     }
-  }, [duplicateConflict, onSubmitSuccess, platform])
+  }, [completeCurrentSubmission, duplicateConflict, platform])
 
   // ⌘↵ / Ctrl+Enter submit
   useEffect(() => {
@@ -296,7 +546,7 @@ export function AddTaskForm({
               presentation === 'dialog' ? 'pb-4' : 'pb-[72px]'
             )}
           >
-            <TabsSection />
+            <TabsSection onTorrentFilesLoaded={handleLocalTorrentFilesLoaded} />
           </div>
         </div>
         <div
@@ -307,9 +557,11 @@ export function AddTaskForm({
           )}
         >
           <FooterActionsBridge
-            onCancel={onCancel}
+            onCancel={() => void handleCancel()}
+            onDownloadAll={handleDownloadAllTorrents}
             onSubmit={() => void form.handleSubmit(onSubmit)()}
-            submitting={submitting}
+            submitting={submitting || advancingTorrent || batchSubmitting}
+            torrentQueue={torrentQueue}
           />
         </div>
         <AlertDialog
@@ -340,7 +592,7 @@ export function AddTaskForm({
                     const taskId =
                       duplicateConflict.result.conflict.existingTaskId
                     setDuplicateConflict(null)
-                    if (taskId) onSubmitSuccess?.(taskId)
+                    if (taskId) void completeCurrentSubmission(taskId)
                   }}
                 >
                   {t('task.add.duplicate.showExisting')}
@@ -359,7 +611,11 @@ export function AddTaskForm({
   )
 }
 
-function TabsSection() {
+function TabsSection({
+  onTorrentFilesLoaded,
+}: {
+  onTorrentFilesLoaded: (files: ParsedTorrentFile[]) => void
+}) {
   const { t } = useTranslation()
   const { setValue } = useFormContext<AddTaskFormValues>()
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
@@ -387,7 +643,7 @@ function TabsSection() {
         keepMounted
         className="mt-2 flex min-h-0 min-w-0 flex-1 data-hidden:hidden"
       >
-        <TorrentTabPanel />
+        <TorrentTabPanel onFilesLoaded={onTorrentFilesLoaded} />
       </TabsContent>
     </Tabs>
   )
@@ -395,12 +651,16 @@ function TabsSection() {
 
 function FooterActionsBridge({
   onCancel,
+  onDownloadAll,
   onSubmit,
   submitting,
+  torrentQueue,
 }: {
   onCancel: () => void
+  onDownloadAll: () => void
   onSubmit: () => void
   submitting: boolean
+  torrentQueue: TorrentQueueState | null
 }) {
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
   const urls = useWatch<AddTaskFormValues, 'urls'>({ name: 'urls' })
@@ -423,7 +683,16 @@ function FooterActionsBridge({
     <FooterActions
       submitting={submitting}
       canSubmit={canSubmit}
+      torrentQueue={
+        torrentQueue
+          ? {
+              current: torrentQueue.queuePosition,
+              total: torrentQueue.queueTotal,
+            }
+          : undefined
+      }
       onCancel={onCancel}
+      onDownloadAll={onDownloadAll}
       onSubmit={onSubmit}
     />
   )

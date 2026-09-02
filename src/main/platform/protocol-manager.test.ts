@@ -536,7 +536,7 @@ describe('createProtocolManager', () => {
       await pm.handleTorrentFile('/path/to/b.torrent')
       deliverToAddTask.mockClear()
 
-      pm.nextTorrent()
+      expect(pm.nextTorrent()).toBe(true)
 
       expect(deliverToAddTask).toHaveBeenCalledWith(
         Events.ProtocolTorrentFile,
@@ -544,6 +544,31 @@ describe('createProtocolManager', () => {
           payload: expect.objectContaining({ name: 'b.torrent' }),
         })
       )
+    })
+
+    it('reports exhaustion when a pending next torrent fails to parse', async () => {
+      mockReadFile
+        .mockResolvedValueOnce(Buffer.from('torrent-1'))
+        .mockResolvedValueOnce(Buffer.from('broken-torrent'))
+      let rejectBroken!: (error: Error) => void
+      mockParse.mockResolvedValueOnce(defaultMeta).mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectBroken = reject
+          })
+      )
+
+      const deps = makeDeps()
+      const pm = createProtocolManager(deps)
+      await pm.handleTorrentFile('/path/to/a.torrent')
+      const pendingBroken = pm.handleTorrentFile('/path/to/broken.torrent')
+      const advancing = pm.nextTorrent()
+      await vi.waitFor(() => expect(rejectBroken).toBeTypeOf('function'))
+      rejectBroken(new Error('invalid torrent'))
+
+      await expect(advancing).resolves.toBe(false)
+      await pendingBroken
+      expect(pm.getTorrentQueueSize()).toBe(0)
     })
 
     it('downloadAllTorrents drains queue', async () => {

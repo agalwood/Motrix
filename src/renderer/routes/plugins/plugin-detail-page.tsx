@@ -53,9 +53,9 @@ export function PluginDetailPage() {
   // Deeplinks (motrix://plugins/<id>) mount this sibling route directly, so
   // PluginsPage — the only other caller — never runs. Trigger the update scan
   // here too so the "Update to vX" affordance appears on cold-start deeplinks.
-  // Cache-backed and Electron-gated, mirroring PluginsPage. refresh() backs
-  // the manual check icon in the tab-strip row (force refetch + re-pull).
-  const { refreshing, refresh } = useRegistryUpdates(isElectron)
+  // Cache-backed on both shells, mirroring PluginsPage. Server scans only the
+  // community channel; builtin overlay updates remain Electron-only.
+  const { refreshing, refresh } = useRegistryUpdates(true)
   usePlugins()
   const pluginsLoaded = usePluginsStore((s) => s.loaded)
   const listEntry = usePluginsStore((s) => s.list.find((p) => p.id === id))
@@ -206,7 +206,7 @@ export function PluginDetailPage() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              {isElectron && (
+              {(isElectron || update?.channel !== 'builtin') && (
                 <Tooltip>
                   <TooltipTrigger
                     render={

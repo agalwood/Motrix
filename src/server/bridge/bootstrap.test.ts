@@ -9,7 +9,10 @@ import {
   runPake,
   startPair,
 } from '@core/bridge/__tests__/mbp1-client'
-import { BRIDGE_DATA_DIR_LOCK_FILE_NAME } from '@core/bridge/bridge-data-dir-lock'
+import {
+  acquireBridgeDataDirLock,
+  BRIDGE_DATA_DIR_LOCK_FILE_NAME,
+} from '@core/bridge/bridge-data-dir-lock'
 import type { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
@@ -19,7 +22,7 @@ import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { EventBus } from '@core/events/event-bus'
 import { Notifications } from '@motrix/mdxp'
-import { BridgeEvents } from '@shared/protocol/bridge'
+import { BridgeEvents, BridgeQueries } from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
@@ -258,6 +261,54 @@ describe('bootstrapBridgeForServer', () => {
       params: {},
     })
     expect(res.status).toBe(401)
+  })
+
+  it('reports the persisted fixed-port policy separately from the bound port', async () => {
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '127.0.0.1',
+      port: 0,
+      fixedPort: 'auto',
+      motrixVersion: '2.0',
+      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+    })
+
+    await expect(
+      runtime.bridgeQueryHandlers[BridgeQueries.GetStatus]?.()
+    ).resolves.toEqual(
+      expect.objectContaining({
+        port: runtime.port,
+        fixedPort: 'auto',
+      })
+    )
+  })
+
+  it('borrows a process-lifetime data-directory lock across runtime shutdown', async () => {
+    const bridgeDir = join(userDataDir, 'bridge')
+    await mkdir(bridgeDir, { recursive: true })
+    const processLock = await acquireBridgeDataDirLock(bridgeDir)
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '127.0.0.1',
+      port: 0,
+      motrixVersion: '2.0',
+      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+      bridgeDataDirLock: processLock,
+    })
+
+    await runtime.shutdown()
+    runtime = null
+    await expect(acquireBridgeDataDirLock(bridgeDir)).rejects.toThrow(
+      'bridge data directory lock unavailable'
+    )
+
+    await processLock.release()
+    const reacquired = await acquireBridgeDataDirLock(bridgeDir)
+    await reacquired.release()
   })
 
   it('opens an explicit WS public route bundle with stable Server identity', async () => {

@@ -136,23 +136,44 @@ function makeCtx(over: Record<string, unknown> = {}) {
       unreadCount: vi.fn(() => 0),
     },
     pluginRegistry: { list: vi.fn(() => []), entries: vi.fn(() => []) },
+    capabilityHost: { getTail: vi.fn(() => []) },
     pluginGrants: {
       getGrants: vi.fn(async () => ({})),
       listAllGrants: vi.fn(async () => ({})),
     },
     pluginsDir: '',
     hostVersion: '2.0',
+    motrixDatabase: { getMetadata: vi.fn() },
     userDataDir: '',
     speedLimitController: { getState: vi.fn() },
     downloadPathPolicy: {
       allowedSaveDirs: [],
       prepareSaveDir: vi.fn(),
     },
+    environment: {},
     ...over,
   }
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('reports the proxy inherited by the Server process', async () => {
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        environment: {
+          HTTPS_PROXY: 'http://proxy.internal:3128',
+          NO_PROXY: 'localhost,.lan',
+        },
+      }) as never
+    )
+
+    await expect(handlers[Queries.GetSystemProxy]?.()).resolves.toEqual({
+      protocol: 'http',
+      host: 'proxy.internal',
+      port: 3128,
+      bypass: ['localhost', '.lan'],
+    })
+  })
+
   it('reports Linux associations as unsupported on the web server', async () => {
     const handlers = buildServerQueryHandlers(makeCtx() as never)
 

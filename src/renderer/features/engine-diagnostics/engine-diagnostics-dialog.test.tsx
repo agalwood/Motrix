@@ -98,7 +98,7 @@ describe('EngineDiagnosticsDialogHost', () => {
 
     expect(await screen.findByText('Engine diagnostics')).toBeVisible()
     expect(
-      await screen.findByText(/matches Motrix's bundled binary/i)
+      await screen.findByText(/matches Motrix’s bundled binary/i)
     ).toBeVisible()
     expect(
       screen.getByRole('button', { name: 'Force stop & recover' })

@@ -1,47 +1,54 @@
-import { transport } from '@renderer/lib/transport'
+import {
+  type ParsedTorrentFile,
+  readTorrentFile,
+} from '@renderer/lib/parse-torrent-file'
 import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
-import { Commands } from '@shared/protocol/commands'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import type { TorrentMeta } from '@shared/types/torrent'
 import { Upload } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-export function DropZone() {
+export function DropZone({
+  onFilesLoaded,
+}: {
+  onFilesLoaded: (files: ParsedTorrentFile[]) => void
+}) {
   const { t } = useTranslation()
   const { setValue } = useFormContext<AddTaskFormValues>()
   const platform = usePlatformServices()
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const loadFile = useCallback(
-    async (file: File) => {
-      try {
-        const buf = await file.arrayBuffer()
-        const bytes = new Uint8Array(buf)
-        const chunks: string[] = []
-        for (let i = 0; i < bytes.length; i += 8192) {
-          chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)))
+  const loadFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const parsed: ParsedTorrentFile[] = []
+      let failed = false
+      for (const file of Array.from(files)) {
+        try {
+          parsed.push(await readTorrentFile(file))
+        } catch {
+          failed = true
         }
-        const base64 = btoa(chunks.join(''))
-        const meta = (await transport.invoke(Commands.ParseTorrent, {
-          base64,
-        })) as TorrentMeta
-        setValue('torrentMeta' as never, meta as never, { shouldDirty: true })
-        setValue('source' as never, 'file' as never, { shouldDirty: true })
-        setValue('base64' as never, base64 as never, { shouldDirty: true })
-        setValue(
-          'selectedFiles' as never,
-          meta.files.map((f) => f.index) as never,
-          { shouldDirty: true, shouldValidate: true }
-        )
-      } catch {
-        platform.notify('error', 'task.add.parseFailed')
       }
+      if (failed) platform.notify('error', 'task.add.parseFailed')
+      if (parsed.length === 0) return
+
+      const first = parsed[0]
+      setValue('torrentMeta' as never, first.meta as never, {
+        shouldDirty: true,
+      })
+      setValue('source' as never, 'file' as never, { shouldDirty: true })
+      setValue('base64' as never, first.base64 as never, { shouldDirty: true })
+      setValue(
+        'selectedFiles' as never,
+        first.meta.files.map((file) => file.index) as never,
+        { shouldDirty: true, shouldValidate: true }
+      )
+      onFilesLoaded(parsed)
     },
-    [setValue, platform]
+    [onFilesLoaded, platform, setValue]
   )
 
   return (
@@ -57,8 +64,9 @@ export function DropZone() {
         onDrop={(e) => {
           e.preventDefault()
           setDragOver(false)
-          const file = e.dataTransfer.files[0]
-          if (file) loadFile(file)
+          if (e.dataTransfer.files.length > 0) {
+            void loadFiles(e.dataTransfer.files)
+          }
         }}
         className={cn(
           'flex h-40 w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed transition-colors',
@@ -77,10 +85,10 @@ export function DropZone() {
         ref={fileRef}
         type="file"
         accept=".torrent"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) loadFile(file)
+          if (e.target.files?.length) void loadFiles(e.target.files)
           e.target.value = ''
         }}
       />

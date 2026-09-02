@@ -57,6 +57,7 @@ export function GeneralDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const isWeb = transport.platform === 'web'
   const form = useForm<GeneralFields>({ defaultValues: DEFAULTS })
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
@@ -111,28 +112,30 @@ export function GeneralDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
             <form className="space-y-4">
-              <FormField
-                control={form.control}
-                name="launchAtStartup"
-                render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.general.launchAtStartup')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.general.launchAtStartupDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              {!isWeb && (
+                <FormField
+                  control={form.control}
+                  name="launchAtStartup"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t('settings.general.launchAtStartup')}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t('settings.general.launchAtStartupDesc')}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
@@ -221,28 +224,30 @@ export function GeneralDialog({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="warnBeforeQuit"
-                render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.general.warnBeforeQuit')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.general.warnBeforeQuitDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              {!isWeb && (
+                <FormField
+                  control={form.control}
+                  name="warnBeforeQuit"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t('settings.general.warnBeforeQuit')}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t('settings.general.warnBeforeQuitDesc')}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
             </form>
           </Form>
         </div>

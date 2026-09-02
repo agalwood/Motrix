@@ -214,7 +214,7 @@ describe('<SystemProtocolsSection>', () => {
     renderSection('linux')
 
     expect(await screen.findByText('Package: Flatpak')).toBeVisible()
-    expect(screen.getAllByText("Couldn't verify")).toHaveLength(2)
+    expect(screen.getAllByText('Couldn’t verify')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'View setup steps' }))
     expect(
       await screen.findByText(/Setup instructions were opened instead/u)

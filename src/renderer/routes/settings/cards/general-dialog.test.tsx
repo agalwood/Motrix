@@ -91,6 +91,23 @@ describe('<GeneralDialog>', () => {
     })
   })
 
+  it('hides host startup and quit controls in the web client', async () => {
+    transportMock.platform = 'web'
+    render(<GeneralDialog open onClose={() => {}} labelKey="" descKey="" />)
+
+    await waitFor(() =>
+      expect(
+        screen.getByDisplayValue('/Users/me/Downloads')
+      ).toBeInTheDocument()
+    )
+    expect(
+      screen.queryByRole('switch', { name: /launch at startup/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: /confirm before quitting/i })
+    ).not.toBeInTheDocument()
+  })
+
   it('saves notifyOnError when toggled', async () => {
     render(<GeneralDialog open onClose={() => {}} labelKey="" descKey="" />)
 

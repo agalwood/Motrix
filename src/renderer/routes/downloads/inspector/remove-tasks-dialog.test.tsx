@@ -41,10 +41,10 @@ describe('RemoveTasksDialog', () => {
         onConfirm={vi.fn()}
       />
     )
-    const title = screen.getByText(/Remove "/)
+    const title = screen.getByText(/Remove “/)
     // Middle ellipsis: a head, the '…', then a tail that preserves the
     // extension — NOT a silent end-cut that drops it.
-    expect(title.textContent).toMatch(/X+…X*\.mkv"\?$/)
+    expect(title.textContent).toMatch(/X+…X*\.mkv”\?$/)
     expect(title.textContent?.length).toBeLessThan(100)
   })
 
