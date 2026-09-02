@@ -138,7 +138,7 @@ export class NativeFinalizeArtifactOperations
   }
 
   async makeDurable(artifactPath: string): Promise<void> {
-    await syncTree(artifactPath)
+    await syncTree(artifactPath, this.adapter)
     const root = await this.adapter.openRoot(path.dirname(artifactPath))
     try {
       await this.adapter.syncRoot(root)
@@ -285,7 +285,10 @@ async function statExistingAncestor(candidate: string) {
   }
 }
 
-async function syncTree(artifactPath: string): Promise<void> {
+async function syncTree(
+  artifactPath: string,
+  adapter: FinalizeFilesystemAdapter
+): Promise<void> {
   const entry = await lstat(artifactPath)
   if (entry.isSymbolicLink()) {
     throw new ArtifactIdentityError(
@@ -296,18 +299,20 @@ async function syncTree(artifactPath: string): Promise<void> {
   if (entry.isDirectory()) {
     const children = await readdir(artifactPath)
     for (const child of children) {
-      await syncTree(path.join(artifactPath, child))
+      await syncTree(path.join(artifactPath, child), adapter)
     }
-    // Windows has no directory fsync exposed by Node. The native sidecar owns
-    // that boundary: copy operations flush every created directory and the
-    // caller subsequently syncs the held parent root.
-    if (process.platform === 'win32') return
+    const root = await adapter.openRoot(artifactPath)
+    try {
+      await adapter.syncRoot(root)
+    } finally {
+      await adapter.close(root).catch(() => undefined)
+    }
+    return
   }
   const handle = await open(
     artifactPath,
-    entry.isDirectory()
-      ? constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
-      : constants.O_RDONLY | constants.O_NOFOLLOW
+    (process.platform === 'win32' ? constants.O_RDWR : constants.O_RDONLY) |
+      constants.O_NOFOLLOW
   )
   try {
     await handle.sync()
