@@ -1009,7 +1009,7 @@ describe('SessionManager', () => {
       expect(tasks[0].id).not.toBe('gid-orphan')
     })
 
-    it('does NOT adopt aria2 segment downloads under mediaTmpRoot (phantom-task guard)', async () => {
+    it('evicts aria2 segment downloads under mediaTmpRoot instead of adopting them', async () => {
       // A mux/hls/dash task's segment downloads run on the shared aria2 daemon
       // and persist in aria2's session. On restart aria2 restores them; without
       // the guard restore() would adopt each as a phantom "000000.seg" task.
@@ -1036,6 +1036,62 @@ describe('SessionManager', () => {
 
       await mediaSession.restore()
 
+      expect(taskManager.getAll()).toHaveLength(0)
+      expect(adapter.forceRemoveTask).toHaveBeenCalledTimes(1)
+      expect(adapter.forceRemoveTask).toHaveBeenCalledWith('seg-video')
+      expect(adapter.removeDownloadResult).toHaveBeenCalledTimes(2)
+      expect(adapter.removeDownloadResult).toHaveBeenCalledWith('seg-video')
+      expect(adapter.removeDownloadResult).toHaveBeenCalledWith('seg-audio')
+    })
+
+    it('still purges a media row when force-remove races or fails', async () => {
+      const mediaRoot = '/var/tmp/motrix-media'
+      const mediaSession = new SessionManager(
+        taskManager,
+        rpc,
+        db,
+        adapter,
+        mediaRoot
+      )
+      vi.mocked(adapter.forceRemoveTask).mockRejectedValueOnce(
+        new Error('already terminal')
+      )
+      vi.mocked(rpc.tellWaiting).mockResolvedValue([
+        createRawStatus({
+          gid: 'seg-raced',
+          status: 'waiting',
+          dir: `${mediaRoot}/motrix-media-race/video`,
+        }),
+      ])
+
+      await mediaSession.restore()
+
+      expect(adapter.forceRemoveTask).toHaveBeenCalledWith('seg-raced')
+      expect(adapter.removeDownloadResult).toHaveBeenCalledWith('seg-raced')
+      expect(taskManager.getAll()).toHaveLength(0)
+    })
+
+    it('sweeps legacy media rows before the normal restore pass', async () => {
+      const mediaRoot = '/var/tmp/motrix-media'
+      const mediaSession = new SessionManager(
+        taskManager,
+        rpc,
+        db,
+        adapter,
+        mediaRoot
+      )
+      vi.mocked(rpc.tellActive).mockResolvedValue([
+        createRawStatus({
+          gid: 'seg-startup',
+          status: 'active',
+          dir: `${mediaRoot}/motrix-media-old/video`,
+        }),
+      ])
+
+      await mediaSession.purgeEphemeralMediaRows()
+
+      expect(adapter.forceRemoveTask).toHaveBeenCalledWith('seg-startup')
+      expect(adapter.removeDownloadResult).toHaveBeenCalledWith('seg-startup')
       expect(taskManager.getAll()).toHaveLength(0)
     })
 

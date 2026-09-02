@@ -26,6 +26,7 @@ function makeDownloaderFake(opts?: {
   report?: SegmentProgress[]
   /** Active segment gids this stream reports (Bug B). */
   activeGids?: string[]
+  error?: Error
 }) {
   const cancelFn = vi.fn(async () => {})
   let rejectRun: ((err: Error) => void) | null = null
@@ -36,6 +37,7 @@ function makeDownloaderFake(opts?: {
       _headers: unknown,
       onProgress: (p: SegmentProgress) => void
     ): Promise<{ initPath?: string; partPaths: string[] }> => {
+      if (opts?.error) throw opts.error
       if (opts?.hang) {
         return new Promise<{ initPath?: string; partPaths: string[] }>(
           (_resolve, reject) => {
@@ -662,6 +664,40 @@ describe('MediaTaskCoordinator.start', () => {
     expect(task?.finishedAt).not.toBeNull()
     expect(task?.errorMessage).toBe('mux-failed')
     expect(task?.errorDetailKey).toBe('task.error.detail.muxFailed')
+  })
+
+  it('cancels the sibling stream when one segment downloader fails', async () => {
+    const video = makeDownloaderFake({
+      error: new Error('segment download failed'),
+    })
+    const audio = makeDownloaderFake({ hang: true })
+    const streams = [video, audio]
+    const { deps, taskManager } = makeDeps({
+      makeDownloader: () => {
+        const next = streams.shift()
+        if (!next) throw new Error('unexpected downloader')
+        return next as unknown as import('@core/download/segment-downloader').SegmentDownloader
+      },
+      mintTaskId: () => 'stream-failure-test',
+    })
+    const coordinator = new MediaTaskCoordinator(deps)
+
+    await expect(
+      coordinator.start({
+        ...baseJob(),
+        audio: {
+          container: 'mpegts',
+          segments: [{ url: 'https://cdn/audio.ts', index: 0 }],
+          isComplete: true,
+        },
+      })
+    ).rejects.toThrow('segment download failed')
+
+    expect(video.cancel).toHaveBeenCalledOnce()
+    expect(audio.cancel).toHaveBeenCalledOnce()
+    expect(taskManager.getById('stream-failure-test')?.status).toBe(
+      TaskStatus.Error
+    )
   })
 
   it('uses a stable taskId across the whole lifecycle', async () => {

@@ -1827,7 +1827,7 @@ async function main() {
             publishTaskUpdateNow,
             taskManager,
             activityRecorder: taskActivityService,
-            segmentAria2: new Aria2SegmentClient(rpcClient),
+            segmentAria2: new Aria2SegmentClient(rpcClient, adapter),
             tmpRoot: runtimeDirectories.tempDir,
             persistTask,
             persistTaskWithOccurrence,

@@ -13,6 +13,7 @@ function makeFakeRpc() {
     options: Record<string, string | string[]>
   }[] = []
   const forceRemoveCalls: string[] = []
+  const removeDownloadResultCalls: string[] = []
 
   const tellStatusCalls: { gid: string; keys?: string[] }[] = []
   let tellStatusImpl: (
@@ -29,9 +30,13 @@ function makeFakeRpc() {
           return Promise.resolve('gid-1')
         }
       ),
-      forceRemove: vi.fn((gid: string) => {
+      forceRemoveTask: vi.fn((gid: string) => {
         forceRemoveCalls.push(gid)
-        return Promise.resolve('gid-1')
+        return Promise.resolve()
+      }),
+      removeDownloadResult: vi.fn((gid: string) => {
+        removeDownloadResultCalls.push(gid)
+        return Promise.resolve()
       }),
       tellStatus: vi.fn((gid: string, keys?: string[]) => {
         tellStatusCalls.push({ gid, keys })
@@ -56,6 +61,7 @@ function makeFakeRpc() {
     },
     addUriCalls,
     forceRemoveCalls,
+    removeDownloadResultCalls,
     tellStatusCalls,
   }
 }
@@ -63,7 +69,7 @@ function makeFakeRpc() {
 describe('Aria2SegmentClient', () => {
   it('fan-out: two onComplete subscribers both receive the gid', () => {
     const { rpc, fireComplete } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     const cb1 = vi.fn()
     const cb2 = vi.fn()
     client.onComplete(cb1)
@@ -75,7 +81,7 @@ describe('Aria2SegmentClient', () => {
 
   it('fan-out: two onError subscribers both receive the gid', () => {
     const { rpc, fireError } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     const cb1 = vi.fn()
     const cb2 = vi.fn()
     client.onError(cb1)
@@ -87,7 +93,7 @@ describe('Aria2SegmentClient', () => {
 
   it('addUri forwards uris and maps opts to string aria2 options', async () => {
     const { rpc, addUriCalls } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     const gid = await client.addUri(['http://example.com/seg.ts'], {
       dir: '/tmp/media',
       out: '000001.seg',
@@ -107,17 +113,18 @@ describe('Aria2SegmentClient', () => {
     expect(options.continue).toBe('false')
   })
 
-  it('forceRemove forwards the gid to rpc', async () => {
-    const { rpc, forceRemoveCalls } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+  it('forceRemove stops the gid and purges its durable result', async () => {
+    const { rpc, forceRemoveCalls, removeDownloadResultCalls } = makeFakeRpc()
+    const client = new Aria2SegmentClient(rpc, rpc)
     await client.forceRemove('gid-42')
     expect(forceRemoveCalls).toEqual(['gid-42'])
+    expect(removeDownloadResultCalls).toEqual(['gid-42'])
   })
 
   // C2: isSegmentGid tracking
   it('isSegmentGid returns true after addUri, false before', async () => {
     const { rpc } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     expect(client.isSegmentGid('gid-1')).toBe(false)
     await client.addUri(['http://cdn/seg.ts'], { dir: '/tmp', out: 'seg.ts' })
     expect(client.isSegmentGid('gid-1')).toBe(true)
@@ -125,7 +132,7 @@ describe('Aria2SegmentClient', () => {
 
   it('isSegmentGid returns false after forceRemove', async () => {
     const { rpc } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     await client.addUri(['http://cdn/seg.ts'], { dir: '/tmp', out: 'seg.ts' })
     expect(client.isSegmentGid('gid-1')).toBe(true)
     await client.forceRemove('gid-1')
@@ -136,15 +143,16 @@ describe('Aria2SegmentClient', () => {
     let resolveRemove: () => void = () => {}
     const rpc = {
       addUri: async () => 'gid-1',
-      forceRemove: () =>
+      forceRemoveTask: () =>
         new Promise<void>((r) => {
           resolveRemove = r
         }),
+      removeDownloadResult: async () => {},
       tellStatus: async () => ({ completedLength: '0', totalLength: '0' }),
       onDownloadComplete: () => {},
       onDownloadError: () => {},
     }
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     await client.addUri(['http://cdn/seg.ts'], { dir: '/tmp', out: 'seg.ts' })
     expect(client.isSegmentGid('gid-1')).toBe(true)
     const p = client.forceRemove('gid-1')
@@ -156,21 +164,25 @@ describe('Aria2SegmentClient', () => {
     expect(client.isSegmentGid('gid-1')).toBe(false)
   })
 
-  it('isSegmentGid returns false after a complete event fires', async () => {
+  it('keeps a completed gid owned until its durable result is purged', async () => {
     const { rpc, fireComplete } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     await client.addUri(['http://cdn/seg.ts'], { dir: '/tmp', out: 'seg.ts' })
     expect(client.isSegmentGid('gid-1')).toBe(true)
     fireComplete('gid-1')
+    expect(client.isSegmentGid('gid-1')).toBe(true)
+    await client.removeDownloadResult('gid-1')
     expect(client.isSegmentGid('gid-1')).toBe(false)
   })
 
-  it('isSegmentGid returns false after an error event fires', async () => {
+  it('keeps an errored gid owned until its durable result is purged', async () => {
     const { rpc, fireError } = makeFakeRpc()
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
     await client.addUri(['http://cdn/seg.ts'], { dir: '/tmp', out: 'seg.ts' })
     expect(client.isSegmentGid('gid-1')).toBe(true)
     fireError('gid-1')
+    expect(client.isSegmentGid('gid-1')).toBe(true)
+    await client.removeDownloadResult('gid-1')
     expect(client.isSegmentGid('gid-1')).toBe(false)
   })
 
@@ -182,7 +194,7 @@ describe('Aria2SegmentClient', () => {
       completedLength: '1024',
       totalLength: '4096',
     }))
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
 
     const result = await client.tellStatus('gid-7')
 
@@ -198,7 +210,7 @@ describe('Aria2SegmentClient', () => {
     setTellStatus(async () => {
       throw new Error('GID not found')
     })
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
 
     const result = await client.tellStatus('gid-gone')
 
@@ -208,7 +220,7 @@ describe('Aria2SegmentClient', () => {
   it('tellStatus returns null when a length field is missing / non-numeric', async () => {
     const { rpc, setTellStatus } = makeFakeRpc()
     setTellStatus(async () => ({ totalLength: '4096' }))
-    const client = new Aria2SegmentClient(rpc)
+    const client = new Aria2SegmentClient(rpc, rpc)
 
     const result = await client.tellStatus('gid-partial')
 

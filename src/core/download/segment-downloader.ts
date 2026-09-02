@@ -22,6 +22,8 @@ export interface SegmentAria2 {
     }
   ): Promise<string>
   forceRemove(gid: string): Promise<void>
+  /** Purge a terminal segment from aria2's stopped result and durable store. */
+  removeDownloadResult(gid: string): Promise<void>
   /**
    * Register a single callback to receive completion notifications.
    * Important: onComplete and onError register a SINGLE callback each.
@@ -146,6 +148,10 @@ export class SegmentDownloader {
   private readonly activeJobs = new Map<string, Job>()
   /** Set of all gids currently in-flight (submitted but not yet complete/error). */
   private readonly activeGids = new Set<string>()
+  /** Terminal gids whose durable result deletion has not settled yet. */
+  private readonly settlingGids = new Set<string>()
+  /** Async add/terminal-cleanup operations that cancel() must drain. */
+  private readonly pendingOperations = new Set<Promise<void>>()
 
   private rejectRun: ((err: Error) => void) | null = null
   /** Flag to guard against cancel-during-retry race: set when cancel() is called. */
@@ -185,6 +191,30 @@ export class SegmentDownloader {
     }
   }
 
+  private trackOperation(operation: Promise<void>): void {
+    this.pendingOperations.add(operation)
+    void operation.finally(() => {
+      this.pendingOperations.delete(operation)
+    })
+  }
+
+  private async purgeResult(gid: string): Promise<void> {
+    try {
+      await this.aria2.removeDownloadResult(gid)
+    } catch (firstError) {
+      try {
+        // A live/stale classification race can make the first terminal purge
+        // fail. forceRemove performs stop + a second durable purge attempt.
+        await this.aria2.forceRemove(gid)
+      } catch (retryError) {
+        throw new AggregateError(
+          [firstError, retryError],
+          `Failed to purge segment ${gid}`
+        )
+      }
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Public API
   // -------------------------------------------------------------------------
@@ -194,8 +224,11 @@ export class SegmentDownloader {
     headers: Record<string, string>,
     onProgress: (p: SegmentProgress) => void
   ): Promise<{ initPath?: string; partPaths: string[] }> {
+    this.cancelled = false
+    this.rejectRun = null
     this.activeJobs.clear()
     this.activeGids.clear()
+    this.settlingGids.clear()
 
     // Build a flat ordered job list: [init?, seg0, seg1, ...]
     const jobs: Job[] = []
@@ -241,11 +274,6 @@ export class SegmentDownloader {
     // and a poll that transiently returns null keeps the prior value instead of
     // dropping bytes.
     let finishedBytes = 0
-    // Size lookups for segments that completed before any poll recorded them —
-    // awaited before the run resolves so the FINAL total is accurate even when
-    // the poll's first tick never landed (e.g. a fast single-segment stream).
-    const pendingSizes: Promise<void>[] = []
-
     return new Promise<{ initPath?: string; partPaths: string[] }>(
       (resolve, reject) => {
         if (total === 0) {
@@ -254,6 +282,12 @@ export class SegmentDownloader {
         }
 
         this.rejectRun = reject
+
+        const fail = (err: Error) => {
+          this.stopPolling()
+          this.rejectRun = null
+          reject(err)
+        }
 
         const report = () => {
           let activeCompleted = 0
@@ -292,13 +326,10 @@ export class SegmentDownloader {
 
         const resolveWhenDone = () => {
           if (completed !== total) return
-          // Await any in-flight size lookups so the final report is accurate
-          // before the run resolves (the coordinator reads the final bytes).
-          void Promise.all(pendingSizes).then(() => {
-            this.stopPolling()
-            report()
-            resolve(buildResult())
-          })
+          this.stopPolling()
+          this.rejectRun = null
+          report()
+          resolve(buildResult())
         }
 
         // Register callbacks once
@@ -307,32 +338,29 @@ export class SegmentDownloader {
           if (!job) return
           this.activeJobs.delete(gid)
           this.activeGids.delete(gid)
-          completed++
+          this.settlingGids.add(gid)
+          const operation = (async () => {
+            const ls = lastSeen.get(gid)
+            if (ls) {
+              // Size known from a prior poll: move it to finished before the
+              // gid leaves the active set so the running total never dips.
+              lastSeen.delete(gid)
+              addFinished(ls.total)
+            } else {
+              // Query before purging: terminal downloads remain queryable only
+              // until removeDownloadResult succeeds.
+              const status = await this.aria2.tellStatus(gid).catch(() => null)
+              if (status) addFinished(status.totalLength)
+            }
 
-          const ls = lastSeen.get(gid)
-          if (ls) {
-            // Size known from a prior poll: move it to finished synchronously so
-            // the running total stays continuous (no dip as the gid leaves).
-            lastSeen.delete(gid)
-            addFinished(ls.total)
-          } else {
-            // Completed before any poll recorded its size — it contributed 0 to
-            // every prior report, so learning its size now only ADDS (never
-            // shrinks). aria2 keeps a completed download queryable until
-            // removeDownloadResult, so a final tellStatus still returns it.
+            await this.purgeResult(gid)
+            this.settlingGids.delete(gid)
+            completed++
             report()
-            pendingSizes.push(
-              this.aria2
-                .tellStatus(gid)
-                .catch(() => null)
-                .then((s) => {
-                  if (s) addFinished(s.totalLength)
-                })
-            )
-          }
-
-          releaseSlot()
-          resolveWhenDone()
+            releaseSlot()
+            resolveWhenDone()
+          })().catch((err: Error) => fail(err))
+          this.trackOperation(operation)
         })
 
         this.aria2.onError((gid) => {
@@ -340,20 +368,28 @@ export class SegmentDownloader {
           if (!job) return
           this.activeJobs.delete(gid)
           this.activeGids.delete(gid)
+          this.settlingGids.add(gid)
           // A retry restarts this segment from zero; drop its cached bytes so
           // the active sum reflects only live in-flight segments.
           lastSeen.delete(gid)
+          const operation = (async () => {
+            await this.purgeResult(gid)
+            this.settlingGids.delete(gid)
+            running--
 
-          if (job.retriesLeft > 0) {
-            // Re-submit with one fewer retry remaining
-            job.retriesLeft--
-            submitJob(job)
-          } else {
-            this.stopPolling()
-            reject(
-              new Error(`Segment download failed permanently: ${job.outPath}`)
-            )
-          }
+            if (this.cancelled) return
+            if (job.retriesLeft > 0) {
+              // Re-submit only after the failed durable row is gone. This also
+              // keeps the semaphore count stable across retries.
+              job.retriesLeft--
+              submitJob(job)
+            } else {
+              fail(
+                new Error(`Segment download failed permanently: ${job.outPath}`)
+              )
+            }
+          })().catch((err: Error) => fail(err))
+          this.trackOperation(operation)
         })
 
         // ── Byte poll ────────────────────────────────────────────────────
@@ -395,27 +431,36 @@ export class SegmentDownloader {
           }
           running++
           const partHeaders = buildHeaders(job.part, headers)
-          this.aria2
-            .addUri([job.part.url], {
-              dir: this.tmpDir,
-              out: path.basename(job.outPath),
-              header: partHeaders.length > 0 ? partHeaders : undefined,
-              'max-tries': MAX_TRIES,
-              'retry-wait': RETRY_WAIT,
-            })
-            .then((gid) => {
-              if (this.cancelled) {
-                void this.aria2.forceRemove(gid)
-                return
-              }
-              this.activeJobs.set(gid, job)
-              this.activeGids.add(gid)
-            })
-            .catch((err: Error) => {
+          const operation = (async () => {
+            let gid: string
+            try {
+              gid = await this.aria2.addUri([job.part.url], {
+                dir: this.tmpDir,
+                out: path.basename(job.outPath),
+                header: partHeaders.length > 0 ? partHeaders : undefined,
+                'max-tries': MAX_TRIES,
+                'retry-wait': RETRY_WAIT,
+              })
+            } catch (err) {
               running--
-              this.stopPolling()
-              reject(err)
-            })
+              if (!this.cancelled) fail(err as Error)
+              return
+            }
+
+            if (this.cancelled) {
+              running--
+              await this.aria2.forceRemove(gid)
+              return
+            }
+            this.activeJobs.set(gid, job)
+            this.activeGids.add(gid)
+          })().catch((err: Error) => {
+            // At this point addUri succeeded and cancellation owns the gid.
+            // Keep run() cancelled; cancel() drains this rejected operation and
+            // startup reconciliation retries any rare durable-delete failure.
+            if (!this.cancelled) fail(err)
+          })
+          this.trackOperation(operation)
         }
 
         const releaseSlot = () => {
@@ -440,13 +485,20 @@ export class SegmentDownloader {
   async cancel(): Promise<void> {
     this.cancelled = true
     this.stopPolling()
-    const gids = [...this.activeGids]
-    this.activeGids.clear()
-    this.activeJobs.clear()
-    await Promise.allSettled(gids.map((g) => this.aria2.forceRemove(g)))
+    const gids = [...new Set([...this.activeGids, ...this.settlingGids])]
     if (this.rejectRun) {
       this.rejectRun(new Error('SegmentDownloader: cancelled'))
       this.rejectRun = null
     }
+    await Promise.allSettled(gids.map((g) => this.aria2.forceRemove(g)))
+    // addUri can resolve after cancellation and return a gid that was not in
+    // the snapshot above. Its tracked continuation force-removes that gid;
+    // drain it before cancellation is considered complete.
+    while (this.pendingOperations.size > 0) {
+      await Promise.allSettled([...this.pendingOperations])
+    }
+    this.activeGids.clear()
+    this.settlingGids.clear()
+    this.activeJobs.clear()
   }
 }

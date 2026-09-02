@@ -1893,6 +1893,9 @@ async function initializeMainProcess(): Promise<void> {
         : null
     }
   )
+  supervisor.setPreReadyMaintenance(() =>
+    sessionManager.purgeEphemeralMediaRows()
+  )
   const pluginRuntime = await createPluginRuntime({
     activation: pluginActivation,
     registry: pluginRegistry,
@@ -2334,7 +2337,7 @@ async function initializeMainProcess(): Promise<void> {
         (candidate) => resolveExecutable(candidate, process.env)
       )
     const ff = await resolveFfmpegLocation()
-    const segmentAria2Client = new Aria2SegmentClient(rpcClient)
+    const segmentAria2Client = new Aria2SegmentClient(rpcClient, adapter)
     segmentClient = segmentAria2Client
     const revealInFolder = createRevealInFolderHandler({
       shell,

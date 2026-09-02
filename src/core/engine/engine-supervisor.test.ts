@@ -219,6 +219,26 @@ describe('EngineSupervisor', () => {
   })
 
   describe('start — happy path', () => {
+    it('runs startup maintenance after RPC connect and before publishing Ready', async () => {
+      const readyObserved = vi.fn()
+      eventBus.on(Events.EngineStateChanged, (state) => {
+        if (state === EngineState.Ready) readyObserved()
+      })
+      const maintenance = vi.fn(async () => {
+        expect(rpcClient.connect).toHaveBeenCalledOnce()
+        expect(readyObserved).not.toHaveBeenCalled()
+      })
+      supervisor.setPreReadyMaintenance(maintenance)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(maintenance).toHaveBeenCalledOnce()
+      expect(readyObserved).toHaveBeenCalledOnce()
+      expect(maintenance.mock.invocationCallOrder[0]).toBeLessThan(
+        readyObserved.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER
+      )
+    })
+
     it('resolves the download proxy before building aria2 arguments', async () => {
       const resolved = {
         allProxy: 'http://127.0.0.1:43123',
