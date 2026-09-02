@@ -161,7 +161,7 @@ modules:
         # Must track the electron version in package.json — generated-sources
         # unpacks that release's headers here, and electron-rebuild's gyp run
         # fails on a dangling path.
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.4.0
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.1.1
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
@@ -194,7 +194,7 @@ modules:
         --verbose
       - npm install -g
         --prefix=/run/build/motrix/flatpak-node/pnpm-cli
-        ./flatpak-node/pnpm/pnpm-11.22.0.tgz
+        ./flatpak-node/pnpm/pnpm-11.25.0.tgz
         --offline
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
@@ -339,8 +339,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-11.22.0.tgz
-        sha256: 57a97e6f23a3faffc03153a4ef8c770a0552612b8640aebe39bfdd5754d0ebdc
+        url: https://registry.npmjs.org/pnpm/-/pnpm-11.25.0.tgz
+        sha256: 33dd0748f27e7916c4f1c8b6943461983e3453b06bbda6312a6280130b4881e5
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked

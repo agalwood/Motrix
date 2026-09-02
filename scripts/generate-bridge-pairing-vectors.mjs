@@ -656,7 +656,7 @@ const out = {
     'are lowercase hex.',
   generator: {
     library:
-      '@noble/curves 2.0.1, @noble/hashes 2.0.1, node:crypto AES-256-GCM',
+      '@noble/curves 2.4.0, @noble/hashes 2.4.0, node:crypto AES-256-GCM',
     coreValidation:
       'RFC 9382 Appendix B vectors #1-#4 (P-256) reproduced exactly',
   },

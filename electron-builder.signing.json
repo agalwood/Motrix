@@ -90,7 +90,7 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "bundleShortVersion": "2.0.0",
     "bundleVersion": "2.0.1",
-    "minimumSystemVersion": "12.0",
+    "minimumSystemVersion": "13.0",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "signing-build-resources/entitlements.mac.plist",
@@ -176,7 +176,7 @@
     "perMachine": false
   },
   "electronDist": "trusted/electron.zip",
-  "electronVersion": "43.4.0",
+  "electronVersion": "44.1.1",
   "npmRebuild": true,
   "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",
   "detectUpdateChannel": true,

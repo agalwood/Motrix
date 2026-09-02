@@ -17,7 +17,7 @@ import {
   inspectElectronRuntime,
 } from '../../scripts/ensure-electron-runtime.mjs'
 
-const VERSION = '43.4.0'
+const VERSION = '44.1.1'
 let packageDir: string
 
 async function writePackageShell(): Promise<void> {

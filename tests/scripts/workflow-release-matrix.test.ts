@@ -43,9 +43,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '11.22.0'
+const PNPM_VERSION = '11.25.0'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621'
+  'pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -2636,7 +2636,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('43.4.0')
+    expect(stringField(config, 'electronVersion')).toBe('44.1.1')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2702,7 +2702,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('43.4.0')
+    expect(version).toBe('44.1.1')
     expect(
       stringField(
         asRecord(
@@ -2738,7 +2738,7 @@ describe('release workflow publication contract', () => {
     expect(checked).toBeGreaterThan(0)
   })
 
-  it('pins the packaged macOS baseline to Electron 43 support', () => {
+  it('pins the packaged macOS baseline to Electron 44 support', () => {
     const builderConfig = asRecord(
       JSON.parse(
         readFileSync(path.join(ROOT, 'electron-builder.json'), 'utf8')
@@ -2747,12 +2747,12 @@ describe('release workflow publication contract', () => {
     )
     const macConfig = asRecord(builderConfig.mac, 'electron-builder mac config')
 
-    expect(stringField(macConfig, 'minimumSystemVersion')).toBe('12.0')
+    expect(stringField(macConfig, 'minimumSystemVersion')).toBe('13.0')
     expect(stringField(macConfig, 'artifactName')).toMatch(/\$\{arch\}/)
     for (const workflow of [ciWorkflow, releaseWorkflow]) {
       const { job } = targetMatrix(workflow)
       const env = asRecord(job.env, 'target job environment')
-      expect(stringField(env, 'MACOSX_DEPLOYMENT_TARGET')).toContain('12.0')
+      expect(stringField(env, 'MACOSX_DEPLOYMENT_TARGET')).toContain('13.0')
     }
   })
 

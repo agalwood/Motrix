@@ -22,8 +22,8 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 ## 🧪 Beta 测试
 
 Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请从 GitHub Releases
-下载 [v2.0.0-beta.29](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.29)，
-并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.29.zh-CN.md)。
+下载 [v2.0.0-beta.30](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.30)，
+并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.30.zh-CN.md)。
 
 测试前请备份现有 Motrix 数据和下载文件。Motrix v1 数据的迁移路径尚未经过
 验证，请勿让本 beta 使用您唯一一份 v1 数据。条件允许时，建议通过独立的系统
@@ -127,7 +127,7 @@ pnpm exec motrix-plugin lint     # 检查打包产物
 
 | 平台 | 架构 | 安装包 / 通道 | 选择建议 |
 |------|------|---------------|----------|
-| macOS 12+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
+| macOS 13+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 | Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
@@ -156,7 +156,7 @@ Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compos
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.29'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.30'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
@@ -228,7 +228,7 @@ macOS、Windows 和 Linux 的打包命令（`pack:*` / `dist:*`）可以在 `pac
 
 | 领域 | 选型 |
 |------|------|
-| 桌面 shell | Electron 43 |
+| 桌面 shell | Electron 44 |
 | 界面 | React 19 + Tailwind CSS 4 + shadcn/ui |
 | 语言 | TypeScript（strict mode） |
 | 构建 | Vite 8（main / preload / worker / renderer，4 个 target） |

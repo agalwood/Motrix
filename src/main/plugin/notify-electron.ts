@@ -17,7 +17,7 @@ export class ElectronNotifyHost implements NotifyCapabilityHost {
   private readonly active = new Map<string, Notification>()
 
   get available(): boolean {
-    // Keep this check lazy. On Windows, Electron 43 initializes its toast
+    // Keep this check lazy. On Windows, Electron initializes its toast
     // activator from Notification.isSupported(), which creates or rewrites a
     // per-user Start Menu shortcut. Constructing the capability host happens
     // on every app launch, even when no plugin requests a notification.

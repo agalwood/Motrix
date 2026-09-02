@@ -94,19 +94,26 @@ M = d048032c6ea0b6d697ddc2e86bda85a33adac920f1bf18e1b0c6d166a5cecdaf
 N = d3bfb518f44f3430f29d0c92af503865a1ed3281dc69b35dd868ba85f886c4ab
 ```
 
-**实现来源。** 曲线运算、SPAKE2 组合、scrypt 与 Ed25519 MUST 来自捆绑的、经
-独立审计的库并以**精确版本**锁定：TypeScript 侧为 **`@noble/curves@2.0.1`**
-与 **`@noble/hashes@2.0.1`**（即生成规范性测试向量所用的版本）。Cure53
-2024 年 9 月的审计基于 `@noble/curves` 1.6.0。**Phase-A 发布前待确认：**
-补全此锁定版本审计依据所需的、对 1.6.0 到 2.0.1 上游 diff 的 maintainer
-审阅尚未进行；审查日志（附录 C）记录了这一状态。任何版本升级都要重跑
-全部向量并更新此锁定。
+**实现来源。** 曲线运算、SPAKE2 组合、scrypt 与 Ed25519 MUST 来自捆绑的库并
+以**精确版本**锁定：TypeScript 侧为 **`@noble/curves@2.4.0`** 与
+**`@noble/hashes@2.4.0`**（即生成规范性测试向量所用的版本）。
+`@noble/curves` 曾于 2024 年 9 月在 1.6.0 接受 Cure53 独立审计，并于 2026 年
+8 月在 2.3.0 接受 Trail of Bits 独立审计（上游称后者覆盖整个包）；2.4.0 是
+此后的安全加固增量。随后，精确的 2.4.0 curves/hashes 组合、2.3.0 之后的差异及
+其在 MBP1 中的具体用法通过了 maintainer 于 2026-09-03 确认的独立密码学审查。
+**这一精确组合的 Phase-A 依赖审查门禁已经满足。**审查日志（附录 C）记录了
+工程重新验证与独立批准。任何版本升级都要重跑全部向量并重新开启此门禁。
 MUST NOT 使用 WebCrypto 的 X25519/Ed25519：其要求 Chrome 133 / Firefox
 130，而扩展
 支持 Chrome 120+ / Firefox 121+（见附录 B）。对称原语（AES-256-GCM、
 HKDF-SHA-256、HMAC-SHA-256）MAY 使用在上述最低版本普遍可用的 WebCrypto。
-所有涉密比较 MUST 为 constant-time；标量乘法 MUST 对标量 constant-time
-（noble-curves 满足）。
+所有涉密比较 MUST 为 constant-time；标量乘法 MUST 使用库的 secret-scalar
+路径。noble-curves 2.4.0 使用固定运算序列与 data-oblivious table scan，但其
+上游安全说明指出：cofactored Edwards 曲线上的非基点仍存在已知的 JS 时序
+限制。MBP1 的 `M·w`、`N·w` 与 peer-share 标量乘法属于此类；相关标量在每次
+配对会话中重新派生或抽取，限制了对同一秘密的重复采样，却不能证明严格
+constant-time。独立审查已在 MBP1 的逐会话 threat model 下评估并接受这一残余。
+若改为复用这些标量或改变该 threat model，MUST 重新开启密码学审查。
 
 ---
 
@@ -641,7 +648,7 @@ origin；Firefox：扩展 ID 参数）。NM host 读取它并铸造一张一次�
    **Binding-key 校验（server 侧）。** `bindingPub` MUST 能解码为规范的
    RFC 8032 点编码，且**不是单位元、不是 small-order 点、位于素数阶子群**
    （torsion-free）；否则 ticket 无效。`ticketProof` MUST 以 **RFC 8032
-   strict 模式——noble-curves 2.0.1 的 `zip215: false`** 验证：它强制规范
+   strict 模式——noble-curves 2.4.0 的 `zip215: false`** 验证：它强制规范
    `R` 编码与 `S < ℓ`，并拒绝 ZIP-215（宽松默认 `zip215: true`）会接受的
    可锻/非规范输入。MUST NOT 使用宽松的 ZIP-215 模式。注意 noble 的 strict
    模式仍检查 **cofactored** 群方程 `[8]·S·B = [8]·R + [8]·k·A`，并非
@@ -914,8 +921,8 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
    **已满足**——六轮独立对抗审查（2026-08-19），每轮均重新确认 0 High；末轮
    清除最后一个 Medium，仅余跟踪到实现的 Low 项。完整审查记录（审查人、
    日期、发现、处置）见附录 C。
-2. 实现 MUST 以精确版本锁定 `@noble/curves`（2.0.1）与 `@noble/hashes`
-   （2.0.1），并记录其对应的审计依据（§3）。
+2. 实现 MUST 以精确版本锁定 `@noble/curves`（2.4.0）与 `@noble/hashes`
+   （2.4.0），并记录其对应的审计依据（§3）。
 3. 附录 B 中的事实在 Phase-A 发布前 MUST 对照实际最低版本浏览器构建矩阵
    （Chrome 120、Firefox 121）重新验证；它们引自厂商文档，而非本仓库自身
    的证据。
@@ -980,7 +987,9 @@ Firefox 两行的推论：扩展在探测 loopback 之前 MUST 先检查
 | 5-rev | 2026-08-19 | 规范修订 | 发现已处理 | 客户端在 `credentialAck` 前 write-ahead；server 在 `reconnectAccept` 前持久提升/CAS 吊销；server provisional 限界、幂等重发；§9.2 结果表穷尽、加 `browser` 检查与延后。 |
 | 6 | 2026-08-19 | 独立复审（Codex） | NOT APPROVED — 0 High；1 Medium + 4 Low | Medium：客户端 committed 写入后、修剪前崩溃可能留下两条 `committed` 而 active 指针仍指向前任，恢复未定义如何选择——合规客户端可能在被吊销的凭据上循环。Low：journal 替代方案需「重放先于 `/v1`」屏障；「幂等重发」定义不足；首配孤儿 `commit-uncertain` 清理未定义；§9.2 缺 MAC-first 检查顺序（诚实的先前 generation ticket 可能被误判）且过度声称「铸造窗口」。构造与全部向量独立复现；无 High。审查者：Medium 修复后 Low 项可延后到实现跟踪、gate 即可视为满足。 |
 | 6-rev | 2026-08-19 | 规范修订（本文档） | 发现已处理；gate 满足 | 客户端在修剪前于**一次原子持久写入**中同时写 `committed` **与** `activeCredentialId`，恢复先试 `activeCredentialId`，使崩溃-未修剪由指针消歧、绝不靠猜（§6.7/§12）。journal 重放 MUST 在 `/v1` 接受认证前完成；「幂等重发」重发已存的同一 `{credentialId, mutualKey}`；首配孤儿 `commit-uncertain`（无 committed 兄弟）可在 10 分钟 server provisional TTL 后清理（§6.7）。§9.2 固定 MAC-first 顺序、要求 `localToken` 持久而只 `serverGeneration` 轮换、并把 `exp` 重述为剩余寿命上限。**六轮独立对抗审查均重新确认 0 High；Medium 已闭合；残留 Low 项跟踪到实现。编码前密码学审查 gate 满足。** |
-| Dep-pin | 2026-08-20 | Maintainer（依赖审计依据记录，§14.2） | 已记录——diff 审阅待确认 | 在 TypeScript 实现中精确锁定 `@noble/curves@2.0.1` 与 `@noble/hashes@2.0.1`（§3）。审计依据：Cure53 2024 年 9 月的审计基于 `@noble/curves` 1.6.0；该依据的第二支柱——对从 1.6.0 到 2.0.1 的上游 diff 的 maintainer 审阅——**待 Phase-A 发布前确认**，目前尚未进行该审阅。 |
+| Dep-pin | 2026-08-20 | Maintainer（依赖审计依据记录，§14.2） | 历史记录——已由 Dep-pin-2 取代 | 当时的 TypeScript 实现精确锁定 `@noble/curves@2.0.1` 与 `@noble/hashes@2.0.1`。Cure53 2024 年 9 月的审计基于 `@noble/curves` 1.6.0；该锁定被取代前未完成 1.6.0 到 2.0.1 差异的 maintainer 审阅。 |
+| Dep-pin-2 | 2026-09-03 | 工程重新验证（Codex） | 向量与实现测试 PASS | 精确锁定 `@noble/curves@2.4.0` 与 `@noble/hashes@2.4.0`（§3）。重新复现全部四组 RFC 9382 附录 B 向量、完整 MBP1 规范生成器（包括严格 Ed25519 延展性/密钥负例及 envelope 篡改用例）、310 项 MBP1 单元测试与 77 项回环传输测试。移除唯一的库版本元数据字段后，2.4.0 向量载荷与 2.0.1 基线逐字节一致。聚焦 API/安全差异审阅未发现 MBP1 调用点不兼容，并记录了上游关于 Edwards 非基点秘密标量乘法的时序限制。 |
+| Dep-pin-2-review | 2026-09-03 | 独立密码学审查（maintainer 已确认） | APPROVED——Phase-A 依赖门禁已满足 | 独立审查覆盖精确的 2.4.0 curves/hashes 组合、2.3.0 之后的安全加固差异、MBP1 对相关 primitive 的用法，以及已记录的 Edwards 非基点秘密标量乘法时序残余。审查在 MBP1 的逐会话标量 threat model 下接受该残余。任何依赖升级、标量复用或实质性 threat-model 变更都会重新开启此门禁。 |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

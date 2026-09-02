@@ -7,7 +7,7 @@
 #
 # Release-enabled targets are the current intersection of:
 #   - a locked scripts/engine.lock.json aria2 asset;
-#   - an Electron 43 / electron-builder package target;
+#   - an Electron 44 / electron-builder package target;
 #   - a native GitHub-hosted runner;
 #   - a packages/native-host/build.mjs Rust target.
 #
@@ -166,9 +166,9 @@ jobs:
     # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
     # ci.yml package-targets).
     env:
-      # Electron 43 requires macOS 12 even though the locked aria2 binaries
+      # Electron 44 requires macOS 13 even though the locked aria2 binaries
       # themselves are built with an 11.0 deployment target.
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
 
     steps:
       - name: Checkout
@@ -177,7 +177,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.22.0
+          version: 11.25.0
           run_install: false
 
       - name: Setup Node.js
@@ -221,7 +221,7 @@ jobs:
           # Fetching the package target is explicit in the next step.
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
-      # Electron 43 does not declare a postinstall script, so pnpm install
+      # Electron does not declare a postinstall script, so pnpm install
       # does not hydrate dist/ with the runtime and license payload.
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js
@@ -573,7 +573,7 @@ jobs:
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
             app_path: release/mac-arm64/Motrix.app
-            electron_sha256: 827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac
+            electron_sha256: a8711350df6d9bafb8348f11fa7310a8d580edff476caafbf69d50dbf2d8043b
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -582,7 +582,7 @@ jobs:
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
             app_path: release/mac/Motrix.app
-            electron_sha256: 7ab39ec1b0bcf5463f2dc0040142fbc1c30cd7bc3f99086066f588c717b11e24
+            electron_sha256: 5def2f57eb119406997892a475794807fc32eba9d090160aaddc81f6d5657a36
           - target: win32-x64
             os: windows-2025
             platform: win32
@@ -591,7 +591,7 @@ jobs:
             electron_builder_args: --win --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
-            electron_sha256: ef0709cfa719739acce73de6f9b684304baf38c6454376638a70d34a7cecffe0
+            electron_sha256: c574a22981889b74212c90a9391adcca116cd9d74e32b660ab21d0130ab50cc2
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -604,7 +604,7 @@ jobs:
       ELECTRON_BUILDER_OSSL_SIGNCODE_PATH: ''
       ELECTRON_BUILDER_RCEDIT_PATH: ''
       ELECTRON_BUILDER_WINDOWS_KITS_PATH: ''
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
       NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR: ''
       NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: ''
       SIGNTOOL_PATH: ''
@@ -868,7 +868,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: d1a330999b72971313cc477eb367eec70610304b33a358b8eca4fd2c94f35517
+          VERIFIER_SHA256: 4f2e6258a2444b0166fd890a357acd5a32f6c885ae782c1fb9c080cbcc42de6c
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -1026,7 +1026,7 @@ jobs:
           cp \
             signing-input/signing-policy/installer.nsh \
             signing-input/trusted/installer.nsh
-          url="https://github.com/electron/electron/releases/download/v43.4.0/electron-v43.4.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v44.1.1/electron-v44.1.1-${{ matrix.platform }}-${{ matrix.arch }}.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
             "$url" --output signing-input/trusted/electron.zip
           node - <<'NODE'
@@ -1532,7 +1532,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.22.0
+          version: 11.25.0
           run_install: false
 
       - name: Setup Node.js
