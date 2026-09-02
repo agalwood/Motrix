@@ -109,7 +109,7 @@
     "showMotrix": "Show Motrix",
     "manual": "Manual",
     "checkUpdates": "Check for Updates",
-    "preferences": "Preferences",
+    "preferences": "Settings",
     "quit": "Quit"
   },
   "panel": {
@@ -1682,7 +1682,7 @@
     "app": {
       "title": "Motrix",
       "about": "About Motrix",
-      "preferences": "Preferences…",
+      "preferences": "Settings…",
       "checkForUpdates": "Check for Updates…",
       "show": "Show Motrix",
       "hide": "Hide Motrix",
