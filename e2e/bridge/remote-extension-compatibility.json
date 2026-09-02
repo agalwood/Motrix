@@ -7,7 +7,7 @@
   },
   "motrix": {
     "repository": "motrix-app",
-    "commit": "45fd67e35c27396ae1fb091970852880d8cc9102"
+    "commit": "1b51c8fc1d24305d6075ea501274585343bbb269"
   },
   "e2e": {
     "browserCases": 5,

@@ -49,6 +49,21 @@ pub enum HostRequest {
     },
 }
 
+impl HostRequest {
+    pub fn allow_launch(&self) -> bool {
+        match self {
+            Self::Legacy { allow_launch } | Self::Bootstrap { allow_launch, .. } => *allow_launch,
+        }
+    }
+
+    pub fn bootstrap_binding_pub(&self) -> Option<&[u8; 32]> {
+        match self {
+            Self::Bootstrap { binding_pub, .. } => Some(binding_pub),
+            Self::Legacy { .. } => None,
+        }
+    }
+}
+
 /// Parses `{ action: "bootstrap", protocolVersion: 1, bindingPub, allowLaunch?
 /// }` (§9.1) while preserving the v1 `parse_allow_launch` semantics for
 /// anything else. A `bootstrap` object whose `protocolVersion` is not the

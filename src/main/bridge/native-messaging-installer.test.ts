@@ -1,10 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   computeManifestPaths,
   computeRegistryEntries,
+  DEVELOPMENT_HOST_CONFIG_NAME,
   NativeMessagingInstaller,
   type RegistryEntry,
   type RegistryView,
@@ -53,7 +54,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'darwin',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     const chromeContent = JSON.parse(
@@ -68,8 +69,40 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     expect(chromeContent.name).toBe('app.motrix.bridge')
     expect(chromeContent.path).toBe('/path/to/motrix-bridge-host')
     expect(chromeContent.allowed_origins).toContain(
-      'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'
+      'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/'
     )
+  })
+
+  it("binds a development host to Electron's selected bridge directory", async () => {
+    const hostBinaryPath = join(dir, 'native-host', 'motrix-native-host')
+    const developmentBridgeDataDir = join(dir, 'Motrix-dev', 'bridge')
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath,
+      manifestRoot: dir,
+      platform: 'darwin',
+      developmentBridgeDataDir,
+    })
+
+    await installer.syncManifests({
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
+      firefox: ['motrix-extension@motrix.app'],
+    })
+
+    const configPath = join(
+      dirname(hostBinaryPath),
+      DEVELOPMENT_HOST_CONFIG_NAME
+    )
+    expect(JSON.parse(await readFile(configPath, 'utf-8'))).toEqual({
+      bridgeDataDir: developmentBridgeDataDir,
+    })
+    if (process.platform !== 'win32') {
+      expect((await stat(configPath)).mode & 0o777).toBe(0o600)
+    }
+
+    await installer.unregister()
+    await expect(readFile(configPath, 'utf-8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   })
 
   it('writes the chromium-family manifest to the Debian Chromium path on Linux', async () => {
@@ -80,7 +113,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'linux',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     const chromium = JSON.parse(
@@ -95,7 +128,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     expect(chromium.name).toBe('app.motrix.bridge')
     expect(chromium.path).toBe(hostBinaryPath)
     expect(chromium.allowed_origins).toEqual([
-      'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/',
+      'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/',
     ])
   })
 
@@ -137,7 +170,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     await writeFile(paths.firefox, firefoxSentinel)
 
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     await installer.unregister()
@@ -153,7 +186,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       description: 'Motrix browser download bridge',
       path: `${dir}/.local/share/motrix/native-messaging/motrix-flatpak-native-host`,
       type: 'stdio',
-      allowed_origins: ['chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'],
+      allowed_origins: ['chrome-extension://lggbokfckofcgjndaboioakcmincinpo/'],
     }
     await mkdir(dirname(paths.chrome), { recursive: true })
     await writeFile(paths.chrome, JSON.stringify(flatpakManifest))
@@ -195,7 +228,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'linux',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
 
@@ -213,7 +246,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'linux',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
 
@@ -390,7 +423,7 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
       },
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     expect(written).toEqual([])

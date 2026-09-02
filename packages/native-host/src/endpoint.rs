@@ -29,7 +29,7 @@ fn effective_user_id() -> u32 {
 /// root. Reads metadata from the already-open handle, avoiding a TOCTOU
 /// window between checking the file and reading its contents.
 #[cfg(unix)]
-fn is_owner_only(file: &File) -> bool {
+pub(crate) fn is_owner_only(file: &File) -> bool {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     let Ok(metadata) = file.metadata() else {
@@ -69,7 +69,7 @@ fn is_owner_only(file: &File) -> bool {
 /// Reads from the already-open handle, like the Unix path, so there is no
 /// TOCTOU window between the check and the read.
 #[cfg(windows)]
-fn is_owner_only(file: &File) -> bool {
+pub(crate) fn is_owner_only(file: &File) -> bool {
     use std::os::windows::io::AsRawHandle;
 
     use windows_sys::Win32::Foundation::{ERROR_SUCCESS, HANDLE, LocalFree};

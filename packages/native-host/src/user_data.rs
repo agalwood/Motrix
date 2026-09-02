@@ -1,7 +1,22 @@
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
+use serde::Deserialize;
+
 use crate::MOTRIX_FLATPAK_ID;
+use crate::endpoint::is_owner_only;
+
+pub const DEVELOPMENT_HOST_CONFIG_NAME: &str = "motrix-native-host.dev.json";
+const MAX_DEVELOPMENT_HOST_CONFIG_BYTES: usize = 4 * 1024;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DevelopmentHostConfig {
+    #[serde(rename = "bridgeDataDir")]
+    bridge_data_dir: String,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeHostPlatform {
@@ -83,10 +98,50 @@ pub fn resolve_bridge_data_dir(
 }
 
 pub fn native_host_bridge_data_dir(user_data: Option<&Path>) -> Option<PathBuf> {
-    resolve_bridge_data_dir(
+    let override_data_dir = std::env::var_os("MOTRIX_BRIDGE_DATA_DIR");
+    let development_data_dir = if override_data_dir.is_none() {
+        std::env::current_exe()
+            .ok()
+            .as_deref()
+            .and_then(read_development_bridge_data_dir)
+    } else {
+        None
+    };
+    resolve_native_host_bridge_data_dir(
         user_data,
-        std::env::var_os("MOTRIX_BRIDGE_DATA_DIR").as_deref(),
+        override_data_dir.as_deref(),
+        development_data_dir,
     )
+}
+
+fn resolve_native_host_bridge_data_dir(
+    user_data: Option<&Path>,
+    override_data_dir: Option<&OsStr>,
+    development_data_dir: Option<PathBuf>,
+) -> Option<PathBuf> {
+    match override_data_dir {
+        Some(value) => resolve_bridge_data_dir(user_data, Some(value)),
+        None => development_data_dir.or_else(|| user_data.map(|base| base.join("bridge"))),
+    }
+}
+
+fn read_development_bridge_data_dir(executable_path: &Path) -> Option<PathBuf> {
+    let config_path = executable_path.parent()?.join(DEVELOPMENT_HOST_CONFIG_NAME);
+    let file = File::open(config_path).ok()?;
+    if !is_owner_only(&file) {
+        return None;
+    }
+
+    let mut bytes = Vec::new();
+    file.take((MAX_DEVELOPMENT_HOST_CONFIG_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() > MAX_DEVELOPMENT_HOST_CONFIG_BYTES {
+        return None;
+    }
+
+    let config: DevelopmentHostConfig = serde_json::from_slice(&bytes).ok()?;
+    absolute_directory_from_env(OsStr::new(&config.bridge_data_dir))
 }
 
 /// Resolve the bridge directory visible inside the Motrix Flatpak sandbox.
@@ -135,15 +190,35 @@ pub fn bridge_endpoint_path(bridge_data_dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsStr;
+    #[cfg(unix)]
+    use std::fs;
     use std::path::{Path, PathBuf};
+    #[cfg(unix)]
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[cfg(unix)]
     use super::resolve_flatpak_bridge_data_dir;
     use super::resolve_native_host_user_data_dir_from_optional_home;
+    #[cfg(unix)]
+    use super::{DEVELOPMENT_HOST_CONFIG_NAME, read_development_bridge_data_dir};
     use super::{
         NativeHostPlatform, bridge_endpoint_path, endpoint_path, resolve_bridge_data_dir,
-        resolve_native_host_user_data_dir,
+        resolve_native_host_bridge_data_dir, resolve_native_host_user_data_dir,
     };
+
+    #[cfg(unix)]
+    fn temp_dir(label: &str) -> PathBuf {
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "motrix-native-host-user-data-{label}-{}-{id}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).expect("create temp directory");
+        path
+    }
 
     #[test]
     fn resolves_macos_and_linux_paths() {
@@ -239,6 +314,54 @@ mod tests {
             Some(PathBuf::from("/data/Motrix/bridge"))
         );
         assert_eq!(resolve_bridge_data_dir(None, None), None);
+    }
+
+    #[test]
+    fn development_config_precedes_the_production_profile_but_not_the_environment() {
+        let development = PathBuf::from("/data/Motrix-dev/bridge");
+        assert_eq!(
+            resolve_native_host_bridge_data_dir(
+                Some(Path::new("/data/Motrix")),
+                None,
+                Some(development.clone()),
+            ),
+            Some(development)
+        );
+        assert_eq!(
+            resolve_native_host_bridge_data_dir(
+                Some(Path::new("/data/Motrix")),
+                Some(OsStr::new("/data/custom/bridge")),
+                Some(PathBuf::from("/data/Motrix-dev/bridge")),
+            ),
+            Some(PathBuf::from("/data/custom/bridge"))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reads_only_an_owner_only_development_config_beside_the_executable() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = temp_dir("development-config");
+        let executable = directory.join("motrix-native-host");
+        let config_path = directory.join(DEVELOPMENT_HOST_CONFIG_NAME);
+        fs::write(
+            &config_path,
+            r#"{"bridgeDataDir":"/data/Motrix-dev/bridge"}"#,
+        )
+        .expect("write development config");
+        fs::set_permissions(&config_path, fs::Permissions::from_mode(0o600))
+            .expect("secure development config");
+
+        assert_eq!(
+            read_development_bridge_data_dir(&executable),
+            Some(PathBuf::from("/data/Motrix-dev/bridge"))
+        );
+
+        fs::set_permissions(&config_path, fs::Permissions::from_mode(0o644))
+            .expect("widen development config permissions");
+        assert_eq!(read_development_bridge_data_dir(&executable), None);
+        fs::remove_dir_all(directory).expect("remove temp directory");
     }
 
     #[cfg(unix)]

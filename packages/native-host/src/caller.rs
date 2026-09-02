@@ -84,15 +84,15 @@ mod tests {
     #[test]
     fn chromium_origin_arg_yields_32_char_id() {
         let id = extract_caller_identity(vec![
-            "chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/".into(),
+            "chrome-extension://lggbokfckofcgjndaboioakcmincinpo/".into(),
         ])
         .expect("identity");
         assert_eq!(id.browser, "chromium");
-        assert_eq!(id.caller_id, "ibpkjhgpbidfmbmomagmldcdlpbmchgi");
+        assert_eq!(id.caller_id, "lggbokfckofcgjndaboioakcmincinpo");
         // Windows: --parent-window may accompany the origin
         assert!(
             extract_caller_identity(vec![
-                "chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/".into(),
+                "chrome-extension://lggbokfckofcgjndaboioakcmincinpo/".into(),
                 "--parent-window=42".into(),
             ])
             .is_some()

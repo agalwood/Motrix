@@ -369,7 +369,7 @@ describe('bootstrapBridgeForServer', () => {
 
     // The public bundle is not merely connectable: a real first-pair channel
     // reaches the shell receiver's validated download/submit handler.
-    const extensionId = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+    const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
     const handshake = await startPair({
       port: runtime.port,
       origin: `chrome-extension://${extensionId}`,
@@ -500,7 +500,7 @@ describe('bootstrapBridgeForServer', () => {
     if (cliToken === undefined) throw new Error('CLI pairing token missing')
     emit.mockClear()
 
-    const extensionId = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+    const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
     const handshake = await startPair({
       port: runtime.port,
       origin: `chrome-extension://${extensionId}`,
