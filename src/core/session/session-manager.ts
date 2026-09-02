@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
@@ -291,6 +292,49 @@ export class SessionManager {
       throw new Error('post delivery observability is already bound')
     }
     this.postDeliveryObservability = observability
+  }
+
+  /**
+   * Remove media-segment rows left by older versions before the engine is
+   * published as Ready. Segment downloads are implementation details of a
+   * parent media task, live only in the app temp tree, and must never survive
+   * an aria2 restart as standalone work.
+   */
+  async purgeEphemeralMediaRows(): Promise<void> {
+    if (!this.mediaTmpRoot) return
+
+    try {
+      const [activeTasks, waitingTasks, stoppedTasks] = await Promise.all([
+        this.rpc.tellActive(),
+        fetchAll((offset, num) => this.rpc.tellWaiting(offset, num)),
+        fetchAll((offset, num) => this.rpc.tellStopped(offset, num)),
+      ])
+      const { tasks } = await resolveCurrentAria2Rows(
+        this.rpc,
+        activeTasks,
+        waitingTasks,
+        stoppedTasks
+      )
+      const mediaRows = tasks.filter((row) => this.isMediaSegmentRow(row))
+      await Promise.all(
+        mediaRows.map((row) =>
+          this.evictEngineRow(
+            row,
+            'startup: failed to evict persisted media segment'
+          )
+        )
+      )
+      if (mediaRows.length > 0) {
+        log.info(
+          { count: mediaRows.length },
+          'startup: evicted persisted media segments'
+        )
+      }
+    } catch (err) {
+      // Full restore repeats the row-level cleanup. A transient list failure
+      // must not make the whole download engine unavailable.
+      log.warn({ err }, 'startup: media segment sweep failed')
+    }
   }
 
   runExclusivePersistence<T>(operation: () => T | Promise<T>): Promise<T> {
@@ -641,12 +685,16 @@ export class SessionManager {
 
     // Pass 1 — drive from aria2 rows.
     for (const aria2 of aria2Tasks) {
-      // Skip media segment downloads. They run on the shared aria2 daemon for
-      // an hls/dash/mux task and get persisted in aria2's session; on restart
-      // aria2 restores them, and adopting them here surfaces phantom
-      // "000000.seg" tasks. They always write under mediaTmpRoot. The owning
-      // MediaTaskCoordinator task is restored from motrix.db separately.
-      if (this.mediaTmpRoot && aria2.dir.startsWith(this.mediaTmpRoot)) {
+      // Media segments are ephemeral children of a coordinator task. Older
+      // versions left them in aria2's durable store, so hide AND evict them;
+      // skipping adoption alone made the restarted downloads invisible.
+      if (this.isMediaSegmentRow(aria2)) {
+        evictions.push(
+          this.evictEngineRow(
+            aria2,
+            'restore: failed to evict persisted media segment'
+          )
+        )
         continue
       }
 
@@ -1052,22 +1100,53 @@ export class SessionManager {
    * Failures are logged and swallowed — restore must finish, and a row
    * that survives here is retried by the same shield on the next launch.
    */
-  private async evictResurrectedErrorRow(aria2: Aria2RawStatus): Promise<void> {
+  private isMediaSegmentRow(aria2: Aria2RawStatus): boolean {
+    if (!this.mediaTmpRoot || !aria2.dir) return false
+    const relative = path.relative(
+      path.resolve(this.mediaTmpRoot),
+      path.resolve(aria2.dir)
+    )
+    return (
+      relative === '' ||
+      (relative !== '..' &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative))
+    )
+  }
+
+  private async evictEngineRow(
+    aria2: Aria2RawStatus,
+    failureMessage: string
+  ): Promise<void> {
     const stopped =
       aria2.status === 'error' ||
       aria2.status === 'complete' ||
       aria2.status === 'removed'
-    try {
-      if (!stopped) {
+    let stopError: unknown
+    if (!stopped) {
+      try {
         await this.adapter.forceRemoveTask(aria2.gid)
+      } catch (err) {
+        stopError = err
       }
+    }
+    try {
+      // Always attempt the durable purge even if force-remove failed. The row
+      // may have become terminal between the list snapshot and this call.
       await this.adapter.removeDownloadResult(aria2.gid)
     } catch (err) {
       log.warn(
-        { err, gid: aria2.gid, engineStatus: aria2.status },
-        'restore: failed to evict resurrected errored engine row'
+        { err, stopError, gid: aria2.gid, engineStatus: aria2.status },
+        failureMessage
       )
     }
+  }
+
+  private evictResurrectedErrorRow(aria2: Aria2RawStatus): Promise<void> {
+    return this.evictEngineRow(
+      aria2,
+      'restore: failed to evict resurrected errored engine row'
+    )
   }
 
   private mergeTaskFromPair(

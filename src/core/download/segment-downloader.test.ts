@@ -51,6 +51,7 @@ function makeFakeAria2(opts?: {
 }) {
   const addUriCalls: FakeAddUriCall[] = []
   const forceRemoveCalls: FakeForceRemoveCall[] = []
+  const removeDownloadResultCalls: string[] = []
   const bytes = new Map<
     string,
     { completedLength: number; totalLength: number }
@@ -68,6 +69,10 @@ function makeFakeAria2(opts?: {
     },
     forceRemove(gid) {
       forceRemoveCalls.push({ gid })
+      return Promise.resolve()
+    },
+    removeDownloadResult(gid) {
+      removeDownloadResultCalls.push(gid)
       return Promise.resolve()
     },
     tellStatus(gid) {
@@ -88,6 +93,9 @@ function makeFakeAria2(opts?: {
     },
     get forceRemoveCalls() {
       return forceRemoveCalls
+    },
+    get removeDownloadResultCalls() {
+      return removeDownloadResultCalls
     },
     /** Set the byte counts aria2 would report for a gid on the next poll. */
     setBytes(gid: string, completedLength: number, totalLength: number) {
@@ -315,6 +323,12 @@ describe('SegmentDownloader', () => {
     await runPromise
     // 1 initial + 3 retries = 4 total addUri calls
     expect(fake.addUriCalls).toHaveLength(4)
+    expect(fake.removeDownloadResultCalls).toEqual([
+      'gid1',
+      'gid2',
+      'gid3',
+      'gid4',
+    ])
     expect(caught).toBeInstanceOf(Error)
   })
 
@@ -344,6 +358,32 @@ describe('SegmentDownloader', () => {
     expect(removedGids).toEqual(['gid1', 'gid2', 'gid3'])
 
     await runPromise
+  })
+
+  it('purges every completed gid before the run resolves', async () => {
+    const fake = makeFakeAria2()
+    const dl = new SegmentDownloader({
+      aria2: fake.aria2,
+      tmpDir: TMP,
+      pollScheduler: neverSchedule,
+    })
+    const runPromise = dl.run(
+      makePlan({
+        segments: [
+          { url: 'https://cdn.example/seg0.ts' },
+          { url: 'https://cdn.example/seg1.ts' },
+        ],
+      }),
+      {},
+      () => {}
+    )
+    await new Promise((resolve) => setImmediate(resolve))
+
+    fake.fireComplete('gid1')
+    fake.fireComplete('gid2')
+    await runPromise
+
+    expect(fake.removeDownloadResultCalls).toEqual(['gid1', 'gid2'])
   })
 
   it('(g) resolves partPaths in index order with initPath separate', async () => {
@@ -651,13 +691,13 @@ describe('SegmentDownloader', () => {
     await new Promise((resolve) => setImmediate(resolve))
 
     // Cancel while addUri promise is still pending
-    await dl.cancel()
+    const cancelPromise = dl.cancel()
 
     // Now resolve the addUri promise — the gid should be forceRemoved
     if (delayPromises.resolve) {
       delayPromises.resolve()
     }
-    await new Promise((resolve) => setImmediate(resolve))
+    await cancelPromise
 
     // Verify: the returned gid was forceRemoved, not added to activeGids/activeJobs
     expect(fake.forceRemoveCalls).toHaveLength(1)

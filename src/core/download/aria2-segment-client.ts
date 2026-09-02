@@ -9,7 +9,6 @@ interface Aria2Rpc {
     uris: string[],
     options: Record<string, string | string[]>
   ): Promise<string>
-  forceRemove(gid: string): Promise<unknown>
   // aria2 returns every numeric field as a string (JSON-RPC convention). We
   // only need the two byte counts, so pass an explicit key filter to keep the
   // response small. Typed structurally (not via Aria2RawStatus) so this file
@@ -22,29 +21,34 @@ interface Aria2Rpc {
   onDownloadError(handler: (event: Aria2Event) => void): void
 }
 
+interface SegmentResultLifecycle {
+  forceRemoveTask(gid: string): Promise<void>
+  removeDownloadResult(gid: string): Promise<void>
+}
+
 export class Aria2SegmentClient implements SegmentAria2 {
   private readonly rpc: Aria2Rpc
+  private readonly resultLifecycle: SegmentResultLifecycle
   private readonly completeCallbacks: Array<(gid: string) => void> = []
   private readonly errorCallbacks: Array<(gid: string) => void> = []
   private readonly active = new Set<string>()
 
-  constructor(rpc: Aria2Rpc) {
+  constructor(rpc: Aria2Rpc, resultLifecycle: SegmentResultLifecycle) {
     this.rpc = rpc
+    this.resultLifecycle = resultLifecycle
     rpc.onDownloadComplete((event) => {
-      this.active.delete(event.gid)
       for (const cb of this.completeCallbacks) {
         cb(event.gid)
       }
     })
     rpc.onDownloadError((event) => {
-      this.active.delete(event.gid)
       for (const cb of this.errorCallbacks) {
         cb(event.gid)
       }
     })
   }
 
-  /** Returns true if this gid belongs to an active segment download. */
+  /** Returns true while this gid is still owned by the segment lifecycle. */
   isSegmentGid(gid: string): boolean {
     return this.active.has(gid)
   }
@@ -113,15 +117,35 @@ export class Aria2SegmentClient implements SegmentAria2 {
   }
 
   async forceRemove(gid: string): Promise<void> {
-    // Drop from the skip-set only AFTER aria2 has removed the download. If we
-    // deleted first, the 1s poll loop could observe the gid still live in
-    // aria2 but no longer in `active` and mint a phantom segment task — the
-    // "a bunch of seg tasks appear right after the mux task errors" bug. The
-    // dir-based suppression in the poll loop is the gid-timing-independent
-    // backstop; this ordering closes the window at the source.
+    // Removing a live task only moves it into aria2's stopped-result store.
+    // Purge that result as a second, mandatory step so SQLite persistence
+    // cannot restore this ephemeral segment on the next process launch.
+    let stopError: unknown
     try {
-      await this.rpc.forceRemove(gid)
-    } finally {
+      await this.resultLifecycle.forceRemoveTask(gid)
+    } catch (err) {
+      stopError = err
+    }
+
+    try {
+      await this.removeDownloadResult(gid)
+    } catch (purgeError) {
+      if (stopError !== undefined) {
+        throw new AggregateError(
+          [stopError, purgeError],
+          `Failed to stop and purge segment ${gid}`
+        )
+      }
+      throw purgeError
+    }
+  }
+
+  async removeDownloadResult(gid: string): Promise<void> {
+    // Keep the gid in the poll-loop skip set until durable deletion succeeds.
+    // If deletion fails, startup reconciliation gets another chance without
+    // exposing the row as a standalone task in the meantime.
+    await this.resultLifecycle.removeDownloadResult(gid)
+    if (this.active.has(gid)) {
       this.active.delete(gid)
     }
   }

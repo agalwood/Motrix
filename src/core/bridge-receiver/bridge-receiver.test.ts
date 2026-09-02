@@ -16,6 +16,7 @@ import { BridgeReceiver } from './bridge-receiver'
 const fakeSegmentAria2: SegmentAria2 = {
   addUri: vi.fn(async () => 'gid-seg'),
   forceRemove: vi.fn(async () => {}),
+  removeDownloadResult: vi.fn(async () => {}),
   tellStatus: vi.fn(async () => null),
   onComplete: vi.fn(),
   onError: vi.fn(),

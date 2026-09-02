@@ -659,6 +659,16 @@ export class MediaTaskCoordinator {
         () => this.persistBestEffort(taskId, 'completion')
       )
     } catch (err) {
+      // Promise.all rejects as soon as either stream fails. Explicitly drain
+      // every coordinator-owned downloader before recording the failure or
+      // cleaning/preserving its temp directory; otherwise the sibling stream
+      // keeps writing invisible aria2 work after its parent task has ended.
+      if (!state.cancelled) {
+        await Promise.allSettled(state.downloaders.map((d) => d.cancel()))
+        state.ffmpeg?.kill()
+        state.ffmpeg = null
+      }
+
       // If cancel() already set mux-aborted, don't overwrite
       if (
         this.running.has(taskId) &&

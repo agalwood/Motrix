@@ -109,6 +109,7 @@ export class EngineSupervisor {
   private sqliteFallbackActive = false
   private sqliteFallbackAttempted = false
   private restartPromise: Promise<void> | null = null
+  private preReadyMaintenance: (() => Promise<void>) | null = null
 
   constructor(
     private eventBus: EventBus,
@@ -192,6 +193,11 @@ export class EngineSupervisor {
     fn: () => { download: number; upload: number }
   ): void {
     this.getEffectiveLimits = fn
+  }
+
+  /** Register best-effort engine maintenance that runs after RPC connects but before Ready. */
+  setPreReadyMaintenance(maintenance: () => Promise<void>): void {
+    this.preReadyMaintenance = maintenance
   }
 
   /**
@@ -529,6 +535,20 @@ export class EngineSupervisor {
         this.rpcClient.disconnect()
         await this.processManager.gracefulStop()
         return
+      }
+      if (this.preReadyMaintenance) {
+        try {
+          await this.preReadyMaintenance()
+        } catch (error) {
+          // Startup reconciliation also runs after Ready. Maintenance narrows
+          // the visibility/resume window but must not make aria2 unavailable.
+          log.warn({ err: error }, 'pre-ready engine maintenance failed')
+        }
+        if (this.stopping) {
+          this.rpcClient.disconnect()
+          await this.processManager.gracefulStop()
+          return
+        }
       }
       // Raw JSON-RPC clients commonly omit per-task options. Seed the global
       // template so their new HTTP/FTP tasks retain aria2's historical Motrix
