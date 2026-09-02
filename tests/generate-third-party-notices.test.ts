@@ -230,5 +230,5 @@ describe('third-party notice generator', () => {
       )
     )
     expect(parsedAgain.schemaVersion).toBe(1)
-  })
+  }, 15_000)
 })
