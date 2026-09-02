@@ -318,10 +318,13 @@ mod tests {
 
     #[test]
     fn development_config_precedes_the_production_profile_but_not_the_environment() {
-        let development = PathBuf::from("/data/Motrix-dev/bridge");
+        let root = std::env::temp_dir().join("motrix-native-host-precedence");
+        let production = root.join("Motrix");
+        let development = root.join("Motrix-dev").join("bridge");
+        let override_dir = root.join("custom").join("bridge");
         assert_eq!(
             resolve_native_host_bridge_data_dir(
-                Some(Path::new("/data/Motrix")),
+                Some(production.as_path()),
                 None,
                 Some(development.clone()),
             ),
@@ -329,11 +332,11 @@ mod tests {
         );
         assert_eq!(
             resolve_native_host_bridge_data_dir(
-                Some(Path::new("/data/Motrix")),
-                Some(OsStr::new("/data/custom/bridge")),
-                Some(PathBuf::from("/data/Motrix-dev/bridge")),
+                Some(production.as_path()),
+                Some(override_dir.as_os_str()),
+                Some(root.join("Motrix-dev").join("bridge")),
             ),
-            Some(PathBuf::from("/data/custom/bridge"))
+            Some(override_dir)
         );
     }
 
