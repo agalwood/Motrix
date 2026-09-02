@@ -150,7 +150,11 @@ pub(super) fn open_existing(parent: &OwnedHandle, name: &[u16]) -> io::Result<Ow
         parent,
         name,
         SOURCE_DIRECTORY_ACCESS,
-        SHARE_HELD_ARTIFACT,
+        // Directory change-notification and scanner handles commonly retain
+        // write sharing. The recursive snapshot checks detect any actual tree
+        // mutation, matching the fail-closed Unix behavior without making a
+        // normal held directory impossible to open on Windows.
+        SHARE_ALL,
         FILE_OPEN,
         OPEN_COMMON | FILE_DIRECTORY_FILE,
     ) {
