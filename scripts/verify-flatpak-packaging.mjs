@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url)
 const yaml = require('js-yaml')
 
 export const FLATPAK_BUILDER_TOOLS_COMMIT =
-  '737c0085912f9f7dabf9341d4608e2a77a51a73a'
+  '1fc32195e3e60fe5c97f0af646dec7a99df5962b'
 // The aria2 tag is NOT pinned here: it derives from scripts/engine.lock.json
 // at check time, so the Flatpak build and the desktop bundle cannot ship
 // different engines without failing check:flatpak. Only the git commit each
@@ -23,8 +23,8 @@ export const ARIA2_SOURCE = Object.freeze({
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.22.0.tgz',
-  sha256: '57a97e6f23a3faffc03153a4ef8c770a0552612b8640aebe39bfdd5754d0ebdc',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.25.0.tgz',
+  sha256: '33dd0748f27e7916c4f1c8b6943461983e3453b06bbda6312a6280130b4881e5',
 })
 
 const RUST_SOURCES = Object.freeze({

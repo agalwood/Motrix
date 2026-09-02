@@ -92,7 +92,7 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "bundleShortVersion": "2.0.0",
     "bundleVersion": "2.0.1",
-    "minimumSystemVersion": "12.0",
+    "minimumSystemVersion": "13.0",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "build/entitlements.mac.plist",

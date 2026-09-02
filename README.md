@@ -22,8 +22,8 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.29 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.29)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.29.md) before
+download [v2.0.0-beta.30 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.30)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.30.md) before
 installing it.
 
 Back up your existing Motrix data and downloads before testing. Migration from
@@ -130,7 +130,7 @@ package that matches your operating system and architecture:
 
 | Platform | Architectures | Packages / channel | Recommendation |
 |----------|---------------|--------------------|----------------|
-| macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
+| macOS 13+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
 | Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 | Linux (Snap Store) | `amd64`, `arm64` | `latest/edge` | Install the strictly confined beta with `sudo snap install motrix --edge` |
@@ -165,7 +165,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.29'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.30'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
@@ -245,7 +245,7 @@ See the scripts in `package.json` for the available packaging commands. Platform
 
 | Area | Stack |
 |------|-------|
-| Desktop shell | Electron 43 |
+| Desktop shell | Electron 44 |
 | UI | React 19 + Tailwind CSS 4 + shadcn/ui |
 | Language | TypeScript in strict mode |
 | Build system | Vite 8 with separate main, preload, worker, and renderer targets |

@@ -32,7 +32,7 @@ jobs:
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.22.0
+          version: 11.25.0
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -45,7 +45,7 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
-      # Electron 43 has no package postinstall, so pnpm install does not
+      # Electron has no package postinstall, so pnpm install does not
       # hydrate dist/. The notice contract needs the runtime license payload;
       # the package installer is idempotent when dist/ already matches.
       - name: Ensure Electron runtime payload
@@ -309,7 +309,7 @@ jobs:
     # musl binary segfaulted at load (runs 31322798699 / 31324102504 /
     # 31349513764).
     env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -359,7 +359,7 @@ jobs:
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.22.0
+          version: 11.25.0
           run_install: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -401,7 +401,7 @@ jobs:
         env:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
-      # Electron 43 does not hydrate dist/ during pnpm install. build:legal
+      # Electron does not hydrate dist/ during pnpm install. build:legal
       # and the electron-builder smoke both require that runtime payload.
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js

@@ -1,7 +1,7 @@
 {
   "description": "Normative MBP1 cross-implementation test vectors (rev 2, post crypto-review round 1). Generated per docs/bridge-pairing-protocol.md. The generic SPAKE2 core was validated against all four RFC 9382 Appendix B P-256 vectors before generation. All byte strings are lowercase hex.",
   "generator": {
-    "library": "@noble/curves 2.0.1, @noble/hashes 2.0.1, node:crypto AES-256-GCM",
+    "library": "@noble/curves 2.4.0, @noble/hashes 2.4.0, node:crypto AES-256-GCM",
     "coreValidation": "RFC 9382 Appendix B vectors #1-#4 (P-256) reproduced exactly"
   },
   "spake2": [

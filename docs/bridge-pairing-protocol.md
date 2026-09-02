@@ -134,21 +134,32 @@ N = d3bfb518f44f3430f29d0c92af503865a1ed3281dc69b35dd868ba85f886c4ab
 ```
 
 **Implementation source.** Curve arithmetic, SPAKE2 composition, scrypt, and
-Ed25519 MUST come from bundled, independently audited libraries pinned at an
-**exact** version on the TypeScript side: **`@noble/curves@2.0.1`** and
-**`@noble/hashes@2.0.1`** (the versions the normative test vectors were
-generated with). The Cure53 audit of September 2024 was performed at
-`@noble/curves` 1.6.0. **Pending confirmation before Phase-A release:** the
-maintainer review of the upstream diff from 1.6.0 to 2.0.1 that completes the
-audit basis for this pin has not yet been performed; the review log
-(Appendix C) records this status. Any version bump re-runs the full vector
-suite and updates this pin.
+Ed25519 MUST come from bundled libraries pinned at an **exact** version on the
+TypeScript side: **`@noble/curves@2.4.0`** and
+**`@noble/hashes@2.4.0`** (the versions the normative test vectors were
+generated with). `@noble/curves` was independently audited by Cure53 at 1.6.0
+in September 2024 and by Trail of Bits at 2.3.0 in August 2026 (upstream states
+the latter covered the whole package). The 2.4.0 release is a subsequent
+security-hardening delta. The exact 2.4.0 curves/hashes pair, its post-2.3.0
+delta, and its MBP1-specific use then passed the independently performed
+cryptographic review confirmed by the maintainers on 2026-09-03. **The Phase-A
+dependency-review gate is satisfied for this exact pair.** The review log
+(Appendix C) records the engineering re-qualification and independent approval.
+Any version bump re-runs the full vector suite and re-opens this gate.
 WebCrypto X25519/Ed25519 MUST NOT be used: it requires Chrome 133 / Firefox
 130, while the extension supports Chrome 120+ / Firefox 121+ (see Appendix B).
 Symmetric primitives (AES-256-GCM, HKDF-SHA-256, HMAC-SHA-256) MAY use
 WebCrypto, which is universally available at those minimums. All secret
-comparisons MUST be constant-time. Scalar multiplication MUST be
-constant-time with respect to the scalar (noble-curves satisfies this).
+comparisons MUST be constant-time. Scalar multiplication MUST use the library's
+secret-scalar path. Noble-curves 2.4.0 uses a fixed operation sequence and
+data-oblivious table scans, but its upstream security notes identify a known JS
+timing limitation for non-base points on cofactored Edwards curves. MBP1's
+`M·w`, `N·w`, and peer-share multiplication fall in that category; their
+scalars are freshly derived or drawn per pairing session, which limits repeated
+same-secret sampling but does not prove constant-timeness. The independent
+review assessed this residual in MBP1's per-session threat model and accepted it
+for the current construction. Reusing these scalars or changing that threat
+model MUST re-open the cryptographic review.
 
 ---
 
@@ -935,7 +946,7 @@ is the **only** ticket type in MBP1.
    identity, not of small order, and lies in the prime-order subgroup**
    (torsion-free); anything else makes the ticket invalid. `ticketProof`
    MUST be verified in **RFC 8032 strict mode — `zip215: false` in
-   noble-curves 2.0.1** — which enforces a canonical `R` encoding and
+   noble-curves 2.4.0** — which enforces a canonical `R` encoding and
    `S < ℓ` and rejects the malleable/non-canonical inputs ZIP-215 (the
    permissive default, `zip215: true`) would accept. The permissive ZIP-215
    mode MUST NOT be used. Note that noble's strict mode still checks the
@@ -1278,8 +1289,8 @@ inputs.
    rounds (2026-08-19), every one re-confirming 0 High; the final round cleared
    the last Medium and left only implementation-tracked Low items. The full
    review record (reviewer, date, findings, resolutions) is Appendix C.
-2. The implementation MUST pin exact versions of `@noble/curves` (2.0.1) and
-   `@noble/hashes` (2.0.1), and record the audit basis they correspond to (§3).
+2. The implementation MUST pin exact versions of `@noble/curves` (2.4.0) and
+   `@noble/hashes` (2.4.0), and record the audit basis they correspond to (§3).
 3. The facts in Appendix B MUST be re-validated against the actual
    minimum-version browser build matrix (Chrome 120, Firefox 121) before
    Phase-A release; they are cited from vendor documentation, not from this
@@ -1362,7 +1373,9 @@ revocation coverage before making that profile supported.
 | 5-rev | 2026-08-19 | Spec revision | Findings addressed | Client write-ahead before `credentialAck`; server durable promote/CAS-revoke before `reconnectAccept`; server provisional bounded with idempotent re-offer; §9.2 outcome map made exhaustive with the `browser` check and deferrals. |
 | 6 | 2026-08-19 | Independent re-review (Codex) | NOT APPROVED — 0 High; 1 Medium + 4 Low | Medium: a crash after the client's committed-write but before pruning could leave two `committed` entries with the active pointer still on the predecessor, and recovery did not say how to choose — a conforming client could loop on the revoked credential. Low: the journal alternative needed a replay-before-`/v1` barrier; "idempotent re-offer" was under-defined; first-pair orphan `commit-uncertain` cleanup was undefined; §9.2 lacked a MAC-first check order (so an honest prior-generation ticket could be misclassified) and over-claimed a "mint window". Construction and all vectors independently reproduced; no High. Reviewer: once the Medium is fixed the Low items are deferrable to implementation tracking and the gate may be considered satisfied. |
 | 6-rev | 2026-08-19 | Spec revision (this document) | Findings addressed; gate satisfied | The client writes `committed` **and** `activeCredentialId` in one atomic durable write before pruning, and recovery tries `activeCredentialId` first, so a crash-before-prune is disambiguated by the pointer, never by guessing (§6.7/§12). Journal replay MUST finish before `/v1` accepts auth; "idempotent re-offer" re-sends the identical stored `{credentialId, mutualKey}`; a first-pair orphan `commit-uncertain` (no committed sibling) may be cleaned after the 10-minute server provisional TTL (§6.7). §9.2 now fixes MAC-first check order, requires `localToken` to persist while only `serverGeneration` rotates, and reframes `exp` as a remaining-lifetime bound. **Six independent adversarial rounds re-confirmed 0 High; the Medium is closed; the residual Low items are tracked to implementation. Pre-implementation cryptographic-review gate is satisfied.** |
-| Dep-pin | 2026-08-20 | Maintainer (dependency audit-basis record, §14.2) | Recorded — diff review pending | Pinned `@noble/curves@2.0.1` and `@noble/hashes@2.0.1` at exact versions in the TypeScript implementation (§3). Audit basis: the Cure53 audit of September 2024 was performed at `@noble/curves` 1.6.0; the second pillar of that basis — a maintainer review of the upstream diff from 1.6.0 to 2.0.1 — is **pending maintainer confirmation before Phase-A release**; no such review has been performed yet. |
+| Dep-pin | 2026-08-20 | Maintainer (dependency audit-basis record, §14.2) | Historical record — superseded by Dep-pin-2 | The then-current TypeScript implementation pinned `@noble/curves@2.0.1` and `@noble/hashes@2.0.1`. The Cure53 audit of September 2024 was performed at `@noble/curves` 1.6.0; no maintainer review of the 1.6.0-to-2.0.1 delta was completed before the pin was superseded. |
+| Dep-pin-2 | 2026-09-03 | Engineering re-qualification (Codex) | Vectors and implementation tests PASS | Pinned `@noble/curves@2.4.0` and `@noble/hashes@2.4.0` exactly (§3). Reproduced all four RFC 9382 Appendix B vectors, the complete normative MBP1 generator (including strict Ed25519 malleability/key negatives and envelope tamper cases), 310 MBP1 unit tests, and 77 loopback transport tests. The 2.4.0 vector payload is byte-identical to the 2.0.1 baseline after removing only the library-version metadata field. A focused API/security delta review found no MBP1 call-site incompatibility and recorded the upstream non-base Edwards secret-multiplication timing limitation. |
+| Dep-pin-2-review | 2026-09-03 | Independent cryptographic review (maintainer-confirmed) | APPROVED — Phase-A dependency gate satisfied | The independent review covered the exact 2.4.0 curves/hashes pair, the post-2.3.0 security-hardening delta, MBP1's use of the affected primitives, and the documented non-base Edwards secret-multiplication timing residual. It accepted the residual within MBP1's per-session scalar threat model. Any dependency bump, scalar reuse, or material threat-model change re-opens this gate. |
 
 [RFC 9382]: https://www.rfc-editor.org/rfc/rfc9382
 [RFC 5869]: https://www.rfc-editor.org/rfc/rfc5869

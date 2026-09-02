@@ -11,7 +11,7 @@ nodeLinker: hoisted
 # pnpm 11 build-script gate (replaces onlyBuiltDependencies /
 # ignoredBuiltDependencies — packages not listed have their scripts skipped):
 #   - electron: retained for compatibility with releases that expose an
-#     install script. Electron 43 only exposes install.js as a package bin, so
+#     install script. Electron exposes install.js as a package bin, so
 #     local consumers must use ensure:electron-runtime to validate and hydrate
 #     dist/ before reading runtime files.
 #   - better-sqlite3: native module rebuilt against the pinned ABI.
@@ -24,9 +24,16 @@ allowBuilds:
   electron-winstaller: true
   esbuild: true
 
+# Keep compatible transitive consumers on the first releases that fix the
+# listed advisories. The convergence form leaves any future dependency that
+# cannot accept the fixed version on its declared range.
+overrides:
+  '@xmldom/xmldom@': 0.8.15 # GHSA-6gmq-8vp8-gcm6
+  'qs@': 6.16.0
+
 minimumReleaseAgeExclude:
-  - '@noble/curves@2.0.1'
-  - '@noble/hashes@2.0.1'
+  - '@noble/curves@2.4.0'
+  - '@noble/hashes@2.4.0'
   - i18next@26.3.6
   - lucide-react@1.24.0 || 1.31.0
   - react-i18next@17.0.9
@@ -40,10 +47,12 @@ minimumReleaseAgeExclude:
   - magnet-uri@7.0.10
   - parse-torrent@11.0.24
   - mmdb-lib@3.0.3
-  - '@testing-library/user-event@14.6.3 || 14.6.4'
+  - '@testing-library/user-event@14.6.3 || 14.6.4 || 14.6.7'
   - fastify@5.11.2 || 5.11.3
   - undici@8.10.0
   - ws@8.21.2
+  - '@xmldom/xmldom@0.8.15'
+  - qs@6.16.0
   - '@esbuild/aix-ppc64@0.28.2'
   - '@esbuild/android-arm64@0.28.2'
   - '@esbuild/android-arm@0.28.2'
@@ -81,6 +90,6 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-linux-x64@2.5.8 || 2.5.9'
   - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9'
   - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9'
-  - electron@43.4.0
-  - shadcn@4.17.0 || 4.18.0
+  - electron@43.4.0 || 44.1.1
+  - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1
   - zustand@5.0.15

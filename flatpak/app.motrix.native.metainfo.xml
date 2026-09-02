@@ -76,6 +76,16 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.30" date="2026-09-03">
+      <description>
+        <p>
+          Closes five security advisories across Fastify and development
+          tooling, upgrades the desktop runtime to Electron 44, and refreshes
+          the application, test, and build dependencies. macOS 13 or later is
+          now required.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.29" date="2026-09-02">
       <description>
         <p>

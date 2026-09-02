@@ -112,7 +112,7 @@ jobs:
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.22.0
+          version: 11.25.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -145,7 +145,7 @@ jobs:
           retention-days: 1
 
       # The install above is --ignore-scripts by design (offline-source
-      # verification), and Electron 43 has no package postinstall to hydrate
+      # verification), and Electron has no package postinstall to hydrate
       # dist/ anyway. The notice contract needs dist/LICENSE and
       # dist/LICENSES.chromium.html, so fetch the runtime explicitly.
       - name: Fetch Electron runtime for the notice contract
@@ -156,7 +156,7 @@ jobs:
 
       - name: Install pinned Flatpak source generators
         env:
-          FLATPAK_BUILDER_TOOLS_COMMIT: 737c0085912f9f7dabf9341d4608e2a77a51a73a
+          FLATPAK_BUILDER_TOOLS_COMMIT: 1fc32195e3e60fe5c97f0af646dec7a99df5962b
         run: |
           python3 -m venv "$RUNNER_TEMP/flatpak-builder-tools"
           "$RUNNER_TEMP/flatpak-builder-tools/bin/pip" \
