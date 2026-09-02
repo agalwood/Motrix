@@ -1,4 +1,3 @@
-import path from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -14,8 +13,8 @@ import type { NotificationCenter } from '@core/notifications/notification-center
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
-import { HookAuditLog } from '@core/plugin/hooks/audit-log'
-import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
@@ -126,12 +125,15 @@ export interface ServerCommandContext {
   pluginInstallService: ServerPluginInstallService
   pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
-  userDataDir: string
-  pluginsDir: string
   pluginActivation: ActivationDispatcher
+  hookAuditLog?: HookAuditLog
+  hookOrchestrator?: HookOrchestrator
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
   persistTask?: NonNullable<TaskActionDeps['persistTask']>
+  persistTaskWithPluginMetadata?: NonNullable<
+    CreateTaskDeps['persistTaskWithPluginMetadata']
+  >
   /**
    * Persist a task and (when non-null) its terminal occurrence in a single
    * durable transaction — used INSTEAD OF `persistTask` whenever a status
@@ -188,12 +190,13 @@ export function buildServerCommandHandlers(
     pluginInstallService,
     pluginGrants,
     capabilityHost,
-    userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     magnetTracker,
     activityRecorder,
     persistTask: injectedPersistTask,
+    persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition,
@@ -221,22 +224,6 @@ export function buildServerCommandHandlers(
       await persistParent()
     })
 
-  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
-  // once and feed them into createDeps so handleCreateTask's beforeCreate
-  // chain fires. Without this, every plugin's beforeCreate hook is silently
-  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
-  const hookAuditLog = new HookAuditLog(
-    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
-  )
-  const hookOrchestrator = new HookOrchestrator({
-    host: pluginHost,
-    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
-    pluginsDir,
-    pluginStorageRootFor: (pluginId) =>
-      path.join(pluginsDir, pluginId, 'storage'),
-    auditLog: hookAuditLog,
-  })
-
   const createDeps: CreateTaskDeps = {
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
@@ -253,6 +240,7 @@ export function buildServerCommandHandlers(
     auditLog: hookAuditLog,
     db: motrixDatabase.database,
     persistTask,
+    persistTaskWithPluginMetadata,
     parentTaskCreated,
     rollbackTaskCreation: (taskId: string) =>
       taskPersistence.runExclusivePersistence(() =>
@@ -806,9 +794,9 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.DisablePlugin]: async (id: string) => {
-      await pluginHost.deactivate(id)
-      pluginStateStore.setEnabled(id, false)
-      pluginRegistry.refreshState(id)
+      await pluginHost.disable(id, 'plugin.user_disabled', 'disabled', {
+        recordError: false,
+      })
       const state = pluginStateStore.get(id)
       eventBus.emit(Events.PluginStatusChanged, {
         id,

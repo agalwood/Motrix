@@ -9,6 +9,10 @@ const NATIVE_HOST_CARGO_LOCK = path.join(
   ROOT,
   'packages/native-host/Cargo.lock'
 )
+const FINALIZE_FS_CARGO_LOCK = path.join(
+  ROOT,
+  'packages/finalize-fs/Cargo.lock'
+)
 const NOTICE_GATE_COMMAND = 'pnpm run check:third-party-notices'
 const FLATPAK_NOTICE_GATE_COMMAND =
   'pnpm --config.verify-deps-before-run=false run check:third-party-notices'
@@ -426,6 +430,19 @@ describe('third-party graph dependency notices', () => {
     }))
 
     expect(registryPackagesFromCargoLock(cargoLock)).toEqual(expected)
+  })
+
+  it('keeps every finalize filesystem crate inside the reviewed Rust inventory', async () => {
+    const cargoLock = await readFile(FINALIZE_FS_CARGO_LOCK, 'utf8')
+    const reviewed = new Set(
+      RUST_NATIVE_HOST_CRATES.map(({ name, version }) => `${name}@${version}`)
+    )
+
+    expect(
+      registryPackagesFromCargoLock(cargoLock).filter(
+        ({ name, version }) => !reviewed.has(`${name}@${version}`)
+      )
+    ).toEqual([])
   })
 
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(

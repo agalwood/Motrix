@@ -9,7 +9,8 @@
 //   - Timeout: default 30 s; hard cap 300 s.
 //   - Redirect: 'follow' (up to 10), 'manual', or 'error' (reject any 3xx).
 //   - Range: `{start, end}` generates a `Range: bytes=start-end` header.
-//   - Proxy: `http://host:port` / `https://host:port`; per-request override.
+//   - Proxy: only a Host-managed `http://` / `https://` route. Guest-selected
+//     per-request proxy endpoints are rejected.
 //   - Cookies: opt-in via cookies: 'jar' (reads jar before, captures after).
 //   - AbortSignal chaining: plugin's signal + internal timeout both abort.
 //   - JSON body shorthand: body.type === 'json' auto-serializes + Content-Type.
@@ -21,6 +22,7 @@
 import type { Dispatcher } from 'undici'
 import { Agent, ProxyAgent, request as undiciRequest } from 'undici'
 import { urlMatchesHostPermissions } from '../hooks/eligibility'
+import { hasAuthorityUserInfo } from '../permissions/host-pattern'
 import type { CookieJar } from './http-cookies'
 
 // ---------------------------------------------------------------------------
@@ -113,6 +115,10 @@ export interface HttpCapabilityHostOptions {
    * tests; the capability bridge always passes the manifest's list.
    */
   hostPermissions?: ReadonlyArray<string>
+  /** Host policy route. It is never copied from guest request options. */
+  managedProxy?: string
+  /** Host-owned transport override (used by deterministic loopback tests). */
+  dispatcher?: Dispatcher
 }
 
 // ---------------------------------------------------------------------------
@@ -224,8 +230,13 @@ interface DispatcherLease {
   owned: boolean
 }
 
-function pickDispatcher(proxy: string | undefined): DispatcherLease {
-  if (!proxy) return { dispatcher: sharedAgent, owned: false }
+function pickDispatcher(
+  proxy: string | undefined,
+  dispatcher: Dispatcher | undefined
+): DispatcherLease {
+  if (!proxy) {
+    return { dispatcher: dispatcher ?? sharedAgent, owned: false }
+  }
 
   let parsed: URL
   try {
@@ -331,6 +342,8 @@ export class HttpCapabilityHost {
   private readonly defaultTimeoutMs: number
   private readonly defaultMaxBodyBytes: number
   private readonly hostPermissions: ReadonlyArray<string> | undefined
+  private readonly managedProxy: string | undefined
+  private readonly dispatcher: Dispatcher | undefined
 
   constructor(opts?: HttpCapabilityHostOptions) {
     this.cookieJar = opts?.cookieJar
@@ -338,9 +351,37 @@ export class HttpCapabilityHost {
     this.defaultMaxBodyBytes =
       opts?.defaultMaxBodyBytes ?? DEFAULT_MAX_BODY_BYTES
     this.hostPermissions = opts?.hostPermissions
+    this.managedProxy = opts?.managedProxy
+    this.dispatcher = opts?.dispatcher
   }
 
-  private checkHostPermitted(url: string): void {
+  /** Preserve the Host transport/policy while narrowing one plugin's reach. */
+  scoped(input: {
+    cookieJar?: CookieJar
+    hostPermissions: ReadonlyArray<string>
+  }): HttpCapabilityHost {
+    return new HttpCapabilityHost({
+      cookieJar: input.cookieJar,
+      defaultTimeoutMs: this.defaultTimeoutMs,
+      defaultMaxBodyBytes: this.defaultMaxBodyBytes,
+      hostPermissions: input.hostPermissions,
+      managedProxy: this.managedProxy,
+      dispatcher: this.dispatcher,
+    })
+  }
+
+  private checkHostPermitted(url: string, parsed?: URL): void {
+    const normalized = parsed ?? parseUrl(url)
+    if (
+      hasAuthorityUserInfo(url) ||
+      normalized.username.length > 0 ||
+      normalized.password.length > 0
+    ) {
+      throw new HttpError(
+        'plugin.http.host_not_permitted',
+        'Credential-bearing URLs are outside hostPermissions'
+      )
+    }
     if (this.hostPermissions === undefined) return
     if (urlMatchesHostPermissions(this.hostPermissions, url)) return
     throw new HttpError(
@@ -362,10 +403,16 @@ export class HttpCapabilityHost {
         'responseType is required (text | json | bytes)'
       )
     }
+    if (opts.proxy !== undefined) {
+      throw new HttpError(
+        'plugin.http.guest_proxy_not_allowed',
+        'Plugin-selected proxy endpoints are not allowed'
+      )
+    }
 
     const parsed = parseUrl(opts.url)
     checkScheme(parsed)
-    this.checkHostPermitted(parsed.toString())
+    this.checkHostPermitted(opts.url, parsed)
 
     const timeoutMs = clampTimeout(opts.timeoutMs, this.defaultTimeoutMs)
     const maxBodyBytes = clampMaxBody(
@@ -426,7 +473,7 @@ export class HttpCapabilityHost {
       const timer = setTimeout(() => internalCtrl.abort('timeout'), timeoutMs)
       cleanup.push(() => clearTimeout(timer))
 
-      lease = pickDispatcher(opts.proxy)
+      lease = pickDispatcher(this.managedProxy, this.dispatcher)
 
       while (true) {
         // Cookie jar inject (uses currentUrl so cookies follow the host).
@@ -523,7 +570,13 @@ export class HttpCapabilityHost {
             // only ran on the initial URL, so a 3xx Location to file:// (or to
             // a host outside hostPermissions) would otherwise escape.
             checkScheme(nextUrl)
-            this.checkHostPermitted(nextUrl.toString())
+            if (hasAuthorityUserInfo(loc)) {
+              throw new HttpError(
+                'plugin.http.host_not_permitted',
+                'Credential-bearing redirect URLs are outside hostPermissions'
+              )
+            }
+            this.checkHostPermitted(nextUrl.toString(), nextUrl)
             currentUrl = nextUrl.toString()
             redirected = true
             hops += 1

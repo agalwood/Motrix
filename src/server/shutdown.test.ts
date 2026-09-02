@@ -354,6 +354,33 @@ describe('server lifecycle production wiring', () => {
     expect(samples).toBeGreaterThan(publish)
   })
 
+  it('shares one live ffmpeg detector across the Server plugin Host and Installer', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/server/index.ts'),
+      'utf8'
+    )
+    const detector = source.indexOf('const detectPluginFfmpeg = async () =>')
+    const host = source.indexOf('const pluginHost = new PluginHost({', detector)
+    const hostDetector = source.indexOf(
+      'ffmpegDetect: detectPluginFfmpeg',
+      host
+    )
+    const installer = source.indexOf(
+      'const pluginInstaller = new PluginInstaller({',
+      hostDetector
+    )
+    const installerDetector = source.indexOf(
+      'ffmpegDetect: detectPluginFfmpeg',
+      installer
+    )
+
+    expect(detector).toBeGreaterThan(-1)
+    expect(host).toBeGreaterThan(detector)
+    expect(hostDetector).toBeGreaterThan(host)
+    expect(installer).toBeGreaterThan(hostDetector)
+    expect(installerDetector).toBeGreaterThan(installer)
+  })
+
   it('constructs shutdown before early acquisitions, producers, or HTTP ingress', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/server/index.ts'),

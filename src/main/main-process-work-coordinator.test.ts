@@ -337,4 +337,40 @@ describe('MainProcessWorkCoordinator', () => {
     expect(sessionDrain).toBeGreaterThan(trackerDrain)
     expect(engineStop).toBeGreaterThan(trackerDrain)
   })
+
+  it('shares live ffmpeg detection and command schemas across the Electron plugin runtime', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/main/index.ts'),
+      'utf8'
+    )
+    const detector = source.indexOf('const detectPluginFfmpeg = async () =>')
+    const host = source.indexOf('const activePluginHost = new PluginHost({')
+    const hostDetector = source.indexOf(
+      'ffmpegDetect: detectPluginFfmpeg',
+      host
+    )
+    const commandSystem = source.indexOf(
+      'const commandSystem = wireCommandSystem({',
+      host
+    )
+    const installer = source.indexOf(
+      'const pluginInstaller = new PluginInstaller({',
+      commandSystem
+    )
+    const schemaCache = source.indexOf(
+      'schemaCache: commandSystem.schemas',
+      installer
+    )
+    const installerDetector = source.indexOf(
+      'ffmpegDetect: detectPluginFfmpeg',
+      installer
+    )
+
+    expect(detector).toBeGreaterThan(-1)
+    expect(hostDetector).toBeGreaterThan(host)
+    expect(commandSystem).toBeGreaterThan(hostDetector)
+    expect(installer).toBeGreaterThan(commandSystem)
+    expect(schemaCache).toBeGreaterThan(installer)
+    expect(installerDetector).toBeGreaterThan(schemaCache)
+  })
 })

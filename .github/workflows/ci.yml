@@ -284,22 +284,19 @@ jobs:
           components: rustfmt, clippy
 
       - name: Format
-        run: >-
-          cargo fmt
-          --manifest-path packages/native-host/Cargo.toml
-          --all -- --check
+        run: |
+          cargo fmt --manifest-path packages/native-host/Cargo.toml --all -- --check
+          cargo fmt --manifest-path packages/finalize-fs/Cargo.toml --all -- --check
 
       - name: Clippy
-        run: >-
-          cargo clippy
-          --manifest-path packages/native-host/Cargo.toml
-          --all-targets --locked -- -D warnings
+        run: |
+          cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings
+          cargo clippy --manifest-path packages/finalize-fs/Cargo.toml --all-targets --locked -- -D warnings
 
       - name: Tests
-        run: >-
-          cargo test
-          --manifest-path packages/native-host/Cargo.toml
-          --locked --all-targets
+        run: |
+          cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
+          cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked --all-targets
 
   package-targets:
     name: Package smoke / ${{ matrix.target }}
@@ -389,6 +386,16 @@ jobs:
           --all-targets
           --target ${{ matrix.rust_target }}
 
+      - name: Tests (finalize filesystem target)
+        env:
+          RUST_BACKTRACE: full
+        run: >-
+          cargo test
+          --manifest-path packages/finalize-fs/Cargo.toml
+          --locked
+          --all-targets
+          --target ${{ matrix.rust_target }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
@@ -409,7 +416,16 @@ jobs:
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+          pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:electron
+
+      - name: Finalize filesystem runtime integration
+        env:
+          MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
+        run: >-
+          pnpm exec vitest run
+          src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          --reporter=verbose
 
       - name: Stage Electron application
         run: >-
@@ -477,6 +493,10 @@ jobs:
               : 'motrix-native-host'
           const engine =
             process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+          const finalize =
+            process.env.TARGET_PLATFORM === 'win32'
+              ? 'motrix-finalize-fs.exe'
+              : 'motrix-finalize-fs'
           const resources = process.env.PACKAGED_RESOURCES
           const required = [
             'app.asar',
@@ -487,6 +507,7 @@ jobs:
             path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
             path.join('legal', 'sbom.spdx.json'),
             path.join('bin', host),
+            path.join('bin', finalize),
             path.join(
               'extra',
               process.env.TARGET_PLATFORM,

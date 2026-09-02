@@ -15,6 +15,7 @@ import type { CapabilityHost } from '../capabilities/interface'
 import { LogCapabilityHost } from '../capabilities/log'
 import { PluginRegistry } from '../plugin-registry'
 import { PluginStateStore } from '../state/plugin-state-store'
+import { ActivationDispatcher } from './activation-dispatcher'
 import { PluginHost, parsePluginIdleDisposeMs } from './plugin-host'
 
 describe('parsePluginIdleDisposeMs', () => {
@@ -39,6 +40,24 @@ const { parentPort } = require('worker_threads')
 parentPort.on('message', (msg) => {
   if (msg.type === 'init') {
     parentPort.postMessage({ type: 'ready' })
+  } else if (msg.type === 'event' && msg.event === 'deactivate') {
+    parentPort.postMessage({ type: 'event', event: 'deactivateComplete', ok: true })
+  }
+})
+`
+  )
+  return file
+}
+
+function writeStubWorkerDelayedReady(dir: string): string {
+  const file = path.join(dir, 'StubWorkerDelayedReady.cjs')
+  writeFileSync(
+    file,
+    `
+const { parentPort } = require('worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') {
+    setTimeout(() => parentPort.postMessage({ type: 'ready' }), 50)
   } else if (msg.type === 'event' && msg.event === 'deactivate') {
     parentPort.postMessage({ type: 'event', event: 'deactivateComplete', ok: true })
   }
@@ -94,6 +113,32 @@ function writeStubWorkerNeverReady(dir: string): string {
 const { parentPort } = require('worker_threads')
 parentPort.on('message', (msg) => {
   if (msg.type === 'event' && msg.event === 'deactivate') {
+    parentPort.postMessage({ type: 'event', event: 'deactivateComplete', ok: true })
+  }
+})
+`
+  )
+  return file
+}
+
+function writeStubWorkerTimerActivity(dir: string, crash = false): string {
+  const file = path.join(
+    dir,
+    crash ? 'StubWorkerTimerCrash.cjs' : 'StubWorkerTimerActivity.cjs'
+  )
+  writeFileSync(
+    file,
+    `
+const { parentPort } = require('worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') {
+    parentPort.postMessage({ type: 'timer_activity', activeCount: 1 })
+    parentPort.postMessage({ type: 'ready' })
+    ${crash ? "setTimeout(() => { throw new Error('timer worker crash') }, 10)" : ''}
+  } else if (msg.type === 'test_clear_timer') {
+    parentPort.postMessage({ type: 'timer_activity', activeCount: 0 })
+  } else if (msg.type === 'event' && msg.event === 'deactivate') {
+    parentPort.postMessage({ type: 'timer_activity', activeCount: 0 })
     parentPort.postMessage({ type: 'event', event: 'deactivateComplete', ok: true })
   }
 })
@@ -238,7 +283,7 @@ describe('PluginHost', () => {
     await host.shutdown()
   })
 
-  it('rejects activation when manifest.main escapes the plugin dir', async () => {
+  it('rejects manifest.main escaping the plugin dir during discovery', async () => {
     plantPlugin(path.join(root, 'plugins'), 'evil.demo', {
       main: '../../escape.js',
     })
@@ -252,7 +297,35 @@ describe('PluginHost', () => {
       runtime: 'server',
       hostLanguage: 'en-US',
     })
-    await expect(host.activate('evil.demo')).rejects.toThrow(/main_escapes_dir/)
+    expect(registry.get('evil.demo')).toBeUndefined()
+    expect(registry.loadErrors()).toEqual([
+      expect.objectContaining({
+        message: expect.stringMatching(/main_escapes_dir/),
+      }),
+    ])
+    await expect(host.activate('evil.demo')).rejects.toThrow(/unknown plugin/)
+    await host.shutdown()
+  })
+
+  it('fails closed when executable bytes change after discovery', async () => {
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    writeFileSync(
+      path.join(root, 'plugins', 'alice.demo', 'dist', 'plugin.js'),
+      'export default { tampered: true }'
+    )
+
+    await expect(host.activate('alice.demo')).rejects.toThrow(
+      'plugin.runtime.executable_identity_changed'
+    )
+    expect(host.isActive('alice.demo')).toBe(false)
     await host.shutdown()
   })
 
@@ -286,6 +359,48 @@ describe('PluginHost', () => {
     await host.activate('alice.demo')
     await host.activate('alice.demo')
     expect(host.activeIds()).toEqual(['alice.demo'])
+    await host.shutdown()
+  })
+
+  it('does not publish a plugin as active before worker ready', async () => {
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: writeStubWorkerDelayedReady(root),
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+
+    const activation = host.activate('alice.demo')
+    await vi.waitFor(() => expect(host.isQuiescent('alice.demo')).toBe(false))
+    expect(host.isActive('alice.demo')).toBe(false)
+    await activation
+    expect(host.isActive('alice.demo')).toBe(true)
+    await host.shutdown()
+  })
+
+  it('fails activation when a declared Hook was not registered', async () => {
+    plantPlugin(path.join(root, 'plugins'), 'alice.hooks', {
+      contributes: { hooks: { beforeCreate: { role: 'enrich' } } },
+      hostPermissions: ['https://example.test/*'],
+    })
+    await registry.discover()
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+
+    await expect(host.activate('alice.hooks')).rejects.toThrow(
+      'plugin.hook.not_registered'
+    )
+    expect(host.isActive('alice.hooks')).toBe(false)
     await host.shutdown()
   })
 
@@ -489,6 +604,31 @@ describe('PluginHost', () => {
       await host.shutdown()
     })
 
+    it('lets Hook demand wait for overlapping idle teardown and reactivate', async () => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: workerPath,
+        idleDisposeMs: 1,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+      const dispatcher = new ActivationDispatcher(registry, host)
+      await host.activate('alice.demo')
+      await new Promise((resolve) => setTimeout(resolve, 5))
+
+      host.__sweepIdleForTest()
+      expect(host.isActive('alice.demo')).toBe(false)
+
+      await expect(
+        dispatcher.activateForHook('alice.demo', 'beforeCreate')
+      ).resolves.toBeUndefined()
+      expect(host.isActive('alice.demo')).toBe(true)
+      await host.shutdown()
+    })
+
     it('does NOT dispose a recently active plugin', async () => {
       const host = new PluginHost({
         registry,
@@ -503,6 +643,101 @@ describe('PluginHost', () => {
       await host.activate('alice.demo')
       host.__sweepIdleForTest()
       expect(host.isActive('alice.demo')).toBe(true)
+      await host.shutdown()
+    })
+
+    it('does not idle-dispose a plugin with an in-flight lane entry', async () => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: workerPath,
+        idleDisposeMs: 1,
+        deactivateBudgetMs: 50,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+      await host.activate('alice.demo')
+      void host
+        .invokeCommand('alice.demo', 'alice.demo.run', {})
+        .catch(() => {})
+      await vi.waitFor(() =>
+        expect(host.laneState('alice.demo').running).toBe(1)
+      )
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      host.__sweepIdleForTest()
+
+      expect(host.isActive('alice.demo')).toBe(true)
+      await host.shutdown()
+    })
+
+    it('does not idle-dispose a plugin with a background capability operation', async () => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: workerPath,
+        idleDisposeMs: 1,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+      await host.activate('alice.demo')
+      const bridge = host.bridgeFor('alice.demo')
+      expect(bridge).toBeDefined()
+      vi.spyOn(
+        bridge as NonNullable<typeof bridge>,
+        'hasInFlightOperations'
+      ).mockReturnValue(true)
+
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      host.__sweepIdleForTest()
+
+      expect(host.isActive('alice.demo')).toBe(true)
+      await host.shutdown()
+    })
+
+    it('does not idle-dispose while a worker timer is active, then disposes after clear', async () => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: writeStubWorkerTimerActivity(root),
+        idleDisposeMs: 1,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+      await host.activate('alice.demo')
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      host.__sweepIdleForTest()
+      expect(host.isActive('alice.demo')).toBe(true)
+
+      host.bridgeFor('alice.demo')?.getWorker().postMessage({
+        type: 'test_clear_timer',
+      })
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      host.__sweepIdleForTest()
+      await vi.waitFor(() => expect(host.isActive('alice.demo')).toBe(false))
+      await host.shutdown()
+    })
+
+    it('clears timer ownership when the worker crashes', async () => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: writeStubWorkerTimerActivity(root, true),
+        idleDisposeMs: 1,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+      await host.activate('alice.demo')
+
+      await vi.waitFor(() => expect(host.isActive('alice.demo')).toBe(false))
+      expect(host.activeMeta()).toEqual([])
       await host.shutdown()
     })
   })
@@ -764,6 +999,217 @@ describe('PluginHost.deactivate — lifecycle wiring', () => {
     expect(registry.get('alice.demo')?.state.enabled).toBe(false)
     expect(registry.get('alice.demo')?.state.status).toBe('disabled')
   })
+
+  it('terminalizes post deliveries after reversible disable publishes', async () => {
+    const workerPath = writeStubWorker(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    const unavailable = vi.fn(async () => {
+      expect(registry.get('alice.demo')?.state.enabled).toBe(false)
+      return 1
+    })
+    host.bindPluginUnavailable(unavailable)
+
+    await host.disable('alice.demo', 'circuit tripped', 'quarantined')
+
+    expect(unavailable).toHaveBeenCalledWith(
+      'alice.demo',
+      'quarantined',
+      expect.any(Number)
+    )
+    expect(registry.get('alice.demo')?.state.enabled).toBe(false)
+  })
+
+  it('restores the prior policy when disable retention fails', async () => {
+    const workerPath = writeStubWorker(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    const failure = new Error('retention unavailable')
+    host.bindPluginUnavailable(async () => Promise.reject(failure))
+
+    await expect(
+      host.disable('alice.demo', 'circuit tripped', 'quarantined')
+    ).rejects.toBe(failure)
+
+    expect(stateStore.get('alice.demo')?.enabled).toBe(true)
+    expect(registry.get('alice.demo')?.state.enabled).toBe(true)
+  })
+
+  it('closes admission until a policy mutation publishes a new generation', async () => {
+    const workerPath = writeStubWorker(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    await host.activate('alice.demo')
+    const generation = registry.policyGenerationFor('alice.demo')
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const mutation = host.applyPolicyMutation('alice.demo', async () => {
+      await gate
+    })
+    await vi.waitFor(() => expect(host.isActive('alice.demo')).toBe(false))
+
+    await expect(host.activate('alice.demo')).rejects.toThrow(
+      'plugin.runtime.admission_closed'
+    )
+    release()
+    await mutation
+    expect(registry.policyGenerationFor('alice.demo')).toBe(generation + 1)
+    await host.activate('alice.demo')
+    expect(host.isActive('alice.demo')).toBe(true)
+    await host.shutdown()
+  })
+
+  it('aborts every live policy lease as soon as mutation admission closes', async () => {
+    const workerPath = writeStubWorker(root)
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    const lease = host.acquirePolicyLease(
+      'alice.demo',
+      registry.policyGenerationFor('alice.demo')
+    )
+    let releaseMutation!: () => void
+    const gate = new Promise<void>((resolve) => {
+      releaseMutation = resolve
+    })
+
+    const mutation = host.applyPolicyMutation('alice.demo', () => gate)
+
+    expect(lease.signal.aborted).toBe(true)
+    lease.release()
+    releaseMutation()
+    await mutation
+    await host.shutdown()
+  })
+})
+
+describe('PluginHost Hook lane context', () => {
+  it('installs, invokes, and clears each context within one FIFO lane entry', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'mph-hook-context-'))
+    const db = new Database(':memory:')
+    migrate(db)
+    const stateStore = new PluginStateStore(db)
+    plantPlugin(path.join(root, 'plugins'), 'alice.demo')
+    const registry = new PluginRegistry({
+      pluginsDir: path.join(root, 'plugins'),
+      builtinDir: path.join(root, 'builtin'),
+      stateStore,
+      hostVersion: '2.5.0',
+    })
+    await registry.discover()
+    const capHost = {
+      createLog: () => ({ warn: vi.fn() }),
+      appSnapshot: () => ({}),
+      i18nSnapshot: () => ({
+        language: 'en-US',
+        dir: 'ltr',
+        currentDict: {},
+        fallbackDict: {},
+      }),
+      onLocaleChange: () => () => undefined,
+      lifecycle: { runDeactivate: vi.fn() },
+      flush: vi.fn(),
+    } as unknown as CapabilityHost
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: writeStubWorker(root),
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    try {
+      await host.activate('alice.demo')
+      const bridge = host.bridgeFor('alice.demo')
+      if (!bridge) throw new Error('bridge missing')
+      const events: string[] = []
+      let releaseFirst!: () => void
+      const firstGate = new Promise<void>((resolve) => {
+        releaseFirst = resolve
+      })
+      vi.spyOn(bridge, 'setHookContext').mockImplementation((context) => {
+        events.push(`set:${context.taskId}`)
+      })
+      vi.spyOn(bridge, 'clearHookContext').mockImplementation(() => {
+        events.push('clear')
+      })
+      vi.spyOn(bridge, 'callHook').mockImplementation(async (_hook, taskId) => {
+        events.push(`call:${taskId}`)
+        if (taskId === 'task-1') await firstGate
+        return {
+          schemaVersion: 1,
+          contextPatches: [],
+          metadataOperations: [],
+        }
+      })
+      const argsFor = (taskId: string) => ({
+        taskId,
+        signal: new AbortController().signal,
+        timeoutMs: 1_000,
+        context: { fsTaskHost: {} as never, taskId },
+      })
+
+      const first = host.invokeHook(
+        'alice.demo',
+        'beforeCreate',
+        argsFor('task-1')
+      )
+      await vi.waitFor(() =>
+        expect(events).toEqual(['set:task-1', 'call:task-1'])
+      )
+      const second = host.invokeHook(
+        'alice.demo',
+        'beforeCreate',
+        argsFor('task-2')
+      )
+      await Promise.resolve()
+      expect(events).toEqual(['set:task-1', 'call:task-1'])
+
+      releaseFirst()
+      await Promise.all([first, second])
+      expect(events).toEqual([
+        'set:task-1',
+        'call:task-1',
+        'clear',
+        'set:task-2',
+        'call:task-2',
+        'clear',
+      ])
+    } finally {
+      await host.shutdown()
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('PluginHost locale change propagation', () => {
@@ -983,6 +1429,33 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true })
+  })
+
+  it('does not invent a missing ffmpeg result when no detector is configured', async () => {
+    plantPlugin(path.join(root, 'plugins'), 'req.legacy', {
+      permissions: ['ffmpeg'],
+      engines: { motrix: '>=2.0.0', ffmpeg: '>=99.0' },
+    })
+    registry = new PluginRegistry({
+      pluginsDir: path.join(root, 'plugins'),
+      builtinDir: path.join(root, 'builtin'),
+      stateStore,
+      hostVersion: '2.5.0',
+    })
+    await registry.discover()
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+
+    await expect(host.activate('req.legacy')).resolves.toBeUndefined()
+    expect(host.getFfmpegAdvertised('req.legacy')).toBe(true)
+    await host.shutdown()
   })
 
   it('required + missing → throws ffmpeg_too_old; plugin stays inactive', async () => {

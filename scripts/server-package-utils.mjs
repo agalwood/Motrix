@@ -276,6 +276,10 @@ export function resolveServerInput(input, target) {
   const replacements = {
     arch: target.arch,
     aria2Binary: target.platform === 'win32' ? 'aria2c.exe' : 'aria2c',
+    finalizeBinary:
+      target.platform === 'win32'
+        ? 'motrix-finalize-fs.exe'
+        : 'motrix-finalize-fs',
     platform: target.platform,
   }
   const resolveTemplate = (value, label) =>

@@ -2136,17 +2136,23 @@ describe('Commands.UpdatePluginConfig', () => {
 
 describe('plugin enable/disable commands', () => {
   function makePluginLifecycleCtx() {
+    const setEnabled = vi.fn()
+    const refreshState = vi.fn()
     return {
       ...fakeCtx(),
       pluginStateStore: {
-        setEnabled: vi.fn(),
+        setEnabled,
         get: vi.fn().mockReturnValue(undefined),
       },
       pluginRegistry: {
-        refreshState: vi.fn(),
+        refreshState,
       },
       pluginHost: {
         deactivate: vi.fn().mockResolvedValue(undefined),
+        disable: vi.fn(async (id: string) => {
+          setEnabled(id, false)
+          refreshState(id)
+        }),
       },
       eventBus: {
         emit: vi.fn(),
@@ -2191,7 +2197,12 @@ describe('plugin enable/disable commands', () => {
 
     await handlers[Commands.DisablePlugin]?.('test-plugin')
 
-    expect(ctx.pluginHost.deactivate).toHaveBeenCalledWith('test-plugin')
+    expect(ctx.pluginHost.disable).toHaveBeenCalledWith(
+      'test-plugin',
+      'plugin.user_disabled',
+      'disabled',
+      { recordError: false }
+    )
     expect(ctx.eventBus.emit).toHaveBeenCalledWith(
       Events.PluginStatusChanged,
       expect.objectContaining({ id: 'test-plugin', enabled: false })
@@ -2246,11 +2257,23 @@ describe('Commands.RevertBuiltinToBundled', () => {
       discover: vi.fn().mockResolvedValue(undefined),
     }
     const pluginHost = {
+      isActive: vi.fn(() => status === 'active'),
       deactivate: vi.fn().mockImplementation(async () => {
         status = 'inactive'
       }),
       activate: vi.fn().mockImplementation(async () => {
         status = 'active'
+      }),
+    }
+    const builtinUpdater = {
+      revert: vi.fn().mockImplementation(async () => {
+        status = 'inactive'
+        await rm(path.join(overlayDir, pluginId), {
+          recursive: true,
+          force: true,
+        })
+        await pluginRegistry.discover()
+        return { pluginId, changed: true }
       }),
     }
     const eventBus = {
@@ -2263,10 +2286,18 @@ describe('Commands.RevertBuiltinToBundled', () => {
       ...fakeCtx(),
       pluginRegistry,
       pluginHost,
+      builtinUpdater,
       eventBus,
       overlayDir,
     }
-    return { ctx, pluginRegistry, pluginHost, eventBus, overlayDir }
+    return {
+      ctx,
+      pluginRegistry,
+      pluginHost,
+      builtinUpdater,
+      eventBus,
+      overlayDir,
+    }
   }
 
   it('reactivates a builtin that was active before the revert', async () => {
@@ -2286,12 +2317,12 @@ describe('Commands.RevertBuiltinToBundled', () => {
     expect(pluginHost.activate).toHaveBeenCalledWith(pluginId)
     expect(result).toMatchObject({ ok: true, restartRequired: false })
 
-    // Ordering must still hold: deactivate (so the worker releases overlay
-    // files) strictly before the rescan/reactivate.
-    const deactivateOrder = pluginHost.deactivate.mock.invocationCallOrder[0]
+    // BuiltinUpdater owns the admission/deactivate/rescan boundary; the
+    // command must await that complete lifecycle before reactivation.
+    const revertOrder = ctx.builtinUpdater.revert.mock.invocationCallOrder[0]
     const discoverOrder = pluginRegistry.discover.mock.invocationCallOrder[0]
     const activateOrder = pluginHost.activate.mock.invocationCallOrder[0]
-    expect(deactivateOrder).toBeLessThan(discoverOrder)
+    expect(revertOrder).toBeLessThan(discoverOrder)
     expect(discoverOrder).toBeLessThan(activateOrder)
 
     // The overlay directory itself is gone.
@@ -2318,6 +2349,7 @@ describe('Commands.RevertBuiltinToBundled', () => {
     const pluginId = 'motrix.filename-template'
     const { ctx, pluginRegistry, pluginHost } = await makeRevertCtx(pluginId)
     pluginRegistry.list.mockReturnValue([{ id: pluginId, status: 'inactive' }])
+    pluginHost.isActive.mockReturnValue(false)
     const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
 
     const result = await handlers[Commands.RevertBuiltinToBundled]?.({

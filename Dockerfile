@@ -1,5 +1,13 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 ARG NODE_IMAGE=node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+ARG RUST_IMAGE=rust:1.94.1-alpine@sha256:77237dd363a0b127bb5ef532c2d64c0deb380b738e43a9c4bdac73398d6d0a08
+
+FROM ${RUST_IMAGE} AS finalize-fs-build
+WORKDIR /src
+COPY packages/finalize-fs/Cargo.toml packages/finalize-fs/Cargo.lock ./
+COPY packages/finalize-fs/src ./src
+RUN cargo build --release --locked
+
 FROM ${NODE_IMAGE} AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
@@ -36,7 +44,9 @@ RUN --mount=type=cache,id=motrix-pnpm-store,target=/pnpm/store \
 
 FROM deps AS build
 ARG TARGETARCH
+ENV MOTRIX_SERVER_FINALIZE_FS_PREBUILT=1
 WORKDIR /app
+COPY --from=finalize-fs-build /src/target/release/motrix-finalize-fs /tmp/motrix-finalize-fs
 COPY . .
 RUN node node_modules/electron/install.js
 RUN --mount=type=cache,id=motrix-builtins,target=/app/node_modules/.cache/motrix-builtins \
@@ -45,9 +55,12 @@ RUN --mount=type=cache,id=motrix-builtins,target=/app/node_modules/.cache/motrix
       arm64) engine_arch=arm64 ;; \
       *) echo "unsupported Docker target architecture: ${TARGETARCH}" >&2; exit 2 ;; \
     esac \
+ && mkdir -p "packages/finalize-fs/dist/linux-${engine_arch}" \
+ && install -m 0755 /tmp/motrix-finalize-fs "packages/finalize-fs/dist/linux-${engine_arch}/motrix-finalize-fs" \
  && node scripts/fetch-engine.mjs --platform linux --arch "${engine_arch}" \
  && pnpm run check:third-party-notices \
  && pnpm run build:server \
+ && MOTRIX_FINALIZE_FS_TEST_BIN="packages/finalize-fs/dist/linux-${engine_arch}/motrix-finalize-fs" pnpm exec vitest run src/core/plugin/finalize/native-artifact-operations.integration.test.ts --reporter=verbose \
  && node scripts/stage-server-app.mjs --platform linux --arch "${TARGETARCH}" --libc musl --strict \
  && node scripts/verify-server-package.mjs --app-dir dist/server-app --platform linux --arch "${TARGETARCH}" --libc musl
 
@@ -71,6 +84,7 @@ COPY --from=build --chown=node:node /app/dist/server ./dist/server
 COPY --from=build --chown=node:node /app/dist/core/plugin/host ./dist/core/plugin/host
 COPY --from=build --chown=node:node /app/dist/renderer-web ./dist/renderer-web
 COPY --from=build --chown=node:node /app/dist/server-app/bin/aria2c ./bin/aria2c
+COPY --from=build --chown=node:node /app/dist/server-app/bin/motrix-finalize-fs ./bin/motrix-finalize-fs
 COPY --from=full-root-production-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/extra/aria2.conf ./extra/aria2.conf
 COPY --from=build --chown=node:node /app/dist/builtin-plugins ./builtin-plugins
@@ -89,6 +103,7 @@ ENV YARN_VERSION= \
     MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/app/bin/aria2c \
+    MOTRIX_FINALIZE_FS_BIN=/app/bin/motrix-finalize-fs \
     MOTRIX_DEFAULT_SAVE_DIR=/downloads \
     MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
     MOTRIX_RENDERER_DIR=/app/dist/renderer-web \
@@ -135,6 +150,7 @@ ENV YARN_VERSION= \
     MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
     MOTRIX_ARIA2_BIN=/app/bin/aria2c \
+    MOTRIX_FINALIZE_FS_BIN=/app/bin/motrix-finalize-fs \
     MOTRIX_DEFAULT_SAVE_DIR=/downloads \
     MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
     MOTRIX_RENDERER_DIR=/app/dist/renderer-web \

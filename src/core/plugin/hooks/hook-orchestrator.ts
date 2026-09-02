@@ -19,8 +19,6 @@
 //   - Cooperates with PluginHost, CapabilityBridge, and the Plan C support
 //     modules under @core/plugin/hooks/.
 
-import { readdir, stat } from 'node:fs/promises'
-import path from 'node:path'
 import { getLogger } from '@core/logger'
 import type {
   AfterCompleteContextDTO,
@@ -29,6 +27,7 @@ import type {
   OnErrorContextDTO,
 } from '@shared/types/plugin-hooks'
 import type { CapabilityHost } from '../capabilities/interface'
+import type { ActivationDispatcher } from '../host/activation-dispatcher'
 import type { ActivePluginInfo, PluginHost } from '../host/plugin-host'
 import { newHookAbort } from './abort'
 import type { HookAuditLog } from './audit-log'
@@ -57,11 +56,18 @@ export interface CircuitBreaker {
 
 export interface OrchestratorOptions {
   host: PluginHost
+  /** Registry-backed discovery and demand activation. Required in production. */
+  activationDispatcher?: Pick<
+    ActivationDispatcher,
+    'candidatesForHook' | 'activateForHook'
+  >
   hookTimeoutMs: { series: number; parallel: number }
   /** Root directory under which `<pluginId>/staging/<taskId>/` lives. */
   pluginsDir: string
   /** Returns the plugin's storage root; orchestrator passes it to the bridge. */
   pluginStorageRootFor: (pluginId: string) => string
+  /** Production task-filesystem and metadata context for every Hook. */
+  capabilityHost?: Pick<CapabilityHost, 'fsTaskFor' | 'metadata'>
   /** ffmpeg per-(plugin, task) staging quota in bytes. */
   ffmpegStagingQuotaBytes?: number
   /** Optional NDJSON audit log; T15 wires the real instance. */
@@ -86,6 +92,8 @@ export interface BeforeFinalizeResult {
   final: BeforeFinalizeContextDTO
   /** Path requested by the last resolve/post-process plugin to set finalizePath. */
   finalFilePath?: string
+  /** Invocation-private replacement mapping; the finalizer verifies identity. */
+  replacement?: { pluginId: string; stagedPath: string }
   staged: StagedEffectStore
 }
 
@@ -139,7 +147,11 @@ export class HookOrchestrator {
     initial: BeforeCreateHttpContextDTO,
     taskId: string
   ): Promise<BeforeCreateHttpResult | ChainAborted> {
-    const chain = this.eligiblePlugins('beforeCreate', initial.uris[0])
+    const chain = await this.eligiblePlugins(
+      'beforeCreate',
+      initial.uris[0],
+      initial.type
+    )
     log.info(
       {
         taskId,
@@ -159,6 +171,7 @@ export class HookOrchestrator {
 
     const staged = new StagedEffectStore()
     const timeout = this.opts.hookTimeoutMs.series
+    let working = cloneBeforeCreate(initial)
 
     for (const entry of chain) {
       if (this.opts.breaker?.isOpen(entry.id, 'beforeCreate')) {
@@ -177,50 +190,29 @@ export class HookOrchestrator {
 
       const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
 
-      // Set hook context BEFORE invocation: staged store, role, saveDir all
-      // need to be live for ctx.update / metadata.set to be routed correctly
-      // by the phase-matrix gate (T8).
-      entry.info.bridge.setHookContext({
-        // Plan C ships only the bare hook context for beforeCreate (no
-        // fsTaskHost — fs.task is disallowed in beforeCreate per the matrix).
-        // The bridge's setHookContext requires a non-null host for the Plan B
-        // shape; we satisfy the type with a stub that throws if invoked. The
-        // matrix gate fires before any dispatch reaches the host.
-        fsTaskHost: STUB_FS_TASK_HOST,
-        taskId,
-        phase: 'beforeCreate',
-        staged,
-        role: entry.role,
-        saveDir: initial.saveDir,
-        pluginStorageRoot: this.opts.pluginStorageRootFor(entry.id),
-      })
-
       try {
+        const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeCreate', {
           taskId,
           signal: abort.signal,
           timeoutMs: timeout,
-          ctxPayload: {
-            type: initial.type,
-            sourceUrl: initial.sourceUrl,
-            uris: [...initial.uris],
-            saveDir: initial.saveDir,
-            filename: initial.filename,
-            connections: initial.connections,
-            headers: initial.headers.map((h) => ({
-              name: h.name,
-              value: h.value,
-            })),
-            proxy: initial.proxy,
-            createdBy: initial.createdBy,
-            requestedAt: initial.requestedAt,
+          ctxPayload: cloneBeforeCreate(working),
+          metadataSnapshot,
+          context: {
+            fsTaskHost: STUB_FS_TASK_HOST,
+            taskId,
+            phase: 'beforeCreate',
+            staged,
+            role: entry.role,
+            saveDir: working.saveDir,
+            pluginStorageRoot: this.opts.pluginStorageRootFor(entry.id),
           },
         })
+        working = mergeBeforeCreateWorking(initial, staged)
         this.opts.breaker?.success(entry.id, 'beforeCreate')
       } catch (e) {
         this.opts.breaker?.failure(entry.id, 'beforeCreate')
         await this.maybeDisable(entry.id, 'beforeCreate')
-        entry.info.bridge.clearHookContext()
         const message = (e as Error).message
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -245,9 +237,8 @@ export class HookOrchestrator {
         // fail-open with isolation: drop this plugin's partial effects so the
         // merge step does not pick them up.
         staged.removeFromPlugin(entry.id)
-        continue
+        working = mergeBeforeCreateWorking(initial, staged)
       }
-      entry.info.bridge.clearHookContext()
     }
 
     // Merge chain — produces the final headers/uris/proxy/filename plus
@@ -291,7 +282,11 @@ export class HookOrchestrator {
     initial: BeforeFinalizeContextDTO,
     taskId: string
   ): Promise<BeforeFinalizeResult | ChainAborted> {
-    const chain = this.eligiblePlugins('beforeFinalize', initial.sourceUrl)
+    const chain = await this.eligiblePlugins(
+      'beforeFinalize',
+      undefined,
+      initial.task.type
+    )
     if (chain.length === 0) {
       return {
         final: initial,
@@ -302,6 +297,7 @@ export class HookOrchestrator {
 
     const staged = new StagedEffectStore()
     const timeout = this.opts.hookTimeoutMs.series
+    let working = cloneBeforeFinalize(initial)
 
     for (const entry of chain) {
       if (this.opts.breaker?.isOpen(entry.id, 'beforeFinalize')) {
@@ -320,7 +316,7 @@ export class HookOrchestrator {
       // beforeFinalize uses the saveDir derived from initial.filePath's parent
       // for path-escape validation (T3 validateFinalizePatch). The bridge gate
       // also needs a non-null fsTaskHost for the matrix branch.
-      const saveDir = parentDirOf(initial.filePath)
+      const saveDir = initial.task.saveDir
       // Per-plugin ffmpeg staging dir. PR-2 Task 4: orchestrator owns the
       // lifecycle because both taskId and pluginId are in scope here. The
       // bridge enforces the staging-only ffmpeg saveDir write contract; this
@@ -335,28 +331,43 @@ export class HookOrchestrator {
         quotaBytes: this.opts.ffmpegStagingQuotaBytes ?? 4 * 1024 ** 3,
       })
       staged.appendStaging(entry.id, staging)
-      entry.info.bridge.setHookContext({
-        fsTaskHost: STUB_FS_TASK_HOST,
-        taskId,
-        phase: 'beforeFinalize',
-        staged,
-        role: entry.role,
-        saveDir,
-        pluginStorageRoot: this.opts.pluginStorageRootFor(entry.id),
-        staging,
-      })
+      const previousFinalizePath = staged.pendingFinalizePath
 
       try {
+        const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeFinalize', {
           taskId,
           signal: abort.signal,
           timeoutMs: timeout,
+          ctxPayload: cloneBeforeFinalize(working),
+          metadataSnapshot,
+          context: {
+            fsTaskHost:
+              this.opts.capabilityHost?.fsTaskFor(
+                initial.task.saveDir,
+                initial.inputFilePath
+              ) ?? STUB_FS_TASK_HOST,
+            taskId,
+            phase: 'beforeFinalize',
+            staged,
+            role: entry.role,
+            saveDir,
+            pluginStorageRoot: this.opts.pluginStorageRootFor(entry.id),
+            staging,
+          },
         })
+        const nextTarget = staged.pendingFinalizePath
+        if (nextTarget !== undefined) {
+          working = {
+            ...working,
+            filePath: nextTarget,
+            targetFilePath: nextTarget,
+          }
+        }
         this.opts.breaker?.success(entry.id, 'beforeFinalize')
       } catch (e) {
         this.opts.breaker?.failure(entry.id, 'beforeFinalize')
         await this.maybeDisable(entry.id, 'beforeFinalize')
-        entry.info.bridge.clearHookContext()
         const message = (e as Error).message
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -376,102 +387,50 @@ export class HookOrchestrator {
             role: entry.role,
             reason: message,
           })
-          // Discard every in-flight staging before aborting. Per spec §3.3 the
-          // orchestrator owns this cleanup — callers must not see partial bytes
-          // in <pluginsDir>/<pluginId>/staging/<taskId> after a chain abort.
-          // A discard failure (EPERM/EROFS) must NOT escape this block: that
-          // would replace the { aborted } result with a thrown rejection the
-          // caller can't classify, and it could then finalize partial state.
-          for (const { staging } of staged.takeAllStagings()) {
-            try {
-              await staging.discard()
-            } catch (discardErr) {
-              log.warn(
-                { err: discardErr, taskId, pluginId: entry.id },
-                'staging discard failed during chain abort; continuing'
-              )
-            }
-          }
           return { aborted: true, reason: `${entry.id}: ${message}` }
         }
         staged.removeFromPlugin(entry.id)
-        continue
+        staged.restoreFinalizePath(previousFinalizePath)
+        working = {
+          ...working,
+          filePath: previousFinalizePath ?? initial.filePath,
+          targetFilePath: previousFinalizePath ?? initial.targetFilePath,
+        }
       }
-      entry.info.bridge.clearHookContext()
     }
 
     const finalFilePath = staged.pendingFinalizePath
-    const final: BeforeFinalizeContextDTO = {
-      ...initial,
-      filePath: finalFilePath ?? initial.filePath,
-    }
+    const final = cloneBeforeFinalize(working)
 
-    // Drain the per-plugin stagings and decide which one (if any) gets
-    // promoted to its final location in saveDir; discard the rest. Spec §3.3
-    // mandates at most one promotion per chain — the staging whose dir
-    // contains the final filePath wins; remaining stagings are discarded so
-    // their bytes don't leak into the user's saveDir.
-    const saveDirForCommit = parentDirOf(initial.filePath)
+    // The orchestrator only returns a logical-to-private mapping. The finalize
+    // committer owns identity, journal, no-replace install, and cleanup.
     const stagings = staged.takeAllStagings()
-    let promotedPluginId: string | undefined
-    let stagingBytesPromoted = 0
-    let stagingBytesDiscarded = 0
+    const replacements: Array<{ pluginId: string; stagedPath: string }> = []
     for (const { pluginId, staging } of stagings) {
-      const owns =
-        finalFilePath !== undefined &&
-        promotedPluginId === undefined &&
-        (await this.finalPathLivesUnderStaging(
-          finalFilePath,
-          staging,
-          saveDirForCommit
-        ))
-      const bytes = await stagingTotalBytes(staging)
-      if (owns) {
-        await staging.promote(finalFilePath as string)
-        promotedPluginId = pluginId
-        stagingBytesPromoted = bytes
-      } else {
-        await staging.discard()
-        stagingBytesDiscarded += bytes
+      if (!finalFilePath) continue
+      const stagedPath = staging.mappedArtifact(finalFilePath)
+      if (stagedPath) replacements.push({ pluginId, stagedPath })
+    }
+    if (replacements.length > 1) {
+      return {
+        aborted: true,
+        reason: 'multiple plugins selected the same finalize replacement',
       }
     }
+    const replacement = replacements[0]
 
     await this.opts.auditLog?.log({
       type: 'chain.commit',
       hook: 'beforeFinalize',
       taskId,
       finalFilePath: final.filePath,
-      stagingPromoted: promotedPluginId !== undefined,
-      stagingPluginId: promotedPluginId,
-      stagingBytesPromoted,
-      stagingBytesDiscarded,
+      stagingPromoted: false,
+      stagingPluginId: replacement?.pluginId,
+      stagingBytesPromoted: 0,
+      stagingBytesDiscarded: 0,
     })
 
-    return { final, finalFilePath, staged }
-  }
-
-  /**
-   * Returns true when a file exists at `staging.dir + relative(saveDir,
-   * finalFilePath)`. Used by the chain-commit logic to pick the single
-   * staging whose contents include the path the chain selected as the final
-   * download artefact (spec §3.3). When `finalFilePath` is outside `saveDir`,
-   * the relative path is `..`-prefixed and no staging can own it.
-   */
-  private async finalPathLivesUnderStaging(
-    finalFilePath: string,
-    staging: FfmpegStaging,
-    saveDir: string
-  ): Promise<boolean> {
-    const trimmedSaveDir = saveDir.replace(/[/\\]+$/, '')
-    const rel = path.relative(trimmedSaveDir, finalFilePath)
-    if (rel.startsWith('..')) return false
-    const candidate = path.join(staging.dir, rel)
-    try {
-      await stat(candidate)
-      return true
-    } catch {
-      return false
-    }
+    return { final, finalFilePath, replacement, staged }
   }
 
   // -------------------------------------------------------------------------
@@ -483,7 +442,7 @@ export class HookOrchestrator {
     ctxDto: AfterCompleteContextDTO | OnErrorContextDTO,
     taskId: string
   ): Promise<void> {
-    const chain = this.eligiblePlugins(hook)
+    const chain = await this.eligiblePlugins(hook)
     if (chain.length === 0) return
 
     const timeout = this.opts.hookTimeoutMs.parallel
@@ -501,21 +460,23 @@ export class HookOrchestrator {
       }
 
       const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
-      // Parallel hooks don't stage anything (ctx.update is disallowed by the
-      // matrix outside before*); the Plan B-shaped context with fsTaskHost is
-      // sufficient. fs.task is allowed for read-only inspection so we pass a
-      // stub here; T15/T17 will wire the real per-task host when the orchestrator
-      // is hooked into TaskManager.
-      entry.info.bridge.setHookContext({
-        fsTaskHost: STUB_FS_TASK_HOST,
-        taskId,
-      })
 
       try {
+        const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, hook, {
           taskId,
           signal: abort.signal,
           timeoutMs: timeout,
+          ctxPayload: { ...ctxDto },
+          metadataSnapshot,
+          context: {
+            fsTaskHost:
+              this.opts.capabilityHost?.fsTaskFor(
+                ctxDto.task.saveDir,
+                ctxDto.filePath
+              ) ?? STUB_FS_TASK_HOST,
+            taskId,
+          },
         })
         this.opts.breaker?.success(entry.id, hook)
       } catch (e) {
@@ -529,16 +490,10 @@ export class HookOrchestrator {
           role: entry.role,
           error: (e as Error).message,
         })
-      } finally {
-        entry.info.bridge.clearHookContext()
       }
     })
 
     await Promise.allSettled(work)
-    // ctxDto is currently unused — the worker reconstructs ctx from its own
-    // registered handler signature. The parameter is retained so T15 can pipe
-    // the DTO through for richer audit logging without an API change.
-    void ctxDto
   }
 
   // -------------------------------------------------------------------------
@@ -551,8 +506,49 @@ export class HookOrchestrator {
    * is sorted by role band ascending so the chain runs resolve before enrich
    * before audit.
    */
-  private eligiblePlugins(hook: AnyHook, url?: string): ChainEntry[] {
+  private async eligiblePlugins(
+    hook: AnyHook,
+    url?: string,
+    taskType?: 'http' | 'bt' | 'magnet' | 'ftp' | 'metalink'
+  ): Promise<ChainEntry[]> {
     const out: ChainEntry[] = []
+    const descriptors = this.opts.activationDispatcher?.candidatesForHook(
+      hook,
+      {
+        taskUrl: url,
+        taskType,
+      }
+    )
+    if (descriptors) {
+      for (const descriptor of descriptors) {
+        await this.opts.activationDispatcher?.activateForHook(
+          descriptor.id,
+          hook
+        )
+        const info = this.opts.host
+          .allActive()
+          .find((active) => active.id === descriptor.id)
+        if (!info) {
+          throw new Error(
+            `hook demand activation completed without active plugin ${descriptor.id}`
+          )
+        }
+        const role = roleFromManifest(info, hook)
+        if (role) out.push({ id: info.id, role, info })
+      }
+      return sortByBand(
+        out.map((entry) => ({
+          pluginId: entry.id,
+          role: entry.role,
+          info: entry.info,
+        }))
+      ).map((entry) => ({
+        id: entry.pluginId,
+        role: entry.role,
+        info: entry.info,
+      }))
+    }
+
     const active = this.opts.host.allActive()
     log.debug(
       {
@@ -608,6 +604,16 @@ export class HookOrchestrator {
     }
   }
 
+  private metadataSnapshot(
+    taskId: string,
+    pluginId: string
+  ): Promise<Record<string, unknown>> {
+    return (
+      this.opts.capabilityHost?.metadata.getAll(taskId, pluginId) ??
+      Promise.resolve({})
+    )
+  }
+
   /**
    * Plan C surface for tests / T6 audit-view callers that need to construct
    * the sanitized DTO for an audit-role plugin's ctx. Re-exported from the
@@ -620,17 +626,7 @@ export class HookOrchestrator {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/**
- * STUB_FS_TASK_HOST — placeholder fs.task host injected during orchestrator
- * hook context setup. Plan C series hooks (beforeCreate) disallow every
- * fs.task method via the phase matrix, so this stub is never reached for
- * those phases. Plan C parallel hooks (afterComplete / onError) DO allow
- * read-only fs.task inspection, but real wiring is deferred to T15 when the
- * orchestrator gains access to the TaskManager's per-task host factory.
- *
- * Every method throws with a clear code so it is obvious in audit logs when
- * a plugin accidentally calls into the stub before T15 lands.
- */
+/** Unit-test fallback. Production assembly always supplies capabilityHost. */
 type FsTaskHost = ReturnType<CapabilityHost['fsTaskFor']>
 
 const STUB_FS_TASK_HOST: FsTaskHost = {
@@ -649,33 +645,55 @@ function notWired(method: string): never {
   throw e
 }
 
-function parentDirOf(p: string): string {
-  const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
-  if (idx <= 0) return '/'
-  return p.slice(0, idx)
+function cloneBeforeCreate(
+  value: BeforeCreateHttpContextDTO
+): BeforeCreateHttpContextDTO {
+  return {
+    ...value,
+    uris: [...value.uris],
+    headers: value.headers.map((header) => ({ ...header })),
+  }
 }
 
-/**
- * Walks a FfmpegStaging directory tree and returns the total bytes of all
- * regular files within it. Returns 0 if the dir does not exist — callers use
- * this for audit-log accounting only, so a missing dir (already promoted /
- * discarded) is not an error.
- */
-async function stagingTotalBytes(staging: FfmpegStaging): Promise<number> {
-  try {
-    const entries = await readdir(staging.dir, {
-      recursive: true,
-      withFileTypes: true,
-    })
-    let total = 0
-    for (const e of entries) {
-      if (e.isFile()) {
-        const filePath = path.join(e.parentPath ?? staging.dir, e.name)
-        total += (await stat(filePath)).size
-      }
-    }
-    return total
-  } catch {
-    return 0
+function mergeBeforeCreateWorking(
+  initial: BeforeCreateHttpContextDTO,
+  staged: StagedEffectStore
+): BeforeCreateHttpContextDTO {
+  const merged = mergeChain(
+    {
+      uris: [...initial.uris],
+      filename: initial.filename,
+      connections: initial.connections,
+      headers: initial.headers.map((header) => ({ ...header })),
+      proxy: initial.proxy,
+    },
+    staged.allHttpPatches()
+  )
+  return {
+    ...initial,
+    uris: merged.uris,
+    filename: merged.filename,
+    connections: merged.connections,
+    headers: merged.headers,
+    proxy: merged.proxy,
+  }
+}
+
+function cloneBeforeFinalize(
+  value: BeforeFinalizeContextDTO
+): BeforeFinalizeContextDTO {
+  return {
+    ...value,
+    task: {
+      ...value.task,
+      error: value.task.error
+        ? {
+            ...value.task.error,
+            detailParams: value.task.error.detailParams
+              ? { ...value.task.error.detailParams }
+              : null,
+          }
+        : null,
+    },
   }
 }

@@ -40,10 +40,9 @@ describe('HttpCapabilityHost proxy lifecycle', () => {
   it('destroys an owned HTTP ProxyAgent after a successful response', async () => {
     mocks.request.mockResolvedValueOnce(response())
 
-    const result = await new HttpCapabilityHost().get(
-      'https://downloads.example/file',
-      { proxy: 'http://127.0.0.1:8080' }
-    )
+    const result = await new HttpCapabilityHost({
+      managedProxy: 'http://127.0.0.1:8080',
+    }).get('https://downloads.example/file')
 
     expect(result.body).toBe('ok')
     expect(mocks.proxyAgents).toHaveLength(1)
@@ -58,9 +57,9 @@ describe('HttpCapabilityHost proxy lifecycle', () => {
     mocks.request.mockRejectedValueOnce(new Error('connect failed'))
 
     await expect(
-      new HttpCapabilityHost().get('https://downloads.example/file', {
-        proxy: 'https://127.0.0.1:8443',
-      })
+      new HttpCapabilityHost({
+        managedProxy: 'https://127.0.0.1:8443',
+      }).get('https://downloads.example/file')
     ).rejects.toMatchObject({ code: 'plugin.http.network' })
 
     expect(mocks.proxyAgents).toHaveLength(1)
@@ -72,10 +71,9 @@ describe('HttpCapabilityHost proxy lifecycle', () => {
     controller.abort()
 
     await expect(
-      new HttpCapabilityHost().get('https://downloads.example/file', {
-        proxy: 'http://127.0.0.1:8080',
-        signal: controller.signal,
-      })
+      new HttpCapabilityHost({
+        managedProxy: 'http://127.0.0.1:8080',
+      }).get('https://downloads.example/file', { signal: controller.signal })
     ).rejects.toMatchObject({ code: 'plugin.http.aborted' })
 
     expect(mocks.proxyAgents).toHaveLength(0)
@@ -84,9 +82,9 @@ describe('HttpCapabilityHost proxy lifecycle', () => {
 
   it('fails closed for SOCKS proxies before opening a connection', async () => {
     await expect(
-      new HttpCapabilityHost().get('https://downloads.example/file', {
-        proxy: 'socks5://127.0.0.1:1080',
-      })
+      new HttpCapabilityHost({
+        managedProxy: 'socks5://127.0.0.1:1080',
+      }).get('https://downloads.example/file')
     ).rejects.toMatchObject({
       code: 'plugin.http.proxy_scheme_not_supported',
     })
@@ -116,10 +114,10 @@ describe('HttpCapabilityHost proxy lifecycle', () => {
     )
 
     await expect(
-      new HttpCapabilityHost({ defaultTimeoutMs: 10 }).get(
-        'https://downloads.example/file',
-        { proxy: 'http://127.0.0.1:8080' }
-      )
+      new HttpCapabilityHost({
+        defaultTimeoutMs: 10,
+        managedProxy: 'http://127.0.0.1:8080',
+      }).get('https://downloads.example/file')
     ).rejects.toMatchObject({ code: 'plugin.http.timeout' })
 
     expect(body?.destroyed).toBe(true)
@@ -143,13 +141,23 @@ describe('HttpCapabilityHost proxy lifecycle', () => {
     })
 
     await expect(
-      new HttpCapabilityHost().get('https://downloads.example/file', {
-        proxy: 'http://127.0.0.1:8080',
-        redirect: 'error',
-      })
+      new HttpCapabilityHost({
+        managedProxy: 'http://127.0.0.1:8080',
+      }).get('https://downloads.example/file', { redirect: 'error' })
     ).rejects.toMatchObject({ code: 'plugin.http.redirect_not_allowed' })
 
     expect(order.slice(0, 2)).toEqual(['once:error', 'destroy'])
     expect(mocks.proxyAgents[0]?.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a guest-selected proxy before allocating a dispatcher', async () => {
+    await expect(
+      new HttpCapabilityHost().get('https://downloads.example/file', {
+        proxy: 'http://127.0.0.1:8080',
+      })
+    ).rejects.toMatchObject({ code: 'plugin.http.guest_proxy_not_allowed' })
+
+    expect(mocks.proxyAgents).toHaveLength(0)
+    expect(mocks.request).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,3 @@
-import { rm } from 'node:fs/promises'
 import path from 'node:path'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
@@ -14,8 +13,8 @@ import { publishEngineRestartRequired } from '@core/notifications/engine-restart
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
-import { HookAuditLog } from '@core/plugin/hooks/audit-log'
-import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import {
@@ -190,12 +189,16 @@ export interface CommandContext {
   pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
   userDataDir: string
-  pluginsDir: string
   pluginActivation: ActivationDispatcher
+  hookAuditLog?: HookAuditLog
+  hookOrchestrator?: HookOrchestrator
   bridgeManager: BridgeManager
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
   persistTask: NonNullable<TaskActionDeps['persistTask']>
+  persistTaskWithPluginMetadata?: NonNullable<
+    CreateTaskDeps['persistTaskWithPluginMetadata']
+  >
   /**
    * Persist a task and (when non-null) its terminal occurrence in a single
    * durable transaction — used INSTEAD OF `persistTask` whenever a status
@@ -273,15 +276,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     registryClient,
     hostVersion,
     builtinUpdater,
-    overlayDir,
     pluginGrants,
     capabilityHost,
     userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     bridgeManager,
     activityRecorder,
     persistTask,
+    persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition,
@@ -291,22 +295,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     publishTaskUpdate,
     publishTaskUpdateNow,
   } = ctx
-
-  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
-  // once and feed them into createDeps so handleCreateTask's beforeCreate
-  // chain fires. Without this, every plugin's beforeCreate hook is silently
-  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
-  const hookAuditLog = new HookAuditLog(
-    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
-  )
-  const hookOrchestrator = new HookOrchestrator({
-    host: pluginHost,
-    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
-    pluginsDir,
-    pluginStorageRootFor: (pluginId) =>
-      path.join(pluginsDir, pluginId, 'storage'),
-    auditLog: hookAuditLog,
-  })
 
   const createDeps: CreateTaskDeps = {
     adapter,
@@ -324,6 +312,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     auditLog: hookAuditLog,
     db: motrixDatabase.database,
     persistTask,
+    persistTaskWithPluginMetadata,
     parentTaskCreated,
     rollbackTaskCreation: (taskId: string) =>
       sessionManager.runExclusivePersistence(() =>
@@ -491,25 +480,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     stagingId: z.string().min(1),
   })
 
-  // deactivate → rescan → reactivate; a failed reactivation is NOT an
-  // install failure — the overlay is on disk and effective next launch.
-  //
-  // knownWasActive lets a caller that must deactivate BEFORE calling this
-  // function (RevertBuiltinToBundled — deactivate has to happen before the
-  // overlay `rm` so the running worker isn't holding overlay files open)
-  // pass in the pre-deactivate activity state. Sampling pluginRegistry.list()
-  // in here would otherwise always see the caller's own deactivate and treat
-  // the plugin as never having been active. `??` is deliberate: a real
-  // `false` override is honored as-is, only `undefined` falls through to
-  // sampling the registry.
-  async function hotSwapBuiltin(
+  // BuiltinUpdater owns deactivate + policy refresh + durable supersession
+  // under PluginHost's admission barrier. Only best-effort reactivation is
+  // left here; a committed overlay remains effective after restart.
+  async function reactivateBuiltin(
     pluginId: string,
-    knownWasActive?: boolean
+    wasActive: boolean
   ): Promise<boolean> {
-    const wasActive =
-      knownWasActive ?? pluginRegistry.get(pluginId)?.state.status === 'active'
-    await pluginHost.deactivate(pluginId).catch(() => {})
-    await pluginRegistry.discover()
     if (!wasActive) return false
     try {
       await pluginHost.activate(pluginId)
@@ -1382,9 +1359,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.DisablePlugin]: async (id: string) => {
-      await pluginHost.deactivate(id)
-      pluginStateStore.setEnabled(id, false)
-      pluginRegistry.refreshState(id)
+      await pluginHost.disable(id, 'plugin.user_disabled', 'disabled', {
+        recordError: false,
+      })
       const state = pluginStateStore.get(id)
       eventBus.emit(Events.PluginStatusChanged, {
         id,
@@ -1539,8 +1516,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       if (staged.trustChanged) {
         return { needsConsent: true, ...staged }
       }
+      const wasActive = pluginHost.isActive(parsed.pluginId)
       await builtinUpdater.commit(staged.stagingId)
-      const restartRequired = await hotSwapBuiltin(parsed.pluginId)
+      const restartRequired = await reactivateBuiltin(
+        parsed.pluginId,
+        wasActive
+      )
       // Same event ConfirmPluginInstall emits after a community install
       // commits: usePlugins.onLifecycle refetches ListPlugins so the
       // plugin's version/status/source.type (builtin -> builtin-update)
@@ -1552,8 +1533,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ConfirmBuiltinUpdate]: async (payload: unknown) => {
       const parsed = builtinStagingPayloadSchema.parse(payload)
+      const stagedPluginId = builtinUpdater.pluginIdForStaging(parsed.stagingId)
+      if (!stagedPluginId) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.update.builtin_staging_not_found'
+        )
+      }
+      const wasActive = pluginHost.isActive(stagedPluginId)
       const { pluginId } = await builtinUpdater.commit(parsed.stagingId)
-      const restartRequired = await hotSwapBuiltin(pluginId)
+      const restartRequired = await reactivateBuiltin(pluginId, wasActive)
       eventBus.emit(Events.PluginInstalled, { pluginId })
       return { ok: true, restartRequired }
     },
@@ -1566,18 +1555,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.RevertBuiltinToBundled]: async (payload: unknown) => {
       const parsed = builtinUpdatePayloadSchema.parse(payload)
-      // Sample activity BEFORE deactivating — hotSwapBuiltin's own sampling
-      // would otherwise always see this handler's deactivate and think the
-      // plugin was never active, so revert never reactivates it.
-      const wasActive =
-        pluginRegistry.list().find((p) => p.id === parsed.pluginId)?.status ===
-        'active'
-      await pluginHost.deactivate(parsed.pluginId).catch(() => {})
-      await rm(path.join(overlayDir, parsed.pluginId), {
-        recursive: true,
-        force: true,
-      })
-      const restartRequired = await hotSwapBuiltin(parsed.pluginId, wasActive)
+      const wasActive = pluginHost.isActive(parsed.pluginId)
+      await builtinUpdater.revert(parsed.pluginId)
+      const restartRequired = await reactivateBuiltin(
+        parsed.pluginId,
+        wasActive
+      )
       eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
       return { ok: true, restartRequired }
     },

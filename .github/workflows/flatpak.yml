@@ -17,6 +17,7 @@ on:
       - 'extra/**'
       - 'flatpak/**'
       - 'packages/native-host/**'
+      - 'packages/finalize-fs/**'
       - 'public/**'
       - 'scripts/**'
       - 'src/**'
@@ -40,6 +41,7 @@ on:
       - 'extra/**'
       - 'flatpak/**'
       - 'packages/native-host/**'
+      - 'packages/finalize-fs/**'
       - 'public/**'
       - 'scripts/**'
       - 'src/**'
@@ -180,6 +182,8 @@ jobs:
 
       - name: Generate Flatpak Cargo sources
         run: |
+          # native-host's reviewed lock is the vendoring superset;
+          # check:third-party-notices enforces finalize-fs remains a subset.
           "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
             "$RUNNER_TEMP/flatpak-cargo-generator.py" \
             packages/native-host/Cargo.lock \
@@ -256,7 +260,7 @@ jobs:
           arch: ${{ matrix.flatpak_arch }}
           bundle: app.motrix.native-${{ matrix.flatpak_arch }}.flatpak
           manifest-path: flatpak/app.motrix.native.ci.yml
-          cache-key: flatpak-${{ matrix.flatpak_arch }}-${{ hashFiles('flatpak/app.motrix.native.yml', 'flatpak/generated-sources.json', 'flatpak/cargo-sources.json', 'pnpm-lock.yaml', 'packages/native-host/Cargo.lock') }}
+          cache-key: flatpak-${{ matrix.flatpak_arch }}-${{ hashFiles('flatpak/app.motrix.native.yml', 'flatpak/generated-sources.json', 'flatpak/cargo-sources.json', 'pnpm-lock.yaml', 'packages/native-host/Cargo.lock', 'packages/finalize-fs/Cargo.lock') }}
           upload-artifact: true
 
       - name: Smoke-test installed payload

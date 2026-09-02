@@ -243,6 +243,16 @@ modules:
       - install -Dm755
         /run/build/motrix/native-target/$MOTRIX_RUST_TARGET/release/motrix-native-host
         packages/native-host/dist/linux-$npm_config_target_arch/motrix-native-host
+      - cargo build
+        --manifest-path packages/finalize-fs/Cargo.toml
+        --release
+        --locked
+        --offline
+        --target=$MOTRIX_RUST_TARGET
+        --target-dir=/run/build/motrix/finalize-target
+      - install -Dm755
+        /run/build/motrix/finalize-target/$MOTRIX_RUST_TARGET/release/motrix-finalize-fs
+        packages/finalize-fs/dist/linux-$npm_config_target_arch/motrix-finalize-fs
 
       - pnpm --config.verify-deps-before-run=false run build:builtin
       - pnpm --config.verify-deps-before-run=false run build:electron
@@ -272,6 +282,7 @@ modules:
           --report "release/size-reports/linux-$npm_config_target_arch.json"
         test -x "$unpacked/resources/extra/linux/$npm_config_target_arch/aria2c"
         test -x "$unpacked/resources/bin/motrix-native-host"
+        test -x "$unpacked/resources/bin/motrix-finalize-fs"
         rm "$unpacked/resources/bin/motrix-native-host"
         test ! -e "$unpacked/resources/bin/motrix-native-host"
         rm "$unpacked/chrome-sandbox"

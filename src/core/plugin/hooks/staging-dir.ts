@@ -5,7 +5,7 @@
 //
 // Architecture: stays inside src/core/ — no electron, no @main/, no @server/.
 
-import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 
@@ -18,6 +18,8 @@ export interface StagingOptions {
 }
 
 export class FfmpegStaging {
+  private readonly mappings = new Map<string, string>()
+
   constructor(private readonly opts: StagingOptions) {}
 
   get dir(): string {
@@ -44,7 +46,9 @@ export class FfmpegStaging {
       return userOutput // not saveDir-bound; pass through unchanged
     }
     const rel = path.relative(saveDir, resolved)
-    return path.join(this.dir, rel)
+    const stagedPath = path.join(this.dir, rel)
+    this.mappings.set(resolved, stagedPath)
+    return stagedPath
   }
 
   async ensureDir(): Promise<void> {
@@ -70,23 +74,9 @@ export class FfmpegStaging {
     }
   }
 
-  /**
-   * Chain commit: promote the file matching `finalFilePath` to saveDir; delete
-   * all remaining staging contents afterward.
-   *
-   * `finalFilePath` may be absolute (resolving to saveDir) or relative to
-   * saveDir. Returns the absolute path of the promoted file.
-   */
-  async promote(finalFilePath: string): Promise<string> {
+  mappedArtifact(finalFilePath: string): string | undefined {
     const saveDir = this.opts.saveDir.replace(/[/\\]+$/, '')
-    const finalAbs = path.resolve(saveDir, finalFilePath)
-    const stagedAbs = path.join(this.dir, path.relative(saveDir, finalAbs))
-    const tmp = `${finalAbs}.tmp-${Date.now()}`
-    await mkdir(path.dirname(finalAbs), { recursive: true })
-    await rename(stagedAbs, tmp)
-    await rename(tmp, finalAbs)
-    await rm(this.dir, { recursive: true, force: true })
-    return finalAbs
+    return this.mappings.get(path.resolve(saveDir, finalFilePath))
   }
 
   async discard(): Promise<void> {
@@ -94,19 +84,14 @@ export class FfmpegStaging {
   }
 
   /**
-   * Host startup: remove leftover staging/ subdirs across all plugins for
-   * crash recovery. Runs once before any hook is dispatched.
-   *
-   * Ignores errors when pluginsDir does not exist (first run).
+   * Legacy startup cleanup is deliberately fail-closed. Finalize staging may
+   * be referenced by a durable journal and must be recovered by the finalize
+   * recovery service after identity verification.
    */
   static async cleanupOrphans(pluginsDir: string): Promise<void> {
-    try {
-      for (const pluginId of await readdir(pluginsDir)) {
-        const stagingRoot = path.join(pluginsDir, pluginId, 'staging')
-        await rm(stagingRoot, { recursive: true, force: true })
-      }
-    } catch {
-      // pluginsDir may not exist on first run — ignore
-    }
+    await readdir(pluginsDir).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'ENOENT') throw error
+      return []
+    })
   }
 }

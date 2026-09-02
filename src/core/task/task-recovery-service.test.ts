@@ -433,7 +433,7 @@ describe('TaskRecoveryServiceImpl.recoverOnStartup', () => {
     expect(dispatch).toHaveBeenCalledTimes(2)
   })
 
-  it('fires the filesystem-mismatch error hook for a preserved output conflict', async () => {
+  it('does not invoke a post-Hook directly for a preserved output conflict', async () => {
     const orchestrator = {
       runParallel: vi.fn(async () => {}),
       runBeforeCreateHttp: vi.fn(),
@@ -455,15 +455,7 @@ describe('TaskRecoveryServiceImpl.recoverOnStartup', () => {
     await new TaskRecoveryServiceImpl(deps).recoverOnStartup()
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'onError',
-      expect.objectContaining({
-        error: expect.objectContaining({
-          code: ErrorCode.TaskRecoveryFsMismatch,
-        }),
-      }),
-      'both-paths-hook'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
   it('recovers a pending media rename without routing through aria2 finalization', async () => {
@@ -850,7 +842,7 @@ describe('TaskRecoveryService plugin-hook chain (Plan C / T15)', () => {
     } as unknown as RecoveryDeps['orchestrator']
   }
 
-  it('MarkCompleted (HTTP final_only + Renaming) fires afterComplete', async () => {
+  it('MarkCompleted leaves afterComplete to the durable delivery runtime', async () => {
     const orchestrator = makeOrchestrator()
     const task = makeTask({
       id: 'http-done',
@@ -875,14 +867,10 @@ describe('TaskRecoveryService plugin-hook chain (Plan C / T15)', () => {
 
     expect(task.status).toBe(TaskStatus.Completed)
     expect(task.finishedAt).not.toBeNull()
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.objectContaining({ filePath: '/d/foo.mp4' }),
-      'http-done'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
-  it('MarkError fires onError with files-missing error code', async () => {
+  it('MarkError leaves onError to the durable delivery runtime', async () => {
     const orchestrator = makeOrchestrator()
     const task = makeTask({
       id: 'gone-1',
@@ -905,13 +893,7 @@ describe('TaskRecoveryService plugin-hook chain (Plan C / T15)', () => {
 
     expect(task.status).toBe(TaskStatus.Error)
     expect(task.finishedAt).not.toBeNull()
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'onError',
-      expect.objectContaining({
-        error: expect.objectContaining({ code: 'RECOVERY_FILES_MISSING' }),
-      }),
-      'gone-1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
   it('parallel hook failure is isolated (does not break the recovery loop)', async () => {

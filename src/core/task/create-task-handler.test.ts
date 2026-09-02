@@ -1899,11 +1899,16 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
   // Mocks the HookOrchestrator and HookAuditLog dependencies the production
   // code expects when the host has wired up the Plan C hook surface. The
   // staged-effect store can stay a real instance — it is plain data.
-  function makeStaged() {
+  function makeStaged(
+    metadataOps: readonly {
+      pluginId: string
+      op: 'set' | 'delete'
+      key: string
+      value?: unknown
+    }[] = []
+  ) {
     return {
-      commitMetadata: vi.fn((_db: unknown, _id: string, cb: () => void) => {
-        cb()
-      }),
+      allMetadataOps: vi.fn(() => metadataOps),
     }
   }
 
@@ -2144,16 +2149,29 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
   })
 
   it('commits staged metadata inside the same transaction as task add', async () => {
-    const staged = makeStaged()
+    const metadataOps = [
+      {
+        pluginId: 'plugin-a',
+        op: 'set' as const,
+        key: 'release',
+        value: 'stable',
+      },
+    ]
+    const staged = makeStaged(metadataOps)
     const orchestrator = makeOrchestrator(
       makeChainCommit({ staged, headerContributors: ['p'] })
     )
     const auditLog = makeAuditLog()
-    // Sentinel db object; we only verify commitMetadata is called with it
-    // and that the task add happens inside the supplied callback.
-    const db = { _sentinel: true } as unknown as Deps['db']
+    const persistTaskWithPluginMetadata = vi.fn(
+      async (_task: DownloadTask, _operations: readonly unknown[]) => undefined
+    )
     const deps = makeDeps()
-    const fullDeps = { ...deps, orchestrator, auditLog, db }
+    const fullDeps = {
+      ...deps,
+      orchestrator,
+      auditLog,
+      persistTaskWithPluginMetadata,
+    }
 
     await handleCreateTask(
       {
@@ -2165,14 +2183,69 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
       fullDeps
     )
 
-    expect(staged.commitMetadata).toHaveBeenCalledOnce()
-    const [dbArg, idArg, cb] = staged.commitMetadata.mock.calls[0]
-    expect(dbArg).toBe(db)
-    expect(typeof idArg).toBe('string')
-    expect(typeof cb).toBe('function')
-    // The taskManager.add must have run inside the callback (already
-    // invoked by our makeStaged stub).
+    expect(persistTaskWithPluginMetadata).toHaveBeenCalledOnce()
+    expect(persistTaskWithPluginMetadata.mock.calls[0]?.[1]).toEqual(
+      metadataOps
+    )
+    expect(deps.persist).not.toHaveBeenCalled()
     expect(deps.add).toHaveBeenCalledOnce()
+  })
+
+  it('fails closed when metadata is staged without an atomic boundary', async () => {
+    const staged = makeStaged([
+      {
+        pluginId: 'plugin-a',
+        op: 'set',
+        key: 'release',
+        value: 'stable',
+      },
+    ])
+    const deps = makeDeps()
+
+    await expect(
+      handleCreateTask(httpRequest(), {
+        ...deps,
+        orchestrator: makeOrchestrator(makeChainCommit({ staged })),
+      })
+    ).rejects.toThrow(
+      'beforeCreate metadata requires an atomic task persistence boundary'
+    )
+    expect(deps.addUri).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['unsupported scheme', 'file:///etc/passwd'],
+    ['non-empty credentials', 'https://user:secret@example.test/file'],
+    ['empty userinfo', 'https://@example.test/file'],
+    ['malformed URL', 'not a URL'],
+  ])('rejects Hook-produced URI with %s', async (_name, uri) => {
+    const deps = makeDeps()
+
+    await expect(
+      handleCreateTask(httpRequest(), {
+        ...deps,
+        orchestrator: makeOrchestrator(
+          makeChainCommit({ uris: [uri], uriContributor: 'plugin-a' })
+        ),
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.TaskCreateFailed })
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
+  })
+
+  it('accepts an admitted public HTTPS URI produced by a resolver', async () => {
+    const deps = makeDeps()
+    const uri =
+      'https://upload.wikimedia.org/wikipedia/commons/example-release.zip'
+
+    await handleCreateTask(httpRequest(), {
+      ...deps,
+      orchestrator: makeOrchestrator(
+        makeChainCommit({ uris: [uri], uriContributor: 'plugin-a' })
+      ),
+    })
+
+    expect(deps.addUri).toHaveBeenCalledWith([uri], expect.any(Object))
   })
 
   it('throws PluginRuntimeFault and emits chain.abort when chain aborts', async () => {

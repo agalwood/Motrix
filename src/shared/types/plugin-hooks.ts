@@ -1,47 +1,30 @@
-import type { DownloadTask } from './task'
+import type {
+  AfterCompleteContextV1,
+  BeforeCreateBtContextV1,
+  BeforeCreateHttpContextV1,
+  BeforeFinalizeContextV1,
+  DeliveryEnvelopeV1,
+  ErrorDescriptorV1,
+  HookEffectsV1,
+  HookInvocationScopeV1,
+  HookJsonValue,
+  HookMetadataOperation,
+  HookMetadataSnapshot,
+  OnErrorContextV1,
+  PluginTaskSnapshotV1,
+} from '../schemas/plugin-hooks'
 
-export type CtxJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | CtxJsonValue[]
-  | { [k: string]: CtxJsonValue }
+export type CtxJsonValue = HookJsonValue
+export type PluginHookTask = PluginTaskSnapshotV1
+export type PluginHookError = ErrorDescriptorV1
+export type PluginHookDelivery = DeliveryEnvelopeV1
+export type PluginHookInvocationScope = HookInvocationScopeV1
+export type PluginHookEffects = HookEffectsV1
+export type PluginHookMetadataOperation = HookMetadataOperation
+export type PluginHookMetadataSnapshot = HookMetadataSnapshot
 
-export interface BeforeCreateContextBase {
-  readonly sourceUrl: string
-  readonly createdBy: 'user' | 'protocol' | 'api'
-  readonly requestedAt: number
-}
-
-export interface BeforeCreateHttpContextDTO extends BeforeCreateContextBase {
-  readonly type: 'http'
-  readonly uris: ReadonlyArray<string>
-  readonly saveDir: string
-  readonly filename?: string
-  readonly connections?: number
-  readonly headers: ReadonlyArray<{ name: string; value: string }>
-  readonly proxy?: string
-}
-
-export interface BeforeCreateBtContextDTO extends BeforeCreateContextBase {
-  readonly type: 'bt' | 'magnet'
-  readonly infoHash?: string
-  readonly trackers: ReadonlyArray<string>
-  readonly displayName?: string
-}
-
-export interface BeforeFinalizeContextDTO extends BeforeCreateContextBase {
-  readonly task: DownloadTask
-  readonly filePath: string
-}
-
-export interface AfterCompleteContextDTO {
-  readonly task: DownloadTask
-  readonly filePath: string
-}
-
-export interface OnErrorContextDTO {
-  readonly task: DownloadTask
-  readonly error: { code: string; message: string }
-}
+export type BeforeCreateHttpContextDTO = BeforeCreateHttpContextV1
+export type BeforeCreateBtContextDTO = BeforeCreateBtContextV1
+export type BeforeFinalizeContextDTO = BeforeFinalizeContextV1
+export type AfterCompleteContextDTO = AfterCompleteContextV1
+export type OnErrorContextDTO = OnErrorContextV1

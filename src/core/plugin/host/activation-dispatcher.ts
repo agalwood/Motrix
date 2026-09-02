@@ -1,7 +1,10 @@
 import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { PluginManifest } from '@shared/types/plugin'
+import { isEligible } from '../hooks/eligibility'
+import { matchesAnyHostPermission } from '../permissions/host-pattern'
 import type { PluginRegistry } from '../plugin-registry'
+import type { HookName } from './bridge-protocol'
 import {
   type ActiveMeta,
   DEFAULT_MAX_ACTIVE_PLUGINS,
@@ -18,6 +21,20 @@ export type HostActivationEvent =
       url: string
     }
   | { kind: 'command'; commandId: string }
+  | { kind: 'hookDemand'; hook: HookName }
+
+export interface HookCandidateInput {
+  taskType?: 'http' | 'bt' | 'magnet' | 'ftp' | 'metalink'
+  taskUrl?: string
+}
+
+export interface HookCandidateDescriptor {
+  id: string
+  manifest: PluginManifest
+  generation: number
+  executableDigest: string
+  role: 'pre-resolve' | 'resolve' | 'enrich' | 'post-process' | 'audit'
+}
 
 export interface PluginEvictedPayload {
   pluginId: string
@@ -74,7 +91,7 @@ export class ActivationDispatcher {
         continue
       }
       const eff = effectiveActivationSet(reg.manifest)
-      const matches = tokens.some((t) => eff.has(t))
+      const matches = eff.has('*') || tokens.some((t) => eff.has(t))
       if (!matches) {
         skipped.push({
           id: dto.id,
@@ -84,7 +101,8 @@ export class ActivationDispatcher {
       }
       if (
         event.kind === 'taskAdded' &&
-        !hostPermissionsMatch(reg.manifest.hostPermissions ?? [], event.url)
+        event.taskType === 'http' &&
+        !matchesAnyHostPermission(reg.manifest.hostPermissions, event.url)
       ) {
         skipped.push({
           id: dto.id,
@@ -102,6 +120,62 @@ export class ActivationDispatcher {
     await this.admit(matchingInactive, event)
   }
 
+  /** Registry-backed Hook discovery; inactive/recycled workers remain visible. */
+  candidatesForHook(
+    hook: HookName,
+    input: HookCandidateInput = {}
+  ): HookCandidateDescriptor[] {
+    const tokens = hookActivationTokens(input)
+    const candidates: HookCandidateDescriptor[] = []
+    for (const entry of this.registry.entries()) {
+      if (!entry.enabled) continue
+      if (!entry.executableDigest) continue
+      if (
+        !isEligible({
+          manifest: entry.manifest,
+          hook,
+          taskUrl: hook === 'beforeCreate' ? input.taskUrl : undefined,
+        })
+      ) {
+        continue
+      }
+      const activation = effectiveActivationSet(entry.manifest)
+      if (
+        tokens.length > 0 &&
+        !activation.has('*') &&
+        !tokens.some((token) => activation.has(token))
+      ) {
+        continue
+      }
+      candidates.push({
+        id: entry.manifest.id,
+        manifest: entry.manifest,
+        generation: this.registry.policyGenerationFor(entry.manifest.id),
+        executableDigest: entry.executableDigest,
+        role: normalizeHookRole(entry.manifest.contributes.hooks?.[hook]?.role),
+      })
+    }
+    return candidates.sort(compareHookCandidates)
+  }
+
+  /** Immediate demand activation, including reactivation after idle recycle. */
+  async activateForHook(pluginId: string, hook: HookName): Promise<void> {
+    if (this.host.isActive(pluginId)) return
+    await this.admit([pluginId], { kind: 'hookDemand', hook })
+  }
+
+  async admitHookCandidates(
+    candidates: ReadonlyArray<HookCandidateDescriptor>,
+    hook: HookName
+  ): Promise<void> {
+    const inactive = candidates
+      .map((candidate) => candidate.id)
+      .filter((id) => !this.host.isActive(id))
+    if (inactive.length > 0) {
+      await this.admit(inactive, { kind: 'hookDemand', hook })
+    }
+  }
+
   /**
    * Activate a set of previously-filtered inactive plugins, evicting stale
    * plugins when the active count would exceed `maxActive`.
@@ -115,7 +189,7 @@ export class ActivationDispatcher {
     const needed = this.host.activeIds().length + matchingInactive.length
     if (needed <= this.maxActive) {
       for (const id of matchingInactive) {
-        await this.host.activate(id)
+        await this.activateForEvent(id, event)
       }
       return
     }
@@ -132,21 +206,36 @@ export class ActivationDispatcher {
       )
     }
     for (const id of matchingInactive) {
-      await this.host.activate(id)
+      await this.activateForEvent(id, event)
     }
+  }
+
+  private activateForEvent(
+    pluginId: string,
+    event: HostActivationEvent
+  ): Promise<void> {
+    if (event.kind === 'hookDemand') {
+      return this.host.activate(pluginId, { waitForDeactivation: true })
+    }
+    return this.host.activate(pluginId)
   }
 
   /**
    * Derive the set of plugin ids that must not be evicted for this event.
    *
-   * T14 placeholder: always returns an empty set. The tier-ordering in
-   * `runEviction` already protects critical roles by evicting 'audit' first.
-   * T15 will replace this with real in-flight tracking via
-   * `PluginHost.activeWithInFlightHook(taskId)` once TaskManager wires the
-   * HookOrchestrator.
+   * Every running or already-admitted lane entry is critical. Evicting one
+   * would turn the active-plugin cap into an unrelated task cancellation.
    */
   protected deriveCriticalSet(_event: HostActivationEvent): Set<string> {
-    return new Set<string>()
+    return new Set(
+      this.host
+        .activeMeta()
+        .filter(
+          (plugin) =>
+            (plugin.runningEntries ?? 0) > 0 || (plugin.queuedEntries ?? 0) > 0
+        )
+        .map((plugin) => plugin.id)
+    )
   }
 
   /**
@@ -210,6 +299,7 @@ export class ActivationDispatcher {
 function tokensFor(event: HostActivationEvent): string[] {
   if (event.kind === 'startup') return ['*', 'onStartup']
   if (event.kind === 'command') return [`onCommand:${event.commandId}`]
+  if (event.kind === 'hookDemand') return []
   // taskAdded
   let scheme = ''
   try {
@@ -220,6 +310,53 @@ function tokensFor(event: HostActivationEvent): string[] {
   return [`onTaskType:${event.taskType}`, `onProtocol:${scheme}`]
 }
 
+function hookActivationTokens(input: HookCandidateInput): string[] {
+  const tokens: string[] = []
+  if (input.taskType) tokens.push(`onTaskType:${input.taskType}`)
+  if (input.taskUrl) {
+    try {
+      tokens.push(`onProtocol:${new URL(input.taskUrl).protocol.slice(0, -1)}`)
+    } catch {
+      // Invalid source URLs cannot add an activation token. beforeCreate's
+      // structured host matcher separately fails the candidate closed.
+    }
+  }
+  return tokens
+}
+
+const HOOK_ROLE_ORDER = new Map([
+  ['pre-resolve', 0],
+  ['resolve', 1],
+  ['enrich', 2],
+  ['post-process', 3],
+  ['audit', 4],
+])
+
+function normalizeHookRole(
+  role: string | undefined
+): HookCandidateDescriptor['role'] {
+  switch (role) {
+    case 'pre-resolve':
+    case 'resolve':
+    case 'enrich':
+    case 'post-process':
+    case 'audit':
+      return role
+    default:
+      return 'enrich'
+  }
+}
+
+function compareHookCandidates(
+  a: HookCandidateDescriptor,
+  b: HookCandidateDescriptor
+): number {
+  const byRole =
+    (HOOK_ROLE_ORDER.get(a.role) ?? 2) - (HOOK_ROLE_ORDER.get(b.role) ?? 2)
+  if (byRole !== 0) return byRole
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
+
 function effectiveActivationSet(manifest: PluginManifest): Set<string> {
   const set = new Set<string>(manifest.activationEvents)
   // Implicit onCommand:<id> for every declared command (I23).
@@ -227,46 +364,6 @@ function effectiveActivationSet(manifest: PluginManifest): Set<string> {
     set.add(`onCommand:${c.id}`)
   }
   return set
-}
-
-function hostPermissionsMatch(
-  patterns: ReadonlyArray<string>,
-  url: string
-): boolean {
-  if (patterns.length === 0) return false
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return false
-  }
-  const scheme = parsed.protocol.replace(':', '')
-  for (const p of patterns) {
-    if (p === '<all_urls>') return true
-    const m = /^(\*|https?):\/\/(\*|(?:\*\.)?[A-Za-z0-9.-]+)(\/.*)?$/.exec(p)
-    if (!m) continue
-    const [, patScheme, patHost, patPath] = m
-    if (patScheme !== '*' && patScheme !== scheme) continue
-    if (patHost !== '*' && !hostMatch(patHost, parsed.hostname)) continue
-    if (patPath && !pathMatch(patPath, parsed.pathname)) continue
-    return true
-  }
-  return false
-}
-
-function hostMatch(pattern: string, host: string): boolean {
-  if (pattern.startsWith('*.')) {
-    const suffix = pattern.slice(2)
-    return host === suffix || host.endsWith(`.${suffix}`)
-  }
-  return host === pattern
-}
-
-function pathMatch(pattern: string, p: string): boolean {
-  const re = new RegExp(
-    `^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`
-  )
-  return re.test(p)
 }
 
 // Re-export for test convenience.

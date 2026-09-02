@@ -1,6 +1,13 @@
 import fs from 'node:fs'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
+import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
+import {
+  NOOP_POST_DELIVERY_OBSERVABILITY,
+  type PostDeliveryObservability,
+  safeObserve,
+} from '@core/plugin/post/delivery-observability'
+import type { PostDeliveryAdmissionSummary } from '@core/plugin/post/delivery-retention'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -57,6 +64,7 @@ import type {
   TaskInstanceRow,
   TaskRow,
   TaskWithInstances,
+  TerminalHookCommitInput,
 } from './motrix-database'
 
 const log = getLogger('SessionManager')
@@ -224,6 +232,12 @@ export class SessionManager {
   private resolveRequestedSave: (() => void) | null = null
   private stopping = false
   private stopPromise: Promise<void> | null = null
+  private terminalOccurrencePersistence?: (
+    task: DownloadTask,
+    occurrence: TaskOccurrence
+  ) => Promise<void>
+  private postDeliveryObservability: PostDeliveryObservability =
+    NOOP_POST_DELIVERY_OBSERVABILITY
 
   constructor(
     private taskManager: TaskManager,
@@ -249,6 +263,35 @@ export class SessionManager {
     private getDirectResourceProxyOptions: DirectResourceProxyOptionsProvider = () =>
       null
   ) {}
+
+  /**
+   * Binds the shared plugin terminal boundary after the Hook runtime is built.
+   * Session restore owns a few terminal transitions internally; routing those
+   * through this callback prevents them from bypassing candidate admission.
+   */
+  bindTerminalOccurrencePersistence(
+    persist: (task: DownloadTask, occurrence: TaskOccurrence) => Promise<void>
+  ): void {
+    if (
+      this.terminalOccurrencePersistence &&
+      this.terminalOccurrencePersistence !== persist
+    ) {
+      throw new Error('terminal occurrence persistence is already bound')
+    }
+    this.terminalOccurrencePersistence = persist
+  }
+
+  bindPostDeliveryObservability(
+    observability: PostDeliveryObservability
+  ): void {
+    if (
+      this.postDeliveryObservability !== NOOP_POST_DELIVERY_OBSERVABILITY &&
+      this.postDeliveryObservability !== observability
+    ) {
+      throw new Error('post delivery observability is already bound')
+    }
+    this.postDeliveryObservability = observability
+  }
 
   runExclusivePersistence<T>(operation: () => T | Promise<T>): Promise<T> {
     if (this.stopping) {
@@ -310,6 +353,27 @@ export class SessionManager {
   }
 
   /**
+   * Rejecting create barrier for a candidate that is not published yet. The
+   * parent graph and all beforeCreate metadata mutations cross one SQLite
+   * transaction, so a rejected metadata mutation cannot leave a bare task.
+   */
+  persistTaskWithPluginMetadata(
+    task: DownloadTask,
+    operations: readonly StagedMetadataOp[]
+  ): Promise<void> {
+    if (this.stopping) {
+      return Promise.reject(new Error('SessionManager is stopping'))
+    }
+    return this.runExclusivePersistence(async () => {
+      if (task.status === TaskStatus.Removed) return
+      this.db.persistTaskWithPluginMetadata(
+        await this.buildTaskPayload(task, Date.now()),
+        operations
+      )
+    })
+  }
+
+  /**
    * Same durable barrier as `persistTask`, but additionally appends the
    * task's terminal occurrence (when non-null) to the outbox in the SAME
    * SQLite transaction — `MotrixDatabase.persistTaskWithOccurrence` is
@@ -331,6 +395,92 @@ export class SessionManager {
         occurrence
       )
     })
+  }
+
+  /**
+   * Serialized async-to-sync adapter for the complete terminal Hook boundary.
+   * Payload construction may inspect torrent metadata, so it happens before
+   * entering MotrixDatabase's synchronous SQLite transaction.
+   */
+  persistTerminalHookBoundary(
+    task: DownloadTask,
+    occurrence: TaskOccurrence,
+    input: Omit<TerminalHookCommitInput, 'payload' | 'occurrence'>
+  ): Promise<void> {
+    if (this.stopping) {
+      return Promise.reject(new Error('SessionManager is stopping'))
+    }
+    return this.runExclusivePersistence(async () => {
+      if (task.status === TaskStatus.Removed) return
+      const summary = this.db.commitTerminalHookBoundary({
+        ...input,
+        payload: await this.buildTaskPayload(task, Date.now()),
+        occurrence,
+      })
+      this.observeAdmissionResults(input.postDeliveries ?? [], summary)
+    })
+  }
+
+  /**
+   * Holds the Session persistence lane across filesystem publication and lets
+   * the finalize journal call the synchronous database boundary exactly once
+   * after the target is durable.
+   */
+  persistFinalizedArtifact<T>(
+    task: DownloadTask,
+    occurrence: TaskOccurrence | null,
+    input: Omit<
+      TerminalHookCommitInput,
+      'payload' | 'occurrence' | 'finalizeJournal'
+    >,
+    install: (
+      commitDatabase: (
+        journal: NonNullable<TerminalHookCommitInput['finalizeJournal']>
+      ) => void
+    ) => Promise<T>
+  ): Promise<T> {
+    if (this.stopping) {
+      return Promise.reject(new Error('SessionManager is stopping'))
+    }
+    return this.runExclusivePersistence(async () => {
+      if (task.status === TaskStatus.Removed) {
+        throw new Error('cannot finalize a removed task')
+      }
+      const payload = await this.buildTaskPayload(task, Date.now())
+      return install((finalizeJournal) => {
+        const summary = this.db.commitTerminalHookBoundary({
+          ...input,
+          payload,
+          occurrence,
+          finalizeJournal,
+        })
+        this.observeAdmissionResults(input.postDeliveries ?? [], summary)
+      })
+    })
+  }
+
+  private observeAdmissionResults(
+    deliveries: NonNullable<TerminalHookCommitInput['postDeliveries']>,
+    summary: PostDeliveryAdmissionSummary
+  ): void {
+    if (summary.rejected === 0) return
+    const byId = new Map(
+      deliveries.map((delivery) => [delivery.deliveryId, delivery] as const)
+    )
+    for (const result of summary.results) {
+      if (result.kind !== 'rejected') continue
+      const delivery = byId.get(result.deliveryId)
+      if (!delivery) continue
+      safeObserve(this.postDeliveryObservability, {
+        type: 'plugin.post.admission_rejected',
+        at: delivery.createdAt,
+        pluginId: delivery.executable.pluginId,
+        hook: delivery.hook,
+        deliveryId: delivery.deliveryId,
+        reason: result.reason,
+        occurrenceId: delivery.occurrenceId,
+      })
+    }
   }
 
   private async saveNow(): Promise<void> {
@@ -597,7 +747,7 @@ export class SessionManager {
           'engine'
         )
         if (occurrence) {
-          await this.persistTaskWithOccurrence(task, occurrence)
+          await this.persistRecoveredTerminalOccurrence(task, occurrence)
         }
         this.taskManager.set(task.id, task)
         consumedMotrixIds.add(parent.task.motrixId)
@@ -743,9 +893,9 @@ export class SessionManager {
 
     // Recovery-created terminal state is already durable at this point: every
     // path that lands a task in Error during this pass goes through
-    // `markRecoverErrorFromPair`, which persists via the occurrence-aware
-    // `persistTaskWithOccurrence` before returning (directly for the media
-    // and Pass-2 default cases, or nested inside `recoverMagnetMetadata` /
+    // `markRecoverErrorFromPair`, which persists via the shared recovered
+    // terminal boundary before returning (directly for the media and Pass-2
+    // default cases, or nested inside `recoverMagnetMetadata` /
     // `reAddOrMarkErrorFromPair` for their failure branches). No separate
     // end-of-restore batch save is needed to make that state crash-safe.
 
@@ -774,7 +924,7 @@ export class SessionManager {
         assertProxyCurrent
       )
       // reAddOrMarkErrorFromPair's Error outcome already persisted itself via
-      // markRecoverErrorFromPair's persistTaskWithOccurrence; only its
+      // markRecoverErrorFromPair's shared terminal boundary; only its
       // successful-re-add outcome (adoptByPair alone, which never returns
       // Error) still needs this write.
       if (fresh.status !== TaskStatus.Error) {
@@ -1433,9 +1583,19 @@ export class SessionManager {
       previousStatus,
       'recovery'
     )
-    await this.persistTaskWithOccurrence(errored, occurrence)
+    await this.persistRecoveredTerminalOccurrence(errored, occurrence)
 
     return errored
+  }
+
+  private persistRecoveredTerminalOccurrence(
+    task: DownloadTask,
+    occurrence: TaskOccurrence | null
+  ): Promise<void> {
+    if (occurrence && this.terminalOccurrencePersistence) {
+      return this.terminalOccurrencePersistence(task, occurrence)
+    }
+    return this.persistTaskWithOccurrence(task, occurrence)
   }
 
   private statusAfterSuccessfulReAdd(pair: TaskWithInstances): TaskStatus {

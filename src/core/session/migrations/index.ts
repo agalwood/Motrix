@@ -7,6 +7,7 @@ import {
 } from './v1'
 import { V2_TASK_SCHEMA_OBJECTS, v2 } from './v2'
 import { V3_SCHEMA_OBJECTS, v3 } from './v3'
+import { V4_SCHEMA_OBJECTS, v4 } from './v4'
 
 interface Migration {
   version: number
@@ -18,8 +19,9 @@ interface Migration {
 // as a Plan B follow-up (magnet metadata resolved + awaiting user
 // file selection — distinct from "still fetching metadata" so the
 // Downloads pill can say "Ready" instead of the misleading
-// "Fetching"). v3 adds task-owned Inspector Activity persistence.
-const MIGRATIONS: Migration[] = [v1, v2, v3]
+// "Fetching"). v3 adds task-owned Inspector Activity persistence. v4 adds
+// durable plugin finalize journals plus post-delivery and quota state.
+const MIGRATIONS: Migration[] = [v1, v2, v3, v4]
 
 const HIGHEST_KNOWN_VERSION = MIGRATIONS.reduce(
   (max, m) => (m.version > max ? m.version : max),
@@ -58,6 +60,7 @@ export class StaleSchemaError extends Error {
       | 'canonical_task_columns_missing'
       | 'activity_schema_missing'
       | 'inspector_activity_schema_missing'
+      | 'plugin_hook_schema_missing'
       | 'foreign_key_violation',
     public readonly dbPath: string
   ) {
@@ -83,7 +86,9 @@ export class StaleSchemaError extends Error {
                     ? 'expected canonical schema objects (task inspector ' +
                       'activity and notification tables, constraints, or ' +
                       'indexes) are invalid'
-                    : 'the canonical schema contains foreign-key violations'
+                    : reason === 'plugin_hook_schema_missing'
+                      ? 'expected plugin finalize, post-delivery, or quota tables, constraints, and indexes are invalid'
+                      : 'the canonical schema contains foreign-key violations'
     super(
       `The versioned database schema is incompatible with this build: ` +
         `${detail}. ` +
@@ -267,6 +272,16 @@ function validateCanonicalV3(db: Database.Database): void {
 
   if ((db.pragma('foreign_key_check') as unknown[]).length > 0) {
     throw new StaleSchemaError('foreign_key_violation', dbPath)
+  }
+}
+
+function validateCanonicalV4(db: Database.Database): void {
+  validateCanonicalV3(db)
+  if (!hasExactSchemaObjects(db, V4_SCHEMA_OBJECTS)) {
+    throw new StaleSchemaError(
+      'plugin_hook_schema_missing',
+      (db as unknown as { name: string }).name
+    )
   }
 }
 
@@ -474,5 +489,5 @@ export function migrate(db: Database.Database): void {
     }
   }
 
-  validateCanonicalV3(db)
+  validateCanonicalV4(db)
 }

@@ -1,4 +1,9 @@
 import type Database from 'better-sqlite3'
+import {
+  DEFAULT_METADATA_QUOTA_BYTES,
+  MetadataError,
+  serializeMetadataValue,
+} from '../capabilities/metadata'
 import type { RoleBand } from './role-band'
 import type { FfmpegStaging } from './staging-dir'
 
@@ -56,12 +61,21 @@ export class StagedEffectStore {
     return out
   }
 
+  allMetadataOps(): readonly StagedMetadataOp[] {
+    return this.metaOps.map((operation) => ({ ...operation }))
+  }
+
   setFinalizePath(p: string): void {
     this.finalizePath = p
   }
 
   get pendingFinalizePath(): string | undefined {
     return this.finalizePath
+  }
+
+  /** Restore the working target after a fail-open plugin is isolated. */
+  restoreFinalizePath(path: string | undefined): void {
+    this.finalizePath = path
   }
 
   /** Merged view of uris/filename/connections: later entries win. */
@@ -104,16 +118,23 @@ export class StagedEffectStore {
 
     db.transaction(() => {
       tx()
+      const serialized = validateStagedMetadataQuota(db, taskId, this.metaOps)
       const now = Date.now()
-      for (const op of this.metaOps) {
+      for (const [index, op] of this.metaOps.entries()) {
         if (op.op === 'set') {
-          const json = JSON.stringify(op.value)
+          const value = serialized.get(index)
+          if (!value) {
+            throw new MetadataError(
+              'plugin.metadata.value_not_serializable',
+              'plugin.metadata.value_not_serializable: staged value is missing'
+            )
+          }
           insertSql.run(
             taskId,
             op.pluginId,
             op.key,
-            json,
-            op.size ?? Buffer.byteLength(json),
+            value.json,
+            value.size,
             now
           )
         } else {
@@ -128,6 +149,7 @@ export class StagedEffectStore {
     this.httpPatches = []
     this.metaOps = []
     this.finalizePath = undefined
+    this.stagings.clear()
   }
 
   /**
@@ -144,4 +166,73 @@ export class StagedEffectStore {
     this.metaOps = this.metaOps.filter((o) => o.pluginId !== pluginId)
     this.stagings.delete(pluginId)
   }
+}
+
+interface MetadataUsage {
+  total: number
+  keys: Map<string, number>
+}
+
+/**
+ * Apply staged operations to an in-memory projection of the transactional DB
+ * state. This is the same replacement-aware 64 KiB rule enforced by
+ * MetadataCapabilityHost, but evaluated across the whole ordered Hook batch
+ * before the first staged row is persisted.
+ */
+function validateStagedMetadataQuota(
+  db: Database.Database,
+  taskId: string,
+  operations: readonly StagedMetadataOp[]
+): Map<number, { json: string; size: number }> {
+  const selectUsage = db.prepare<
+    [string, string],
+    { key: string; size: number }
+  >(
+    `SELECT key, size
+       FROM plugin_task_metadata
+      WHERE task_id = ? AND plugin_id = ?`
+  )
+  const usageByPlugin = new Map<string, MetadataUsage>()
+  const serialized = new Map<number, { json: string; size: number }>()
+
+  const usageFor = (pluginId: string): MetadataUsage => {
+    const existing = usageByPlugin.get(pluginId)
+    if (existing) return existing
+    const keys = new Map(
+      selectUsage
+        .all(taskId, pluginId)
+        .map((row) => [row.key, row.size] as const)
+    )
+    const usage = {
+      total: [...keys.values()].reduce((sum, size) => sum + size, 0),
+      keys,
+    }
+    usageByPlugin.set(pluginId, usage)
+    return usage
+  }
+
+  for (const [index, operation] of operations.entries()) {
+    const usage = usageFor(operation.pluginId)
+    const currentSize = usage.keys.get(operation.key) ?? 0
+    if (operation.op === 'delete') {
+      usage.total -= currentSize
+      usage.keys.delete(operation.key)
+      continue
+    }
+
+    const json = serializeMetadataValue(operation.value)
+    const size = Buffer.byteLength(json, 'utf8')
+    const projected = usage.total - currentSize + size
+    if (projected > DEFAULT_METADATA_QUOTA_BYTES) {
+      throw new MetadataError(
+        'plugin.metadata.quota_exceeded',
+        `plugin.metadata.quota_exceeded: projected usage ${projected} exceeds quota ${DEFAULT_METADATA_QUOTA_BYTES}`
+      )
+    }
+    usage.total = projected
+    usage.keys.set(operation.key, size)
+    serialized.set(index, { json, size })
+  }
+
+  return serialized
 }

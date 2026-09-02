@@ -1,3 +1,5 @@
+import { materializePostDeliveries } from '@core/plugin/post/delivery-materializer'
+import { PostDeliveryQuotaConfigSchema } from '@core/plugin/post/delivery-types'
 import { DownloadErrorCode } from '@shared/errors'
 import type { AppNotification } from '@shared/types/notification'
 import { NotificationKinds } from '@shared/types/notification'
@@ -57,6 +59,59 @@ describe('saveTaskWithInstances + getAllTasks (Plan A v1 schema)', () => {
       'https://example.com/video.mp4',
     ])
 
+    db.close()
+  })
+
+  it('commits an initial task and beforeCreate metadata atomically', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = makeTaskRow('m-create-metadata', TaskKind.Direct)
+
+    db.persistTaskWithPluginMetadata({ task, instances: [] }, [
+      {
+        pluginId: 'plugin.example',
+        op: 'set',
+        key: 'source',
+        value: { resolver: 'example' },
+      },
+    ])
+
+    expect(db.getTask(task.motrixId)?.task).toMatchObject({
+      motrixId: task.motrixId,
+    })
+    expect(
+      db.database
+        .prepare(
+          `SELECT value FROM plugin_task_metadata
+           WHERE task_id=? AND plugin_id=? AND key=?`
+        )
+        .get(task.motrixId, 'plugin.example', 'source')
+    ).toEqual({ value: '{"resolver":"example"}' })
+    db.close()
+  })
+
+  it('rolls the initial task back when beforeCreate metadata is rejected', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = makeTaskRow('m-create-metadata-rollback', TaskKind.Direct)
+
+    expect(() =>
+      db.persistTaskWithPluginMetadata({ task, instances: [] }, [
+        {
+          pluginId: 'plugin.example',
+          op: 'set',
+          key: 'oversized',
+          value: 'x'.repeat(64 * 1024 + 1),
+        },
+      ])
+    ).toThrow('staged plugin metadata exceeds per-task quota')
+
+    expect(db.getTask(task.motrixId)).toBeNull()
+    expect(
+      db.database
+        .prepare(`SELECT 1 FROM plugin_task_metadata WHERE task_id=?`)
+        .get(task.motrixId)
+    ).toBeUndefined()
     db.close()
   })
 
@@ -1187,6 +1242,222 @@ describe('notification store', () => {
   })
 })
 
+describe('terminal plugin Hook commit boundary', () => {
+  it('commits task graph, files, metadata, finalize journal, occurrence, and delivery together', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = {
+      ...makeTaskRow('m-hook-terminal', TaskKind.Direct),
+      aggStatus: TaskStatus.Completed,
+      finalPath: '/downloads/result.bin',
+      finalName: 'result.bin',
+      finishedAt: 2_000,
+      updatedAt: 2_000,
+    }
+    insertTargetInstalledJournal(db, 'plan-terminal', task.motrixId)
+    const occurrence = makeTerminalOccurrence({
+      occurrenceId: 'occ-hook-terminal',
+      taskId: task.motrixId,
+      toStatus: TaskStatus.Completed,
+      createdAt: 2_000,
+    })
+    const delivery = makePostAdmission(
+      occurrence.occurrenceId,
+      task.motrixId,
+      2_000
+    )
+
+    const summary = db.commitTerminalHookBoundary({
+      payload: { task, instances: [] },
+      files: [
+        {
+          fileIndex: 0,
+          path: task.finalPath,
+          size: 7,
+          selected: true,
+        },
+      ],
+      occurrence,
+      metadataOps: [
+        {
+          pluginId: 'plugin.example',
+          op: 'set',
+          key: 'checksum',
+          value: 'abc123',
+        },
+      ],
+      finalizeJournal: {
+        journalId: 'plan-terminal',
+        taskId: task.motrixId,
+        targetIdentity: { kind: 'file', digest: 'abc123' },
+        updatedAt: 2_000,
+      },
+      postDeliveries: [delivery],
+    })
+
+    expect(summary).toMatchObject({ admitted: 1, duplicates: 0, rejected: 0 })
+    expect(db.getTask(task.motrixId)?.task).toMatchObject({
+      aggStatus: TaskStatus.Completed,
+      finalPath: task.finalPath,
+    })
+    expect(db.getTaskFiles(task.motrixId)).toEqual([
+      { fileIndex: 0, path: task.finalPath, size: 7, selected: true },
+    ])
+    expect(
+      db.database
+        .prepare(
+          `SELECT value FROM plugin_task_metadata
+           WHERE task_id=? AND plugin_id='plugin.example' AND key='checksum'`
+        )
+        .get(task.motrixId)
+    ).toEqual({ value: '"abc123"' })
+    expect(db.listUndispatchedOccurrences()).toEqual([occurrence])
+    expect(
+      db.database
+        .prepare(
+          `SELECT phase, plan_json FROM plugin_finalize_journals
+           WHERE plan_id='plan-terminal'`
+        )
+        .get()
+    ).toEqual({
+      phase: 'db_committed',
+      plan_json: expect.stringContaining('"phase":"db_committed"'),
+    })
+    expect(
+      db.database
+        .prepare(
+          `SELECT status, task_id FROM plugin_post_deliveries
+           WHERE delivery_id=?`
+        )
+        .get(delivery.deliveryId)
+    ).toEqual({ status: 'pending', task_id: task.motrixId })
+    db.close()
+  })
+
+  it('does not count quota rejection twice when a terminal occurrence is replayed', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = {
+      ...makeTaskRow('m-hook-replay', TaskKind.Direct),
+      aggStatus: TaskStatus.Completed,
+      finishedAt: 2_000,
+      updatedAt: 2_000,
+    }
+    const occurrence = makeTerminalOccurrence({
+      occurrenceId: 'occ-hook-replay',
+      taskId: task.motrixId,
+      toStatus: TaskStatus.Completed,
+      createdAt: 2_000,
+    })
+    const first = makePostAdmission(
+      occurrence.occurrenceId,
+      task.motrixId,
+      2_000
+    )
+    const rejected = {
+      ...first,
+      deliveryId: `${first.deliveryId}:second`,
+      deduplicationKey: `${first.deduplicationKey}:second`,
+    }
+    const input = {
+      payload: { task, instances: [] },
+      occurrence,
+      postDeliveries: [first, rejected],
+      postQuota: PostDeliveryQuotaConfigSchema.parse({
+        pluginActiveRows: 1,
+      }),
+    }
+
+    expect(db.commitTerminalHookBoundary(input)).toMatchObject({
+      admitted: 1,
+      duplicates: 0,
+      rejected: 1,
+    })
+    expect(db.commitTerminalHookBoundary(input)).toMatchObject({
+      admitted: 0,
+      duplicates: 2,
+      rejected: 0,
+    })
+    expect(
+      db.database
+        .prepare(
+          `SELECT rejected_count FROM plugin_post_quota_buckets
+           WHERE plugin_id='plugin.example'`
+        )
+        .get()
+    ).toEqual({ rejected_count: 1 })
+    db.close()
+  })
+
+  it('rolls every terminal participant back when delivery persistence fails', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = {
+      ...makeTaskRow('m-hook-rollback', TaskKind.Direct),
+      aggStatus: TaskStatus.Completed,
+      finalPath: '/downloads/rollback.bin',
+      finalName: 'rollback.bin',
+      finishedAt: 3_000,
+      updatedAt: 3_000,
+    }
+    insertTargetInstalledJournal(db, 'plan-rollback', task.motrixId)
+    const occurrence = makeTerminalOccurrence({
+      occurrenceId: 'occ-hook-rollback',
+      taskId: task.motrixId,
+      toStatus: TaskStatus.Completed,
+      createdAt: 3_000,
+    })
+    const delivery = makePostAdmission(
+      occurrence.occurrenceId,
+      task.motrixId,
+      3_000
+    )
+    db.database.exec(`
+      CREATE TRIGGER fail_post_delivery
+      BEFORE INSERT ON plugin_post_deliveries
+      BEGIN SELECT RAISE(ABORT, 'forced delivery failure'); END
+    `)
+
+    expect(() =>
+      db.commitTerminalHookBoundary({
+        payload: { task, instances: [] },
+        occurrence,
+        metadataOps: [
+          {
+            pluginId: 'plugin.example',
+            op: 'set',
+            key: 'must-rollback',
+            value: true,
+          },
+        ],
+        finalizeJournal: {
+          journalId: 'plan-rollback',
+          taskId: task.motrixId,
+          targetIdentity: { kind: 'file', digest: 'rollback' },
+          updatedAt: 3_000,
+        },
+        postDeliveries: [delivery],
+      })
+    ).toThrow('forced delivery failure')
+
+    expect(db.getTask(task.motrixId)).toBeNull()
+    expect(
+      db.database
+        .prepare(`SELECT 1 FROM plugin_task_metadata WHERE task_id=?`)
+        .get(task.motrixId)
+    ).toBeUndefined()
+    expect(db.listUndispatchedOccurrences()).toEqual([])
+    expect(
+      db.database
+        .prepare(
+          `SELECT phase FROM plugin_finalize_journals WHERE plan_id='plan-rollback'`
+        )
+        .get()
+    ).toEqual({ phase: 'target_installed' })
+    db.close()
+  })
+})
+
 function makeNotificationInput(
   overrides: Partial<NewNotificationInput> = {}
 ): NewNotificationInput {
@@ -1218,6 +1489,80 @@ function makeTerminalOccurrence(
     createdAt: 1000,
     ...overrides,
   }
+}
+
+function insertTargetInstalledJournal(
+  db: MotrixDatabase,
+  planId: string,
+  taskId: string
+): void {
+  db.database
+    .prepare(
+      `INSERT INTO plugin_finalize_journals (
+        plan_id, task_id, phase, plan_json, source_identity_json,
+        target_identity_json, quarantine_reason, created_at, updated_at
+      ) VALUES (?, ?, 'target_installed', ?, '{}', '{}', NULL, 1, 1)`
+    )
+    .run(
+      planId,
+      taskId,
+      JSON.stringify({
+        journalId: planId,
+        phase: 'target_installed',
+        plan: { planId, taskId },
+      })
+    )
+}
+
+function makePostAdmission(occurrenceId: string, taskId: string, at: number) {
+  return materializePostDeliveries({
+    event: {
+      schemaVersion: 1,
+      occurrenceId,
+      taskId,
+      occurredAt: at,
+      payload: {
+        filePath: '/downloads/result.bin',
+        task: {
+          schemaVersion: 1,
+          id: taskId,
+          name: 'result.bin',
+          type: 'http',
+          kind: 'direct',
+          status: 'completed',
+          filePath: '/downloads/result.bin',
+          saveDir: '/downloads',
+          filename: 'result.bin',
+          progress: 100,
+          totalBytes: 7,
+          downloadedBytes: 7,
+          uploadedBytes: 0,
+          sizeWhenDone: 7,
+          fileCount: 1,
+          createdAt: at,
+          updatedAt: at,
+          finishedAt: at,
+          category: null,
+          infoHash: null,
+          error: null,
+        },
+      },
+    },
+    candidates: [
+      {
+        hook: 'afterComplete',
+        executable: {
+          pluginId: 'plugin.example',
+          version: '1.0.0',
+          digest: 'a'.repeat(64),
+        },
+        createdGeneration: 1,
+        requiredPermissions: [],
+        createdEffectivePermissions: [],
+      },
+    ],
+    createdAt: at,
+  })[0]
 }
 
 function makeDiagnosisOccurrence(

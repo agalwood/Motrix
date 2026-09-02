@@ -11,6 +11,7 @@ e2e
 *.log
 **/*.test.ts
 **/*.test.tsx
+!src/core/plugin/finalize/native-artifact-operations.integration.test.ts
 !tests/check-third-party-notices.test.ts
 !tests/generate-third-party-notices.test.ts
 AGENTS.md

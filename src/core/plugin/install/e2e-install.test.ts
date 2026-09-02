@@ -322,6 +322,91 @@ describe('PluginInstaller e2e', () => {
     expect(onDisk).toBe('console.log(2);')
   })
 
+  it('supersedes the prior executable after the reversible upgrade swap', async () => {
+    const v1 = await writeMoext(path.join(inputDir, 'v1.moext'), manifestJSON())
+    const { stagingId: id1 } = await installer.stage(v1, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(id1, {})
+
+    const supersede = vi.fn(async () => {
+      expect(
+        await readFile(
+          path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
+          'utf8'
+        )
+      ).toBe('console.log(2);')
+      return 1
+    })
+    installer.bindRetentionSink({
+      supersede,
+      pluginUnavailable: vi.fn(async () => 0),
+    })
+    const v2 = await writeMoext(
+      path.join(inputDir, 'v2.moext'),
+      manifestJSON({ permissions: ['http'], version: '1.1.0' }),
+      Buffer.from('console.log(2);', 'utf8')
+    )
+    const staged = await installer.stage(v2, {
+      type: 'github',
+      spec: 'example/test',
+    })
+
+    await installer.commit(staged.stagingId, {})
+
+    expect(supersede).toHaveBeenCalledExactlyOnceWith(
+      {
+        pluginId: 'example.test',
+        version: '1.0.0',
+        digest: createHash('sha256').update('console.log(1);').digest('hex'),
+      },
+      expect.any(Number)
+    )
+    expect(
+      await readFile(
+        path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
+        'utf8'
+      )
+    ).toBe('console.log(2);')
+  })
+
+  it('keeps the old executable installed when retention supersede fails', async () => {
+    const v1 = await writeMoext(path.join(inputDir, 'v1.moext'), manifestJSON())
+    const { stagingId: id1 } = await installer.stage(v1, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(id1, {})
+    const retentionError = new Error('retention unavailable')
+    installer.bindRetentionSink({
+      supersede: vi.fn(async () => Promise.reject(retentionError)),
+      pluginUnavailable: vi.fn(async () => 0),
+    })
+    const v2 = await writeMoext(
+      path.join(inputDir, 'v2.moext'),
+      manifestJSON({ permissions: ['http'], version: '1.1.0' }),
+      Buffer.from('console.log(2);', 'utf8')
+    )
+    const staged = await installer.stage(v2, {
+      type: 'github',
+      spec: 'example/test',
+    })
+
+    await expect(installer.commit(staged.stagingId, {})).rejects.toBe(
+      retentionError
+    )
+    expect(
+      await readFile(
+        path.join(pluginsDir, 'example.test', 'dist/plugin.js'),
+        'utf8'
+      )
+    ).toBe('console.log(1);')
+    expect(registry.policySnapshot('example.test')).toMatchObject({
+      version: '1.0.0',
+    })
+  })
+
   it('upgrade with new permission: consent payload contains permissionsAdded', async () => {
     const v1 = await writeMoext(
       path.join(inputDir, 'v1.moext'),
@@ -560,6 +645,39 @@ describe('PluginInstaller e2e', () => {
     expect(calls.cookieJarsCleared).toEqual(['example.test'])
     expect(stateStore.get('example.test')).toBeUndefined()
     expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(false)
+  })
+
+  it('keeps plugin data and directory when uninstall retention fails', async () => {
+    const moext = await writeMoext(
+      path.join(inputDir, 'v1.moext'),
+      manifestJSON()
+    )
+    const { stagingId } = await installer.stage(moext, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(stagingId, {})
+    const retentionError = new Error('retention unavailable')
+    const pluginUnavailable = vi.fn(async () => Promise.reject(retentionError))
+    installer.bindRetentionSink({
+      supersede: vi.fn(async () => 0),
+      pluginUnavailable,
+    })
+
+    await expect(installer.uninstall('example.test')).rejects.toBe(
+      retentionError
+    )
+
+    expect(pluginUnavailable).toHaveBeenCalledExactlyOnceWith(
+      'example.test',
+      'uninstalled',
+      expect.any(Number)
+    )
+    expect(stateStore.get('example.test')).toBeDefined()
+    expect(calls.storageDeleteAll).toEqual([])
+    expect(calls.metadataDeleteAllForPlugin).toEqual([])
+    expect(calls.cookieJarsCleared).toEqual([])
+    expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(true)
   })
 
   it('uninstall rejects traversal before touching state or files', async () => {

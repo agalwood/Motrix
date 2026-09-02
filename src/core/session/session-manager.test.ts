@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import type { PostDeliveryAdmission } from '@core/plugin/post/delivery-types'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
@@ -11,6 +12,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import type { TaskTerminalOccurrence } from '@shared/types/task-occurrence'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
@@ -77,6 +79,12 @@ function createMockDb(): MotrixDatabase {
       tasks.set(payload.task.motrixId, payload.task)
       instances.set(payload.task.motrixId, payload.instances)
     }),
+    persistTaskWithPluginMetadata: vi.fn(
+      (payload: TaskWithInstances, _operations: readonly unknown[]) => {
+        tasks.set(payload.task.motrixId, payload.task)
+        instances.set(payload.task.motrixId, payload.instances)
+      }
+    ),
     saveTasksBatch: vi.fn((rows: TaskWithInstances[]) => {
       for (const row of rows) {
         tasks.set(row.task.motrixId, row.task)
@@ -89,6 +97,12 @@ function createMockDb(): MotrixDatabase {
         instances.set(payload.task.motrixId, payload.instances)
       }
     ),
+    commitTerminalHookBoundary: vi.fn(() => ({
+      admitted: 0,
+      duplicates: 0,
+      rejected: 0,
+      results: [],
+    })),
     getAllTasks: vi.fn(() =>
       [...tasks.values()].map((task) => ({
         task,
@@ -559,6 +573,98 @@ describe('SessionManager', () => {
         TaskStatus.Downloading
       )
       expect(db.getTask(current.id)?.task.aggStatus).toBe(TaskStatus.Paused)
+    })
+
+    it('persists an unpublished candidate and staged plugin metadata through one database boundary', async () => {
+      const candidate = createTask({ id: 'plugin-create-candidate' })
+      const operations = [
+        {
+          pluginId: 'plugin.example',
+          op: 'set' as const,
+          key: 'source',
+          value: 'resolver',
+        },
+      ]
+
+      await session.persistTaskWithPluginMetadata(candidate, operations)
+
+      expect(taskManager.getById(candidate.id)).toBeUndefined()
+      expect(db.persistTaskWithPluginMetadata).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          task: expect.objectContaining({ motrixId: candidate.id }),
+        }),
+        operations
+      )
+    })
+
+    it('emits a stable admission-rejected event after the terminal transaction commits', async () => {
+      const task = createTask({
+        id: 'm-post-rejected',
+        status: TaskStatus.Completed,
+        finishedAt: 2_000,
+      })
+      const occurrence: TaskTerminalOccurrence = {
+        occurrenceId: 'occ-post-rejected',
+        type: 'terminal',
+        taskId: task.id,
+        fromStatus: TaskStatus.Downloading,
+        toStatus: TaskStatus.Completed,
+        cause: 'engine',
+        errorGroup: null,
+        createdAt: 2_000,
+      }
+      const delivery: PostDeliveryAdmission = {
+        deliveryId: 'delivery-post-rejected',
+        deduplicationKey: 'dedupe-post-rejected',
+        hook: 'afterComplete',
+        executable: {
+          pluginId: 'plugin.example',
+          version: '1.0.0',
+          digest: 'a'.repeat(64),
+        },
+        createdGeneration: 1,
+        requiredPermissions: [],
+        createdEffectivePermissions: [],
+        occurrenceId: occurrence.occurrenceId,
+        taskId: task.id,
+        occurredAt: 2_000,
+        canonicalPayload: '{}',
+        payloadBytes: 2,
+        permissionSnapshotBytes: 4,
+        reservedBytes: 518,
+        createdAt: 2_000,
+        initialStatus: 'pending',
+      }
+      vi.mocked(db.commitTerminalHookBoundary).mockReturnValueOnce({
+        admitted: 0,
+        duplicates: 0,
+        rejected: 1,
+        results: [
+          {
+            kind: 'rejected',
+            deliveryId: delivery.deliveryId,
+            reason: 'plugin_active_rows',
+            tombstoneKey: 'bucket-1',
+          },
+        ],
+      })
+      const emit = vi.fn()
+      session.bindPostDeliveryObservability({ emit })
+
+      await session.persistTerminalHookBoundary(task, occurrence, {
+        postDeliveries: [delivery],
+        beforeCommit: () => undefined,
+      })
+
+      expect(emit).toHaveBeenCalledExactlyOnceWith({
+        type: 'plugin.post.admission_rejected',
+        at: 2_000,
+        pluginId: 'plugin.example',
+        hook: 'afterComplete',
+        deliveryId: 'delivery-post-rejected',
+        reason: 'plugin_active_rows',
+        occurrenceId: 'occ-post-rejected',
+      })
     })
 
     it('stop seeding persists Completed before success and survives restart', async () => {
@@ -3311,6 +3417,24 @@ describe('SessionManager', () => {
           cause: 'engine',
         })
       )
+    })
+
+    it('routes a restore-created terminal edge through the bound plugin boundary', async () => {
+      const { localDb, sm } = seedMergePair(TaskStatus.Downloading)
+      const persistTerminal = vi.fn(async () => undefined)
+      sm.bindTerminalOccurrencePersistence(persistTerminal)
+
+      await sm.restore()
+
+      expect(persistTerminal).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ id: 'm-merge-terminal' }),
+        expect.objectContaining({
+          type: 'terminal',
+          taskId: 'm-merge-terminal',
+          toStatus: TaskStatus.Completed,
+        })
+      )
+      expect(localDb.persistTaskWithOccurrence).not.toHaveBeenCalled()
     })
 
     it('writes no occurrence when the persisted task was already Completed', async () => {

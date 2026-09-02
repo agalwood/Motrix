@@ -59,6 +59,21 @@
   "overrides": [
     {
       "includes": [
+        "tests/fixtures/plugins/test.hook-delivery-runtime/dist/plugin.js",
+        "tests/fixtures/plugins/test.hook-sdk-2-0/dist/plugin.js"
+      ],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
+      }
+    },
+    {
+      "includes": [
         "src/shared/schemas/registry.fixture.json",
         "src/shared/schemas/registry.conformance.json"
       ],

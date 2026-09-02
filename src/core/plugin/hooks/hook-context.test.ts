@@ -1,3 +1,4 @@
+import type { PluginTaskSnapshotV1 } from '@shared/schemas/plugin-hooks'
 import type {
   AfterCompleteContextDTO,
   BeforeCreateBtContextDTO,
@@ -54,6 +55,9 @@ function makeReadonlyMeta(): ReadonlyPluginMetadata {
 }
 
 const BASE_HTTP_DTO: BeforeCreateHttpContextDTO = {
+  schemaVersion: 1,
+  invocationId: 'invocation-http-1',
+  taskId: 'task-1',
   type: 'http',
   sourceUrl: 'https://example.com/file.zip',
   createdBy: 'user',
@@ -64,6 +68,9 @@ const BASE_HTTP_DTO: BeforeCreateHttpContextDTO = {
 }
 
 const BASE_BT_DTO: BeforeCreateBtContextDTO = {
+  schemaVersion: 1,
+  invocationId: 'invocation-bt-1',
+  taskId: 'task-1',
   type: 'bt',
   sourceUrl: 'magnet:?xt=urn:btih:abc123',
   createdBy: 'user',
@@ -117,22 +124,75 @@ const BASE_TASK: DownloadTask = {
   sourceMeta: null,
 }
 
+const PLUGIN_TASK: PluginTaskSnapshotV1 = {
+  schemaVersion: 1,
+  id: BASE_TASK.id,
+  name: BASE_TASK.name,
+  type: BASE_TASK.type,
+  kind: BASE_TASK.kind,
+  status: BASE_TASK.status,
+  filePath: BASE_TASK.finalPath,
+  saveDir: BASE_TASK.saveDir,
+  filename: BASE_TASK.filename,
+  progress: 100,
+  totalBytes: BASE_TASK.totalBytes,
+  downloadedBytes: BASE_TASK.downloadedBytes,
+  uploadedBytes: BASE_TASK.uploadedBytes,
+  sizeWhenDone: BASE_TASK.sizeWhenDone,
+  fileCount: BASE_TASK.fileCount,
+  createdAt: BASE_TASK.createdAt,
+  updatedAt: BASE_TASK.updatedAt,
+  finishedAt: BASE_TASK.finishedAt,
+  category: BASE_TASK.category,
+  infoHash: BASE_TASK.infoHash,
+  error: null,
+}
+
 const AFTER_COMPLETE_DTO: AfterCompleteContextDTO = {
-  task: BASE_TASK,
+  schemaVersion: 1,
+  invocationId: 'delivery-1:attempt-1',
+  taskId: BASE_TASK.id,
+  task: PLUGIN_TASK,
   filePath: '/tmp/downloads/file.zip',
+  delivery: {
+    schemaVersion: 1,
+    id: 'delivery-1',
+    occurrenceId: 'occurrence-1',
+    occurredAt: 1_000_002,
+  },
 }
 
 const BEFORE_FINALIZE_DTO: BeforeFinalizeContextDTO = {
+  schemaVersion: 1,
+  invocationId: 'before-finalize-1',
+  taskId: BASE_TASK.id,
   sourceUrl: 'https://example.com/file.zip',
   createdBy: 'user',
   requestedAt: 1_000_000,
-  task: BASE_TASK,
+  task: PLUGIN_TASK,
+  inputFilePath: '/tmp/downloads/file.zip.aria2',
   filePath: '/tmp/downloads/file.zip',
+  targetFilePath: '/tmp/downloads/file.zip',
 }
 
 const ON_ERROR_DTO: OnErrorContextDTO = {
-  task: BASE_TASK,
-  error: { code: 'ERR_TIMEOUT', message: 'Connection timed out' },
+  schemaVersion: 1,
+  invocationId: 'delivery-2:attempt-1',
+  taskId: BASE_TASK.id,
+  task: PLUGIN_TASK,
+  filePath: '/tmp/downloads/file.zip',
+  delivery: {
+    schemaVersion: 1,
+    id: 'delivery-2',
+    occurrenceId: 'occurrence-2',
+    occurredAt: 1_000_002,
+  },
+  error: {
+    code: 'ERR_TIMEOUT',
+    message: 'Connection timed out',
+    detailKey: null,
+    detailParams: null,
+  },
 }
 
 // ── makeBeforeCreateHttp ──────────────────────────────────────────────────────

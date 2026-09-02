@@ -105,12 +105,12 @@ function rebuildTable(
   }
 }
 
-describe('migration v3', () => {
-  it('migrates a fresh database to version 3 with the exact v3 objects', () => {
+describe('migration v3 compatibility', () => {
+  it('migrates a fresh database through v3 with the exact v3 objects', () => {
     const db = openMemory()
     migrate(db)
 
-    expect(readVersion(db)).toBe(3)
+    expect(readVersion(db)).toBe(4)
     const names = db
       .prepare(
         `SELECT name FROM sqlite_master
@@ -166,7 +166,7 @@ describe('migration v3', () => {
 
     const reopened = new Database(dbPath)
     reopened.pragma('foreign_keys = ON')
-    expect(readVersion(reopened)).toBe(3)
+    expect(readVersion(reopened)).toBe(4)
     expect(
       reopened
         .prepare("SELECT motrix_id FROM tasks WHERE motrix_id = 'survivor'")
@@ -207,7 +207,7 @@ describe('migration v3', () => {
     })()
 
     expect(() => migrate(db)).not.toThrow()
-    expect(readVersion(db)).toBe(3)
+    expect(readVersion(db)).toBe(4)
     db.close()
   })
 

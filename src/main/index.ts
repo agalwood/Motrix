@@ -40,8 +40,13 @@ import { registerEngineCompatibilitySubscriber } from '@core/notifications/engin
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
+import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
+import type { NativeFinalizeFilesystemAdapter } from '@core/plugin/finalize/filesystem-adapter'
+import { resolveFinalizeSidecarPath } from '@core/plugin/finalize/sidecar-path'
 import { GrantsManager } from '@core/plugin/grants/grants-manager'
+import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
   PluginHost,
@@ -50,10 +55,14 @@ import {
 import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
+import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
+import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
+import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
+import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
 import { SettingsManager } from '@core/settings/settings-manager'
@@ -69,7 +78,10 @@ import {
   reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
-import { finalizeTask } from '@core/task/actions/finalize-task'
+import {
+  type FinalizeArtifactCommitRequest,
+  finalizeTask,
+} from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { countActiveDownloads } from '@core/task/active-downloads'
@@ -173,7 +185,10 @@ import { createElectronPlatformServices } from './platform/services'
 import { setupTray } from './platform/tray'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
-import { resolveElectronFfmpegEnvPath } from './plugin/ffmpeg-detect-electron'
+import {
+  makeElectronFfmpegDetect,
+  resolveElectronFfmpegEnvPath,
+} from './plugin/ffmpeg-detect-electron'
 import { resolvePluginHostLanguage } from './plugin/host-language'
 import { resolvePluginsDir } from './plugin/plugins-dir'
 import { createMainProxyApplier } from './proxy/wiring'
@@ -416,6 +431,13 @@ let menuManager: MenuManager | null = null
 let osNotificationBridge: { dispose(): void } | null = null
 let geoipManager: GeoIPManager | null = null
 let pluginHost: PluginHost | null = null
+let pluginHookRuntime: PluginHookRuntime | null = null
+let hookAuditLog: HookAuditLog | null = null
+let hookOrchestrator: HookOrchestrator | null = null
+let durableFinalizeRuntime: DurableFinalizeRuntime | null = null
+let finalizeFilesystemAdapter: NativeFinalizeFilesystemAdapter | null = null
+let postDeliveryAbortController: AbortController | null = null
+let postDeliveryLoop: Promise<void> | null = null
 let devWatcherHandle: { close(): Promise<void> } | null = null
 let bridgeManager: BridgeManager | null = null
 let magnetTracker: MagnetTracker | null = null
@@ -474,6 +496,7 @@ function performCleanup(): Promise<void> {
     // the drain: startup can be blocked on the engine/plugin/session that only
     // those teardown operations can release.
     const acceptedWorkDrain = mainProcessWork.stopAndDrain()
+    postDeliveryAbortController?.abort()
     await ingressClose
     const cancellationDrain = Promise.all([
       safely('polling', () => pollingScheduler?.stopAndDrain()),
@@ -492,9 +515,19 @@ function performCleanup(): Promise<void> {
         await handle?.close()
       }),
       safely('plugin-host', async () => {
+        await postDeliveryLoop
+        postDeliveryLoop = null
+        postDeliveryAbortController = null
+        pluginHookRuntime = null
         const host = pluginHost
-        pluginHost = null
-        await host?.shutdown()
+        try {
+          await hookAuditLog?.drain()
+        } finally {
+          hookAuditLog = null
+          hookOrchestrator = null
+          pluginHost = null
+          await host?.shutdown()
+        }
       }),
       safely('magnet', () => magnetTracker?.stopAndDrain()),
       safely('speed-limit', () => speedLimitController?.stop()),
@@ -510,6 +543,12 @@ function performCleanup(): Promise<void> {
       safely('session', () => sessionManager?.stopAndDrain()),
       safely('engine', () => supervisor?.stop()),
     ])
+    await safely('finalize-filesystem', async () => {
+      const adapter = finalizeFilesystemAdapter
+      finalizeFilesystemAdapter = null
+      durableFinalizeRuntime = null
+      await adapter?.dispose()
+    })
     await safely('proxy-bridge', () => proxyBridge?.close())
     await safely('main-process-work', () => acceptedWorkDrain)
     await safely('task-inspector-activity', () =>
@@ -975,6 +1014,9 @@ function persistTaskWithOccurrence(
   task: DownloadTask,
   occurrence: TaskOccurrence | null
 ): Promise<void> {
+  if (occurrence && pluginHookRuntime) {
+    return pluginHookRuntime.persistTerminal(task, occurrence)
+  }
   return sessionManager.persistTaskWithOccurrence(task, occurrence)
 }
 
@@ -998,6 +1040,9 @@ function getFinalizeSettings(): {
 
 function buildFinalizeDeps(adapter: Aria2Adapter) {
   const activityRecorder = requireTaskActivityService()
+  if (!hookAuditLog || !hookOrchestrator) {
+    throw new Error('plugin hook orchestrator is unavailable')
+  }
   return {
     taskManager: {
       getById: (id: string) => taskManager.getById(id),
@@ -1027,6 +1072,8 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
     settings: { get: getFinalizeSettings },
     eventBus,
     activityRecorder,
+    orchestrator: hookOrchestrator,
+    auditLog: hookAuditLog,
     recordTransition: (input: RuntimeTransitionInput) =>
       taskInspectorActivityRuntime?.recordTransition(input),
     runTaskMutation: <T>(
@@ -1037,6 +1084,23 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
         ? taskInspectorActivityRuntime.runTaskMutation(taskIds, operation)
         : operation(),
     log,
+    commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
+      if (!durableFinalizeRuntime) {
+        throw new Error('durable finalize runtime is unavailable')
+      }
+      const post =
+        input.occurrence?.type === 'terminal' && pluginHookRuntime
+          ? await pluginHookRuntime.prepareTerminal(
+              input.task,
+              input.occurrence
+            )
+          : { postDeliveries: [], beforeCommit: () => undefined }
+      await durableFinalizeRuntime.commit({
+        ...input,
+        postDeliveries: post.postDeliveries,
+        beforeCommit: post.beforeCommit,
+      })
+    },
   }
 }
 
@@ -1113,6 +1177,14 @@ async function startEngineAndRestore(
     dnsFallbackConsumer.name,
     dnsFallbackConsumer.consume
   )
+
+  const pluginStartup = new PluginRuntimeStartupCoordinator()
+  await pluginStartup.recoverFinalize(async () => {
+    if (!durableFinalizeRuntime) {
+      throw new Error('durable finalize runtime is unavailable')
+    }
+    await durableFinalizeRuntime.recoverAll()
+  })
 
   try {
     await supervisor.start(platform.aria2BinaryPath)
@@ -1229,107 +1301,129 @@ async function startEngineAndRestore(
     // publishNow: startup's first paint must not wait out the window.
     publishTaskUpdateNow()
 
+    const activePluginHookRuntime = pluginHookRuntime
+    if (!activePluginHookRuntime) {
+      throw new Error('plugin hook runtime is unavailable')
+    }
+    pluginStartup.markTasksRecovered()
+    await pluginStartup.drainBeforeProducers({
+      drainOccurrences: () => occurrenceDispatcher.drainAtStartup(),
+      recoverAndDrainPostDeliveries: () =>
+        activePluginHookRuntime.recoverAndDrain(),
+    })
+    if (!postDeliveryLoop) {
+      const controller = new AbortController()
+      postDeliveryAbortController = controller
+      postDeliveryLoop = activePluginHookRuntime.scheduler
+        .start(controller.signal)
+        .catch((err) => {
+          if (!controller.signal.aborted) {
+            log.error({ err }, 'plugin post-delivery scheduler stopped')
+          }
+        })
+    }
+
     // Subscribe to engine completion events so newly-finished tasks
     // are finalized (rename `.motrix` → final name; BT re-adds with
     // `bt-seed-unverified=true`). These trigger AFTER recovery so
     // in-flight finalizes from a previous run are settled first and
     // we don't race a second finalize on the same task.
-    adapter.onBtDownloadComplete((engineTaskId) => {
-      runShellAsyncWork('BT finalize', async () => {
-        const task = taskManager.getByEngineTaskId(engineTaskId)
-        if (!task) return
-        // Re-entry guard. After finalizeBt re-adds the seeding gid with
-        // `bt-seed-unverified=true`, aria2 marks every piece complete at
-        // add time and immediately re-fires onBtDownloadComplete for the
-        // brand-new gid. Without this guard, the handler runs finalizeBt
-        // again on the SAME motrix task — forceRemove(newGid),
-        // addTorrent → newer gid, which itself re-fires the event,
-        // ad infinitum. The chain only breaks when something throws
-        // (rename-to-self, FK violation in task_progress, etc.), and the
-        // last gid that survives the storm is the one that ends up
-        // seeding from upload_length=0 — explaining the user-reported
-        // "Completed → Seeding → Completed restart loop": each restart
-        // resumes the freshly-added survivor whose progress row has
-        // never accumulated any uploaded bytes.
-        //
-        // Sentinel "this task is past finalize":
-        //   • Renamed already (diskPath stripped of .motrix), AND
-        //   • Not currently in the middle of a finalize cycle
-        //     (status !== Finalizing && transitionPhase === Idle).
-        if (shouldSkipEngineCompletionFinalize(task)) {
-          log.debug(
-            {
-              taskId: task.id,
-              engineTaskId,
-              status: task.status,
-              transitionPhase: task.transitionPhase,
-            },
-            'skip finalize for already-finalized or in-flight BT task'
+    pluginStartup.openProducers(() => {
+      adapter.onBtDownloadComplete((engineTaskId) => {
+        runShellAsyncWork('BT finalize', async () => {
+          const task = taskManager.getByEngineTaskId(engineTaskId)
+          if (!task) return
+          // Re-entry guard. After finalizeBt re-adds the seeding gid with
+          // `bt-seed-unverified=true`, aria2 marks every piece complete at
+          // add time and immediately re-fires onBtDownloadComplete for the
+          // brand-new gid. Without this guard, the handler runs finalizeBt
+          // again on the SAME motrix task — forceRemove(newGid),
+          // addTorrent → newer gid, which itself re-fires the event,
+          // ad infinitum. The chain only breaks when something throws
+          // (rename-to-self, FK violation in task_progress, etc.), and the
+          // last gid that survives the storm is the one that ends up
+          // seeding from upload_length=0 — explaining the user-reported
+          // "Completed → Seeding → Completed restart loop": each restart
+          // resumes the freshly-added survivor whose progress row has
+          // never accumulated any uploaded bytes.
+          //
+          // Sentinel "this task is past finalize":
+          //   • Renamed already (diskPath stripped of .motrix), AND
+          //   • Not currently in the middle of a finalize cycle
+          //     (status !== Finalizing && transitionPhase === Idle).
+          if (shouldSkipEngineCompletionFinalize(task)) {
+            log.debug(
+              {
+                taskId: task.id,
+                engineTaskId,
+                status: task.status,
+                transitionPhase: task.transitionPhase,
+              },
+              'skip finalize for already-finalized or in-flight BT task'
+            )
+            return
+          }
+          try {
+            await finalizeTask(task.id, finalizeDepsFactory())
+          } catch (err) {
+            log.error({ err, taskId: task.id }, 'finalizeTask failed (BT)')
+          }
+        })
+      })
+
+      adapter.onDownloadComplete((engineTaskId) => {
+        runShellAsyncWork('HTTP finalize', async () => {
+          const task = taskManager.getByEngineTaskId(engineTaskId)
+          if (!task) return
+          // BT tasks emit `onDownloadComplete` again after seeding finishes;
+          // route only HTTP/FTP here. BT finalize runs via onBtDownloadComplete.
+          if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
+            return
+          }
+          if (shouldSkipEngineCompletionFinalize(task)) return
+          try {
+            await finalizeTask(task.id, finalizeDepsFactory())
+          } catch (err) {
+            log.error({ err, taskId: task.id }, 'finalizeTask failed (HTTP)')
+          }
+        })
+      })
+
+      sessionManager.startAutoSave(sessionSaveInterval * 1000)
+      // Gate the periodic save on engine activity. The scheduler derives
+      // active/idle from aria2 getGlobalStat.numActive and broadcasts it here;
+      // the save only flushes in-progress byte counts (which change only while
+      // active), so idle ⇒ stop rewriting the whole task history every interval.
+      eventBus.on(Events.EngineActiveChanged, (active) => {
+        sessionManager.setEngineActive(Boolean(active))
+      })
+
+      pollingNotificationUnsubscribers.push(
+        rpcClient.onDownloadStart((event) => {
+          pollingScheduler.handleNotification('aria2.onDownloadStart', event)
+        }),
+        rpcClient.onDownloadPause((event) => {
+          pollingScheduler.handleNotification('aria2.onDownloadPause', event)
+        }),
+        rpcClient.onDownloadComplete((event) => {
+          pollingScheduler.handleNotification('aria2.onDownloadComplete', event)
+        }),
+        rpcClient.onDownloadStop((event) => {
+          pollingScheduler.handleNotification('aria2.onDownloadStop', event)
+        }),
+        rpcClient.onDownloadError((event) => {
+          pollingScheduler.handleNotification('aria2.onDownloadError', event)
+        }),
+        rpcClient.onBtDownloadComplete((event) => {
+          pollingScheduler.handleNotification(
+            'aria2.onBtDownloadComplete',
+            event
           )
-          return
-        }
-        try {
-          await finalizeTask(task.id, finalizeDepsFactory())
-        } catch (err) {
-          log.error({ err, taskId: task.id }, 'finalizeTask failed (BT)')
-        }
-      })
+        })
+      )
+
+      pollingScheduler.start()
     })
-
-    adapter.onDownloadComplete((engineTaskId) => {
-      runShellAsyncWork('HTTP finalize', async () => {
-        const task = taskManager.getByEngineTaskId(engineTaskId)
-        if (!task) return
-        // BT tasks emit `onDownloadComplete` again after seeding finishes;
-        // route only HTTP/FTP here. BT finalize runs via onBtDownloadComplete.
-        if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
-          return
-        }
-        if (shouldSkipEngineCompletionFinalize(task)) return
-        try {
-          await finalizeTask(task.id, finalizeDepsFactory())
-        } catch (err) {
-          log.error({ err, taskId: task.id }, 'finalizeTask failed (HTTP)')
-        }
-      })
-    })
-
-    sessionManager.startAutoSave(sessionSaveInterval * 1000)
-    // Gate the periodic save on engine activity. The scheduler derives
-    // active/idle from aria2 getGlobalStat.numActive and broadcasts it here;
-    // the save only flushes in-progress byte counts (which change only while
-    // active), so idle ⇒ stop rewriting the whole task history every interval.
-    eventBus.on(Events.EngineActiveChanged, (active) => {
-      sessionManager.setEngineActive(Boolean(active))
-    })
-
-    pollingNotificationUnsubscribers.push(
-      rpcClient.onDownloadStart((event) => {
-        pollingScheduler.handleNotification('aria2.onDownloadStart', event)
-      }),
-      rpcClient.onDownloadPause((event) => {
-        pollingScheduler.handleNotification('aria2.onDownloadPause', event)
-      }),
-      rpcClient.onDownloadComplete((event) => {
-        pollingScheduler.handleNotification('aria2.onDownloadComplete', event)
-      }),
-      rpcClient.onDownloadStop((event) => {
-        pollingScheduler.handleNotification('aria2.onDownloadStop', event)
-      }),
-      rpcClient.onDownloadError((event) => {
-        pollingScheduler.handleNotification('aria2.onDownloadError', event)
-      }),
-      rpcClient.onBtDownloadComplete((event) => {
-        pollingScheduler.handleNotification('aria2.onBtDownloadComplete', event)
-      })
-    )
-
-    // Deliver anything the outbox still holds: rows a prior run persisted
-    // but never dispatched, plus everything restore()/recovery just wrote
-    // through SessionManager (which has no dispatcher of its own).
-    await occurrenceDispatcher.drainAtStartup()
-
-    pollingScheduler.start()
   } catch (err) {
     log.error({ err }, 'post-engine setup failed')
   }
@@ -1696,6 +1790,12 @@ async function initializeMainProcess(): Promise<void> {
     registry: pluginRegistry,
     eventBus,
   })
+  const detectElectronFfmpeg = makeElectronFfmpegDetect({
+    settingsManager,
+    userDataDir: app.getPath('userData'),
+  })
+  const detectPluginFfmpeg = async () =>
+    projectActiveToLegacy(await detectElectronFfmpeg())
   const activePluginHost = new PluginHost({
     registry: pluginRegistry,
     stateStore: pluginStateStore,
@@ -1708,27 +1808,20 @@ async function initializeMainProcess(): Promise<void> {
     runtime: 'electron',
     hostLanguage: resolvedApplicationLocale,
     pluginGrants,
+    ffmpegDetect: detectPluginFfmpeg,
     idleDisposeMs: parsePluginIdleDisposeMs(
       process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
     ),
   })
   pluginHost = activePluginHost
-  // Spec §I30 — real-time grant revocation. On a grants change, deactivate
-  // the plugin so the next activation rebuilds its bridge with the new
-  // effective permissions. Existing in-flight calls finish; new ones see
-  // `plugin.capability.unavailable`.
-  eventBus.on(Events.PluginGrantsChanged, (...args: unknown[]) => {
-    const p = args[0] as { pluginId: string } | undefined
-    if (!p?.pluginId) return
-    if (pluginHost?.isActive(p.pluginId)) {
-      void pluginHost.deactivate(p.pluginId)
-    }
-  })
+  pluginGrants.bindPolicyBarrier(
+    activePluginHost.applyPolicyMutation.bind(activePluginHost)
+  )
   // Wire Plan D: cross-plugin command safeguards (schema cache + rate limit
   // + caller throttle + chain depth + audit) and bind the invoker to the
   // capability host. Must run AFTER registry.discover() so manifest schemas
   // can be compiled at install time.
-  wireCommandSystem({
+  const commandSystem = wireCommandSystem({
     registry: pluginRegistry,
     host: activePluginHost,
     capabilityHost: pluginCapHost,
@@ -1775,6 +1868,8 @@ async function initializeMainProcess(): Promise<void> {
     stateStore: pluginStateStore,
     capabilityHost: pluginCapHost,
     hostVersion: app.getVersion(),
+    schemaCache: commandSystem.schemas,
+    ffmpegDetect: detectPluginFfmpeg,
   })
 
   // Media (hls/dash/mux) segment downloads write under this root. Compute it
@@ -1798,6 +1893,42 @@ async function initializeMainProcess(): Promise<void> {
         : null
     }
   )
+  const pluginRuntime = await createPluginRuntime({
+    activation: pluginActivation,
+    registry: pluginRegistry,
+    grants: pluginGrants,
+    host: activePluginHost,
+    installer: pluginInstaller,
+    capabilityHost: pluginCapHost,
+    repository: motrixDb.durablePostDeliveries,
+    persistTerminal: (task, occurrence, input) =>
+      sessionManager.persistTerminalHookBoundary(task, occurrence, input),
+    database: motrixDb.database,
+    session: sessionManager,
+    pluginsDir,
+    auditLogPath: path.join(
+      platform.userDataDir,
+      'plugin-audit',
+      'hooks.ndjson'
+    ),
+    finalizeSidecarPath: resolveFinalizeSidecarPath({
+      extraResourceDir: platform.extraResourceDir,
+      isDev: platform.isDev,
+    }),
+    assertEngineQuiesced: async (taskId) => {
+      const task = taskManager.getById(taskId)
+      if (!task) return
+      const active = await adapter.listActiveAndWaiting()
+      if (active.some((entry) => entry.gid === task.engineTaskId)) {
+        throw new Error(`engine writer is still active for task ${taskId}`)
+      }
+    },
+  })
+  hookAuditLog = pluginRuntime.auditLog
+  hookOrchestrator = pluginRuntime.orchestrator
+  pluginHookRuntime = pluginRuntime.hooks
+  finalizeFilesystemAdapter = pluginRuntime.finalizeFilesystem
+  durableFinalizeRuntime = pluginRuntime.finalize
   pollingScheduler = new PollingScheduler(
     rpcClient,
     eventBus,
@@ -2099,6 +2230,8 @@ async function initializeMainProcess(): Promise<void> {
       publishTaskUpdate,
       activityRecorder: activeTaskActivityService,
       persistTask,
+      persistTaskWithPluginMetadata:
+        pluginRuntime.persistTaskWithPluginMetadata,
       parentTaskCreated: (
         task: DownloadTask,
         persistParent: () => void | Promise<void>
@@ -2303,6 +2436,22 @@ async function initializeMainProcess(): Promise<void> {
     overlayDir,
     hostVersion: app.getVersion(),
   })
+  builtinUpdater.bindLifecycleSink({
+    applyPolicyMutation: (pluginId, publish) =>
+      activePluginHost.applyPolicyMutation(pluginId, publish),
+    currentExecutable: (pluginId) => {
+      const current = pluginRegistry.policySnapshot(pluginId)
+      if (!current?.executableDigest) return undefined
+      return {
+        pluginId,
+        version: current.version,
+        digest: current.executableDigest,
+      }
+    },
+    refreshRegistry: () => pluginRegistry.discover(),
+    supersede: (executable, at) =>
+      pluginRuntime.hooks.supersede(executable, at),
+  })
   runShellAsyncWork('builtin updater orphan cleanup', () =>
     builtinUpdater.cleanupOrphans()
   )
@@ -2390,13 +2539,15 @@ async function initializeMainProcess(): Promise<void> {
     pluginGrants,
     capabilityHost: pluginCapHost,
     userDataDir: platform.userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     // biome-ignore lint/style/noNonNullAssertion: assigned just above in this block
     bridgeManager: bridgeManager!,
     magnetTracker: activeMagnetTracker,
     activityRecorder: activeTaskActivityService,
     persistTask,
+    persistTaskWithPluginMetadata: pluginRuntime.persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition: (input) =>
