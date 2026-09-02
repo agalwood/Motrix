@@ -1,6 +1,7 @@
 use super::ArtifactHandle;
 use super::metadata::{
-    ArtifactSnapshot, assert_name_absent, ensure_named_entry, ensure_snapshot, snapshot_opened,
+    ArtifactSnapshot, assert_name_absent, ensure_named_entry, ensure_same_opened, ensure_snapshot,
+    snapshot_opened,
 };
 use crate::path::validate_relative;
 use std::io;
@@ -42,12 +43,26 @@ pub(crate) fn remove_opened(
         super::nt::flush(&artifact.parent)?;
     }
 
-    remove_snapshot(&artifact.handle, &artifact.snapshot)?;
+    remove_snapshot_contents(&artifact.handle, &artifact.snapshot)?;
+    // The admitted artifact handle intentionally outlives this operation. Mark
+    // a separately opened, identity-checked handle for POSIX deletion so that
+    // closing it unlinks the quarantine while the admitted handle remains a
+    // valid reference to the now-nameless artifact.
+    let deletion = super::nt::open_existing(&artifact.parent, &quarantine_name)?;
+    ensure_same_opened(&artifact.handle, &deletion)?;
+    ensure_named_entry(&deletion, &artifact.parent, &quarantine_name)?;
+    super::nt::mark_delete(&deletion)?;
+    drop(deletion);
     assert_name_absent(&artifact.parent, &quarantine_name)?;
     super::nt::flush(&artifact.parent)
 }
 
 fn remove_snapshot(handle: &OwnedHandle, expected: &ArtifactSnapshot) -> io::Result<()> {
+    remove_snapshot_contents(handle, expected)?;
+    super::nt::mark_delete(handle)
+}
+
+fn remove_snapshot_contents(handle: &OwnedHandle, expected: &ArtifactSnapshot) -> io::Result<()> {
     ensure_snapshot(handle, expected)?;
     if let ArtifactSnapshot::Directory { entries, .. } = expected {
         for entry in entries {
@@ -68,5 +83,5 @@ fn remove_snapshot(handle: &OwnedHandle, expected: &ArtifactSnapshot) -> io::Res
         }
         super::nt::flush(handle)?;
     }
-    super::nt::mark_delete(handle)
+    Ok(())
 }

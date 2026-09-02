@@ -99,12 +99,16 @@ pub(super) fn ensure_named_entry(
     name: &[u16],
 ) -> io::Result<()> {
     let named = nt::open_existing(parent, name)?;
-    let opened_stamp = query_stamp(opened)?;
-    let named_stamp = query_stamp(&named)?;
-    if opened_stamp.volume != named_stamp.volume || opened_stamp.file_id != named_stamp.file_id {
+    ensure_same_opened(opened, &named)
+}
+
+pub(super) fn ensure_same_opened(left: &OwnedHandle, right: &OwnedHandle) -> io::Result<()> {
+    let left_stamp = query_stamp(left)?;
+    let right_stamp = query_stamp(right)?;
+    if left_stamp.volume != right_stamp.volume || left_stamp.file_id != right_stamp.file_id {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "opened Windows artifact no longer matches its directory entry",
+            "opened Windows handles no longer identify the same artifact",
         ));
     }
     Ok(())

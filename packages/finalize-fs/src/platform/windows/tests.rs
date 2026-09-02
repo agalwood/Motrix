@@ -72,9 +72,24 @@ fn copies_and_removes_a_held_directory_without_following_paths() {
 
     let copied = open_artifact(&root, "private-target").expect("open copied artifact");
     remove_opened(&copied, ".motrix-remove", false).expect("remove held copied tree");
-    drop(copied);
     assert!(!scratch.path().join("private-target").exists());
     assert!(!scratch.path().join(".motrix-remove").exists());
+    drop(copied);
+}
+
+#[test]
+fn removes_a_held_file_without_closing_its_admitted_handle() {
+    let scratch = Scratch::new("remove-file");
+    fs::write(scratch.path().join("payload.bin"), b"payload").expect("write payload");
+
+    let root =
+        open_root(scratch.path().to_str().expect("UTF-8 scratch path")).expect("open held root");
+    let payload = open_artifact(&root, "payload.bin").expect("open payload artifact");
+    remove_opened(&payload, ".motrix-remove", false).expect("remove held payload");
+
+    assert!(!scratch.path().join("payload.bin").exists());
+    assert!(!scratch.path().join(".motrix-remove").exists());
+    drop(payload);
 }
 
 #[test]
