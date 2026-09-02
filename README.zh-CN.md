@@ -22,8 +22,8 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 ## 🧪 Beta 测试
 
 Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请从 GitHub Releases
-下载 [v2.0.0-beta.28](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.28)，
-并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.28.zh-CN.md)。
+下载 [v2.0.0-beta.29](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.29)，
+并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.29.zh-CN.md)。
 
 测试前请备份现有 Motrix 数据和下载文件。Motrix v1 数据的迁移路径尚未经过
 验证，请勿让本 beta 使用您唯一一份 v1 数据。条件允许时，建议通过独立的系统
@@ -66,7 +66,7 @@ Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请�
 - 📊 Dashboard 支持自定义布局，可展示传输统计、实时活动和任务磁贴
 - 🔔 下载完成时发送系统通知，应用内也可集中查看通知
 - 🧩 插件采用 QuickJS 沙箱隔离和细粒度能力授权，并可直接从应用内插件市场安装
-- 🌐 Chrome 和 Firefox 扩展可一键将浏览器下载任务交给 Motrix
+- 🌐 Chrome 和 Firefox 上的 [Motrix Extension](https://github.com/motrixapp/motrix-extension) 可一键将浏览器下载任务交给 Motrix
 - ⌨️ 官方命令行客户端 `@motrix/cli` 既适合日常操作，也可供 AI agent 调用
 - 🐳 Headless server 可通过 Docker 部署，远程 CLI 和 agent 可使用 device-code 安全配对
 - 🎬 URL Resolver 插件可解析站点媒体页面，并可扩展对更多站点的支持
@@ -82,7 +82,7 @@ Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请�
 |------|------|------|
 | [`@motrix/mdxp`](https://github.com/motrixapp/mdxp) | npm 包 | 集中定义 MDXP 的 JSON-RPC 2.0 wire schema 和 Zod 类型，并提供双向连接工具，让通信两端使用同一套协议 |
 | [`@motrix/cli`](https://github.com/motrixapp/cli) | npm 包 | 命令行客户端，可执行命令为 `motrix`。它能自动发现并控制本地桌面应用，也能与远程实例配对 |
-| Motrix Browser Extension | 浏览器扩展 | 面向 Chrome 和 Firefox 的 MV3 扩展，可接管浏览器下载任务，并通过 native messaging 与桌面应用安全配对 |
+| [Motrix Extension](https://github.com/motrixapp/motrix-extension) | 浏览器扩展 | 面向 Chrome 和 Firefox 的 MV3 扩展，可接管浏览器下载任务，并通过 native messaging 与桌面应用安全配对 |
 | [Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) | 4 个 npm 包 | 包括 `@motrix/plugin-manifest-schema`、`@motrix/plugin-api`、`@motrix/plugin-cli` 和 `create-motrix-plugin`，提供插件开发、调试和打包所需的工具 |
 | [Builtin Plugins](https://github.com/motrixapp/builtin-plugins) | 已签名的 `.moext` | 官方提供三个内置插件：**Filename Template**（保存文件时按模板自动重命名）、**Page Scraper**（从 HTML 页面提取实际文件链接）和 **URL Resolver**（为站点媒体解析提供基础能力） |
 | Plugin Registry | 公共数据源 | 维护插件列表和安装信息，并生成 `dl.motrix.app/registry/plugins.json`，供官网插件目录和应用内插件市场使用 |
@@ -156,7 +156,7 @@ Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compos
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.28'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.29'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
