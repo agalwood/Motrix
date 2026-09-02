@@ -63,6 +63,12 @@ interface NatAction {
 }
 
 export function NatTile({ viewport, className }: NatTileProps) {
+  return __MOTRIX_TARGET__ === 'electron' ? (
+    <ElectronNatTile viewport={viewport} className={className} />
+  ) : null
+}
+
+function ElectronNatTile({ viewport, className }: NatTileProps) {
   const { t, i18n } = useTranslation()
   const services = usePlatformServices()
   const status = useNatStatus()

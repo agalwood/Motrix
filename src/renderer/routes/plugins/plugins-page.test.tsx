@@ -257,9 +257,9 @@ describe('PluginsPage', () => {
     expect(screen.getByTestId('registry-refresh-btn')).toBeInTheDocument()
   })
 
-  it('hides the registry refresh button on web', () => {
+  it('shows the community registry refresh button on web', () => {
     renderPage('web')
-    expect(screen.queryByTestId('registry-refresh-btn')).toBeNull()
+    expect(screen.getByTestId('registry-refresh-btn')).toBeInTheDocument()
   })
 
   it('marks an installed plugin that has a registry update', () => {

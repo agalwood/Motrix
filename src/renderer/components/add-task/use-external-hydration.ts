@@ -5,6 +5,7 @@ import {
   magnetFileSelectionPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
+  torrentQueueSizeChangedPayloadSchema,
   urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
 import { useEffect } from 'react'
@@ -14,10 +15,21 @@ export interface AddTaskModeHydrationContext {
   refreshDefaultSaveDir: boolean
 }
 
+export interface TorrentQueueState {
+  queuePosition: number
+  queueTotal: number
+}
+
+export type TorrentQueueUpdate =
+  | TorrentQueueState
+  | { queueTotal: number }
+  | null
+
 export function useExternalHydration(
   form: UseFormReturn<AddTaskFormValues>,
   enabled: boolean,
-  onModeHydrated?: (context: AddTaskModeHydrationContext) => void
+  onModeHydrated?: (context: AddTaskModeHydrationContext) => void,
+  onTorrentQueueChanged?: (update: TorrentQueueUpdate) => void
 ) {
   useEffect(() => {
     if (!enabled) return
@@ -25,6 +37,7 @@ export function useExternalHydration(
     const onMagnet = (...args: unknown[]) => {
       const parsed = magnetFileSelectionPayloadSchema.safeParse(args[0])
       if (!parsed.success) return
+      onTorrentQueueChanged?.(null)
       form.reset(
         {
           tab: 'torrent',
@@ -46,6 +59,10 @@ export function useExternalHydration(
     const onProtocol = (...args: unknown[]) => {
       const parsed = protocolTorrentFilePayloadSchema.safeParse(args[0])
       if (!parsed.success) return
+      onTorrentQueueChanged?.({
+        queuePosition: parsed.data.queuePosition,
+        queueTotal: parsed.data.queueTotal,
+      })
       form.reset(
         {
           tab: 'torrent',
@@ -62,6 +79,7 @@ export function useExternalHydration(
     const onSetMode = (...args: unknown[]) => {
       const parsed = setAddTaskModeEventPayloadSchema.safeParse(args[0])
       if (!parsed.success) return
+      onTorrentQueueChanged?.(null)
       const defaults = urlParamsToFormDefaults(parsed.data)
       const refreshDefaultSaveDir =
         defaults.saveDir === undefined && !form.getFieldState('saveDir').isDirty
@@ -77,14 +95,22 @@ export function useExternalHydration(
       onModeHydrated?.({ refreshDefaultSaveDir })
     }
 
+    const onTorrentQueueSizeChanged = (...args: unknown[]) => {
+      const parsed = torrentQueueSizeChangedPayloadSchema.safeParse(args[0])
+      if (!parsed.success) return
+      onTorrentQueueChanged?.(parsed.data)
+    }
+
     transport.on(Events.MagnetFileSelection, onMagnet)
     transport.on(Events.ProtocolTorrentFile, onProtocol)
     transport.on(Events.SetAddTaskMode, onSetMode)
+    transport.on(Events.TorrentQueueSizeChanged, onTorrentQueueSizeChanged)
 
     return () => {
       transport.off(Events.MagnetFileSelection, onMagnet)
       transport.off(Events.ProtocolTorrentFile, onProtocol)
       transport.off(Events.SetAddTaskMode, onSetMode)
+      transport.off(Events.TorrentQueueSizeChanged, onTorrentQueueSizeChanged)
     }
-  }, [form, enabled, onModeHydrated])
+  }, [form, enabled, onModeHydrated, onTorrentQueueChanged])
 }

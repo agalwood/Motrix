@@ -83,12 +83,9 @@ describe('RegistryDetailPanel install affordance', () => {
     expect(screen.getByTestId('registry-install-btn')).toBeDisabled()
   })
 
-  it('renders no Install button on web, keeping the pending copy', () => {
+  it('shows the verified registry Install button on web', () => {
     renderPanel('web', entry())
-    expect(screen.queryByTestId('registry-install-btn')).toBeNull()
-    expect(
-      screen.getByText(/straight from the registry is coming soon/i)
-    ).toBeInTheDocument()
+    expect(screen.getByTestId('registry-install-btn')).toBeEnabled()
   })
 
   it('resolves sparse fields and honors an explicit empty features override', () => {

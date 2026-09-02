@@ -20,6 +20,8 @@ import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatch
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
+import type { RegistryClient } from '@core/plugin/registry/registry-client'
+import { scanForUpdates } from '@core/plugin/registry/update-scan'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import {
   type AppliedDownloadProxyPolicy,
@@ -55,6 +57,7 @@ import { DirectResourceValidatorService } from '@core/task/direct-resource-valid
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { createSetSelectedFilesHandler } from '@core/task/set-selected-files'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
@@ -69,6 +72,8 @@ import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
+import { supportedLocaleSchema } from '@shared/schemas/locale'
+import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { EngineRecoveryAction } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
@@ -97,6 +102,10 @@ export interface ServerCommandContext {
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
+  bridgeControl?: {
+    setEnabled(enabled: boolean): Promise<void>
+    restart(): Promise<void>
+  }
   aria2BinaryPath: string
   finalNamePicker: FinalNamePicker
   torrentMetaStore: TorrentMetaStore
@@ -109,6 +118,8 @@ export interface ServerCommandContext {
   notificationCenter: NotificationCenter
   taskPersistence: Pick<SessionManager, 'runExclusivePersistence'>
   pluginRegistry: PluginRegistry
+  registryClient: RegistryClient
+  hostVersion: string
   pluginStateStore: PluginStateStore
   pluginHost: PluginHost
   pluginInstaller: PluginInstaller
@@ -157,6 +168,7 @@ export function buildServerCommandHandlers(
     bindTaskRetry,
     adapter,
     trackerManager,
+    bridgeControl,
     finalNamePicker,
     torrentMetaStore,
     taskManager,
@@ -168,6 +180,8 @@ export function buildServerCommandHandlers(
     notificationCenter,
     taskPersistence,
     pluginRegistry,
+    registryClient,
+    hostVersion,
     pluginStateStore,
     pluginHost,
     pluginInstaller,
@@ -351,8 +365,18 @@ export function buildServerCommandHandlers(
     action: z.enum(EngineRecoveryAction),
     expectedPid: z.number().int().positive().optional(),
   })
-
   return {
+    [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {
+      const language = supportedLocaleSchema.parse(payload)
+      await settingsManager.setDisclaimerLanguage(language)
+      return { ok: true }
+    },
+
+    [Commands.AcceptDisclaimer]: async () => {
+      await settingsManager.acceptDisclaimer()
+      return { ok: true }
+    },
+
     [Commands.AddMagnetTask]: async (params: {
       uri: string
       selectedFiles: number[]
@@ -613,6 +637,14 @@ export function buildServerCommandHandlers(
       return { ok: true }
     },
 
+    [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
+      taskManager,
+      engine: adapter,
+      db: motrixDatabase,
+      eventBus,
+      runTaskMutation,
+    }),
+
     [Commands.RestartEngine]: async () => {
       await supervisor.restart()
       return { ok: true }
@@ -676,6 +708,15 @@ export function buildServerCommandHandlers(
         await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
       }
 
+      if (
+        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
+      ) {
+        await bridgeControl?.setEnabled(newFull.app.browserBridgeEnabled)
+      }
+      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+        await bridgeControl?.restart()
+      }
+
       if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
         await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
       }
@@ -686,6 +727,13 @@ export function buildServerCommandHandlers(
         await trackerManager.applyBlacklistChange(
           newFull.tracker.blacklistEnabled
         )
+      }
+
+      if (
+        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
+      ) {
+        trackerManager.applySyncScheduleChange()
       }
 
       await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
@@ -816,6 +864,15 @@ export function buildServerCommandHandlers(
       capabilityHost.configFor(parsed.pluginId).applyExternalChange(changes)
 
       return { ok: true }
+    },
+
+    [Commands.CheckPluginUpdates]: async (payload: unknown) => {
+      const parsed = checkPluginUpdatesPayloadSchema.parse(payload)
+      if (parsed?.force) await registryClient.refresh()
+      const entries = await registryClient.list(hostVersion)
+      return scanForUpdates(pluginRegistry.list(), entries).filter(
+        (update) => update.channel === 'community'
+      )
     },
 
     [Commands.InstallPlugin]: async (payload: unknown) => {

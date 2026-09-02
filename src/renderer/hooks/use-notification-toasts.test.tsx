@@ -336,7 +336,7 @@ describe('useNotificationToasts', () => {
         id: 'engine-start-failed',
         title: 'aria2 engine could not start',
         description:
-          "Motrix's RPC port is occupied, so aria2 engine could not start.",
+          'Motrix’s RPC port is occupied, so aria2 engine could not start.',
         type: 'error',
         timeout: 0,
       })

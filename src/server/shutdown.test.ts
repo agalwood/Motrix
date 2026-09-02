@@ -400,25 +400,20 @@ describe('server lifecycle production wiring', () => {
       'utf8'
     )
     const runtimeAccepted = source.indexOf(
-      'bridgeRuntime = candidateBridgeRuntime'
+      'const candidateBridgeRuntime = await bootstrapBridgeForServer('
     )
-    const commandHandlersPublished = source.indexOf(
-      'Object.assign(bridgeCommandHandlers, bridgeRuntime.bridgeCommandHandlers)',
+    const bridgeListeningLog = source.indexOf(
+      "log.info({ port: candidateBridgeRuntime.port }, 'MDXP bridge listening')",
       runtimeAccepted
-    )
-    const queryHandlersPublished = source.indexOf(
-      'Object.assign(bridgeQueryHandlers, bridgeRuntime.bridgeQueryHandlers)',
-      commandHandlersPublished
     )
     const pairingAddressLog = source.indexOf(
       'logRemoteExtensionPairingReady(log, remoteExtensionConfig)',
-      queryHandlersPublished
+      bridgeListeningLog
     )
 
     expect(runtimeAccepted).toBeGreaterThan(-1)
-    expect(commandHandlersPublished).toBeGreaterThan(runtimeAccepted)
-    expect(queryHandlersPublished).toBeGreaterThan(commandHandlersPublished)
-    expect(pairingAddressLog).toBeGreaterThan(queryHandlersPublished)
+    expect(bridgeListeningLog).toBeGreaterThan(runtimeAccepted)
+    expect(pairingAddressLog).toBeGreaterThan(bridgeListeningLog)
   })
 
   it('wires TrackerManager stopAndDrain into production shutdown', () => {

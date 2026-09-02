@@ -135,31 +135,32 @@ export function TaskInspectorDrawer({
                   </span>
                 </div>
 
-                {canRevealTaskFolder(single) && (
-                  <div className="min-w-0 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Button
-                      className="min-w-0 flex-1 justify-start overflow-hidden text-muted-foreground hover:no-underline cursor-pointer"
-                      variant="secondary"
-                      size="xs"
-                      dir="ltr"
-                      onClick={() =>
-                        transport.invoke(Commands.RevealInFolder, {
-                          taskId: single.id,
-                        })
-                      }
-                    >
-                      <HardDrive className="mr-1 size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate">
-                        {single.finalPath || single.diskPath}
-                      </span>
-                    </Button>
-                    <CopyButton
-                      variant="ghost"
-                      className="ml-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
-                      content={single.finalPath || single.diskPath}
-                    />
-                  </div>
-                )}
+                {__MOTRIX_TARGET__ === 'electron' &&
+                  canRevealTaskFolder(single) && (
+                    <div className="min-w-0 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Button
+                        className="min-w-0 flex-1 justify-start overflow-hidden text-muted-foreground hover:no-underline cursor-pointer"
+                        variant="secondary"
+                        size="xs"
+                        dir="ltr"
+                        onClick={() =>
+                          transport.invoke(Commands.RevealInFolder, {
+                            taskId: single.id,
+                          })
+                        }
+                      >
+                        <HardDrive className="mr-1 size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">
+                          {single.finalPath || single.diskPath}
+                        </span>
+                      </Button>
+                      <CopyButton
+                        variant="ghost"
+                        className="ml-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
+                        content={single.finalPath || single.diskPath}
+                      />
+                    </div>
+                  )}
               </div>
               <StatusPill status={single.status} />
             </div>

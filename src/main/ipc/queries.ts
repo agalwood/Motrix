@@ -1,8 +1,8 @@
 import path from 'node:path'
 import type { TaskActivityService } from '@core/activity'
-import { recommend } from '@core/engine/aria2/aria2-tuning'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
+import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
@@ -16,7 +16,6 @@ import {
   readPluginConfig,
 } from '@core/plugin/queries'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
-import { probePrecise } from '@core/probe/disk-probe'
 import { parseElectronProxyChain } from '@core/proxy/system-proxy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SettingsManager } from '@core/settings/settings-manager'
@@ -43,7 +42,6 @@ import { Queries } from '@shared/protocol/queries'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
-import type { TuningContext } from '@shared/types/tuning'
 import { ipcMain, session } from 'electron'
 import type { CliToolService } from '../cli/cli-tool-service'
 import type { UpdateManager } from '../core/update-manager'
@@ -226,21 +224,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetNatDiagnostic]: async () =>
       natManager.getStatus().lastDiagnostic,
 
-    [Queries.GetTuningRecommendation]: async (params: {
-      downloadPath: string
-      totalSizeBytes?: number
-      protocol?: string
-      isMultiFile?: boolean
-    }) => {
-      const probe = await probePrecise(params.downloadPath)
-      const context: TuningContext = {
-        downloadPath: params.downloadPath,
-        totalSizeBytes: params.totalSizeBytes ?? null,
-        protocol: (params.protocol as TuningContext['protocol']) ?? 'http',
-        isMultiFile: params.isMultiFile ?? null,
-      }
-      return recommend(probe, context)
-    },
+    [Queries.GetTuningRecommendation]: getTuningRecommendation,
 
     [Queries.GetTrackerList]: async () => {
       return trackerManager.getCuratedList()

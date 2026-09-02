@@ -1,4 +1,5 @@
 import type { EventBus } from '@core/events/event-bus'
+import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import fastifyStatic from '@fastify/static'
 import websocket from '@fastify/websocket'
 import {
@@ -6,6 +7,7 @@ import {
   makeProtocolFailure,
   makeProtocolSuccess,
 } from '@shared/protocol/errors'
+import { Events } from '@shared/protocol/events'
 import type {
   CommandHandlerMap,
   Handler,
@@ -16,6 +18,9 @@ import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspect
 import Fastify, { type FastifyInstance } from 'fastify'
 import { bindEventBroadcaster } from './events'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
+import { ServiceUnavailableError } from './service-unavailable-error'
+
+export const RPC_BODY_LIMIT_BYTES = 2 * 1024 * 1024
 
 export interface AppOptions {
   commandHandlers?: CommandHandlerMap
@@ -35,6 +40,7 @@ export interface AppOptions {
   bridgeCommandHandlers?: Record<string, Handler>
   bridgeQueryHandlers?: Record<string, Handler>
   eventBus?: EventBus
+  pluginLogSource?: Pick<CapabilityHost, 'subscribeLog'>
   rendererDir?: string
   healthCheck?: () => { ok: boolean } | Promise<{ ok: boolean }>
 }
@@ -42,7 +48,10 @@ export interface AppOptions {
 export async function createApp(
   opts: AppOptions = {}
 ): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false })
+  const app = Fastify({
+    logger: false,
+    bodyLimit: RPC_BODY_LIMIT_BYTES,
+  })
   // Register the deny-by-default operator gate FIRST so its onRequest hook runs
   // before every route (including /api/* added by the caller post-createApp and
   // the /rpc/events WS upgrade).
@@ -68,7 +77,9 @@ export async function createApp(
         return await handler(...(req.body?.args ?? []))
       } catch (err) {
         req.log.error({ err }, 'command handler failed')
-        return reply.code(500).send({ error: (err as Error).message })
+        return reply
+          .code(err instanceof ServiceUnavailableError ? 503 : 500)
+          .send({ error: (err as Error).message })
       }
     }
   )
@@ -99,13 +110,23 @@ export async function createApp(
         if (usesSharedEnvelope) {
           return reply.code(200).send(makeProtocolFailure(err))
         }
-        return reply.code(500).send({ error: (err as Error).message })
+        return reply
+          .code(err instanceof ServiceUnavailableError ? 503 : 500)
+          .send({ error: (err as Error).message })
       }
     }
   )
 
   if (opts.eventBus) {
     const broadcaster = bindEventBroadcaster(opts.eventBus)
+    const unsubscribePluginLogs = opts.pluginLogSource?.subscribeLog(
+      (pluginId, entry) => {
+        broadcaster.broadcast(`${Events.PluginLog}:${pluginId}`, [entry])
+      }
+    )
+    if (unsubscribePluginLogs) {
+      app.addHook('onClose', async () => unsubscribePluginLogs())
+    }
     await app.register(websocket)
     app.get('/rpc/events', { websocket: true }, (socket) => {
       broadcaster.register(socket)

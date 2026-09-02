@@ -1,5 +1,7 @@
+import { Commands } from '@shared/protocol/commands'
 import { describe, expect, it } from 'vitest'
-import { createApp } from './app'
+import { createApp, RPC_BODY_LIMIT_BYTES } from './app'
+import { ServiceUnavailableError } from './service-unavailable-error'
 
 describe('createApp', () => {
   it('responds to GET /healthz', async () => {
@@ -25,6 +27,48 @@ describe('createApp', () => {
       status: 'degraded',
       engine: { state: 'failed' },
     })
+    await app.close()
+  })
+
+  it('maps a registered but unavailable service handler to 503', async () => {
+    const app = await createApp({
+      bridgeQueryHandlers: {
+        'bridge:getStatus': async () => {
+          throw new ServiceUnavailableError('Bridge is unavailable')
+        },
+      },
+    })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/rpc/query/bridge:getStatus',
+      payload: { args: [] },
+    })
+
+    expect(res.statusCode).toBe(503)
+    expect(res.json()).toEqual({ error: 'Bridge is unavailable' })
+    await app.close()
+  })
+
+  it('accepts RPC bodies above Fastify default and rejects bodies above 2 MiB', async () => {
+    const app = await createApp({
+      commandHandlers: {
+        [Commands.CreateTask]: async (value: string) => value.length,
+      },
+    })
+    const accepted = await app.inject({
+      method: 'POST',
+      url: `/rpc/command/${Commands.CreateTask}`,
+      payload: { args: ['x'.repeat(1024 * 1024)] },
+    })
+    const rejected = await app.inject({
+      method: 'POST',
+      url: `/rpc/command/${Commands.CreateTask}`,
+      payload: { args: ['x'.repeat(RPC_BODY_LIMIT_BYTES)] },
+    })
+
+    expect(accepted.statusCode).toBe(200)
+    expect(accepted.json()).toBe(1024 * 1024)
+    expect(rejected.statusCode).toBe(413)
     await app.close()
   })
 })

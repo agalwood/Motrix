@@ -6,6 +6,7 @@ import type { TorrentParser } from '@core/torrent/torrent-parser'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
+import type { TorrentMeta } from '@shared/types/torrent'
 import type { BrowserWindow } from 'electron'
 import { app } from 'electron'
 
@@ -42,9 +43,12 @@ export interface ProtocolRegistrationResult {
   magnetMatchesSetting: boolean | null
 }
 
-interface TorrentPayload {
-  name: string
-  dataBase64: string
+interface QueuedTorrent {
+  payload: {
+    name: string
+    dataBase64: string
+  }
+  meta: TorrentMeta
 }
 
 const RESOURCE_PREFIXES = ['magnet:', 'http:', 'https:', 'ftp:']
@@ -66,22 +70,92 @@ function uriToAddTaskParams(url: string): AddTaskUrlParams | null {
 
 export function createProtocolManager(deps: ProtocolManagerDeps) {
   const log = getLogger('protocol')
-  const torrentQueue: TorrentPayload[] = []
+  const torrentQueue: QueuedTorrent[] = []
   let dialogActive = false
   let totalSent = 0
+  let torrentIngress = Promise.resolve()
+  let pendingIngestions = 0
+  let queueGeneration = 0
+  let currentTorrentDelivered = false
+  let lastReportedQueueTotal = 0
+
+  function getKnownQueueTotal(currentIngestion = false) {
+    const alreadyRemoved = currentTorrentDelivered ? totalSent - 1 : totalSent
+    const notYetQueued = Math.max(
+      0,
+      pendingIngestions - (currentIngestion ? 1 : 0)
+    )
+    return alreadyRemoved + torrentQueue.length + notYetQueued
+  }
 
   function sendNextTorrentToRenderer() {
     if (torrentQueue.length === 0) {
       dialogActive = false
-      return
+      currentTorrentDelivered = false
+      lastReportedQueueTotal = 0
+      return false
     }
     dialogActive = true
     totalSent++
+    currentTorrentDelivered = true
+    const torrent = torrentQueue[0]
+    const queueTotal = getKnownQueueTotal()
+    lastReportedQueueTotal = queueTotal
     deps.deliverToAddTask(Events.ProtocolTorrentFile, {
-      payload: torrentQueue[0],
+      payload: torrent.payload,
+      meta: torrent.meta,
       queuePosition: totalSent,
-      queueTotal: totalSent + torrentQueue.length - 1,
+      queueTotal,
     })
+    return true
+  }
+
+  async function ingestTorrentFile(filePath: string, generation: number) {
+    log.info({ filePath }, 'torrent file received')
+
+    try {
+      const data = await readFile(filePath)
+      const dataBase64 = data.toString('base64')
+      const meta = await deps.torrentParser.parse(dataBase64)
+      if (generation !== queueGeneration) return
+
+      const torrent: QueuedTorrent = {
+        payload: {
+          name: basename(filePath),
+          dataBase64,
+        },
+        meta,
+      }
+
+      torrentQueue.push(torrent)
+
+      if (!dialogActive) {
+        totalSent = 0
+        dialogActive = true
+        totalSent++
+        currentTorrentDelivered = true
+        const queueTotal = getKnownQueueTotal(true)
+        lastReportedQueueTotal = queueTotal
+        log.info(
+          { name: torrent.payload.name, infoHash: meta.infoHash },
+          'delivering torrent to add-task'
+        )
+        deps.deliverToAddTask(Events.ProtocolTorrentFile, {
+          payload: torrent.payload,
+          meta,
+          queuePosition: totalSent,
+          queueTotal,
+        })
+      } else {
+        const queueTotal = getKnownQueueTotal(true)
+        lastReportedQueueTotal = queueTotal
+        deps.deliverToAddTask(Events.TorrentQueueSizeChanged, {
+          queueTotal,
+        })
+      }
+    } catch (err) {
+      log.warn({ err, filePath }, 'failed to read/parse torrent file')
+    }
   }
 
   return {
@@ -178,60 +252,63 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
       log.warn({ url }, 'unrecognized protocol url')
     },
 
-    async handleTorrentFile(filePath: string) {
-      if (extname(filePath).toLowerCase() !== '.torrent') return
-
-      log.info({ filePath }, 'torrent file received')
-
-      try {
-        const data = await readFile(filePath)
-        const dataBase64 = data.toString('base64')
-        const meta = await deps.torrentParser.parse(dataBase64)
-
-        const payload: TorrentPayload = {
-          name: basename(filePath),
-          dataBase64,
-        }
-
-        torrentQueue.push(payload)
-
-        if (!dialogActive) {
-          totalSent = 0
-          dialogActive = true
-          totalSent++
-          log.info(
-            { name: payload.name, infoHash: meta.infoHash },
-            'delivering torrent to add-task'
-          )
-          deps.deliverToAddTask(Events.ProtocolTorrentFile, {
-            payload,
-            meta,
-            queuePosition: totalSent,
-            queueTotal: totalSent + torrentQueue.length - 1,
-          })
-        } else {
-          deps.deliverToAddTask(Events.TorrentQueueSizeChanged, {
-            queueTotal: totalSent + torrentQueue.length - 1,
-          })
-        }
-      } catch (err) {
-        log.warn({ err, filePath }, 'failed to read/parse torrent file')
+    handleTorrentFile(filePath: string) {
+      if (extname(filePath).toLowerCase() !== '.torrent') {
+        return Promise.resolve()
       }
+
+      // Windows/Linux can pass several associated files in one argv. Keep
+      // parsing serial so the review queue follows the user's file order even
+      // when individual reads/parses complete at different speeds.
+      const generation = queueGeneration
+      pendingIngestions += 1
+      const result = torrentIngress
+        .then(() => ingestTorrentFile(filePath, generation))
+        .finally(() => {
+          pendingIngestions -= 1
+          if (
+            generation === queueGeneration &&
+            dialogActive &&
+            currentTorrentDelivered
+          ) {
+            const queueTotal = getKnownQueueTotal()
+            if (queueTotal > 0 && queueTotal !== lastReportedQueueTotal) {
+              lastReportedQueueTotal = queueTotal
+              deps.deliverToAddTask(Events.TorrentQueueSizeChanged, {
+                queueTotal,
+              })
+            }
+          }
+        })
+      torrentIngress = result.catch(() => undefined)
+      return result
     },
 
     nextTorrent() {
       torrentQueue.shift()
-      sendNextTorrentToRenderer()
+      currentTorrentDelivered = false
+      if (torrentQueue.length === 0 && pendingIngestions > 0) {
+        return torrentIngress.then(() => sendNextTorrentToRenderer())
+      }
+      return sendNextTorrentToRenderer()
     },
 
     downloadAllTorrents() {
-      log.info(
-        { count: torrentQueue.length },
-        'downloading all remaining torrents'
-      )
-      torrentQueue.length = 0
-      dialogActive = false
-      totalSent = 0
+      const takeAll = () => {
+        const torrents = torrentQueue.splice(0)
+        log.info(
+          { count: torrents.length },
+          'taking all remaining torrents for batch creation'
+        )
+        dialogActive = false
+        currentTorrentDelivered = false
+        lastReportedQueueTotal = 0
+        totalSent = 0
+        return torrents
+      }
+      return pendingIngestions > 0
+        ? torrentIngress.then(() => takeAll())
+        : takeAll()
     },
 
     // Called by main/index.ts when the add-task window is closed/destroyed.
@@ -247,7 +324,10 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
       )
       torrentQueue.length = 0
       dialogActive = false
+      currentTorrentDelivered = false
+      lastReportedQueueTotal = 0
       totalSent = 0
+      queueGeneration += 1
     },
 
     getTorrentQueueSize() {

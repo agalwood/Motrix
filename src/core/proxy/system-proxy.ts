@@ -1,8 +1,6 @@
-export interface SystemProxyResult {
-  protocol: 'http' | 'https' | 'socks5'
-  host: string
-  port: number
-}
+import type { SystemProxyResult } from '@shared/types/system-proxy'
+
+export type { SystemProxyResult } from '@shared/types/system-proxy'
 
 /**
  * Parses Electron `session.resolveProxy(url)` output.
@@ -37,4 +35,70 @@ export function parseElectronProxyChain(s: string): SystemProxyResult | null {
     return { protocol, host, port }
   }
   return null
+}
+
+const PROXY_ENVIRONMENT_KEYS = [
+  'HTTPS_PROXY',
+  'https_proxy',
+  'HTTP_PROXY',
+  'http_proxy',
+  'ALL_PROXY',
+  'all_proxy',
+] as const
+
+function decodeUrlCredential(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+/** Parses the conventional proxy variables inherited by a Server process. */
+export function parseProxyEnvironment(
+  environment: Readonly<Record<string, string | undefined>>
+): SystemProxyResult | null {
+  const raw = PROXY_ENVIRONMENT_KEYS.map((key) =>
+    environment[key]?.trim()
+  ).find((value): value is string => Boolean(value))
+  if (!raw) return null
+
+  let url: URL
+  try {
+    url = new URL(raw.includes('://') ? raw : `http://${raw}`)
+  } catch {
+    return null
+  }
+  const protocol =
+    url.protocol === 'http:'
+      ? 'http'
+      : url.protocol === 'https:'
+        ? 'https'
+        : ['socks:', 'socks5:', 'socks5h:'].includes(url.protocol)
+          ? 'socks5'
+          : null
+  if (!protocol || !url.hostname) return null
+  const defaultPort =
+    protocol === 'http' ? 80 : protocol === 'https' ? 443 : 1080
+  const port = url.port ? Number.parseInt(url.port, 10) : defaultPort
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) return null
+
+  const rawBypass =
+    environment.NO_PROXY?.trim() || environment.no_proxy?.trim() || ''
+  const bypass = rawBypass
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .slice(0, 64)
+  const user = decodeUrlCredential(url.username)
+  const password = decodeUrlCredential(url.password)
+
+  return {
+    protocol,
+    host: url.hostname,
+    port,
+    ...(user ? { user } : {}),
+    ...(password ? { password } : {}),
+    ...(bypass.length > 0 ? { bypass } : {}),
+  }
 }

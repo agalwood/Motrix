@@ -30,7 +30,8 @@ function extractUrlFromArgv(argv: string[]): string | undefined {
   return undefined
 }
 
-function extractFileFromArgv(argv: string[]): string | undefined {
+function extractFilesFromArgv(argv: string[]): string[] {
+  const files: string[] = []
   for (let i = 1; i < argv.length; i++) {
     let arg = argv[i]
     if (arg.startsWith('--')) continue
@@ -38,10 +39,10 @@ function extractFileFromArgv(argv: string[]): string | undefined {
       arg = arg.replace(/^file:\/\//, '')
     }
     if (arg.toLowerCase().endsWith('.torrent')) {
-      return arg
+      files.push(arg)
     }
   }
-  return undefined
+  return files
 }
 
 export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
@@ -103,8 +104,9 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
     const url = extractUrlFromArgv(process.argv)
     if (url) dispatchUrl(url)
 
-    const file = extractFileFromArgv(process.argv)
-    if (file) dispatchFile(file)
+    for (const file of extractFilesFromArgv(process.argv)) {
+      dispatchFile(file)
+    }
   }
 
   // second-instance (Windows/Linux: second launch passes argv)
@@ -119,8 +121,9 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
         return
       }
 
-      const file = extractFileFromArgv(argv)
-      if (file) dispatchFile(file)
+      for (const file of extractFilesFromArgv(argv)) {
+        dispatchFile(file)
+      }
     }
   })
 

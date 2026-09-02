@@ -191,7 +191,7 @@ describe('toast', () => {
       expect(onDeny).not.toHaveBeenCalled()
 
       await userEvent.click(
-        screen.getByRole('button', { name: "Don't allow", hidden: true })
+        screen.getByRole('button', { name: 'Don’t allow', hidden: true })
       )
       expect(onDeny).toHaveBeenCalledOnce()
     })

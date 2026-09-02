@@ -3,6 +3,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
+import {
+  acquireBridgeDataDirLock,
+  type BridgeDataDirLockHandle,
+  type BridgeDataDirLockRecoveryAuthority,
+} from '@core/bridge/bridge-data-dir-lock'
+import { createExtensionIdentityResolver } from '@core/bridge/extension-identity-resolver'
+import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
+import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
@@ -104,7 +112,6 @@ import {
 } from '@core/tracker'
 import { resolveSupportedLocale } from '@shared/constants/locales'
 import { Events } from '@shared/protocol/events'
-import type { Handler } from '@shared/protocol/handler-types'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
@@ -115,6 +122,10 @@ import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
 } from './bridge/bootstrap'
+import {
+  ServerBridgeManager,
+  type ServerBridgeRuntimeFactory,
+} from './bridge/manager'
 import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
 import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
@@ -932,6 +943,32 @@ async function main() {
     log: getLogger('dns-fallback'),
   })
 
+  const bridgeDataDir = path.join(platform.userDataDir, 'bridge')
+  const bridgeIdentityResolver = createExtensionIdentityResolver({
+    environment: 'production',
+    developmentEntries: [],
+  })
+  const trustedExtensionRegistry = new TrustedExtensionRegistry(
+    new FileRegistryStoreAdapter(path.join(bridgeDataDir, 'registry.json')),
+    [...bridgeIdentityResolver.officialEntries]
+  )
+  let bridgeRegistryReady = false
+  let bridgeProcessDataDirLock: BridgeDataDirLockHandle | null = null
+  let bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority | null =
+    null
+  let bridgeOwnershipSetup: Promise<void> = Promise.resolve()
+  let bridgeRuntimeFactory: ServerBridgeRuntimeFactory | null = null
+  const bridgeManager = new ServerBridgeManager(
+    trustedExtensionRegistry,
+    async () => {
+      if (bridgeRuntimeFactory === null) {
+        throw new Error('Bridge runtime factory is not ready')
+      }
+      return bridgeRuntimeFactory()
+    },
+    () => bridgeRegistryReady
+  )
+
   // ─── HTTP App ─────────────────────────────────────────────────
   const commandHandlers = buildServerCommandHandlers({
     supervisor,
@@ -944,6 +981,7 @@ async function main() {
     rpcClient,
     adapter,
     trackerManager,
+    bridgeControl: bridgeManager,
     aria2BinaryPath: platform.aria2BinaryPath,
     finalNamePicker,
     torrentMetaStore,
@@ -956,6 +994,8 @@ async function main() {
     notificationCenter,
     taskPersistence: sessionManager,
     pluginRegistry,
+    registryClient,
+    hostVersion,
     pluginStateStore,
     pluginHost,
     pluginInstaller,
@@ -995,8 +1035,10 @@ async function main() {
     geoipManager: activeGeoipManager,
     trackerManager,
     engineAdapter: adapter,
+    motrixDatabase: db,
     notificationCenter,
     pluginRegistry,
+    capabilityHost: pluginCapHost,
     pluginGrants,
     registryClient,
     pluginsDir,
@@ -1004,17 +1046,12 @@ async function main() {
     userDataDir: platform.userDataDir,
     speedLimitController,
     downloadPathPolicy,
+    environment: process.env,
   })
 
   const rendererDir =
     process.env.MOTRIX_RENDERER_DIR ??
     path.resolve(serverDir, '..', 'renderer-web')
-
-  // bridge:* RPC handlers are populated AFTER the (non-fatal, later) bridge
-  // bootstrap; createApp captures these by reference, so a post-hoc Object.assign
-  // makes the routes see them.
-  const bridgeCommandHandlers: Record<string, Handler> = {}
-  const bridgeQueryHandlers: Record<string, Handler> = {}
 
   // Operator (control-plane) secret — provisioned INDEPENDENTLY of the
   // (non-fatal) MDXP bridge so a bridge bootstrap failure can never lock the web
@@ -1032,9 +1069,10 @@ async function main() {
   const app = await createApp({
     commandHandlers,
     queryHandlers,
-    bridgeCommandHandlers,
-    bridgeQueryHandlers,
+    bridgeCommandHandlers: bridgeManager.bridgeCommandHandlers,
+    bridgeQueryHandlers: bridgeManager.bridgeQueryHandlers,
     eventBus,
+    pluginLogSource: pluginCapHost,
     rendererDir,
     operatorAuth: {
       operatorToken: operator.token,
@@ -1114,8 +1152,14 @@ async function main() {
 
   // Startup itself is tracked below so a signal cannot race past cleanup and
   // publish a resource after its corresponding shutdown step has already run.
-  let bridgeRuntime: ServerBridgeRuntime | null = null
-  shutdownActions.closeBridge = () => bridgeRuntime?.shutdown()
+  shutdownActions.closeBridge = async () => {
+    await bridgeOwnershipSetup
+    await bridgeManager.shutdown()
+    bridgeRegistryReady = false
+    const dataDirLock = bridgeProcessDataDirLock
+    bridgeProcessDataDirLock = null
+    await dataDirLock?.release()
+  }
 
   const startServer = async (): Promise<void> => {
     await activeGeoipManager.start()
@@ -1451,11 +1495,58 @@ async function main() {
     const serverUrl = `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
+    bridgeOwnershipSetup = (async () => {
+      bridgeDataDirLockRecoveryAuthority =
+        await establishServerProcessOwnershipAuthority({
+          userDataDir: platform.userDataDir,
+          port,
+          assertControlPlaneOwnership: () => {
+            if (!app.server.listening) return false
+            const address = app.server.address()
+            return (
+              typeof address === 'object' &&
+              address !== null &&
+              address.port === port
+            )
+          },
+        })
+      const dataDirLock = await acquireBridgeDataDirLock(bridgeDataDir, {
+        recoverExisting: bridgeDataDirLockRecoveryAuthority,
+      })
+      if (!shellAsyncWork.isAccepting()) {
+        await dataDirLock.release()
+        return
+      }
+      bridgeProcessDataDirLock = dataDirLock
+      try {
+        await trustedExtensionRegistry.load()
+      } catch (error) {
+        bridgeProcessDataDirLock = null
+        await dataDirLock.release()
+        throw error
+      }
+      if (!shellAsyncWork.isAccepting()) {
+        bridgeProcessDataDirLock = null
+        await dataDirLock.release()
+        return
+      }
+      bridgeRegistryReady = true
+    })().catch((err) => {
+      log.error(
+        { err },
+        'bridge data ownership unavailable — trusted registry and MDXP bridge disabled'
+      )
+    })
+    await bridgeOwnershipSetup
+    if (!shellAsyncWork.isAccepting()) return
+
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port
     // (default loopback:16801), separate from the Fastify web/RPC server above.
     // Non-fatal: a bind failure (e.g. port in use) must not take down the web UI.
-    try {
+    // The manager keeps every bridge:* RPC registered while this factory owns
+    // only the optional listener/runtime portion.
+    bridgeRuntimeFactory = async (): Promise<ServerBridgeRuntime> => {
       const removeTaskDeps = {
         taskManager,
         adapter,
@@ -1546,12 +1637,15 @@ async function main() {
         },
         directResourceProxyPolicy: appliedDownloadProxyPolicy,
       }
-      const mdxpPort = parseServerPort(
-        process.env.MOTRIX_MDXP_PORT,
-        'MOTRIX_MDXP_PORT',
-        16801,
-        { allowZero: true }
-      )
+      const configuredMdxpPort = process.env.MOTRIX_MDXP_PORT?.trim()
+      const fixedPort = settingsManager.get().bridge.fixedPort
+      const mdxpPort = configuredMdxpPort
+        ? parseServerPort(configuredMdxpPort, 'MOTRIX_MDXP_PORT', 16801, {
+            allowZero: true,
+          })
+        : fixedPort === 'auto'
+          ? 16801
+          : fixedPort
       const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
       const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
       if (remoteExtensionConfig.status === 'invalid') {
@@ -1576,28 +1670,25 @@ async function main() {
           'non-loopback MDXP bind has no usable MOTRIX_PUBLIC_URL; remote clients may not receive a usable approval URL'
         )
       }
-      const bridgeDataDirLockRecoveryAuthority =
-        await establishServerProcessOwnershipAuthority({
-          userDataDir: platform.userDataDir,
-          port,
-          assertControlPlaneOwnership: () => {
-            if (!app.server.listening) return false
-            const address = app.server.address()
-            return (
-              typeof address === 'object' &&
-              address !== null &&
-              address.port === port
-            )
-          },
-        })
+      const dataDirLock = bridgeProcessDataDirLock
+      if (
+        dataDirLock === null ||
+        bridgeDataDirLockRecoveryAuthority === null ||
+        !bridgeRegistryReady
+      ) {
+        throw new Error('Bridge data ownership is unavailable')
+      }
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,
+        fixedPort,
         motrixVersion: appVersion,
         eventBus,
         bridgeDataDirLockRecoveryAuthority,
+        bridgeDataDirLock: dataDirLock,
         remoteExtensionConfig,
+        trustedExtensionRegistry,
         createExtensionReceiver: ({ dataDir, bridgeBus }) =>
           new BridgeReceiver({
             dataDir,
@@ -1671,15 +1762,17 @@ async function main() {
       })
       if (!shellAsyncWork.isAccepting()) {
         await candidateBridgeRuntime.shutdown()
-        return
+        throw new Error('Bridge startup cancelled during Server shutdown')
       }
-      bridgeRuntime = candidateBridgeRuntime
-      // Make the bridge:* RPC handlers reachable through the already-listening
-      // Fastify routes (createApp captured the maps by reference).
-      Object.assign(bridgeCommandHandlers, bridgeRuntime.bridgeCommandHandlers)
-      Object.assign(bridgeQueryHandlers, bridgeRuntime.bridgeQueryHandlers)
-      log.info({ port: bridgeRuntime.port }, 'MDXP bridge listening')
+      log.info({ port: candidateBridgeRuntime.port }, 'MDXP bridge listening')
       logRemoteExtensionPairingReady(log, remoteExtensionConfig)
+      return candidateBridgeRuntime
+    }
+
+    try {
+      await bridgeManager.setEnabled(
+        settingsManager.getApp().browserBridgeEnabled
+      )
     } catch (err) {
       log.error({ err }, 'MDXP bridge bootstrap failed — continuing without it')
     }

@@ -1,8 +1,9 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { readTorrentFile } from '@renderer/lib/parse-torrent-file'
 import type { PlatformServices } from '@renderer/platform/services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { Events } from '@shared/protocol/events'
@@ -16,6 +17,10 @@ vi.mock('@renderer/lib/transport', () => ({
   },
 }))
 
+vi.mock('@renderer/lib/parse-torrent-file', () => ({
+  readTorrentFile: vi.fn(),
+}))
+
 const mockServices: PlatformServices = {
   kind: 'electron',
   pickSaveDir: vi.fn().mockResolvedValue('/picked'),
@@ -25,9 +30,9 @@ const mockServices: PlatformServices = {
   notify: vi.fn(),
 }
 
-function renderForm(props = {}) {
+function renderForm(props = {}, services: PlatformServices = mockServices) {
   return render(
-    <PlatformServicesProvider services={mockServices}>
+    <PlatformServicesProvider services={services}>
       <AddTaskForm
         onCancel={vi.fn()}
         onSubmitSuccess={vi.fn()}
@@ -316,6 +321,201 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
     expect(mockServices.notify).toHaveBeenCalledWith('info', 'task.add.created')
+  })
+
+  it('parses and creates a local multi-torrent batch without shell RPCs', async () => {
+    const onSubmitSuccess = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(readTorrentFile).mockImplementation(async (file) => {
+      const isAlpha = file.name.startsWith('alpha')
+      return {
+        name: file.name,
+        base64: isAlpha ? 'YWxwaGE=' : 'YmV0YQ==',
+        meta: {
+          name: isAlpha ? 'alpha.bin' : 'beta.bin',
+          infoHash: isAlpha ? 'a'.repeat(40) : 'b'.repeat(40),
+          totalSize: 1,
+          comment: '',
+          isPrivate: false,
+          files: [
+            {
+              index: 0,
+              path: isAlpha ? 'alpha.bin' : 'beta.bin',
+              size: 1,
+              extension: 'bin',
+            },
+          ],
+        },
+      }
+    })
+    vi.mocked(transport.invoke).mockImplementation(async (channel, request) => {
+      if (channel === 'query:getSettings') {
+        return { app: { defaultSaveDir: '/d' } }
+      }
+      if (channel === 'command:createTask') {
+        const base64 = (request as { payload?: { base64?: string } }).payload
+          ?.base64
+        return {
+          outcome: 'created',
+          gid: base64 === 'YWxwaGE=' ? 'alpha-gid' : 'beta-gid',
+          taskId: base64 === 'YWxwaGE=' ? 'alpha-task' : 'beta-task',
+        }
+      }
+      return {}
+    })
+    const webServices = { ...mockServices, kind: 'web' as const }
+    const { container } = renderForm(
+      {
+        onSubmitSuccess,
+        defaultValues: { tab: 'torrent', saveDir: '/d' },
+      },
+      webServices
+    )
+    const input =
+      container.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(input).toHaveAttribute('multiple')
+
+    fireEvent.change(input as HTMLInputElement, {
+      target: {
+        files: [
+          new File(['alpha'], 'alpha.torrent'),
+          new File(['beta'], 'beta.torrent'),
+        ],
+      },
+    })
+
+    expect(await screen.findByText('Torrent 1 of 2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Download All (2)' }))
+
+    await waitFor(() =>
+      expect(onSubmitSuccess).toHaveBeenCalledWith('alpha-task')
+    )
+    expect(transport.invoke).toHaveBeenCalledWith(
+      'command:createTask',
+      expect.objectContaining({
+        payload: { kind: 'torrent-base64', base64: 'YWxwaGE=' },
+      })
+    )
+    expect(transport.invoke).toHaveBeenCalledWith(
+      'command:createTask',
+      expect.objectContaining({
+        payload: { kind: 'torrent-base64', base64: 'YmV0YQ==' },
+      })
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      'command:downloadAllTorrents'
+    )
+  })
+
+  it('passes the current torrent form options to the App batch command', async () => {
+    const onSubmitSuccess = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === 'query:getSettings') {
+        return { app: { defaultSaveDir: '/default' } }
+      }
+      if (channel === 'command:downloadAllTorrents') {
+        return {
+          total: 2,
+          succeeded: 2,
+          failed: 0,
+          firstTaskId: 'first-task',
+        }
+      }
+      return {}
+    })
+    renderForm({
+      subscribeEvents: true,
+      onSubmitSuccess,
+      defaultValues: {
+        tab: 'torrent',
+        source: 'file',
+        base64: 'dG9ycmVudA==',
+        torrentMeta: {
+          name: 'current.bin',
+          infoHash: 'a'.repeat(40),
+          totalSize: 2,
+          files: [
+            { index: 0, path: 'skip.bin', size: 1, extension: '.bin' },
+            { index: 1, path: 'keep.bin', size: 1, extension: '.bin' },
+          ],
+        },
+        selectedFiles: [1],
+        saveDir: '/custom',
+        dlLimit: 2048,
+        ulLimit: 1024,
+        seedRatio: 1.5,
+      },
+    })
+
+    const queueListener = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([channel]) => channel === Events.TorrentQueueSizeChanged
+      )?.[1]
+    act(() => queueListener?.({ queueTotal: 2 }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Download All (2)' })
+    )
+
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'command:downloadAllTorrents',
+        {
+          selectedFiles: [1],
+          saveDir: '/custom',
+          dlLimit: 2048,
+          ulLimit: 1024,
+          seedRatio: 1.5,
+        }
+      )
+    )
+    expect(onSubmitSuccess).toHaveBeenCalledWith('first-task')
+  })
+
+  it('closes an external queue when the shell reports no valid next torrent', async () => {
+    const onCancel = vi.fn()
+    const user = userEvent.setup()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === 'query:getSettings') {
+        return { app: { defaultSaveDir: '/default' } }
+      }
+      if (channel === 'command:nextTorrent') return { advanced: false }
+      return {}
+    })
+    renderForm({
+      subscribeEvents: true,
+      onCancel,
+      defaultValues: {
+        tab: 'torrent',
+        source: 'file',
+        base64: 'dG9ycmVudA==',
+        torrentMeta: {
+          name: 'current.bin',
+          infoHash: 'a'.repeat(40),
+          totalSize: 1,
+          files: [
+            { index: 0, path: 'current.bin', size: 1, extension: '.bin' },
+          ],
+        },
+        selectedFiles: [0],
+        saveDir: '/custom',
+      },
+    })
+
+    const queueListener = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([channel]) => channel === Events.TorrentQueueSizeChanged
+      )?.[1]
+    act(() => queueListener?.({ queueTotal: 2 }))
+    await user.click(await screen.findByRole('button', { name: 'Skip' }))
+
+    await waitFor(() => expect(onCancel).toHaveBeenCalledOnce())
+    expect(screen.queryByText('Torrent 1 of 2')).not.toBeInTheDocument()
   })
 
   it('reports a partial failure when some lines fail', async () => {

@@ -10,6 +10,7 @@ import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatch
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
+import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { MotrixDatabase } from '@core/session/motrix-database'
@@ -75,7 +76,12 @@ function makeFakeCtx() {
     trackerManager: {
       applySourcesChange: vi.fn().mockResolvedValue(undefined),
       applyBlacklistChange: vi.fn().mockResolvedValue(undefined),
+      applySyncScheduleChange: vi.fn(),
     } as unknown as TrackerManager,
+    bridgeControl: {
+      setEnabled: vi.fn().mockResolvedValue(undefined),
+      restart: vi.fn().mockResolvedValue(undefined),
+    },
     aria2BinaryPath: '/usr/bin/aria2c',
     finalNamePicker: {} as FinalNamePicker,
     torrentMetaStore: {} as TorrentMetaStore,
@@ -106,7 +112,13 @@ function makeFakeCtx() {
     },
     pluginRegistry: {
       refreshState: vi.fn(),
+      list: vi.fn(() => []),
     } as unknown as PluginRegistry,
+    registryClient: {
+      refresh: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn().mockResolvedValue([]),
+    } as unknown as RegistryClient,
+    hostVersion: '2.0',
     pluginStateStore: {
       setEnabled: vi.fn(),
       get: vi.fn().mockReturnValue(undefined),
@@ -161,19 +173,29 @@ function makeFakeCtx() {
 
 function makeSettings(
   proxy: typeof PROXY_OFF,
-  tracker: { sourcesEnabled?: boolean; blacklistEnabled?: boolean } = {},
+  tracker: {
+    sourcesEnabled?: boolean
+    blacklistEnabled?: boolean
+    autoSync?: boolean
+    syncIntervalHours?: number
+  } = {},
   engine: { dnsMode?: 'auto' | 'system' | 'engine'; split?: number } = {},
-  app: { defaultSaveDir?: string } = {}
+  app: { defaultSaveDir?: string; browserBridgeEnabled?: boolean } = {},
+  bridge: { fixedPort?: 'auto' | number } = {}
 ) {
   return {
     app: {
       defaultSaveDir: '/downloads',
+      browserBridgeEnabled: true,
       ...app,
     },
+    bridge: { fixedPort: 'auto' as const, ...bridge },
     proxy,
     tracker: {
       sourcesEnabled: true,
       blacklistEnabled: true,
+      autoSync: true,
+      syncIntervalHours: 24,
       ...tracker,
     },
     engine: {
@@ -403,6 +425,49 @@ describe('server Commands.UpdateSettings', () => {
     )
   })
 
+  it('hot-applies the browser bridge master switch', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, {}, {}, { browserBridgeEnabled: true })
+      )
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, {}, {}, { browserBridgeEnabled: false })
+      )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({
+      app: { browserBridgeEnabled: false },
+    })
+
+    expect(ctx.bridgeControl.setEnabled).toHaveBeenCalledExactlyOnceWith(false)
+    expect(ctx.bridgeControl.restart).not.toHaveBeenCalled()
+  })
+
+  it('restarts an enabled bridge when its fixed port changes', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(makeSettings(PROXY_OFF))
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, {}, {}, {}, { fixedPort: 18080 })
+      )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({ bridge: { fixedPort: 18080 } })
+
+    expect(ctx.bridgeControl.restart).toHaveBeenCalledOnce()
+  })
+
   it('hot-applies async-dns and resets the fallback latch when dnsMode changes', async () => {
     const ctx = makeFakeCtx()
     ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
@@ -583,6 +648,30 @@ describe('server Commands.UpdateSettings', () => {
     await handlers[Commands.UpdateSettings]?.({})
     expect(ctx.trackerManager.applySourcesChange).not.toHaveBeenCalled()
     expect(ctx.trackerManager.applyBlacklistChange).not.toHaveBeenCalled()
+    expect(ctx.trackerManager.applySyncScheduleChange).not.toHaveBeenCalled()
+  })
+
+  it('re-arms tracker auto-sync when its enablement or interval changes', async () => {
+    const ctx = makeFakeCtx()
+    ;(ctx.settingsManager.get as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, { autoSync: true, syncIntervalHours: 24 })
+      )
+      .mockReturnValueOnce(
+        makeSettings(PROXY_OFF, { autoSync: false, syncIntervalHours: 12 })
+      )
+    ;(ctx.settingsManager.update as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { ok: true, requiresRestart: false, changedRestartKeys: [] }
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+
+    await handlers[Commands.UpdateSettings]?.({
+      tracker: { autoSync: false, syncIntervalHours: 12 },
+    })
+
+    expect(ctx.trackerManager.applySyncScheduleChange).toHaveBeenCalledOnce()
   })
 
   it('validates a default save directory before persisting settings', async () => {

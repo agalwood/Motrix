@@ -264,12 +264,10 @@ describe('PluginDetailPage', () => {
     expect(mockInvoke).toHaveBeenCalledWith(Commands.CheckPluginUpdates, {})
   })
 
-  it('does not scan for plugin updates on the web platform', () => {
-    // CheckPluginUpdates has no server-side handler; the electron gate must
-    // hold on the detail page exactly as it does on PluginsPage.
+  it('scans for community plugin updates on the web platform', () => {
     renderAt('/plugins/test.demo', 'web')
 
-    expect(mockInvoke).not.toHaveBeenCalledWith(Commands.CheckPluginUpdates, {})
+    expect(mockInvoke).toHaveBeenCalledWith(Commands.CheckPluginUpdates, {})
   })
 
   it('offers a manual check that forces a registry rescan', async () => {
@@ -285,10 +283,10 @@ describe('PluginDetailPage', () => {
     )
   })
 
-  it('does not render the manual check button on the web platform', () => {
+  it('renders the manual community check button on the web platform', () => {
     renderAt('/plugins/test.demo', 'web')
 
-    expect(screen.queryByTestId('plugin-detail-refresh-btn')).toBeNull()
+    expect(screen.getByTestId('plugin-detail-refresh-btn')).toBeInTheDocument()
   })
 
   it('renders the update button once the scan populates the updates map', () => {

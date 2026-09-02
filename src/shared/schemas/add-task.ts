@@ -157,6 +157,31 @@ export type TaskCreateCommandResult =
       conflict: TorrentDuplicateConflict
     }
 
+export interface TorrentBatchCreateResult {
+  total: number
+  succeeded: number
+  failed: number
+  firstTaskId: string | null
+}
+
+export const torrentBatchCreateOptionsSchema = z.object({
+  selectedFiles: z
+    .array(z.number().int().nonnegative())
+    .min(1, { message: 'task.add.errors.noFilesSelected' }),
+  saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
+  dlLimit: z.number().int().nonnegative().optional(),
+  ulLimit: z.number().int().nonnegative().optional(),
+  seedRatio: z.number().nonnegative().optional(),
+})
+
+export type TorrentBatchCreateOptions = z.infer<
+  typeof torrentBatchCreateOptionsSchema
+>
+
+export interface TorrentQueueAdvanceResult {
+  advanced: boolean
+}
+
 // ── URL params ──────────────────────────────────────────────
 
 export const addTaskUrlParamsSchema = z.object({
@@ -191,6 +216,12 @@ export const magnetFileSelectionPayloadSchema = z.object({
 export const protocolTorrentFilePayloadSchema = z.object({
   payload: z.object({ name: z.string(), dataBase64: z.string() }),
   meta: torrentMetaSchema,
+  queuePosition: z.number().int().positive().default(1),
+  queueTotal: z.number().int().positive().default(1),
+})
+
+export const torrentQueueSizeChangedPayloadSchema = z.object({
+  queueTotal: z.number().int().positive(),
 })
 
 // ── Pure helpers ────────────────────────────────────────────

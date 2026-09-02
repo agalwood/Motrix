@@ -142,7 +142,7 @@ function fakeCtx() {
       resetDialogState: vi.fn(),
       register: vi.fn(),
       nextTorrent: vi.fn(),
-      downloadAllTorrents: vi.fn(),
+      downloadAllTorrents: vi.fn(() => []),
     },
     windowManager: {
       open: vi.fn(),
@@ -790,7 +790,13 @@ describe('buildCommandHandlers', () => {
       handlers[Commands.ConfirmPortSwitch]?.(16801)
     ).resolves.toEqual({ ok: true })
     await handlers[Commands.NextTorrent]?.()
-    await handlers[Commands.DownloadAllTorrents]?.()
+    await handlers[Commands.DownloadAllTorrents]?.({
+      selectedFiles: [0],
+      saveDir: '/tmp',
+      dlLimit: 1024,
+      ulLimit: 512,
+      seedRatio: 1.5,
+    })
     await handlers[Commands.ShowMainWindow]?.()
     await handlers[Commands.CheckForUpdates]?.()
     await handlers[Commands.DownloadUpdate]?.()
@@ -814,6 +820,71 @@ describe('buildCommandHandlers', () => {
     expect(ctx.contextStore.merge).toHaveBeenCalledWith({
       currentRoute: '/downloads',
     })
+  })
+
+  it('applies the current form options when creating an App torrent batch', async () => {
+    const ctx = fakeCtx()
+    ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
+      {
+        payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+        meta: {
+          name: 'first.bin',
+          files: [
+            { index: 0, path: 'skip.bin' },
+            { index: 1, path: 'keep.bin' },
+          ],
+        },
+      },
+      {
+        payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+        meta: {
+          name: 'second.bin',
+          files: [
+            { index: 0, path: 'one.bin' },
+            { index: 1, path: 'two.bin' },
+          ],
+        },
+      },
+    ] as never)
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+
+    await expect(
+      handlers[Commands.DownloadAllTorrents]?.({
+        selectedFiles: [1],
+        saveDir: '/tmp/batch',
+        dlLimit: 2048,
+        ulLimit: 1024,
+        seedRatio: 1.5,
+      })
+    ).resolves.toEqual({
+      total: 2,
+      succeeded: 2,
+      failed: 0,
+      firstTaskId: expect.any(String),
+    })
+    expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+      1,
+      'Zmlyc3Q=',
+      [],
+      expect.objectContaining({
+        'select-file': '2',
+        'max-download-limit': '2048K',
+        'max-upload-limit': '1024K',
+        'seed-ratio': '1.5',
+      })
+    )
+    expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+      2,
+      'c2Vjb25k',
+      [],
+      expect.objectContaining({
+        'select-file': '1,2',
+        'max-download-limit': '2048K',
+        'max-upload-limit': '1024K',
+        'seed-ratio': '1.5',
+      })
+    )
   })
 
   it('rejects menu-context updates from auxiliary windows', async () => {
