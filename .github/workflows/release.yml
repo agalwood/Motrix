@@ -492,22 +492,26 @@ jobs:
             "${root}/THIRD_PARTY_NOTICES.md"
             "${root}/THIRD_PARTY_NOTICES.zh-CN.md"
             "${root}/THIRD_PARTY_LICENSES/"
-            "${root}/THIRD_PARTY_LICENSES/MPL-2.0"
-            "${root}/THIRD_PARTY_LICENSES/aria2-COPYING"
-            "${root}/THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL"
-            "${root}/THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE"
-            "${root}/THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"
-            "${root}/THIRD_PARTY_LICENSES/rust-humantime-LICENSE-MIT"
-            "${root}/THIRD_PARTY_LICENSES/rust-memchr-COPYING"
-            "${root}/THIRD_PARTY_LICENSES/rust-memchr-LICENSE-MIT"
-            "${root}/THIRD_PARTY_LICENSES/rust-memchr-UNLICENSE"
-            "${root}/THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE"
-            "${root}/THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT"
+          )
+          while IFS= read -r -d '' source_license; do
+            relative="${source_license#THIRD_PARTY_LICENSES/}"
+            if [[ -d "$source_license" ]]; then
+              expected+=("${root}/THIRD_PARTY_LICENSES/${relative}/")
+            elif [[ -f "$source_license" ]]; then
+              expected+=("${root}/THIRD_PARTY_LICENSES/${relative}")
+            else
+              echo "Unexpected third-party license entry: $source_license" >&2
+              exit 1
+            fi
+          done < <(
+            find THIRD_PARTY_LICENSES -mindepth 1 -print0 |
+              LC_ALL=C sort -z
           )
           mapfile -t actual < <(tar -tzf "$archive")
-          if [[ "${actual[*]}" != "${expected[*]}" ]]; then
+          if ! diff -u \
+            <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort) \
+            <(printf '%s\n' "${actual[@]}" | LC_ALL=C sort); then
             echo "Unexpected Flatpak companion archive contents" >&2
-            printf '  %s\n' "${actual[@]}" >&2
             exit 1
           fi
 

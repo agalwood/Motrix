@@ -1458,6 +1458,14 @@ describe('release workflow publication contract', () => {
     expect(verificationCommand).toContain('tar -tzf "$archive"')
     expect(verificationCommand).toContain('motrix-flatpak-native-host')
     expect(verificationCommand).toContain('README.zh-CN.md')
+    expect(verificationCommand).toContain(
+      'find THIRD_PARTY_LICENSES -mindepth 1 -print0'
+    )
+    expect(verificationCommand).toContain('LC_ALL=C sort -z')
+    expect(verificationCommand).toContain('diff -u')
+    expect(verificationCommand).not.toContain(
+      'THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE'
+    )
 
     const uploadInputs = asRecord(upload?.with, 'release input upload')
     expect(stringField(uploadInputs, 'path')).toContain('release/*.tar.gz')
