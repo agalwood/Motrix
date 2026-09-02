@@ -1593,7 +1593,7 @@
           "untrustedTitle": "FFmpeg 已被 macOS 阻止",
           "usingSource": "当前使用 {{source}}",
           "unavailableDesc": "请设置自定义路径、安装 FFmpeg，或将它加入 PATH 后刷新。",
-          "untrustedDesc": "文件存在，但未通过 macOS 安全验证。请安装可信版本，或在“隐私与安全性”中批准后刷新。",
+          "untrustedDesc": "文件存在，但未通过 macOS 安全验证。请安装可信版本，或在「隐私与安全性」中批准后刷新。",
           "showDetails": "显示检测详情",
           "hideDetails": "隐藏检测详情",
           "sourcesChecked_other": "已检查 {{count}} 个来源",
