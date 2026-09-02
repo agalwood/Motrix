@@ -526,6 +526,28 @@ describe('ActivationDispatcher', () => {
       })
       expect(host.activate).toHaveBeenCalledWith('url-scoped')
     })
+
+    it('activates wildcard-scoped plugins for nested download paths', async () => {
+      const manifest = makeManifest('nested-path', {
+        activationEvents: ['onTaskType:http'],
+        hostPermissions: ['*://*/*'],
+      })
+      const state: MockHostState = { activeIds: [], meta: [] }
+      const host = makeMockHost(state)
+      const registry = makeMockRegistry([{ manifest }])
+      const dispatcher = new ActivationDispatcher(
+        registry as never,
+        host as never
+      )
+
+      await dispatcher.dispatch({
+        kind: 'taskAdded',
+        taskType: 'http',
+        url: 'https://example.com/releases/v2/archive/file.zip',
+      })
+
+      expect(host.activate).toHaveBeenCalledWith('nested-path')
+    })
   })
 
   describe('AppError typing', () => {

@@ -1,4 +1,3 @@
-import path from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -14,8 +13,7 @@ import type { NotificationCenter } from '@core/notifications/notification-center
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
-import { HookAuditLog } from '@core/plugin/hooks/audit-log'
-import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { PluginHookRuntime } from '@core/plugin/hooks/hook-runtime'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
@@ -126,9 +124,8 @@ export interface ServerCommandContext {
   pluginInstallService: ServerPluginInstallService
   pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
-  userDataDir: string
-  pluginsDir: string
   pluginActivation: ActivationDispatcher
+  pluginHooks: PluginHookRuntime
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
   persistTask?: NonNullable<TaskActionDeps['persistTask']>
@@ -188,9 +185,8 @@ export function buildServerCommandHandlers(
     pluginInstallService,
     pluginGrants,
     capabilityHost,
-    userDataDir,
-    pluginsDir,
     pluginActivation,
+    pluginHooks,
     magnetTracker,
     activityRecorder,
     persistTask: injectedPersistTask,
@@ -221,22 +217,6 @@ export function buildServerCommandHandlers(
       await persistParent()
     })
 
-  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
-  // once and feed them into createDeps so handleCreateTask's beforeCreate
-  // chain fires. Without this, every plugin's beforeCreate hook is silently
-  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
-  const hookAuditLog = new HookAuditLog(
-    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
-  )
-  const hookOrchestrator = new HookOrchestrator({
-    host: pluginHost,
-    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
-    pluginsDir,
-    pluginStorageRootFor: (pluginId) =>
-      path.join(pluginsDir, pluginId, 'storage'),
-    auditLog: hookAuditLog,
-  })
-
   const createDeps: CreateTaskDeps = {
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
@@ -249,8 +229,8 @@ export function buildServerCommandHandlers(
     eventBus,
     publishTaskUpdate,
     activityRecorder,
-    orchestrator: hookOrchestrator,
-    auditLog: hookAuditLog,
+    orchestrator: pluginHooks.orchestrator,
+    auditLog: pluginHooks.auditLog,
     db: motrixDatabase.database,
     persistTask,
     parentTaskCreated,

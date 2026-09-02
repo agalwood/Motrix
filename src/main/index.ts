@@ -42,6 +42,10 @@ import { NotificationCenter } from '@core/notifications/notification-center'
 import { createNotificationOccurrenceConsumer } from '@core/notifications/occurrence-consumer'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
 import { GrantsManager } from '@core/plugin/grants/grants-manager'
+import {
+  createPluginHookRuntime,
+  type PluginHookRuntime,
+} from '@core/plugin/hooks/hook-runtime'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
   PluginHost,
@@ -69,7 +73,10 @@ import {
   reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
-import { finalizeTask } from '@core/task/actions/finalize-task'
+import {
+  type FinalizeTaskDeps,
+  finalizeTask,
+} from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { countActiveDownloads } from '@core/task/active-downloads'
@@ -996,7 +1003,10 @@ function getFinalizeSettings(): {
   }
 }
 
-function buildFinalizeDeps(adapter: Aria2Adapter) {
+function buildFinalizeDeps(
+  adapter: Aria2Adapter,
+  pluginHooks: PluginHookRuntime
+): FinalizeTaskDeps {
   const activityRecorder = requireTaskActivityService()
   return {
     taskManager: {
@@ -1027,6 +1037,9 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
     settings: { get: getFinalizeSettings },
     eventBus,
     activityRecorder,
+    orchestrator: pluginHooks.orchestrator,
+    auditLog: pluginHooks.auditLog,
+    db: motrixDb.database,
     recordTransition: (input: RuntimeTransitionInput) =>
       taskInspectorActivityRuntime?.recordTransition(input),
     runTaskMutation: <T>(
@@ -1053,7 +1066,8 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
 // already acked to the extension points at a task that no longer exists.
 async function startEngineAndRestore(
   sessionSaveInterval: number,
-  adapter: Aria2Adapter
+  adapter: Aria2Adapter,
+  pluginHooks: PluginHookRuntime
 ) {
   log.info({ binaryPath: platform.aria2BinaryPath }, 'resolved aria2 binary')
 
@@ -1166,7 +1180,7 @@ async function startEngineAndRestore(
     // action (rename, reseed, adopt, mark completed/error) so the
     // renderer observes a self-healed state as soon as updates start
     // flowing. See design spec §6.6.
-    const finalizeDepsFactory = () => buildFinalizeDeps(adapter)
+    const finalizeDepsFactory = () => buildFinalizeDeps(adapter, pluginHooks)
     const recoveryService = new TaskRecoveryServiceImpl({
       taskManager: {
         getAll: () => taskManager.getAll(),
@@ -1713,6 +1727,11 @@ async function initializeMainProcess(): Promise<void> {
     ),
   })
   pluginHost = activePluginHost
+  const pluginHooks = createPluginHookRuntime({
+    host: activePluginHost,
+    pluginsDir,
+    userDataDir: platform.userDataDir,
+  })
   // Spec §I30 — real-time grant revocation. On a grants change, deactivate
   // the plugin so the next activation rebuilds its bridge with the new
   // effective permissions. Existing in-flight calls finish; new ones see
@@ -2390,8 +2409,8 @@ async function initializeMainProcess(): Promise<void> {
     pluginGrants,
     capabilityHost: pluginCapHost,
     userDataDir: platform.userDataDir,
-    pluginsDir,
     pluginActivation,
+    pluginHooks,
     // biome-ignore lint/style/noNonNullAssertion: assigned just above in this block
     bridgeManager: bridgeManager!,
     magnetTracker: activeMagnetTracker,
@@ -2497,7 +2516,11 @@ async function initializeMainProcess(): Promise<void> {
       // aria2 route. This prevents a late non-Ready apply result from
       // overwriting the Ready snapshot.
       await proxyReady
-      return startEngineAndRestore(engineSettings.sessionSaveInterval, adapter)
+      return startEngineAndRestore(
+        engineSettings.sessionSaveInterval,
+        adapter,
+        pluginHooks
+      )
     })
     .catch((err) => {
       log.error({ err }, 'engine start/restore failed')

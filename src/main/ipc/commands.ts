@@ -14,8 +14,7 @@ import { publishEngineRestartRequired } from '@core/notifications/engine-restart
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
-import { HookAuditLog } from '@core/plugin/hooks/audit-log'
-import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { PluginHookRuntime } from '@core/plugin/hooks/hook-runtime'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import {
@@ -190,8 +189,8 @@ export interface CommandContext {
   pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
   userDataDir: string
-  pluginsDir: string
   pluginActivation: ActivationDispatcher
+  pluginHooks: PluginHookRuntime
   bridgeManager: BridgeManager
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
@@ -277,8 +276,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     pluginGrants,
     capabilityHost,
     userDataDir,
-    pluginsDir,
     pluginActivation,
+    pluginHooks,
     bridgeManager,
     activityRecorder,
     persistTask,
@@ -292,22 +291,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     publishTaskUpdateNow,
   } = ctx
 
-  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
-  // once and feed them into createDeps so handleCreateTask's beforeCreate
-  // chain fires. Without this, every plugin's beforeCreate hook is silently
-  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
-  const hookAuditLog = new HookAuditLog(
-    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
-  )
-  const hookOrchestrator = new HookOrchestrator({
-    host: pluginHost,
-    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
-    pluginsDir,
-    pluginStorageRootFor: (pluginId) =>
-      path.join(pluginsDir, pluginId, 'storage'),
-    auditLog: hookAuditLog,
-  })
-
   const createDeps: CreateTaskDeps = {
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
@@ -320,8 +303,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     eventBus,
     publishTaskUpdate,
     activityRecorder,
-    orchestrator: hookOrchestrator,
-    auditLog: hookAuditLog,
+    orchestrator: pluginHooks.orchestrator,
+    auditLog: pluginHooks.auditLog,
     db: motrixDatabase.database,
     persistTask,
     parentTaskCreated,

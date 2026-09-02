@@ -53,6 +53,7 @@ import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
 import { GrantsManager } from '@core/plugin/grants/grants-manager'
+import { createPluginHookRuntime } from '@core/plugin/hooks/hook-runtime'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
   PluginHost,
@@ -79,7 +80,10 @@ import {
   reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
-import { finalizeTask } from '@core/task/actions/finalize-task'
+import {
+  type FinalizeTaskDeps,
+  finalizeTask,
+} from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { handleCreateTask } from '@core/task/create-task-handler'
@@ -538,6 +542,11 @@ async function main() {
     idleDisposeMs: parsePluginIdleDisposeMs(
       process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
     ),
+  })
+  const pluginHooks = createPluginHookRuntime({
+    host: pluginHost,
+    pluginsDir,
+    userDataDir: platform.userDataDir,
   })
   shutdownActions.drainPluginHost = () => pluginHost.shutdown()
   eventBus.on(Events.PluginGrantsChanged, (...args: unknown[]) => {
@@ -1002,9 +1011,8 @@ async function main() {
     pluginInstallService,
     pluginGrants,
     capabilityHost: pluginCapHost,
-    userDataDir: platform.userDataDir,
-    pluginsDir,
     pluginActivation,
+    pluginHooks,
     magnetTracker,
     activityRecorder: taskActivityService,
     persistTask,
@@ -1263,7 +1271,7 @@ async function main() {
     // are honored on every reseed (per-finalize, not memoized). Units
     // match aria2's RPC contract: `seedTime` is minutes, `seedRatio` is
     // a unit-less share ratio.
-    const buildFinalizeDeps = () => ({
+    const buildFinalizeDeps = (): FinalizeTaskDeps => ({
       taskManager: {
         getById: (id: string) => taskManager.getById(id),
         getAll: () => taskManager.getAll(),
@@ -1305,6 +1313,9 @@ async function main() {
       },
       eventBus,
       activityRecorder: taskActivityService,
+      orchestrator: pluginHooks.orchestrator,
+      auditLog: pluginHooks.auditLog,
+      db: db.database,
       recordTransition: (input: RuntimeTransitionInput) =>
         taskInspectorActivityRuntime.recordTransition(input),
       runTaskMutation: <T>(

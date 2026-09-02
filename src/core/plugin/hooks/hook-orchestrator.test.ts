@@ -97,7 +97,11 @@ function makeMockWorker(): Worker {
 }
 
 interface MockHostExtras {
-  invocations: Array<{ pluginId: string; hook: string }>
+  invocations: Array<{
+    pluginId: string
+    hook: string
+    ctxPayload?: Record<string, unknown>
+  }>
 }
 
 function makeMockHost(plugins: FixturePlugin[]): {
@@ -121,7 +125,11 @@ function makeMockHost(plugins: FixturePlugin[]): {
   const host: Partial<PluginHost> = {
     allActive: () => active,
     invokeHook: async (id, hook, args) => {
-      extras.invocations.push({ pluginId: id, hook })
+      extras.invocations.push({
+        pluginId: id,
+        hook,
+        ctxPayload: args.ctxPayload,
+      })
       const plugin = plugins.find((p) => p.id === id)
       const bridge = bridges.get(id)
       if (!plugin || !bridge) return
@@ -492,6 +500,39 @@ describe('HookOrchestrator', () => {
   })
 
   describe('runBeforeFinalize', () => {
+    it('passes the full hook DTO into the plugin worker', async () => {
+      const task = { id: 'task-1', saveDir: '/downloads' } as never
+      const initial = makeBeforeFinalizeDto({
+        sourceUrl: 'https://example.com/archive.zip',
+        createdBy: 'protocol',
+        requestedAt: 1_700_000_000_123,
+        task,
+        filePath: '/downloads/archive.zip',
+      })
+      const { host, extras } = makeMockHost([
+        {
+          id: 'plugin-post',
+          role: 'post-process',
+          hooks: ['beforeFinalize'],
+        },
+      ])
+      const orch = new HookOrchestrator({
+        host,
+        hookTimeoutMs: TIMEOUTS,
+        ...ORCH_OPTS_BASE,
+      })
+
+      await orch.runBeforeFinalize(initial, 'task-1')
+
+      expect(extras.invocations[0]?.ctxPayload).toEqual({
+        sourceUrl: initial.sourceUrl,
+        createdBy: initial.createdBy,
+        requestedAt: initial.requestedAt,
+        task,
+        filePath: initial.filePath,
+      })
+    })
+
     it('the last set finalize path wins and propagates through finalFilePath', async () => {
       const { host } = makeMockHost([
         {
