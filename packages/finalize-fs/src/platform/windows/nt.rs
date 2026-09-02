@@ -16,7 +16,8 @@ use windows_sys::Wdk::Storage::FileSystem::{
     NtCreateFile, NtFlushBuffersFile, NtSetInformationFile,
 };
 use windows_sys::Win32::Foundation::{
-    HANDLE, OBJ_CASE_INSENSITIVE, OBJ_DONT_REPARSE, RtlNtStatusToDosError, UNICODE_STRING,
+    ERROR_DIRECTORY, HANDLE, OBJ_CASE_INSENSITIVE, OBJ_DONT_REPARSE, RtlNtStatusToDosError,
+    UNICODE_STRING,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateFileW, DELETE, FILE_ACCESS_RIGHTS, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL,
@@ -31,8 +32,6 @@ const SHARE_ALL: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
 const SHARE_HELD_ARTIFACT: u32 = FILE_SHARE_READ | FILE_SHARE_DELETE;
 const OPEN_COMMON: u32 =
     FILE_OPEN_REPARSE_POINT | FILE_OPEN_FOR_BACKUP_INTENT | FILE_SYNCHRONOUS_IO_NONALERT;
-const SOURCE_ACCESS: FILE_ACCESS_RIGHTS =
-    FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_TRAVERSE | DELETE | SYNCHRONIZE;
 const TRAVERSAL_ACCESS: FILE_ACCESS_RIGHTS =
     FILE_LIST_DIRECTORY | FILE_TRAVERSE | FILE_READ_ATTRIBUTES | SYNCHRONIZE;
 // NtFlushBuffersFile requires write or append access. Held roots and mutable
@@ -45,6 +44,12 @@ const MUTABLE_DIRECTORY_ACCESS: FILE_ACCESS_RIGHTS = FILE_LIST_DIRECTORY
     | FILE_READ_ATTRIBUTES
     | FILE_WRITE_ATTRIBUTES
     | SYNCHRONIZE;
+const SOURCE_FILE_ACCESS: FILE_ACCESS_RIGHTS =
+    FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_TRAVERSE | DELETE | SYNCHRONIZE;
+// Held directories must be flushable during verified recursive removal. The
+// write aliases grant directory metadata access without granting file-content
+// writes, while DELETE remains required for handle-based rename and removal.
+const SOURCE_DIRECTORY_ACCESS: FILE_ACCESS_RIGHTS = MUTABLE_DIRECTORY_ACCESS | DELETE;
 const TARGET_FILE_ACCESS: FILE_ACCESS_RIGHTS = FILE_READ_DATA
     | FILE_WRITE_DATA
     | FILE_READ_ATTRIBUTES
@@ -141,14 +146,25 @@ pub(super) fn open_anchor(path: &Path, mutable: bool) -> io::Result<OwnedHandle>
 }
 
 pub(super) fn open_existing(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
-    nt_create(
+    match nt_create(
         parent,
         name,
-        SOURCE_ACCESS,
+        SOURCE_DIRECTORY_ACCESS,
         SHARE_HELD_ARTIFACT,
         FILE_OPEN,
-        OPEN_COMMON,
-    )
+        OPEN_COMMON | FILE_DIRECTORY_FILE,
+    ) {
+        Ok(handle) => Ok(handle),
+        Err(error) if error.raw_os_error() == Some(ERROR_DIRECTORY as i32) => nt_create(
+            parent,
+            name,
+            SOURCE_FILE_ACCESS,
+            SHARE_HELD_ARTIFACT,
+            FILE_OPEN,
+            OPEN_COMMON | FILE_NON_DIRECTORY_FILE,
+        ),
+        Err(error) => Err(error),
+    }
 }
 
 pub(super) fn open_existing_directory(
