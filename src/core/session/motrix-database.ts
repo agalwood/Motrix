@@ -1,5 +1,17 @@
 import { createHash, randomUUID } from 'node:crypto'
+import path from 'node:path'
 import { getLogger } from '@core/logger'
+import { ensureMetadataSchema } from '@core/plugin/capabilities/metadata'
+import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
+import {
+  admitPostDeliveries,
+  type PostDeliveryAdmissionSummary,
+} from '@core/plugin/post/delivery-retention'
+import {
+  DEFAULT_POST_DELIVERY_QUOTA_CONFIG,
+  type PostDeliveryAdmission,
+  type PostDeliveryQuotaConfig,
+} from '@core/plugin/post/delivery-types'
 import { DownloadErrorCode } from '@shared/errors'
 import {
   type TaskErrorFields,
@@ -26,6 +38,7 @@ import type BetterSqlite3 from 'better-sqlite3'
 import Database from 'better-sqlite3'
 import { z } from 'zod'
 import { migrate } from './migrations'
+import { SqlitePostDeliveryRepository } from './post-delivery-repository'
 
 const log = getLogger('MotrixDatabase')
 
@@ -188,6 +201,30 @@ export interface TaskWithInstancesAndFiles extends TaskWithInstances {
  *  `MotrixDatabase.applyDiagnosisUpgradeRow`. */
 export type DiagnosisUpgradeRowOutcome = 'updated' | 'unchanged' | 'conflict'
 
+export interface TerminalHookFinalizeJournalUpdate {
+  journalId: string
+  taskId: string
+  targetIdentity: unknown
+  updatedAt: number
+}
+
+/**
+ * Complete durable graph for one terminal Hook boundary. Candidate rows are
+ * already snapshotted and DTO-validated under the registry generation lease.
+ */
+export interface TerminalHookCommitInput {
+  payload: TaskWithInstances
+  files?: readonly TaskFileRow[]
+  occurrence: TaskOccurrence | null
+  fileRebase?: { sourceRoot: string; targetRoot: string }
+  metadataOps?: readonly StagedMetadataOp[]
+  finalizeJournal?: TerminalHookFinalizeJournalUpdate
+  postDeliveries?: readonly PostDeliveryAdmission[]
+  postQuota?: PostDeliveryQuotaConfig
+  /** Synchronous registry-generation revalidation at the write boundary. */
+  beforeCommit?: () => void
+}
+
 export class MotrixDatabase {
   private db: BetterSqlite3.Database
   // Content signature (task + instances) of the last row this process wrote
@@ -198,6 +235,7 @@ export class MotrixDatabase {
   // every out-of-band writer (deleteTask / replaceInstances / deleteInstance)
   // keeps it fail-safe: a stale-or-missing entry forces a write, never a skip.
   private readonly lastPersistedSig = new Map<string, string>()
+  private postDeliveryRepository?: SqlitePostDeliveryRepository
   // ── task-level statements ─────────────────────────────
   private stmtUpsertTask!: BetterSqlite3.Statement
   private stmtGetAllTasks!: BetterSqlite3.Statement
@@ -251,7 +289,18 @@ export class MotrixDatabase {
 
   init(): void {
     migrate(this.db)
+    ensureMetadataSchema(this.db)
     this.prepareStatements()
+    this.postDeliveryRepository = new SqlitePostDeliveryRepository(this.db)
+  }
+
+  get durablePostDeliveries(): SqlitePostDeliveryRepository {
+    if (!this.postDeliveryRepository) {
+      throw new Error(
+        'MotrixDatabase.init() must run before plugin delivery access'
+      )
+    }
+    return this.postDeliveryRepository
   }
 
   private prepareStatements(): void {
@@ -515,6 +564,28 @@ export class MotrixDatabase {
   }
 
   /**
+   * Persist a newly-created task graph and every metadata mutation staged by
+   * beforeCreate as one SQLite commit. The task row must be written first so
+   * plugin_task_metadata's task foreign key is satisfied, while any metadata
+   * validation/quota failure rolls the complete create intent back.
+   */
+  persistTaskWithPluginMetadata(
+    payload: TaskWithInstances,
+    operations: readonly StagedMetadataOp[]
+  ): void {
+    const signature = this.rowSignature(payload)
+    this.db.transaction(() => {
+      this.writeRow(payload)
+      this.applyStagedMetadata(
+        payload.task.motrixId,
+        operations,
+        payload.task.updatedAt
+      )
+    })()
+    this.lastPersistedSig.set(payload.task.motrixId, signature)
+  }
+
+  /**
    * Replace a task's complete durable graph in one SQLite transaction.
    *
    * The magnet MetadataReady -> BT swap cannot expose a new parent/instance
@@ -712,6 +783,202 @@ export class MotrixDatabase {
         this.rowSignature(payload)
       )
     })()
+  }
+
+  /**
+   * H12/H20 terminal commit boundary. The final task graph, rebased task
+   * files, staged per-plugin metadata, finalize journal phase, terminal
+   * occurrence, and every post-Hook admission/tombstone are one SQLite
+   * transaction. Nothing from a failed commit is externally durable.
+   */
+  commitTerminalHookBoundary(
+    input: TerminalHookCommitInput
+  ): PostDeliveryAdmissionSummary {
+    const deliveries = input.postDeliveries ?? []
+    const quota = input.postQuota ?? DEFAULT_POST_DELIVERY_QUOTA_CONFIG
+    const signature = this.rowSignature(input.payload)
+    const summary = this.db.transaction(() => {
+      if (deliveries.length > 0 && !input.occurrence) {
+        throw new Error('post deliveries require a durable occurrence identity')
+      }
+      input.beforeCommit?.()
+      this.writeRow(input.payload)
+      if (input.files) {
+        this.writeTaskFiles(input.payload.task.motrixId, [...input.files])
+      }
+      this.applyStagedMetadata(
+        input.payload.task.motrixId,
+        input.metadataOps ?? [],
+        input.payload.task.updatedAt
+      )
+      if (input.fileRebase) {
+        this.rebaseTaskFilesInCurrentTransaction(
+          input.payload.task.motrixId,
+          input.fileRebase.sourceRoot,
+          input.fileRebase.targetRoot
+        )
+      }
+      const occurrenceWasDuplicate = input.occurrence
+        ? this.stmtInsertOccurrenceOrIgnore.run(
+            this.serializeOccurrence(input.occurrence)
+          ).changes === 0
+        : false
+      if (input.finalizeJournal) {
+        const journal = input.finalizeJournal
+        if (journal.taskId !== input.payload.task.motrixId) {
+          throw new Error('finalize journal task does not match terminal task')
+        }
+        const persisted = this.db
+          .prepare(
+            `SELECT plan_json FROM plugin_finalize_journals
+             WHERE plan_id=? AND task_id=? AND phase='target_installed'`
+          )
+          .get(journal.journalId, journal.taskId) as
+          | { plan_json: string }
+          | undefined
+        if (!persisted) {
+          throw new Error('finalize journal is not ready for terminal commit')
+        }
+        const parsed: unknown = JSON.parse(persisted.plan_json)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('finalize journal payload is invalid')
+        }
+        const record = parsed as Record<string, unknown>
+        if (
+          record.journalId !== journal.journalId ||
+          (record.plan as { taskId?: unknown } | undefined)?.taskId !==
+            journal.taskId
+        ) {
+          throw new Error('finalize journal payload identity mismatch')
+        }
+        const committedRecord = JSON.stringify({
+          ...record,
+          phase: 'db_committed',
+          targetIdentity: journal.targetIdentity,
+        })
+        const changed = this.db
+          .prepare(
+            `UPDATE plugin_finalize_journals
+             SET phase='db_committed', plan_json=?,
+                 target_identity_json=?, updated_at=?
+             WHERE plan_id=? AND task_id=? AND phase='target_installed'`
+          )
+          .run(
+            committedRecord,
+            JSON.stringify(journal.targetIdentity),
+            journal.updatedAt,
+            journal.journalId,
+            journal.taskId
+          ).changes
+        if (changed !== 1) {
+          throw new Error('finalize journal is not ready for terminal commit')
+        }
+      }
+      // The occurrence id is the durable admission idempotency boundary. A
+      // replay of a committed terminal occurrence must not count a second
+      // quota tombstone even when the rejected delivery has no row of its own.
+      if (occurrenceWasDuplicate) {
+        return {
+          admitted: 0,
+          duplicates: deliveries.length,
+          rejected: 0,
+          results: deliveries.map((delivery) => ({
+            kind: 'duplicate' as const,
+            deliveryId: delivery.deliveryId,
+          })),
+        }
+      }
+      return admitPostDeliveries(this.durablePostDeliveries, deliveries, quota)
+    })()
+    this.lastPersistedSig.set(input.payload.task.motrixId, signature)
+    return summary
+  }
+
+  private applyStagedMetadata(
+    taskId: string,
+    operations: readonly StagedMetadataOp[],
+    updatedAt: number
+  ): void {
+    if (operations.length === 0) return
+    const insert = this.db.prepare(
+      `INSERT INTO plugin_task_metadata
+         (task_id, plugin_id, key, value, size, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(task_id, plugin_id, key) DO UPDATE SET
+         value=excluded.value, size=excluded.size,
+         updated_at=excluded.updated_at`
+    )
+    const remove = this.db.prepare(
+      `DELETE FROM plugin_task_metadata
+       WHERE task_id=? AND plugin_id=? AND key=?`
+    )
+    const usage = this.db.prepare(
+      `SELECT COALESCE(SUM(size), 0) AS bytes
+       FROM plugin_task_metadata WHERE task_id=? AND plugin_id=?`
+    )
+    const prior = this.db.prepare(
+      `SELECT size FROM plugin_task_metadata
+       WHERE task_id=? AND plugin_id=? AND key=?`
+    )
+    const projectedByPlugin = new Map<string, number>()
+
+    for (const operation of operations) {
+      const current =
+        projectedByPlugin.get(operation.pluginId) ??
+        (usage.get(taskId, operation.pluginId) as { bytes: number }).bytes
+      const previous = prior.get(taskId, operation.pluginId, operation.key) as
+        | { size: number }
+        | undefined
+      if (operation.op === 'delete') {
+        remove.run(taskId, operation.pluginId, operation.key)
+        projectedByPlugin.set(
+          operation.pluginId,
+          Math.max(0, current - (previous?.size ?? 0))
+        )
+        continue
+      }
+      const json = JSON.stringify(operation.value)
+      if (json === undefined) {
+        throw new TypeError('staged plugin metadata is not JSON serializable')
+      }
+      const size = Buffer.byteLength(json, 'utf8')
+      if (operation.size !== undefined && operation.size !== size) {
+        throw new TypeError('staged plugin metadata size does not match value')
+      }
+      const projected = current - (previous?.size ?? 0) + size
+      if (projected > 64 * 1024) {
+        throw new RangeError('staged plugin metadata exceeds per-task quota')
+      }
+      insert.run(
+        taskId,
+        operation.pluginId,
+        operation.key,
+        json,
+        size,
+        Math.max(1, updatedAt)
+      )
+      projectedByPlugin.set(operation.pluginId, projected)
+    }
+  }
+
+  private rebaseTaskFilesInCurrentTransaction(
+    taskId: string,
+    sourceRoot: string,
+    targetRoot: string
+  ): void {
+    const rows = this.stmtGetFiles.all(taskId) as TaskFileRow[]
+    let changed = false
+    const rebased = rows.map((row) => {
+      if (!row.path) return row
+      const relative = path.relative(sourceRoot, row.path)
+      if (relative.startsWith('..') || path.isAbsolute(relative)) return row
+      changed = true
+      return {
+        ...row,
+        path: relative === '' ? targetRoot : path.join(targetRoot, relative),
+      }
+    })
+    if (changed) this.writeTaskFiles(taskId, rebased)
   }
 
   /**

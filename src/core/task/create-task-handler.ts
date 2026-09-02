@@ -17,6 +17,7 @@ import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import type {
   AppliedDownloadProxyPolicyReader,
   AppliedDownloadProxySnapshot,
@@ -120,6 +121,15 @@ export interface CreateTaskDeps {
   // for the chain to fire; absence is a clean no-op for backward compat.
   orchestrator?: HookOrchestrator
   auditLog?: HookAuditLog
+  /**
+   * Persists the new task graph and pre-Hook metadata in one SQLite
+   * transaction. Required whenever beforeCreate stages metadata operations.
+   */
+  persistTaskWithPluginMetadata?: (
+    task: DownloadTask,
+    operations: readonly StagedMetadataOp[]
+  ) => Promise<void>
+  /** @deprecated Retained for legacy composition; never used for Hook commit. */
   db?: Database.Database
   /** Optional engine-readiness gate. Awaited immediately before each engine
    *  adapter call so a cold-start request waits for aria2 instead of hitting
@@ -292,6 +302,8 @@ async function handleCreateTaskUnderAdmission(
   const appSettings = deps.settingsManager.getApp()
   const engineSettings = deps.settingsManager.getEngine()
 
+  if (req.type === 'http') assertHttpTaskSourceAdmission(req.uris)
+
   const requestedSaveDir = req.saveDir || appSettings.defaultSaveDir
   const effectiveSaveDir = deps.prepareSaveDir
     ? await deps.prepareSaveDir(requestedSaveDir)
@@ -463,7 +475,7 @@ async function handleCreateTaskUnderAdmission(
   // incomplete suffix. For BT/magnet, dir=diskPath and `out` is absent;
   // parsed torrents additionally carry per-file output mappings. The adapter
   // is responsible for the aria2 wire shape.
-  let pluginStaged: { commit: (cb: () => void) => void } | undefined
+  let pluginMetadataOps: readonly StagedMetadataOp[] = []
   let dispatchEngine: (reservedGid: string) => Promise<string>
   let directReplay: DirectReplayRecipe | null = null
   let canonicalUris = deriveUris(req)
@@ -615,6 +627,9 @@ async function handleCreateTaskUnderAdmission(
     )
     if (deps.orchestrator) {
       const ctxDto: BeforeCreateHttpContextDTO = {
+        schemaVersion: 1,
+        invocationId: `before-create:${taskId}`,
+        taskId,
         type: 'http',
         sourceUrl: params.uris[0] ?? '',
         uris: [...params.uris],
@@ -655,6 +670,10 @@ async function handleCreateTaskUnderAdmission(
       //   - headers: only when the chain produced headers (else keep req)
       //   - proxy: TRUTHY check (an empty-string proxy must NOT overwrite)
       params.uris = [...result.final.uris]
+      // Hook outputs are task sources, not plugin HTTP requests. Re-run the
+      // same source policy as user input; hostPermissions never authorize an
+      // otherwise invalid or credential-bearing download target.
+      assertHttpTaskSourceAdmission(params.uris)
       if (result.final.headers.length > 0) {
         params.headers = Object.fromEntries(
           result.final.headers.map((h) => [h.name, h.value])
@@ -675,12 +694,15 @@ async function handleCreateTaskUnderAdmission(
         uriContributor: result.contributors.uris,
         finalHeaderCount: result.final.headers.length,
       })
-      if (deps.db) {
-        const db = deps.db
-        pluginStaged = {
-          commit: (cb: () => void) =>
-            result.staged.commitMetadata(db, taskId, cb),
-        }
+      pluginMetadataOps =
+        typeof result.staged.allMetadataOps === 'function'
+          ? result.staged.allMetadataOps()
+          : []
+      if (pluginMetadataOps.length > 0 && !deps.persistTaskWithPluginMetadata) {
+        throw new AppError(
+          ErrorCode.PluginRuntimeFault,
+          'beforeCreate metadata requires an atomic task persistence boundary'
+        )
       }
     }
 
@@ -927,10 +949,16 @@ async function handleCreateTaskUnderAdmission(
     deps.taskManager.reserveEngineTaskId(gid)
 
     const persistParent = async (): Promise<void> => {
+      if (pluginMetadataOps.length > 0) {
+        await deps.persistTaskWithPluginMetadata?.(task, pluginMetadataOps)
+        return
+      }
       await deps.persistTask?.(task)
     }
     const hasDurableIntent = Boolean(
-      deps.persistTask || deps.parentTaskCreated || pluginStaged
+      deps.persistTask ||
+        deps.parentTaskCreated ||
+        (pluginMetadataOps.length > 0 && deps.persistTaskWithPluginMetadata)
     )
     const rollbackDurableIntent = async (): Promise<boolean> => {
       if (!hasDurableIntent) return true
@@ -960,10 +988,6 @@ async function handleCreateTaskUnderAdmission(
       } else {
         await persistParent()
       }
-      // Plugin metadata must be durable before engine dispatch too. The parent
-      // row already crossed its rejecting barrier above; this synchronous
-      // transaction flushes only the staged hook metadata.
-      pluginStaged?.commit(() => {})
     } catch (cause) {
       const rolledBack = await rollbackDurableIntent()
       if (rolledBack) {
@@ -1196,6 +1220,51 @@ function assertSupportedHttpTaskProxy(proxy: string | undefined): void {
     ErrorCode.TaskCreateFailed,
     'Task proxy must use aria2-compatible HTTP or HTTPS syntax; configure SOCKS5 as the global download proxy instead'
   )
+}
+
+function assertHttpTaskSourceAdmission(uris: readonly string[]): void {
+  if (uris.length === 0) {
+    throw new AppError(ErrorCode.TaskCreateFailed, 'Task source is required')
+  }
+  for (const rawUri of uris) {
+    let uri: URL
+    try {
+      uri = new URL(rawUri)
+    } catch {
+      throw new AppError(
+        ErrorCode.TaskCreateFailed,
+        'Task source URL is invalid'
+      )
+    }
+    if (uri.protocol !== 'http:' && uri.protocol !== 'https:') {
+      throw new AppError(
+        ErrorCode.TaskCreateFailed,
+        'Task source URL must use HTTP or HTTPS'
+      )
+    }
+    if (
+      uri.username.length > 0 ||
+      uri.password.length > 0 ||
+      rawAuthorityContainsUserInfo(rawUri)
+    ) {
+      throw new AppError(
+        ErrorCode.TaskCreateFailed,
+        'Task source URL must not contain credentials'
+      )
+    }
+  }
+}
+
+function rawAuthorityContainsUserInfo(rawUri: string): boolean {
+  const schemeEnd = rawUri.indexOf('://')
+  if (schemeEnd < 0) return false
+  const authorityStart = schemeEnd + 3
+  let authorityEnd = rawUri.length
+  for (const separator of ['/', '?', '#', '\\']) {
+    const index = rawUri.indexOf(separator, authorityStart)
+    if (index >= 0 && index < authorityEnd) authorityEnd = index
+  }
+  return rawUri.slice(authorityStart, authorityEnd).includes('@')
 }
 
 function uriBasename(uri: string | undefined): string | null {

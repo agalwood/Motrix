@@ -458,6 +458,10 @@ async function createGeneratedSigningInput(
       'packages/native-host/dist/win32-x64/motrix-native-host.exe',
       'native host',
     ],
+    [
+      'packages/finalize-fs/dist/win32-x64/motrix-finalize-fs.exe',
+      'finalize filesystem sidecar',
+    ],
     ['release/size-reports/win32-x64.json', '{}'],
     ...files,
   ] as Array<[string, string]>) {

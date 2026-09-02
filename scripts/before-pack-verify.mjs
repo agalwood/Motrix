@@ -4,6 +4,8 @@
 //   extra/<platform>/<arch>/aria2c[.exe]        — the download engine
 //   packages/native-host/dist/<platform>-<arch>/
 //     motrix-native-host[.exe]                  — the browser-bridge host
+//   packages/finalize-fs/dist/<platform>-<arch>/
+//     motrix-finalize-fs[.exe]                  — safe finalize publisher
 import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { access, readFile, stat } from 'node:fs/promises'
@@ -142,6 +144,8 @@ export default async function beforePack(context) {
   const engineBin = platform === 'win32' ? 'aria2c.exe' : 'aria2c'
   const hostBin =
     platform === 'win32' ? 'motrix-native-host.exe' : 'motrix-native-host'
+  const finalizeBin =
+    platform === 'win32' ? 'motrix-finalize-fs.exe' : 'motrix-finalize-fs'
   const arches = [archName]
 
   for (const arch of arches) {
@@ -157,5 +161,20 @@ export default async function beforePack(context) {
       hostBin
     )
     await verifyExecutable(host, 'native-host binary', platform, arch)
+
+    const finalize = path.join(
+      projectDir,
+      'packages',
+      'finalize-fs',
+      'dist',
+      `${platform}-${arch}`,
+      finalizeBin
+    )
+    await verifyExecutable(
+      finalize,
+      'finalize filesystem binary',
+      platform,
+      arch
+    )
   }
 }

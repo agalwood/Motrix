@@ -170,12 +170,15 @@ files are platform-specific build output and are not committed.
 
 ---
 
-## Rust native messaging executable dependencies
+## Rust native executable dependencies
 
 The `motrix-native-host`, host-side `motrix-flatpak-native-host`, and
-in-sandbox `motrix-native-host-broker` executables are built from the following
-crates locked in `packages/native-host/Cargo.lock`. Windows-only crates are
-listed because they are included in the Windows native-host build.
+in-sandbox `motrix-native-host-broker` executables, together with the
+`motrix-finalize-fs` filesystem sidecar, are built from the following reviewed
+crate inventory. Versions are locked in `packages/native-host/Cargo.lock` and
+`packages/finalize-fs/Cargo.lock`; the sidecar lock must remain a subset of
+this inventory. Windows-only crates are listed because they are included in
+the Windows native executable builds.
 
 | Crate | Version | SPDX license expression | Repository |
 | --- | --- | --- | --- |

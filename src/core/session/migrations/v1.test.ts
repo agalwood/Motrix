@@ -518,13 +518,13 @@ describe('migrate() schema guard (Codex finding #7)', () => {
         .all(),
     }).toEqual(activityBefore)
 
-    // After the first call: v1 + v2 + v3 applied (chain length grows as
+    // After the first call: v1 + v2 + v3 + v4 applied (chain length grows as
     // new migrations are added). Second call observes
     // schema_version == HIGHEST_KNOWN_VERSION and does nothing.
     const rows = db
       .prepare('SELECT version FROM schema_version ORDER BY version')
       .all() as Array<{ version: number }>
-    expect(rows.map((r) => r.version)).toEqual([1, 2, 3])
+    expect(rows.map((r) => r.version)).toEqual([1, 2, 3, 4])
 
     db.close()
   })
@@ -539,9 +539,10 @@ describe('migrate() schema guard (Codex finding #7)', () => {
     const rows = db
       .prepare('SELECT version FROM schema_version ORDER BY version')
       .all() as Array<{ version: number }>
-    // v1 is the Plan A baseline, v2 widens task statuses, and v3 adds
-    // task-owned Inspector Activity persistence. All apply on a fresh DB.
-    expect(rows.map((r) => r.version)).toEqual([1, 2, 3])
+    // v1 is the Plan A baseline, v2 widens task statuses, v3 adds task-owned
+    // Inspector Activity persistence, and v4 adds durable Hook delivery and
+    // finalize journals. All apply on a fresh DB.
+    expect(rows.map((r) => r.version)).toEqual([1, 2, 3, 4])
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table'")

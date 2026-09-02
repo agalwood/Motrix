@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { getLogger } from '@core/logger'
@@ -57,6 +58,8 @@ export interface IndexedPlugin {
   manifest: PluginManifest
   origin: 'community' | 'builtin'
   rootDir: string
+  /** SHA-256 of the exact guest entry bytes selected for execution. */
+  executableDigest?: string
   state: PluginStateRecord
   /**
    * True when this entry was loaded from MOTRIX_PLUGIN_DEV_PATH. Dev plugins
@@ -76,6 +79,15 @@ export interface IndexedPlugin {
    * separately-tamperable extracted tree).
    */
   overlay?: { packageUrl: string; recordedAt: number; signature: string }
+}
+
+export interface PluginPolicySnapshot {
+  pluginId: string
+  generation: number
+  enabled: boolean
+  version: string
+  rootDir: string
+  executableDigest?: string
 }
 
 export interface LoadError {
@@ -125,6 +137,7 @@ export class PluginRegistry {
   >()
   private discoveryTail: Promise<void> = Promise.resolve()
   private registryRevision = 0
+  private readonly policyGenerations = new Map<string, number>()
   private currentLang: SupportedLocale
 
   constructor(private readonly opts: PluginRegistryOptions) {
@@ -221,6 +234,12 @@ export class PluginRegistry {
 
   private async performDiscover(): Promise<void> {
     this.registryRevision += 1
+    const previousPolicy = new Map(
+      [...this.byId.entries()].map(([id, entry]) => [
+        id,
+        executablePolicyFingerprint(entry),
+      ])
+    )
     try {
       try {
         await FfmpegStaging.cleanupOrphans(this.opts.pluginsDir)
@@ -246,11 +265,15 @@ export class PluginRegistry {
           })
           const resolved = await this.i18nResolve(manifest, devPath)
           const state = this.getOrCreateState(resolved.id)
+          const executableDigest = await digestFile(
+            resolveInsidePluginDir(devPath, resolved.main)
+          )
           this.byId.set(resolved.id, {
             manifestRaw: manifest,
             manifest: resolved,
             origin: 'community',
             rootDir: devPath,
+            executableDigest,
             state,
             dev: true,
           })
@@ -260,6 +283,18 @@ export class PluginRegistry {
             'MOTRIX_PLUGIN_DEV_PATH: failed to load dev plugin manifest'
           )
         }
+      }
+      const discoveredIds = new Set(this.byId.keys())
+      for (const [id, entry] of this.byId) {
+        const previous = previousPolicy.get(id)
+        if (previous !== executablePolicyFingerprint(entry)) {
+          this.bumpPolicyGeneration(id)
+        } else if (!this.policyGenerations.has(id)) {
+          this.policyGenerations.set(id, 1)
+        }
+      }
+      for (const id of previousPolicy.keys()) {
+        if (!discoveredIds.has(id)) this.bumpPolicyGeneration(id)
       }
     } finally {
       this.registryRevision += 1
@@ -498,11 +533,15 @@ export class PluginRegistry {
         }
         const resolved = await this.i18nResolve(manifest, dir)
         const state = this.getOrCreateState(resolved.id)
+        const executableDigest = await digestFile(
+          resolveInsidePluginDir(dir, resolved.main)
+        )
         this.byId.set(resolved.id, {
           manifestRaw: manifest,
           manifest: resolved,
           origin,
           rootDir: dir,
+          executableDigest,
           state,
         })
       } catch (e: unknown) {
@@ -657,11 +696,18 @@ export class PluginRegistry {
 
         const resolved = await this.i18nResolve(manifest, dir)
         const state = this.getOrCreateState(resolved.id)
+        const executable = await readMoextEntry(bundle, resolved.main)
+        if (!executable) {
+          log.warn({ dir }, 'overlay bundle missing guest entry; dropped')
+          await drop()
+          continue
+        }
         this.byId.set(resolved.id, {
           manifestRaw: manifest,
           manifest: resolved,
           origin: 'builtin',
           rootDir: dir,
+          executableDigest: digestBytes(executable),
           state,
           overlay: {
             packageUrl: meta.packageUrl,
@@ -709,7 +755,39 @@ export class PluginRegistry {
     const entry = this.byId.get(pluginId)
     if (!entry) return
     const fresh = this.opts.stateStore.get(pluginId)
-    if (fresh) entry.state = fresh
+    if (fresh) {
+      const enabledChanged = fresh.enabled !== entry.state.enabled
+      entry.state = fresh
+      if (enabledChanged) this.bumpPolicyGeneration(pluginId)
+    }
+  }
+
+  /** Current live-policy generation bound to guest admission and deliveries. */
+  policyGenerationFor(pluginId: string): number {
+    return this.policyGenerations.get(pluginId) ?? 0
+  }
+
+  /**
+   * Advance a plugin's live-policy generation. Grant and executable mutation
+   * barriers call this only after old admission has closed and drained.
+   */
+  bumpPolicyGeneration(pluginId: string): number {
+    const next = (this.policyGenerations.get(pluginId) ?? 0) + 1
+    this.policyGenerations.set(pluginId, next)
+    return next
+  }
+
+  policySnapshot(pluginId: string): PluginPolicySnapshot | undefined {
+    const entry = this.byId.get(pluginId)
+    if (!entry) return undefined
+    return {
+      pluginId,
+      generation: this.policyGenerationFor(pluginId),
+      enabled: entry.state.enabled,
+      version: entry.manifest.version,
+      rootDir: entry.rootDir,
+      executableDigest: entry.executableDigest,
+    }
   }
 
   /**
@@ -721,17 +799,20 @@ export class PluginRegistry {
     manifest: PluginManifest
     origin: 'community' | 'builtin'
     enabled: boolean
+    executableDigest?: string
   }> {
     const out: Array<{
       manifest: PluginManifest
       origin: 'community' | 'builtin'
       enabled: boolean
+      executableDigest?: string
     }> = []
     for (const p of this.byId.values()) {
       out.push({
         manifest: p.manifest,
         origin: p.origin,
         enabled: p.state.enabled,
+        executableDigest: p.executableDigest,
       })
     }
     return out
@@ -778,6 +859,31 @@ function isValidOverlayMeta(
     typeof v.packageUrl === 'string' &&
     typeof v.recordedAt === 'number'
   )
+}
+
+function executablePolicyFingerprint(entry: IndexedPlugin): string {
+  return JSON.stringify({
+    executableDigest: entry.executableDigest ?? null,
+    enabled: entry.state.enabled,
+    manifest: entry.manifestRaw,
+    origin: entry.origin,
+    overlaySignature: entry.overlay?.signature ?? null,
+    rootDir: entry.rootDir,
+  })
+}
+
+async function digestFile(filePath: string | null): Promise<string> {
+  if (!filePath) {
+    throw new AppError(
+      ErrorCode.PluginManifestInvalid,
+      'plugin.manifest.main_escapes_dir'
+    )
+  }
+  return digestBytes(await readFile(filePath))
+}
+
+function digestBytes(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex')
 }
 
 function deriveListSource(p: IndexedPlugin): PluginSource | undefined {

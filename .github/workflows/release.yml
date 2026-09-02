@@ -208,6 +208,13 @@ jobs:
           --locked
           --target ${{ matrix.rust_target }}
 
+      - name: Test finalize filesystem target
+        run: >-
+          cargo test
+          --manifest-path packages/finalize-fs/Cargo.toml
+          --locked
+          --target ${{ matrix.rust_target }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
@@ -234,8 +241,17 @@ jobs:
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+          pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:electron
           pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Finalize filesystem runtime integration
+        env:
+          MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
+        run: >-
+          pnpm exec vitest run
+          src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          --reporter=verbose
 
       # Tagged macOS and Windows outputs are deliberately unsigned here. A
       # fresh, no-checkout job finalizes only the verified data artifact below,
@@ -299,6 +315,10 @@ jobs:
               : 'motrix-native-host'
           const engine =
             process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+          const finalize =
+            process.env.TARGET_PLATFORM === 'win32'
+              ? 'motrix-finalize-fs.exe'
+              : 'motrix-finalize-fs'
           const resources = process.env.PACKAGED_RESOURCES
           const required = [
             'app.asar',
@@ -309,6 +329,7 @@ jobs:
             path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
             path.join('legal', 'sbom.spdx.json'),
             path.join('bin', host),
+            path.join('bin', finalize),
             path.join(
               'extra',
               process.env.TARGET_PLATFORM,
@@ -843,7 +864,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: b985196378d8c6331ca8ab7f1950bbd70f45c2bf8aa5211d7008e6bed6af3805
+          VERIFIER_SHA256: d1a330999b72971313cc477eb367eec70610304b33a358b8eca4fd2c94f35517
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')

@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Worker } from 'node:worker_threads'
@@ -14,7 +15,12 @@ import type { PluginRegistry } from '../plugin-registry'
 import type { PluginStateStore } from '../state/plugin-state-store'
 import { verifyBuiltinSignature } from '../update/signature'
 import type { HookName } from './bridge-protocol'
-import { CapabilityBridge } from './capability-bridge'
+import { CapabilityBridge, type HookContextArgs } from './capability-bridge'
+import {
+  type PluginCallChain,
+  PluginLane,
+  type PluginLaneState,
+} from './plugin-lane'
 
 /**
  * Per-plugin activity metadata returned by `PluginHost.activeMeta()`.
@@ -32,6 +38,8 @@ export interface ActiveMeta {
    * A plugin with no hooks (commands-only) falls into 'audit'.
    */
   evictionTier: 'audit' | 'enrich' | 'post-process' | 'resolve' | 'pre-resolve'
+  queuedEntries?: number
+  runningEntries?: number
 }
 
 /**
@@ -45,6 +53,20 @@ export interface ActivePluginInfo {
   bridge: CapabilityBridge
   worker: Worker
 }
+
+export interface PluginPolicyLease {
+  generation: number
+  signal: AbortSignal
+  release(): void
+}
+
+export type PluginUnavailableReason = 'disabled' | 'uninstalled' | 'quarantined'
+
+export type PluginUnavailableHandler = (
+  pluginId: string,
+  reason: PluginUnavailableReason,
+  at: number
+) => Promise<number>
 
 export interface PluginHostOptions {
   registry: PluginRegistry
@@ -87,7 +109,11 @@ export interface PluginHostOptions {
 interface Active {
   bridge: CapabilityBridge
   manifest: PluginManifest
+  ready: boolean
+  /** Rejects host-side waiters when the policy barrier must force teardown. */
+  admissionAbort: AbortController
   lastActivityAt: number
+  activeTimerCount: number
   registrations: Array<{ kind: 'hook' | 'command'; key: string }>
   /** Shared teardown promise so fatal/deactivate races cannot dispose twice. */
   teardown?: Promise<void>
@@ -101,6 +127,7 @@ interface Active {
    * range (required+miss always throws before this field is stored).
    */
   ffmpegAdvertised: boolean
+  policyGeneration: number
 }
 
 interface ActivationAttempt {
@@ -119,6 +146,10 @@ export const DEFAULT_MAX_ACTIVE_PLUGINS = 32
 
 export class PluginHost {
   private readonly active = new Map<string, Active>()
+  private readonly lanes = new Map<string, PluginLane>()
+  private readonly policyBarriers = new Set<string>()
+  private readonly policyBarrierTails = new Map<string, Promise<unknown>>()
+  private readonly policyLeases = new Map<string, Set<AbortController>>()
   // Per-plugin activation/deactivation state. The epoch invalidates every
   // await continuation from an older activation, while `quiescing` is a
   // synchronous tombstone that prevents a replacement worker from starting
@@ -127,6 +158,8 @@ export class PluginHost {
   private readonly deactivating = new Map<string, Promise<void>>()
   private readonly activationEpochs = new Map<string, number>()
   private readonly quiescing = new Set<string>()
+  private readonly artifactQuiescingTasks = new Set<string>()
+  private pluginUnavailableHandler: PluginUnavailableHandler | undefined
   private readonly maxActivePlugins: number
   private readonly idleDisposeMs: number
   private readonly activationTimeoutMs: number
@@ -176,7 +209,7 @@ export class PluginHost {
   }
 
   isActive(pluginId: string): boolean {
-    return this.active.has(pluginId) && !this.quiescing.has(pluginId)
+    return this.activeForUse(pluginId) !== undefined
   }
 
   /**
@@ -189,7 +222,8 @@ export class PluginHost {
       !this.active.has(pluginId) &&
       !this.activating.has(pluginId) &&
       !this.deactivating.has(pluginId) &&
-      !this.quiescing.has(pluginId)
+      !this.quiescing.has(pluginId) &&
+      this.laneFor(pluginId).isDrained()
     )
   }
 
@@ -203,7 +237,9 @@ export class PluginHost {
   }
 
   activeIds(): string[] {
-    return [...this.active.keys()].filter((id) => !this.quiescing.has(id))
+    return [...this.active.keys()].filter(
+      (id) => this.activeForUse(id) !== undefined
+    )
   }
 
   /**
@@ -218,27 +254,51 @@ export class PluginHost {
   invokeCommand(
     pluginId: string,
     commandId: string,
-    args: unknown
+    args: unknown,
+    options: { callChain?: PluginCallChain } = {}
   ): Promise<unknown> {
-    const a = this.activeForUse(pluginId)
-    if (!a) {
-      return Promise.reject(
-        new AppError(
-          ErrorCode.PluginRuntimeFault,
-          'plugin.command.not_available'
+    return this.laneFor(pluginId).run(
+      () => {
+        const a = this.activeForUse(pluginId)
+        if (!a) {
+          throw new AppError(
+            ErrorCode.PluginRuntimeFault,
+            'plugin.command.not_available'
+          )
+        }
+        a.lastActivityAt = Date.now()
+        return raceWithAdmissionAbort(
+          a.bridge.callPlugin(commandId, args),
+          a.admissionAbort.signal,
+          pluginId
         )
-      )
-    }
-    a.lastActivityAt = Date.now()
-    return a.bridge.callPlugin(commandId, args)
+      },
+      { callChain: options.callChain }
+    )
   }
 
-  async activate(pluginId: string): Promise<void> {
+  async activate(
+    pluginId: string,
+    options: { waitForDeactivation?: boolean } = {}
+  ): Promise<void> {
     if (this.shuttingDown) {
       throw new AppError(
         ErrorCode.PluginRuntimeFault,
         'plugin.activation.host_shutting_down'
       )
+    }
+    // A policy barrier is authoritative: demand activation must never turn a
+    // grant change, disable, upgrade, or uninstall into an implicit reopen.
+    if (this.policyBarriers.has(pluginId)) {
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        `plugin.runtime.admission_closed: ${pluginId}`
+      )
+    }
+    const deactivation = this.deactivating.get(pluginId)
+    if (deactivation && options.waitForDeactivation) {
+      await deactivation
+      return this.activate(pluginId, options)
     }
     // Check the tombstone before `active`: the old worker remains owned by
     // `active` until dispose() completes, but must not be considered a valid
@@ -246,10 +306,15 @@ export class PluginHost {
     if (this.quiescing.has(pluginId)) {
       throw this.activationSupersededError(pluginId)
     }
+    this.laneFor(pluginId).reopen()
     const inFlight = this.activating.get(pluginId)
     if (inFlight) return inFlight.promise
     const existing = this.active.get(pluginId)
     if (existing) {
+      if (existing.policyGeneration !== this.policyGenerationFor(pluginId)) {
+        await this.deactivate(pluginId)
+        return this.activate(pluginId)
+      }
       existing.lastActivityAt = Date.now()
       return
     }
@@ -311,6 +376,7 @@ export class PluginHost {
         `plugin ${pluginId} is disabled`
       )
     }
+    const policyGeneration = this.policyGenerationFor(pluginId)
     if (this.active.size >= this.maxActivePlugins) {
       throw new AppError(
         ErrorCode.PluginActivationCapExceeded,
@@ -332,11 +398,12 @@ export class PluginHost {
     }
 
     const ffmpegSatisfied =
-      ffmpegDetection.available &&
-      ffmpegSatisfies(
-        ffmpegDetection.version ?? '',
-        indexed.manifest.engines.ffmpeg ?? null
-      )
+      !this.opts.ffmpegDetect ||
+      (ffmpegDetection.available &&
+        ffmpegSatisfies(
+          ffmpegDetection.version ?? '',
+          indexed.manifest.engines.ffmpeg ?? null
+        ))
 
     if (indexed.manifest.permissions.includes('ffmpeg') && !ffmpegSatisfied) {
       this.opts.stateStore.recordError(
@@ -415,6 +482,11 @@ export class PluginHost {
           'plugin.update.builtin_bundle_entry_missing'
         )
       }
+      this.assertExecutableDigest(
+        pluginId,
+        indexed.executableDigest,
+        entryBytes
+      )
       bundleSource = entryBytes.toString('utf8')
     } else {
       const readBundleSource =
@@ -423,6 +495,11 @@ export class PluginHost {
         pluginId,
         attempt,
         readBundleSource(bundlePath)
+      )
+      this.assertExecutableDigest(
+        pluginId,
+        indexed.executableDigest,
+        Buffer.from(bundleSource, 'utf8')
       )
     }
 
@@ -442,6 +519,12 @@ export class PluginHost {
       : undefined
 
     this.assertActivationCurrent(pluginId, attempt)
+    if (this.policyGenerationFor(pluginId) !== policyGeneration) {
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        `plugin.activation.policy_changed: ${pluginId}`
+      )
+    }
     let bridge: CapabilityBridge | undefined
     bridge = new CapabilityBridge(
       {
@@ -454,17 +537,38 @@ export class PluginHost {
         appVersion: this.opts.appVersion,
         runtime: this.opts.runtime,
         hostLanguage: this.opts.hostLanguage,
+        permissionGeneration: policyGeneration,
         effectivePermissions,
       },
       {
         onReady: () => {
+          const current = this.active.get(pluginId)
           if (
             !bridge ||
             !this.isActivationCurrent(pluginId, attempt) ||
-            this.active.get(pluginId)?.bridge !== bridge
+            current?.bridge !== bridge
           ) {
             return
           }
+          const registeredHooks = new Set(
+            current.registrations
+              .filter((entry) => entry.kind === 'hook')
+              .map((entry) => entry.key)
+          )
+          const missingHooks = Object.keys(
+            indexed.manifest.contributes.hooks ?? {}
+          ).filter((hook) => !registeredHooks.has(hook))
+          if (missingHooks.length > 0) {
+            const error = new AppError(
+              ErrorCode.PluginRuntimeFault,
+              `plugin.hook.not_registered: ${missingHooks.join(',')}`
+            )
+            this.opts.stateStore.recordError(pluginId, error.message)
+            this.opts.registry.refreshState(pluginId)
+            rejectReady(error)
+            return
+          }
+          current.ready = true
           this.opts.stateStore.markActivated(pluginId, Date.now())
           this.opts.registry.refreshState(pluginId)
           resolveReady()
@@ -498,9 +602,27 @@ export class PluginHost {
     this.active.set(pluginId, {
       bridge,
       manifest: indexed.manifest,
+      ready: false,
+      admissionAbort: new AbortController(),
       lastActivityAt: Date.now(),
+      activeTimerCount: 0,
       registrations: [],
       ffmpegAdvertised,
+      policyGeneration,
+    })
+    const worker = bridge.getWorker()
+    worker.on('message', (message: unknown) => {
+      if (!isTimerActivityMessage(message)) return
+      const current = this.active.get(pluginId)
+      if (current?.bridge !== bridge) return
+      current.activeTimerCount = message.activeCount
+      current.lastActivityAt = Date.now()
+    })
+    worker.once('exit', () => {
+      const current = this.active.get(pluginId)
+      if (current?.bridge !== bridge) return
+      current.activeTimerCount = 0
+      current.lastActivityAt = Date.now()
     })
 
     const timeoutMs = this.activationTimeoutMs
@@ -540,6 +662,8 @@ export class PluginHost {
     const existing = this.deactivating.get(pluginId)
     if (existing) return existing
 
+    // Close guest admission before any asynchronous drain/teardown work.
+    this.laneFor(pluginId).close()
     // Establish the tombstone and supersede the activation synchronously,
     // before yielding to any continuation that could publish a bridge.
     this.quiescing.add(pluginId)
@@ -557,6 +681,9 @@ export class PluginHost {
           this.deactivating.delete(pluginId)
           this.quiescing.delete(pluginId)
         }
+        if (!this.shuttingDown && !this.policyBarriers.has(pluginId)) {
+          this.laneFor(pluginId).reopen()
+        }
       })
     this.deactivating.set(pluginId, promise)
     return promise
@@ -571,13 +698,25 @@ export class PluginHost {
     // checking the stable active entry below.
     await attempt?.promise.catch(() => undefined)
     const active = this.active.get(pluginId)
-    if (active) await this.teardownActive(pluginId, active)
+    if (!active) return
+    const lane = this.laneFor(pluginId)
+    const drained = await lane.drainWithin(this.deactivateBudgetMs)
+    if (!drained) {
+      active.admissionAbort.abort()
+      lane.cancelQueued()
+      await lane.drain()
+    }
+    await this.teardownActive(pluginId, active, !drained)
   }
 
-  private teardownActive(pluginId: string, active: Active): Promise<void> {
+  private teardownActive(
+    pluginId: string,
+    active: Active,
+    forced = false
+  ): Promise<void> {
     if (active.teardown) return active.teardown
     let teardown!: Promise<void>
-    teardown = this.performTeardown(pluginId, active).catch((error) => {
+    teardown = this.performTeardown(pluginId, active, forced).catch((error) => {
       // A rejected teardown must not be cached forever. Keep the active entry
       // owned by the host and let a later deactivate/upgrade retry termination.
       if (active.teardown === teardown) active.teardown = undefined
@@ -589,18 +728,21 @@ export class PluginHost {
 
   private async performTeardown(
     pluginId: string,
-    active: Active
+    active: Active,
+    forced: boolean
   ): Promise<void> {
     // 1. Run worker-side deactivate handlers (budget enforced by bridge).
-    try {
-      await active.bridge.runDeactivate(this.deactivateBudgetMs)
-    } catch (e) {
-      this.opts.capabilityHost
-        .createLog(pluginId)
-        .warn('worker deactivate failed', {
-          error: (e as Error).message,
-          code: (e as Error & { code?: string }).code,
-        })
+    if (!forced) {
+      try {
+        await active.bridge.runDeactivate(this.deactivateBudgetMs)
+      } catch (e) {
+        this.opts.capabilityHost
+          .createLog(pluginId)
+          .warn('worker deactivate failed', {
+            error: (e as Error).message,
+            code: (e as Error & { code?: string }).code,
+          })
+      }
     }
 
     // 2. Run host-side deactivate handlers (LifecycleCapabilityHost registry).
@@ -703,6 +845,25 @@ export class PluginHost {
     )
   }
 
+  private assertExecutableDigest(
+    pluginId: string,
+    expected: string | undefined,
+    bytes: Uint8Array
+  ): void {
+    const actual = createHash('sha256').update(bytes).digest('hex')
+    if (!expected || actual !== expected) {
+      this.opts.stateStore.recordError(
+        pluginId,
+        'plugin.runtime.executable_identity_changed'
+      )
+      this.opts.registry.refreshState(pluginId)
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        'plugin.runtime.executable_identity_changed'
+      )
+    }
+  }
+
   /**
    * Plan C — list every currently active plugin with the descriptors the
    * HookOrchestrator needs (manifest for eligibility/role, bridge for hook
@@ -711,7 +872,7 @@ export class PluginHost {
   allActive(): ActivePluginInfo[] {
     const out: ActivePluginInfo[] = []
     for (const [id, a] of this.active.entries()) {
-      if (this.quiescing.has(id)) continue
+      if (this.activeForUse(id) !== a) continue
       out.push({
         id,
         manifest: a.manifest,
@@ -730,12 +891,14 @@ export class PluginHost {
   activeMeta(): ActiveMeta[] {
     const now = Date.now()
     return [...this.active.entries()]
-      .filter(([id]) => !this.quiescing.has(id))
+      .filter(([id, active]) => this.activeForUse(id) === active)
       .map(([id, a]) => ({
         id,
         lastActivityAt: a.lastActivityAt,
         idleMs: now - a.lastActivityAt,
         evictionTier: deriveEvictionTier(a.manifest),
+        queuedEntries: this.laneFor(id).state().queued,
+        runningEntries: this.laneFor(id).state().running,
       }))
   }
 
@@ -746,7 +909,7 @@ export class PluginHost {
 
   /** Plan C — worker accessor used by `newHookAbort` for the terminate path. */
   workerFor(pluginId: string): Worker | undefined {
-    return this.activeForUse(pluginId)?.bridge.getWorker()
+    return this.active.get(pluginId)?.bridge.getWorker()
   }
 
   /**
@@ -767,23 +930,181 @@ export class PluginHost {
       timeoutMs: number
       ctxPayload?: Record<string, unknown>
       metadataSnapshot?: Record<string, unknown>
+      invocationId?: string
+      permissionGeneration?: number
+      context: HookContextArgs
     }
   ): Promise<void> {
-    const a = this.activeForUse(pluginId)
-    if (!a) {
+    if (this.artifactQuiescingTasks.has(args.taskId)) {
       throw new AppError(
         ErrorCode.PluginRuntimeFault,
-        `plugin ${pluginId} is not active`
+        `task artifact ${args.taskId} is quiesced`
       )
     }
-    a.lastActivityAt = Date.now()
-    await a.bridge.callHook(
-      hook,
-      args.taskId,
-      args.signal,
-      args.timeoutMs,
-      args.ctxPayload,
-      args.metadataSnapshot
+    await this.laneFor(pluginId).run(
+      async (chain) => {
+        if (this.artifactQuiescingTasks.has(args.taskId)) {
+          throw new AppError(
+            ErrorCode.PluginRuntimeFault,
+            `task artifact ${args.taskId} is quiesced`
+          )
+        }
+        const a = this.activeForUse(pluginId)
+        if (!a) {
+          throw new AppError(
+            ErrorCode.PluginRuntimeFault,
+            `plugin ${pluginId} is not active`
+          )
+        }
+        a.lastActivityAt = Date.now()
+        if (args.context.taskId !== args.taskId) {
+          throw new AppError(
+            ErrorCode.PluginRuntimeFault,
+            'plugin.hook.context_task_mismatch'
+          )
+        }
+        const invocationSignal = linkAbortSignals([
+          args.signal,
+          a.admissionAbort.signal,
+        ])
+        a.bridge.setHookContext(args.context)
+        try {
+          return await a.bridge.callHook(
+            hook,
+            args.taskId,
+            invocationSignal.signal,
+            args.timeoutMs,
+            args.ctxPayload,
+            args.metadataSnapshot,
+            {
+              invocationId: args.invocationId ?? randomUUID(),
+              callChainId: chain.id,
+              permissionGeneration:
+                args.permissionGeneration ?? a.policyGeneration,
+            }
+          )
+        } finally {
+          invocationSignal.dispose()
+          a.bridge.clearHookContext()
+        }
+      },
+      { signal: args.signal }
+    )
+  }
+
+  laneState(pluginId: string): PluginLaneState {
+    return this.laneFor(pluginId).state()
+  }
+
+  drainPlugin(pluginId: string): Promise<void> {
+    return this.laneFor(pluginId).drain()
+  }
+
+  /** Close task-scoped Hook admission and drain every active bridge writer. */
+  async quiesceArtifactWriters(taskId: string): Promise<() => Promise<void>> {
+    if (this.artifactQuiescingTasks.has(taskId)) {
+      throw new Error(`task artifact ${taskId} is already quiesced`)
+    }
+    this.artifactQuiescingTasks.add(taskId)
+    try {
+      await Promise.all(
+        [...this.active.values()].map((entry) =>
+          entry.bridge.quiesceTaskWriters(taskId)
+        )
+      )
+    } catch (error) {
+      this.artifactQuiescingTasks.delete(taskId)
+      throw error
+    }
+    return async () => {
+      this.artifactQuiescingTasks.delete(taskId)
+    }
+  }
+
+  isPolicyMutationPending(pluginId: string): boolean {
+    return this.policyBarriers.has(pluginId)
+  }
+
+  /**
+   * Registers an invocation-scoped policy lease. Policy mutation aborts every
+   * registered lease before waiting for the plugin lane or worker teardown.
+   */
+  acquirePolicyLease(
+    pluginId: string,
+    expectedGeneration: number
+  ): PluginPolicyLease {
+    if (
+      this.policyBarriers.has(pluginId) ||
+      this.policyGenerationFor(pluginId) !== expectedGeneration
+    ) {
+      throw laneAdmissionClosed(pluginId)
+    }
+    const controller = new AbortController()
+    const leases = this.policyLeases.get(pluginId) ?? new Set<AbortController>()
+    leases.add(controller)
+    this.policyLeases.set(pluginId, leases)
+    let released = false
+    return {
+      generation: expectedGeneration,
+      signal: controller.signal,
+      release: () => {
+        if (released) return
+        released = true
+        leases.delete(controller)
+        if (leases.size === 0) this.policyLeases.delete(pluginId)
+      },
+    }
+  }
+
+  /**
+   * Exclusive live-policy mutation barrier. Admission closes synchronously,
+   * the old worker and its operations drain (or are terminated at budget),
+   * then the new policy is published and receives a fresh generation.
+   */
+  applyPolicyMutation<T>(
+    pluginId: string,
+    publish: () => Promise<T> | T
+  ): Promise<T> {
+    this.laneFor(pluginId).close()
+    this.policyBarriers.add(pluginId)
+    this.abortPolicyAdmission(pluginId)
+    const previous = this.policyBarrierTails.get(pluginId) ?? Promise.resolve()
+    const operation = previous
+      .catch(() => undefined)
+      .then(async () => {
+        const generationBefore = this.policyGenerationFor(pluginId)
+        await this.deactivate(pluginId)
+        const result = await publish()
+        if (this.policyGenerationFor(pluginId) === generationBefore) {
+          this.opts.registry.bumpPolicyGeneration(pluginId)
+        }
+        return result
+      })
+    this.policyBarrierTails.set(pluginId, operation)
+    void operation.then(
+      () => this.clearPolicyBarrierTail(pluginId, operation),
+      () => this.clearPolicyBarrierTail(pluginId, operation)
+    )
+    return operation
+  }
+
+  /**
+   * Bind durable post-delivery retention after the runtime repository exists.
+   * Installer mutations may call `pluginUnavailable()` from inside their
+   * existing policy barrier; `disable()` does so automatically.
+   */
+  bindPluginUnavailable(handler: PluginUnavailableHandler): void {
+    this.pluginUnavailableHandler = handler
+  }
+
+  pluginUnavailable(
+    pluginId: string,
+    reason: PluginUnavailableReason,
+    at = Date.now()
+  ): Promise<number> {
+    return (
+      this.pluginUnavailableHandler?.(pluginId, reason, at) ??
+      Promise.resolve(0)
     )
   }
 
@@ -793,12 +1114,41 @@ export class PluginHost {
    * tears down the active VM if one is running. Idempotent: calling on an
    * already-disabled plugin is a no-op besides updating `lastError`.
    */
-  async disable(pluginId: string, reason: string): Promise<void> {
-    this.opts.stateStore.setEnabled(pluginId, false)
-    this.opts.stateStore.recordError(pluginId, reason)
-    if (!this.isQuiescent(pluginId)) {
-      await this.deactivate(pluginId)
-    }
+  async disable(
+    pluginId: string,
+    reason: string,
+    unavailableReason: Extract<
+      PluginUnavailableReason,
+      'disabled' | 'quarantined'
+    > = 'disabled',
+    options: { recordError?: boolean } = {}
+  ): Promise<void> {
+    await this.applyPolicyMutation(pluginId, async () => {
+      // Admission is closed, live capability leases are aborted, and the old
+      // worker is drained. Publish reversible state before terminalizing
+      // durable deliveries, and roll it back if terminalization fails.
+      const previousState = this.opts.stateStore.get(pluginId)
+      this.opts.stateStore.setEnabled(pluginId, false)
+      if (options.recordError !== false) {
+        this.opts.stateStore.recordError(pluginId, reason)
+      }
+      this.opts.registry.refreshState(pluginId)
+      try {
+        await this.pluginUnavailable(pluginId, unavailableReason)
+      } catch (error) {
+        if (previousState) {
+          this.opts.stateStore.upsert({
+            ...previousState,
+            status:
+              previousState.status === 'active'
+                ? 'inactive'
+                : previousState.status,
+          })
+        }
+        this.opts.registry.refreshState(pluginId)
+        throw error
+      }
+    })
     this.opts.stateStore.setStatus(pluginId, 'disabled')
     this.opts.registry.refreshState(pluginId)
   }
@@ -819,7 +1169,13 @@ export class PluginHost {
     const now = Date.now()
     for (const [id, a] of this.active.entries()) {
       if (this.quiescing.has(id)) continue
-      if (now - a.lastActivityAt >= this.idleDisposeMs) {
+      if (
+        now - a.lastActivityAt >= this.idleDisposeMs &&
+        this.laneFor(id).isDrained() &&
+        !a.bridge.hasInFlightOperations() &&
+        a.activeTimerCount === 0 &&
+        (this.policyLeases.get(id)?.size ?? 0) === 0
+      ) {
         void this.deactivate(id)
       }
     }
@@ -839,9 +1195,129 @@ export class PluginHost {
   }
 
   private activeForUse(pluginId: string): Active | undefined {
-    if (this.quiescing.has(pluginId)) return undefined
-    return this.active.get(pluginId)
+    if (this.quiescing.has(pluginId) || this.policyBarriers.has(pluginId)) {
+      return undefined
+    }
+    const active = this.active.get(pluginId)
+    if (!active?.ready) return undefined
+    if (active.policyGeneration !== this.policyGenerationFor(pluginId)) {
+      return undefined
+    }
+    return active
   }
+
+  private laneFor(pluginId: string): PluginLane {
+    let lane = this.lanes.get(pluginId)
+    if (!lane) {
+      lane = new PluginLane(pluginId)
+      this.lanes.set(pluginId, lane)
+    }
+    return lane
+  }
+
+  private policyGenerationFor(pluginId: string): number {
+    return this.opts.registry.policyGenerationFor(pluginId)
+  }
+
+  private abortPolicyAdmission(pluginId: string): void {
+    this.active.get(pluginId)?.admissionAbort.abort()
+    for (const controller of this.policyLeases.get(pluginId) ?? []) {
+      controller.abort()
+    }
+    this.laneFor(pluginId).cancelQueued()
+  }
+
+  private clearPolicyBarrierTail(
+    pluginId: string,
+    operation: Promise<unknown>
+  ): void {
+    if (this.policyBarrierTails.get(pluginId) === operation) {
+      this.policyBarrierTails.delete(pluginId)
+      this.policyBarriers.delete(pluginId)
+      if (!this.shuttingDown) this.laneFor(pluginId).reopen()
+    }
+  }
+}
+
+function isTimerActivityMessage(
+  message: unknown
+): message is { type: 'timer_activity'; activeCount: number } {
+  if (!message || typeof message !== 'object') return false
+  const candidate = message as { type?: unknown; activeCount?: unknown }
+  return (
+    candidate.type === 'timer_activity' &&
+    typeof candidate.activeCount === 'number' &&
+    Number.isSafeInteger(candidate.activeCount) &&
+    candidate.activeCount >= 0 &&
+    candidate.activeCount <= 100
+  )
+}
+
+function raceWithAdmissionAbort<T>(
+  operation: Promise<T>,
+  signal: AbortSignal,
+  pluginId: string
+): Promise<T> {
+  if (signal.aborted) return Promise.reject(laneAdmissionClosed(pluginId))
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    const detach = () => signal.removeEventListener('abort', onAbort)
+    const onAbort = () => {
+      if (settled) return
+      settled = true
+      detach()
+      reject(laneAdmissionClosed(pluginId))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    operation.then(
+      (value) => {
+        if (settled) return
+        settled = true
+        detach()
+        resolve(value)
+      },
+      (error) => {
+        if (settled) return
+        settled = true
+        detach()
+        reject(error)
+      }
+    )
+  })
+}
+
+function laneAdmissionClosed(pluginId: string): AppError {
+  return new AppError(
+    ErrorCode.PluginRuntimeFault,
+    `plugin.runtime.admission_closed: ${pluginId}`
+  )
+}
+
+function linkAbortSignals(signals: readonly AbortSignal[]): {
+  signal: AbortSignal
+  dispose(): void
+} {
+  const controller = new AbortController()
+  const listeners: Array<{
+    signal: AbortSignal
+    listener: () => void
+  }> = []
+  const dispose = () => {
+    for (const entry of listeners) {
+      entry.signal.removeEventListener('abort', entry.listener)
+    }
+    listeners.length = 0
+  }
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason)
+      break
+    }
+    const listener = () => controller.abort(signal.reason)
+    listeners.push({ signal, listener })
+    signal.addEventListener('abort', listener, { once: true })
+  }
+  return { signal: controller.signal, dispose }
 }
 
 export function parsePluginIdleDisposeMs(

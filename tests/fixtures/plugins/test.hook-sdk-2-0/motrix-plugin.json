@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "id": "test.hook-sdk-2-0",
+  "name": "Hook SDK 2.0 compatibility fixture",
+  "version": "1.0.0",
+  "description": "Runtime guest fixture constrained to the published SDK 2.0 Hook surface",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": ["metadata", "fs.task.write", "storage"],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onTaskType:http"],
+  "contributes": {
+    "hooks": {
+      "beforeCreate": { "role": "enrich" },
+      "beforeFinalize": { "role": "post-process" },
+      "afterComplete": { "role": "audit" },
+      "onError": { "role": "audit" }
+    }
+  }
+}

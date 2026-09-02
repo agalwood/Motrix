@@ -12,7 +12,7 @@
 
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
-import { join as pathJoin } from 'node:path'
+import { dirname as pathDirname, join as pathJoin } from 'node:path'
 import type { Worker } from 'node:worker_threads'
 import type { PluginManifest } from '@shared/types/plugin'
 import type {
@@ -40,6 +40,7 @@ type HookHandler = (args: {
   hook: string
   pluginId: string
   bridge: MockBridge
+  ctxPayload?: Record<string, unknown>
 }) => void | Promise<void>
 
 interface FixturePlugin {
@@ -125,14 +126,24 @@ function makeMockHost(plugins: FixturePlugin[]): {
       const plugin = plugins.find((p) => p.id === id)
       const bridge = bridges.get(id)
       if (!plugin || !bridge) return
-      if (plugin.handler) {
-        await plugin.handler({
-          taskId: args.taskId,
-          signal: args.signal,
-          hook,
-          pluginId: id,
-          bridge,
-        })
+      const setContext = bridge.setHookContext as unknown as (
+        context: unknown
+      ) => void
+      const clearContext = bridge.clearHookContext as unknown as () => void
+      setContext(args.context)
+      try {
+        if (plugin.handler) {
+          await plugin.handler({
+            taskId: args.taskId,
+            signal: args.signal,
+            hook,
+            pluginId: id,
+            bridge,
+            ctxPayload: args.ctxPayload,
+          })
+        }
+      } finally {
+        clearContext()
       }
     },
     bridgeFor: (id: string) =>
@@ -161,12 +172,18 @@ function makeBeforeCreateDto(
 function makeBeforeFinalizeDto(
   partial: Partial<BeforeFinalizeContextDTO> = {}
 ): BeforeFinalizeContextDTO {
+  const filePath = partial.filePath ?? '/downloads/file.zip'
   return {
+    schemaVersion: 1,
+    invocationId: 'before-finalize:task-1',
+    taskId: 'task-1',
     sourceUrl: 'https://example.com/file.zip',
     createdBy: 'user',
     requestedAt: 1_700_000_000_000,
-    task: { id: 'task-1' } as never,
-    filePath: '/downloads/file.zip',
+    task: { id: 'task-1', saveDir: pathDirname(filePath) } as never,
+    inputFilePath: '/downloads/file.zip.motrix',
+    filePath,
+    targetFilePath: filePath,
     ...partial,
   } as BeforeFinalizeContextDTO
 }
@@ -183,6 +200,54 @@ const ORCH_OPTS_BASE = {
 // ---------------------------------------------------------------------------
 
 describe('HookOrchestrator', () => {
+  it('discovers an inactive registry candidate and activates it on Hook demand', async () => {
+    const plugin: FixturePlugin = {
+      id: 'idle-plugin',
+      role: 'resolve',
+      hooks: ['beforeCreate'],
+    }
+    const bridge = makeMockBridge()
+    const info: ActivePluginInfo = {
+      id: plugin.id,
+      manifest: makeManifest(plugin),
+      bridge: bridge as unknown as CapabilityBridge,
+      worker: makeMockWorker(),
+    }
+    let active: ActivePluginInfo[] = []
+    const invokeHook = vi.fn()
+    const host = {
+      allActive: () => active,
+      invokeHook,
+      disable: vi.fn(),
+    } as unknown as PluginHost
+    const activateForHook = vi.fn(async () => {
+      active = [info]
+    })
+    const activationDispatcher = {
+      candidatesForHook: () => [
+        {
+          id: plugin.id,
+          manifest: info.manifest,
+          generation: 1,
+          executableDigest: 'a'.repeat(64),
+          role: 'resolve' as const,
+        },
+      ],
+      activateForHook,
+    }
+    const orchestrator = new HookOrchestrator({
+      host,
+      activationDispatcher,
+      hookTimeoutMs: TIMEOUTS,
+      ...ORCH_OPTS_BASE,
+    })
+
+    await orchestrator.runBeforeCreateHttp(makeBeforeCreateDto(), 'task-1')
+
+    expect(activateForHook).toHaveBeenCalledWith('idle-plugin', 'beforeCreate')
+    expect(invokeHook).toHaveBeenCalledOnce()
+  })
+
   describe('runBeforeCreateHttp — happy path', () => {
     let host: PluginHost
     let bridges: Map<string, MockBridge>
@@ -247,6 +312,44 @@ describe('HookOrchestrator', () => {
       ).toBe('https://example.com/')
       expect(result.contributors.uris).toBe('plugin-resolve')
       expect(result.contributors.headers).toContain('plugin-enrich')
+    })
+
+    it('passes each accepted patch into the next plugin working context', async () => {
+      let laterPayload: Record<string, unknown> | undefined
+      const { host } = makeMockHost([
+        {
+          id: 'a.resolve',
+          role: 'resolve',
+          hooks: ['beforeCreate'],
+          handler: ({ bridge, pluginId }) => {
+            const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+            ctx.staged.appendHttp(pluginId, 'resolve', {
+              uris: ['https://cdn.example.test/asset'],
+              headers: [{ name: 'X-Resolved', value: 'yes' }],
+            })
+          },
+        },
+        {
+          id: 'b.enrich',
+          role: 'enrich',
+          hooks: ['beforeCreate'],
+          handler: ({ ctxPayload }) => {
+            laterPayload = ctxPayload
+          },
+        },
+      ])
+      const orch = new HookOrchestrator({
+        host,
+        hookTimeoutMs: TIMEOUTS,
+        ...ORCH_OPTS_BASE,
+      })
+
+      await orch.runBeforeCreateHttp(makeBeforeCreateDto(), 'task-1')
+
+      expect(laterPayload).toMatchObject({
+        uris: ['https://cdn.example.test/asset'],
+        headers: [{ name: 'X-Resolved', value: 'yes' }],
+      })
     })
 
     it('clears hook context on every plugin after invocation', async () => {
@@ -527,6 +630,56 @@ describe('HookOrchestrator', () => {
       expect(result.final.filePath).toBe('/downloads/final.zip')
     })
 
+    it('passes the accepted target and real task context to the next plugin', async () => {
+      const fsTaskHost = { stat: vi.fn() }
+      const metadata = { release: 'stable' }
+      let laterPayload: Record<string, unknown> | undefined
+      const { host } = makeMockHost([
+        {
+          id: 'a.resolve',
+          role: 'resolve',
+          hooks: ['beforeFinalize'],
+          handler: ({ bridge }) => {
+            const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+            ctx.staged.setFinalizePath('/downloads/renamed.zip')
+          },
+        },
+        {
+          id: 'b.post',
+          role: 'post-process',
+          hooks: ['beforeFinalize'],
+          handler: ({ ctxPayload }) => {
+            laterPayload = ctxPayload
+          },
+        },
+      ])
+      const capabilityHost = {
+        fsTaskFor: vi.fn(() => fsTaskHost),
+        metadata: { getAll: vi.fn(async () => metadata) },
+      }
+      const orch = new HookOrchestrator({
+        host,
+        capabilityHost: capabilityHost as never,
+        hookTimeoutMs: TIMEOUTS,
+        ...ORCH_OPTS_BASE,
+      })
+
+      await orch.runBeforeFinalize(makeBeforeFinalizeDto(), 'task-1')
+
+      expect(laterPayload).toMatchObject({
+        filePath: '/downloads/renamed.zip',
+        targetFilePath: '/downloads/renamed.zip',
+      })
+      expect(capabilityHost.fsTaskFor).toHaveBeenCalledWith(
+        '/downloads',
+        expect.any(String)
+      )
+      expect(capabilityHost.metadata.getAll).toHaveBeenCalledWith(
+        'task-1',
+        'b.post'
+      )
+    })
+
     it('fail-closed resolves trigger chain abort with the plugin id in reason', async () => {
       const { host } = makeMockHost([
         {
@@ -553,9 +706,7 @@ describe('HookOrchestrator', () => {
       expect(result.reason).toContain('resolve crash')
     })
 
-    it('still returns aborted when staging discard fails during the abort', async () => {
-      // A discard failure must not escape the abort path and turn the
-      // { aborted } result into a thrown rejection the caller can't classify.
+    it('does not recursively discard unjournaled bytes during abort', async () => {
       const discardSpy = vi
         .spyOn(FfmpegStaging.prototype, 'discard')
         .mockRejectedValue(new Error('EPERM: discard failed'))
@@ -584,7 +735,7 @@ describe('HookOrchestrator', () => {
       expect(result.aborted).toBe(true)
       if (!result.aborted) throw new Error('unreachable')
       expect(result.reason).toContain('plugin-resolve')
-      expect(discardSpy).toHaveBeenCalled()
+      expect(discardSpy).not.toHaveBeenCalled()
 
       discardSpy.mockRestore()
     })
@@ -604,7 +755,7 @@ describe('HookOrchestrator', () => {
       })
       await orch.runParallel(
         'afterComplete',
-        { task: { id: 'task-1' } as never, filePath: '/x' },
+        { task: { id: 'task-1' }, filePath: '/x' } as never,
         'task-1'
       )
       const counts = new Map<string, number>()
@@ -651,7 +802,7 @@ describe('HookOrchestrator', () => {
       })
       await orch.runParallel(
         'afterComplete',
-        { task: { id: 'task-1' } as never, filePath: '/x' },
+        { task: { id: 'task-1' }, filePath: '/x' } as never,
         'task-1'
       )
       // p1 and p3 ran even though p2 threw
@@ -668,7 +819,7 @@ describe('HookOrchestrator', () => {
       })
       const r = await orch.runParallel(
         'afterComplete',
-        { task: { id: 'task-1' } as never, filePath: '/x' },
+        { task: { id: 'task-1' }, filePath: '/x' } as never,
         'task-1'
       )
       expect(r).toBeUndefined()
@@ -874,7 +1025,7 @@ describe('HookOrchestrator', () => {
       })
       await orch.runParallel(
         'afterComplete',
-        { task: { id: 'task-1' } as never, filePath: '/x' },
+        { task: { id: 'task-1' }, filePath: '/x' } as never,
         'task-1'
       )
       const ctx = bridges.get('alice')?.setHookContext.mock.calls[0]?.[0]
@@ -914,7 +1065,7 @@ describe('HookOrchestrator', () => {
     })
   })
 
-  describe('runBeforeFinalize — chain commit promotion', () => {
+  describe('runBeforeFinalize — replacement plan', () => {
     let tmp: string
 
     beforeEach(async () => {
@@ -925,7 +1076,7 @@ describe('HookOrchestrator', () => {
       await rm(tmp, { recursive: true, force: true })
     })
 
-    it('promotes the one staging whose dir contains the final filePath', async () => {
+    it('returns an explicit staging mapping without promoting bytes', async () => {
       const saveDir = pathJoin(tmp, 'sd')
       await mkdir(saveDir, { recursive: true })
       // Pre-write staged files for both plugins. The orchestrator will build
@@ -947,6 +1098,7 @@ describe('HookOrchestrator', () => {
           hooks: ['beforeFinalize'],
           handler: ({ bridge }) => {
             const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+            ctx.staging.redirectOutput(pathJoin(saveDir, 'final.mp4'))
             ctx.staged.setFinalizePath(pathJoin(saveDir, 'final.mp4'))
           },
         },
@@ -966,18 +1118,17 @@ describe('HookOrchestrator', () => {
         makeBeforeFinalizeDto({ filePath: pathJoin(saveDir, 'input.mp4') }),
         't-1'
       )
-      expect(result.aborted).toBeFalsy()
-      expect(await readFile(pathJoin(saveDir, 'final.mp4'), 'utf8')).toBe(
-        'alice-bytes'
-      )
-      // Bob's staging dir was discarded (didn't own finalFilePath)
-      expect(await stat(bobDir).catch(() => null)).toBeNull()
-      // Alice's staging dir was also removed after promote (promote() does
-      // rm -rf)
-      expect(await stat(aliceDir).catch(() => null)).toBeNull()
+      if (result.aborted) throw new Error('expected a plan')
+      expect(result.replacement).toEqual({
+        pluginId: 'alice',
+        stagedPath: pathJoin(aliceDir, 'final.mp4'),
+      })
+      await expect(readFile(pathJoin(saveDir, 'final.mp4'))).rejects.toThrow()
+      expect((await stat(bobDir)).isDirectory()).toBe(true)
+      expect((await stat(aliceDir)).isDirectory()).toBe(true)
     })
 
-    it('discards every staging when no plugin set finalizePath', async () => {
+    it('does not guess replacement ownership by scanning staging', async () => {
       const saveDir = pathJoin(tmp, 'sd2')
       await mkdir(saveDir, { recursive: true })
       const aliceDir = pathJoin(tmp, 'alice', 'staging', 't-2')
@@ -997,12 +1148,12 @@ describe('HookOrchestrator', () => {
         makeBeforeFinalizeDto({ filePath: pathJoin(saveDir, 'input.mp4') }),
         't-2'
       )
-      expect(result.aborted).toBeFalsy()
-      // Alice's staging dir is gone
-      expect(await stat(aliceDir).catch(() => null)).toBeNull()
+      if (result.aborted) throw new Error('expected a plan')
+      expect(result.replacement).toBeUndefined()
+      expect((await stat(aliceDir)).isDirectory()).toBe(true)
     })
 
-    it('promotes only the first by role-band when multiple stagings hold the final path', async () => {
+    it('fails closed when multiple plugins map a replacement to one target', async () => {
       const saveDir = pathJoin(tmp, 'sd')
       await mkdir(saveDir, { recursive: true })
       // Both alice (resolve, earlier role band) and bob (post-process, later)
@@ -1026,6 +1177,7 @@ describe('HookOrchestrator', () => {
           hooks: ['beforeFinalize'],
           handler: ({ bridge }) => {
             const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+            ctx.staging.redirectOutput(pathJoin(saveDir, 'final.mp4'))
             ctx.staged.setFinalizePath(pathJoin(saveDir, 'final.mp4'))
           },
         },
@@ -1035,6 +1187,7 @@ describe('HookOrchestrator', () => {
           hooks: ['beforeFinalize'],
           handler: ({ bridge }) => {
             const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+            ctx.staging.redirectOutput(pathJoin(saveDir, 'final.mp4'))
             ctx.staged.setFinalizePath(pathJoin(saveDir, 'final.mp4'))
           },
         },
@@ -1049,13 +1202,11 @@ describe('HookOrchestrator', () => {
         makeBeforeFinalizeDto({ filePath: pathJoin(saveDir, 'input.mp4') }),
         't-1'
       )
-      expect(result.aborted).toBeFalsy()
-      // alice wins (first by role-band)
-      expect(await readFile(pathJoin(saveDir, 'final.mp4'), 'utf8')).toBe(
-        'alice-bytes'
-      )
-      // bob's staging dir was discarded
-      expect(await stat(bobDir).catch(() => null)).toBeNull()
+      expect(result.aborted).toBe(true)
+      if (!result.aborted) throw new Error('expected an abort')
+      expect(result.reason).toContain('multiple plugins')
+      await expect(readFile(pathJoin(saveDir, 'final.mp4'))).rejects.toThrow()
+      expect((await stat(bobDir)).isDirectory()).toBe(true)
     })
 
     it('records staging fields in the chain.commit audit log', async () => {
@@ -1073,6 +1224,7 @@ describe('HookOrchestrator', () => {
           hooks: ['beforeFinalize'],
           handler: ({ bridge }) => {
             const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+            ctx.staging.redirectOutput(pathJoin(saveDir, 'out.mp4'))
             ctx.staged.setFinalizePath(pathJoin(saveDir, 'out.mp4'))
           },
         },
@@ -1103,14 +1255,14 @@ describe('HookOrchestrator', () => {
         stagingBytesDiscarded?: number
       }
       expect(commit).toBeDefined()
-      expect(commit.stagingPromoted).toBe(true)
+      expect(commit.stagingPromoted).toBe(false)
       expect(commit.stagingPluginId).toBe('alice')
-      expect(commit.stagingBytesPromoted).toBe(11) // 'hello-world'.length
+      expect(commit.stagingBytesPromoted).toBe(0)
       expect(commit.stagingBytesDiscarded).toBe(0)
     })
   })
 
-  describe('runBeforeFinalize — chain abort cleanup', () => {
+  describe('runBeforeFinalize — chain abort quarantine boundary', () => {
     let tmp: string
     beforeEach(async () => {
       tmp = await mkdtemp(pathJoin(os.tmpdir(), 'orch-abort-'))
@@ -1119,7 +1271,7 @@ describe('HookOrchestrator', () => {
       await rm(tmp, { recursive: true, force: true })
     })
 
-    it('chain abort discards every in-flight staging', async () => {
+    it('chain abort preserves staging for identity-aware cleanup', async () => {
       const aliceDir = pathJoin(tmp, 'alice', 'staging', 't-3')
       const bobDir = pathJoin(tmp, 'bob', 'staging', 't-3')
       await mkdir(aliceDir, { recursive: true })
@@ -1161,9 +1313,8 @@ describe('HookOrchestrator', () => {
       expect(result.reason).toContain('bob')
       expect(result.reason).toContain('bob crash')
 
-      // Both staging dirs are removed
-      expect(await stat(aliceDir).catch(() => null)).toBeNull()
-      expect(await stat(bobDir).catch(() => null)).toBeNull()
+      expect((await stat(aliceDir)).isDirectory()).toBe(true)
+      expect((await stat(bobDir)).isDirectory()).toBe(true)
     })
   })
 })

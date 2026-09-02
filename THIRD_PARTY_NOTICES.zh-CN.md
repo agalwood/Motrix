@@ -146,12 +146,14 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 
 ---
 
-## Rust native messaging 可执行文件依赖
+## Rust 原生可执行文件依赖
 
 `motrix-native-host`、宿主机侧 `motrix-flatpak-native-host` 与沙箱内
-`motrix-native-host-broker` 可执行文件使用以下 crate 构建，具体版本由
-`packages/native-host/Cargo.lock` 锁定。Windows-only crate 也列在表中，因为
-Windows native-host 构建会包含它们。
+`motrix-native-host-broker` 可执行文件，以及 `motrix-finalize-fs` 文件系统 sidecar，
+均使用以下经过审阅的 crate 清单构建。具体版本由
+`packages/native-host/Cargo.lock` 与 `packages/finalize-fs/Cargo.lock` 锁定；sidecar
+锁文件必须始终是这份清单的子集。Windows-only crate 也列在表中，因为 Windows
+原生可执行文件构建会包含它们。
 
 | Crate | 版本 | SPDX 许可证表达式 | 源码仓库 |
 | --- | --- | --- | --- |

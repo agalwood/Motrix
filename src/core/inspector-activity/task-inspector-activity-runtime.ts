@@ -113,6 +113,10 @@ export interface RecoveredAnchorOrigin {
   status: TaskStatus
 }
 
+export interface TaskMutationLease {
+  release(): Promise<void>
+}
+
 export type RecoveredAnchorOrigins = ReadonlyMap<string, RecoveredAnchorOrigin>
 
 export class TaskInspectorActivityRuntime {
@@ -584,6 +588,51 @@ export class TaskInspectorActivityRuntime {
       return this.serialize(taskId, () => acquire(index + 1))
     }
     return acquire(0)
+  }
+
+  /**
+   * Holds the same per-task serialization lane used by every shell mutation.
+   * A finalize call already inside runTaskMutation borrows that outer lease;
+   * direct callers acquire the lane until release() resolves.
+   */
+  async acquireTaskMutationLease(taskId: string): Promise<TaskMutationLease> {
+    if (this.stopped) {
+      throw new Error('TaskInspectorActivityRuntime is disposed')
+    }
+    const active = this.mutationContext.getStore()
+    if (active?.has(taskId)) {
+      return { release: async () => undefined }
+    }
+    if (active) {
+      throw new Error('Cannot extend a nested task mutation lock set')
+    }
+
+    let signalAcquired!: () => void
+    let signalReleased!: () => void
+    let rejectAcquired!: (error: unknown) => void
+    const acquired = new Promise<void>((resolve, reject) => {
+      signalAcquired = resolve
+      rejectAcquired = reject
+    })
+    const released = new Promise<void>((resolve) => {
+      signalReleased = resolve
+    })
+    const held = this.runTaskMutation([taskId], async () => {
+      signalAcquired()
+      await released
+    })
+    void held.catch(rejectAcquired)
+    await acquired
+
+    let didRelease = false
+    return {
+      release: async () => {
+        if (didRelease) return
+        didRelease = true
+        signalReleased()
+        await held
+      },
+    }
   }
 
   snapshot(taskId: string): TaskInspectorActivitySnapshot | null {

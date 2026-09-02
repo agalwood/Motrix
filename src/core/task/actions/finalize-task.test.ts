@@ -1792,7 +1792,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     } as unknown as FinalizeTaskDeps['auditLog']
   }
 
-  it('HTTP: chain commit + afterComplete fires on success', async () => {
+  it('HTTP: chain commit leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())
     const auditLog = makeAuditLog()
     const deps: FinalizeTaskDeps = {
@@ -1816,14 +1816,78 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
       })
     )
     expect(task.status).toBe(TaskStatus.Completed)
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.objectContaining({ filePath: '/d/foo.mp4' }),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
-  it('HTTP: chain abort leaves task Error + fires onError; rename skipped', async () => {
+  it('HTTP: production finalize seam owns FS publication and terminal occurrence', async () => {
+    const commitFinalizedArtifact = vi.fn(async () => {})
+    const occurrenceDispatcher = { dispatch: vi.fn(async () => {}) }
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact,
+      occurrenceDispatcher,
+    }
+    const task = makeTask()
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: '/d/foo.mp4.motrix',
+        targetPath: '/d/foo.mp4',
+        occurrence: expect.objectContaining({
+          type: 'terminal',
+          toStatus: TaskStatus.Completed,
+        }),
+      })
+    )
+    expect(occurrenceDispatcher.dispatch).toHaveBeenCalledOnce()
+    expect(task.status).toBe(TaskStatus.Completed)
+  })
+
+  it('HTTP: beforeFinalize can route a GitHub ZIP into Compressed through the durable seam', async () => {
+    const commitFinalizedArtifact = vi.fn(async () => {})
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(
+        makeBeforeFinalizeCommit({
+          finalFilePath: '/d/Compressed/Motrix-main.zip',
+        })
+      ),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact,
+    }
+    const task = makeTask({
+      diskPath: '/d/Motrix-main.zip.motrix',
+      finalPath: '/d/Motrix-main.zip',
+      finalName: 'Motrix-main.zip',
+      filename: 'Motrix-main.zip',
+      name: 'Motrix-main.zip',
+      uris: ['https://github.com/agalwood/Motrix/archive/refs/heads/main.zip'],
+    })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: '/d/Motrix-main.zip.motrix',
+        targetPath: '/d/Compressed/Motrix-main.zip',
+      })
+    )
+    expect(task.finalPath).toBe('/d/Compressed/Motrix-main.zip')
+    expect(task.status).toBe(TaskStatus.Completed)
+  })
+
+  it('HTTP: chain abort leaves task Error for durable onError delivery', async () => {
     const orchestrator = makeOrchestrator({
       aborted: true,
       reason: 'plugin sad',
@@ -1855,13 +1919,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
         reason: 'plugin sad',
       })
     )
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'onError',
-      expect.objectContaining({
-        error: expect.objectContaining({ code: 'PLUGIN_RUNTIME_FAULT' }),
-      }),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
     // Polling never observes stopped rows, so the renderer learns about
     // this Error only through the finalize-side TaskUpdated broadcast.
     expect(deps.eventBus.emit).toHaveBeenCalledWith(
@@ -1979,7 +2037,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     )
   })
 
-  it('BT skip-reseed: afterComplete fires on Completed transition', async () => {
+  it('BT skip-reseed leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())
     const deps: FinalizeTaskDeps = {
       ...makeDeps(),
@@ -1997,14 +2055,10 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     await finalizeTask('t1', deps)
 
     expect(task.status).toBe(TaskStatus.Completed)
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.objectContaining({ task: expect.any(Object) }),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
-  it('BT seeding-fail path: afterComplete still fires (task ends Completed)', async () => {
+  it('BT seeding-fail path leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())
     const deps: FinalizeTaskDeps = {
       ...makeDeps({
@@ -2029,11 +2083,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     await finalizeTask('t1', deps)
 
     expect(task.status).toBe(TaskStatus.Completed)
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.any(Object),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
   it('BT normal Seeding hand-off does NOT fire afterComplete', async () => {

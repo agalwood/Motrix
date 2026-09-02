@@ -35,7 +35,7 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
   'electron-builder.signing.json':
-    '2950c8fb4ebe86a46d384efc373c3fb2b7d08389699fe1ab4ecb54e319dd5cd0',
+    'f67eaf34b5e933aa3806506e2d39af71dcbec8db1384cf485ef2634e41120e6d',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -65,7 +65,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/native-binary-target.mjs':
     '6f0a42eecf729eb6de2df28b5d7449993590e494deb4e309b99c367094045797',
   'scripts/verify-electron-package.mjs':
-    'fc8a3eb35684e2b21c46b6677a2568aeffbd4a7a6befae09fc57c9068b05c680',
+    'ec160ddfa929242155e38d3e0cfdd752ca748a16a84c71eefd39d5b0cbfb9e8a',
 })
 
 const SOURCE_MAPPINGS = [
@@ -159,6 +159,7 @@ function isAllowedSigningDataPath(relativePath) {
       'dist/builtin-plugins/',
       'dist/electron-app/',
       'extra/',
+      'packages/finalize-fs/dist/',
       'packages/native-host/dist/',
       'signing-build-resources/',
       'size-reports/',
@@ -200,6 +201,7 @@ function isAllowedSigningDirectory(relativePath) {
     'dist/builtin-plugins',
     'dist/electron-app',
     'extra',
+    'packages/finalize-fs/dist',
     'packages/native-host/dist',
   ]
   const flatRoots = [
@@ -334,10 +336,17 @@ function nativeHostResource(platform, arch) {
   return `packages/native-host/dist/${platform}-${arch}/${executable}`
 }
 
+function finalizeFsResource(platform, arch) {
+  const executable =
+    platform === 'win32' ? 'motrix-finalize-fs.exe' : 'motrix-finalize-fs'
+  return `packages/finalize-fs/dist/${platform}-${arch}/${executable}`
+}
+
 function normalizedMode(relativePath, info, options) {
   if (
     relativePath === targetResource(options.platform, options.arch) ||
-    relativePath === nativeHostResource(options.platform, options.arch)
+    relativePath === nativeHostResource(options.platform, options.arch) ||
+    relativePath === finalizeFsResource(options.platform, options.arch)
   ) {
     return 0o755
   }
@@ -557,6 +566,10 @@ export async function createSigningInput(options) {
     [
       nativeHostResource(options.platform, options.arch),
       nativeHostResource(options.platform, options.arch),
+    ],
+    [
+      finalizeFsResource(options.platform, options.arch),
+      finalizeFsResource(options.platform, options.arch),
     ],
     [
       `release/size-reports/${targetKey}.json`,

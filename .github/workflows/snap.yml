@@ -26,6 +26,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'packages/native-host/**'
+      - 'packages/finalize-fs/**'
       - 'resources/**'
       - 'scripts/**'
       - 'src/**'
@@ -169,6 +170,13 @@ jobs:
           --locked
           --target ${{ matrix.rust_target }}
 
+      - name: Test finalize filesystem target
+        run: >-
+          cargo test
+          --manifest-path packages/finalize-fs/Cargo.toml
+          --locked
+          --target ${{ matrix.rust_target }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
@@ -192,6 +200,9 @@ jobs:
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- \
+            --platform linux \
+            --arch ${{ matrix.electron_arch }}
+          pnpm run build:finalize-fs -- \
             --platform linux \
             --arch ${{ matrix.electron_arch }}
           pnpm run build:electron

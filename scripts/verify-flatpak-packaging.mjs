@@ -122,7 +122,8 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     manifestSource,
     nodeSourceText,
     cargoSourceText,
-    cargoLock,
+    nativeHostCargoLock,
+    finalizeFsCargoLock,
     builtinLockText,
     workflow,
     packageManifestText,
@@ -131,6 +132,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     readFile(path.join(root, 'flatpak/generated-sources.json'), 'utf8'),
     readFile(path.join(root, 'flatpak/cargo-sources.json'), 'utf8'),
     readFile(path.join(root, 'packages/native-host/Cargo.lock'), 'utf8'),
+    readFile(path.join(root, 'packages/finalize-fs/Cargo.lock'), 'utf8'),
     readFile(path.join(root, 'scripts/builtins.lock.json'), 'utf8'),
     readFile(path.join(root, '.github/workflows/flatpak.yml'), 'utf8'),
     readFile(path.join(root, 'package.json'), 'utf8'),
@@ -303,6 +305,9 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   const nativeHostCopy = motrixCommands.indexOf(
     'packages/native-host/dist/linux-$npm_config_target_arch/motrix-native-host'
   )
+  const finalizeFsCopy = motrixCommands.indexOf(
+    'packages/finalize-fs/dist/linux-$npm_config_target_arch/motrix-finalize-fs'
+  )
   const brokerBinary = motrixCommands.indexOf(
     '/release/motrix-native-host-broker'
   )
@@ -319,6 +324,10 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   invariant(
     nativeHostCopy >= 0 && nativeHostCopy < electronBuilder,
     'browser-facing native host must be staged transiently before electron-builder'
+  )
+  invariant(
+    finalizeFsCopy >= 0 && finalizeFsCopy < electronBuilder,
+    'finalize filesystem sidecar must be staged before electron-builder'
   )
   invariant(
     electronBuild >= 0 &&
@@ -485,7 +494,11 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       .map((source) => source?.dest)
       .filter((dest) => typeof dest === 'string')
   )
-  for (const packageName of registryPackages(cargoLock)) {
+  const lockedCargoPackages = new Set([
+    ...registryPackages(nativeHostCargoLock),
+    ...registryPackages(finalizeFsCargoLock),
+  ])
+  for (const packageName of [...lockedCargoPackages].sort()) {
     invariant(
       cargoDestinations.has(`cargo/vendor/${packageName}`),
       `Cargo source missing ${packageName}`

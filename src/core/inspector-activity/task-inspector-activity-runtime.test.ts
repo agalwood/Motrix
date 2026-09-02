@@ -1149,4 +1149,39 @@ describe('TaskInspectorActivityRuntime', () => {
     ).rejects.toThrow('database busy')
     expect(store.committedTransitions).toHaveLength(0)
   })
+
+  it('holds the task mutation lane until a finalize lease is released', async () => {
+    const runtime = new TaskInspectorActivityRuntime(
+      createStore(),
+      new EventBus()
+    )
+    const lease = await runtime.acquireTaskMutationLease('task-1')
+    let competingMutationRan = false
+    const competing = runtime.runTaskMutation(['task-1'], async () => {
+      competingMutationRan = true
+    })
+
+    await Promise.resolve()
+    expect(competingMutationRan).toBe(false)
+    await lease.release()
+    await competing
+    expect(competingMutationRan).toBe(true)
+  })
+
+  it('borrows an enclosing task mutation lane without deadlocking', async () => {
+    const runtime = new TaskInspectorActivityRuntime(
+      createStore(),
+      new EventBus()
+    )
+    const calls: string[] = []
+
+    await runtime.runTaskMutation(['task-1'], async () => {
+      calls.push('outer')
+      const lease = await runtime.acquireTaskMutationLease('task-1')
+      calls.push('lease')
+      await lease.release()
+    })
+
+    expect(calls).toEqual(['outer', 'lease'])
+  })
 })

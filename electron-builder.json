@@ -119,6 +119,10 @@
         "to": "bin/motrix-native-host"
       },
       {
+        "from": "./packages/finalize-fs/dist/darwin-${arch}/motrix-finalize-fs",
+        "to": "bin/motrix-finalize-fs"
+      },
+      {
         "from": "./extra/tray/",
         "to": "./extra/tray/",
         "filter": [
@@ -150,6 +154,10 @@
       {
         "from": "./packages/native-host/dist/win32-${arch}/motrix-native-host.exe",
         "to": "bin/motrix-native-host.exe"
+      },
+      {
+        "from": "./packages/finalize-fs/dist/win32-${arch}/motrix-finalize-fs.exe",
+        "to": "bin/motrix-finalize-fs.exe"
       },
       {
         "from": "./extra/tray/",
@@ -210,6 +218,10 @@
       {
         "from": "./packages/native-host/dist/linux-${arch}/motrix-native-host",
         "to": "bin/motrix-native-host"
+      },
+      {
+        "from": "./packages/finalize-fs/dist/linux-${arch}/motrix-finalize-fs",
+        "to": "bin/motrix-finalize-fs"
       },
       {
         "from": "./extra/tray/",

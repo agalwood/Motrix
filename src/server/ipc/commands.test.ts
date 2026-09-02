@@ -47,6 +47,8 @@ const PROXY_OFF = {
 const PROXY_ON = { ...PROXY_OFF, enabled: true, host: 'p.example', port: 80 }
 
 function makeFakeCtx() {
+  const setEnabled = vi.fn()
+  const refreshState = vi.fn()
   return {
     supervisor: {
       stop: vi.fn().mockResolvedValue(undefined),
@@ -111,7 +113,7 @@ function makeFakeCtx() {
       ),
     },
     pluginRegistry: {
-      refreshState: vi.fn(),
+      refreshState,
       list: vi.fn(() => []),
     } as unknown as PluginRegistry,
     registryClient: {
@@ -120,11 +122,15 @@ function makeFakeCtx() {
     } as unknown as RegistryClient,
     hostVersion: '2.0',
     pluginStateStore: {
-      setEnabled: vi.fn(),
+      setEnabled,
       get: vi.fn().mockReturnValue(undefined),
     } as unknown as PluginStateStore,
     pluginHost: {
       deactivate: vi.fn().mockResolvedValue(undefined),
+      disable: vi.fn(async (id: string) => {
+        setEnabled(id, false)
+        refreshState(id)
+      }),
     } as unknown as PluginHost,
     pluginInstaller: {
       commit: vi.fn(),
@@ -1146,7 +1152,12 @@ describe('server plugin enable/disable commands', () => {
 
     await handlers[Commands.DisablePlugin]?.('test-plugin')
 
-    expect(ctx.pluginHost.deactivate).toHaveBeenCalledWith('test-plugin')
+    expect(ctx.pluginHost.disable).toHaveBeenCalledWith(
+      'test-plugin',
+      'plugin.user_disabled',
+      'disabled',
+      { recordError: false }
+    )
     expect(ctx.eventBus.emit).toHaveBeenCalledWith(
       Events.PluginStatusChanged,
       expect.objectContaining({ id: 'test-plugin', enabled: false })

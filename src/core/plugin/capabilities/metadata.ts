@@ -54,7 +54,7 @@ export class MetadataError extends Error {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const DEFAULT_QUOTA = 64 << 10 // 64 KB
+export const DEFAULT_METADATA_QUOTA_BYTES = 64 << 10 // 64 KiB
 
 /**
  * Serialize `value` to JSON.
@@ -63,7 +63,7 @@ const DEFAULT_QUOTA = 64 << 10 // 64 KB
  *  - JSON.stringify returns undefined (e.g. a plain function)
  *  - JSON.stringify throws (e.g. BigInt, class with throwing toJSON)
  */
-function serialize(value: unknown): string {
+export function serializeMetadataValue(value: unknown): string {
   if (value === undefined) {
     throw new MetadataError(
       'plugin.metadata.value_not_serializable',
@@ -101,7 +101,8 @@ export class MetadataCapabilityHost {
     perPluginPerTaskBytes?: number
   }) {
     this.db = opts.db
-    this.perPluginPerTaskBytes = opts.perPluginPerTaskBytes ?? DEFAULT_QUOTA
+    this.perPluginPerTaskBytes =
+      opts.perPluginPerTaskBytes ?? DEFAULT_METADATA_QUOTA_BYTES
   }
 
   // -------------------------------------------------------------------------
@@ -217,7 +218,7 @@ export class MetadataCapabilityHost {
     key: string,
     value: unknown
   ): Promise<void> {
-    const json = serialize(value)
+    const json = serializeMetadataValue(value)
     const size = Buffer.byteLength(json, 'utf8')
     this.assertQuota(taskId, pluginId, key, size)
 

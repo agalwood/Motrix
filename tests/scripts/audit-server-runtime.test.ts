@@ -297,6 +297,7 @@ describe('Server package contracts', () => {
       'dist/builtin-plugins',
       'extra/aria2.conf',
       'extra/{platform}/{arch}/{aria2Binary}',
+      'packages/finalize-fs/dist/{platform}-{arch}/{finalizeBinary}',
     ])
     expect(contract.runtimeRoots).toEqual([
       '@fastify/static',

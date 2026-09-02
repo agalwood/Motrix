@@ -33,7 +33,8 @@ minimumReleaseAgeExclude:
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0 || 0.5.0 || 0.6.0'
   - '@motrix/nat@0.1.0 || 0.1.1'
   - '@motrix/cli@0.1.0'
-  - '@motrix/plugin-manifest-schema@2.0.0'
+  - '@motrix/plugin-api@2.1.0'
+  - '@motrix/plugin-manifest-schema@2.0.0 || 2.1.1'
   - '@hookform/resolvers@5.5.7 || 5.9.1'
   - jsdom@30.0.0
   - magnet-uri@7.0.10

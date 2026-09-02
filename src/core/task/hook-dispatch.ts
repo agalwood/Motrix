@@ -1,20 +1,15 @@
-import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
-import type {
-  AfterCompleteContextDTO,
-  OnErrorContextDTO,
-} from '@shared/types/plugin-hooks'
 import type { DownloadTask } from '@shared/types/task'
 
 /**
- * Shared fire-and-forget dispatch for the parallel afterComplete / onError
- * hook chains. Plan C spec §10: parallel hooks run in isolation — one
- * plugin's failure must not affect the others, and dispatch never blocks the
- * calling path. Both finalizeTask (per-task completion) and TaskRecoveryService
- * (startup recovery) reach the same terminal transitions, so the dispatch lives
- * here once instead of being copy-pasted into each.
+ * Legacy terminal-Hook wake-up seam.
+ *
+ * Terminal Hook payloads are admitted durably in the same SQLite transaction
+ * as the task transition. This helper may only wake the durable scheduler; it
+ * must never invoke a plugin directly or rebuild a payload from mutable task
+ * state after the commit.
  */
 export interface HookDispatchDeps {
-  orchestrator?: HookOrchestrator
+  wakePostDeliveries?: () => void | Promise<void>
   log: { warn(ctx: Record<string, unknown>, msg: string): void }
 }
 
@@ -30,16 +25,7 @@ export function fireAfterComplete(
   task: DownloadTask,
   origin: HookDispatchOrigin
 ): void {
-  if (!deps.orchestrator) return
-  const dto: AfterCompleteContextDTO = { task, filePath: task.finalPath }
-  void deps.orchestrator
-    .runParallel('afterComplete', dto, task.id)
-    .catch((err) => {
-      deps.log.warn(
-        { taskId: task.id, origin, err: (err as Error).message },
-        'after_complete_hook_failed'
-      )
-    })
+  wakeDurablePostDeliveries(deps, task.id, origin)
 }
 
 export function fireOnError(
@@ -48,12 +34,20 @@ export function fireOnError(
   error: { code: string; message: string },
   origin: HookDispatchOrigin
 ): void {
-  if (!deps.orchestrator) return
-  const dto: OnErrorContextDTO = { task, error }
-  void deps.orchestrator.runParallel('onError', dto, task.id).catch((err) => {
+  void error
+  wakeDurablePostDeliveries(deps, task.id, origin)
+}
+
+function wakeDurablePostDeliveries(
+  deps: HookDispatchDeps,
+  taskId: string,
+  origin: HookDispatchOrigin
+): void {
+  if (!deps.wakePostDeliveries) return
+  void Promise.resolve(deps.wakePostDeliveries()).catch((err) => {
     deps.log.warn(
-      { taskId: task.id, origin, err: (err as Error).message },
-      'on_error_hook_failed'
+      { taskId, origin, err: (err as Error).message },
+      'post_delivery_scheduler_wake_failed'
     )
   })
 }

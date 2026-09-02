@@ -22,7 +22,7 @@ importers:
         version: 5.3.0
       '@hookform/resolvers':
         specifier: ^5.9.1
-        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.4.3)
+        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.5.4)
       '@motrix/mdxp':
         specifier: ^0.6.0
         version: 0.6.0
@@ -30,8 +30,8 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1
       '@motrix/plugin-manifest-schema':
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^2.1.1
+        version: 2.1.1
       '@noble/curves':
         specifier: 2.0.1
         version: 2.0.1
@@ -165,8 +165,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
       zustand:
         specifier: ^5.0.15
         version: 5.0.15(@types/react@19.2.18)(immer@11.1.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
@@ -183,6 +183,12 @@ importers:
       '@motrix/cli':
         specifier: ^0.4.0
         version: 0.4.0
+      '@motrix/plugin-api':
+        specifier: 2.1.0
+        version: 2.1.0
+      '@motrix/plugin-api-2-0':
+        specifier: npm:@motrix/plugin-api@2.0.0
+        version: '@motrix/plugin-api@2.0.0'
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
@@ -951,8 +957,14 @@ packages:
     resolution: {integrity: sha512-ORkFuNXMLa8yLhlxRmoLh6WSWtOjhJ4q28Dcx4Wt44JSkB60gjNzuBV8CVCy2VtWc2BhxiOlel4f3RhJ7OmaXw==}
     engines: {node: '>=22'}
 
-  '@motrix/plugin-manifest-schema@2.1.0':
-    resolution: {integrity: sha512-S6p1uhoQzYbepVkYV86dmmD+7xLagto7ft3vWcLK4Fg8KtvEikV1b+ZPyE5OjgpZO3WEFcMe8uuc/Iymai0fmw==}
+  '@motrix/plugin-api@2.0.0':
+    resolution: {integrity: sha512-S4YsMvAo9ehDN8R6jwQAzcTHBstEFH1kPw8CRePMVLSNT0pb+5jlaQdBXd1NfsxY9O4FFX4e63uuAYWlkD9Urw==}
+
+  '@motrix/plugin-api@2.1.0':
+    resolution: {integrity: sha512-XJn8re75nGUFSOA9dsEAjFkj8FqY6pQMk5wnz9E7Ym+icOp7q0JChjS/ILETvsu1gmvntlzdzazmgi4U42fPIA==}
+
+  '@motrix/plugin-manifest-schema@2.1.1':
+    resolution: {integrity: sha512-/aVHes64pk3P0z3Myfa08tk4Zp5AQlhwIL28clvjkIM3x7TkWa8W+FXsXf2FZ+a/Q/gjuCQGAstHOxivQ7+euA==}
 
   '@noble/curves@2.0.1':
     resolution: {integrity: sha512-vs1Az2OOTBiP4q0pwjW5aF0xp9n4MxVrmkFBxc6EKZc6ddYx5gaZiAsZoq0uRRXWbi3AT/sBqn05eRPtn1JCPw==}
@@ -1708,6 +1720,7 @@ packages:
   '@xmldom/xmldom@0.8.14':
     resolution: {integrity: sha512-T4EDRUBVZYRldYApjEJiU0e1stYWaRAX7CuSnKzrpwdZKo53zGV8/pqfzV6FfwNl9YThD2OumQYvqtvjvgG7aQ==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xyflow/react@12.11.3':
     resolution: {integrity: sha512-G3jogHz2GWUtIOkhavUGno2YzY9u6fILIJBttfsBendb0/HWB90JG+sOTAvlIMEwyvq9zgy9V9ZQSwyQjR5QzQ==}
@@ -4632,8 +4645,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.5.4:
+    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -5242,7 +5255,7 @@ snapshots:
     dependencies:
       hono: 4.13.2
 
-  '@hookform/resolvers@5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.4.3)':
+  '@hookform/resolvers@5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.5.4)':
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.85.0(react@19.2.8)
@@ -5250,7 +5263,7 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       ajv: 8.20.0
       ajv-formats: 2.1.1(ajv@8.20.0)
-      zod: 4.4.3
+      zod: 4.5.4
 
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
@@ -5337,13 +5350,17 @@ snapshots:
   '@motrix/mdxp@0.6.0':
     dependencies:
       vscode-jsonrpc: 9.0.1
-      zod: 4.4.3
+      zod: 4.5.4
 
   '@motrix/nat@0.1.1': {}
 
-  '@motrix/plugin-manifest-schema@2.1.0':
+  '@motrix/plugin-api@2.0.0': {}
+
+  '@motrix/plugin-api@2.1.0': {}
+
+  '@motrix/plugin-manifest-schema@2.1.1':
     dependencies:
-      zod: 4.4.3
+      zod: 4.5.4
 
   '@noble/curves@2.0.1':
     dependencies:
@@ -8886,7 +8903,7 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zod@4.4.3: {}
+  zod@4.5.4: {}
 
   zustand@4.5.7(@types/react@19.2.18)(immer@11.1.17)(react@19.2.8):
     dependencies:

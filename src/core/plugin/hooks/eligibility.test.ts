@@ -1,5 +1,6 @@
 import type { PluginManifest } from '@shared/types/plugin'
 import { describe, expect, it } from 'vitest'
+import { HOST_PATTERN_CONFORMANCE_CASES } from '../permissions/host-pattern.corpus'
 import {
   isEligible,
   matchPattern,
@@ -82,6 +83,19 @@ describe('matchPattern', () => {
 })
 
 describe('isEligible', () => {
+  it.each(HOST_PATTERN_CONFORMANCE_CASES)(
+    'matches shared host corpus: $name',
+    ({ pattern, url, expected }) => {
+      const manifest = makeManifest({
+        hooks: { beforeCreate: {} },
+        hostPermissions: [pattern],
+      })
+      expect(isEligible({ manifest, hook: 'beforeCreate', taskUrl: url })).toBe(
+        expected
+      )
+    }
+  )
+
   // Case 1: plugin declares beforeCreate + hostPermissions matching task URL
   it('beforeCreate with matching hostPermissions is eligible', () => {
     const manifest = makeManifest({
@@ -311,8 +325,8 @@ describe('isEligible', () => {
     ).toBe(false)
   })
 
-  // beforeFinalize also URL-filtered
-  it('beforeFinalize with matching hostPermissions is eligible', () => {
+  // Finalization is a task lifecycle hook, not a network-selection hook.
+  it('beforeFinalize ignores hostPermissions even when a task URL exists', () => {
     const manifest = makeManifest({
       hooks: { beforeFinalize: {} },
       hostPermissions: ['*://api.example.com/*'],
@@ -326,7 +340,7 @@ describe('isEligible', () => {
     ).toBe(true)
   })
 
-  it('beforeFinalize without hostPermissions and taskUrl is not eligible (I29)', () => {
+  it('beforeFinalize without hostPermissions remains eligible (H18)', () => {
     const manifest = makeManifest({
       hooks: { beforeFinalize: {} },
       hostPermissions: [],
@@ -337,7 +351,7 @@ describe('isEligible', () => {
         hook: 'beforeFinalize',
         taskUrl: 'https://api.example.com/v1/list',
       })
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('beforeFinalize without taskUrl is eligible (no URL filtering needed)', () => {
@@ -383,15 +397,13 @@ describe('urlMatchesHostPermissions', () => {
     ).toBe(false)
   })
 
-  it('glob edge: *://*.youtube.com/* does NOT match bare youtube.com (no subdomain)', () => {
-    // Documents the source-of-truth behavior: the glob requires a subdomain.
-    // If bare-domain matching is wanted, fix the manifest, not this helper.
+  it('subdomain wildcard includes the suffix host', () => {
     expect(
       urlMatchesHostPermissions(
         ['*://*.youtube.com/*'],
         'https://youtube.com/watch?v=x'
       )
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('*://*/* matches an arbitrary url — the helper itself is broad', () => {

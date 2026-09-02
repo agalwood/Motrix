@@ -1,6 +1,7 @@
 import { AppError, ErrorCode } from '@shared/errors'
 import type { PluginListDTO, PluginManifest } from '@shared/types/plugin'
 import { describe, expect, it, vi } from 'vitest'
+import { HOST_PATTERN_CONFORMANCE_CASES } from '../permissions/host-pattern.corpus'
 import type { IndexedPlugin } from '../plugin-registry'
 import {
   ActivationDispatcher,
@@ -100,6 +101,14 @@ function makeMockRegistry(
   return {
     list: () => plugins.map(({ manifest }) => makeDto(manifest.id)),
     get: (id: string) => indexed.get(id),
+    entries: () =>
+      [...indexed.values()].map((entry) => ({
+        manifest: entry.manifest,
+        origin: entry.origin,
+        enabled: entry.state.enabled,
+        executableDigest: 'a'.repeat(64),
+      })),
+    policyGenerationFor: () => 1,
   }
 }
 
@@ -110,6 +119,143 @@ function makeMockRegistry(
 const startupEvent: HostActivationEvent = { kind: 'startup' }
 
 describe('ActivationDispatcher', () => {
+  describe('registry-backed Hook demand', () => {
+    it.each(HOST_PATTERN_CONFORMANCE_CASES)(
+      'matches shared host corpus: $name',
+      ({ pattern, url, expected }) => {
+        const manifest = makeManifest('alice.corpus', {
+          activationEvents: ['onTaskType:http'],
+          hostPermissions: [pattern],
+          contributes: { hooks: { beforeCreate: { role: 'resolve' } } },
+        })
+        const dispatcher = new ActivationDispatcher(
+          makeMockRegistry([{ manifest }]) as never,
+          makeMockHost({ activeIds: [], meta: [] }) as never
+        )
+
+        expect(
+          dispatcher.candidatesForHook('beforeCreate', {
+            taskType: 'http',
+            taskUrl: url,
+          }).length > 0
+        ).toBe(expected)
+      }
+    )
+
+    it('discovers inactive candidates in stable role/id order', () => {
+      const manifests = [
+        makeManifest('z.enrich', {
+          activationEvents: ['onTaskType:http'],
+          hostPermissions: ['https://example.test/*'],
+          contributes: { hooks: { beforeCreate: { role: 'enrich' } } },
+        }),
+        makeManifest('z.resolve', {
+          activationEvents: ['onTaskType:http'],
+          hostPermissions: ['https://example.test/*'],
+          contributes: { hooks: { beforeCreate: { role: 'pre-resolve' } } },
+        }),
+        makeManifest('a.resolve', {
+          activationEvents: ['onTaskType:http'],
+          hostPermissions: ['https://example.test/*'],
+          contributes: { hooks: { beforeCreate: { role: 'pre-resolve' } } },
+        }),
+      ]
+      const registry = makeMockRegistry(
+        manifests.map((manifest) => ({ manifest }))
+      )
+      const host = makeMockHost({ activeIds: [], meta: [] })
+      const dispatcher = new ActivationDispatcher(
+        registry as never,
+        host as never
+      )
+
+      expect(
+        dispatcher
+          .candidatesForHook('beforeCreate', {
+            taskType: 'http',
+            taskUrl: 'https://example.test/file',
+          })
+          .map((candidate) => candidate.id)
+      ).toEqual(['a.resolve', 'z.resolve', 'z.enrich'])
+      expect(host.activate).not.toHaveBeenCalled()
+    })
+
+    it('does not URL-filter finalization candidates and reactivates on demand', async () => {
+      const manifest = makeManifest('alice.finalizer', {
+        activationEvents: ['onTaskType:ftp'],
+        hostPermissions: [],
+        contributes: {
+          hooks: { beforeFinalize: { role: 'post-process' } },
+        },
+      })
+      const registry = makeMockRegistry([{ manifest }])
+      const host = makeMockHost({ activeIds: [], meta: [] })
+      const dispatcher = new ActivationDispatcher(
+        registry as never,
+        host as never
+      )
+      const candidates = dispatcher.candidatesForHook('beforeFinalize', {
+        taskType: 'ftp',
+        taskUrl: 'ftp://example.test/file',
+      })
+
+      expect(candidates.map((candidate) => candidate.id)).toEqual([
+        'alice.finalizer',
+      ])
+      await dispatcher.activateForHook('alice.finalizer', 'beforeFinalize')
+      expect(host.activate).toHaveBeenCalledWith('alice.finalizer', {
+        waitForDeactivation: true,
+      })
+      await host.deactivate('alice.finalizer')
+      await dispatcher.activateForHook('alice.finalizer', 'beforeFinalize')
+      expect(host.activate).toHaveBeenCalledTimes(2)
+    })
+
+    it('treats wildcard activation as matching Hook task demand', () => {
+      const manifest = makeManifest('alice.always', {
+        activationEvents: ['*'],
+        hostPermissions: ['https://example.test/*'],
+        contributes: { hooks: { beforeCreate: { role: 'resolve' } } },
+      })
+      const dispatcher = new ActivationDispatcher(
+        makeMockRegistry([{ manifest }]) as never,
+        makeMockHost({ activeIds: [], meta: [] }) as never
+      )
+
+      expect(
+        dispatcher.candidatesForHook('beforeCreate', {
+          taskType: 'http',
+          taskUrl: 'https://example.test/file',
+        })
+      ).toHaveLength(1)
+    })
+
+    it('fails a beforeCreate candidate closed on credentials or host confusion', () => {
+      const manifest = makeManifest('alice.resolver', {
+        activationEvents: ['onTaskType:http'],
+        hostPermissions: ['https://allowed.example/*'],
+        contributes: { hooks: { beforeCreate: { role: 'resolve' } } },
+      })
+      const registry = makeMockRegistry([{ manifest }])
+      const dispatcher = new ActivationDispatcher(
+        registry as never,
+        makeMockHost({ activeIds: [], meta: [] }) as never
+      )
+      for (const taskUrl of [
+        'https://allowed.example.evil/file',
+        'https://allowed.example@evil.example/file',
+        'https://evil.example/path/allowed.example/file',
+      ]) {
+        expect(
+          dispatcher.candidatesForHook('beforeCreate', {
+            taskType: 'http',
+            taskUrl,
+          })
+        ).toEqual([])
+      }
+    })
+  })
+
   describe('below cap -- all activate successfully', () => {
     it('activates all 5 matching plugins when maxActive=32', async () => {
       const manifests = Array.from({ length: 5 }, (_, i) =>
@@ -129,6 +275,26 @@ describe('ActivationDispatcher', () => {
 
       expect(state.activeIds).toHaveLength(5)
       expect(host.activate).toHaveBeenCalledTimes(5)
+    })
+
+    it('treats wildcard activation as matching task events', async () => {
+      const manifest = makeManifest('alice.always', {
+        activationEvents: ['*'],
+      })
+      const state: MockHostState = { activeIds: [], meta: [] }
+      const host = makeMockHost(state)
+      const dispatcher = new ActivationDispatcher(
+        makeMockRegistry([{ manifest }]) as never,
+        host as never
+      )
+
+      await dispatcher.dispatch({
+        kind: 'taskAdded',
+        taskType: 'bt',
+        url: 'magnet:?xt=urn:btih:test',
+      })
+
+      expect(host.activate).toHaveBeenCalledWith('alice.always')
     })
   })
 

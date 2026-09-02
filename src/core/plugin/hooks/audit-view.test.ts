@@ -4,6 +4,9 @@ import { sanitizeForAudit } from './audit-view'
 describe('AuditViewMixin', () => {
   it('strips sourceUrl path + query', () => {
     const v = sanitizeForAudit({
+      schemaVersion: 1,
+      invocationId: 'invocation-1',
+      taskId: 'task-1',
       type: 'http',
       sourceUrl: 'https://example.com/a?b=1',
       uris: ['https://cdn.example.com/file?token=secret'],
@@ -24,6 +27,9 @@ describe('AuditViewMixin', () => {
 
   it('handles invalid uris with try/catch', () => {
     const v = sanitizeForAudit({
+      schemaVersion: 1,
+      invocationId: 'invocation-2',
+      taskId: 'task-1',
       type: 'http',
       sourceUrl: 'https://example.com',
       uris: ['https://valid.com', 'not a url', 'ftp://another.org'],
@@ -37,6 +43,9 @@ describe('AuditViewMixin', () => {
 
   it('produces multiple header digests in order', () => {
     const v = sanitizeForAudit({
+      schemaVersion: 1,
+      invocationId: 'invocation-3',
+      taskId: 'task-1',
       type: 'http',
       sourceUrl: 'https://example.com',
       uris: [],
@@ -57,6 +66,9 @@ describe('AuditViewMixin', () => {
 
   it('headerValueDigests are sha256 hex (64 lowercase chars)', () => {
     const v = sanitizeForAudit({
+      schemaVersion: 1,
+      invocationId: 'invocation-4',
+      taskId: 'task-1',
       type: 'http',
       sourceUrl: 'https://example.com',
       uris: [],
@@ -72,6 +84,9 @@ describe('AuditViewMixin', () => {
 
   it('proxy undefined when dto.proxy is undefined', () => {
     const v = sanitizeForAudit({
+      schemaVersion: 1,
+      invocationId: 'invocation-5',
+      taskId: 'task-1',
       type: 'http',
       sourceUrl: 'https://example.com',
       uris: [],
@@ -86,6 +101,9 @@ describe('AuditViewMixin', () => {
 
   it('output object does not have headers, proxy, sourceUrl keys', () => {
     const v = sanitizeForAudit({
+      schemaVersion: 1,
+      invocationId: 'invocation-6',
+      taskId: 'task-1',
       type: 'http',
       sourceUrl: 'https://example.com/path',
       uris: [],

@@ -52,6 +52,7 @@ import { createNotificationOccurrenceConsumer } from '@core/notifications/occurr
 import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
+import { resolveFinalizeSidecarPath } from '@core/plugin/finalize/sidecar-path'
 import { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
@@ -61,6 +62,9 @@ import {
 import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
+import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
+import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
+import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
@@ -79,7 +83,10 @@ import {
   reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
-import { finalizeTask } from '@core/task/actions/finalize-task'
+import {
+  type FinalizeArtifactCommitRequest,
+  finalizeTask,
+} from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { handleCreateTask } from '@core/task/create-task-handler'
@@ -113,6 +120,7 @@ import {
 import { resolveSupportedLocale } from '@shared/constants/locales'
 import { Events } from '@shared/protocol/events'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
+import { EngineState } from '@shared/types/engine'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
@@ -163,10 +171,7 @@ import {
   runServerStartup,
   type ServerShutdownActions,
 } from './shutdown'
-import {
-  createServerPersistTask,
-  createServerPersistTaskWithOccurrence,
-} from './task-persistence'
+import { createServerPersistTask } from './task-persistence'
 
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
 
@@ -523,6 +528,12 @@ async function main() {
   await localeCoordinator.reconcile()
   if (!shellAsyncWork.isAccepting()) return
   const serverDir = path.dirname(fileURLToPath(import.meta.url))
+  const detectServerFfmpeg = makeServerFfmpegDetect({
+    settingsManager,
+    userDataDir: platform.userDataDir,
+  })
+  const detectPluginFfmpeg = async () =>
+    projectActiveToLegacy(await detectServerFfmpeg())
   const pluginHost = new PluginHost({
     registry: pluginRegistry,
     stateStore: pluginStateStore,
@@ -535,17 +546,15 @@ async function main() {
     runtime: 'server',
     hostLanguage,
     pluginGrants,
+    ffmpegDetect: detectPluginFfmpeg,
     idleDisposeMs: parsePluginIdleDisposeMs(
       process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
     ),
   })
   shutdownActions.drainPluginHost = () => pluginHost.shutdown()
-  eventBus.on(Events.PluginGrantsChanged, (...args: unknown[]) => {
-    const payload = args[0] as { pluginId?: string } | undefined
-    if (payload?.pluginId && pluginHost.isActive(payload.pluginId)) {
-      void pluginHost.deactivate(payload.pluginId)
-    }
-  })
+  pluginGrants.bindPolicyBarrier(
+    pluginHost.applyPolicyMutation.bind(pluginHost)
+  )
   // Wire Plan D: cross-plugin command safeguards (schema cache + rate limit
   // + caller throttle + chain depth + audit) and bind the invoker to the
   // capability host. Must run AFTER registry.discover() so manifest schemas
@@ -568,13 +577,7 @@ async function main() {
     capabilityHost: pluginCapHost,
     hostVersion,
     schemaCache: commandSystem.schemas,
-    ffmpegDetect: async () =>
-      projectActiveToLegacy(
-        await makeServerFfmpegDetect({
-          settingsManager,
-          userDataDir: platform.userDataDir,
-        })()
-      ),
+    ffmpegDetect: detectPluginFfmpeg,
   })
   const pluginUploadStore = new PluginUploadStore(
     path.join(pluginsDir, '_uploads')
@@ -677,8 +680,68 @@ async function main() {
   )
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
-  const persistTaskWithOccurrence =
-    createServerPersistTaskWithOccurrence(sessionManager)
+  let pluginHookRuntime: PluginHookRuntime | undefined
+  const persistTaskWithOccurrence = (
+    task: DownloadTask,
+    occurrence: Parameters<SessionManager['persistTaskWithOccurrence']>[1]
+  ) =>
+    occurrence && pluginHookRuntime
+      ? pluginHookRuntime.persistTerminal(task, occurrence)
+      : sessionManager.persistTaskWithOccurrence(task, occurrence)
+  const pluginRuntime = await createPluginRuntime({
+    activation: pluginActivation,
+    registry: pluginRegistry,
+    grants: pluginGrants,
+    host: pluginHost,
+    installer: pluginInstaller,
+    capabilityHost: pluginCapHost,
+    repository: db.durablePostDeliveries,
+    persistTerminal: (task, occurrence, input) =>
+      sessionManager.persistTerminalHookBoundary(task, occurrence, input),
+    database: db.database,
+    session: sessionManager,
+    pluginsDir,
+    auditLogPath: path.join(
+      platform.userDataDir,
+      'plugin-audit',
+      'hooks.ndjson'
+    ),
+    finalizeSidecarPath: resolveFinalizeSidecarPath({
+      extraResourceDir: platform.extraResourceDir,
+      isDev: platform.isDev,
+      platform: process.platform,
+      arch: process.arch,
+      runtimeRoot: path.resolve(serverDir, '..', '..'),
+    }),
+    acquireTaskMutationLease: (taskId) =>
+      taskInspectorActivityRuntime.acquireTaskMutationLease(taskId),
+    assertEngineQuiesced: async (taskId) => {
+      if (supervisor.getState() !== EngineState.Ready) return
+      const task = taskManager.getById(taskId)
+      if (!task) return
+      const active = await adapter.listActiveAndWaiting()
+      if (active.some((entry) => entry.gid === task.engineTaskId)) {
+        throw new Error(`engine writer is still active for task ${taskId}`)
+      }
+    },
+  })
+  pluginHookRuntime = pluginRuntime.hooks
+  const hookAuditLog = pluginRuntime.auditLog
+  const hookOrchestrator = pluginRuntime.orchestrator
+  const postDeliveryAbortController = new AbortController()
+  let postDeliveryLoop: Promise<void> | undefined
+  const finalizeFilesystemAdapter = pluginRuntime.finalizeFilesystem
+  const durableFinalizeRuntime = pluginRuntime.finalize
+  shutdownActions.drainPluginHost = async () => {
+    postDeliveryAbortController.abort()
+    await postDeliveryLoop
+    try {
+      await hookAuditLog.drain()
+    } finally {
+      await pluginHost.shutdown()
+    }
+  }
+  shutdownActions.disposeFinalizeFs = () => finalizeFilesystemAdapter.dispose()
 
   // ─── Speed Limit Controller ───────────────────────────────────
   // Constructed immediately after supervisor so setEffectiveLimitsProvider
@@ -1002,12 +1065,13 @@ async function main() {
     pluginInstallService,
     pluginGrants,
     capabilityHost: pluginCapHost,
-    userDataDir: platform.userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     magnetTracker,
     activityRecorder: taskActivityService,
     persistTask,
+    persistTaskWithPluginMetadata: pluginRuntime.persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition: (input) =>
@@ -1249,13 +1313,6 @@ async function main() {
       log,
     })
 
-    try {
-      await supervisor.start(platform.aria2BinaryPath)
-    } catch (err) {
-      log.error({ err }, 'engine start failed')
-    }
-    if (!shellAsyncWork.isAccepting()) return
-
     // Discrete lifecycle transitions (including terminal media states) must be
     // durable before their coordinator resolves. save() is a serialized,
     // rejecting hard barrier, matching the Electron shell contract.
@@ -1305,6 +1362,8 @@ async function main() {
       },
       eventBus,
       activityRecorder: taskActivityService,
+      orchestrator: hookOrchestrator,
+      auditLog: hookAuditLog,
       recordTransition: (input: RuntimeTransitionInput) =>
         taskInspectorActivityRuntime.recordTransition(input),
       runTaskMutation: <T>(
@@ -1312,8 +1371,23 @@ async function main() {
         operation: () => Promise<T>
       ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       log,
+      commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
+        const post =
+          input.occurrence?.type === 'terminal'
+            ? await pluginHookRuntime.prepareTerminal(
+                input.task,
+                input.occurrence
+              )
+            : { postDeliveries: [], beforeCommit: () => undefined }
+        await durableFinalizeRuntime.commit({
+          ...input,
+          postDeliveries: post.postDeliveries,
+          beforeCommit: post.beforeCommit,
+        })
+      },
     })
 
+    const pluginStartup = new PluginRuntimeStartupCoordinator()
     try {
       // ─── occurrence consumer registration ─────────────────
       // Runs BEFORE restore()/recoverOnStartup(): both of those commit
@@ -1341,6 +1415,19 @@ async function main() {
         dnsFallbackConsumer.name,
         dnsFallbackConsumer.consume
       )
+
+      await pluginStartup.recoverFinalize(() =>
+        durableFinalizeRuntime.recoverAll()
+      )
+
+      try {
+        await pluginStartup.startEngine(() =>
+          supervisor.start(platform.aria2BinaryPath)
+        )
+      } catch (err) {
+        log.error({ err }, 'engine start failed')
+      }
+      if (!shellAsyncWork.isAccepting()) return
 
       await appliedDownloadProxyPolicy.runWithSnapshot(
         async (_snapshot, lease) => {
@@ -1407,67 +1494,81 @@ async function main() {
         })
       }
 
-      adapter.onBtDownloadComplete((engineTaskId) => {
-        runShellAsyncWork('BT finalize', async () => {
-          const task = taskManager.getByEngineTaskId(engineTaskId)
-          if (!task) return
-          if (shouldSkipEngineCompletionFinalize(task)) return
-          try {
-            await finalizeTask(task.id, buildFinalizeDeps())
-          } catch (err) {
-            log.error({ err, taskId: task.id }, 'finalizeTask failed (BT)')
-          }
-        })
+      pluginStartup.markTasksRecovered()
+      await pluginStartup.drainBeforeProducers({
+        drainOccurrences: () => occurrenceDispatcher.drainAtStartup(),
+        recoverAndDrainPostDeliveries: () =>
+          pluginHookRuntime.recoverAndDrain(),
       })
-
-      adapter.onDownloadComplete((engineTaskId) => {
-        runShellAsyncWork('HTTP finalize', async () => {
-          const task = taskManager.getByEngineTaskId(engineTaskId)
-          if (!task) return
-          if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
-            return
-          }
-          if (shouldSkipEngineCompletionFinalize(task)) return
-          try {
-            await finalizeTask(task.id, buildFinalizeDeps())
-          } catch (err) {
-            log.error({ err, taskId: task.id }, 'finalizeTask failed (HTTP)')
+      postDeliveryLoop = pluginHookRuntime.scheduler
+        .start(postDeliveryAbortController.signal)
+        .catch((err) => {
+          if (!postDeliveryAbortController.signal.aborted) {
+            log.error({ err }, 'plugin post-delivery scheduler stopped')
           }
         })
+
+      pluginStartup.openProducers(() => {
+        adapter.onBtDownloadComplete((engineTaskId) => {
+          runShellAsyncWork('BT finalize', async () => {
+            const task = taskManager.getByEngineTaskId(engineTaskId)
+            if (!task) return
+            if (shouldSkipEngineCompletionFinalize(task)) return
+            try {
+              await finalizeTask(task.id, buildFinalizeDeps())
+            } catch (err) {
+              log.error({ err, taskId: task.id }, 'finalizeTask failed (BT)')
+            }
+          })
+        })
+
+        adapter.onDownloadComplete((engineTaskId) => {
+          runShellAsyncWork('HTTP finalize', async () => {
+            const task = taskManager.getByEngineTaskId(engineTaskId)
+            if (!task) return
+            if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
+              return
+            }
+            if (shouldSkipEngineCompletionFinalize(task)) return
+            try {
+              await finalizeTask(task.id, buildFinalizeDeps())
+            } catch (err) {
+              log.error({ err, taskId: task.id }, 'finalizeTask failed (HTTP)')
+            }
+          })
+        })
+
+        sessionManager.startAutoSave(engineSettings.sessionSaveInterval * 1000)
+
+        pollingNotificationUnsubscribers.push(
+          rpcClient.onDownloadStart((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadStart', event)
+          }),
+          rpcClient.onDownloadPause((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadPause', event)
+          }),
+          rpcClient.onDownloadComplete((event) => {
+            pollingScheduler.handleNotification(
+              'aria2.onDownloadComplete',
+              event
+            )
+          }),
+          rpcClient.onDownloadStop((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadStop', event)
+          }),
+          rpcClient.onDownloadError((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadError', event)
+          }),
+          rpcClient.onBtDownloadComplete((event) => {
+            pollingScheduler.handleNotification(
+              'aria2.onBtDownloadComplete',
+              event
+            )
+          })
+        )
+
+        pollingScheduler.start()
       })
-
-      sessionManager.startAutoSave(engineSettings.sessionSaveInterval * 1000)
-
-      pollingNotificationUnsubscribers.push(
-        rpcClient.onDownloadStart((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadStart', event)
-        }),
-        rpcClient.onDownloadPause((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadPause', event)
-        }),
-        rpcClient.onDownloadComplete((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadComplete', event)
-        }),
-        rpcClient.onDownloadStop((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadStop', event)
-        }),
-        rpcClient.onDownloadError((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadError', event)
-        }),
-        rpcClient.onBtDownloadComplete((event) => {
-          pollingScheduler.handleNotification(
-            'aria2.onBtDownloadComplete',
-            event
-          )
-        })
-      )
-
-      // Deliver anything the outbox still holds: rows a prior run persisted
-      // but never dispatched, plus everything restore()/recovery just wrote
-      // through SessionManager (which has no dispatcher of its own).
-      await occurrenceDispatcher.drainAtStartup()
-
-      pollingScheduler.start()
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return
       log.error({ err }, 'post-engine setup failed')
@@ -1584,6 +1685,8 @@ async function main() {
         publishTaskUpdate,
         activityRecorder: taskActivityService,
         persistTask,
+        persistTaskWithPluginMetadata:
+          pluginRuntime.persistTaskWithPluginMetadata,
         parentTaskCreated: (
           task: DownloadTask,
           persistParent: () => void | Promise<void>

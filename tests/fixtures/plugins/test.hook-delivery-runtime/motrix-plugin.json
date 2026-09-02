@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 1,
+  "id": "test.hook-delivery-runtime",
+  "name": "Hook delivery runtime fixture",
+  "version": "1.0.0",
+  "description": "Guest runtime fixture for the additive post-Hook delivery envelope",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "hostPermissions": ["*://*/*"],
+  "activationEvents": ["onTaskType:http"],
+  "contributes": {
+    "hooks": {
+      "afterComplete": { "role": "audit" },
+      "onError": { "role": "audit" }
+    }
+  }
+}

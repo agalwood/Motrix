@@ -15,16 +15,25 @@
 //   the regex rewrite; see Task 11).
 //   On success: send `{type:'ready'}`. On failure: send `{type:'fatal', ...}`.
 //
-// Task 20: injectPluginApi rebuilt to expose proxies for ALL Phase 1A
-// capabilities. Each effectful proxy calls assertEffectfulAllowed before
-// bridging; hook/command registration stores handles locally; hookEnter
-// events dispatch into registered handlers.
-//
-// Tests for this module live in Task 21's e2e fixture (test.allcaps).
-// Direct worker unit tests are omitted — WASM + worker_threads complexity
-// makes them fragile compared to the e2e path.
+// Capability proxies call assertEffectfulAllowed before bridging, while Hook
+// context mutation and metadata staging stay synchronous inside the Worker.
+// A versioned, validated Hook exit transfers those effects to the Host as one
+// deterministic unit.
 
 import { parentPort } from 'node:worker_threads'
+import {
+  CapabilityResponseMessageSchema,
+  type CommandInvocationScopeV1,
+  HOOK_SCHEMA_VERSION,
+  HookAbortMessageSchema,
+  HookContextPatchSchema,
+  type HookEffectsV1,
+  HookEffectsV1Schema,
+  HookEnterMessageSchema,
+  type HookEnterMessageV1,
+  type HookInvocationScopeV1,
+  HookMetadataOperationSchema,
+} from '@shared/schemas/plugin-hooks'
 import {
   getQuickJS,
   type QuickJSContext,
@@ -32,6 +41,7 @@ import {
 } from 'quickjs-emscripten'
 import { classify } from '../capabilities/classification'
 import {
+  BridgeExecuteCommandSchema,
   type BridgeInitMessage,
   HOOK_NAMES,
   type HookName,
@@ -44,7 +54,14 @@ if (!parentPort) {
 }
 
 const port = parentPort
-const pendingCalls = new Map<number, (msg: HostToWorker) => void>()
+const pendingCalls = new Map<
+  number,
+  {
+    scope: GuestCallbackScope
+    resolve: (value: unknown) => void
+    reject: (error: Error & { code?: string }) => void
+  }
+>()
 let nextCallId = 1
 // Locale dictionaries are mutated by 'localeChange' events after boot.
 // They are declared module-scoped so the i18n.t closure inside the VM
@@ -75,6 +92,24 @@ const registeredCommands = new Map<string, QuickJSHandle>()
 // all memory without an explicit dispose pass.
 const registeredDeactivateHandlers: QuickJSHandle[] = []
 
+interface ActiveHookInvocation {
+  readonly scope: HookInvocationScopeV1
+  readonly hook: HookName
+  readonly signalHandle: QuickJSHandle
+  readonly abortListeners: QuickJSHandle[]
+  readonly effects: HookEffectsV1
+  aborted: boolean
+  abortReason: string
+}
+
+let activeHookInvocation: ActiveHookInvocation | null = null
+interface GuestCallbackScope {
+  hook: HookInvocationScopeV1 | null
+  command: CommandInvocationScopeV1 | null
+}
+
+let guestCallbackScope: GuestCallbackScope | null = null
+
 function send(msg: WorkerToHost): void {
   port.postMessage(msg)
 }
@@ -94,25 +129,73 @@ function assertEffectfulAllowed(capability: string, method: string): void {
   throw new Error(violationFatal.message)
 }
 
-async function callHost(
+/**
+ * Native Host promises settle on Node's microtask queue, outside QuickJS.
+ * Bind the first continuation that re-enters QuickJS to the immutable Hook
+ * scope captured when the capability call was created. QuickJS drains every
+ * guest continuation synchronously from that callback, so a promise retained
+ * by Hook A can never resume unscoped or borrow Hook B's active context.
+ */
+class InvocationScopedPromise<T> extends Promise<T> {
+  static get [Symbol.species](): PromiseConstructor {
+    return Promise
+  }
+
+  constructor(
+    executor: ConstructorParameters<typeof Promise<T>>[0],
+    private readonly invocationScope: GuestCallbackScope
+  ) {
+    super(executor)
+  }
+
+  // biome-ignore lint/suspicious/noThenProperty: this Promise subclass intentionally scopes its continuation.
+  override then<TResult1 = T, TResult2 = never>(
+    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+  ): Promise<TResult1 | TResult2> {
+    return super.then(
+      onfulfilled
+        ? (value) =>
+            withGuestCallbackScope(this.invocationScope, () =>
+              onfulfilled(value)
+            )
+        : undefined,
+      onrejected
+        ? (reason) =>
+            withGuestCallbackScope(this.invocationScope, () =>
+              onrejected(reason)
+            )
+        : undefined
+    )
+  }
+}
+
+function callHost(
   capability: string,
   method: string,
   args: unknown[]
 ): Promise<unknown> {
+  if (activeHookInvocation?.aborted) {
+    throw codedError('plugin.hook.aborted', activeHookInvocation.abortReason)
+  }
   const id = nextCallId++
-  return new Promise((resolve, reject) => {
-    pendingCalls.set(id, (resp) => {
-      if (resp.type !== 'response') return
-      if (resp.ok) {
-        resolve(resp.result)
-      } else {
-        const e: Error & { code?: string } = new Error(resp.error.message)
-        e.code = resp.error.code
-        reject(e)
-      }
-    })
-    send({ type: 'call', id, capability, method, args })
-  })
+  const scope = guestCallbackScope ?? {
+    hook: activeHookInvocation?.scope ?? null,
+    command: null,
+  }
+  return new InvocationScopedPromise((resolve, reject) => {
+    pendingCalls.set(id, { scope, resolve, reject })
+    const base = { type: 'call' as const, id, capability, method, args }
+    if (scope.hook && scope.command) {
+      send({ ...base, ...scope.hook, commandScope: scope.command })
+    } else if (scope.hook) {
+      send({ ...base, ...scope.hook })
+    } else if (scope.command) {
+      send({ ...base, commandScope: scope.command })
+    } else {
+      send(base)
+    }
+  }, scope)
 }
 
 // --- Top-level message dispatcher ---------------------------------------
@@ -163,10 +246,44 @@ port.on('message', (msg: HostToWorker) => {
       }
       return
     case 'response': {
-      const handler = pendingCalls.get(msg.id)
-      if (handler) {
+      const parsed = CapabilityResponseMessageSchema.safeParse(msg)
+      const pending = pendingCalls.get(msg.id)
+      if (!parsed.success) {
+        if (pending) {
+          pendingCalls.delete(msg.id)
+          pending.reject(
+            codedError(
+              'plugin.hook.concurrent_protocol_violation',
+              'invalid capability response message'
+            )
+          )
+        }
+        return
+      }
+      if (pending) {
         pendingCalls.delete(msg.id)
-        handler(msg)
+        const responseHookScope = hookScopeFromResponse(parsed.data)
+        const responseCommandScope = commandScopeFromMessage(parsed.data)
+        if (
+          !optionalHookScopeMatches(responseHookScope, pending.scope.hook) ||
+          !optionalCommandScopeMatches(
+            responseCommandScope,
+            pending.scope.command
+          )
+        ) {
+          pending.reject(
+            codedError(
+              'plugin.hook.concurrent_protocol_violation',
+              'capability response belongs to another invocation'
+            )
+          )
+        } else if (parsed.data.ok) {
+          pending.resolve(parsed.data.result)
+        } else {
+          pending.reject(
+            codedError(parsed.data.error.code, parsed.data.error.message)
+          )
+        }
       }
       return
     }
@@ -179,14 +296,22 @@ port.on('message', (msg: HostToWorker) => {
         currentDict = { ...msg.dict }
         syncVmLocaleProperties()
       } else if (msg.event === 'hookEnter') {
-        handleHookEnter(
-          msg.hook,
-          msg.taskId,
-          msg.ctxPayload,
-          msg.metadataSnapshot
-        )
+        const parsed = HookEnterMessageSchema.safeParse(msg)
+        if (!parsed.success) {
+          send({
+            type: 'fatal',
+            code: 'plugin.hook.input_invalid',
+            message: 'Host sent an invalid Hook enter message',
+          })
+          return
+        }
+        handleHookEnter(parsed.data)
+      } else if (msg.event === 'abort') {
+        const parsed = HookAbortMessageSchema.safeParse(msg)
+        if (parsed.success) handleHookAbort(parsed.data)
       } else if (msg.event === 'executeCommand') {
-        handleExecuteCommand(msg.id, msg.commandId, msg.args)
+        const parsed = BridgeExecuteCommandSchema.safeParse(msg)
+        if (parsed.success) handleExecuteCommand(parsed.data)
       } else if (msg.event === 'deactivate') {
         handleDeactivate()
       }
@@ -196,128 +321,149 @@ port.on('message', (msg: HostToWorker) => {
 
 // --- hookEnter handler --------------------------------------------------
 
-function handleHookEnter(
-  hook: HookName,
-  taskId: string,
-  ctxPayload?: Record<string, unknown>,
-  metadataSnapshot?: Record<string, unknown>
-): void {
+function handleHookEnter(message: HookEnterMessageV1): void {
   const vm = vmRef
   if (!vm) {
-    send({
-      type: 'event',
-      event: 'hookExit',
-      ok: false,
-      errorCode: 'plugin.runtime.not_ready',
+    sendHookFailure(
+      message,
+      'plugin.runtime.not_ready',
+      'plugin runtime is not ready'
+    )
+    return
+  }
+  if (activeHookInvocation) {
+    sendHookFailure(
+      message,
+      'plugin.hook.concurrent_protocol_violation',
+      'another Hook invocation is already active'
+    )
+    return
+  }
+
+  const fnHandle = registeredHooks.get(message.hook)
+  if (!fnHandle) {
+    sendHookSuccess(message, {
+      schemaVersion: HOOK_SCHEMA_VERSION,
+      contextPatches: [],
+      metadataOperations: [],
     })
     return
   }
 
-  const fnHandle = registeredHooks.get(hook)
-  if (!fnHandle) {
-    // No handler registered for this hook — no-op exit.
-    send({ type: 'event', event: 'hookExit', ok: true })
-    return
-  }
-
   currentPhase = 'hook'
+  const signalHandle = vm.newObject()
+  const invocation: ActiveHookInvocation = {
+    scope: hookScopeFromEnter(message),
+    hook: message.hook,
+    signalHandle,
+    abortListeners: [],
+    effects: {
+      schemaVersion: HOOK_SCHEMA_VERSION,
+      contextPatches: [],
+      metadataOperations: [],
+    },
+    aborted: false,
+    abortReason: '',
+  }
+  activeHookInvocation = invocation
 
-  // Construct ctx envelope inside the VM.
-  //   - taskId          always present (bridge supplies it)
-  //   - ctxPayload      hook-shape fields (type, uris, headers, ...) — required
-  //                     by every plugin's branching logic at handler entry
-  //   - ctx.metadata    {get(key), set(key,v), delete(key)} — set/delete are
-  //                     staged via the bridge, get reads from the snapshot
-  //                     supplied by the orchestrator (committed by previous
-  //                     hooks in the chain)
-  //   - ctx.update      patches uris/headers/proxy/filename for series hooks
-  // The bridge.handleStaged decides whether each call is allowed under the
-  // current role + phase (matrix gate) — the worker just proxies.
   const ctxHandle = vm.newObject()
-  const taskIdHandle = vm.newString(taskId)
-  vm.setProp(ctxHandle, 'taskId', taskIdHandle)
-  taskIdHandle.dispose()
-
-  // Copy each ctxPayload field as a top-level ctx property.
-  if (ctxPayload) {
-    for (const [k, v] of Object.entries(ctxPayload)) {
-      if (v === undefined) continue
-      const valH = jsValueToVmHandle(vm, v)
-      vm.setProp(ctxHandle, k, valH)
-      valH.dispose()
-    }
+  for (const [key, value] of Object.entries(message.ctxPayload)) {
+    const valueHandle = jsValueToVmHandle(vm, value)
+    vm.setProp(ctxHandle, key, valueHandle)
+    valueHandle.dispose()
   }
 
-  // ctx.metadata — readable via snapshot, writable via staged effects.
-  const snapshot = metadataSnapshot ?? {}
+  const snapshot = structuredClone(message.metadataSnapshot)
   const metadataHandle = vm.newObject()
   const metaGet = vm.newFunction('get', (keyH) => {
     const key = vm.dump(keyH) as string
-    const val = (snapshot as Record<string, unknown>)[key]
-    return jsValueToVmHandle(vm, val)
+    return jsValueToVmHandle(vm, snapshot[key])
   })
   vm.setProp(metadataHandle, 'get', metaGet)
   metaGet.dispose()
-  const metaSet = vm.newFunction('set', (keyH, valueH) => {
+
+  const metaHas = vm.newFunction('has', (keyH) => {
     const key = vm.dump(keyH) as string
-    const value = valueH !== undefined ? vm.dump(valueH) : undefined
-    // Fire-and-forget; staged store accepts on host side.
-    void callHost('metadata', 'set', [key, value])
-    return vm.undefined
+    return Object.hasOwn(snapshot, key) ? vm.true : vm.false
   })
-  vm.setProp(metadataHandle, 'set', metaSet)
-  metaSet.dispose()
-  const metaDelete = vm.newFunction('delete', (keyH) => {
-    const key = vm.dump(keyH) as string
-    void callHost('metadata', 'delete', [key])
-    return vm.undefined
-  })
-  vm.setProp(metadataHandle, 'delete', metaDelete)
-  metaDelete.dispose()
+  vm.setProp(metadataHandle, 'has', metaHas)
+  metaHas.dispose()
+
+  const metaGetAll = vm.newFunction('getAll', () =>
+    jsValueToVmHandle(vm, snapshot)
+  )
+  vm.setProp(metadataHandle, 'getAll', metaGetAll)
+  metaGetAll.dispose()
+
+  const metaKeys = vm.newFunction('keys', () =>
+    jsValueToVmHandle(vm, Object.keys(snapshot))
+  )
+  vm.setProp(metadataHandle, 'keys', metaKeys)
+  metaKeys.dispose()
+
+  if (message.hook === 'beforeCreate' || message.hook === 'beforeFinalize') {
+    const metaSet = vm.newFunction('set', (keyH, valueH) => {
+      assertInvocationWritable(invocation)
+      const operation = HookMetadataOperationSchema.parse({
+        op: 'set',
+        key: vm.dump(keyH),
+        value: valueH === undefined ? undefined : vm.dump(valueH),
+      })
+      if (operation.op !== 'set') {
+        throw codedError(
+          'plugin.hook.output_invalid',
+          'metadata.set produced an invalid operation'
+        )
+      }
+      snapshot[operation.key] = structuredClone(operation.value)
+      invocation.effects.metadataOperations.push(operation)
+      return vm.undefined
+    })
+    vm.setProp(metadataHandle, 'set', metaSet)
+    metaSet.dispose()
+
+    const metaDelete = vm.newFunction('delete', (keyH) => {
+      assertInvocationWritable(invocation)
+      const operation = HookMetadataOperationSchema.parse({
+        op: 'delete',
+        key: vm.dump(keyH),
+      })
+      delete snapshot[operation.key]
+      invocation.effects.metadataOperations.push(operation)
+      return vm.undefined
+    })
+    vm.setProp(metadataHandle, 'delete', metaDelete)
+    metaDelete.dispose()
+
+    const updateFn = vm.newFunction('update', (patchH) => {
+      assertInvocationWritable(invocation)
+      const patch = HookContextPatchSchema.parse(
+        patchH === undefined ? undefined : vm.dump(patchH)
+      )
+      invocation.effects.contextPatches.push(structuredClone(patch))
+      return vm.undefined
+    })
+    vm.setProp(ctxHandle, 'update', updateFn)
+    updateFn.dispose()
+  }
+
   vm.setProp(ctxHandle, 'metadata', metadataHandle)
   metadataHandle.dispose()
 
-  const updateFn = vm.newFunction('update', (patchH) => {
-    const patch = patchH !== undefined ? vm.dump(patchH) : undefined
-    const deferred = vm.newPromise()
-    callHost('ctx', 'update', [patch]).then(
-      (result) => {
-        const h = jsValueToVmHandle(vm, result)
-        deferred.resolve(h)
-        h.dispose()
-        vm.runtime.executePendingJobs()
-      },
-      (err: Error & { code?: string }) => {
-        const errH = vm.newError(err.message)
-        if (err.code) {
-          const codeH = vm.newString(err.code)
-          vm.setProp(errH, 'code', codeH)
-          codeH.dispose()
-        }
-        deferred.reject(errH)
-        errH.dispose()
-        vm.runtime.executePendingJobs()
-      }
-    )
-    deferred.settled.then(() => vm.runtime.executePendingJobs())
-    return deferred.handle
-  })
-  vm.setProp(ctxHandle, 'update', updateFn)
-  updateFn.dispose()
+  installAbortSignal(vm, invocation)
+  vm.setProp(ctxHandle, 'signal', invocation.signalHandle)
 
   const callResult = vm.callFunction(fnHandle, vm.undefined, ctxHandle)
   ctxHandle.dispose()
 
   if (callResult.error) {
-    const err = vm.dump(callResult.error)
+    const error = vm.dump(callResult.error)
     callResult.error.dispose()
-    currentPhase = 'idle'
-    const errorCode = vmErrorCode(err)
-    send({ type: 'event', event: 'hookExit', ok: false, errorCode })
+    finishHookFailure(invocation, vmErrorCode(error), vmErrorMessage(error))
     return
   }
 
-  // The hook may return a Promise. Use vm.resolvePromise to await it.
   const maybePromise = callResult.value
   const resolved = vm.resolvePromise(maybePromise)
   maybePromise.dispose()
@@ -325,18 +471,195 @@ function handleHookEnter(
   resolved.then((settled) => {
     vm.runtime.executePendingJobs()
     if (settled.error) {
-      const err = vm.dump(settled.error)
+      const error = vm.dump(settled.error)
       settled.error.dispose()
-      currentPhase = 'idle'
-      const errorCode = vmErrorCode(err)
-      send({ type: 'event', event: 'hookExit', ok: false, errorCode })
+      finishHookFailure(invocation, vmErrorCode(error), vmErrorMessage(error))
     } else {
       settled.value.dispose()
-      currentPhase = 'idle'
-      send({ type: 'event', event: 'hookExit', ok: true })
+      if (invocation.aborted) {
+        finishHookFailure(
+          invocation,
+          'plugin.hook.aborted',
+          invocation.abortReason
+        )
+      } else {
+        finishHookSuccess(invocation)
+      }
     }
   })
   vm.runtime.executePendingJobs()
+}
+
+function installAbortSignal(
+  vm: QuickJSContext,
+  invocation: ActiveHookInvocation
+): void {
+  vm.setProp(invocation.signalHandle, 'aborted', vm.false)
+  vm.setProp(invocation.signalHandle, 'reason', vm.undefined)
+  vm.setProp(invocation.signalHandle, 'onabort', vm.null)
+
+  const addEventListener = vm.newFunction(
+    'addEventListener',
+    (typeHandle, listenerHandle) => {
+      if (activeHookInvocation !== invocation) return vm.undefined
+      if (
+        vm.dump(typeHandle) !== 'abort' ||
+        vm.typeof(listenerHandle) !== 'function'
+      ) {
+        return vm.undefined
+      }
+      if (
+        !invocation.abortListeners.some((listener) =>
+          vmSameValue(vm, listener, listenerHandle)
+        )
+      ) {
+        invocation.abortListeners.push(listenerHandle.dup())
+      }
+      return vm.undefined
+    }
+  )
+  vm.setProp(invocation.signalHandle, 'addEventListener', addEventListener)
+  addEventListener.dispose()
+
+  const removeEventListener = vm.newFunction(
+    'removeEventListener',
+    (typeHandle, listenerHandle) => {
+      if (vm.dump(typeHandle) !== 'abort') return vm.undefined
+      const index = invocation.abortListeners.findIndex((listener) =>
+        vmSameValue(vm, listener, listenerHandle)
+      )
+      if (index >= 0) {
+        invocation.abortListeners[index]?.dispose()
+        invocation.abortListeners.splice(index, 1)
+      }
+      return vm.undefined
+    }
+  )
+  vm.setProp(
+    invocation.signalHandle,
+    'removeEventListener',
+    removeEventListener
+  )
+  removeEventListener.dispose()
+}
+
+function handleHookAbort(
+  message: HookInvocationScopeV1 & { reason: string }
+): void {
+  const vm = vmRef
+  const invocation = activeHookInvocation
+  if (!vm || !invocation || !sameHookScope(message, invocation.scope)) return
+  if (invocation.aborted) return
+
+  invocation.aborted = true
+  invocation.abortReason = message.reason || 'plugin hook aborted'
+  vm.setProp(invocation.signalHandle, 'aborted', vm.true)
+  const reasonHandle = vm.newString(invocation.abortReason)
+  vm.setProp(invocation.signalHandle, 'reason', reasonHandle)
+  reasonHandle.dispose()
+
+  const eventHandle = vm.newObject()
+  const eventType = vm.newString('abort')
+  vm.setProp(eventHandle, 'type', eventType)
+  eventType.dispose()
+
+  const onabort = vm.getProp(invocation.signalHandle, 'onabort')
+  if (vm.typeof(onabort) === 'function') {
+    disposeVmCallResult(
+      vm.callFunction(onabort, invocation.signalHandle, eventHandle)
+    )
+  }
+  onabort.dispose()
+  for (const listener of invocation.abortListeners) {
+    disposeVmCallResult(
+      vm.callFunction(listener, invocation.signalHandle, eventHandle)
+    )
+  }
+  eventHandle.dispose()
+  vm.runtime.executePendingJobs()
+
+  for (const [id, pending] of pendingCalls) {
+    if (
+      pending.scope.hook &&
+      sameHookScope(pending.scope.hook, invocation.scope)
+    ) {
+      pendingCalls.delete(id)
+      pending.reject(codedError('plugin.hook.aborted', invocation.abortReason))
+    }
+  }
+  vm.runtime.executePendingJobs()
+}
+
+function finishHookSuccess(invocation: ActiveHookInvocation): void {
+  if (activeHookInvocation !== invocation) return
+  const parsed = HookEffectsV1Schema.safeParse(invocation.effects)
+  if (!parsed.success) {
+    finishHookFailure(
+      invocation,
+      'plugin.hook.output_invalid',
+      parsed.error.issues[0]?.message ?? 'invalid Hook effects'
+    )
+    return
+  }
+  sendHookSuccess(invocation.scope, parsed.data)
+  releaseHookInvocation(invocation)
+}
+
+function finishHookFailure(
+  invocation: ActiveHookInvocation,
+  code: string,
+  message: string
+): void {
+  if (activeHookInvocation !== invocation) return
+  sendHookFailure(invocation.scope, code, message)
+  releaseHookInvocation(invocation)
+}
+
+function releaseHookInvocation(invocation: ActiveHookInvocation): void {
+  for (const listener of invocation.abortListeners) listener.dispose()
+  invocation.abortListeners.length = 0
+  invocation.signalHandle.dispose()
+  if (activeHookInvocation === invocation) activeHookInvocation = null
+  currentPhase = 'idle'
+}
+
+function sendHookSuccess(
+  scope: HookInvocationScopeV1,
+  effects: HookEffectsV1
+): void {
+  send({
+    type: 'event',
+    event: 'hookExit',
+    ...scope,
+    ok: true,
+    effects,
+  })
+}
+
+function sendHookFailure(
+  scope: HookInvocationScopeV1,
+  code: string,
+  message: string
+): void {
+  send({
+    type: 'event',
+    event: 'hookExit',
+    ...scope,
+    ok: false,
+    error: {
+      code: code.slice(0, 64) || 'plugin.runtime.fault',
+      message: message.slice(0, 4_096),
+    },
+  })
+}
+
+function assertInvocationWritable(invocation: ActiveHookInvocation): void {
+  if (activeHookInvocation !== invocation || invocation.aborted) {
+    throw codedError(
+      'plugin.hook.aborted',
+      invocation.abortReason || 'plugin hook is no longer active'
+    )
+  }
 }
 
 // --- executeCommand handler -----------------------------------------------
@@ -346,17 +669,20 @@ function handleHookEnter(
 // and sends back a BridgeExecuteCommandResult event.
 // Used by test-helpers.ts callPlugin and future Plan C command invocations.
 
-function handleExecuteCommand(
-  id: number,
-  commandId: string,
+function handleExecuteCommand(message: {
+  id: number
+  commandId: string
   args: unknown
-): void {
+  commandScope: CommandInvocationScopeV1
+}): void {
+  const { id, commandId, args, commandScope } = message
   const vm = vmRef
   if (!vm) {
     send({
       type: 'event',
       event: 'executeCommandResult',
       id,
+      commandScope,
       ok: false,
       errorCode: 'plugin.runtime.not_ready',
       errorMessage: 'VM not initialised',
@@ -370,6 +696,7 @@ function handleExecuteCommand(
       type: 'event',
       event: 'executeCommandResult',
       id,
+      commandScope,
       ok: false,
       errorCode: 'plugin.commands.not_found',
       errorMessage: `command not found: ${commandId}`,
@@ -382,7 +709,13 @@ function handleExecuteCommand(
   currentPhase = 'hook'
 
   const argsHandle = jsValueToVmHandle(vm, args)
-  const callResult = vm.callFunction(handler, vm.undefined, argsHandle)
+  const callbackScope: GuestCallbackScope = {
+    hook: null,
+    command: commandScope,
+  }
+  const callResult = withGuestCallbackScope(callbackScope, () =>
+    vm.callFunction(handler, vm.undefined, argsHandle)
+  )
   argsHandle.dispose()
 
   if (callResult.error) {
@@ -395,6 +728,7 @@ function handleExecuteCommand(
       type: 'event',
       event: 'executeCommandResult',
       id,
+      commandScope,
       ok: false,
       errorCode,
       errorMessage,
@@ -407,34 +741,38 @@ function handleExecuteCommand(
   maybePromise.dispose()
 
   resolved.then((settled) => {
-    vm.runtime.executePendingJobs()
-    currentPhase = prevPhase
-    if (settled.error) {
-      const err = vm.dump(settled.error)
-      settled.error.dispose()
-      const errorCode = vmErrorCode(err)
-      const errorMessage = vmErrorMessage(err)
-      send({
-        type: 'event',
-        event: 'executeCommandResult',
-        id,
-        ok: false,
-        errorCode,
-        errorMessage,
-      })
-    } else {
-      const result = vm.dump(settled.value)
-      settled.value.dispose()
-      send({
-        type: 'event',
-        event: 'executeCommandResult',
-        id,
-        ok: true,
-        result,
-      })
-    }
+    withGuestCallbackScope(callbackScope, () => {
+      vm.runtime.executePendingJobs()
+      currentPhase = prevPhase
+      if (settled.error) {
+        const err = vm.dump(settled.error)
+        settled.error.dispose()
+        const errorCode = vmErrorCode(err)
+        const errorMessage = vmErrorMessage(err)
+        send({
+          type: 'event',
+          event: 'executeCommandResult',
+          id,
+          commandScope,
+          ok: false,
+          errorCode,
+          errorMessage,
+        })
+      } else {
+        const result = vm.dump(settled.value)
+        settled.value.dispose()
+        send({
+          type: 'event',
+          event: 'executeCommandResult',
+          id,
+          commandScope,
+          ok: true,
+          result,
+        })
+      }
+    })
   })
-  vm.runtime.executePendingJobs()
+  withGuestCallbackScope(callbackScope, () => vm.runtime.executePendingJobs())
 }
 
 // --- handleDeactivate ---------------------------------------------------
@@ -553,6 +891,8 @@ async function boot(): Promise<void> {
 // --- Globals (timers) ---------------------------------------------------
 
 function setupGlobals(vm: QuickJSContext): () => void {
+  installUrlGlobals(vm)
+
   // setTimeout / setInterval enforce caps:
   //   - MAX_ACTIVE: hard cap on simultaneously-scheduled timers per plugin
   //   - MAX_DELAY:  clamps absurdly large delays to 30s
@@ -560,9 +900,20 @@ function setupGlobals(vm: QuickJSContext): () => void {
   // newFunction callback — quickjs-emscripten converts that to a VM-level
   // exception so the plugin sees a thrown error rather than a silent no-op.
   const timers = new Map<number, NodeJS.Timeout>()
+  const intervalCallbacks = new Map<number, ReturnType<typeof setInterval>>()
+  const intervalHandleRefs = new Map<number, () => void>()
   let nextId = 1
   const MAX_DELAY = 30_000
   const MAX_ACTIVE = 100
+  const reportTimerActivity = () => {
+    // Kept outside WorkerToHost on purpose: this Host lifecycle signal is
+    // consumed directly by PluginHost and never enters CapabilityBridge's
+    // request/response protocol.
+    port.postMessage({
+      type: 'timer_activity',
+      activeCount: timers.size + intervalCallbacks.size,
+    })
+  }
 
   const setTimeoutFn = vm.newFunction('setTimeout', (cbHandle, delayHandle) => {
     if (timers.size >= MAX_ACTIVE) {
@@ -570,6 +921,10 @@ function setupGlobals(vm: QuickJSContext): () => void {
     }
     const delay = Math.min(vm.getNumber(delayHandle), MAX_DELAY)
     const id = nextId++
+    const callbackScope = guestCallbackScope ?? {
+      hook: activeHookInvocation?.scope ?? null,
+      command: null,
+    }
     // Persistent handle survives the synchronous callback return; we
     // dispose it when the timer fires (one-shot) or is cleared.
     const persistent = cbHandle.dup()
@@ -577,15 +932,16 @@ function setupGlobals(vm: QuickJSContext): () => void {
       id,
       setTimeout(() => {
         timers.delete(id)
-        const res = vm.callFunction(persistent, vm.undefined)
-        persistent.dispose()
-        if (res.error) {
-          res.error.dispose()
-        } else {
-          res.value.dispose()
-        }
+        reportTimerActivity()
+        withGuestCallbackScope(callbackScope, () => {
+          const res = vm.callFunction(persistent, vm.undefined)
+          persistent.dispose()
+          disposeVmCallResult(res)
+          vm.runtime.executePendingJobs()
+        })
       }, delay)
     )
+    reportTimerActivity()
     return vm.newNumber(id)
   })
   vm.setProp(vm.global, 'setTimeout', setTimeoutFn)
@@ -597,14 +953,12 @@ function setupGlobals(vm: QuickJSContext): () => void {
     if (t) {
       clearTimeout(t)
       timers.delete(id)
+      reportTimerActivity()
     }
     return vm.undefined
   })
   vm.setProp(vm.global, 'clearTimeout', clearTimeoutFn)
   clearTimeoutFn.dispose()
-
-  const intervalCallbacks = new Map<number, ReturnType<typeof setInterval>>()
-  const intervalHandleRefs = new Map<number, () => void>()
 
   const setIntervalFn = vm.newFunction(
     'setInterval',
@@ -614,17 +968,21 @@ function setupGlobals(vm: QuickJSContext): () => void {
       }
       const delay = Math.min(vm.getNumber(delayHandle), MAX_DELAY)
       const id = nextId++
+      const callbackScope = guestCallbackScope ?? {
+        hook: activeHookInvocation?.scope ?? null,
+        command: null,
+      }
       const persistent = cbHandle.dup()
       const interval = setInterval(() => {
-        const res = vm.callFunction(persistent, vm.undefined)
-        if (res.error) {
-          res.error.dispose()
-        } else {
-          res.value.dispose()
-        }
+        withGuestCallbackScope(callbackScope, () => {
+          const res = vm.callFunction(persistent, vm.undefined)
+          disposeVmCallResult(res)
+          vm.runtime.executePendingJobs()
+        })
       }, delay)
       intervalCallbacks.set(id, interval)
       intervalHandleRefs.set(id, () => persistent.dispose())
+      reportTimerActivity()
       return vm.newNumber(id)
     }
   )
@@ -642,6 +1000,7 @@ function setupGlobals(vm: QuickJSContext): () => void {
         release()
         intervalHandleRefs.delete(id)
       }
+      reportTimerActivity()
     }
     return vm.undefined
   })
@@ -665,10 +1024,221 @@ function setupGlobals(vm: QuickJSContext): () => void {
         clearTimeout(t)
       }
       timers.clear()
+      reportTimerActivity()
     } catch {
       // Swallow — cleanup must not throw from error paths
     }
   }
+}
+
+const URL_STRING_FIELDS = [
+  'href',
+  'protocol',
+  'origin',
+  'host',
+  'hostname',
+  'port',
+  'pathname',
+  'search',
+  'hash',
+  'username',
+  'password',
+] as const
+
+/**
+ * QuickJS does not ship WHATWG URL globals. Parse with Node's standards-based
+ * implementation and copy only string fields/functions into guest-owned VM
+ * objects; no Node object, dispatcher, or Host capability crosses the realm.
+ */
+function installUrlGlobals(vm: QuickJSContext): void {
+  const urlConstructor = vm.newFunction('URL', (inputHandle, baseHandle) => {
+    const input = String(vm.dump(inputHandle))
+    const base =
+      baseHandle === undefined ? undefined : String(vm.dump(baseHandle))
+    const parsed = new URL(input, base)
+    const object = vm.newObject()
+    const syncFields = () => {
+      for (const field of URL_STRING_FIELDS) {
+        const value = vm.newString(parsed[field])
+        vm.setProp(object, field, value)
+        value.dispose()
+      }
+    }
+    syncFields()
+
+    const searchParams = makeUrlSearchParamsHandle(
+      vm,
+      new URLSearchParams(parsed.searchParams),
+      (serialized) => {
+        parsed.search = serialized
+      }
+    )
+    vm.setProp(object, 'searchParams', searchParams)
+    searchParams.dispose()
+
+    for (const method of ['toString', 'toJSON'] as const) {
+      const fn = vm.newFunction(method, () => vm.newString(parsed.href))
+      vm.setProp(object, method, fn)
+      fn.dispose()
+    }
+    return object
+  })
+  const canParse = vm.newFunction('canParse', (inputHandle, baseHandle) => {
+    const input = String(vm.dump(inputHandle))
+    const base =
+      baseHandle === undefined ? undefined : String(vm.dump(baseHandle))
+    return URL.canParse(input, base) ? vm.true : vm.false
+  })
+  vm.setProp(vm.global, '__motrixCreateURL', urlConstructor)
+  urlConstructor.dispose()
+  vm.setProp(vm.global, '__motrixCanParseURL', canParse)
+  canParse.dispose()
+
+  const searchParamsConstructor = vm.newFunction(
+    'URLSearchParams',
+    (initHandle) =>
+      makeUrlSearchParamsHandle(vm, urlSearchParamsFromVm(vm, initHandle))
+  )
+  vm.setProp(
+    vm.global,
+    '__motrixCreateURLSearchParams',
+    searchParamsConstructor
+  )
+  searchParamsConstructor.dispose()
+
+  const constructors = vm.evalCode(`
+    (() => {
+      const createURL = globalThis.__motrixCreateURL
+      const canParseURL = globalThis.__motrixCanParseURL
+      const createURLSearchParams = globalThis.__motrixCreateURLSearchParams
+      delete globalThis.__motrixCreateURL
+      delete globalThis.__motrixCanParseURL
+      delete globalThis.__motrixCreateURLSearchParams
+      globalThis.URL = class URL {
+        constructor(input, base) {
+          return createURL(String(input), base === undefined ? undefined : String(base))
+        }
+        static canParse(input, base) {
+          return canParseURL(String(input), base === undefined ? undefined : String(base))
+        }
+      }
+      globalThis.URLSearchParams = class URLSearchParams {
+        constructor(init) {
+          return createURLSearchParams(init)
+        }
+      }
+    })()
+  `)
+  if (constructors.error) {
+    const error = vm.dump(constructors.error)
+    constructors.error.dispose()
+    throw new Error(`failed to install URL globals: ${vmErrorMessage(error)}`)
+  }
+  constructors.value.dispose()
+}
+
+function urlSearchParamsFromVm(
+  vm: QuickJSContext,
+  initHandle: QuickJSHandle | undefined
+): URLSearchParams {
+  if (initHandle === undefined) return new URLSearchParams()
+  const init = vm.dump(initHandle)
+  if (typeof init === 'string') return new URLSearchParams(init)
+  if (Array.isArray(init)) {
+    const pairs = init.map((entry) => {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new TypeError('URLSearchParams tuple entries must have length 2')
+      }
+      return [String(entry[0]), String(entry[1])] as [string, string]
+    })
+    return new URLSearchParams(pairs)
+  }
+  if (init && typeof init === 'object') {
+    return new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(init as Record<string, unknown>).map(([key, value]) => [
+          key,
+          String(value),
+        ])
+      )
+    )
+  }
+  return new URLSearchParams(String(init))
+}
+
+function makeUrlSearchParamsHandle(
+  vm: QuickJSContext,
+  params: URLSearchParams,
+  onChange: (serialized: string) => void = () => {}
+): QuickJSHandle {
+  const object = vm.newObject()
+  const mutated = () => onChange(params.toString())
+
+  const append = vm.newFunction('append', (nameHandle, valueHandle) => {
+    params.append(String(vm.dump(nameHandle)), String(vm.dump(valueHandle)))
+    mutated()
+    return vm.undefined
+  })
+  vm.setProp(object, 'append', append)
+  append.dispose()
+
+  const deleteFn = vm.newFunction('delete', (nameHandle, valueHandle) => {
+    const name = String(vm.dump(nameHandle))
+    if (valueHandle === undefined) params.delete(name)
+    else params.delete(name, String(vm.dump(valueHandle)))
+    mutated()
+    return vm.undefined
+  })
+  vm.setProp(object, 'delete', deleteFn)
+  deleteFn.dispose()
+
+  const get = vm.newFunction('get', (nameHandle) => {
+    const value = params.get(String(vm.dump(nameHandle)))
+    return value === null ? vm.null : vm.newString(value)
+  })
+  vm.setProp(object, 'get', get)
+  get.dispose()
+
+  const getAll = vm.newFunction('getAll', (nameHandle) =>
+    jsValueToVmHandle(vm, params.getAll(String(vm.dump(nameHandle))))
+  )
+  vm.setProp(object, 'getAll', getAll)
+  getAll.dispose()
+
+  const has = vm.newFunction('has', (nameHandle, valueHandle) => {
+    const name = String(vm.dump(nameHandle))
+    const present =
+      valueHandle === undefined
+        ? params.has(name)
+        : params.has(name, String(vm.dump(valueHandle)))
+    return present ? vm.true : vm.false
+  })
+  vm.setProp(object, 'has', has)
+  has.dispose()
+
+  const set = vm.newFunction('set', (nameHandle, valueHandle) => {
+    params.set(String(vm.dump(nameHandle)), String(vm.dump(valueHandle)))
+    mutated()
+    return vm.undefined
+  })
+  vm.setProp(object, 'set', set)
+  set.dispose()
+
+  const sort = vm.newFunction('sort', () => {
+    params.sort()
+    mutated()
+    return vm.undefined
+  })
+  vm.setProp(object, 'sort', sort)
+  sort.dispose()
+
+  const toStringFn = vm.newFunction('toString', () =>
+    vm.newString(params.toString())
+  )
+  vm.setProp(object, 'toString', toStringFn)
+  toStringFn.dispose()
+
+  return object
 }
 
 // --- Value marshaling ---------------------------------------------------
@@ -679,7 +1249,8 @@ function setupGlobals(vm: QuickJSContext): () => void {
 // This is a Task 20 limitation; Plan G will ship proper typed-array marshaling.
 
 function jsValueToVmHandle(vm: QuickJSContext, v: unknown): QuickJSHandle {
-  if (v === null || v === undefined) return vm.null
+  if (v === undefined) return vm.undefined
+  if (v === null) return vm.null
   if (typeof v === 'boolean') return v ? vm.true : vm.false
   if (typeof v === 'number') return vm.newNumber(v)
   if (typeof v === 'string') return vm.newString(v)
@@ -732,6 +1303,128 @@ function vmErrorMessage(err: unknown): string {
   return typeof err === 'object' && err !== null && 'message' in err
     ? String((err as { message: unknown }).message)
     : String(err)
+}
+
+function codedError(code: string, message: string): Error & { code?: string } {
+  return Object.assign(new Error(message), { code })
+}
+
+function hookScopeFromEnter(
+  message: HookEnterMessageV1
+): HookInvocationScopeV1 {
+  return {
+    invocationId: message.invocationId,
+    callChainId: message.callChainId,
+    permissionGeneration: message.permissionGeneration,
+  }
+}
+
+function hookScopeFromResponse(message: unknown): HookInvocationScopeV1 | null {
+  if (typeof message !== 'object' || message === null) return null
+  const candidate = message as Record<string, unknown>
+  if (
+    typeof candidate.invocationId !== 'string' ||
+    typeof candidate.callChainId !== 'string' ||
+    typeof candidate.permissionGeneration !== 'number'
+  ) {
+    return null
+  }
+  return {
+    invocationId: candidate.invocationId,
+    callChainId: candidate.callChainId,
+    permissionGeneration: candidate.permissionGeneration,
+  }
+}
+
+function optionalHookScopeMatches(
+  left: HookInvocationScopeV1 | null,
+  right: HookInvocationScopeV1 | null
+): boolean {
+  if (!left || !right) return left === right
+  return sameHookScope(left, right)
+}
+
+function commandScopeFromMessage(
+  message: unknown
+): CommandInvocationScopeV1 | null {
+  if (typeof message !== 'object' || message === null) return null
+  const candidate = (message as { commandScope?: unknown }).commandScope
+  if (typeof candidate !== 'object' || candidate === null) return null
+  const parsed = candidate as CommandInvocationScopeV1
+  if (
+    !Number.isSafeInteger(parsed.commandInvocationId) ||
+    parsed.commandInvocationId <= 0 ||
+    typeof parsed.callChain?.id !== 'string' ||
+    !Array.isArray(parsed.callChain.plugins)
+  ) {
+    return null
+  }
+  return parsed
+}
+
+function optionalCommandScopeMatches(
+  left: CommandInvocationScopeV1 | null,
+  right: CommandInvocationScopeV1 | null
+): boolean {
+  if (!left || !right) return left === right
+  return (
+    left.commandInvocationId === right.commandInvocationId &&
+    left.callChain.id === right.callChain.id &&
+    left.callChain.plugins.length === right.callChain.plugins.length &&
+    left.callChain.plugins.every(
+      (pluginId, index) => pluginId === right.callChain.plugins[index]
+    )
+  )
+}
+
+function sameHookScope(
+  left: HookInvocationScopeV1,
+  right: HookInvocationScopeV1
+): boolean {
+  return (
+    left.invocationId === right.invocationId &&
+    left.callChainId === right.callChainId &&
+    left.permissionGeneration === right.permissionGeneration
+  )
+}
+
+function withGuestCallbackScope<T>(
+  scope: GuestCallbackScope,
+  callback: () => T
+): T {
+  const previous = guestCallbackScope
+  guestCallbackScope = scope
+  try {
+    return callback()
+  } finally {
+    guestCallbackScope = previous
+  }
+}
+
+function disposeVmCallResult(
+  result: ReturnType<QuickJSContext['callFunction']>
+): void {
+  if (result.error) result.error.dispose()
+  else result.value.dispose()
+}
+
+function vmSameValue(
+  vm: QuickJSContext,
+  left: QuickJSHandle,
+  right: QuickJSHandle
+): boolean {
+  const objectHandle = vm.getProp(vm.global, 'Object')
+  const isHandle = vm.getProp(objectHandle, 'is')
+  const result = vm.callFunction(isHandle, objectHandle, left, right)
+  isHandle.dispose()
+  objectHandle.dispose()
+  if (result.error) {
+    result.error.dispose()
+    return false
+  }
+  const equal = vm.dump(result.value) === true
+  result.value.dispose()
+  return equal
 }
 
 // makeEffectfulNs: builds a QuickJS namespace object for a given capability
@@ -879,10 +1572,9 @@ function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
 
   // ── commands ───────────────────────────────────────────────────────────
   // commands.register(id, fn): registration-only — stores fn locally.
-  // commands.execute(id, args): effectful.
-  //   Own-namespace (id starts with `${pluginId}.`): dispatch locally to
-  //   the stored handler without a bridge round-trip.
-  //   Cross-plugin: bridge call.
+  // commands.execute(id, args): effectful. Self-command calls are rejected
+  // before any local handler or Host queue can run; cross-plugin calls bridge
+  // through the Host-owned command graph and its immutable call chain.
   const commands = vm.newObject()
 
   const regF = vm.newFunction('register', (idH, fnH) => {
@@ -905,49 +1597,17 @@ function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
     const id = vm.dump(idH) as string
     const args = argsH !== undefined ? vm.dump(argsH) : undefined
 
-    // Own-namespace: call the local handler directly.
+    // Self re-entry would deadlock behind this plugin's current lane owner if
+    // routed through the Host, and direct local dispatch would bypass the
+    // shared lane/call-chain policy. Reject it before either can happen.
     if (id.startsWith(`${pluginId}.`)) {
-      const handler = registeredCommands.get(id)
-      if (!handler) {
-        const deferred = vm.newPromise()
-        const errH = vm.newError(`command not found: ${id}`)
-        const codeH = vm.newString('plugin.commands.not_found')
-        vm.setProp(errH, 'code', codeH)
-        codeH.dispose()
-        deferred.reject(errH)
-        errH.dispose()
-        deferred.settled.then(() => vm.runtime.executePendingJobs())
-        return deferred.handle
-      }
       const deferred = vm.newPromise()
-      const argsHandle = jsValueToVmHandle(vm, args)
-      const callResult = vm.callFunction(handler, vm.undefined, argsHandle)
-      argsHandle.dispose()
-      if (callResult.error) {
-        const err = vm.dump(callResult.error)
-        callResult.error.dispose()
-        const msg = vmErrorMessage(err)
-        const errH = vm.newError(msg)
-        deferred.reject(errH)
-        errH.dispose()
-        deferred.settled.then(() => vm.runtime.executePendingJobs())
-        return deferred.handle
-      }
-      // Handler may return a Promise or a plain value.
-      const retResolved = vm.resolvePromise(callResult.value)
-      callResult.value.dispose()
-      retResolved.then((settled) => {
-        vm.runtime.executePendingJobs()
-        if (settled.error) {
-          const errH = settled.error
-          deferred.reject(errH)
-          errH.dispose()
-        } else {
-          deferred.resolve(settled.value)
-          settled.value.dispose()
-        }
-        vm.runtime.executePendingJobs()
-      })
+      const errH = vm.newError('plugin.runtime.reentrant_call')
+      const codeH = vm.newString('plugin.runtime.reentrant_call')
+      vm.setProp(errH, 'code', codeH)
+      codeH.dispose()
+      deferred.reject(errH)
+      errH.dispose()
       deferred.settled.then(() => vm.runtime.executePendingJobs())
       return deferred.handle
     }
@@ -1024,18 +1684,6 @@ function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
   ])
   vm.setProp(api, 'storage', storage)
   storage.dispose()
-
-  // ── metadata ───────────────────────────────────────────────────────────
-  const metadata = makeEffectfulNs(vm, 'metadata', [
-    'get',
-    'has',
-    'getAll',
-    'keys',
-    'set',
-    'delete',
-  ])
-  vm.setProp(api, 'metadata', metadata)
-  metadata.dispose()
 
   // ── crypto ─────────────────────────────────────────────────────────────
   const crypto = makeEffectfulNs(vm, 'crypto', [
