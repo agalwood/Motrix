@@ -18,8 +18,8 @@ export const FLATPAK_BUILDER_TOOLS_COMMIT =
 // tag resolves to is pinned by hand (and cross-checked against the manifest).
 export const ARIA2_SOURCE = Object.freeze({
   url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.11 — current Motrix aria2 fork release
-  commit: 'ab003d49360bac776ada3e967821410f527c00a6',
+  // v1.37.0-motrix.12 — current Motrix aria2 fork release
+  commit: 'c9143bbf9c16f8c8563e41e7da2a23face4d5a8c',
 })
 
 const PNPM_SOURCE = Object.freeze({
@@ -600,7 +600,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       workflow.includes("self.path != '/nonce'") &&
       workflow.includes("self.headers.get('X-Motrix-Bridge') != '1'") &&
       workflow.includes(
-        'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'
+        'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/'
       ) &&
       workflow.includes(COMPANION_PAIR_FRAME_HEX),
     'workflow must run the x86_64 Browser Native Messaging companion smoke'

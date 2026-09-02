@@ -303,7 +303,7 @@ jobs:
                 -path "*/native-messaging-hosts/*" \
               \) -print -quit)"
               output="$("$aria2c" --version)"
-              printf "%s\n" "$output" | grep -qF "aria2 version 1.37.0-motrix.11"
+              printf "%s\n" "$output" | grep -qF "aria2 version 1.37.0-motrix.12"
               printf "%s\n" "$output" | grep -qF "Async DNS"
               printf "%s\n" "$output" | grep -qF "BitTorrent"
               printf "%s\n" "$output" | grep -qF "HTTPS"
@@ -427,7 +427,7 @@ jobs:
           native_host_hex="$(
             printf '\025\000\000\000%s' '{"allowLaunch":false}' |
               "$installed_companion" \
-                'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/' |
+                'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/' |
               od -An -tx1 -v |
               tr -d ' \n'
           )"
