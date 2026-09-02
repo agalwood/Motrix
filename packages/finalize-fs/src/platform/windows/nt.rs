@@ -2,7 +2,7 @@
 
 use std::ffi::{OsStr, c_void};
 use std::io;
-use std::mem::{offset_of, size_of};
+use std::mem::size_of;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::path::Path;
@@ -286,7 +286,11 @@ pub(super) fn rename_no_replace(
         .len()
         .checked_mul(size_of::<u16>())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "target name is too long"))?;
-    let total_bytes = offset_of!(FILE_RENAME_INFO, FileName)
+    // Windows requires the buffer to include the complete fixed structure
+    // followed by FileNameLength bytes, even though FileName already contains
+    // a one-element flexible-array placeholder. Using only the FileName offset
+    // produces ERROR_INVALID_PARAMETER on SetFileInformationByHandle.
+    let total_bytes = size_of::<FILE_RENAME_INFO>()
         .checked_add(name_bytes)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "target name is too long"))?;
     let words = total_bytes.div_ceil(size_of::<usize>());
