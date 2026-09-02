@@ -24,7 +24,7 @@ import type {
 import { ReconnectSession } from './reconnect-session'
 
 const INSTANCE_ID = '0d9c2b7a-4e6f-4a1b-8c3d-2e5f7a9b1c4d'
-const EXTENSION_ID = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+const EXTENSION_ID = 'lggbokfckofcgjndaboioakcmincinpo'
 const ORIGIN = `chrome-extension://${EXTENSION_ID}`
 const ATTACKER_ORIGIN = 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const CREDENTIAL_ID = 'a5e3c9f0-1b2d-4e6f-8a9c-0d1e2f3a4b5c'

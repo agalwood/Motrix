@@ -26,9 +26,9 @@ const ROW_HEIGHT = 28
 // one is chosen at render time by PeersTab so disabled GeoIP doesn't
 // burn 64px of layout for empty cells.
 const GRID_COLS_WITH_GEO =
-  'grid-cols-[28px_36px_minmax(0,2fr)_minmax(0,3fr)_72px_72px_64px_56px]'
+  'grid-cols-[28px_36px_minmax(0,2.5fr)_minmax(0,3fr)_72px_72px_64px_56px]'
 const GRID_COLS_BASE =
-  'grid-cols-[minmax(0,2fr)_minmax(0,3fr)_72px_72px_64px_56px]'
+  'grid-cols-[minmax(0,2.5fr)_minmax(0,3fr)_72px_72px_64px_56px]'
 
 /**
  * Compose the BT peer flags column. Mirrors the convention used by

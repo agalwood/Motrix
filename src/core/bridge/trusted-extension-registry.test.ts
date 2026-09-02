@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { TrustedExtensionRegistry } from './trusted-extension-registry'
 
 const BUILTIN = [
-  { id: 'ibpkjhgpbidfmbmomagmldcdlpbmchgi', browser: 'chromium' as const },
+  { id: 'lggbokfckofcgjndaboioakcmincinpo', browser: 'chromium' as const },
   { id: 'motrix-extension@motrix.app', browser: 'firefox' as const },
 ]
 

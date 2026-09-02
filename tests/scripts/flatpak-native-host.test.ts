@@ -112,7 +112,7 @@ describe('Flatpak native-host boundary', () => {
       `bridge_dir="\${XDG_CONFIG_HOME:?}/motrix/bridge"`
     )
     expect(workflow).toContain(
-      'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'
+      'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/'
     )
     expect(workflow).toContain("self.path != '/discovery'")
     expect(workflow).toContain("self.path != '/nonce'")

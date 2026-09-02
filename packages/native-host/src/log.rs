@@ -139,7 +139,7 @@ mod tests {
             protocol_version: 1,
             server_generation: "gen-1".into(),
             browser: "chromium".into(),
-            caller_id: "ibpkjhgpbidfmbmomagmldcdlpbmchgi".into(),
+            caller_id: "lggbokfckofcgjndaboioakcmincinpo".into(),
             exp: 1_755_600_000,
             binding_pub: "SECRETPUB".into(),
             mac: "SECRETMAC".into(),

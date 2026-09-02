@@ -108,7 +108,7 @@
     "showMotrix": "顯示 Motrix",
     "manual": "使用手冊",
     "checkUpdates": "檢查更新",
-    "preferences": "偏好設定",
+    "preferences": "設定",
     "quit": "結束"
   },
   "panel": {
@@ -1668,7 +1668,7 @@
     "app": {
       "title": "Motrix",
       "about": "關於 Motrix",
-      "preferences": "偏好設定…",
+      "preferences": "設定…",
       "checkForUpdates": "檢查更新…",
       "show": "顯示 Motrix",
       "hide": "隱藏 Motrix",

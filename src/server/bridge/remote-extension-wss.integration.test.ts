@@ -25,7 +25,7 @@ import {
 } from './bootstrap'
 import { parseRemoteExtensionConfig } from './remote-extension-config'
 
-const EXTENSION_ID = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+const EXTENSION_ID = 'lggbokfckofcgjndaboioakcmincinpo'
 
 function receiver(): ServerExtensionReceiver {
   return {

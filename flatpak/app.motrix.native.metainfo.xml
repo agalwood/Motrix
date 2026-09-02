@@ -76,6 +76,16 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.29" date="2026-09-02">
+      <description>
+        <p>
+          Adds secure local and remote Motrix Extension pairing, completes
+          Desktop and Server RPC parity, and introduces durable plugin hook
+          execution and crash-safe finalization. This release also updates the
+          bundled aria2 engine and hardens Native Messaging integration.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.28" date="2026-08-28">
       <description>
         <p>

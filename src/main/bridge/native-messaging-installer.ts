@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, posix } from 'node:path'
 import { promisify } from 'node:util'
+import writeFileAtomic from 'write-file-atomic'
 
 const execFileAsync = promisify(execFile)
 
@@ -50,6 +51,7 @@ const MANIFEST_HOST_NAME = 'app.motrix.bridge'
 const MANIFEST_DESCRIPTION = 'Motrix browser download bridge'
 const WINDOWS_REGISTRY_VIEWS: RegistryView[] = ['32', '64']
 const FLATPAK_COMPANION_BINARY = 'motrix-flatpak-native-host'
+export const DEVELOPMENT_HOST_CONFIG_NAME = 'motrix-native-host.dev.json'
 
 interface ManifestOwnership {
   allowed_extensions?: unknown
@@ -257,6 +259,12 @@ export interface InstallerOptions {
    * companion must own both the launcher and manifests.
    */
   registrationMode?: 'managed' | 'external'
+  /**
+   * Development-only bridge directory selected by Electron. When present,
+   * sync writes an owner-only sidecar beside the development host executable
+   * so a browser-spawned host resolves the same isolated user-data profile.
+   */
+  developmentBridgeDataDir?: string
 }
 
 export interface SyncArgs {
@@ -287,6 +295,8 @@ export class NativeMessagingInstaller {
 
   async syncManifests(args: SyncArgs): Promise<void> {
     if (this.opts.registrationMode === 'external') return
+
+    await this.writeDevelopmentHostConfig()
 
     const paths = computeManifestPaths(
       this.opts.platform,
@@ -358,6 +368,35 @@ export class NativeMessagingInstaller {
     await Promise.all(
       manifestPaths.map((filePath) => this.removeOwnedManifest(filePath))
     )
+    await this.removeDevelopmentHostConfig()
+  }
+
+  private developmentHostConfigPath(): string | null {
+    return this.opts.developmentBridgeDataDir
+      ? join(dirname(this.opts.hostBinaryPath), DEVELOPMENT_HOST_CONFIG_NAME)
+      : null
+  }
+
+  private async writeDevelopmentHostConfig(): Promise<void> {
+    const filePath = this.developmentHostConfigPath()
+    if (!filePath) return
+
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFileAtomic(
+      filePath,
+      JSON.stringify({
+        bridgeDataDir: this.opts.developmentBridgeDataDir,
+      }),
+      { mode: 0o600 }
+    )
+    if (this.opts.platform !== 'win32') {
+      await chmod(filePath, 0o600)
+    }
+  }
+
+  private async removeDevelopmentHostConfig(): Promise<void> {
+    const filePath = this.developmentHostConfigPath()
+    if (filePath) await rm(filePath, { force: true })
   }
 
   private async writeJson(filePath: string, obj: object): Promise<void> {

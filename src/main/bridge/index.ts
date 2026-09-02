@@ -301,12 +301,19 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
     devOverride: process.env.MOTRIX_BRIDGE_HOST_BIN,
     ...(snap ? { snapInstanceName: snap.instanceName } : {}),
   })
+  const developmentBridgeDataDir = app.isPackaged
+    ? undefined
+    : resolveBridgeDataDir(
+        app.getPath('userData'),
+        process.env.MOTRIX_BRIDGE_DATA_DIR
+      )
 
   return {
     installer: new NativeMessagingInstaller({
       hostBinaryPath,
       manifestRoot: snap?.realHome ?? home,
       platform: installationPlatform,
+      ...(developmentBridgeDataDir ? { developmentBridgeDataDir } : {}),
       ...(installationPlatform === 'win32'
         ? { windowsRoamingAppData: app.getPath('appData') }
         : {}),
