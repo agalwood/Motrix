@@ -30,6 +30,7 @@ import { fireAfterComplete, fireOnError } from '../hook-dispatch'
 import { normalizeTerminalRuntimeMetrics } from '../normalize-terminal-runtime-metrics'
 import type { OccurrenceDispatcher } from '../occurrences/occurrence-dispatcher'
 import {
+  applyCompletedTaskAfterRename,
   applyTerminalStatusToTask,
   completeTaskAfterRename,
   setTaskTransitionPhase,
@@ -343,17 +344,13 @@ async function commitHttpArtifactDurably(
 ): Promise<void> {
   const completedAt = Date.now()
   const previousStatus = task.status
-  task.finalPath = desiredFinalPath
-  completeTaskAfterRename(
-    task,
-    desiredFinalPath,
-    completedAt,
-    deps.activityRecorder
-  )
-  syncCompletionMetrics(task)
-  normalizeTerminalRuntimeMetrics(task)
+  const completedTask = structuredClone(task)
+  completedTask.finalPath = desiredFinalPath
+  applyCompletedTaskAfterRename(completedTask, desiredFinalPath, completedAt)
+  syncCompletionMetrics(completedTask)
+  normalizeTerminalRuntimeMetrics(completedTask)
   const occurrence = buildTerminalOccurrence(
-    terminalSnapshotFromTask(task),
+    terminalSnapshotFromTask(completedTask),
     previousStatus,
     'finalize',
     completedAt
@@ -361,7 +358,7 @@ async function commitHttpArtifactDurably(
   if (!occurrence)
     throw new Error('HTTP finalize did not produce an occurrence')
   await deps.commitFinalizedArtifact?.({
-    task,
+    task: completedTask,
     occurrence,
     sourcePath: renameSource,
     targetPath: desiredFinalPath,
@@ -373,17 +370,21 @@ async function commitHttpArtifactDurably(
       targetRoot: desiredFinalPath,
     },
   })
-  deps.taskManager.set(task.id, structuredClone(task))
-  await recordTaskTransitionOrWarn(task, previousStatus, deps, {
+  deps.activityRecorder.recordDownloadCompleted({
+    taskId: completedTask.id,
+    occurredAt: completedAt,
+  })
+  deps.taskManager.set(completedTask.id, structuredClone(completedTask))
+  await recordTaskTransitionOrWarn(completedTask, previousStatus, deps, {
     occurredAt: completedAt,
     accuracy: TaskActivityAccuracy.Exact,
     occurrenceId: occurrence.occurrenceId,
     failureMessage: FINALIZE_RECORD_FAILURE_MESSAGE,
   })
   await deps.occurrenceDispatcher?.dispatch(occurrence)
-  deps.eventBus.emit(Events.TaskFilesUpdated, { taskId: task.id })
+  deps.eventBus.emit(Events.TaskFilesUpdated, { taskId: completedTask.id })
   deps.publishTaskUpdateNow()
-  deps.log.info({ taskId: task.id }, 'finalize_http_completed')
+  deps.log.info({ taskId: completedTask.id }, 'finalize_http_completed')
 }
 
 /**
@@ -552,22 +553,13 @@ async function finalizeBt(
   await deps.adapter.removeDownloadResult(task.engineTaskId)
 
   const completedAt = Date.now()
-  task.finalPath = desiredFinalPath
-  task.diskPath = desiredFinalPath
-  // Same instance-row sync as finalizeHttp: the on-disk rename just
-  // happened, so the instance rows must stop pointing at the `.motrix`
-  // container or restore() resurrects it after a restart. Status is
-  // left alone here — the task still heads into reseed and its
-  // terminal state (Seeding/Completed) is decided below.
-  for (const inst of task.instances) {
-    inst.diskPath = desiredFinalPath
-  }
-  setTaskTransitionPhase(task, TransitionPhase.Reseeding)
 
   if (deps.commitFinalizedArtifact) {
+    const renamedTask = structuredClone(task)
+    applyBtTaskAfterRename(renamedTask, desiredFinalPath)
     try {
       await deps.commitFinalizedArtifact({
-        task,
+        task: renamedTask,
         occurrence: null,
         sourcePath: renameSource,
         targetPath: desiredFinalPath,
@@ -579,6 +571,7 @@ async function finalizeBt(
           targetRoot: desiredFinalPath,
         },
       })
+      Object.assign(task, structuredClone(renamedTask))
       deps.taskManager.set(task.id, structuredClone(task))
       deps.eventBus.emit(Events.TaskFilesUpdated, { taskId: task.id })
     } catch (e) {
@@ -622,6 +615,7 @@ async function finalizeBt(
         'finalize_bt_metadata_commit_failed'
       )
     }
+    applyBtTaskAfterRename(task, desiredFinalPath)
     await persistTaskState(task, deps)
   }
 
@@ -643,6 +637,21 @@ async function finalizeBt(
     occurredAt: completedAt,
   })
   await finalizeBtAfterRename(task, deps, completedAt, unselectedRelPaths)
+}
+
+function applyBtTaskAfterRename(
+  task: DownloadTask,
+  desiredFinalPath: string
+): void {
+  task.finalPath = desiredFinalPath
+  task.diskPath = desiredFinalPath
+  // The instance rows must stop pointing at the `.motrix` container or
+  // restore() resurrects it after a restart. Status is left alone here — the
+  // task still heads into reseed and its terminal state is decided below.
+  for (const inst of task.instances) {
+    inst.diskPath = desiredFinalPath
+  }
+  setTaskTransitionPhase(task, TransitionPhase.Reseeding)
 }
 
 async function finalizeBtAfterRename(

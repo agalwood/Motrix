@@ -131,11 +131,10 @@ export function applyTerminalStatusToTask(
  * instance path would resurrect the now-nonexistent placeholder after an
  * app restart, breaking reveal-in-folder and delete-with-files.
  */
-export function completeTaskAfterRename(
+export function applyCompletedTaskAfterRename(
   task: DownloadTask,
   finalDiskPath: string,
-  completedAt: number,
-  activityRecorder: TaskActivityRecorder
+  completedAt: number
 ): void {
   task.diskPath = finalDiskPath
   setTaskTransitionPhase(task, TransitionPhase.Idle)
@@ -143,12 +142,21 @@ export function completeTaskAfterRename(
   for (const instance of task.instances) {
     instance.diskPath = finalDiskPath
   }
-  activityRecorder.recordDownloadCompleted({
-    taskId: task.id,
-    occurredAt: completedAt,
-  })
   Object.assign(
     task,
     applyTerminalTransition(task, TaskStatus.Completed, {}, completedAt)
   )
+}
+
+export function completeTaskAfterRename(
+  task: DownloadTask,
+  finalDiskPath: string,
+  completedAt: number,
+  activityRecorder: TaskActivityRecorder
+): void {
+  applyCompletedTaskAfterRename(task, finalDiskPath, completedAt)
+  activityRecorder.recordDownloadCompleted({
+    taskId: task.id,
+    occurredAt: completedAt,
+  })
 }

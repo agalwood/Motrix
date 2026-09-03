@@ -40,7 +40,7 @@ describe('DurableFinalizeRuntime', () => {
     const fs = {
       identity: async (artifactPath: string) =>
         artifactPath === sourcePath ? readArtifactIdentity(artifactPath) : null,
-      sameFilesystem: async () => true,
+      sameFilesystem: async () => false,
       materializePrivate: async (
         _source: string,
         identity: ArtifactIdentity

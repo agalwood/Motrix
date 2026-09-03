@@ -57,6 +57,30 @@ describe('SqliteFinalizeJournalRepository', () => {
     })
   })
 
+  it('persists the direct-move mode and its shorter phase transition', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      now: () => 5,
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = {
+      ...makeRecord('plan-move'),
+      publicationMode: 'move' as const,
+    }
+
+    await repository.prepare(record)
+    await repository.advance(record.journalId, 'target_installed', {
+      targetIdentity: record.plan.sourceIdentity,
+    })
+
+    expect(await repository.listRecoverable()).toEqual([
+      {
+        ...record,
+        phase: 'target_installed',
+        targetIdentity: record.plan.sourceIdentity,
+      },
+    ])
+  })
+
   it('rolls the journal and terminal callback writes back on failure', async () => {
     db.exec('CREATE TABLE terminal_probe (value TEXT NOT NULL)')
     const repository = new SqliteFinalizeJournalRepository(db, {

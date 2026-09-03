@@ -50,12 +50,19 @@ function makePlan(replacement = false): HookPlan {
 class FakeFilesystem implements FinalizeArtifactOperations {
   readonly artifacts = new Map<string, ArtifactIdentity>()
   readonly actions: string[] = []
+  readonly identityReads = new Map<string, number>()
+
+  constructor(private readonly sameDevice = true) {}
 
   async identity(artifactPath: string): Promise<ArtifactIdentity | null> {
+    this.identityReads.set(
+      artifactPath,
+      (this.identityReads.get(artifactPath) ?? 0) + 1
+    )
     return this.artifacts.get(artifactPath) ?? null
   }
   async sameFilesystem(): Promise<boolean> {
-    return true
+    return this.sameDevice
   }
   async materializePrivate(
     sourcePath: string,
@@ -135,6 +142,52 @@ function makeCommitter(
 }
 
 describe('FinalizeCommitter', () => {
+  it('moves an ordinary same-filesystem source without copying it', async () => {
+    const fs = new FakeFilesystem()
+    const plan = makePlan()
+    fs.artifacts.set(plan.sourcePath, sourceIdentity)
+    const { repository, phases } = makeRepository()
+
+    await makeCommitter(fs, repository).commit(plan)
+
+    expect(fs.artifacts.has(plan.sourcePath)).toBe(false)
+    expect(fs.artifacts.get(plan.targetPath)).toBe(sourceIdentity)
+    expect(fs.actions).toContain(`move:${plan.sourcePath}->${plan.targetPath}`)
+    expect(fs.actions.some((action) => action.startsWith('copy:'))).toBe(false)
+    expect(fs.identityReads.get(plan.sourcePath)).toBe(1)
+    expect(fs.identityReads.get(plan.targetPath)).toBe(1)
+    expect(phases).toEqual([
+      'prepared',
+      'target_installed',
+      'db_committed',
+      'cleaned',
+    ])
+  })
+
+  it('falls back to verified copy publication across filesystems', async () => {
+    const fs = new FakeFilesystem(false)
+    const plan = makePlan()
+    fs.artifacts.set(plan.sourcePath, sourceIdentity)
+    const { repository, phases } = makeRepository()
+
+    await makeCommitter(fs, repository).commit(plan)
+
+    expect(fs.actions).toContain(
+      `copy:${plan.sourcePath}->/save/.motrix-private-plan-1`
+    )
+    expect(fs.artifacts.has(plan.sourcePath)).toBe(false)
+    expect(fs.artifacts.get(plan.targetPath)).toMatchObject({
+      sha256: sourceIdentity.sha256,
+    })
+    expect(phases).toEqual([
+      'prepared',
+      'target_staged',
+      'target_installed',
+      'db_committed',
+      'cleaned',
+    ])
+  })
+
   it('installs a replacement and never renames the original over it', async () => {
     const fs = new FakeFilesystem()
     const plan = makePlan(true)
@@ -187,6 +240,8 @@ describe('FinalizeCommitter', () => {
     )
     expect(fs.artifacts.has(plan.targetPath)).toBe(false)
     expect(fs.artifacts.get(plan.sourcePath)).toBe(sourceIdentity)
+    expect(fs.actions).toContain(`move:${plan.targetPath}->${plan.sourcePath}`)
+    expect(fs.actions.some((action) => action.startsWith('copy:'))).toBe(false)
   })
 
   it('quarantines an identity mismatch without deleting unknown bytes', async () => {

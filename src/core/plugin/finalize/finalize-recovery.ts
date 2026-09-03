@@ -80,6 +80,8 @@ export class FinalizeRecovery {
               privateTarget,
               replacement
             )
+          } else if (record.publicationMode === 'move') {
+            await this.restoreMovedSource(record, source, target)
           } else {
             await this.restore(
               record,
@@ -89,6 +91,10 @@ export class FinalizeRecovery {
               replacement
             )
           }
+          return
+        }
+        if (record.publicationMode === 'move') {
+          await this.restoreMovedSource(record, source, target)
           return
         }
         await this.restore(record, target, rollback, privateTarget, replacement)
@@ -165,6 +171,10 @@ export class FinalizeRecovery {
       }
 
       if (record.phase === 'prepared') {
+        if (record.publicationMode === 'move') {
+          await this.restoreMovedSource(record, source, target)
+          return
+        }
         await this.restorePrepared(
           record,
           source,
@@ -247,7 +257,14 @@ export class FinalizeRecovery {
     privateTarget: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>,
     replacement: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>
   ): Promise<void> {
+    if (record.publicationMode === 'move' && source) {
+      await this.quarantine(
+        record,
+        'moved source path unexpectedly exists after commit'
+      )
+    }
     if (
+      record.publicationMode !== 'move' &&
       source &&
       !finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
     ) {
@@ -291,6 +308,43 @@ export class FinalizeRecovery {
       )
     }
     await this.removeReplacement(record, replacement)
+    await this.options.repository.advance(record.journalId, 'cleaned')
+  }
+
+  private async restoreMovedSource(
+    record: FinalizeJournalRecord,
+    source: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>,
+    target: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>
+  ): Promise<void> {
+    if (
+      record.plan.replacement ||
+      finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
+    ) {
+      await this.quarantine(record, 'invalid move publication journal')
+    }
+    if (source && target) {
+      await this.quarantine(
+        record,
+        'source and target both exist during move recovery'
+      )
+    }
+    if (source) {
+      if (!this.options.exactIdentity(source, record.plan.sourceIdentity)) {
+        await this.quarantine(record, 'moved source identity mismatch')
+      }
+      await this.options.repository.advance(record.journalId, 'cleaned')
+      return
+    }
+    const expectedTarget = record.targetIdentity ?? record.plan.sourceIdentity
+    if (!target || !this.options.exactIdentity(target, expectedTarget)) {
+      await this.quarantine(record, 'moved target is missing or changed')
+    }
+    await this.options.fs.moveNoReplace(
+      record.plan.targetPath,
+      expectedTarget,
+      record.plan.sourcePath
+    )
+    await this.options.fs.makeDurable(record.plan.sourcePath)
     await this.options.repository.advance(record.journalId, 'cleaned')
   }
 
