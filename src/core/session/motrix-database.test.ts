@@ -203,6 +203,48 @@ describe('saveTaskWithInstances + getAllTasks (Plan A v1 schema)', () => {
     db.close()
   })
 
+  it('rebases persisted task files inside the terminal commit transaction', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = makeTaskRow('m-finalize-files', TaskKind.Direct)
+    const sourcePath = '/downloads/file.bin.motrix'
+    const targetPath = '/downloads/file.bin'
+    db.saveTaskWithInstances({ task, instances: [] })
+    db.replaceTaskFiles(task.motrixId, [
+      {
+        fileIndex: 7,
+        path: sourcePath,
+        size: 42,
+        selected: false,
+      },
+    ])
+
+    expect(() =>
+      db.commitTerminalHookBoundary({
+        payload: {
+          task: {
+            ...task,
+            finalPath: targetPath,
+            aggStatus: TaskStatus.Completed,
+          },
+          instances: [],
+        },
+        occurrence: null,
+        fileRebase: { sourceRoot: sourcePath, targetRoot: targetPath },
+      })
+    ).not.toThrow()
+    expect(db.getTaskFiles(task.motrixId)).toEqual([
+      {
+        fileIndex: 7,
+        path: targetPath,
+        size: 42,
+        selected: false,
+      },
+    ])
+
+    db.close()
+  })
+
   it.each(Object.values(TaskType))(
     'round-trips canonical task type %s',
     (taskType) => {

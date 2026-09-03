@@ -3,6 +3,7 @@ import type {
   FinalizeJournalRecord,
   FinalizeJournalRepository,
 } from '@core/plugin/finalize/finalize-committer'
+import { finalizePathsEquivalent } from '@core/plugin/finalize/finalize-committer'
 import { assertValidHookPlan } from '@core/plugin/finalize/hook-plan'
 import type Database from 'better-sqlite3'
 
@@ -141,7 +142,7 @@ export class SqliteFinalizeJournalRepository
     this.db.transaction(() => {
       const current = this.requireRecord(journalId)
       if (current.phase === phase) return
-      if (!transitionAllowed(current.phase, phase)) {
+      if (!transitionAllowed(current, phase)) {
         throw new Error(
           `invalid finalize transition ${current.phase} -> ${phase}`
         )
@@ -254,6 +255,20 @@ function parseRecord(raw: RawFinalizeJournal): FinalizeJournalRecord {
   if (record.phase !== raw.phase) {
     throw new TypeError('journal phase column does not match record')
   }
+  if (
+    record.publicationMode !== undefined &&
+    record.publicationMode !== 'copy' &&
+    record.publicationMode !== 'move'
+  ) {
+    throw new TypeError('journal publication mode is invalid')
+  }
+  if (
+    record.publicationMode === 'move' &&
+    (record.plan.replacement !== undefined ||
+      finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath))
+  ) {
+    throw new TypeError('journal move publication plan is invalid')
+  }
   assertValidHookPlan(record.plan)
   const sourceIdentity = JSON.stringify(record.plan.sourceIdentity)
   if (sourceIdentity !== JSON.stringify(JSON.parse(raw.source_identity_json))) {
@@ -270,12 +285,16 @@ function parseRecord(raw: RawFinalizeJournal): FinalizeJournalRecord {
 }
 
 function transitionAllowed(
-  from: FinalizeJournalPhase,
+  record: FinalizeJournalRecord,
   to: FinalizeJournalPhase
 ): boolean {
+  const from = record.phase
   return (
     (from === 'prepared' &&
       (to === 'source_preserved' || to === 'target_staged')) ||
+    (from === 'prepared' &&
+      record.publicationMode === 'move' &&
+      to === 'target_installed') ||
     (from === 'source_preserved' && to === 'target_staged') ||
     (from === 'target_staged' && to === 'target_installed') ||
     ((from === 'prepared' ||

@@ -1851,6 +1851,63 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     expect(task.status).toBe(TaskStatus.Completed)
   })
 
+  it('HTTP: durable commit failure preserves the recoverable rename intent', async () => {
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact: vi.fn(async () => {
+        throw new Error('database unavailable')
+      }),
+    }
+    const task = makeTask({ instances: [makePrimaryInstance()] })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await expect(finalizeTask('t1', deps)).rejects.toThrow(
+      'Failed to commit finalized file: database unavailable'
+    )
+
+    expect(task).toMatchObject({
+      status: TaskStatus.Error,
+      diskPath: '/d/foo.mp4.motrix',
+      finalPath: '/d/foo.mp4',
+      transitionPhase: TransitionPhase.Renaming,
+    })
+    expect(task.instances[0]).toMatchObject({
+      diskPath: '/d/foo.mp4.motrix',
+      transitionPhase: TransitionPhase.Renaming,
+    })
+    expect(deps.activityRecorder.recordDownloadCompleted).not.toHaveBeenCalled()
+  })
+
+  it('BT: durable commit failure preserves the recoverable rename intent', async () => {
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact: vi.fn(async () => {
+        throw new Error('database unavailable')
+      }),
+    }
+    const task = makeBtTask()
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await expect(finalizeTask('t1', deps)).rejects.toThrow(
+      'Failed to commit finalized directory: database unavailable'
+    )
+
+    expect(task).toMatchObject({
+      status: TaskStatus.Error,
+      diskPath: '/d/torrent.motrix',
+      finalPath: '/d/torrent',
+      transitionPhase: TransitionPhase.Renaming,
+    })
+  })
+
   it('HTTP: beforeFinalize can route a GitHub ZIP into Compressed through the durable seam', async () => {
     const commitFinalizedArtifact = vi.fn(async () => {})
     const deps: FinalizeTaskDeps = {

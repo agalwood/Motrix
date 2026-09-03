@@ -181,6 +181,61 @@ describe('FinalizeRecovery', () => {
     expect(state.phases).toEqual(['cleaned'])
   })
 
+  it('cleans a prepared move journal when publication never started', async () => {
+    const prepared = record('prepared')
+    prepared.publicationMode = 'move'
+    prepared.targetIdentity = undefined
+    const state = fixture({ '/save/source': sourceIdentity })
+
+    await state.recovery.recover(prepared)
+
+    expect(state.artifacts.get('/save/source')).toBe(sourceIdentity)
+    expect(state.artifacts.has('/save/target')).toBe(false)
+    expect(state.phases).toEqual(['cleaned'])
+  })
+
+  it('restores a move published before target_installed was journaled', async () => {
+    const prepared = record('prepared')
+    prepared.publicationMode = 'move'
+    prepared.targetIdentity = undefined
+    const state = fixture({ '/save/target': sourceIdentity })
+
+    await state.recovery.recover(prepared)
+
+    expect(state.artifacts.get('/save/source')).toBe(sourceIdentity)
+    expect(state.artifacts.has('/save/target')).toBe(false)
+    expect(state.phases).toEqual(['cleaned'])
+  })
+
+  it('rolls an uncommitted move publication back to its source name', async () => {
+    const installed = record('target_installed')
+    installed.publicationMode = 'move'
+    installed.targetIdentity = sourceIdentity
+    const state = fixture(
+      { '/save/target': sourceIdentity },
+      { rollForwardTargetInstalled: false }
+    )
+
+    await state.recovery.recover(installed)
+
+    expect(state.artifacts.get('/save/source')).toBe(sourceIdentity)
+    expect(state.artifacts.has('/save/target')).toBe(false)
+    expect(state.phases).toEqual(['cleaned'])
+  })
+
+  it('keeps a committed move publication without source cleanup', async () => {
+    const committed = record('db_committed')
+    committed.publicationMode = 'move'
+    committed.targetIdentity = sourceIdentity
+    const state = fixture({ '/save/target': sourceIdentity })
+
+    await state.recovery.recover(committed)
+
+    expect(state.artifacts.get('/save/target')).toBe(sourceIdentity)
+    expect(state.artifacts.has('/save/source')).toBe(false)
+    expect(state.phases).toEqual(['cleaned'])
+  })
+
   it('rolls back a target moved before target_installed was journaled', async () => {
     const staged = record('target_staged')
     staged.privateTargetPath = '/save/.private'

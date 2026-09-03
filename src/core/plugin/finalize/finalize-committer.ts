@@ -19,6 +19,8 @@ export interface FinalizeJournalRecord {
   journalId: string
   phase: FinalizeJournalPhase
   plan: HookPlan
+  /** Missing on journals created before the move fast path; treat as copy. */
+  publicationMode?: 'copy' | 'move'
   privateTargetPath?: string
   privateTargetIdentity?: ArtifactIdentity
   targetIdentity?: ArtifactIdentity
@@ -131,6 +133,7 @@ export class FinalizeCommitter {
       journalId: plan.planId,
       phase: 'prepared',
       plan,
+      publicationMode: 'copy',
     }
     try {
       await this.requireExactIdentity(
@@ -145,6 +148,7 @@ export class FinalizeCommitter {
           record
         )
       }
+      record.publicationMode = await this.selectPublicationMode(plan)
       await this.options.repository.prepare(record)
       return await this.commitPrepared(record, lease)
     } catch (error) {
@@ -164,6 +168,7 @@ export class FinalizeCommitter {
     const selectedPath = plan.replacement?.stagedPath ?? plan.sourcePath
     const selectedIdentity = plan.replacement?.identity ?? plan.sourceIdentity
     const samePath = finalizePathsEquivalent(plan.sourcePath, plan.targetPath)
+    const movesSource = record.publicationMode === 'move'
 
     if (samePath && !plan.replacement) {
       await this.requireExactIdentity(
@@ -172,6 +177,15 @@ export class FinalizeCommitter {
         record
       )
       await this.options.fs.makeDurable(plan.sourcePath)
+    } else if (movesSource) {
+      // moveNoReplace validates the expected source identity while holding the
+      // artifact and both roots. Avoid hashing large artifacts once more here.
+      await this.options.fs.moveNoReplace(
+        plan.sourcePath,
+        plan.sourceIdentity,
+        plan.targetPath
+      )
+      await this.options.fs.makeDurable(plan.targetPath)
     } else {
       if (samePath) {
         record.rollbackPath = this.options.rollbackPathFor(plan)
@@ -227,13 +241,18 @@ export class FinalizeCommitter {
       await this.options.fs.makeDurable(plan.targetPath)
     }
 
-    const targetIdentity = await this.requireExactIdentity(
-      plan.targetPath,
-      samePath && !plan.replacement
-        ? plan.sourceIdentity
-        : (record.privateTargetIdentity as ArtifactIdentity),
-      record
-    )
+    // A same-filesystem rename preserves the platform file identity and the
+    // move operation already verifies the installed target. Persist that
+    // identity directly, then retain the final pre-DB verification below.
+    const targetIdentity = movesSource
+      ? plan.sourceIdentity
+      : await this.requireExactIdentity(
+          plan.targetPath,
+          samePath && !plan.replacement
+            ? plan.sourceIdentity
+            : (record.privateTargetIdentity as ArtifactIdentity),
+          record
+        )
     record.targetIdentity = targetIdentity
     await this.options.repository.advance(
       record.journalId,
@@ -249,7 +268,7 @@ export class FinalizeCommitter {
     record.phase = 'db_committed'
     let cleanupPending = false
     try {
-      if (!samePath) {
+      if (!samePath && !movesSource) {
         await this.requireExactIdentity(
           plan.sourcePath,
           plan.sourceIdentity,
@@ -303,19 +322,31 @@ export class FinalizeCommitter {
   ): Promise<void> {
     if (record.phase === 'db_committed' || record.phase === 'cleaned') return
     try {
+      const movesSource = record.publicationMode === 'move'
       const installedIdentity =
-        record.targetIdentity ?? record.privateTargetIdentity
+        record.targetIdentity ??
+        record.privateTargetIdentity ??
+        (movesSource ? record.plan.sourceIdentity : undefined)
       const target = await this.options.fs.identity(record.plan.targetPath)
       if (
         target &&
         installedIdentity &&
         this.options.exactIdentity(target, installedIdentity)
       ) {
-        await this.removeTracked(
-          record,
-          record.plan.targetPath,
-          installedIdentity
-        )
+        if (movesSource) {
+          await this.options.fs.moveNoReplace(
+            record.plan.targetPath,
+            installedIdentity,
+            record.plan.sourcePath
+          )
+          await this.options.fs.makeDurable(record.plan.sourcePath)
+        } else {
+          await this.removeTracked(
+            record,
+            record.plan.targetPath,
+            installedIdentity
+          )
+        }
       } else if (target) {
         await this.quarantine(record, 'compensation target identity mismatch')
       }
@@ -368,6 +399,23 @@ export class FinalizeCommitter {
         { cause: compensationError }
       )
     }
+  }
+
+  private async selectPublicationMode(
+    plan: HookPlan
+  ): Promise<'copy' | 'move'> {
+    if (
+      plan.replacement ||
+      finalizePathsEquivalent(plan.sourcePath, plan.targetPath)
+    ) {
+      return 'copy'
+    }
+    return (await this.options.fs.sameFilesystem(
+      plan.sourcePath,
+      plan.targetPath
+    ))
+      ? 'move'
+      : 'copy'
   }
 
   private async requireExactIdentity(

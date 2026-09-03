@@ -966,7 +966,7 @@ export class MotrixDatabase {
     sourceRoot: string,
     targetRoot: string
   ): void {
-    const rows = this.stmtGetFiles.all(taskId) as TaskFileRow[]
+    const rows = this.getTaskFiles(taskId)
     let changed = false
     const rebased = rows.map((row) => {
       if (!row.path) return row
