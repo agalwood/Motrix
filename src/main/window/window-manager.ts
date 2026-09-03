@@ -6,7 +6,7 @@ import {
 } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds, WindowState } from '@shared/types/settings'
-import { BrowserWindow, screen, shell } from 'electron'
+import { BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { buildPlatformOptions } from './platform-options'
 import {
@@ -368,6 +368,7 @@ export class WindowManager {
     const platformOpts = buildPlatformOptions(platform, {
       vibrancy: config.vibrancy && !liquidGlass,
       liquidGlass,
+      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
     })
 
     const win = new BrowserWindow({
@@ -513,17 +514,20 @@ export class WindowManager {
       if (win.isDestroyed()) return
       const payload: WindowMaximizedChangedPayload = {
         maximized: win.isMaximized(),
+        fullscreen: win.isFullScreen(),
       }
       win.webContents.send(Events.WindowMaximizedChanged, payload)
     }
 
-    // did-finish-load supplies the initial snapshot; maximize/unmaximize keep
-    // it correct for caption clicks, title-bar double-clicks, and OS actions.
+    // did-finish-load supplies the initial snapshot; native state events keep
+    // custom caption controls correct for title-bar, OS, and fullscreen actions.
     // Cocoa can leave the maximized state via a manual resize without emitting
     // unmaximize, so reconcile once the resize gesture finishes as well.
     win.webContents.on('did-finish-load', publish)
     win.on('maximize', publish)
     win.on('unmaximize', publish)
+    win.on('enter-full-screen', publish)
+    win.on('leave-full-screen', publish)
     win.on('resized', publish)
   }
 

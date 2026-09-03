@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MenuIds } from '../menu-ids'
+import { MenuIds, MenuItemIds } from '../menu-ids'
 import { MenuRegistry } from '../menu-registry'
 import { installAllMenubarContributions } from './index'
 
@@ -26,6 +26,21 @@ describe('installAllMenubarContributions', () => {
         .some((item) => item.platforms?.includes('darwin'))
     ).toBe(false)
     expect(reg.getItems(MenuIds.MenubarApp, 'win32')).not.toHaveLength(0)
+  })
+
+  it('registers exactly one hidden native full-screen role on every platform', () => {
+    const reg = new MenuRegistry()
+    installAllMenubarContributions(reg)
+
+    for (const platform of ['darwin', 'win32', 'linux'] as const) {
+      const items = reg.getItems(MenuIds.MenubarWindow, platform)
+      const fullscreenItems = items.filter(
+        (item) => item.role === 'togglefullscreen'
+      )
+      expect(fullscreenItems).toHaveLength(1)
+      expect(fullscreenItems[0]?.id).toBe(MenuItemIds.WindowToggleFullscreen)
+      expect(fullscreenItems[0]?.visible).toBe(false)
+    }
   })
 
   it('task menu starts with New/NewBt/OpenFile', () => {

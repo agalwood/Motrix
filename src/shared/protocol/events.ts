@@ -6,6 +6,7 @@ export interface LocaleChangedPayload {
 
 export interface WindowMaximizedChangedPayload {
   maximized: boolean
+  fullscreen: boolean
 }
 
 export const Events = {

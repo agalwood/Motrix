@@ -1137,7 +1137,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ToggleMaximizeCurrentWindow]: async (sender: WebContents) => {
       const win = BrowserWindow.fromWebContents(sender)
-      if (win && !win.isDestroyed() && win.isMaximizable()) {
+      if (
+        win &&
+        !win.isDestroyed() &&
+        !win.isFullScreen() &&
+        win.isMaximizable()
+      ) {
         if (win.isMaximized()) {
           win.unmaximize()
         } else {

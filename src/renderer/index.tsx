@@ -6,6 +6,7 @@ import {
   bootstrapRendererLocale,
   type RendererWindowId,
 } from '@renderer/lib/bootstrap-locale'
+import { applyInitialRendererTheme } from '@renderer/lib/initial-theme'
 import { transport } from '@renderer/lib/transport'
 import { ThemeProvider } from 'next-themes'
 import { lazy, type ReactNode, Suspense } from 'react'
@@ -43,14 +44,16 @@ const windowId: RendererWindowId =
 
 document.documentElement.classList.add(`platform-${transport.platform}`)
 document.documentElement.classList.add(`window-${windowId}`)
+// Apply the resolved class before the locale IPC and React mount. The native
+// BrowserWindow background uses the same Electron nativeTheme value, so the
+// compositor and renderer agree from the first visible frame.
+applyInitialRendererTheme()
 
 function Root({
   children,
-  forcedTheme,
   syncSettings = true,
 }: {
   children: ReactNode
-  forcedTheme?: string
   syncSettings?: boolean
 }) {
   return (
@@ -58,7 +61,6 @@ function Root({
       attribute="class"
       defaultTheme="system"
       enableSystem
-      forcedTheme={forcedTheme}
       disableTransitionOnChange
     >
       <LocaleDirectionProvider>
@@ -84,7 +86,7 @@ async function startRenderer(rootContainer: HTMLElement): Promise<void> {
     )
   } else if (windowId === 'onboarding') {
     root.render(
-      <Root syncSettings={false} forcedTheme="light">
+      <Root syncSettings={false}>
         <Suspense>
           <OnboardingWindow />
         </Suspense>
