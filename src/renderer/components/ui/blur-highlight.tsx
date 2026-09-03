@@ -25,6 +25,7 @@ export interface BlurHighlightProps {
   children: string
   highlightedBits: Array<string | HighlightedBit>
   highlightColor?: string
+  highlightTextColor?: string
   highlightClassName?: string
   blurAmount?: number
   inactiveOpacity?: number
@@ -51,6 +52,7 @@ type BlurHighlightStyle = CSSProperties & {
   '--blur-highlight-delay': string
   '--blur-highlight-duration': string
   '--blur-highlight-color': string
+  '--blur-highlight-text-color': string
 }
 
 function findOccurrences(source: string, needle: string): number[] {
@@ -119,6 +121,7 @@ export function BlurHighlight({
   children,
   highlightedBits,
   highlightColor = '#171717',
+  highlightTextColor = '#ffffff',
   highlightClassName,
   blurAmount = 8,
   inactiveOpacity = 0.3,
@@ -180,6 +183,7 @@ export function BlurHighlight({
     '--blur-highlight-delay': `${highlightDelay}s`,
     '--blur-highlight-duration': `${highlightDuration}s`,
     '--blur-highlight-color': highlightColor,
+    '--blur-highlight-text-color': highlightTextColor,
   }
 
   const content: ReactNode = segments.map((segment) => {

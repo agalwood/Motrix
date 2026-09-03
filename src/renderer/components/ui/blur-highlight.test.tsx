@@ -108,6 +108,7 @@ describe('BlurHighlight', () => {
         highlightDelay={0.35}
         highlightDuration={0.9}
         highlightColor="#000000"
+        highlightTextColor="#f5f5f5"
         highlightDirection="right"
       >
         test motion
@@ -131,6 +132,9 @@ describe('BlurHighlight', () => {
     )
     expect(root.style.getPropertyValue('--blur-highlight-color')).toBe(
       '#000000'
+    )
+    expect(root.style.getPropertyValue('--blur-highlight-text-color')).toBe(
+      '#f5f5f5'
     )
   })
 
