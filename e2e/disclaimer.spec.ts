@@ -32,10 +32,11 @@ test.describe('disclaimer startup gate', () => {
         .getByTestId('onboarding-language')
         .boundingBox()
       expect(languageBounds).not.toBeNull()
-      // macOS places the 14px traffic lights at y=20, so their centerline is 27.
+      // Preserve the beta.29 onboarding geometry: the 32px language trigger
+      // sits with its centerline at y=34 in the 40px compact chrome region.
       expect(
         (languageBounds?.y ?? 0) + (languageBounds?.height ?? 0) / 2
-      ).toBeCloseTo(27, 1)
+      ).toBeCloseTo(34, 1)
 
       expect(app.windows().some((page) => page.url().includes('w=main'))).toBe(
         false

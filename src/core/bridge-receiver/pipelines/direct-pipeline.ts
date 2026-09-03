@@ -39,7 +39,8 @@ export class DirectPipeline {
       uris: [adapted.primaryUrl],
       saveDir: adapted.saveDir,
       filename: adapted.finalName,
-      connections: 1,
+      // Match manual tasks by leaving the per-task override unset. Aria2 then
+      // inherits the app's global split and per-server connection settings.
       headers: Object.entries(adapted.sanitizedHeaders).map(
         ([name, value]) => ({ name, value })
       ),

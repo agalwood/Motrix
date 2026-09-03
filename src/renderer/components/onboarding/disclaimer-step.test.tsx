@@ -81,14 +81,24 @@ describe('DisclaimerStep', () => {
     ]
     expect(highlightRoot.textContent).toBe(i18n.t('onboarding.disclaimer.body'))
     expect(highlightRoot.style.getPropertyValue('--blur-highlight-color')).toBe(
-      'currentColor'
+      'var(--onboarding-highlight-color)'
     )
+    expect(
+      highlightRoot.style.getPropertyValue('--blur-highlight-text-color')
+    ).toBe('var(--onboarding-highlight-text-color)')
     expect(screen.getByTestId('disclaimer-panel')).toHaveClass(
-      'bg-card',
-      'text-card-foreground',
-      'border-border'
+      'bg-white',
+      'border-black/14',
+      'shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+      'dark:bg-card',
+      'dark:text-card-foreground',
+      'dark:border-border'
     )
-    expect(highlightRoot).toHaveClass('text-card-foreground')
+    expect(screen.getByTestId('disclaimer-panel')).not.toHaveClass('shadow-sm')
+    expect(highlightRoot).toHaveClass(
+      'text-[#1d1d1f]',
+      'dark:text-card-foreground'
+    )
     expect(highlightedBits.map((bit) => bit.textContent)).toEqual([
       'provides download management only',
       'legally authorized',

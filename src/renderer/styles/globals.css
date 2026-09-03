@@ -294,12 +294,20 @@
   }
 }
 
-/*
- * The native Liquid Glass view sits behind the onboarding renderer. Keep the
- * legal card opaque for contrast and use one quiet tint across the window.
- */
+[data-slot="onboarding-surface"] {
+  --onboarding-highlight-color: #171717;
+  --onboarding-highlight-text-color: #fff;
+}
+
+.dark [data-slot="onboarding-surface"] {
+  --onboarding-highlight-color: var(--primary);
+  --onboarding-highlight-text-color: var(--primary-foreground);
+}
+
+/* Keep the light onboarding surface opaque so Liquid Glass and the desktop
+   behind it cannot introduce a wallpaper-dependent gray cast. */
 .platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
-  background-color: rgb(247 247 248 / 72%);
+  background-color: #f7f7f8;
 }
 
 .dark.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
@@ -307,10 +315,6 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
-    background-color: #f7f7f8;
-  }
-
   .dark.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
     background-color: #161617;
   }
@@ -528,7 +532,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="left"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to right, white 0 50%, currentColor 50% 100%),
+    linear-gradient(
+      to right,
+      var(--blur-highlight-text-color) 0 50%,
+      currentColor 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     100% center,
@@ -550,7 +558,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="right"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to right, currentColor 0 50%, white 50% 100%),
+    linear-gradient(
+      to right,
+      currentColor 0 50%,
+      var(--blur-highlight-text-color) 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     0% center,
@@ -572,7 +584,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="top"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to bottom, white 0 50%, currentColor 50% 100%),
+    linear-gradient(
+      to bottom,
+      var(--blur-highlight-text-color) 0 50%,
+      currentColor 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     center 100%,
@@ -594,7 +610,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="bottom"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to bottom, currentColor 0 50%, white 50% 100%),
+    linear-gradient(
+      to bottom,
+      currentColor 0 50%,
+      var(--blur-highlight-text-color) 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     center 0%,

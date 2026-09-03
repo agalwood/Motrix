@@ -33,6 +33,7 @@
     "build:native-host": "node packages/native-host/build.mjs",
     "build:finalize-fs": "node packages/finalize-fs/build.mjs",
     "build:legal": "pnpm run ensure:electron-runtime && node scripts/generate-third-party-notices.mjs",
+    "build:installer-images": "node scripts/render-installer-images.mjs",
     "generate:bridge-vectors": "node scripts/generate-bridge-pairing-vectors.mjs docs/bridge-pairing-protocol-vectors.json",
     "package:flatpak-native-host": "node packages/native-host/package-flatpak-companion.mjs",
     "build:snap:prepare": "node scripts/prepare-snap-project.mjs",

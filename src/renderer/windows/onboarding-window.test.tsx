@@ -37,7 +37,8 @@ describe('OnboardingWindow', () => {
     expect(surface).toHaveClass(
       'bg-[#f7f7f8]',
       'dark:bg-[#161617]',
-      'text-foreground'
+      'text-[#1d1d1f]',
+      'dark:text-foreground'
     )
     expect(surface.style.colorScheme).toBe('')
   })
