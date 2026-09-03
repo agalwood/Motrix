@@ -156,14 +156,11 @@ export async function bootstrapBridgeForServer(
       opts.remoteExtensionConfig !== undefined &&
       isIssuedRemoteExtensionConfig(opts.remoteExtensionConfig) &&
       opts.remoteExtensionConfig.status === 'enabled'
-    if (
-      remoteExtensionEnabled &&
-      opts.host !== '127.0.0.1' &&
-      opts.host !== '::1' &&
-      opts.host !== 'localhost'
-    ) {
-      throw new Error('remote Extension bridge must bind to loopback')
-    }
+    // Docker must bind the listener to the container interface for host port
+    // publication to work. The explicit remote opt-in, canonical public URLs,
+    // exact raw Host/path checks, admission limits, and MBP1 authentication are
+    // the public-surface boundary; container loopback is not reachable through
+    // Docker's published-port path.
     if (remoteExtensionEnabled) {
       await recoverExtensionPairingProjectionWriterLock(
         join(dataDir, 'extension-pairings.json'),

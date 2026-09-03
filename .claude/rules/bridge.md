@@ -72,6 +72,14 @@ that is not `127.0.0.1`, `localhost`, or `[::1]` with the bound port — the §4
 DNS-rebinding guard. It is inert for a non-loopback bind, which keeps its
 existing token + reverse-proxy model.
 
+The Server's documented Docker path deliberately binds MDXP to `0.0.0.0`
+inside the container so Docker can publish port 16801. Remote Extension routes
+may use that non-loopback listener only behind a parser-issued, all-or-nothing
+remote configuration; `RemoteExtensionSurfacePolicy` then enforces the exact
+public Host and raw route prefix plus the admission limits before MBP1 runs.
+Do not reintroduce a loopback-only bootstrap guard: container loopback is not
+reachable through Docker's published-port path.
+
 `GET /discovery` additionally reports unauthenticated compatibility hints:
 `runtime`, `extensionPairing: { protocol: 'mbp1', versions: [1] }`, and
 `applicationProtocols: { mdxp: ['1.0'] }`. They may drive an upgrade message,

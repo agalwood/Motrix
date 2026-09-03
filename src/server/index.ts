@@ -137,7 +137,10 @@ import {
 import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
 import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
-import { establishServerProcessOwnershipAuthority } from './bridge/server-process-ownership-authority'
+import {
+  establishServerProcessOwnershipAuthority,
+  ServerProcessOwnershipError,
+} from './bridge/server-process-ownership-authority'
 import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
@@ -1596,6 +1599,10 @@ async function main() {
     const serverUrl = `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
+    let bridgeSetupStage:
+      | 'process-ownership'
+      | 'bridge-data-lock'
+      | 'trusted-extension-registry' = 'process-ownership'
     bridgeOwnershipSetup = (async () => {
       bridgeDataDirLockRecoveryAuthority =
         await establishServerProcessOwnershipAuthority({
@@ -1611,6 +1618,7 @@ async function main() {
             )
           },
         })
+      bridgeSetupStage = 'bridge-data-lock'
       const dataDirLock = await acquireBridgeDataDirLock(bridgeDataDir, {
         recoverExisting: bridgeDataDirLockRecoveryAuthority,
       })
@@ -1619,6 +1627,7 @@ async function main() {
         return
       }
       bridgeProcessDataDirLock = dataDirLock
+      bridgeSetupStage = 'trusted-extension-registry'
       try {
         await trustedExtensionRegistry.load()
       } catch (error) {
@@ -1634,7 +1643,12 @@ async function main() {
       bridgeRegistryReady = true
     })().catch((err) => {
       log.error(
-        { err },
+        {
+          err,
+          stage: bridgeSetupStage,
+          reason:
+            err instanceof ServerProcessOwnershipError ? err.reason : undefined,
+        },
         'bridge data ownership unavailable — trusted registry and MDXP bridge disabled'
       )
     })
