@@ -69,7 +69,7 @@ describe('DisclaimerStep', () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(2))
   })
 
-  it('renders professional copy through black Blur Highlights', () => {
+  it('renders professional copy through theme-aware Blur Highlights', () => {
     render(<DisclaimerStep />)
 
     expect(screen.getByRole('heading', { name: 'Usage Notice' })).toBeVisible()
@@ -81,8 +81,14 @@ describe('DisclaimerStep', () => {
     ]
     expect(highlightRoot.textContent).toBe(i18n.t('onboarding.disclaimer.body'))
     expect(highlightRoot.style.getPropertyValue('--blur-highlight-color')).toBe(
-      '#171717'
+      'currentColor'
     )
+    expect(screen.getByTestId('disclaimer-panel')).toHaveClass(
+      'bg-card',
+      'text-card-foreground',
+      'border-border'
+    )
+    expect(highlightRoot).toHaveClass('text-card-foreground')
     expect(highlightedBits.map((bit) => bit.textContent)).toEqual([
       'provides download management only',
       'legally authorized',

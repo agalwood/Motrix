@@ -749,6 +749,7 @@ describe('buildCommandHandlers', () => {
     fromWebContentsMock
       .mockReturnValueOnce({
         isDestroyed: vi.fn(() => false),
+        isFullScreen: vi.fn(() => false),
         isMaximizable: vi.fn(() => true),
         isMaximized: vi.fn(() => false),
         maximize,
@@ -756,6 +757,7 @@ describe('buildCommandHandlers', () => {
       })
       .mockReturnValueOnce({
         isDestroyed: vi.fn(() => false),
+        isFullScreen: vi.fn(() => false),
         isMaximizable: vi.fn(() => true),
         isMaximized: vi.fn(() => true),
         maximize,
@@ -776,6 +778,32 @@ describe('buildCommandHandlers', () => {
     expect(fromWebContentsMock).toHaveBeenNthCalledWith(2, fakeSender)
     expect(maximize).toHaveBeenCalledOnce()
     expect(unmaximize).toHaveBeenCalledOnce()
+  })
+
+  it('ignores maximize requests while the sender window is full-screen', async () => {
+    const maximize = vi.fn()
+    const unmaximize = vi.fn()
+    const isMaximizable = vi.fn(() => true)
+    const fakeSender = {} as never
+    fromWebContentsMock.mockReturnValueOnce({
+      isDestroyed: vi.fn(() => false),
+      isFullScreen: vi.fn(() => true),
+      isMaximizable,
+      isMaximized: vi.fn(() => false),
+      maximize,
+      unmaximize,
+    })
+    const ctx = fakeCtx()
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+
+    await expect(
+      handlers[Commands.ToggleMaximizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+
+    expect(isMaximizable).not.toHaveBeenCalled()
+    expect(maximize).not.toHaveBeenCalled()
+    expect(unmaximize).not.toHaveBeenCalled()
   })
 
   it('routes direct shell commands to their owning collaborators', async () => {
@@ -1107,6 +1135,7 @@ describe('buildCommandHandlers', () => {
     await minimizeRegistration?.[1]({ sender })
     fromWebContentsMock.mockReturnValueOnce({
       isDestroyed: () => false,
+      isFullScreen: () => false,
       isMaximizable: () => true,
       isMaximized: () => false,
       maximize: vi.fn(),

@@ -31,11 +31,11 @@ export function DisclaimerStep() {
   }
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col px-5 pt-4 pb-5 text-[#1d1d1f]">
+    <main className="flex min-h-0 flex-1 flex-col px-5 pt-4 pb-5 text-foreground">
       <section
         data-testid="disclaimer-panel"
         aria-labelledby="disclaimer-title"
-        className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-black/14 bg-white px-6 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+        className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card px-6 py-6 text-card-foreground shadow-sm"
       >
         <div className="space-y-4">
           <h1
@@ -44,7 +44,7 @@ export function DisclaimerStep() {
           >
             {t('onboarding.disclaimer.title')}
           </h1>
-          <p className="text-[14px] leading-6 text-[#3f3f46]">
+          <p className="text-[14px] leading-6 text-card-foreground/80">
             {t('onboarding.disclaimer.summary')}
           </p>
         </div>
@@ -56,11 +56,11 @@ export function DisclaimerStep() {
             t('onboarding.disclaimer.highlights.authorized'),
             t('onboarding.disclaimer.highlights.responsibility'),
           ]}
-          highlightColor="#171717"
+          highlightColor="currentColor"
           highlightClassName="font-medium"
           viewportOptions={{ once: true, amount: 0.5 }}
           className={cn(
-            'mt-6 text-[14px] tracking-[-0.006em] text-[#1d1d1f]',
+            'mt-6 text-[14px] tracking-[-0.006em] text-card-foreground',
             useCjkSpacing ? 'leading-[2.5]' : 'leading-[1.9]'
           )}
         >
@@ -69,7 +69,7 @@ export function DisclaimerStep() {
 
         <p
           className={cn(
-            'text-[13px] leading-5 text-[#6e6e73]',
+            'text-[13px] leading-5 text-muted-foreground',
             useCjkSpacing ? 'mt-8' : 'mt-6'
           )}
         >

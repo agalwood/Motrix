@@ -141,7 +141,6 @@ function createManager(
     title: 'menu.help.website',
     run: hiddenRun,
   })
-
   menuRegistry.appendItem({
     id: MenuItemIds.AppAbout,
     type: 'normal',
@@ -244,6 +243,7 @@ function createManager(
   })
   return {
     manager,
+    menuRegistry,
     contextStore,
     aboutRun,
     protectedRun,
@@ -268,6 +268,39 @@ describe('MenuManager application-menu snapshot', () => {
     electronMenu.applicationMenus.length = 0
     electronMenu.buildFromTemplate.mockClear()
     electronMenu.setApplicationMenu.mockClear()
+  })
+
+  it('leaves the full-screen role label and accelerator to Electron', () => {
+    const { manager, menuRegistry } = createManager()
+    menuRegistry.appendItem({
+      id: MenuItemIds.WindowToggleFullscreen,
+      type: 'normal',
+      menuId: MenuIds.MenubarWindow,
+      group: '1_window',
+      order: 20,
+      role: 'togglefullscreen',
+      visible: false,
+    })
+
+    manager.install()
+
+    const applicationTemplate =
+      electronMenu.buildFromTemplate.mock.calls[0]?.[0]
+    const windowMenu = applicationTemplate?.find(
+      (item) => item.id === MenuIds.MenubarWindow
+    )
+    const windowSubmenu = Array.isArray(windowMenu?.submenu)
+      ? (windowMenu.submenu as Array<Record<string, unknown>>)
+      : []
+    const fullscreenItem = windowSubmenu.find(
+      (item) => item.id === MenuItemIds.WindowToggleFullscreen
+    )
+    expect(fullscreenItem).toMatchObject({
+      role: 'togglefullscreen',
+      visible: false,
+    })
+    expect(fullscreenItem).not.toHaveProperty('label')
+    expect(fullscreenItem).not.toHaveProperty('accelerator')
   })
 
   it('publishes an initially evaluated, stable dropdown projection', () => {

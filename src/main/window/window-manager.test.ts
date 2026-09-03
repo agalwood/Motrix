@@ -53,6 +53,7 @@ vi.mock('electron', () => {
     isVisible = vi.fn(() => this._visible)
     isFocused = vi.fn(() => true)
     isMaximized = vi.fn(() => false)
+    isFullScreen = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
     getNormalBounds = vi.fn(() => ({ ...this._bounds }))
     maximize = vi.fn()
@@ -97,13 +98,14 @@ vi.mock('electron', () => {
 
   return {
     BrowserWindow: MockBrowserWindow,
+    nativeTheme: { shouldUseDarkColors: false },
     screen: mockScreen,
     shell: { openExternal: vi.fn() },
   }
 })
 
 import type { SettingsManager } from '@core/settings/settings-manager'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { initializeRendererUrlPolicy } from './renderer-url-policy'
 import { WINDOW_CONFIGS } from './window-configs'
@@ -127,6 +129,9 @@ function createMockSettingsManager(
 describe('WindowManager', () => {
   beforeEach(() => {
     ;(BrowserWindow as unknown as { instances: unknown[] }).instances.length = 0
+    ;(
+      nativeTheme as unknown as { shouldUseDarkColors: boolean }
+    ).shouldUseDarkColors = false
     vi.clearAllMocks()
   })
 
@@ -158,6 +163,23 @@ describe('WindowManager', () => {
     expect(options.titleBarOverlay).toBeUndefined()
   })
 
+  it('matches the first-paint window background to the resolved native theme', () => {
+    ;(
+      nativeTheme as unknown as { shouldUseDarkColors: boolean }
+    ).shouldUseDarkColors = true
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'win32',
+    })
+
+    const win = wm.open('main')
+    const options = (win as unknown as { options: Record<string, unknown> })
+      .options
+    expect(options.backgroundColor).toBe('#09090b')
+  })
+
   it('publishes the owning window maximize state after load and on changes', () => {
     const wm = new WindowManager({
       settingsManager: createMockSettingsManager(),
@@ -181,6 +203,12 @@ describe('WindowManager', () => {
     const unmaximize = windowListeners.find(
       ([event]) => event === 'unmaximize'
     )?.[1] as (() => void) | undefined
+    const enterFullScreen = windowListeners.find(
+      ([event]) => event === 'enter-full-screen'
+    )?.[1] as (() => void) | undefined
+    const leaveFullScreen = windowListeners.find(
+      ([event]) => event === 'leave-full-screen'
+    )?.[1] as (() => void) | undefined
     const resized = windowListeners.find(
       ([event]) => event === 'resized'
     )?.[1] as (() => void) | undefined
@@ -188,14 +216,29 @@ describe('WindowManager', () => {
     didFinishLoad?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: false }
+      { maximized: false, fullscreen: false }
     )
 
     vi.mocked(win.isMaximized).mockReturnValue(true)
     maximize?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: true }
+      { maximized: true, fullscreen: false }
+    )
+
+    vi.mocked(win.isMaximized).mockReturnValue(false)
+    vi.mocked(win.isFullScreen).mockReturnValue(true)
+    enterFullScreen?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false, fullscreen: true }
+    )
+
+    vi.mocked(win.isFullScreen).mockReturnValue(false)
+    leaveFullScreen?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false, fullscreen: false }
     )
 
     // macOS can finish a manual resize without sending unmaximize. The final
@@ -204,7 +247,7 @@ describe('WindowManager', () => {
     resized?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: false }
+      { maximized: false, fullscreen: false }
     )
 
     vi.mocked(win.isMaximized).mockReturnValue(true)
@@ -213,7 +256,7 @@ describe('WindowManager', () => {
     unmaximize?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: false }
+      { maximized: false, fullscreen: false }
     )
   })
 

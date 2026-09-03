@@ -62,20 +62,15 @@ export function WindowChromeCaptionIcon({ name }: { name: CaptionIconName }) {
 }
 
 function DesktopWindowControls({
+  maximized,
   maximizable,
   separateFromActions,
 }: {
+  maximized: boolean
   maximizable: boolean
   separateFromActions: boolean
 }) {
   const { t } = useTranslation()
-  const [maximized, setMaximized] = useState(false)
-  useIpcEvent(Events.WindowMaximizedChanged, (...args) => {
-    const payload = args[0] as WindowMaximizedChangedPayload | undefined
-    if (typeof payload?.maximized === 'boolean') {
-      setMaximized(payload.maximized)
-    }
-  })
 
   const minimize = () => {
     void transport.invoke(Commands.MinimizeCurrentWindow)
@@ -171,6 +166,19 @@ export function WindowChrome({
   children,
 }: WindowChromeProps) {
   const platform = transport.platform
+  const [windowState, setWindowState] = useState({
+    maximized: false,
+    fullscreen: false,
+  })
+  useIpcEvent(Events.WindowMaximizedChanged, (...args) => {
+    const payload = args[0] as WindowMaximizedChangedPayload | undefined
+    if (
+      typeof payload?.maximized === 'boolean' &&
+      typeof payload.fullscreen === 'boolean'
+    ) {
+      setWindowState(payload)
+    }
+  })
   const showDesktopControls = shouldShowDesktopWindowControls(
     platform,
     previewDesktopControls
@@ -178,7 +186,10 @@ export function WindowChrome({
   const isOverlay = variant === 'overlay'
   const isMac = platform === 'darwin'
   const showTrafficLight =
-    __MOTRIX_TARGET__ === 'electron' && isMac && !previewDesktopControls
+    __MOTRIX_TARGET__ === 'electron' &&
+    isMac &&
+    !previewDesktopControls &&
+    !windowState.fullscreen
   const offsetStartActionsForDesktopMenu =
     showDesktopControls && leading != null && actionsPosition === 'start'
 
@@ -214,7 +225,11 @@ export function WindowChrome({
   )
 
   return (
-    <div className="window-chrome app-drag" style={containerStyle}>
+    <div
+      className={cn('window-chrome', !windowState.fullscreen && 'app-drag')}
+      data-fullscreen={windowState.fullscreen}
+      style={containerStyle}
+    >
       {!isOverlay && title && (
         <div className="pt-[14px] text-[13px] font-[600]">{title}</div>
       )}
@@ -233,8 +248,9 @@ export function WindowChrome({
         className="min-w-16 flex-1"
       />
       {actionsPosition === 'end' && actionSlot}
-      {showDesktopControls && (
+      {showDesktopControls && !windowState.fullscreen && (
         <DesktopWindowControls
+          maximized={windowState.maximized}
           maximizable={maximizable}
           separateFromActions={actionsPosition === 'end'}
         />

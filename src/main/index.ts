@@ -133,6 +133,7 @@ import {
   autoUpdater as nativeAutoUpdater,
   powerMonitor,
   shell,
+  systemPreferences,
 } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
@@ -168,6 +169,7 @@ import { i18n } from './lib/i18n'
 import { setupLogger } from './logger'
 import { MainProcessWorkCoordinator } from './main-process-work-coordinator'
 import { installAllMenubarContributions } from './menu/contributions'
+import { suppressMacOSAutomaticFullscreenMenuItem } from './menu/macos-fullscreen-menu'
 import { MenuManager } from './menu/menu-manager'
 import { MenuRegistry } from './menu/menu-registry'
 import { createNatManager } from './nat/nat-manager-factory'
@@ -206,6 +208,8 @@ import { WindowManager } from './window/window-manager'
 import { resolveMainWindowStartupPlan } from './window/window-startup-plan'
 
 // ─── Platform Early Setup ───────────────────────────────
+
+suppressMacOSAutomaticFullscreenMenuItem(process.platform, systemPreferences)
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(APP_ID)

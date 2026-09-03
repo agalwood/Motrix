@@ -210,6 +210,21 @@
   --window-chrome-safe-area-trailing: 112px;
 }
 
+/* Fullscreen hides desktop caption controls but retains the Motrix menu and app
+   actions. Release only the trailing safe area; the leading 160px still keeps
+   compact PanelShell content clear of menu/sidebar/add-task controls. The
+   macOS desktop-controls mode previews the same behavior. */
+.platform-linux.window-main
+.electron-window-chrome:has(.window-chrome[data-fullscreen="true"]),
+.platform-darwin.window-main
+  .electron-window-chrome.preview-desktop-window-controls:has(
+    .window-chrome[data-fullscreen="true"]
+  ),
+.platform-win32.window-main
+  .electron-window-chrome:has(.window-chrome[data-fullscreen="true"]) {
+  --window-chrome-safe-area-trailing: 24px;
+}
+
 @media (width >= 48rem) {
   .electron-window-chrome.group\/sidebar-wrapper[data-state="expanded"]
     .panel-action-align-visual-end {
@@ -287,9 +302,17 @@
   background-color: rgb(247 247 248 / 72%);
 }
 
+.dark.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
+  background-color: rgb(22 22 23 / 76%);
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
     background-color: #f7f7f8;
+  }
+
+  .dark.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
+    background-color: #161617;
   }
 }
 

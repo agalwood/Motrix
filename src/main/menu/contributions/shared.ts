@@ -215,7 +215,7 @@ export function contributeSharedMenubar(menuReg: MenuRegistry): void {
     group: '1_basic',
     order: 50,
     role: 'togglefullscreen',
-    titleOverride: 'menu.window.toggleFullscreen',
+    visible: false,
   })
 
   // Help menu

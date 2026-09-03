@@ -31,5 +31,14 @@ describe('OnboardingWindow', () => {
       'pt-3.5'
     )
     expect(screen.getByRole('heading', { name: '使用声明' })).toBeVisible()
+    const surface = document.querySelector(
+      '[data-slot="onboarding-surface"]'
+    ) as HTMLElement
+    expect(surface).toHaveClass(
+      'bg-[#f7f7f8]',
+      'dark:bg-[#161617]',
+      'text-foreground'
+    )
+    expect(surface.style.colorScheme).toBe('')
   })
 })

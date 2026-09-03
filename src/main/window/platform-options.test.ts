@@ -14,6 +14,14 @@ describe('buildPlatformOptions', () => {
     const opts = buildPlatformOptions('win32')
     expect(opts.titleBarStyle).toBe('hidden')
     expect(opts.titleBarOverlay).toBeUndefined()
+    expect(opts.backgroundColor).toBe('#ffffff')
+  })
+
+  it('uses a dark first-paint background for Windows', () => {
+    const opts = buildPlatformOptions('win32', {
+      shouldUseDarkColors: true,
+    })
+    expect(opts.backgroundColor).toBe('#09090b')
   })
 
   it('returns hidden titleBarStyle for Linux', () => {
@@ -21,6 +29,14 @@ describe('buildPlatformOptions', () => {
     expect(opts.titleBarStyle).toBe('hidden')
     expect(opts.titleBarOverlay).toBeUndefined()
     expect(opts.vibrancy).toBeUndefined()
+    expect(opts.backgroundColor).toBe('#ffffff')
+  })
+
+  it('uses a dark first-paint background for Linux', () => {
+    const opts = buildPlatformOptions('linux', {
+      shouldUseDarkColors: true,
+    })
+    expect(opts.backgroundColor).toBe('#09090b')
   })
 
   it('omits vibrancy and uses solid backgroundColor on macOS when vibrancy: false', () => {
@@ -29,6 +45,14 @@ describe('buildPlatformOptions', () => {
     expect(opts.vibrancy).toBeUndefined()
     expect(opts.visualEffectState).toBeUndefined()
     expect(opts.backgroundColor).toBe('#ffffff')
+  })
+
+  it('uses a dark solid macOS background when vibrancy is unavailable', () => {
+    const opts = buildPlatformOptions('darwin', {
+      vibrancy: false,
+      shouldUseDarkColors: true,
+    })
+    expect(opts.backgroundColor).toBe('#09090b')
   })
 
   it('uses transparent macOS chrome without vibrancy for Liquid Glass', () => {

@@ -47,7 +47,7 @@ export function OnboardingLanguageSelect() {
           data-testid="onboarding-language"
           size="sm"
           aria-label={t('onboarding.disclaimer.language')}
-          className="h-8 min-w-28 max-w-64 border-black/10 bg-white/88 text-[13px] text-[#1d1d1f] shadow-[0_1px_3px_rgba(0,0,0,0.08)] backdrop-blur-xl hover:bg-white"
+          className="h-8 min-w-28 max-w-64 border-border bg-card/88 text-[13px] text-card-foreground shadow-sm backdrop-blur-xl hover:bg-card"
         >
           <SelectValue />
         </SelectTrigger>
