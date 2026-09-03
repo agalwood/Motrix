@@ -328,7 +328,7 @@ describe('toast', () => {
         expect(screen.queryByText('Motrix Extension')).toBeNull()
       })
 
-      it('clicking "Don\'t allow" calls onDeny — the only decision affordance left for an extension prompt', async () => {
+      it('clicking “Don’t allow” calls onDeny — the only decision affordance left for an extension prompt', async () => {
         render(<Toaster />)
         const onDeny = vi.fn()
         add({
@@ -338,7 +338,7 @@ describe('toast', () => {
           data: { pairRequest: extensionPairRequest({ onDeny }) },
         })
         await userEvent.click(
-          screen.getByRole('button', { name: "Don't allow", hidden: true })
+          screen.getByRole('button', { name: 'Don’t allow', hidden: true })
         )
         expect(onDeny).toHaveBeenCalledOnce()
       })
