@@ -510,24 +510,35 @@ export class WindowManager {
   }
 
   private setupWindowStateTracking(win: BrowserWindow): void {
+    let fullscreen = win.isFullScreen()
     const publish = () => {
       if (win.isDestroyed()) return
       const payload: WindowMaximizedChangedPayload = {
         maximized: win.isMaximized(),
-        fullscreen: win.isFullScreen(),
+        fullscreen,
       }
       win.webContents.send(Events.WindowMaximizedChanged, payload)
     }
 
     // did-finish-load supplies the initial snapshot; native state events keep
     // custom caption controls correct for title-bar, OS, and fullscreen actions.
+    // Fullscreen events can precede Electron updating isFullScreen() on Windows,
+    // so their event names update the authoritative transition state. Keeping
+    // that state locally also prevents a neighboring resize event from
+    // publishing the same stale native value over the transition.
     // Cocoa can leave the maximized state via a manual resize without emitting
     // unmaximize, so reconcile once the resize gesture finishes as well.
     win.webContents.on('did-finish-load', publish)
     win.on('maximize', publish)
     win.on('unmaximize', publish)
-    win.on('enter-full-screen', publish)
-    win.on('leave-full-screen', publish)
+    win.on('enter-full-screen', () => {
+      fullscreen = true
+      publish()
+    })
+    win.on('leave-full-screen', () => {
+      fullscreen = false
+      publish()
+    })
     win.on('resized', publish)
   }
 

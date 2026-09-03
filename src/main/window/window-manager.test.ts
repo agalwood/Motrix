@@ -227,14 +227,21 @@ describe('WindowManager', () => {
     )
 
     vi.mocked(win.isMaximized).mockReturnValue(false)
-    vi.mocked(win.isFullScreen).mockReturnValue(true)
+    // Electron can still report the pre-transition value from inside the
+    // Windows fullscreen event. The event itself must remain authoritative.
+    vi.mocked(win.isFullScreen).mockReturnValue(false)
     enterFullScreen?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
       { maximized: false, fullscreen: true }
     )
+    resized?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false, fullscreen: true }
+    )
 
-    vi.mocked(win.isFullScreen).mockReturnValue(false)
+    vi.mocked(win.isFullScreen).mockReturnValue(true)
     leaveFullScreen?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
@@ -244,6 +251,7 @@ describe('WindowManager', () => {
     // macOS can finish a manual resize without sending unmaximize. The final
     // geometry event must still reconcile the renderer caption state.
     vi.mocked(win.isMaximized).mockReturnValue(false)
+    vi.mocked(win.isFullScreen).mockReturnValue(false)
     resized?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
