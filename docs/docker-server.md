@@ -506,11 +506,46 @@ detection.
 | `no matching manifest` | Confirm the NAS is 64-bit `amd64` or `arm64` with `docker info`; 32-bit ARM is unsupported. |
 | Startup reports `EACCES`, read-only, or a path failure | Compare `docker inspect ... .Config.User` with numeric ownership of both mounts. Correct ownership/ACLs; do not run privileged or as root. |
 | Port is already allocated | Change `MOTRIX_HTTP_PORT` or `MOTRIX_MDXP_PUBLIC_PORT`, and update `MOTRIX_PUBLIC_URL` if the Web port changes. |
+| Web UI is healthy but port 16801 refuses connections | Look for `bridge data ownership unavailable` and inspect its `stage` and `reason` fields. If ownership is ready, verify the MDXP publish address and all four remote Extension variables. |
 | External aria2 RPC client cannot connect | Confirm `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
 | Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, base64url text, and mode `0600`. |
 | Download directory is rejected or files are missing from the NAS share | Use an absolute container path below `MOTRIX_ALLOWED_SAVE_DIRS`; verify the intended host directory is mounted at that exact path and writable by the runtime UID/GID. |
 | Plugin install fails | Inspect `/api/diagnostics` and logs, retain `/data`, confirm package/source trust and network/TLS access, and mount any `MOTRIX_PLUGIN_IMPORT_DIRS` explicitly. Do not enable unmanaged plugins for a normal `.moext`, URL, or registry install. |
 | Container is unhealthy after an upgrade | Inspect logs and diagnostics, verify both mounts, then roll back to the recorded immutable image and matching `/data` backup. |
+
+### Recover an invalid bridge ownership record
+
+The Server logs a fixed `reason` when
+`/data/.motrix-server-bridge-owner.json` cannot establish process ownership.
+Reasons distinguish inaccessible metadata, a non-regular or multiply linked
+file, owner or write-permission problems, malformed/non-canonical content, and
+stale port or bridge-directory values. The record contains no credential, but
+its integrity authorizes safe recovery of a stale bridge lock, so Motrix never
+silently replaces a conflicting record.
+
+First stop every container that uses the same `/data` mount:
+
+```bash
+docker compose down
+```
+
+Inspect the record on the Docker host. It must be owned by the configured
+runtime UID, must not be writable by group or other users, and normally has
+mode `0600`. Read-only group/other access inherited from a NAS ACL is accepted.
+For `binding-owner-mismatch` or `binding-insecure-mode`, correct the host
+ownership or remove group/other write access. For a stale or malformed record,
+retain it as a backup before restarting:
+
+```bash
+mv ./motrix-data/.motrix-server-bridge-owner.json \
+  ./motrix-data/.motrix-server-bridge-owner.json.bak
+docker compose up -d --wait
+```
+
+Motrix creates a new `0600` record after it owns the Web control-plane port.
+Keep the backup until both `/healthz` and the MDXP `/discovery` endpoint work.
+Do not manually remove files below `/data/bridge/`; stale bridge-lock recovery
+uses this ownership record and the already-bound Web listener as one proof.
 
 ## Environment reference
 

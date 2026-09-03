@@ -6,6 +6,7 @@ import {
   exchangeCredential,
   initializeParams,
   mdxpOverChannel,
+  reconnect,
   runPake,
   startPair,
 } from '@core/bridge/__tests__/mbp1-client'
@@ -311,7 +312,7 @@ describe('bootstrapBridgeForServer', () => {
     await reacquired.release()
   })
 
-  it('opens an explicit WS public route bundle with stable Server identity', async () => {
+  it('serves the direct-LAN Extension routes across a persistent restart', async () => {
     const remoteExtensionConfig = parseRemoteExtensionConfig({
       MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
       MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
@@ -320,7 +321,7 @@ describe('bootstrapBridgeForServer', () => {
     const firstReceiver = extensionReceiver()
     runtime = await bootstrapBridgeForServer({
       userDataDir,
-      host: '127.0.0.1',
+      host: '0.0.0.0',
       port: 0,
       motrixVersion: '2.0',
       eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
@@ -400,7 +401,7 @@ describe('bootstrapBridgeForServer', () => {
     const code = pending[0]?.code
     if (code === undefined) throw new Error('extension pairing code missing')
     const { channel } = await runPake(handshake, code)
-    await exchangeCredential(handshake, channel)
+    const credential = await exchangeCredential(handshake, channel)
     const connection = mdxpOverChannel(handshake.wire, channel)
     await connection.sendRequest(
       'motrix/initialize',
@@ -444,7 +445,7 @@ describe('bootstrapBridgeForServer', () => {
     const secondReceiver = extensionReceiver()
     runtime = await bootstrapBridgeForServer({
       userDataDir,
-      host: '127.0.0.1',
+      host: '0.0.0.0',
       port: 0,
       motrixVersion: '2.0',
       eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
@@ -456,6 +457,26 @@ describe('bootstrapBridgeForServer', () => {
     await expect(
       readFile(join(userDataDir, 'bridge', 'server-instance-id'), 'utf8')
     ).resolves.toBe(firstInstanceId)
+
+    const reconnected = await reconnect({
+      port: runtime.port,
+      origin: `chrome-extension://${extensionId}`,
+      instanceId: firstInstanceId.trim(),
+      credential,
+      routePrefix: '/bridge',
+      hostHeader: 'motrix.example',
+    })
+    const reconnectedMdxp = mdxpOverChannel(
+      reconnected.wire,
+      reconnected.channel
+    )
+    await expect(
+      reconnectedMdxp.sendRequest(
+        'motrix/initialize',
+        initializeParams(extensionId)
+      )
+    ).resolves.toMatchObject({ protocolVersion: '1.0' })
+    reconnectedMdxp.dispose()
   })
 
   it('quarantines a committed Extension when projection persistence fails and repairs it on restart', async () => {

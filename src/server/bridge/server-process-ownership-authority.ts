@@ -9,6 +9,40 @@ const BINDING_FILE_NAME = '.motrix-server-bridge-owner.json'
 const MAX_BINDING_BYTES = 1024
 const NO_FOLLOW = constants.O_NOFOLLOW ?? 0
 
+export const ServerProcessOwnershipFailureReason = {
+  ControlPlaneUnavailable: 'control-plane-unavailable',
+  BindingMetadataUnavailable: 'binding-metadata-unavailable',
+  BindingNotRegularFile: 'binding-not-regular-file',
+  BindingLinkCountMismatch: 'binding-link-count-mismatch',
+  BindingOwnerMismatch: 'binding-owner-mismatch',
+  BindingInsecureMode: 'binding-insecure-mode',
+  BindingOpenFailed: 'binding-open-failed',
+  BindingStatFailed: 'binding-stat-failed',
+  BindingChanged: 'binding-changed',
+  BindingTooLarge: 'binding-too-large',
+  BindingReadFailed: 'binding-read-failed',
+  BindingEmpty: 'binding-empty',
+  BindingInvalidJson: 'binding-invalid-json',
+  BindingSchemaMismatch: 'binding-schema-mismatch',
+  BindingSerializationMismatch: 'binding-serialization-mismatch',
+  BindingCreateFailed: 'binding-create-failed',
+  BindingWriteFailed: 'binding-write-failed',
+  BindingPortMismatch: 'binding-port-mismatch',
+  BindingHostMismatch: 'binding-host-mismatch',
+  BindingTransportMismatch: 'binding-transport-mismatch',
+  BindingDirectoryMismatch: 'binding-directory-mismatch',
+} as const
+
+export type ServerProcessOwnershipFailureReason =
+  (typeof ServerProcessOwnershipFailureReason)[keyof typeof ServerProcessOwnershipFailureReason]
+
+export class ServerProcessOwnershipError extends Error {
+  constructor(readonly reason: ServerProcessOwnershipFailureReason) {
+    super(`server bridge process ownership unavailable: ${reason}`)
+    this.name = 'ServerProcessOwnershipError'
+  }
+}
+
 interface BindingDocument {
   readonly version: typeof BINDING_VERSION
   readonly transport: 'tcp-control-plane'
@@ -24,8 +58,10 @@ export interface ServerProcessOwnershipAuthorityOptions {
   readonly assertControlPlaneOwnership: () => boolean
 }
 
-function fail(): Error {
-  return new Error('server bridge process ownership unavailable')
+function fail(
+  reason: ServerProcessOwnershipFailureReason
+): ServerProcessOwnershipError {
+  return new ServerProcessOwnershipError(reason)
 }
 
 function serialize(document: BindingDocument): Buffer {
@@ -66,31 +102,111 @@ function sameFile(
 async function readExactBinding(filePath: string): Promise<BindingDocument> {
   let handle: fs.FileHandle | null = null
   try {
-    const before = await fs.lstat(filePath, { bigint: true })
-    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n) {
-      throw fail()
+    let before: Awaited<ReturnType<typeof fs.lstat>>
+    try {
+      before = await fs.lstat(filePath, { bigint: true })
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingMetadataUnavailable)
     }
-    if (process.platform !== 'win32' && (before.mode & 0o777n) !== 0o600n) {
-      throw fail()
+    if (!before.isFile() || before.isSymbolicLink()) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingNotRegularFile)
+    }
+    if (before.nlink !== 1n) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingLinkCountMismatch)
+    }
+    if (process.platform !== 'win32') {
+      if (
+        typeof process.geteuid === 'function' &&
+        before.uid !== BigInt(process.geteuid())
+      ) {
+        throw fail(ServerProcessOwnershipFailureReason.BindingOwnerMismatch)
+      }
+      // The record contains no secret. Integrity requires that the owning UID
+      // is the only identity able to modify it; read-only group/other access is
+      // harmless and is common on NAS bind mounts with inherited ACLs.
+      if ((before.mode & 0o022n) !== 0n) {
+        throw fail(ServerProcessOwnershipFailureReason.BindingInsecureMode)
+      }
     }
     const flags = constants.O_RDONLY | NO_FOLLOW
-    handle = await fs.open(filePath, flags)
-    const during = await handle.stat({ bigint: true })
-    if (!sameFile(before, during) || during.size > BigInt(MAX_BINDING_BYTES)) {
-      throw fail()
+    try {
+      handle = await fs.open(filePath, flags)
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingOpenFailed)
     }
-    const bytes = await handle.readFile()
-    if (bytes.length === 0 || bytes.length > MAX_BINDING_BYTES) throw fail()
-    const parsed: unknown = JSON.parse(bytes.toString('utf8'))
-    if (!isExactBinding(parsed) || !bytes.equals(serialize(parsed)))
-      throw fail()
-    const after = await fs.lstat(filePath, { bigint: true })
-    if (!sameFile(during, after)) throw fail()
+    let during: Awaited<ReturnType<fs.FileHandle['stat']>>
+    try {
+      during = await handle.stat({ bigint: true })
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingStatFailed)
+    }
+    if (!sameFile(before, during)) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingChanged)
+    }
+    if (during.size > BigInt(MAX_BINDING_BYTES)) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingTooLarge)
+    }
+    let bytes: Buffer
+    try {
+      bytes = await handle.readFile()
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingReadFailed)
+    }
+    if (bytes.length === 0) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingEmpty)
+    }
+    if (bytes.length > MAX_BINDING_BYTES) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingTooLarge)
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(bytes.toString('utf8'))
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingInvalidJson)
+    }
+    if (!isExactBinding(parsed)) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingSchemaMismatch)
+    }
+    if (!bytes.equals(serialize(parsed))) {
+      throw fail(
+        ServerProcessOwnershipFailureReason.BindingSerializationMismatch
+      )
+    }
+    let after: Awaited<ReturnType<typeof fs.lstat>>
+    try {
+      after = await fs.lstat(filePath, { bigint: true })
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingChanged)
+    }
+    if (!sameFile(during, after)) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingChanged)
+    }
     return parsed
-  } catch {
-    throw fail()
   } finally {
     await handle?.close().catch(() => undefined)
+  }
+}
+
+async function tightenNewBindingMode(handle: fs.FileHandle): Promise<void> {
+  if (process.platform === 'win32') return
+  try {
+    await handle.chmod(0o600)
+  } catch {
+    // Some mounted filesystems reject chmod even though create(0600) already
+    // produced a safe file. Continue only when the handle proves that case.
+    let info: Awaited<ReturnType<fs.FileHandle['stat']>>
+    try {
+      info = await handle.stat({ bigint: true })
+    } catch {
+      throw fail(ServerProcessOwnershipFailureReason.BindingStatFailed)
+    }
+    if (
+      (typeof process.geteuid === 'function' &&
+        info.uid !== BigInt(process.geteuid())) ||
+      (info.mode & 0o022n) !== 0n
+    ) {
+      throw fail(ServerProcessOwnershipFailureReason.BindingInsecureMode)
+    }
   }
 }
 
@@ -98,26 +214,39 @@ async function persistBinding(
   filePath: string,
   expected: BindingDocument
 ): Promise<void> {
+  let handle: fs.FileHandle | null = null
   try {
-    const handle = await fs.open(filePath, 'wx', 0o600)
+    handle = await fs.open(filePath, 'wx', 0o600)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      throw fail(ServerProcessOwnershipFailureReason.BindingCreateFailed)
+    }
+  }
+  if (handle !== null) {
     try {
+      await tightenNewBindingMode(handle)
       await handle.writeFile(serialize(expected))
       await handle.sync()
+    } catch (error) {
+      if (error instanceof ServerProcessOwnershipError) throw error
+      throw fail(ServerProcessOwnershipFailureReason.BindingWriteFailed)
     } finally {
-      await handle.close()
+      await handle.close().catch(() => undefined)
     }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw fail()
   }
 
   const actual = await readExactBinding(filePath)
-  if (
-    actual.port !== expected.port ||
-    actual.host !== expected.host ||
-    actual.transport !== expected.transport ||
-    actual.bridgeDataDirectory !== expected.bridgeDataDirectory
-  ) {
-    throw fail()
+  if (actual.port !== expected.port) {
+    throw fail(ServerProcessOwnershipFailureReason.BindingPortMismatch)
+  }
+  if (actual.host !== expected.host) {
+    throw fail(ServerProcessOwnershipFailureReason.BindingHostMismatch)
+  }
+  if (actual.transport !== expected.transport) {
+    throw fail(ServerProcessOwnershipFailureReason.BindingTransportMismatch)
+  }
+  if (actual.bridgeDataDirectory !== expected.bridgeDataDirectory) {
+    throw fail(ServerProcessOwnershipFailureReason.BindingDirectoryMismatch)
   }
 }
 
@@ -137,7 +266,7 @@ export async function establishServerProcessOwnershipAuthority(
     options.port > 65535 ||
     !options.assertControlPlaneOwnership()
   ) {
-    throw fail()
+    throw fail(ServerProcessOwnershipFailureReason.ControlPlaneUnavailable)
   }
 
   await fs.mkdir(options.userDataDir, { recursive: true })

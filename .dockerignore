@@ -1,8 +1,10 @@
 .git
+.worktrees
 .agents
 .claude
 .codex
 .vite
+**/target
 dist
 release
 node_modules

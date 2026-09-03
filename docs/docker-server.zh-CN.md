@@ -450,11 +450,41 @@ secret-store 状态和 FFmpeg 探测结果。
 | `no matching manifest` | 用 `docker info` 确认 NAS 是 64 位 `amd64` 或 `arm64`；不支持 32 位 ARM。 |
 | 启动报告 `EACCES`、只读或路径失败 | 对比 `docker inspect ... .Config.User` 与两个挂载的数字 owner。修正 owner/ACL；不要改用 privileged 或 root。 |
 | 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
+| Web 界面健康但连接 16801 被拒绝 | 查找 `bridge data ownership unavailable`，检查日志中的 `stage` 和 `reason` 字段。ownership 就绪时，再核对 MDXP 发布地址和四个远程 Extension 变量。 |
 | 外部 aria2 RPC 客户端无法连接 | 确认 `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
 | Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为 base64url 文本且权限为 `0600`。 |
 | 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
 | 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
 | 升级后容器 unhealthy | 检查日志、诊断和两个挂载，然后回滚到已记录的不可变镜像及其配套 `/data` 备份。 |
+
+### 恢复无效的 bridge ownership 记录
+
+当 `/data/.motrix-server-bridge-owner.json` 无法建立进程 ownership 时，Server
+会在日志中输出固定的 `reason`。不同 reason 可区分元数据不可访问、文件不是普通文件或有
+多个硬链接、owner/写权限不安全、内容损坏或非规范，以及端口或 bridge 目录记录过期。
+该文件不含凭据，但其完整性用于授权安全恢复遗留的 bridge lock，因此 Motrix 不会静默覆盖
+存在冲突的记录。
+
+首先停止所有使用同一 `/data` 挂载的容器：
+
+```bash
+docker compose down
+```
+
+然后在 Docker 宿主上检查该文件。它必须属于配置的 runtime UID，group 和 other 不得有
+写权限，通常应为 `0600`。NAS ACL 继承的 group/other 只读权限可以保留。若 reason 是
+`binding-owner-mismatch` 或 `binding-insecure-mode`，应修正宿主 owner 或去掉 group/other
+写权限。若记录过期或损坏，重启前先将其保留为备份：
+
+```bash
+mv ./motrix-data/.motrix-server-bridge-owner.json \
+  ./motrix-data/.motrix-server-bridge-owner.json.bak
+docker compose up -d --wait
+```
+
+Motrix 在持有 Web 控制面端口后会创建新的 `0600` 记录。在 `/healthz` 和 MDXP
+`/discovery` endpoint 都正常前请保留备份。不要手动删除 `/data/bridge/` 下的文件；遗留
+bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共同作为证明。
 
 ## 环境变量参考
 
