@@ -56,10 +56,12 @@ describe('DirectPipeline.dispatch', () => {
       uris: ['http://example.com/x.mp4'],
       saveDir: '/tmp/save',
       filename: 'x.mp4',
-      connections: 1,
       headers: [{ name: 'X-Custom', value: 'v' }],
     })
     expect(req).not.toHaveProperty('payload')
+    // Match the manual Add Task path: omitting a per-task override lets aria2
+    // inherit the application's configured split/connection values.
+    expect(req).not.toHaveProperty('connections')
     const opts = (createTask.mock.calls[0]?.[2] ?? {}) as Record<
       string,
       unknown
