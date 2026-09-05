@@ -8,11 +8,9 @@ import { TaskStatus, TransitionPhase } from '@shared/types/task'
  * Startup recovery invokes finalize directly after inspecting the filesystem,
  * so quarantined/non-idle tasks remain recoverable without event re-entry.
  *
- * The poll-vs-notify race where a poll tick commits a task straight to
- * Completed/Error before this notification-driven path observes the same
- * engine-completion event is unreachable today (polling has no tellStopped
- * path). `diskPath === finalPath` already covers an already-terminal,
- * already-renamed task, so no separate terminal-status clause is needed.
+ * A final-path RPC task also passes this guard. Its terminal persistence and
+ * engine retirement belong to CompletedEngineTaskCleanup, independently of
+ * whether this notification needs to initiate a rename.
  */
 export function shouldSkipEngineCompletionFinalize(
   task: DownloadTask

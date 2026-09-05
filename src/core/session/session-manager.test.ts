@@ -22,6 +22,7 @@ import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { clearStoppedTasks } from '../task/actions/clear-stopped-tasks'
 import { stopSeedingTask } from '../task/actions/stop-seeding-task'
 import { TaskManager } from '../task/task-manager'
+import { computeUriHash } from './content-key'
 import type {
   MotrixDatabase,
   TaskFileRow,
@@ -3792,6 +3793,92 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     expect(restored?.status).toBe(TaskStatus.Completed)
     expect(restored?.finishedAt).toBe(4242)
     expect(adapter.createDownload).not.toHaveBeenCalled()
+  })
+
+  it.each(['active', 'waiting', 'paused', 'complete', 'error'] as const)(
+    'preserves completed RPC history instead of merging a resurrected %s GID',
+    async (status) => {
+      const taskManager = new TaskManager()
+      const db = createMockDb()
+      const raw = createRawStatus({ status })
+      const rpc = createMockRpc({ activeTasks: [raw] })
+      const adapter = createMockAdapter()
+      seedAsPair(db, {
+        motrixId: 'done-rpc',
+        gid: raw.gid,
+        status: TaskStatus.Completed,
+        diskPath: '/tmp/test-file.zip',
+        finalPath: '/tmp/test-file.zip',
+        finishedAt: 4242,
+        totalBytes: 1000,
+        downloadedBytes: 1000,
+      })
+      await new SessionManager(taskManager, rpc, db, adapter).restore()
+      expect(taskManager.getById('done-rpc')).toMatchObject({
+        status: TaskStatus.Completed,
+        finishedAt: 4242,
+        downloadedBytes: 1000,
+      })
+      expect(adapter.removeDownloadResult).toHaveBeenCalledWith(raw.gid)
+      expect(adapter.forceRemoveTask).toHaveBeenCalledTimes(
+        status === 'complete' || status === 'error' ? 0 : 1
+      )
+      expect(adapter.createDownload).not.toHaveBeenCalled()
+      expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps a new GID with the same URI independent of completed RPC history', async () => {
+    const taskManager = new TaskManager()
+    const db = createMockDb()
+    const raw = createRawStatus({ gid: 'new-independent-gid' })
+    const rpc = createMockRpc({ activeTasks: [raw] })
+    const adapter = createMockAdapter()
+    const uris = ['http://example.com/file.zip']
+    seedAsPair(db, {
+      motrixId: 'done-rpc',
+      gid: 'old-gid',
+      status: TaskStatus.Completed,
+      diskPath: '/tmp/test-file.zip',
+      finalPath: '/tmp/test-file.zip',
+      uris,
+      uriHash: computeUriHash(uris),
+      finishedAt: 4242,
+    })
+    await new SessionManager(taskManager, rpc, db, adapter).restore()
+    expect(taskManager.getById('done-rpc')).toMatchObject({
+      engineTaskId: 'old-gid',
+      status: TaskStatus.Completed,
+      finishedAt: 4242,
+    })
+    expect(taskManager.getByEngineTaskId(raw.gid)).toMatchObject({
+      status: TaskStatus.Downloading,
+    })
+    expect(taskManager.getByEngineTaskId(raw.gid)?.id).not.toBe('done-rpc')
+    expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+  })
+
+  it('durably adopts a task completed before startup listeners attached, then schedules cleanup', async () => {
+    const taskManager = new TaskManager()
+    const db = createMockDb()
+    const raw = createRawStatus({ status: 'complete', completedLength: '1000' })
+    const rpc = createMockRpc()
+    vi.mocked(rpc.tellStopped).mockResolvedValue([raw])
+    const adapter = createMockAdapter()
+    const observer = vi.fn(async (snapshot: DownloadTask) => {
+      const task = taskManager.getByEngineTaskId(snapshot.engineTaskId)!
+      expect(db.getTask(task.id)?.task.aggStatus).toBe(TaskStatus.Completed)
+      expect(db.persistTaskWithOccurrence).toHaveBeenCalledOnce()
+    })
+    await new SessionManager(taskManager, rpc, db, adapter).restore(
+      undefined,
+      observer
+    )
+    expect(observer).toHaveBeenCalledOnce()
+    expect(taskManager.getByEngineTaskId(raw.gid)?.status).toBe(
+      TaskStatus.Completed
+    )
   })
 
   it.each(Object.values(TaskType))(

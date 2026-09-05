@@ -1,6 +1,7 @@
 import type { DownloadTask } from '@shared/types/task'
 import { TransitionPhase } from '@shared/types/task'
 import { applyTerminalTransition } from './apply-terminal-transition'
+import { isCompletedDirectOutput } from './completed-direct-task-policy'
 import { nonZeroMerge } from './non-zero-merge'
 
 /**
@@ -15,6 +16,14 @@ export function mergeEngineTask(
   engineTask: DownloadTask,
   now = Date.now()
 ): DownloadTask {
+  // Engine session replay and delayed notifications cannot reopen durable
+  // direct history. Explicit re-add changes ownership/state before merging.
+  if (
+    existing.engineTaskId === engineTask.engineTaskId &&
+    isCompletedDirectOutput(existing)
+  ) {
+    return existing
+  }
   const protected_ = nonZeroMerge(existing, engineTask)
   // progress is a derived value, not an independent field. Recomputing
   // from the already-protected mirror keeps progress consistent with
