@@ -26,6 +26,8 @@ export interface SpawnAria2Options {
   baseDir: string
   /** Optional explicit binary for compatibility tests against older engines. */
   binaryPath?: string
+  /** Additional engine flags for focused integration scenarios. */
+  extraArgs?: readonly string[]
   port?: number
   secret?: string
   waitForHttpRpc?: boolean
@@ -114,6 +116,7 @@ export async function spawnAria2ForTest(
       '--rpc-save-upload-metadata=true',
       '--console-log-level=warn',
       `--dir=${opts.baseDir}`,
+      ...(opts.extraArgs ?? []),
     ],
     { stdio: ['ignore', 'pipe', 'pipe'] }
   )

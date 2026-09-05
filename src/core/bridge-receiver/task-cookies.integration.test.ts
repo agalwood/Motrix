@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -169,6 +169,87 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         expect(records).not.toContain(secret)
       }
     }, 20_000)
+
+    it('restores a task cookie from the engine database after restart', async () => {
+      const restartDir = path.join(root, 'restart-cookie')
+      const databasePath = path.join(restartDir, 'aria2.db')
+      const sessionPath = path.join(restartDir, 'aria2.session')
+      await mkdir(restartDir, { recursive: true })
+      const persistenceArgs = [
+        '--enable-sqlite3-persistence=true',
+        `--sqlite3-db-path=${databasePath}`,
+        '--sqlite3-history-limit=-1',
+        '--force-save=true',
+        `--save-session=${sessionPath}`,
+        '--save-session-interval=1',
+      ]
+
+      const first = await spawnAria2ForTest({
+        baseDir: restartDir,
+        extraArgs: persistenceArgs,
+      })
+      const firstWired = await connectAdapter(first)
+      let gid: string
+      try {
+        gid = await firstWired.adapter.createDownload({
+          uris: [`${base}/restart-cookie`],
+          saveDir: restartDir,
+          filename: 'restart-cookie.bin',
+          cookies: [
+            {
+              name: 'sid',
+              value: 'account-restart',
+              domain: '127.0.0.1',
+              path: '/',
+              expiresAt: Date.now() + 300_000,
+            },
+          ],
+          extraEngineOptions: { pause: 'true' },
+        })
+        await vi.waitFor(
+          async () => {
+            expect((await firstWired.rpc.tellStatus(gid)).status).toBe('paused')
+          },
+          { timeout: 10_000, interval: 50 }
+        )
+      } finally {
+        firstWired.disconnect()
+        await first.kill()
+      }
+
+      received.delete('/restart-cookie')
+      const second = await spawnAria2ForTest({
+        baseDir: restartDir,
+        extraArgs: [...persistenceArgs, '--pause=true'],
+      })
+      const secondWired = await connectAdapter(second)
+      try {
+        await vi.waitFor(
+          async () => {
+            expect((await secondWired.rpc.tellStatus(gid)).status).toBe(
+              'paused'
+            )
+          },
+          { timeout: 10_000, interval: 50 }
+        )
+        await secondWired.rpc.unpause(gid)
+        await vi.waitFor(
+          async () => {
+            expect((await secondWired.rpc.tellStatus(gid)).status).toBe(
+              'complete'
+            )
+          },
+          { timeout: 10_000, interval: 50 }
+        )
+        expect(
+          await readFile(path.join(restartDir, 'restart-cookie.bin'), 'utf8')
+        ).toBe('REAL_FILE')
+        expect(received.get('/restart-cookie')).toBe('sid=account-restart;')
+      } finally {
+        secondWired.disconnect()
+        await second.kill()
+      }
+    }, 30_000)
 
     it.runIf(process.env.MOTRIX_LEGACY_ARIA2_TEST_BIN)(
       'rejects an older real engine without submitting an unauthenticated task',
