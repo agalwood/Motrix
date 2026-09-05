@@ -548,6 +548,7 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/engine/aria2/engine-websocket-contract.integration.test.ts
+          src/core/bridge-receiver/task-cookies.integration.test.ts
           --reporter=verbose
 
       - name: Upload Electron size report

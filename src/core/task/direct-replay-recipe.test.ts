@@ -3,6 +3,41 @@ import { describe, expect, it } from 'vitest'
 import { buildDirectReplayRecipe } from './direct-replay-recipe'
 
 describe('direct replay recipe', () => {
+  it.each([
+    { cookies: [] },
+    {
+      cookies: [
+        { name: 'sid', value: 'COOKIE_ONLY_IN_MEMORY', domain: 'example.com' },
+      ],
+    },
+  ])(
+    'requires fresh context for task cookies, including an empty isolated store',
+    ({ cookies }) => {
+      const recipe = buildDirectReplayRecipe({ cookies })
+      expect(recipe).toEqual({
+        version: 1,
+        requestModifiers: ['cookies'],
+        replayability: 'requires-credentials',
+      })
+      expect(parseDirectReplayRecipe({ directReplay: recipe })).toEqual(recipe)
+      expect(JSON.stringify(recipe)).not.toContain('COOKIE_ONLY_IN_MEMORY')
+    }
+  )
+
+  it('accepts all five non-secret request modifiers together', () => {
+    const recipe = buildDirectReplayRecipe(
+      {
+        headers: { X: 'value' },
+        cookies: [],
+        proxy: 'http://example.com',
+        extraEngineOptions: { referer: 'https://example.com' },
+      },
+      true
+    )
+    expect(recipe.requestModifiers).toHaveLength(5)
+    expect(parseDirectReplayRecipe({ directReplay: recipe })).toEqual(recipe)
+  })
+
   it('builds a uri-only v1 recipe for a public direct download', () => {
     const recipe = buildDirectReplayRecipe({ connections: 8 })
 

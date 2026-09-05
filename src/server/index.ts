@@ -1806,9 +1806,8 @@ async function main() {
         bridgeDataDirLock: dataDirLock,
         remoteExtensionConfig,
         trustedExtensionRegistry,
-        createExtensionReceiver: ({ dataDir, bridgeBus }) =>
+        createExtensionReceiver: ({ bridgeBus }) =>
           new BridgeReceiver({
-            dataDir,
             defaultSaveDir: settingsManager.getApp().defaultSaveDir,
             pickName: (saveDir, desired) =>
               finalNamePicker.pick(saveDir, desired),

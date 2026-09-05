@@ -77,6 +77,19 @@ export interface AddTorrentParams {
   extraEngineOptions?: Record<string, string | string[]>
 }
 
+/** An in-memory HTTP cookie, scoped by the engine on every request. */
+export interface DownloadCookie {
+  name: string
+  value: string
+  domain: string
+  path?: string
+  hostOnly?: boolean
+  secure?: boolean
+  httpOnly?: boolean
+  /** Unix milliseconds; omitted for a session cookie. */
+  expiresAt?: number
+}
+
 export interface CreateDownloadParams {
   uris: string[]
   saveDir: string
@@ -86,6 +99,8 @@ export interface CreateDownloadParams {
   gid?: string
   filename?: string
   headers?: Record<string, string>
+  /** An explicit task context, including an empty isolated store. Never persist. */
+  cookies?: readonly DownloadCookie[]
   /** Effective engine User-Agent pinned for this request lifecycle. */
   userAgent?: string
   /**
@@ -99,8 +114,8 @@ export interface CreateDownloadParams {
    *  max-connection-per-server. Caller is responsible for clamping. */
   connections?: number
   proxy?: string
-  /** Engine-agnostic passthrough for shell-supplied options (bridge cookie
-   *  jar / referer). The adapter honors keys it understands. */
+  /** Engine-agnostic passthrough for shell-supplied options, such as a
+   *  referer. The adapter honors keys it understands. */
   extraEngineOptions?: Record<string, string | string[]>
   priority?: number
   category?: string

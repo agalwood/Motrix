@@ -77,6 +77,55 @@ describe('Aria2RpcClient', () => {
   })
 
   describe('connect / disconnect', () => {
+    it('preserves cookie values, boolean types and millisecond expiry in authenticated RPC parameters', async () => {
+      const cookies = [
+        {
+          name: 'sid',
+          value: 'synthetic',
+          domain: 'example.com',
+          secure: true,
+          expiresAt: 2102444800000,
+        },
+      ]
+      fakeProtocol.nextResult = 'cookie-gid'
+      await expect(
+        client.addUriWithCookies(
+          ['https://example.com/file'],
+          cookies,
+          { out: 'file' },
+          2
+        )
+      ).resolves.toBe('cookie-gid')
+      expect(fakeProtocol.calls).toEqual([
+        {
+          method: 'aria2.addUriWithCookies',
+          params: [
+            'token:my-secret',
+            ['https://example.com/file'],
+            cookies,
+            { out: 'file' },
+            2,
+          ],
+        },
+      ])
+    })
+
+    it('keeps the options slot when only a cookie task queue position is supplied', async () => {
+      await client.addUriWithCookies(
+        ['https://example.com/file'],
+        [],
+        undefined,
+        2
+      )
+      expect(fakeProtocol.calls[0]?.params).toEqual([
+        'token:my-secret',
+        ['https://example.com/file'],
+        [],
+        {},
+        2,
+      ])
+    })
+
     it('connects to ws://127.0.0.1:{port}/jsonrpc', async () => {
       await client.connect(16800)
 

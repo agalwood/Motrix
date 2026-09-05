@@ -1,15 +1,12 @@
-import { join } from 'node:path'
+import type { DownloadCookie } from '@core/engine/engine-adapter'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
 import { type Browser, makeSessionKey } from '@shared/protocol/bridge'
 import type { BridgeSourceMeta, SourceMeta } from '@shared/types/task'
-import { writeCookieJar } from './cookie-jar'
 import { BridgeReceiverError } from './errors'
 import { stripHopByHopHeaders } from './header-replay'
 import { ensureMediaExtension } from './pipelines/media-final-name'
 
 export interface AdapterDeps {
-  /** Root for cookie jars: <userData>/bridge-receiver. */
-  dataDir: string
   /** appSettings.defaultSaveDir; used when client did not specify saveDir. */
   defaultSaveDir: string
   /** FinalNamePicker shim — wraps existing picker so tests can stub. */
@@ -25,7 +22,7 @@ export interface AdaptedDirect {
   kind: 'direct'
   primaryUrl: string
   sanitizedHeaders: Record<string, string>
-  jarPath: string
+  cookies: readonly DownloadCookie[]
   sourceMeta: BridgeSourceMeta
   pageUrl: string
 }
@@ -137,8 +134,6 @@ export class SubmitDownloadAdapter {
           selection.container
         )
       )
-      const jarPath = join(this.deps.dataDir, 'cookies', `${taskId}.txt`)
-      await writeCookieJar(jarPath, selection.primary.cookies)
       const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
       const base = {
         taskId,
@@ -173,11 +168,6 @@ export class SubmitDownloadAdapter {
           selection.container
         )
       )
-      const jarPath = join(this.deps.dataDir, 'cookies', `${taskId}.txt`)
-      await writeCookieJar(jarPath, [
-        ...selection.video.cookies,
-        ...selection.audio.cookies,
-      ])
       return {
         kind: 'mux',
         taskId,
@@ -200,9 +190,6 @@ export class SubmitDownloadAdapter {
     const finalName = await this.deps.pickName(saveDir, sanitized)
     const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
 
-    const jarPath = join(this.deps.dataDir, 'cookies', `${taskId}.txt`)
-    await writeCookieJar(jarPath, selection.primary.cookies)
-
     return {
       taskId,
       saveDir,
@@ -210,7 +197,20 @@ export class SubmitDownloadAdapter {
       kind: 'direct',
       primaryUrl,
       sanitizedHeaders,
-      jarPath,
+      // Export only the engine-neutral fields. SameSite describes browser
+      // navigation context and is not part of the engine's cookie contract.
+      cookies: selection.primary.cookies.map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        hostOnly: !cookie.domain.startsWith('.'),
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        ...(cookie.expiresAt === undefined
+          ? {}
+          : { expiresAt: Math.max(0, Math.floor(cookie.expiresAt)) }),
+      })),
       sourceMeta: this.makeSourceMeta('direct', input, source, meta),
       pageUrl: source.pageUrl,
     }

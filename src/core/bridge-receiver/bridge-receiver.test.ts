@@ -1,6 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import type { SegmentAria2 } from '@core/download/segment-downloader'
 import { TaskManager } from '@core/task/task-manager'
@@ -9,7 +6,7 @@ import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { BridgeReceiver } from './bridge-receiver'
 
 /** Minimal fake SegmentAria2 — never actually called in routing tests. */
@@ -26,7 +23,6 @@ function fakeDeps(
   over: Partial<ConstructorParameters<typeof BridgeReceiver>[0]> = {}
 ) {
   return {
-    dataDir: '',
     defaultSaveDir: '/tmp/save',
     pickName: async (_d: string, n: string) => n,
     createTask: vi.fn(async () => ({ gid: 'gid-1', taskId: 'task-abc' })),
@@ -57,16 +53,8 @@ function fakeDeps(
 }
 
 describe('BridgeReceiver', () => {
-  let dataDir: string
-  beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), 'bridge-recv-'))
-  })
-  afterEach(async () => {
-    await rm(dataDir, { recursive: true, force: true })
-  })
-
   it('handle: direct submit returns taskId and calls createTask', async () => {
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     const result = await r.handle(
       {
@@ -101,7 +89,6 @@ describe('BridgeReceiver', () => {
     // touch ONLY the coordinator.
     const removeTask = vi.fn(async () => {})
     const deps = fakeDeps({
-      dataDir,
       removeTask,
       ffmpegBinaryPath: '/usr/bin/ffmpeg', // construct the media coordinator
     })
@@ -122,7 +109,7 @@ describe('BridgeReceiver', () => {
     // download/submit is extension-only. The agent-facing gate already keeps a
     // cli off this method at the unary layer; this is the defense-in-depth
     // guard so the receiver never reads extensionId/browser off a cli identity.
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     await expect(
       r.handle(
@@ -152,7 +139,7 @@ describe('BridgeReceiver', () => {
   })
 
   it('start: subscribes to EventBus.TaskUpdated', () => {
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     r.start()
     expect(deps.eventBus.on).toHaveBeenCalled()
@@ -162,7 +149,7 @@ describe('BridgeReceiver', () => {
     // Regression for the discovered Plan 02 bug: Events.TaskUpdated carries
     // taskManager.getAll() (an array), and TaskCompleted/TaskFailed are never
     // emitted on the core bus — so the WS push must iterate + derive.
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     r.start()
     const listener = (
@@ -202,14 +189,14 @@ describe('BridgeReceiver', () => {
     // The deps.removeTask now takes the MDXP taskId (== DownloadTask.id)
     // directly; the core removeTask action also keys by task.id, so the
     // identity round-trips end-to-end without a gid lookup.
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     await r.cancel('task-abc')
     expect(deps.removeTask).toHaveBeenCalledWith('task-abc')
   })
 
   it('stop: unsubscribes the same TaskUpdated listener it registered', () => {
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     r.start()
     const onListener = (
@@ -223,14 +210,14 @@ describe('BridgeReceiver', () => {
   })
 
   it('restoreInflight: no-op', async () => {
-    const deps = fakeDeps({ dataDir })
+    const deps = fakeDeps()
     const r = new BridgeReceiver(deps as never)
     await r.restoreInflight()
   })
 
   it('routes a magnet submit to a bt createTask', async () => {
     const createTask = vi.fn(async () => ({ gid: 'g', taskId: 'mt1' }))
-    const deps = fakeDeps({ dataDir, createTask })
+    const deps = fakeDeps({ createTask })
     const receiver = new BridgeReceiver(deps as never)
     const out = await receiver.handle(
       {
@@ -309,7 +296,7 @@ describe('BridgeReceiver', () => {
     } as never
 
     it('hls submit throws unsupported-kind when ffmpegBinaryPath is null', async () => {
-      const deps = fakeDeps({ dataDir, ffmpegBinaryPath: null })
+      const deps = fakeDeps({ ffmpegBinaryPath: null })
       const r = new BridgeReceiver(deps as never)
       await expect(r.handle(hlsSubmitParams, extCtx)).rejects.toMatchObject({
         name: 'BridgeReceiverError',
@@ -326,7 +313,7 @@ describe('BridgeReceiver', () => {
           container: 'mp4' as const,
         },
       }
-      const deps = fakeDeps({ dataDir, ffmpegBinaryPath: null })
+      const deps = fakeDeps({ ffmpegBinaryPath: null })
       const r = new BridgeReceiver(deps as never)
       await expect(r.handle(dashParams, extCtx)).rejects.toMatchObject({
         name: 'BridgeReceiverError',
@@ -335,7 +322,7 @@ describe('BridgeReceiver', () => {
     })
 
     it('mux submit throws unsupported-kind when ffmpegBinaryPath is null', async () => {
-      const deps = fakeDeps({ dataDir, ffmpegBinaryPath: null })
+      const deps = fakeDeps({ ffmpegBinaryPath: null })
       const r = new BridgeReceiver(deps as never)
       await expect(r.handle(muxSubmitParams, extCtx)).rejects.toMatchObject({
         name: 'BridgeReceiverError',
@@ -364,7 +351,6 @@ describe('BridgeReceiver', () => {
       // MediaTaskCoordinator mkdtemp + makeDownloader injection.
       // Simplest offline approach: spy on the dispatch method post-construction.
       const deps = fakeDeps({
-        dataDir,
         ffmpegBinaryPath: '/usr/bin/ffmpeg',
         fetchManifest: stubFetchManifest,
         taskManager: new TaskManager(),
@@ -393,7 +379,6 @@ describe('BridgeReceiver', () => {
 
     it('mux submit routes to MuxPipeline.dispatch when ffmpegBinaryPath is set', async () => {
       const deps = fakeDeps({
-        dataDir,
         ffmpegBinaryPath: '/usr/bin/ffmpeg',
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
@@ -458,7 +443,6 @@ describe('BridgeReceiver', () => {
       }))
 
       const deps = fakeDeps({
-        dataDir,
         ffmpegBinaryPath: '/usr/bin/ffmpeg',
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
@@ -516,7 +500,6 @@ describe('BridgeReceiver', () => {
       }))
       const picked: string[] = []
       const deps = fakeDeps({
-        dataDir,
         ffmpegBinaryPath: '/usr/bin/ffmpeg',
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
@@ -551,7 +534,6 @@ describe('BridgeReceiver', () => {
       const resolveToMux = vi.fn(async (_url: string) => null)
 
       const deps = fakeDeps({
-        dataDir,
         resolveToMux,
       })
       const r = new BridgeReceiver(deps as never)
@@ -570,7 +552,7 @@ describe('BridgeReceiver', () => {
 
     it('resolveToMux absent (undefined) falls through to direct dispatch (full no-regression)', async () => {
       // When resolveToMux is not set at all, direct submit proceeds as before
-      const deps = fakeDeps({ dataDir })
+      const deps = fakeDeps()
       const r = new BridgeReceiver(deps as never)
 
       const result = await r.handle(directParams, extCtx)
@@ -660,7 +642,7 @@ describe('BridgeReceiver', () => {
 
     it('direct submit with cookies → resolveToMux called with serialized cookie header as 2nd arg', async () => {
       const resolveToMux = vi.fn(async () => null)
-      const deps = fakeDeps({ dataDir, resolveToMux })
+      const deps = fakeDeps({ resolveToMux })
       const r = new BridgeReceiver(deps as never)
       await r.handle(bilibiliPageParams, extCtx)
       expect(resolveToMux).toHaveBeenCalledWith(
@@ -681,7 +663,7 @@ describe('BridgeReceiver', () => {
           },
         },
       }
-      const deps = fakeDeps({ dataDir, resolveToMux })
+      const deps = fakeDeps({ resolveToMux })
       const r = new BridgeReceiver(deps as never)
       await r.handle(paramsNoCookies, extCtx)
       // 2nd arg should be undefined (empty cookies → no cookie forwarding)
@@ -728,12 +710,12 @@ describe('BridgeReceiver', () => {
             resolveCreate = r
           })
       )
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
 
       const p1 = r.handle(submitParams('key-aaaaaaaa'), extCtx)
       const p2 = r.handle(submitParams('key-aaaaaaaa'), extCtx)
-      // createTask is reached only after the async adapt (cookie-jar write);
+      // createTask is reached only after asynchronous name selection;
       // wait for the first dispatch to arrive there before releasing it.
       await vi.waitFor(() => expect(createTask).toHaveBeenCalled())
       resolveCreate({ gid: 'g', taskId: 'task-1' })
@@ -749,7 +731,7 @@ describe('BridgeReceiver', () => {
         gid: 'g',
         taskId: `task-${++n}`,
       }))
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
 
       const r1 = await r.handle(submitParams('key-bbbbbbbb'), extCtx)
@@ -764,7 +746,7 @@ describe('BridgeReceiver', () => {
         gid: 'g',
         taskId: `task-${++n}`,
       }))
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
 
       const r1 = await r.handle(submitParams('key-cccccccc'), extCtx)
@@ -778,7 +760,7 @@ describe('BridgeReceiver', () => {
         .fn()
         .mockRejectedValueOnce(new Error('engine down'))
         .mockResolvedValueOnce({ gid: 'g', taskId: 'task-retry' })
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
 
       await expect(
@@ -795,7 +777,7 @@ describe('BridgeReceiver', () => {
         gid: 'g',
         taskId: `task-${++n}`,
       }))
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
 
       await r.handle(submitParams(), extCtx)
@@ -812,7 +794,7 @@ describe('BridgeReceiver', () => {
         .fn()
         .mockImplementationOnce(() => first)
         .mockImplementation(async () => ({ gid: 'g', taskId: 'quick' }))
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
 
       const pending = r.handle(submitParams('key-pending-000'), extCtx)
@@ -844,7 +826,7 @@ describe('BridgeReceiver', () => {
         gid: 'g',
         taskId: `task-${++n}`,
       }))
-      const deps = fakeDeps({ dataDir, createTask: createTask as never })
+      const deps = fakeDeps({ createTask: createTask as never })
       const r = new BridgeReceiver(deps as never)
       const otherCtx = {
         identity: {
@@ -896,7 +878,6 @@ describe('BridgeReceiver', () => {
       })
       const createTask = vi.fn(async () => ({ gid: 'g', taskId: 'task-abc' }))
       const deps = fakeDeps({
-        dataDir,
         createTask: createTask as never,
         waitForReady: () => gate,
       } as never)
@@ -904,7 +885,7 @@ describe('BridgeReceiver', () => {
 
       const pending = r.handle(directParams(), extCtx)
       // Drain a few macrotask turns — without the gate the dispatch would
-      // have reached createTask by now (adapt's cookie-jar write is the
+      // have reached createTask by now (adapt's name selection is the
       // only other async step).
       await new Promise((res) => setTimeout(res, 10))
       expect(createTask).not.toHaveBeenCalled()
@@ -916,7 +897,7 @@ describe('BridgeReceiver', () => {
     })
 
     it('dispatches immediately when no gate is wired (back-compat)', async () => {
-      const deps = fakeDeps({ dataDir })
+      const deps = fakeDeps()
       const r = new BridgeReceiver(deps as never)
       const result = await r.handle(directParams(), extCtx)
       expect(result.taskId).toBe('task-abc')

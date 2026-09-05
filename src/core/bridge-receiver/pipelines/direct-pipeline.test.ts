@@ -11,7 +11,15 @@ function buildAdapted(): AdaptedDirect {
     kind: 'direct',
     primaryUrl: 'http://example.com/x.mp4',
     sanitizedHeaders: { 'X-Custom': 'v' },
-    jarPath: '/tmp/jar.txt',
+    cookies: [
+      {
+        name: 'session',
+        value: 'synthetic-cookie',
+        domain: 'example.com',
+        path: '/',
+        secure: false,
+      },
+    ],
     pageUrl: 'http://example.com/page',
     sourceMeta: {
       kind: 'direct',
@@ -69,13 +77,13 @@ describe('DirectPipeline.dispatch', () => {
     expect(opts).toMatchObject({
       source: 'bridge',
       sourceMeta: { kind: 'direct', sessionKey: 'chromium:e' },
+      cookies: buildAdapted().cookies,
     })
-    // extraEngineOptions carries only cookies + referer. It must NOT
+    // extraEngineOptions carries only the referer. It must NOT
     // re-specify header: Aria2Adapter applies extraEngineOptions last, so a
     // header here would clobber (and discard) any plugin rewrite of
     // params.headers.
-    expect(opts.extraEngineOptions).toMatchObject({
-      'load-cookies': '/tmp/jar.txt',
+    expect(opts.extraEngineOptions).toEqual({
       referer: 'http://example.com/page',
     })
     expect(opts.extraEngineOptions).not.toHaveProperty('header')

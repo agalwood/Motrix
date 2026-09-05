@@ -7,6 +7,7 @@ import { z } from 'zod'
  */
 export const directReplayRequestModifierSchema = z.enum([
   'headers',
+  'cookies',
   'proxy',
   'extraEngineOptions',
   'engineGlobalOptions',
@@ -50,7 +51,7 @@ const directReplayV1Schema = z
   .object({
     version: z.literal(1),
     connections: z.number().int().min(1).max(128).optional(),
-    requestModifiers: z.array(directReplayRequestModifierSchema).max(4),
+    requestModifiers: z.array(directReplayRequestModifierSchema).max(5),
     replayability: z.enum(['uri-only', 'requires-credentials']),
     resourceValidator: directResourceValidatorSchema.optional(),
   })

@@ -1,3 +1,4 @@
+import type { DownloadCookie } from '../engine-adapter'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
 import type {
   Aria2HistoryCount,
@@ -92,6 +93,19 @@ export class Aria2RpcClient {
     if (options !== undefined) params.push(options)
     if (position !== undefined) params.push(position)
     return this.call<string>('aria2.addUri', params)
+  }
+
+  addUriWithCookies(
+    uris: string[],
+    cookies: readonly DownloadCookie[],
+    options?: Record<string, string | string[]>,
+    position?: number
+  ): Promise<string> {
+    const params: unknown[] = [uris, cookies]
+    if (options !== undefined || position !== undefined)
+      params.push(options ?? {})
+    if (position !== undefined) params.push(position)
+    return this.call<string>('aria2.addUriWithCookies', params)
   }
 
   addTorrent(
