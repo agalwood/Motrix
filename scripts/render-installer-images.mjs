@@ -1,6 +1,6 @@
 // Converts the NSIS assisted-installer design sources (build/installer-*.png)
-// into the 24-bit BMP files electron-builder hands to NSIS through
-// nsis.installerHeader / nsis.installerSidebar.
+// into 24-bit BMP files using electron-builder's default resource names.
+// Both local and isolated release builds discover the bitmaps when present.
 //
 //   pnpm run build:installer-images
 //
@@ -32,14 +32,14 @@ export const INSTALLER_IMAGES = [
   {
     name: 'header',
     png: 'build/installer-header.png',
-    output: 'build/installer-header.bmp',
+    output: 'build/installerHeader.bmp',
     width: 150,
     height: 57,
   },
   {
     name: 'sidebar',
     png: 'build/installer-sidebar.png',
-    output: 'build/installer-sidebar.bmp',
+    output: 'build/installerSidebar.bmp',
     width: 164,
     height: 314,
   },

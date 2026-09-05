@@ -46,6 +46,10 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
     'f9ff86f32c2110b21d71a49a346f4186c4ef2cf1aed3884eca9704cb77fb4ed7',
   'signing-build-resources/icon.ico':
     'a71d20d0ca732e27b445e3f09a0cd22cb356620929416e790d005dfff9c4e5a7',
+  'signing-build-resources/installerHeader.bmp':
+    '1fec8201191e832831f93c5dbaca1a1941b17c72d29ede4ddbba0a721b58d3a5',
+  'signing-build-resources/installerSidebar.bmp':
+    '510391ad03a2df0a83d2daaeacfc4d2a25b85166f701843d44d85b221df14ec0',
   'signing-build-resources/torrent.icns':
     '1c8e042a7d4391fa241b4411badbe4a7393a8ad8429679838bf43b25ab29425f',
   'signing-build-resources/torrent.ico':
@@ -68,6 +72,13 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
     'ec160ddfa929242155e38d3e0cfdd752ca748a16a84c71eefd39d5b0cbfb9e8a',
 })
 
+// Use electron-builder's default resource names so the restricted config can
+// discover each bitmap when present and retain NSIS defaults when absent.
+const OPTIONAL_NSIS_ARTWORK = Object.freeze({
+  'signing-build-resources/installerHeader.bmp': 'build/installerHeader.bmp',
+  'signing-build-resources/installerSidebar.bmp': 'build/installerSidebar.bmp',
+})
+
 const SOURCE_MAPPINGS = [
   ['THIRD_PARTY_LICENSES', 'THIRD_PARTY_LICENSES'],
   ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
@@ -81,6 +92,10 @@ const SOURCE_MAPPINGS = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  ...Object.entries(OPTIONAL_NSIS_ARTWORK).map(([destination, source]) => [
+    source,
+    destination,
+  ]),
   ['build/torrent.icns', 'signing-build-resources/torrent.icns'],
   ['build/torrent.ico', 'signing-build-resources/torrent.ico'],
   ['build/installer.nsh', 'signing-policy/installer.nsh'],
@@ -225,6 +240,7 @@ function isAllowedSigningDirectory(relativePath) {
 }
 
 function isAllowedSigningBuildResource(relativePath) {
+  if (Object.hasOwn(OPTIONAL_NSIS_ARTWORK, relativePath)) return true
   return new Set([
     'signing-build-resources/256x256.png',
     'signing-build-resources/background.tiff',
@@ -527,7 +543,11 @@ export async function createSigningArchive(directory, archive, options) {
 
 async function copySource(sourcePath, destinationPath, output) {
   const source = path.join(REPOSITORY_ROOT, sourcePath)
-  const info = await lstat(source).catch(() => null)
+  const info = await lstat(source).catch((error) => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!info && Object.hasOwn(OPTIONAL_NSIS_ARTWORK, destinationPath)) return
   if (!info) throw new Error(`missing signing input source: ${sourcePath}`)
   if (info.isSymbolicLink()) {
     throw new Error(`signing input source must not be a symlink: ${sourcePath}`)
@@ -540,7 +560,11 @@ async function copySource(sourcePath, destinationPath, output) {
 async function verifyTrustedInputDigests(root) {
   for (const [relativePath, expected] of Object.entries(TRUSTED_INPUT_SHA256)) {
     const absolute = path.join(root, relativePath)
-    const info = await lstat(absolute).catch(() => null)
+    const info = await lstat(absolute).catch((error) => {
+      if (error.code === 'ENOENT') return null
+      throw error
+    })
+    if (!info && Object.hasOwn(OPTIONAL_NSIS_ARTWORK, relativePath)) continue
     if (
       !info?.isFile() ||
       info.size > SIGNING_ARCHIVE_LIMITS.fileBytes ||
