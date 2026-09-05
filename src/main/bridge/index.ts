@@ -79,6 +79,7 @@ import {
   resolveBridgeDataDir,
   resolvePackagedLinuxSnapEnvironment,
 } from './snap-environment'
+import { recoverDefaultWindowsDesktopBridgeResidue } from './windows-desktop-startup-recovery'
 
 /**
  * A plugin contributes to the mux pre-resolve seam when it is an enabled
@@ -432,6 +433,12 @@ export async function bootstrapBridge(args: {
     process.env.MOTRIX_BRIDGE_DATA_DIR
   )
   await mkdir(dataDir, { recursive: true })
+  await recoverDefaultWindowsDesktopBridgeResidue({
+    platform: process.platform,
+    dataDirectory: dataDir,
+    bridgeDataDirectoryOverride: process.env.MOTRIX_BRIDGE_DATA_DIR,
+    authority: args.bridgeDataDirLockRecoveryAuthority,
+  })
   const ownership = new BridgeOwnership()
   try {
     // This is the first bridge-state acquisition. No store is loaded and no
