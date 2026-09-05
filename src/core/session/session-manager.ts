@@ -47,7 +47,10 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
-import { shouldPrioritizeBtPreviewPiecesFromMetadata } from '../task/bt-storage-layout'
+import {
+  btSaveDirFromWorkspacePath,
+  shouldPrioritizeBtPreviewPiecesFromMetadata,
+} from '../task/bt-storage-layout'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
 import {
   canMirrorAria2MetadataHeaders,
@@ -1301,7 +1304,11 @@ export class SessionManager {
         String(downloadedBytes),
         aria2.downloadSpeed
       ),
-      saveDir: aria2.dir,
+      // A BT task runs inside `<saveDir>/.motrix/<workspace>`, so the engine
+      // reports that workspace rather than the directory the user picked.
+      // Every other engine directory passes through unchanged.
+      saveDir:
+        btSaveDirFromWorkspacePath(taskPart.motrixId, aria2.dir) ?? aria2.dir,
       createdAt: taskPart.createdAt,
       updatedAt: now,
       uris: extractUris(aria2),

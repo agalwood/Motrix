@@ -21,6 +21,12 @@ import type { EngineAdapter } from '../engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { clearStoppedTasks } from '../task/actions/clear-stopped-tasks'
 import { stopSeedingTask } from '../task/actions/stop-seeding-task'
+import type { BtStorageLayoutV1 } from '../task/bt-storage-layout'
+import {
+  btStoragePayload,
+  btWorkspacePath,
+  getBtPayloadPath,
+} from '../task/bt-storage-layout'
 import { TaskManager } from '../task/task-manager'
 import { computeUriHash } from './content-key'
 import type {
@@ -3632,6 +3638,125 @@ describe('SessionManager', () => {
 
       const task = tm.getById('m-no-bt')
       expect(task?.bt).toBeUndefined()
+    })
+  })
+
+  describe('mergeTask — BT save directory', () => {
+    // A BT task downloads inside `<saveDir>/.motrix/<workspace>` and the
+    // engine reports that workspace as its directory. Restoring `saveDir`
+    // from it verbatim moves the task's save directory two levels below the
+    // one the user picked, and everything derived from `saveDir` follows it
+    // there.
+    const btWorkspaceTask = (motrixId: string, saveDir: string) => {
+      const workspace = btWorkspacePath(motrixId, saveDir)
+      const layout: BtStorageLayoutV1 = {
+        version: 1,
+        strategy: 'indexed-staging',
+        workspacePath: workspace,
+        payloadEntry: 'p',
+        torrentRootName: 'movie.mkv',
+        multiFile: false,
+      }
+      return {
+        workspace,
+        seed: {
+          motrixId,
+          gid: `gid-${motrixId}`,
+          name: 'movie.mkv',
+          category: null,
+          priority: 0,
+          createdAt: 0,
+          updatedAt: 0,
+          diskPath: workspace,
+          finalPath: path.join(saveDir, 'movie.mkv'),
+          finalName: 'movie.mkv',
+          transitionPhase: TransitionPhase.Idle,
+          torrentMetaPath: null,
+          infoHash: 'c'.repeat(40),
+          uriHash: null,
+          uris: [],
+          status: TaskStatus.Downloading,
+          payload: btStoragePayload(layout),
+        },
+      }
+    }
+
+    it('restores the save directory the workspace was built from', async () => {
+      const tm = new TaskManager()
+      const localDb = createMockDb()
+      const localRpc = createMockRpc()
+      const sm = new SessionManager(tm, localRpc, localDb, createMockAdapter())
+      const { workspace, seed } = btWorkspaceTask('m-bt-workspace', '/dl')
+      seedAsPair(localDb, seed)
+      localRpc.tellActive = vi.fn(async () => [
+        makeRawStatus({ gid: 'gid-m-bt-workspace', dir: workspace }),
+      ])
+      localRpc.tellWaiting = vi.fn(async () => [])
+      localRpc.tellStopped = vi.fn(async () => [])
+
+      await sm.restore()
+
+      expect(tm.getById('m-bt-workspace')?.saveDir).toBe('/dl')
+    })
+
+    it('keeps the persisted BT storage layout resolvable after restore', async () => {
+      // `isLayoutOwnedByTask` authorizes the persisted layout by rebuilding
+      // `<saveDir>/.motrix` from the task. A save directory restored as the
+      // workspace itself fails that check, so the task loses the mapping to
+      // its own payload file.
+      const tm = new TaskManager()
+      const localDb = createMockDb()
+      const localRpc = createMockRpc()
+      const sm = new SessionManager(tm, localRpc, localDb, createMockAdapter())
+      const { workspace, seed } = btWorkspaceTask('m-bt-layout', '/dl')
+      seedAsPair(localDb, seed)
+      localRpc.tellActive = vi.fn(async () => [
+        makeRawStatus({ gid: 'gid-m-bt-layout', dir: workspace }),
+      ])
+      localRpc.tellWaiting = vi.fn(async () => [])
+      localRpc.tellStopped = vi.fn(async () => [])
+
+      await sm.restore()
+
+      const restored = tm.getById('m-bt-layout')
+      expect(restored).toBeDefined()
+      expect(restored && getBtPayloadPath(restored)).toBe(
+        path.join(workspace, 'p')
+      )
+    })
+
+    it('leaves a non-workspace engine directory untouched', async () => {
+      const tm = new TaskManager()
+      const localDb = createMockDb()
+      const localRpc = createMockRpc()
+      const sm = new SessionManager(tm, localRpc, localDb, createMockAdapter())
+      seedAsPair(localDb, {
+        motrixId: 'm-http-dir',
+        gid: 'gid-http-dir',
+        name: 'file.zip',
+        category: null,
+        priority: 0,
+        createdAt: 0,
+        updatedAt: 0,
+        diskPath: '/dl/file.zip',
+        finalPath: '/dl/file.zip',
+        finalName: 'file.zip',
+        transitionPhase: TransitionPhase.Idle,
+        torrentMetaPath: null,
+        infoHash: null,
+        uriHash: null,
+        uris: ['http://example.com/file.zip'],
+        status: TaskStatus.Downloading,
+      })
+      localRpc.tellActive = vi.fn(async () => [
+        makeRawStatus({ gid: 'gid-http-dir', dir: '/dl' }),
+      ])
+      localRpc.tellWaiting = vi.fn(async () => [])
+      localRpc.tellStopped = vi.fn(async () => [])
+
+      await sm.restore()
+
+      expect(tm.getById('m-http-dir')?.saveDir).toBe('/dl')
     })
   })
 })

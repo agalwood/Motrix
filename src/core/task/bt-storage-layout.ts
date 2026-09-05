@@ -153,6 +153,25 @@ export function btWorkspacePath(taskId: string, saveDir: string): string {
   return path.join(saveDir, STORAGE_ROOT, workspaceId)
 }
 
+/**
+ * Recover the save directory a BT workspace was built from. The engine is
+ * pointed at `<saveDir>/<STORAGE_ROOT>/<workspaceId>` and reports that
+ * workspace as its own directory, so the save directory is its grandparent.
+ * Returns null unless `btWorkspacePath` maps that grandparent back to `dir`,
+ * which keeps unrelated directories — plain engine directories included —
+ * from being reinterpreted as workspaces.
+ */
+export function btSaveDirFromWorkspacePath(
+  taskId: string,
+  dir: string
+): string | null {
+  if (!dir) return null
+  const candidate = path.dirname(path.dirname(dir))
+  return path.resolve(btWorkspacePath(taskId, candidate)) === path.resolve(dir)
+    ? candidate
+    : null
+}
+
 export function buildStagingOutputFilePaths(
   parsed: ParsedBtFileLayout,
   layout: BtStorageLayoutV1
