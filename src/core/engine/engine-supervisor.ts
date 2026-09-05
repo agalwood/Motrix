@@ -36,6 +36,7 @@ import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
 import { isSqliteCorruptionDiagnostic } from './aria2/aria2-sqlite-recovery'
 import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { recommend } from './aria2/aria2-tuning'
+import type { EngineStartupGuard } from './aria2/completed-task-startup-guard'
 import {
   isMotrixFork,
   STANDARD_ARIA2_CONNECTION_LIMIT,
@@ -110,6 +111,7 @@ export class EngineSupervisor {
   private sqliteFallbackAttempted = false
   private restartPromise: Promise<void> | null = null
   private preReadyMaintenance: (() => Promise<void>) | null = null
+  private startupGuard: EngineStartupGuard | null = null
 
   constructor(
     private eventBus: EventBus,
@@ -193,6 +195,11 @@ export class EngineSupervisor {
     fn: () => { download: number; upload: number }
   ): void {
     this.getEffectiveLimits = fn
+  }
+
+  /** Required reconciliation runs under a paused startup, before Ready. */
+  setStartupGuard(guard: EngineStartupGuard): void {
+    this.startupGuard = guard
   }
 
   /** Register best-effort engine maintenance that runs after RPC connects but before Ready. */
@@ -522,7 +529,11 @@ export class EngineSupervisor {
       // Step 4: Spawn process (abort if stop() was called during earlier awaits)
       if (this.stopping) return
       phase = 'spawn'
-      await this.processManager.spawn(this.binaryPath, args, processEnv)
+      const guardedStartup = await this.startupGuard?.prepare(args)
+      if (this.stopping) return
+      const startArgs = guardedStartup?.args ?? args
+      this.lastStartArgs = startArgs
+      await this.processManager.spawn(this.binaryPath, startArgs, processEnv)
 
       // Step 5: Connect RPC
       if (this.stopping) {
@@ -531,6 +542,14 @@ export class EngineSupervisor {
       }
       phase = 'rpc'
       await this.rpcClient.connect(engineSettings.rpcPort)
+      if (this.stopping) {
+        this.rpcClient.disconnect()
+        await this.processManager.gracefulStop()
+        return
+      }
+      // Unlike best-effort maintenance, failure here must stop the paused
+      // process. Otherwise a known completed GID can recreate deleted files.
+      await guardedStartup?.reconcile(() => this.stopping)
       if (this.stopping) {
         this.rpcClient.disconnect()
         await this.processManager.gracefulStop()

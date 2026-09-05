@@ -8,6 +8,7 @@ import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
 import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
+import { CompletedTaskStartupGuard } from '@core/engine/aria2/completed-task-startup-guard'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
@@ -85,6 +86,7 @@ import {
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
 import { countActiveDownloads } from '@core/task/active-downloads'
+import { CompletedEngineTaskCleanup } from '@core/task/completed-engine-task-cleanup'
 import { handleCreateTask } from '@core/task/create-task-handler'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
@@ -419,6 +421,7 @@ let supervisor: EngineSupervisor
 let proxyBridge: ProxyBridgeManager
 let speedLimitController: SpeedLimitController
 let sessionManager: SessionManager
+let completedEngineTaskCleanup: CompletedEngineTaskCleanup
 let pollingScheduler: PollingScheduler
 let aria2Adapter: Aria2Adapter
 // Constructed in Phase 2 below (F4); see that construction site's comment
@@ -504,6 +507,9 @@ function performCleanup(): Promise<void> {
     await ingressClose
     const cancellationDrain = Promise.all([
       safely('polling', () => pollingScheduler?.stopAndDrain()),
+      safely('completed-engine-tasks', () =>
+        completedEngineTaskCleanup?.stopAndDrain()
+      ),
       // The bridge owns long-lived HLS/DASH/mux jobs. Closing it cancels media
       // work and drains accepted bridge handlers.
       safely('bridge', () => bridgeManager?.stop()),
@@ -725,6 +731,7 @@ async function handlePolledTasks(
   rawTasks: Aria2RawStatus[],
   source: PollingTaskUpdateSource
 ): Promise<void> {
+  if (supervisor.getState() !== EngineState.Ready) return
   let dirty = false
   for (const raw of rawTasks) {
     if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
@@ -755,6 +762,10 @@ async function handlePolledTasks(
     }
 
     const translated = translateRawToTask(raw)
+    if (await completedEngineTaskCleanup?.observe(translated)) {
+      dirty = true
+      continue
+    }
     const existing = taskManager.getByEngineTaskId(raw.gid)
     if (existing) {
       const merged = mergeEngineTask(existing, translated)
@@ -1213,7 +1224,9 @@ async function startEngineAndRestore(
   try {
     await appliedDownloadProxyPolicy.runWithSnapshot(
       async (_snapshot, lease) => {
-        await sessionManager.restore(lease.assertCurrent)
+        await sessionManager.restore(lease.assertCurrent, (snapshot) =>
+          completedEngineTaskCleanup.observe(snapshot)
+        )
         await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
       }
     )
@@ -1896,6 +1909,28 @@ async function initializeMainProcess(): Promise<void> {
         ? { ...snapshot, userAgent: settingsManager.getEngine().userAgent }
         : null
     }
+  )
+  completedEngineTaskCleanup = new CompletedEngineTaskCleanup({
+    taskManager,
+    adapter,
+    mintTaskId: newTaskId,
+    persist: persistTaskWithOccurrence,
+    adopt: (task, persist) =>
+      activeTaskInspectorActivityRuntime.parentTaskCreated(task, persist),
+    publish: publishTaskUpdateNow,
+    dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
+    prepareFiles: (task) =>
+      syncTaskFilesIfIncomplete(task.id, task.engineTaskId),
+    runTaskMutation: (ids, operation) =>
+      activeTaskInspectorActivityRuntime.runTaskMutation(ids, operation),
+    log,
+  })
+  supervisor.setStartupGuard(
+    new CompletedTaskStartupGuard({
+      completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
+      rpc: rpcClient,
+      removeResult: (gid) => adapter.removeDownloadResult(gid),
+    })
   )
   supervisor.setPreReadyMaintenance(() =>
     sessionManager.purgeEphemeralMediaRows()

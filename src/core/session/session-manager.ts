@@ -48,6 +48,7 @@ import {
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
 import { shouldPrioritizeBtPreviewPiecesFromMetadata } from '../task/bt-storage-layout'
+import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
@@ -598,7 +599,21 @@ export class SessionManager {
     return { task: taskRow, instances }
   }
 
-  async restore(assertProxyCurrent?: () => void): Promise<void> {
+  getCompletedDirectEngineTaskIds(): ReadonlySet<string> {
+    const result = new Set<string>()
+    for (const pair of this.db.getAllTasks()) {
+      if (pair.task.aggStatus !== TaskStatus.Completed) continue
+      const task = taskRowToDownloadTask(pair.task, pair.instances)
+      if (isCompletedDirectOutput(task) && task.engineTaskId)
+        result.add(task.engineTaskId)
+    }
+    return result
+  }
+
+  async restore(
+    assertProxyCurrent?: () => void,
+    observeCompletedTask?: (snapshot: DownloadTask) => Promise<unknown>
+  ): Promise<void> {
     // aria2 is the source of truth for engine lifecycle. motrix.db is a
     // metadata sidecar tracking task identity and the relationship between
     // a task and its instances. The loop is driven by aria2: every live
@@ -682,6 +697,13 @@ export class SessionManager {
     // lets N evictions overlap each other and the later passes instead of
     // serializing 2×N RPC round-trips inline.
     const evictions: Promise<void>[] = []
+    const retireCompleted = (raw: Aria2RawStatus): Promise<void> =>
+      observeCompletedTask
+        ? observeCompletedTask(translateRawToTask(raw)).then(() => {})
+        : this.evictEngineRow(
+            raw,
+            'restore: failed to evict completed direct task'
+          )
 
     // Pass 1 — drive from aria2 rows.
     for (const aria2 of aria2Tasks) {
@@ -743,7 +765,17 @@ export class SessionManager {
               hit.instance.gid !== null &&
               hit.instance.gid !== aria2.gid &&
               aria2GidSet.has(hit.instance.gid)
-            if (!consumedMotrixIds.has(hit.motrixId) && !hasDifferentLiveGid) {
+            const candidate = byMotrixId.get(hit.motrixId)
+            const completedDirect =
+              candidate &&
+              isCompletedDirectOutput(
+                taskRowToDownloadTask(candidate.task, candidate.instances)
+              )
+            if (
+              !completedDirect &&
+              !consumedMotrixIds.has(hit.motrixId) &&
+              !hasDifferentLiveGid
+            ) {
               parent = byMotrixId.get(hit.motrixId)
               matchedInstance = hit.instance
             }
@@ -781,6 +813,17 @@ export class SessionManager {
           }
           continue
         }
+        // Completed direct output is durable history. Only exact GID ownership
+        // authorizes retiring an engine row; URI matches can be a new download.
+        if (direct) {
+          const completed = taskRowToDownloadTask(parent.task, parent.instances)
+          if (isCompletedDirectOutput(completed)) {
+            this.taskManager.set(completed.id, completed)
+            consumedMotrixIds.add(parent.task.motrixId)
+            evictions.push(retireCompleted(aria2))
+            continue
+          }
+        }
         const task = this.mergeTaskFromPair(parent, matchedInstance, aria2)
         // Merging a persisted non-terminal task with aria2's stopped row can
         // settle it into Completed/Error. That is a real terminal transition
@@ -799,9 +842,28 @@ export class SessionManager {
         }
         this.taskManager.set(task.id, task)
         consumedMotrixIds.add(parent.task.motrixId)
+        if (isCompletedDirectOutput(task)) {
+          evictions.push(retireCompleted(aria2))
+        }
       } else {
         const task = this.adoptTask(aria2)
+        // A tiny engine-only download can finish before Ready and before the
+        // notification listeners attach. Commit its history/outbox now; a
+        // stopped GID will not appear in subsequent active/waiting polls.
+        if (isCompletedDirectOutput(task)) {
+          await this.persistRecoveredTerminalOccurrence(
+            task,
+            buildTerminalOccurrence(
+              terminalSnapshotFromTask(task),
+              TaskStatus.Queued,
+              'engine'
+            )
+          )
+        }
         this.taskManager.set(task.id, task)
+        if (isCompletedDirectOutput(task)) {
+          evictions.push(retireCompleted(aria2))
+        }
       }
     }
 

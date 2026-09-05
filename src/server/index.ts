@@ -18,6 +18,7 @@ import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
 import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
+import { CompletedTaskStartupGuard } from '@core/engine/aria2/completed-task-startup-guard'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
@@ -89,6 +90,7 @@ import {
 } from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
+import { CompletedEngineTaskCleanup } from '@core/task/completed-engine-task-cleanup'
 import { handleCreateTask } from '@core/task/create-task-handler'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
@@ -681,6 +683,13 @@ async function main() {
         : null
     }
   )
+  supervisor.setStartupGuard(
+    new CompletedTaskStartupGuard({
+      completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
+      rpc: rpcClient,
+      removeResult: (gid) => adapter.removeDownloadResult(gid),
+    })
+  )
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
   let pluginHookRuntime: PluginHookRuntime | undefined
@@ -831,11 +840,26 @@ async function main() {
     proxyBridge
   )
 
+  const completedEngineTaskCleanup = new CompletedEngineTaskCleanup({
+    taskManager,
+    adapter,
+    mintTaskId: newTaskId,
+    persist: persistTaskWithOccurrence,
+    adopt: (task, persist) =>
+      taskInspectorActivityRuntime.parentTaskCreated(task, persist),
+    publish: publishTaskUpdateNow,
+    dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
+    runTaskMutation: (ids, operation) =>
+      taskInspectorActivityRuntime.runTaskMutation(ids, operation),
+    log,
+  })
+
   // ─── Polling ──────────────────────────────────────────────────
   async function handlePolledTasks(
     rawTasks: Aria2RawStatus[],
     source: PollingTaskUpdateSource
   ): Promise<void> {
+    if (supervisor.getState() !== EngineState.Ready) return
     let dirty = false
     for (const raw of rawTasks) {
       if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
@@ -849,6 +873,10 @@ async function main() {
       }
 
       const translated = translateRawToTask(raw)
+      if (await completedEngineTaskCleanup.observe(translated)) {
+        dirty = true
+        continue
+      }
       const existing = taskManager.getByEngineTaskId(raw.gid)
       if (existing) {
         const merged = mergeEngineTask(existing, translated)
@@ -937,7 +965,12 @@ async function main() {
     },
     handlePolledTasks
   )
-  shutdownActions.stopPolling = () => pollingScheduler.stopAndDrain()
+  shutdownActions.stopPolling = async () => {
+    await Promise.all([
+      pollingScheduler.stopAndDrain(),
+      completedEngineTaskCleanup.stopAndDrain(),
+    ])
+  }
 
   // ─── Task lifecycle helpers ───────────────────────────────────
   const finalNamePicker = new FinalNamePickerImpl({
@@ -1434,7 +1467,9 @@ async function main() {
 
       await appliedDownloadProxyPolicy.runWithSnapshot(
         async (_snapshot, lease) => {
-          await sessionManager.restore(lease.assertCurrent)
+          await sessionManager.restore(lease.assertCurrent, (snapshot) =>
+            completedEngineTaskCleanup.observe(snapshot)
+          )
           await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
         }
       )

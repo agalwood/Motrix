@@ -219,6 +219,45 @@ describe('EngineSupervisor', () => {
   })
 
   describe('start — happy path', () => {
+    it('prepares the startup guard before spawning and reconciles before Ready', async () => {
+      const reconcile = vi.fn(async () => {
+        expect(rpcClient.connect).toHaveBeenCalledOnce()
+        expect(supervisor.getState()).not.toBe(EngineState.Ready)
+      })
+      const prepare = vi.fn(async () => {
+        expect(processManager.spawn).not.toHaveBeenCalled()
+        return { args: ['--pause=true'], reconcile }
+      })
+      supervisor.setStartupGuard({ prepare })
+      await supervisor.start('/usr/bin/aria2c')
+      expect(processManager.spawn).toHaveBeenCalledWith(
+        '/usr/bin/aria2c',
+        ['--pause=true'],
+        undefined
+      )
+      expect(reconcile).toHaveBeenCalledOnce()
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+    })
+
+    it('does not publish Ready when mandatory completed-task cleanup fails', async () => {
+      const ready = vi.fn()
+      eventBus.on(Events.EngineStateChanged, (state) => {
+        if (state === EngineState.Ready) ready()
+      })
+      supervisor.setStartupGuard({
+        prepare: async () => ({
+          args: ['--pause=true'],
+          reconcile: async () => {
+            throw new Error('completed task purge failed')
+          },
+        }),
+      })
+      await supervisor.start('/usr/bin/aria2c')
+      expect(ready).not.toHaveBeenCalled()
+      expect(supervisor.getState()).toBe(EngineState.Failed)
+      expect(supervisor.getLastError()).toContain('completed task purge failed')
+    })
+
     it('runs startup maintenance after RPC connect and before publishing Ready', async () => {
       const readyObserved = vi.fn()
       eventBus.on(Events.EngineStateChanged, (state) => {
