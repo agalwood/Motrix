@@ -76,6 +76,15 @@
   <releases>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.32" date="2026-09-05">
+      <description>
+        <p>
+          Restores Windows desktop and browser-extension startup after an
+          unclean shutdown, and preserves optional branded artwork in the
+          isolated Windows release installer build.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.31" date="2026-09-04">
       <description>
         <p>

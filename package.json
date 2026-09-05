@@ -3,7 +3,7 @@
   "type": "module",
   "productName": "Motrix",
   "homepage": "https://motrix.app",
-  "version": "2.0.0-beta.31",
+  "version": "2.0.0-beta.32",
   "packageManager": "pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956",
   "description": "A full-featured download manager",
   "keywords": [],
