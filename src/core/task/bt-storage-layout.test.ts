@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  btSaveDirFromWorkspacePath,
+  btWorkspacePath,
   buildFinalOutputFilePaths,
   createBtStoragePlan,
   getBtStorageLayout,
@@ -110,5 +112,31 @@ describe('BT indexed storage layout', () => {
         ],
       } as unknown as Parameters<typeof getBtStorageLayout>[0])
     ).toBeNull()
+  })
+})
+
+describe('btSaveDirFromWorkspacePath', () => {
+  it('inverts btWorkspacePath for the task that owns the workspace', () => {
+    const saveDir = path.join(path.sep, 'downloads')
+    expect(
+      btSaveDirFromWorkspacePath('task-1', btWorkspacePath('task-1', saveDir))
+    ).toBe(saveDir)
+  })
+
+  it('returns null for a workspace belonging to another task', () => {
+    const saveDir = path.join(path.sep, 'downloads')
+    expect(
+      btSaveDirFromWorkspacePath('task-2', btWorkspacePath('task-1', saveDir))
+    ).toBeNull()
+  })
+
+  it('returns null for a directory that is not a workspace', () => {
+    expect(
+      btSaveDirFromWorkspacePath('task-1', path.join(path.sep, 'downloads'))
+    ).toBeNull()
+  })
+
+  it('returns null for an empty directory', () => {
+    expect(btSaveDirFromWorkspacePath('task-1', '')).toBeNull()
   })
 })
