@@ -66,7 +66,7 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   const bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority =
     Object.freeze({
       ownershipEpoch,
-      assertExclusiveProcessOwnership: () => true,
+      assertExclusiveProcessOwnership: () => app.hasSingleInstanceLock(),
     })
 
   // Detect login launch

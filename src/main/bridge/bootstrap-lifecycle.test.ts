@@ -220,6 +220,49 @@ describe('desktop bridge bootstrap ownership', () => {
     await expect(lstat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  it('starts on Windows after cleaning default desktop crash residue', async () => {
+    const originalPlatform = process.platform
+    const originalOverride = process.env.MOTRIX_BRIDGE_DATA_DIR
+    const bridgeDirectory = join(userDataDir, 'bridge')
+    const localToken = 'L'.repeat(43)
+    let runtime: Awaited<ReturnType<typeof bootstrapBridge>> = null
+
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    delete process.env.MOTRIX_BRIDGE_DATA_DIR
+    try {
+      await mkdir(bridgeDirectory, { recursive: true })
+      await writeFile(
+        join(bridgeDirectory, BRIDGE_DATA_DIR_LOCK_FILE_NAME),
+        'crashed desktop lock'
+      )
+      await writeFile(
+        join(bridgeDirectory, 'extension-pairings.json.lock'),
+        'crashed projection writer'
+      )
+      await writeFile(join(bridgeDirectory, 'endpoint.json'), 'stale endpoint')
+      await writeFile(join(bridgeDirectory, 'local-token'), localToken)
+
+      runtime = await bootstrapBridge(args())
+
+      expect(runtime).not.toBeNull()
+      expect(EndpointFileWriter.prototype.write).toHaveBeenCalledOnce()
+      await expect(
+        readFile(join(bridgeDirectory, 'local-token'), 'utf8')
+      ).resolves.toBe(localToken)
+      await expect(
+        lstat(join(bridgeDirectory, 'extension-pairings.json.lock'))
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await runtime?.shutdown()
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+      if (originalOverride === undefined) {
+        delete process.env.MOTRIX_BRIDGE_DATA_DIR
+      } else {
+        process.env.MOTRIX_BRIDGE_DATA_DIR = originalOverride
+      }
+    }
+  })
+
   it('releases the data-root lock when the first store load fails', async () => {
     const failure = new Error('pairing store unavailable')
     vi.spyOn(PairingService.prototype, 'load').mockRejectedValueOnce(failure)

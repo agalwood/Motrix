@@ -1,18 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockRequestLock, mockExit, mockGetLoginItemSettings, mockOn } =
-  vi.hoisted(() => ({
-    mockRequestLock: vi.fn().mockReturnValue(true),
-    mockExit: vi.fn(),
-    mockGetLoginItemSettings: vi.fn().mockReturnValue({
-      wasOpenedAtLogin: false,
-    }),
-    mockOn: vi.fn(),
-  }))
+const {
+  mockRequestLock,
+  mockHasSingleInstanceLock,
+  mockExit,
+  mockGetLoginItemSettings,
+  mockOn,
+} = vi.hoisted(() => ({
+  mockRequestLock: vi.fn().mockReturnValue(true),
+  mockHasSingleInstanceLock: vi.fn().mockReturnValue(true),
+  mockExit: vi.fn(),
+  mockGetLoginItemSettings: vi.fn().mockReturnValue({
+    wasOpenedAtLogin: false,
+  }),
+  mockOn: vi.fn(),
+}))
 
 vi.mock('electron', () => ({
   app: {
     requestSingleInstanceLock: mockRequestLock,
+    hasSingleInstanceLock: mockHasSingleInstanceLock,
     exit: mockExit,
     getLoginItemSettings: mockGetLoginItemSettings,
     on: mockOn,
@@ -39,6 +46,7 @@ describe('setupLauncher', () => {
     vi.clearAllMocks()
     mockOn.mockReset()
     mockRequestLock.mockReturnValue(true)
+    mockHasSingleInstanceLock.mockReturnValue(true)
     callbacks.onProtocolUrl.mockClear()
     callbacks.onTorrentFile.mockClear()
     callbacks.onShowWindow.mockClear()
@@ -68,6 +76,11 @@ describe('setupLauncher', () => {
     expect(
       handle.bridgeDataDirLockRecoveryAuthority?.assertExclusiveProcessOwnership()
     ).toBe(true)
+
+    mockHasSingleInstanceLock.mockReturnValue(false)
+    expect(
+      handle.bridgeDataDirLockRecoveryAuthority?.assertExclusiveProcessOwnership()
+    ).toBe(false)
   })
 
   it('creates a fresh recovery epoch for each successful process ownership session', () => {
