@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
@@ -49,13 +49,12 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   const adapter = (overrides: Partial<{ defaultSaveDir: string }> = {}) =>
     new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: overrides.defaultSaveDir ?? '/tmp/save',
       pickName: async (_dir, n) => n,
       mintTaskId: () => 'task-1',
     })
 
-  it('happy path: validates, sanitizes, writes jar, returns adapted', async () => {
+  it('keeps scoped cookies in memory without writing a jar', async () => {
     const result = await adapter().adapt(baseInput(), {
       extensionId: 'e',
       browser: 'chromium',
@@ -65,7 +64,18 @@ describe('SubmitDownloadAdapter.adapt', () => {
     expect(result.taskId).toBe('task-1')
     expect(result.saveDir).toBe('/tmp/save')
     expect(result.finalName).toBe('demo.mp4')
-    expect(result.jarPath).toContain('task-1')
+    expect(result.cookies).toEqual([
+      {
+        name: 'a',
+        value: '1',
+        domain: 'example.com',
+        path: '/',
+        hostOnly: true,
+        secure: false,
+        httpOnly: false,
+      },
+    ])
+    expect(await readdir(dataDir)).toEqual([])
     expect(result.sanitizedHeaders).toEqual({ 'X-Custom': 'v' })
     expect(result.sourceMeta.sessionKey).toBe('chromium:e')
   })
@@ -86,6 +96,29 @@ describe('SubmitDownloadAdapter.adapt', () => {
     await expect(
       adapter().adapt(bad, { extensionId: 'e', browser: 'chromium' })
     ).rejects.toMatchObject({ code: 'invalid-url-scheme' })
+  })
+
+  it('preserves domain scope and millisecond expiry while omitting browser-only fields', async () => {
+    const input = baseInput()
+    if (input.selection.kind !== 'direct') throw new Error('expected direct')
+    const original = input.selection.primary.cookies[0]!
+    original.domain = '.example.com'
+    original.secure = true
+    original.expiresAt = 2102444800000.75
+    const result = await adapter().adapt(input, {
+      extensionId: 'e',
+      browser: 'chromium',
+    })
+    if (result.kind !== 'direct') throw new Error('expected direct')
+    expect(result.cookies[0]).toMatchObject({
+      domain: '.example.com',
+      hostOnly: false,
+      secure: true,
+      expiresAt: 2102444800000,
+    })
+    expect(result.cookies[0]).not.toHaveProperty('sameSite')
+    original.value = 'changed-after-adapt'
+    expect(result.cookies[0]?.value).toBe('1')
   })
 
   it('sanitizes filename: control chars stripped, max 200', async () => {
@@ -127,7 +160,6 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts an hls selection (was unsupported-kind)', async () => {
     const a = new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
@@ -163,7 +195,6 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts a dash selection', async () => {
     const a = new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
@@ -199,7 +230,6 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts a mux selection into video/audio urls', async () => {
     const a = new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
@@ -235,7 +265,6 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('hls: appends the container extension BEFORE the dedup pick', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
@@ -267,7 +296,6 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('mux: appends the container extension BEFORE the dedup pick (mkv)', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
@@ -300,7 +328,6 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('mux: trusts an existing known media extension rather than double-appending', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      dataDir,
       defaultSaveDir: '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)

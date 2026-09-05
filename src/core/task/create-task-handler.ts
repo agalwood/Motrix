@@ -201,8 +201,10 @@ export interface CreateTaskDeps {
 export interface CreateTaskOptions {
   source?: TaskSource // default 'user'
   sourceMeta?: SourceMeta // default null
+  /** Ephemeral credentials; kept out of persisted task records and plugins. */
+  cookies?: CreateDownloadParams['cookies']
   /** Engine option dictionary merged into the engine call: header
-   *  (repeated), load-cookies, referer. createTaskHandler forwards these
+   *  (repeated), referer. createTaskHandler forwards these
    *  via CreateDownloadParams.extraEngineOptions; the adapter honors the
    *  keys it understands. */
   extraEngineOptions?: Record<string, string | string[]>
@@ -523,8 +525,9 @@ async function handleCreateTaskUnderAdmission(
       userAgent: engineSettings.userAgent,
       connections: clampedConnections,
       headers: headersRecord,
+      cookies: opts.cookies,
       proxy: req.proxy,
-      // Bridge cookie jar / referer; createDownload merges these raw AFTER
+      // Bridge referer; createDownload merges these raw AFTER
       // dir/out so a shell-supplied option can override (matches old order).
       extraEngineOptions: opts.extraEngineOptions,
     }
@@ -1121,6 +1124,7 @@ function directResourceRequestContext(
   params: Pick<
     CreateDownloadParams,
     | 'headers'
+    | 'cookies'
     | 'proxy'
     | 'extraEngineOptions'
     | 'userAgent'
@@ -1131,6 +1135,7 @@ function directResourceRequestContext(
   // Passthrough engine options can add cookies, a referer, headers, or other
   // request semantics the metadata client cannot reconstruct safely.
   if (
+    params.cookies !== undefined ||
     (params.extraEngineOptions &&
       Object.keys(params.extraEngineOptions).length > 0) ||
     params.directResourceMetadataProfile !== DIRECT_RESOURCE_METADATA_PROFILE ||
@@ -1180,11 +1185,12 @@ function resolveDirectResourceMetadataProfile(
 }
 
 function canApplyDirectResourceMetadataProfile(
-  params: Pick<CreateDownloadParams, 'uris' | 'extraEngineOptions'>,
+  params: Pick<CreateDownloadParams, 'uris' | 'cookies' | 'extraEngineOptions'>,
   profile: DirectResourceMetadataProfile | null
 ): DirectResourceMetadataProfile | null {
   if (
     profile === null ||
+    params.cookies !== undefined ||
     (params.extraEngineOptions &&
       Object.keys(params.extraEngineOptions).length > 0) ||
     !params.uris.every(isCredentialFreeHttpUri)

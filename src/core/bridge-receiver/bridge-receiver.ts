@@ -53,7 +53,6 @@ export function serializeCookieHeader(
 }
 
 export interface BridgeReceiverDeps {
-  dataDir: string
   defaultSaveDir: string
   pickName: AdapterDeps['pickName']
   createTask: ConstructorParameters<typeof DirectPipeline>[0]['createTask']
@@ -189,7 +188,6 @@ export class BridgeReceiver {
 
   constructor(private readonly deps: BridgeReceiverDeps) {
     this.adapter = new SubmitDownloadAdapter({
-      dataDir: deps.dataDir,
       defaultSaveDir: deps.defaultSaveDir,
       pickName: deps.pickName,
       mintTaskId: newTaskId,
@@ -303,7 +301,7 @@ export class BridgeReceiver {
     identity: Extract<MdxpSessionContext['identity'], { kind: 'extension' }>
   ): Promise<{ taskId: string }> {
     // Hold the submit until startup restore has settled (see the dep doc).
-    // Awaited before adapt so even the name pick / cookie-jar write see the
+    // Awaited before adapt so even the name pick sees the
     // final on-disk state left by restore/recovery.
     if (this.deps.waitForReady) {
       await this.deps.waitForReady()

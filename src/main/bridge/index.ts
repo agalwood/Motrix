@@ -538,7 +538,6 @@ export async function bootstrapBridge(args: {
     // Constructed BEFORE WebSocketBridgeServer so that setHandlers() can
     // reference receiver before server.start() is called — eliminating the
     // race window where the server is listening but handlers aren't registered.
-    const receiverDataDir = join(dataDir, 'receiver')
     const t = i18n.t.bind(i18n)
     const localize = (code: string) =>
       t(`bridge.receiver.error.${camelize(code)}`)
@@ -551,7 +550,6 @@ export async function bootstrapBridge(args: {
       args.pluginHost
     )
     const receiver = new BridgeReceiver({
-      dataDir: receiverDataDir,
       defaultSaveDir: args.defaultSaveDir,
       pickName: (saveDir, desired) =>
         args.finalNamePicker.pick(saveDir, desired),

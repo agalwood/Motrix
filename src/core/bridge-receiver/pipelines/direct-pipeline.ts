@@ -53,12 +53,12 @@ export class DirectPipeline {
     // beforeCreate plugin made to params.headers. Dropping the duplicate lets
     // the plugin-mutable params.headers win.
     const extraEngineOptions: Record<string, string | string[]> = {
-      'load-cookies': adapted.jarPath,
       referer: adapted.pageUrl,
     }
     const { taskId } = await this.deps.createTask(req, undefined, {
       source: 'bridge',
       sourceMeta: adapted.sourceMeta,
+      cookies: adapted.cookies,
       extraEngineOptions,
     })
     return { taskId }

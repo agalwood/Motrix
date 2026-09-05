@@ -19,6 +19,7 @@ function createMockRpc(): Aria2RpcClient {
     disconnect: vi.fn(),
     isConnected: vi.fn(() => true),
     addUri: vi.fn(),
+    addUriWithCookies: vi.fn(),
     addTorrent: vi.fn(),
     addMetalink: vi.fn(),
     remove: vi.fn(),
@@ -417,6 +418,98 @@ describe('Aria2Adapter', () => {
   })
 
   describe('createDownload', () => {
+    it.each([
+      { cookies: [] },
+      { cookies: [{ name: 'sid', value: 'synthetic', domain: 'example.com' }] },
+    ])(
+      'keeps explicit cookie contexts on the dedicated RPC',
+      async ({ cookies }) => {
+        const rpc = createMockRpc()
+        vi.mocked(rpc.addUriWithCookies).mockResolvedValue('cookie-gid')
+        const adapter = new Aria2Adapter(rpc)
+        await expect(
+          adapter.createDownload({
+            uris: ['https://example.com/file'],
+            saveDir: '/tmp',
+            cookies,
+          })
+        ).resolves.toBe('cookie-gid')
+        expect(rpc.addUriWithCookies).toHaveBeenCalledWith(
+          ['https://example.com/file'],
+          cookies,
+          expect.objectContaining({ dir: '/tmp' })
+        )
+        expect(rpc.addUri).not.toHaveBeenCalled()
+      }
+    )
+
+    it('rejects an unsupported cookie RPC without retrying a credential-free download', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUriWithCookies).mockRejectedValue(
+        new Error('No such method: aria2.addUriWithCookies')
+      )
+      const adapter = new Aria2Adapter(rpc)
+      await expect(
+        adapter.createDownload({
+          uris: ['https://example.com/file'],
+          saveDir: '/tmp',
+          cookies: [],
+        })
+      ).rejects.toMatchObject({ code: ErrorCode.EngineFeatureUnavailable })
+      expect(rpc.addUri).not.toHaveBeenCalled()
+      expect(rpc.addUriWithCookies).toHaveBeenCalledTimes(1)
+    })
+
+    it('retains the cookie context during connection-limit compatibility retries', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUriWithCookies)
+        .mockRejectedValueOnce(
+          new Error(
+            'errorCode=28: max-connection-per-server must be between 1 and 16'
+          )
+        )
+        .mockResolvedValueOnce('cookie-gid')
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setFeatureReport(featureReport())
+      const cookies = [
+        { name: 'sid', value: 'synthetic', domain: 'example.com' },
+      ]
+      await adapter.createDownload({
+        uris: ['https://example.com/file'],
+        saveDir: '/tmp',
+        connections: 64,
+        cookies,
+      })
+      expect(rpc.addUriWithCookies).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Array),
+        cookies,
+        expect.objectContaining({ split: '64' })
+      )
+      expect(rpc.addUriWithCookies).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Array),
+        cookies,
+        expect.objectContaining({ split: '16' })
+      )
+      expect(rpc.addUri).not.toHaveBeenCalled()
+    })
+
+    it('rejects metadata proofs that cannot represent task cookies', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setDirectResourceMetadataProfile(DIRECT_RESOURCE_METADATA_PROFILE)
+      await expect(
+        adapter.createDownload({
+          uris: ['https://example.com/file'],
+          saveDir: '/tmp',
+          cookies: [],
+          directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+        })
+      ).rejects.toThrow('request profile')
+      expect(rpc.addUriWithCookies).not.toHaveBeenCalled()
+    })
+
     it('pins the metadata-owned baseline and preserves explicit credentials', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('profile-gid')

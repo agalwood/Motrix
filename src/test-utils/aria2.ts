@@ -24,6 +24,8 @@ export interface Aria2Handle {
 
 export interface SpawnAria2Options {
   baseDir: string
+  /** Optional explicit binary for compatibility tests against older engines. */
+  binaryPath?: string
   port?: number
   secret?: string
   waitForHttpRpc?: boolean
@@ -92,11 +94,13 @@ export async function spawnAria2ForTest(
 ): Promise<Aria2Handle> {
   const port = opts.port ?? 16800 + Math.floor(Math.random() * 2000)
   const secret = opts.secret ?? 'test_secret'
-  const bin = resolveBundledAria2()
+  const bin = opts.binaryPath ?? resolveBundledAria2()
 
   const proc = spawn(
     bin,
     [
+      '--no-conf=true',
+      '--no-netrc=true',
       '--enable-rpc=true',
       `--rpc-listen-port=${port}`,
       `--rpc-secret=${secret}`,

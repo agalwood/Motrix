@@ -132,6 +132,7 @@ function httpRequest() {
 
 function makeDeps(overrides: DepOverrides = {}): Deps & {
   addUri: ReturnType<typeof vi.fn>
+  addUriWithCookies: ReturnType<typeof vi.fn>
   addTorrent: ReturnType<typeof vi.fn>
   pick: ReturnType<typeof vi.fn>
   persist: ReturnType<typeof vi.fn>
@@ -158,6 +159,13 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
       options: Record<string, unknown>
     ) => String(options.gid ?? overrides.addTorrentGid ?? 'gid-bt')
   )
+  const addUriWithCookies = vi.fn(
+    async (
+      _uris: string[],
+      _cookies: unknown[],
+      options: Record<string, unknown>
+    ) => String(options.gid ?? 'cookie-gid')
+  )
   const forceRemove = vi.fn(async () => undefined)
   const removeDownloadResult = vi.fn(async () => undefined)
   const pick = vi.fn(
@@ -179,6 +187,7 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
   // subscriptions are required by the constructor and are no-op stubs here.
   const rpcClient = {
     addUri,
+    addUriWithCookies,
     addTorrent,
     forceRemove,
     removeDownloadResult,
@@ -247,6 +256,7 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
     activityRecorder,
     eventBus,
     addUri,
+    addUriWithCookies,
     addTorrent,
     pick,
     persist,
@@ -279,6 +289,40 @@ function lastAddedTask(deps: { add: ReturnType<typeof vi.fn> }): DownloadTask {
 }
 
 describe('handleCreateTask', () => {
+  it('dispatches cookies only to the engine and blocks credential-free probing and replay', async () => {
+    const deps = makeDeps()
+    const probe = vi.fn()
+    const capture = vi.fn()
+    deps.directResourceValidator = { probe, capture }
+    const cookies = [
+      { name: 'sid', value: 'COOKIE_ONLY_IN_MEMORY', domain: 'a' },
+    ]
+    await handleCreateTask(
+      { type: 'http', uris: ['https://a/b'], saveDir: '/d', headers: [] },
+      deps,
+      { source: 'bridge', cookies }
+    )
+    expect(deps.addUriWithCookies).toHaveBeenCalledWith(
+      ['https://a/b'],
+      cookies,
+      expect.objectContaining({ dir: '/d' })
+    )
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(probe).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    const task = lastAddedTask(deps)
+    expect(task.instances[0]?.payload).toMatchObject({
+      directReplay: {
+        requestModifiers: ['cookies'],
+        replayability: 'requires-credentials',
+      },
+    })
+    expect(JSON.stringify(task)).not.toContain('COOKIE_ONLY_IN_MEMORY')
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(
+      'COOKIE_ONLY_IN_MEMORY'
+    )
+  })
+
   it('reuses an exact active torrent before allocating storage or an engine gid', async () => {
     const bytes = makePublicTorrentFixture()
     const parsed = await parseBtFileLayout(bytes)

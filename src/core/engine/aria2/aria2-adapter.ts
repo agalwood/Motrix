@@ -27,6 +27,7 @@ import type {
   AddTorrentParams,
   CreateDownloadParams,
   DirectResourceMetadataProfile,
+  DownloadCookie,
   EngineAdapter,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
@@ -299,15 +300,36 @@ export class Aria2Adapter implements EngineAdapter {
 
   private async addUriWithConnectionFallback(
     uris: string[],
-    options: Record<string, string | string[]>
+    options: Record<string, string | string[]>,
+    cookies?: readonly DownloadCookie[]
   ): Promise<string> {
+    const submit = (requestOptions: Record<string, string | string[]>) => {
+      if (cookies === undefined) return this.rpc.addUri(uris, requestOptions)
+      return this.rpc
+        .addUriWithCookies(uris, cookies, requestOptions)
+        .catch((error: unknown) => {
+          if (
+            error instanceof Error &&
+            /(?:no such method|method not found).*addUriWithCookies/i.test(
+              error.message
+            )
+          ) {
+            throw new AppError(
+              ErrorCode.EngineFeatureUnavailable,
+              'Task cookies require aria2 1.37.0-motrix.13 or a compatible engine. Update the download engine.',
+              error
+            )
+          }
+          throw error
+        })
+    }
     const firstOptions =
       this.connectionOptionLimit === null
         ? options
         : this.capConnectionOptions(options, this.connectionOptionLimit)
 
     try {
-      return await this.rpc.addUri(uris, firstOptions)
+      return await submit(firstOptions)
     } catch (error) {
       const fallbackOptions = this.capConnectionOptions(
         firstOptions,
@@ -323,7 +345,7 @@ export class Aria2Adapter implements EngineAdapter {
         { err: error },
         'aria2 rejected connection options; retrying with compatibility limit'
       )
-      return this.rpc.addUri(uris, fallbackOptions)
+      return submit(fallbackOptions)
     }
   }
 
@@ -344,7 +366,8 @@ export class Aria2Adapter implements EngineAdapter {
     const metadataProfile = params.directResourceMetadataProfile
     if (
       metadataProfile !== undefined &&
-      this.getDirectResourceMetadataProfile() !== metadataProfile
+      (params.cookies !== undefined ||
+        this.getDirectResourceMetadataProfile() !== metadataProfile)
     ) {
       throw new Error(
         'aria2 HTTP request profile changed before download dispatch'
@@ -496,7 +519,8 @@ export class Aria2Adapter implements EngineAdapter {
 
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
-      options
+      options,
+      params.cookies
     )
     if (
       requestedGid !== undefined &&
