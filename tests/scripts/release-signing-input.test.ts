@@ -12,6 +12,7 @@ import {
   truncate,
   writeFile,
 } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -23,6 +24,7 @@ import {
 } from '../../scripts/release-signing-input.mjs'
 
 const ROOT = process.cwd()
+const require = createRequire(import.meta.url)
 const COMMIT = 'a'.repeat(40)
 const temporaryDirectories: string[] = []
 const HASH_PINNED_TEXT_SOURCES = [
@@ -48,6 +50,11 @@ const TRUSTED_FIXTURES = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  ['build/installerHeader.bmp', 'signing-build-resources/installerHeader.bmp'],
+  [
+    'build/installerSidebar.bmp',
+    'signing-build-resources/installerSidebar.bmp',
+  ],
   ['build/torrent.icns', 'signing-build-resources/torrent.icns'],
   ['build/torrent.ico', 'signing-build-resources/torrent.ico'],
   ['build/installer.nsh', 'signing-policy/installer.nsh'],
@@ -158,6 +165,70 @@ describe('isolated release signing input', () => {
     })
   })
 
+  it.each([
+    { name: 'both images', header: true, sidebar: true },
+    { name: 'missing header', header: false, sidebar: true },
+    { name: 'missing sidebar', header: true, sidebar: false },
+    { name: 'no artwork', header: false, sidebar: false },
+  ])('resolves optional NSIS artwork after staging: $name', async (artwork) => {
+    const omittedSources = [
+      ...(!artwork.header ? ['build/installerHeader.bmp'] : []),
+      ...(!artwork.sidebar ? ['build/installerSidebar.bmp'] : []),
+    ]
+    const { directory, sourceRoot } = await createGeneratedSigningInput(
+      [],
+      omittedSources
+    )
+    await verify(directory)
+    for (const [projectDir, configPath] of [
+      [sourceRoot, path.join(ROOT, 'electron-builder.json')],
+      [directory, path.join(directory, 'electron-builder.signing.json')],
+    ]) {
+      const config = JSON.parse(await readFile(configPath!, 'utf8'))
+      const { defines, buildResourcesDir } = await resolveNsisArtwork(
+        projectDir!,
+        config
+      )
+      const header = path.join(buildResourcesDir, 'installerHeader.bmp')
+      const sidebar = path.join(buildResourcesDir, 'installerSidebar.bmp')
+      if (artwork.header) {
+        expect(defines.MUI_HEADERIMAGE).toBeNull()
+        expect(defines.MUI_HEADERIMAGE_BITMAP).toBe(header)
+        expect(await readFile(header)).toEqual(
+          await readFile(path.join(ROOT, 'build/installerHeader.bmp'))
+        )
+      } else {
+        expect(defines).not.toHaveProperty('MUI_HEADERIMAGE_BITMAP')
+      }
+      const expectedSidebar = artwork.sidebar
+        ? sidebar
+        : `\${NSISDIR}\\Contrib\\Graphics\\Wizard\\nsis3-metro.bmp`
+      expect(defines.MUI_WELCOMEFINISHPAGE_BITMAP).toBe(expectedSidebar)
+      expect(defines.MUI_UNWELCOMEFINISHPAGE_BITMAP).toBe(expectedSidebar)
+      if (artwork.sidebar) {
+        expect(await readFile(sidebar)).toEqual(
+          await readFile(path.join(ROOT, 'build/installerSidebar.bmp'))
+        )
+      }
+    }
+  })
+
+  it.each(['installerHeader.bmp', 'installerSidebar.bmp'])(
+    'rejects replaced branded artwork even with a refreshed manifest: %s',
+    async (filename) => {
+      const directory = await createFixture()
+      const bitmap = path.join(directory, 'signing-build-resources', filename)
+      const bytes = await readFile(bitmap)
+      bytes[bytes.length - 1] ^= 1
+      await writeFile(bitmap, bytes)
+      await refreshManifest(directory)
+
+      await expect(verify(directory)).rejects.toThrow(
+        `trusted signing input digest mismatch: signing-build-resources/${filename}`
+      )
+    }
+  )
+
   it('creates and verifies a canonical manifest for prefix-colliding paths', async () => {
     const schemaFile = 'dist/electron-app/node_modules/js-yaml/lib/schema.js'
     const schemaChild =
@@ -166,7 +237,7 @@ describe('isolated release signing input', () => {
       'dist/electron-app/node_modules/libsodium/dist/libsodium.js'
     const libsodiumWrappersFile =
       'dist/electron-app/node_modules/libsodium-wrappers/dist/libsodium-wrappers.js'
-    const directory = await createGeneratedSigningInput([
+    const { directory } = await createGeneratedSigningInput([
       [schemaChild, 'schema child'],
       [schemaFile, 'schema module'],
       [libsodiumFile, 'libsodium'],
@@ -435,12 +506,14 @@ async function createFixture(
 }
 
 async function createGeneratedSigningInput(
-  files: Array<[string, string]>
-): Promise<string> {
+  files: Array<[string, string]>,
+  omittedSources: string[] = []
+): Promise<{ directory: string; sourceRoot: string }> {
   const sourceRoot = await realpath(
     await temporaryDirectory('motrix-signing-source-')
   )
   for (const [source] of TRUSTED_FIXTURES) {
+    if (omittedSources.includes(source)) continue
     const target = path.join(sourceRoot, source)
     await mkdir(path.dirname(target), { recursive: true })
     await cp(path.join(ROOT, source), target)
@@ -451,6 +524,7 @@ async function createGeneratedSigningInput(
     ['THIRD_PARTY_NOTICES.zh-CN.md', 'notices'],
     ['build/legal/LICENSE.txt', 'legal'],
     ['dist/builtin-plugins/plugin.json', '{}'],
+    ['dist/electron-app/package.json', '{"name":"motrix","private":true}'],
     ['extra/aria2.conf', ''],
     ['extra/tray/icon.png', 'tray'],
     ['extra/win32/x64/aria2c.exe', 'aria2'],
@@ -496,7 +570,7 @@ async function createGeneratedSigningInput(
       `signing input create failed: ${result.stderr || result.stdout}`
     )
   }
-  return directory
+  return { directory, sourceRoot }
 }
 
 async function refreshManifest(directory: string) {
@@ -562,4 +636,39 @@ function compareCodeUnits(left: string, right: string): number {
   if (left < right) return -1
   if (left > right) return 1
   return 0
+}
+
+async function resolveNsisArtwork(
+  projectDir: string,
+  config: {
+    directories: { buildResources: string }
+    nsis: { oneClick?: boolean }
+  }
+) {
+  const buildResourcesDir = path.resolve(
+    projectDir,
+    config.directories.buildResources
+  )
+  // Initialize the entry point first: the platform modules have circular
+  // dependencies. Exercise the pinned builder's real resource resolution.
+  require('app-builder-lib')
+  const { PlatformPackager } = require('app-builder-lib/out/platformPackager')
+  const { NsisTarget } = require('app-builder-lib/out/targets/nsis/NsisTarget')
+  const defines: Record<string, string | null> = {}
+  await NsisTarget.prototype.configureDefines.call(
+    {
+      options: config.nsis,
+      packager: {
+        info: { buildResourcesDir, cancellationToken: { cancelled: false } },
+        projectDir,
+        resourceList: Promise.resolve(await readdir(buildResourcesDir)),
+        appInfo: { sanitizedProductName: 'Motrix' },
+        expandMacro: () => 'Motrix',
+        getResource: PlatformPackager.prototype.getResource,
+      },
+    },
+    config.nsis.oneClick !== false,
+    defines
+  )
+  return { defines, buildResourcesDir }
 }

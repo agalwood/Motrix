@@ -168,8 +168,6 @@
   },
   "nsis": {
     "include": "build/installer.nsh",
-    "installerHeader": "build/installer-header.bmp",
-    "installerSidebar": "build/installer-sidebar.bmp",
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
