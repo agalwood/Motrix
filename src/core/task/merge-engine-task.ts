@@ -1,8 +1,9 @@
 import type { DownloadTask } from '@shared/types/task'
-import { TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TransitionPhase } from '@shared/types/task'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
 import { nonZeroMerge } from './non-zero-merge'
+import { syncTerminalInstanceStatus } from './task-instance'
 
 /**
  * Pure merge; this module never persists and never builds an occurrence.
@@ -60,7 +61,7 @@ export function mergeEngineTask(
     },
     now
   )
-  return {
+  const merged: DownloadTask = {
     ...existing,
     ...terminalFields,
     progress,
@@ -80,6 +81,15 @@ export function mergeEngineTask(
     bt: protected_.bt ?? existing.bt,
     updatedAt: now,
   }
+  if (
+    merged.status === TaskStatus.Completed ||
+    merged.status === TaskStatus.Error
+  ) {
+    // The candidate must not mutate live instances before persistence succeeds.
+    merged.instances = existing.instances.map((instance) => ({ ...instance }))
+    syncTerminalInstanceStatus(merged, merged.status)
+  }
+  return merged
 }
 
 export function hasEngineTaskDelta(

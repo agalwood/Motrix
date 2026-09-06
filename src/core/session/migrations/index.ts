@@ -22,7 +22,8 @@ interface Migration {
 // Downloads pill can say "Ready" instead of the misleading
 // "Fetching"). v3 adds task-owned Inspector Activity persistence. v4 adds
 // durable plugin finalize journals plus post-delivery and quota state. v5
-// persists the user-selected save directory independently of engine paths.
+// persists the user-selected save directory independently of engine paths and
+// repairs stale instance statuses beneath terminal tasks.
 const MIGRATIONS: Migration[] = [v1, v2, v3, v4, v5]
 
 const HIGHEST_KNOWN_VERSION = MIGRATIONS.reduce(
