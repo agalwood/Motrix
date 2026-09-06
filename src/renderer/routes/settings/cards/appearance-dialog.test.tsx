@@ -222,6 +222,65 @@ describe('<AppearanceDialog>', () => {
     })
   })
 
+  it.each(['darwin', 'win32', 'linux', 'web'])(
+    'defaults reduce motion to off and saves only its dirty field on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const reduceMotion = await screen.findByRole('switch', {
+        name: 'Reduce motion',
+      })
+      const user = userEvent.setup()
+      expect(reduceMotion).not.toBeChecked()
+      await user.click(reduceMotion)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { reduceMotion: true },
+      })
+    }
+  )
+
+  it('hydrates reduce motion and discards unsaved changes on cancel', async () => {
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, reduceMotion: true },
+    })
+    const onClose = vi.fn()
+    render(
+      <AppearanceDialog
+        open
+        onClose={onClose}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const reduceMotion = await screen.findByRole('switch', {
+      name: 'Reduce motion',
+    })
+    await waitFor(() => expect(reduceMotion).toBeChecked())
+    const user = userEvent.setup()
+    await user.click(reduceMotion)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+
   it('waits for the host locale event after persisting a language change', async () => {
     render(
       <AppearanceDialog

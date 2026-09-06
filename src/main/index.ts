@@ -330,6 +330,11 @@ const settingsManager = new SettingsManager(settingsPath, {
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
+    if (old.app.reduceMotion !== updated.app.reduceMotion) {
+      eventBus.emit(Events.ReducedMotionChanged, {
+        reduceMotion: updated.app.reduceMotion,
+      })
+    }
     // Forward GeoIP changes to the manager so it can swap the in-memory
     // reader when `enabled` flips. The manager guards itself against
     // reentrancy (own update() calls don't loop because they only mutate

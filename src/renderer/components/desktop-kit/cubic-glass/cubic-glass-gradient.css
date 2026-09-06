@@ -80,6 +80,19 @@
   }
 }
 
+:where(html[data-reduced-motion="true"])
+  .cubic-glass-motion[data-effect-load-fade="true"] {
+  opacity: 1;
+  transition: none;
+}
+
+:where(html[data-reduced-motion="true"])
+  .cubic-glass-motion[data-effect-breathing="true"]
+  canvas[data-ready="true"] {
+  animation: none;
+  will-change: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cubic-glass-motion[data-effect-load-fade="true"] {
     opacity: 1;

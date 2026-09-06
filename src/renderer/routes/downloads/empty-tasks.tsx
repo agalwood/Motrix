@@ -11,6 +11,12 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@renderer/components/ui/empty'
+import {
+  useReducedMotion,
+  useSystemReducedMotion,
+} from '@renderer/lib/reduced-motion'
+import { transport } from '@renderer/lib/transport'
+import { Commands } from '@shared/protocol/commands'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DownloadsTab } from './filter'
@@ -40,10 +46,34 @@ export function EmptyTasks({
   onClearSearch,
 }: EmptyTasksProps) {
   const { t } = useTranslation()
+  const reducedMotion = useReducedMotion()
+  const systemReducedMotion = useSystemReducedMotion()
+  const [savingMotion, setSavingMotion] = useState(false)
+  const [motionSaveError, setMotionSaveError] = useState(false)
   const interactionRef = useRef<HTMLDivElement>(null)
-  const [glassEffects, setGlassEffects] = useState<CubicGlassEffects>(() => ({
+  const [previewEffects, setPreviewEffects] = useState<
+    Omit<CubicGlassEffects, 'enabled'>
+  >(() => ({
     ...DEFAULT_CUBIC_GLASS_EFFECTS,
   }))
+  const glassEffects: CubicGlassEffects = {
+    ...previewEffects,
+    enabled: !reducedMotion,
+  }
+  const setMotionEnabled = async (enabled: boolean) => {
+    if (savingMotion || systemReducedMotion) return
+    setSavingMotion(true)
+    setMotionSaveError(false)
+    try {
+      await transport.invoke(Commands.UpdateSettings, {
+        app: { reduceMotion: !enabled },
+      })
+    } catch {
+      setMotionSaveError(true)
+    } finally {
+      setSavingMotion(false)
+    }
+  }
   if (!hasAnyTasks) {
     return (
       <Empty
@@ -65,7 +95,11 @@ export function EmptyTasks({
         {CubicGlassMotionLab && (
           <CubicGlassMotionLab
             effects={glassEffects}
-            onEffectsChange={setGlassEffects}
+            onEffectsChange={setPreviewEffects}
+            onEnabledChange={setMotionEnabled}
+            saving={savingMotion}
+            saveError={motionSaveError}
+            systemReducedMotion={systemReducedMotion}
           />
         )}
       </Empty>

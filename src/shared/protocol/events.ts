@@ -35,6 +35,8 @@ export const Events = {
   AppCrash: 'event:appCrash',
   AppError: 'event:appError',
   SettingsChanged: 'event:settingsChanged',
+  // Payload: { reduceMotion: boolean }. Full settings remain host-internal.
+  ReducedMotionChanged: 'event:reducedMotionChanged',
   LocaleChanged: 'event:localeChanged',
   SpeedLimitChanged: 'event:speedLimitChanged',
   // Torrent

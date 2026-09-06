@@ -1,6 +1,7 @@
 import { LanguageSync } from '@renderer/components/language-sync'
 import { LocaleDirectionProvider } from '@renderer/components/locale-direction-provider'
 import { OperatorUnlockGate } from '@renderer/components/operator-unlock-gate'
+import { ReducedMotionSync } from '@renderer/components/reduced-motion-sync'
 import { ThemeSync } from '@renderer/components/theme-sync'
 import {
   bootstrapRendererLocale,
@@ -65,6 +66,7 @@ function Root({
     >
       <LocaleDirectionProvider>
         {syncSettings && <ThemeSync />}
+        <ReducedMotionSync syncSettings={syncSettings} />
         <LanguageSync windowId={windowId} />
         {children}
       </LocaleDirectionProvider>

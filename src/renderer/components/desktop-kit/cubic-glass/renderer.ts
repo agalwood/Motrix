@@ -1,4 +1,8 @@
 import {
+  getReducedMotion,
+  subscribeReducedMotion,
+} from '@renderer/lib/reduced-motion'
+import {
   POINTER_POSITION_CONSTRAINT,
   POINTER_TRAVEL,
   POINTER_Y_RESPONSE_SECONDS,
@@ -43,7 +47,6 @@ export function startCubicGlassRenderer(
   let dprQuery: MediaQueryList | null = null
   let finePointerQuery: MediaQueryList | null = null
   let lastTimestamp = 0
-  let reducedMotionQuery: MediaQueryList | null = null
   let rootBounds = { height: 0, left: 0, top: 0, width: 0 }
   let sceneDirty = true
   let pointerClientX = 0
@@ -61,7 +64,7 @@ export function startCubicGlassRenderer(
     return (
       effects.enabled &&
       effects.pointerFollow &&
-      reducedMotionQuery?.matches !== true &&
+      !getReducedMotion() &&
       finePointerQuery?.matches !== false
     )
   }
@@ -191,7 +194,7 @@ export function startCubicGlassRenderer(
   const scheduleSceneDraw = () => {
     sceneDirty = true
     if (!pointerFollowEnabled()) {
-      returnToOrigin(reducedMotionQuery?.matches === true)
+      returnToOrigin(getReducedMotion())
     }
     scheduleFrame()
   }
@@ -262,7 +265,7 @@ export function startCubicGlassRenderer(
     dprQuery?.addEventListener('change', handleDprChange)
   }
   const handleReducedMotionChange = () => {
-    if (reducedMotionQuery?.matches) returnToOrigin(true)
+    if (getReducedMotion()) returnToOrigin(true)
     scheduleSceneDraw()
   }
   const handlePointerCapabilityChange = () => {
@@ -280,10 +283,9 @@ export function startCubicGlassRenderer(
     scheduleSceneDraw()
   }
   bindDprQuery()
+  const stopMotionSync = subscribeReducedMotion(handleReducedMotionChange)
   if (typeof window.matchMedia === 'function') {
-    reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     finePointerQuery = window.matchMedia('(hover: hover) and (pointer: fine)')
-    reducedMotionQuery.addEventListener('change', handleReducedMotionChange)
     finePointerQuery.addEventListener('change', handlePointerCapabilityChange)
   }
   interactionElement.addEventListener('pointerleave', handlePointerLeave)
@@ -301,7 +303,7 @@ export function startCubicGlassRenderer(
     resizeObserver?.disconnect()
     themeObserver?.disconnect()
     dprQuery?.removeEventListener('change', handleDprChange)
-    reducedMotionQuery?.removeEventListener('change', handleReducedMotionChange)
+    stopMotionSync()
     finePointerQuery?.removeEventListener(
       'change',
       handlePointerCapabilityChange

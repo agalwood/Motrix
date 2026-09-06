@@ -41,6 +41,7 @@ import type { SettingsCardDialogProps } from './card-types'
 type AppearanceFields = Pick<
   MotrixAppSettings,
   | 'theme'
+  | 'reduceMotion'
   | 'language'
   | 'traySpeedometer'
   | 'runMode'
@@ -53,6 +54,7 @@ type AppearanceFields = Pick<
 // fields it edits. Keep this Pick<> in sync if the schema fields change.
 const DEFAULTS: AppearanceFields = {
   theme: DEFAULT_APP_SETTINGS.theme,
+  reduceMotion: DEFAULT_APP_SETTINGS.reduceMotion,
   language: DEFAULT_APP_SETTINGS.language,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
   runMode: DEFAULT_APP_SETTINGS.runMode,
@@ -89,6 +91,7 @@ export function AppearanceDialog({
         if (all?.app) {
           form.reset({
             theme: all.app.theme,
+            reduceMotion: all.app.reduceMotion ?? DEFAULTS.reduceMotion,
             language: all.app.language,
             traySpeedometer: all.app.traySpeedometer,
             runMode:
@@ -245,6 +248,29 @@ export function AppearanceDialog({
                           </SelectGroup>
                         </SelectContent>
                       </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="reduceMotion"
+                render={({ field }) => (
+                  <FormItem className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <FormLabel>
+                        {t('settings.appearance.reduceMotion')}
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        {t('settings.appearance.reduceMotionDesc')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
