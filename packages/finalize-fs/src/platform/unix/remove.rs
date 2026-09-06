@@ -249,6 +249,13 @@ pub(crate) fn remove_opened(
     quarantine_relative: &str,
     resume_isolated: bool,
 ) -> io::Result<()> {
+    if artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "rename-only handle cannot copy or remove an artifact",
+        ));
+    }
+
     let opened_stat = ensure_same_entry(
         artifact.artifact.as_raw_fd(),
         artifact.parent.as_raw_fd(),

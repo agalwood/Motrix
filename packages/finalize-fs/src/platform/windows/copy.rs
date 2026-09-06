@@ -10,18 +10,20 @@ pub(crate) fn copy_opened(
     target: &RootHandle,
     target_relative: &str,
 ) -> io::Result<()> {
-    ensure_snapshot(&artifact.handle, &artifact.snapshot)?;
+    let snapshot = artifact.snapshot.as_ref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "rename-only handle cannot copy or remove an artifact",
+        )
+    })?;
+
+    ensure_snapshot(&artifact.handle, snapshot)?;
     ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
 
     let target_parts = validate_relative(target_relative)?;
     let (target_parent, target_name) = open_parent(&target.handle, &target_parts)?;
-    materialize(
-        &artifact.handle,
-        &artifact.snapshot,
-        &target_parent,
-        &target_name,
-    )?;
-    ensure_snapshot(&artifact.handle, &artifact.snapshot)?;
+    materialize(&artifact.handle, snapshot, &target_parent, &target_name)?;
+    ensure_snapshot(&artifact.handle, snapshot)?;
     ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
     super::nt::flush(&target_parent)
 }

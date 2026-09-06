@@ -77,3 +77,10 @@ pub(crate) fn sync_root(_root: &RootHandle) -> io::Result<()> {
         "directory durability is not implemented on this platform",
     ))
 }
+
+pub(crate) fn open_artifact_for_rename(
+    root: &RootHandle,
+    relative: &str,
+) -> io::Result<ArtifactHandle> {
+    open_artifact(root, relative)
+}

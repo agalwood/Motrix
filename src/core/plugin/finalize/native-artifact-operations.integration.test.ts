@@ -11,13 +11,16 @@ import {
 } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   artifactContentEquals,
+  artifactIdentityEquals,
   readArtifactIdentity,
 } from './artifact-identity'
+import { ArtifactMutationLeaseCoordinator } from './artifact-mutation-lease'
 import { NativeFinalizeFilesystemAdapter } from './filesystem-adapter'
-import { removalQuarantinePath } from './finalize-committer'
+import { FinalizeCommitter, removalQuarantinePath } from './finalize-committer'
+import * as hashing from './hash-opened-file'
 import { NativeFinalizeArtifactOperations } from './native-artifact-operations'
 
 const binary = process.env.MOTRIX_FINALIZE_FS_TEST_BIN
@@ -36,6 +39,7 @@ describe.runIf(existsSync(binary))(
     const roots: string[] = []
 
     afterEach(async () => {
+      vi.restoreAllMocks()
       await Promise.all(
         roots
           .splice(0)
@@ -53,6 +57,60 @@ describe.runIf(existsSync(binary))(
       await operations.assertSupported()
       return { root, adapter, operations }
     }
+
+    it('finalizes a large file with at most two content reads and metadata-only native rename', async () => {
+      const { root, adapter, operations } = await setup()
+      const source = path.join(root, 'large.part')
+      const target = path.join(root, 'large.bin')
+      await writeFile(source, Buffer.alloc(17 * 1024 * 1024, 0x53))
+      const hash = vi.spyOn(hashing, 'hashOpenedFile')
+      const nativeOpen = vi.spyOn(adapter, 'openArtifact')
+      const sourceIdentity = await operations.identity(source)
+      if (!sourceIdentity) throw new Error('missing fixture')
+      const commitTerminal = vi.fn()
+      const committer = new FinalizeCommitter({
+        fs: operations,
+        leases: new ArtifactMutationLeaseCoordinator([]),
+        repository: {
+          prepare: vi.fn(),
+          checkpoint: vi.fn(),
+          advance: vi.fn(),
+          commitTerminal,
+          quarantine: vi.fn(),
+          listRecoverable: async () => [],
+        },
+        privatePathFor: () => path.join(root, '.private'),
+        rollbackPathFor: () => path.join(root, '.rollback'),
+        exactIdentity: artifactIdentityEquals,
+        sameContent: artifactContentEquals,
+      })
+      try {
+        await committer.commit({
+          planId: 'large-plan',
+          taskId: 'large-task',
+          saveDir: root,
+          sourcePath: source,
+          targetPath: target,
+          sourceIdentity,
+          metadataOps: [],
+          contributors: [],
+        })
+        expect(hash).toHaveBeenCalled()
+        expect(hash.mock.calls.length).toBeLessThanOrEqual(2)
+        expect(nativeOpen).toHaveBeenCalledWith(
+          expect.anything(),
+          'large.part',
+          'rename'
+        )
+        expect(commitTerminal).toHaveBeenCalledOnce()
+        expect(existsSync(source)).toBe(false)
+        expect(
+          (await readFile(target)).equals(Buffer.alloc(17 * 1024 * 1024, 0x53))
+        ).toBe(true)
+      } finally {
+        await adapter.dispose()
+      }
+    })
 
     it('publishes a held file without replacing an existing target', async () => {
       const { root, adapter, operations } = await setup()

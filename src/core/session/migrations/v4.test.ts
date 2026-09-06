@@ -40,7 +40,7 @@ describe('migration v4', () => {
     const db = openMemory()
     migrate(db)
 
-    expect(readVersion(db)).toBe(4)
+    expect(readVersion(db)).toBe(5)
     const rows = db
       .prepare(
         `SELECT name FROM sqlite_master
@@ -68,7 +68,7 @@ describe('migration v4', () => {
 
     migrate(db)
 
-    expect(readVersion(db)).toBe(4)
+    expect(readVersion(db)).toBe(5)
     expect(
       db.prepare("SELECT name FROM tasks WHERE motrix_id = 'survivor'").get()
     ).toEqual({ name: 'fixture' })

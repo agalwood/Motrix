@@ -124,6 +124,8 @@ export const NOTIFICATION_LIST_LIMIT = 100
  *  status. Does NOT carry any engine GID or per-instance progress; those
  *  live in TaskInstanceRow. */
 export interface TaskRow {
+  /** Missing on legacy rows until their save directory is reconstructed. */
+  saveDir?: string | null
   motrixId: string
   name: string
   kind: TaskKind
@@ -307,7 +309,7 @@ export class MotrixDatabase {
     const TASK_COLS = `
       motrix_id, name, kind, task_type, category, priority, tags,
       created_at, updated_at,
-      final_path, final_name, torrent_meta_path,
+      save_dir, final_path, final_name, torrent_meta_path,
       info_hash, total_bytes, downloaded_bytes, size_when_done, file_count,
       is_private, trackers, piece_length,
       agg_status, finished_at, error_message, error_code,
@@ -325,7 +327,7 @@ export class MotrixDatabase {
       INSERT INTO tasks (
         motrix_id, name, kind, task_type, category, priority, tags,
         created_at, updated_at,
-        final_path, final_name, torrent_meta_path,
+        save_dir, final_path, final_name, torrent_meta_path,
         info_hash, total_bytes, downloaded_bytes, size_when_done, file_count,
         is_private, trackers, piece_length,
         agg_status, finished_at, error_message, error_code,
@@ -334,7 +336,7 @@ export class MotrixDatabase {
       ) VALUES (
         @motrixId, @name, @kind, @taskType, @category, @priority, @tags,
         @createdAt, @updatedAt,
-        @finalPath, @finalName, @torrentMetaPath,
+        @saveDir, @finalPath, @finalName, @torrentMetaPath,
         @infoHash, @totalBytes, @downloadedBytes, @sizeWhenDone, @fileCount,
         @isPrivate, @trackers, @pieceLength,
         @aggStatus, @finishedAt, @errorMessage, @errorCode,
@@ -349,6 +351,7 @@ export class MotrixDatabase {
         priority = @priority,
         tags = @tags,
         updated_at = @updatedAt,
+        save_dir = COALESCE(@saveDir, tasks.save_dir),
         final_path = @finalPath,
         final_name = @finalName,
         torrent_meta_path = @torrentMetaPath,
@@ -1286,6 +1289,7 @@ export class MotrixDatabase {
       tags: t.tags,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
+      saveDir: t.saveDir || null,
       finalPath: t.finalPath,
       finalName: t.finalName,
       torrentMetaPath: t.torrentMetaPath,
@@ -1353,6 +1357,7 @@ export class MotrixDatabase {
 }
 
 interface RawTaskRow {
+  save_dir: string | null
   motrix_id: string
   name: string
   kind: string
@@ -1429,6 +1434,7 @@ function mapTaskRow(row: RawTaskRow): TaskRow {
     tags: row.tags,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    saveDir: row.save_dir,
     finalPath: row.final_path,
     finalName: row.final_name,
     torrentMetaPath: row.torrent_meta_path,

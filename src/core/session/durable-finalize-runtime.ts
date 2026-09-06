@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import {
+  ArtifactIdentityError,
   artifactContentEquals,
   artifactIdentityEquals,
-  readArtifactIdentity,
 } from '@core/plugin/finalize/artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from '@core/plugin/finalize/artifact-mutation-lease'
 import type { FinalizeArtifactOperations } from '@core/plugin/finalize/finalize-committer'
@@ -59,11 +59,11 @@ export class DurableFinalizeRuntime {
     try {
       // H8: identity capture is inside the mutation lease, after every
       // engine/Host writer has successfully quiesced.
-      const sourceIdentity = await readArtifactIdentity(input.sourcePath)
+      const sourceIdentity = await this.captureIdentity(input.sourcePath)
       const replacement = input.replacement
         ? {
             ...input.replacement,
-            identity: await readArtifactIdentity(input.replacement.stagedPath),
+            identity: await this.captureIdentity(input.replacement.stagedPath),
           }
         : undefined
       const plan = freezeHookPlan({
@@ -128,6 +128,16 @@ export class DurableFinalizeRuntime {
     } finally {
       await lease.release()
     }
+  }
+
+  private async captureIdentity(artifactPath: string) {
+    const identity = await this.options.fs.identity(artifactPath)
+    if (!identity)
+      throw new ArtifactIdentityError(
+        'artifact_missing',
+        `artifact is missing: ${artifactPath}`
+      )
+    return identity
   }
 
   /** Recover before task restore: committed rows clean up; uncommitted targets roll back. */

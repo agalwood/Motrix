@@ -159,3 +159,27 @@ fn darwin_rename_is_no_replace_for_files_and_directories() {
     assert_eq!(std::fs::read(base.join("target/opened")).unwrap(), b"held");
     let _ = std::fs::remove_dir_all(base);
 }
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[test]
+fn rename_only_handles_do_not_read_large_payloads_or_authorize_removal() {
+    let base = std::env::temp_dir().join(format!("motrix-rename-large-{}", std::process::id()));
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    let file = std::fs::File::create(base.join("source")).unwrap();
+    file.set_len(68 * 1024 * 1024 * 1024).unwrap();
+    drop(file);
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "source").unwrap();
+    assert!(artifact.opened_file_sha256.is_none());
+    assert!(artifact.opened_tree.is_none());
+    assert!(super::copy_opened(&artifact, &root, "copy").is_err());
+    assert!(remove_opened(&artifact, ".quarantine", false).is_err());
+    assert!(base.join("source").exists());
+    super::rename_opened_no_replace(&artifact, &root, "target").unwrap();
+    assert_eq!(
+        std::fs::metadata(base.join("target")).unwrap().len(),
+        68 * 1024 * 1024 * 1024
+    );
+    std::fs::remove_dir_all(base).unwrap();
+}

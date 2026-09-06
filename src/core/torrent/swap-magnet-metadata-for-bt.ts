@@ -27,6 +27,7 @@ import type { FinalNamePicker } from '@core/task/final-name-picker'
 import { toTempPath } from '@core/task/paths'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
+import { restoreTaskSaveDirectory } from '@core/task/task-save-directory'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { TaskCreateSuccessResult } from '@shared/schemas/add-task'
@@ -265,6 +266,7 @@ async function swapMagnetMetadataForBtUnderMutation(
   const previousGraph = {
     task: {
       ...existing.task,
+      saveDir: restoreTaskSaveDirectory(existing.task, existing.instances),
       torrentMetaPath,
     },
     instances: existing.instances,
@@ -354,6 +356,7 @@ async function swapMagnetMetadataForBtUnderMutation(
   // previousGraph (including the original finalPath) when it completes.
   const reservationTask: TaskRow = {
     ...previousGraph.task,
+    saveDir,
     finalPath: saveDir,
     updatedAt: now,
   }
@@ -491,6 +494,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     ...existing.task,
     name: finalName,
     taskType: TaskType.Bt,
+    saveDir,
     finalPath,
     finalName,
     torrentMetaPath,

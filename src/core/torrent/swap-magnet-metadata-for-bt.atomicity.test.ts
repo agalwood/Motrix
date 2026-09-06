@@ -303,6 +303,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
         motrixId: taskId,
         aggStatus: TaskStatus.Error,
         taskType: TaskType.Magnet,
+        saveDir,
         finalPath: saveDir,
         errorMessage: 'Magnet swap cleanup is quarantined',
       })
@@ -684,6 +685,7 @@ function makeMetadataReadyTask(taskId: string, saveDir: string): TaskRow {
     tags: null,
     createdAt: 1_700_000_000_000,
     updatedAt: 1_700_000_000_100,
+    saveDir,
     finalPath: saveDir,
     finalName: '',
     torrentMetaPath: null,

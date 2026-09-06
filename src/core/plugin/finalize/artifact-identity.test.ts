@@ -1,12 +1,15 @@
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  ArtifactIdentityCache,
   artifactContentEquals,
   artifactIdentityEquals,
   readArtifactIdentity,
 } from './artifact-identity'
+import * as hashing from './hash-opened-file'
 
 describe('artifact identity', () => {
   it('hashes regular files with a held no-follow descriptor', async () => {
@@ -61,5 +64,36 @@ describe('artifact identity', () => {
     await expect(
       readArtifactIdentity(root, { maxEntries: 1 })
     ).rejects.toMatchObject({ code: 'artifact_too_large' })
+  })
+})
+
+describe('artifact digest reuse', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('reuses unchanged file bytes but detects same-size edits inside a directory', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-cached-tree-'))
+    const file = path.join(root, 'file')
+    await writeFile(file, 'before')
+    const hash = vi.spyOn(hashing, 'hashOpenedFile')
+    const options = { cache: new ArtifactIdentityCache() }
+    const first = await readArtifactIdentity(root, options)
+    expect(await readArtifactIdentity(root, options)).toEqual(first)
+    expect(hash).toHaveBeenCalledTimes(1)
+    await writeFile(file, 'edited')
+    expect(await readArtifactIdentity(root, options)).not.toEqual(first)
+    expect(hash).toHaveBeenCalledTimes(2)
+  })
+
+  it('hashes large held files in the worker without changing the digest', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-worker-hash-'))
+    const file = path.join(root, 'large')
+    const bytes = Buffer.alloc(17 * 1024 * 1024, 0x61)
+    await writeFile(file, bytes)
+    const identity = await readArtifactIdentity(file)
+    expect(identity).toMatchObject({
+      kind: 'file',
+      size: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    })
   })
 })

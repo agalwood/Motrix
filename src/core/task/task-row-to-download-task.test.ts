@@ -8,6 +8,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import { describe, expect, it } from 'vitest'
+import { btStoragePayload, createBtStoragePlan } from './bt-storage-layout'
 import { taskRowToDownloadTask } from './task-row-to-download-task'
 
 function makeTaskRow(overrides: Partial<TaskRow> = {}): TaskRow {
@@ -120,5 +121,60 @@ describe('taskRowToDownloadTask', () => {
       diskPath: '/Downloads/video.motrix',
       finalPath: '/Downloads/video',
     })
+  })
+})
+
+describe('persisted save directory', () => {
+  it('recovers the root from an older BT staging container before publication', () => {
+    const task = taskRowToDownloadTask(
+      makeTaskRow({ finalPath: '/Downloads/Movies/video' }),
+      [makeInstance(TaskInstancePhase.BtDownload)]
+    )
+    expect(task.saveDir).toBe('/Downloads')
+  })
+
+  it('recovers the legacy root after a BT artifact moved into a plugin subdirectory', () => {
+    const plan = createBtStoragePlan('t1', '/Downloads', {
+      infoHash: 'a'.repeat(40),
+      torrentRootName: 'video',
+      multiFile: false,
+      isPrivate: false,
+      files: [{ fileIndex: 0, pathInsideRoot: null }],
+    })
+    const finalPath = '/Downloads/Movies/video'
+    const task = taskRowToDownloadTask(
+      makeTaskRow({ finalPath, aggStatus: TaskStatus.Completed }),
+      [
+        {
+          ...makeInstance(TaskInstancePhase.BtDownload),
+          diskPath: finalPath,
+          payload: btStoragePayload(plan.layout),
+        },
+      ]
+    )
+    expect(task.saveDir).toBe('/Downloads')
+    expect(task.diskPath).toBe(finalPath)
+  })
+
+  it('preserves the selected root independently of a plugin-selected final path', () => {
+    const task = taskRowToDownloadTask(
+      makeTaskRow({
+        saveDir: '/Downloads',
+        finalPath: '/Downloads/Movies/video',
+      }),
+      [makeInstance(TaskInstancePhase.BtDownload)]
+    )
+    expect(task.saveDir).toBe('/Downloads')
+  })
+
+  it('keeps the directory stored in a legacy metadata-only magnet task', () => {
+    const task = taskRowToDownloadTask(
+      makeTaskRow({
+        taskType: TaskType.Magnet,
+        finalPath: '/Downloads',
+      }),
+      [makeInstance(TaskInstancePhase.MagnetMetadataResolution)]
+    )
+    expect(task.saveDir).toBe('/Downloads')
   })
 })

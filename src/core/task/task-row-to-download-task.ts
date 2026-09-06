@@ -6,6 +6,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import { isTorrentLikeType } from '@shared/types/task-actions'
+import { restoreTaskSaveDirectory } from './task-save-directory'
 
 /** Build a generic DownloadTask domain object from canonical TaskRow data.
  *
@@ -48,7 +49,7 @@ export function taskRowToDownloadTask(
     downloadSpeed: 0,
     uploadSpeed: 0,
     etaSeconds: 0,
-    saveDir: primary?.diskPath || task.finalPath,
+    saveDir: restoreTaskSaveDirectory(task, instances),
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     finishedAt: task.finishedAt,
