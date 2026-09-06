@@ -135,6 +135,13 @@ pub(crate) fn copy_opened(
     target: &RootHandle,
     target_relative: &str,
 ) -> io::Result<()> {
+    if artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "rename-only handle cannot copy or remove an artifact",
+        ));
+    }
+
     let target_parts = validate_relative(target_relative)?;
     let target_parent = open_parent(target.0.as_raw_fd(), &target_parts)?;
     let target_name =

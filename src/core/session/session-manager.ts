@@ -47,7 +47,13 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
-import { shouldPrioritizeBtPreviewPiecesFromMetadata } from '../task/bt-storage-layout'
+import {
+  buildFinalOutputFilePaths,
+  buildStagingOutputFilePaths,
+  getBtStorageLayout,
+  parseBtFileLayout,
+  shouldPrioritizeBtPreviewPiecesFromMetadata,
+} from '../task/bt-storage-layout'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
 import {
   canMirrorAria2MetadataHeaders,
@@ -58,6 +64,7 @@ import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
 import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
+import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
 import { DirectRecoveryPlanner } from './direct-recovery-planner'
@@ -558,6 +565,7 @@ export class SessionManager {
       tags: null,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      saveDir: task.saveDir,
       finalPath: task.finalPath,
       finalName: task.finalName,
       torrentMetaPath: task.torrentMetaPath,
@@ -935,7 +943,6 @@ export class SessionManager {
           task.finalPath
         ) {
           task.diskPath = task.finalPath
-          task.saveDir = task.finalPath
           for (const inst of task.instances) {
             inst.diskPath = task.finalPath
           }
@@ -1301,7 +1308,7 @@ export class SessionManager {
         String(downloadedBytes),
         aria2.downloadSpeed
       ),
-      saveDir: aria2.dir,
+      saveDir: restoreTaskSaveDirectory(taskPart, pair.instances, aria2.dir),
       createdAt: taskPart.createdAt,
       updatedAt: now,
       uris: extractUris(aria2),
@@ -1388,7 +1395,7 @@ export class SessionManager {
       downloadSpeed: 0,
       uploadSpeed: 0,
       etaSeconds: 0,
-      saveDir: primary?.diskPath || taskPart.finalPath || '',
+      saveDir: restoreTaskSaveDirectory(taskPart, pair.instances),
       createdAt: taskPart.createdAt,
       updatedAt: retainedIdentity ? taskPart.updatedAt : now,
       uris: primary?.uris ?? [],
@@ -1450,11 +1457,30 @@ export class SessionManager {
         const bytes = fs.readFileSync(taskPart.torrentMetaPath)
         const prioritizePreviewPieces =
           await shouldPrioritizeBtPreviewPiecesFromMetadata(bytes)
+        const restored = taskRowToDownloadTask(taskPart, pair.instances)
+        const layout = getBtStorageLayout(restored)
+        const parsed = layout ? await parseBtFileLayout(bytes) : null
+        const alreadyRenamed = restored.diskPath === restored.finalPath
         return this.dispatchRecoveryCandidate(pair, (gid) =>
           this.adapter.addTorrent({
             metadata: bytes,
             gid,
-            saveDir: primary?.diskPath || taskPart.finalPath || '/',
+            saveDir: layout
+              ? alreadyRenamed
+                ? path.dirname(restored.finalPath)
+                : layout.workspacePath
+              : primary?.diskPath || restored.saveDir || '/',
+            ...(layout && parsed
+              ? {
+                  outputFilePaths: alreadyRenamed
+                    ? buildFinalOutputFilePaths(
+                        parsed,
+                        restored.finalPath,
+                        layout
+                      )
+                    : buildStagingOutputFilePaths(parsed, layout),
+                }
+              : {}),
             pause: taskPart.aggStatus === TaskStatus.Paused,
             checkIntegrity: true,
             ...(prioritizePreviewPieces

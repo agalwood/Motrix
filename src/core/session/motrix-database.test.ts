@@ -33,6 +33,8 @@ describe('saveTaskWithInstances + getAllTasks (Plan A v1 schema)', () => {
     taskRow.aggStatus = TaskStatus.Downloading
     taskRow.totalBytes = 1000
     taskRow.downloadedBytes = 500
+    taskRow.saveDir = '/tmp/downloads'
+    taskRow.finalPath = '/tmp/downloads/Movies/video.mp4'
 
     const instance: TaskInstanceRow = {
       ...makeInstanceRow('i-1', 'm-1', 'g-1', TaskInstancePhase.HttpDownload),
@@ -52,6 +54,8 @@ describe('saveTaskWithInstances + getAllTasks (Plan A v1 schema)', () => {
     expect(loaded[0].task.motrixId).toBe('m-1')
     expect(loaded[0].task.kind).toBe(TaskKind.Direct)
     expect(loaded[0].task.aggStatus).toBe(TaskStatus.Downloading)
+    expect(loaded[0].task.saveDir).toBe('/tmp/downloads')
+    expect(loaded[0].task.finalPath).toBe('/tmp/downloads/Movies/video.mp4')
     expect(loaded[0].instances).toHaveLength(1)
     expect(loaded[0].instances[0].gid).toBe('g-1')
     expect(loaded[0].instances[0].phase).toBe(TaskInstancePhase.HttpDownload)
@@ -59,6 +63,19 @@ describe('saveTaskWithInstances + getAllTasks (Plan A v1 schema)', () => {
       'https://example.com/video.mp4',
     ])
 
+    db.close()
+  })
+
+  it('retains the saved directory when an older writer updates task state', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    const task = makeTaskRow('m-save-root', TaskKind.Direct)
+    db.saveTaskWithInstances({
+      task: { ...task, saveDir: '/tmp/downloads' },
+      instances: [],
+    })
+    db.saveTaskWithInstances({ task, instances: [] })
+    expect(db.getTask(task.motrixId)?.task.saveDir).toBe('/tmp/downloads')
     db.close()
   })
 

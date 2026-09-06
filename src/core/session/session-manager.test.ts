@@ -19,8 +19,15 @@ import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
 import type { Aria2RawStatus } from '../engine/aria2/types'
 import type { EngineAdapter } from '../engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
+import { assertValidHookPlan } from '../plugin/finalize/hook-plan'
 import { clearStoppedTasks } from '../task/actions/clear-stopped-tasks'
 import { stopSeedingTask } from '../task/actions/stop-seeding-task'
+import {
+  btStoragePayload,
+  createBtStoragePlan,
+  getBtPayloadPath,
+  parseBtFileLayout,
+} from '../task/bt-storage-layout'
 import { TaskManager } from '../task/task-manager'
 import { computeUriHash } from './content-key'
 import type {
@@ -2770,7 +2777,7 @@ describe('SessionManager', () => {
         .getAll()
         .find((t) => t.id === 'm-legacy-completed')
       expect(restored?.diskPath).toBe('/dl/movie-final.mkv')
-      expect(restored?.saveDir).toBe('/dl/movie-final.mkv')
+      expect(restored?.saveDir).toBe('/dl')
       // Instances heal too, so the next save() rewrites the DB row and
       // the stale placeholder is gone for good.
       expect(restored?.instances[0]?.diskPath).toBe('/dl/movie-final.mkv')
@@ -4186,4 +4193,124 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     expect(adapter.createDownload).not.toHaveBeenCalled()
     expect(adapter.addTorrent).not.toHaveBeenCalled()
   })
+})
+
+describe('restore save directories after interrupted finalization', () => {
+  for (const enginePresent of [true, false]) {
+    for (const status of [TaskStatus.Finalizing, TaskStatus.Error]) {
+      it(`restores the BT root and payload with engine=${enginePresent}, status=${status}`, async () => {
+        const tm = new TaskManager()
+        const db = createMockDb()
+        const rpc = createMockRpc()
+        const sm = new SessionManager(tm, rpc, db, createMockAdapter())
+        const saveDir = path.join(os.tmpdir(), 'motrix-restore-downloads')
+        const finalPath = path.join(saveDir, 'Movies', 'movie.mkv')
+        const { layout } = createBtStoragePlan('interrupted-bt', saveDir, {
+          infoHash: 'a'.repeat(40),
+          torrentRootName: 'movie.mkv',
+          multiFile: false,
+          isPrivate: false,
+          files: [{ fileIndex: 0, pathInsideRoot: null }],
+        })
+        seedAsPair(db, {
+          motrixId: 'interrupted-bt',
+          gid: 'bt-gid',
+          status,
+          type: TaskType.Bt,
+          diskPath: layout.workspacePath,
+          finalPath,
+          transitionPhase: TransitionPhase.Renaming,
+          payload: btStoragePayload(layout),
+        })
+        if (enginePresent)
+          rpc.tellActive = vi.fn(async () => [
+            createRawStatus({
+              gid: 'bt-gid',
+              dir: layout.workspacePath,
+              status: 'active',
+            }),
+          ])
+        await sm.restore()
+        const task = tm.getById('interrupted-bt')!
+        expect(task.saveDir).toBe(saveDir)
+        expect(getBtPayloadPath(task)).toBe(
+          path.join(layout.workspacePath, 'p')
+        )
+        expect(() =>
+          assertValidHookPlan({
+            planId: 'plan',
+            taskId: task.id,
+            saveDir: task.saveDir,
+            sourcePath: getBtPayloadPath(task)!,
+            targetPath: task.finalPath,
+            sourceIdentity: {
+              kind: 'file',
+              size: 1,
+              sha256: 'a'.repeat(64),
+              platformFileId: '1:1',
+            },
+            metadataOps: [],
+            contributors: [],
+          })
+        ).not.toThrow()
+        await sm.save()
+        expect(db.getTask(task.id)?.task.saveDir).toBe(saveDir)
+      })
+    }
+  }
+
+  it('restores an unfinished HTTP file under its saving directory', async () => {
+    const tm = new TaskManager()
+    const db = createMockDb()
+    const sm = new SessionManager(tm, createMockRpc(), db, createMockAdapter())
+    const root = path.join(os.tmpdir(), 'http-save')
+    seedAsPair(db, {
+      motrixId: 'http-finalize',
+      gid: null,
+      type: TaskType.Http,
+      status: TaskStatus.Finalizing,
+      transitionPhase: TransitionPhase.Renaming,
+      diskPath: path.join(root, 'file.zip.motrix'),
+      finalPath: path.join(root, 'file.zip'),
+    })
+    await sm.restore()
+    expect(tm.getById('http-finalize')?.saveDir).toBe(root)
+  })
+})
+
+it('re-adds an interrupted indexed BT download with its original payload mapping', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'motrix-readd-layout-'))
+  try {
+    const bytes = buildSingleFileTorrent('movie.mkv')
+    const metadata = path.join(root, 'source.torrent')
+    fs.writeFileSync(metadata, bytes)
+    const parsed = await parseBtFileLayout(bytes)
+    const plan = createBtStoragePlan('readd-layout', root, parsed)
+    const tm = new TaskManager()
+    const db = createMockDb()
+    const adapter = createMockAdapter()
+    seedAsPair(db, {
+      motrixId: 'readd-layout',
+      gid: 'old-gid',
+      type: TaskType.Bt,
+      status: TaskStatus.Paused,
+      infoHash: parsed.infoHash,
+      torrentMetaPath: metadata,
+      diskPath: plan.layout.workspacePath,
+      finalPath: path.join(root, 'movie.mkv'),
+      payload: btStoragePayload(plan.layout),
+    })
+    await new SessionManager(tm, createMockRpc(), db, adapter).restore()
+    expect(adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        saveDir: plan.layout.workspacePath,
+        outputFilePaths: [{ fileIndex: 0, relativePath: 'p' }],
+        pause: true,
+        checkIntegrity: true,
+      })
+    )
+    expect(tm.getById('readd-layout')?.saveDir).toBe(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 })

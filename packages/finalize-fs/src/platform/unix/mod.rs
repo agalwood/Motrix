@@ -135,6 +135,23 @@ fn open_parent(root: RawFd, parts: &[&str]) -> io::Result<OwnedFd> {
 }
 
 pub(crate) fn open_artifact(root: &RootHandle, relative: &str) -> io::Result<ArtifactHandle> {
+    open_artifact_internal(root, relative, true)
+}
+
+/// Rename holds the inode and parent; content is verified by the host journal.
+/// A destructive copy/remove snapshot is unnecessary for this operation.
+pub(crate) fn open_artifact_for_rename(
+    root: &RootHandle,
+    relative: &str,
+) -> io::Result<ArtifactHandle> {
+    open_artifact_internal(root, relative, false)
+}
+
+fn open_artifact_internal(
+    root: &RootHandle,
+    relative: &str,
+    snapshot: bool,
+) -> io::Result<ArtifactHandle> {
     let parts = validate_relative(relative)?;
     let parent = open_parent(root.0.as_raw_fd(), &parts)?;
     let name = CString::new(*parts.last().expect("nonempty")).expect("validated component");
@@ -159,7 +176,11 @@ pub(crate) fn open_artifact(root: &RootHandle, relative: &str) -> io::Result<Art
     }
     let opened_type = opened_stat.st_mode & libc::S_IFMT;
     let opened_tree = if opened_type == libc::S_IFDIR {
-        Some(snapshot_directory(artifact.as_raw_fd())?)
+        if snapshot {
+            Some(snapshot_directory(artifact.as_raw_fd())?)
+        } else {
+            None
+        }
     } else if opened_type == libc::S_IFREG {
         None
     } else {
@@ -168,7 +189,7 @@ pub(crate) fn open_artifact(root: &RootHandle, relative: &str) -> io::Result<Art
             "refusing to open a symbolic link or special artifact",
         ));
     };
-    let opened_file_sha256 = if opened_type == libc::S_IFREG {
+    let opened_file_sha256 = if snapshot && opened_type == libc::S_IFREG {
         Some(hash_opened_file(artifact.as_raw_fd())?)
     } else {
         None

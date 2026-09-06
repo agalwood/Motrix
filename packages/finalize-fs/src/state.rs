@@ -2,8 +2,8 @@
 
 use crate::error::classify_error;
 use crate::platform::{
-    ArtifactHandle, RootHandle, copy_opened, open_artifact, open_root, remove_opened,
-    rename_no_replace, rename_opened_no_replace, sync_root,
+    ArtifactHandle, RootHandle, copy_opened, open_artifact, open_artifact_for_rename, open_root,
+    remove_opened, rename_no_replace, rename_opened_no_replace, sync_root,
 };
 use crate::protocol::{Request, Response};
 use std::collections::HashMap;
@@ -39,11 +39,17 @@ impl State {
                 request_id,
                 root,
                 relative,
+                rename_only,
             } => {
                 let Some(root) = self.roots.get(&root) else {
                     return Response::error(Some(request_id), "invalid_handle", "unknown root");
                 };
-                match open_artifact(root, &relative) {
+                let open = if rename_only {
+                    open_artifact_for_rename
+                } else {
+                    open_artifact
+                };
+                match open(root, &relative) {
                     Ok(artifact) => {
                         let handle = self.insert_artifact(artifact);
                         let mut response = Response::ok(Some(request_id));

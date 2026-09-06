@@ -46,7 +46,7 @@ interface WireResponse {
 interface PendingRequest {
   resolve: (value: WireResponse) => void
   reject: (error: Error) => void
-  timeout: NodeJS.Timeout
+  timeout?: NodeJS.Timeout
 }
 
 export interface NativeFinalizeFilesystemAdapterOptions {
@@ -66,7 +66,8 @@ export interface FinalizeFilesystemAdapter {
   openRoot(rootPath: string): Promise<FinalizeRootHandle>
   openArtifact(
     root: FinalizeRootHandle,
-    relativePath: string
+    relativePath: string,
+    intent?: 'rename'
   ): Promise<FinalizeArtifactHandle>
   renameOpenedNoReplace(
     artifact: FinalizeArtifactHandle,
@@ -97,7 +98,11 @@ export interface FinalizeFilesystemAdapter {
 export class NativeFinalizeFilesystemAdapter
   implements FinalizeFilesystemAdapter
 {
-  private readonly child: ChildProcessWithoutNullStreams
+  private child!: ChildProcessWithoutNullStreams
+  private generation = 0
+  private disposed = false
+  private requestTail: Promise<unknown> = Promise.resolve()
+  private readonly handleGenerations = new WeakMap<object, number>()
   private nextRequestId = 1
   private incoming = Buffer.alloc(0)
   private readonly pending = new Map<number, PendingRequest>()
@@ -105,7 +110,7 @@ export class NativeFinalizeFilesystemAdapter
   private deadError: Error | null = null
 
   constructor(
-    binaryPath: string,
+    private readonly binaryPath: string,
     options: NativeFinalizeFilesystemAdapterOptions = {}
   ) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30_000
@@ -114,17 +119,54 @@ export class NativeFinalizeFilesystemAdapter
       this.requestTimeoutMs <= 0
     )
       throw new Error('finalize sidecar request timeout must be positive')
-    this.child = spawn(binaryPath, [], { stdio: ['pipe', 'pipe', 'pipe'] })
-    this.child.stdout.on('data', (chunk: Buffer) => this.receive(chunk))
-    this.child.stderr.resume()
-    this.child.stdin.once('error', (error) => this.markDead(error))
-    this.child.once('error', (error) => this.markDead(error))
-    this.child.once('exit', (code) =>
-      this.markDead(new Error(`finalize filesystem sidecar exited: ${code}`))
+    this.startChild()
+  }
+
+  private startChild(): void {
+    this.generation += 1
+    this.deadError = null
+    this.incoming = Buffer.alloc(0)
+    const child = spawn(this.binaryPath, [], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    this.child = child
+    const fail = (error: Error) => {
+      if (this.child === child) this.markDead(error)
+    }
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (this.child === child) this.receive(chunk)
+    })
+    child.stderr.resume()
+    child.stdin.once('error', fail)
+    child.once('error', fail)
+    child.once('exit', (code) =>
+      fail(new Error(`finalize filesystem sidecar exited: ${code}`))
     )
   }
 
+  private heldHandle(id: number, generation: number): FinalizeRootHandle {
+    const handle = Object.freeze({ id })
+    this.handleGenerations.set(handle, generation)
+    return handle
+  }
+
+  private nativeId(
+    handle: FinalizeRootHandle | FinalizeArtifactHandle
+  ): number {
+    if (this.deadError) throw this.deadError
+    if (this.handleGenerations.get(handle) !== this.generation) {
+      throw new FinalizeFsError(
+        'invalid_handle',
+        'finalize handle belongs to an earlier sidecar process'
+      )
+    }
+    return handle.id
+  }
+
   async capabilities(): Promise<FinalizeFsCapabilities> {
+    // A new operation may recover the transport. Old operations retain their
+    // failed promises/handle generations and cannot mutate through the child.
+    if (this.deadError && !this.disposed) this.startChild()
     const response = await this.request({ op: 'capabilities' }, false)
     return {
       platform: response.platform ?? 'unknown',
@@ -137,17 +179,20 @@ export class NativeFinalizeFilesystemAdapter
 
   async openArtifact(
     root: FinalizeRootHandle,
-    relativePath: string
+    relativePath: string,
+    intent?: 'rename'
   ): Promise<FinalizeArtifactHandle> {
+    const generation = this.generation
     const response = await this.request({
       op: 'open_artifact',
-      root: root.id,
+      rename_only: intent === 'rename',
+      root: this.nativeId(root),
       relative: relativePath,
     })
     if (response.handle === undefined) {
       throw new Error('sidecar omitted artifact handle')
     }
-    return Object.freeze({ id: response.handle })
+    return this.heldHandle(response.handle, generation)
   }
 
   async renameOpenedNoReplace(
@@ -157,8 +202,8 @@ export class NativeFinalizeFilesystemAdapter
   ): Promise<void> {
     await this.request({
       op: 'rename_opened_no_replace',
-      artifact: artifact.id,
-      target_root: targetRoot.id,
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
       target_relative: targetRelative,
     })
   }
@@ -170,8 +215,8 @@ export class NativeFinalizeFilesystemAdapter
   ): Promise<void> {
     await this.request({
       op: 'copy_opened',
-      artifact: artifact.id,
-      target_root: targetRoot.id,
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
       target_relative: targetRelative,
     })
   }
@@ -180,10 +225,11 @@ export class NativeFinalizeFilesystemAdapter
     if (!path.isAbsolute(rootPath)) {
       throw new FinalizeFsError('invalid_path', 'root path must be absolute')
     }
+    const generation = this.generation
     const response = await this.request({ op: 'open_root', path: rootPath })
     if (response.handle === undefined)
       throw new Error('sidecar omitted root handle')
-    return Object.freeze({ id: response.handle })
+    return this.heldHandle(response.handle, generation)
   }
 
   async renameNoReplace(
@@ -194,9 +240,9 @@ export class NativeFinalizeFilesystemAdapter
   ): Promise<void> {
     await this.request({
       op: 'rename_no_replace',
-      source_root: sourceRoot.id,
+      source_root: this.nativeId(sourceRoot),
       source_relative: sourceRelative,
-      target_root: targetRoot.id,
+      target_root: this.nativeId(targetRoot),
       target_relative: targetRelative,
     })
   }
@@ -208,23 +254,25 @@ export class NativeFinalizeFilesystemAdapter
   ): Promise<void> {
     await this.request({
       op: 'remove_opened',
-      artifact: artifact.id,
+      artifact: this.nativeId(artifact),
       quarantine_relative: quarantineRelative,
       resume_isolated: resumeIsolated,
     })
   }
 
   async syncRoot(root: FinalizeRootHandle): Promise<void> {
-    await this.request({ op: 'sync_root', root: root.id })
+    await this.request({ op: 'sync_root', root: this.nativeId(root) })
   }
 
   async close(
     root: FinalizeRootHandle | FinalizeArtifactHandle
   ): Promise<void> {
-    await this.request({ op: 'close', handle: root.id })
+    await this.request({ op: 'close', handle: this.nativeId(root) })
+    this.handleGenerations.delete(root)
   }
 
   async dispose(): Promise<void> {
+    this.disposed = true
     if (this.deadError) {
       if (this.child.exitCode === null && this.child.signalCode === null)
         this.child.kill()
@@ -236,7 +284,7 @@ export class NativeFinalizeFilesystemAdapter
       const timeout = setTimeout(() => {
         this.child.kill()
         resolve()
-      }, this.requestTimeoutMs)
+      }, 5_000)
       timeout.unref()
       this.child.once('exit', () => {
         clearTimeout(timeout)
@@ -245,10 +293,29 @@ export class NativeFinalizeFilesystemAdapter
     })
   }
 
-  private async request(
+  private request(
     body: Record<string, unknown>,
     includeRequestId = true
   ): Promise<WireResponse> {
+    const generation = this.generation
+    const result = this.requestTail.then(() => {
+      if (generation !== this.generation)
+        throw new FinalizeFsError(
+          'invalid_handle',
+          'finalize operation lost its sidecar process'
+        )
+      return this.sendRequest(body, includeRequestId)
+    })
+    this.requestTail = result.catch(() => undefined)
+    return result
+  }
+
+  private async sendRequest(
+    body: Record<string, unknown>,
+    includeRequestId = true
+  ): Promise<WireResponse> {
+    if (this.disposed)
+      throw new Error('finalize filesystem adapter is disposed')
     if (this.deadError) throw this.deadError
     const requestId = this.nextRequestId++
     const payload = Buffer.from(
@@ -263,18 +330,24 @@ export class NativeFinalizeFilesystemAdapter
     payload.copy(frame, 4)
     const response = new Promise<WireResponse>((resolve, reject) => {
       const key = includeRequestId ? requestId : 0
-      const timeout = setTimeout(() => {
-        const error = new Error(
-          `finalize filesystem sidecar request timed out after ${this.requestTimeoutMs}ms`
-        )
-        this.markDead(error)
-        this.child.kill()
-      }, this.requestTimeoutMs)
-      timeout.unref()
+      // Content hashing, copies and filesystem syncs have no fixed deadline.
+      // Only the startup handshake is bounded, after earlier I/O has finished.
+      const timeout =
+        body.op === 'capabilities'
+          ? setTimeout(() => {
+              this.markDead(
+                new Error(
+                  `finalize filesystem sidecar request timed out after ${this.requestTimeoutMs}ms`
+                )
+              )
+            }, this.requestTimeoutMs)
+          : undefined
+      timeout?.unref()
       this.pending.set(key, { resolve, reject, timeout })
     })
-    this.child.stdin.write(frame, (error) => {
-      if (error) this.markDead(error)
+    const child = this.child
+    child.stdin.write(frame, (error) => {
+      if (error && this.child === child) this.markDead(error)
     })
     const result = await response
     if (result.status === 'error') {

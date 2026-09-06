@@ -153,3 +153,16 @@ fn rejects_a_junction_in_the_root_path() {
         .arg(&junction)
         .status();
 }
+
+#[test]
+fn rename_only_handles_use_metadata_and_do_not_authorize_removal() {
+    let scratch = Scratch::new("rename-only");
+    fs::write(scratch.path().join("source"), b"payload").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "source").unwrap();
+    assert!(artifact.snapshot.is_none());
+    assert!(copy_opened(&artifact, &root, "copy").is_err());
+    assert!(remove_opened(&artifact, ".quarantine", false).is_err());
+    rename_opened_no_replace(&artifact, &root, "target").unwrap();
+    assert_eq!(fs::read(scratch.path().join("target")).unwrap(), b"payload");
+}

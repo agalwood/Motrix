@@ -29,7 +29,8 @@ pub(crate) struct ArtifactHandle {
     handle: OwnedHandle,
     parent: OwnedHandle,
     name: Vec<u16>,
-    snapshot: ArtifactSnapshot,
+    snapshot: Option<ArtifactSnapshot>,
+    stamp: metadata::FileStamp,
 }
 
 pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
@@ -61,16 +62,37 @@ pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
 }
 
 pub(crate) fn open_artifact(root: &RootHandle, relative: &str) -> io::Result<ArtifactHandle> {
+    open_artifact_internal(root, relative, true)
+}
+
+pub(crate) fn open_artifact_for_rename(
+    root: &RootHandle,
+    relative: &str,
+) -> io::Result<ArtifactHandle> {
+    open_artifact_internal(root, relative, false)
+}
+
+fn open_artifact_internal(
+    root: &RootHandle,
+    relative: &str,
+    snapshot: bool,
+) -> io::Result<ArtifactHandle> {
     let parts = validate_relative(relative)?;
     let (parent, name) = open_parent(&root.handle, &parts)?;
     let handle = nt::open_existing(&parent, &name)?;
-    let snapshot = metadata::snapshot_opened(&handle)?;
+    let stamp = query_stamp(&handle)?;
+    let snapshot = if snapshot {
+        Some(metadata::snapshot_opened(&handle)?)
+    } else {
+        None
+    };
     ensure_named_entry(&handle, &parent, &name)?;
     Ok(ArtifactHandle {
         handle,
         parent,
         name,
         snapshot,
+        stamp,
     })
 }
 
@@ -79,7 +101,14 @@ pub(crate) fn rename_opened_no_replace(
     target: &RootHandle,
     target_relative: &str,
 ) -> io::Result<()> {
-    ensure_snapshot(&artifact.handle, &artifact.snapshot)?;
+    if let Some(snapshot) = &artifact.snapshot {
+        ensure_snapshot(&artifact.handle, snapshot)?;
+    } else if query_stamp(&artifact.handle)? != artifact.stamp {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "opened Windows artifact changed before rename",
+        ));
+    }
     ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
     let parts = validate_relative(target_relative)?;
     let (target_parent, target_name) = open_parent(&target.handle, &parts)?;

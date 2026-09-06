@@ -505,6 +505,7 @@ export class MagnetTracker {
       tags: null,
       createdAt: now,
       updatedAt: now,
+      saveDir,
       finalPath: saveDir,
       finalName: '',
       torrentMetaPath: null,

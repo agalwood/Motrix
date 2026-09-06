@@ -1116,15 +1116,18 @@ describe('swapMagnetMetadataForBt', () => {
     expect(tmTask.type).toBe(TaskType.Bt)
   })
 
-  it('uses indexed short staging after magnet metadata resolves', async () => {
+  it('uses indexed staging and persists a changed destination after magnet metadata resolves', async () => {
     const torrent = buildSingleFileTorrent('very-long-original-name.iso')
+    const original = db.getTask('m-mag')
+    if (!original) throw new Error('missing fixture')
+    original.task.saveDir = '/Downloads'
 
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
         base64: Buffer.from(torrent).toString('base64'),
         selectedFiles: [0],
-        saveDir: '/Downloads',
+        saveDir: '/Selected',
         name: 'User friendly name.iso',
       },
       {
@@ -1144,7 +1147,9 @@ describe('swapMagnetMetadataForBt', () => {
     )
 
     const params = adapter.addTorrent.mock.calls[0][0]
-    expect(params.saveDir).toMatch(/^\/Downloads\/\.motrix\/[a-f0-9]{20}$/)
+    expect(params.saveDir).toMatch(/^\/Selected\/\.motrix\/[a-f0-9]{20}$/)
+    expect(db.getTask('m-mag')?.task.saveDir).toBe('/Selected')
+    expect(taskManager.getById('m-mag')?.saveDir).toBe('/Selected')
     expect(params.outputFilePaths).toEqual([
       { fileIndex: 0, relativePath: 'p' },
     ])

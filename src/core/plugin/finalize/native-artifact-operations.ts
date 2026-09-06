@@ -3,6 +3,7 @@ import { lstat, mkdir, open, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import {
   type ArtifactIdentity,
+  ArtifactIdentityCache,
   ArtifactIdentityError,
   artifactIdentityEquals,
   readArtifactIdentity,
@@ -19,6 +20,8 @@ import type { FinalizeArtifactOperations } from './finalize-committer'
 export class NativeFinalizeArtifactOperations
   implements FinalizeArtifactOperations
 {
+  private readonly identityCache = new ArtifactIdentityCache()
+
   constructor(private readonly adapter: FinalizeFilesystemAdapter) {}
 
   async assertSupported(): Promise<void> {
@@ -37,7 +40,9 @@ export class NativeFinalizeArtifactOperations
 
   async identity(artifactPath: string): Promise<ArtifactIdentity | null> {
     try {
-      return await readArtifactIdentity(artifactPath)
+      return await readArtifactIdentity(artifactPath, {
+        cache: this.identityCache,
+      })
     } catch (error) {
       if (
         error instanceof ArtifactIdentityError &&
@@ -60,6 +65,7 @@ export class NativeFinalizeArtifactOperations
     expected: ArtifactIdentity,
     privateTargetPath: string
   ): Promise<ArtifactIdentity> {
+    await this.assertSupported()
     await this.requireIdentity(sourcePath, expected)
     await this.ensureSafeDirectory(path.dirname(privateTargetPath))
     await this.assertSafeExistingParent(sourcePath)
@@ -98,7 +104,9 @@ export class NativeFinalizeArtifactOperations
       await this.adapter.close(sourceRoot).catch(() => undefined)
       await this.adapter.close(targetRoot).catch(() => undefined)
     }
-    const copied = await readArtifactIdentity(privateTargetPath)
+    const copied = await readArtifactIdentity(privateTargetPath, {
+      cache: this.identityCache,
+    })
     await this.requireIdentity(sourcePath, expected)
     await this.assertSafeExistingParent(privateTargetPath)
     return copied
@@ -119,7 +127,8 @@ export class NativeFinalizeArtifactOperations
     try {
       artifact = await this.adapter.openArtifact(
         sourceRoot,
-        path.basename(sourcePath)
+        path.basename(sourcePath),
+        'rename'
       )
       await this.requireIdentity(sourcePath, expected)
       await this.adapter.renameOpenedNoReplace(
@@ -138,6 +147,7 @@ export class NativeFinalizeArtifactOperations
   }
 
   async makeDurable(artifactPath: string): Promise<void> {
+    await this.assertSupported()
     await syncTree(artifactPath, this.adapter)
     const root = await this.adapter.openRoot(path.dirname(artifactPath))
     try {
@@ -152,6 +162,7 @@ export class NativeFinalizeArtifactOperations
     expected: ArtifactIdentity,
     quarantinePath: string
   ): Promise<void> {
+    await this.assertSupported()
     if (
       path.dirname(quarantinePath) !== path.dirname(artifactPath) ||
       path.basename(quarantinePath) === path.basename(artifactPath)
@@ -234,7 +245,9 @@ export class NativeFinalizeArtifactOperations
     artifactPath: string,
     expected: ArtifactIdentity
   ): Promise<void> {
-    const actual = await readArtifactIdentity(artifactPath)
+    const actual = await readArtifactIdentity(artifactPath, {
+      cache: this.identityCache,
+    })
     if (!artifactIdentityEquals(actual, expected)) {
       throw new ArtifactIdentityError(
         'artifact_mutated',

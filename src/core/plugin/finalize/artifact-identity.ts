@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, open, readdir } from 'node:fs/promises'
 import path from 'node:path'
+import { hashOpenedFile } from './hash-opened-file'
 
 export interface FileArtifactIdentity {
   kind: 'file'
@@ -38,6 +39,22 @@ export class ArtifactIdentityError extends Error {
 
 export interface ArtifactIdentityOptions {
   maxEntries?: number
+  cache?: ArtifactIdentityCache
+}
+
+/** Reuse content digests only while inode, size and both timestamps match. */
+export class ArtifactIdentityCache {
+  private readonly digests = new Map<string, string>()
+  get(stamp: string): string | undefined {
+    return this.digests.get(stamp)
+  }
+  set(stamp: string, digest: string): void {
+    if (this.digests.size >= 2048) {
+      const oldest = this.digests.keys().next().value
+      if (oldest !== undefined) this.digests.delete(oldest)
+    }
+    this.digests.set(stamp, digest)
+  }
 }
 
 const statKey = (value: {
@@ -65,7 +82,8 @@ function appendRecord(
 }
 
 async function identityForFile(
-  filePath: string
+  filePath: string,
+  cache?: ArtifactIdentityCache
 ): Promise<FileArtifactIdentity> {
   let handle: Awaited<ReturnType<typeof open>>
   try {
@@ -85,9 +103,9 @@ async function identityForFile(
         `artifact is not a regular file: ${filePath}`
       )
     }
-    const hash = createHash('sha256')
-    const stream = handle.createReadStream({ autoClose: false })
-    for await (const chunk of stream) hash.update(chunk as Buffer)
+    const stamp = statKey(before)
+    const digest =
+      cache?.get(stamp) ?? (await hashOpenedFile(handle, before.size))
     const after = await handle.stat({ bigint: true })
     if (statKey(before) !== statKey(after)) {
       throw new ArtifactIdentityError(
@@ -101,10 +119,11 @@ async function identityForFile(
         `artifact size exceeds the safe identity range: ${filePath}`
       )
     }
+    cache?.set(stamp, digest)
     return {
       kind: 'file',
       size: Number(after.size),
-      sha256: hash.digest('hex'),
+      sha256: digest,
       platformFileId: fileId(after),
     }
   } finally {
@@ -123,7 +142,8 @@ async function walkDirectory(
   root: string,
   current: string,
   records: TreeRecord[],
-  maxEntries: number
+  maxEntries: number,
+  cache?: ArtifactIdentityCache
 ): Promise<void> {
   const entries = await readdir(current, { withFileTypes: true })
   entries.sort((left, right) =>
@@ -147,7 +167,7 @@ async function walkDirectory(
     }
     if (entryStat.isDirectory()) {
       records.push({ type: 'directory', relativePath })
-      await walkDirectory(root, absolute, records, maxEntries)
+      await walkDirectory(root, absolute, records, maxEntries, cache)
       const after = await lstat(absolute, { bigint: true })
       if (statKey(entryStat) !== statKey(after)) {
         throw new ArtifactIdentityError(
@@ -163,7 +183,7 @@ async function walkDirectory(
         `directory artifact contains a special entry: ${relativePath}`
       )
     }
-    const identity = await identityForFile(absolute)
+    const identity = await identityForFile(absolute, cache)
     if (identity.platformFileId !== fileId(entryStat)) {
       throw new ArtifactIdentityError(
         'artifact_mutated',
@@ -196,7 +216,7 @@ export async function readArtifactIdentity(
       `artifact root is a symbolic link: ${artifactPath}`
     )
   }
-  if (root.isFile()) return identityForFile(artifactPath)
+  if (root.isFile()) return identityForFile(artifactPath, options.cache)
   if (!root.isDirectory()) {
     throw new ArtifactIdentityError(
       'artifact_special_file',
@@ -220,7 +240,8 @@ export async function readArtifactIdentity(
       artifactPath,
       artifactPath,
       records,
-      options.maxEntries ?? 1_000_000
+      options.maxEntries ?? 1_000_000,
+      options.cache
     )
     const after = directoryHandle
       ? await directoryHandle.stat({ bigint: true })

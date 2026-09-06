@@ -12,6 +12,13 @@ pub(crate) fn remove_opened(
     quarantine_relative: &str,
     resume_isolated: bool,
 ) -> io::Result<()> {
+    let snapshot = artifact.snapshot.as_ref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "rename-only handle cannot copy or remove an artifact",
+        )
+    })?;
+
     let parts = validate_relative(quarantine_relative)?;
     if parts.len() != 1 {
         return Err(io::Error::new(
@@ -20,7 +27,7 @@ pub(crate) fn remove_opened(
         ));
     }
     let quarantine_name = super::nt::wide_name(parts[0])?;
-    ensure_snapshot(&artifact.handle, &artifact.snapshot)?;
+    ensure_snapshot(&artifact.handle, snapshot)?;
     ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
 
     if resume_isolated {
@@ -43,7 +50,7 @@ pub(crate) fn remove_opened(
         super::nt::flush(&artifact.parent)?;
     }
 
-    remove_snapshot_contents(&artifact.handle, &artifact.snapshot)?;
+    remove_snapshot_contents(&artifact.handle, snapshot)?;
     // The admitted artifact handle intentionally outlives this operation. Mark
     // a separately opened, identity-checked handle for POSIX deletion so that
     // closing it unlinks the quarantine while the admitted handle remains a

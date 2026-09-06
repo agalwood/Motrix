@@ -15,6 +15,15 @@ pub(crate) fn rename_opened_no_replace(
     let target_name =
         CString::new(*target_parts.last().expect("nonempty")).expect("validated component");
     assert_opened_artifact(artifact, artifact.parent.as_raw_fd(), &artifact.name)?;
+    if super::metadata::artifact_stamp(&super::metadata::stat_opened(
+        artifact.artifact.as_raw_fd(),
+    )?) != artifact.opened_stamp
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "opened artifact changed before rename",
+        ));
+    }
 
     #[cfg(target_os = "macos")]
     let result = unsafe {

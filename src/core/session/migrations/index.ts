@@ -8,6 +8,7 @@ import {
 import { V2_TASK_SCHEMA_OBJECTS, v2 } from './v2'
 import { V3_SCHEMA_OBJECTS, v3 } from './v3'
 import { V4_SCHEMA_OBJECTS, v4 } from './v4'
+import { V5_TASK_SCHEMA_OBJECTS, v5 } from './v5'
 
 interface Migration {
   version: number
@@ -20,8 +21,9 @@ interface Migration {
 // file selection — distinct from "still fetching metadata" so the
 // Downloads pill can say "Ready" instead of the misleading
 // "Fetching"). v3 adds task-owned Inspector Activity persistence. v4 adds
-// durable plugin finalize journals plus post-delivery and quota state.
-const MIGRATIONS: Migration[] = [v1, v2, v3, v4]
+// durable plugin finalize journals plus post-delivery and quota state. v5
+// persists the user-selected save directory independently of engine paths.
+const MIGRATIONS: Migration[] = [v1, v2, v3, v4, v5]
 
 const HIGHEST_KNOWN_VERSION = MIGRATIONS.reduce(
   (max, m) => (m.version > max ? m.version : max),
@@ -234,10 +236,10 @@ function assertCanonicalTaskSchema(
   }
 }
 
-function validateCanonicalV3(db: Database.Database): void {
+function validateCanonicalTaskAndActivitySchema(db: Database.Database): void {
   const dbPath = (db as unknown as { name: string }).name
   assertCanonicalInheritedSchema(db)
-  assertCanonicalTaskSchema(db, V2_TASK_SCHEMA_OBJECTS)
+  assertCanonicalTaskSchema(db, V5_TASK_SCHEMA_OBJECTS)
 
   if (!hasExactSchemaObjects(db, V3_SCHEMA_OBJECTS)) {
     throw new StaleSchemaError('inspector_activity_schema_missing', dbPath)
@@ -275,8 +277,8 @@ function validateCanonicalV3(db: Database.Database): void {
   }
 }
 
-function validateCanonicalV4(db: Database.Database): void {
-  validateCanonicalV3(db)
+function validateCanonicalSchema(db: Database.Database): void {
+  validateCanonicalTaskAndActivitySchema(db)
   if (!hasExactSchemaObjects(db, V4_SCHEMA_OBJECTS)) {
     throw new StaleSchemaError(
       'plugin_hook_schema_missing',
@@ -398,7 +400,11 @@ export function migrate(db: Database.Database): void {
     }
     assertCanonicalTaskSchema(
       db,
-      current === 1 ? V1_TASK_SCHEMA_OBJECTS : V2_TASK_SCHEMA_OBJECTS
+      current === 1
+        ? V1_TASK_SCHEMA_OBJECTS
+        : current >= 5
+          ? V5_TASK_SCHEMA_OBJECTS
+          : V2_TASK_SCHEMA_OBJECTS
     )
     assertCanonicalInheritedSchema(db)
 
@@ -489,5 +495,5 @@ export function migrate(db: Database.Database): void {
     }
   }
 
-  validateCanonicalV4(db)
+  validateCanonicalSchema(db)
 }

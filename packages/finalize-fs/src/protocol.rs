@@ -17,6 +17,8 @@ pub(crate) enum Request {
         request_id: u64,
         root: u64,
         relative: String,
+        #[serde(default)]
+        rename_only: bool,
     },
     RenameOpenedNoReplace {
         request_id: u64,
