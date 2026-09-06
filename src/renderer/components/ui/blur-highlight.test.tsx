@@ -169,7 +169,14 @@ describe('BlurHighlight', () => {
   })
 
   it('settles immediately when reduced motion is requested', () => {
-    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })
+    )
     const { container } = render(
       <BlurHighlight highlightedBits={['text']}>some text</BlurHighlight>
     )

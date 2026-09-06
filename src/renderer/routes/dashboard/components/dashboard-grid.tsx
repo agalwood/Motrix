@@ -18,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
+import { getReducedMotion } from '@renderer/lib/reduced-motion'
 import { cn } from '@renderer/lib/utils'
 import {
   DASHBOARD_COLUMNS,
@@ -133,7 +134,6 @@ interface DashboardResizeSession extends DashboardInteractionSessionBase {
   previewSpan: DashboardTileSpan
   valid: boolean
   failureReason?: DashboardLayoutFailureReason
-  reducedMotion: boolean
 }
 
 type DashboardInteractionSession = DashboardMoveSession | DashboardResizeSession
@@ -1030,6 +1030,7 @@ export function DashboardGrid({
     }
 
     let settled = true
+    const reducedMotion = getReducedMotion()
     const previewById = new Map(
       session.previewTiles.map((tile) => [tile.id, tile])
     )
@@ -1041,7 +1042,7 @@ export function DashboardGrid({
       const targetOffset = tileCellOffset(metrics, tile)
       visual.targetX = targetOffset.left - visual.rect.left
       visual.targetY = targetOffset.top - visual.rect.top
-      if (session.kind === 'resize' && session.reducedMotion) {
+      if (reducedMotion) {
         visual.currentX = visual.targetX
         visual.currentY = visual.targetY
       } else {
@@ -1220,9 +1221,6 @@ export function DashboardGrid({
         gridPreviousTouchAction: interaction.gridPreviousTouchAction,
         bodyClassName: interaction.bodyClassName,
         releasePointerCapture: interaction.releasePointerCapture,
-        reducedMotion:
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       }
 
       interactionSessionRef.current = session

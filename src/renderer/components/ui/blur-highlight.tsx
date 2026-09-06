@@ -1,3 +1,4 @@
+import { useReducedMotion } from '@renderer/lib/reduced-motion'
 import { cn } from '@renderer/lib/utils'
 import {
   type CSSProperties,
@@ -133,6 +134,7 @@ export function BlurHighlight({
   viewportOptions,
   className,
 }: BlurHighlightProps) {
+  const reducedMotion = useReducedMotion()
   const rootRef = useRef<HTMLElement | null>(null)
   const [ready, setReady] = useState(false)
   const [inView, setInView] = useState(false)
@@ -151,7 +153,7 @@ export function BlurHighlight({
 
     if (
       typeof window === 'undefined' ||
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+      reducedMotion ||
       typeof IntersectionObserver === 'undefined'
     ) {
       setInView(true)
@@ -173,7 +175,7 @@ export function BlurHighlight({
 
     observer.observe(root)
     return () => observer.disconnect()
-  }, [amount, once])
+  }, [amount, once, reducedMotion])
 
   const style: BlurHighlightStyle = {
     '--blur-highlight-blur': `${blurAmount}px`,

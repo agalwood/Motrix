@@ -1,3 +1,4 @@
+import { setAppReduceMotion } from '@renderer/lib/reduced-motion'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const sceneMock = vi.hoisted(() => ({
@@ -71,6 +72,7 @@ describe('cubic glass renderer', () => {
   })
 
   afterEach(() => {
+    setAppReduceMotion(false)
     vi.clearAllMocks()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
@@ -86,6 +88,55 @@ describe('cubic glass renderer', () => {
     callback(timestamp)
     return true
   }
+
+  it('stops an active glass spring immediately and restores pointer motion when disabled', () => {
+    const root = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    root.append(canvas)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue({
+      bottom: 1000,
+      height: 1000,
+      left: 0,
+      right: 1600,
+      top: 0,
+      width: 1600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
+    const renderer = startCubicGlassRenderer(
+      canvas,
+      root,
+      () => 'blue-pink',
+      () => DEFAULT_CUBIC_GLASS_EFFECTS,
+      () => root
+    )
+    try {
+      flushFrame(16)
+      pointerMove(1500, 500)
+      flushFrame(32)
+      expect(sceneMock.render.mock.lastCall?.[0].offsetX).not.toBe(0)
+
+      setAppReduceMotion(true)
+      flushFrame(48)
+      expect(sceneMock.render).toHaveBeenLastCalledWith(
+        expect.objectContaining({ offsetX: 0, offsetY: 0 })
+      )
+      expect(root.dataset.pointerActive).toBe('false')
+      expect(frameCallbacks.size).toBe(0)
+      pointerMove(1400, 500)
+      expect(frameCallbacks.size).toBe(0)
+
+      setAppReduceMotion(false)
+      flushFrame(64)
+      pointerMove(1400, 500)
+      flushFrame(80)
+      expect(root.dataset.pointerActive).toBe('true')
+      expect(sceneMock.render.mock.lastCall?.[0].offsetX).not.toBe(0)
+    } finally {
+      renderer.dispose()
+    }
+  })
 
   it('coalesces pointer work and ends motion on a high-resolution frame', () => {
     const root = document.createElement('div')

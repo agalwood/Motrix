@@ -5,6 +5,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    @slot;
+  }
+  &:where([data-reduced-motion="true"] *) {
+    @slot;
+  }
+}
+
 /*
  * Compact-header state: viewport below md OR sidebar collapsed
  * (sidebar-wrapper reports data-state="collapsed"; mobile is folded into
@@ -413,6 +422,11 @@
   }
 }
 
+html[data-reduced-motion="true"] .status-dot[data-pulse="true"]::after {
+  animation: none;
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .status-dot[data-pulse="true"]::after {
     animation: none;
@@ -645,3 +659,18 @@ body.is-dashboard-resizing * {
     transition: none;
   }
 }
+
+/* Keep animation completion events while removing visible motion. */
+/* biome-ignore-start lint/complexity/noImportantStyles: The accessibility preference overrides inline timings and animation utilities. */
+html[data-reduced-motion="true"],
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-delay: 0s !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-delay: 0s !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: The accessibility preference overrides inline timings and animation utilities. */

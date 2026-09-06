@@ -4,6 +4,11 @@ import { Events } from './events'
 import { ForwardableEvents } from './forwardable-events'
 
 describe('ForwardableEvents', () => {
+  it('forwards the motion preference without exposing the full settings event', () => {
+    expect(ForwardableEvents).toContain(Events.ReducedMotionChanged)
+    expect(ForwardableEvents).not.toContain(Events.SettingsChanged)
+  })
+
   it('contains TaskUpdated', () => {
     expect(ForwardableEvents).toContain(Events.TaskUpdated)
   })
@@ -15,8 +20,8 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.UpdateAvailable)
   })
 
-  it('has 50 total forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(50)
+  it('has the expected number of forwardable events', () => {
+    expect(ForwardableEvents).toHaveLength(51)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {

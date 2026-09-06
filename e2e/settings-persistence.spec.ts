@@ -20,6 +20,64 @@ async function openMain(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('settings persistence', () => {
+  test('reduce motion applies immediately, survives restart, and can be disabled', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    let app = await launchMotrix({ userDataDir, rpcPort })
+    try {
+      let main = await openMain(app)
+      await main.emulateMedia({ reducedMotion: 'no-preference' })
+      await main.getByRole('link', { name: 'Settings', exact: true }).click()
+      await main.getByText('Appearance', { exact: true }).first().click()
+      const reduceMotion = main.getByRole('switch', { name: 'Reduce motion' })
+      await expect(reduceMotion).not.toBeChecked()
+      await reduceMotion.click()
+      await expect(main.locator('html')).toHaveAttribute(
+        'data-reduced-motion',
+        'false'
+      )
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(reduceMotion).toBeHidden()
+      await expect(main.locator('html')).toHaveAttribute(
+        'data-reduced-motion',
+        'true'
+      )
+
+      await main.getByRole('link', { name: 'Downloads', exact: true }).click()
+      const glass = main.locator('[data-slot="cubic-glass-gradient"]').first()
+      await expect(glass).toBeVisible()
+      await expect(glass.locator('canvas')).toHaveCSS('animation-name', 'none')
+      await expect(glass).toHaveCSS('transition-duration', '0s')
+      await app.close()
+
+      app = await launchMotrix({ userDataDir, rpcPort })
+      main = await openMain(app)
+      await main.emulateMedia({ reducedMotion: 'no-preference' })
+      await expect(main.locator('html')).toHaveAttribute(
+        'data-reduced-motion',
+        'true'
+      )
+      await main.getByRole('link', { name: 'Settings', exact: true }).click()
+      await main.getByText('Appearance', { exact: true }).first().click()
+      const restored = main.getByRole('switch', { name: 'Reduce motion' })
+      await expect(restored).toBeChecked()
+      await restored.click()
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(restored).toBeHidden()
+      await expect(main.locator('html')).toHaveAttribute(
+        'data-reduced-motion',
+        'false'
+      )
+      await main.getByRole('link', { name: 'Downloads', exact: true }).click()
+      await expect(
+        main.locator('[data-slot="cubic-glass-gradient"] canvas').first()
+      ).toHaveCSS('animation-name', 'cubic-glass-breathe')
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('notifyOnComplete switch survives an app restart', async ({
     userDataDir,
     rpcPort,

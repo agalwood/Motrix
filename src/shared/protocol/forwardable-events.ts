@@ -39,6 +39,7 @@ export const ForwardableEvents = [
   Events.GeoIPUpdateProgress,
   Events.GeoIPStatusChanged,
   Events.LocaleChanged,
+  Events.ReducedMotionChanged,
   Events.PluginConfigChanged,
   Events.PluginGrantsChanged,
   Events.PluginEvicted,

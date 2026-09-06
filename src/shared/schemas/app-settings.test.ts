@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { appSettingsSchema, DEFAULT_APP_SETTINGS } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('defaults reduceMotion to false and preserves an explicit opt-in', () => {
+    expect(DEFAULT_APP_SETTINGS.reduceMotion).toBe(false)
+    expect(appSettingsSchema.parse({}).reduceMotion).toBe(false)
+    expect(appSettingsSchema.parse({ reduceMotion: true }).reduceMotion).toBe(
+      true
+    )
+    expect(appSettingsSchema.parse({ reduceMotion: 'yes' }).reduceMotion).toBe(
+      false
+    )
+  })
+
   it('defaults traySpeedometer to true while preserving an explicit opt-out', () => {
     expect(DEFAULT_APP_SETTINGS.traySpeedometer).toBe(true)
     expect(appSettingsSchema.parse({}).traySpeedometer).toBe(true)
