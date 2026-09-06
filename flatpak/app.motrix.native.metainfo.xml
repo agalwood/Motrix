@@ -74,6 +74,17 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.33" date="2026-09-07">
+      <description>
+        <p>
+          Settings links to the published Chrome and Edge extensions, Firefox
+          development builds, and trusted extension store pages. This release
+          adds a reduced-motion preference, updates aria2 to 1.37.0-motrix.14
+          for durable task cookies, and improves completed-task recovery,
+          save-directory restoration, and large-file finalization.
+        </p>
+      </description>
+    </release>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
     <release version="2.0.0-beta.32" date="2026-09-05">
