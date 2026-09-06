@@ -1449,6 +1449,15 @@
         "title": "浏览器扩展",
         "masterSwitch": "用浏览器扩展发送下载到 Motrix",
         "masterSwitchDesc": "安装 Motrix 浏览器扩展后，可以在网页上点击下载图标直接发送到 Motrix。",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "安装扩展",
+          "comingSoon": "即将推出",
+          "development": "开发版"
+        },
         "pairedTitle": "已连接的扩展",
         "pairedEmpty": "还没有扩展连接到 Motrix。",
         "lastActive": "上次活跃",

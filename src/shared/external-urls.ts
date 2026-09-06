@@ -5,6 +5,13 @@
  * locale-specific redirects) only touch one file.
  */
 export const EXTERNAL_URLS = {
+  browserExtension: {
+    chrome:
+      'https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo',
+    edge: 'https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf',
+    development:
+      'https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development',
+  },
   github: {
     repository: 'https://github.com/agalwood/Motrix/',
     author: 'https://github.com/agalwood/',

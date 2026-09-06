@@ -59,6 +59,23 @@ src/renderer/routes/settings/icons/icon-network@2x.png
 
 ---
 
+## Browser extension install icons
+
+The installation cards use artwork downloaded from the brands’ official websites. Original shapes and colors are preserved; SVG files only add accessible titles. GitHub supplies separate black and white variants. These brand assets retain their respective owners’ rights and are not relicensed under Motrix’s MIT license.
+
+Files are under `src/renderer/routes/settings/icons/`.
+
+| Brand | Official source | Local file |
+| --- | --- | --- |
+| Google Chrome | [Download](https://www.google.com/chrome/static/images/chrome-logo-m100.svg) | `browser-chrome.svg` |
+| Microsoft Edge | [Download](https://edgecdn-embza6g8cacagcbn.z01.azurefd.net/welcome/static/favicon.png) | `browser-edge.png` |
+| Firefox | [Download](https://www.firefox.com/media/img/favicons/firefox/browser/favicon-196x196.59e3822720be.png) | `browser-firefox.png` |
+| GitHub | [Download](https://brand.github.com/GitHub_Logos.zip) | `browser-github.svg / browser-github-white.svg` |
+
+Brand resources: [Google](https://about.google/brand-resource-center/), [Microsoft](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks), [Mozilla](https://www.mozilla.org/foundation/trademarks/policy/), [GitHub](https://brand.github.com/foundations/logo).
+
+---
+
 ## Apple San Francisco tray font (macOS)
 
 - **File:** `extra/tray/SFNS-Regular.ttf`

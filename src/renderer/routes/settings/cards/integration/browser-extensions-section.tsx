@@ -18,6 +18,7 @@ import type { PairedClientInfo } from '@shared/protocol/bridge'
 import { TriangleAlertIcon } from 'lucide-react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { BrowserExtensionInstalls } from './browser-extension-installs'
 import type { IntegrationFormValues } from './integration-dialog'
 import { TrustedExtensionsSection } from './trusted-extensions-section'
 import { useBridgeStatus, usePairedExtensions } from './use-bridge'
@@ -63,6 +64,8 @@ export function BrowserExtensionsSection() {
           </FormItem>
         )}
       />
+
+      <BrowserExtensionInstalls />
 
       {status?.degraded && (
         <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">

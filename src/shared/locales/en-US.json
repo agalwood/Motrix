@@ -1462,6 +1462,15 @@
         "title": "Browser extensions",
         "masterSwitch": "Send downloads from browser extensions",
         "masterSwitchDesc": "After installing the Motrix browser extension, you can send downloads from any webpage with one click.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Install",
+          "comingSoon": "Coming soon",
+          "development": "Development"
+        },
         "pairedTitle": "Connected extensions",
         "pairedEmpty": "No extensions connected yet.",
         "lastActive": "Last active",

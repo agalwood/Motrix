@@ -136,6 +136,41 @@
   ],
   "manualAssets": [
     {
+      "id": "browser-install-google-chrome",
+      "name": "Google Chrome",
+      "scope": "browser extension install cards",
+      "licenseDeclared": "LicenseRef-Google-Brand",
+      "noticeMarker": "Google Chrome",
+      "paths": ["src/renderer/routes/settings/icons/browser-chrome.svg"]
+    },
+    {
+      "id": "browser-install-microsoft-edge",
+      "name": "Microsoft Edge",
+      "scope": "browser extension install cards",
+      "licenseDeclared": "LicenseRef-Microsoft-Brand",
+      "noticeMarker": "Microsoft Edge",
+      "paths": ["src/renderer/routes/settings/icons/browser-edge.png"]
+    },
+    {
+      "id": "browser-install-firefox",
+      "name": "Firefox",
+      "scope": "browser extension install cards",
+      "licenseDeclared": "LicenseRef-Mozilla-Trademark",
+      "noticeMarker": "Firefox",
+      "paths": ["src/renderer/routes/settings/icons/browser-firefox.png"]
+    },
+    {
+      "id": "browser-install-github",
+      "name": "GitHub",
+      "scope": "browser extension install cards",
+      "licenseDeclared": "LicenseRef-GitHub-Brand",
+      "noticeMarker": "GitHub",
+      "paths": [
+        "src/renderer/routes/settings/icons/browser-github.svg",
+        "src/renderer/routes/settings/icons/browser-github-white.svg"
+      ]
+    },
+    {
       "id": "iconly-pro-settings-icons",
       "name": "Iconly Pro settings icons",
       "scope": "renderer assets",

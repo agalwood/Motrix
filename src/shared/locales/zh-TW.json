@@ -1449,6 +1449,15 @@
         "title": "瀏覽器擴充功能",
         "masterSwitch": "從瀏覽器擴充功能傳送下載",
         "masterSwitchDesc": "安裝 Motrix 瀏覽器擴充功能後，可一鍵從任何網頁傳送下載。",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "安裝擴充功能",
+          "comingSoon": "即將推出",
+          "development": "開發版"
+        },
         "pairedTitle": "已連線的擴充功能",
         "pairedEmpty": "尚未連線任何擴充功能。",
         "lastActive": "上次使用",

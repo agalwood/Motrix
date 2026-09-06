@@ -68,7 +68,7 @@ account, machine, or Docker data directory.
 -  📊  Customizable Dashboard with transfer stats, live activity, and task tiles
 - 🔔 System notifications when downloads finish, plus an in-app notification center
 - 🧩 QuickJS-based plugin sandboxing, fine-grained permissions, and an in-app marketplace
--  🌐  [Motrix Extension](https://github.com/motrixapp/motrix-extension) for Chrome and Firefox hands browser downloads off to Motrix in one click
+-  🌐  [Motrix Extension](https://github.com/motrixapp/motrix-extension) for Chrome, Edge, and Firefox hands browser downloads off to Motrix in one click
 - ⌨️  Official `@motrix/cli` client for everyday shell use and AI agents
 -  🐳  Docker-ready headless server with secure device-code pairing for remote CLI and agent clients
 -  🎬  Extensible URL Resolver plugins for extracting media from supported sites
@@ -84,7 +84,7 @@ Motrix extends beyond the desktop app with a shared protocol library, command-li
 |---------|--------------|--------------|
 | [`@motrix/mdxp`](https://github.com/motrixapp/mdxp) | npm package | Defines the shared JSON-RPC 2.0 wire schemas and Zod types for MDXP, with helpers for bidirectional connections |
 | [`@motrix/cli`](https://github.com/motrixapp/cli) | npm package | Provides the `motrix` command, automatically discovers a local desktop app, and pairs with remote instances |
-| [Motrix Extension](https://github.com/motrixapp/motrix-extension) | Browser extension | Intercepts downloads in Chrome and Firefox (Manifest V3), hands them off to Motrix, and pairs securely with the desktop app over native messaging |
+| [Motrix Extension](https://github.com/motrixapp/motrix-extension) | Browser extension | Intercepts downloads in Chrome, Edge, and Firefox (Manifest V3), hands them off to Motrix, and pairs securely with the desktop app over native messaging |
 | [Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) | Four npm packages | Includes `@motrix/plugin-manifest-schema`, `@motrix/plugin-api`, `@motrix/plugin-cli`, and `create-motrix-plugin` for developing, testing, and packaging plugins |
 | [Builtin Plugins](https://github.com/motrixapp/builtin-plugins) | Signed `.moext` packages | Includes three official plugins: **Filename Template** for renaming files from a template before they are saved, **Page Scraper** for extracting direct file links from HTML pages, and **URL Resolver** as the foundation for site-specific media resolution |
 | Plugin Registry | Public JSON feed | Publishes plugin listings and install metadata at `dl.motrix.app/registry/plugins.json` for both the website and the in-app marketplace |
@@ -116,6 +116,15 @@ pnpm exec motrix-plugin lint     # Check the packed bundle
 The default scaffold starts with a `beforeCreate` URL resolver. Pass `post-action` after the project name to start with an `afterComplete` notification plugin instead. Plugins can hook into `beforeCreate`, `beforeFinalize`, `afterComplete`, and `onError`, contribute callable commands and settings, and access the runtime through the `motrix:plugin-api` virtual module.
 
 Plugins are bundled as a single ES2020 module and run inside a QuickJS sandbox without Node.js APIs or direct file and network access. Declare activation events, required capabilities, and URL-scoped host permissions in `motrix-plugin.json`; Motrix shows those requests to the user before granting access. See the [Plugin SDK documentation](https://github.com/motrixapp/plugin-sdk) for templates, the manifest and runtime API references, localization, sandbox constraints, packaging, and distribution.
+
+## Browser extension
+
+Motrix Extension is available from the official browser stores for use with Motrix 2:
+
+- [Chrome Web Store](https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo)
+- [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf)
+
+For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Firefox development builds remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
 
 ##  📦  Installation
 

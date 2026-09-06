@@ -16,8 +16,9 @@ import {
 } from '@renderer/components/ui/select'
 import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { TrustedExtensionInfo } from '@shared/protocol/bridge'
-import { ChevronRight, Trash2 } from 'lucide-react'
+import { ChevronRight, ExternalLink, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTrustedExtensions } from './use-bridge'
@@ -29,6 +30,34 @@ const SOURCE_ORDER: Record<TrustedExtensionInfo['source'], number> = {
 }
 
 type Browser = 'chromium' | 'firefox'
+
+const OFFICIAL_EXTENSION_STORE_URLS = new Map([
+  ['efcflljngohddnmfmebiamigoikmdfbf', EXTERNAL_URLS.browserExtension.edge],
+  ['lggbokfckofcgjndaboioakcmincinpo', EXTERNAL_URLS.browserExtension.chrome],
+])
+
+function ExtensionId({
+  id,
+  browser,
+}: Pick<TrustedExtensionInfo, 'id' | 'browser'>) {
+  const storeUrl =
+    browser === 'chromium' ? OFFICIAL_EXTENSION_STORE_URLS.get(id) : undefined
+
+  return storeUrl ? (
+    <a
+      href={storeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={id}
+      className="inline-flex max-w-full items-center gap-1 rounded-sm font-mono text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="truncate">{id}</span>
+      <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+    </a>
+  ) : (
+    <div className="truncate font-mono">{id}</div>
+  )
+}
 
 function cleanIpcErrorMessage(raw: string): string {
   return raw
@@ -145,7 +174,7 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
                   className="grid grid-cols-[minmax(0,1fr)_8rem_6rem_2rem] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0"
                 >
                   <div className="min-w-0">
-                    <div className="truncate font-mono">{it.id}</div>
+                    <ExtensionId id={it.id} browser={it.browser} />
                     {it.label && (
                       <div className="truncate text-muted-foreground">
                         {it.label}
