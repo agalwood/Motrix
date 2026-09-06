@@ -1,5 +1,5 @@
 import type { DownloadTask } from '@shared/types/task'
-import { TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TransitionPhase } from '@shared/types/task'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
 import { nonZeroMerge } from './non-zero-merge'
@@ -60,9 +60,24 @@ export function mergeEngineTask(
     },
     now
   )
+  // task_instances is durable state, not a renderer-only detail. Polling used
+  // to commit the aggregate Error/Completed transition while retaining the
+  // instance's earlier queued/downloading status. That contradictory snapshot
+  // then survived restart and could make recovery decisions from stale input.
+  // Keep this merge pure and only replace rows whose status actually changed,
+  // so same-state polls do not churn instance timestamps.
+  const instances =
+    nextStatus === TaskStatus.Completed || nextStatus === TaskStatus.Error
+      ? existing.instances.map((instance) =>
+          instance.status === nextStatus
+            ? instance
+            : { ...instance, status: nextStatus, updatedAt: now }
+        )
+      : existing.instances
   return {
     ...existing,
     ...terminalFields,
+    instances,
     progress,
     totalBytes: protected_.totalBytes,
     sizeWhenDone: protected_.sizeWhenDone,

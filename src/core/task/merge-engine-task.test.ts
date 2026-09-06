@@ -1,6 +1,10 @@
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { mergeEngineTask } from './merge-engine-task'
@@ -131,6 +135,48 @@ describe('mergeEngineTask', () => {
       finishedAt: 20_000,
       errorMessage: 'network failed',
       errorCode: DownloadErrorCode.NetworkError,
+    })
+  })
+
+  it('keeps durable instance status in lockstep with a polled error', () => {
+    const existing = baseTask({
+      status: TaskStatus.Downloading,
+      instances: [
+        {
+          instanceId: 'instance-1',
+          motrixId: 't1',
+          gid: 'gid1',
+          phase: TaskInstancePhase.HttpDownload,
+          status: TaskStatus.Downloading,
+          progress: 0.25,
+          totalBytes: 1_000,
+          downloadedBytes: 250,
+          uploadedBytes: 0,
+          diskPath: '/downloads/a.motrix',
+          transitionPhase: TransitionPhase.Idle,
+          uris: ['https://example.com/a'],
+          uriHash: null,
+          payload: {},
+          createdAt: 1_000,
+          updatedAt: 1_000,
+        },
+      ],
+    })
+    const engineTask = baseTask({
+      status: TaskStatus.Error,
+      errorMessage: 'Timeout',
+      errorCode: DownloadErrorCode.Timeout,
+    })
+
+    const merged = mergeEngineTask(existing, engineTask, 20_000)
+
+    expect(merged.instances[0]).toMatchObject({
+      status: TaskStatus.Error,
+      updatedAt: 20_000,
+    })
+    expect(existing.instances[0]).toMatchObject({
+      status: TaskStatus.Downloading,
+      updatedAt: 1_000,
     })
   })
 
