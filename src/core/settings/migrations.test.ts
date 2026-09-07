@@ -87,8 +87,8 @@ describe('migrate', () => {
 })
 
 describe('migration v3 → v4', () => {
-  it('targets version 10', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(10)
+  it('targets version 11', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(11)
   })
 
   it('adds dhtListenPort defaulting to listenPort value', () => {
@@ -198,8 +198,8 @@ describe('migration v5 → v6 (media namespace)', () => {
 })
 
 describe('migration v6 → v7 (speedLimit namespace)', () => {
-  it('targets version 10', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(10)
+  it('targets version 11', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(11)
   })
 
   it('v6→v7: maps a configured limit to base, turtle off', () => {
@@ -359,12 +359,44 @@ describe('migration v9 → v10 (bridge fixed port and instance id)', () => {
     // below vacuously (undefined === undefined).
     expect(instanceId).toEqual(expect.stringMatching(UUID_PATTERN))
 
-    // migrate() short-circuits at version === CURRENT_SETTINGS_VERSION
-    // (migrations.ts), so a v10 document never re-enters migrateV9ToV10.
+    // A document at or beyond v10 never re-enters migrateV9ToV10.
     const migratedTwice = migrate(migratedOnce)
 
     expect((migratedTwice.bridge as Record<string, unknown>).instanceId).toBe(
       instanceId
     )
+  })
+})
+
+describe('migration v10 → v11 (magnet metadata timeout)', () => {
+  it('upgrades the former timeout default without mutating the input', () => {
+    const input = {
+      version: 10,
+      engine: { magnetResolveTimeout: 120, dhtEnabled: false },
+      app: { theme: 'dark' },
+    }
+
+    expect(migrate(input)).toEqual({
+      ...input,
+      version: CURRENT_SETTINGS_VERSION,
+      engine: { ...input.engine, magnetResolveTimeout: 600 },
+    })
+    expect(input.engine.magnetResolveTimeout).toBe(120)
+  })
+
+  it.each([30, 90, 180, 300, 600])(
+    'preserves an existing %i-second timeout',
+    (magnetResolveTimeout) => {
+      const engine = { magnetResolveTimeout }
+      expect(migrate({ version: 10, engine }).engine).toEqual(engine)
+    }
+  )
+
+  it('preserves an explicit 120-second choice after the upgrade', () => {
+    const input = {
+      version: CURRENT_SETTINGS_VERSION,
+      engine: { magnetResolveTimeout: 120 },
+    }
+    expect(migrate(input)).toEqual(input)
   })
 })

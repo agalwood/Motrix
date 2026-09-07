@@ -1807,6 +1807,7 @@ export class SessionManager {
 
     try {
       const newGid = await this.rpc.addUri([magnetUri], {
+        'max-file-not-found': '0',
         'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: metadataDir,

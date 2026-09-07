@@ -3976,6 +3976,7 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
         'bt-metadata-only': 'true',
         dir: '/tmp/motrix-magnet-metadata-xyz',
         'follow-torrent': 'false',
+        'max-file-not-found': '0',
       })
     )
 

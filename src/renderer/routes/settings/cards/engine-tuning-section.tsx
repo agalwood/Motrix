@@ -250,7 +250,7 @@ export function EngineTuningSection({
         'magnetResolveTimeout',
         'settings.downloads.magnet.magnetResolveTimeout',
         'settings.downloads.magnet.magnetResolveTimeoutDesc',
-        { min: 30, max: 600 }
+        { min: 30, max: 900 }
       )}
     </>
   )

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-export const CURRENT_SETTINGS_VERSION = 10
+export const CURRENT_SETTINGS_VERSION = 11
 
 interface Migration {
   version: number
@@ -234,6 +234,22 @@ function migrateV9ToV10(
   }
 }
 
+function migrateV10ToV11(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const engine = (data.engine ?? {}) as Record<string, unknown>
+  return {
+    ...data,
+    version: 11,
+    // Persisted settings do not distinguish the former default from an
+    // explicit 120-second choice. Upgrade that value once; all other values
+    // remain user-controlled, including 120 selected again after migration.
+    ...(engine.magnetResolveTimeout === 120
+      ? { engine: { ...engine, magnetResolveTimeout: 600 } }
+      : {}),
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -245,6 +261,7 @@ const migrations: Migration[] = [
   { version: 8, migrate: migrateV7ToV8 },
   { version: 9, migrate: migrateV8ToV9 },
   { version: 10, migrate: migrateV9ToV10 },
+  { version: 11, migrate: migrateV10ToV11 },
 ]
 
 export function migrate(
