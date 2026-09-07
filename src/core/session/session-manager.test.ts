@@ -1611,6 +1611,30 @@ describe('SessionManager', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
 
+    it('restores a live retiring GID without counting its settled upload twice', async () => {
+      const gid = 'settled-finalize-gid'
+      seedAsPair(db, {
+        motrixId: 'settled-finalize',
+        gid,
+        type: TaskType.Bt,
+        status: TaskStatus.Finalizing,
+        transitionPhase: TransitionPhase.Renaming,
+        diskPath: '/tmp/output.motrix',
+        finalPath: '/tmp/output',
+        uploadedBytesBaseline: 125,
+        uploadedBytes: 25,
+        payload: { btFinalizeUpload: { gid, bytes: 25 } },
+      })
+      rpc.tellActive = vi.fn(async () => [
+        makeRawStatus({ gid, uploadLength: '30' }),
+      ])
+      await sessionManager.restore()
+      const restored = taskManager.getById('settled-finalize')
+      expect(restored?.uploadedBytes).toBe(130)
+      expect(restored?.uploadedBytesBaseline).toBe(125)
+      expect(adapter.addTorrent).not.toHaveBeenCalled()
+    })
+
     it('does NOT reAdd when aria2 has the gid (sqlite-persistence intact)', async () => {
       // This is the crucial regression: motrix.db says gid X is paused;
       // aria2 has gid X loaded (fork's Sqlite3SessionStore did its job).

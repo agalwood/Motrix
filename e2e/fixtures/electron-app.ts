@@ -96,10 +96,21 @@ export async function waitForEngineReady(
         }
       ).motrix
       if (!api) return null
-      const result = (await api.invoke('query:getEngineStatus')) as {
-        state: string
+      try {
+        const result = (await api.invoke('query:getEngineStatus')) as {
+          state: string
+        }
+        return result?.state ?? null
+      } catch (error) {
+        // The first window can appear before main finishes registering IPC.
+        if (
+          String(error).includes(
+            "No handler registered for 'query:getEngineStatus'"
+          )
+        )
+          return null
+        throw error
       }
-      return result?.state ?? null
     })
     if (state === 'ready') return
     await new Promise((r) => setTimeout(r, 250))

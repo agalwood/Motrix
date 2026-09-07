@@ -98,6 +98,7 @@ export interface ServerCommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
+  recoverFinalization?: (taskId: string) => Promise<void>
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
@@ -287,6 +288,7 @@ export function buildServerCommandHandlers(
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
     eventBus,

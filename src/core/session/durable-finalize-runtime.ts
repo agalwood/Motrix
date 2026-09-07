@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 import {
   ArtifactIdentityError,
   artifactContentEquals,
@@ -12,7 +13,10 @@ import {
   FinalizeCommitter,
 } from '@core/plugin/finalize/finalize-committer'
 import { FinalizeRecovery } from '@core/plugin/finalize/finalize-recovery'
-import { freezeHookPlan } from '@core/plugin/finalize/hook-plan'
+import {
+  assertFinalizePaths,
+  freezeHookPlan,
+} from '@core/plugin/finalize/hook-plan'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import type { PostDeliveryAdmission } from '@core/plugin/post/delivery-types'
 import type { DownloadTask } from '@shared/types/task'
@@ -55,6 +59,27 @@ export class DurableFinalizeRuntime {
   async commit(
     input: DurableFinalizeArtifactInput
   ): Promise<FinalizeCommitResult> {
+    // Reject invalid output plans before quiescing writers or hashing large files.
+    try {
+      assertFinalizePaths(
+        input.task.saveDir,
+        input.sourcePath,
+        input.targetPath
+      )
+    } catch (err) {
+      getLogger('finalize').warn(
+        {
+          taskId: input.task.id,
+          phase: input.task.transitionPhase,
+          saveDir: input.task.saveDir,
+          sourcePath: input.sourcePath,
+          targetPath: input.targetPath,
+          err,
+        },
+        'finalize_path_validation_failed'
+      )
+      throw err
+    }
     const lease = await this.leases.acquire(input.task.id)
     try {
       // H8: identity capture is inside the mutation lease, after every

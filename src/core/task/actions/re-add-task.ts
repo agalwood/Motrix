@@ -5,7 +5,11 @@ import { AppError, ErrorCode } from '@shared/errors'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskInstancePhase, TaskStatus } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import {
   canRebuildTaskInputs,
   canReseed,
@@ -37,6 +41,7 @@ import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
 export interface ReAddTaskDeps extends TaskActionDeps {
+  recoverFinalization?: (taskId: string) => Promise<void>
   runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
   persistTask: NonNullable<TaskActionDeps['persistTask']>
   torrentMetaStore: TorrentMetaStore
@@ -444,6 +449,21 @@ export async function reAddTask(
   taskId: string,
   deps: ReAddTaskDeps
 ): Promise<void> {
+  const task = deps.taskManager.getById(taskId)
+  if (
+    task &&
+    (task.transitionPhase === TransitionPhase.Renaming ||
+      task.transitionPhase === TransitionPhase.Reseeding)
+  ) {
+    if (!deps.recoverFinalization) {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        'Finalize recovery is unavailable'
+      )
+    }
+    await deps.recoverFinalization(taskId)
+    return
+  }
   const run = (
     getProxyOptions: DirectResourceProxyOptionsProvider,
     assertProxyCurrent?: () => void

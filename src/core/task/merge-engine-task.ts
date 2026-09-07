@@ -1,6 +1,7 @@
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TransitionPhase } from '@shared/types/task'
 import { applyTerminalTransition } from './apply-terminal-transition'
+import { unsettledBtUpload } from './bt-upload-settlement'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
 import { nonZeroMerge } from './non-zero-merge'
 import { syncTerminalInstanceStatus } from './task-instance'
@@ -40,7 +41,12 @@ export function mergeEngineTask(
   // The persistent baseline lives on `existing` and is bumped only at
   // gid swap points (finalize reseed, restart reAdd) — never here.
   const uploadedBytes =
-    existing.uploadedBytesBaseline + engineTask.uploadedBytes
+    existing.uploadedBytesBaseline +
+    unsettledBtUpload(
+      existing.instances,
+      engineTask.engineTaskId,
+      engineTask.uploadedBytes
+    )
   // A non-idle transition phase means the application owns the lifecycle
   // state until its filesystem + persistence transaction commits. aria2 can
   // report Completed while HTTP finalize is still renaming `.motrix`, or a

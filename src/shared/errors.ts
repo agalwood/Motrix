@@ -60,6 +60,7 @@ export enum ErrorCode {
   // Incomplete-suffix feature
   TaskCreateDedupExhausted = 'TASK_CREATE_DEDUP_EXHAUSTED',
   TaskCreateTorrentMetaFailed = 'TASK_CREATE_TORRENT_META_FAILED',
+  TaskFinalizeFailed = 'TASK_FINALIZE_FAILED',
   TaskFinalizeRenameFailed = 'TASK_FINALIZE_RENAME_FAILED',
   TaskFinalizeReseedFailed = 'TASK_FINALIZE_RESEED_FAILED',
   TaskFinalizeMetaMissing = 'TASK_FINALIZE_META_MISSING',

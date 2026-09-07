@@ -9,7 +9,13 @@ import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
-import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
@@ -2390,4 +2396,26 @@ describe('Commands.RevertBuiltinToBundled', () => {
     expect(pluginHost.activate).not.toHaveBeenCalled()
     expect(result).toMatchObject({ ok: true, restartRequired: false })
   })
+})
+
+describe('main finalize retry wiring', () => {
+  it.each([Commands.ReAddTask, Commands.RetryTasks])(
+    'routes %s to recovery for an interrupted finalize',
+    async (command) => {
+      const ctx = fakeCtx() as unknown as CommandContext
+      const task = makeDownloadTask({
+        id: 'interrupted-finalize',
+        type: TaskType.Bt,
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+      })
+      vi.spyOn(ctx.taskManager, 'getById').mockReturnValue(task)
+      const recoverFinalization = vi.fn().mockResolvedValue(undefined)
+      const handlers = buildCommandHandlers({ ...ctx, recoverFinalization })
+      await handlers[command]?.(
+        command === Commands.ReAddTask ? task.id : [task.id]
+      )
+      expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+    }
+  )
 })

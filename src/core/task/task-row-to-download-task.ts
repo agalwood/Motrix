@@ -6,6 +6,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import { isTorrentLikeType } from '@shared/types/task-actions'
+import { unsettledBtUpload } from './bt-upload-settlement'
 import { restoreTaskSaveDirectory } from './task-save-directory'
 
 /** Build a generic DownloadTask domain object from canonical TaskRow data.
@@ -26,7 +27,12 @@ export function taskRowToDownloadTask(
         ? task.downloadedBytes / task.totalBytes
         : 0
   const uploadedBytes =
-    task.uploadedBytesBaseline + (primary?.uploadedBytes ?? 0)
+    task.uploadedBytesBaseline +
+    unsettledBtUpload(
+      instances,
+      primary?.gid ?? '',
+      primary?.uploadedBytes ?? 0
+    )
   const bt = isTorrentLikeType(task.taskType)
     ? makeDefaultBtExtension({
         ratio: task.totalBytes > 0 ? uploadedBytes / task.totalBytes : 0,

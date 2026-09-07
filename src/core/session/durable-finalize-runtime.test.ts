@@ -9,9 +9,10 @@ import {
 import { ArtifactMutationLeaseCoordinator } from '@core/plugin/finalize/artifact-mutation-lease'
 import type { FinalizeArtifactOperations } from '@core/plugin/finalize/finalize-committer'
 import { migrate } from '@core/session/migrations'
-import { makeDownloadTask, TaskKind, TaskType } from '@shared/types/task'
+import { TaskKind, TaskType } from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
 import Database from 'better-sqlite3'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DurableFinalizeRuntime } from './durable-finalize-runtime'
 
 describe('DurableFinalizeRuntime', () => {
@@ -107,4 +108,33 @@ describe('DurableFinalizeRuntime', () => {
     expect(events).toEqual(['quiesce', 'materialize', 'release'])
     db.close()
   })
+})
+
+it('rejects an invalid target before acquiring leases or reading file identities', async () => {
+  const db = new Database(':memory:')
+  try {
+    const fs = { identity: vi.fn() } as unknown as FinalizeArtifactOperations
+    const quiesce = vi.fn(async () => () => {})
+    const runtime = new DurableFinalizeRuntime({
+      db,
+      fs,
+      session: { persistFinalizedArtifact: vi.fn() },
+      leases: new ArtifactMutationLeaseCoordinator([{ quiesce }]),
+    })
+    await expect(
+      runtime.commit({
+        task: makeDownloadTask({ id: 'invalid', saveDir: '/save' }),
+        occurrence: null,
+        sourcePath: '/save/temp',
+        targetPath: '/save',
+        metadataOps: [],
+        contributors: [],
+        postDeliveries: [],
+      })
+    ).rejects.toThrow('descendant')
+    expect(fs.identity).not.toHaveBeenCalled()
+    expect(quiesce).not.toHaveBeenCalled()
+  } finally {
+    db.close()
+  }
 })

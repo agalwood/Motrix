@@ -1916,6 +1916,48 @@ describe('Aria2Adapter', () => {
   })
 
   describe('removeDownloadResult', () => {
+    it('waits only when the force-remove result is not available yet', async () => {
+      vi.useFakeTimers()
+      try {
+        const rpc = createMockRpc()
+        const gid = 'bbfd794b501706e6'
+        vi.mocked(rpc.removeDownloadResult)
+          .mockRejectedValueOnce(
+            new Error(`Could not remove download result of GID#${gid}`)
+          )
+          .mockRejectedValueOnce(
+            new Error(`Could not remove download result of GID#${gid}`)
+          )
+          .mockResolvedValue('OK')
+        const adapter = new Aria2Adapter(rpc)
+        const result = adapter.removeDownloadResult(gid)
+        await vi.runAllTimersAsync()
+        await result
+        expect(rpc.removeDownloadResult).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('bounds pending-stop retries and retains the failure', async () => {
+      vi.useFakeTimers()
+      try {
+        const rpc = createMockRpc()
+        const gid = '88ca340e39b2c3d6'
+        const error = new Error(
+          `Could not remove download result of GID#${gid}`
+        )
+        vi.mocked(rpc.removeDownloadResult).mockRejectedValue(error)
+        const result = new Aria2Adapter(rpc).removeDownloadResult(gid)
+        const assertion = expect(result).rejects.toBe(error)
+        await vi.runAllTimersAsync()
+        await assertion
+        expect(rpc.removeDownloadResult).toHaveBeenCalledTimes(7)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('calls aria2.removeDownloadResult', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.removeDownloadResult).mockResolvedValue('OK')

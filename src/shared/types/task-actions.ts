@@ -5,6 +5,7 @@ import {
   TaskKind,
   TaskStatus,
   TaskType,
+  TransitionPhase,
 } from './task'
 
 /** Coordinator-managed media task (Mux/Hls) — has no single aria2 handle. */
@@ -156,7 +157,11 @@ export function canRetryMagnetMetadata(t: DownloadTask): boolean {
   )
 }
 
-export type TaskRetryKind = 'torrent-readd' | 'direct-readd' | 'magnet-metadata'
+export type TaskRetryKind =
+  | 'torrent-readd'
+  | 'direct-readd'
+  | 'magnet-metadata'
+  | 'finalize-recovery'
 
 const NON_RETRYABLE_DIRECT_RECOVERY_ERRORS = new Set([
   'task.recovery.startup.resumeCheckpointMissing',
@@ -170,6 +175,14 @@ const NON_RETRYABLE_DIRECT_RECOVERY_ERRORS = new Set([
 /** Resolve the concrete replay operation behind the generic Retry UI. */
 export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
   if (!canRetry(t)) return null
+  // Completed bytes need a filesystem recovery, so original download
+  // credentials or torrent metadata are not prerequisites for Retry.
+  if (
+    t.status === TaskStatus.Error &&
+    (t.transitionPhase === TransitionPhase.Renaming ||
+      t.transitionPhase === TransitionPhase.Reseeding)
+  )
+    return 'finalize-recovery'
   if (canRebuildTaskInputs(t)) {
     if (isTorrentLike(t)) return 'torrent-readd'
     // Removed direct tasks are user-retired occurrences. Only an Error is an
@@ -193,9 +206,8 @@ export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
   return null
 }
 
-/** A retry the UI should actually offer: the task is in a retryable status
- *  AND its engine dispatch can be rebuilt from the persisted record. This
- *  includes pre-sidecar magnet metadata retries as a distinct operation. */
+/** A retry the UI should offer: its finalization can be recovered or its
+ *  engine dispatch can be rebuilt from the persisted record. */
 export function canAttemptRetry(t: DownloadTask): boolean {
   return getTaskRetryKind(t) !== null
 }

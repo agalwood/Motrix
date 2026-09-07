@@ -880,6 +880,8 @@
     },
     "error": {
       "detail": {
+        "finalizeFailed": "无法完成下载收尾：{{cause}}",
+        "recoveryFailed": "无法恢复下载：{{cause}}",
         "recoveryOutputConflict": "临时文件和最终文件同时存在，已保留两者以供人工检查",
         "filesMissing": "应用重启后文件缺失",
         "renameFileFailed": "重命名文件失败：{{cause}}",

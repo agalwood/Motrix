@@ -1041,6 +1041,7 @@ async function main() {
   // its latch; registered on the occurrence dispatcher further down with
   // the other consumers. The retry fn is late-bound by
   // buildServerCommandHandlers to the ReAddTasks deps bundle.
+  let recoveryService: TaskRecoveryServiceImpl | undefined
   let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
   const dnsFallbackConsumer = createDnsFallbackConsumer({
     getDnsMode: () => settingsManager.get().engine.dnsMode,
@@ -1089,6 +1090,15 @@ async function main() {
     dnsFallback: dnsFallbackConsumer,
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
+    },
+    recoverFinalization: async (taskId) => {
+      if (!recoveryService) throw new Error('Task recovery is not ready')
+      try {
+        const report = await recoveryService.recoverTaskById(taskId)
+        if (report.errors.length > 0) throw new Error(report.errors[0].issue)
+      } finally {
+        publishTaskUpdateNow()
+      }
     },
     rpcClient,
     adapter,
@@ -1515,7 +1525,7 @@ async function main() {
       // Startup recovery: replay intent markers before polling/events
       // open so the renderer observes a self-healed state. See design
       // spec §6.6.
-      const recoveryService = new TaskRecoveryServiceImpl({
+      recoveryService = new TaskRecoveryServiceImpl({
         taskManager: {
           getAll: () => taskManager.getAll(),
           set: (id: string, task: DownloadTask) => taskManager.set(id, task),
