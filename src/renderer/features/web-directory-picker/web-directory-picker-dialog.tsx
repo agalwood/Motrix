@@ -8,8 +8,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@renderer/components/ui/dropdown-menu'
 import { Input } from '@renderer/components/ui/input'
-import { Switch } from '@renderer/components/ui/switch'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import {
@@ -24,22 +29,30 @@ import {
   FolderPlus,
   Pencil,
   RefreshCw,
+  SlidersHorizontal,
   Star,
   X,
 } from 'lucide-react'
 import {
   type KeyboardEvent,
+  memo,
+  type RefObject,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DirectoryPickerController } from './directory-picker-controller'
+import {
+  type DirectoryEntry,
+  DirectoryPickerController,
+} from './directory-picker-controller'
 
 const ROW_HEIGHT = 32
+const EMPTY_ENTRIES: DirectoryEntry[] = []
 
 export function isMacClient() {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent)
@@ -111,58 +124,70 @@ function PickerSession({ request, controller }: Session) {
   const rootSidebarRef = useRef<HTMLElement>(null)
   const rootSelectRef = useRef<HTMLSelectElement>(null)
   const lastFocused = useRef<HTMLElement | null>(null)
+  const [viewOptionsOpen, setViewOptionsOpen] = useState(false)
+  const pendingFilter = useRef<boolean | null>(null)
   const id = useId()
   const mac = isMacClient()
   const typeahead = useRef({ text: '', time: 0 })
-  const entries = state.listing?.entries ?? []
-  const activeIndex = entries.findIndex(
-    (entry) => entry.path === state.selected
+  const entries = state.listing?.entries ?? EMPTY_ENTRIES
+  const activeIndex = useMemo(
+    () => entries.findIndex((entry) => entry.path === state.selected),
+    [entries, state.selected]
   )
   const locked = state.busy !== null || state.editor !== null
   const creating = state.busy === 'create'
   const target = state.selected ?? state.listing?.path
   const unknown =
     !!state.listing && state.unknownParents.includes(state.listing.path)
-  const seenCommon = new Set<string>()
-  const common = (state.locations?.common ?? []).filter((entry) => {
-    if (seenCommon.has(entry.path)) return false
-    seenCommon.add(entry.path)
-    return true
-  })
-  const groups = [
-    {
-      id: 'common',
-      label: t('directoryPicker.places.common'),
-      items: common.map((entry) => ({
-        path: entry.path,
-        name: t(`directoryPicker.places.${entry.kind}`),
-      })),
-    },
-    {
-      id: 'allowed',
-      label: t('directoryPicker.places.allowed'),
-      items: (state.bootstrap?.paths ?? [])
-        .filter((entry) => !seenCommon.has(entry.path))
-        .map((entry) => ({ path: entry.path, name: entry.path })),
-    },
-    {
-      id: 'favorites',
-      label: t('directoryPreferences.favorites'),
-      items: state.locations?.favorites ?? [],
-    },
-    {
-      id: 'recent',
-      label: t('directoryPreferences.recent'),
-      items: state.locations?.recent ?? [],
-    },
-  ].filter((group) => group.items.length > 0)
-  const activeLocation = groups
-    .flatMap((group) => group.items)
-    .sort((a, b) => b.path.length - a.path.length)
-    .find((entry) =>
-      state.listing?.breadcrumbs.some((crumb) => crumb.path === entry.path)
-    )?.path
+  const groups = useMemo(() => {
+    const seenCommon = new Set<string>()
+    const common = (state.locations?.common ?? []).filter((entry) => {
+      if (seenCommon.has(entry.path)) return false
+      seenCommon.add(entry.path)
+      return true
+    })
+    return [
+      {
+        id: 'common',
+        label: t('directoryPicker.places.common'),
+        items: common.map((entry) => ({
+          path: entry.path,
+          name: t(`directoryPicker.places.${entry.kind}`),
+        })),
+      },
+      {
+        id: 'allowed',
+        label: t('directoryPicker.places.allowed'),
+        items: (state.bootstrap?.paths ?? [])
+          .filter((entry) => !seenCommon.has(entry.path))
+          .map((entry) => ({ path: entry.path, name: entry.path })),
+      },
+      {
+        id: 'favorites',
+        label: t('directoryPreferences.favorites'),
+        items: state.locations?.favorites ?? [],
+      },
+      {
+        id: 'recent',
+        label: t('directoryPreferences.recent'),
+        items: state.locations?.recent ?? [],
+      },
+    ].filter((group) => group.items.length > 0)
+  }, [state.locations, state.bootstrap?.paths, t])
+  const activeLocation = useMemo(
+    () =>
+      groups
+        .flatMap((group) => group.items)
+        .sort((a, b) => b.path.length - a.path.length)
+        .find((entry) =>
+          state.listing?.breadcrumbs.some((crumb) => crumb.path === entry.path)
+        )?.path,
+    [groups, state.listing?.breadcrumbs]
+  )
   const favorite = controller.currentFavorite
+  const locationPending = (path: string) =>
+    state.locationsLoading &&
+    !state.bootstrap?.paths.some((entry) => entry.path === path)
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return
@@ -214,8 +239,7 @@ function PickerSession({ request, controller }: Session) {
     if (
       previous &&
       previous !== listRef.current &&
-      (!previous.isConnected ||
-        previous.matches(':disabled, [aria-disabled="true"]'))
+      (!previous.isConnected || previous.matches(':disabled'))
     )
       listRef.current?.focus({ preventScroll: true })
   })
@@ -248,6 +272,10 @@ function PickerSession({ request, controller }: Session) {
   const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     event.stopPropagation()
     if (event.nativeEvent.isComposing || event.keyCode === 229) return
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault()
+      return
+    }
     const plain =
       !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
     const meta =
@@ -300,9 +328,9 @@ function PickerSession({ request, controller }: Session) {
         const location = state.locations?.common.find(
           (entry) => entry.kind === kind
         )
-        if (location) {
+        if (location && !state.locationsLoading) {
           event.preventDefault()
-          if (!event.repeat) controller.navigate(location.path)
+          if (!event.repeat) controller.navigateLocation(location.path)
         }
       }
       return
@@ -435,13 +463,14 @@ function PickerSession({ request, controller }: Session) {
                       activeLocation === entry.path &&
                         'bg-accent text-accent-foreground'
                     )}
+                    aria-disabled={locked || locationPending(entry.path)}
                     disabled={locked}
                     aria-label={entry.name}
                     aria-current={
                       activeLocation === entry.path ? 'location' : undefined
                     }
                     title={entry.path}
-                    onClick={() => controller.navigate(entry.path)}
+                    onClick={() => controller.navigateLocation(entry.path)}
                   >
                     {group.id === 'favorites' ? (
                       <Star className="size-4 shrink-0 text-muted-foreground" />
@@ -602,36 +631,37 @@ function PickerSession({ request, controller }: Session) {
                 </>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className={editor?.kind === 'path' ? 'hidden' : undefined}
-              data-testid="directory-picker-favorite"
-              aria-label={t(
-                favorite
-                  ? 'directoryPreferences.removeFavorite'
-                  : 'directoryPreferences.addFavorite'
-              )}
-              title={t(
-                favorite
-                  ? 'directoryPreferences.removeFavorite'
-                  : 'directoryPreferences.addFavorite'
-              )}
-              aria-pressed={!!favorite}
-              disabled={
-                locked ||
-                !state.listing ||
-                !state.locations ||
-                state.locationsLoading ||
-                state.favoriteBusy
-              }
-              onClick={() => {
-                listRef.current?.focus({ preventScroll: true })
-                void controller.toggleFavorite()
-              }}
-            >
-              <Star className={favorite ? 'fill-current' : undefined} />
-            </Button>
+            {request.allowFavoriteEditing !== false && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className={editor?.kind === 'path' ? 'hidden' : undefined}
+                data-testid="directory-picker-favorite"
+                aria-label={t(
+                  favorite
+                    ? 'directoryPreferences.removeFavorite'
+                    : 'directoryPreferences.addFavorite'
+                )}
+                title={t(
+                  favorite
+                    ? 'directoryPreferences.removeFavorite'
+                    : 'directoryPreferences.addFavorite'
+                )}
+                aria-pressed={!!favorite}
+                disabled={locked || !state.listing || !state.locations}
+                aria-disabled={
+                  locked ||
+                  !state.listing ||
+                  !state.locations ||
+                  state.locationsLoading ||
+                  state.favoriteBusy
+                }
+                aria-busy={state.favoriteBusy}
+                onClick={() => void controller.toggleFavorite()}
+              >
+                <Star className={favorite ? 'fill-current' : undefined} />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -649,19 +679,75 @@ function PickerSession({ request, controller }: Session) {
                 }
               />
             </Button>
+            <DropdownMenu
+              open={viewOptionsOpen}
+              onOpenChange={(open) => {
+                if (open) pendingFilter.current = null
+                setViewOptionsOpen(open)
+              }}
+              onOpenChangeComplete={(open) => {
+                if (open || pendingFilter.current === null) return
+                const showHidden = pendingFilter.current
+                pendingFilter.current = null
+                listRef.current?.focus({ preventScroll: true })
+                controller.filter(showHidden)
+              }}
+            >
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon-sm" />}
+                className={editor?.kind === 'path' ? 'hidden' : undefined}
+                disabled={locked || !state.listing}
+                aria-label={t('directoryPicker.viewOptions')}
+                title={t('directoryPicker.viewOptions')}
+              >
+                <SlidersHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                aria-label={t('directoryPicker.viewOptions')}
+                finalFocus={() => pendingFilter.current === null}
+                onKeyDownCapture={(event) => {
+                  if (
+                    event.key === 'Enter' &&
+                    (event.ctrlKey || event.metaKey)
+                  ) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                onKeyUp={(event) => event.stopPropagation()}
+              >
+                <DropdownMenuCheckboxItem
+                  checked={state.showHidden}
+                  disabled={locked || !state.listing}
+                  closeOnClick
+                  onCheckedChange={(checked) => {
+                    pendingFilter.current = checked
+                    setViewOptionsOpen(false)
+                  }}
+                >
+                  {t('directoryPicker.showHidden')}
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="flex shrink-0 flex-wrap items-center gap-3 border-b px-3 py-1.5">
-              {groups.length > 0 && (
+            {groups.length > 0 && (
+              <div className="flex shrink-0 items-center gap-3 border-b px-3 py-1.5 sm:hidden">
                 <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] sm:hidden">
                   {t('directoryPicker.location')}
                   <select
                     ref={rootSelectRef}
                     aria-label={t('directoryPicker.location')}
                     disabled={locked}
+                    aria-disabled={
+                      locked ||
+                      (state.locationsLoading && !state.bootstrap?.paths.length)
+                    }
                     value={activeLocation ?? ''}
                     onChange={(event) =>
-                      controller.navigate(event.target.value)
+                      controller.navigateLocation(event.target.value)
                     }
                     className="h-6 min-w-0 flex-1 rounded border bg-background px-1"
                     dir="ltr"
@@ -672,7 +758,11 @@ function PickerSession({ request, controller }: Session) {
                     {groups.map((group) => (
                       <optgroup key={group.id} label={group.label}>
                         {group.items.map((entry) => (
-                          <option key={entry.path} value={entry.path}>
+                          <option
+                            key={entry.path}
+                            value={entry.path}
+                            disabled={locationPending(entry.path)}
+                          >
                             {entry.name}
                           </option>
                         ))}
@@ -680,22 +770,8 @@ function PickerSession({ request, controller }: Session) {
                     ))}
                   </select>
                 </label>
-              )}
-              <label
-                htmlFor={`${id}-hidden`}
-                className="ms-auto flex shrink-0 items-center gap-2 text-[11px]"
-              >
-                <Switch
-                  id={`${id}-hidden`}
-                  size="sm"
-                  checked={state.showHidden}
-                  disabled={locked || !state.listing}
-                  onCheckedChange={(checked) => controller.filter(checked)}
-                  aria-label={t('directoryPicker.showHidden')}
-                />
-                {t('directoryPicker.showHidden')}
-              </label>
-            </div>
+              </div>
+            )}
             {state.locationsError && (
               <div
                 role="status"
@@ -810,73 +886,17 @@ function PickerSession({ request, controller }: Session) {
                 {t('directoryPicker.incomplete')}
               </p>
             )}
-            <VirtualList
-              ref={virtualRef}
-              scrollRef={listRef}
+            <DirectoryEntries
+              controller={controller}
+              entries={entries}
+              selected={state.selected}
+              busy={!!state.busy}
+              locked={locked}
+              hasListing={!!state.listing}
               activeIndex={activeIndex}
-              items={entries}
-              getId={(entry) => entry.path}
-              rowHeight={ROW_HEIGHT}
-              className="min-h-0 flex-1 bg-background outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-              containerProps={{
-                role: 'listbox',
-                tabIndex: 0,
-                'aria-label': t('directoryPicker.folders'),
-                'aria-activedescendant':
-                  activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined,
-                'aria-busy': !!state.busy,
-                'aria-disabled': locked,
-                onScroll: (event) =>
-                  controller.setScrollOffset(event.currentTarget.scrollTop),
-                onClick: (event) => {
-                  if (!(event.target as HTMLElement).closest('[role="option"]'))
-                    controller.select(null)
-                },
-              }}
-              renderEmpty={() => (
-                <p className="p-6 text-center text-xs text-muted-foreground">
-                  {state.busy
-                    ? t('directoryPicker.loading')
-                    : state.listing
-                      ? t('directoryPicker.empty')
-                      : ''}
-                </p>
-              )}
-              renderRow={({ item, index, style }) => (
-                // biome-ignore lint/a11y/useKeyWithClickEvents: The owning listbox handles keyboard selection and retains DOM focus.
-                <div
-                  id={`${id}-option-${index}`}
-                  role="option"
-                  aria-posinset={index + 1}
-                  aria-setsize={entries.length}
-                  aria-selected={state.selected === item.path}
-                  aria-disabled={locked}
-                  tabIndex={-1}
-                  style={style}
-                  title={item.name}
-                  className={cn(
-                    'flex cursor-default items-center gap-2 px-3 text-sm select-none',
-                    state.selected === item.path
-                      ? 'bg-accent text-accent-foreground'
-                      : 'hover:bg-accent/50',
-                    locked && 'opacity-60'
-                  )}
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    listRef.current?.focus({ preventScroll: true })
-                  }}
-                  onClick={() => controller.select(item.path)}
-                  onDoubleClick={() => controller.navigate(item.path)}
-                >
-                  <Folder
-                    aria-hidden
-                    className="size-4 shrink-0 text-muted-foreground"
-                  />
-                  <span dir="ltr" className="truncate whitespace-pre">
-                    {item.name}
-                  </span>
-                </div>
-              )}
+              id={id}
+              listRef={listRef}
+              virtualRef={virtualRef}
             />
           </div>
           <div className="flex min-w-0 shrink-0 items-start gap-2 border-t px-3 pt-2 text-[11px]">
@@ -927,3 +947,100 @@ function PickerSession({ request, controller }: Session) {
     </Dialog>
   )
 }
+
+// Location/favorite updates must not re-render the virtualizer or its rows.
+const DirectoryEntries = memo(function DirectoryEntries({
+  controller,
+  entries,
+  selected,
+  busy,
+  locked,
+  hasListing,
+  activeIndex,
+  id,
+  listRef,
+  virtualRef,
+}: {
+  controller: DirectoryPickerController
+  entries: DirectoryEntry[]
+  selected: string | null
+  busy: boolean
+  locked: boolean
+  hasListing: boolean
+  activeIndex: number
+  id: string
+  listRef: RefObject<HTMLDivElement | null>
+  virtualRef: RefObject<VirtualListHandle | null>
+}) {
+  const { t } = useTranslation()
+  return (
+    <VirtualList
+      ref={virtualRef}
+      scrollRef={listRef}
+      activeIndex={activeIndex}
+      items={entries}
+      getId={(entry) => entry.path}
+      rowHeight={ROW_HEIGHT}
+      className="min-h-0 flex-1 bg-background outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      containerProps={{
+        role: 'listbox',
+        tabIndex: 0,
+        'aria-label': t('directoryPicker.folders'),
+        'aria-activedescendant':
+          activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined,
+        'aria-busy': !!busy,
+        'aria-disabled': locked,
+        onScroll: (event) =>
+          controller.setScrollOffset(event.currentTarget.scrollTop),
+        onClick: (event) => {
+          if (!(event.target as HTMLElement).closest('[role="option"]'))
+            controller.select(null)
+        },
+      }}
+      renderEmpty={() => (
+        <p className="p-6 text-center text-xs text-muted-foreground">
+          {busy
+            ? t('directoryPicker.loading')
+            : hasListing
+              ? t('directoryPicker.empty')
+              : ''}
+        </p>
+      )}
+      renderRow={({ item, index, style }) => (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: The owning listbox handles keyboard selection and retains DOM focus.
+        <div
+          id={`${id}-option-${index}`}
+          role="option"
+          aria-posinset={index + 1}
+          aria-setsize={entries.length}
+          aria-selected={selected === item.path}
+          aria-disabled={locked}
+          tabIndex={-1}
+          style={style}
+          title={item.name}
+          className={cn(
+            'flex cursor-default items-center gap-2 px-3 text-sm select-none',
+            selected === item.path
+              ? 'bg-accent text-accent-foreground'
+              : 'hover:bg-accent/50',
+            locked && 'opacity-60'
+          )}
+          onMouseDown={(event) => {
+            event.preventDefault()
+            listRef.current?.focus({ preventScroll: true })
+          }}
+          onClick={() => controller.select(item.path)}
+          onDoubleClick={() => controller.navigate(item.path)}
+        >
+          <Folder
+            aria-hidden
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+          <span dir="ltr" className="truncate whitespace-pre">
+            {item.name}
+          </span>
+        </div>
+      )}
+    />
+  )
+})

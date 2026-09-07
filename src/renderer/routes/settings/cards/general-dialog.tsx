@@ -24,13 +24,20 @@ import {
   useFormField,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
+import {
+  DirectoryPreferencesSection,
+  DirectoryPreferencesStatus,
+} from '@renderer/features/directory-preferences/directory-preferences-section'
+import {
+  DIRECTORY_DRAFT_TIMEOUT,
+  useDirectoryPreferencesDraft,
+} from '@renderer/features/directory-preferences/use-directory-preferences-draft'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
-import { type ComponentProps, useEffect } from 'react'
+import { type ComponentProps, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
 import { generalFormSchema } from './settings-form-schemas'
@@ -68,12 +75,34 @@ export function GeneralDialog({
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
   const form = useSettingsForm<GeneralFields>(generalFormSchema, DEFAULTS)
+  const directories = useDirectoryPreferencesDraft()
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [defaultPicking, setDefaultPicking] = useState(false)
+  const [favoritePicking, setFavoritePicking] = useState(false)
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [settingsError, setSettingsError] = useState(false)
+  const [settingsAttempt, setSettingsAttempt] = useState(0)
+  const busy = directories.saving || defaultPicking || favoritePicking
+  const fieldsDisabled = directories.saving || settingsLoading || settingsError
+  const close = () => {
+    if (!busy) onClose()
+  }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
     let cancelled = false
-    transport
-      .invoke(Queries.GetSettings)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    setSettingsLoading(true)
+    setSettingsError(false)
+    Promise.race([
+      transport.invoke(Queries.GetSettings),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Settings request timed out')),
+          DIRECTORY_DRAFT_TIMEOUT
+        )
+      }),
+    ])
       .then((data) => {
         if (cancelled) return
         const all = data as AppSettings
@@ -90,26 +119,41 @@ export function GeneralDialog({
         }
       })
       .catch(() => {
-        /* keep defaults */
+        if (!cancelled) setSettingsError(true)
+      })
+      .finally(() => {
+        clearTimeout(timer)
+        if (!cancelled) setSettingsLoading(false)
       })
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [])
+  }, [settingsAttempt])
 
   const onSubmit = useSettingsSubmit(form, async (values) => {
-    const dirty = pickDirty(values, form.formState.dirtyFields)
-    if (!dirty) {
-      onClose()
+    if (
+      busy ||
+      settingsLoading ||
+      settingsError ||
+      directories.loading ||
+      !directories.ready
+    )
       return
-    }
-    const patch = { app: dirty }
-    await transport.invoke(Commands.UpdateSettings, patch)
-    onClose()
+    const dirty = pickDirty(values, form.formState.dirtyFields)
+    contentRef.current?.focus({ preventScroll: true })
+    if (await directories.save(dirty ?? {})) onClose()
   })
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(v, details) => {
+        if (v) return
+        if (busy) details.cancel()
+        else close()
+      }}
+    >
       <DialogContent
         className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
         initialFocus={false}
@@ -119,25 +163,158 @@ export function GeneralDialog({
           <DialogDescription>{t(descKey)}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div
+          ref={contentRef}
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto px-6 py-4 outline-none"
+        >
+          {settingsError && (
+            <div
+              role="alert"
+              className="mb-3 flex items-center gap-2 text-xs text-destructive"
+            >
+              <p className="flex-1">
+                {t('directoryPreferences.errors.unavailable')}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  contentRef.current?.focus({ preventScroll: true })
+                  setSettingsAttempt((attempt) => attempt + 1)
+                }}
+              >
+                {t('directoryPreferences.retry')}
+              </Button>
+            </div>
+          )}
           <Form {...form}>
-            <form className="space-y-4" noValidate onSubmit={onSubmit}>
-              {!isWeb && (
+            <form noValidate onSubmit={onSubmit}>
+              <fieldset className="min-w-0 space-y-4" disabled={fieldsDisabled}>
+                {!isWeb && (
+                  <FormField
+                    control={form.control}
+                    name="launchAtStartup"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.general.launchAtStartup')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.general.launchAtStartupDesc')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            disabled={fieldsDisabled}
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+                )}
+
+                {!isWeb && (
+                  <FormField
+                    control={form.control}
+                    name="showMainWindowAtLogin"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.general.showMainWindowAtLogin')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.general.showMainWindowAtLoginDesc', {
+                              mode: t(
+                                transport.platform === 'darwin'
+                                  ? 'settings.appearance.runModeTray'
+                                  : 'settings.appearance.runModeTrayDesktop'
+                              ),
+                            })}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            disabled={
+                              fieldsDisabled || !form.watch('launchAtStartup')
+                            }
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+                )}
+
                 <FormField
                   control={form.control}
-                  name="launchAtStartup"
+                  name="defaultSaveDir"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t('settings.general.defaultSaveDir')}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t('settings.general.defaultSaveDirDesc')}
+                        </FormDescription>
+                      </div>
+                      <SettingsDirectoryPicker
+                        inputProps={{ ref: field.ref, onBlur: field.onBlur }}
+                        recordRecent={false}
+                        allowFavoriteEditing={false}
+                        disabled={directories.saving || favoritePicking}
+                        onPickingChange={setDefaultPicking}
+                      />
+                      <FormMessage className="basis-full text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-3 border-b pb-4">
+                  <p className="text-xs text-muted-foreground">
+                    {t('directoryPreferences.sectionDescription')}
+                  </p>
+                  <DirectoryPreferencesStatus
+                    loading={directories.loading}
+                    error={directories.error}
+                    disabled={busy}
+                    onRetry={() => {
+                      contentRef.current?.focus({ preventScroll: true })
+                      void directories.refresh()
+                    }}
+                  />
+                  <DirectoryPreferencesSection
+                    preferences={directories.preferences}
+                    onChange={directories.setPreferences}
+                    disabled={busy || directories.loading || !directories.ready}
+                    onPickingChange={setFavoritePicking}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="autofillClipboardLinks"
                   render={({ field }) => (
                     <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
-                          {t('settings.general.launchAtStartup')}
+                          {t('settings.general.autofillClipboardLinks')}
                         </FormLabel>
                         <FormDescription className="text-xs">
-                          {t('settings.general.launchAtStartupDesc')}
+                          {t('settings.general.autofillClipboardLinksDesc')}
                         </FormDescription>
                       </div>
                       <FormControl>
                         <Switch
+                          disabled={fieldsDisabled}
                           checked={field.value}
                           onCheckedChange={field.onChange}
                         />
@@ -145,31 +322,23 @@ export function GeneralDialog({
                     </SettingsFormRow>
                   )}
                 />
-              )}
 
-              {!isWeb && (
                 <FormField
                   control={form.control}
-                  name="showMainWindowAtLogin"
+                  name="notifyOnComplete"
                   render={({ field }) => (
                     <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
-                          {t('settings.general.showMainWindowAtLogin')}
+                          {t('settings.general.notifyOnComplete')}
                         </FormLabel>
                         <FormDescription className="text-xs">
-                          {t('settings.general.showMainWindowAtLoginDesc', {
-                            mode: t(
-                              transport.platform === 'darwin'
-                                ? 'settings.appearance.runModeTray'
-                                : 'settings.appearance.runModeTrayDesktop'
-                            ),
-                          })}
+                          {t('settings.general.notifyOnCompleteDesc')}
                         </FormDescription>
                       </div>
                       <FormControl>
                         <Switch
-                          disabled={!form.watch('launchAtStartup')}
+                          disabled={fieldsDisabled}
                           checked={field.value}
                           onCheckedChange={field.onChange}
                         />
@@ -177,114 +346,23 @@ export function GeneralDialog({
                     </SettingsFormRow>
                   )}
                 />
-              )}
 
-              <FormField
-                control={form.control}
-                name="defaultSaveDir"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.general.defaultSaveDir')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.general.defaultSaveDirDesc')}
-                      </FormDescription>
-                    </div>
-                    <SettingsDirectoryPicker
-                      inputProps={{ ref: field.ref, onBlur: field.onBlur }}
-                    />
-                    <FormMessage className="basis-full text-xs" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="autofillClipboardLinks"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.general.autofillClipboardLinks')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.general.autofillClipboardLinksDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="notifyOnComplete"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.general.notifyOnComplete')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.general.notifyOnCompleteDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="notifyOnError"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.general.notifyOnError')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.general.notifyOnErrorDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-
-              {!isWeb && (
                 <FormField
                   control={form.control}
-                  name="warnBeforeQuit"
+                  name="notifyOnError"
                   render={({ field }) => (
                     <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
-                          {t('settings.general.warnBeforeQuit')}
+                          {t('settings.general.notifyOnError')}
                         </FormLabel>
                         <FormDescription className="text-xs">
-                          {t('settings.general.warnBeforeQuitDesc')}
+                          {t('settings.general.notifyOnErrorDesc')}
                         </FormDescription>
                       </div>
                       <FormControl>
                         <Switch
+                          disabled={fieldsDisabled}
                           checked={field.value}
                           onCheckedChange={field.onChange}
                         />
@@ -292,7 +370,33 @@ export function GeneralDialog({
                     </SettingsFormRow>
                   )}
                 />
-              )}
+
+                {!isWeb && (
+                  <FormField
+                    control={form.control}
+                    name="warnBeforeQuit"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.general.warnBeforeQuit')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.general.warnBeforeQuitDesc')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            disabled={fieldsDisabled}
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+                )}
+              </fieldset>
             </form>
           </Form>
         </div>
@@ -303,14 +407,27 @@ export function GeneralDialog({
               {form.formState.errors.root.save.message}
             </p>
           )}
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={close}
+          >
             {t('common.cancel')}
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={onSubmit}
-            disabled={form.formState.isSubmitting}
+            disabled={
+              form.formState.isSubmitting ||
+              busy ||
+              settingsLoading ||
+              settingsError ||
+              directories.loading ||
+              !directories.ready
+            }
           >
             {t('common.save')}
           </Button>
@@ -322,10 +439,12 @@ export function GeneralDialog({
 
 function SettingsDirectoryPicker({
   inputProps,
-}: Pick<ComponentProps<typeof DirectoryPicker>, 'inputProps'>) {
+  ...props
+}: Omit<ComponentProps<typeof DirectoryPicker>, 'name'>) {
   const { formItemId, formMessageId, formDescriptionId, error } = useFormField()
   return (
     <DirectoryPicker
+      {...props}
       name="defaultSaveDir"
       inputProps={{
         ...inputProps,

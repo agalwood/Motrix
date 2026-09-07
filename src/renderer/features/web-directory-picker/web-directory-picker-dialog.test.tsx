@@ -30,12 +30,15 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebDirectoryPickerDialog } from './web-directory-picker-dialog'
 
+const { listRendered } = vi.hoisted(() => ({ listRendered: vi.fn() }))
+
 vi.mock('@renderer/lib/transport', () => ({
   transport: { platform: 'linux', invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
 }))
 // Component tests isolate virtualization geometry; the browser harness exercises the real VirtualList.
 vi.mock('@renderer/components/desktop-kit/virtual-list/virtual-list', () => ({
   VirtualList: forwardRef((props: Record<string, unknown>, ref) => {
+    listRendered()
     const node = useRef<HTMLDivElement>(null)
     useImperativeHandle(ref, () => ({
       scrollToOffset() {},
@@ -155,6 +158,28 @@ afterEach(() => {
 })
 
 describe('WebDirectoryPickerDialog', () => {
+  it('does not rerender directory rows for favorite updates or editor keystrokes', async () => {
+    let complete!: (value: boolean) => void
+    vi.spyOn(directoryPreferences, 'mutate').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        })
+    )
+    render(<Harness />)
+    await openPicker()
+    const beforeFavorite = listRendered.mock.calls.length
+    fireEvent.click(screen.getByTestId('directory-picker-favorite'))
+    await act(async () => complete(true))
+    expect(listRendered).toHaveBeenCalledTimes(beforeFavorite)
+    fireEvent.click(screen.getByRole('button', { name: 'Go to folder' }))
+    const beforeTyping = listRendered.mock.calls.length
+    fireEvent.change(screen.getByRole('textbox', { name: 'Folder path' }), {
+      target: { value: '/downloads/new-path' },
+    })
+    expect(listRendered).toHaveBeenCalledTimes(beforeTyping)
+  })
+
   it('groups native common places and saved paths, deduplicates roots, and retains semantic shortcuts', async () => {
     Object.defineProperty(navigator, 'platform', {
       configurable: true,
@@ -243,7 +268,7 @@ describe('WebDirectoryPickerDialog', () => {
     expect(editor).toHaveValue('/documents')
   })
 
-  it('moves focus to the list before a favorite mutation disables its trigger', async () => {
+  it('keeps focus on the favorite trigger while preventing duplicate mutations', async () => {
     let complete!: (value: boolean) => void
     vi.spyOn(directoryPreferences, 'mutate').mockImplementation(
       () =>
@@ -252,12 +277,14 @@ describe('WebDirectoryPickerDialog', () => {
         })
     )
     render(<Harness />)
-    const { list } = await openPicker()
+    await openPicker()
     const star = screen.getByTestId('directory-picker-favorite')
     star.focus()
     fireEvent.click(star)
-    expect(star).toBeDisabled()
-    expect(list).toHaveFocus()
+    expect(star).toHaveAttribute('aria-disabled', 'true')
+    expect(star).toHaveFocus()
+    fireEvent.click(star)
+    expect(directoryPreferences.mutate).toHaveBeenCalledTimes(1)
     const escaped = vi.fn()
     document.addEventListener('keydown', escaped)
     fireEvent.keyDown(document.activeElement!, { key: 'Enter', ctrlKey: true })
@@ -337,7 +364,7 @@ describe('WebDirectoryPickerDialog', () => {
         return original(channel, ...args)
       })
       render(<Harness />)
-      const { list } = await openPicker()
+      await openPicker()
       const focused =
         control === 'location select'
           ? screen.getByRole('combobox', { name: 'Location' })
@@ -349,9 +376,9 @@ describe('WebDirectoryPickerDialog', () => {
           if (channel === Events.DirectoryPreferencesChanged)
             listener({ favorites: [], recent: [] })
       })
-      expect(list).toHaveFocus()
-      if (control === 'location select') expect(focused).not.toBeInTheDocument()
-      else expect(focused).toBeDisabled()
+      expect(focused).toHaveFocus()
+      expect(focused).toBeInTheDocument()
+      expect(focused).toHaveAttribute('aria-disabled', 'true')
       const escaped = vi.fn()
       document.addEventListener('keydown', escaped)
       fireEvent.keyDown(document.activeElement!, {

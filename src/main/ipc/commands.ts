@@ -41,6 +41,7 @@ import {
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   clearStoppedTasks,
@@ -906,6 +907,22 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.MutateDirectoryPreferences]:
       createDirectoryPreferencesHandlers(settingsManager).mutate,
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        applySavedApp: async (patch) => {
+          if (patch.launchAtStartup !== undefined) {
+            syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+          }
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()

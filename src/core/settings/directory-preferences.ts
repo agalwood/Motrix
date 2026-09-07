@@ -43,7 +43,7 @@ export function directoryPreferenceFailure(
   return { ok: false, error: { code } }
 }
 
-async function resolveDesktopDirectory(value: string): Promise<string> {
+export async function resolveDesktopDirectory(value: string): Promise<string> {
   if (!path.isAbsolute(value) || value.includes('\0')) {
     throw Object.assign(new Error('Invalid directory'), { code: 'EINVAL' })
   }

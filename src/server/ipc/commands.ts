@@ -29,6 +29,7 @@ import {
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   clearStoppedTasks,
@@ -672,6 +673,26 @@ export function buildServerCommandHandlers(
       settingsManager,
       (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
     ).mutate,
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        resolveFavorite: (value) =>
+          ctx.serverDirectoryService.resolvePreferenceDirectory(value),
+        resolveDefaultDirectory: async (value) => {
+          const existing =
+            await ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+          return downloadPathPolicy.prepareSaveDir(existing)
+        },
+        applySavedApp: async (patch) => {
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const saveDirPatch = z

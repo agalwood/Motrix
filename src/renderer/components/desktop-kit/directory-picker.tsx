@@ -3,7 +3,7 @@ import { Input } from '@renderer/components/ui/input'
 import { recordRecentDirectory } from '@renderer/lib/directory-preferences'
 import { usePlatformServices } from '@renderer/platform/services'
 import { Folder } from 'lucide-react'
-import { type ComponentProps, useRef, useState } from 'react'
+import { type ComponentProps, useEffect, useRef, useState } from 'react'
 import {
   type FieldPath,
   type FieldValues,
@@ -21,6 +21,9 @@ export interface DirectoryPickerProps<TFields extends FieldValues> {
   disabled?: boolean
   inputProps?: ComponentProps<typeof Input>
   showHistory?: boolean
+  recordRecent?: boolean
+  onPickingChange?: (picking: boolean) => void
+  allowFavoriteEditing?: boolean
 }
 
 export function DirectoryPicker<TFields extends FieldValues>({
@@ -31,9 +34,19 @@ export function DirectoryPicker<TFields extends FieldValues>({
   disabled,
   inputProps,
   showHistory = false,
+  recordRecent = true,
+  onPickingChange,
+  allowFavoriteEditing = true,
 }: DirectoryPickerProps<TFields>) {
   const { t } = useTranslation()
   const { pickSaveDir } = usePlatformServices()
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const { setValue, control } = useFormContext<TFields>()
   const current = (useWatch({ control, name }) ?? '') as string
   const pickInFlight = useRef(false)
@@ -45,18 +58,27 @@ export function DirectoryPicker<TFields extends FieldValues>({
 
     pickInFlight.current = true
     setIsPicking(true)
+    onPickingChange?.(true)
     try {
-      const picked = await pickSaveDir(current || undefined)
+      const picked = allowFavoriteEditing
+        ? await pickSaveDir(current || undefined)
+        : await pickSaveDir(current || undefined, {
+            allowFavoriteEditing: false,
+          })
+      if (!mounted.current) return
       if (picked) {
         setValue(name, picked as never, {
           shouldValidate: true,
           shouldDirty: true,
         })
-        void recordRecentDirectory(picked)
+        if (recordRecent) void recordRecentDirectory(picked)
       }
     } finally {
       pickInFlight.current = false
-      setIsPicking(false)
+      if (mounted.current) {
+        setIsPicking(false)
+        onPickingChange?.(false)
+      }
     }
   }
 
@@ -90,7 +112,10 @@ export function DirectoryPicker<TFields extends FieldValues>({
             </span>
           )}
           {current ? (
-            <span className="min-w-0 flex-1 truncate text-xs text-foreground [direction:rtl] [text-align:left]">
+            <span
+              dir="ltr"
+              className="min-w-0 flex-1 truncate text-left text-xs text-foreground"
+            >
               {current}
             </span>
           ) : (
@@ -114,10 +139,12 @@ export function DirectoryPicker<TFields extends FieldValues>({
         {...inputProps}
         name={name}
         value={current}
+        dir="ltr"
+        title={current || undefined}
         placeholder={placeholder}
         readOnly
         disabled={pickerDisabled}
-        className="flex-1 text-xs [direction:rtl] [text-align:left] h-8"
+        className="h-8 min-w-0 flex-1 text-left text-xs"
       />
       <Button
         type="button"

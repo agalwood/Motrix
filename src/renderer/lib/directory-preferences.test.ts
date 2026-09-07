@@ -79,8 +79,10 @@ function harness() {
   return {
     bridge,
     preferences,
-    locations() {
-      const store = new ServerDirectoryLocationsStore(bridge)
+    locations(
+      options?: ConstructorParameters<typeof ServerDirectoryLocationsStore>[1]
+    ) {
+      const store = new ServerDirectoryLocationsStore(bridge, options)
       disposables.push(store)
       return store
     },
@@ -105,6 +107,35 @@ afterEach(() => {
 })
 
 describe('DirectoryPreferencesStore', () => {
+  it('preserves equal preference references and does not notify an unchanged event snapshot', async () => {
+    const h = harness()
+    const listener = vi.fn()
+    h.preferences.subscribe(listener)
+    await flush()
+    const snapshot = h.preferences.getSnapshot()
+    listener.mockClear()
+    h.event(structuredClone(empty))
+    expect(h.preferences.getSnapshot()).toBe(snapshot)
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('provides the actual committed response for refresh causality even after a newer event', async () => {
+    const h = harness()
+    const response = deferred()
+    h.queue(Commands.MutateDirectoryPreferences, response.promise)
+    const onCommitted = vi.fn()
+    const mutation = h.preferences.mutate(
+      { action: 'addFavorite', path: '/saved' },
+      onCommitted
+    )
+    await flush()
+    h.event(empty)
+    response.resolve(success(saved))
+    expect(await mutation).toBe(true)
+    expect(onCommitted).toHaveBeenCalledWith(saved)
+    expect(h.preferences.getSnapshot().preferences).toEqual(empty)
+  })
+
   it('loads saved records on the first UI subscription even if background recording failed earlier', async () => {
     const h = harness()
     h.queue(Commands.MutateDirectoryPreferences, {
@@ -307,10 +338,244 @@ describe('DirectoryPreferencesStore', () => {
 })
 
 describe('ServerDirectoryLocationsStore', () => {
+  it('retains picker display data and shares unchanged groups while publishing each read phase once', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    const listener = vi.fn()
+    store.subscribe(listener)
+    await flush()
+    const before = store.getSnapshot().locations
+    const pending = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, pending.promise)
+    listener.mockClear()
+    h.event(saved)
+    expect(store.getSnapshot()).toMatchObject({
+      locations: before,
+      loading: true,
+    })
+    expect(store.getSnapshot().locations).toBe(before)
+    expect(listener).toHaveBeenCalledTimes(1)
+    const current = store.refresh()
+    const same = store.refresh()
+    expect(same).toBe(current)
+    pending.resolve(success(structuredClone(places)))
+    await current
+    expect(store.getSnapshot().locations).toBe(before)
+    expect(store.getSnapshot().loading).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    { name: 'Saved', path: '/saved', sourcePaths: ['/saved'] },
+    { name: 'Renamed', path: '/saved', sourcePaths: ['/real/saved', '/saved'] },
+    { name: 'Saved', path: '/other', sourcePaths: ['/real/saved', '/saved'] },
+  ])(
+    'updates a changed saved-location field without replacing unrelated groups: %j',
+    async (entry) => {
+      const h = harness()
+      const store = h.locations({ retainWhileRefreshing: true })
+      store.subscribe(vi.fn())
+      await flush()
+      const before = store.getSnapshot().locations
+      const next = { ...places, favorites: [entry] }
+      h.queue(Queries.ListServerDirectoryLocations, success(next))
+      await store.refresh()
+      expect(store.getSnapshot().locations?.common).toBe(before?.common)
+      expect(store.getSnapshot().locations?.recent).toBe(before?.recent)
+      expect(store.getSnapshot().locations?.favorites).not.toBe(
+        before?.favorites
+      )
+      expect(store.getSnapshot().locations?.favorites).toEqual(next.favorites)
+    }
+  )
+
+  it('does not reuse a common group when only a semantic shortcut kind changes', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    store.subscribe(vi.fn())
+    await flush()
+    const before = store.getSnapshot().locations
+    const next = {
+      ...places,
+      common: [{ kind: 'desktop', path: '/downloads' }, places.common[1]],
+    }
+    h.queue(Queries.ListServerDirectoryLocations, success(next))
+    await store.refresh()
+    expect(store.getSnapshot().locations?.common).not.toBe(before?.common)
+    expect(store.getSnapshot().locations?.common).toEqual(next.common)
+    expect(store.getSnapshot().locations?.favorites).toBe(before?.favorites)
+  })
+
+  it('reuses only the in-flight or applied authorization caused by this mutation’s matching event', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    store.subscribe(vi.fn())
+    await flush()
+    const revision = store.getRevision()
+    h.bridge.invoke.mockClear()
+    const pending = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, pending.promise)
+    h.event(saved)
+    await flush()
+    const fallback = store.refreshAfterMutation(revision, saved)
+    await flush()
+    expect(h.bridge.invoke).toHaveBeenCalledTimes(1)
+    pending.resolve(success(places))
+    await fallback
+    await store.refreshAfterMutation(revision, saved)
+    expect(h.bridge.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts a post-commit read when another client’s unrelated event arrived before this mutation reply', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    store.subscribe(vi.fn())
+    await flush()
+    const revision = store.getRevision()
+    h.bridge.invoke.mockClear()
+    const old = deferred()
+    const fresh = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, old.promise, fresh.promise)
+    h.event(empty)
+    await flush()
+    const fallback = store.refreshAfterMutation(revision, saved)
+    await flush()
+    expect(h.bridge.invoke).toHaveBeenCalledTimes(2)
+    old.resolve(success({ common: [], favorites: [], recent: [] }))
+    await flush()
+    expect(store.getSnapshot().loading).toBe(true)
+    fresh.resolve(success(places))
+    await fallback
+    expect(store.getSnapshot().locations).toEqual(places)
+  })
+
+  it('does not reuse a pending pre-commit read or a matching event seen before the action began', async () => {
+    const h = harness()
+    const store = h.locations()
+    store.subscribe(vi.fn())
+    await flush()
+    h.event(saved)
+    await flush()
+    const revision = store.getRevision()
+    h.bridge.invoke.mockClear()
+    const old = deferred()
+    const fresh = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, old.promise, fresh.promise)
+    const preCommit = store.refresh()
+    await flush()
+    const fallback = store.refreshAfterMutation(revision, saved)
+    await flush()
+    expect(h.bridge.invoke).toHaveBeenCalledTimes(2)
+    old.resolve(success({ common: [], favorites: [], recent: [] }))
+    await preCommit
+    expect(store.getSnapshot().locations).toBeNull()
+    fresh.resolve(success(places))
+    await fallback
+    expect(store.getSnapshot().locations).toEqual(places)
+  })
+
+  it('rechecks unknown mutation outcomes without replaying the action and clears retained data on failure', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    store.subscribe(vi.fn())
+    await flush()
+    const revision = store.getRevision()
+    h.bridge.invoke.mockClear()
+    h.queue(
+      Queries.ListServerDirectoryLocations,
+      success({ common: places.common, favorites: [], recent: [] })
+    )
+    await store.refreshAfterMutation(revision)
+    expect(store.getSnapshot().locations?.favorites).toEqual([])
+    expect(h.bridge.invoke).toHaveBeenCalledExactlyOnceWith(
+      Queries.ListServerDirectoryLocations,
+      {}
+    )
+    h.queue(Queries.ListServerDirectoryLocations, {
+      ok: false,
+      error: { code: 'unavailable' },
+    })
+    await store.refresh()
+    expect(store.getSnapshot()).toEqual({
+      locations: null,
+      error: 'unavailable',
+      loading: false,
+    })
+  })
+
+  it('stops hidden-menu location IO, cancels late reads locally, and reauthorizes on reopen', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    const unsubscribe = store.subscribe(vi.fn())
+    await flush()
+    const pending = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, pending.promise)
+    const read = store.refresh()
+    await flush()
+    h.bridge.invoke.mockClear()
+    unsubscribe()
+    expect(store.getSnapshot()).toEqual({
+      locations: null,
+      loading: false,
+      error: null,
+    })
+    h.event(saved)
+    h.reconnect()
+    pending.resolve(success(places))
+    await read
+    await flush()
+    expect(h.bridge.invoke).not.toHaveBeenCalled()
+    expect(store.getSnapshot().locations).toBeNull()
+    store.subscribe(vi.fn())
+    expect(store.getSnapshot().locations).toBeNull()
+    await flush()
+    expect(h.bridge.invoke).toHaveBeenCalledExactlyOnceWith(
+      Queries.ListServerDirectoryLocations,
+      {}
+    )
+  })
+
+  it('avoids dispatching requests after immediate last-unsubscribe and coalesces synchronous event bursts', async () => {
+    const h = harness()
+    const store = h.locations()
+    const unsubscribe = store.subscribe(vi.fn())
+    unsubscribe()
+    await flush()
+    expect(h.bridge.invoke).not.toHaveBeenCalled()
+    store.subscribe(vi.fn())
+    await flush()
+    h.bridge.invoke.mockClear()
+    h.event(empty)
+    h.event(saved)
+    await flush()
+    expect(h.bridge.invoke).toHaveBeenCalledExactlyOnceWith(
+      Queries.ListServerDirectoryLocations,
+      {}
+    )
+  })
+
+  it('clears retained authorization immediately on reconnect', async () => {
+    const h = harness()
+    const store = h.locations({ retainWhileRefreshing: true })
+    store.subscribe(vi.fn())
+    await flush()
+    const pending = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, pending.promise)
+    h.reconnect()
+    expect(store.getSnapshot()).toMatchObject({
+      locations: null,
+      loading: true,
+    })
+    pending.resolve(success(places))
+    await flush()
+    expect(store.getSnapshot().locations).toEqual(places)
+  })
+
   it('clears visible locations synchronously on an event and rejects all earlier responses', async () => {
     const h = harness()
     const store = h.locations()
-    await store.refresh()
+    store.subscribe(vi.fn())
+    await flush()
     expect(store.getSnapshot().locations).toEqual(places)
     const stale = deferred()
     const fresh = deferred()

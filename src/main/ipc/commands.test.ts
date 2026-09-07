@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
@@ -35,6 +35,11 @@ const { reconcileAppImageIntegrationFromSettingsMock } = vi.hoisted(() => ({
       getMagnetEnabled: () => boolean
     }): Promise<AppImageIntegrationView> => ({ supported: false })
   ),
+}))
+
+const syncAutoLaunchMock = vi.hoisted(() => vi.fn())
+vi.mock('../platform/auto-launch', () => ({
+  syncAutoLaunch: syncAutoLaunchMock,
 }))
 
 vi.mock('../platform/appimage-integration-host', async (importOriginal) => ({
@@ -1299,6 +1304,64 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it('atomically saves General fields and directories and applies the submitted Desktop runtime fields', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-general-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const ctx = { ...fakeCtx(), settingsManager: manager }
+      const save = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.SaveGeneralSettings
+      ]
+      const canonical = await realpath(root)
+      expect(
+        await save?.({
+          app: {
+            defaultSaveDir: root,
+            launchAtStartup: true,
+            notifyOnComplete: false,
+          },
+          directories: {
+            addFavorites: [root],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: true, value: { favorites: [canonical], recent: [] } })
+      expect(manager.getApp()).toMatchObject({
+        defaultSaveDir: canonical,
+        launchAtStartup: true,
+        notifyOnComplete: false,
+      })
+      expect(syncAutoLaunchMock).toHaveBeenCalledWith(true)
+      expect(
+        ctx.supervisor.applyDefaultSaveDir
+      ).toHaveBeenCalledExactlyOnceWith(canonical)
+      ctx.supervisor.applyDefaultSaveDir.mockClear()
+      syncAutoLaunchMock.mockClear()
+      const before = structuredClone(manager.getApp())
+      expect(
+        await save?.({
+          app: {
+            defaultSaveDir: path.join(root, 'missing'),
+            launchAtStartup: false,
+            notifyOnComplete: true,
+          },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [canonical],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'notFound' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('keeps queued preferences through stale and malformed App updates using the real Desktop handler', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-preferences-'))
     try {

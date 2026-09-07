@@ -231,6 +231,137 @@ describe('SettingsManager', () => {
     })
   })
 
+  describe('atomic General settings', () => {
+    const empty = { addFavorites: [], removeFavorites: [], removeRecent: [] }
+    beforeEach(() => mockWriteFileAtomic.mockResolvedValue(undefined))
+
+    it('applies baseline-relative deletes against latest queued preferences while committing General fields once', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/baseline',
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/seen',
+      })
+      const gate = deferred()
+      mockWriteFileAtomic.mockImplementationOnce(() => gate.promise)
+      const add = manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/other-client',
+      })
+      const recent = manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/new-recent',
+      })
+      const save = manager.saveGeneralSettings({
+        app: { notifyOnComplete: false },
+        directories: {
+          addFavorites: ['/new-favorite '],
+          removeFavorites: ['/baseline'],
+          removeRecent: ['/seen'],
+        },
+      })
+      gate.resolve()
+      await Promise.all([add, recent, save])
+      expect(await save).toEqual({
+        ok: true,
+        value: {
+          favorites: ['/other-client', '/new-favorite '],
+          recent: ['/new-recent'],
+        },
+      })
+      expect(manager.getApp().notifyOnComplete).toBe(false)
+      expect(mockWriteFileAtomic).toHaveBeenCalledTimes(5)
+      const saved = JSON.parse(mockWriteFileAtomic.mock.calls.at(-1)?.[1])
+      expect(saved.app).toMatchObject({
+        notifyOnComplete: false,
+        directoryPreferences: {
+          favorites: ['/other-client', '/new-favorite '],
+          recent: ['/new-recent'],
+        },
+      })
+    })
+
+    it('checks the latest resulting cap before applying any General field, and permits replacement at the cap', async () => {
+      await Promise.all(
+        Array.from({ length: 20 }, (_, index) =>
+          manager.mutateDirectoryPreferences({
+            action: 'addFavorite',
+            path: `/favorite/${index}`,
+          })
+        )
+      )
+      const before = structuredClone(manager.getApp())
+      mockWriteFileAtomic.mockClear()
+      onChange.mockClear()
+      expect(
+        await manager.saveGeneralSettings({
+          app: { notifyOnError: false },
+          directories: { ...empty, addFavorites: ['/extra'] },
+        })
+      ).toEqual({ ok: false, error: { code: 'limitReached' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(mockWriteFileAtomic).not.toHaveBeenCalled()
+      expect(onChange).not.toHaveBeenCalled()
+      expect(
+        await manager.saveGeneralSettings({
+          app: { notifyOnError: false },
+          directories: {
+            ...empty,
+            addFavorites: ['/extra', '/extra'],
+            removeFavorites: ['/favorite/0'],
+          },
+        })
+      ).toMatchObject({ ok: true })
+      expect(manager.getApp().directoryPreferences.favorites).toHaveLength(20)
+      expect(manager.getApp().directoryPreferences.favorites).toContain(
+        '/extra'
+      )
+      expect(manager.getApp().notifyOnError).toBe(false)
+      expect(mockWriteFileAtomic).toHaveBeenCalledOnce()
+      expect(onChange).toHaveBeenCalledOnce()
+    })
+
+    it('publishes neither aggregate on writer failure and recovers without letting generic settings overwrite preferences', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/keep',
+      })
+      const before = structuredClone(manager.getApp())
+      onChange.mockClear()
+      mockWriteFileAtomic.mockRejectedValueOnce(new Error('disk full'))
+      await expect(
+        manager.saveGeneralSettings({
+          app: { notifyOnError: false },
+          directories: { ...empty, removeFavorites: ['/keep'] },
+        })
+      ).rejects.toThrow('disk full')
+      expect(manager.getApp()).toEqual(before)
+      expect(onChange).not.toHaveBeenCalled()
+      await manager.saveGeneralSettings({
+        app: { notifyOnError: false },
+        directories: { ...empty, addFavorites: ['/new'] },
+      })
+      await manager.update({
+        app: { directoryPreferences: 'malformed' as never, theme: 'dark' },
+      })
+      expect(manager.getApp()).toMatchObject({
+        notifyOnError: false,
+        theme: 'dark',
+        directoryPreferences: { favorites: ['/keep', '/new'], recent: [] },
+      })
+    })
+
+    it('does not write or publish an empty General transaction', async () => {
+      expect(
+        await manager.saveGeneralSettings({ app: {}, directories: empty })
+      ).toEqual({ ok: true, value: { favorites: [], recent: [] } })
+      expect(mockWriteFileAtomic).not.toHaveBeenCalled()
+      expect(onChange).not.toHaveBeenCalled()
+    })
+  })
+
   describe('load', () => {
     it.each([
       ['darwin', 64_000, 512_000],

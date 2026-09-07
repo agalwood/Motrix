@@ -2431,6 +2431,7 @@
     "refresh": "Refresh",
     "goToFolder": "Go to folder",
     "location": "Location",
+    "viewOptions": "View options",
     "showHidden": "Show hidden folders",
     "folders": "Folders",
     "loading": "Loading folders…",
@@ -2473,10 +2474,11 @@
     }
   },
   "directoryPreferences": {
+    "sectionDescription": "Choose favorite folders and manage recent download locations.",
     "manage": "Manage directories",
     "manageDescription": "Choose favorite folders and manage recent folders.",
     "title": "Manage directories",
-    "description": "Changes save immediately. Removing a record does not delete folders or downloads.",
+    "description": "Changes apply when you save. Removing a record does not delete folders or downloads.",
     "favorites": "Favorite folders",
     "recent": "Recent folders",
     "addFavorite": "Add favorite",

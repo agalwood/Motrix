@@ -2410,6 +2410,7 @@
     "refresh": "刷新",
     "goToFolder": "前往文件夹",
     "location": "位置",
+    "viewOptions": "视图选项",
     "showHidden": "显示隐藏文件夹",
     "folders": "文件夹",
     "loading": "正在加载文件夹…",
@@ -2452,10 +2453,11 @@
     }
   },
   "directoryPreferences": {
+    "sectionDescription": "设置常用目录并管理最近使用的下载目录。",
     "manage": "管理目录",
     "manageDescription": "设置常用目录，管理最近使用的目录。",
     "title": "管理目录",
-    "description": "更改会立即保存。移除记录不会删除文件夹或下载任务。",
+    "description": "更改将在保存后生效。移除记录不会删除文件夹或下载任务。",
     "favorites": "常用目录",
     "recent": "最近使用",
     "addFavorite": "添加常用目录",

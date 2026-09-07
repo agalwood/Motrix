@@ -228,6 +228,92 @@ function makeSettings(
 }
 
 describe('server Commands.UpdateSettings', () => {
+  it('uses Server path policy before one General commit and does not apply partial fields on an outside-root destination', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-server-general-'))
+    try {
+      const allowed = path.join(root, 'allowed')
+      const outside = path.join(root, 'outside')
+      await mkdir(outside)
+      const policy = await createServerDownloadPathPolicy({
+        defaultSaveDir: allowed,
+        allowedSaveDirsValue: allowed,
+      })
+      const destination = path.join(allowed, 'destination')
+      await mkdir(destination)
+      const manager = new SettingsManager(path.join(root, 'settings.json'), {
+        defaultSaveDir: allowed,
+      })
+      await manager.load()
+      const ctx = {
+        ...makeFakeCtx(),
+        settingsManager: manager,
+        downloadPathPolicy: policy,
+        serverDirectoryService: new ServerDirectoryService(policy),
+      }
+      const save = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )[Commands.SaveGeneralSettings]
+      expect(
+        await save?.({
+          app: { defaultSaveDir: destination, notifyOnComplete: false },
+          directories: {
+            addFavorites: [destination],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: true, value: { favorites: [destination], recent: [] } })
+      expect(manager.getApp()).toMatchObject({
+        defaultSaveDir: await realpath(destination),
+        notifyOnComplete: false,
+      })
+      expect(
+        ctx.supervisor.applyDefaultSaveDir
+      ).toHaveBeenCalledExactlyOnceWith(await realpath(destination))
+      vi.mocked(ctx.supervisor.applyDefaultSaveDir).mockClear()
+      const before = structuredClone(manager.getApp())
+      expect(
+        await save?.({
+          app: { defaultSaveDir: outside, notifyOnComplete: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [destination],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+      expect(
+        await save?.({
+          app: { notifyOnComplete: true },
+          directories: {
+            addFavorites: [outside],
+            removeFavorites: [destination],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      const authorize = vi.spyOn(
+        ctx.serverDirectoryService,
+        'resolvePreferenceDirectory'
+      )
+      expect(
+        await save?.({
+          app: { defaultSaveDir: destination, extra: true },
+          directories: {
+            addFavorites: [destination],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+      expect(authorize).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('preserves latest queue preferences against stale/invalid app patches through Server handlers', async () => {
     const root = await mkdtemp(
       path.join(os.tmpdir(), 'motrix-server-preferences-')

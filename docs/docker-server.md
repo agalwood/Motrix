@@ -505,7 +505,8 @@ groups accessible common places, allowed roots, favorite folders and recent
 folders. Common places include the default directory, the server user’s home,
 existing Desktop/Documents/Downloads directories, and the filesystem root when
 allowed. On narrow screens, Location becomes a grouped menu. Up stops at the
-current allowed root. Show hidden folders includes names beginning with a dot.
+current allowed root. Open **View options → Show hidden folders** in the toolbar
+to include names beginning with a dot.
 
 Select folder chooses the highlighted child, or the current folder when no
 child is selected. Cancelling leaves the original form value unchanged. The
@@ -518,13 +519,17 @@ Choose a favorite or recent path there to fill the form directly. This does not
 start a download. The desktop App offers the same history menu and keeps its
 system-native Browse dialog.
 
-Open **Settings → Downloads → Manage directories** to add or remove favorite
-folders, add a recent folder to favorites, delete one recent record, or clear
-recent records. These management actions save immediately; Close returns to
-the previous dialog. Removing records never deletes folders or downloads.
+Open **Settings → General** to manage folders below the default save directory.
+The compact form can add or remove favorites, promote a recent folder, delete
+one recent record, or clear the displayed recent records. Save applies these
+edits together with General settings; Cancel discards them. The history menu’s
+Manage directories entry opens the same folder controls with Save and Cancel.
+Removing records never deletes folders or downloads. Concurrently added records
+are preserved when saving your edits.
 Favorite folders are limited to 20; the 10 most recent folders appear newest
-first. Normal folder-field confirmations and directories used by successful
-AddTask submissions update recent history. Cancelling the folder picker does
+first. AddTask folder confirmations and directories used by successful
+AddTask submissions update recent history. General folder choices remain drafts
+and do not themselves enter recent history. Cancelling the folder picker does
 not add a record; cancelling AddTask afterward does not undo an already
 confirmed folder choice. Adding a favorite in the manager does not itself add
 a recent record. Headless/CLI downloads are not automatically imported into
@@ -535,7 +540,8 @@ app settings on Desktop and on the server for Web clients. Connected clients
 receive updates, and reconnecting reloads the current records. The Web history
 menu and folder sidebar only offer paths still permitted and accessible on the
 server. The manager retains saved records so unavailable paths can be removed.
-The star in the Web picker adds or removes the folder currently being browsed.
+The star in the Web picker immediately adds or removes the folder currently being
+browsed, while keeping the directory list and current position stable.
 These operations do not change the default save directory.
 
 The keyboard follows the browser computer’s operating system, independently of

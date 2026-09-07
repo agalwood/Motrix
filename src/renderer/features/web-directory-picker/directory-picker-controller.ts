@@ -6,7 +6,10 @@ import {
 import type { Transport } from '@renderer/lib/transport/types'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
-import type { DirectoryPreferencesErrorCode } from '@shared/schemas/directory-preferences'
+import type {
+  DirectoryPreferences,
+  DirectoryPreferencesErrorCode,
+} from '@shared/schemas/directory-preferences'
 import {
   type AllowedSaveDirs,
   AllowedSaveDirsSchema,
@@ -107,7 +110,9 @@ export class DirectoryPickerController {
       'mutate' | 'getSnapshot'
     > = directoryPreferences
   ) {
-    this.locationsStore = new ServerDirectoryLocationsStore(transport)
+    this.locationsStore = new ServerDirectoryLocationsStore(transport, {
+      retainWhileRefreshing: true,
+    })
   }
 
   getSnapshot = () => this.state
@@ -119,6 +124,12 @@ export class DirectoryPickerController {
   }
   private update(patch: Partial<PickerState>) {
     if (!this.live) return
+    if (
+      Object.entries(patch).every(([key, value]) =>
+        Object.is(this.state[key as keyof PickerState], value)
+      )
+    )
+      return
     this.state = { ...this.state, ...patch }
     for (const listener of this.listeners) listener()
   }
@@ -262,12 +273,21 @@ export class DirectoryPickerController {
     )
       return
     const favorite = this.currentFavorite
+    const revision = this.locationsStore.getRevision()
+    let committed: DirectoryPreferences | undefined
     this.update({ favoriteBusy: true, favoriteError: null })
     const success = await this.preferences.mutate(
       favorite
         ? { action: 'removeFavorite', paths: favorite.sourcePaths }
-        : { action: 'addFavorite', path }
+        : { action: 'addFavorite', path },
+      (snapshot) => {
+        committed = snapshot
+      }
     )
+    if (!this.live) return
+    // Only a locations query associated with this committed snapshot can cover
+    // the write. An unrelated client's event must not suppress this refresh.
+    await this.locationsStore.refreshAfterMutation(revision, committed)
     if (!this.live) return
     this.update({
       favoriteBusy: false,
@@ -275,7 +295,6 @@ export class DirectoryPickerController {
         ? null
         : (this.preferences.getSnapshot().error ?? 'unavailable'),
     })
-    if (success) this.refreshLocations()
   }
   setScrollOffset(offset: number) {
     this.scrollOffset = offset
@@ -407,7 +426,22 @@ export class DirectoryPickerController {
     }
   }
   navigate(path: string) {
-    if (!this.locked) void this.load(path)
+    if (this.live && !this.locked) void this.load(path)
+  }
+  navigateLocation(path: string) {
+    if (this.state.bootstrap?.paths.some((entry) => entry.path === path)) {
+      this.navigate(path)
+      return
+    }
+    const locations = this.state.locations
+    if (!this.live || this.locked || this.state.locationsLoading || !locations)
+      return
+    const known = [
+      ...locations.common,
+      ...locations.favorites,
+      ...locations.recent,
+    ]
+    if (known.some((entry) => entry.path === path)) this.navigate(path)
   }
   up() {
     if (!this.locked && this.state.listing?.parentPath)
@@ -440,7 +474,13 @@ export class DirectoryPickerController {
     })
   }
   filter(showHidden: boolean) {
-    if (this.locked || !this.state.listing) return
+    if (
+      !this.live ||
+      this.locked ||
+      !this.state.listing ||
+      showHidden === this.state.showHidden
+    )
+      return
     void this.load(this.state.listing.path, {
       refresh: true,
       showHidden,

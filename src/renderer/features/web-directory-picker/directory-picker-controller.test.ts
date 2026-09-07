@@ -117,6 +117,67 @@ afterEach(() => {
 })
 
 describe('DirectoryPickerController', () => {
+  it('keeps bootstrap roots navigable when optional locations fail', async () => {
+    const h = harness()
+    h.queue(Queries.ListServerDirectoryLocations, failure('unavailable'))
+    await h.controller.start()
+    expect(h.controller.getSnapshot().locations).toBeNull()
+    h.controller.navigateLocation('/archive')
+    await flush()
+    expect(h.controller.getSnapshot().listing?.path).toBe('/archive')
+  })
+  it('keeps retained locations display-only during refresh while ordinary navigation remains available', async () => {
+    const h = harness()
+    const locations = {
+      common: [{ kind: 'home', path: '/downloads/Movies' }],
+      favorites: [],
+      recent: [],
+    }
+    h.queue(Queries.ListServerDirectoryLocations, success(locations))
+    await h.controller.start()
+    const snapshot = h.controller.getSnapshot().locations
+    const pending = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, pending.promise)
+    h.event({ favorites: [], recent: [] })
+    expect(h.controller.getSnapshot().locations).toBe(snapshot)
+    expect(h.controller.getSnapshot().locationsLoading).toBe(true)
+    const listings = () =>
+      h.invoke.mock.calls.filter(
+        ([channel]) => channel === Queries.ListServerDirectories
+      )
+    const before = listings().length
+    h.controller.navigateLocation('/downloads/Movies')
+    await h.controller.toggleFavorite()
+    expect(listings()).toHaveLength(before)
+    expect(h.preferences.mutate).not.toHaveBeenCalled()
+    h.controller.navigate('/archive')
+    await flush()
+    expect(h.controller.getSnapshot().listing?.path).toBe('/archive')
+    pending.resolve(success(locations))
+    await flush()
+    h.controller.navigateLocation('/downloads/Movies')
+    await flush()
+    expect(h.controller.getSnapshot().listing?.path).toBe('/downloads/Movies')
+  })
+
+  it('reuses the authorization query triggered by this exact committed favorite snapshot', async () => {
+    const h = harness()
+    await h.controller.start()
+    const committed = { favorites: ['/downloads'], recent: [] }
+    h.preferences.mutate.mockImplementation(async (_action, onCommitted) => {
+      h.event(committed)
+      await flush()
+      onCommitted?.(committed)
+      return true
+    })
+    await h.controller.toggleFavorite()
+    expect(
+      h.invoke.mock.calls.filter(
+        ([channel]) => channel === Queries.ListServerDirectoryLocations
+      )
+    ).toHaveLength(2)
+  })
+
   it('keeps browsing and confirmation independent of optional locations timeouts', async () => {
     const h = harness()
     h.queue(Queries.ListServerDirectoryLocations, new Promise(() => {}))
@@ -182,10 +243,13 @@ describe('DirectoryPickerController', () => {
     )
     const action = h.controller.toggleFavorite()
     await h.controller.toggleFavorite()
-    expect(h.preferences.mutate).toHaveBeenCalledExactlyOnceWith({
-      action: 'addFavorite',
-      path: '/downloads',
-    })
+    expect(h.preferences.mutate).toHaveBeenCalledExactlyOnceWith(
+      {
+        action: 'addFavorite',
+        path: '/downloads',
+      },
+      expect.any(Function)
+    )
     expect(h.controller.getSnapshot().favoriteBusy).toBe(true)
     h.controller.cancel()
     complete(true)
@@ -217,10 +281,13 @@ describe('DirectoryPickerController', () => {
       await h.controller.start()
       expect(h.controller.currentFavorite?.sourcePaths).toEqual(sourcePaths)
       await h.controller.toggleFavorite()
-      expect(h.preferences.mutate).toHaveBeenCalledExactlyOnceWith({
-        action: 'removeFavorite',
-        paths: sourcePaths,
-      })
+      expect(h.preferences.mutate).toHaveBeenCalledExactlyOnceWith(
+        {
+          action: 'removeFavorite',
+          paths: sourcePaths,
+        },
+        expect.any(Function)
+      )
     }
   )
 

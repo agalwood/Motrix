@@ -9,6 +9,7 @@ import {
   GetDirectoryPreferencesRequestSchema,
   MutateDirectoryPreferencesRequestSchema,
 } from '@shared/schemas/directory-preferences'
+import { SaveGeneralSettingsRequestSchema } from '@shared/schemas/general-settings'
 import {
   CreateServerDirectoryRequestSchema,
   ListServerDirectoriesRequestSchema,
@@ -81,6 +82,7 @@ export const fixtureState = {
   nativePickerCalls: 0,
   setPreferences,
   getPreferences: preferences,
+  getSettings: () => structuredClone(settings),
   holdChannel: null as string | null,
   releaseRequest: null as (() => void) | null,
 }
@@ -179,6 +181,35 @@ export const transport: Transport = {
           )
         } else next.recent = []
         setPreferences(next)
+        return { ok: true, value: preferences() }
+      }
+      case Commands.SaveGeneralSettings: {
+        const parsed = SaveGeneralSettingsRequestSchema.safeParse(args[0])
+        if (!parsed.success) return error('invalidPath')
+        if (fixtureState.mutationFailure) return error('unavailable')
+        const { app, directories } = parsed.data
+        if (
+          (app.defaultSaveDir !== undefined && !canVisit(app.defaultSaveDir)) ||
+          directories.addFavorites.some((path) => !canVisit(path))
+        )
+          return error('notFound')
+        // The fixture applies the draft against current committed records in
+        // one step, including events received while this request was held.
+        const current = preferences()
+        const next = {
+          favorites: current.favorites.filter(
+            (path) => !directories.removeFavorites.includes(path)
+          ),
+          recent: current.recent.filter(
+            (path) => !directories.removeRecent.includes(path)
+          ),
+        }
+        for (const path of directories.addFavorites)
+          if (!next.favorites.includes(path)) next.favorites.push(path)
+        if (next.favorites.length > 20) return error('limitReached')
+        settings.app = { ...settings.app, ...app, directoryPreferences: next }
+        if (JSON.stringify(current) !== JSON.stringify(next))
+          setPreferences(next)
         return { ok: true, value: preferences() }
       }
       case Queries.ListServerDirectories: {

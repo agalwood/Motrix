@@ -438,7 +438,8 @@ test('General settings retains its own Cancel and Save boundary after selection'
   await expect(opener).toBeFocused()
   const general = page.getByRole('dialog', { name: 'General', exact: true })
   await expect(general.getByRole('textbox')).toHaveValue('/downloads/Movies')
-  expect(await calls(page, Commands.UpdateSettings)).toHaveLength(0)
+  expect(await calls(page, Commands.SaveGeneralSettings)).toHaveLength(0)
+  expect(await calls(page, Commands.MutateDirectoryPreferences)).toHaveLength(0)
   await general.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.getByRole('button', { name: 'Open General settings' }).click()
   await expect(general.getByRole('textbox')).toHaveValue('/downloads')
@@ -449,13 +450,23 @@ test('General settings retains its own Cancel and Save boundary after selection'
     .getByRole('button', { name: 'Select folder', exact: true })
     .click()
   await expect(general.getByRole('textbox')).toHaveValue('/downloads/Music')
-  expect(await calls(page, Commands.UpdateSettings)).toHaveLength(0)
+  expect(await calls(page, Commands.SaveGeneralSettings)).toHaveLength(0)
+  expect(await calls(page, Commands.MutateDirectoryPreferences)).toHaveLength(0)
   await general.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(general).not.toBeVisible()
-  expect(await calls(page, Commands.UpdateSettings)).toEqual([
+  expect(await calls(page, Commands.SaveGeneralSettings)).toEqual([
     {
-      channel: Commands.UpdateSettings,
-      args: [{ app: { defaultSaveDir: '/downloads/Music' } }],
+      channel: Commands.SaveGeneralSettings,
+      args: [
+        {
+          app: { defaultSaveDir: '/downloads/Music' },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        },
+      ],
     },
   ])
   await page.getByRole('button', { name: 'Open General settings' }).click()

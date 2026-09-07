@@ -38,6 +38,7 @@ export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
 
 const directoryResultSchemas = {
   [Commands.MutateDirectoryPreferences]: DirectoryPreferencesResultSchema,
+  [Commands.SaveGeneralSettings]: DirectoryPreferencesResultSchema,
   [Queries.GetDirectoryPreferences]: DirectoryPreferencesResultSchema,
   [Queries.ListServerDirectoryLocations]:
     ListServerDirectoryLocationsResultSchema,
@@ -145,7 +146,8 @@ export async function createApp(
     if (!handler) return reply.code(404).send({ error: 'unknown channel' })
     if (
       channel === Commands.CreateServerDirectory ||
-      channel === Commands.MutateDirectoryPreferences
+      channel === Commands.MutateDirectoryPreferences ||
+      channel === Commands.SaveGeneralSettings
     ) {
       return directoryRpc(channel, req.body, handler)
     }

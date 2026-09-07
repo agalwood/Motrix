@@ -22,6 +22,10 @@ import {
   MutateDirectoryPreferencesRequestSchema,
 } from '@shared/schemas/directory-preferences'
 import {
+  type SaveGeneralSettingsRequest,
+  SaveGeneralSettingsRequestSchema,
+} from '@shared/schemas/general-settings'
+import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
 } from '@shared/schemas/proxy-settings'
@@ -413,6 +417,45 @@ export class SettingsManager {
         JSON.stringify(old.app.directoryPreferences) !==
         JSON.stringify(preferences)
       ) {
+        await this.saveSettings(next)
+        this.settings = next
+        this.onChange?.(old, this.settings)
+      }
+      return { ok: true, value: DirectoryPreferencesSchema.parse(preferences) }
+    })
+  }
+
+  /** General fields and baseline-relative directory edits share one commit. */
+  async saveGeneralSettings(
+    raw: SaveGeneralSettingsRequest
+  ): Promise<DirectoryPreferencesResult> {
+    const parsed = SaveGeneralSettingsRequestSchema.safeParse(raw)
+    if (!parsed.success) return { ok: false, error: { code: 'invalidPath' } }
+    const { app, directories } = parsed.data
+    return this.enqueueMutation(async () => {
+      const old = structuredClone(this.settings)
+      const next = structuredClone(this.settings)
+      const preferences = next.app.directoryPreferences
+      preferences.favorites = [
+        ...new Set([
+          ...preferences.favorites.filter(
+            (path) => !directories.removeFavorites.includes(path)
+          ),
+          ...directories.addFavorites,
+        ]),
+      ]
+      if (preferences.favorites.length > DIRECTORY_FAVORITES_LIMIT) {
+        return { ok: false, error: { code: 'limitReached' } }
+      }
+      preferences.recent = preferences.recent.filter(
+        (path) => !directories.removeRecent.includes(path)
+      )
+      next.app = validateAppSettings({
+        ...next.app,
+        ...app,
+        directoryPreferences: preferences,
+      })
+      if (JSON.stringify(old.app) !== JSON.stringify(next.app)) {
         await this.saveSettings(next)
         this.settings = next
         this.onChange?.(old, this.settings)

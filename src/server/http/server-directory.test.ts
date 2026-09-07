@@ -218,6 +218,19 @@ describe('authenticated directory RPC', () => {
 describe('directory preferences RPC boundary', () => {
   const capabilities = [
     {
+      kind: 'command',
+      channel: Commands.SaveGeneralSettings,
+      request: {
+        app: {},
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      },
+      value: { favorites: [], recent: [] },
+    },
+    {
       kind: 'query',
       channel: Queries.GetDirectoryPreferences,
       request: {},

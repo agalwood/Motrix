@@ -2410,6 +2410,7 @@
     "refresh": "重新整理",
     "goToFolder": "前往資料夾",
     "location": "位置",
+    "viewOptions": "檢視選項",
     "showHidden": "顯示隱藏資料夾",
     "folders": "資料夾",
     "loading": "正在載入資料夾…",
@@ -2452,10 +2453,11 @@
     }
   },
   "directoryPreferences": {
+    "sectionDescription": "設定常用資料夾並管理最近使用的下載位置。",
     "manage": "管理目錄",
     "manageDescription": "設定常用目錄，管理最近使用的目錄。",
     "title": "管理目錄",
-    "description": "變更會立即儲存。移除記錄不會刪除資料夾或下載任務。",
+    "description": "變更將在儲存後生效。移除記錄不會刪除資料夾或下載任務。",
     "favorites": "常用目錄",
     "recent": "最近使用",
     "addFavorite": "新增常用目錄",

@@ -33,19 +33,98 @@ function request<T>(
   bridge: DirectoryTransport,
   channel: Parameters<Transport['invoke']>[0],
   schema: z.ZodType<T>,
-  args: unknown
+  args: unknown,
+  signal?: AbortSignal
 ): Promise<T> {
   return new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (value: T | undefined, error?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', abort)
+      if (error) reject(error)
+      else resolve(value as T)
+    }
+    const abort = () => finish(undefined, new DirectoryPreferenceRequestError())
     const timer = setTimeout(
-      () => reject(new DirectoryPreferenceRequestError(true)),
+      () => finish(undefined, new DirectoryPreferenceRequestError(true)),
       DIRECTORY_PREFERENCES_TIMEOUT
     )
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) {
+      abort()
+      return
+    }
     Promise.resolve()
-      .then(() => bridge.invoke(channel, args))
-      .then((value) => resolve(schema.parse(value)))
-      .catch(() => reject(new DirectoryPreferenceRequestError()))
-      .finally(() => clearTimeout(timer))
+      .then(() => {
+        if (signal?.aborted) throw new DirectoryPreferenceRequestError()
+        return bridge.invoke(channel, args)
+      })
+      .then((value) => {
+        if (!settled) finish(schema.parse(value))
+      })
+      .catch(() => finish(undefined, new DirectoryPreferenceRequestError()))
   })
+}
+
+function sharePaths(previous: string[], next: string[]): string[] {
+  return previous.length === next.length &&
+    previous.every((value, index) => value === next[index])
+    ? previous
+    : next
+}
+
+function sharePreferences(
+  previous: DirectoryPreferences,
+  next: DirectoryPreferences
+): DirectoryPreferences {
+  const favorites = sharePaths(previous.favorites, next.favorites)
+  const recent = sharePaths(previous.recent, next.recent)
+  return favorites === previous.favorites && recent === previous.recent
+    ? previous
+    : { favorites, recent }
+}
+
+function shareLocations(
+  previous: ServerDirectoryLocations | null,
+  next: ServerDirectoryLocations
+): ServerDirectoryLocations {
+  if (!previous) return next
+  const common =
+    previous.common.length === next.common.length &&
+    previous.common.every(
+      (entry, index) =>
+        entry.kind === next.common[index].kind &&
+        entry.path === next.common[index].path
+    )
+      ? previous.common
+      : next.common
+  const shareEntries = (
+    before: ServerDirectoryLocations['favorites'],
+    after: ServerDirectoryLocations['favorites']
+  ) => {
+    const entries = after.map((entry, index) => {
+      const old = before[index]
+      return old &&
+        old.name === entry.name &&
+        old.path === entry.path &&
+        sharePaths(old.sourcePaths, entry.sourcePaths) === old.sourcePaths
+        ? old
+        : entry
+    })
+    return before.length === entries.length &&
+      entries.every((entry, index) => entry === before[index])
+      ? before
+      : entries
+  }
+  const favorites = shareEntries(previous.favorites, next.favorites)
+  const recent = shareEntries(previous.recent, next.recent)
+  return common === previous.common &&
+    favorites === previous.favorites &&
+    recent === previous.recent
+    ? previous
+    : { common, favorites, recent }
 }
 
 type PreferencesState = {
@@ -82,7 +161,20 @@ export class DirectoryPreferencesStore {
   }
   private update(patch: Partial<PreferencesState>) {
     if (this.disposed) return
-    this.state = { ...this.state, ...patch }
+    const next = {
+      ...this.state,
+      ...patch,
+      preferences: patch.preferences
+        ? sharePreferences(this.state.preferences, patch.preferences)
+        : this.state.preferences,
+    }
+    if (
+      next.preferences === this.state.preferences &&
+      next.loading === this.state.loading &&
+      next.error === this.state.error
+    )
+      return
+    this.state = next
     for (const listener of this.listeners) listener()
   }
   private changed = (payload: unknown) => {
@@ -137,7 +229,8 @@ export class DirectoryPreferencesStore {
     }
   }
   mutate = async (
-    action: MutateDirectoryPreferencesRequest
+    action: MutateDirectoryPreferencesRequest,
+    onCommitted?: (preferences: DirectoryPreferences) => void
   ): Promise<boolean> => {
     if (this.disposed) return false
     const parsed = MutateDirectoryPreferencesRequestSchema.safeParse(action)
@@ -168,6 +261,7 @@ export class DirectoryPreferencesStore {
             : { error: result.error.code }
         )
       }
+      if (result.ok) onCommitted?.(result.value)
       return result.ok
     } catch {
       if (this.disposed) return false
@@ -201,6 +295,19 @@ const EMPTY_LOCATIONS: LocationsState = {
   error: null,
 }
 
+export interface ServerDirectoryLocationsOptions {
+  /** Display only: consumers must disable saved-location actions while loading. */
+  retainWhileRefreshing?: boolean
+}
+
+type LocationsEvent = { revision: number; fingerprint: string }
+type LocationsRequest = {
+  epoch: number
+  event: LocationsEvent | undefined
+  controller: AbortController
+  promise: Promise<void>
+}
+
 /** Optional authorized locations have a deadline and epoch separate from browsing. */
 export class ServerDirectoryLocationsStore {
   private state: LocationsState = EMPTY_LOCATIONS
@@ -208,71 +315,163 @@ export class ServerDirectoryLocationsStore {
   private started = false
   private disposed = false
   private epoch = 0
+  private revision = 0
+  private latestEvent?: LocationsEvent
+  private pending?: LocationsRequest
+  private applied?: { epoch: number; event: LocationsEvent | undefined }
   private disconnect?: () => void
 
-  constructor(private readonly bridge: DirectoryTransport) {}
+  constructor(
+    private readonly bridge: DirectoryTransport,
+    private readonly options: ServerDirectoryLocationsOptions = {}
+  ) {}
 
   getSnapshot = () => this.state
+  getRevision = () => this.revision
   subscribe = (listener: () => void) => {
     const firstSubscriber = this.listeners.size === 0
     this.listeners.add(listener)
-    if (this.start()) void this.refresh()
-    else if (firstSubscriber) this.changed()
+    if (firstSubscriber) {
+      this.start()
+      // Reopening requires a fresh authorization, even with a retained cache.
+      this.invalidate()
+      void this.startRead(true)
+    }
     return () => {
       this.listeners.delete(listener)
+      if (this.listeners.size === 0) this.stop()
     }
   }
   private update(patch: Partial<LocationsState>) {
     if (this.disposed) return
-    this.state = { ...this.state, ...patch }
+    const next = {
+      ...this.state,
+      ...patch,
+      locations: patch.locations
+        ? shareLocations(this.state.locations, patch.locations)
+        : patch.locations === null
+          ? null
+          : this.state.locations,
+    }
+    if (
+      next.locations === this.state.locations &&
+      next.loading === this.state.loading &&
+      next.error === this.state.error
+    )
+      return
+    this.state = next
     for (const listener of this.listeners) listener()
   }
-  private changed = () => {
-    // Invalidate visible saved aliases synchronously as well as older requests.
+  private invalidate() {
+    this.revision++
     this.epoch++
-    this.update({ locations: null })
-    void this.refresh()
+    this.pending?.controller.abort()
+    this.pending = undefined
+    this.applied = undefined
+  }
+  private changed = (payload: unknown) => {
+    this.invalidate()
+    const parsed = DirectoryPreferencesSchema.safeParse(payload)
+    this.latestEvent = parsed.success
+      ? { revision: this.revision, fingerprint: JSON.stringify(parsed.data) }
+      : undefined
+    if (this.listeners.size > 0) void this.refresh()
+    else this.update({ locations: null, loading: false, error: null })
   }
   private start() {
-    if (this.started || this.disposed) return false
+    if (this.started || this.disposed) return
     this.started = true
     this.bridge.on?.(Events.DirectoryPreferencesChanged, this.changed)
     this.disconnect = this.bridge.onConnectionChange?.(({ state }) => {
-      if (state === 'connected') this.changed()
+      if (state !== 'connected') return
+      this.invalidate()
+      this.latestEvent = undefined
+      if (this.listeners.size > 0) void this.startRead(true)
+      else this.update({ locations: null, loading: false, error: null })
     })
-    return true
   }
-  refresh = async (): Promise<void> => {
-    if (this.disposed) return
+  private stop() {
+    this.started = false
+    this.bridge.off?.(Events.DirectoryPreferencesChanged, this.changed)
+    this.disconnect?.()
+    this.disconnect = undefined
+    this.invalidate()
+    this.latestEvent = undefined
+    this.update({ locations: null, loading: false, error: null })
+  }
+  /** Only an authorization read caused by this committed snapshot replaces the fallback. */
+  refreshAfterMutation = (
+    since: number,
+    committed?: DirectoryPreferences
+  ): Promise<void> => {
+    if (this.disposed) return Promise.resolve()
+    const event = this.latestEvent
+    const read = this.pending ?? this.applied
+    if (
+      committed &&
+      event &&
+      event.revision > since &&
+      event.fingerprint === JSON.stringify(committed) &&
+      read?.epoch === this.epoch &&
+      read.event === event
+    )
+      return this.pending?.promise ?? Promise.resolve()
+    // A different client's event or a pre-commit read cannot certify this action.
+    // Unknown mutation outcomes also need an authoritative read without replay.
+    this.invalidate()
+    return this.refresh()
+  }
+  refresh = (): Promise<void> =>
+    this.startRead(!this.options.retainWhileRefreshing)
+  private startRead(clear: boolean): Promise<void> {
+    if (this.disposed) return Promise.resolve()
+    if (this.pending?.epoch === this.epoch) return this.pending.promise
     this.start()
-    const epoch = ++this.epoch
-    this.update({ loading: true, error: null })
+    const pending: LocationsRequest = {
+      epoch: ++this.epoch,
+      event: this.latestEvent,
+      controller: new AbortController(),
+      promise: Promise.resolve(),
+    }
+    this.pending = pending
+    this.update({
+      loading: true,
+      error: null,
+      ...(clear ? { locations: null } : {}),
+    })
+    pending.promise = this.read(pending)
+    return pending.promise
+  }
+  private async read(pending: LocationsRequest): Promise<void> {
     try {
       const result = await request(
         this.bridge,
         Queries.ListServerDirectoryLocations,
         ListServerDirectoryLocationsResultSchema,
-        {}
+        {},
+        pending.controller.signal
       )
-      if (this.disposed || epoch !== this.epoch) return
+      if (this.disposed || pending.epoch !== this.epoch) return
+      this.pending = undefined
+      this.applied = result.ok
+        ? { epoch: pending.epoch, event: pending.event }
+        : undefined
       this.update(
         result.ok
-          ? { locations: result.value, error: null }
-          : { locations: null, error: result.error.code }
+          ? { locations: result.value, error: null, loading: false }
+          : { locations: null, error: result.error.code, loading: false }
       )
     } catch {
-      if (!this.disposed && epoch === this.epoch)
-        this.update({ locations: null, error: 'unavailable' })
-    } finally {
-      if (!this.disposed && epoch === this.epoch)
-        this.update({ loading: false })
+      if (!this.disposed && pending.epoch === this.epoch) {
+        this.pending = undefined
+        this.applied = undefined
+        this.update({ locations: null, error: 'unavailable', loading: false })
+      }
     }
   }
   dispose() {
     this.disposed = true
-    this.epoch++
-    this.bridge.off?.(Events.DirectoryPreferencesChanged, this.changed)
-    this.disconnect?.()
+    this.stop()
     this.listeners.clear()
   }
 }

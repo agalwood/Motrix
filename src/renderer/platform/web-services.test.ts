@@ -37,6 +37,23 @@ describe('createWebServices', () => {
     unsubscribe()
   })
 
+  it('carries the draft form boundary into the Web picker request', async () => {
+    const listener = vi.fn()
+    const unsubscribe = __webPathPickerBus.subscribe(listener)
+    const pending = services.pickSaveDir('/draft', {
+      allowFavoriteEditing: false,
+    })
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: '/draft',
+        allowFavoriteEditing: false,
+      })
+    )
+    __webPathPickerBus.resolve(listener.mock.calls[0][0].id, null)
+    await expect(pending).resolves.toBeNull()
+    unsubscribe()
+  })
+
   it('readClipboard returns empty on permission denial', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { readText: vi.fn().mockRejectedValue(new Error('denied')) },

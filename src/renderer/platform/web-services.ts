@@ -7,6 +7,7 @@ const SHA256_RE = /^[0-9a-f]{64}$/
 export type PickRequest = {
   id: number
   defaultPath?: string
+  allowFavoriteEditing?: boolean
   opener: HTMLElement | null
 }
 type PickListener = (req: PickRequest) => void
@@ -26,7 +27,10 @@ export class PathPickerBus {
     }
   }
 
-  request(req: { defaultPath?: string }): Promise<string | null> {
+  request(req: {
+    defaultPath?: string
+    allowFavoriteEditing?: boolean
+  }): Promise<string | null> {
     const id = ++this.latestId
     const opener =
       typeof document !== 'undefined' &&
@@ -117,8 +121,8 @@ export function createWebServices(
       },
     },
 
-    pickSaveDir(defaultPath) {
-      return __webPathPickerBus.request({ defaultPath })
+    pickSaveDir(defaultPath, options) {
+      return __webPathPickerBus.request({ defaultPath, ...options })
     },
 
     closeHost() {
