@@ -1,5 +1,5 @@
 import { createHash, generateKeyPairSync, sign as signBytes } from 'node:crypto'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error — .mjs without types
 import {
   downloadBytes,
@@ -277,7 +277,7 @@ function fakeStreamResponse(
             ? String(contentLength)
             : null,
       },
-      body: { getReader: () => ({ read, cancel }) },
+      body: { getReader: () => ({ read, cancel }), cancel },
     },
     read,
     cancel,
@@ -285,8 +285,117 @@ function fakeStreamResponse(
 }
 
 describe('downloadBytes', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  function httpFailure(status: number, retryAfter?: string) {
+    return {
+      ok: false,
+      status,
+      headers: { get: () => retryAfter ?? null },
+      body: { cancel: vi.fn(async () => {}) },
+    }
+  }
+
+  it('recovers after repeated gateway failures with increasing delays and retry diagnostics', async () => {
+    const failure = httpFailure(504)
+    const { response } = fakeStreamResponse([new Uint8Array([1, 2])])
+    const fetchMock = vi.fn().mockResolvedValue(response)
+    for (let i = 0; i < 3; i++) fetchMock.mockResolvedValueOnce(failure)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const pending = downloadBytes('https://example.test/f.moext.sig', 10)
+    await vi.advanceTimersByTimeAsync(1_999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(await pending).toEqual(Buffer.from([1, 2]))
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(failure.body.cancel).toHaveBeenCalledTimes(3)
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('-> 504; retry 4/5 in 8000ms')
+    )
+  })
+
+  it('fails after the bounded retry budget when the service stays unavailable', async () => {
+    const failure = httpFailure(503)
+    const fetchMock = vi.fn().mockResolvedValue(failure)
+    vi.stubGlobal('fetch', fetchMock)
+    const result = expect(
+      downloadBytes('https://example.test/f.moext', 10)
+    ).rejects.toThrow(/-> 503/)
+
+    await vi.runAllTimersAsync()
+    await result
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+    expect(failure.body.cancel).toHaveBeenCalledTimes(5)
+  })
+
+  it.each([401, 403, 404])(
+    'does not retry a permanent HTTP %i failure',
+    async (status) => {
+      const failure = httpFailure(status)
+      const fetchMock = vi.fn().mockResolvedValue(failure)
+      vi.stubGlobal('fetch', fetchMock)
+
+      await expect(
+        downloadBytes('https://example.test/f.moext', 10)
+      ).rejects.toThrow(`-> ${status}`)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(failure.body.cancel).toHaveBeenCalledOnce()
+      expect(console.warn).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    ['seconds', '7', 7_000],
+    ['date', 'Mon, 07 Sep 2026 00:00:07 GMT', 7_000],
+    ['bounded delay', '3600', 30_000],
+    ['invalid header', 'invalid', 2_000],
+  ])(
+    'honors Retry-After with a %s value',
+    async (_label, retryAfter, delay) => {
+      vi.setSystemTime(new Date('2026-09-07T00:00:00Z'))
+      const { response } = fakeStreamResponse([new Uint8Array([1])])
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(httpFailure(429, retryAfter))
+        .mockResolvedValue(response)
+      vi.stubGlobal('fetch', fetchMock)
+      const pending = downloadBytes('https://example.test/f.moext', 10)
+
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await pending).toEqual(Buffer.from([1]))
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it('retries a request timeout', async () => {
+    const { response } = fakeStreamResponse([new Uint8Array([1])])
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('Timed out', 'TimeoutError'))
+      .mockResolvedValueOnce(response)
+    vi.stubGlobal('fetch', fetchMock)
+    const pending = downloadBytes('https://example.test/f.moext', 10)
+
+    await vi.runAllTimersAsync()
+    expect(await pending).toEqual(Buffer.from([1]))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('streams a body within sizeCap and returns the concatenated bytes', async () => {
@@ -317,10 +426,11 @@ describe('downloadBytes', () => {
     ).rejects.toThrow(/exceeds lock size/)
     expect(read).toHaveBeenCalledTimes(2)
     expect(cancel).toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('rejects on an over-cap Content-Length before reading any body chunk', async () => {
-    const { response, read } = fakeStreamResponse([new Uint8Array(3)], {
+    const { response, read, cancel } = fakeStreamResponse([new Uint8Array(3)], {
       contentLength: 999,
     })
     vi.stubGlobal(
@@ -331,5 +441,7 @@ describe('downloadBytes', () => {
       downloadBytes('https://example.test/big.moext', 5)
     ).rejects.toThrow(/Content-Length/)
     expect(read).not.toHaveBeenCalled()
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })
