@@ -21,6 +21,13 @@ import {
   ValidateServerDirectoryResultSchema,
 } from '@shared/schemas/server-directory'
 import type { z } from 'zod'
+import {
+  DEFAULT_DIRECTORY_SORT,
+  type DirectorySort,
+  type DirectorySortPreferences,
+  DirectorySortSchema,
+  directorySortPreferences,
+} from './directory-sort'
 
 export const DIRECTORY_OPERATION_TIMEOUT = 20_000
 export type DirectoryListing = Extract<
@@ -28,7 +35,11 @@ export type DirectoryListing = Extract<
   { ok: true }
 >['value']
 export type DirectoryEntry = DirectoryListing['entries'][number]
-type HistoryEntry = { path: string; selected: string | null; offset: number }
+type HistoryEntry = {
+  path: string
+  selected: string | null
+  offset: number | null
+}
 type Editor = {
   kind: 'path' | 'name'
   text: string
@@ -44,6 +55,7 @@ export type PickerState = {
   listing: DirectoryListing | null
   selected: string | null
   showHidden: boolean
+  sort: DirectorySort
   busy: 'bootstrap' | 'navigate' | 'create' | 'validate' | null
   editor: Editor | null
   error: DirectoryErrorCode | null
@@ -82,6 +94,7 @@ export class DirectoryPickerController {
     listing: null,
     selected: null,
     showHidden: false,
+    sort: DEFAULT_DIRECTORY_SORT,
     busy: 'bootstrap',
     editor: null,
     error: null,
@@ -108,8 +121,10 @@ export class DirectoryPickerController {
     private readonly preferences: Pick<
       DirectoryPreferencesStore,
       'mutate' | 'getSnapshot'
-    > = directoryPreferences
+    > = directoryPreferences,
+    private readonly sortPreferences: DirectorySortPreferences = directorySortPreferences
   ) {
+    this.state.sort = sortPreferences.get()
     this.locationsStore = new ServerDirectoryLocationsStore(transport, {
       retainWhileRefreshing: true,
     })
@@ -458,8 +473,31 @@ export class DirectoryPickerController {
       void this.load(entry.path, {
         historyIndex: index,
         selected: entry.selected,
-        offset: entry.offset,
+        offset: entry.offset ?? 0,
+        revealSelection: entry.offset === null,
       })
+  }
+  changeSort(value: DirectorySort) {
+    if (!this.live || this.locked || !this.state.listing) return
+    const parsed = DirectorySortSchema.safeParse(value)
+    if (!parsed.success) return
+    const sort = parsed.data
+    if (
+      sort.by === this.state.sort.by &&
+      sort.direction === this.state.sort.direction
+    )
+      return
+    this.sortPreferences.set(sort)
+    this.scrollOffset = 0
+    this.update({
+      sort,
+      history: this.state.history.map((entry) => ({ ...entry, offset: null })),
+      restore: {
+        revision: this.state.restore.revision + 1,
+        offset: 0,
+        reveal: this.state.selected,
+      },
+    })
   }
   refresh() {
     if (this.locked) return

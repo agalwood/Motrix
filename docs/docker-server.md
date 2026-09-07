@@ -508,6 +508,13 @@ allowed. On narrow screens, Location becomes a grouped menu. Up stops at the
 current allowed root. Open **View options → Show hidden folders** in the toolbar
 to include names beginning with a dot.
 
+The same **View options** menu sorts folders by **Name** or **Date modified**,
+in ascending or descending order. Name sorting treats numbers naturally, such
+as folder2 before folder10. Your browser remembers the choice. Sorting keeps
+the selected folder and changes only the loaded list, without another server
+request. Unknown modification times stay last; if the list is incomplete,
+sorting applies to the folders currently shown.
+
 Select folder chooses the highlighted child, or the current folder when no
 child is selected. Cancelling leaves the original form value unchanged. The
 selection is checked again by the server; submitting a download or applying

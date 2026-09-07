@@ -9,6 +9,7 @@ import {
   type DirectoryListing,
   DirectoryPickerController,
 } from './directory-picker-controller'
+import { DirectorySortPreferences } from './directory-sort'
 
 function deferred() {
   let resolve!: (value: unknown) => void
@@ -93,7 +94,8 @@ function harness(defaultPath: string | undefined = '/downloads') {
     },
     defaultPath,
     finish,
-    preferences
+    preferences,
+    new DirectorySortPreferences(() => ({ getItem: () => null, setItem() {} }))
   )
   controllers.push(controller)
   return {
@@ -117,6 +119,51 @@ afterEach(() => {
 })
 
 describe('DirectoryPickerController', () => {
+  it('changes sorting locally, preserves selected identity and invalidates historical scroll offsets', async () => {
+    const h = harness()
+    await h.controller.start()
+    h.controller.select('/downloads/Music')
+    h.controller.setScrollOffset(800)
+    h.controller.navigate('/archive')
+    await flush()
+    const calls = h.invoke.mock.calls.length
+    const listing = h.controller.getSnapshot().listing
+    h.controller.changeSort({ by: 'name', direction: 'desc' })
+    expect(h.invoke).toHaveBeenCalledTimes(calls)
+    expect(h.controller.getSnapshot().listing).toBe(listing)
+    expect(
+      h.controller.getSnapshot().history.every((entry) => entry.offset === null)
+    ).toBe(true)
+    h.controller.history(-1)
+    await flush()
+    expect(h.controller.getSnapshot()).toMatchObject({
+      sort: { by: 'name', direction: 'desc' },
+      selected: '/downloads/Music',
+      restore: { offset: 0, reveal: '/downloads/Music' },
+    })
+    h.controller.changeSort({ by: 'modified', direction: 'asc' })
+    expect(h.controller.getSnapshot()).toMatchObject({
+      selected: '/downloads/Music',
+      restore: { offset: 0, reveal: '/downloads/Music' },
+    })
+    const snapshot = h.controller.getSnapshot()
+    h.controller.changeSort({ by: 'modified', direction: 'asc' })
+    expect(h.controller.getSnapshot()).toBe(snapshot)
+  })
+
+  it('ignores delayed sorting after disposal and while editing', async () => {
+    const h = harness()
+    await h.controller.start()
+    h.controller.editPath()
+    const editing = h.controller.getSnapshot()
+    h.controller.changeSort({ by: 'name', direction: 'desc' })
+    expect(h.controller.getSnapshot()).toBe(editing)
+    h.controller.cancelEditor()
+    h.controller.dispose()
+    const disposed = h.controller.getSnapshot()
+    h.controller.changeSort({ by: 'name', direction: 'desc' })
+    expect(h.controller.getSnapshot()).toBe(disposed)
+  })
   it('keeps bootstrap roots navigable when optional locations fail', async () => {
     const h = harness()
     h.queue(Queries.ListServerDirectoryLocations, failure('unavailable'))

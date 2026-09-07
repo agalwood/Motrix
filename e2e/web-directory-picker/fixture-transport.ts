@@ -65,6 +65,14 @@ function setPreferences(value: DirectoryPreferences) {
 }
 
 export const fixtureState = {
+  modifiedAtByPath: {} as Record<string, number | undefined>,
+  setDirectoryChildren(path: string, children: string[]) {
+    folders.set(path, [...children])
+    for (const name of children) {
+      const childPath = `${path === '/' ? '' : path}/${name}`
+      if (!folders.has(childPath)) folders.set(childPath, [])
+    }
+  },
   calls: [] as { channel: string; args: unknown[] }[],
   interactions: [] as {
     type: string
@@ -241,10 +249,15 @@ export const transport: Transport = {
             ],
             entries: children
               .filter((name) => showHidden || !name.startsWith('.'))
-              .map((name) => ({
-                name,
-                path: `${path === '/' ? '' : path}/${name}`,
-              })),
+              .map((name) => {
+                const childPath = `${path === '/' ? '' : path}/${name}`
+                const modifiedAt = fixtureState.modifiedAtByPath[childPath]
+                return {
+                  name,
+                  path: childPath,
+                  ...(Number.isFinite(modifiedAt) ? { modifiedAt } : {}),
+                }
+              }),
             truncated: false,
             canCreate: true,
           },

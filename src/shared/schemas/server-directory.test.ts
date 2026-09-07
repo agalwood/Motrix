@@ -5,10 +5,81 @@ import {
   CreateServerDirectoryResultSchema,
   ListServerDirectoriesRequestSchema,
   ListServerDirectoriesResultSchema,
+  ServerDirectoryLocationsSchema,
   ValidateServerDirectoryRequestSchema,
 } from './server-directory'
 
 describe('server directory contracts', () => {
+  const listing = {
+    ok: true,
+    value: {
+      path: '/',
+      parentPath: null,
+      breadcrumbs: [{ name: '/', path: '/' }],
+      entries: [{ name: 'folder', path: '/folder' }],
+      truncated: false,
+      canCreate: true,
+    },
+  }
+  it.each([undefined, 0, -1000, 1700000000123.5])(
+    'accepts optional finite listing timestamps: %s',
+    (modifiedAt) => {
+      const result = {
+        ...listing,
+        value: {
+          ...listing.value,
+          entries: [
+            {
+              ...listing.value.entries[0],
+              ...(modifiedAt === undefined ? {} : { modifiedAt }),
+            },
+          ],
+        },
+      }
+      expect(ListServerDirectoriesResultSchema.parse(result)).toEqual(result)
+    }
+  )
+  it.each([Number.NaN, Infinity, -Infinity, null, '1000'])(
+    'rejects invalid listing timestamps: %s',
+    (modifiedAt) => {
+      expect(
+        ListServerDirectoriesResultSchema.safeParse({
+          ...listing,
+          value: {
+            ...listing.value,
+            entries: [{ ...listing.value.entries[0], modifiedAt }],
+          },
+        }).success
+      ).toBe(false)
+    }
+  )
+  it('keeps timestamps out of breadcrumbs, create results and saved locations', () => {
+    const entry = { name: 'folder', path: '/folder', modifiedAt: 1000 }
+    expect(
+      ListServerDirectoriesResultSchema.safeParse({
+        ...listing,
+        value: { ...listing.value, breadcrumbs: [entry] },
+      }).success
+    ).toBe(false)
+    expect(
+      CreateServerDirectoryResultSchema.safeParse({ ok: true, value: entry })
+        .success
+    ).toBe(false)
+    expect(
+      ServerDirectoryLocationsSchema.safeParse({
+        common: [],
+        favorites: [{ ...entry, sourcePaths: ['/folder'] }],
+        recent: [],
+      }).success
+    ).toBe(false)
+    expect(
+      ServerDirectoryLocationsSchema.safeParse({
+        common: [{ kind: 'default', path: '/folder', modifiedAt: 1000 }],
+        favorites: [],
+        recent: [],
+      }).success
+    ).toBe(false)
+  })
   it.each([
     undefined,
     {},

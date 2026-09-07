@@ -23,6 +23,7 @@ export interface AuthorizedServerDirectory {
   path: string
   canonicalPath: string
   rootPath: string
+  modifiedAt?: number
 }
 
 export class DirectoryAuthorizationError extends AppError {
@@ -195,7 +196,8 @@ class DownloadPathPolicy implements ServerDownloadPathPolicy {
     const { candidate, matchingRoots } = this.resolveCandidate(requested)
     const canonical = await realpath(candidate)
     const root = this.checkCanonical(candidate, canonical, matchingRoots)
-    if (!(await stat(canonical)).isDirectory()) {
+    const info = await stat(canonical)
+    if (!info.isDirectory()) {
       throw new DirectoryAuthorizationError(
         'notDirectory',
         'Save directory is not a directory'
@@ -205,6 +207,7 @@ class DownloadPathPolicy implements ServerDownloadPathPolicy {
       path: candidate,
       canonicalPath: canonical,
       rootPath: root?.configured ?? path.parse(candidate).root,
+      ...(Number.isFinite(info.mtimeMs) ? { modifiedAt: info.mtimeMs } : {}),
     }
   }
 

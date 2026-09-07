@@ -12,6 +12,11 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
 import { Input } from '@renderer/components/ui/input'
@@ -50,6 +55,7 @@ import {
   type DirectoryEntry,
   DirectoryPickerController,
 } from './directory-picker-controller'
+import { type DirectorySort, sortDirectoryEntries } from './directory-sort'
 
 const ROW_HEIGHT = 32
 const EMPTY_ENTRIES: DirectoryEntry[] = []
@@ -125,11 +131,19 @@ function PickerSession({ request, controller }: Session) {
   const rootSelectRef = useRef<HTMLSelectElement>(null)
   const lastFocused = useRef<HTMLElement | null>(null)
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false)
-  const pendingFilter = useRef<boolean | null>(null)
+  const pendingView = useRef<
+    | { kind: 'hidden'; value: boolean }
+    | { kind: 'sort'; value: DirectorySort }
+    | null
+  >(null)
   const id = useId()
   const mac = isMacClient()
   const typeahead = useRef({ text: '', time: 0 })
-  const entries = state.listing?.entries ?? EMPTY_ENTRIES
+  const rawEntries = state.listing?.entries ?? EMPTY_ENTRIES
+  const entries = useMemo(
+    () => sortDirectoryEntries(rawEntries, state.sort),
+    [rawEntries, state.sort]
+  )
   const activeIndex = useMemo(
     () => entries.findIndex((entry) => entry.path === state.selected),
     [entries, state.selected]
@@ -682,15 +696,19 @@ function PickerSession({ request, controller }: Session) {
             <DropdownMenu
               open={viewOptionsOpen}
               onOpenChange={(open) => {
-                if (open) pendingFilter.current = null
+                if (open) pendingView.current = null
                 setViewOptionsOpen(open)
               }}
               onOpenChangeComplete={(open) => {
-                if (open || pendingFilter.current === null) return
-                const showHidden = pendingFilter.current
-                pendingFilter.current = null
+                if (open || pendingView.current === null) return
+                const action = pendingView.current
+                pendingView.current = null
                 listRef.current?.focus({ preventScroll: true })
-                controller.filter(showHidden)
+                if (action.kind === 'hidden') controller.filter(action.value)
+                else {
+                  typeahead.current = { text: '', time: 0 }
+                  controller.changeSort(action.value)
+                }
               }}
             >
               <DropdownMenuTrigger
@@ -704,8 +722,9 @@ function PickerSession({ request, controller }: Session) {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
+                className="min-w-40"
                 aria-label={t('directoryPicker.viewOptions')}
-                finalFocus={() => pendingFilter.current === null}
+                finalFocus={() => pendingView.current === null}
                 onKeyDownCapture={(event) => {
                   if (
                     event.key === 'Enter' &&
@@ -718,12 +737,83 @@ function PickerSession({ request, controller }: Session) {
                 onKeyDown={(event) => event.stopPropagation()}
                 onKeyUp={(event) => event.stopPropagation()}
               >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="py-1 text-[11px] leading-4 text-muted-foreground">
+                    {t('directoryPicker.sortBy')}
+                  </DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    aria-label={t('directoryPicker.sortBy')}
+                    value={state.sort.by}
+                    onValueChange={(value) => {
+                      if (value !== 'name' && value !== 'modified') return
+                      pendingView.current = {
+                        kind: 'sort',
+                        value: { ...state.sort, by: value },
+                      }
+                      setViewOptionsOpen(false)
+                    }}
+                  >
+                    <DropdownMenuRadioItem
+                      value="name"
+                      className="py-1 text-xs leading-4"
+                      closeOnClick
+                      disabled={locked}
+                    >
+                      {t('directoryPicker.sortName')}
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem
+                      value="modified"
+                      className="py-1 text-xs leading-4"
+                      closeOnClick
+                      disabled={locked}
+                    >
+                      {t('directoryPicker.sortModified')}
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="py-1 text-[11px] leading-4 text-muted-foreground">
+                    {t('directoryPicker.sortOrder')}
+                  </DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    aria-label={t('directoryPicker.sortOrder')}
+                    value={state.sort.direction}
+                    onValueChange={(value) => {
+                      if (value !== 'asc' && value !== 'desc') return
+                      pendingView.current = {
+                        kind: 'sort',
+                        value: { ...state.sort, direction: value },
+                      }
+                      setViewOptionsOpen(false)
+                    }}
+                  >
+                    <DropdownMenuRadioItem
+                      value="asc"
+                      className="py-1 text-xs leading-4"
+                      closeOnClick
+                      disabled={locked}
+                    >
+                      {t('directoryPicker.sortAscending')}
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem
+                      value="desc"
+                      className="py-1 text-xs leading-4"
+                      closeOnClick
+                      disabled={locked}
+                    >
+                      {t('directoryPicker.sortDescending')}
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
+                  className="py-1 text-xs leading-4"
                   checked={state.showHidden}
                   disabled={locked || !state.listing}
                   closeOnClick
                   onCheckedChange={(checked) => {
-                    pendingFilter.current = checked
+                    pendingView.current = { kind: 'hidden', value: checked }
                     setViewOptionsOpen(false)
                   }}
                 >

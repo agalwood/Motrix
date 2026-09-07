@@ -30,6 +30,9 @@ const DirectoryEntrySchema = z
     path: DirectoryPathSchema,
   })
   .strict()
+const ListedDirectoryEntrySchema = DirectoryEntrySchema.extend({
+  modifiedAt: z.number().finite().optional(),
+}).strict()
 const DirectoryFailureSchema = z
   .object({
     ok: z.literal(false),
@@ -53,7 +56,7 @@ export const ListServerDirectoriesResultSchema = z.discriminatedUnion('ok', [
             .min(1)
             .max(SERVER_DIRECTORY_PATH_LIMIT),
           entries: z
-            .array(DirectoryEntrySchema)
+            .array(ListedDirectoryEntrySchema)
             .max(SERVER_DIRECTORY_ENTRY_LIMIT),
           truncated: z.boolean(),
           canCreate: z.boolean(),

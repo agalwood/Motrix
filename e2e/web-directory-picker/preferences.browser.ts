@@ -108,6 +108,25 @@ test('favorite updates preserve picker geometry, list state and request budget',
   await picker.getByRole('button', { name: 'Go', exact: true }).click()
   const list = picker.getByRole('listbox', { name: 'Folders', exact: true })
   await picker.getByRole('option', { name: 'Folder 0000', exact: true }).click()
+  // The sorted display array must stay memoized across preference updates too.
+  const sortCalls = await page.evaluate(
+    () => window.directoryPickerFixture.calls
+  )
+  await picker
+    .getByRole('button', { name: 'View options', exact: true })
+    .click()
+  const viewMenu = page.getByRole('menu', { name: 'View options', exact: true })
+  await viewMenu
+    .getByRole('menuitemradio', { name: 'Descending', exact: true })
+    .click()
+  await expect(viewMenu).not.toBeVisible()
+  await expect(list).toBeFocused()
+  await expect(
+    list.getByRole('option', { name: 'Folder 0000', exact: true })
+  ).toHaveAttribute('aria-posinset', '800')
+  expect(
+    await page.evaluate(() => window.directoryPickerFixture.calls)
+  ).toEqual(sortCalls)
   await list.evaluate((element) => {
     element.scrollTop = 12000
   })

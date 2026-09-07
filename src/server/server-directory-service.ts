@@ -213,7 +213,10 @@ export class ServerDirectoryService {
         directory.canonicalPath,
         constants.R_OK | constants.X_OK
       )
-      const entries: Array<{ name: string; path: string }> = []
+      const entries: Extract<
+        ListServerDirectoriesResult,
+        { ok: true }
+      >['value']['entries'] = []
       const handle = await this.fs.opendir(directory.canonicalPath)
       let scanned = 0
       let truncated = false
@@ -234,7 +237,13 @@ export class ServerDirectoryService {
           }
           try {
             const child = await this.policy.authorizeDirectory(childPath)
-            entries.push({ name: entry.name, path: child.path })
+            entries.push({
+              name: entry.name,
+              path: child.path,
+              ...(Number.isFinite(child.modifiedAt)
+                ? { modifiedAt: child.modifiedAt }
+                : {}),
+            })
           } catch (error) {
             // An unresolvable child link must not hide its healthy siblings.
             // Direct requests still fail through the outer error boundary.

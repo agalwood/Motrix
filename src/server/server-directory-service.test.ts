@@ -10,6 +10,7 @@ import {
   rm,
   stat,
   symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises'
 import os from 'node:os'
@@ -68,6 +69,7 @@ describe('ServerDirectoryService', () => {
         entries: ['folder2', 'folder10', 'outer'].map((name) => ({
           name,
           path: path.join(downloads, name),
+          modifiedAt: expect.any(Number),
         })),
         truncated: false,
         canCreate: true,
@@ -81,6 +83,71 @@ describe('ServerDirectoryService', () => {
       await service.list({ path: path.join(downloads, 'escape') })
     ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
   })
+
+  it('returns authorized target modification times only on listing entries', async () => {
+    const { downloads, service } = await fixture()
+    const target = path.join(downloads, 'target')
+    const alias = path.join(downloads, 'alias')
+    await mkdir(target)
+    await symlink(target, alias)
+    await utimes(target, new Date(1700000000123), new Date(1700000000123))
+    const expected = (await stat(target)).mtimeMs
+    const result = await service.list({ path: downloads })
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        entries: [
+          { name: 'alias', path: alias, modifiedAt: expected },
+          { name: 'target', path: target, modifiedAt: expected },
+        ],
+      },
+    })
+    expect(result.ok && result.value.breadcrumbs).toEqual([
+      { name: 'downloads', path: downloads },
+    ])
+    expect(
+      await service.create({ parentPath: downloads, name: 'new' })
+    ).toEqual({
+      ok: true,
+      value: { name: 'new', path: path.join(downloads, 'new') },
+    })
+    const locations = await service.locations(
+      {},
+      {
+        defaultSaveDir: downloads,
+        directoryPreferences: { favorites: [alias], recent: [target] },
+      }
+    )
+    expect(locations.ok).toBe(true)
+    if (locations.ok) {
+      for (const group of Object.values(locations.value))
+        for (const entry of group)
+          expect(entry).not.toHaveProperty('modifiedAt')
+    }
+  })
+
+  it.each([undefined, Number.NaN, Infinity, -Infinity])(
+    'keeps children with unavailable metadata selectable: %s',
+    async (modifiedAt) => {
+      const { downloads, policy } = await fixture()
+      const childPath = path.join(downloads, 'child')
+      await mkdir(childPath)
+      const authorize = policy.authorizeDirectory.bind(policy)
+      vi.spyOn(policy, 'authorizeDirectory').mockImplementation(
+        async (candidate) => {
+          const result = await authorize(candidate)
+          if (candidate === childPath) return { ...result, modifiedAt }
+          return result
+        }
+      )
+      const result = await new ServerDirectoryService(policy).list({
+        path: downloads,
+      })
+      expect(result.ok && result.value.entries).toEqual([
+        { name: 'child', path: childPath },
+      ])
+    }
+  )
 
   it('skips cyclic child links while keeping direct access to the cycle unavailable', async () => {
     const { downloads, service } = await fixture()
