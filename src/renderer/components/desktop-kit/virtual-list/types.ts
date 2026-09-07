@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, RefObject } from 'react'
+import type { CSSProperties, HTMLAttributes, ReactNode, RefObject } from 'react'
 
 export interface VirtualListProps<T> {
   items: T[]
@@ -16,6 +16,12 @@ export interface VirtualListProps<T> {
   renderEmpty?: () => ReactNode
   className?: string
   style?: CSSProperties
+  /** Keep the active descendant mounted outside the visible range. */
+  activeIndex?: number
+  containerProps?: Omit<
+    HTMLAttributes<HTMLDivElement>,
+    'children' | 'className' | 'style'
+  >
 }
 
 export interface RowRenderProps<T> {
@@ -26,6 +32,7 @@ export interface RowRenderProps<T> {
 
 export interface VirtualListHandle {
   scrollToIndex: (index: number) => void
+  scrollToOffset: (offset: number) => void
   getScrollOffset: () => number
   getContainerRef: () => HTMLDivElement | null
 }

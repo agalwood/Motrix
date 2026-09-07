@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { VirtualListHandle } from './types'
 import { VirtualList } from './virtual-list'
 
@@ -72,5 +72,47 @@ describe('VirtualList', () => {
       '[data-testid="virtual-list-container"]'
     )
     expect(scrollContainer).not.toBeNull()
+  })
+
+  it('retains a pinned active option while the visible range scrolls away', () => {
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockReturnValue(200)
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+      .mockReturnValue(400)
+    const { unmount } = render(
+      <VirtualList<TestItem>
+        items={makeItems(500)}
+        getId={(item) => item.id}
+        rowHeight={40}
+        activeIndex={0}
+        containerProps={{
+          role: 'listbox',
+          tabIndex: 0,
+          'aria-activedescendant': 'item-0',
+        }}
+        renderRow={({ item }) => (
+          <div
+            role="option"
+            tabIndex={-1}
+            aria-selected={item.id === 'item-0'}
+            id={item.id}
+          >
+            {item.label}
+          </div>
+        )}
+      />
+    )
+    const list = screen.getByRole('listbox')
+    expect(document.getElementById('item-0')).not.toBeNull()
+    fireEvent.scroll(list, { target: { scrollTop: 12_000 } })
+    expect(document.getElementById('item-0')).not.toBeNull()
+    expect(list.getAttribute('aria-activedescendant')).toBe('item-0')
+    expect(screen.getAllByRole('option').length).toBeLessThan(30)
+    expect(document.getElementById('item-300')).not.toBeNull()
+    unmount()
+    height.mockRestore()
+    width.mockRestore()
   })
 })

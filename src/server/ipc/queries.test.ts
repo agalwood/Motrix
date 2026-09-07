@@ -152,7 +152,9 @@ function makeCtx(over: Record<string, unknown> = {}) {
     downloadPathPolicy: {
       allowedSaveDirs: [],
       prepareSaveDir: vi.fn(),
+      authorizeDirectory: vi.fn(),
     },
+    serverDirectoryService: { list: vi.fn(), validate: vi.fn() },
     environment: {},
     ...over,
   }
@@ -168,6 +170,30 @@ describe('buildServerQueryHandlers — allowed save directories', () => {
     expect(ctx.trackerManager.getSyncStatus).toHaveBeenCalledOnce()
   })
 
+  it('delegates readonly directory requests to the service', async () => {
+    const service = {
+      list: vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: { code: 'outsideRoots' } }),
+      validate: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { path: '/downloads' } }),
+    }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ serverDirectoryService: service }) as never
+    )
+    const request = { path: '/downloads' }
+    expect(await handlers[Queries.ListServerDirectories]?.(request)).toEqual({
+      ok: false,
+      error: { code: 'outsideRoots' },
+    })
+    expect(await handlers[Queries.ValidateServerDirectory]?.(request)).toEqual({
+      ok: true,
+      value: { path: '/downloads' },
+    })
+    expect(service.list).toHaveBeenCalledExactlyOnceWith(request)
+    expect(service.validate).toHaveBeenCalledExactlyOnceWith(request)
+  })
   it('reports the proxy inherited by the Server process', async () => {
     const handlers = buildServerQueryHandlers(
       makeCtx({

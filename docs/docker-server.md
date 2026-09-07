@@ -491,6 +491,59 @@ services:
       - /srv/archive:/archive
 ```
 
+### Choosing a folder in the Web UI
+
+The folder controls in Add links, Add torrent, and General settings open a
+server folder picker. Its paths belong to the server: with the example mounts,
+`/downloads/Movies` maps to `./downloads/Movies` on the Docker host. A browser
+on another computer does not browse that computer’s local folders.
+
+Single-click a folder to select it, or double-click to enter it. The list shows
+only immediate child folders. Use Back, Forward, Up one level, or a breadcrumb
+to navigate; use Go to folder to enter an exact absolute path. With multiple
+allowed roots, use the Location sidebar to switch between them; on narrow
+screens, Location becomes a compact menu. Up stops at the current allowed root. Show hidden folders includes names beginning with a dot.
+
+Select folder chooses the highlighted child, or the current folder when no
+child is selected. Cancelling leaves the original form value unchanged. The
+selection is checked again by the server; submitting a download or applying
+settings remains a separate action. Browsing and selecting do not create
+folders.
+
+The keyboard follows the browser computer’s operating system, independently of
+the server. With focus in the list:
+
+| Action | macOS | Windows / Linux |
+| --- | --- | --- |
+| Select a folder | Up / Down | Up / Down |
+| First / last folder | Home / End | Home / End |
+| Move by a visible page | Page Up / Page Down | Page Up / Page Down |
+| Enter the selected folder | Command + Down | Enter |
+| Up one level | Command + Up | Alt + Up, or Backspace |
+| Confirm selection | Return | Tab to Select folder, then Enter |
+| Edit the current path | `/`, or Command + Shift + G if the browser delivers it | `/` |
+
+Type a folder-name prefix to select a match. Tab and Shift + Tab move between
+controls. In the path editor, Enter navigates and Escape cancels editing; Escape
+outside an editor closes the picker. Browser-reserved shortcuts keep their
+browser behavior.
+
+Use New folder at the bottom-left to create one folder inside the current
+location. Enter a name
+and press Enter or Create; Escape cancels the name editor. After creation, the
+new folder is selected so it can be confirmed immediately. **A created folder
+remains on the server even if you later cancel selection.** A conflict or
+permission error keeps the name available for correction. If the server’s
+response is lost, refresh and check the list before trying to create again.
+
+Very large folders may show an incomplete-list notice. Enter the exact path to
+reach a folder omitted from the list. Permission checks use the server process
+user and may fail on a read-only mount or a NAS ACL. The allowlist rejects path
+traversal and static symlink escape. As with saving downloads, portable path
+checks do not protect against a hostile local process replacing directory
+ancestors at the same time; restrict write access to the mounted directory
+hierarchy accordingly.
+
 Built-in plugins are read-only under `/app/builtin-plugins`. User-installed
 packages, provenance, grants, configuration, logs, encrypted secrets, and
 enablement state persist under `/data`. Web uploads of `.moext` packages and

@@ -49,6 +49,7 @@ import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
   phase: CliToolPhase.ManualOnly,
@@ -119,6 +120,7 @@ export interface ServerQueryContext {
   userDataDir: string
   speedLimitController: SpeedLimitController
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<ServerDirectoryService, 'list' | 'validate'>
   environment: NodeJS.ProcessEnv
 }
 
@@ -158,6 +160,10 @@ export function buildServerQueryHandlers(
   })
 
   return {
+    [Queries.ListServerDirectories]: async (request: unknown) =>
+      ctx.serverDirectoryService.list(request),
+    [Queries.ValidateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.validate(request),
     [Queries.GetDisclaimerState]: async () => ({
       language: settingsManager.getApp().language,
     }),

@@ -1,6 +1,7 @@
 import { lstat, mkdir, open, realpath, stat, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
+import type { DirectoryErrorCode } from '@shared/schemas/server-directory'
 
 interface DownloadPathEnvironment {
   MOTRIX_DEFAULT_SAVE_DIR?: string
@@ -15,6 +16,22 @@ export interface ServerDownloadPathPolicyOptions {
 export interface ServerDownloadPathPolicy {
   readonly allowedSaveDirs: readonly string[]
   prepareSaveDir(requested: string | undefined): Promise<string>
+  authorizeDirectory(requested: string): Promise<AuthorizedServerDirectory>
+}
+
+export interface AuthorizedServerDirectory {
+  path: string
+  canonicalPath: string
+  rootPath: string
+}
+
+export class DirectoryAuthorizationError extends AppError {
+  constructor(
+    readonly directoryCode: DirectoryErrorCode,
+    message: string
+  ) {
+    super(ErrorCode.TaskCreateFailed, message)
+  }
 }
 
 interface AllowedRoot {
@@ -33,14 +50,13 @@ function pathIsInside(root: string, candidate: string): boolean {
 }
 
 function absolutePath(value: string, label: string): string {
-  const trimmed = value.trim()
-  if (!trimmed || !path.isAbsolute(trimmed)) {
+  if (!value || !path.isAbsolute(value) || value.includes('\0')) {
     throw new AppError(
       ErrorCode.SettingsInvalid,
       `${label} must be an absolute path`
     )
   }
-  return path.resolve(trimmed)
+  return path.resolve(value)
 }
 
 function parseAllowedSaveDirs(
@@ -52,7 +68,7 @@ function parseAllowedSaveDirs(
   const roots: string[] = []
   for (const raw of value.split(delimiter)) {
     if (!raw.trim()) continue
-    const root = absolutePath(raw, 'MOTRIX_ALLOWED_SAVE_DIRS entry')
+    const root = absolutePath(raw.trim(), 'MOTRIX_ALLOWED_SAVE_DIRS entry')
     if (!seen.has(root)) {
       seen.add(root)
       roots.push(root)
@@ -123,42 +139,91 @@ class DownloadPathPolicy implements ServerDownloadPathPolicy {
     this.allowedSaveDirs = allowedRoots.map((root) => root.configured)
   }
 
-  async prepareSaveDir(requested: string | undefined): Promise<string> {
-    const raw = requested?.trim() || this.defaultSaveDir
-    const candidate = absolutePath(raw, 'Save directory')
-    const matchingRoots = this.allowedRoots.filter((root) =>
+  private resolveCandidate(requested: string): {
+    candidate: string
+    matchingRoots: AllowedRoot[]
+  } {
+    let candidate = absolutePath(requested, 'Save directory')
+    let matchingRoots = this.allowedRoots.filter((root) =>
       pathIsInside(root.configured, candidate)
     )
+    // Older settings persist canonical paths. Map only a canonical subtree of
+    // a configured root back to its logical alias, then repeat both checks.
     if (this.allowedRoots.length > 0 && matchingRoots.length === 0) {
-      throw pathFailure(
+      const alias = this.allowedRoots
+        .filter((root) => pathIsInside(root.canonical, candidate))
+        .sort((a, b) => b.canonical.length - a.canonical.length)[0]
+      if (alias) {
+        candidate = path.join(
+          alias.configured,
+          path.relative(alias.canonical, candidate)
+        )
+        matchingRoots = this.allowedRoots.filter((root) =>
+          pathIsInside(root.configured, candidate)
+        )
+      }
+    }
+    if (this.allowedRoots.length > 0 && matchingRoots.length === 0) {
+      throw new DirectoryAuthorizationError(
+        'outsideRoots',
         `Save directory is outside MOTRIX_ALLOWED_SAVE_DIRS: ${candidate}`
       )
     }
+    return { candidate, matchingRoots }
+  }
+
+  private checkCanonical(
+    candidate: string,
+    canonical: string,
+    roots: readonly AllowedRoot[]
+  ): AllowedRoot | undefined {
+    const matching = roots
+      .filter((root) => pathIsInside(root.canonical, canonical))
+      .sort((a, b) => b.configured.length - a.configured.length)
+    if (roots.length > 0 && matching.length === 0) {
+      throw new DirectoryAuthorizationError(
+        'outsideRoots',
+        `Save directory resolves outside the allowed root: ${candidate}`
+      )
+    }
+    return matching[0]
+  }
+
+  async authorizeDirectory(
+    requested: string
+  ): Promise<AuthorizedServerDirectory> {
+    const { candidate, matchingRoots } = this.resolveCandidate(requested)
+    const canonical = await realpath(candidate)
+    const root = this.checkCanonical(candidate, canonical, matchingRoots)
+    if (!(await stat(canonical)).isDirectory()) {
+      throw new DirectoryAuthorizationError(
+        'notDirectory',
+        'Save directory is not a directory'
+      )
+    }
+    return {
+      path: candidate,
+      canonicalPath: canonical,
+      rootPath: root?.configured ?? path.parse(candidate).root,
+    }
+  }
+
+  async prepareSaveDir(requested: string | undefined): Promise<string> {
+    const raw =
+      requested === undefined || requested === ''
+        ? this.defaultSaveDir
+        : requested
+    const { candidate, matchingRoots } = this.resolveCandidate(raw)
 
     if (matchingRoots.length > 0) {
       const ancestor = await deepestExistingAncestor(candidate)
       const canonicalAncestor = await realpath(ancestor)
-      if (
-        !matchingRoots.some((root) =>
-          pathIsInside(root.canonical, canonicalAncestor)
-        )
-      ) {
-        throw pathFailure(
-          `Save directory resolves outside the allowed root: ${candidate}`
-        )
-      }
+      this.checkCanonical(candidate, canonicalAncestor, matchingRoots)
     }
 
     await ensureDirectory(candidate)
     const canonical = await realpath(candidate)
-    if (
-      matchingRoots.length > 0 &&
-      !matchingRoots.some((root) => pathIsInside(root.canonical, canonical))
-    ) {
-      throw pathFailure(
-        `Save directory resolves outside the allowed root: ${candidate}`
-      )
-    }
+    this.checkCanonical(candidate, canonical, matchingRoots)
     await ensureWritable(canonical)
     return canonical
   }
@@ -187,16 +252,6 @@ export async function createServerDownloadPathPolicy(
     options.allowedSaveDirsValue,
     options.pathDelimiter ?? path.delimiter
   )
-  if (
-    configuredRoots.length > 0 &&
-    !configuredRoots.some((root) => pathIsInside(root, defaultSaveDir))
-  ) {
-    throw new AppError(
-      ErrorCode.SettingsInvalid,
-      'MOTRIX_DEFAULT_SAVE_DIR must be inside MOTRIX_ALLOWED_SAVE_DIRS'
-    )
-  }
-
   const allowedRoots: AllowedRoot[] = []
   for (const configured of configuredRoots) {
     await ensureDirectory(configured)
@@ -206,6 +261,20 @@ export async function createServerDownloadPathPolicy(
   }
 
   const policy = new DownloadPathPolicy(defaultSaveDir, allowedRoots)
-  await policy.prepareSaveDir(defaultSaveDir)
+  try {
+    await policy.prepareSaveDir(defaultSaveDir)
+  } catch (error) {
+    if (
+      error instanceof DirectoryAuthorizationError &&
+      error.directoryCode === 'outsideRoots'
+    ) {
+      throw new AppError(
+        ErrorCode.SettingsInvalid,
+        'MOTRIX_DEFAULT_SAVE_DIR must be inside MOTRIX_ALLOWED_SAVE_DIRS',
+        error
+      )
+    }
+    throw error
+  }
   return policy
 }

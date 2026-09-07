@@ -177,6 +177,7 @@ import { registerPluginUploadRoute } from './routes/plugin-uploads'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
 import { prepareServerRuntimeDirectories } from './runtime-directories'
 import { serverHealthSnapshot } from './runtime-health'
+import { ServerDirectoryService } from './server-directory-service'
 import {
   createServerExitCoordinator,
   createServerShutdown,
@@ -1099,7 +1100,9 @@ async function main() {
   )
 
   // ─── HTTP App ─────────────────────────────────────────────────
+  const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
   const commandHandlers = buildServerCommandHandlers({
+    serverDirectoryService,
     supervisor,
     settingsManager,
     geoipManager: activeGeoipManager,
@@ -1181,6 +1184,7 @@ async function main() {
     ])
   }
   const queryHandlers = buildServerQueryHandlers({
+    serverDirectoryService,
     taskManager,
     statsAggregator,
     speedHistoryStore,

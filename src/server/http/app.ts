@@ -2,6 +2,7 @@ import type { EventBus } from '@core/events/event-bus'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import fastifyStatic from '@fastify/static'
 import websocket from '@fastify/websocket'
+import { Commands } from '@shared/protocol/commands'
 import {
   assertTaskInspectorActivityArguments,
   makeProtocolFailure,
@@ -14,6 +15,11 @@ import type {
   QueryHandlerMap,
 } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import {
+  CreateServerDirectoryResultSchema,
+  ListServerDirectoriesResultSchema,
+  ValidateServerDirectoryResultSchema,
+} from '@shared/schemas/server-directory'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
@@ -27,6 +33,45 @@ import {
 } from './torrent-command-routes'
 
 export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
+
+const directoryResultSchemas = {
+  [Commands.CreateServerDirectory]: CreateServerDirectoryResultSchema,
+  [Queries.ListServerDirectories]: ListServerDirectoriesResultSchema,
+  [Queries.ValidateServerDirectory]: ValidateServerDirectoryResultSchema,
+}
+
+async function directoryRpc(
+  channel: string,
+  body: unknown,
+  handler: Handler
+): Promise<unknown> {
+  const schema =
+    directoryResultSchemas[channel as keyof typeof directoryResultSchemas]
+  const args =
+    typeof body === 'object' && body !== null && 'args' in body
+      ? body.args
+      : undefined
+  if (
+    !Array.isArray(args) ||
+    args.length !== 1 ||
+    Object.keys(body as object).some((key) => key !== 'args')
+  ) {
+    return { ok: false, error: { code: 'invalidPath' } }
+  }
+  try {
+    return schema.parse(await handler(args[0]))
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code:
+          channel === Commands.CreateServerDirectory
+            ? 'creationOutcomeUnknown'
+            : 'unavailable',
+      },
+    }
+  }
+}
 
 export interface AppOptions {
   /** Torrent-only RPC budget; defaults to 8 MiB, configurable from 2 to 64 MiB. */
@@ -92,6 +137,9 @@ export async function createApp(
     const handler =
       commands[channel as keyof typeof commands] ?? bridgeCommands[channel]
     if (!handler) return reply.code(404).send({ error: 'unknown channel' })
+    if (channel === Commands.CreateServerDirectory) {
+      return directoryRpc(channel, req.body, handler)
+    }
     try {
       return await handler(...(req.body?.args ?? []))
     } catch (err) {
@@ -121,6 +169,12 @@ export async function createApp(
         queries[req.params.channel as keyof typeof queries] ??
         bridgeQueries[req.params.channel]
       if (!handler) return reply.code(404).send({ error: 'unknown channel' })
+      if (
+        req.params.channel === Queries.ListServerDirectories ||
+        req.params.channel === Queries.ValidateServerDirectory
+      ) {
+        return directoryRpc(req.params.channel, req.body, handler)
+      }
       try {
         const args = req.body?.args
         if (usesSharedEnvelope) {

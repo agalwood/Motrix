@@ -45,6 +45,53 @@ describe('resolveServerDefaultSaveDir', () => {
 })
 
 describe('ServerDownloadPathPolicy', () => {
+  it('authorizes canonical aliases only within their configured resolved subtree, including restart defaults', async () => {
+    const root = await tempRoot()
+    const canonicalRoot = path.join(root, 'real')
+    const alias = path.join(root, 'alias')
+    await mkdir(canonicalRoot)
+    await symlink(canonicalRoot, alias)
+    const policy = await createServerDownloadPathPolicy({
+      defaultSaveDir: alias,
+      allowedSaveDirsValue: alias,
+    })
+    const prepared = await policy.prepareSaveDir(path.join(alias, 'child'))
+    expect(await policy.authorizeDirectory(prepared)).toEqual({
+      path: path.join(alias, 'child'),
+      canonicalPath: prepared,
+      rootPath: alias,
+    })
+    const restarted = await createServerDownloadPathPolicy({
+      defaultSaveDir: prepared,
+      allowedSaveDirsValue: alias,
+    })
+    expect(await restarted.prepareSaveDir(undefined)).toBe(prepared)
+    await expect(restarted.authorizeDirectory(root)).rejects.toMatchObject({
+      directoryCode: 'outsideRoots',
+    })
+    const outside = path.join(root, 'outside')
+    await mkdir(outside)
+    await symlink(outside, path.join(canonicalRoot, 'escape'))
+    await expect(
+      restarted.authorizeDirectory(path.join(canonicalRoot, 'escape'))
+    ).rejects.toMatchObject({ directoryCode: 'outsideRoots' })
+  })
+
+  it('does not treat whitespace-only literal requests as the default sentinel', async () => {
+    const root = await tempRoot()
+    const policy = await createServerDownloadPathPolicy({
+      defaultSaveDir: root,
+    })
+    await expect(policy.prepareSaveDir(' ')).rejects.toThrow(
+      'must be an absolute path'
+    )
+    expect(await policy.prepareSaveDir('')).toBe(await realpath(root))
+    const missing = path.join(root, 'absent')
+    await expect(policy.authorizeDirectory(missing)).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+    await expect(realpath(missing)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
   it('creates and prepares the default and allowed roots', async () => {
     const root = await tempRoot()
     const downloads = path.join(root, 'downloads')

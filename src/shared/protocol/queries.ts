@@ -55,6 +55,8 @@ export const Queries = {
   GetTaskBtTracker: 'query:getTaskBtTracker',
   // Save directory allowlist (web degradation, electron returns unrestricted)
   ListAllowedSaveDirs: 'query:listAllowedSaveDirs',
+  ListServerDirectories: 'query:listServerDirectories',
+  ValidateServerDirectory: 'query:validateServerDirectory',
   // GeoIP
   GetGeoIPStatus: 'query:getGeoIPStatus',
   // FFmpeg detection

@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
@@ -23,6 +26,7 @@ import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import type { TrackerManager } from '@core/tracker'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import {
   TaskInstancePhase,
   TaskKind,
@@ -32,9 +36,12 @@ import {
 } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { ServerDirectoryService } from '../server-directory-service'
 import type { ServerCommandContext } from './commands'
 import { buildServerCommandHandlers } from './commands'
+import { buildServerQueryHandlers } from './queries'
 
 const PROXY_OFF = {
   enabled: false,
@@ -177,7 +184,9 @@ function makeFakeCtx() {
     downloadPathPolicy: {
       allowedSaveDirs: ['/downloads'],
       prepareSaveDir: vi.fn(async (requested: string) => requested),
+      authorizeDirectory: vi.fn(),
     },
+    serverDirectoryService: { create: vi.fn() },
   }
 }
 
@@ -216,6 +225,110 @@ function makeSettings(
 }
 
 describe('server Commands.UpdateSettings', () => {
+  it('round-trips selected root/internal aliases and whitespace through real settings Apply, reload, bootstrap and default preparation', async () => {
+    const temporary = await mkdtemp(
+      path.join(os.tmpdir(), 'motrix-picker-settings-')
+    )
+    try {
+      const realRoot = path.join(temporary, 'real')
+      const alias = path.join(temporary, 'alias')
+      await mkdir(realRoot)
+      await symlink(realRoot, alias)
+      await mkdir(path.join(realRoot, 'target'))
+      await symlink(
+        path.join(realRoot, 'target'),
+        path.join(realRoot, 'internal')
+      )
+      const policy = await createServerDownloadPathPolicy({
+        defaultSaveDir: alias,
+        allowedSaveDirsValue: alias,
+      })
+      const service = new ServerDirectoryService(policy)
+      const settingsPath = path.join(temporary, 'settings.json')
+      const manager = new SettingsManager(settingsPath, {
+        defaultSaveDir: alias,
+      })
+      await manager.load()
+      const ctx = {
+        ...makeFakeCtx(),
+        downloadPathPolicy: policy,
+        serverDirectoryService: service,
+        settingsManager: manager,
+      }
+      const handlers = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )
+      for (const name of process.platform === 'win32'
+        ? ['Movies']
+        : ['Movies', 'Movies ', ' ']) {
+        const logical = path.join(alias, 'internal', name)
+        expect(
+          (
+            await service.create({
+              parentPath: path.join(alias, 'internal'),
+              name,
+            })
+          ).ok
+        ).toBe(true)
+        expect(await service.validate({ path: logical })).toEqual({
+          ok: true,
+          value: { path: logical },
+        })
+        await handlers[Commands.UpdateSettings]?.({
+          app: { defaultSaveDir: logical },
+        })
+        const canonical = await realpath(logical)
+        expect(manager.getApp().defaultSaveDir).toBe(canonical)
+        const reloaded = new SettingsManager(settingsPath, {
+          defaultSaveDir: alias,
+        })
+        await reloaded.load()
+        expect(reloaded.getApp().defaultSaveDir).toBe(canonical)
+        const queries = buildServerQueryHandlers({
+          ...ctx,
+          settingsManager: reloaded,
+        } as unknown as Parameters<typeof buildServerQueryHandlers>[0])
+        const bootstrap = await queries[Queries.ListAllowedSaveDirs]?.()
+        expect(bootstrap).toMatchObject({
+          defaultPath: canonical,
+          paths: [{ path: alias }],
+        })
+        expect(await service.validate({ path: canonical })).toEqual({
+          ok: true,
+          value: { path: path.join(alias, 'target', name) },
+        })
+        const restarted = await createServerDownloadPathPolicy({
+          defaultSaveDir: reloaded.getApp().defaultSaveDir,
+          allowedSaveDirsValue: alias,
+        })
+        expect(await restarted.prepareSaveDir('')).toBe(canonical)
+        expect(
+          await policy.prepareSaveDir(reloaded.getApp().defaultSaveDir)
+        ).toBe(canonical)
+      }
+      await expect(
+        policy.prepareSaveDir(path.join(temporary, 'outside'))
+      ).rejects.toThrow('outside MOTRIX_ALLOWED_SAVE_DIRS')
+    } finally {
+      await rm(temporary, { recursive: true, force: true })
+    }
+  })
+
+  it('delegates folder creation to the directory service', async () => {
+    const ctx = makeFakeCtx()
+    const request = { parentPath: '/downloads', name: 'new' }
+    const result = { ok: true, value: { path: '/downloads/new', name: 'new' } }
+    ctx.serverDirectoryService.create.mockResolvedValue(result)
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    expect(await handlers[Commands.CreateServerDirectory]?.(request)).toEqual(
+      result
+    )
+    expect(ctx.serverDirectoryService.create).toHaveBeenCalledExactlyOnceWith(
+      request
+    )
+  })
   it('does not invoke proxyApplier when proxy unchanged', async () => {
     const ctx = makeFakeCtx()
     const settings = makeSettings(PROXY_OFF)

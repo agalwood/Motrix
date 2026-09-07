@@ -90,6 +90,7 @@ import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { createServerProxyApplier } from '../proxy/wiring'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
@@ -163,6 +164,7 @@ export interface ServerCommandContext {
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<ServerDirectoryService, 'create'>
 }
 
 export function buildServerCommandHandlers(
@@ -361,6 +363,8 @@ export function buildServerCommandHandlers(
     expectedPid: z.number().int().positive().optional(),
   })
   return {
+    [Commands.CreateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.create(request),
     [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {
       const language = supportedLocaleSchema.parse(payload)
       await settingsManager.setDisclaimerLanguage(language)

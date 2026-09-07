@@ -83,6 +83,7 @@ export const Commands = {
   SetTaskBtTracker: 'command:setTaskBtTracker',
   // Window
   PickSaveDir: 'command:pickSaveDir',
+  CreateServerDirectory: 'command:createServerDirectory',
   ResizeWindow: 'command:resizeWindow',
   OpenExternal: 'command:openExternal',
   RequestDefaultTorrentHandler: 'command:requestDefaultTorrentHandler',
