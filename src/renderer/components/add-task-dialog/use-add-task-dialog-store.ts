@@ -7,6 +7,7 @@ type DeepPartial<T> = {
 
 interface AddTaskDialogState {
   open: boolean
+  revision: number
   prefill: DeepPartial<AddTaskFormValues> | undefined
   openWith: (prefill?: DeepPartial<AddTaskFormValues>) => void
   close: () => void
@@ -14,7 +15,14 @@ interface AddTaskDialogState {
 
 export const useAddTaskDialogStore = create<AddTaskDialogState>((set) => ({
   open: false,
+  revision: 0,
   prefill: undefined,
-  openWith: (prefill) => set({ open: true, prefill }),
-  close: () => set({ open: false, prefill: undefined }),
+  openWith: (prefill) =>
+    set((state) => ({ open: true, prefill, revision: state.revision + 1 })),
+  close: () =>
+    set((state) => ({
+      open: false,
+      prefill: undefined,
+      revision: state.revision + 1,
+    })),
 }))

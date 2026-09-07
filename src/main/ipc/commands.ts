@@ -70,6 +70,7 @@ import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
+import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-bt'
 import type { TorrentParser } from '@core/torrent/torrent-parser'
@@ -98,7 +99,7 @@ import {
   CLI_INSTALL_PACKAGE_MANAGERS,
   type CliInstallRequest,
 } from '@shared/types/cli-tool'
-import { EngineRecoveryAction } from '@shared/types/engine'
+import { EngineRecoveryAction, EngineState } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -1634,6 +1635,33 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       ? ctx.trackAsyncWork(async () => operation())
       : Promise.resolve().then(operation)
 
+  const createTask = handlers[Commands.CreateTask]
+  if (!createTask) throw new Error('CreateTask handler is not registered')
+  const selectionTimeout = new MagnetSelectionTimeout({
+    eventBus: ctx.eventBus,
+    getSettings: () => ctx.settingsManager.getApp(),
+    getTasks: () => ctx.taskManager.getAll(),
+    isEngineReady: () => ctx.supervisor.getState() === EngineState.Ready,
+    getSelection: (taskId) => ctx.magnetTracker.getFileSelection(taskId),
+    createTask: async (request) =>
+      (await createTask(request)) as TaskCreateCommandResult,
+    notify: (input) => ctx.notificationCenter.notify(input),
+    log: getLogger('magnet-selection-timeout'),
+    runWork: ctx.trackAsyncWork,
+  })
+  if (ctx.waitForTasksReady) {
+    void ctx.waitForTasksReady().then(
+      () => selectionTimeout.start(),
+      (error: unknown) =>
+        getLogger('magnet-selection-timeout').warn(
+          { error },
+          'Task restore failed'
+        )
+    )
+  } else {
+    selectionTimeout.start()
+  }
+
   for (const [channel, handler] of Object.entries(handlers)) {
     // Window-bound commands need event.sender — pass it as the first arg.
     if (
@@ -1657,6 +1685,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
     }
   }
   return () => {
+    void selectionTimeout.stopAndDrain()
     for (const channel of channels) {
       ipcMain.removeHandler(channel)
     }

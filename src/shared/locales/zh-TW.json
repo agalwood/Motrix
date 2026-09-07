@@ -831,6 +831,10 @@
         "saveDirRequired": "必須指定儲存目錄",
         "noFilesSelected": "至少選擇一個檔案",
         "missingSource": "必須提供 Torrent 檔案或 Magnet 連結"
+      },
+      "selectionTimeout": {
+        "started": "選擇檔案已逾時，開始下載 {{name}} 的全部檔案",
+        "failed": "無法自動開始下載 {{name}}，請開啟任務詳細資料，選擇檔案後重試。"
       }
     },
     "detail": {
@@ -1128,7 +1132,12 @@
         "btEnableLpd": "區域網路對等節點探索",
         "btEnableLpdDesc": "在區域網路尋找對等節點。",
         "magnetFileSelection": "Magnet 中繼資料載入後開啟檔案選擇",
-        "magnetFileSelectionDesc": "收到 Magnet 中繼資料後顯示檔案選擇器。"
+        "magnetFileSelectionDesc": "收到 Magnet 中繼資料後顯示檔案選擇器。",
+        "magnetFileSelectionAutoDownload": "選擇檔案逾時後自動下載全部檔案",
+        "magnetFileSelectionAutoDownloadDesc": "未在限定時間內確認檔案選擇，將下載全部檔案到任務儲存目錄；關閉視窗或 WebUI 後仍會生效。",
+        "magnetFileSelectionTimeoutSeconds": "選擇檔案等待時間（秒）",
+        "magnetFileSelectionTimeoutSecondsDesc": "從中繼資料解析完成、進入待選檔案狀態開始計時。修改時長也會套用到已經等待選擇的任務。",
+        "magnetFileSelectionTimeoutInvalid": "請輸入 {{min}} 至 {{max}} 秒之間的整數。"
       },
       "seeding": {
         "title": "做種",

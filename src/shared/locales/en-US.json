@@ -843,6 +843,10 @@
         "saveDirRequired": "Save directory is required",
         "noFilesSelected": "Select at least one file",
         "missingSource": "Torrent file or magnet link is required"
+      },
+      "selectionTimeout": {
+        "started": "File selection timed out: downloading all files in {{name}}",
+        "failed": "Could not start {{name}} automatically. Open task details to select files and retry."
       }
     },
     "detail": {
@@ -1141,7 +1145,12 @@
         "btEnableLpd": "Local peer discovery",
         "btEnableLpdDesc": "Find peers on the local network.",
         "magnetFileSelection": "Open file selection after magnet metadata loads",
-        "magnetFileSelectionDesc": "Show a file picker once magnet metadata arrives."
+        "magnetFileSelectionDesc": "Show a file picker once magnet metadata arrives.",
+        "magnetFileSelectionAutoDownload": "Download all files when selection times out",
+        "magnetFileSelectionAutoDownloadDesc": "If file selection is not confirmed in time, download all files to the task’s save folder, even when the window or WebUI is closed.",
+        "magnetFileSelectionTimeoutSeconds": "File selection timeout (seconds)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Count from when metadata is ready. Changing the timeout also applies to tasks already waiting for file selection.",
+        "magnetFileSelectionTimeoutInvalid": "Enter a whole number from {{min}} to {{max}} seconds."
       },
       "seeding": {
         "title": "Seeding",

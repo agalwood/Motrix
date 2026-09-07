@@ -1,4 +1,5 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file-selection-button'
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
@@ -14,7 +15,6 @@ import { isTorrentLike } from '@shared/types/task-actions'
 import {
   ChevronDown,
   FolderOpen,
-  ListChecks,
   Pause,
   Play,
   RadioTower,
@@ -271,19 +271,7 @@ export function TaskInspectorActionBar({
         )}
 
         {single && single.status === TaskStatus.MetadataReady && (
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() =>
-              void transport.invoke(
-                Commands.ReopenMagnetFileSelection,
-                single.id
-              )
-            }
-          >
-            <ListChecks />
-            {t('panel.downloads.action.selectFiles')}
-          </Button>
+          <MagnetFileSelectionButton task={single} />
         )}
 
         {single &&

@@ -29,7 +29,37 @@ describe('useExternalHydration', () => {
     for (const k of Object.keys(listeners)) delete listeners[k]
   })
 
-  it('subscribes to the three IPC events when enabled', () => {
+  it('settles only the current magnet selection after automatic acceptance', () => {
+    const settled = vi.fn()
+    const { result } = renderHook(() =>
+      useForm<AddTaskFormValues>({
+        defaultValues: {
+          tab: 'torrent',
+          existingTaskId: 'ready-1',
+          saveDir: '/downloads',
+        },
+      })
+    )
+    renderHook(() =>
+      useExternalHydration(result.current, true, undefined, undefined, settled)
+    )
+    act(() =>
+      fire(Events.MagnetFileSelectionSettled, {
+        taskId: 'ready-2',
+        downloadTaskId: 'ready-2',
+      })
+    )
+    expect(settled).not.toHaveBeenCalled()
+    act(() =>
+      fire(Events.MagnetFileSelectionSettled, {
+        taskId: 'ready-1',
+        downloadTaskId: 'ready-1',
+      })
+    )
+    expect(settled).toHaveBeenCalledWith('ready-1')
+  })
+
+  it('subscribes to selection and hydration events when enabled', () => {
     const { result } = renderHook(() =>
       useForm({ defaultValues: { tab: 'links', urls: '', saveDir: '/d' } })
     )

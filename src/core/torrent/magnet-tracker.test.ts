@@ -1285,6 +1285,13 @@ describe('MagnetTracker', () => {
     // User dismissed the dialog — clear emits so we assert the RE-open emits.
     ;(eventBus.emit as ReturnType<typeof vi.fn>).mockClear()
 
+    const selection = await tracker.getFileSelection(taskId)
+    expect(magnetFileSelectionPayloadSchema.safeParse(selection).success).toBe(
+      true
+    )
+    expect(selection).toMatchObject({ taskId, torrentBase64: torrent.base64 })
+    expect(eventBus.emit).not.toHaveBeenCalled()
+
     await tracker.reopenFileSelection(taskId)
 
     const emitCall = (
@@ -1443,6 +1450,9 @@ describe('MagnetTracker', () => {
     const after = db.getTask(taskId)
     expect(after?.task.aggStatus).toBe(TaskStatus.MetadataReady)
     expect(after?.instances[0].status).toBe(TaskStatus.MetadataReady)
+    expect(after?.instances[0].payload.fileSelectionReadyAt).toBe(
+      after?.task.updatedAt
+    )
     // The placeholder name is upgraded to the resolved torrent name
     // so the row stops showing the raw magnet URI.
     expect(after?.task.name).toBe('resolved-name.torrent')

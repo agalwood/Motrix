@@ -9,6 +9,7 @@ import {
 } from '@renderer/components/ui/dialog'
 import { Input } from '@renderer/components/ui/input'
 import { WindowChromeCaptionIcon } from '@renderer/components/window-chrome/window-chrome'
+import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import {
@@ -24,6 +25,7 @@ import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import {
   magnetFileSelectionPayloadSchema,
+  magnetFileSelectionSettledPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
   urlParamsToFormDefaults,
@@ -33,10 +35,12 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { useAdaptiveDialogHeight } from './use-adaptive-dialog-height'
 import { useAddTaskDialogStore } from './use-add-task-dialog-store'
+import { usePendingMagnetSelection } from './use-pending-magnet-selection'
 
 export function AddTaskDialogHost() {
   const { t } = useTranslation()
   const open = useAddTaskDialogStore((s) => s.open)
+  const revision = useAddTaskDialogStore((s) => s.revision)
   const prefill = useAddTaskDialogStore((s) => s.prefill)
   const openWith = useAddTaskDialogStore((s) => s.openWith)
   const close = useAddTaskDialogStore((s) => s.close)
@@ -69,12 +73,15 @@ export function AddTaskDialogHost() {
   // navigating would yank them off whatever route they switched to.
   const onSubmitSuccess = useCallback(
     (taskId: string) => {
-      if (!useAddTaskDialogStore.getState().open) return
+      const current = useAddTaskDialogStore.getState()
+      if (!current.open || current.revision !== revision) return
       close()
       navigate(`/downloads/all?task=${encodeURIComponent(taskId)}`)
     },
-    [close, navigate]
+    [close, navigate, revision]
   )
+
+  usePendingMagnetSelection(onSubmitSuccess)
 
   // Register the web close handler so webServices.closeHost() works.
   useEffect(() => {
@@ -87,19 +94,22 @@ export function AddTaskDialogHost() {
     const onMagnet = (...args: unknown[]) => {
       const p = magnetFileSelectionPayloadSchema.safeParse(args[0])
       if (!p.success) return
-      openWith({
-        tab: 'torrent',
-        source: 'magnet',
-        magnetUri: p.data.magnetUri,
-        base64: p.data.torrentBase64,
-        torrentMeta: p.data.meta,
-        selectedFiles: p.data.meta.files.map((f) => f.index),
-        saveDir: p.data.saveDir,
-        // Plan B: forward the metadata pending task's motrixId so the
-        // CreateTask handler can swap the instance in place rather
-        // than creating a duplicate row in Downloads.
-        existingTaskId: p.data.taskId,
-      })
+      // The snapshot recovery hook offers this task after the current form
+      // closes. Never overwrite user input or an in-flight submission.
+      if (useAddTaskDialogStore.getState().open) return
+      showMagnetFileSelection(p.data)
+    }
+    const onSelectionSettled = (...args: unknown[]) => {
+      const parsed = magnetFileSelectionSettledPayloadSchema.safeParse(args[0])
+      const current = useAddTaskDialogStore.getState()
+      if (
+        !parsed.success ||
+        !current.open ||
+        current.prefill?.tab !== 'torrent' ||
+        current.prefill.existingTaskId !== parsed.data.taskId
+      )
+        return
+      current.close()
     }
     const onProtocol = (...args: unknown[]) => {
       const p = protocolTorrentFilePayloadSchema.safeParse(args[0])
@@ -119,10 +129,12 @@ export function AddTaskDialogHost() {
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)
+    transport.on(Events.MagnetFileSelectionSettled, onSelectionSettled)
     transport.on(Events.ProtocolTorrentFile, onProtocol)
     transport.on(Events.SetAddTaskMode, onSetMode)
     return () => {
       transport.off(Events.MagnetFileSelection, onMagnet)
+      transport.off(Events.MagnetFileSelectionSettled, onSelectionSettled)
       transport.off(Events.ProtocolTorrentFile, onProtocol)
       transport.off(Events.SetAddTaskMode, onSetMode)
     }
@@ -148,7 +160,7 @@ export function AddTaskDialogHost() {
           </DialogHeader>
           <PlatformServicesProvider services={webServices}>
             <AddTaskForm
-              key={open ? 'open' : 'closed'}
+              key={revision}
               defaultValues={prefill}
               onSubmitSuccess={onSubmitSuccess}
               onCancel={close}

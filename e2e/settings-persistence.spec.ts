@@ -1,5 +1,10 @@
 import type { ElectronApplication, Page } from '@playwright/test'
-import { expect, launchMotrix, test } from './fixtures/electron-app'
+import {
+  expect,
+  launchMotrix,
+  test,
+  waitForEngineReady,
+} from './fixtures/electron-app'
 
 const SWITCH_LABEL = 'Notify when download completes'
 
@@ -20,6 +25,50 @@ async function openMain(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('settings persistence', () => {
+  test('magnet selection timeout is opt-in and persists its waiting time', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    let app = await launchMotrix({ userDataDir, rpcPort })
+    const openBitTorrentSettings = async () => {
+      const main = await openMain(app)
+      await expect(() => waitForEngineReady(main)).toPass({ timeout: 15000 })
+      await main.getByRole('link', { name: 'Settings', exact: true }).click()
+      await main.getByText('BitTorrent', { exact: true }).first().click()
+      return main
+    }
+    try {
+      let main = await openBitTorrentSettings()
+      const toggle = main.getByRole('switch', {
+        name: 'Download all files when selection times out',
+      })
+      await expect(toggle).not.toBeChecked()
+      await toggle.click()
+      const timeout = main.getByRole('spinbutton', {
+        name: 'File selection timeout (seconds)',
+      })
+      await expect(timeout).toHaveValue('60')
+      await timeout.fill('120')
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(toggle).toBeHidden()
+      await app.close()
+      app = await launchMotrix({ userDataDir, rpcPort })
+      main = await openBitTorrentSettings()
+      await expect(
+        main.getByRole('switch', {
+          name: 'Download all files when selection times out',
+        })
+      ).toBeChecked()
+      await expect(
+        main.getByRole('spinbutton', {
+          name: 'File selection timeout (seconds)',
+        })
+      ).toHaveValue('120')
+    } finally {
+      await app.close()
+    }
+  })
+
   test('reduce motion applies immediately, survives restart, and can be disabled', async ({
     userDataDir,
     rpcPort,

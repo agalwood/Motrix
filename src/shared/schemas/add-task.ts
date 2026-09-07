@@ -213,6 +213,15 @@ export const magnetFileSelectionPayloadSchema = z.object({
   saveDir: z.string(),
 })
 
+export type MagnetFileSelectionPayload = z.infer<
+  typeof magnetFileSelectionPayloadSchema
+>
+
+export const reopenMagnetFileSelectionResultSchema = z.object({
+  ok: z.literal(true),
+  selection: magnetFileSelectionPayloadSchema.nullable(),
+})
+
 export const protocolTorrentFilePayloadSchema = z.object({
   payload: z.object({ name: z.string(), dataBase64: z.string() }),
   meta: torrentMetaSchema,
@@ -349,3 +358,9 @@ export function encodeUrlParams(p: AddTaskUrlParams): Record<string, string> {
   }
   return out
 }
+
+/** The pending selection was accepted by the background timeout service. */
+export const magnetFileSelectionSettledPayloadSchema = z.object({
+  taskId: z.string().min(1),
+  downloadTaskId: z.string().min(1),
+})

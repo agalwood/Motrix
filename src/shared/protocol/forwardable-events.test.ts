@@ -21,7 +21,7 @@ describe('ForwardableEvents', () => {
   })
 
   it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(51)
+    expect(ForwardableEvents).toHaveLength(52)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {
@@ -43,6 +43,7 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.TaskInspectorActivityUpdated)
     expect(ForwardableEvents).toContain(Events.StatsUpdated)
     expect(ForwardableEvents).toContain(Events.MagnetFileSelection)
+    expect(ForwardableEvents).toContain(Events.MagnetFileSelectionSettled)
   })
 
   it('includes all engine events', () => {
