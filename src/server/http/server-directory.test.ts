@@ -214,3 +214,98 @@ describe('authenticated directory RPC', () => {
     })
   })
 })
+
+describe('directory preferences RPC boundary', () => {
+  const capabilities = [
+    {
+      kind: 'query',
+      channel: Queries.GetDirectoryPreferences,
+      request: {},
+      value: { favorites: ['/saved'], recent: ['/stale'] },
+    },
+    {
+      kind: 'query',
+      channel: Queries.ListServerDirectoryLocations,
+      request: {},
+      value: { common: [], favorites: [], recent: [] },
+    },
+    {
+      kind: 'command',
+      channel: Commands.MutateDirectoryPreferences,
+      request: { action: 'clearRecent' },
+      value: { favorites: [], recent: [] },
+    },
+  ] as const
+
+  it.each(capabilities)(
+    'authenticates, checks Origin, prevents caching and sanitizes $channel envelopes',
+    async ({ kind, channel, request, value }) => {
+      const handler = vi.fn(
+        async (_request: unknown): Promise<unknown> => ({ ok: true, value })
+      )
+      const app = await createApp({
+        operatorAuth: { operatorToken: TOKEN },
+        commandHandlers: kind === 'command' ? { [channel]: handler } : {},
+        queryHandlers: kind === 'query' ? { [channel]: handler } : {},
+      })
+      try {
+        const base = {
+          method: 'POST' as const,
+          url: `/rpc/${kind}/${encodeURIComponent(channel)}`,
+          payload: { args: [request] },
+        }
+        expect((await app.inject(base)).statusCode).toBe(401)
+        expect(handler).not.toHaveBeenCalled()
+        const login = await app.inject({
+          method: 'POST',
+          url: '/rpc/auth/login',
+          payload: { token: TOKEN },
+        })
+        const cookie = (login.headers['set-cookie'] as string).split(';')[0]
+        expect(
+          (
+            await app.inject({
+              ...base,
+              headers: {
+                cookie,
+                host: 'nas.local',
+                origin: 'https://attacker.example',
+              },
+            })
+          ).statusCode
+        ).toBe(403)
+        expect(handler).not.toHaveBeenCalled()
+        const response = await app.inject({ ...base, headers: { cookie } })
+        expect(response.statusCode).toBe(200)
+        expect(response.headers['cache-control']).toContain('no-store')
+        expect(response.json()).toEqual({ ok: true, value })
+        handler.mockClear()
+        for (const payload of [
+          {},
+          { args: [] },
+          { args: [request, {}] },
+          { args: [request], extra: true },
+        ]) {
+          expect(
+            (await app.inject({ ...base, headers: { cookie }, payload })).json()
+          ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+        }
+        expect(handler).not.toHaveBeenCalled()
+        handler.mockRejectedValueOnce(new Error('/private/secret'))
+        expect(
+          (await app.inject({ ...base, headers: { cookie } })).json()
+        ).toEqual({ ok: false, error: { code: 'unavailable' } })
+        handler.mockResolvedValueOnce({
+          ok: true,
+          value,
+          secret: 'do not forward',
+        })
+        expect(
+          (await app.inject({ ...base, headers: { cookie } })).json()
+        ).toEqual({ ok: false, error: { code: 'unavailable' } })
+      } finally {
+        await app.close()
+      }
+    }
+  )
+})

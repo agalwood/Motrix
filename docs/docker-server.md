@@ -500,15 +500,43 @@ on another computer does not browse that computer’s local folders.
 
 Single-click a folder to select it, or double-click to enter it. The list shows
 only immediate child folders. Use Back, Forward, Up one level, or a breadcrumb
-to navigate; use Go to folder to enter an exact absolute path. With multiple
-allowed roots, use the Location sidebar to switch between them; on narrow
-screens, Location becomes a compact menu. Up stops at the current allowed root. Show hidden folders includes names beginning with a dot.
+to navigate; use Go to folder to enter an exact absolute path. The Location sidebar
+groups accessible common places, allowed roots, favorite folders and recent
+folders. Common places include the default directory, the server user’s home,
+existing Desktop/Documents/Downloads directories, and the filesystem root when
+allowed. On narrow screens, Location becomes a grouped menu. Up stops at the
+current allowed root. Show hidden folders includes names beginning with a dot.
 
 Select folder chooses the highlighted child, or the current folder when no
 child is selected. Cancelling leaves the original form value unchanged. The
 selection is checked again by the server; submitting a download or applying
 settings remains a separate action. Browsing and selecting do not create
 folders.
+
+Add links and Add torrent also have a Directory history button beside Browse.
+Choose a favorite or recent path there to fill the form directly. This does not
+start a download. The desktop App offers the same history menu and keeps its
+system-native Browse dialog.
+
+Open **Settings → Downloads → Manage directories** to add or remove favorite
+folders, add a recent folder to favorites, delete one recent record, or clear
+recent records. These management actions save immediately; Close returns to
+the previous dialog. Removing records never deletes folders or downloads.
+Favorite folders are limited to 20; the 10 most recent folders appear newest
+first. Normal folder-field confirmations and directories used by successful
+AddTask submissions update recent history. Cancelling the folder picker does
+not add a record; cancelling AddTask afterward does not undo an already
+confirmed folder choice. Adding a favorite in the manager does not itself add
+a recent record. Headless/CLI downloads are not automatically imported into
+this UI history.
+
+Favorite and recent records belong to the Motrix instance: they persist in
+app settings on Desktop and on the server for Web clients. Connected clients
+receive updates, and reconnecting reloads the current records. The Web history
+menu and folder sidebar only offer paths still permitted and accessible on the
+server. The manager retains saved records so unavailable paths can be removed.
+The star in the Web picker adds or removes the folder currently being browsed.
+These operations do not change the default save directory.
 
 The keyboard follows the browser computer’s operating system, independently of
 the server. With focus in the list:
@@ -522,6 +550,7 @@ the server. With focus in the list:
 | Up one level | Command + Up | Alt + Up, or Backspace |
 | Confirm selection | Return | Tab to Select folder, then Enter |
 | Edit the current path | `/`, or Command + Shift + G if the browser delivers it | `/` |
+| Go to Home / Desktop / Documents, when available | Command + Shift + H / D / O | Use Location |
 
 Type a folder-name prefix to select a match. Tab and Shift + Tab move between
 controls. In the path editor, Enter navigates and Escape cancels editing; Escape

@@ -1,10 +1,18 @@
+import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
 import { AddTaskDialogHost } from '@renderer/components/add-task-dialog/add-task-dialog-host'
 import { useAddTaskDialogStore } from '@renderer/components/add-task-dialog/use-add-task-dialog-store'
 import { Button } from '@renderer/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@renderer/components/ui/dialog'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { applyRendererLocale } from '@renderer/lib/i18n'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
+import { DownloadsDialog } from '@renderer/routes/settings/cards/downloads-dialog'
 import { GeneralDialog } from '@renderer/routes/settings/cards/general-dialog'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -48,12 +56,49 @@ document.documentElement.classList.toggle(
 )
 await applyRendererLocale('en-US')
 
+// The App's form must inherit the native service fixture. The production Web
+// AddTaskDialogHost intentionally owns a Web provider and cannot simulate it.
+function AppFormFixture() {
+  const { open, prefill, close } = useAddTaskDialogStore()
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && close()}>
+      <DialogContent
+        className="flex h-[420px] max-h-[90vh] flex-col"
+        initialFocus={false}
+      >
+        <DialogHeader>
+          <DialogTitle>New Task</DialogTitle>
+        </DialogHeader>
+        <AddTaskForm
+          key={open ? 'open' : 'closed'}
+          defaultValues={prefill}
+          onCancel={close}
+          onSubmitSuccess={close}
+          presentation="dialog"
+          subscribeEvents={false}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function Harness() {
   const [generalOpen, setGeneralOpen] = useState(false)
+  const [downloadsOpen, setDownloadsOpen] = useState(false)
+  const services = parameters.has('nativePicker')
+    ? {
+        ...webServices,
+        kind: 'electron' as const,
+        pickSaveDir: async () => {
+          fixtureState.nativePickerCalls++
+          return fixtureState.nativePickerResult
+        },
+      }
+    : webServices
   return (
     <MemoryRouter>
       <TooltipProvider>
-        <PlatformServicesProvider services={webServices}>
+        <PlatformServicesProvider services={services}>
           <main className="min-h-svh bg-background p-8 text-foreground">
             <Button
               onClick={() =>
@@ -95,7 +140,14 @@ function Harness() {
             <Button onClick={() => setGeneralOpen(true)}>
               Open General settings
             </Button>
-            <AddTaskDialogHost />
+            <Button onClick={() => setDownloadsOpen(true)}>
+              Open Downloads settings
+            </Button>
+            {parameters.has('nativePicker') ? (
+              <AppFormFixture />
+            ) : (
+              <AddTaskDialogHost />
+            )}
             {generalOpen && (
               <GeneralDialog
                 open
@@ -109,6 +161,14 @@ function Harness() {
                 }}
                 labelKey="settings.cards.general.title"
                 descKey="settings.cards.general.desc"
+              />
+            )}
+            {downloadsOpen && (
+              <DownloadsDialog
+                open
+                onClose={() => setDownloadsOpen(false)}
+                labelKey="settings.cards.downloads.title"
+                descKey="settings.cards.downloads.desc"
               />
             )}
           </main>

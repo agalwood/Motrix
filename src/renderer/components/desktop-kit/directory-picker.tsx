@@ -1,5 +1,6 @@
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
+import { recordRecentDirectory } from '@renderer/lib/directory-preferences'
 import { usePlatformServices } from '@renderer/platform/services'
 import { Folder } from 'lucide-react'
 import { type ComponentProps, useRef, useState } from 'react'
@@ -10,6 +11,7 @@ import {
   useWatch,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { DirectoryHistoryMenu } from './directory-history-menu'
 
 export interface DirectoryPickerProps<TFields extends FieldValues> {
   name: FieldPath<TFields>
@@ -18,6 +20,7 @@ export interface DirectoryPickerProps<TFields extends FieldValues> {
   placeholder?: string
   disabled?: boolean
   inputProps?: ComponentProps<typeof Input>
+  showHistory?: boolean
 }
 
 export function DirectoryPicker<TFields extends FieldValues>({
@@ -27,6 +30,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
   placeholder,
   disabled,
   inputProps,
+  showHistory = false,
 }: DirectoryPickerProps<TFields>) {
   const { t } = useTranslation()
   const { pickSaveDir } = usePlatformServices()
@@ -48,6 +52,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
           shouldValidate: true,
           shouldDirty: true,
         })
+        void recordRecentDirectory(picked)
       }
     } finally {
       pickInFlight.current = false
@@ -55,35 +60,51 @@ export function DirectoryPicker<TFields extends FieldValues>({
     }
   }
 
+  const history = showHistory ? (
+    <DirectoryHistoryMenu
+      currentPath={current}
+      disabled={pickerDisabled}
+      onSelect={(path) => {
+        setValue(name, path as never, {
+          shouldValidate: true,
+          shouldDirty: true,
+        })
+      }}
+    />
+  ) : null
+
   if (variant === 'compact') {
     return (
-      <button
-        type="button"
-        onClick={handlePick}
-        aria-label={t('settings.common.changeDirectory')}
-        title={current || undefined}
-        disabled={pickerDisabled}
-        className="group flex w-full items-center gap-2.5 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-ring hover:bg-accent/30 disabled:opacity-50"
-      >
-        {prefixLabel && (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {prefixLabel}
-          </span>
-        )}
-        {current ? (
-          <span className="min-w-0 flex-1 truncate text-xs text-foreground [direction:rtl] [text-align:left]">
-            {current}
-          </span>
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-xs italic text-muted-foreground">
-            {placeholder ?? t('settings.common.directoryEmpty')}
-          </span>
-        )}
-        <Folder
-          className="h-4 w-4 shrink-0 text-muted-foreground"
-          aria-hidden="true"
-        />
-      </button>
+      <div className="flex min-w-0 gap-2">
+        <button
+          type="button"
+          onClick={handlePick}
+          aria-label={t('settings.common.changeDirectory')}
+          title={current || undefined}
+          disabled={pickerDisabled}
+          className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-ring hover:bg-accent/30 disabled:opacity-50"
+        >
+          {prefixLabel && (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {prefixLabel}
+            </span>
+          )}
+          {current ? (
+            <span className="min-w-0 flex-1 truncate text-xs text-foreground [direction:rtl] [text-align:left]">
+              {current}
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1 truncate text-xs italic text-muted-foreground">
+              {placeholder ?? t('settings.common.directoryEmpty')}
+            </span>
+          )}
+          <Folder
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </button>
+        {history}
+      </div>
     )
   }
 
@@ -108,6 +129,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
         <Folder className="mr-1 h-3 w-3" />
         {t('settings.common.browse')}
       </Button>
+      {history}
     </div>
   )
 }

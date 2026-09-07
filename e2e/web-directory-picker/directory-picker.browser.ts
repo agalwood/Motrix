@@ -102,7 +102,8 @@ async function switchRoot(picker: Locator, path: string) {
   else
     await picker
       .getByRole('navigation', { name: 'Location', exact: true })
-      .getByRole('button', { name: path, exact: true })
+      .getByTitle(path, { exact: true })
+      .first()
       .click()
 }
 

@@ -21,6 +21,7 @@ export const Commands = {
   RetryTasks: 'command:retryTasks',
   StopSeedingTasks: 'command:stopSeedingTasks',
   SetSelectedFiles: 'command:setSelectedFiles',
+  MutateDirectoryPreferences: 'command:mutateDirectoryPreferences',
   UpdateSettings: 'command:updateSettings',
   AcceptDisclaimer: 'command:acceptDisclaimer',
   DeclineDisclaimer: 'command:declineDisclaimer',

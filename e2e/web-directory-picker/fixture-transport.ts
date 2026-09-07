@@ -1,7 +1,14 @@
 import type { Transport } from '@renderer/lib/transport/types'
 import { Commands } from '@shared/protocol/commands'
+import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
+import {
+  type DirectoryPreferences,
+  DirectoryPreferencesSchema,
+  GetDirectoryPreferencesRequestSchema,
+  MutateDirectoryPreferencesRequestSchema,
+} from '@shared/schemas/directory-preferences'
 import {
   CreateServerDirectoryRequestSchema,
   ListServerDirectoriesRequestSchema,
@@ -9,6 +16,12 @@ import {
 } from '@shared/schemas/server-directory'
 
 const folders = new Map<string, string[]>([
+  ['/', ['archive', 'downloads', 'home']],
+  ['/home', ['operator']],
+  ['/home/operator', ['Desktop', 'Documents', 'Downloads']],
+  ['/home/operator/Desktop', []],
+  ['/home/operator/Documents', []],
+  ['/home/operator/Downloads', []],
   ['/downloads', ['.hidden', 'Empty', 'Movies', 'Music']],
   ['/downloads/.hidden', []],
   ['/downloads/Empty', []],
@@ -34,6 +47,22 @@ const settings = {
   },
 }
 
+const unrestricted = new URLSearchParams(location.search).has('unrestricted')
+const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
+const canVisit = (path: string) =>
+  folders.has(path) &&
+  (unrestricted ||
+    ['/downloads', '/archive'].some(
+      (root) => path === root || path.startsWith(`${root}/`)
+    ))
+const preferences = () => structuredClone(settings.app.directoryPreferences)
+function setPreferences(value: DirectoryPreferences) {
+  settings.app.directoryPreferences = DirectoryPreferencesSchema.parse(value)
+  for (const listener of listeners.get(Events.DirectoryPreferencesChanged) ??
+    [])
+    listener(preferences())
+}
+
 export const fixtureState = {
   calls: [] as { channel: string; args: unknown[] }[],
   interactions: [] as {
@@ -47,6 +76,11 @@ export const fixtureState = {
     stack?: string
   }[],
   createFailure: false,
+  mutationFailure: false,
+  nativePickerResult: null as string | null,
+  nativePickerCalls: 0,
+  setPreferences,
+  getPreferences: preferences,
   holdChannel: null as string | null,
   releaseRequest: null as (() => void) | null,
 }
@@ -60,8 +94,13 @@ export const transport: Transport = {
     new URLSearchParams(location.search).get('transportPlatform') === 'linux'
       ? 'linux'
       : 'web',
-  on() {},
-  off() {},
+  on(channel, listener) {
+    if (!listeners.has(channel)) listeners.set(channel, new Set())
+    listeners.get(channel)?.add(listener)
+  },
+  off(channel, listener) {
+    listeners.get(channel)?.delete(listener)
+  },
   async invoke(channel, ...args) {
     fixtureState.calls.push({ channel, args })
     if (fixtureState.holdChannel === channel) {
@@ -77,16 +116,77 @@ export const transport: Transport = {
         return settings
       case Queries.ListAllowedSaveDirs:
         return {
-          paths: [{ path: '/downloads' }, { path: '/archive' }],
+          paths: unrestricted
+            ? []
+            : [{ path: '/downloads' }, { path: '/archive' }],
           defaultPath: '/downloads',
           allowCustom: true,
         }
+      case Queries.GetDirectoryPreferences:
+        GetDirectoryPreferencesRequestSchema.parse(args[0])
+        return { ok: true, value: preferences() }
+      case Queries.ListServerDirectoryLocations: {
+        GetDirectoryPreferencesRequestSchema.parse(args[0])
+        const common = [
+          { kind: 'default', path: '/downloads' },
+          { kind: 'home', path: '/home/operator' },
+          { kind: 'desktop', path: '/home/operator/Desktop' },
+          { kind: 'documents', path: '/home/operator/Documents' },
+          { kind: 'downloads', path: '/home/operator/Downloads' },
+          { kind: 'root', path: '/' },
+        ].filter((entry) => canVisit(entry.path))
+        const entries = (paths: string[]) =>
+          paths.filter(canVisit).map((path) => ({
+            name: path.split('/').at(-1) || '/',
+            path,
+            sourcePaths: [path],
+          }))
+        return {
+          ok: true,
+          value: {
+            common,
+            favorites: entries(settings.app.directoryPreferences.favorites),
+            recent: entries(settings.app.directoryPreferences.recent),
+          },
+        }
+      }
+      case Commands.MutateDirectoryPreferences: {
+        const action = MutateDirectoryPreferencesRequestSchema.parse(args[0])
+        if (fixtureState.mutationFailure) return error('unavailable')
+        const next = preferences()
+        if (
+          action.action === 'addFavorite' ||
+          action.action === 'recordRecent'
+        ) {
+          if (!canVisit(action.path)) return error('notFound')
+          if (action.action === 'addFavorite') {
+            if (!next.favorites.includes(action.path)) {
+              if (next.favorites.length >= 20) return error('limitReached')
+              next.favorites.push(action.path)
+            }
+          } else
+            next.recent = [
+              action.path,
+              ...next.recent.filter((path) => path !== action.path),
+            ].slice(0, 10)
+        } else if (action.action === 'removeFavorite') {
+          next.favorites = next.favorites.filter(
+            (path) => !action.paths.includes(path)
+          )
+        } else if (action.action === 'removeRecent') {
+          next.recent = next.recent.filter(
+            (path) => !action.paths.includes(path)
+          )
+        } else next.recent = []
+        setPreferences(next)
+        return { ok: true, value: preferences() }
+      }
       case Queries.ListServerDirectories: {
         const { path, showHidden } = ListServerDirectoriesRequestSchema.parse(
           args[0]
         )
         const children = folders.get(path)
-        if (!children)
+        if (!children || !canVisit(path))
           return error(
             path.startsWith('/downloads/') || path.startsWith('/archive/')
               ? 'notFound'
@@ -98,16 +198,22 @@ export const transport: Transport = {
           value: {
             path,
             parentPath:
-              segments.length === 1
+              path === '/' || (!unrestricted && segments.length === 1)
                 ? null
-                : path.slice(0, path.lastIndexOf('/')),
-            breadcrumbs: segments.map((name, index) => ({
-              name,
-              path: `/${segments.slice(0, index + 1).join('/')}`,
-            })),
+                : path.slice(0, path.lastIndexOf('/')) || '/',
+            breadcrumbs: [
+              ...(unrestricted ? [{ name: '/', path: '/' }] : []),
+              ...segments.map((name, index) => ({
+                name,
+                path: `/${segments.slice(0, index + 1).join('/')}`,
+              })),
+            ],
             entries: children
               .filter((name) => showHidden || !name.startsWith('.'))
-              .map((name) => ({ name, path: `${path}/${name}` })),
+              .map((name) => ({
+                name,
+                path: `${path === '/' ? '' : path}/${name}`,
+              })),
             truncated: false,
             canCreate: true,
           },
@@ -137,7 +243,11 @@ export const transport: Transport = {
       }
       case Commands.UpdateSettings: {
         const patch = args[0] as { app?: Partial<typeof settings.app> }
-        settings.app = { ...settings.app, ...patch.app }
+        settings.app = {
+          ...settings.app,
+          ...patch.app,
+          directoryPreferences: preferences(),
+        }
         return { saved: true, requiresRestart: false, changedRestartKeys: [] }
       }
       case Commands.CreateTask:

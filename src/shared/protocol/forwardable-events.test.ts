@@ -9,6 +9,7 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.LiquidGlassChanged)
     expect(ForwardableEvents).toContain(Events.ByteUnitSystemChanged)
     expect(ForwardableEvents).not.toContain(Events.SettingsChanged)
+    expect(ForwardableEvents).toContain(Events.DirectoryPreferencesChanged)
   })
 
   it('contains TaskUpdated', () => {

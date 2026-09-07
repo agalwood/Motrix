@@ -145,6 +145,24 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('returns only raw directory preferences and rejects invalid requests before reading settings', async () => {
+    const preferences = { favorites: ['/saved/missing'], recent: ['/previous'] }
+    const getApp = vi.fn(() => ({
+      directoryPreferences: preferences,
+      private: 'not forwarded',
+    }))
+    const handlers = buildQueryHandlers({
+      settingsManager: { getApp },
+    } as unknown as QueryContext)
+    expect(
+      await handlers[Queries.GetDirectoryPreferences]?.({ extra: true })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(getApp).not.toHaveBeenCalled()
+    const result = await handlers[Queries.GetDirectoryPreferences]?.({})
+    expect(result).toEqual({ ok: true, value: preferences })
+    expect(handlers[Queries.ListServerDirectoryLocations]).toBeUndefined()
+  })
+
   it('reads the OS proxy through an isolated system-mode session', async () => {
     ipcMocks.systemProxySession.setProxy.mockResolvedValue(undefined)
     ipcMocks.systemProxySession.forceReloadProxyConfig.mockResolvedValue(

@@ -18,6 +18,7 @@ import {
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { parseElectronProxyChain } from '@core/proxy/system-proxy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SpeedLimitController } from '@core/speed-limit/speed-limit-controller'
 import type {
@@ -160,6 +161,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       await waitForTasksReady?.()
       return taskInspectorActivityRuntime.snapshot(params)
     },
+
+    [Queries.GetDirectoryPreferences]:
+      createDirectoryPreferencesHandlers(settingsManager).get,
 
     [Queries.GetSettings]: async () => {
       return settingsManager.get()

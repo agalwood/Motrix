@@ -416,3 +416,136 @@ describe('ServerDirectoryService', () => {
     expect(close).toHaveBeenCalledOnce()
   })
 })
+
+describe('ServerDirectoryService locations', () => {
+  it('discovers existing unrestricted common places without creating missing directories and preserves semantic duplicates', async () => {
+    const { root, policy, downloads } = await fixture(true)
+    await mkdir(path.join(root, 'Desktop'))
+    await mkdir(path.join(root, 'Downloads'), { recursive: true })
+    const fs = {
+      access: vi.fn(access),
+      mkdir: vi.fn(mkdir) as typeof mkdir,
+      opendir,
+    }
+    const service = new ServerDirectoryService(policy, fs, () => root)
+    const result = await service.locations(
+      {},
+      {
+        defaultSaveDir: root,
+        directoryPreferences: { favorites: [], recent: [] },
+      }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        common: [
+          { kind: 'default', path: root },
+          { kind: 'home', path: root },
+          { kind: 'desktop', path: path.join(root, 'Desktop') },
+          { kind: 'downloads', path: path.join(root, 'Downloads') },
+          { kind: 'root', path: path.parse(root).root },
+        ],
+        favorites: [],
+        recent: [],
+      },
+    })
+    expect(fs.mkdir).not.toHaveBeenCalled()
+    expect(await readdir(root)).toEqual(
+      expect.arrayContaining(['Desktop', path.basename(downloads)])
+    )
+    expect(await readdir(root)).not.toContain('Documents')
+    expect(
+      fs.access.mock.calls.every(
+        ([, mode]) => mode === (constants.R_OK | constants.X_OK)
+      )
+    ).toBe(true)
+  })
+
+  it('filters inaccessible/outside/stale records and canonically groups all saved identities into authorized aliases', async () => {
+    const { root, downloads, policy } = await fixture()
+    const target = path.join(downloads, 'target')
+    const alias = path.join(downloads, 'alias')
+    const outside = path.join(root, 'outside')
+    await mkdir(target)
+    await mkdir(outside)
+    await symlink(target, alias)
+    await symlink(outside, path.join(downloads, 'escape'))
+    const canonical = await realpath(target)
+    const preferences = {
+      favorites: [
+        alias,
+        canonical,
+        outside,
+        path.join(downloads, 'escape'),
+        path.join(downloads, 'missing'),
+      ],
+      recent: [canonical],
+    }
+    const service = new ServerDirectoryService(
+      policy,
+      { access, mkdir, opendir },
+      () => root
+    )
+    const result = await service.locations(
+      {},
+      { defaultSaveDir: downloads, directoryPreferences: preferences }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        common: [{ kind: 'default', path: downloads }],
+        favorites: [
+          { name: 'alias', path: alias, sourcePaths: [alias, canonical] },
+        ],
+        recent: [{ name: 'alias', path: alias, sourcePaths: [canonical] }],
+      },
+    })
+    expect(preferences.favorites).toHaveLength(5)
+    const denied = new ServerDirectoryService(
+      policy,
+      {
+        access: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('secret'), { code: 'EACCES' })
+          ),
+        mkdir,
+        opendir,
+      },
+      () => root
+    )
+    expect(
+      await denied.locations(
+        {},
+        { defaultSaveDir: downloads, directoryPreferences: preferences }
+      )
+    ).toEqual({ ok: true, value: { common: [], favorites: [], recent: [] } })
+  })
+
+  it('rejects client-supplied location arrays before discovery and validates saved additions readonly', async () => {
+    const { downloads, policy } = await fixture()
+    const authorize = vi.spyOn(policy, 'authorizeDirectory')
+    const fs = {
+      access: vi.fn(access),
+      mkdir: vi.fn(mkdir) as typeof mkdir,
+      opendir,
+    }
+    const service = new ServerDirectoryService(policy, fs)
+    expect(
+      await service.locations(
+        { favorites: [downloads] },
+        {
+          defaultSaveDir: downloads,
+          directoryPreferences: { favorites: [], recent: [] },
+        }
+      )
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(authorize).not.toHaveBeenCalled()
+    expect(await service.resolvePreferenceDirectory(downloads)).toBe(downloads)
+    expect(fs.access).toHaveBeenCalledWith(
+      await realpath(downloads),
+      constants.R_OK | constants.X_OK
+    )
+    expect(fs.mkdir).not.toHaveBeenCalled()
+  })
+})

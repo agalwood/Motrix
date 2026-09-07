@@ -4,6 +4,7 @@ import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
+import { SettingsManager } from '@core/settings/settings-manager'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -1298,6 +1299,39 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it('keeps queued preferences through stale and malformed App updates using the real Desktop handler', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-preferences-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const staleApp = manager.getApp()
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        settingsManager: manager,
+      } as unknown as CommandContext)
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'addFavorite',
+          path: root,
+        })
+      ).toMatchObject({ ok: true })
+      const stored = manager.getApp().directoryPreferences
+      await handlers[Commands.UpdateSettings]?.({
+        app: { ...staleApp, theme: 'dark' },
+      })
+      await handlers[Commands.UpdateSettings]?.({
+        app: { directoryPreferences: 'invalid', notifyOnComplete: false },
+      })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: stored,
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   // Namespaces come in as one named object, not as trailing positional
   // parameters: five defaulted `object` slots in a row means a call site can
   // silently put its override in the wrong namespace and still type-check.

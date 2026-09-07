@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  DIRECTORY_FAVORITES_LIMIT,
+  DIRECTORY_RECENT_LIMIT,
+} from './directory-preferences'
 
 export const SERVER_DIRECTORY_PATH_LIMIT = 4096
 export const SERVER_DIRECTORY_NAME_LIMIT = 255
@@ -108,3 +112,51 @@ export type CreateServerDirectoryResult = z.infer<
   typeof CreateServerDirectoryResultSchema
 >
 export type AllowedSaveDirs = z.infer<typeof AllowedSaveDirsSchema>
+
+const SavedDirectoryLocationSchema = DirectoryEntrySchema.extend({
+  sourcePaths: z
+    .array(DirectoryPathSchema)
+    .min(1)
+    .max(DIRECTORY_FAVORITES_LIMIT),
+}).strict()
+export const ServerDirectoryLocationsSchema = z
+  .object({
+    common: z
+      .array(
+        z
+          .object({
+            kind: z.enum([
+              'default',
+              'home',
+              'desktop',
+              'documents',
+              'downloads',
+              'root',
+            ]),
+            path: DirectoryPathSchema,
+          })
+          .strict()
+      )
+      .max(6),
+    favorites: z
+      .array(SavedDirectoryLocationSchema)
+      .max(DIRECTORY_FAVORITES_LIMIT),
+    recent: z.array(SavedDirectoryLocationSchema).max(DIRECTORY_RECENT_LIMIT),
+  })
+  .strict()
+export const ListServerDirectoryLocationsRequestSchema = z.object({}).strict()
+export const ListServerDirectoryLocationsResultSchema = z.discriminatedUnion(
+  'ok',
+  [
+    z
+      .object({ ok: z.literal(true), value: ServerDirectoryLocationsSchema })
+      .strict(),
+    DirectoryFailureSchema,
+  ]
+)
+export type ServerDirectoryLocations = z.infer<
+  typeof ServerDirectoryLocationsSchema
+>
+export type ListServerDirectoryLocationsResult = z.infer<
+  typeof ListServerDirectoryLocationsResultSchema
+>

@@ -1,6 +1,12 @@
+import {
+  type DirectoryPreferencesStore,
+  directoryPreferences,
+  ServerDirectoryLocationsStore,
+} from '@renderer/lib/directory-preferences'
 import type { Transport } from '@renderer/lib/transport/types'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import type { DirectoryPreferencesErrorCode } from '@shared/schemas/directory-preferences'
 import {
   type AllowedSaveDirs,
   AllowedSaveDirsSchema,
@@ -8,6 +14,7 @@ import {
   type DirectoryErrorCode,
   type ListServerDirectoriesResult,
   ListServerDirectoriesResultSchema,
+  type ServerDirectoryLocations,
   ValidateServerDirectoryResultSchema,
 } from '@shared/schemas/server-directory'
 import type { z } from 'zod'
@@ -25,6 +32,11 @@ type Editor = {
   error: DirectoryErrorCode | null
 }
 export type PickerState = {
+  locations: ServerDirectoryLocations | null
+  locationsLoading: boolean
+  locationsError: DirectoryErrorCode | null
+  favoriteBusy: boolean
+  favoriteError: DirectoryPreferencesErrorCode | null
   bootstrap: AllowedSaveDirs | null
   listing: DirectoryListing | null
   selected: string | null
@@ -58,6 +70,11 @@ type NavigateOptions = {
 /** One instance owns one bus request. Disposing invalidates every async continuation. */
 export class DirectoryPickerController {
   private state: PickerState = {
+    locations: null,
+    locationsLoading: false,
+    locationsError: null,
+    favoriteBusy: false,
+    favoriteError: null,
     bootstrap: null,
     listing: null,
     selected: null,
@@ -77,12 +94,21 @@ export class DirectoryPickerController {
   private pendingDeadlines = new Set<() => void>()
   private scrollOffset = 0
   private knownCreated = new Map<string, DirectoryEntry>()
+  private locationsStore: ServerDirectoryLocationsStore
+  private unsubscribeLocations?: () => void
 
   constructor(
-    private readonly transport: Pick<Transport, 'invoke'>,
+    private readonly transport: Pick<Transport, 'invoke'> &
+      Partial<Pick<Transport, 'on' | 'off' | 'onConnectionChange'>>,
     private readonly defaultPath: string | undefined,
-    private readonly finish: (value: string | null) => void
-  ) {}
+    private readonly finish: (value: string | null) => void,
+    private readonly preferences: Pick<
+      DirectoryPreferencesStore,
+      'mutate' | 'getSnapshot'
+    > = directoryPreferences
+  ) {
+    this.locationsStore = new ServerDirectoryLocationsStore(transport)
+  }
 
   getSnapshot = () => this.state
   subscribe = (listener: () => void) => {
@@ -101,6 +127,8 @@ export class DirectoryPickerController {
     this.generation++
     for (const cancel of this.pendingDeadlines) cancel()
     this.pendingDeadlines.clear()
+    this.unsubscribeLocations?.()
+    this.locationsStore.dispose()
   }
   private current(generation: number) {
     return this.live && this.generation === generation
@@ -157,6 +185,16 @@ export class DirectoryPickerController {
 
   async start() {
     if (!this.live) return
+    if (!this.unsubscribeLocations) {
+      this.unsubscribeLocations = this.locationsStore.subscribe(() => {
+        const { locations, loading, error } = this.locationsStore.getSnapshot()
+        this.update({
+          locations,
+          locationsLoading: loading,
+          locationsError: error,
+        })
+      })
+    }
     const generation = ++this.generation
     this.update({ busy: 'bootstrap', error: null })
     try {
@@ -200,6 +238,44 @@ export class DirectoryPickerController {
   }
   get target() {
     return this.state.selected ?? this.state.listing?.path ?? null
+  }
+  get currentFavorite() {
+    const path = this.state.listing?.path
+    return this.state.locations?.favorites.find(
+      (entry) =>
+        path !== undefined &&
+        (entry.path === path || entry.sourcePaths.includes(path))
+    )
+  }
+  refreshLocations() {
+    void this.locationsStore.refresh()
+  }
+  async toggleFavorite() {
+    const path = this.state.listing?.path
+    if (
+      !this.live ||
+      this.locked ||
+      !path ||
+      !this.state.locations ||
+      this.state.locationsLoading ||
+      this.state.favoriteBusy
+    )
+      return
+    const favorite = this.currentFavorite
+    this.update({ favoriteBusy: true, favoriteError: null })
+    const success = await this.preferences.mutate(
+      favorite
+        ? { action: 'removeFavorite', paths: favorite.sourcePaths }
+        : { action: 'addFavorite', path }
+    )
+    if (!this.live) return
+    this.update({
+      favoriteBusy: false,
+      favoriteError: success
+        ? null
+        : (this.preferences.getSnapshot().error ?? 'unavailable'),
+    })
+    if (success) this.refreshLocations()
   }
   setScrollOffset(offset: number) {
     this.scrollOffset = offset

@@ -2438,6 +2438,51 @@
       "tooLarge": "路徑或資料夾名稱過長。",
       "unavailable": "伺服器無法完成要求，請再試一次。",
       "creationOutcomeUnknown": "無法確認資料夾是否已建立。請先重新整理確認，再在此處建立其他資料夾。"
+    },
+    "places": {
+      "common": "常用位置",
+      "allowed": "允許的位置",
+      "default": "預設目錄",
+      "home": "個人資料夾",
+      "desktop": "桌面",
+      "documents": "文件",
+      "downloads": "下載",
+      "root": "檔案系統",
+      "loadFailed": "部分目錄位置無法載入。"
     }
+  },
+  "directoryPreferences": {
+    "manage": "管理目錄",
+    "manageDescription": "設定常用目錄，管理最近使用的目錄。",
+    "title": "管理目錄",
+    "description": "變更會立即儲存。移除記錄不會刪除資料夾或下載任務。",
+    "favorites": "常用目錄",
+    "recent": "最近使用",
+    "addFavorite": "新增常用目錄",
+    "removeFavorite": "移除常用目錄",
+    "favoriteRecent": "加入常用目錄",
+    "removeRecent": "刪除最近記錄",
+    "clearRecent": "清空最近記錄",
+    "emptyFavorites": "尚無常用目錄",
+    "emptyRecent": "尚無最近記錄",
+    "loading": "正在載入目錄…",
+    "retry": "重試",
+    "limitHint": "最多可儲存 {{count}} 個常用目錄。",
+    "pickerFailed": "無法開啟資料夾選擇器，請重試。",
+    "close": "關閉",
+    "history": "目錄歷史",
+    "emptyHistory": "尚無常用目錄或最近記錄",
+    "errors": {
+      "invalidPath": "請輸入有效的資料夾絕對路徑。",
+      "outsideRoots": "此資料夾不在允許的位置內。",
+      "notFound": "此資料夾已不存在。",
+      "notDirectory": "此路徑不是資料夾。",
+      "permissionDenied": "沒有權限使用此資料夾。",
+      "tooLarge": "此資料夾路徑過長。",
+      "unavailable": "無法更新目錄記錄，請重新整理以確認目前狀態。",
+      "limitReached": "常用目錄已達上限，請先移除一個再新增。"
+    },
+    "manageAction": "管理",
+    "alreadyFavorite": "已在常用目錄中"
   }
 }

@@ -2,6 +2,7 @@ import { setByteUnitSystem } from '@renderer/hooks/use-byte-format'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { PlatformServicesProvider } from '@renderer/platform/services'
 import { ENGINE_PERFORMANCE_PROFILES } from '@shared/constants/engine-performance-profiles'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
@@ -21,7 +22,22 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DownloadsDialog } from './downloads-dialog'
 
-const { toastAddMock } = vi.hoisted(() => ({ toastAddMock: vi.fn() }))
+const { toastAddMock, directoryState } = vi.hoisted(() => ({
+  toastAddMock: vi.fn(),
+  directoryState: {
+    preferences: { favorites: [] as string[], recent: [] as string[] },
+    mutate: vi.fn(),
+    refresh: vi.fn(),
+  },
+}))
+
+vi.mock('@renderer/lib/directory-preferences', () => ({
+  useDirectoryPreferences: () => ({
+    ...directoryState,
+    loading: false,
+    error: null,
+  }),
+}))
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn() },
@@ -87,11 +103,106 @@ describe('<DownloadsDialog>', () => {
     await i18n.changeLanguage('en-US')
     vi.mocked(transport.invoke).mockReset()
     toastAddMock.mockReset()
+    directoryState.preferences = { favorites: ['/saved'], recent: [] }
+    directoryState.mutate.mockReset().mockImplementation(async () => {
+      directoryState.preferences = { favorites: [], recent: [] }
+      return true
+    })
+    directoryState.refresh.mockReset().mockResolvedValue(undefined)
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.GetSettings) return FIXTURE
       return { saved: true, requiresRestart: false, changedRestartKeys: [] }
     })
   })
+
+  it.each(['Cancel', 'Save'])(
+    'saves directory management independently of the outer Downloads %s action',
+    async (outerAction) => {
+      const onClose = vi.fn()
+      render(
+        <PlatformServicesProvider
+          services={{
+            kind: 'electron',
+            pickSaveDir: vi.fn().mockResolvedValue(null),
+            closeHost: vi.fn(),
+            readClipboard: vi.fn(),
+            openExternal: vi.fn(),
+            notify: vi.fn(),
+          }}
+        >
+          <DownloadsDialog
+            open
+            onClose={onClose}
+            labelKey="settings.cards.downloads.title"
+            descKey="settings.cards.downloads.desc"
+          />
+        </PlatformServicesProvider>
+      )
+      await waitFor(() => {
+        expect(
+          screen
+            .getAllByDisplayValue('5')
+            .some((el) => el.getAttribute('min') === '1')
+        ).toBe(true)
+      })
+      const concurrent = screen
+        .getAllByDisplayValue('5')
+        .find((el) => el.getAttribute('min') === '1') as HTMLInputElement
+      fireEvent.change(concurrent, { target: { value: '10' } })
+      const user = userEvent.setup()
+      const manage = screen.getByRole('button', { name: 'Manage directories' })
+      await user.click(manage)
+      const manager = screen.getByRole('dialog', { name: 'Manage directories' })
+      expect(
+        within(manager).queryByRole('button', { name: /^save$/i })
+      ).toBeNull()
+      expect(
+        within(manager).queryByRole('button', { name: /^cancel$/i })
+      ).toBeNull()
+      await user.click(
+        within(manager).getByRole('button', { name: 'Remove favorite /saved' })
+      )
+      expect(directoryState.mutate).toHaveBeenCalledWith({
+        action: 'removeFavorite',
+        paths: ['/saved'],
+      })
+      expect(
+        within(manager).getByText('No favorite folders')
+      ).toBeInTheDocument()
+      fireEvent.keyDown(document.activeElement as HTMLElement, {
+        key: 'Enter',
+        ctrlKey: true,
+      })
+      fireEvent.keyDown(document.activeElement as HTMLElement, {
+        key: 'Enter',
+        metaKey: true,
+      })
+      expect(
+        vi
+          .mocked(transport.invoke)
+          .mock.calls.some(([channel]) => channel === Commands.UpdateSettings)
+      ).toBe(false)
+      expect(onClose).not.toHaveBeenCalled()
+      await user.click(within(manager).getByRole('button', { name: 'Close' }))
+      await waitFor(() => expect(manage).toHaveFocus())
+      expect(concurrent).toHaveValue(10)
+      await user.click(screen.getByRole('button', { name: outerAction }))
+      if (outerAction === 'Save') {
+        expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+          engine: { maxConcurrentDownloads: 10 },
+        })
+      } else {
+        expect(
+          vi
+            .mocked(transport.invoke)
+            .mock.calls.some(([channel]) => channel === Commands.UpdateSettings)
+        ).toBe(false)
+      }
+      expect(directoryState.preferences.favorites).toEqual([])
+      expect(directoryState.mutate).toHaveBeenCalledTimes(1)
+      expect(onClose).toHaveBeenCalledTimes(1)
+    }
+  )
 
   it('hydrates and submits dirty fields without restart confirm for non-RESTART change', async () => {
     const onClose = vi.fn()

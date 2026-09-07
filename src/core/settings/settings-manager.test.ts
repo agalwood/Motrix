@@ -67,6 +67,170 @@ describe('SettingsManager', () => {
     manager = new SettingsManager(TEST_PATH, { onChange })
   })
 
+  describe('directory preferences', () => {
+    beforeEach(() => {
+      mockWriteFileAtomic.mockResolvedValue(undefined)
+    })
+
+    it('loads old and corrupt preference values with safe empty defaults', async () => {
+      for (const value of [
+        undefined,
+        { favorites: [''], recent: [] },
+        'broken',
+      ]) {
+        mockReadFile.mockResolvedValue(
+          JSON.stringify({ app: { directoryPreferences: value } })
+        )
+        await manager.load()
+        expect(manager.getApp().directoryPreferences).toEqual({
+          favorites: [],
+          recent: [],
+        })
+      }
+    })
+
+    it('serializes concurrent favorites and maintains bounded true MRU without trimming', async () => {
+      await Promise.all(
+        Array.from({ length: 20 }, (_, index) =>
+          manager.mutateDirectoryPreferences({
+            action: 'addFavorite',
+            path: `/saved/${index}`,
+          })
+        )
+      )
+      expect(manager.getApp().directoryPreferences.favorites).toHaveLength(20)
+      expect(
+        await manager.mutateDirectoryPreferences({
+          action: 'addFavorite',
+          path: '/extra',
+        })
+      ).toEqual({ ok: false, error: { code: 'limitReached' } })
+      const writes = mockWriteFileAtomic.mock.calls.length
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/saved/0',
+      })
+      expect(mockWriteFileAtomic).toHaveBeenCalledTimes(writes)
+      await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          manager.mutateDirectoryPreferences({
+            action: 'recordRecent',
+            path: `/recent/${index}`,
+          })
+        )
+      )
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/recent/5',
+      })
+      expect(manager.getApp().directoryPreferences.recent).toEqual([
+        '/recent/5',
+        '/recent/11',
+        '/recent/10',
+        '/recent/9',
+        '/recent/8',
+        '/recent/7',
+        '/recent/6',
+        '/recent/4',
+        '/recent/3',
+        '/recent/2',
+      ])
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/literal/ ',
+      })
+      expect(manager.getApp().directoryPreferences.recent[0]).toBe('/literal/ ')
+    })
+
+    it('preserves the latest queued preferences against stale and malformed ordinary app patches', async () => {
+      const gate = deferred()
+      mockWriteFileAtomic.mockImplementationOnce(() => gate.promise)
+      const addition = manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/new',
+      })
+      const stale = manager.update({
+        app: { ...manager.getApp(), theme: 'dark' },
+      })
+      const corrupt = manager.update({
+        app: { directoryPreferences: 'bad' as never, notifyOnComplete: false },
+      })
+      gate.resolve()
+      await Promise.all([addition, stale, corrupt])
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: { favorites: ['/new'], recent: [] },
+      })
+      expect(
+        onChange.mock.calls.filter(
+          ([old, next]) =>
+            JSON.stringify(old.app.directoryPreferences) !==
+            JSON.stringify(next.app.directoryPreferences)
+        )
+      ).toHaveLength(1)
+    })
+
+    it('removes exact identities independently and treats missing removals as no-ops', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/stale',
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/stale',
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'removeFavorite',
+        paths: ['/stale', '/missing'],
+      })
+      expect(manager.getApp().directoryPreferences).toEqual({
+        favorites: [],
+        recent: ['/stale'],
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/kept',
+      })
+      await manager.mutateDirectoryPreferences({ action: 'clearRecent' })
+      expect(manager.getApp().directoryPreferences).toEqual({
+        favorites: ['/kept'],
+        recent: [],
+      })
+      const writes = mockWriteFileAtomic.mock.calls.length
+      await manager.mutateDirectoryPreferences({
+        action: 'removeRecent',
+        paths: ['/missing'],
+      })
+      expect(mockWriteFileAtomic).toHaveBeenCalledTimes(writes)
+    })
+
+    it('keeps committed memory and events unchanged on atomic failure, and recovers its queue', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/kept',
+      })
+      onChange.mockClear()
+      mockWriteFileAtomic.mockRejectedValueOnce(new Error('disk full'))
+      await expect(
+        manager.mutateDirectoryPreferences({
+          action: 'removeFavorite',
+          paths: ['/kept'],
+        })
+      ).rejects.toThrow('disk full')
+      expect(manager.getApp().directoryPreferences.favorites).toEqual(['/kept'])
+      expect(onChange).not.toHaveBeenCalled()
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/later',
+      })
+      expect(manager.getApp().directoryPreferences).toEqual({
+        favorites: ['/kept'],
+        recent: ['/later'],
+      })
+    })
+  })
+
   describe('load', () => {
     it.each([
       ['darwin', 64_000, 512_000],

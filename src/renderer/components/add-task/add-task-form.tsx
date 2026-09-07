@@ -15,6 +15,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
+import { recordRecentDirectory } from '@renderer/lib/directory-preferences'
 import type { ParsedTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
@@ -391,6 +392,7 @@ export function AddTaskForm({
               continue
             }
             succeeded += 1
+            void recordRecentDirectory(request.saveDir)
             firstTaskId ??= created.taskId ?? created.gid
           } catch (error) {
             console.error(error)
@@ -415,6 +417,9 @@ export function AddTaskForm({
           Commands.DownloadAllTorrents,
           options
         )) as TorrentBatchCreateResult
+        if (result.succeeded > 0) {
+          void recordRecentDirectory(options.saveDir)
+        }
       }
       setLocalTorrentQueue(null)
       setTorrentQueue(null)
@@ -465,6 +470,7 @@ export function AddTaskForm({
               break
             }
             successes.push(result)
+            void recordRecentDirectory(request.saveDir)
           } catch (err) {
             failed += 1
             firstFailureReason ??= taskCreateFailureReason(err)
@@ -519,6 +525,7 @@ export function AddTaskForm({
         return
       }
       setDuplicateConflict(null)
+      void recordRecentDirectory(duplicateConflict.request.saveDir)
       platform.notify('info', 'task.add.createdCopy')
       await completeCurrentSubmission(result.taskId)
     } catch (error) {

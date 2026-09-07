@@ -24,6 +24,7 @@ import {
   FolderPlus,
   Pencil,
   RefreshCw,
+  Star,
   X,
 } from 'lucide-react'
 import {
@@ -122,12 +123,46 @@ function PickerSession({ request, controller }: Session) {
   const target = state.selected ?? state.listing?.path
   const unknown =
     !!state.listing && state.unknownParents.includes(state.listing.path)
-  const roots = state.bootstrap?.paths ?? []
-  const activeRoot = [...roots]
+  const seenCommon = new Set<string>()
+  const common = (state.locations?.common ?? []).filter((entry) => {
+    if (seenCommon.has(entry.path)) return false
+    seenCommon.add(entry.path)
+    return true
+  })
+  const groups = [
+    {
+      id: 'common',
+      label: t('directoryPicker.places.common'),
+      items: common.map((entry) => ({
+        path: entry.path,
+        name: t(`directoryPicker.places.${entry.kind}`),
+      })),
+    },
+    {
+      id: 'allowed',
+      label: t('directoryPicker.places.allowed'),
+      items: (state.bootstrap?.paths ?? [])
+        .filter((entry) => !seenCommon.has(entry.path))
+        .map((entry) => ({ path: entry.path, name: entry.path })),
+    },
+    {
+      id: 'favorites',
+      label: t('directoryPreferences.favorites'),
+      items: state.locations?.favorites ?? [],
+    },
+    {
+      id: 'recent',
+      label: t('directoryPreferences.recent'),
+      items: state.locations?.recent ?? [],
+    },
+  ].filter((group) => group.items.length > 0)
+  const activeLocation = groups
+    .flatMap((group) => group.items)
     .sort((a, b) => b.path.length - a.path.length)
-    .find((root) =>
-      state.listing?.breadcrumbs.some((crumb) => crumb.path === root.path)
+    .find((entry) =>
+      state.listing?.breadcrumbs.some((crumb) => crumb.path === entry.path)
     )?.path
+  const favorite = controller.currentFavorite
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return
@@ -171,6 +206,19 @@ function PickerSession({ request, controller }: Session) {
     }
     previousEditorKind.current = editorKind
   }, [editorKind, state.busy])
+  useLayoutEffect(() => {
+    const previous = lastFocused.current
+    // Remote updates can remove the compact Location select or disable the
+    // favorite button without a local click. Reclaim focus before paint so a
+    // following submit shortcut stays inside this modal.
+    if (
+      previous &&
+      previous !== listRef.current &&
+      (!previous.isConnected ||
+        previous.matches(':disabled, [aria-disabled="true"]'))
+    )
+      listRef.current?.focus({ preventScroll: true })
+  })
   const currentPath = state.listing?.path
   useLayoutEffect(() => {
     if (currentPath !== undefined) typeahead.current = { text: '', time: 0 }
@@ -240,10 +288,23 @@ function PickerSession({ request, controller }: Session) {
       event.shiftKey &&
       !event.ctrlKey &&
       !event.altKey &&
-      event.key.toLowerCase() === 'g'
+      ['g', 'h', 'd', 'o'].includes(event.key.toLowerCase())
     ) {
-      event.preventDefault()
-      if (!event.repeat) controller.editPath()
+      const key = event.key.toLowerCase()
+      if (key === 'g') {
+        event.preventDefault()
+        if (!event.repeat) controller.editPath()
+      } else {
+        const kind =
+          key === 'h' ? 'home' : key === 'd' ? 'desktop' : 'documents'
+        const location = state.locations?.common.find(
+          (entry) => entry.kind === kind
+        )
+        if (location) {
+          event.preventDefault()
+          if (!event.repeat) controller.navigate(location.path)
+        }
+      }
       return
     }
     if (event.target !== listRef.current) return
@@ -351,36 +412,48 @@ function PickerSession({ request, controller }: Session) {
         className="flex h-[500px] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[720px] flex-row gap-0 overflow-hidden p-0 sm:max-w-[720px]"
         data-testid="web-directory-picker"
       >
-        {roots.length > 0 && (
+        {groups.length > 0 && (
           <nav
             ref={rootSidebarRef}
             aria-label={t('directoryPicker.location')}
             data-testid="directory-picker-locations"
-            className="hidden w-40 shrink-0 flex-col gap-1 overflow-y-auto border-e bg-muted/40 p-2 sm:flex"
+            className="hidden w-40 shrink-0 flex-col gap-2 overflow-y-auto border-e bg-muted/40 p-2 sm:flex"
           >
-            <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
-              {t('directoryPicker.location')}
-            </p>
-            {roots.map((root) => (
-              <Button
-                key={root.path}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'w-full justify-start gap-2 px-2 text-xs',
-                  activeRoot === root.path && 'bg-accent text-accent-foreground'
-                )}
-                disabled={locked}
-                aria-label={root.path}
-                aria-current={activeRoot === root.path ? 'location' : undefined}
-                title={root.path}
-                onClick={() => controller.navigate(root.path)}
-              >
-                <Folder className="size-4 shrink-0 text-muted-foreground" />
-                <span dir="ltr" className="truncate whitespace-pre">
-                  {root.path}
-                </span>
-              </Button>
+            {groups.map((group) => (
+              <div key={group.id} data-directory-location-group={group.id}>
+                <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
+                  {group.label}
+                </p>
+                {group.items.map((entry) => (
+                  <Button
+                    key={entry.path}
+                    data-directory-location
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      'w-full justify-start gap-2 px-2 text-xs',
+                      activeLocation === entry.path &&
+                        'bg-accent text-accent-foreground'
+                    )}
+                    disabled={locked}
+                    aria-label={entry.name}
+                    aria-current={
+                      activeLocation === entry.path ? 'location' : undefined
+                    }
+                    title={entry.path}
+                    onClick={() => controller.navigate(entry.path)}
+                  >
+                    {group.id === 'favorites' ? (
+                      <Star className="size-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <Folder className="size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span dir="ltr" className="truncate whitespace-pre">
+                      {entry.name}
+                    </span>
+                  </Button>
+                ))}
+              </div>
             ))}
           </nav>
         )}
@@ -495,9 +568,13 @@ function PickerSession({ request, controller }: Session) {
                         key={crumb.path}
                         className="flex shrink-0 items-center"
                       >
-                        <span aria-hidden className="text-muted-foreground">
-                          {index > 0 ? '/' : ''}
-                        </span>
+                        {index > 0 &&
+                          state.listing?.breadcrumbs[index - 1]?.name !==
+                            '/' && (
+                            <span aria-hidden className="text-muted-foreground">
+                              /
+                            </span>
+                          )}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -529,6 +606,36 @@ function PickerSession({ request, controller }: Session) {
               variant="ghost"
               size="icon-sm"
               className={editor?.kind === 'path' ? 'hidden' : undefined}
+              data-testid="directory-picker-favorite"
+              aria-label={t(
+                favorite
+                  ? 'directoryPreferences.removeFavorite'
+                  : 'directoryPreferences.addFavorite'
+              )}
+              title={t(
+                favorite
+                  ? 'directoryPreferences.removeFavorite'
+                  : 'directoryPreferences.addFavorite'
+              )}
+              aria-pressed={!!favorite}
+              disabled={
+                locked ||
+                !state.listing ||
+                !state.locations ||
+                state.locationsLoading ||
+                state.favoriteBusy
+              }
+              onClick={() => {
+                listRef.current?.focus({ preventScroll: true })
+                void controller.toggleFavorite()
+              }}
+            >
+              <Star className={favorite ? 'fill-current' : undefined} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={editor?.kind === 'path' ? 'hidden' : undefined}
               aria-label={t('directoryPicker.refresh')}
               title={t('directoryPicker.refresh')}
               disabled={locked}
@@ -545,14 +652,14 @@ function PickerSession({ request, controller }: Session) {
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <div className="flex shrink-0 flex-wrap items-center gap-3 border-b px-3 py-1.5">
-              {roots.length > 0 && (
+              {groups.length > 0 && (
                 <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] sm:hidden">
                   {t('directoryPicker.location')}
                   <select
                     ref={rootSelectRef}
                     aria-label={t('directoryPicker.location')}
                     disabled={locked}
-                    value={activeRoot ?? ''}
+                    value={activeLocation ?? ''}
                     onChange={(event) =>
                       controller.navigate(event.target.value)
                     }
@@ -562,10 +669,14 @@ function PickerSession({ request, controller }: Session) {
                     <option value="" disabled>
                       —
                     </option>
-                    {roots.map((root) => (
-                      <option key={root.path} value={root.path}>
-                        {root.path}
-                      </option>
+                    {groups.map((group) => (
+                      <optgroup key={group.id} label={group.label}>
+                        {group.items.map((entry) => (
+                          <option key={entry.path} value={entry.path}>
+                            {entry.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </label>
@@ -585,6 +696,35 @@ function PickerSession({ request, controller }: Session) {
                 {t('directoryPicker.showHidden')}
               </label>
             </div>
+            {state.locationsError && (
+              <div
+                role="status"
+                className="flex shrink-0 items-center gap-2 px-3 py-1 text-[11px] text-muted-foreground"
+              >
+                <p className="flex-1">
+                  {t('directoryPicker.places.loadFailed')}
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={state.locationsLoading}
+                  onClick={() => {
+                    listRef.current?.focus({ preventScroll: true })
+                    controller.refreshLocations()
+                  }}
+                >
+                  {t('directoryPicker.retry')}
+                </Button>
+              </div>
+            )}
+            {state.favoriteError && (
+              <p
+                role="alert"
+                className="shrink-0 px-3 py-1 text-xs text-destructive"
+              >
+                {t(`directoryPreferences.errors.${state.favoriteError}`)}
+              </p>
+            )}
             {editor?.kind === 'name' && (
               <div className="shrink-0 space-y-2 border-b px-3 py-2">
                 <div className="flex items-center gap-2">

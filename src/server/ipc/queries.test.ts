@@ -696,3 +696,24 @@ describe('buildServerQueryHandlers — GetTaskInspectorActivity parity', () => {
     })
   })
 })
+
+describe('directory location query validation', () => {
+  it('rejects invalid requests before reading settings or discovering filesystem locations', async () => {
+    const getApp = vi.fn()
+    const locations = vi.fn()
+    const handlers = buildServerQueryHandlers({
+      settingsManager: { getApp },
+      serverDirectoryService: { locations },
+    } as unknown as ServerQueryContext)
+    expect(
+      await handlers[Queries.ListServerDirectoryLocations]?.({
+        favorites: ['/outside'],
+      })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(
+      await handlers[Queries.GetDirectoryPreferences]?.({ path: '/outside' })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(getApp).not.toHaveBeenCalled()
+    expect(locations).not.toHaveBeenCalled()
+  })
+})

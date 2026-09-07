@@ -15,9 +15,11 @@ import type {
   QueryHandlerMap,
 } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { DirectoryPreferencesResultSchema } from '@shared/schemas/directory-preferences'
 import {
   CreateServerDirectoryResultSchema,
   ListServerDirectoriesResultSchema,
+  ListServerDirectoryLocationsResultSchema,
   ValidateServerDirectoryResultSchema,
 } from '@shared/schemas/server-directory'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
@@ -35,6 +37,10 @@ import {
 export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
 
 const directoryResultSchemas = {
+  [Commands.MutateDirectoryPreferences]: DirectoryPreferencesResultSchema,
+  [Queries.GetDirectoryPreferences]: DirectoryPreferencesResultSchema,
+  [Queries.ListServerDirectoryLocations]:
+    ListServerDirectoryLocationsResultSchema,
   [Commands.CreateServerDirectory]: CreateServerDirectoryResultSchema,
   [Queries.ListServerDirectories]: ListServerDirectoriesResultSchema,
   [Queries.ValidateServerDirectory]: ValidateServerDirectoryResultSchema,
@@ -137,7 +143,10 @@ export async function createApp(
     const handler =
       commands[channel as keyof typeof commands] ?? bridgeCommands[channel]
     if (!handler) return reply.code(404).send({ error: 'unknown channel' })
-    if (channel === Commands.CreateServerDirectory) {
+    if (
+      channel === Commands.CreateServerDirectory ||
+      channel === Commands.MutateDirectoryPreferences
+    ) {
       return directoryRpc(channel, req.body, handler)
     }
     try {
@@ -171,7 +180,9 @@ export async function createApp(
       if (!handler) return reply.code(404).send({ error: 'unknown channel' })
       if (
         req.params.channel === Queries.ListServerDirectories ||
-        req.params.channel === Queries.ValidateServerDirectory
+        req.params.channel === Queries.ValidateServerDirectory ||
+        req.params.channel === Queries.GetDirectoryPreferences ||
+        req.params.channel === Queries.ListServerDirectoryLocations
       ) {
         return directoryRpc(req.params.channel, req.body, handler)
       }

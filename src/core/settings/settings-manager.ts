@@ -14,6 +14,14 @@ import {
 } from '@shared/schemas/bridge-settings'
 import type { ByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import {
+  DIRECTORY_FAVORITES_LIMIT,
+  DIRECTORY_RECENT_LIMIT,
+  type DirectoryPreferencesResult,
+  DirectoryPreferencesSchema,
+  type MutateDirectoryPreferencesRequest,
+  MutateDirectoryPreferencesRequestSchema,
+} from '@shared/schemas/directory-preferences'
+import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
 } from '@shared/schemas/proxy-settings'
@@ -361,6 +369,58 @@ export class SettingsManager {
     return this.enqueueMutation(() => this.persistUpdate(patch))
   }
 
+  /** Compute against the committed snapshot only after earlier writes settle. */
+  async mutateDirectoryPreferences(
+    raw: MutateDirectoryPreferencesRequest
+  ): Promise<DirectoryPreferencesResult> {
+    const parsed = MutateDirectoryPreferencesRequestSchema.safeParse(raw)
+    if (!parsed.success) return { ok: false, error: { code: 'invalidPath' } }
+    const action = parsed.data
+    return this.enqueueMutation(async () => {
+      const old = structuredClone(this.settings)
+      const next = structuredClone(this.settings)
+      const preferences = next.app.directoryPreferences
+      switch (action.action) {
+        case 'addFavorite':
+          if (!preferences.favorites.includes(action.path)) {
+            if (preferences.favorites.length >= DIRECTORY_FAVORITES_LIMIT) {
+              return { ok: false, error: { code: 'limitReached' } }
+            }
+            preferences.favorites.push(action.path)
+          }
+          break
+        case 'recordRecent':
+          preferences.recent = [
+            action.path,
+            ...preferences.recent.filter((entry) => entry !== action.path),
+          ].slice(0, DIRECTORY_RECENT_LIMIT)
+          break
+        case 'removeFavorite':
+          preferences.favorites = preferences.favorites.filter(
+            (entry) => !action.paths.includes(entry)
+          )
+          break
+        case 'removeRecent':
+          preferences.recent = preferences.recent.filter(
+            (entry) => !action.paths.includes(entry)
+          )
+          break
+        case 'clearRecent':
+          preferences.recent = []
+          break
+      }
+      if (
+        JSON.stringify(old.app.directoryPreferences) !==
+        JSON.stringify(preferences)
+      ) {
+        await this.saveSettings(next)
+        this.settings = next
+        this.onChange?.(old, this.settings)
+      }
+      return { ok: true, value: DirectoryPreferencesSchema.parse(preferences) }
+    })
+  }
+
   /**
    * Remove the durable configuration namespace owned by an uninstalled
    * plugin. A normal partial update cannot express deletion because plugin
@@ -434,7 +494,12 @@ export class SettingsManager {
 
     // Merge app settings
     if (partial.app) {
-      const merged = { ...next.app, ...partial.app }
+      const merged = {
+        ...next.app,
+        ...partial.app,
+        // Only dedicated queue actions can change this aggregate.
+        directoryPreferences: next.app.directoryPreferences,
+      }
       const validated = validateAppSettings(merged as MotrixAppSettings)
 
       // Detect app-namespace restart-required key changes

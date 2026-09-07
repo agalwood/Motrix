@@ -28,6 +28,7 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   clearStoppedTasks,
@@ -164,7 +165,10 @@ export interface ServerCommandContext {
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
   downloadPathPolicy: ServerDownloadPathPolicy
-  serverDirectoryService: Pick<ServerDirectoryService, 'create'>
+  serverDirectoryService: Pick<
+    ServerDirectoryService,
+    'create' | 'resolvePreferenceDirectory'
+  >
 }
 
 export function buildServerCommandHandlers(
@@ -663,6 +667,11 @@ export function buildServerCommandHandlers(
     [Commands.RecoverEngine]: async (payload: unknown) => {
       return supervisor.recover(engineRecoverySchema.parse(payload))
     },
+
+    [Commands.MutateDirectoryPreferences]: createDirectoryPreferencesHandlers(
+      settingsManager,
+      (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+    ).mutate,
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const saveDirPatch = z

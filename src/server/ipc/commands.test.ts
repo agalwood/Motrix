@@ -186,7 +186,10 @@ function makeFakeCtx() {
       prepareSaveDir: vi.fn(async (requested: string) => requested),
       authorizeDirectory: vi.fn(),
     },
-    serverDirectoryService: { create: vi.fn() },
+    serverDirectoryService: {
+      create: vi.fn(),
+      resolvePreferenceDirectory: vi.fn(async (value: string) => value),
+    },
   }
 }
 
@@ -225,6 +228,103 @@ function makeSettings(
 }
 
 describe('server Commands.UpdateSettings', () => {
+  it('preserves latest queue preferences against stale/invalid app patches through Server handlers', async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), 'motrix-server-preferences-')
+    )
+    try {
+      const policy = await createServerDownloadPathPolicy({
+        defaultSaveDir: root,
+        allowedSaveDirsValue: root,
+      })
+      const manager = new SettingsManager(path.join(root, 'settings.json'), {
+        defaultSaveDir: root,
+      })
+      await manager.load()
+      const staleApp = manager.getApp()
+      const ctx = {
+        ...makeFakeCtx(),
+        settingsManager: manager,
+        downloadPathPolicy: policy,
+        serverDirectoryService: new ServerDirectoryService(policy),
+      }
+      const handlers = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'addFavorite',
+          path: root,
+        })
+      ).toEqual({ ok: true, value: { favorites: [root], recent: [] } })
+      await handlers[Commands.UpdateSettings]?.({
+        app: { ...staleApp, theme: 'dark' },
+      })
+      await handlers[Commands.UpdateSettings]?.({
+        app: {
+          directoryPreferences: { corrupt: true },
+          notifyOnComplete: false,
+        },
+      })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: { favorites: [root], recent: [] },
+      })
+      const queries = buildServerQueryHandlers(
+        ctx as unknown as Parameters<typeof buildServerQueryHandlers>[0]
+      )
+      expect(await queries[Queries.GetDirectoryPreferences]?.({})).toEqual({
+        ok: true,
+        value: { favorites: [root], recent: [] },
+      })
+      expect(
+        await queries[Queries.ListServerDirectoryLocations]?.({})
+      ).toMatchObject({
+        ok: true,
+        value: { favorites: [{ path: root, sourcePaths: [root] }] },
+      })
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'recordRecent',
+          path: path.dirname(root),
+        })
+      ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'removeFavorite',
+          paths: [root],
+        })
+      ).toEqual({ ok: true, value: { favorites: [], recent: [] } })
+      const target = path.join(root, 'target')
+      const alias = path.join(root, 'alias')
+      await mkdir(target)
+      await symlink(target, alias)
+      await handlers[Commands.MutateDirectoryPreferences]?.({
+        action: 'addFavorite',
+        path: alias,
+      })
+      await handlers[Commands.MutateDirectoryPreferences]?.({
+        action: 'addFavorite',
+        path: target,
+      })
+      expect(
+        await queries[Queries.ListServerDirectoryLocations]?.({})
+      ).toMatchObject({
+        ok: true,
+        value: { favorites: [{ path: alias, sourcePaths: [alias, target] }] },
+      })
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'removeFavorite',
+          paths: [alias, target],
+        })
+      ).toEqual({ ok: true, value: { favorites: [], recent: [] } })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('round-trips selected root/internal aliases and whitespace through real settings Apply, reload, bootstrap and default preparation', async () => {
     const temporary = await mkdtemp(
       path.join(os.tmpdir(), 'motrix-picker-settings-')

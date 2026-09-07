@@ -1,5 +1,7 @@
+import type { DirectoryPreferencesStore } from '@renderer/lib/directory-preferences'
 import type { Transport } from '@renderer/lib/transport/types'
 import { Commands } from '@shared/protocol/commands'
+import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -39,10 +41,22 @@ const flush = () => vi.advanceTimersByTimeAsync(0)
 const controllers: DirectoryPickerController[] = []
 
 function harness(defaultPath: string | undefined = '/downloads') {
+  const eventListeners = new Map<string, (payload: unknown) => void>()
+  const preferences = {
+    mutate: vi.fn<DirectoryPreferencesStore['mutate']>(async () => true),
+    getSnapshot: vi.fn<DirectoryPreferencesStore['getSnapshot']>(() => ({
+      preferences: { favorites: [], recent: [] },
+      loading: false,
+      error: null,
+    })),
+  }
   const responses = new Map<string, unknown[]>()
   const invoke = vi.fn<Transport['invoke']>(async (channel, ...args) => {
     const queued = responses.get(channel)
     if (queued?.length) return queued.shift()
+    if (channel === Queries.ListServerDirectoryLocations) {
+      return success({ common: [], favorites: [], recent: [] })
+    }
     if (channel === Queries.ListAllowedSaveDirs) {
       return {
         defaultPath: '/downloads',
@@ -67,15 +81,29 @@ function harness(defaultPath: string | undefined = '/downloads') {
   })
   const finish = vi.fn<(value: string | null) => void>()
   const controller = new DirectoryPickerController(
-    { invoke },
+    {
+      invoke,
+      on: (channel, listener) => {
+        eventListeners.set(channel, listener)
+      },
+      off: (channel, listener) => {
+        if (eventListeners.get(channel) === listener)
+          eventListeners.delete(channel)
+      },
+    },
     defaultPath,
-    finish
+    finish,
+    preferences
   )
   controllers.push(controller)
   return {
     controller,
     invoke,
     finish,
+    preferences,
+    event(value: unknown) {
+      eventListeners.get(Events.DirectoryPreferencesChanged)?.(value)
+    },
     queue(channel: string, ...values: unknown[]) {
       responses.set(channel, [...(responses.get(channel) ?? []), ...values])
     },
@@ -89,11 +117,140 @@ afterEach(() => {
 })
 
 describe('DirectoryPickerController', () => {
+  it('keeps browsing and confirmation independent of optional locations timeouts', async () => {
+    const h = harness()
+    h.queue(Queries.ListServerDirectoryLocations, new Promise(() => {}))
+    await h.controller.start()
+    expect(h.controller.getSnapshot()).toMatchObject({
+      busy: null,
+      locationsLoading: true,
+      listing: { path: '/downloads' },
+    })
+    h.controller.navigate('/archive')
+    await flush()
+    await vi.advanceTimersByTimeAsync(DIRECTORY_OPERATION_TIMEOUT)
+    expect(h.controller.getSnapshot()).toMatchObject({
+      busy: null,
+      locationsLoading: false,
+      locationsError: 'unavailable',
+      listing: { path: '/archive' },
+    })
+    h.controller.refreshLocations()
+    await flush()
+    expect(h.controller.getSnapshot().locationsError).toBeNull()
+    await h.controller.confirm()
+    expect(h.finish).toHaveBeenCalledExactlyOnceWith('/archive')
+    expect(h.preferences.mutate).not.toHaveBeenCalled()
+  })
+
+  it('invalidates pending locations immediately on preference events without invalidating navigation', async () => {
+    const h = harness()
+    const stale = deferred()
+    const fresh = deferred()
+    h.queue(Queries.ListServerDirectoryLocations, stale.promise, fresh.promise)
+    await h.controller.start()
+    h.controller.navigate('/archive')
+    h.event({ favorites: [], recent: [] })
+    await flush()
+    stale.resolve(
+      success({
+        common: [],
+        favorites: [{ name: 'Old', path: '/old', sourcePaths: ['/old'] }],
+        recent: [],
+      })
+    )
+    await flush()
+    expect(h.controller.getSnapshot()).toMatchObject({
+      locations: null,
+      locationsLoading: true,
+      listing: { path: '/archive' },
+    })
+    fresh.resolve(success({ common: [], favorites: [], recent: [] }))
+    await flush()
+    expect(h.controller.getSnapshot().locations?.favorites).toEqual([])
+  })
+
+  it('favorites the browsed folder rather than its selected child and permits cancellation while pending', async () => {
+    const h = harness()
+    await h.controller.start()
+    h.controller.select('/downloads/Movies')
+    let complete!: (value: boolean) => void
+    h.preferences.mutate.mockReturnValueOnce(
+      new Promise((resolve) => {
+        complete = resolve
+      })
+    )
+    const action = h.controller.toggleFavorite()
+    await h.controller.toggleFavorite()
+    expect(h.preferences.mutate).toHaveBeenCalledExactlyOnceWith({
+      action: 'addFavorite',
+      path: '/downloads',
+    })
+    expect(h.controller.getSnapshot().favoriteBusy).toBe(true)
+    h.controller.cancel()
+    complete(true)
+    await action
+    expect(h.finish).toHaveBeenCalledExactlyOnceWith(null)
+    expect(
+      h.invoke.mock.calls.filter(
+        ([channel]) => channel === Queries.ListServerDirectoryLocations
+      )
+    ).toHaveLength(1)
+  })
+
+  it.each(['/downloads', '/display-alias'])(
+    'removes all saved identities of a canonical group while browsing %s',
+    async (path) => {
+      const h = harness(path)
+      const sourcePaths = ['/downloads', '/canonical/downloads']
+      h.queue(Queries.ListServerDirectories, success(listing(path)))
+      h.queue(
+        Queries.ListServerDirectoryLocations,
+        success({
+          common: [],
+          favorites: [
+            { name: 'Downloads', path: '/display-alias', sourcePaths },
+          ],
+          recent: [],
+        })
+      )
+      await h.controller.start()
+      expect(h.controller.currentFavorite?.sourcePaths).toEqual(sourcePaths)
+      await h.controller.toggleFavorite()
+      expect(h.preferences.mutate).toHaveBeenCalledExactlyOnceWith({
+        action: 'removeFavorite',
+        paths: sourcePaths,
+      })
+    }
+  )
+
+  it('keeps a failed favorite mutation visible and excludes editor interactions', async () => {
+    const h = harness()
+    await h.controller.start()
+    h.controller.editPath()
+    await h.controller.toggleFavorite()
+    expect(h.preferences.mutate).not.toHaveBeenCalled()
+    h.controller.cancelEditor()
+    h.preferences.mutate.mockResolvedValueOnce(false)
+    h.preferences.getSnapshot.mockReturnValueOnce({
+      preferences: { favorites: [], recent: [] },
+      loading: false,
+      error: 'limitReached',
+    })
+    await h.controller.toggleFavorite()
+    expect(h.controller.getSnapshot()).toMatchObject({
+      favoriteBusy: false,
+      favoriteError: 'limitReached',
+      busy: null,
+    })
+  })
+
   it('uses the initiating path and initially targets the current directory without selecting a child', async () => {
     const { controller, invoke, finish } = harness('/downloads/Movies')
     await controller.start()
 
     expect(invoke.mock.calls).toEqual([
+      [Queries.ListServerDirectoryLocations, {}],
       [Queries.ListAllowedSaveDirs],
       [
         Queries.ListServerDirectories,
@@ -122,7 +279,7 @@ describe('DirectoryPickerController', () => {
     )
     await controller.start()
 
-    expect(invoke.mock.calls.slice(1)).toEqual([
+    expect(invoke.mock.calls.slice(2)).toEqual([
       [Queries.ListServerDirectories, { path: '/missing', showHidden: false }],
       [
         Queries.ListServerDirectories,
@@ -175,7 +332,7 @@ describe('DirectoryPickerController', () => {
       error: 'unavailable',
     })
     await controller.confirm()
-    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(invoke).toHaveBeenCalledTimes(2)
     controller.refresh()
     await flush()
     expect(controller.target).toBe('/downloads')
@@ -279,7 +436,7 @@ describe('DirectoryPickerController', () => {
       editor: null,
       showHidden: false,
     })
-    expect(invoke).toHaveBeenCalledTimes(3)
+    expect(invoke).toHaveBeenCalledTimes(4)
     validation.resolve(success({ path: '/downloads/Movies' }))
     await pending
     expect(finish).toHaveBeenCalledExactlyOnceWith('/downloads/Movies')
@@ -612,7 +769,7 @@ describe('DirectoryPickerController', () => {
       controller.refresh()
       controller.filter(true)
       await controller.confirm()
-      expect(invoke).toHaveBeenCalledTimes(2)
+      expect(invoke).toHaveBeenCalledTimes(3)
       expect(controller.getSnapshot()).toMatchObject({
         editor: { kind, text: 'Uncommitted text' },
         selected: null,

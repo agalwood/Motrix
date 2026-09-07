@@ -40,6 +40,7 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   clearStoppedTasks,
@@ -902,6 +903,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
       return createAndPersist(request as Parameters<typeof handleCreateTask>[0])
     },
+
+    [Commands.MutateDirectoryPreferences]:
+      createDirectoryPreferencesHandlers(settingsManager).mutate,
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()

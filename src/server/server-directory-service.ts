@@ -1,5 +1,6 @@
 import { constants } from 'node:fs'
 import { access, mkdir, opendir } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import path from 'node:path'
 import { AppError } from '@shared/errors'
 import {
@@ -10,13 +11,18 @@ import {
   ListServerDirectoriesRequestSchema,
   type ListServerDirectoriesResult,
   ListServerDirectoriesResultSchema,
+  ListServerDirectoryLocationsRequestSchema,
+  type ListServerDirectoryLocationsResult,
+  ListServerDirectoryLocationsResultSchema,
   SERVER_DIRECTORY_ENTRY_LIMIT,
   SERVER_DIRECTORY_PATH_LIMIT,
   SERVER_DIRECTORY_SCAN_LIMIT,
+  type ServerDirectoryLocations,
   ValidateServerDirectoryRequestSchema,
   type ValidateServerDirectoryResult,
   ValidateServerDirectoryResultSchema,
 } from '@shared/schemas/server-directory'
+import type { MotrixAppSettings } from '@shared/types/settings'
 import {
   type AuthorizedServerDirectory,
   DirectoryAuthorizationError,
@@ -94,8 +100,94 @@ function navigation(directory: AuthorizedServerDirectory) {
 export class ServerDirectoryService {
   constructor(
     private readonly policy: ServerDownloadPathPolicy,
-    private readonly fs: typeof filesystem = filesystem
+    private readonly fs: typeof filesystem = filesystem,
+    private readonly homeDirectory: () => string = homedir
   ) {}
+
+  async resolvePreferenceDirectory(value: string): Promise<string> {
+    if (!path.isAbsolute(value) || value.includes('\0')) {
+      throw new DirectoryAuthorizationError('invalidPath', 'Invalid directory')
+    }
+    const directory = await this.policy.authorizeDirectory(value)
+    await this.fs.access(
+      directory.canonicalPath,
+      constants.R_OK | constants.X_OK
+    )
+    return directory.path
+  }
+
+  async locations(
+    raw: unknown,
+    settings: Pick<MotrixAppSettings, 'defaultSaveDir' | 'directoryPreferences'>
+  ): Promise<ListServerDirectoryLocationsResult> {
+    if (!ListServerDirectoryLocationsRequestSchema.safeParse(raw).success)
+      return failure('invalidPath')
+    try {
+      const home = this.homeDirectory()
+      const value: ServerDirectoryLocations = {
+        common: [],
+        favorites: [],
+        recent: [],
+      }
+      const candidates: ServerDirectoryLocations['common'] = [
+        { kind: 'default', path: settings.defaultSaveDir },
+        { kind: 'home', path: home },
+        { kind: 'desktop', path: path.join(home, 'Desktop') },
+        { kind: 'documents', path: path.join(home, 'Documents') },
+        { kind: 'downloads', path: path.join(home, 'Downloads') },
+        { kind: 'root', path: path.parse(settings.defaultSaveDir).root },
+      ]
+      const aliases = new Map<string, string>()
+      const authorize = async (candidate: string) => {
+        if (!candidate || candidate.length > SERVER_DIRECTORY_PATH_LIMIT)
+          return null
+        try {
+          const directory = await this.policy.authorizeDirectory(candidate)
+          await this.fs.access(
+            directory.canonicalPath,
+            constants.R_OK | constants.X_OK
+          )
+          const logical = aliases.get(directory.canonicalPath) ?? directory.path
+          aliases.set(directory.canonicalPath, logical)
+          return { canonical: directory.canonicalPath, path: logical }
+        } catch {
+          // Discovery never removes saved records or creates unavailable places.
+          return null
+        }
+      }
+      for (const candidate of candidates) {
+        const directory = await authorize(candidate.path)
+        if (directory)
+          value.common.push({ kind: candidate.kind, path: directory.path })
+      }
+      for (const section of ['favorites', 'recent'] as const) {
+        const groups = new Map<
+          string,
+          ServerDirectoryLocations[typeof section][number]
+        >()
+        for (const saved of settings.directoryPreferences[section]) {
+          const directory = await authorize(saved)
+          if (!directory) continue
+          const existing = groups.get(directory.canonical)
+          if (existing) {
+            if (!existing.sourcePaths.includes(saved))
+              existing.sourcePaths.push(saved)
+          } else {
+            const location = {
+              name: path.basename(directory.path) || directory.path,
+              path: directory.path,
+              sourcePaths: [saved],
+            }
+            groups.set(directory.canonical, location)
+            value[section].push(location)
+          }
+        }
+      }
+      return ListServerDirectoryLocationsResultSchema.parse({ ok: true, value })
+    } catch {
+      return failure('unavailable')
+    }
+  }
 
   private async writable(
     directory: AuthorizedServerDirectory

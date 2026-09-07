@@ -5,9 +5,11 @@ import {
   DialogContent,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { directoryPreferences } from '@renderer/lib/directory-preferences'
 import { transport } from '@renderer/lib/transport'
 import { __webPathPickerBus } from '@renderer/platform/web-services'
 import { Commands } from '@shared/protocol/commands'
+import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import {
   act,
@@ -29,7 +31,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebDirectoryPickerDialog } from './web-directory-picker-dialog'
 
 vi.mock('@renderer/lib/transport', () => ({
-  transport: { platform: 'linux', invoke: vi.fn() },
+  transport: { platform: 'linux', invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
 }))
 // Component tests isolate virtualization geometry; the browser harness exercises the real VirtualList.
 vi.mock('@renderer/components/desktop-kit/virtual-list/virtual-list', () => ({
@@ -74,7 +76,9 @@ const directories = (path = '/downloads', names = ['Alpha', 'Beta']) => ({
     parentPath: path === '/downloads' ? null : '/downloads',
     breadcrumbs: [
       { name: 'downloads', path: '/downloads' },
-      ...(path === '/downloads' ? [] : [{ name: path.slice(11), path }]),
+      ...(path === '/downloads'
+        ? []
+        : [{ name: path.split('/').at(-1) || '/', path }]),
     ],
     entries: names.map((name) => ({ name, path: `${path}/${name}` })),
     truncated: false,
@@ -127,6 +131,8 @@ beforeEach(() => {
     value: 'Win32',
   })
   vi.mocked(transport.invoke).mockImplementation(async (channel, payload) => {
+    if (channel === Queries.ListServerDirectoryLocations)
+      return { ok: true, value: { common: [], favorites: [], recent: [] } }
     if (channel === Queries.ListAllowedSaveDirs)
       return {
         paths: [{ path: '/downloads' }],
@@ -144,10 +150,223 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   vi.clearAllMocks()
 })
 
 describe('WebDirectoryPickerDialog', () => {
+  it('groups native common places and saved paths, deduplicates roots, and retains semantic shortcuts', async () => {
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'MacIntel',
+    })
+    const original = vi.mocked(transport.invoke).getMockImplementation()!
+    vi.mocked(transport.invoke).mockImplementation((channel, ...args) =>
+      channel === Queries.ListServerDirectoryLocations
+        ? Promise.resolve({
+            ok: true,
+            value: {
+              common: [
+                { kind: 'default', path: '/downloads' },
+                { kind: 'home', path: '/downloads' },
+                { kind: 'desktop', path: '/desktop' },
+                { kind: 'documents', path: '/documents' },
+              ],
+              favorites: [
+                {
+                  name: 'Favorite',
+                  path: '/favorite',
+                  sourcePaths: ['/favorite'],
+                },
+              ],
+              recent: [
+                { name: 'Recent', path: '/recent', sourcePaths: ['/recent'] },
+              ],
+            },
+          })
+        : original(channel, ...args)
+    )
+    render(<Harness />)
+    const { list } = await openPicker()
+    const sidebar = screen.getByTestId('directory-picker-locations')
+    expect(within(sidebar).getByText('Common places')).toBeInTheDocument()
+    expect(
+      within(sidebar).getByRole('button', { name: 'Favorite' })
+    ).toBeInTheDocument()
+    expect(
+      within(sidebar).getByRole('button', { name: 'Recent' })
+    ).toBeInTheDocument()
+    expect(
+      within(sidebar)
+        .getAllByRole('button')
+        .filter((button) => button.title === '/downloads')
+    ).toHaveLength(1)
+    expect(
+      within(sidebar).queryByText('Allowed locations')
+    ).not.toBeInTheDocument()
+    expect(
+      within(sidebar).queryByRole('button', { name: 'Home' })
+    ).not.toBeInTheDocument()
+    const select = screen.getByRole('combobox', { name: 'Location' })
+    expect(select.querySelectorAll('optgroup')).toHaveLength(3)
+
+    fireEvent.keyDown(list, {
+      key: 'D',
+      metaKey: true,
+      shiftKey: true,
+      ctrlKey: true,
+    })
+    expect(screen.getByTestId('directory-picker-target')).toHaveTextContent(
+      '/downloads'
+    )
+    fireEvent.keyDown(list, { key: 'D', metaKey: true, shiftKey: true })
+    await waitFor(() =>
+      expect(screen.getByTestId('directory-picker-target')).toHaveTextContent(
+        '/desktop'
+      )
+    )
+    fireEvent.keyDown(list, { key: 'H', metaKey: true, shiftKey: true })
+    await waitFor(() =>
+      expect(screen.getByTestId('directory-picker-target')).toHaveTextContent(
+        '/downloads'
+      )
+    )
+    fireEvent.keyDown(list, { key: 'O', metaKey: true, shiftKey: true })
+    await waitFor(() =>
+      expect(screen.getByTestId('directory-picker-target')).toHaveTextContent(
+        '/documents'
+      )
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Go to folder' }))
+    const editor = screen.getByRole('textbox', { name: 'Folder path' })
+    fireEvent.keyDown(editor, { key: 'H', metaKey: true, shiftKey: true })
+    expect(editor).toHaveValue('/documents')
+  })
+
+  it('moves focus to the list before a favorite mutation disables its trigger', async () => {
+    let complete!: (value: boolean) => void
+    vi.spyOn(directoryPreferences, 'mutate').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        })
+    )
+    render(<Harness />)
+    const { list } = await openPicker()
+    const star = screen.getByTestId('directory-picker-favorite')
+    star.focus()
+    fireEvent.click(star)
+    expect(star).toBeDisabled()
+    expect(list).toHaveFocus()
+    const escaped = vi.fn()
+    document.addEventListener('keydown', escaped)
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter', ctrlKey: true })
+    document.removeEventListener('keydown', escaped)
+    expect(escaped).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Select folder' })).toBeEnabled()
+    await act(async () => complete(true))
+  })
+
+  it('restores a stable focus target when an event removes the focused saved location', async () => {
+    const original = vi.mocked(transport.invoke).getMockImplementation()!
+    let saved = true
+    vi.mocked(transport.invoke).mockImplementation((channel, ...args) =>
+      channel === Queries.ListServerDirectoryLocations
+        ? Promise.resolve({
+            ok: true,
+            value: {
+              common: [],
+              recent: [],
+              favorites: saved
+                ? [
+                    {
+                      name: 'Favorite',
+                      path: '/favorite',
+                      sourcePaths: ['/favorite'],
+                    },
+                  ]
+                : [],
+            },
+          })
+        : original(channel, ...args)
+    )
+    render(<Harness />)
+    const { list } = await openPicker()
+    const favorite = screen.getByRole('button', { name: 'Favorite' })
+    favorite.focus()
+    saved = false
+    act(() => {
+      for (const [channel, listener] of vi.mocked(transport.on).mock.calls)
+        if (channel === Events.DirectoryPreferencesChanged)
+          listener({ favorites: [], recent: [] })
+    })
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Favorite' })
+      ).not.toBeInTheDocument()
+    )
+    expect(list).toHaveFocus()
+  })
+
+  it.each(['location select', 'favorite star'])(
+    'contains parent submit shortcuts when an event invalidates the focused %s',
+    async (control) => {
+      const original = vi.mocked(transport.invoke).getMockImplementation()!
+      let refresh = false
+      let complete!: (value: unknown) => void
+      vi.mocked(transport.invoke).mockImplementation((channel, ...args) => {
+        if (channel === Queries.ListAllowedSaveDirs)
+          return Promise.resolve({
+            paths: [],
+            defaultPath: '/downloads',
+            allowCustom: true,
+          })
+        if (channel === Queries.ListServerDirectoryLocations)
+          return refresh
+            ? new Promise((resolve) => {
+                complete = resolve
+              })
+            : Promise.resolve({
+                ok: true,
+                value: {
+                  common: [{ kind: 'home', path: '/downloads' }],
+                  favorites: [],
+                  recent: [],
+                },
+              })
+        return original(channel, ...args)
+      })
+      render(<Harness />)
+      const { list } = await openPicker()
+      const focused =
+        control === 'location select'
+          ? screen.getByRole('combobox', { name: 'Location' })
+          : screen.getByTestId('directory-picker-favorite')
+      focused.focus()
+      refresh = true
+      act(() => {
+        for (const [channel, listener] of vi.mocked(transport.on).mock.calls)
+          if (channel === Events.DirectoryPreferencesChanged)
+            listener({ favorites: [], recent: [] })
+      })
+      expect(list).toHaveFocus()
+      if (control === 'location select') expect(focused).not.toBeInTheDocument()
+      else expect(focused).toBeDisabled()
+      const escaped = vi.fn()
+      document.addEventListener('keydown', escaped)
+      fireEvent.keyDown(document.activeElement!, {
+        key: 'Enter',
+        ctrlKey: true,
+      })
+      document.removeEventListener('keydown', escaped)
+      expect(escaped).not.toHaveBeenCalled()
+      await waitFor(() => expect(complete).toBeDefined())
+      await act(async () =>
+        complete({ ok: true, value: { common: [], favorites: [], recent: [] } })
+      )
+    }
+  )
+
   it('loads inside StrictMode without automatically selecting a child and restores the enabled opener', async () => {
     render(<Harness strict />)
     const { opener, list } = await openPicker()

@@ -34,6 +34,7 @@ export const Events = {
   TorrentQueueSizeChanged: 'event:torrentQueueSizeChanged',
   AppCrash: 'event:appCrash',
   AppError: 'event:appError',
+  DirectoryPreferencesChanged: 'event:directoryPreferencesChanged',
   SettingsChanged: 'event:settingsChanged',
   // Payload: { reduceMotion: boolean }. Full settings remain host-internal.
   ReducedMotionChanged: 'event:reducedMotionChanged',

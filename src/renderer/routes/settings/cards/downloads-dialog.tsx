@@ -11,6 +11,7 @@ import {
 } from '@renderer/components/ui/dialog'
 import { Form } from '@renderer/components/ui/form'
 import { Separator } from '@renderer/components/ui/separator'
+import { DirectoryPreferencesDialog } from '@renderer/features/directory-preferences/directory-preferences-dialog'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
@@ -18,7 +19,7 @@ import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { AppSettings } from '@shared/types/settings'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
@@ -55,6 +56,10 @@ export function DownloadsDialog({
     }),
     mode: 'onBlur',
   })
+  const [directoriesOpen, setDirectoriesOpen] = useState(false)
+  useEffect(() => {
+    if (!open) setDirectoriesOpen(false)
+  }, [open])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
@@ -113,6 +118,26 @@ export function DownloadsDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
             <form className="space-y-4" noValidate onSubmit={onSubmit}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-medium">
+                    {t('directoryPreferences.manage')}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {t('directoryPreferences.manageDescription')}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label={t('directoryPreferences.manage')}
+                  onClick={() => setDirectoriesOpen(true)}
+                >
+                  {t('directoryPreferences.manageAction')}
+                </Button>
+              </div>
+              <Separator className="my-4" />
               <PerformanceSection form={form} />
               <Separator className="my-4" />
               <SpeedLimitSection form={form} />
@@ -141,6 +166,10 @@ export function DownloadsDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <DirectoryPreferencesDialog
+        open={open && directoriesOpen}
+        onClose={() => setDirectoriesOpen(false)}
+      />
     </Dialog>
   )
 }
