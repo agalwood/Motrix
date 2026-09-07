@@ -17,6 +17,7 @@ import type { TaskManager } from '@core/task/task-manager'
 import { DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { magnetFileSelectionPayloadSchema } from '@shared/schemas/add-task'
+import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -82,7 +83,9 @@ function createMockSettingsManager(overrides?: {
       magnetFileSelection: overrides?.magnetFileSelection ?? true,
     }),
     getEngine: vi.fn().mockReturnValue({
-      magnetResolveTimeout: overrides?.magnetResolveTimeout ?? 120,
+      magnetResolveTimeout:
+        overrides?.magnetResolveTimeout ??
+        DEFAULT_ENGINE_SETTINGS.magnetResolveTimeout,
     }),
   }
 }
@@ -404,6 +407,7 @@ describe('MagnetTracker', () => {
     const metadataDir = lastMetadataDir()
     expect(metadataDir).not.toBe(dir)
     expect(rpc.addUri).toHaveBeenCalledWith(['magnet:?xt=urn:btih:abc123'], {
+      'max-file-not-found': '0',
       'bt-load-saved-metadata': 'false',
       'bt-metadata-only': 'true',
       dir: metadataDir,
@@ -1103,6 +1107,7 @@ describe('MagnetTracker', () => {
 
     expect(rpc.addUri).toHaveBeenCalledWith(['magnet:?xt=urn:btih:abc123'], {
       dir: '/downloads',
+      'max-file-not-found': '0',
     })
   })
 
@@ -1900,6 +1905,37 @@ describe('MagnetTracker', () => {
 
   // ── 7. Timeout ────────────────────────────────────────────────
 
+  it('waits ten minutes initially and twenty minutes on retry with default settings', async () => {
+    const dir = await makeTempDir()
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit('magnet:?xt=urn:btih:slow-peers', dir)
+
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    expect(rpc.forceRemove).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(479_999)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+
+    await tracker.retryMetadata(taskId)
+    await vi.advanceTimersByTimeAsync(1_199_999)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(db.getTask(taskId)?.task).toMatchObject({
+      aggStatus: TaskStatus.Error,
+      errorCode: DownloadErrorCode.Timeout,
+    })
+  })
+
   it('cleans up after magnetResolveTimeout expires', async () => {
     const dir = await makeTempDir()
     settings = createMockSettingsManager({ magnetResolveTimeout: 60 })
@@ -2209,6 +2245,8 @@ describe('MagnetTracker', () => {
     expect(rpc.addUri).toHaveBeenCalledTimes(2)
     expect(firstOptions?.['bt-load-saved-metadata']).toBe('false')
     expect(secondOptions?.['bt-load-saved-metadata']).toBe('false')
+    expect(firstOptions?.['max-file-not-found']).toBe('0')
+    expect(secondOptions?.['max-file-not-found']).toBe('0')
     expect(secondOptions?.gid).not.toBe(firstOptions?.gid)
     expect(secondOptions?.dir).not.toBe(firstOptions?.dir)
     expect(db.getTask(taskId)).toMatchObject({

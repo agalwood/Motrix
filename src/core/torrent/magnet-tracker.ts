@@ -437,7 +437,11 @@ export class MagnetTracker {
     const { magnetFileSelection } = this.settingsManager.getApp()
 
     if (!magnetFileSelection) {
-      const gid = await this.rpcClient.addUri([uri], { dir: saveDir })
+      const gid = await this.rpcClient.addUri([uri], {
+        dir: saveDir,
+        // The automatically followed BT payload inherits these options.
+        'max-file-not-found': '0',
+      })
       if (this.stopped) return ''
       log.info({ gid, uri }, 'magnet added (file selection disabled)')
       return ''
@@ -630,6 +634,7 @@ export class MagnetTracker {
 
           engineDispatchStarted = true
           const returnedGid = await this.rpcClient.addUri([uri], {
+            'max-file-not-found': '0',
             'bt-load-saved-metadata': 'false',
             'bt-metadata-only': 'true',
             dir: metadataDir,
@@ -854,6 +859,7 @@ export class MagnetTracker {
 
       engineDispatchStarted = true
       const returnedGid = await this.rpcClient.addUri([magnetUri], {
+        'max-file-not-found': '0',
         'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: metadataDir,

@@ -784,6 +784,30 @@ describe('Aria2Adapter', () => {
       ).rejects.toThrow('instead of reserved gid')
     })
 
+    it.each([
+      ['magnet:?xt=urn:btih:aabb', '0'],
+      ['MAGNET:?xt=urn:btih:aabb', '0'],
+      ['https://example.com/magnet:fixture.bin', '10'],
+    ])(
+      'isolates Web Seed 404s only for magnet URIs: %s',
+      async (uri, limit) => {
+        const rpc = createMockRpc()
+        vi.mocked(rpc.addUri).mockResolvedValue('gid-new')
+        const adapter = new Aria2Adapter(rpc)
+
+        await adapter.createDownload({
+          uris: [uri],
+          saveDir: '/d',
+          extraEngineOptions: { 'max-file-not-found': '10' },
+        })
+
+        expect(rpc.addUri).toHaveBeenCalledWith(
+          [uri],
+          expect.objectContaining({ 'max-file-not-found': limit })
+        )
+      }
+    )
+
     it('createDownload maps connections to split + max-connection-per-server', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
@@ -1562,6 +1586,7 @@ describe('Aria2Adapter', () => {
         'seed-time': '60',
         'seed-ratio': '1',
         'bt-seed-unverified': 'true',
+        'max-file-not-found': '0',
         pause: 'false',
       })
     })

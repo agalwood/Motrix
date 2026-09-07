@@ -91,7 +91,7 @@ export const engineSettingsSchema = z
       .catch(-1),
 
     // Magnet (motrix-turbo timer)
-    magnetResolveTimeout: z.number().int().min(30).max(600).catch(120),
+    magnetResolveTimeout: z.number().int().min(30).max(900).catch(600),
   })
   .transform(applyEnginePerformanceProfile)
 

@@ -108,6 +108,28 @@ describe('<DownloadsDialog>', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('allows saving a 900-second magnet metadata timeout', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+
+    const input = await screen.findByLabelText(/magnet resolve timeout/i)
+    await waitFor(() => expect(input).toHaveValue(120))
+    expect(input).toHaveAttribute('max', '900')
+    fireEvent.change(input, { target: { value: '900' } })
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: { magnetResolveTimeout: 900 },
+    })
+  })
+
   it('exposes the Motrix aria2 connection limit in the performance settings', async () => {
     render(
       <DownloadsDialog

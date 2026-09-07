@@ -517,6 +517,12 @@ export class Aria2Adapter implements EngineAdapter {
     }
     options.continue = resumePolicy === 'sequential-prefix' ? 'true' : 'false'
 
+    // A magnet can spawn a BT payload with HTTP Web Seeds. Their 404s must
+    // not halt the entire torrent before a healthy source sends any data.
+    if (params.uris.some((uri) => /^magnet:/i.test(uri))) {
+      options['max-file-not-found'] = '0'
+    }
+
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
       options,
@@ -757,6 +763,10 @@ export class Aria2Adapter implements EngineAdapter {
     if (requestedGid !== undefined) {
       opts.gid = requestedGid
     }
+    // aria2 applies this HTTP/FTP threshold to the whole BT RequestGroup.
+    // Override both user configuration and stale task options so a failed
+    // Web Seed cannot abort peers or other Web Seeds before their first byte.
+    opts['max-file-not-found'] = '0'
     const b64 = Buffer.from(params.metadata).toString('base64')
     const actualGid = await this.rpc.addTorrent(b64, [], opts)
     if (

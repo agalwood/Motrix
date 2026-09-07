@@ -309,6 +309,35 @@ describe('SettingsManager', () => {
       expect(manager.get().dashboard).toEqual(DEFAULT_DASHBOARD_LAYOUT)
     })
 
+    it('persists the longer legacy magnet timeout and preserves later edits', async () => {
+      mockedFs.readFile.mockResolvedValue(
+        JSON.stringify({
+          version: 10,
+          engine: { magnetResolveTimeout: 120 },
+        })
+      )
+      mockedFs.mkdir.mockResolvedValue(undefined)
+      mockedFs.writeFile.mockResolvedValue(undefined)
+
+      await manager.load()
+
+      expect(manager.getEngine().magnetResolveTimeout).toBe(600)
+      expect(JSON.parse(mockedFs.writeFile.mock.lastCall?.[1])).toMatchObject({
+        version: CURRENT_SETTINGS_VERSION,
+        engine: { magnetResolveTimeout: 600 },
+      })
+
+      await manager.update({ engine: { magnetResolveTimeout: 120 } })
+      mockedFs.readFile.mockResolvedValue(mockedFs.writeFile.mock.lastCall?.[1])
+      await manager.load()
+      expect(manager.getEngine().magnetResolveTimeout).toBe(120)
+
+      await manager.update({ engine: { magnetResolveTimeout: 900 } })
+      mockedFs.readFile.mockResolvedValue(mockedFs.writeFile.mock.lastCall?.[1])
+      await manager.load()
+      expect(manager.getEngine().magnetResolveTimeout).toBe(900)
+    })
+
     it('falls back to defaults on corrupted JSON', async () => {
       mockedFs.readFile.mockResolvedValue('not valid json {{{')
       mockedFs.mkdir.mockResolvedValue(undefined)
