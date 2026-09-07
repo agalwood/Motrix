@@ -41,6 +41,7 @@ export const Events = {
   SpeedLimitChanged: 'event:speedLimitChanged',
   // Torrent
   MagnetFileSelection: 'event:magnetFileSelection',
+  MagnetFileSelectionSettled: 'event:magnetFileSelectionSettled',
   // SetAddTaskMode payload is now `AddTaskUrlParams` — see
   // @shared/schemas/add-task.ts setAddTaskModeEventPayloadSchema.
   // The legacy `{ mode: 'links' | 'torrent' }` shape is a valid subset.

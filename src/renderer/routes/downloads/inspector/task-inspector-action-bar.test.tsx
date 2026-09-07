@@ -219,6 +219,28 @@ describe('TaskInspectorActionBar', () => {
     )
   })
 
+  it('shows failure feedback and allows retry from the inspector header', async () => {
+    vi.mocked(transport.invoke).mockRejectedValueOnce(
+      new Error('Metadata unavailable')
+    )
+    render(
+      <TaskInspectorActionBar
+        selected={[
+          makeTask({ type: TaskType.Magnet, status: TaskStatus.MetadataReady }),
+        ]}
+        onClose={vi.fn()}
+      />
+    )
+    const button = screen.getByRole('button', { name: 'Select files' })
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(toastAddMock).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' })
+      )
+    )
+    expect(button.hasAttribute('disabled')).toBe(false)
+  })
+
   it('non-MetadataReady single: hides Select files', () => {
     render(
       <TaskInspectorActionBar

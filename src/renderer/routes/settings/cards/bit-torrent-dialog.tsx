@@ -17,6 +17,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { Separator } from '@renderer/components/ui/separator'
@@ -26,6 +27,11 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
+import {
+  MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS,
+  MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS,
+  magnetFileSelectionTimeoutSecondsSchema,
+} from '@shared/schemas/app-settings'
 import { DEFAULT_TRACKER_SETTINGS } from '@shared/schemas/tracker-settings'
 import type {
   AppSettings,
@@ -50,7 +56,12 @@ interface BtFields {
     | 'seedRatio'
     | 'seedTime'
   >
-  app: Pick<MotrixAppSettings, 'magnetFileSelection'>
+  app: Pick<
+    MotrixAppSettings,
+    | 'magnetFileSelection'
+    | 'magnetFileSelectionAutoDownload'
+    | 'magnetFileSelectionTimeoutSeconds'
+  >
   tracker: Omit<
     TrackerSettings,
     'sources' | 'sourcesEnabled' | 'blacklistEnabled' | 'blacklistSources'
@@ -69,6 +80,10 @@ const DEFAULTS: BtFields = {
   },
   app: {
     magnetFileSelection: DEFAULT_APP_SETTINGS.magnetFileSelection,
+    magnetFileSelectionAutoDownload:
+      DEFAULT_APP_SETTINGS.magnetFileSelectionAutoDownload,
+    magnetFileSelectionTimeoutSeconds:
+      DEFAULT_APP_SETTINGS.magnetFileSelectionTimeoutSeconds,
   },
   tracker: {
     autoSync: DEFAULT_TRACKER_SETTINGS.autoSync,
@@ -89,6 +104,8 @@ export function BitTorrentDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const form = useForm<BtFields>({ defaultValues: DEFAULTS })
+  const fileSelectionEnabled = form.watch('app.magnetFileSelection')
+  const autoDownloadEnabled = form.watch('app.magnetFileSelectionAutoDownload')
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable
   useEffect(() => {
@@ -109,7 +126,13 @@ export function BitTorrentDialog({
               seedRatio: all.engine.seedRatio,
               seedTime: all.engine.seedTime,
             },
-            app: { magnetFileSelection: all.app.magnetFileSelection },
+            app: {
+              magnetFileSelection: all.app.magnetFileSelection,
+              magnetFileSelectionAutoDownload:
+                all.app.magnetFileSelectionAutoDownload,
+              magnetFileSelectionTimeoutSeconds:
+                all.app.magnetFileSelectionTimeoutSeconds,
+            },
             tracker: {
               autoSync: all.tracker.autoSync,
               syncIntervalHours: all.tracker.syncIntervalHours,
@@ -317,6 +340,83 @@ export function BitTorrentDialog({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="app.magnetFileSelectionAutoDownload"
+                render={({ field }) => (
+                  <FormItem className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <FormLabel>
+                        {t(
+                          'settings.bittorrent.peers.magnetFileSelectionAutoDownload'
+                        )}
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        {t(
+                          'settings.bittorrent.peers.magnetFileSelectionAutoDownloadDesc'
+                        )}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        disabled={!fileSelectionEnabled}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              {autoDownloadEnabled && (
+                <FormField
+                  control={form.control}
+                  name="app.magnetFileSelectionTimeoutSeconds"
+                  rules={{
+                    validate: (value) =>
+                      magnetFileSelectionTimeoutSecondsSchema.safeParse(value)
+                        .success ||
+                      t(
+                        'settings.bittorrent.peers.magnetFileSelectionTimeoutInvalid',
+                        {
+                          min: MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS,
+                          max: MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS,
+                        }
+                      ),
+                  }}
+                  render={({ field }) => (
+                    <FormItem className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t(
+                            'settings.bittorrent.peers.magnetFileSelectionTimeoutSeconds'
+                          )}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t(
+                            'settings.bittorrent.peers.magnetFileSelectionTimeoutSecondsDesc'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </div>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="number"
+                          min={MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS}
+                          max={MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS}
+                          step={1}
+                          className="w-30 h-8"
+                          disabled={!fileSelectionEnabled}
+                          onChange={(event) =>
+                            field.onChange(Number(event.target.value))
+                          }
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <Separator className="my-4" />
 

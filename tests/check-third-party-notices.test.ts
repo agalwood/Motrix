@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import noticeTestConfig from '../vitest.notices.config'
 
 const ROOT = process.cwd()
 const NATIVE_HOST_CARGO_LOCK = path.join(
@@ -662,6 +663,12 @@ describe('third-party graph dependency notices', () => {
     expect(scripts['check:third-party-notices']).toContain(
       'vitest run tests/check-third-party-notices.test.ts tests/generate-third-party-notices.test.ts'
     )
+    expect(scripts['check:third-party-notices']).toContain(
+      '--config vitest.notices.config.ts'
+    )
+    expect(noticeTestConfig.test?.environment).toBe('node')
+    expect(noticeTestConfig.test?.globalSetup).toEqual([])
+    expect(noticeTestConfig.test?.setupFiles).toEqual([])
     expect(scripts['check:third-party-notices']).not.toContain(
       NOTICE_GATE_COMMAND
     )

@@ -110,6 +110,7 @@ import {
 } from '@core/task/task-recovery-service'
 import { TaskUpdatePublisher } from '@core/task/task-update-publisher'
 import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
+import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { shouldSkipForPendingMagnetMetadata } from '@core/torrent/metadata-task-filter'
 import { TorrentParser } from '@core/torrent/torrent-parser'
@@ -120,7 +121,9 @@ import {
   TrackerSyncer,
 } from '@core/tracker'
 import { resolveSupportedLocale } from '@shared/constants/locales'
+import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
 import type { AppSettings } from '@shared/types/settings'
@@ -1127,6 +1130,25 @@ async function main() {
     publishTaskUpdateNow,
     downloadPathPolicy,
   })
+  const createTask = commandHandlers[Commands.CreateTask]
+  if (!createTask) throw new Error('CreateTask handler is not registered')
+  const selectionTimeout = new MagnetSelectionTimeout({
+    eventBus,
+    getSettings: () => settingsManager.getApp(),
+    getTasks: () => taskManager.getAll(),
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
+    getSelection: (taskId) => magnetTracker.getFileSelection(taskId),
+    createTask: async (request) =>
+      (await createTask(request)) as TaskCreateCommandResult,
+    notify: (input) => notificationCenter.notify(input),
+    log: getLogger('magnet-selection-timeout'),
+  })
+  shutdownActions.drainMagnet = async () => {
+    await Promise.all([
+      selectionTimeout.stopAndDrain(),
+      magnetTracker.stopAndDrain(),
+    ])
+  }
   const queryHandlers = buildServerQueryHandlers({
     taskManager,
     statsAggregator,
@@ -1552,6 +1574,7 @@ async function main() {
         })
 
       pluginStartup.openProducers(() => {
+        selectionTimeout.start()
         adapter.onBtDownloadComplete((engineTaskId) => {
           runShellAsyncWork('BT finalize', async () => {
             const task = taskManager.getByEngineTaskId(engineTaskId)

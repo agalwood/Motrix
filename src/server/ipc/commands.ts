@@ -400,8 +400,8 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.ReopenMagnetFileSelection]: async (taskId: string) => {
-      await magnetTracker.reopenFileSelection(taskId)
-      return { ok: true }
+      const selection = await magnetTracker.getFileSelection(taskId)
+      return { ok: true, selection: selection ?? null }
     },
 
     [Commands.CreateTask]: async (request: unknown) => {

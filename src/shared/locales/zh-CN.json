@@ -831,6 +831,10 @@
         "saveDirRequired": "必须指定保存目录",
         "noFilesSelected": "请至少选择一个文件",
         "missingSource": "需要种子文件或 magnet 链接"
+      },
+      "selectionTimeout": {
+        "started": "选择文件已超时，开始下载 {{name}} 的全部文件",
+        "failed": "无法自动开始下载 {{name}}，请打开任务详情，选择文件后重试。"
       }
     },
     "detail": {
@@ -1128,7 +1132,12 @@
         "btEnableLpd": "本地节点发现",
         "btEnableLpdDesc": "在本地网络发现节点。",
         "magnetFileSelection": "磁链元数据加载后弹出文件选择",
-        "magnetFileSelectionDesc": "磁链元数据到达后显示文件选择器。"
+        "magnetFileSelectionDesc": "磁链元数据到达后显示文件选择器。",
+        "magnetFileSelectionAutoDownload": "选择文件超时后自动下载全部文件",
+        "magnetFileSelectionAutoDownloadDesc": "未在限定时间内确认文件选择，将下载全部文件到任务保存目录；关闭窗口或 WebUI 后仍会生效。",
+        "magnetFileSelectionTimeoutSeconds": "选择文件等待时间（秒）",
+        "magnetFileSelectionTimeoutSecondsDesc": "从元数据解析完成、进入待选文件状态开始计时。修改时长也会应用到已经等待选择的任务。",
+        "magnetFileSelectionTimeoutInvalid": "请输入 {{min}} 至 {{max}} 秒之间的整数。"
       },
       "seeding": {
         "title": "做种",

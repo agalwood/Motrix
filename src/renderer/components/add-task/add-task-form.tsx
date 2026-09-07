@@ -221,7 +221,8 @@ export function AddTaskForm({
     form,
     subscribeEvents,
     hydrateOpenState,
-    handleTorrentQueueChanged
+    handleTorrentQueueChanged,
+    onSubmitSuccess
   )
 
   // Backfill the default save directory for the initially mounted form.

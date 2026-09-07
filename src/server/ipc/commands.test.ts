@@ -156,6 +156,7 @@ function makeFakeCtx() {
       dispatch: vi.fn().mockResolvedValue(undefined),
     } as unknown as ActivationDispatcher,
     magnetTracker: {
+      getFileSelection: vi.fn().mockResolvedValue(undefined),
       submit: vi.fn().mockResolvedValue(undefined),
       retryMetadata: vi.fn().mockResolvedValue(undefined),
       cancel: vi.fn().mockResolvedValue('removed'),
@@ -734,6 +735,36 @@ describe('server Commands.UpdateGeoIPDatabase', () => {
 })
 
 describe('server Commands.CreateTask magnet metadata selection', () => {
+  it('returns file selection to the requesting WebUI without broadcasting', async () => {
+    const ctx = makeFakeCtx()
+    const selection = { taskId: 'ready-1', torrentBase64: 'dG9ycmVudA==' }
+    vi.mocked(ctx.magnetTracker.getFileSelection).mockResolvedValue(
+      selection as never
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await expect(
+      handlers[Commands.ReopenMagnetFileSelection]?.('ready-1')
+    ).resolves.toEqual({
+      ok: true,
+      selection,
+    })
+    expect(ctx.magnetTracker.getFileSelection).toHaveBeenCalledWith('ready-1')
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+  })
+
+  it('returns a stale selection as null', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as unknown as ServerCommandContext
+    )
+    await expect(
+      handlers[Commands.ReopenMagnetFileSelection]?.('finished-1')
+    ).resolves.toEqual({
+      ok: true,
+      selection: null,
+    })
+  })
   it('submits bare magnet to metadata selection when enabled', async () => {
     const ctx = makeFakeCtx()
     const handlers = buildServerCommandHandlers(

@@ -3,6 +3,7 @@ import { Events } from '@shared/protocol/events'
 import {
   type AddTaskFormValues,
   magnetFileSelectionPayloadSchema,
+  magnetFileSelectionSettledPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
   torrentQueueSizeChangedPayloadSchema,
@@ -29,7 +30,8 @@ export function useExternalHydration(
   form: UseFormReturn<AddTaskFormValues>,
   enabled: boolean,
   onModeHydrated?: (context: AddTaskModeHydrationContext) => void,
-  onTorrentQueueChanged?: (update: TorrentQueueUpdate) => void
+  onTorrentQueueChanged?: (update: TorrentQueueUpdate) => void,
+  onSelectionSettled?: (taskId: string) => void
 ) {
   useEffect(() => {
     if (!enabled) return
@@ -54,6 +56,18 @@ export function useExternalHydration(
         },
         { keepErrors: false }
       )
+    }
+
+    const onSettled = (...args: unknown[]) => {
+      const parsed = magnetFileSelectionSettledPayloadSchema.safeParse(args[0])
+      const values = form.getValues()
+      if (
+        parsed.success &&
+        values.tab === 'torrent' &&
+        values.existingTaskId === parsed.data.taskId
+      ) {
+        onSelectionSettled?.(parsed.data.downloadTaskId)
+      }
     }
 
     const onProtocol = (...args: unknown[]) => {
@@ -102,15 +116,17 @@ export function useExternalHydration(
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)
+    transport.on(Events.MagnetFileSelectionSettled, onSettled)
     transport.on(Events.ProtocolTorrentFile, onProtocol)
     transport.on(Events.SetAddTaskMode, onSetMode)
     transport.on(Events.TorrentQueueSizeChanged, onTorrentQueueSizeChanged)
 
     return () => {
       transport.off(Events.MagnetFileSelection, onMagnet)
+      transport.off(Events.MagnetFileSelectionSettled, onSettled)
       transport.off(Events.ProtocolTorrentFile, onProtocol)
       transport.off(Events.SetAddTaskMode, onSetMode)
       transport.off(Events.TorrentQueueSizeChanged, onTorrentQueueSizeChanged)
     }
-  }, [form, enabled, onModeHydrated, onTorrentQueueChanged])
+  }, [form, enabled, onModeHydrated, onTorrentQueueChanged, onSelectionSettled])
 }

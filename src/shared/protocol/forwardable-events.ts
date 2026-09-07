@@ -7,6 +7,7 @@ export const ForwardableEvents = [
   Events.TaskActivityUpdated,
   Events.TaskInspectorActivityUpdated,
   Events.MagnetFileSelection,
+  Events.MagnetFileSelectionSettled,
   Events.StatsUpdated,
   Events.EngineDisconnected,
   Events.EngineRecovered,

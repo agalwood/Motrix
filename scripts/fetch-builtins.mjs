@@ -51,8 +51,9 @@ const CACHE_DIR = path.join(
 )
 const GITHUB = 'https://github.com'
 const TIMEOUT_MS = 30_000
-const RETRIES = 3
-const BACKOFF_MS = 500
+const MAX_ATTEMPTS = 5
+const BACKOFF_MS = 2_000
+const MAX_BACKOFF_MS = 30_000
 // Uncompressed-size caps, same shape as pack.mjs (Task 3): a plugin bundle is
 // ≤ 1 MiB and the whole extracted tree ≤ 5 MiB — a decompression-bomb guard.
 const ENTRY_MAX = 1 << 20
@@ -299,24 +300,41 @@ export async function installOne(id, entry, repo, deps, artifactDir, pubPem) {
   }
 }
 
-// Stream the response body with a running byte counter instead of buffering
-// the whole thing before checking its size: `Buffer.from(await
-// res.arrayBuffer())` would materialize an attacker/corruption-controlled
-// body in full (the size cap only kicked in *after* the OOM already
-// happened). Bail out — without reading further — the moment either the
-// declared Content-Length or the running total exceeds sizeCap.
+function retryAfterMs(value) {
+  if (!value) return 0
+  const delay = /^\d+$/.test(value)
+    ? Number(value) * 1_000
+    : Date.parse(value) - Date.now()
+  return Number.isFinite(delay)
+    ? Math.min(MAX_BACKOFF_MS, Math.max(0, delay))
+    : 0
+}
+
+// Stream with a running byte counter and reject oversized bodies immediately.
+// Retry transient HTTP/network failures with bounded backoff; digest, signature,
+// and size validation failures remain hard failures.
 export async function downloadBytes(url, sizeCap) {
   let lastErr
-  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const res = await fetch(url, {
         redirect: 'follow',
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
-      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`)
+      if (!res.ok) {
+        await res.body?.cancel().catch(() => {})
+        throw Object.assign(new Error(`GET ${url} -> ${res.status}`), {
+          fatal:
+            res.status !== 408 &&
+            res.status !== 429 &&
+            (res.status < 500 || res.status > 599),
+          retryAfterMs: retryAfterMs(res.headers.get('retry-after')),
+        })
+      }
       if (sizeCap) {
         const declared = Number(res.headers.get('content-length'))
         if (Number.isFinite(declared) && declared > sizeCap) {
+          await res.body?.cancel().catch(() => {})
           throw Object.assign(
             new Error(
               `${url}: Content-Length ${declared}B exceeds lock size ${sizeCap}B`
@@ -367,8 +385,15 @@ export async function downloadBytes(url, sizeCap) {
     } catch (err) {
       if (err?.fatal) throw err
       lastErr = err
-      if (attempt < RETRIES) {
-        await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt))
+      if (attempt < MAX_ATTEMPTS) {
+        const delay = Math.min(
+          MAX_BACKOFF_MS,
+          Math.max(BACKOFF_MS * 2 ** (attempt - 1), err?.retryAfterMs ?? 0)
+        )
+        console.warn(
+          `[fetch-builtins] ${err?.message ?? err}; retry ${attempt + 1}/${MAX_ATTEMPTS} in ${delay}ms`
+        )
+        await new Promise((r) => setTimeout(r, delay))
       }
     }
   }

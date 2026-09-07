@@ -48,7 +48,7 @@
     "check:remote-extension-compatibility": "node scripts/verify-remote-extension-compatibility.mjs",
     "check:remote-extension-threats": "node scripts/verify-remote-extension-threat-evidence.mjs",
     "check:schema-parity": "node scripts/check-schema-parity.mjs",
-    "check:third-party-notices": "pnpm run ensure:electron-runtime && node scripts/generate-third-party-notices.mjs --check && vitest run tests/check-third-party-notices.test.ts tests/generate-third-party-notices.test.ts",
+    "check:third-party-notices": "pnpm run ensure:electron-runtime && node scripts/generate-third-party-notices.mjs --check && vitest run tests/check-third-party-notices.test.ts tests/generate-third-party-notices.test.ts --config vitest.notices.config.ts",
     "check:update-artifacts": "node scripts/verify-update-artifacts.mjs",
     "check:snap": "node scripts/verify-snap-artifact.mjs",
     "check:snap-store": "node scripts/verify-snap-store-channel.mjs",

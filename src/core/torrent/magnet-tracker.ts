@@ -39,6 +39,7 @@ import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import type { MagnetFileSelectionPayload } from '@shared/schemas/add-task'
 import type { DownloadTask, SourceMeta, TaskSource } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -1025,6 +1026,17 @@ export class MagnetTracker {
    *  Routing/window handling is identical to the first emit: the bootstrap
    *  forwards MagnetFileSelection to the add-task window. */
   async reopenFileSelection(taskId: string): Promise<void> {
+    const selection = await this.getFileSelection(taskId)
+    if (!selection) return
+    this.eventBus.emit(Events.MagnetFileSelection, selection)
+    log.info({ taskId }, 'magnet file selection reopened')
+  }
+
+  /** Read the selection for one caller without broadcasting a dialog to
+   *  every connected WebUI. HTTP callers can recover missed WS events. */
+  async getFileSelection(
+    taskId: string
+  ): Promise<MagnetFileSelectionPayload | undefined> {
     const pair = this.db.getTask(taskId)
     if (!pair) {
       throw new AppError(ErrorCode.TaskNotFound, `task ${taskId} not found`)
@@ -1078,14 +1090,17 @@ export class MagnetTracker {
 
     const meta = await this.torrentParser.parse(torrentBase64)
     if (this.stopped) return
-    this.eventBus.emit(Events.MagnetFileSelection, {
+    // A different client may have confirmed or removed the task during IO.
+    if (this.db.getTask(taskId)?.task.aggStatus !== TaskStatus.MetadataReady) {
+      return
+    }
+    return {
       taskId,
       meta,
       magnetUri,
       torrentBase64,
       saveDir,
-    })
-    log.info({ taskId }, 'magnet file selection reopened')
+    }
   }
 
   /** Cancel all in-flight cleanup retry timers. Called on app shutdown
@@ -1491,6 +1506,7 @@ export class MagnetTracker {
         ? {
             ...i,
             status: TaskStatus.MetadataReady,
+            payload: { ...i.payload, fileSelectionReadyAt: now },
             updatedAt: now,
           }
         : i

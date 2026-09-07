@@ -233,6 +233,8 @@ export interface MotrixAppSettings {
   lightweightMode: boolean
   traySpeedometer: boolean
   magnetFileSelection: boolean
+  magnetFileSelectionAutoDownload: boolean
+  magnetFileSelectionTimeoutSeconds: number
   /** Master switch for the WebSocket bridge that lets browser extensions
    *  hand downloads to Motrix. Default true. Changing requires app restart. */
   browserBridgeEnabled: boolean
