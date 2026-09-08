@@ -31,6 +31,9 @@ describe('verifyUpdateArtifacts', () => {
     const deb = Buffer.from('signed Linux arm64 deb')
     const rpm = Buffer.from('signed Linux arm64 rpm')
     const appImage = Buffer.from('signed Linux arm64 AppImage')
+    const pacman = Buffer.from('Linux arm64 pacman')
+    const pacmanName = 'Motrix-2.0.0-aarch64.pacman'
+    await writeFile(path.join(fixture, pacmanName), pacman)
     const debName = 'Motrix_2.0.0_arm64.deb'
     const rpmName = 'Motrix-2.0.0.aarch64.rpm'
     const appImageName = 'Motrix-2.0.0-arm64.AppImage'
@@ -48,6 +51,7 @@ describe('verifyUpdateArtifacts', () => {
           { name: debName, content: deb },
           { name: rpmName, content: rpm },
           { name: appImageName, content: appImage },
+          { name: pacmanName, content: pacman },
         ],
         debName
       )
@@ -57,7 +61,13 @@ describe('verifyUpdateArtifacts', () => {
       verifyUpdateArtifacts({ directory: fixture, version: '2.0.0' })
     ).resolves.toEqual({
       manifests: ['latest-linux-arm64.yml'],
-      assets: [debName, rpmName, appImageName, `${appImageName}.zsync`],
+      assets: [
+        debName,
+        rpmName,
+        appImageName,
+        pacmanName,
+        `${appImageName}.zsync`,
+      ],
     })
   })
 

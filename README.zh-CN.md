@@ -141,6 +141,7 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 | Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
+| Arch Linux / Omarchy | `x64`、`arm64` | `.pacman` | 使用 `sudo pacman -U ./Motrix-<version>-<arch>.pacman` 安装原生 Arch 包，详见 [Arch 安装指南](docs/arch-linux.zh-CN.md) |
 
 `.AppImage` 首次启动时会询问是否把桌面入口和 URL scheme 处理程序注册到你的用户数据目录；拒绝则不改动系统。之后随时可以在「设置 → 集成」中启用或移除该桌面集成。
 Snap Store 安装包使用严格限制。已批准的 `personal-files` interface 允许 Motrix

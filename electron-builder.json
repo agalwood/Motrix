@@ -205,7 +205,8 @@
     "target": [
       { "target": "AppImage", "arch": ["x64", "arm64"] },
       { "target": "deb", "arch": ["x64", "arm64"] },
-      { "target": "rpm", "arch": ["x64", "arm64"] }
+      { "target": "rpm", "arch": ["x64", "arm64"] },
+      { "target": "pacman", "arch": ["x64", "arm64"] }
     ],
     "extraResources": [
       { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
@@ -247,6 +248,54 @@
   },
   "rpm": {
     "artifactName": "${productName}-${version}.${arch}.${ext}"
+  },
+  "pacman": {
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "packageName": "motrix",
+    "compression": "zstd",
+    "depends": [
+      "alsa-lib",
+      "at-spi2-core",
+      "cairo",
+      "expat",
+      "gcc-libs",
+      "glib2",
+      "glibc",
+      "gtk3",
+      "libcups",
+      "libdrm",
+      "libnotify",
+      "libsecret",
+      "libx11",
+      "libxcb",
+      "libxcomposite",
+      "libxdamage",
+      "libxext",
+      "libxfixes",
+      "libxkbcommon",
+      "libxrandr",
+      "mesa",
+      "nspr",
+      "nss",
+      "pango",
+      "xdg-utils"
+    ],
+    "fpm": [
+      "--description",
+      "Full-featured download manager",
+      "--iteration",
+      "1",
+      "--provides",
+      "motrix",
+      "--conflicts",
+      "motrix-bin",
+      "--conflicts",
+      "motrix-git",
+      "--conflicts",
+      "motrix-beta-bin",
+      "--pacman-optional-depends",
+      "libayatana-appindicator: system tray integration"
+    ]
   },
   "beforePack": "./scripts/before-pack-verify.mjs",
   "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",

@@ -1331,7 +1331,7 @@ describe('release workflow publication contract', () => {
     expect(paths).not.toContain('alpha')
   })
 
-  it('builds AppImage, deb, and rpm Linux release assets', () => {
+  it('builds AppImage, deb, rpm, and pacman Linux release assets', () => {
     const linuxTargets = targetMatrix(releaseWorkflow).entries.filter(
       (entry) => entry.platform === 'linux'
     )
@@ -1342,6 +1342,7 @@ describe('release workflow publication contract', () => {
       expect(args).toMatch(/\bAppImage\b/)
       expect(args).toMatch(/\bdeb\b/)
       expect(args).toMatch(/\brpm\b/)
+      expect(args).toMatch(/\bpacman\b/)
       expect(args).not.toMatch(/\bsnap\b/i)
     }
     expect(releaseSource).toContain(`\${{ matrix.electron_builder_args }}`)
@@ -1398,7 +1399,41 @@ describe('release workflow publication contract', () => {
       'path'
     )
     expect(uploadPaths).toContain('release/*.AppImage.zsync')
+    expect(uploadPaths).toContain('release/*.pacman')
   })
+
+  it.each([
+    ['CI', ciWorkflow],
+    ['release', releaseWorkflow],
+  ] as const)(
+    '%s verifies Arch archives and tests installation before upload',
+    (_, workflow) => {
+      const steps = jobSteps(targetMatrix(workflow).job)
+      const verifyIndex = steps.findIndex(
+        (step) => step.name === 'Verify Arch Linux package'
+      )
+      const smokeIndex = steps.findIndex(
+        (step) => step.name === 'Smoke test Arch Linux installation'
+      )
+      expect(verifyIndex).toBeGreaterThan(0)
+      expect(smokeIndex).toBeGreaterThan(verifyIndex)
+      expect(stringField(steps[verifyIndex] as LooseRecord, 'run')).toContain(
+        'scripts/verify-pacman-artifact.mjs'
+      )
+      expect(stringField(steps[smokeIndex] as LooseRecord, 'if')).toBe(
+        "matrix.target == 'linux-x64'"
+      )
+      expect(stringField(steps[smokeIndex] as LooseRecord, 'run')).toBe(
+        'bash scripts/smoke-pacman-package.sh release'
+      )
+      const uploadIndex = steps.findIndex((step) =>
+        workflow === releaseWorkflow
+          ? step.name === 'Upload target release input'
+          : String(step.uses ?? '').startsWith('actions/upload-artifact')
+      )
+      expect(uploadIndex).toBeGreaterThan(smokeIndex)
+    }
+  )
 
   it('pins the modern AppImage toolset and finalization hook', () => {
     const builderConfig = asRecord(
