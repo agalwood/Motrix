@@ -9,6 +9,7 @@ export const EXTERNAL_URLS = {
     chrome:
       'https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo',
     edge: 'https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf',
+    firefox: 'https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/',
     development:
       'https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development',
   },

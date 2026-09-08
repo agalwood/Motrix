@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@renderer/components/ui/button'
+import { buttonVariants } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { useTranslation } from 'react-i18next'
@@ -24,8 +24,8 @@ const INSTALL_OPTIONS = [
   {
     id: 'firefox',
     icon: firefoxIcon,
-    href: null,
-    status: 'comingSoon',
+    href: EXTERNAL_URLS.browserExtension.firefox,
+    status: 'store',
   },
   {
     id: 'github',
@@ -68,7 +68,7 @@ export function BrowserExtensionInstalls() {
           </>
         )
 
-        return option.href ? (
+        return (
           <a
             key={option.id}
             href={option.href}
@@ -78,19 +78,6 @@ export function BrowserExtensionInstalls() {
           >
             {content}
           </a>
-        ) : (
-          <Button
-            key={option.id}
-            type="button"
-            variant="outline"
-            disabled
-            className={cn(
-              className,
-              'disabled:opacity-100 [&_span]:text-muted-foreground'
-            )}
-          >
-            {content}
-          </Button>
         )
       })}
     </div>

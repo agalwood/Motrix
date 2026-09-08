@@ -121,8 +121,9 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 
 - [Chrome Web Store](https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo)
 - [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf)
+- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/)
 
-安装与配对步骤请参阅[浏览器扩展指南](https://motrix.app/zh/manual/browser-extension/)。Firefox 开发构建方式仍可在[扩展仓库](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development)中查看。
+安装与配对步骤请参阅[浏览器扩展指南](https://motrix.app/zh/manual/browser-extension/)。开发构建方式仍可在[扩展仓库](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development)中查看。
 
 ## 📦 安装
 

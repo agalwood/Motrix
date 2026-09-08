@@ -123,8 +123,9 @@ Motrix Extension is available from the official browser stores for use with Motr
 
 - [Chrome Web Store](https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo)
 - [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf)
+- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/)
 
-For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Firefox development builds remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
+For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Development builds remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
 
 ##  📦  Installation
 

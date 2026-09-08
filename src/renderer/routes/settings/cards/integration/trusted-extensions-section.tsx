@@ -32,16 +32,25 @@ const SOURCE_ORDER: Record<TrustedExtensionInfo['source'], number> = {
 type Browser = 'chromium' | 'firefox'
 
 const OFFICIAL_EXTENSION_STORE_URLS = new Map([
-  ['efcflljngohddnmfmebiamigoikmdfbf', EXTERNAL_URLS.browserExtension.edge],
-  ['lggbokfckofcgjndaboioakcmincinpo', EXTERNAL_URLS.browserExtension.chrome],
+  [
+    'chromium:efcflljngohddnmfmebiamigoikmdfbf',
+    EXTERNAL_URLS.browserExtension.edge,
+  ],
+  [
+    'chromium:lggbokfckofcgjndaboioakcmincinpo',
+    EXTERNAL_URLS.browserExtension.chrome,
+  ],
+  [
+    'firefox:motrix-extension@motrix.app',
+    EXTERNAL_URLS.browserExtension.firefox,
+  ],
 ])
 
 function ExtensionId({
   id,
   browser,
 }: Pick<TrustedExtensionInfo, 'id' | 'browser'>) {
-  const storeUrl =
-    browser === 'chromium' ? OFFICIAL_EXTENSION_STORE_URLS.get(id) : undefined
+  const storeUrl = OFFICIAL_EXTENSION_STORE_URLS.get(`${browser}:${id}`)
 
   return storeUrl ? (
     <a
