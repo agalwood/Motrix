@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2RpcClient } from './aria2-rpc-client'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
 import type { WebSocketTransport } from './web-socket-transport'
@@ -74,6 +74,178 @@ describe('Aria2RpcClient', () => {
       fakeProtocol as unknown as JsonRpcProtocol,
       'my-secret'
     )
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  describe('accepted pause reconciliation', () => {
+    const active = {
+      gid: 'gid1',
+      status: 'active',
+      completedLength: '512',
+      downloadSpeed: '128',
+      uploadSpeed: '64',
+      connections: '3',
+    }
+    const pollCalls = [
+      { method: 'aria2.getGlobalStat', params: [] },
+      { method: 'aria2.tellActive', params: [] },
+      { method: 'aria2.tellWaiting', params: [0, 1000] },
+    ]
+
+    it('keeps a graceful BT pause stable across reconciliation and subsequent polls', async () => {
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toMatchObject({
+        status: 'paused',
+        completedLength: '512',
+        downloadSpeed: '0',
+        uploadSpeed: '0',
+        connections: '0',
+      })
+
+      for (let tick = 0; tick < 3; tick++) {
+        fakeProtocol.nextResult = [{ numActive: '1' }, [active], []]
+        const result = await client.multicall(pollCalls)
+        expect(result[1]).toEqual([
+          {
+            ...active,
+            status: 'paused',
+            downloadSpeed: '0',
+            uploadSpeed: '0',
+            connections: '0',
+          },
+        ])
+      }
+      expect(active.status).toBe('active')
+      expect(
+        fakeProtocol.calls.some((call) => call.method === 'aria2.forcePause')
+      ).toBe(false)
+    })
+
+    it('shields an older poll after pause confirmation but accepts a later external resume', async () => {
+      const poll = Promise.withResolvers<unknown[]>()
+      vi.spyOn(fakeProtocol, 'multicall').mockReturnValueOnce(poll.promise)
+      const oldPoll = client.multicall(pollCalls)
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      fakeProtocol.nextResult = { ...active, status: 'paused' }
+      await client.tellStatus('gid1')
+
+      poll.resolve([{}, [active], []])
+      expect((await oldPoll)[1]).toEqual([
+        expect.objectContaining({ status: 'paused' }),
+      ])
+
+      fakeProtocol.nextResult = [active]
+      expect(await client.tellActive()).toEqual([active])
+    })
+
+    it('does not hide activity when the pause RPC fails', async () => {
+      vi.spyOn(fakeProtocol, 'call').mockRejectedValueOnce(
+        new Error('pause failed')
+      )
+      await expect(client.pause('gid1')).rejects.toThrow('pause failed')
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toEqual(active)
+    })
+
+    it('tracks only successful entries in a pause batch', async () => {
+      const failed = { status: 'rejected', reason: new Error('pause failed') }
+      fakeProtocol.nextResult = [{ status: 'fulfilled', value: 'gid1' }, failed]
+      expect(
+        await client.multicallSettled([
+          { method: 'aria2.pause', params: ['gid1'] },
+          { method: 'aria2.pause', params: ['gid2'] },
+        ])
+      ).toEqual(fakeProtocol.nextResult)
+
+      const other = { ...active, gid: 'gid2' }
+      fakeProtocol.nextResult = [
+        { status: 'fulfilled', value: [active, other] },
+      ]
+      expect(
+        await client.multicallSettled([
+          { method: 'aria2.tellActive', params: [] },
+        ])
+      ).toEqual([
+        {
+          status: 'fulfilled',
+          value: [expect.objectContaining({ status: 'paused' }), other],
+        },
+      ])
+    })
+
+    it.each(['error', 'complete', 'removed'])(
+      'lets %s supersede a pending pause',
+      async (status) => {
+        fakeProtocol.nextResult = 'gid1'
+        await client.pause('gid1')
+        const terminal = { ...active, status }
+        fakeProtocol.nextResult = terminal
+        expect(await client.tellStatus('gid1')).toEqual(terminal)
+        fakeProtocol.nextResult = active
+        expect(await client.tellStatus('gid1')).toEqual(active)
+      }
+    )
+
+    it('releases the pause after a successful resume, retaining it after a rejected resume', async () => {
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      vi.spyOn(fakeProtocol, 'call').mockRejectedValueOnce(
+        new Error('still stopping')
+      )
+      await expect(client.unpause('gid1')).rejects.toThrow('still stopping')
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toMatchObject({
+        status: 'paused',
+      })
+
+      fakeProtocol.nextResult = 'gid1'
+      await client.unpause('gid1')
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toEqual(active)
+    })
+
+    it('expires an unconfirmed pause so a stuck engine cannot remain hidden', async () => {
+      vi.useFakeTimers()
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      await vi.advanceTimersByTimeAsync(30_000)
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toEqual(active)
+    })
+
+    it('clears pending pauses across engine disconnection', async () => {
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      client.disconnect()
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toEqual(active)
+    })
+
+    it('preserves partial query fields and leaves other tasks alone', async () => {
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      fakeProtocol.nextResult = { status: 'active' }
+      expect(await client.tellStatus('gid1', ['status'])).toEqual({
+        status: 'paused',
+      })
+      fakeProtocol.nextResult = { bitfield: 'ff' }
+      expect(await client.tellStatus('gid1', ['bitfield'])).toEqual({
+        bitfield: 'ff',
+      })
+      const other = { ...active, gid: 'gid2' }
+      fakeProtocol.nextResult = [active, other]
+      expect(await client.tellWaiting(0, 1000)).toEqual([
+        expect.objectContaining({ gid: 'gid1', status: 'paused' }),
+        other,
+      ])
+    })
   })
 
   describe('connect / disconnect', () => {
