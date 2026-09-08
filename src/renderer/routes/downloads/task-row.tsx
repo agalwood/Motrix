@@ -1,6 +1,10 @@
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
+import {
+  formatBytes,
+  formatDurationHMS,
+  formatProgressPercent,
+} from '@renderer/lib/format'
 import { getProgressBarTone } from '@renderer/lib/task-status-ui'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
@@ -22,11 +26,15 @@ export interface TaskRowProps {
 
 function TaskRowBase({ task, rowProps }: TaskRowProps) {
   const { t, i18n } = useTranslation()
-  const pct = Math.round(task.progress * 100)
+  const pct = formatProgressPercent(task.progress)
   const showDash = (value: number) =>
-    value <= 0 || task.status === TaskStatus.Completed
+    value <= 0 ||
+    task.status === TaskStatus.Completed ||
+    task.status === TaskStatus.Finalizing
   const hideEta =
-    task.status === TaskStatus.Paused || task.status === TaskStatus.Completed
+    task.status === TaskStatus.Paused ||
+    task.status === TaskStatus.Completed ||
+    task.status === TaskStatus.Finalizing
   const connections =
     task.type === TaskType.Bt || task.type === TaskType.Magnet
       ? `${task.bt?.peers ?? 0}`

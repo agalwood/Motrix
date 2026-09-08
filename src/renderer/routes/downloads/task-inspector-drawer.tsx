@@ -49,7 +49,7 @@ type SubTab =
 export interface TaskInspectorDrawerProps {
   selection: SelectionStore<DownloadTask>
   tasks: readonly DownloadTask[]
-  /** Portal target. Must have `position: relative`. Drawer does not render when null. */
+  /** Bounded flex-column portal target. The inspector shares height with the list. */
   container: HTMLElement | null
   onDismiss?: () => void
 }
@@ -107,8 +107,11 @@ export function TaskInspectorDrawer({
       role="dialog"
       aria-label={t('panel.downloads.title')}
       className={cn(
-        'drawer-slide-in absolute inset-x-0 bottom-0 z-30 flex flex-col',
-        subtab === 'activity' ? 'max-h-[85%]' : 'max-h-[80%]',
+        'drawer-slide-in relative z-30 flex shrink-0 flex-col',
+        // Keep room for the panel chrome, column header, and selectable rows.
+        subtab === 'activity'
+          ? 'max-h-[min(85%,calc(100%-16rem))]'
+          : 'max-h-[min(80%,calc(100%-16rem))]',
         'border-t border-border bg-background',
         'shadow-[0_-6px_20px_rgba(15,23,42,0.1)]'
       )}

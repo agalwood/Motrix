@@ -3,6 +3,7 @@ import {
   type ForwardedRef,
   forwardRef,
   type ReactElement,
+  useCallback,
   useImperativeHandle,
   useRef,
 } from 'react'
@@ -16,6 +17,7 @@ function VirtualListInner<T>(
     items,
     getId,
     rowHeight,
+    headerHeight = 0,
     overscan = 5,
     scrollRef,
     renderRow,
@@ -28,8 +30,15 @@ function VirtualListInner<T>(
   const internalRef = useRef<HTMLDivElement>(null)
   const containerRef = scrollRef ?? internalRef
 
+  const getItemKey = useCallback(
+    (index: number) => getId(items[index]),
+    [getId, items]
+  )
   const virtualizer = useVirtualizer({
     count: items.length,
+    getItemKey,
+    scrollMargin: headerHeight,
+    scrollPaddingStart: headerHeight,
     getScrollElement: () => containerRef.current,
     estimateSize: () => rowHeight,
     overscan,
@@ -96,7 +105,7 @@ function VirtualListInner<T>(
                 left: 0,
                 width: '100%',
                 height: rowHeight,
-                transform: `translateY(${virtualRow.start}px)`,
+                transform: `translateY(${virtualRow.start - headerHeight}px)`,
               }}
             >
               {renderRow({

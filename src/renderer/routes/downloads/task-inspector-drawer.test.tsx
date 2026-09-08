@@ -360,12 +360,12 @@ describe('TaskInspectorDrawer', () => {
     render(<TestHarness selection={selection} tasks={tasks} />)
 
     const drawer = screen.getByRole('dialog')
-    expect(drawer).toHaveClass('max-h-[80%]')
-    expect(drawer).not.toHaveClass('max-h-[85%]')
+    expect(drawer).toHaveClass('max-h-[min(80%,calc(100%-16rem))]')
+    expect(drawer).not.toHaveClass('max-h-[min(85%,calc(100%-16rem))]')
 
     await user.click(screen.getByRole('tab', { name: /activity/i }))
 
-    expect(drawer).toHaveClass('max-h-[85%]')
-    expect(drawer).not.toHaveClass('max-h-[80%]')
+    expect(drawer).toHaveClass('max-h-[min(85%,calc(100%-16rem))]')
+    expect(drawer).not.toHaveClass('max-h-[min(80%,calc(100%-16rem))]')
   })
 })

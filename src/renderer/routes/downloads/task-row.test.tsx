@@ -60,6 +60,22 @@ function getEtaCell(container: HTMLElement): Element {
 }
 
 describe('TaskRow', () => {
+  it('keeps a slow unfinished tail below 100% until bytes finish', () => {
+    const task = fake({ progress: 0.995, downloadSpeed: 102400 })
+    const { rerender } = render(<TaskRow task={task} rowProps={rowProps} />)
+    expect(screen.getByText('99%')).toBeInTheDocument()
+    expect(screen.queryByText('100%')).not.toBeInTheDocument()
+    rerender(
+      <TaskRow
+        task={{ ...task, progress: 1, status: TaskStatus.Finalizing }}
+        rowProps={rowProps}
+      />
+    )
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(screen.getByText('Finalizing')).toBeInTheDocument()
+    expect(screen.queryByText('100 KB/s')).not.toBeInTheDocument()
+  })
+
   it('renders task name and formatted size', () => {
     render(<TaskRow task={fake()} rowProps={rowProps} />)
     expect(screen.getByText('ubuntu.iso')).toBeInTheDocument()
@@ -77,7 +93,7 @@ describe('TaskRow', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
-  it.each([TaskStatus.Paused, TaskStatus.Completed])(
+  it.each([TaskStatus.Paused, TaskStatus.Completed, TaskStatus.Finalizing])(
     'renders a dash for stale ETA when a memoized task becomes %s',
     (status) => {
       const downloading = fake({

@@ -112,6 +112,81 @@ function buildSingleFileTorrent(name: string): Uint8Array {
 }
 
 describe('finalizeTask HTTP/FTP branch', () => {
+  it.each([TaskType.Http, TaskType.Ftp])(
+    'publishes %s Finalizing with idle transfer metrics before a slow artifact commit',
+    async (type) => {
+      const entered = Promise.withResolvers<void>()
+      const release = Promise.withResolvers<void>()
+      const snapshots: DownloadTask[] = []
+      const task = makeTask({
+        type,
+        totalBytes: 1000,
+        downloadedBytes: 998,
+        progress: 0.998,
+        downloadSpeed: 64000,
+        uploadSpeed: 1000,
+        etaSeconds: 200,
+        connections: 1,
+        instances: [makePrimaryInstance()],
+      })
+      const deps = makeDeps({
+        publishTaskUpdateNow: () => snapshots.push(structuredClone(task)),
+        commitFinalizedArtifact: async () => {
+          entered.resolve()
+          await release.promise
+        },
+      })
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      const finishing = finalizeTask(task.id, deps)
+      await entered.promise
+      try {
+        expect(snapshots).toHaveLength(1)
+        expect(snapshots[0]).toMatchObject({
+          status: TaskStatus.Finalizing,
+          transitionPhase: TransitionPhase.Renaming,
+          downloadSpeed: 0,
+          uploadSpeed: 0,
+          etaSeconds: 0,
+          connections: 0,
+          progress: 1,
+          downloadedBytes: 1000,
+          finishedAt: null,
+          diskPath: '/d/foo.mp4.motrix',
+        })
+        expect(snapshots[0].instances[0].status).toBe(TaskStatus.Finalizing)
+        expect(
+          deps.activityRecorder.recordDownloadCompleted
+        ).not.toHaveBeenCalled()
+      } finally {
+        release.resolve()
+        await finishing
+      }
+      expect(snapshots.map((value) => value.status)).toEqual([
+        TaskStatus.Finalizing,
+        TaskStatus.Completed,
+      ])
+      expect(task.diskPath).toBe('/d/foo.mp4')
+      expect(
+        deps.activityRecorder.recordDownloadCompleted
+      ).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('does not publish Finalizing or touch files before its state is durable', async () => {
+    const deps = makeDeps()
+    const task = makeTask()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.taskManager.persist).mockRejectedValue(
+      new Error('database busy')
+    )
+    await expect(finalizeTask(task.id, deps)).rejects.toThrow('database busy')
+    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(task.transitionPhase).toBe(TransitionPhase.Idle)
+    expect(deps.eventBus.emit).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+  })
+
   it('performs removeDownloadResult → rename → status=Completed', async () => {
     const deps = makeDeps()
     const task = makeTask()
@@ -180,7 +255,7 @@ describe('finalizeTask HTTP/FTP branch', () => {
 
     await finalizeTask('t1', deps)
 
-    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(1)
+    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(2)
     expect(publishTaskUpdate).not.toHaveBeenCalled()
     expect(deps.eventBus.emit).not.toHaveBeenCalledWith(
       Events.TaskUpdated,
@@ -207,7 +282,7 @@ describe('finalizeTask HTTP/FTP branch', () => {
       expect.objectContaining({
         type: 'terminal',
         taskId: 't1',
-        fromStatus: TaskStatus.Downloading,
+        fromStatus: TaskStatus.Finalizing,
         toStatus: TaskStatus.Completed,
         cause: 'finalize',
       })
@@ -232,17 +307,18 @@ describe('finalizeTask HTTP/FTP branch', () => {
     expect(recordTransition).toHaveBeenCalledWith(
       expect.objectContaining({
         taskId: 't1',
-        previousStatus: TaskStatus.Downloading,
+        previousStatus: TaskStatus.Finalizing,
         nextStatus: TaskStatus.Completed,
         accuracy: 'exact',
       })
     )
     const completedPersistOrder = persist.mock.invocationCallOrder.at(-1)
     expect(completedPersistOrder).toBeLessThan(
-      recordTransition.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+      recordTransition.mock.invocationCallOrder.at(-1) ??
+        Number.POSITIVE_INFINITY
     )
-    expect(recordTransition.mock.invocationCallOrder[0]).toBeLessThan(
-      emit.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    expect(recordTransition.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      emit.mock.invocationCallOrder.at(-1) ?? Number.POSITIVE_INFINITY
     )
   })
 
@@ -262,9 +338,14 @@ describe('finalizeTask HTTP/FTP branch', () => {
 
     await expect(finalizeTask('t1', deps)).rejects.toThrow('database busy')
 
-    expect(deps.recordTransition).not.toHaveBeenCalled()
-    expect(deps.eventBus.emit).not.toHaveBeenCalled()
-    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(deps.recordTransition).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ nextStatus: TaskStatus.Finalizing })
+    )
+    expect(deps.eventBus.emit).toHaveBeenCalledExactlyOnceWith(
+      Events.TaskUpdated,
+      []
+    )
+    expect(task.status).toBe(TaskStatus.Finalizing)
     expect(task.transitionPhase).toBe(TransitionPhase.Renaming)
     expect(task.diskPath).toBe('/d/foo.mp4.motrix')
   })
@@ -313,7 +394,7 @@ describe('finalizeTask HTTP/FTP branch', () => {
         Number.POSITIVE_INFINITY
     )
     expect(recordDownloadCompleted.mock.invocationCallOrder[0]).toBeLessThan(
-      emit.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+      emit.mock.invocationCallOrder.at(-1) ?? Number.POSITIVE_INFINITY
     )
   })
 
@@ -401,7 +482,7 @@ describe('finalizeTask failure-path publication routing', () => {
     await expect(finalizeTask('t1', deps)).rejects.toThrow()
 
     expect(task.status).toBe(TaskStatus.Error)
-    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(1)
+    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(2)
     expect(publishTaskUpdate).not.toHaveBeenCalled()
   })
 })

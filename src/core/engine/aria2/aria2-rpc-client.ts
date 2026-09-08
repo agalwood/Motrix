@@ -1,4 +1,5 @@
 import type { DownloadCookie } from '../engine-adapter'
+import { Aria2PauseState } from './aria2-pause-state'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
 import type {
   Aria2HistoryCount,
@@ -30,6 +31,8 @@ const SECRET_EXEMPT_METHODS = new Set([
 
 export class Aria2RpcClient {
   private notificationHandlers = new Map<string, Set<EventHandler>>()
+  private pauseState = new Aria2PauseState()
+  private requestSequence = 0
 
   constructor(
     private transport: WebSocketTransport,
@@ -44,6 +47,7 @@ export class Aria2RpcClient {
   // ─── Connection ──────────────────────────────────────────────
 
   async connect(port: number, retries = 10, delayMs = 500): Promise<void> {
+    this.pauseState.clear()
     const url = `ws://127.0.0.1:${port}/jsonrpc`
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
@@ -57,6 +61,7 @@ export class Aria2RpcClient {
   }
 
   disconnect(): void {
+    this.pauseState.clear()
     this.transport.disconnect()
   }
 
@@ -75,11 +80,13 @@ export class Aria2RpcClient {
     return this.secret === '' ? params : [`token:${this.secret}`, ...params]
   }
 
-  private call<T>(method: string, params: unknown[]): Promise<T> {
+  private async call<T>(method: string, params: unknown[]): Promise<T> {
+    const sequence = ++this.requestSequence
     const finalParams = SECRET_EXEMPT_METHODS.has(method)
       ? params
       : this.withSecret(params)
-    return this.protocol.call<T>(method, finalParams)
+    const result = await this.protocol.call<T>(method, finalParams)
+    return this.pauseState.reconcile(method, params, result, sequence) as T
   }
 
   // ─── Download management ─────────────────────────────────────
@@ -270,7 +277,8 @@ export class Aria2RpcClient {
 
   // ─── Batch (performance) ─────────────────────────────────────
 
-  multicall(calls: Aria2MethodCall[]): Promise<unknown[]> {
+  async multicall(calls: Aria2MethodCall[]): Promise<unknown[]> {
+    const sequence = ++this.requestSequence
     // Each sub-call needs the same secret-injection treatment as a
     // single `call()`. Without it aria2 returns `{faultCode:1,
     // faultString:"Unauthorized"}` for every entry; the protocol
@@ -283,7 +291,15 @@ export class Aria2RpcClient {
         ? c.params
         : this.withSecret(c.params),
     }))
-    return this.protocol.multicall(withSecret)
+    const results = await this.protocol.multicall(withSecret)
+    return results.map((result, index) =>
+      this.pauseState.reconcile(
+        calls[index].method,
+        calls[index].params,
+        result,
+        sequence
+      )
+    )
   }
 
   /**
@@ -292,16 +308,30 @@ export class Aria2RpcClient {
    * Required for any batch of MUTATING calls, where a swallowed fault would
    * silently corrupt caller bookkeeping.
    */
-  multicallSettled(
+  async multicallSettled(
     calls: Aria2MethodCall[]
   ): Promise<PromiseSettledResult<unknown>[]> {
+    const sequence = ++this.requestSequence
     const withSecret = calls.map((c) => ({
       method: c.method,
       params: SECRET_EXEMPT_METHODS.has(c.method)
         ? c.params
         : this.withSecret(c.params),
     }))
-    return this.protocol.multicallSettled(withSecret)
+    const results = await this.protocol.multicallSettled(withSecret)
+    return results.map((result, index) =>
+      result.status === 'fulfilled'
+        ? {
+            status: 'fulfilled',
+            value: this.pauseState.reconcile(
+              calls[index].method,
+              calls[index].params,
+              result.value,
+              sequence
+            ),
+          }
+        : result
+    )
   }
 
   // ─── SQLite3-Persistence RPCs (aria2_motrix fork) ────────────

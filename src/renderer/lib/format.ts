@@ -100,3 +100,9 @@ export function formatDurationHMS(seconds: number): string {
   const pad = (n: number) => n.toString().padStart(2, '0')
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
 }
+
+/** Round display percentages without claiming completion while bytes remain. */
+export function formatProgressPercent(progress: number): number {
+  if (!Number.isFinite(progress) || progress <= 0) return 0
+  return progress >= 1 ? 100 : Math.min(99, Math.round(progress * 100))
+}

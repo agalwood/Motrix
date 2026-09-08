@@ -274,6 +274,7 @@ export function DownloadsPage() {
       <TaskListUnavailable onRetry={() => void retry()} />
     ) : (
       <TaskListPanel
+        key={`${filter}:${serializeTypeParam(types)}`}
         tasks={filtered}
         hasAnyTasks={counts.all > 0}
         selection={useDownloadsSelection}
@@ -284,33 +285,38 @@ export function DownloadsPage() {
     )
 
   return (
-    <div ref={setContainer} className="relative flex h-full flex-col">
-      <PanelShell
-        title={
-          <StatusTitleMenu
-            tab={filter}
-            onTabChange={onTabChange}
-            counts={counts}
-          />
-        }
-        actions={
-          <FilterSearchCommand
-            tasks={tasks}
-            types={types}
-            onTypesChange={onTypesChange}
-            typeCounts={typeCounts}
-            onOpenTask={onOpenTask}
-          />
-        }
-        actionsPosition="end"
-        footer={<GlobalStatsBar counts={counts} />}
-        contentClassName="px-6"
-      >
-        {status === 'error' && hasReadySnapshot ? (
-          <TaskListStaleBanner onRetry={() => void retry()} />
-        ) : null}
-        {taskList}
-      </PanelShell>
+    <div
+      ref={setContainer}
+      className="relative flex h-full min-h-0 flex-col overflow-hidden"
+    >
+      <div className="min-h-0 flex-1">
+        <PanelShell
+          title={
+            <StatusTitleMenu
+              tab={filter}
+              onTabChange={onTabChange}
+              counts={counts}
+            />
+          }
+          actions={
+            <FilterSearchCommand
+              tasks={tasks}
+              types={types}
+              onTypesChange={onTypesChange}
+              typeCounts={typeCounts}
+              onOpenTask={onOpenTask}
+            />
+          }
+          actionsPosition="end"
+          footer={<GlobalStatsBar counts={counts} />}
+          contentClassName="px-6"
+        >
+          {status === 'error' && hasReadySnapshot ? (
+            <TaskListStaleBanner onRetry={() => void retry()} />
+          ) : null}
+          {taskList}
+        </PanelShell>
+      </div>
       <TaskInspectorDrawer
         selection={useDownloadsSelection}
         tasks={tasks}

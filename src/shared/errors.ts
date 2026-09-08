@@ -6,6 +6,7 @@ export enum ErrorCode {
   EngineProcessTerminationFailed = 'ENGINE_PROCESS_TERMINATION_FAILED',
   TaskCreateFailed = 'TASK_CREATE_FAILED',
   TaskNotFound = 'TASK_NOT_FOUND',
+  TaskRevealFailed = 'TASK_REVEAL_FAILED',
   TaskNotRetryable = 'TASK_NOT_RETRYABLE',
   SessionRestoreFailed = 'SESSION_RESTORE_FAILED',
   SettingsInvalid = 'SETTINGS_INVALID',

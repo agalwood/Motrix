@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,7 +32,10 @@ export const test = base.extend<MotrixFixtures>({
   // signature for "no upstream fixtures consumed".
   // biome-ignore lint/correctness/noEmptyPattern: playwright fixture signature
   userDataDir: async ({}, use) => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'motrix-e2e-'))
+    // Finalization rejects symlink ancestors; macOS tmpdir can start at /var.
+    const dir = await realpath(
+      await mkdtemp(path.join(tmpdir(), 'motrix-e2e-'))
+    )
     try {
       await use(dir)
     } finally {

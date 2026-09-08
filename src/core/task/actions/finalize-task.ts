@@ -216,8 +216,13 @@ async function finalizeHttp(
   task: DownloadTask,
   deps: FinalizeTaskDeps
 ): Promise<void> {
+  const statusBeforeFinalize = task.status
+  Object.assign(task, applyTerminalTransition(task, TaskStatus.Finalizing))
   setTaskTransitionPhase(task, TransitionPhase.Renaming)
-  await persistTaskState(task, deps)
+  syncCompletionMetrics(task)
+  syncPrimaryInstanceIdentity(task)
+  await persistTaskTransition(task, statusBeforeFinalize, deps)
+  deps.publishTaskUpdateNow()
 
   // Plan C plugin-hook chain: beforeFinalize. Eligible plugins can request
   // a different final filePath (e.g. ffmpeg-transcode plugin) and stage
