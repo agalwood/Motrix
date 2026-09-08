@@ -72,7 +72,16 @@ test.describe('task lifecycle', () => {
 
       // Body (~4s) + finalize round-trip (rename `.motrix` → final).
       await expect
-        .poll(async () => (await readTask())?.status, { timeout: 20_000 })
+        .poll(
+          async () => {
+            const task = await readTask()
+            if (task?.status === 'error') {
+              throw new Error(task.errorMessage ?? 'Download failed')
+            }
+            return task?.status
+          },
+          { timeout: 20_000 }
+        )
         .toBe('completed')
 
       // Final state checks — fail fast if status flipped to Completed

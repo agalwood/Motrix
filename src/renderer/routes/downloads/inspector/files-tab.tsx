@@ -1,6 +1,7 @@
 import { FileList } from '@renderer/components/file-list/file-list'
 import { Button } from '@renderer/components/ui/button'
 import { useTaskFiles } from '@renderer/hooks/use-task-files'
+import { formatProgressPercent } from '@renderer/lib/format'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
@@ -15,6 +16,7 @@ const ACTIVE_DOWNLOAD = new Set<TaskStatus>([
 ])
 
 const READ_ONLY_STATES = new Set<TaskStatus>([
+  TaskStatus.Finalizing,
   TaskStatus.Completed,
   TaskStatus.Removed,
 ])
@@ -62,8 +64,8 @@ export function FilesTab({ task }: { task: DownloadTask }) {
           isActive ? (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {files.length === 1
-                ? Math.round(task.progress * 100)
-                : Math.floor((f.completedBytes / Math.max(f.size, 1)) * 100)}
+                ? formatProgressPercent(task.progress)
+                : formatProgressPercent(f.completedBytes / Math.max(f.size, 1))}
               %
             </span>
           ) : null

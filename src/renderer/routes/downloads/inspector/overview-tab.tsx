@@ -12,7 +12,11 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
+import {
+  formatBytes,
+  formatDurationHMS,
+  formatProgressPercent,
+} from '@renderer/lib/format'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { canAttemptRetry } from '@shared/types/task-actions'
@@ -137,7 +141,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
           />
           <Row
             label={t('panel.downloads.inspector.overview.percent')}
-            value={`${Math.round(task.progress * 100)}%`}
+            value={`${formatProgressPercent(task.progress)}%`}
           />
         </Card>
         <Card title={t('panel.downloads.inspector.overview.network')}>

@@ -5,7 +5,7 @@ import {
   CommandItem,
   CommandList,
 } from '@renderer/components/ui/command'
-import { formatBytes } from '@renderer/lib/format'
+import { formatBytes, formatProgressPercent } from '@renderer/lib/format'
 import { TASK_TYPE_META, TASK_TYPE_ORDER } from '@renderer/lib/task-type-meta'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
@@ -153,7 +153,7 @@ export function FilterSearchPanel({
                       <span className="flex-1 truncate">{task.name}</span>
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {task.status === TaskStatus.Downloading
-                          ? `${Math.round(task.progress * 100)}%`
+                          ? `${formatProgressPercent(task.progress)}%`
                           : formatBytes(task.sizeWhenDone)}
                       </span>
                     </CommandItem>

@@ -1,4 +1,8 @@
-import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
+import {
+  formatBytes,
+  formatDurationHMS,
+  formatProgressPercent,
+} from '@renderer/lib/format'
 import type { DownloadTask, TaskStatus } from '@shared/types/task'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -71,7 +75,7 @@ export function MultiSelectionSummary({
         />
         <Row
           label={t('panel.downloads.inspector.multi.avgProgress')}
-          value={`${Math.round(agg.avgProgress * 100)}%`}
+          value={`${formatProgressPercent(agg.avgProgress)}%`}
         />
       </Card>
       <Card title={t('panel.downloads.inspector.multi.liveSpeed')}>

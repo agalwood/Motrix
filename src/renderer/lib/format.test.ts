@@ -1,6 +1,11 @@
 import { SUPPORTED_LOCALE_CODES } from '@shared/constants/locales'
 import { describe, expect, it } from 'vitest'
-import { formatByteParts, formatBytes, formatTime24Hour } from './format'
+import {
+  formatByteParts,
+  formatBytes,
+  formatProgressPercent,
+  formatTime24Hour,
+} from './format'
 
 describe('formatBytes', () => {
   it('preserves the existing number formatting contract', () => {
@@ -46,4 +51,19 @@ describe('formatTime24Hour', () => {
       )
     }
   )
+})
+
+describe('formatProgressPercent', () => {
+  it.each([0.9949, 0.995, 0.999, 1 - Number.EPSILON])(
+    'does not report 100%% while progress is %s',
+    (progress) => expect(formatProgressPercent(progress)).toBe(99)
+  )
+  it('reports full byte completion and handles invalid snapshots', () => {
+    expect(formatProgressPercent(1)).toBe(100)
+    expect(formatProgressPercent(1.01)).toBe(100)
+    for (const value of [NaN, Infinity, -Infinity, -1, 0]) {
+      expect(formatProgressPercent(value)).toBe(0)
+    }
+    expect(formatProgressPercent(0.426)).toBe(43)
+  })
 })
