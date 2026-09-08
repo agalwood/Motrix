@@ -3,6 +3,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from 'react'
@@ -38,6 +39,7 @@ interface UseSelectableListReturn<T> {
     items: T[]
     getId: (item: T) => string
     rowHeight: number
+    headerHeight: number
     scrollRef: React.RefObject<HTMLDivElement | null>
   }
   marqueeProps: {
@@ -67,23 +69,32 @@ export function useSelectableList<T>(
   const fallbackStore = useMemo(() => createSelectionStore<T>(getId), [])
   const store = options.store ?? fallbackStore
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     store.getState().setItems(items)
   }, [store, items])
 
-  useEffect(() => {
-    return store.subscribe((state, prev) => {
-      if (
-        state.focusedIndex !== null &&
-        state.focusedIndex !== prev.focusedIndex
-      ) {
-        listRef.current?.scrollToIndex(state.focusedIndex)
-      }
-    })
-  }, [store])
-
   const selectedIds = store((s) => s.selectedIds)
   const focusedIndex = store((s) => s.focusedIndex)
+
+  // Also reveal focus after a filtered list remounts. A store subscription
+  // alone misses the initial setItems reindex before its listener attaches.
+  useEffect(() => {
+    if (focusedIndex !== null) listRef.current?.scrollToIndex(focusedIndex)
+  }, [focusedIndex])
+
+  const hasItems = items.length > 0
+  useEffect(() => {
+    const container = listRef.current?.getContainerRef()
+    if (!hasItems || !container || typeof ResizeObserver === 'undefined') return
+    // Opening the inspector shrinks the scrollport without changing focus.
+    // Observe after the virtualizer so its viewport measurement is current.
+    const observer = new ResizeObserver(() => {
+      const index = store.getState().focusedIndex
+      if (index !== null) listRef.current?.scrollToIndex(index)
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [hasItems, store])
 
   const getRowProps = useCallback(
     (index: number): RowProps => {
@@ -191,7 +202,13 @@ export function useSelectableList<T>(
 
   return {
     listRef,
-    listProps: { items, getId, rowHeight, scrollRef: containerRef },
+    listProps: {
+      items,
+      getId,
+      rowHeight,
+      headerHeight,
+      scrollRef: containerRef,
+    },
     marqueeProps,
     selection: store,
     getRowProps,

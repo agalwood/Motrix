@@ -21,7 +21,7 @@ export function TaskColumnHeader({ headerCheckbox }: TaskColumnHeaderProps) {
   const { t } = useTranslation()
   return (
     <div
-      className="sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground"
+      className="sticky top-0 z-10 grid h-9 shrink-0 items-center gap-3 border-b border-border bg-background px-3 py-2 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground"
       style={{
         gridTemplateColumns: TASK_GRID_TEMPLATE,
         minWidth: TASK_GRID_MIN_WIDTH,

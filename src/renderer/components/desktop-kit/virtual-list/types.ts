@@ -4,6 +4,7 @@ export interface VirtualListProps<T> {
   items: T[]
   getId: (item: T) => string
   rowHeight: number
+  headerHeight?: number
   overscan?: number
   scrollRef?: RefObject<HTMLDivElement | null>
   renderRow: (props: RowRenderProps<T>) => ReactNode

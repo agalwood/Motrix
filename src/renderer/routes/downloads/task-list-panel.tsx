@@ -66,7 +66,7 @@ export function TaskListPanel({
       <VirtualList
         ref={listRef}
         {...listProps}
-        className="min-h-full"
+        className="min-h-0 flex-1"
         renderHeader={() => (
           <TaskColumnHeader headerCheckbox={headerCheckbox} />
         )}

@@ -347,7 +347,7 @@ async function presentActiveReference(
 test.describe('Task Inspector Activity', () => {
   test.setTimeout(180_000)
 
-  test('fits Activity inside the minimum 914 by 672 window without vertical scrolling', async ({
+  test('keeps Activity and the selected download reachable inside the minimum 914 by 672 window', async ({
     userDataDir,
   }) => {
     const { app, page } = await launchSeededApp(userDataDir)
@@ -387,7 +387,51 @@ test.describe('Task Inspector Activity', () => {
         })
 
       expect(geometry.overflowY).toBe('auto')
-      expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight)
+      expect(geometry.clientHeight).toBeGreaterThan(0)
+      const drawer = page.getByRole('dialog', {
+        name: 'Downloads',
+        exact: true,
+      })
+      const list = page.getByTestId('virtual-list-container')
+      const selected = page.getByRole('option', {
+        name: new RegExp(TASK_INSPECTOR_ACTIVITY_NAMES.rich),
+      })
+      await expect
+        .poll(() =>
+          selected.evaluate((element) => {
+            const list = element.closest(
+              '[data-testid="virtual-list-container"]'
+            )
+            if (!list?.firstElementChild) return false
+            const rect = element.getBoundingClientRect()
+            return (
+              rect.top >=
+                list.firstElementChild.getBoundingClientRect().bottom - 1 &&
+              rect.bottom <= list.getBoundingClientRect().bottom + 1
+            )
+          })
+        )
+        .toBe(true)
+      const listBox = await list.boundingBox()
+      const drawerBox = await drawer.boundingBox()
+      expect(listBox!.y + listBox!.height).toBeLessThanOrEqual(drawerBox!.y)
+      // The inspector owns overflow when the list needs part of the window.
+      const content = page.getByTestId('task-inspector-drawer-content')
+      await content.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+      })
+      await expect
+        .poll(() =>
+          content.evaluate(
+            (element) =>
+              element.scrollTop + element.clientHeight >=
+              element.scrollHeight - 1
+          )
+        )
+        .toBe(true)
+      expect(
+        await page.evaluate(() => document.documentElement.scrollHeight)
+      ).toBeLessThanOrEqual(viewport.height)
       expect(geometry.chartFrameLeft).toBeCloseTo(geometry.surfaceInnerLeft, 0)
       expect(geometry.chartFrameRight).toBeCloseTo(
         geometry.surfaceInnerRight,
