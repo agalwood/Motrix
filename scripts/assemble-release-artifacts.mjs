@@ -53,6 +53,7 @@ export const RELEASE_TARGETS = [
     assetNames: (version) => [
       `Motrix_${version}_amd64.deb`,
       `Motrix-${version}.x86_64.rpm`,
+      `Motrix-${version}-x64.pacman`,
       `Motrix-${version}-x86_64.AppImage`,
       `Motrix-${version}-x86_64.AppImage.zsync`,
       flatpakCompanionArchiveName(version, 'x64'),
@@ -60,6 +61,7 @@ export const RELEASE_TARGETS = [
     manifestAssetNames: (version) => [
       `Motrix_${version}_amd64.deb`,
       `Motrix-${version}.x86_64.rpm`,
+      `Motrix-${version}-x64.pacman`,
       `Motrix-${version}-x86_64.AppImage`,
     ],
     legacyAssetName: (version) => `Motrix_${version}_amd64.deb`,
@@ -71,6 +73,7 @@ export const RELEASE_TARGETS = [
     assetNames: (version) => [
       `Motrix_${version}_arm64.deb`,
       `Motrix-${version}.aarch64.rpm`,
+      `Motrix-${version}-aarch64.pacman`,
       `Motrix-${version}-arm64.AppImage`,
       `Motrix-${version}-arm64.AppImage.zsync`,
       flatpakCompanionArchiveName(version, 'arm64'),
@@ -78,6 +81,7 @@ export const RELEASE_TARGETS = [
     manifestAssetNames: (version) => [
       `Motrix_${version}_arm64.deb`,
       `Motrix-${version}.aarch64.rpm`,
+      `Motrix-${version}-aarch64.pacman`,
       `Motrix-${version}-arm64.AppImage`,
     ],
     legacyAssetName: (version) => `Motrix_${version}_arm64.deb`,
@@ -102,6 +106,7 @@ const RELEASE_ASSET_EXTENSIONS = [
   '.dmg',
   '.exe',
   '.rpm',
+  '.pacman',
   '.snap',
   '.tar.gz',
   '.zip',

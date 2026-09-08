@@ -202,6 +202,7 @@ jobs:
           tests/scripts/stage-server-app.test.ts
           tests/scripts/verify-electron-package.test.ts
           tests/scripts/verify-appimage-artifact.test.ts
+          tests/scripts/verify-pacman-artifact.test.ts
           tests/scripts/verify-container-publication.test.ts
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
@@ -462,6 +463,20 @@ jobs:
           --dir
           --publish never
 
+      - name: Install Arch packaging tools
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zstd libarchive-tools
+
+      - name: Build Arch package smoke
+        if: matrix.platform == 'linux'
+        run: >-
+          pnpm exec electron-builder
+          --linux pacman --${{ matrix.arch }}
+          --prepackaged "${{ matrix.app_path }}"
+          --publish never
+
       - name: Verify Electron package
         run: >-
           node scripts/verify-electron-package.mjs
@@ -469,6 +484,18 @@ jobs:
           --platform ${{ matrix.platform }}
           --arch ${{ matrix.arch }}
           --report "release/size-reports/${{ matrix.target }}.json"
+
+      - name: Verify Arch Linux package
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          node scripts/verify-pacman-artifact.mjs \
+            --dir release --version "$version" --arch ${{ matrix.arch }}
+
+      - name: Smoke test Arch Linux installation
+        if: matrix.target == 'linux-x64'
+        run: bash scripts/smoke-pacman-package.sh release
 
       - name: Verify Windows native host runtime imports
         if: matrix.platform == 'win32'

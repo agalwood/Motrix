@@ -142,7 +142,7 @@ jobs:
             platform: linux
             arch: x64
             rust_target: x86_64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm AppImage --x64
+            electron_builder_args: --linux deb rpm pacman AppImage --x64
             resources_dir: release/linux-unpacked/resources
             app_path: release/linux-unpacked
           - target: linux-arm64
@@ -150,7 +150,7 @@ jobs:
             platform: linux
             arch: arm64
             rust_target: aarch64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm AppImage --arm64
+            electron_builder_args: --linux deb rpm pacman AppImage --arm64
             resources_dir: release/linux-arm64-unpacked/resources
             app_path: release/linux-arm64-unpacked
           - target: win32-x64
@@ -193,7 +193,7 @@ jobs:
           # squashfs-tools provides `unsquashfs`, used by
           # verify-appimage-artifact.mjs to read the AppImage's embedded
           # desktop entry. zsync provides the canonical `zsyncmake` generator.
-          sudo apt-get install --yes rpm squashfs-tools zsync
+          sudo apt-get install --yes rpm squashfs-tools zsync zstd libarchive-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -394,13 +394,26 @@ jobs:
           shopt -s nullglob
           debs=(release/*.deb)
           rpms=(release/*.rpm)
+          pacmans=(release/*.pacman)
           appimages=(release/*.AppImage)
-          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#appimages[@]} != 1 )); then
-            echo "Expected one deb, rpm, and AppImage for ${{ matrix.target }}" >&2
+          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#pacmans[@]} != 1 || ${#appimages[@]} != 1 )); then
+            echo "Expected one deb, rpm, pacman, and AppImage for ${{ matrix.target }}" >&2
             exit 1
           fi
           dpkg-deb --info "${debs[0]}"
           rpm -qip "${rpms[0]}"
+
+      - name: Verify Arch Linux package
+        if: matrix.platform == 'linux'
+        run: >-
+          node scripts/verify-pacman-artifact.mjs
+          --dir release
+          --version "${{ needs.preflight.outputs.version }}"
+          --arch ${{ matrix.arch }}
+
+      - name: Smoke test Arch Linux installation
+        if: matrix.target == 'linux-x64'
+        run: bash scripts/smoke-pacman-package.sh release
 
       - name: Verify AppImage artifact
         if: matrix.platform == 'linux'
@@ -531,6 +544,7 @@ jobs:
             release/*.dmg
             release/*.exe
             release/*.rpm
+            release/*.pacman
             release/*.tar.gz
             release/latest*.yml
             release/size-reports/${{ matrix.target }}.json

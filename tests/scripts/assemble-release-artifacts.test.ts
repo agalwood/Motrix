@@ -52,6 +52,8 @@ describe('assembleReleaseArtifacts', () => {
         'Motrix-2.0.0-x86_64.AppImage.zsync',
         'Motrix-2.0.0.aarch64.rpm',
         'Motrix-2.0.0.x86_64.rpm',
+        'Motrix-2.0.0-x64.pacman',
+        'Motrix-2.0.0-aarch64.pacman',
         'Motrix-Native-Host-2.0.0-linux-arm64.tar.gz',
         'Motrix-Native-Host-2.0.0-linux-x64.tar.gz',
         'Motrix_2.0.0_amd64.deb',
@@ -94,8 +96,8 @@ describe('assembleReleaseArtifacts', () => {
       const linuxManifest = load(
         await readFile(path.join(fixture.output, manifestName), 'utf8')
       ) as { files: Array<{ url: string }> }
-      expect(linuxManifest.files).toHaveLength(3)
-      expect(new Set(linuxManifest.files.map((file) => file.url)).size).toBe(3)
+      expect(linuxManifest.files).toHaveLength(4)
+      expect(new Set(linuxManifest.files.map((file) => file.url)).size).toBe(4)
       expect(
         linuxManifest.files.some((file) => file.url.endsWith('.AppImage'))
       ).toBe(true)
@@ -526,6 +528,20 @@ describe('assembleReleaseArtifacts', () => {
     }
   })
 
+  it('rejects a missing Arch package before assembling a release', async () => {
+    const fixture = await createFixture()
+    await unlink(fixture.paths.linuxX64Pacman)
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow(
+      'required release asset Motrix-2.0.0-x64.pacman is missing'
+    )
+  })
+
   it('requires a zsync sidecar for every Linux AppImage', async () => {
     const fixture = await createFixture()
     await unlink(fixture.paths.linuxX64Zsync)
@@ -606,11 +622,13 @@ async function createFixture(version = VERSION) {
   await mkdir(input)
 
   const names = {
+    linuxArm64Pacman: `Motrix-${version}-aarch64.pacman`,
     linuxArm64Deb: `Motrix_${version}_arm64.deb`,
     linuxArm64Companion: `Motrix-Native-Host-${version}-linux-arm64.tar.gz`,
     linuxArm64Rpm: `Motrix-${version}.aarch64.rpm`,
     linuxArm64AppImage: `Motrix-${version}-arm64.AppImage`,
     linuxArm64Zsync: `Motrix-${version}-arm64.AppImage.zsync`,
+    linuxX64Pacman: `Motrix-${version}-x64.pacman`,
     linuxX64Deb: `Motrix_${version}_amd64.deb`,
     linuxX64Companion: `Motrix-Native-Host-${version}-linux-x64.tar.gz`,
     linuxX64Rpm: `Motrix-${version}.x86_64.rpm`,
@@ -625,6 +643,7 @@ async function createFixture(version = VERSION) {
   const linuxArm64AppImageContent = Buffer.from('Linux arm64 AppImage')
   const linuxX64AppImageContent = Buffer.from('Linux x64 AppImage')
   const contents = {
+    linuxArm64Pacman: Buffer.from('Linux arm64 pacman'),
     linuxArm64Deb: Buffer.from('Linux arm64 deb'),
     linuxArm64Companion: Buffer.from('Linux arm64 Flatpak companion'),
     linuxArm64Rpm: Buffer.from('Linux arm64 rpm'),
@@ -633,6 +652,7 @@ async function createFixture(version = VERSION) {
       names.linuxArm64AppImage,
       linuxArm64AppImageContent
     ),
+    linuxX64Pacman: Buffer.from('Linux x64 pacman'),
     linuxX64Deb: Buffer.from('Linux x64 deb'),
     linuxX64Companion: Buffer.from('Linux x64 Flatpak companion'),
     linuxX64Rpm: Buffer.from('Linux x64 rpm'),
@@ -699,6 +719,11 @@ async function createFixture(version = VERSION) {
   )
 
   const linuxX64 = await makeTarget(input, 'linux-x64')
+  const linuxX64Pacman = await writeAsset(
+    linuxX64,
+    names.linuxX64Pacman,
+    contents.linuxX64Pacman
+  )
   const linuxX64Deb = await writeAsset(
     linuxX64,
     names.linuxX64Deb,
@@ -729,6 +754,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxX64Deb, content: contents.linuxX64Deb },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
       { name: names.linuxX64AppImage, content: contents.linuxX64AppImage },
+      { name: names.linuxX64Pacman, content: contents.linuxX64Pacman },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
     names.linuxX64AppImage
@@ -740,12 +766,18 @@ async function createFixture(version = VERSION) {
       { name: names.linuxX64Deb, content: contents.linuxX64Deb },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
       { name: names.linuxX64AppImage, content: contents.linuxX64AppImage },
+      { name: names.linuxX64Pacman, content: contents.linuxX64Pacman },
       { name: names.linuxX64Rpm, content: contents.linuxX64Rpm },
     ],
     names.linuxX64AppImage
   )
 
   const linuxArm64 = await makeTarget(input, 'linux-arm64')
+  const linuxArm64Pacman = await writeAsset(
+    linuxArm64,
+    names.linuxArm64Pacman,
+    contents.linuxArm64Pacman
+  )
   const linuxArm64Deb = await writeAsset(
     linuxArm64,
     names.linuxArm64Deb,
@@ -779,6 +811,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
       { name: names.linuxArm64AppImage, content: contents.linuxArm64AppImage },
+      { name: names.linuxArm64Pacman, content: contents.linuxArm64Pacman },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
     names.linuxArm64AppImage
@@ -790,6 +823,7 @@ async function createFixture(version = VERSION) {
       { name: names.linuxArm64Deb, content: contents.linuxArm64Deb },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
       { name: names.linuxArm64AppImage, content: contents.linuxArm64AppImage },
+      { name: names.linuxArm64Pacman, content: contents.linuxArm64Pacman },
       { name: names.linuxArm64Rpm, content: contents.linuxArm64Rpm },
     ],
     names.linuxArm64AppImage
@@ -818,12 +852,14 @@ async function createFixture(version = VERSION) {
     names,
     output,
     paths: {
+      linuxArm64Pacman: linuxArm64Pacman.path,
       linuxArm64Deb: linuxArm64Deb.path,
       linuxArm64Companion: linuxArm64Companion.path,
       linuxArm64Manifest,
       linuxArm64Rpm: linuxArm64Rpm.path,
       linuxArm64AppImage: linuxArm64AppImage.path,
       linuxArm64Zsync: linuxArm64Zsync.path,
+      linuxX64Pacman: linuxX64Pacman.path,
       linuxX64Deb: linuxX64Deb.path,
       linuxX64Companion: linuxX64Companion.path,
       linuxX64AppImage: linuxX64AppImage.path,
