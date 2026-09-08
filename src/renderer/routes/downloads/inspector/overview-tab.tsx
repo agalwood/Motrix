@@ -14,6 +14,7 @@ import {
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import {
   formatBytes,
+  formatDateTime,
   formatDurationHMS,
   formatProgressPercent,
 } from '@renderer/lib/format'
@@ -51,7 +52,7 @@ function Row({
   value: string | number | React.ReactNode
 }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <span className="text-muted-foreground">{label}</span>
       {typeof value === 'string' || typeof value === 'number' ? (
         <span className="tabular-nums">{value}</span>
@@ -59,6 +60,32 @@ function Row({
         value
       )}
     </div>
+  )
+}
+
+function TaskTimestamp({
+  timestamp,
+  locale,
+}: {
+  timestamp: number | null
+  locale: string
+}) {
+  const date = timestamp !== null ? new Date(timestamp) : null
+  if (
+    timestamp === null ||
+    timestamp <= 0 ||
+    !date ||
+    !Number.isFinite(date.getTime())
+  ) {
+    return <span>—</span>
+  }
+  return (
+    <time
+      className="ml-auto text-right tabular-nums"
+      dateTime={date.toISOString()}
+    >
+      {formatDateTime(timestamp, locale)}
+    </time>
   )
 }
 
@@ -110,7 +137,7 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
 }
 
 export function OverviewTab({ task }: { task: DownloadTask }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
   return (
     <div className="flex flex-col gap-3">
@@ -167,7 +194,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
             />
           )}
         </Card>
-        <Card title={t('panel.downloads.inspector.overview.metadata')}>
+        <Card title={t('panel.downloads.inspector.overview.general')}>
           <Row
             label={t('panel.downloads.inspector.overview.type')}
             value={task.type.toUpperCase()}
@@ -197,6 +224,26 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
             <Row
               label={t('panel.downloads.inspector.overview.private')}
               value={task.bt.isPrivate ? '✓' : '—'}
+            />
+          )}
+          <Row
+            label={t('panel.downloads.inspector.overview.createdAt')}
+            value={
+              <TaskTimestamp
+                timestamp={task.createdAt}
+                locale={i18n.language}
+              />
+            }
+          />
+          {task.status === TaskStatus.Completed && (
+            <Row
+              label={t('panel.downloads.inspector.overview.finishedAt')}
+              value={
+                <TaskTimestamp
+                  timestamp={task.finishedAt}
+                  locale={i18n.language}
+                />
+              }
             />
           )}
         </Card>
