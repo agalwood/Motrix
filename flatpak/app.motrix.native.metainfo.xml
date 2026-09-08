@@ -74,6 +74,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.35" date="2026-09-08">
+      <description>
+        <p>
+          Improves download task controls, completion progress, and inspector
+          visibility, adds native Arch Linux packages, and links the published
+          Firefox extension.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.34" date="2026-09-08">
       <description>
         <p>
