@@ -6,7 +6,7 @@ import type { SettingsManager } from '@core/settings/settings-manager'
 import { RunMode } from '@shared/constants'
 import { Events } from '@shared/protocol/events'
 import type { AppSettings } from '@shared/types/settings'
-import { app, type Menu, Tray } from 'electron'
+import { app, type Menu, nativeTheme, Tray } from 'electron'
 import type { MenuManager } from '../menu/menu-manager'
 import { resolveDesktopBackgroundPolicy } from './desktop-background-policy'
 import type { createProtocolManager } from './protocol-manager'
@@ -178,6 +178,21 @@ export function setupTray(deps: TrayDeps): TrayHandle {
 
   // ─── EventBus Listeners ─────────────────────────────────
 
+  async function onNativeThemeUpdated() {
+    const currentTray = tray
+    const currentProvider = iconProvider
+    if (!currentTray || !currentProvider) return
+
+    try {
+      // Reload both states without clearing icons that other events may still use.
+      await currentProvider.init()
+      if (tray !== currentTray || iconProvider !== currentProvider) return
+      currentTray.setImage(currentProvider.getIcon(isActive))
+    } catch (err) {
+      log.error({ err }, 'tray theme refresh failed')
+    }
+  }
+
   function onSettingsChanged(payload: unknown) {
     const { old: oldSettings, updated } = payload as {
       old: AppSettings
@@ -259,6 +274,9 @@ export function setupTray(deps: TrayDeps): TrayHandle {
   eventBus.on(Events.SettingsChanged, onSettingsChanged)
   eventBus.on(Events.EngineActiveChanged, onEngineActiveChanged)
   eventBus.on(Events.StatsUpdated, onStatsUpdated)
+  if (process.platform === 'linux') {
+    nativeTheme.on('updated', onNativeThemeUpdated)
+  }
 
   log.info({ keepTray: policy.keepTray, runMode }, 'tray setup complete')
 
@@ -269,6 +287,9 @@ export function setupTray(deps: TrayDeps): TrayHandle {
       eventBus.off(Events.SettingsChanged, onSettingsChanged)
       eventBus.off(Events.EngineActiveChanged, onEngineActiveChanged)
       eventBus.off(Events.StatsUpdated, onStatsUpdated)
+      if (process.platform === 'linux') {
+        nativeTheme.off('updated', onNativeThemeUpdated)
+      }
       destroyTray()
       log.info('tray destroyed')
     },
