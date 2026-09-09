@@ -31,8 +31,8 @@ export interface TrayIconProvider {
 
 // ─── macOS: static PNG template icon ────────────────────────
 // Uses a pre-rendered PNG instead of runtime SVG→WASM→PNG rendering.
-// The dark variant (black on transparent) works as a macOS template image —
-// the system tints it automatically for light/dark mode.
+// The dark-background variant's alpha mask works as a macOS template image —
+// the system supplies the tint automatically for light/dark mode.
 // WASM is only loaded later if the speedometer is enabled.
 
 export function createMacOSIconProvider(
@@ -103,7 +103,8 @@ export function createLinuxIconProvider(
   let activeIcon: NativeImage | null = null
 
   function getThemePrefix(): string {
-    return nativeTheme.shouldUseDarkColors ? 'light' : 'dark'
+    // Asset names describe the background: dark uses white artwork and vice versa.
+    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   }
 
   return {

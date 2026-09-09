@@ -5,6 +5,7 @@ const {
   appDock,
   icon,
   iconProvider,
+  nativeThemeMock,
   speedometer,
   trayConstructor,
   trayInstance,
@@ -27,6 +28,7 @@ const {
       getIcon: vi.fn(),
       init: vi.fn(),
     },
+    nativeThemeMock: { on: vi.fn(), off: vi.fn() },
     speedometer: {
       destroy: vi.fn(),
       onSpeedChange: vi.fn(),
@@ -39,6 +41,7 @@ const {
 
 vi.mock('electron', () => ({
   app: { dock: appDock },
+  nativeTheme: nativeThemeMock,
   Tray: class {
     destroy = trayInstance.destroy
     on = trayInstance.on
@@ -114,9 +117,17 @@ function getTrayHandler(eventName: string): () => void {
   return handler as () => void
 }
 
+function getThemeUpdatedHandler(): () => Promise<void> {
+  const handler = nativeThemeMock.on.mock.calls.find(
+    ([event]) => event === 'updated'
+  )?.[1]
+  expect(handler).toBeTypeOf('function')
+  return handler as () => Promise<void>
+}
+
 describe('setupTray', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     iconProvider.getIcon.mockReturnValue(icon)
     iconProvider.init.mockResolvedValue(undefined)
   })
@@ -149,6 +160,89 @@ describe('setupTray', () => {
       expect(trayConstructor).toHaveBeenCalledWith(icon)
     })
 
+    handle.destroy()
+  })
+
+  it.each([false, true])(
+    'refreshes Linux icons on theme changes and preserves active=%s',
+    async (active) => {
+      Object.defineProperty(process, 'platform', { value: 'linux' })
+      const deps = createDeps()
+      const handle = setupTray(deps)
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+      const activeChanged = vi
+        .mocked(deps.eventBus.on)
+        .mock.calls.find(([event]) => event === Events.EngineActiveChanged)?.[1]
+      expect(activeChanged).toBeTypeOf('function')
+      activeChanged?.(active)
+      trayInstance.setImage.mockClear()
+
+      const updatedIcon = { kind: 'updated-theme-icon' }
+      iconProvider.getIcon.mockReturnValue(updatedIcon)
+      await getThemeUpdatedHandler()()
+
+      expect(iconProvider.init).toHaveBeenCalledTimes(2)
+      expect(iconProvider.getIcon).toHaveBeenLastCalledWith(active)
+      expect(trayInstance.setImage).toHaveBeenCalledExactlyOnceWith(updatedIcon)
+      expect(trayConstructor).toHaveBeenCalledOnce()
+      handle.destroy()
+    }
+  )
+
+  it.each(['darwin', 'win32'])(
+    'does not reload native tray icons for theme changes on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+      const handle = setupTray(createDeps())
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+      expect(nativeThemeMock.on).not.toHaveBeenCalled()
+      handle.destroy()
+      expect(nativeThemeMock.off).not.toHaveBeenCalled()
+    }
+  )
+
+  it('unsubscribes from theme updates when the Linux tray is destroyed', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const handle = setupTray(createDeps())
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    const onUpdated = getThemeUpdatedHandler()
+
+    handle.destroy()
+    expect(nativeThemeMock.off).toHaveBeenCalledExactlyOnceWith(
+      'updated',
+      onUpdated
+    )
+    await onUpdated()
+    expect(iconProvider.init).toHaveBeenCalledOnce()
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
+  })
+
+  it('does not apply a pending theme refresh to a destroyed tray', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const handle = setupTray(createDeps())
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    const pending = Promise.withResolvers<void>()
+    iconProvider.init.mockReturnValueOnce(pending.promise)
+
+    const refresh = getThemeUpdatedHandler()()
+    handle.destroy()
+    pending.resolve()
+    await refresh
+
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
+  })
+
+  it('keeps the existing icon if a Linux theme refresh fails', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const handle = setupTray(createDeps())
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    iconProvider.init.mockRejectedValueOnce(new Error('Image loading failed'))
+
+    await expect(getThemeUpdatedHandler()()).resolves.toBeUndefined()
+
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
     handle.destroy()
   })
 
