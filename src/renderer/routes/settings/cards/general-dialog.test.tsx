@@ -105,7 +105,7 @@ describe('<GeneralDialog>', () => {
       screen.queryByRole('switch', { name: /open at login/i })
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('switch', { name: /show main window at login/i })
+      screen.queryByRole('switch', { name: /show window at login/i })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('switch', { name: /confirm before quitting/i })
@@ -170,7 +170,7 @@ it('enables the login window preference with auto-launch and saves both dirty fi
   render(<GeneralDialog open onClose={() => {}} labelKey="" descKey="" />)
   await waitFor(() => screen.getByDisplayValue('/Users/me/Downloads'))
   const toggle = screen.getByRole('switch', {
-    name: /show main window at login/i,
+    name: /show window at login/i,
   })
   expect(toggle).toHaveAttribute('aria-disabled', 'true')
   expect(toggle).not.toBeChecked()

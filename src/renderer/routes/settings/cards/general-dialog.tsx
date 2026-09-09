@@ -151,7 +151,13 @@ export function GeneralDialog({
                           {t('settings.general.showMainWindowAtLogin')}
                         </FormLabel>
                         <FormDescription className="text-xs">
-                          {t('settings.general.showMainWindowAtLoginDesc')}
+                          {t('settings.general.showMainWindowAtLoginDesc', {
+                            mode: t(
+                              transport.platform === 'darwin'
+                                ? 'settings.appearance.runModeTray'
+                                : 'settings.appearance.runModeTrayDesktop'
+                            ),
+                          })}
                         </FormDescription>
                       </div>
                       <FormControl>
