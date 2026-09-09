@@ -34,6 +34,7 @@ class MockResizeObserver {
 const SETTINGS_FIXTURE = {
   app: {
     launchAtStartup: false,
+    showMainWindowAtLogin: false,
     defaultSaveDir: '/Users/me/Downloads',
     notifyOnComplete: true,
     notifyOnError: true,
@@ -101,7 +102,10 @@ describe('<GeneralDialog>', () => {
       ).toBeInTheDocument()
     )
     expect(
-      screen.queryByRole('switch', { name: /launch at startup/i })
+      screen.queryByRole('switch', { name: /open at login/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: /show main window at login/i })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('switch', { name: /confirm before quitting/i })
@@ -159,5 +163,22 @@ describe('<GeneralDialog>', () => {
       app: { launchAtStartup: true },
     })
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+it('enables the login window preference with auto-launch and saves both dirty fields', async () => {
+  render(<GeneralDialog open onClose={() => {}} labelKey="" descKey="" />)
+  await waitFor(() => screen.getByDisplayValue('/Users/me/Downloads'))
+  const toggle = screen.getByRole('switch', {
+    name: /show main window at login/i,
+  })
+  expect(toggle).toHaveAttribute('aria-disabled', 'true')
+  expect(toggle).not.toBeChecked()
+  await userEvent.click(screen.getByRole('switch', { name: /open at login/i }))
+  expect(toggle).not.toHaveAttribute('aria-disabled', 'true')
+  await userEvent.click(toggle)
+  await userEvent.click(screen.getByRole('button', { name: /save/i }))
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+    app: { launchAtStartup: true, showMainWindowAtLogin: true },
   })
 })

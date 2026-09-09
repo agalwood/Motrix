@@ -968,6 +968,8 @@
     "general": {
       "launchAtStartup": "Open at login",
       "launchAtStartupDesc": "Start Motrix automatically when you log in.",
+      "showMainWindowAtLogin": "Show main window at login",
+      "showMainWindowAtLoginDesc": "Show the main window when Motrix starts automatically at login. Tray-only mode keeps it hidden.",
       "defaultSaveDir": "Default download folder",
       "defaultSaveDirDesc": "New downloads land here unless overridden per-task.",
       "notifyOnComplete": "Notify when download completes",

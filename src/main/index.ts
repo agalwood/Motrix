@@ -1626,6 +1626,7 @@ async function initializeMainProcess(): Promise<void> {
     })
     const mainWindowPlan = resolveMainWindowStartupPlan({
       openedAtLogin: launcher.wasOpenedAtLogin,
+      showMainWindowAtLogin: settingsManager.getApp().showMainWindowAtLogin,
       runMode,
       releaseWhenHidden: backgroundPolicy.releaseMainWindowWhenHidden,
     })

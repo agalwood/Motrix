@@ -70,3 +70,16 @@ describe('appSettingsSchema', () => {
     ).toBe(true)
   })
 })
+
+it('keeps login launches hidden for existing and invalid settings', () => {
+  for (const value of [undefined, null, 'true', false]) {
+    expect(
+      appSettingsSchema.parse({ showMainWindowAtLogin: value })
+        .showMainWindowAtLogin
+    ).toBe(false)
+  }
+  expect(
+    appSettingsSchema.parse({ showMainWindowAtLogin: true })
+      .showMainWindowAtLogin
+  ).toBe(true)
+})
