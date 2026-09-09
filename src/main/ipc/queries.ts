@@ -43,6 +43,7 @@ import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspect
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { ipcMain, session } from 'electron'
+import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { CliToolService } from '../cli/cli-tool-service'
 import type { UpdateManager } from '../core/update-manager'
 import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
@@ -187,6 +188,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       getAppImageIntegrationView({
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
+
+    [Queries.GetAppImageNativeHostStatus]: async () =>
+      (await getAppImageNativeHost()?.inspect()) ?? { supported: false },
 
     [Queries.GetLinuxDefaultAssociations]: async () =>
       getLinuxDefaultAssociations(),

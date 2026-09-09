@@ -74,6 +74,7 @@ export const Queries = {
   // Linux AppImage desktop integration; returns `AppImageIntegrationView`
   // ({ supported: false } outside a packaged Linux AppImage).
   GetAppImageIntegrationStatus: 'query:getAppImageIntegrationStatus',
+  GetAppImageNativeHostStatus: 'query:getAppImageNativeHostStatus',
   GetLinuxDefaultAssociations: 'query:getLinuxDefaultAssociations',
   GetWindowsDefaultAssociations: 'query:getWindowsDefaultAssociations',
   GetApplicationMenu: 'query:getApplicationMenu',

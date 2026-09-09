@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import type { SettingsCardDialogProps } from '../card-types'
 import { AppImageIntegrationSection } from './appimage-integration-section'
+import { AppImageNativeHostSection } from './appimage-native-host-section'
 import { BrowserExtensionsSection } from './browser-extensions-section'
 import { CLIClientsSection } from './cli-clients-section'
 import { CliToolSection } from './cli-tool-section'
@@ -168,6 +169,7 @@ export function IntegrationDialog({
                   {t('settings.integration.browser.title')}
                 </h3>
                 <BrowserExtensionsSection />
+                {!isWeb && <AppImageNativeHostSection />}
               </section>
 
               <Separator />

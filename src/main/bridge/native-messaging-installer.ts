@@ -1,8 +1,9 @@
 import { execFile } from 'node:child_process'
-import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { dirname, join, posix } from 'node:path'
+import { chmod, lstat, mkdir, readFile, rm } from 'node:fs/promises'
+import { dirname, isAbsolute, join, posix } from 'node:path'
 import { promisify } from 'node:util'
 import writeFileAtomic from 'write-file-atomic'
+import type { AppImageNativeHost } from './appimage-native-host'
 
 const execFileAsync = promisify(execFile)
 
@@ -113,7 +114,8 @@ function isOwnedManifest(value: unknown, hostBinaryPath: string): boolean {
 export function computeManifestPaths(
   platform: Platform,
   home: string,
-  windowsRoamingAppData?: string
+  windowsRoamingAppData?: string,
+  env: NodeJS.ProcessEnv = {}
 ): ManifestPaths {
   if (platform === 'darwin') {
     return {
@@ -123,11 +125,19 @@ export function computeManifestPaths(
     }
   }
   if (platform === 'linux') {
+    const config =
+      env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME)
+        ? env.XDG_CONFIG_HOME
+        : `${home}/.config`
+    const chromeConfig =
+      env.CHROME_CONFIG_HOME && isAbsolute(env.CHROME_CONFIG_HOME)
+        ? env.CHROME_CONFIG_HOME
+        : config
     return {
-      chrome: `${home}/.config/google-chrome/NativeMessagingHosts/${MANIFEST_NAME}`,
-      chromium: `${home}/.config/chromium/NativeMessagingHosts/${MANIFEST_NAME}`,
+      chrome: `${chromeConfig}/google-chrome/NativeMessagingHosts/${MANIFEST_NAME}`,
+      chromium: `${chromeConfig}/chromium/NativeMessagingHosts/${MANIFEST_NAME}`,
       firefox: `${home}/.mozilla/native-messaging-hosts/${MANIFEST_NAME}`,
-      edge: `${home}/.config/microsoft-edge/NativeMessagingHosts/${MANIFEST_NAME}`,
+      edge: `${config}/microsoft-edge/NativeMessagingHosts/${MANIFEST_NAME}`,
     }
   }
   // win32: registry-based discovery. Use the resolved Roaming AppData known
@@ -230,6 +240,8 @@ async function regDeleteKey(
 }
 
 export interface InstallerOptions {
+  appImage?: AppImageNativeHost | null
+  env?: NodeJS.ProcessEnv
   /** Absolute path to the Native Messaging host executable. */
   hostBinaryPath: string
   /**
@@ -293,7 +305,12 @@ interface FirefoxManifest {
 export class NativeMessagingInstaller {
   constructor(private readonly opts: InstallerOptions) {}
 
+  get preserveOnStartupFailure(): boolean {
+    return this.opts.appImage != null
+  }
+
   async syncManifests(args: SyncArgs): Promise<void> {
+    if (this.opts.appImage) return this.opts.appImage.sync(args)
     if (this.opts.registrationMode === 'external') return
 
     await this.writeDevelopmentHostConfig()
@@ -301,7 +318,8 @@ export class NativeMessagingInstaller {
     const paths = computeManifestPaths(
       this.opts.platform,
       this.opts.manifestRoot,
-      this.opts.windowsRoamingAppData
+      this.opts.windowsRoamingAppData,
+      this.opts.env
     )
 
     const chromiumManifest: ChromiumManifest = {
@@ -344,12 +362,14 @@ export class NativeMessagingInstaller {
   }
 
   async unregister(): Promise<void> {
+    if (this.opts.appImage) return this.opts.appImage.suspend()
     if (this.opts.registrationMode === 'external') return
 
     const paths = computeManifestPaths(
       this.opts.platform,
       this.opts.manifestRoot,
-      this.opts.windowsRoamingAppData
+      this.opts.windowsRoamingAppData,
+      this.opts.env
     )
     const registryEntries = computeRegistryEntries(this.opts.platform, paths)
     const deleteRegistry = this.opts.registryDeleter ?? regDeleteKey
@@ -400,20 +420,43 @@ export class NativeMessagingInstaller {
   }
 
   private async writeJson(filePath: string, obj: object): Promise<void> {
-    if (
-      this.opts.platform === 'linux' &&
-      (await this.readManifest(filePath).then(isFlatpakCompanionManifest))
-    ) {
-      return
+    if (this.opts.platform === 'linux') {
+      try {
+        const stat = await lstat(filePath)
+        if (!stat.isFile() || stat.isSymbolicLink())
+          throw new Error('Native Messaging manifest conflict')
+        const existing = await this.readManifest(filePath)
+        if (isFlatpakCompanionManifest(existing)) return
+        if (!isOwnedManifest(existing, this.opts.hostBinaryPath))
+          throw new Error('Native Messaging manifest conflict')
+      } catch (error) {
+        if (
+          !(
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'ENOENT'
+          )
+        )
+          throw error
+      }
     }
     await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, JSON.stringify(obj, null, 2), 'utf-8')
+    await writeFileAtomic(filePath, JSON.stringify(obj, null, 2), {
+      mode: 0o600,
+    })
   }
 
   private async removeOwnedManifest(filePath: string): Promise<void> {
     if (this.opts.platform === 'win32') {
       await rm(filePath, { force: true })
       return
+    }
+    try {
+      if (!(await lstat(filePath)).isFile()) return
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+      throw error
     }
     const manifest = await this.readManifest(filePath)
     if (isOwnedManifest(manifest, this.opts.hostBinaryPath)) {
@@ -434,7 +477,7 @@ export class NativeMessagingInstaller {
         return null
       }
       // Malformed or unreadable files are not treated as owned during
-      // unregister. syncManifests may still repair them by overwriting.
+      // unregister. Linux sync also treats these as conflicts.
       return null
     }
   }

@@ -1,5 +1,43 @@
 # Bridge E2E — `motrix-cli` ↔ Electron / Server
 
+## AppImage browser cold launch
+
+`appimage-cold-launch.spec.ts` runs the real packaged AppImage and unpacked
+Chromium/Firefox extensions in temporary profiles. It enables browser launch
+through Settings, pairs through the UI, terminates the AppImage, verifies that
+its FUSE mount disappeared, reconnects with the original credentials, and checks
+the bytes of a real local download. It also moves the AppImage, repairs from its
+new location, and verifies disable, re-enable and removal preserve pairing.
+MBP1 and Native Messaging v1 are exercised without protocol substitutes.
+
+Use a native Linux test machine with FUSE, working unprivileged user namespaces,
+Xvfb and the ordinary host browsers downloaded by Playwright. The test preserves
+the packaged Electron fuses and browser sandbox. Snap/Flatpak browsers are outside
+this suite. Add `127.0.0.1 appimage.motrix.test` to the test machine's hosts file;
+the test requires that exact loopback resolution and never downloads public data.
+
+Build this AppImage through the normal build/staging/electron-builder path and
+build the companion extension from `motrixapp/motrix-extension` with
+`pnpm build:chromium` and `pnpm build:firefox`. Set absolute artifact paths:
+
+```bash
+pnpm exec playwright install --with-deps chromium firefox
+MOTRIX_APPIMAGE_ARTIFACT=/path/to/Motrix.AppImage \
+MOTRIX_EXTENSION_BUILD=/path/to/extension/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/path/to/extension/dist/firefox \
+xvfb-run -a pnpm test:e2e --config e2e/bridge/appimage.playwright.config.ts
+```
+
+Chromium is required by the dedicated config; omit the Firefox build to skip
+that leg. `MOTRIX_CHROMIUM_EXECUTABLE` selects another ordinary Chromium browser
+binary for a separate compatibility run. Record the actual browser, architecture
+and artifact revisions with the result; one architecture does not certify another.
+Tests remove their profiles and registrations. Remove the hosts-file fixture
+after testing. Traces, screenshots and video are disabled so pairing passwords
+cannot enter artifacts.
+
+---
+
 End-to-end acceptance for the **MDXP bridge** as exercised by the real
 [`motrix` CLI](https://github.com/motrixapp/cli) — the published `@motrix/cli`
 npm package, consumed here as a devDependency — covering the two halves the

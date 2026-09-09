@@ -2479,8 +2479,10 @@ async function initializeMainProcess(): Promise<void> {
       pluginHost: pluginHost!,
     })
   }
-  bridgeManager = new BridgeManager(createBridgeRuntime, () =>
-    nativeMessagingInstaller.unregister()
+  bridgeManager = new BridgeManager(
+    createBridgeRuntime,
+    () => nativeMessagingInstaller.unregister(),
+    !nativeMessagingInstaller.preserveOnStartupFailure
   )
 
   const registryClient = new RegistryClient({

@@ -76,6 +76,7 @@ import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-
 import type { TorrentParser } from '@core/torrent/torrent-parser'
 import type { TrackerManager } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
+import nativeMessagingExtensions from '@shared/config/native-messaging-extensions.json'
 import { AppError, ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
@@ -86,6 +87,7 @@ import {
   taskCreateRequestSchema,
   torrentBatchCreateOptionsSchema,
 } from '@shared/schemas/add-task'
+import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
 import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
@@ -114,6 +116,7 @@ import {
   shell,
 } from 'electron'
 import { z } from 'zod'
+import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { BridgeManager } from '../bridge/bridge-manager'
 import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
@@ -1232,6 +1235,23 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       enableAppImageIntegrationFromSettings({
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
+
+    [Commands.ConfigureAppImageNativeHost]: async (raw: unknown) => {
+      const action = appImageNativeHostActionSchema.parse(raw)
+      const registry = bridgeManager.current?.registry
+      return (
+        (await getAppImageNativeHost()?.configure(
+          action,
+          registry
+            ? {
+                chromium: registry.listManifestIds('chromium'),
+                firefox: registry.listManifestIds('firefox'),
+              }
+            : nativeMessagingExtensions,
+          settingsManager.getApp().browserBridgeEnabled
+        )) ?? { supported: false }
+      )
+    },
 
     [Commands.RemoveAppImageIntegration]: async () =>
       removeAppImageIntegrationFromSettings({
