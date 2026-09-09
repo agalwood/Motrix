@@ -214,6 +214,7 @@ export interface EngineSettings {
 
 export interface MotrixAppSettings {
   launchAtStartup: boolean
+  showMainWindowAtLogin: boolean
   theme: 'system' | 'light' | 'dark'
   reduceMotion: boolean
   language: SupportedLocale

@@ -16,6 +16,7 @@ export const magnetFileSelectionTimeoutSecondsSchema = z
 
 export const appSettingsSchema = z.object({
   launchAtStartup: z.boolean().catch(false),
+  showMainWindowAtLogin: z.boolean().catch(false),
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   reduceMotion: z.boolean().catch(false),
   language: supportedLocaleSchema.catch(DEFAULT_LOCALE),

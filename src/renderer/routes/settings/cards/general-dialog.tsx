@@ -31,6 +31,7 @@ import type { SettingsCardDialogProps } from './card-types'
 type GeneralFields = Pick<
   MotrixAppSettings,
   | 'launchAtStartup'
+  | 'showMainWindowAtLogin'
   | 'defaultSaveDir'
   | 'notifyOnComplete'
   | 'notifyOnError'
@@ -43,6 +44,7 @@ type GeneralFields = Pick<
 // fields it edits. Keep this Pick<> in sync if the schema fields change.
 const DEFAULTS: GeneralFields = {
   launchAtStartup: DEFAULT_APP_SETTINGS.launchAtStartup,
+  showMainWindowAtLogin: DEFAULT_APP_SETTINGS.showMainWindowAtLogin,
   defaultSaveDir: DEFAULT_APP_SETTINGS.defaultSaveDir,
   notifyOnComplete: DEFAULT_APP_SETTINGS.notifyOnComplete,
   notifyOnError: DEFAULT_APP_SETTINGS.notifyOnError,
@@ -71,6 +73,7 @@ export function GeneralDialog({
         if (all?.app) {
           form.reset({
             launchAtStartup: all.app.launchAtStartup,
+            showMainWindowAtLogin: all.app.showMainWindowAtLogin,
             defaultSaveDir: all.app.defaultSaveDir,
             notifyOnComplete: all.app.notifyOnComplete,
             notifyOnError: all.app.notifyOnError,
@@ -128,6 +131,38 @@ export function GeneralDialog({
                       </div>
                       <FormControl>
                         <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {!isWeb && (
+                <FormField
+                  control={form.control}
+                  name="showMainWindowAtLogin"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <FormLabel>
+                          {t('settings.general.showMainWindowAtLogin')}
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          {t('settings.general.showMainWindowAtLoginDesc', {
+                            mode: t(
+                              transport.platform === 'darwin'
+                                ? 'settings.appearance.runModeTray'
+                                : 'settings.appearance.runModeTrayDesktop'
+                            ),
+                          })}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          disabled={!form.watch('launchAtStartup')}
                           checked={field.value}
                           onCheckedChange={field.onChange}
                         />

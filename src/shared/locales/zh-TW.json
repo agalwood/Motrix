@@ -955,6 +955,8 @@
     "general": {
       "launchAtStartup": "登入時開啟",
       "launchAtStartupDesc": "登入時自動啟動 Motrix。",
+      "showMainWindowAtLogin": "登入時顯示視窗",
+      "showMainWindowAtLoginDesc": "選擇「{{mode}}」時不顯示。",
       "defaultSaveDir": "預設下載資料夾",
       "defaultSaveDirDesc": "除非個別任務另有指定，新的下載會儲存在這裡。",
       "notifyOnComplete": "下載完成時通知",
