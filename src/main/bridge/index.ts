@@ -383,7 +383,7 @@ export async function bootstrapBridge(args: {
     typeof BridgeReceiver
   >[0]['isMagnetFileSelectionEnabled']
   finalNamePicker: { pick(saveDir: string, desired: string): Promise<string> }
-  defaultSaveDir: string
+  getDefaultSaveDir: BridgeReceiverDeps['getDefaultSaveDir']
   // Spec 3 — v1 READ methods over the unary POST /mdxp transport.
   readHandlerDeps: ReadHandlerDeps
   // Spec 4 — v1 WRITE methods (pause/resume/remove/add).
@@ -550,7 +550,7 @@ export async function bootstrapBridge(args: {
       args.pluginHost
     )
     const receiver = new BridgeReceiver({
-      defaultSaveDir: args.defaultSaveDir,
+      getDefaultSaveDir: args.getDefaultSaveDir,
       pickName: (saveDir, desired) =>
         args.finalNamePicker.pick(saveDir, desired),
       createTask: (req, _deps, options) =>

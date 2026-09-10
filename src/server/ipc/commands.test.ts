@@ -14,7 +14,7 @@ import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { MotrixDatabase } from '@core/session/motrix-database'
-import type { SettingsManager } from '@core/settings/settings-manager'
+import { SettingsManager } from '@core/settings/settings-manager'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { TaskManager } from '@core/task/task-manager'
@@ -430,6 +430,8 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
       '/downloads/new'
     )
+    expect(ctx.bridgeControl.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeControl.setEnabled).not.toHaveBeenCalled()
   })
 
   it('hot-applies the browser bridge master switch', async () => {
@@ -679,6 +681,29 @@ describe('server Commands.UpdateSettings', () => {
     })
 
     expect(ctx.trackerManager.applySyncScheduleChange).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a disallowed save directory before committing or changing the bridge', async () => {
+    const ctx = makeFakeCtx()
+    const oldSettings = new SettingsManager('/unused-settings.json').get()
+    oldSettings.app.defaultSaveDir = '/downloads/old'
+    vi.mocked(ctx.settingsManager.get).mockReturnValue(oldSettings)
+    vi.mocked(ctx.downloadPathPolicy.prepareSaveDir).mockRejectedValue(
+      new Error('outside allowed roots')
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.UpdateSettings]?.({
+        app: { defaultSaveDir: '/outside' },
+      })
+    ).rejects.toThrow('outside allowed roots')
+    expect(ctx.settingsManager.update).not.toHaveBeenCalled()
+    expect(ctx.settingsManager.get().app.defaultSaveDir).toBe('/downloads/old')
+    expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+    expect(ctx.bridgeControl.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeControl.setEnabled).not.toHaveBeenCalled()
   })
 
   it('validates a default save directory before persisting settings', async () => {

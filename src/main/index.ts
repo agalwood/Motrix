@@ -2427,7 +2427,7 @@ async function initializeMainProcess(): Promise<void> {
       isMagnetFileSelectionEnabled: () =>
         settingsManager.getApp().magnetFileSelection,
       finalNamePicker,
-      defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+      getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
       readHandlerDeps: {
         taskManager,
         statsAggregator,

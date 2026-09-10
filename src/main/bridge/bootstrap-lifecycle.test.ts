@@ -18,8 +18,13 @@ import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
+import * as taskCreation from '@core/task/create-task-handler'
 import type { BridgeStatusInfo } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
+import {
+  makeDirectSubmit,
+  makeExtensionContext,
+} from '@test-utils/bridge-receiver'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NativeMessagingInstaller } from './native-messaging-installer'
 
@@ -93,7 +98,7 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
     submitMagnetForFileSelection: vi.fn(async () => 'magnet'),
     isMagnetFileSelectionEnabled: vi.fn(() => false),
     finalNamePicker: { pick: vi.fn(async (_dir, desired) => desired) },
-    defaultSaveDir: '/downloads',
+    getDefaultSaveDir: () => '/downloads',
     readHandlerDeps: {
       taskManager: { getAll: () => [], getById: () => undefined },
       statsAggregator: {
@@ -184,6 +189,41 @@ describe('desktop bridge bootstrap ownership', () => {
   afterEach(async () => {
     vi.restoreAllMocks()
     await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  it('uses the current directory through the registered submit handler without restarting', async () => {
+    let directory = '/downloads/old'
+    const getDefaultSaveDir = vi.fn(() => directory)
+    const createTask = vi
+      .spyOn(taskCreation, 'handleCreateTask')
+      .mockResolvedValue({ outcome: 'created', gid: 'gid', taskId: 'task' })
+    const registration = vi.spyOn(
+      WebSocketBridgeServer.prototype,
+      'setHandlers'
+    )
+    const runtime = await bootstrapBridge({ ...args(), getDefaultSaveDir })
+    if (!runtime) throw new Error('bridge did not start')
+    try {
+      const submit = registration.mock.calls[0]?.[0].submitDownload
+      if (!submit) throw new Error('submit handler missing')
+      expect(getDefaultSaveDir).not.toHaveBeenCalled()
+      await submit(makeDirectSubmit('before-change'), makeExtensionContext())
+      directory = '/downloads/new'
+      await submit(makeDirectSubmit('after-change'), makeExtensionContext())
+      expect(createTask.mock.calls[0]?.[0]).toMatchObject({
+        saveDir: '/downloads/old',
+      })
+      expect(createTask.mock.calls[1]?.[0]).toMatchObject({
+        saveDir: '/downloads/new',
+      })
+      expect(getDefaultSaveDir).toHaveBeenCalledTimes(2)
+      expect(
+        WebSocketBridgeServer.prototype.startOnFirstFree
+      ).toHaveBeenCalledOnce()
+      expect(WebSocketBridgeServer.prototype.stop).not.toHaveBeenCalled()
+    } finally {
+      await runtime.shutdown()
+    }
   })
 
   it('acquires the data-root lock before the first bridge store load', async () => {

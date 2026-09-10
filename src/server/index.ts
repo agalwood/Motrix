@@ -1871,7 +1871,7 @@ async function main() {
         trustedExtensionRegistry,
         createExtensionReceiver: ({ bridgeBus }) =>
           new BridgeReceiver({
-            defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+            getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
             pickName: (saveDir, desired) =>
               finalNamePicker.pick(saveDir, desired),
             createTask: (request, _deps, options) =>

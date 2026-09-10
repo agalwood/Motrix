@@ -23,7 +23,7 @@ function fakeDeps(
   over: Partial<ConstructorParameters<typeof BridgeReceiver>[0]> = {}
 ) {
   return {
-    defaultSaveDir: '/tmp/save',
+    getDefaultSaveDir: () => '/tmp/save',
     pickName: async (_d: string, n: string) => n,
     createTask: vi.fn(async () => ({ gid: 'gid-1', taskId: 'task-abc' })),
     removeTask: vi.fn(async () => {}),

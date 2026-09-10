@@ -1705,6 +1705,8 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
       '/downloads/new'
     )
+    expect(ctx.bridgeManager.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeManager.setEnabled).not.toHaveBeenCalled()
   })
 
   it('saves restart-required settings and publishes a reminder without restarting', async () => {

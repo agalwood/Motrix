@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubmitDownloadAdapter } from './submit-download-adapter'
 
 describe('SubmitDownloadAdapter.adapt', () => {
@@ -49,7 +49,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   const adapter = (overrides: Partial<{ defaultSaveDir: string }> = {}) =>
     new SubmitDownloadAdapter({
-      defaultSaveDir: overrides.defaultSaveDir ?? '/tmp/save',
+      getDefaultSaveDir: () => overrides.defaultSaveDir ?? '/tmp/save',
       pickName: async (_dir, n) => n,
       mintTaskId: () => 'task-1',
     })
@@ -160,7 +160,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts an hls selection (was unsupported-kind)', async () => {
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
     })
@@ -195,7 +195,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts a dash selection', async () => {
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
     })
@@ -230,7 +230,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts a mux selection into video/audio urls', async () => {
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
     })
@@ -265,7 +265,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('hls: appends the container extension BEFORE the dedup pick', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
         return n
@@ -296,7 +296,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('mux: appends the container extension BEFORE the dedup pick (mkv)', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
         return n
@@ -328,7 +328,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('mux: trusts an existing known media extension rather than double-appending', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
         return n
@@ -402,4 +402,89 @@ describe('SubmitDownloadAdapter.adapt', () => {
       durationSec: 360,
     })
   })
+})
+
+describe('per-submission directory snapshots', () => {
+  const primary = {
+    url: 'https://example.com/media',
+    headers: {},
+    cookies: [],
+    refererPolicy: 'strict-origin-when-cross-origin',
+  }
+  const selections: DownloadSubmitParams['selection'][] = [
+    { kind: 'direct', primary },
+    {
+      kind: 'magnet',
+      uri: 'magnet:?xt=urn:btih:0123456789012345678901234567890123456789',
+    },
+    { kind: 'hls', primary, container: 'mp4' },
+    { kind: 'dash', primary, container: 'mp4' },
+    { kind: 'mux', video: primary, audio: primary, container: 'mp4' },
+  ]
+  const params = (
+    selection: DownloadSubmitParams['selection']
+  ): DownloadSubmitParams => ({
+    source: {
+      pageUrl: 'https://example.com/',
+      pageTitle: 'Fixture',
+      detectedAt: 1,
+    },
+    meta: { suggestedFilename: 'media', qualityLabel: 'source' },
+    selection,
+  })
+  const input = { extensionId: 'test', browser: 'chromium' as const }
+
+  for (const selection of selections) {
+    it(`reads current settings for each ${selection.kind} submission`, async () => {
+      let currentDir = '/old'
+      const getDefaultSaveDir = vi.fn(() => currentDir)
+      const pickName = vi.fn(async (_dir: string, name: string) => name)
+      const adapter = new SubmitDownloadAdapter({
+        getDefaultSaveDir,
+        pickName,
+        mintTaskId: () => 'task',
+      })
+      expect(getDefaultSaveDir).not.toHaveBeenCalled()
+      for (const dir of ['/old', '/new', '/third']) {
+        currentDir = dir
+        const adapted = await adapter.adapt(params(selection), input)
+        expect(adapted.saveDir).toBe(dir)
+        if (selection.kind !== 'magnet') {
+          expect(pickName).toHaveBeenLastCalledWith(
+            dir,
+            selection.kind === 'direct' ? 'media' : 'media.mp4'
+          )
+        }
+      }
+      expect(getDefaultSaveDir).toHaveBeenCalledTimes(3)
+    })
+
+    if (selection.kind === 'magnet') continue
+    it(`keeps the ${selection.kind} directory stable while name selection is pending`, async () => {
+      let currentDir = '/old'
+      const getDefaultSaveDir = vi.fn(() => currentDir)
+      const gate = Promise.withResolvers<string>()
+      const pickName = vi
+        .fn(async (_dir: string, name: string) => name)
+        .mockImplementationOnce(() => gate.promise)
+      const adapter = new SubmitDownloadAdapter({
+        getDefaultSaveDir,
+        pickName,
+        mintTaskId: () => 'task',
+      })
+      const pending = adapter.adapt(params(selection), input)
+      expect(pickName).toHaveBeenCalledOnce()
+      currentDir = '/new'
+      gate.resolve('chosen.mp4')
+      expect(await pending).toMatchObject({
+        saveDir: '/old',
+        finalName: 'chosen.mp4',
+      })
+      expect(getDefaultSaveDir).toHaveBeenCalledOnce()
+      expect(await adapter.adapt(params(selection), input)).toMatchObject({
+        saveDir: '/new',
+      })
+      expect(getDefaultSaveDir).toHaveBeenCalledTimes(2)
+    })
+  }
 })
