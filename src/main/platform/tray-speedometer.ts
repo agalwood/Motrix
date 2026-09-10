@@ -8,7 +8,7 @@ import type { NativeImage, Tray } from 'electron'
 import { nativeImage } from 'electron'
 import { formatSpeed } from './tray-icon'
 
-// ─── SVG Layout (@2x pixels, scaleFactor 2 → 79×22 pt) ─────
+// ─── SVG Layout (@2x pixels, scaleFactor 2 → 71×22 pt) ─────
 //
 //  ┌─────────────────────────────────┐
 //  │  ┌──────┐          1.2 MB/s    │
@@ -16,9 +16,9 @@ import { formatSpeed } from './tray-icon'
 //  │  │36×36 │     (right-aligned)  │
 //  │  └──────┘                      │
 //  └─────────────────────────────────┘
-//    0    40  46                  158
+//    0    40  46                  142
 
-const SVG_WIDTH = 158
+const SVG_WIDTH = 142 // 4pt wider than the original to fit IEC unit labels
 const SVG_HEIGHT = 44
 const ICON_SIZE = 32
 const ICON_SCALE = ICON_SIZE / 32 // tray.svg is 32×32

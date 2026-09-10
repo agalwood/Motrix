@@ -1,10 +1,37 @@
 import path from 'node:path'
+import {
+  type ByteUnitSystem,
+  DEFAULT_BYTE_UNIT_SYSTEM,
+} from '@shared/schemas/byte-unit-system'
 import type { NativeImage } from 'electron'
 import { nativeImage, nativeTheme } from 'electron'
 
 // ─── formatSpeed (exported for testing) ─────────────────────
 
-export { formatSpeed } from '@shared/utils/format-bytes'
+const UNITS = {
+  decimal: ['KB/s', 'MB/s', 'GB/s', 'TB/s'],
+  binary: ['KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'],
+} as const
+
+export function formatSpeed(
+  bytes: number,
+  unitSystem: ByteUnitSystem = DEFAULT_BYTE_UNIT_SYSTEM
+): string {
+  const base = unitSystem === 'binary' ? 1024 : 1000
+  const units = UNITS[unitSystem]
+  // The tray keeps its compact presentation: minimum KB/s or KiB/s.
+  let value = bytes / base
+  let unitIndex = 0
+
+  while (value >= base && unitIndex < units.length - 1) {
+    value /= base
+    unitIndex++
+  }
+
+  // KB/s or KiB/s: no decimal; MB/s or MiB/s and above: one decimal.
+  if (unitIndex === 0) return `${Math.round(value)} ${units[unitIndex]}`
+  return `${value.toFixed(1)} ${units[unitIndex]}`
+}
 
 // ─── TrayIconProvider interface ─────────────────────────────
 
