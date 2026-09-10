@@ -53,7 +53,7 @@ export function serializeCookieHeader(
 }
 
 export interface BridgeReceiverDeps {
-  defaultSaveDir: string
+  getDefaultSaveDir: AdapterDeps['getDefaultSaveDir']
   pickName: AdapterDeps['pickName']
   createTask: ConstructorParameters<typeof DirectPipeline>[0]['createTask']
   removeTask: ConstructorParameters<typeof DirectPipeline>[0]['removeTask']
@@ -188,7 +188,7 @@ export class BridgeReceiver {
 
   constructor(private readonly deps: BridgeReceiverDeps) {
     this.adapter = new SubmitDownloadAdapter({
-      defaultSaveDir: deps.defaultSaveDir,
+      getDefaultSaveDir: deps.getDefaultSaveDir,
       pickName: deps.pickName,
       mintTaskId: newTaskId,
     })

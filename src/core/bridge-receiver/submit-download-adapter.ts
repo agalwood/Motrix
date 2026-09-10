@@ -7,8 +7,8 @@ import { stripHopByHopHeaders } from './header-replay'
 import { ensureMediaExtension } from './pipelines/media-final-name'
 
 export interface AdapterDeps {
-  /** appSettings.defaultSaveDir; used when client did not specify saveDir. */
-  defaultSaveDir: string
+  /** Read the current receiver-side default directory for each submission. */
+  getDefaultSaveDir: () => string
   /** FinalNamePicker shim — wraps existing picker so tests can stub. */
   pickName: (saveDir: string, desired: string) => Promise<string>
   /** newTaskId injection — defaults to a uuid mint in production wiring. */
@@ -112,11 +112,13 @@ export class SubmitDownloadAdapter {
     }
 
     const { selection, source, meta } = params
+    // Keep name selection and every async pipeline step in the same directory.
+    const saveDir = this.deps.getDefaultSaveDir()
 
     if (selection.kind === 'magnet') {
       return {
         kind: 'magnet',
-        saveDir: this.deps.defaultSaveDir,
+        saveDir,
         uri: selection.uri,
         sourceMeta: this.makeSourceMeta('magnet', input, source, meta),
       }
@@ -128,7 +130,7 @@ export class SubmitDownloadAdapter {
       // name must be the name that lands on disk, or the collision counter
       // is computed against a string that never exists.
       const finalName = await this.deps.pickName(
-        this.deps.defaultSaveDir,
+        saveDir,
         ensureMediaExtension(
           sanitizeFilename(meta.suggestedFilename),
           selection.container
@@ -137,7 +139,7 @@ export class SubmitDownloadAdapter {
       const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
       const base = {
         taskId,
-        saveDir: this.deps.defaultSaveDir,
+        saveDir,
         finalName,
         manifestUrl: selection.primary.url,
         sanitizedHeaders,
@@ -162,7 +164,7 @@ export class SubmitDownloadAdapter {
       const taskId = this.deps.mintTaskId()
       // Same as hls/dash: extension first, then the dedup pick.
       const finalName = await this.deps.pickName(
-        this.deps.defaultSaveDir,
+        saveDir,
         ensureMediaExtension(
           sanitizeFilename(meta.suggestedFilename),
           selection.container
@@ -171,7 +173,7 @@ export class SubmitDownloadAdapter {
       return {
         kind: 'mux',
         taskId,
-        saveDir: this.deps.defaultSaveDir,
+        saveDir,
         finalName,
         videoUrl: selection.video.url,
         audioUrl: selection.audio.url,
@@ -186,7 +188,6 @@ export class SubmitDownloadAdapter {
     const primaryUrl = selection.primary.url
     const sanitized = sanitizeFilename(meta.suggestedFilename)
     const taskId = this.deps.mintTaskId()
-    const saveDir = this.deps.defaultSaveDir
     const finalName = await this.deps.pickName(saveDir, sanitized)
     const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
 
