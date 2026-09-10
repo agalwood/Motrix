@@ -63,8 +63,6 @@ describe('MultiSelectionSummary', () => {
       />
     )
     expect(screen.getByText(/totals/i)).toBeInTheDocument()
-    // formatBytes(8_000_000_000) = "7.5 GB" (1024-base, value.toFixed(1))
-    // Math: 8e9 / 1024^3 = 7.4506, toFixed(1) = "7.5"
-    expect(screen.getByText(/7\.5 GB/)).toBeInTheDocument()
+    expect(screen.getByText(/8\.00 GB/)).toBeInTheDocument()
   })
 })

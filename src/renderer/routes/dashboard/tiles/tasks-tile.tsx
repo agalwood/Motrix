@@ -1,10 +1,11 @@
 import { Button } from '@renderer/components/ui/button'
 import { Progress } from '@renderer/components/ui/progress'
 import { Skeleton } from '@renderer/components/ui/skeleton'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useMinuteClock } from '@renderer/hooks/use-minute-clock'
 import { useTaskList } from '@renderer/hooks/use-task-list'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import { formatBytes } from '@renderer/lib/format'
+
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { formatRelativeTime } from '@renderer/lib/relative-time'
 import { TASK_TYPE_META } from '@renderer/lib/task-type-meta'
@@ -162,6 +163,8 @@ function TaskRow({
   onOpen(task: DownloadTask): void
   onFocusedRowRemoved(): void
 }) {
+  const { formatBytes, formatSpeed } = useByteFormat()
+
   const { t, i18n } = useTranslation()
   const descriptionId = useId()
   const buttonRef = useRef<HTMLButtonElement | null>(null)
@@ -205,7 +208,7 @@ function TaskRow({
     switch (task.status) {
       case TaskStatus.Downloading:
         presentation = {
-          primary: engineOnline ? `${formatBytes(task.downloadSpeed)}/s` : '—',
+          primary: engineOnline ? formatSpeed(task.downloadSpeed) : '—',
           secondary: engineOnline
             ? `${statusLabel} · ${t('panel.dashboard.tasks.secondary.eta', {
                 time: formatEta(task.etaSeconds, i18n.language),
@@ -243,7 +246,7 @@ function TaskRow({
         break
       case TaskStatus.Seeding:
         presentation = {
-          primary: engineOnline ? `${formatBytes(task.uploadSpeed)}/s` : '—',
+          primary: engineOnline ? formatSpeed(task.uploadSpeed) : '—',
           secondary: engineOnline
             ? task.bt
               ? `${statusLabel} · ${t('panel.dashboard.tasks.secondary.ratio', {

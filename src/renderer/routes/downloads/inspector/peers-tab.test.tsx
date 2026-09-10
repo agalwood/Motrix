@@ -138,7 +138,7 @@ describe('PeerRow', () => {
     )
     // upSpeed > 0 → shows formatted bytes; downSpeed = 0 → dash
     expect(container.textContent).toContain('—')
-    expect(container.textContent).toContain('16.0 KB/s')
+    expect(container.textContent).toContain('16.4 KB/s')
   })
 
   it('renders the country flag and code when showCountry is true and peer.country is present', () => {

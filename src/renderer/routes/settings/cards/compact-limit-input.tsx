@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import { Infinity as InfinityIcon, RotateCcw } from 'lucide-react'
-import { type ComponentProps, forwardRef } from 'react'
+import { type ComponentProps, forwardRef, useState } from 'react'
 
 type ZeroAction = 'unlimited' | 'inherit'
 
@@ -41,10 +41,15 @@ export const CompactLimitInput = forwardRef<
     resetLabel,
     zeroAction = 'unlimited',
     onKeyDown,
+    onBlur,
     ...props
   },
   ref
 ) {
+  // Preserve partial decimals while editing; the parent rounds to whole bytes.
+  const [draft, setDraft] = useState<{ text: string; unit: string } | null>(
+    null
+  )
   const zero = value <= 0
   const ResetIcon = zeroAction === 'inherit' ? RotateCcw : InfinityIcon
 
@@ -60,7 +65,10 @@ export const CompactLimitInput = forwardRef<
                   variant="outline"
                   size="icon-sm"
                   aria-label={resetLabel}
-                  onClick={() => onValueChange(0)}
+                  onClick={() => {
+                    setDraft(null)
+                    onValueChange(0)
+                  }}
                 >
                   <ResetIcon aria-hidden />
                 </Button>
@@ -75,21 +83,27 @@ export const CompactLimitInput = forwardRef<
           {...props}
           ref={ref}
           data-slot="input-group-control"
-          type="text"
-          role="spinbutton"
-          inputMode="numeric"
+          type="number"
+          min={0}
+          step="any"
+          inputMode="decimal"
           autoComplete="off"
           aria-valuemin={0}
           aria-valuenow={Math.max(0, value)}
           aria-valuetext={zero ? zeroLabel : `${value} ${unit}`}
-          className="h-8 min-w-0 px-2 text-right tabular-nums placeholder:text-right placeholder:text-xs"
-          value={zero ? '' : value}
+          className="h-8 min-w-0 px-2 text-right tabular-nums placeholder:text-right placeholder:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          value={draft?.unit === unit ? draft.text : zero ? '' : value}
           placeholder={zeroLabel}
           onChange={(event) => {
-            const nextValue = Number.parseInt(event.target.value, 10)
+            setDraft({ text: event.target.value, unit })
+            const nextValue = Number(event.target.value)
             onValueChange(
               Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0
             )
+          }}
+          onBlur={(event) => {
+            setDraft(null)
+            onBlur?.(event)
           }}
           onKeyDown={(event) => {
             onKeyDown?.(event)
@@ -100,6 +114,7 @@ export const CompactLimitInput = forwardRef<
               return
             }
             event.preventDefault()
+            setDraft(null)
             const delta = event.key === 'ArrowUp' ? 1 : -1
             onValueChange(Math.max(0, value + delta))
           }}

@@ -11,9 +11,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import {
-  formatBytes,
   formatDateTime,
   formatDurationHMS,
   formatProgressPercent,
@@ -137,6 +137,8 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
 }
 
 export function OverviewTab({ task }: { task: DownloadTask }) {
+  const { formatSpeed, formatBytes } = useByteFormat()
+
   const { t, i18n } = useTranslation()
   const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
   return (
@@ -146,11 +148,11 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
         <Card title={t('panel.downloads.inspector.overview.transfer')}>
           <Row
             label={t('panel.downloads.inspector.overview.downSpeed')}
-            value={`${formatBytes(task.downloadSpeed)}/s`}
+            value={formatSpeed(task.downloadSpeed)}
           />
           <Row
             label={t('panel.downloads.inspector.overview.upSpeed')}
-            value={`${formatBytes(task.uploadSpeed)}/s`}
+            value={formatSpeed(task.uploadSpeed)}
           />
           <Row
             label={t('panel.downloads.inspector.overview.eta')}

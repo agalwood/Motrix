@@ -83,3 +83,17 @@ it('keeps login launches hidden for existing and invalid settings', () => {
       .showMainWindowAtLogin
   ).toBe(true)
 })
+
+it('defaults byte units for old settings and preserves explicit choices', () => {
+  expect(DEFAULT_APP_SETTINGS.byteUnitSystem).toBe('system')
+  for (const byteUnitSystem of [undefined, null, 'MB', 1024]) {
+    expect(appSettingsSchema.parse({ byteUnitSystem }).byteUnitSystem).toBe(
+      'system'
+    )
+  }
+  for (const byteUnitSystem of ['system', 'decimal', 'binary']) {
+    expect(appSettingsSchema.parse({ byteUnitSystem }).byteUnitSystem).toBe(
+      byteUnitSystem
+    )
+  }
+})

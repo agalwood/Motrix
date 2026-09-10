@@ -67,8 +67,7 @@ describe('GlobalStatsBar', () => {
         <GlobalStatsBar counts={motrixCounts} />
       </PlatformServicesProvider>
     )
-    // formatBytes(16_500_000) = "15.7 MB" (1024-base, value.toFixed(1))
-    expect(screen.getByText(/15\.7 MB\/s/)).toBeInTheDocument()
+    expect(screen.getByText(/16\.5 MB\/s/)).toBeInTheDocument()
     expect(await screen.findByText(/Engine ready/)).toBeInTheDocument()
     expect(await screen.findByText(/NAT active/)).toBeInTheDocument()
   })

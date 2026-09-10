@@ -989,7 +989,12 @@
       "runModeTrayDesktop": "在系統匣中啟動",
       "runModeLinuxDesc": "系統匣的可用性和啟用方式取決於桌面環境。",
       "lightweightMode": "輕量模式",
-      "lightweightModeDesc": "關閉主視窗後釋放介面記憶體，背景下載會繼續運作。Windows 和 Linux 會保留系統匣入口；重新開啟會稍慢，未儲存的介面狀態將被捨棄。"
+      "lightweightModeDesc": "關閉主視窗後釋放介面記憶體，背景下載會繼續運作。Windows 和 Linux 會保留系統匣入口；重新開啟會稍慢，未儲存的介面狀態將被捨棄。",
+      "byteUnitSystem": "大小與速度單位",
+      "byteUnitSystemDesc": "用於檔案大小與傳輸速度的顯示。",
+      "byteUnitDecimal": "十進位（MB、GB · 1000）",
+      "byteUnitBinary": "二進位（MiB、GiB · 1024）",
+      "byteUnitSystemDefault": "跟隨系統（{{units}}）"
     },
     "advanced": {
       "rpc": {
@@ -1192,7 +1197,7 @@
         "maxConnectionPerServerDesc": "每個來源可同時發出的 HTTP 要求數量。",
         "split": "每個檔案的分割連線數",
         "splitDesc": "下載單一檔案時使用的分段數量。",
-        "minSplitSize": "最小分段大小 (MB)",
+        "minSplitSize": "最小分段大小 (MiB)",
         "minSplitSizeDesc": "小於此大小的檔案不會分割。"
       },
       "reliability": {
@@ -1207,7 +1212,7 @@
         "maxTriesDesc": "0 = 不重試。",
         "retryWait": "重試等待時間 (秒)",
         "retryWaitDesc": "每次重試之間的暫停時間。",
-        "lowestSpeedLimit": "低速連線門檻 (KB/s)",
+        "lowestSpeedLimit": "低速連線門檻 (KiB/s)",
         "lowestSpeedLimitDesc": "低於此速度時中斷連線。0 = 停用。"
       },
       "disk": {
@@ -1222,7 +1227,7 @@
         "modifiedTimeDesc": "選擇 HTTP 與 FTP 下載完成後使用的檔案修改時間。",
         "modifiedTimeLocal": "本機修改時間",
         "modifiedTimeServer": "伺服器修改時間",
-        "diskCache": "磁碟快取 (MB)",
+        "diskCache": "磁碟快取 (MiB)",
         "diskCacheDesc": "記憶體內的寫入快取。",
         "sessionSaveInterval": "工作階段儲存間隔 (秒)",
         "sessionSaveIntervalDesc": "aria2 儲存下載狀態的頻率。"

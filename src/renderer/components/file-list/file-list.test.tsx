@@ -156,9 +156,9 @@ describe('FileList', () => {
 
   it('formats file sizes correctly', () => {
     const files: TorrentFileInfo[] = [
-      { index: 0, path: 'big.mkv', size: 1_073_741_824, extension: '.mkv' }, // 1.0 GB
-      { index: 1, path: 'mid.mp3', size: 5_242_880, extension: '.mp3' }, // 5.0 MB
-      { index: 2, path: 'small.txt', size: 1_024, extension: '.txt' }, // 1.0 KB
+      { index: 0, path: 'big.mkv', size: 1_073_741_824, extension: '.mkv' }, // 1.07 GB
+      { index: 1, path: 'mid.mp3', size: 5_242_880, extension: '.mp3' }, // 5.24 MB
+      { index: 2, path: 'small.txt', size: 1_024, extension: '.txt' }, // 1.02 KB
     ]
     render(
       <FileList<TorrentFileInfo>
@@ -167,9 +167,9 @@ describe('FileList', () => {
         onSelectionChange={vi.fn()}
       />
     )
-    expect(screen.getByText('1.0 GB')).toBeDefined()
-    expect(screen.getByText('5.0 MB')).toBeDefined()
-    expect(screen.getByText('1.0 KB')).toBeDefined()
+    expect(screen.getByText('1.07 GB')).toBeDefined()
+    expect(screen.getByText('5.24 MB')).toBeDefined()
+    expect(screen.getByText('1.02 KB')).toBeDefined()
   })
 
   it('disables checkboxes in readOnly mode', () => {

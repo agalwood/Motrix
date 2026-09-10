@@ -79,7 +79,7 @@ describe('<AppearanceDialog>', () => {
     )
 
     await waitFor(() => {
-      const [themeTrigger, languageTrigger, runModeTrigger] =
+      const [themeTrigger, languageTrigger, byteUnitTrigger, runModeTrigger] =
         screen.getAllByRole('combobox')
 
       expect(themeTrigger).toHaveTextContent(/^System$/)
@@ -88,6 +88,7 @@ describe('<AppearanceDialog>', () => {
       expect(languageTrigger).not.toHaveTextContent(/^en-US$/)
       expect(languageTrigger).toHaveClass('min-w-30', 'max-w-64')
       expect(languageTrigger).not.toHaveClass('w-32')
+      expect(byteUnitTrigger).toHaveTextContent('Follow system (MB, GB)')
       expect(runModeTrigger).toHaveTextContent(/^Dock & Menu Bar$/)
       expect(runModeTrigger).not.toHaveTextContent(/^1$/)
     })
@@ -302,5 +303,32 @@ describe('<AppearanceDialog>', () => {
       app: { language: 'zh-CN' },
     })
     expect(i18n.resolvedLanguage).toBe('en-US')
+  })
+})
+
+it('saves only the chosen unit system when Apply is clicked', async () => {
+  const user = userEvent.setup({ pointerEventsCheck: 0 })
+  render(
+    <AppearanceDialog
+      open
+      onClose={vi.fn()}
+      labelKey="settings.cards.appearance.title"
+      descKey="settings.cards.appearance.desc"
+    />
+  )
+  const select = await screen.findByRole('combobox', {
+    name: 'Size and speed units',
+  })
+  await user.click(select)
+  await user.click(
+    await screen.findByRole('option', { name: 'Binary (MiB, GiB · 1024)' })
+  )
+  expect(transport.invoke).not.toHaveBeenCalledWith(
+    Commands.UpdateSettings,
+    expect.anything()
+  )
+  await user.click(screen.getByRole('button', { name: /apply|save/i }))
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+    app: { byteUnitSystem: 'binary' },
   })
 })

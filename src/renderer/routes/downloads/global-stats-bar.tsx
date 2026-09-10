@@ -1,5 +1,6 @@
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useGlobalStats } from '@renderer/hooks/use-global-stats'
-import { formatBytes } from '@renderer/lib/format'
+
 import { useTranslation } from 'react-i18next'
 import { EngineBadge } from './engine-badge'
 import type { DownloadsTab } from './filter'
@@ -10,6 +11,8 @@ interface GlobalStatsBarProps {
 }
 
 export function GlobalStatsBar({ counts }: GlobalStatsBarProps) {
+  const { formatSpeed } = useByteFormat()
+
   const { t } = useTranslation()
   const { stats } = useGlobalStats()
 
@@ -19,13 +22,13 @@ export function GlobalStatsBar({ counts }: GlobalStatsBarProps) {
         <span className="tabular-nums">
           {t('panel.downloads.stats.downSpeed')}{' '}
           <span className="text-foreground">
-            {stats ? `${formatBytes(stats.totalDownloadSpeed)}/s` : '—'}
+            {stats ? formatSpeed(stats.totalDownloadSpeed) : '—'}
           </span>
         </span>
         <span className="tabular-nums">
           {t('panel.downloads.stats.upSpeed')}{' '}
           <span className="text-foreground">
-            {stats ? `${formatBytes(stats.totalUploadSpeed)}/s` : '—'}
+            {stats ? formatSpeed(stats.totalUploadSpeed) : '—'}
           </span>
         </span>
         <span className="tabular-nums">

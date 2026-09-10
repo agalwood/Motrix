@@ -1,8 +1,5 @@
-import {
-  formatBytes,
-  formatDurationHMS,
-  formatProgressPercent,
-} from '@renderer/lib/format'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
 import type { DownloadTask, TaskStatus } from '@shared/types/task'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -40,6 +37,8 @@ export function MultiSelectionSummary({
 }: {
   tasks: readonly DownloadTask[]
 }) {
+  const { formatBytes, formatSpeed } = useByteFormat()
+
   const { t } = useTranslation()
   const agg = useMemo(() => {
     const totalSize = tasks.reduce((s, x) => s + x.sizeWhenDone, 0)
@@ -81,11 +80,11 @@ export function MultiSelectionSummary({
       <Card title={t('panel.downloads.inspector.multi.liveSpeed')}>
         <Row
           label={t('panel.downloads.inspector.multi.combinedDown')}
-          value={`${formatBytes(agg.combinedDown)}/s`}
+          value={formatSpeed(agg.combinedDown)}
         />
         <Row
           label={t('panel.downloads.inspector.multi.combinedUp')}
-          value={`${formatBytes(agg.combinedUp)}/s`}
+          value={formatSpeed(agg.combinedUp)}
         />
         <Row
           label={t('panel.downloads.inspector.multi.longestEta')}

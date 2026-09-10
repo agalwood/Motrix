@@ -1,10 +1,14 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import {
+  type ByteUnitSystem,
+  DEFAULT_BYTE_UNIT_SYSTEM,
+} from '@shared/schemas/byte-unit-system'
 import type { NativeImage, Tray } from 'electron'
 import { nativeImage } from 'electron'
 import { formatSpeed } from './tray-icon'
 
-// ─── SVG Layout (@2x pixels, scaleFactor 2 → 68×22 pt) ─────
+// ─── SVG Layout (@2x pixels, scaleFactor 2 → 79×22 pt) ─────
 //
 //  ┌─────────────────────────────────┐
 //  │  ┌──────┐          1.2 MB/s    │
@@ -12,9 +16,9 @@ import { formatSpeed } from './tray-icon'
 //  │  │36×36 │     (right-aligned)  │
 //  │  └──────┘                      │
 //  └─────────────────────────────────┘
-//    0    40  46                  134
+//    0    40  46                  158
 
-const SVG_WIDTH = 134
+const SVG_WIDTH = 158
 const SVG_HEIGHT = 44
 const ICON_SIZE = 32
 const ICON_SCALE = ICON_SIZE / 32 // tray.svg is 32×32
@@ -30,10 +34,11 @@ const DOWNLOAD_Y = UPLOAD_Y + LINE_HEIGHT - 2 // baseline of second line
 export function buildSpeedometerSvg(
   iconSvg: string,
   uploadSpeed: number,
-  downloadSpeed: number
+  downloadSpeed: number,
+  unitSystem: ByteUnitSystem = DEFAULT_BYTE_UNIT_SYSTEM
 ): string {
-  const upload = formatSpeed(uploadSpeed)
-  const download = formatSpeed(downloadSpeed)
+  const upload = formatSpeed(uploadSpeed, unitSystem)
+  const download = formatSpeed(downloadSpeed, unitSystem)
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_WIDTH}" height="${SVG_HEIGHT}">
   <g transform="translate(0,${ICON_Y}) scale(${ICON_SCALE})">${iconSvg}</g>
@@ -47,6 +52,7 @@ export function buildSpeedometerSvg(
 export interface SpeedometerHandle {
   onSpeedChange(uploadSpeed: number, downloadSpeed: number): void
   setEnabled(enabled: boolean): void
+  setUnitSystem(unitSystem: ByteUnitSystem): void
   destroy(): void
 }
 
@@ -69,6 +75,7 @@ export function createSpeedometer(
   iconSvg: string,
   trayAssetDir: string
 ): SpeedometerHandle {
+  let unitSystem = DEFAULT_BYTE_UNIT_SYSTEM
   let enabled = false
   let lastUpload = -1
   let lastDownload = -1
@@ -100,7 +107,7 @@ export function createSpeedometer(
     const tray = trayRef()
     if (!tray) return
 
-    const svg = buildSpeedometerSvg(iconSvg, upload, download)
+    const svg = buildSpeedometerSvg(iconSvg, upload, download, unitSystem)
     const { Resvg } = await ensureResvg()
     // Load fonts once — resvg-wasm can't access filesystem for fonts
     if (!fontBuffers) {
@@ -144,6 +151,14 @@ export function createSpeedometer(
       pendingUpload = uploadSpeed
       pendingDownload = downloadSpeed
       scheduleRender()
+    },
+
+    setUnitSystem(value: ByteUnitSystem) {
+      if (unitSystem === value) return
+      unitSystem = value
+      lastUpload = -1
+      lastDownload = -1
+      if (enabled) scheduleRender()
     },
 
     setEnabled(value: boolean) {

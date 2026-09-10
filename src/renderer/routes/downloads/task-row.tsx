@@ -1,10 +1,7 @@
 import { Checkbox } from '@renderer/components/ui/checkbox'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import {
-  formatBytes,
-  formatDurationHMS,
-  formatProgressPercent,
-} from '@renderer/lib/format'
+import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
 import { getProgressBarTone } from '@renderer/lib/task-status-ui'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
@@ -25,6 +22,8 @@ export interface TaskRowProps {
 }
 
 function TaskRowBase({ task, rowProps }: TaskRowProps) {
+  const { formatBytes, formatSpeed } = useByteFormat()
+
   const { t, i18n } = useTranslation()
   const pct = formatProgressPercent(task.progress)
   const showDash = (value: number) =>
@@ -102,14 +101,10 @@ function TaskRowBase({ task, rowProps }: TaskRowProps) {
       </div>
       <StatusPill status={task.status} />
       <span className="tabular-nums">
-        {showDash(task.downloadSpeed)
-          ? '—'
-          : `${formatBytes(task.downloadSpeed)}/s`}
+        {showDash(task.downloadSpeed) ? '—' : formatSpeed(task.downloadSpeed)}
       </span>
       <span className="tabular-nums">
-        {showDash(task.uploadSpeed)
-          ? '—'
-          : `${formatBytes(task.uploadSpeed)}/s`}
+        {showDash(task.uploadSpeed) ? '—' : formatSpeed(task.uploadSpeed)}
       </span>
       <span className="tabular-nums">
         {hideEta ? '—' : formatDurationHMS(task.etaSeconds)}

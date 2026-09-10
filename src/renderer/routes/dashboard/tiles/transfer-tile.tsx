@@ -7,8 +7,9 @@ import {
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
 import { Skeleton } from '@renderer/components/ui/skeleton'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { TransferStatsState } from '@renderer/hooks/use-transfer-stats'
-import { formatBytes } from '@renderer/lib/format'
+
 import { cn } from '@renderer/lib/utils'
 import type { TransferRangeStats } from '@shared/types/stats'
 import { ChevronDown } from 'lucide-react'
@@ -132,6 +133,8 @@ function DirectionMetric({
   align?: 'left' | 'right'
   inline?: boolean
 }) {
+  const { formatBytes } = useByteFormat()
+
   return (
     <div
       className={cn(
@@ -160,6 +163,8 @@ function DirectionBreakdown({
   range: TransferRangeStats
   viewport: DashboardTileViewport
 }) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const tall = viewport.span.w === 1
 
@@ -277,6 +282,8 @@ export function TransferTile({
   viewport,
   className,
 }: TransferTileProps) {
+  const { formatBytes } = useByteFormat()
+
   const { t, i18n } = useTranslation()
   const [scope, setScope] = useState<TransferScope>('today')
   const widthOne = viewport.span.w === 1

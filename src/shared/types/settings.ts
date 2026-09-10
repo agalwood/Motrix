@@ -1,3 +1,4 @@
+import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { SupportedLocale } from '../constants/locales'
@@ -217,6 +218,7 @@ export interface MotrixAppSettings {
   showMainWindowAtLogin: boolean
   theme: 'system' | 'light' | 'dark'
   reduceMotion: boolean
+  byteUnitSystem: ByteUnitPreference
   language: SupportedLocale
   defaultSaveDir: string
   notifyOnComplete: boolean

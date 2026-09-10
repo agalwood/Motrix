@@ -1,10 +1,7 @@
 // src/renderer/routes/dashboard/tiles/speed-tile.tsx
 import { type ChartConfig, ChartContainer } from '@renderer/components/ui/chart'
-import {
-  chartCeiling,
-  formatSpeed,
-  normalizeSpeedHistory,
-} from '@renderer/lib/speed-chart'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { chartCeiling, normalizeSpeedHistory } from '@renderer/lib/speed-chart'
 import { cn } from '@renderer/lib/utils'
 import type { SpeedPoint } from '@shared/types/stats'
 import { useTranslation } from 'react-i18next'
@@ -31,6 +28,8 @@ export function SpeedTile({
   viewport,
   className,
 }: SpeedTileProps) {
+  const { formatSpeed } = useByteFormat()
+
   const { t } = useTranslation()
   const dataKey = kind
   const current = history.at(-1)?.[dataKey] ?? 0

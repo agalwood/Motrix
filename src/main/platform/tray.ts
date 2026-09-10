@@ -5,6 +5,7 @@ import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { RunMode } from '@shared/constants'
 import { Events } from '@shared/protocol/events'
+import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings } from '@shared/types/settings'
 import { app, type Menu, nativeTheme, Tray } from 'electron'
 import type { MenuManager } from '../menu/menu-manager'
@@ -98,6 +99,12 @@ export function setupTray(deps: TrayDeps): TrayHandle {
     // macOS: speedometer
     if (process.platform === 'darwin') {
       speedometer = createSpeedometer(() => tray, getIconSvg(), trayAssetDir)
+      speedometer.setUnitSystem(
+        resolveByteUnitSystem(
+          settingsManager.getApp().byteUnitSystem,
+          process.platform
+        )
+      )
       speedometer.setEnabled(settingsManager.getApp().traySpeedometer)
     }
 
@@ -228,6 +235,12 @@ export function setupTray(deps: TrayDeps): TrayHandle {
       if (oldSettings.app.runMode !== newMode) {
         syncDockVisibility(newMode)
       }
+    }
+
+    if (oldSettings.app.byteUnitSystem !== updated.app.byteUnitSystem) {
+      speedometer?.setUnitSystem(
+        resolveByteUnitSystem(updated.app.byteUnitSystem, process.platform)
+      )
     }
 
     // Speedometer toggled

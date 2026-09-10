@@ -5,7 +5,8 @@ import {
   CommandItem,
   CommandList,
 } from '@renderer/components/ui/command'
-import { formatBytes, formatProgressPercent } from '@renderer/lib/format'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { formatProgressPercent } from '@renderer/lib/format'
 import { TASK_TYPE_META, TASK_TYPE_ORDER } from '@renderer/lib/task-type-meta'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
@@ -53,6 +54,8 @@ export function FilterSearchPanel({
   typeCounts,
   onOpenTask,
 }: FilterSearchPanelProps) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
 

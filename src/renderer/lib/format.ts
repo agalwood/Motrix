@@ -1,60 +1,9 @@
-const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const
-const BYTE_BASE = 1024n
-
-export type ByteValue = number | bigint | string
-
-export interface FormattedByteParts {
-  number: string
-  unit: (typeof BYTE_UNITS)[number]
-}
-
-function toByteCount(value: ByteValue): bigint {
-  if (typeof value === 'bigint') return value > 0n ? value : 0n
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value <= 0) return 0n
-    return BigInt(Math.floor(value))
-  }
-  if (!/^\d+$/.test(value)) return 0n
-  try {
-    return BigInt(value)
-  } catch {
-    return 0n
-  }
-}
-
-export function formatByteParts(bytes: ByteValue): FormattedByteParts {
-  const value = toByteCount(bytes)
-  if (value === 0n) return { number: '0', unit: 'B' }
-
-  let unitIndex = 0
-  let unitSize = 1n
-  while (unitIndex < BYTE_UNITS.length - 1 && value >= unitSize * BYTE_BASE) {
-    unitIndex += 1
-    unitSize *= BYTE_BASE
-  }
-
-  if (unitIndex === 0) {
-    return { number: value.toString(), unit: BYTE_UNITS[unitIndex] }
-  }
-
-  if (value >= unitSize * 100n) {
-    return {
-      number: ((value + unitSize / 2n) / unitSize).toString(),
-      unit: BYTE_UNITS[unitIndex],
-    }
-  }
-
-  const tenths = (value * 10n + unitSize / 2n) / unitSize
-  return {
-    number: `${tenths / 10n}.${tenths % 10n}`,
-    unit: BYTE_UNITS[unitIndex],
-  }
-}
-
-export function formatBytes(bytes: ByteValue): string {
-  const parts = formatByteParts(bytes)
-  return `${parts.number} ${parts.unit}`
-}
+export type { ByteValue, FormattedByteParts } from '@shared/utils/format-bytes'
+export {
+  formatByteParts,
+  formatBytes,
+  formatSpeed,
+} from '@shared/utils/format-bytes'
 
 const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>()
 const time24HourFormatters = new Map<string, Intl.DateTimeFormat>()

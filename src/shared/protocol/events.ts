@@ -37,6 +37,8 @@ export const Events = {
   SettingsChanged: 'event:settingsChanged',
   // Payload: { reduceMotion: boolean }. Full settings remain host-internal.
   ReducedMotionChanged: 'event:reducedMotionChanged',
+  // Payload: { byteUnitSystem: ByteUnitPreference }.
+  ByteUnitSystemChanged: 'event:byteUnitSystemChanged',
   LocaleChanged: 'event:localeChanged',
   SpeedLimitChanged: 'event:speedLimitChanged',
   // Torrent

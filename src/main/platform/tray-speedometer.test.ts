@@ -17,17 +17,28 @@ describe('buildSpeedometerSvg', () => {
   it('produces valid SVG with speed text', () => {
     const svg = buildSpeedometerSvg(MOCK_ICON_SVG, 1024, 1048576)
     expect(svg).toContain('<svg')
-    expect(svg).toContain('1 KB/s')
+    expect(svg).toContain('1.0 KB/s')
     expect(svg).toContain('1.0 MB/s')
   })
 
   it('shows zero speeds', () => {
     const svg = buildSpeedometerSvg(MOCK_ICON_SVG, 0, 0)
-    expect(svg).toContain('0 KB/s')
+    expect(svg).toContain('0 B/s')
   })
 
   it('embeds icon SVG content', () => {
     const svg = buildSpeedometerSvg(MOCK_ICON_SVG, 0, 0)
     expect(svg).toContain(MOCK_ICON_SVG)
   })
+})
+
+it('uses IEC units in the speedometer when selected', () => {
+  const svg = buildSpeedometerSvg(
+    MOCK_ICON_SVG,
+    1_048_576,
+    1_073_741_824,
+    'binary'
+  )
+  expect(svg).toContain('1.0 MiB/s')
+  expect(svg).toContain('1.0 GiB/s')
 })

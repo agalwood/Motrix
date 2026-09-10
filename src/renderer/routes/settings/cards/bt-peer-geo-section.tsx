@@ -18,8 +18,9 @@ import {
 } from '@renderer/components/ui/select'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { Switch } from '@renderer/components/ui/switch'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useGeoIPStatus } from '@renderer/hooks/use-geoip-status'
-import { formatBytes } from '@renderer/lib/format'
+
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -57,6 +58,8 @@ function formatTimestamp(ts: number): string {
 }
 
 export function BtPeerGeoSection() {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const { status, progress, triggerUpdate } = useGeoIPStatus()
   const [updateError, setUpdateError] = useState<string | null>(null)

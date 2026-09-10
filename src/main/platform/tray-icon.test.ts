@@ -69,29 +69,14 @@ describe('createLinuxIconProvider', () => {
 })
 
 describe('formatSpeed', () => {
-  it('formats zero as 0 KB/s', () => {
-    expect(formatSpeed(0)).toBe('0 KB/s')
+  it('matches renderer decimal speed units', () => {
+    expect(formatSpeed(0)).toBe('0 B/s')
+    expect(formatSpeed(512)).toBe('512 B/s')
+    expect(formatSpeed(50_000)).toBe('50.0 KB/s')
+    expect(formatSpeed(16_500_000)).toBe('16.5 MB/s')
   })
-
-  it('formats bytes as KB/s (minimum unit, no decimal)', () => {
-    expect(formatSpeed(512)).toBe('1 KB/s')
-    expect(formatSpeed(100)).toBe('0 KB/s')
-  })
-
-  it('formats kilobytes without decimal', () => {
-    expect(formatSpeed(1024)).toBe('1 KB/s')
-    expect(formatSpeed(50 * 1024)).toBe('50 KB/s')
-    expect(formatSpeed(200 * 1024)).toBe('200 KB/s')
-  })
-
-  it('formats megabytes with one decimal', () => {
-    expect(formatSpeed(1048576)).toBe('1.0 MB/s')
-    expect(formatSpeed(1.5 * 1024 ** 2)).toBe('1.5 MB/s')
-    expect(formatSpeed(88 * 1024 ** 2)).toBe('88.0 MB/s')
-  })
-
-  it('formats gigabytes with one decimal', () => {
-    expect(formatSpeed(1073741824)).toBe('1.0 GB/s')
-    expect(formatSpeed(1.2 * 1024 ** 3)).toBe('1.2 GB/s')
+  it('matches the selected binary speed units', () => {
+    expect(formatSpeed(1_048_576, 'binary')).toBe('1.0 MiB/s')
+    expect(formatSpeed(1_073_741_824, 'binary')).toBe('1.0 GiB/s')
   })
 })

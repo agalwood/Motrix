@@ -747,10 +747,10 @@ export class Aria2Adapter implements EngineAdapter {
       opts['bt-prioritize-piece'] = 'head=10M,tail=10M'
     }
     if (params.dlLimit !== undefined) {
-      opts['max-download-limit'] = `${params.dlLimit}K`
+      opts['max-download-limit'] = String(params.dlLimit)
     }
     if (params.ulLimit !== undefined) {
-      opts['max-upload-limit'] = `${params.ulLimit}K`
+      opts['max-upload-limit'] = String(params.ulLimit)
     }
     if (params.extraEngineOptions) {
       for (const [k, v] of Object.entries(params.extraEngineOptions)) {

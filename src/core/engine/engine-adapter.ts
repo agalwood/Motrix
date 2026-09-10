@@ -70,6 +70,7 @@ export interface AddTorrentParams {
    * torrent. Concrete adapters translate this product policy. */
   prioritizePreviewPieces?: boolean
   // ── create-path additions ──
+  /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
   /** Engine-agnostic passthrough for shell-supplied options. The adapter
@@ -119,6 +120,7 @@ export interface CreateDownloadParams {
   extraEngineOptions?: Record<string, string | string[]>
   priority?: number
   category?: string
+  /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
   pause?: boolean

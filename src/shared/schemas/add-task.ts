@@ -40,6 +40,7 @@ const torrentTabSchema = z
       .array(z.number().int().nonnegative())
       .min(1, { message: 'task.add.errors.noFilesSelected' }),
     saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
+    // Transfer limits are bytes per second, independent of display units.
     dlLimit: z.number().int().nonnegative().optional(),
     ulLimit: z.number().int().nonnegative().optional(),
     seedRatio: z.number().nonnegative().optional(),
@@ -92,6 +93,7 @@ const btTaskRequestSchema = z
     ]),
     selectedFiles: z.array(z.number().int().nonnegative()).default([]),
     saveDir: z.string().min(1),
+    // Transfer limits are bytes per second, independent of display units.
     dlLimit: z.number().int().nonnegative().optional(),
     ulLimit: z.number().int().nonnegative().optional(),
     seedRatio: z.number().nonnegative().optional(),
@@ -169,6 +171,7 @@ export const torrentBatchCreateOptionsSchema = z.object({
     .array(z.number().int().nonnegative())
     .min(1, { message: 'task.add.errors.noFilesSelected' }),
   saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
+  // Transfer limits are bytes per second, independent of display units.
   dlLimit: z.number().int().nonnegative().optional(),
   ulLimit: z.number().int().nonnegative().optional(),
   seedRatio: z.number().nonnegative().optional(),

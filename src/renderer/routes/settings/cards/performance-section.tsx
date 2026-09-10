@@ -72,12 +72,12 @@ export function PerformanceSection({
           {
             icon: RulerIcon,
             label: t('settings.downloads.performance.metrics.minimum'),
-            value: `${Math.round(selectedPerformanceValues.minSplitSize / MB)} MB`,
+            value: `${Math.round(selectedPerformanceValues.minSplitSize / MB)} MiB`,
           },
           {
             icon: DatabaseIcon,
             label: t('settings.downloads.performance.metrics.cache'),
-            value: `${Math.round(selectedPerformanceValues.diskCache / MB)} MB`,
+            value: `${Math.round(selectedPerformanceValues.diskCache / MB)} MiB`,
           },
         ]
       : null
@@ -242,10 +242,10 @@ export function PerformanceSection({
             descKey="settings.downloads.performance.minSplitSizeDesc"
             bounds={{ min: 1, scale: MB }}
             presets={[
-              { label: '1 MB', value: 1 },
-              { label: '4 MB', value: 4 },
-              { label: '10 MB', value: 10 },
-              { label: '20 MB', value: 20 },
+              { label: '1 MiB', value: 1 },
+              { label: '4 MiB', value: 4 },
+              { label: '10 MiB', value: 10 },
+              { label: '20 MiB', value: 20 },
             ]}
           />
           <EngineNumberSettingRow
@@ -255,9 +255,9 @@ export function PerformanceSection({
             descKey="settings.downloads.disk.diskCacheDesc"
             bounds={{ min: 0, max: 128, scale: MB }}
             presets={[
-              { label: '16 MB', value: 16 },
-              { label: '32 MB', value: 32 },
-              { label: '64 MB', value: 64 },
+              { label: '16 MiB', value: 16 },
+              { label: '32 MiB', value: 32 },
+              { label: '64 MiB', value: 64 },
             ]}
           />
         </div>

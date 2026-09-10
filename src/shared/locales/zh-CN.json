@@ -989,7 +989,12 @@
       "runModeTrayDesktop": "在系统托盘中启动",
       "runModeLinuxDesc": "系统托盘的可用性和激活方式取决于桌面环境。",
       "lightweightMode": "轻量模式",
-      "lightweightModeDesc": "关闭主窗口后释放界面内存，后台下载继续运行。Windows 和 Linux 会保留托盘入口；重新打开会稍慢，未保存的界面状态将被丢弃。"
+      "lightweightModeDesc": "关闭主窗口后释放界面内存，后台下载继续运行。Windows 和 Linux 会保留托盘入口；重新打开会稍慢，未保存的界面状态将被丢弃。",
+      "byteUnitSystem": "大小和速度单位",
+      "byteUnitSystemDesc": "用于文件大小与传输速度的显示。",
+      "byteUnitDecimal": "十进制（MB、GB · 1000）",
+      "byteUnitBinary": "二进制（MiB、GiB · 1024）",
+      "byteUnitSystemDefault": "跟随系统（{{units}}）"
     },
     "about": {
       "appIconAlt": "Motrix 应用图标",
@@ -1192,7 +1197,7 @@
         "maxConnectionPerServerDesc": "对同一来源同时发起的 HTTP 请求数。",
         "split": "单文件分段连接数",
         "splitDesc": "用多少个连接并行下载同一文件。",
-        "minSplitSize": "最小分段大小 (MB)",
+        "minSplitSize": "最小分段大小 (MiB)",
         "minSplitSizeDesc": "小于该大小的文件不会被分段下载。"
       },
       "reliability": {
@@ -1207,7 +1212,7 @@
         "maxTriesDesc": "0 表示不重试。",
         "retryWait": "重试间隔 (秒)",
         "retryWaitDesc": "两次重试之间的停顿。",
-        "lowestSpeedLimit": "慢连接阈值 (KB/s)",
+        "lowestSpeedLimit": "慢连接阈值 (KiB/s)",
         "lowestSpeedLimitDesc": "速度低于此值时断开。0 表示关闭。"
       },
       "disk": {
@@ -1222,7 +1227,7 @@
         "modifiedTimeDesc": "选择 HTTP 和 FTP 下载完成后使用的文件修改时间。",
         "modifiedTimeLocal": "本地修改时间",
         "modifiedTimeServer": "服务器修改时间",
-        "diskCache": "磁盘缓存 (MB)",
+        "diskCache": "磁盘缓存 (MiB)",
         "diskCacheDesc": "写入磁盘前的内存缓存上限。",
         "sessionSaveInterval": "会话保存间隔 (秒)",
         "sessionSaveIntervalDesc": "aria2 持久化下载状态的频率。"

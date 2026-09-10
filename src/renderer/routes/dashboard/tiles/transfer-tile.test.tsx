@@ -70,7 +70,7 @@ describe('TransferTile', () => {
       'aria-checked',
       'true'
     )
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('960 MB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('1.01 GB')
     expect(screen.getByTestId('transfer-total').firstElementChild).toHaveClass(
       'h-8',
       'text-[32px]',
@@ -96,7 +96,7 @@ describe('TransferTile', () => {
       'aria-checked',
       'true'
     )
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.0 GB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.22 GB')
   })
 
   it('uses shared roving radio keyboard behavior outside width 1', async () => {
@@ -115,7 +115,7 @@ describe('TransferTile', () => {
     expect(allTime).toHaveAttribute('aria-checked', 'true')
     expect(allTime).toHaveAttribute('tabindex', '0')
     expect(today).toHaveAttribute('tabindex', '-1')
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.0 GB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.22 GB')
   })
 
   it('uses a complete-label body dropdown at width 1 and no color bar', async () => {
@@ -131,7 +131,7 @@ describe('TransferTile', () => {
     expect(screen.queryByTestId('transfer-proportion-bar')).toBeNull()
     expect(
       screen.getByRole('region', {
-        name: 'Today transfer total: 960 MB',
+        name: 'Today transfer total: 1.01 GB',
       })
     ).toBeInTheDocument()
 
@@ -143,7 +143,7 @@ describe('TransferTile', () => {
     expect(
       screen.getByRole('button', { name: 'Transfer range: All Time' })
     ).toHaveTextContent('All Time')
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.0 GB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.22 GB')
   })
 
   it('renders ordered transfer endpoints with proportional segments', () => {
@@ -195,10 +195,10 @@ describe('TransferTile', () => {
     const [uploadValue, downloadValue] = Array.from(values.children)
 
     expect(labels).toHaveTextContent('UpDown')
-    expect(labels).not.toHaveTextContent(/0 B|53\.3 MB/)
+    expect(labels).not.toHaveTextContent(/0 B|55\.89 MB/)
     expect(values).not.toHaveTextContent(/Up|Down/)
     expect(uploadValue).toHaveTextContent('0 B')
-    expect(downloadValue).toHaveTextContent('53.3 MB')
+    expect(downloadValue).toHaveTextContent('55.89 MB')
     expect(screen.queryByTestId('transfer-upload-segment')).toBeNull()
     expect(screen.getByTestId('transfer-download-segment')).toHaveStyle({
       width: '100%',
@@ -272,7 +272,7 @@ describe('TransferTile', () => {
     expect(
       screen.getByRole('button', { name: 'Transfer range: All Time' })
     ).toBeInTheDocument()
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.0 GB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.22 GB')
     expect(screen.getByText(/Since 1\/2\/26/i)).toBeInTheDocument()
   })
 
@@ -370,7 +370,7 @@ describe('TransferTile', () => {
       />
     )
 
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('960 MB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('1.01 GB')
     expect(screen.getByText(/Updated 10:30 AM/i)).toBeInTheDocument()
 
     rerender(

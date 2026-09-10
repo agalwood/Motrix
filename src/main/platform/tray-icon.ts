@@ -4,22 +4,7 @@ import { nativeImage, nativeTheme } from 'electron'
 
 // ─── formatSpeed (exported for testing) ─────────────────────
 
-const UNITS = ['KB/s', 'MB/s', 'GB/s', 'TB/s']
-
-export function formatSpeed(bytes: number): string {
-  // Always show at least KB/s (minimum unit)
-  let value = bytes / 1024
-  let unitIndex = 0
-
-  while (value >= 1024 && unitIndex < UNITS.length - 1) {
-    value /= 1024
-    unitIndex++
-  }
-
-  // KB/s: no decimal; MB/s and above: one decimal
-  if (unitIndex === 0) return `${Math.round(value)} ${UNITS[unitIndex]}`
-  return `${value.toFixed(1)} ${UNITS[unitIndex]}`
-}
+export { formatSpeed } from '@shared/utils/format-bytes'
 
 // ─── TrayIconProvider interface ─────────────────────────────
 

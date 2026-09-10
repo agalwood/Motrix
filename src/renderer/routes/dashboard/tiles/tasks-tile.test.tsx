@@ -359,7 +359,7 @@ describe('TasksTile', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Recent' }))
     expect(screen.getAllByTestId('tasks-row')).toHaveLength(1)
-    expect(screen.getByText('2.0 KB')).toBeInTheDocument()
+    expect(screen.getByText('2.05 KB')).toBeInTheDocument()
     expect(screen.getAllByText(/Completed/)).toHaveLength(2)
     expect(screen.queryByText('Connection refused')).toBeNull()
   })
@@ -471,7 +471,9 @@ describe('TasksTile', () => {
     expect(button).toHaveAccessibleName(
       'A very long accessible task name, Downloading'
     )
-    expect(button).toHaveAccessibleDescription('9.8 KB/s. Downloading · ETA 2m')
+    expect(button).toHaveAccessibleDescription(
+      '10.0 KB/s. Downloading · ETA 2m'
+    )
     expect(button.getAttribute('aria-label')).not.toMatch(/B\/s|9999/)
     expect(button.closest('li')).not.toBeNull()
   })
