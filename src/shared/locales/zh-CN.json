@@ -1686,6 +1686,25 @@
           "externalManaged": "桌面集成由另一个 Motrix 安装提供。"
         },
         "movedHint": "如果在 Motrix 未运行时移动 AppImage，链接可能无法唤起，直到你从新位置手动启动一次 Motrix。"
+      },
+      "appimageHost": {
+        "title": "AppImage 浏览器唤起",
+        "desc": "允许扩展在点击连接时打开此 AppImage。使用前请开启浏览器集成。",
+        "enable": "启用浏览器唤起",
+        "repair": "修复",
+        "useCurrent": "改用当前 AppImage",
+        "remove": "移除浏览器唤起",
+        "copyDiagnostics": "复制诊断",
+        "status": {
+          "ready": "本机安装检查通过，请从浏览器连接验证。",
+          "disabled": "浏览器唤起已停用。",
+          "conflict": "其他安装占用了这些文件，请先移除其浏览器集成。",
+          "permissions": "请检查文件可执行，且只有当前账户有写入权限。",
+          "invalid": "安装记录或可执行文件无效。",
+          "sourceChanged": "AppImage 已变化，请运行需要使用的版本并修复安装。",
+          "missing": "缺少必要文件，请从当前位置运行 AppImage 并修复。",
+          "io": "操作失败，请检查磁盘访问权限后重试修复。"
+        }
       }
     }
   },

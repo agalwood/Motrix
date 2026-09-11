@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+pub mod appimage_config;
 pub mod broker_protocol;
 pub mod caller;
 pub mod canonical;

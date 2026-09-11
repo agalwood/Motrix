@@ -1686,6 +1686,25 @@
           "externalManaged": "桌面整合由另一個 Motrix 安裝提供。"
         },
         "movedHint": "如果在 Motrix 未執行時移動 AppImage，連結可能無法喚起，直到您從新位置手動啟動一次 Motrix。"
+      },
+      "appimageHost": {
+        "title": "AppImage 瀏覽器喚起",
+        "desc": "允許擴充功能在點選連線時開啟此 AppImage。使用前請開啟瀏覽器整合。",
+        "enable": "啟用瀏覽器喚起",
+        "repair": "修復",
+        "useCurrent": "改用目前的 AppImage",
+        "remove": "移除瀏覽器喚起",
+        "copyDiagnostics": "複製診斷",
+        "status": {
+          "ready": "本機安裝檢查通過，請從瀏覽器連線驗證。",
+          "disabled": "瀏覽器喚起已停用。",
+          "conflict": "其他安裝佔用了這些檔案，請先移除其瀏覽器整合。",
+          "permissions": "請檢查檔案可執行，且只有目前帳戶有寫入權限。",
+          "invalid": "安裝紀錄或執行檔無效。",
+          "sourceChanged": "AppImage 已變更，請執行需要使用的版本並修復安裝。",
+          "missing": "缺少必要檔案，請從目前位置執行 AppImage 並修復。",
+          "io": "操作失敗，請檢查磁碟存取權限後重試修復。"
+        }
       }
     }
   },

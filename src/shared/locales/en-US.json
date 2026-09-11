@@ -1700,6 +1700,25 @@
           "externalManaged": "Desktop integration is provided by another Motrix install."
         },
         "movedHint": "If you move the AppImage while Motrix is closed, links may fail to launch until you start Motrix once from its new location."
+      },
+      "appimageHost": {
+        "title": "AppImage browser launch",
+        "desc": "Allow an extension to open this AppImage when you click Connect. Enable browser integration to use it.",
+        "enable": "Enable browser launch",
+        "repair": "Repair",
+        "useCurrent": "Use this AppImage",
+        "remove": "Remove browser launch",
+        "copyDiagnostics": "Copy diagnostics",
+        "status": {
+          "ready": "Local installation checks passed. Connect from your browser to verify it.",
+          "disabled": "Browser launch is disabled.",
+          "conflict": "Another installation owns these files. Remove its browser integration first.",
+          "permissions": "Check that the files are executable and writable only by your account.",
+          "invalid": "The installation record or executable is invalid.",
+          "sourceChanged": "The AppImage changed. Run the intended version and repair the installation.",
+          "missing": "A required file is missing. Run the AppImage from its current location and repair.",
+          "io": "The operation failed. Check disk access and try Repair."
+        }
       }
     }
   },

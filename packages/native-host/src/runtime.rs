@@ -16,13 +16,26 @@ use crate::user_data::bridge_endpoint_path;
 /// never exercises the launch capability.
 pub struct SystemResolveDeps {
     endpoint_path: Option<PathBuf>,
+    #[cfg(target_os = "linux")]
+    appimage: Option<crate::appimage_config::AppImageConfig>,
 }
 
 impl SystemResolveDeps {
     pub fn from_bridge_data(bridge_data: Option<&Path>) -> Self {
         Self {
             endpoint_path: bridge_data.map(bridge_endpoint_path),
+            #[cfg(target_os = "linux")]
+            appimage: None,
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn with_appimage(mut self, config: Option<crate::appimage_config::AppImageConfig>) -> Self {
+        if let Some(ref c) = config {
+            self.endpoint_path = Some(bridge_endpoint_path(&c.bridge_data_dir));
+        }
+        self.appimage = config;
+        self
     }
 }
 
@@ -40,6 +53,10 @@ impl ResolveDeps for SystemResolveDeps {
     }
 
     fn launch(&mut self) -> bool {
+        #[cfg(target_os = "linux")]
+        if let Some(ref config) = self.appimage {
+            return config.launch();
+        }
         launch_motrix()
     }
 

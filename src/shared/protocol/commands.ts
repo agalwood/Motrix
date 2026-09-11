@@ -85,6 +85,7 @@ export const Commands = {
   // Linux AppImage desktop integration (settings-driven enable/remove).
   // Both return the refreshed `AppImageIntegrationView`.
   EnableAppImageIntegration: 'command:enableAppImageIntegration',
+  ConfigureAppImageNativeHost: 'command:configureAppImageNativeHost',
   RemoveAppImageIntegration: 'command:removeAppImageIntegration',
   RevealInFolder: 'command:revealInFolder',
   // Menu

@@ -210,7 +210,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     )
   })
 
-  it('repairs a stale file that only resembles a companion manifest', async () => {
+  it('preserves an unowned file that only resembles a companion manifest', async () => {
     const paths = computeManifestPaths('linux', dir)
     await mkdir(dirname(paths.chrome), { recursive: true })
     await writeFile(
@@ -227,13 +227,15 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       manifestRoot: dir,
       platform: 'linux',
     })
-    await installer.syncManifests({
-      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
-      firefox: ['motrix-extension@motrix.app'],
-    })
+    await expect(
+      installer.syncManifests({
+        chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
+        firefox: ['motrix-extension@motrix.app'],
+      })
+    ).rejects.toThrow('conflict')
 
     expect(JSON.parse(await readFile(paths.chrome, 'utf-8')).path).toBe(
-      hostBinaryPath
+      '/tmp/motrix-flatpak-native-host'
     )
   })
 

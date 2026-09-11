@@ -65,6 +65,7 @@ import { app, ipcMain } from 'electron'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
 import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
+import { getAppImageNativeHost } from './appimage-native-host-electron'
 import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
 import {
@@ -311,6 +312,8 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
 
   return {
     installer: new NativeMessagingInstaller({
+      appImage: getAppImageNativeHost(),
+      env: process.env,
       hostBinaryPath,
       manifestRoot: snap?.realHome ?? home,
       platform: installationPlatform,
@@ -337,6 +340,12 @@ export async function syncNativeMessagingManifests(args: {
   try {
     await args.installer.syncManifests(args.manifests)
   } catch (error) {
+    if (args.installer.preserveOnStartupFailure) {
+      ;(args.warn ?? console.warn)(
+        'AppImage browser launch needs repair in settings'
+      )
+      return
+    }
     const code =
       typeof error === 'object' && error !== null && 'code' in error
         ? (error as { code?: unknown }).code
@@ -783,7 +792,10 @@ export async function bootstrapBridge(args: {
     const { installer, snap } = createNativeMessagingInstallation()
     let preserveNativeMessagingRegistration = false
     ownership.own('native-messaging-manifests', async () => {
-      if (!preserveNativeMessagingRegistration) {
+      if (
+        !preserveNativeMessagingRegistration &&
+        !installer.preserveOnStartupFailure
+      ) {
         await installer.unregister()
       }
     })

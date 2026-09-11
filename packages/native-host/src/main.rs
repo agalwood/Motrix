@@ -71,7 +71,17 @@ fn read_request() -> Result<HostRequest, RunError> {
 }
 
 fn resolve_request(request: &HostRequest, bridge_data: Option<&Path>) -> ResolveResult {
-    let mut deps = SystemResolveDeps::from_bridge_data(bridge_data);
+    let deps = SystemResolveDeps::from_bridge_data(bridge_data);
+    #[cfg(target_os = "linux")]
+    let deps = match motrix_native_host::appimage_config::load_current() {
+        Ok(config) => deps.with_appimage(config),
+        Err(_) => {
+            return ResolveResult::Error {
+                error: motrix_native_host::resolve::ResolveError::LaunchFailed,
+            };
+        }
+    };
+    let mut deps = deps;
     match resolve_endpoint(request.allow_launch(), &mut deps) {
         Ok(resolved) => {
             let ticket = request
@@ -128,6 +138,12 @@ fn run(bridge_data: Option<&Path>, logger: &NativeHostLogger) -> Result<(), RunE
 fn main() -> ExitCode {
     let user_data = native_host_user_data_dir();
     let bridge_data = native_host_bridge_data_dir(user_data.as_deref());
+    #[cfg(target_os = "linux")]
+    let bridge_data = match motrix_native_host::appimage_config::load_current() {
+        Ok(Some(config)) => Some(config.bridge_data_dir),
+        Ok(None) => bridge_data,
+        Err(_) => None,
+    };
     let logger = NativeHostLogger::from_bridge_data(bridge_data.as_deref());
     logger.log(&format!(
         "=== spawned argv_count={} ===",

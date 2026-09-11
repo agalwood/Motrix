@@ -1,5 +1,38 @@
 # Bridge E2E — `motrix-cli` ↔ Electron / Server
 
+## AppImage 浏览器冷启动
+
+`appimage-cold-launch.spec.ts` 在临时数据目录中运行真实打包的 AppImage 和
+Chromium／Firefox 扩展。测试通过设置启用浏览器唤起、在界面中首配、终止
+AppImage 并确认 FUSE 挂载消失，然后使用原凭据重连，检查真实本地下载的文件
+内容。还会移动 AppImage，从新位置修复，并验证停用、重新启用和移除不会删除
+配对。整个流程使用既有 MBP1 和 Native Messaging v1。
+
+测试机需要原生 Linux、FUSE、可用的非特权 user namespace、Xvfb，以及 Playwright
+下载的普通宿主浏览器。测试保留打包的 Electron fuses 和浏览器 sandbox；
+Snap／Flatpak 浏览器不在此套件范围内。在测试机 hosts 文件中添加
+`127.0.0.1 appimage.motrix.test`；测试要求该域名明确解析到本机，不下载公网数据。
+
+通过正常构建、staging 和 electron-builder 流程生成 AppImage，并在
+`motrixapp/motrix-extension` 中分别运行 `pnpm build:chromium` 和
+`pnpm build:firefox`。使用产物的绝对路径执行：
+
+```bash
+pnpm exec playwright install --with-deps chromium firefox
+MOTRIX_APPIMAGE_ARTIFACT=/path/to/Motrix.AppImage \
+MOTRIX_EXTENSION_BUILD=/path/to/extension/dist/chromium \
+MOTRIX_FIREFOX_EXTENSION_BUILD=/path/to/extension/dist/firefox \
+xvfb-run -a pnpm test:e2e --config e2e/bridge/appimage.playwright.config.ts
+```
+
+专用配置要求提供 Chromium 产物；不提供 Firefox 产物时跳过该链路。
+`MOTRIX_CHROMIUM_EXECUTABLE` 可指定另一个普通 Chromium 浏览器的可执行文件，
+用于单独进行兼容性验证。记录实际浏览器、架构和产物修订；一种架构通过不代表
+其他架构也通过。测试会删除临时数据目录和注册文件，完成后需移除 hosts 测试
+条目。为避免配对密码进入产物，关闭 trace、截图和录像。
+
+---
+
 本目录提供 **MDXP bridge** 的端到端验收测试，由真实的
 [`motrix` CLI](https://github.com/motrixapp/cli)（已发布的 `@motrix/cli` npm 包，
 此处作为 devDependency 消费）驱动，覆盖
