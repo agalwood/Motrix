@@ -74,6 +74,17 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.36" date="2026-09-11">
+      <description>
+        <p>
+          Improves interrupted download finalization recovery, adds opt-in
+          AppImage browser launch integration and system-aware size and speed
+          units, isolates browser registration failures, and improves browser
+          save-directory updates, Linux tray themes, and login startup window
+          preferences.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.35" date="2026-09-08">
       <description>
         <p>
