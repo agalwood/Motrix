@@ -54,6 +54,7 @@ function buildBuiltins() {
     const child = spawn('pnpm', ['run', 'build:builtin'], {
       stdio: 'inherit',
       cwd: projectRoot,
+      shell: true,
     })
     child.on('exit', (code) => {
       if (code === 0) {
