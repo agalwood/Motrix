@@ -3,7 +3,7 @@ import { newEngineTaskId } from '@core/lib/ids'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
-import { AppError, ErrorCode } from '@shared/errors'
+import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import type {
   BeforeFinalizeContextDTO,
@@ -26,6 +26,7 @@ import {
   getBtStorageLayout,
   parseBtFileLayout,
 } from '../bt-storage-layout'
+import { settleBtUpload } from '../bt-upload-settlement'
 import { fireAfterComplete, fireOnError } from '../hook-dispatch'
 import { normalizeTerminalRuntimeMetrics } from '../normalize-terminal-runtime-metrics'
 import type { OccurrenceDispatcher } from '../occurrences/occurrence-dispatcher'
@@ -33,6 +34,7 @@ import {
   applyCompletedTaskAfterRename,
   applyTerminalStatusToTask,
   completeTaskAfterRename,
+  pickPrimaryInstance,
   setTaskTransitionPhase,
   syncPrimaryInstanceIdentity,
 } from '../task-instance'
@@ -207,6 +209,32 @@ async function finalizeTaskSerialized(
     } else {
       await finalizeHttp(task, deps)
     }
+  } catch (err) {
+    // The last durable snapshot, not the working candidate, decides whether
+    // this is an unfinished rename. Never demote an already committed output
+    // because a later notification or reseed operation failed.
+    const current = deps.taskManager.getById(taskId)
+    if (
+      current?.transitionPhase === TransitionPhase.Renaming &&
+      current.status !== TaskStatus.Error &&
+      current.diskPath !== current.finalPath
+    ) {
+      try {
+        await failFinalize(structuredClone(current), deps, {
+          errorMessage: (err as Error).message,
+          errorDetailKey: 'task.error.detail.finalizeFailed',
+          errorDetailParams: { cause: (err as Error).message },
+          hookCode: ErrorCode.TaskFinalizeFailed,
+          errorCode: DownloadErrorCode.Unknown,
+        })
+      } catch (persistError) {
+        deps.log.error(
+          { taskId, err, persistError },
+          'finalize_failure_persistence_failed'
+        )
+      }
+    }
+    throw err
   } finally {
     finalizationsInFlight.delete(taskId)
   }
@@ -480,6 +508,7 @@ async function finalizeBt(
     return
   }
 
+  const recovering = task.transitionPhase !== TransitionPhase.Idle
   const previousStatus = task.status
   Object.assign(task, applyTerminalTransition(task, TaskStatus.Finalizing))
   setTaskTransitionPhase(task, TransitionPhase.Renaming)
@@ -523,8 +552,7 @@ async function finalizeBt(
   // double-count. Sync it from the new baseline instead; the new gid
   // contributes 0 at this point.
   const upload = await deps.adapter.getUploadLength(task.engineTaskId)
-  task.uploadedBytesBaseline += upload
-  task.uploadedBytes = task.uploadedBytesBaseline
+  settleBtUpload(task, upload, recovering)
   await persistTaskState(task, deps)
 
   // Snapshot unselected files BEFORE forceRemove. aria2 drops the
@@ -545,8 +573,8 @@ async function finalizeBt(
   // Stop the active seeding task BEFORE rename + re-add. `removeDownloadResult`
   // alone is insufficient: it only clears tasks already in stopped/error/
   // removed state, so an active seeder would survive in aria2 and reappear
-  // as an orphan task on the next polling tick. forceRemove also releases
-  // file handles, making the rename safe on Windows (sharing-violation safe).
+  // as an orphan task on the next polling tick. forceRemove only requests a
+  // stop; result cleanup waits out that transition before the rename begins.
   try {
     await deps.adapter.forceRemoveTask(task.engineTaskId)
   } catch (err) {
@@ -781,6 +809,8 @@ async function finalizeBtAfterRename(
   const previousStatus = task.status
   const reseedCandidate = structuredClone(task)
   reseedCandidate.engineTaskId = newGid
+  const reseedInstance = pickPrimaryInstance(reseedCandidate.instances)
+  if (reseedInstance) reseedInstance.uploadedBytes = 0
   setTaskTransitionPhase(reseedCandidate, TransitionPhase.Idle)
   Object.assign(
     reseedCandidate,
@@ -925,10 +955,12 @@ async function failFinalize(
     errorDetailKey: string
     errorDetailParams: Record<string, string>
     hookCode: string
+    errorCode?: DownloadErrorCode
   }
 ): Promise<void> {
   const previousStatus = task.status
   applyTerminalStatusToTask(task, TaskStatus.Error, {
+    errorCode: fail.errorCode,
     errorMessage: fail.errorMessage,
     errorDetailKey: fail.errorDetailKey,
     errorDetailParams: fail.errorDetailParams,

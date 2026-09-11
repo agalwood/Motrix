@@ -501,6 +501,29 @@ describe('canAttemptRetry', () => {
     expect(canAttemptRetry(task)).toBe(expected)
   })
 
+  it.each([TransitionPhase.Renaming, TransitionPhase.Reseeding])(
+    'offers recovery for %s without replayable engine inputs',
+    (transitionPhase) => {
+      for (const [kind, type] of [
+        [TaskKind.Direct, TaskType.Http],
+        [TaskKind.Bt, TaskType.Bt],
+        [TaskKind.Mux, TaskType.Http],
+      ] as const) {
+        const task = makeTask({
+          kind,
+          type,
+          status: TaskStatus.Error,
+          transitionPhase,
+          torrentMetaPath: null,
+          instances: [],
+        })
+        expect(canRebuildTaskInputs(task)).toBe(false)
+        expect(getTaskRetryKind(task)).toBe('finalize-recovery')
+        expect(canAttemptRetry(task)).toBe(true)
+      }
+    }
+  )
+
   it('offers a distinct retry for failed magnet metadata without a sidecar', () => {
     const task = makeTask({
       kind: TaskKind.Bt,

@@ -440,6 +440,7 @@ let notificationCenter: NotificationCenter
 // Constructed and registered in startEngineAndRestore; its task retry is
 // late-bound by buildCommandHandlers to the ReAddTasks deps bundle.
 let dnsFallbackConsumer: DnsFallbackConsumer | undefined
+let recoveryService: TaskRecoveryServiceImpl | undefined
 let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
@@ -1266,7 +1267,7 @@ async function startEngineAndRestore(
     // renderer observes a self-healed state as soon as updates start
     // flowing. See design spec §6.6.
     const finalizeDepsFactory = () => buildFinalizeDeps(adapter)
-    const recoveryService = new TaskRecoveryServiceImpl({
+    recoveryService = new TaskRecoveryServiceImpl({
       taskManager: {
         getAll: () => taskManager.getAll(),
         set: (id: string, task: DownloadTask) => taskManager.set(id, task),
@@ -2559,6 +2560,15 @@ async function initializeMainProcess(): Promise<void> {
     dnsFallback: { reset: () => dnsFallbackConsumer?.reset() },
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
+    },
+    recoverFinalization: async (taskId) => {
+      if (!recoveryService) throw new Error('Task recovery is not ready')
+      try {
+        const report = await recoveryService.recoverTaskById(taskId)
+        if (report.errors.length > 0) throw new Error(report.errors[0].issue)
+      } finally {
+        publishTaskUpdateNow()
+      }
     },
     sessionManager,
     settingsManager,

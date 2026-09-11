@@ -11,6 +11,7 @@ import {
   TaskKind,
   TaskStatus,
   TaskType,
+  TransitionPhase,
 } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
@@ -1137,4 +1138,18 @@ describe('characterization: reAddTask adapter call params', () => {
       expect.objectContaining({ prioritizePreviewPieces: true })
     )
   })
+})
+
+it('retries an interrupted finalize without re-adding its torrent', async () => {
+  const task = makeBtTask({
+    status: TaskStatus.Error,
+    transitionPhase: TransitionPhase.Renaming,
+    diskPath: '/tmp/sample.motrix',
+  })
+  const deps = makeDeps(task)
+  const recoverFinalization = vi.fn(async () => {})
+  await reAddTask(task.id, { ...deps, recoverFinalization })
+  expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+  expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+  expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
 })

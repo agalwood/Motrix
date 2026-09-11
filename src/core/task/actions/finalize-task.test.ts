@@ -338,14 +338,21 @@ describe('finalizeTask HTTP/FTP branch', () => {
 
     await expect(finalizeTask('t1', deps)).rejects.toThrow('database busy')
 
-    expect(deps.recordTransition).toHaveBeenCalledExactlyOnceWith(
+    expect(deps.recordTransition).toHaveBeenCalledTimes(2)
+    expect(deps.recordTransition).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({ nextStatus: TaskStatus.Finalizing })
     )
-    expect(deps.eventBus.emit).toHaveBeenCalledExactlyOnceWith(
-      Events.TaskUpdated,
-      []
+    expect(deps.recordTransition).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ nextStatus: TaskStatus.Error })
     )
-    expect(task.status).toBe(TaskStatus.Finalizing)
+    expect(deps.eventBus.emit).toHaveBeenCalledTimes(2)
+    expect(deps.eventBus.emit).toHaveBeenCalledWith(
+      Events.TaskUpdated,
+      expect.any(Array)
+    )
+    expect(task.status).toBe(TaskStatus.Error)
     expect(task.transitionPhase).toBe(TransitionPhase.Renaming)
     expect(task.diskPath).toBe('/d/foo.mp4.motrix')
   })
@@ -2388,4 +2395,62 @@ describe('finalizeTask instance diskPath sync', () => {
     expect(task.diskPath).toBe('/d/renamed.mp4')
     expect(task.instances[0].diskPath).toBe('/d/renamed.mp4')
   })
+})
+
+describe('finalize pre-commit failure recovery', () => {
+  it.each([TaskType.Bt, TaskType.Http])(
+    'publishes an error when engine cleanup fails (%s)',
+    async (type) => {
+      const deps = makeDeps()
+      const task = makeTask({ type, instances: [makePrimaryInstance()] })
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      const error = new Error('Could not remove download result of GID#gid-1')
+      vi.mocked(deps.adapter.removeDownloadResult).mockRejectedValue(error)
+      await expect(finalizeTask(task.id, deps)).rejects.toBe(error)
+      expect(task).toMatchObject({
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+        errorCode: 'DL_UNKNOWN',
+        errorDetailKey: 'task.error.detail.finalizeFailed',
+      })
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+      expect(deps.eventBus.emit).toHaveBeenCalledWith(
+        Events.TaskUpdated,
+        expect.any(Array)
+      )
+    }
+  )
+
+  it.each([25, 35])(
+    'settles only new upload when retrying finalize (%s)',
+    async (retryUpload) => {
+      const deps = makeDeps()
+      const task = makeTask({
+        type: TaskType.Bt,
+        torrentMetaPath: '/meta',
+        uploadedBytesBaseline: 100,
+        instances: [
+          makePrimaryInstance({
+            phase: TaskInstancePhase.BtDownload,
+            uploadedBytes: 25,
+          }),
+        ],
+      })
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.adapter.getUploadLength).mockResolvedValue(25)
+      vi.mocked(deps.adapter.removeDownloadResult).mockRejectedValueOnce(
+        new Error('engine disconnected')
+      )
+      await expect(finalizeTask(task.id, deps)).rejects.toThrow(
+        'engine disconnected'
+      )
+      expect(task.uploadedBytesBaseline).toBe(125)
+      vi.mocked(deps.adapter.getUploadLength).mockResolvedValue(retryUpload)
+      await finalizeTask(task.id, deps)
+      expect(task.uploadedBytesBaseline).toBe(100 + retryUpload)
+      expect(task.instances[0].uploadedBytes).toBe(0)
+      expect(deps.fs.renameAtomic).toHaveBeenCalledTimes(1)
+    }
+  )
 })

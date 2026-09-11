@@ -1,9 +1,8 @@
-import { rename, rm } from 'node:fs/promises'
+import { access, rename, rm } from 'node:fs/promises'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
-import { pathExists } from '@core/fs/path-exists'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { MotrixDatabase } from '@core/session/motrix-database'
-import { ErrorCode } from '@shared/errors'
+import { DownloadErrorCode, ErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, type TaskType, TransitionPhase } from '@shared/types/task'
 import { isMediaKind, isTorrentLikeType } from '@shared/types/task-actions'
@@ -102,8 +101,15 @@ export interface RecoveryFs {
 }
 
 export const defaultRecoveryFs: RecoveryFs = {
-  pathExists(p: string): Promise<boolean> {
-    return pathExists(p)
+  async pathExists(p: string): Promise<boolean> {
+    try {
+      await access(p)
+      return true
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') return false
+      throw error
+    }
   },
   renameAtomic(src: string, dst: string): Promise<void> {
     return rename(src, dst)
@@ -173,6 +179,14 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
   constructor(private readonly deps: RecoveryDeps) {}
 
   async recoverOnStartup(): Promise<RecoveryReport> {
+    return this.recover()
+  }
+
+  async recoverTaskById(taskId: string): Promise<RecoveryReport> {
+    return this.recover(taskId)
+  }
+
+  private async recover(taskId?: string): Promise<RecoveryReport> {
     const start = Date.now()
     const report: RecoveryReport = {
       totalScanned: 0,
@@ -190,8 +204,9 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     // them would sit on the awaited startup path.
     const inFlightPublished = publishedTasks.filter(
       (t) =>
-        t.transitionPhase !== TransitionPhase.Idle ||
-        t.status === TaskStatus.Finalizing
+        (taskId === undefined || t.id === taskId) &&
+        (t.transitionPhase !== TransitionPhase.Idle ||
+          t.status === TaskStatus.Finalizing)
     )
     const inFlight = this.deps.taskManager.set
       ? inFlightPublished.map((task) => structuredClone(task))
@@ -231,15 +246,26 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     }
 
     for (const task of inFlight) {
-      try {
-        const recover = () =>
-          this.recoverTask(
-            task,
+      const recover = async () => {
+        const current = this.deps.taskManager
+          .getAll()
+          .find((t) => t.id === task.id)
+        if (!current) return
+        try {
+          await this.recoverTask(
+            this.deps.taskManager.set ? structuredClone(current) : current,
             byInfoHash,
             ownerByGid,
             taskIdsByInfoHash,
             report
           )
+        } catch (error) {
+          // Publish failure while still holding the same task mutation lock.
+          await this.recordRecoveryFailure(task.id, error)
+          throw error
+        }
+      }
+      try {
         await (this.deps.runTaskMutation
           ? this.deps.runTaskMutation([task.id], recover)
           : recover())
@@ -264,6 +290,39 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
       'recovery_completed'
     )
     return report
+  }
+
+  private async recordRecoveryFailure(
+    taskId: string,
+    e: unknown
+  ): Promise<void> {
+    const current = this.deps.taskManager.getAll().find((t) => t.id === taskId)
+    if (
+      current &&
+      current.transitionPhase !== TransitionPhase.Idle &&
+      current.status !== TaskStatus.Error
+    ) {
+      const failed = structuredClone(current)
+      const previousStatus = failed.status
+      applyTerminalStatusToTask(failed, TaskStatus.Error, {
+        errorCode: DownloadErrorCode.Unknown,
+        errorMessage: (e as Error).message,
+        errorDetailKey: 'task.error.detail.recoveryFailed',
+        errorDetailParams: { cause: (e as Error).message },
+      })
+      try {
+        await this.persistRecoveredTransition(failed, previousStatus)
+      } catch (persistError) {
+        this.deps.log.error(
+          { taskId, err: e, persistError },
+          'recovery_failure_persistence_failed'
+        )
+      }
+    }
+    this.deps.log.error(
+      { taskId, err: e, phase: current?.transitionPhase },
+      'task_recovery_failed'
+    )
   }
 
   private async recoverTask(

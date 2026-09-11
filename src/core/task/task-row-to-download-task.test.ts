@@ -69,6 +69,24 @@ function makeInstance(phase: TaskInstancePhase): TaskInstanceRow {
 }
 
 describe('taskRowToDownloadTask', () => {
+  it.each([
+    ['g1', 25, 125],
+    ['reseed-gid', 10, 135],
+  ])(
+    'restores settled upload for %s without double counting',
+    (gid, upload, expected) => {
+      const primary = makeInstance(TaskInstancePhase.BtDownload)
+      primary.gid = gid
+      primary.uploadedBytes = upload
+      primary.payload.btFinalizeUpload = { gid: 'g1', bytes: 25 }
+      const restored = taskRowToDownloadTask(
+        makeTaskRow({ uploadedBytesBaseline: 125 }),
+        [primary]
+      )
+      expect(restored.uploadedBytes).toBe(expected)
+    }
+  )
+
   it('uses the canonical persisted BT type', () => {
     const task = taskRowToDownloadTask(makeTaskRow(), [
       makeInstance(TaskInstancePhase.BtDownload),

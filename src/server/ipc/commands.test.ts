@@ -28,7 +28,9 @@ import {
   TaskKind,
   TaskStatus,
   TaskType,
+  TransitionPhase,
 } from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { ServerCommandContext } from './commands'
@@ -1412,4 +1414,29 @@ describe('buildServerCommandHandlers — notification center', () => {
     await expect(handlers[Commands.ClearNotifications]?.()).resolves.toBe(1)
     expect(notificationCenter.list()).toHaveLength(0)
   })
+})
+
+describe('server finalize retry wiring', () => {
+  it.each([Commands.ReAddTask, Commands.RetryTasks])(
+    'routes %s to recovery for an interrupted finalize',
+    async (command) => {
+      const ctx = makeFakeCtx() as unknown as ServerCommandContext
+      const task = makeDownloadTask({
+        id: 'interrupted-finalize',
+        type: TaskType.Bt,
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+      })
+      vi.spyOn(ctx.taskManager, 'getById').mockReturnValue(task)
+      const recoverFinalization = vi.fn().mockResolvedValue(undefined)
+      const handlers = buildServerCommandHandlers({
+        ...ctx,
+        recoverFinalization,
+      })
+      await handlers[command]?.(
+        command === Commands.ReAddTask ? task.id : [task.id]
+      )
+      expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+    }
+  )
 })

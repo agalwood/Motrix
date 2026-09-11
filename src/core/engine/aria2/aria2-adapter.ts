@@ -1,5 +1,6 @@
 import { access } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { getLogger } from '@core/logger'
 import {
   extractAria2ProxyCredentials,
@@ -797,15 +798,21 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async removeDownloadResult(engineTaskId: string): Promise<void> {
-    try {
-      await this.rpc.removeDownloadResult(engineTaskId)
-    } catch (err) {
-      // Idempotent only when aria2 explicitly says the GID is gone AND this
-      // engine's not-found is trustworthy. Transport, other RPC failures, and
-      // untrusted not-found (pre-.3 persistent fork) must remain observable so
-      // callers do not erase local history while the engine row survives.
-      if (isNotFoundError(err) && this.trustsNotFound()) return
-      throw err
+    // forceRemove acknowledges a halt request before aria2 creates its stopped
+    // result. Retry only that precise transition race; successful cleanups add
+    // no delay, and transport/persistent-delete failures remain observable.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.rpc.removeDownloadResult(engineTaskId)
+        return
+      } catch (err) {
+        if (isNotFoundError(err) && this.trustsNotFound()) return
+        const message = err instanceof Error ? err.message : String(err)
+        const pendingStop =
+          message === `Could not remove download result of GID#${engineTaskId}`
+        if (!pendingStop || attempt >= 6) throw err
+        await delay(Math.min(100 * 2 ** attempt, 1000))
+      }
     }
   }
 

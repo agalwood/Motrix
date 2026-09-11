@@ -54,6 +54,7 @@ import {
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPiecesFromMetadata,
 } from '../task/bt-storage-layout'
+import { unsettledBtUpload } from '../task/bt-upload-settlement'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
 import {
   canMirrorAria2MetadataHeaders,
@@ -1237,7 +1238,12 @@ export class SessionManager {
     const sizeWhenDone = Number(aria2.totalLength) || taskPart.sizeWhenDone
     const uploadedBytesBaseline = taskPart.uploadedBytesBaseline
     const uploadedBytes =
-      uploadedBytesBaseline + Number(aria2.uploadLength || 0)
+      uploadedBytesBaseline +
+      unsettledBtUpload(
+        pair.instances,
+        aria2.gid,
+        Number(aria2.uploadLength || 0)
+      )
     const fileCount = aria2.files?.length || taskPart.fileCount
 
     let bt = translateBtExtension(aria2)

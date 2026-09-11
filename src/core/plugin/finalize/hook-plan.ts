@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { resolveFinalizeTarget } from '@core/fs/finalize-path'
 import type { ArtifactIdentity } from './artifact-identity'
 
 export interface FinalizeReplacement {
@@ -27,19 +28,19 @@ export interface HookPlan {
   contributors: readonly string[]
 }
 
-export function assertValidHookPlan(plan: HookPlan): void {
-  if (!path.isAbsolute(plan.sourcePath) || !path.isAbsolute(plan.targetPath)) {
+export function assertFinalizePaths(
+  saveDir: string,
+  sourcePath: string,
+  targetPath: string
+): void {
+  if (!path.isAbsolute(sourcePath) || !path.isAbsolute(targetPath)) {
     throw new Error('finalize paths must be absolute')
   }
-  const relative = path.relative(plan.saveDir, plan.targetPath)
-  if (
-    relative === '' ||
-    relative === '..' ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    throw new Error('finalize target must be a descendant of saveDir')
-  }
+  resolveFinalizeTarget(saveDir, targetPath)
+}
+
+export function assertValidHookPlan(plan: HookPlan): void {
+  assertFinalizePaths(plan.saveDir, plan.sourcePath, plan.targetPath)
   if (
     plan.replacement?.identity.kind !== undefined &&
     !plan.replacement.pluginId

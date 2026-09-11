@@ -893,6 +893,8 @@
     },
     "error": {
       "detail": {
+        "finalizeFailed": "Could not finish the download: {{cause}}",
+        "recoveryFailed": "Could not recover the download: {{cause}}",
         "recoveryOutputConflict": "Both the temporary and final files exist; both were preserved for manual review",
         "filesMissing": "Files are missing after the app restarted",
         "renameFileFailed": "Failed to rename the file: {{cause}}",

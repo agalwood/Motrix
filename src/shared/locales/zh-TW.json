@@ -880,6 +880,8 @@
     },
     "error": {
       "detail": {
+        "finalizeFailed": "無法完成下載收尾：{{cause}}",
+        "recoveryFailed": "無法恢復下載：{{cause}}",
         "recoveryOutputConflict": "暫存檔與最終檔案皆存在，兩者均已保留以供手動檢查",
         "filesMissing": "應用程式重新啟動後找不到檔案",
         "renameFileFailed": "無法重新命名檔案：{{cause}}",

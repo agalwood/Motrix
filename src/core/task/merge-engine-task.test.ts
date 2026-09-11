@@ -34,6 +34,28 @@ function instance(status: TaskStatus, index = 0): TaskInstance {
 }
 
 describe('mergeEngineTask', () => {
+  it.each([
+    ['gid1', 25, 125],
+    ['gid1', 30, 130],
+    ['reseed-gid', 10, 135],
+  ])(
+    'merges settled upload for %s without double counting',
+    (gid, upload, expected) => {
+      const primary = instance(TaskStatus.Error)
+      primary.payload.btFinalizeUpload = { gid: 'gid1', bytes: 25 }
+      const existing = baseTask({
+        uploadedBytesBaseline: 125,
+        transitionPhase: TransitionPhase.Renaming,
+        instances: [primary],
+      })
+      const merged = mergeEngineTask(
+        existing,
+        baseTask({ engineTaskId: gid, uploadedBytes: upload })
+      )
+      expect(merged.uploadedBytes).toBe(expected)
+    }
+  )
+
   it.each(
     [TaskStatus.Queued, TaskStatus.Downloading].flatMap((from) =>
       [TaskStatus.Error, TaskStatus.Completed].flatMap((to) =>
