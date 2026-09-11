@@ -1708,7 +1708,7 @@ describe('Aria2Adapter', () => {
       ).rejects.toThrow('rpc down')
     })
 
-    it('addTorrent maps dlLimit/ulLimit with K suffix and merges extraEngineOptions', async () => {
+    it('addTorrent maps byte-per-second limits without suffixes and merges extraEngineOptions', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addTorrent).mockResolvedValue('gid')
       const adapter = new Aria2Adapter(rpc)
@@ -1723,8 +1723,8 @@ describe('Aria2Adapter', () => {
         expect.any(String),
         [],
         expect.objectContaining({
-          'max-download-limit': '100K',
-          'max-upload-limit': '50K',
+          'max-download-limit': '100',
+          'max-upload-limit': '50',
           'bt-max-peers': '60',
         })
       )

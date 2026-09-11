@@ -33,6 +33,7 @@ const {
       destroy: vi.fn(),
       onSpeedChange: vi.fn(),
       setEnabled: vi.fn(),
+      setUnitSystem: vi.fn(),
     },
     trayConstructor: vi.fn(),
     trayInstance,

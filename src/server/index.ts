@@ -311,6 +311,11 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
+          eventBus.emit(Events.ByteUnitSystemChanged, {
+            byteUnitSystem: updated.app.byteUnitSystem,
+          })
+        }
         if (old.app.reduceMotion !== updated.app.reduceMotion) {
           eventBus.emit(Events.ReducedMotionChanged, {
             reduceMotion: updated.app.reduceMotion,

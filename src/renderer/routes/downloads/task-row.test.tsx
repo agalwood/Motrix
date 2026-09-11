@@ -79,8 +79,7 @@ describe('TaskRow', () => {
   it('renders task name and formatted size', () => {
     render(<TaskRow task={fake()} rowProps={rowProps} />)
     expect(screen.getByText('ubuntu.iso')).toBeInTheDocument()
-    // formatBytes(4_700_000_000) = "4.4 GB" (1024-base, value.toFixed(1))
-    expect(screen.getByText(/4\.4 GB/)).toBeInTheDocument()
+    expect(screen.getByText(/4\.70 GB/)).toBeInTheDocument()
   })
 
   it('renders a dash for speeds when paused', () => {

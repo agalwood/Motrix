@@ -2,6 +2,10 @@ import { RunMode } from '@shared/constants'
 import { DEFAULT_LOCALE } from '@shared/constants/locales'
 import type { MotrixAppSettings } from '@shared/types/settings'
 import { z } from 'zod'
+import {
+  byteUnitSystemSchema,
+  DEFAULT_BYTE_UNIT_PREFERENCE,
+} from './byte-unit-system'
 import { supportedLocaleSchema } from './locale'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
@@ -20,6 +24,7 @@ export const appSettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   reduceMotion: z.boolean().catch(false),
   language: supportedLocaleSchema.catch(DEFAULT_LOCALE),
+  byteUnitSystem: byteUnitSystemSchema.catch(DEFAULT_BYTE_UNIT_PREFERENCE),
   // Empty string is a sentinel: SettingsManager (main/server) seeds the
   // absolute platform download directory on first load. The renderer never
   // observes '' because settings are loaded before the UI mounts.

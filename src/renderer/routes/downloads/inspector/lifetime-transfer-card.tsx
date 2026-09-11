@@ -4,8 +4,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@renderer/components/ui/chart'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { formatTime24Hour } from '@renderer/lib/format'
-import { formatSpeed } from '@renderer/lib/speed-chart'
+
 import { TileSegmentedControl } from '@renderer/routes/dashboard/components/tile-segmented-control'
 import type {
   TaskInspectorActivitySnapshot,
@@ -43,10 +44,6 @@ export interface LifetimeTransferCardProps {
   summary?: ReactNode
   onRangeChange: (range: ActivityChartRange) => void
   onSelectMarker: (markerId: string) => void
-}
-
-function formatAxisSpeed(bytesPerSecond: number): string {
-  return formatSpeed(bytesPerSecond).replace(' ', '\u00a0')
 }
 
 const TRANSFER_BAR_SIZE = 5
@@ -110,6 +107,11 @@ export function LifetimeTransferCard({
   onRangeChange,
   onSelectMarker,
 }: LifetimeTransferCardProps) {
+  const { formatSpeed } = useByteFormat()
+
+  function formatAxisSpeed(bytesPerSecond: number): string {
+    return formatSpeed(bytesPerSecond).replace(' ', '\u00a0')
+  }
   const { t, i18n } = useTranslation()
   const latest = model.points.at(-1)
   const chartConfig = useMemo<ChartConfig>(

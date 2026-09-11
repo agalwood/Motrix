@@ -1002,7 +1002,12 @@
       "runModeTrayDesktop": "Start in System Tray",
       "runModeLinuxDesc": "System tray availability and activation behavior depend on your desktop environment.",
       "lightweightMode": "Lightweight mode",
-      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded."
+      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded.",
+      "byteUnitSystem": "Size and speed units",
+      "byteUnitSystemDesc": "Applies to file sizes and transfer speeds.",
+      "byteUnitDecimal": "Decimal (MB, GB · 1000)",
+      "byteUnitBinary": "Binary (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Follow system ({{units}})"
     },
     "advanced": {
       "rpc": {
@@ -1205,7 +1210,7 @@
         "maxConnectionPerServerDesc": "How many parallel HTTP requests per origin.",
         "split": "Split connections per file",
         "splitDesc": "Number of segments to fetch a single file with.",
-        "minSplitSize": "Minimum segment size (MB)",
+        "minSplitSize": "Minimum segment size (MiB)",
         "minSplitSizeDesc": "Don’t split a file smaller than this."
       },
       "reliability": {
@@ -1220,7 +1225,7 @@
         "maxTriesDesc": "0 = no retry.",
         "retryWait": "Retry wait (s)",
         "retryWaitDesc": "Pause between retries.",
-        "lowestSpeedLimit": "Slow connection threshold (KB/s)",
+        "lowestSpeedLimit": "Slow connection threshold (KiB/s)",
         "lowestSpeedLimitDesc": "Drop connections below this speed. 0 = disabled."
       },
       "disk": {
@@ -1235,7 +1240,7 @@
         "modifiedTimeDesc": "Choose which modification time completed HTTP and FTP downloads use.",
         "modifiedTimeLocal": "Local",
         "modifiedTimeServer": "Server",
-        "diskCache": "Disk cache (MB)",
+        "diskCache": "Disk cache (MiB)",
         "diskCacheDesc": "In-memory write cache.",
         "sessionSaveInterval": "Session save interval (s)",
         "sessionSaveIntervalDesc": "How often aria2 persists download state."

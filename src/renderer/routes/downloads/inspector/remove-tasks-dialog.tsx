@@ -7,7 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
-import { formatBytes } from '@renderer/lib/format'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { AlertTriangle } from 'lucide-react'
@@ -85,6 +86,8 @@ export function RemoveTasksDialog({
   onOpenChange,
   onConfirm,
 }: RemoveTasksDialogProps) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const checkboxId = useId()
   // Deleting files is always an explicit opt-in (or the Shift shortcut via

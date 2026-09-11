@@ -897,8 +897,8 @@ describe('buildCommandHandlers', () => {
       [],
       expect.objectContaining({
         'select-file': '2',
-        'max-download-limit': '2048K',
-        'max-upload-limit': '1024K',
+        'max-download-limit': '2048',
+        'max-upload-limit': '1024',
         'seed-ratio': '1.5',
       })
     )
@@ -908,8 +908,8 @@ describe('buildCommandHandlers', () => {
       [],
       expect.objectContaining({
         'select-file': '1,2',
-        'max-download-limit': '2048K',
-        'max-upload-limit': '1024K',
+        'max-download-limit': '2048',
+        'max-upload-limit': '1024',
         'seed-ratio': '1.5',
       })
     )

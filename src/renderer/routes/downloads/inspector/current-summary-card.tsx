@@ -1,5 +1,6 @@
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { formatDurationHMS } from '@renderer/lib/format'
-import { formatSpeed } from '@renderer/lib/speed-chart'
+
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import type { TaskInspectorActivitySnapshot } from '@shared/types/task-inspector-activity'
@@ -32,6 +33,8 @@ function LiveMetric({
   value: number
   label: string
 }) {
+  const { formatSpeed } = useByteFormat()
+
   const Icon = direction === 'download' ? ArrowDown : ArrowUp
   const color =
     direction === 'download'
@@ -87,6 +90,8 @@ export function CurrentSummaryCard({
   task,
   lifetime,
 }: CurrentSummaryCardProps) {
+  const { formatSpeed } = useByteFormat()
+
   const { t } = useTranslation()
   const unavailable = t('panel.downloads.inspector.activity.notAvailable')
   const live = LIVE_STATUSES.has(task.status)

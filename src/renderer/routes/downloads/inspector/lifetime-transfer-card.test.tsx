@@ -213,9 +213,9 @@ describe('LifetimeTransferCard', () => {
     )
 
     const scale = screen.getByTestId('activity-transfer-speed-scale')
-    expect(scale).toHaveTextContent('13.6 MB/s')
-    expect(scale).toHaveTextContent('6.8 MB/s')
-    expect(scale).not.toHaveTextContent('19.1 MB/s')
+    expect(scale).toHaveTextContent('14.3 MB/s')
+    expect(scale).toHaveTextContent('7.1 MB/s')
+    expect(scale).not.toHaveTextContent('20.0 MB/s')
   })
 
   it('formats X-axis labels as HH:mm:ss without AM or PM', () => {

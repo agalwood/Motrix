@@ -6,6 +6,7 @@ import { ForwardableEvents } from './forwardable-events'
 describe('ForwardableEvents', () => {
   it('forwards the motion preference without exposing the full settings event', () => {
     expect(ForwardableEvents).toContain(Events.ReducedMotionChanged)
+    expect(ForwardableEvents).toContain(Events.ByteUnitSystemChanged)
     expect(ForwardableEvents).not.toContain(Events.SettingsChanged)
   })
 
@@ -21,7 +22,7 @@ describe('ForwardableEvents', () => {
   })
 
   it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(52)
+    expect(ForwardableEvents).toHaveLength(53)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {

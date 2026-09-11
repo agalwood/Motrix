@@ -1,3 +1,4 @@
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 // src/renderer/routes/dashboard/tiles/speed-limit-tile.tsx
 
 import { Button } from '@renderer/components/ui/button'
@@ -8,7 +9,7 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import type { SpeedLimitStateView } from '@renderer/hooks/use-speed-limit-state'
-import { formatBytes } from '@renderer/lib/format'
+
 import { cn } from '@renderer/lib/utils'
 import { Bolt, InfinityIcon, Rabbit, Squirrel, Turtle } from 'lucide-react'
 import type { ComponentType, ReactElement } from 'react'
@@ -28,10 +29,6 @@ const TURTLES: {
   { id: 'auto', Icon: Squirrel },
 ]
 
-function fmt(v: number): string | ReactElement {
-  return v <= 0 ? <InfinityIcon className="size-4" /> : `${formatBytes(v)}/s`
-}
-
 export interface SpeedLimitTileProps {
   state: SpeedLimitStateView
   viewport: DashboardTileViewport
@@ -45,6 +42,11 @@ export function SpeedLimitTile({
   onSelectTurtle,
   className,
 }: SpeedLimitTileProps) {
+  const { formatSpeed } = useByteFormat()
+
+  function fmt(v: number): string | ReactElement {
+    return v <= 0 ? <InfinityIcon className="size-4" /> : formatSpeed(v)
+  }
   const { t } = useTranslation()
   const compact = viewport.contentLevel === 'compact'
   const detailed =

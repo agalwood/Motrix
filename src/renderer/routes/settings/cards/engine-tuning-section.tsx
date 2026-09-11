@@ -152,7 +152,7 @@ export function EngineTuningSection({
         'lowestSpeedLimit',
         'settings.downloads.reliability.lowestSpeedLimit',
         'settings.downloads.reliability.lowestSpeedLimitDesc',
-        { min: 0, scale: KB } // displayed KB/s → stored bytes/sec
+        { min: 0, scale: KB } // displayed KiB/s → stored bytes/sec
       )}
 
       <Separator className="my-4" />

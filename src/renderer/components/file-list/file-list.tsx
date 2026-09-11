@@ -1,22 +1,10 @@
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
 import { Checkbox } from '@renderer/components/ui/checkbox'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { cn } from '@renderer/lib/utils'
 import type { BaseFileRow } from '@shared/types/file-row'
 import { type ReactNode, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1_073_741_824) {
-    return `${(bytes / 1_073_741_824).toFixed(1)} GB`
-  }
-  if (bytes >= 1_048_576) {
-    return `${(bytes / 1_048_576).toFixed(1)} MB`
-  }
-  if (bytes >= 1_024) {
-    return `${(bytes / 1_024).toFixed(1)} KB`
-  }
-  return `${bytes} B`
-}
 
 interface FileListProps<T extends BaseFileRow = BaseFileRow> {
   files: T[]
@@ -39,6 +27,8 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
   headerClassName,
   renderRowTrailing,
 }: FileListProps<T>) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
 
   const selectedSet = useMemo(() => new Set(selectedIndices), [selectedIndices])
@@ -56,7 +46,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
 
   const summary = `${t('task.torrent.fileSelected', {
     count: selectedIndices.length,
-  })} · ${formatSize(totalSelectedSize)}`
+  })} · ${formatBytes(totalSelectedSize)}`
 
   function toggleSelectAll() {
     if (readOnly || !onSelectionChange) return
@@ -127,7 +117,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
               {file.path}
             </span>
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {formatSize(file.size)}
+              {formatBytes(file.size)}
             </span>
             {renderRowTrailing?.(file)}
           </div>

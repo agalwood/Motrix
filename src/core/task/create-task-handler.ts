@@ -850,10 +850,10 @@ async function handleCreateTaskUnderAdmission(
         .join(',')
     }
     if (req.dlLimit !== undefined) {
-      magnetEngineOpts['max-download-limit'] = `${req.dlLimit}K`
+      magnetEngineOpts['max-download-limit'] = String(req.dlLimit)
     }
     if (req.ulLimit !== undefined) {
-      magnetEngineOpts['max-upload-limit'] = `${req.ulLimit}K`
+      magnetEngineOpts['max-upload-limit'] = String(req.ulLimit)
     }
     if (req.seedRatio !== undefined) {
       magnetEngineOpts['seed-ratio'] = String(req.seedRatio)
@@ -866,7 +866,7 @@ async function handleCreateTaskUnderAdmission(
       // merged LAST in the old code and could override). createDownload then
       // merges extraEngineOptions after `dir`, so the final aria2 map is
       // { dir: diskPath, ...magnetEngineOpts, ...opts.extraEngineOptions } —
-      // byte-identical to the old toBt + applyPathOverrides + opts merge.
+      // explicit shell overrides keep their existing precedence.
       extraEngineOptions: {
         ...magnetEngineOpts,
         ...(opts.extraEngineOptions ?? {}),

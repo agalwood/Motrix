@@ -1,3 +1,4 @@
+import { setByteUnitSystem } from '@renderer/hooks/use-byte-format'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
@@ -6,9 +7,16 @@ import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { MAX_CONNECTIONS_PER_SERVER } from '@shared/schemas/engine-settings'
 import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DownloadsDialog } from './downloads-dialog'
 
 const { toastAddMock } = vi.hoisted(() => ({ toastAddMock: vi.fn() }))
@@ -66,6 +74,11 @@ const FIXTURE = {
   },
   speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
 }
+
+afterEach(() => {
+  cleanup()
+  setByteUnitSystem('decimal')
+})
 
 describe('<DownloadsDialog>', () => {
   beforeEach(async () => {
@@ -378,14 +391,95 @@ describe('<DownloadsDialog>', () => {
     const baseDown = screen.getByLabelText(
       /standard download limit/i
     ) as HTMLInputElement
-    // 1024 KB/s → bytes/sec: 1024 * 1024 = 1_048_576.
+    // Decimal KB/s → bytes/sec: 1024 * 1000 = 1_024_000.
     fireEvent.change(baseDown, { target: { value: '1024' } })
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      speedLimit: { base: { download: 1024 * 1024 } },
+      speedLimit: { base: { download: 1024 * 1000 } },
     })
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('converts an existing limit on unit changes without marking it dirty', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return {
+          ...FIXTURE,
+          speedLimit: {
+            ...DEFAULT_SPEED_LIMIT_SETTINGS,
+            base: { download: 1_048_576, upload: 0 },
+          },
+        }
+      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+    })
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    const input = screen.getByLabelText(/standard download limit/i)
+    await waitFor(() => expect(input).toHaveValue(1048.576))
+    act(() => setByteUnitSystem('binary'))
+    expect(input).toHaveValue(1024)
+    expect(input).toHaveAttribute('aria-valuetext', '1024 KiB/s')
+    await userEvent.setup().click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+
+  it('converts binary limit input into exact bytes per second', async () => {
+    setByteUnitSystem('binary')
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText(/standard download limit/i)).toBeEnabled()
+    )
+    fireEvent.change(screen.getByLabelText(/standard download limit/i), {
+      target: { value: '1024' },
+    })
+    await userEvent.setup().click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      speedLimit: { base: { download: 1_048_576 } },
+    })
+  })
+
+  it.each(['decimal', 'binary'] as const)(
+    'accepts fractional %s limits typed one character at a time',
+    async (unitSystem) => {
+      setByteUnitSystem(unitSystem)
+      render(
+        <DownloadsDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.downloads.title"
+          descKey="settings.cards.downloads.desc"
+        />
+      )
+      const input = screen.getByLabelText(/standard download limit/i)
+      await waitFor(() => expect(input).toBeEnabled())
+      const user = userEvent.setup()
+      await user.clear(input)
+      await user.type(input, '1.1')
+      expect(input).toHaveValue(1.1)
+      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        speedLimit: {
+          base: { download: unitSystem === 'binary' ? 1126 : 1100 },
+        },
+      })
+    }
+  )
 
   it('groups compact reset actions with their speed limit inputs', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
@@ -437,9 +531,9 @@ describe('<DownloadsDialog>', () => {
     await user.click(setUnlimited)
     await user.click(useStandard as HTMLElement)
 
-    expect(baseDown).toHaveValue('')
+    expect(baseDown).toHaveValue(null)
     expect(baseDown).toHaveAttribute('placeholder', 'Unlimited')
-    expect(altDown).toHaveValue('')
+    expect(altDown).toHaveValue(null)
     expect(altDown).toHaveAttribute('placeholder', 'Standard limit')
 
     await user.click(screen.getByRole('button', { name: /save/i }))

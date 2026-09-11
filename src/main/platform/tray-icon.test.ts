@@ -69,29 +69,24 @@ describe('createLinuxIconProvider', () => {
 })
 
 describe('formatSpeed', () => {
-  it('formats zero as 0 KB/s', () => {
+  it('keeps integer kilobytes as the minimum unit in decimal mode', () => {
     expect(formatSpeed(0)).toBe('0 KB/s')
-  })
-
-  it('formats bytes as KB/s (minimum unit, no decimal)', () => {
     expect(formatSpeed(512)).toBe('1 KB/s')
-    expect(formatSpeed(100)).toBe('0 KB/s')
+    expect(formatSpeed(50_000)).toBe('50 KB/s')
+    expect(formatSpeed(999_999)).toBe('1000 KB/s')
   })
-
-  it('formats kilobytes without decimal', () => {
-    expect(formatSpeed(1024)).toBe('1 KB/s')
-    expect(formatSpeed(50 * 1024)).toBe('50 KB/s')
-    expect(formatSpeed(200 * 1024)).toBe('200 KB/s')
+  it('keeps one decimal place for megabytes and above in decimal mode', () => {
+    expect(formatSpeed(16_500_000)).toBe('16.5 MB/s')
+    expect(formatSpeed(125_000_000)).toBe('125.0 MB/s')
+    expect(formatSpeed(1_500_000_000)).toBe('1.5 GB/s')
   })
-
-  it('formats megabytes with one decimal', () => {
-    expect(formatSpeed(1048576)).toBe('1.0 MB/s')
-    expect(formatSpeed(1.5 * 1024 ** 2)).toBe('1.5 MB/s')
-    expect(formatSpeed(88 * 1024 ** 2)).toBe('88.0 MB/s')
-  })
-
-  it('formats gigabytes with one decimal', () => {
-    expect(formatSpeed(1073741824)).toBe('1.0 GB/s')
-    expect(formatSpeed(1.2 * 1024 ** 3)).toBe('1.2 GB/s')
+  it('preserves the original binary rounding with IEC labels', () => {
+    expect(formatSpeed(0, 'binary')).toBe('0 KiB/s')
+    expect(formatSpeed(512, 'binary')).toBe('1 KiB/s')
+    expect(formatSpeed(50 * 1024, 'binary')).toBe('50 KiB/s')
+    expect(formatSpeed(1_048_575, 'binary')).toBe('1024 KiB/s')
+    expect(formatSpeed(1_048_576, 'binary')).toBe('1.0 MiB/s')
+    expect(formatSpeed(125 * 1_048_576, 'binary')).toBe('125.0 MiB/s')
+    expect(formatSpeed(1_073_741_824, 'binary')).toBe('1.0 GiB/s')
   })
 })

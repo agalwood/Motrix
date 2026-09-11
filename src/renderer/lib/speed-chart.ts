@@ -1,5 +1,6 @@
 import type { SpeedPoint } from '@shared/types/stats'
-import { formatBytes } from './format'
+
+export { formatSpeed } from '@shared/utils/format-bytes'
 
 export const SPEED_CHART_MIN_POINTS = 24
 const DEFAULT_STEP_MS = 1_000
@@ -58,9 +59,4 @@ export function chartCeiling(value: number): number {
   const normalized = value / power
   const step = normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10
   return step * power
-}
-
-export function formatSpeed(bytesPerSecond: number): string {
-  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond < 1) return '0 B/s'
-  return `${formatBytes(bytesPerSecond)}/s`
 }

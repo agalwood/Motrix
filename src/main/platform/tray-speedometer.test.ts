@@ -31,3 +31,14 @@ describe('buildSpeedometerSvg', () => {
     expect(svg).toContain(MOCK_ICON_SVG)
   })
 })
+
+it('uses IEC units in the speedometer when selected', () => {
+  const svg = buildSpeedometerSvg(
+    MOCK_ICON_SVG,
+    1_048_576,
+    1_073_741_824,
+    'binary'
+  )
+  expect(svg).toContain('1.0 MiB/s')
+  expect(svg).toContain('1.0 GiB/s')
+})

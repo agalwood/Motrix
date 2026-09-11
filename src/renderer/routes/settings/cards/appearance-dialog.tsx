@@ -31,6 +31,7 @@ import { isSupportedLocale, SUPPORTED_LOCALES } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
+import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
@@ -43,6 +44,7 @@ type AppearanceFields = Pick<
   | 'theme'
   | 'reduceMotion'
   | 'language'
+  | 'byteUnitSystem'
   | 'traySpeedometer'
   | 'runMode'
   | 'liquidGlassEffect'
@@ -56,6 +58,7 @@ const DEFAULTS: AppearanceFields = {
   theme: DEFAULT_APP_SETTINGS.theme,
   reduceMotion: DEFAULT_APP_SETTINGS.reduceMotion,
   language: DEFAULT_APP_SETTINGS.language,
+  byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
   runMode: DEFAULT_APP_SETTINGS.runMode,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
@@ -93,6 +96,7 @@ export function AppearanceDialog({
             theme: all.app.theme,
             reduceMotion: all.app.reduceMotion ?? DEFAULTS.reduceMotion,
             language: all.app.language,
+            byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
             traySpeedometer: all.app.traySpeedometer,
             runMode:
               transport.platform !== 'darwin' &&
@@ -122,6 +126,24 @@ export function AppearanceDialog({
     if (dirty.theme !== undefined) setTheme(dirty.theme)
     onClose()
   })
+
+  const systemUnits = resolveByteUnitSystem(
+    'system',
+    transport.platform === 'web' ? navigator.platform : transport.platform
+  )
+  const byteUnitOptions = [
+    {
+      value: 'system',
+      label: t('settings.appearance.byteUnitSystemDefault', {
+        units: systemUnits === 'binary' ? 'MiB, GiB' : 'MB, GB',
+      }),
+    },
+    { value: 'decimal', label: t('settings.appearance.byteUnitDecimal') },
+    { value: 'binary', label: t('settings.appearance.byteUnitBinary') },
+  ] satisfies Array<{
+    value: AppearanceFields['byteUnitSystem']
+    label: string
+  }>
 
   const themeOptions = [
     {
@@ -238,6 +260,48 @@ export function AppearanceDialog({
                         <SelectContent>
                           <SelectGroup>
                             {LANGUAGE_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="byteUnitSystem"
+                render={({ field }) => (
+                  <FormItem className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <FormLabel>
+                        {t('settings.appearance.byteUnitSystem')}
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        {t('settings.appearance.byteUnitSystemDesc')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Select
+                        items={byteUnitOptions}
+                        value={field.value}
+                        onValueChange={(value) => {
+                          if (value !== null) field.onChange(value)
+                        }}
+                      >
+                        <SettingsSelectTrigger>
+                          <SelectValue />
+                        </SettingsSelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {byteUnitOptions.map((option) => (
                               <SelectItem
                                 key={option.value}
                                 value={option.value}

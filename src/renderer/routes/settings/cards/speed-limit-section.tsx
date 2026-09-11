@@ -15,7 +15,8 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@renderer/components/ui/toggle-group'
-import { formatBytes } from '@renderer/lib/format'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+
 import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
@@ -25,7 +26,7 @@ import { type ComponentProps, forwardRef, useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { CompactLimitInput } from './compact-limit-input'
-import { type DownloadsFields, KB, MBPS } from './downloads-form'
+import { type DownloadsFields, MBPS } from './downloads-form'
 
 const TIME_INPUT_CLS = 'h-8 w-24 bg-background font-mono tabular-nums'
 const TIME_24_PATTERN = '(?:[01]\\d|2[0-3]):[0-5]\\d'
@@ -131,20 +132,20 @@ function minCap(values: number[]): number {
   return min
 }
 
-function formatLimit(value: number, t: Translate): string {
-  return value <= 0
-    ? t('settings.downloads.speedLimit.unlimited')
-    : `${formatBytes(value)}/s`
-}
-
 function crossesMidnight(from: string, to: string): boolean {
   return to < from
 }
 
 function effectSummary(
   settings: SpeedLimitSettings,
-  t: Translate
+  t: Translate,
+  formatSpeed: (value: number) => string
 ): { primary: string; secondary?: string } {
+  function formatLimit(value: number, t: Translate): string {
+    return value <= 0
+      ? t('settings.downloads.speedLimit.unlimited')
+      : formatSpeed(value)
+  }
   const regularValues = {
     download: formatLimit(settings.base.download, t),
     upload: formatLimit(settings.base.upload, t),
@@ -246,12 +247,15 @@ export function SpeedLimitSection({
 }: {
   form: UseFormReturn<DownloadsFields>
 }) {
+  const { formatSpeed, unitSystem } = useByteFormat()
+  const kiloByte = unitSystem === 'binary' ? 1024 : 1000
+
   const { t } = useTranslation()
   const settings = form.watch('speedLimit')
   const turtle = settings.turtle
   const scheduleEnabled = settings.auto.schedule.enabled
   const adaptiveEnabled = settings.auto.adaptive.enabled
-  const summary = effectSummary(settings, t)
+  const summary = effectSummary(settings, t, formatSpeed)
 
   const kbLimitRow = (
     name: KbLimitName,
@@ -270,9 +274,11 @@ export function SpeedLimitSection({
           </div>
           <FormControl>
             <CompactLimitInput
-              value={Math.round((field.value as number) / KB)}
-              onValueChange={(value) => field.onChange(value * KB)}
-              unit="KB/s"
+              value={(field.value as number) / kiloByte}
+              onValueChange={(value) =>
+                field.onChange(Math.round(value * kiloByte))
+              }
+              unit={unitSystem === 'binary' ? 'KiB/s' : 'KB/s'}
               zeroAction={zeroAction}
               zeroLabel={t(
                 zeroAction === 'inherit'

@@ -996,6 +996,8 @@ describe('handleCreateTask', () => {
       {
         type: 'bt',
         payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:x' },
+        dlLimit: 1_000_000,
+        ulLimit: 512_000,
         selectedFiles: [0],
         saveDir: '/d',
         displayName: 'mag-name',
@@ -1009,6 +1011,10 @@ describe('handleCreateTask', () => {
       expect.any(Object)
     )
     const [, options] = deps.addUri.mock.calls[0]
+    expect(options).toMatchObject({
+      'max-download-limit': '1000000',
+      'max-upload-limit': '512000',
+    })
     expect(options).not.toHaveProperty('bt-prioritize-piece')
   })
 })
