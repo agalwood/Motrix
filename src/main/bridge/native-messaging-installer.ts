@@ -286,6 +286,18 @@ export interface SyncArgs {
   firefox: string[]
 }
 
+export interface NativeMessagingRegistrationFailure {
+  browser: keyof ManifestPaths
+  path: string
+  operation: 'manifest' | 'registry'
+  registryView?: RegistryView
+  error: unknown
+}
+
+export interface NativeMessagingSyncResult {
+  failures: NativeMessagingRegistrationFailure[]
+}
+
 interface ChromiumManifest {
   name: string
   description: string
@@ -309,9 +321,12 @@ export class NativeMessagingInstaller {
     return this.opts.appImage != null
   }
 
-  async syncManifests(args: SyncArgs): Promise<void> {
-    if (this.opts.appImage) return this.opts.appImage.sync(args)
-    if (this.opts.registrationMode === 'external') return
+  async syncManifests(args: SyncArgs): Promise<NativeMessagingSyncResult> {
+    if (this.opts.appImage) {
+      await this.opts.appImage.sync(args)
+      return { failures: [] }
+    }
+    if (this.opts.registrationMode === 'external') return { failures: [] }
 
     await this.writeDevelopmentHostConfig()
 
@@ -329,14 +344,6 @@ export class NativeMessagingInstaller {
       type: 'stdio',
       allowed_origins: args.chromium.map((id) => `chrome-extension://${id}/`),
     }
-    await this.writeJson(paths.chrome, chromiumManifest)
-    if (paths.chromium) {
-      await this.writeJson(paths.chromium, chromiumManifest)
-    }
-    if (paths.edge) {
-      await this.writeJson(paths.edge, chromiumManifest)
-    }
-
     const firefoxManifest: FirefoxManifest = {
       name: MANIFEST_HOST_NAME,
       description: MANIFEST_DESCRIPTION,
@@ -344,21 +351,45 @@ export class NativeMessagingInstaller {
       type: 'stdio',
       allowed_extensions: args.firefox,
     }
-    await this.writeJson(paths.firefox, firefoxManifest)
-
-    // Windows: register each browser's host key so the JSON files are
-    // discoverable. computeRegistryEntries returns [] on macOS/Linux (which use
-    // file-based discovery), so the registration is a no-op there. The keys are
-    // independent. Register both views because Chrome and Firefox query the
-    // 32-bit view before the native view, and an older registration must not
-    // shadow the current host path.
+    const failures: NativeMessagingRegistrationFailure[] = []
     const writeRegistry = this.opts.registryWriter ?? regAddDefaultValue
     const registryEntries = computeRegistryEntries(this.opts.platform, paths)
-    await Promise.all(
-      registryEntries.flatMap((entry) =>
-        WINDOWS_REGISTRY_VIEWS.map((view) => writeRegistry(entry, view))
-      )
-    )
+    // Each browser owns an independent registration. A denied directory or
+    // conflicting manifest must not disable the other browsers or the bridge.
+    for (const browser of ['chrome', 'chromium', 'edge', 'firefox'] as const) {
+      const path = paths[browser]
+      if (!path) continue
+      try {
+        await this.writeJson(
+          path,
+          browser === 'firefox' ? firefoxManifest : chromiumManifest
+        )
+      } catch (error) {
+        failures.push({ browser, path, operation: 'manifest', error })
+        // Never advertise a manifest that this attempt could not update.
+        continue
+      }
+      for (const entry of registryEntries.filter(
+        (item) => item.value === path
+      )) {
+        // Both registry views are independent, too. A failed 32-bit update
+        // must not prevent the 64-bit view or later browsers from updating.
+        for (const registryView of WINDOWS_REGISTRY_VIEWS) {
+          try {
+            await writeRegistry(entry, registryView)
+          } catch (error) {
+            failures.push({
+              browser,
+              path: `${entry.hive}\\${entry.keyPath}`,
+              operation: 'registry',
+              registryView,
+              error,
+            })
+          }
+        }
+      }
+    }
+    return { failures }
   }
 
   async unregister(): Promise<void> {
@@ -373,22 +404,27 @@ export class NativeMessagingInstaller {
     )
     const registryEntries = computeRegistryEntries(this.opts.platform, paths)
     const deleteRegistry = this.opts.registryDeleter ?? regDeleteKey
-    await Promise.all(
-      registryEntries.flatMap((entry) =>
-        WINDOWS_REGISTRY_VIEWS.map((view) => deleteRegistry(entry, view))
-      )
-    )
-
     const manifestPaths = [
       paths.chrome,
       paths.chromium,
       paths.edge,
       paths.firefox,
     ].filter((filePath): filePath is string => filePath !== undefined)
-    await Promise.all(
-      manifestPaths.map((filePath) => this.removeOwnedManifest(filePath))
+    // Drain every removal before reporting failures so disable/re-enable
+    // cannot race a removal left running by a rejected Promise.all.
+    const results = await Promise.allSettled([
+      ...registryEntries.flatMap((entry) =>
+        WINDOWS_REGISTRY_VIEWS.map((view) => deleteRegistry(entry, view))
+      ),
+      ...manifestPaths.map((filePath) => this.removeOwnedManifest(filePath)),
+      this.removeDevelopmentHostConfig(),
+    ])
+    const errors = results.flatMap((result) =>
+      result.status === 'rejected' ? [result.reason] : []
     )
-    await this.removeDevelopmentHostConfig()
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'Native Messaging cleanup failed')
+    }
   }
 
   private developmentHostConfigPath(): string | null {

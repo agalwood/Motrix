@@ -42,6 +42,7 @@ import {
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
+import { getLogger } from '@core/logger'
 import { urlMatchesHostPermissions } from '@core/plugin/hooks/eligibility'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -70,6 +71,7 @@ import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
 import {
   NativeMessagingInstaller,
+  type NativeMessagingSyncResult,
   type Platform,
   type SyncArgs,
 } from './native-messaging-installer'
@@ -81,6 +83,8 @@ import {
   resolvePackagedLinuxSnapEnvironment,
 } from './snap-environment'
 import { recoverDefaultWindowsDesktopBridgeResidue } from './windows-desktop-startup-recovery'
+
+const nativeMessagingLog = getLogger('native-messaging')
 
 /**
  * A plugin contributes to the mux pre-resolve seam when it is an enabled
@@ -336,15 +340,16 @@ export async function syncNativeMessagingManifests(args: {
   manifests: SyncArgs
   snap: PackagedLinuxSnapEnvironment | null
   warn?: (message: string) => void
-}): Promise<void> {
+}): Promise<NonNullable<BridgeStatusInfo['nativeMessagingHealth']>> {
+  const warn =
+    args.warn ?? ((message: string) => nativeMessagingLog.warn(message))
+  let result: NativeMessagingSyncResult
   try {
-    await args.installer.syncManifests(args.manifests)
+    result = await args.installer.syncManifests(args.manifests)
   } catch (error) {
     if (args.installer.preserveOnStartupFailure) {
-      ;(args.warn ?? console.warn)(
-        'AppImage browser launch needs repair in settings'
-      )
-      return
+      warn('AppImage browser launch needs repair in settings')
+      return 'degraded'
     }
     const code =
       typeof error === 'object' && error !== null && 'code' in error
@@ -358,11 +363,40 @@ export async function syncNativeMessagingManifests(args: {
       throw error
     }
 
-    const warn = args.warn ?? console.warn
+    warn(
+      `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
+    )
+    return 'degraded'
+  }
+  let permissionDenied = false
+  for (const failure of result.failures) {
+    const error = failure.error
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined
+    permissionDenied ||= code === 'EACCES' || code === 'EPERM'
+    warn(
+      `Native Messaging registration failed: ${JSON.stringify({
+        browser: failure.browser,
+        path: failure.path,
+        operation: failure.operation,
+        registryView: failure.registryView,
+        code,
+        message: error instanceof Error ? error.message : String(error),
+      })}`
+    )
+  }
+  if (
+    permissionDenied &&
+    args.snap &&
+    isValidSnapInstanceName(args.snap.instanceName)
+  ) {
     warn(
       `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
     )
   }
+  return result.failures.length > 0 ? 'degraded' : 'ready'
 }
 
 export async function bootstrapBridge(args: {
@@ -799,7 +833,7 @@ export async function bootstrapBridge(args: {
         await installer.unregister()
       }
     })
-    await syncNativeMessagingManifests({
+    let nativeMessagingHealth = await syncNativeMessagingManifests({
       installer,
       snap,
       manifests: {
@@ -819,6 +853,28 @@ export async function bootstrapBridge(args: {
       bridgeIdentity.localToken,
       bridgeIdentity.serverGeneration
     )
+
+    // Serialize registry edits with their manifest snapshots. A later edit
+    // must not be overwritten by a slower earlier sync, and shutdown drains
+    // these writes before disposing registration ownership.
+    let nativeMessagingSync = Promise.resolve()
+    ownership.own('native-messaging-sync', () => nativeMessagingSync)
+    const updateTrustedExtensions = (update: () => Promise<void>) => {
+      const next = nativeMessagingSync.then(async () => {
+        await update()
+        nativeMessagingHealth = await syncNativeMessagingManifests({
+          installer,
+          snap,
+          manifests: {
+            chromium: registry.listManifestIds('chromium'),
+            firefox: registry.listManifestIds('firefox'),
+          },
+        })
+        forwardToRenderer(BridgeEvents.StatusChanged, undefined)
+      })
+      nativeMessagingSync = next.catch(() => {})
+      return next
+    }
 
     // Renderer IPC. Track exact channels as each registration succeeds; a
     // later duplicate/fault removes the earlier subset during rollback.
@@ -860,6 +916,7 @@ export async function bootstrapBridge(args: {
         degraded,
         extensionPairingHealth:
           extensionPairings.getHealth() === 'ready' ? 'ready' : 'degraded',
+        nativeMessagingHealth,
         fixedPort: args.bridgeSettings.fixedPort,
         instanceId: args.bridgeSettings.instanceId,
       })
@@ -924,34 +981,17 @@ export async function bootstrapBridge(args: {
           label?: string
         }
       ) => {
-        await registry.add(
-          params.id,
-          params.browser,
-          'user-added',
-          params.label
+        await updateTrustedExtensions(() =>
+          registry.add(params.id, params.browser, 'user-added', params.label)
         )
-        await syncNativeMessagingManifests({
-          installer,
-          snap,
-          manifests: {
-            chromium: registry.listManifestIds('chromium'),
-            firefox: registry.listManifestIds('firefox'),
-          },
-        })
       }
     )
     installIpcHandler(
       BridgeCommands.RemoveTrusted,
       async (_e, params: { id: string; browser: 'chromium' | 'firefox' }) => {
-        await registry.remove(params.id, params.browser)
-        await syncNativeMessagingManifests({
-          installer,
-          snap,
-          manifests: {
-            chromium: registry.listManifestIds('chromium'),
-            firefox: registry.listManifestIds('firefox'),
-          },
-        })
+        await updateTrustedExtensions(() =>
+          registry.remove(params.id, params.browser)
+        )
       }
     )
 

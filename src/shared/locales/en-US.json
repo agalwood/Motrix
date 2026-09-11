@@ -1537,6 +1537,10 @@
           "title": "Bridge running on a fallback port",
           "description": "Ports 16802–16806 were unavailable, so the bridge bound port {{port}} instead. Browser extensions won’t find it by probing the standard range — pair using native messaging, or set a fixed port. The Motrix CLI and native host are unaffected."
         },
+        "registrationDegraded": {
+          "title": "Some browser connections need attention",
+          "description": "Motrix is running, but browser integration could not be updated for every browser. Trusted-extension changes may not have reached the affected browsers. Check the Motrix log for details, resolve the reported issue, then restart Motrix to retry."
+        },
         "pairingStateDegraded": {
           "title": "Extension access is temporarily closed",
           "description": "Motrix could not safely update its paired-extension records. Existing Extension sessions are closed and new access is blocked for this run. Restart Motrix to retry the repair; do not rely on the list below until this message clears."
