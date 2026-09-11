@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { transport } from '@renderer/lib/transport'
-import { BridgeEvents, BridgeQueries } from '@shared/protocol/bridge'
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBridgeStatus } from './use-bridge'
 
@@ -9,13 +8,11 @@ vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
 }))
 
-const STATUS = BridgeQueries.GetStatus
+const STATUS = 'bridge:getStatus'
 
 describe('useBridgeStatus (Task 21)', () => {
   beforeEach(() => {
     vi.mocked(transport.invoke).mockReset()
-    vi.mocked(transport.on).mockClear()
-    vi.mocked(transport.off).mockClear()
   })
 
   it('starts null, then returns the nominal status once the query resolves', async () => {
@@ -54,43 +51,6 @@ describe('useBridgeStatus (Task 21)', () => {
     const { result } = renderHook(() => useBridgeStatus())
     await waitFor(() => expect(result.current?.degraded).toBe(true))
     expect(result.current?.port).toBe(54321)
-  })
-
-  it('refreshes registration warnings after trust edits and recovery', async () => {
-    const status = {
-      port: 16802,
-      degraded: false,
-      extensionPairingHealth: 'ready',
-      nativeMessagingHealth: 'ready',
-      fixedPort: 'auto',
-      instanceId: 'test',
-    }
-    vi.mocked(transport.invoke).mockImplementation(async () => ({ ...status }))
-    const { result, unmount } = renderHook(() => useBridgeStatus())
-    await waitFor(() =>
-      expect(result.current?.nativeMessagingHealth).toBe('ready')
-    )
-    const listener = vi
-      .mocked(transport.on)
-      .mock.calls.find(
-        ([event]) => String(event) === BridgeEvents.StatusChanged
-      )?.[1]
-    expect(listener).toBeDefined()
-    status.nativeMessagingHealth = 'degraded'
-    await act(async () => {
-      listener?.()
-    })
-    expect(result.current?.nativeMessagingHealth).toBe('degraded')
-    status.nativeMessagingHealth = 'ready'
-    await act(async () => {
-      listener?.()
-    })
-    expect(result.current?.nativeMessagingHealth).toBe('ready')
-    unmount()
-    expect(transport.off).toHaveBeenCalledWith(
-      BridgeEvents.StatusChanged,
-      listener
-    )
   })
 
   it('reflects a pinned fixedPort from settings', async () => {

@@ -21,7 +21,6 @@ import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import * as taskCreation from '@core/task/create-task-handler'
 import {
   BridgeCommands,
-  BridgeEvents,
   BridgeQueries,
   type BridgeStatusInfo,
 } from '@shared/protocol/bridge'
@@ -599,7 +598,6 @@ describe('desktop bridge bootstrap ownership', () => {
           ([channel]) => channel === BridgeQueries.GetStatus
         )?.[1]
         await expect(status?.()).resolves.toMatchObject({
-          nativeMessagingHealth: 'degraded',
           degraded: false,
         })
         expect(warn).toHaveBeenCalledWith(
@@ -621,7 +619,7 @@ describe('desktop bridge bootstrap ownership', () => {
           ([channel]) => channel === BridgeQueries.GetStatus
         )?.[1]
         await expect(status?.()).resolves.toMatchObject({
-          nativeMessagingHealth: 'ready',
+          degraded: false,
         })
       } finally {
         await recovered?.shutdown()
@@ -649,20 +647,15 @@ describe('desktop bridge bootstrap ownership', () => {
         ([channel]) => channel === BridgeQueries.GetStatus
       )?.[1]
       await expect(status?.()).resolves.toMatchObject({
-        nativeMessagingHealth: 'degraded',
+        degraded: false,
       })
     } finally {
       await runtime?.shutdown()
     }
   })
 
-  it('reports failed trust sync and clears its warning after a successful later edit', async () => {
-    const send = vi.fn()
-    const runtime = await bootstrapBridge({
-      ...args(),
-      getMainWindow: () =>
-        ({ webContents: { send } }) as unknown as Electron.BrowserWindow,
-    })
+  it('logs a failed trust sync and accepts a successful later edit', async () => {
+    const runtime = await bootstrapBridge(args())
     const handler = (key: string) =>
       electron.handle.mock.calls.find(([channel]) => channel === key)?.[1]
     try {
@@ -686,10 +679,10 @@ describe('desktop bridge bootstrap ownership', () => {
       expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(
         true
       )
-      await expect(handler(BridgeQueries.GetStatus)?.()).resolves.toMatchObject(
-        { nativeMessagingHealth: 'degraded' }
+      expect(registrationLog.warn).toHaveBeenCalledOnce()
+      expect(registrationLog.warn).toHaveBeenCalledWith(
+        expect.stringContaining('"browser":"edge"')
       )
-      expect(send).toHaveBeenCalledWith(BridgeEvents.StatusChanged, undefined)
       await handler(BridgeCommands.RemoveTrusted)?.(
         {},
         { id, browser: 'chromium' }
@@ -697,14 +690,7 @@ describe('desktop bridge bootstrap ownership', () => {
       expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(
         false
       )
-      await expect(handler(BridgeQueries.GetStatus)?.()).resolves.toMatchObject(
-        { nativeMessagingHealth: 'ready' }
-      )
-      expect(
-        send.mock.calls.filter(
-          ([channel]) => channel === BridgeEvents.StatusChanged
-        )
-      ).toHaveLength(2)
+      expect(registrationLog.warn).toHaveBeenCalledOnce()
     } finally {
       await runtime?.shutdown()
     }
@@ -1400,7 +1386,6 @@ describe('desktop bridge bootstrap ownership', () => {
         port: 19002,
         degraded: false,
         extensionPairingHealth: 'ready',
-        nativeMessagingHealth: 'ready',
         fixedPort: 'auto',
         instanceId: 'test-instance-id',
       })
@@ -1421,7 +1406,6 @@ describe('desktop bridge bootstrap ownership', () => {
         port: 54321,
         degraded: true,
         extensionPairingHealth: 'ready',
-        nativeMessagingHealth: 'ready',
         fixedPort: 'auto',
         instanceId: 'test-instance-id',
       })

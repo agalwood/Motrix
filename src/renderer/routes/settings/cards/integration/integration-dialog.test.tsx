@@ -1,6 +1,5 @@
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
-import type { BridgeStatusInfo } from '@shared/protocol/bridge'
 import {
   CliInstallCapability,
   CliPackageManager,
@@ -20,7 +19,7 @@ const bridgeStatus = vi.hoisted(() => ({
     extensionPairingHealth: 'ready' as 'ready' | 'degraded',
     fixedPort: 'auto' as const,
     instanceId: 'test-instance',
-  } as BridgeStatusInfo,
+  },
 }))
 
 vi.mock('@renderer/lib/transport', () => ({
@@ -289,27 +288,6 @@ describe('IntegrationDialog scaffold', () => {
     await screen.findByRole('heading', { name: /browser extensions/i })
     expect(
       screen.queryByText('Bridge running on a fallback port')
-    ).not.toBeInTheDocument()
-  })
-
-  it('shows a registration warning without treating healthy pairing as closed', async () => {
-    bridgeStatus.current.nativeMessagingHealth = 'degraded'
-    render(
-      <IntegrationDialog
-        open={true}
-        onClose={() => {}}
-        labelKey="settings.cards.integration.title"
-        descKey="settings.cards.integration.desc"
-      />
-    )
-    expect(
-      await screen.findByText('Some browser connections need attention')
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(/trusted-extension changes may not have reached/i)
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByText('Extension access is temporarily closed')
     ).not.toBeInTheDocument()
   })
 

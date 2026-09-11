@@ -1524,10 +1524,6 @@
           "title": "Bridge 正在使用备用端口运行",
           "description": "端口 16802–16806 均不可用，Bridge 改用端口 {{port}}。浏览器扩展按标准端口范围探测将无法自动发现它——请通过 Native Messaging 配对，或设置固定端口。Motrix CLI 与 Native Host 不受影响。"
         },
-        "registrationDegraded": {
-          "title": "部分浏览器连接需要处理",
-          "description": "Motrix 正在运行，但未能更新所有浏览器的集成配置。信任扩展的变更可能尚未同步到受影响的浏览器。请查看 Motrix 日志，解决所报告的问题后重启 Motrix 以重试。"
-        },
         "pairingStateDegraded": {
           "title": "扩展访问已暂时关闭",
           "description": "Motrix 无法安全更新已配对扩展记录。本次运行中的现有扩展会话已关闭，新访问也已阻止。请重启 Motrix 以重试修复；此提示消失前，不要将下方列表视为完整记录。"

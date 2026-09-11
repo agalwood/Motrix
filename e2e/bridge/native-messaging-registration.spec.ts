@@ -70,7 +70,7 @@ require(${JSON.stringify(join(repo, 'dist/main/index.cjs'))});
       },
     })
 
-  for (const health of ['degraded', 'ready'] as const) {
+  for (const edgeDenied of [true, false]) {
     const app = await launch()
     try {
       const page = await app.firstWindow()
@@ -90,10 +90,10 @@ require(${JSON.stringify(join(repo, 'dist/main/index.cjs'))});
         }, BridgeQueries.GetStatus)
       await expect
         .poll(getStatus)
-        .toMatchObject({ nativeMessagingHealth: health })
+        .toMatchObject({ extensionPairingHealth: 'ready' })
       const status = await getStatus()
       if (!status) throw new Error('bridge status missing')
-      if (health === 'degraded') {
+      if (edgeDenied) {
         const log = await readFile(join(userDataDir, 'logs/motrix.log'), 'utf8')
         expect(log.includes('Native Messaging registration failed')).toBe(true)
         expect(log.includes('EPERM')).toBe(true)
@@ -123,7 +123,7 @@ require(${JSON.stringify(join(repo, 'dist/main/index.cjs'))});
       for (const browser of [
         'Google/Chrome',
         'Mozilla',
-        ...(health === 'ready' ? ['Microsoft Edge'] : []),
+        ...(edgeDenied ? [] : ['Microsoft Edge']),
       ]) {
         const file = join(
           support,
@@ -136,9 +136,6 @@ require(${JSON.stringify(join(repo, 'dist/main/index.cjs'))});
       }
       await page.getByRole('link', { name: 'Settings', exact: true }).click()
       await page.getByText('Integration', { exact: true }).first().click()
-      const warning = page.getByText('Some browser connections need attention')
-      if (health === 'degraded') await expect(warning).toBeVisible()
-      else await expect(warning).toHaveCount(0)
       await expect(
         page.getByRole('heading', { name: 'Browser extensions', exact: true })
       ).toBeVisible()

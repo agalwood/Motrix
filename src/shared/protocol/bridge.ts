@@ -63,8 +63,6 @@ export const BridgeQueries = {
 } as const
 
 export const BridgeEvents = {
-  /** The running bridge's registration status changed. Re-read GetStatus. */
-  StatusChanged: 'bridge:statusChanged',
   PairRequested: 'bridge:pairRequested',
   Paired: 'bridge:paired',
   Revoked: 'bridge:revoked',
@@ -132,10 +130,6 @@ export interface BridgeStatusInfo {
    * healthy. `degraded` means Extension access has been gated for this run and
    * the paired list must not be interpreted as complete. */
   extensionPairingHealth: 'ready' | 'degraded'
-  /** Last desktop Native Messaging sync outcome, independent of port or
-   * pairing health. Absent on hosts that do not manage browser registration.
-   * A successful sync does not establish that a browser can launch the host. */
-  nativeMessagingHealth?: 'ready' | 'degraded'
   /** The persisted port policy (`BridgeSettings.fixedPort`) that produced
    *  `port`/`degraded`. */
   fixedPort: 'auto' | number

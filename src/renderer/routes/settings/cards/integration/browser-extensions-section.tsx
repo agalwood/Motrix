@@ -67,18 +67,6 @@ export function BrowserExtensionsSection() {
 
       <BrowserExtensionInstalls />
 
-      {status?.nativeMessagingHealth === 'degraded' && (
-        <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">
-          <TriangleAlertIcon />
-          <AlertTitle>
-            {t('settings.integration.browser.registrationDegraded.title')}
-          </AlertTitle>
-          <AlertDescription className="text-amber-900/80 dark:text-amber-200/80">
-            {t('settings.integration.browser.registrationDegraded.description')}
-          </AlertDescription>
-        </Alert>
-      )}
-
       {status?.degraded && (
         <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">
           <TriangleAlertIcon />

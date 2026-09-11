@@ -340,7 +340,7 @@ export async function syncNativeMessagingManifests(args: {
   manifests: SyncArgs
   snap: PackagedLinuxSnapEnvironment | null
   warn?: (message: string) => void
-}): Promise<NonNullable<BridgeStatusInfo['nativeMessagingHealth']>> {
+}): Promise<void> {
   const warn =
     args.warn ?? ((message: string) => nativeMessagingLog.warn(message))
   let result: NativeMessagingSyncResult
@@ -349,7 +349,7 @@ export async function syncNativeMessagingManifests(args: {
   } catch (error) {
     if (args.installer.preserveOnStartupFailure) {
       warn('AppImage browser launch needs repair in settings')
-      return 'degraded'
+      return
     }
     const code =
       typeof error === 'object' && error !== null && 'code' in error
@@ -366,7 +366,7 @@ export async function syncNativeMessagingManifests(args: {
     warn(
       `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
     )
-    return 'degraded'
+    return
   }
   let permissionDenied = false
   for (const failure of result.failures) {
@@ -396,7 +396,6 @@ export async function syncNativeMessagingManifests(args: {
       `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
     )
   }
-  return result.failures.length > 0 ? 'degraded' : 'ready'
 }
 
 export async function bootstrapBridge(args: {
@@ -833,7 +832,7 @@ export async function bootstrapBridge(args: {
         await installer.unregister()
       }
     })
-    let nativeMessagingHealth = await syncNativeMessagingManifests({
+    await syncNativeMessagingManifests({
       installer,
       snap,
       manifests: {
@@ -862,7 +861,7 @@ export async function bootstrapBridge(args: {
     const updateTrustedExtensions = (update: () => Promise<void>) => {
       const next = nativeMessagingSync.then(async () => {
         await update()
-        nativeMessagingHealth = await syncNativeMessagingManifests({
+        await syncNativeMessagingManifests({
           installer,
           snap,
           manifests: {
@@ -870,7 +869,6 @@ export async function bootstrapBridge(args: {
             firefox: registry.listManifestIds('firefox'),
           },
         })
-        forwardToRenderer(BridgeEvents.StatusChanged, undefined)
       })
       nativeMessagingSync = next.catch(() => {})
       return next
@@ -916,7 +914,6 @@ export async function bootstrapBridge(args: {
         degraded,
         extensionPairingHealth:
           extensionPairings.getHealth() === 'ready' ? 'ready' : 'degraded',
-        nativeMessagingHealth,
         fixedPort: args.bridgeSettings.fixedPort,
         instanceId: args.bridgeSettings.instanceId,
       })
