@@ -1,4 +1,9 @@
 import { DirectoryPicker } from '@renderer/components/desktop-kit/directory-picker'
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
+import {
+  useSettingsForm,
+  useSettingsSubmit,
+} from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -15,6 +20,8 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
+  useFormField,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
@@ -23,10 +30,10 @@ import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { type ComponentProps, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
+import { generalFormSchema } from './settings-form-schemas'
 
 type GeneralFields = Pick<
   MotrixAppSettings,
@@ -60,7 +67,7 @@ export function GeneralDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
-  const form = useForm<GeneralFields>({ defaultValues: DEFAULTS })
+  const form = useSettingsForm<GeneralFields>(generalFormSchema, DEFAULTS)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
@@ -90,7 +97,7 @@ export function GeneralDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     const dirty = pickDirty(values, form.formState.dirtyFields)
     if (!dirty) {
       onClose()
@@ -114,13 +121,13 @@ export function GeneralDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form className="space-y-4">
+            <form className="space-y-4" noValidate onSubmit={onSubmit}>
               {!isWeb && (
                 <FormField
                   control={form.control}
                   name="launchAtStartup"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t('settings.general.launchAtStartup')}
@@ -135,7 +142,7 @@ export function GeneralDialog({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -145,7 +152,7 @@ export function GeneralDialog({
                   control={form.control}
                   name="showMainWindowAtLogin"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t('settings.general.showMainWindowAtLogin')}
@@ -167,7 +174,7 @@ export function GeneralDialog({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -175,7 +182,7 @@ export function GeneralDialog({
               <FormField
                 control={form.control}
                 name="defaultSaveDir"
-                render={() => (
+                render={({ field }) => (
                   <FormItem className="space-y-2">
                     <div className="space-y-1">
                       <FormLabel>
@@ -185,7 +192,10 @@ export function GeneralDialog({
                         {t('settings.general.defaultSaveDirDesc')}
                       </FormDescription>
                     </div>
-                    <DirectoryPicker name="defaultSaveDir" />
+                    <SettingsDirectoryPicker
+                      inputProps={{ ref: field.ref, onBlur: field.onBlur }}
+                    />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -194,7 +204,7 @@ export function GeneralDialog({
                 control={form.control}
                 name="autofillClipboardLinks"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.general.autofillClipboardLinks')}
@@ -209,7 +219,7 @@ export function GeneralDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -217,7 +227,7 @@ export function GeneralDialog({
                 control={form.control}
                 name="notifyOnComplete"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.general.notifyOnComplete')}
@@ -232,7 +242,7 @@ export function GeneralDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -240,7 +250,7 @@ export function GeneralDialog({
                 control={form.control}
                 name="notifyOnError"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.general.notifyOnError')}
@@ -255,7 +265,7 @@ export function GeneralDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -264,7 +274,7 @@ export function GeneralDialog({
                   control={form.control}
                   name="warnBeforeQuit"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t('settings.general.warnBeforeQuit')}
@@ -279,7 +289,7 @@ export function GeneralDialog({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -288,6 +298,11 @@ export function GeneralDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>
@@ -302,5 +317,22 @@ export function GeneralDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function SettingsDirectoryPicker({
+  inputProps,
+}: Pick<ComponentProps<typeof DirectoryPicker>, 'inputProps'>) {
+  const { formItemId, formMessageId, formDescriptionId, error } = useFormField()
+  return (
+    <DirectoryPicker
+      name="defaultSaveDir"
+      inputProps={{
+        ...inputProps,
+        id: formItemId,
+        'aria-invalid': Boolean(error),
+        'aria-describedby': `${formDescriptionId} ${formMessageId}`,
+      }}
+    />
   )
 }

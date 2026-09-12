@@ -171,12 +171,13 @@ export async function launchMotrix(
   const saveDir = path.join(opts.userDataDir, 'downloads')
 
   // Most end-to-end specs exercise the main application, so seed only the
-  // legal consent bit before the first launch. A disclaimer-specific spec can
-  // opt out, and subsequent launches keep the settings written by the app.
+  // legal consent bit and disable background tracker fetching. Specs covering
+  // sync can seed their own local sources; subsequent launches keep saved settings.
   await writeFile(
     path.join(opts.userDataDir, 'settings.json'),
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
+      tracker: { autoSync: false },
       onboarding: {
         disclaimerAccepted: opts.disclaimerAccepted ?? true,
       },

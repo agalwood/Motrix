@@ -1,3 +1,4 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Button } from '@renderer/components/ui/button'
 import {
   FormControl,
@@ -5,6 +6,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { Separator } from '@renderer/components/ui/separator'
@@ -19,10 +21,9 @@ import { useByteFormat } from '@renderer/hooks/use-byte-format'
 
 import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
 import type { SpeedLimitSettings } from '@shared/types/settings'
 import type { SpeedPoint } from '@shared/types/stats'
-import { type ComponentProps, forwardRef, useEffect, useState } from 'react'
+import { type ComponentProps, forwardRef } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { CompactLimitInput } from './compact-limit-input'
@@ -33,8 +34,6 @@ const TIME_24_PATTERN = '(?:[01]\\d|2[0-3]):[0-5]\\d'
 
 const TURTLE_STATES = ['off', 'on', 'auto'] as const
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
-const DEFAULT_RESERVED_PERCENT =
-  100 - DEFAULT_SPEED_LIMIT_SETTINGS.auto.adaptive.headroomPercent
 
 type Translate = ReturnType<typeof useTranslation>['t']
 type KbLimitName =
@@ -82,12 +81,6 @@ const Time24Input = forwardRef<HTMLInputElement, Time24InputProps>(
     { value, onValueChange, onBlur, className, ...props },
     ref
   ) {
-    const [draft, setDraft] = useState(value)
-
-    useEffect(() => {
-      setDraft(value)
-    }, [value])
-
     return (
       <Input
         {...props}
@@ -100,22 +93,13 @@ const Time24Input = forwardRef<HTMLInputElement, Time24InputProps>(
         pattern={TIME_24_PATTERN}
         placeholder="HH:mm"
         className={`${TIME_INPUT_CLS} ${className ?? ''}`}
-        value={draft}
-        onChange={(event) => {
-          const nextDraft = sanitizeTimeDraft(event.target.value)
-          setDraft(nextDraft)
-          if (new RegExp(`^${TIME_24_PATTERN}$`).test(nextDraft)) {
-            onValueChange(nextDraft)
-          }
-        }}
+        value={value}
+        onChange={(event) =>
+          onValueChange(sanitizeTimeDraft(event.target.value))
+        }
         onBlur={(event) => {
-          const normalized = normalizeTime24(draft)
-          if (normalized) {
-            setDraft(normalized)
-            onValueChange(normalized)
-          } else {
-            setDraft(value)
-          }
+          const normalized = normalizeTime24(value)
+          if (normalized) onValueChange(normalized)
           onBlur?.(event)
         }}
       />
@@ -271,9 +255,13 @@ export function SpeedLimitSection({
           <div className="min-w-0 space-y-1">
             <FormLabel>{t(labelKey)}</FormLabel>
             <FormDescription className="text-xs">{t(descKey)}</FormDescription>
+            <FormMessage className="text-xs" />
           </div>
           <FormControl>
             <CompactLimitInput
+              name={field.name}
+              ref={field.ref}
+              onBlur={field.onBlur}
               value={(field.value as number) / kiloByte}
               onValueChange={(value) =>
                 field.onChange(Math.round(value * kiloByte))
@@ -310,20 +298,21 @@ export function SpeedLimitSection({
           <div className="min-w-0 space-y-1">
             <FormLabel>{t(labelKey)}</FormLabel>
             <FormDescription className="text-xs">{t(descKey)}</FormDescription>
+            <FormMessage className="text-xs" />
           </div>
           <div className="relative shrink-0">
             <FormControl>
               <Input
+                name={field.name}
+                ref={field.ref}
+                onBlur={field.onBlur}
                 type="number"
                 min={0}
                 step="any"
                 className="h-8 w-32 pr-14"
-                value={Math.round(((field.value as number) / MBPS) * 10) / 10}
+                value={Number.isFinite(field.value) ? field.value / MBPS : ''}
                 onChange={(event) => {
-                  const value = Number.parseFloat(event.target.value)
-                  field.onChange(
-                    Number.isFinite(value) ? Math.round(value * MBPS) : 0
-                  )
+                  field.onChange(Math.round(event.target.valueAsNumber * MBPS))
                 }}
               />
             </FormControl>
@@ -405,7 +394,7 @@ export function SpeedLimitSection({
         control={form.control}
         name="speedLimit.turtle"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
+          <SettingsFormRow>
             <div className="min-w-0 space-y-1">
               <FormLabel>{t('settings.downloads.speedLimit.turtle')}</FormLabel>
               <FormDescription className="text-xs">
@@ -431,7 +420,7 @@ export function SpeedLimitSection({
                 ))}
               </ToggleGroup>
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
 
@@ -473,7 +462,7 @@ export function SpeedLimitSection({
         'inherit'
       )}
 
-      {turtle === 'auto' && (
+      {(turtle === 'auto' || form.formState.errors.speedLimit?.auto) && (
         <>
           <Separator className="my-2" />
 
@@ -490,7 +479,7 @@ export function SpeedLimitSection({
             control={form.control}
             name="speedLimit.auto.schedule.enabled"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="min-w-0 space-y-1">
                   <FormLabel>
                     {t('settings.downloads.speedLimit.scheduleEnabled')}
@@ -505,23 +494,27 @@ export function SpeedLimitSection({
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
 
-          {scheduleEnabled && (
+          {(scheduleEnabled ||
+            form.formState.errors.speedLimit?.auto?.schedule) && (
             <>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-1">
                 <FormField
                   control={form.control}
                   name="speedLimit.auto.schedule.from"
                   render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
+                    <SettingsFormRow className="flex items-center gap-2">
                       <FormLabel className="shrink-0 text-sm">
                         {t('settings.downloads.speedLimit.scheduleFrom')}
                       </FormLabel>
                       <FormControl>
                         <Time24Input
+                          ref={field.ref}
+                          name={field.name}
+                          onBlur={field.onBlur}
                           value={field.value as string}
                           onValueChange={field.onChange}
                           title={t(
@@ -529,19 +522,22 @@ export function SpeedLimitSection({
                           )}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name="speedLimit.auto.schedule.to"
                   render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
+                    <SettingsFormRow className="flex items-center gap-2">
                       <FormLabel className="shrink-0 text-sm">
                         {t('settings.downloads.speedLimit.scheduleTo')}
                       </FormLabel>
                       <FormControl>
                         <Time24Input
+                          ref={field.ref}
+                          name={field.name}
+                          onBlur={field.onBlur}
                           value={field.value as string}
                           onValueChange={field.onChange}
                           title={t(
@@ -549,7 +545,7 @@ export function SpeedLimitSection({
                           )}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
                 <span className="text-xs text-muted-foreground">
@@ -599,6 +595,7 @@ export function SpeedLimitSection({
                       <FormDescription className="text-xs text-muted-foreground">
                         {t('settings.downloads.speedLimit.scheduleDaysHint')}
                       </FormDescription>
+                      <FormMessage className="basis-full text-xs" />
                     </FormItem>
                   )
                 }}
@@ -616,7 +613,7 @@ export function SpeedLimitSection({
             control={form.control}
             name="speedLimit.auto.adaptive.enabled"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="min-w-0 space-y-1">
                   <FormLabel>
                     {t('settings.downloads.speedLimit.adaptiveEnabled')}
@@ -631,11 +628,12 @@ export function SpeedLimitSection({
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
 
-          {adaptiveEnabled && (
+          {(adaptiveEnabled ||
+            form.formState.errors.speedLimit?.auto?.adaptive) && (
             <>
               {mbpsLimitRow(
                 'speedLimit.auto.adaptive.linkDown',
@@ -683,24 +681,25 @@ export function SpeedLimitSection({
                             }
                           )}
                         </FormDescription>
+                        <FormMessage className="text-xs" />
                       </div>
                       <div className="relative shrink-0">
                         <FormControl>
                           <Input
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
                             type="number"
                             min={0}
                             max={99}
                             className="h-8 w-32 pr-8"
-                            value={reservedPercent}
+                            value={
+                              Number.isFinite(reservedPercent)
+                                ? reservedPercent
+                                : ''
+                            }
                             onChange={(event) => {
-                              const value = Number.parseInt(
-                                event.target.value,
-                                10
-                              )
-                              const reserved = Number.isFinite(value)
-                                ? Math.min(99, Math.max(0, value))
-                                : DEFAULT_RESERVED_PERCENT
-                              field.onChange(100 - reserved)
+                              field.onChange(100 - event.target.valueAsNumber)
                             }}
                           />
                         </FormControl>

@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
+import {
+  ANIME_TRACKER_BLACKLIST_SOURCE,
+  ANIME_TRACKER_DIRECT_SOURCE,
+  ANIME_TRACKER_SOURCE,
+} from '@shared/schemas/tracker-settings'
+import type { TrackerSource } from '@shared/types/tracker'
 
-export const CURRENT_SETTINGS_VERSION = 11
+export const CURRENT_SETTINGS_VERSION = 13
 
 interface Migration {
   version: number
@@ -250,6 +256,74 @@ function migrateV10ToV11(
   }
 }
 
+function migrateV11ToV12(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const tracker = (data.tracker ?? {}) as Record<string, unknown>
+  const sources = tracker.sources
+  // Missing/invalid arrays receive the full defaults during validation.
+  if (!Array.isArray(sources)) return { ...data, version: 12 }
+
+  const alreadyPresent = sources.some(
+    (source) =>
+      source &&
+      (source.id === ANIME_TRACKER_SOURCE.id ||
+        source.url === ANIME_TRACKER_SOURCE.url)
+  )
+  return {
+    ...data,
+    version: 12,
+    tracker: {
+      ...tracker,
+      sources: alreadyPresent
+        ? sources
+        : [...sources, { ...ANIME_TRACKER_SOURCE }],
+    },
+  }
+}
+
+function appendMissingTrackerSource(
+  sources: unknown[],
+  addition: TrackerSource
+) {
+  const alreadyPresent = sources.some(
+    (source) =>
+      source !== null &&
+      typeof source === 'object' &&
+      (('id' in source && source.id === addition.id) ||
+        ('url' in source && source.url === addition.url))
+  )
+  return alreadyPresent ? sources : [...sources, { ...addition }]
+}
+
+function migrateV12ToV13(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const tracker = (data.tracker ?? {}) as Record<string, unknown>
+  const updates: Record<string, unknown> = {}
+  // Leave missing/invalid arrays to schema defaults, and preserve every
+  // existing source (including custom URLs and explicit enabled choices).
+  if (Array.isArray(tracker.sources)) {
+    updates.sources = appendMissingTrackerSource(
+      tracker.sources,
+      ANIME_TRACKER_DIRECT_SOURCE
+    )
+  }
+  if (Array.isArray(tracker.blacklistSources)) {
+    updates.blacklistSources = appendMissingTrackerSource(
+      tracker.blacklistSources,
+      ANIME_TRACKER_BLACKLIST_SOURCE
+    )
+  }
+  return {
+    ...data,
+    version: 13,
+    ...(Object.keys(updates).length > 0
+      ? { tracker: { ...tracker, ...updates } }
+      : {}),
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -262,6 +336,8 @@ const migrations: Migration[] = [
   { version: 9, migrate: migrateV8ToV9 },
   { version: 10, migrate: migrateV9ToV10 },
   { version: 11, migrate: migrateV10ToV11 },
+  { version: 12, migrate: migrateV11ToV12 },
+  { version: 13, migrate: migrateV12ToV13 },
 ]
 
 export function migrate(

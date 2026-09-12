@@ -48,7 +48,7 @@ describe('<EndpointList>', () => {
     render(<Wrapper defaultValues={{ items: [] }} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /add/i }))
-    expect(screen.getByText('required')).toBeInTheDocument()
+    expect(screen.getByText('Enter an address first.')).toBeInTheDocument()
   })
 
   it('hides Add row when maxItems reached', () => {

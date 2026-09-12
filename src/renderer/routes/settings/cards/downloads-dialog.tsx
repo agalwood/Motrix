@@ -1,3 +1,5 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useSettingsSubmit } from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -9,6 +11,7 @@ import {
 } from '@renderer/components/ui/dialog'
 import { Form } from '@renderer/components/ui/form'
 import { Separator } from '@renderer/components/ui/separator'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
@@ -22,6 +25,8 @@ import type { SettingsCardDialogProps } from './card-types'
 import {
   DOWNLOADS_DEFAULTS,
   type DownloadsFields,
+  downloadsFormSchema,
+  downloadsValidationError,
   ENGINE_DEFAULTS,
 } from './downloads-form'
 import { EngineTuningSection } from './engine-tuning-section'
@@ -39,7 +44,14 @@ export function DownloadsDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const form = useForm<DownloadsFields>({ defaultValues: DOWNLOADS_DEFAULTS })
+  const { unitSystem } = useByteFormat()
+  const form = useForm<DownloadsFields>({
+    defaultValues: DOWNLOADS_DEFAULTS,
+    resolver: zodResolver(downloadsFormSchema, {
+      error: downloadsValidationError(t, unitSystem === 'binary' ? 1024 : 1000),
+    }),
+    mode: 'onBlur',
+  })
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
@@ -64,7 +76,7 @@ export function DownloadsDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     // pickDirty recurses the dirty-fields tree: if speedLimit.base.download
     // is dirty, it returns { speedLimit: { base: { download: <new> } } }.
     // We then spread the engine dirty patch back into { engine: ... } and pass
@@ -94,7 +106,7 @@ export function DownloadsDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form className="space-y-4">
+            <form className="space-y-4" noValidate onSubmit={onSubmit}>
               <PerformanceSection form={form} />
               <Separator className="my-4" />
               <SpeedLimitSection form={form} />
@@ -105,6 +117,11 @@ export function DownloadsDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

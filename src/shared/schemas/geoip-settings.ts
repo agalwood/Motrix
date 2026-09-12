@@ -1,5 +1,6 @@
 import type { GeoIPSettings } from '@shared/types/geoip'
 import { z } from 'zod'
+import { settingsInputObject } from './settings-input'
 
 export const geoIpSettingsSchema = z.object({
   enabled: z.boolean().catch(false),
@@ -17,3 +18,24 @@ export const geoIpSettingsSchema = z.object({
 export const DEFAULT_GEOIP_SETTINGS: GeoIPSettings = geoIpSettingsSchema.parse(
   {}
 )
+
+export const geoIpSettingsInputSchema = settingsInputObject(
+  geoIpSettingsSchema
+).superRefine((value, ctx) => {
+  if (value.enabled && value.source === 'custom') {
+    let valid = false
+    try {
+      valid =
+        /^https?:\/\//i.test(value.customUrl) &&
+        ['http:', 'https:'].includes(new URL(value.customUrl).protocol)
+    } catch {
+      /* Invalid URL. */
+    }
+    if (!valid)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['customUrl'],
+        params: { settingIssue: 'httpUrl' },
+      })
+  }
+})

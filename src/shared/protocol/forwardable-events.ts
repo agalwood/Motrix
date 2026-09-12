@@ -28,6 +28,7 @@ export const ForwardableEvents = [
   Events.NatError,
   Events.TuningUpdated,
   Events.TrackerListUpdated,
+  Events.TrackerSyncStatusChanged,
   Events.TrackerSyncFailed,
   Events.UpdateStateChanged,
   Events.UpdateCheckStarted,

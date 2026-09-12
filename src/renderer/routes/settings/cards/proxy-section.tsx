@@ -1,3 +1,4 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -58,14 +60,23 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
   const proxyEnabled = form.watch('proxy.enabled')
 
   const updateProtocol = (protocol: ProxySettings['protocol']) => {
-    form.setValue('proxy.protocol', protocol, { shouldDirty: true })
+    form.setValue('proxy.protocol', protocol, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
   }
 
   const handleAuthToggle = (checked: boolean) => {
     setShowAuth(checked)
     if (!checked) {
-      form.setValue('proxy.user', '', { shouldDirty: true })
-      form.setValue('proxy.password', '', { shouldDirty: true })
+      form.setValue('proxy.user', '', {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+      form.setValue('proxy.password', '', {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
       setRevealPassword(false)
     }
   }
@@ -82,13 +93,26 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
       return
     }
     updateProtocol(detected.protocol)
-    form.setValue('proxy.host', detected.host, { shouldDirty: true })
-    form.setValue('proxy.port', detected.port, { shouldDirty: true })
-    form.setValue('proxy.user', detected.user ?? '', { shouldDirty: true })
+    form.setValue('proxy.host', detected.host, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.setValue('proxy.port', detected.port, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.setValue('proxy.user', detected.user ?? '', {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
     form.setValue('proxy.password', detected.password ?? '', {
       shouldDirty: true,
+      shouldValidate: true,
     })
-    form.setValue('proxy.bypass', detected.bypass ?? [], { shouldDirty: true })
+    form.setValue('proxy.bypass', detected.bypass ?? [], {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
     const hasAuth = Boolean(detected.user || detected.password)
     setShowAuth(hasAuth)
     seededRef.current = hasAuth
@@ -96,7 +120,10 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
     // Importing implies the user wants to USE this proxy; flip the master
     // toggle on so the rest of the form reveals.
     if (!form.getValues('proxy.enabled')) {
-      form.setValue('proxy.enabled', true, { shouldDirty: true })
+      form.setValue('proxy.enabled', true, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
     }
     toast.add({
       title: t('settings.network.proxy.importedToast', {
@@ -130,7 +157,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
         control={form.control}
         name="proxy.enabled"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
+          <SettingsFormRow>
             <div className="space-y-1">
               <FormLabel>{t('settings.network.proxy.enable')}</FormLabel>
               <FormDescription className="text-xs">
@@ -140,76 +167,82 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
             <FormControl>
               <Switch checked={field.value} onCheckedChange={field.onChange} />
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
 
       {/* Body — only when proxy is enabled */}
-      {proxyEnabled && (
+      {(proxyEnabled || form.formState.errors.proxy) && (
         <div className="space-y-4 border-l border-border/60 pl-4">
           {/* Server: protocol + host as one InputGroup, port adjacent */}
           <div className="space-y-1.5">
-            <FormLabel>{t('settings.network.proxy.server')}</FormLabel>
+            <p className="text-sm font-medium">
+              {t('settings.network.proxy.server')}
+            </p>
             <div className="flex items-start gap-2">
               <FormField
                 control={form.control}
                 name="proxy.host"
                 render={({ field }) => (
                   <FormItem className="flex-1 space-y-0">
-                    <FormControl>
-                      <InputGroup className="h-8">
-                        <InputGroupAddon align="inline-start">
-                          <FormField
-                            control={form.control}
-                            name="proxy.protocol"
-                            render={({ field: protoField }) => (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger
-                                  render={
-                                    <InputGroupButton
-                                      variant="ghost"
-                                      size="xs"
-                                      className="uppercase"
-                                    />
+                    <InputGroup className="h-8">
+                      <InputGroupAddon align="inline-start">
+                        <FormField
+                          control={form.control}
+                          name="proxy.protocol"
+                          render={({ field: protoField }) => (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <InputGroupButton
+                                    variant="ghost"
+                                    size="xs"
+                                    className="uppercase"
+                                  />
+                                }
+                              >
+                                {protoField.value}
+                                <ChevronDown />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuRadioGroup
+                                  value={protoField.value}
+                                  onValueChange={(v) =>
+                                    updateProtocol(
+                                      v as ProxySettings['protocol']
+                                    )
                                   }
                                 >
-                                  {protoField.value}
-                                  <ChevronDown />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                  <DropdownMenuRadioGroup
-                                    value={protoField.value}
-                                    onValueChange={(v) =>
-                                      updateProtocol(
-                                        v as ProxySettings['protocol']
-                                      )
-                                    }
-                                  >
-                                    <DropdownMenuRadioItem value="http">
-                                      HTTP
-                                    </DropdownMenuRadioItem>
-                                    <DropdownMenuRadioItem value="https">
-                                      HTTPS
-                                    </DropdownMenuRadioItem>
-                                    <DropdownMenuRadioItem value="socks5">
-                                      SOCKS5
-                                    </DropdownMenuRadioItem>
-                                  </DropdownMenuRadioGroup>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          />
-                          <InputGroupText>://</InputGroupText>
-                        </InputGroupAddon>
+                                  <DropdownMenuRadioItem value="http">
+                                    HTTP
+                                  </DropdownMenuRadioItem>
+                                  <DropdownMenuRadioItem value="https">
+                                    HTTPS
+                                  </DropdownMenuRadioItem>
+                                  <DropdownMenuRadioItem value="socks5">
+                                    SOCKS5
+                                  </DropdownMenuRadioItem>
+                                </DropdownMenuRadioGroup>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        />
+                        <InputGroupText>://</InputGroupText>
+                      </InputGroupAddon>
+                      <FormControl>
                         <InputGroupInput
+                          {...field}
+                          aria-label={t('settings.network.proxy.server')}
                           placeholder={t(
                             'settings.network.proxy.hostPlaceholder'
                           )}
                           value={field.value}
                           onChange={field.onChange}
                         />
-                      </InputGroup>
-                    </FormControl>
+                      </FormControl>
+                    </InputGroup>
+
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -218,23 +251,28 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                 name="proxy.port"
                 render={({ field }) => (
                   <FormItem className="w-30 space-y-0">
-                    <FormControl>
-                      <InputGroup className="h-8">
-                        <InputGroupAddon align="inline-start">
-                          <InputGroupText>:</InputGroupText>
-                        </InputGroupAddon>
+                    <InputGroup className="h-8">
+                      <InputGroupAddon align="inline-start">
+                        <InputGroupText>:</InputGroupText>
+                      </InputGroupAddon>
+                      <FormControl>
                         <InputGroupInput
+                          {...field}
+                          aria-label={t('settings.network.proxy.port')}
                           type="number"
                           min={1}
                           max={65535}
-                          value={field.value}
-                          onChange={(e) => {
-                            const n = Number.parseInt(e.target.value, 10)
-                            field.onChange(Number.isFinite(n) ? n : 8080)
-                          }}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ''
+                          }
+                          onChange={(event) =>
+                            field.onChange(event.target.valueAsNumber)
+                          }
                         />
-                      </InputGroup>
-                    </FormControl>
+                      </FormControl>
+                    </InputGroup>
+
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -255,58 +293,63 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
               </div>
               <Switch checked={showAuth} onCheckedChange={handleAuthToggle} />
             </div>
-            {showAuth && (
+            {(showAuth ||
+              form.formState.errors.proxy?.user ||
+              form.formState.errors.proxy?.password) && (
               <div className="space-y-2 pt-1">
                 <FormField
                   control={form.control}
                   name="proxy.user"
                   render={({ field }) => (
-                    <FormItem className="flex items-center justify-between gap-4 space-y-0">
+                    <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0">
                       <FormLabel className="font-normal">
                         {t('settings.network.proxy.user')}
                       </FormLabel>
                       <FormControl>
                         <Input
+                          {...field}
                           className="h-8 w-64"
                           value={field.value}
                           onChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name="proxy.password"
                   render={({ field }) => (
-                    <FormItem className="flex items-center justify-between gap-4 space-y-0">
+                    <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0">
                       <FormLabel className="font-normal">
                         {t('settings.network.proxy.password')}
                       </FormLabel>
-                      <FormControl>
-                        <InputGroup className="w-64">
+
+                      <InputGroup className="w-64">
+                        <FormControl>
                           <InputGroupInput
+                            {...field}
                             type={revealPassword ? 'text' : 'password'}
                             value={field.value}
                             onChange={field.onChange}
                           />
-                          <InputGroupAddon align="inline-end">
-                            <InputGroupButton
-                              size="icon-xs"
-                              variant="ghost"
-                              aria-label={t(
-                                revealPassword
-                                  ? 'settings.network.proxy.hidePassword'
-                                  : 'settings.network.proxy.showPassword'
-                              )}
-                              onClick={() => setRevealPassword((v) => !v)}
-                            >
-                              {revealPassword ? <EyeOff /> : <Eye />}
-                            </InputGroupButton>
-                          </InputGroupAddon>
-                        </InputGroup>
-                      </FormControl>
-                    </FormItem>
+                        </FormControl>
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupButton
+                            size="icon-xs"
+                            variant="ghost"
+                            aria-label={t(
+                              revealPassword
+                                ? 'settings.network.proxy.hidePassword'
+                                : 'settings.network.proxy.showPassword'
+                            )}
+                            onClick={() => setRevealPassword((v) => !v)}
+                          >
+                            {revealPassword ? <EyeOff /> : <Eye />}
+                          </InputGroupButton>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </SettingsFormRow>
                   )}
                 />
               </div>
@@ -330,7 +373,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                 control={form.control}
                 name="proxy.scopes.download"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
+                  <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
                     <div className="space-y-0.5">
                       <FormLabel className="font-normal">
                         {t('settings.network.proxy.scopeDownload')}
@@ -345,14 +388,14 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="proxy.scopes.updateApp"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
+                  <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
                     <div className="space-y-0.5">
                       <FormLabel className="font-normal">
                         {t('settings.network.proxy.scopeUpdateApp')}
@@ -367,14 +410,14 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="proxy.scopes.updateTrackers"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
+                  <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
                     <div className="space-y-0.5">
                       <FormLabel className="font-normal">
                         {t('settings.network.proxy.scopeUpdateTrackers')}
@@ -389,7 +432,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
             </div>
@@ -399,7 +442,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
           <FormField
             control={form.control}
             name="proxy.bypass"
-            render={({ field }) => (
+            render={({ field, fieldState }) => (
               <FormItem className="space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <FormLabel>{t('settings.network.proxy.bypass')}</FormLabel>
@@ -409,6 +452,9 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                 </div>
                 <FormControl>
                   <Textarea
+                    ref={field.ref}
+                    name={field.name}
+                    onBlur={field.onBlur}
                     className="min-h-20 text-xs"
                     placeholder={'localhost\n127.0.0.1\n*.local'}
                     value={(field.value ?? []).join('\n')}
@@ -424,6 +470,11 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                 <FormDescription className="text-xs">
                   {t('settings.network.proxy.bypassDesc')}
                 </FormDescription>
+                <FormMessage className="basis-full text-xs">
+                  {Array.isArray(fieldState.error)
+                    ? fieldState.error.find((error) => error?.message)?.message
+                    : undefined}
+                </FormMessage>
               </FormItem>
             )}
           />

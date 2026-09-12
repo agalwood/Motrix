@@ -528,14 +528,17 @@
         "engineOk": "引擎就绪",
         "engineStarting": "引擎启动中",
         "engineOffline": "引擎离线",
-        "natActive": "NAT 活跃",
-        "natSettingUp": "NAT 启动中",
-        "natFailed": "NAT 失败",
-        "natOff": "NAT 已关闭",
-        "natRetrying": "NAT 重试中 ({{attempt}}/{{max}})",
-        "natEnable": "启用 NAT",
-        "natDisable": "关闭 NAT",
-        "natHelp": "查看 NAT 排障手册"
+        "natActive": "NAT 已映射",
+        "natActiveDesc": "帮助其他 BT 用户连接到你。",
+        "natSettingUp": "NAT 映射中",
+        "natRetrying": "自动重试（{{attempt}}/{{max}}）",
+        "natMapping": "NAT 映射",
+        "natUnavailable": "自动映射未建立",
+        "natUnavailableDesc": "普通下载不受影响，BT 连接可能受限。",
+        "natRetry": "重试",
+        "natDisable": "关闭端口映射",
+        "natSettings": "网络设置",
+        "natHelp": "优化网络"
       },
       "tab": {
         "all": "全部",
@@ -1163,18 +1166,18 @@
         "title": "性能",
         "profile": "性能档位",
         "profileDesc": "选择 Motrix 的下载强度。",
-        "baseline": "基线",
+        "learnMore": "了解更多",
         "metrics": {
-          "segments": "分段",
-          "perServer": "单服务器",
+          "connections": "最大连接数",
+          "perServer": "单服务器上限",
           "minimum": "最小分段",
-          "cache": "缓存"
+          "cache": "磁盘缓存"
         },
         "customParameters": "自定义性能参数",
         "profiles": {
           "auto": {
             "label": "自动",
-            "desc": "根据下载磁盘自动调整性能。"
+            "desc": "显示默认值，实际随磁盘和文件大小调整。"
           },
           "balanced": {
             "label": "均衡",
@@ -1190,17 +1193,17 @@
           },
           "custom": {
             "label": "自定义",
-            "desc": "手动设置连接、分段和缓存。"
+            "desc": "设置连接数、分段大小和缓存。"
           }
         },
         "maxConcurrentDownloads": "最大同时下载数",
         "maxConcurrentDownloadsDesc": "同一时刻并行下载的任务数。",
         "maxConnectionPerServer": "单服务器最大连接数",
-        "maxConnectionPerServerDesc": "对同一来源同时发起的 HTTP 请求数。",
-        "split": "单文件分段连接数",
-        "splitDesc": "用多少个连接并行下载同一文件。",
-        "minSplitSize": "最小分段大小 (MiB)",
-        "minSplitSizeDesc": "小于该大小的文件不会被分段下载。"
+        "maxConnectionPerServerDesc": "每个文件对同一服务器的连接上限。",
+        "split": "单文件最大连接数",
+        "splitDesc": "实际连接数可能更少。",
+        "minSplitSize": "最小分段大小（MiB）",
+        "minSplitSizeDesc": "小于此值两倍的分段不再拆分。"
       },
       "reliability": {
         "title": "网络可靠性",
@@ -1706,6 +1709,31 @@
           "io": "操作失败，请检查磁盘访问权限后重试修复。"
         }
       }
+    },
+    "validation": {
+      "rangeHint": "范围：{{min}}–{{max}}。",
+      "range": "请输入 {{min}}–{{max}} 之间的数值。",
+      "integerRange": "请输入 {{min}}–{{max}} 之间的整数。",
+      "minimum": "请输入不小于 {{min}} 的数值。",
+      "maximum": "请输入不大于 {{max}} 的数值。",
+      "integer": "请输入整数。",
+      "wholeBytes": "小数位过多，请减少小数位。",
+      "number": "请输入有效数字。",
+      "invalid": "请输入有效值。",
+      "selection": "请选择一个可用选项。",
+      "textLength": "请缩短至 {{max}} 个字符以内。",
+      "itemCount": "最多可填写 {{max}} 个地址。",
+      "text": "请删除换行或不可见的控制字符。",
+      "directory": "请选择下载文件夹。",
+      "proxyHost": "请输入服务器名称或 IP 地址，不要包含 http:// 或端口。",
+      "stunServer": "请按“主机:端口”填写，例如 stun.example.com:3478。端口范围为 1–65535。",
+      "httpsUrl": "请输入以 https:// 开头的完整地址。",
+      "httpUrl": "请输入以 http:// 或 https:// 开头的完整地址。",
+      "saveFailed": "未能保存更改，请重试。",
+      "address": "地址 {{number}}",
+      "addressDraft": "新地址",
+      "required": "请先填写地址。",
+      "time": "请使用 24 小时制填写，例如 23:00。"
     }
   },
   "menu": {
@@ -1801,16 +1829,22 @@
       }
     },
     "combobox": {
-      "placeholder": "选择 source",
+      "placeholder": "选择来源",
       "addSourcePlaceholder": "https://example.com/list.txt",
       "addSource": "添加",
       "removeSource": "移除源",
       "empty": "无匹配的源。",
       "builtinBadge": "内置",
-      "cdnBadge": "CDN"
+      "cdnBadge": "CDN",
+      "directBadge": "直连"
     },
     "sync": {
-      "syncing": "同步中…"
+      "syncing": "同步中…",
+      "fetching": "正在获取 Tracker 列表…",
+      "probing": "正在检测 Tracker 可用性…",
+      "applying": "正在应用 Tracker 列表…",
+      "failed": "同步未完成，请检查网络或来源后重试。",
+      "unavailable": "无法获取同步状态，请检查连接后重试。"
     }
   },
   "plugins": {

@@ -1,5 +1,6 @@
 import type { MediaSettings } from '@shared/types/settings'
 import { z } from 'zod'
+import { settingsInputObject } from './settings-input'
 
 export const mediaSettingsSchema = z.object({
   ffmpegBinaryPath: z.string().catch(''),
@@ -10,3 +11,11 @@ export const mediaSettingsSchema = z.object({
 export const DEFAULT_MEDIA_SETTINGS: MediaSettings = mediaSettingsSchema.parse(
   {}
 )
+
+export const mediaSettingsInputSchema = settingsInputObject(
+  mediaSettingsSchema
+).extend({
+  ffmpegBinaryPath: mediaSettingsSchema.shape.ffmpegBinaryPath
+    .removeCatch()
+    .refine((value) => !value.includes('\0')),
+})

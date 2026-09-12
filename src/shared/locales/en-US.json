@@ -530,14 +530,17 @@
         "engineOk": "Engine ready",
         "engineStarting": "Engine starting",
         "engineOffline": "Engine offline",
-        "natActive": "NAT active",
-        "natSettingUp": "NAT initializing",
-        "natRetrying": "NAT retrying ({{attempt}}/{{max}})",
-        "natFailed": "NAT failed",
-        "natOff": "NAT off",
-        "natEnable": "Enable NAT",
-        "natDisable": "Disable NAT",
-        "natHelp": "Troubleshoot NAT"
+        "natActive": "NAT mapped",
+        "natActiveDesc": "Helps other BT peers connect to you.",
+        "natSettingUp": "NAT mapping",
+        "natRetrying": "Automatic retries ({{attempt}}/{{max}})",
+        "natMapping": "NAT mapping",
+        "natUnavailable": "Automatic mapping unavailable",
+        "natUnavailableDesc": "Doesn’t affect link downloads. BT connections may be limited.",
+        "natRetry": "Retry",
+        "natDisable": "Turn off NAT mapping",
+        "natSettings": "Network settings",
+        "natHelp": "Network guide"
       },
       "tab": {
         "all": "All",
@@ -1176,18 +1179,18 @@
         "title": "Performance",
         "profile": "Performance profile",
         "profileDesc": "Choose how aggressively Motrix downloads.",
-        "baseline": "Baseline",
+        "learnMore": "Learn more",
         "metrics": {
-          "segments": "Segments",
-          "perServer": "Per server",
-          "minimum": "Minimum",
-          "cache": "Cache"
+          "connections": "Max connections",
+          "perServer": "Per-server cap",
+          "minimum": "Min segment",
+          "cache": "Disk cache"
         },
         "customParameters": "Custom performance parameters",
         "profiles": {
           "auto": {
             "label": "Automatic",
-            "desc": "Adjusts performance to your download drive."
+            "desc": "Defaults shown; tuned to your drive and file size."
           },
           "balanced": {
             "label": "Balanced",
@@ -1203,17 +1206,17 @@
           },
           "custom": {
             "label": "Custom",
-            "desc": "Set connections, segments, and cache manually."
+            "desc": "Set connections, segment size, and cache."
           }
         },
         "maxConcurrentDownloads": "Max concurrent downloads",
         "maxConcurrentDownloadsDesc": "Number of tasks downloading in parallel.",
         "maxConnectionPerServer": "Max connections per server",
-        "maxConnectionPerServerDesc": "How many parallel HTTP requests per origin.",
-        "split": "Split connections per file",
-        "splitDesc": "Number of segments to fetch a single file with.",
-        "minSplitSize": "Minimum segment size (MiB)",
-        "minSplitSizeDesc": "Don’t split a file smaller than this."
+        "maxConnectionPerServerDesc": "Per-file connection limit for one server.",
+        "split": "Max connections per file",
+        "splitDesc": "Actual connections may be fewer.",
+        "minSplitSize": "Min segment size (MiB)",
+        "minSplitSizeDesc": "Segments below 2× this size won’t split."
       },
       "reliability": {
         "title": "Network reliability",
@@ -1720,6 +1723,31 @@
           "io": "The operation failed. Check disk access and try Repair."
         }
       }
+    },
+    "validation": {
+      "rangeHint": "Range: {{min}}–{{max}}.",
+      "range": "Enter a number from {{min}} to {{max}}.",
+      "integerRange": "Enter a whole number from {{min}} to {{max}}.",
+      "minimum": "Enter {{min}} or more.",
+      "maximum": "Enter {{max}} or less.",
+      "integer": "Enter a whole number.",
+      "wholeBytes": "Use fewer decimal places.",
+      "number": "Enter a valid number.",
+      "invalid": "Enter a valid value.",
+      "selection": "Choose an available option.",
+      "textLength": "Use {{max}} characters or fewer.",
+      "itemCount": "Keep {{max}} addresses or fewer.",
+      "text": "Remove line breaks or hidden control characters.",
+      "directory": "Choose a download folder.",
+      "proxyHost": "Enter a server name or IP address, without http:// or a port.",
+      "stunServer": "Use host:port, such as stun.example.com:3478. The port must be 1–65535.",
+      "httpsUrl": "Enter a full address starting with https://.",
+      "httpUrl": "Enter a full address starting with http:// or https://.",
+      "saveFailed": "Couldn’t save your changes. Try again.",
+      "address": "Address {{number}}",
+      "addressDraft": "New address",
+      "required": "Enter an address first.",
+      "time": "Use a 24-hour time, such as 23:00."
     }
   },
   "errors": {
@@ -1821,10 +1849,16 @@
       "removeSource": "Remove source",
       "empty": "No sources match.",
       "builtinBadge": "builtin",
-      "cdnBadge": "cdn"
+      "cdnBadge": "CDN",
+      "directBadge": "Direct"
     },
     "sync": {
-      "syncing": "Syncing..."
+      "syncing": "Syncing...",
+      "fetching": "Fetching tracker lists…",
+      "probing": "Checking tracker availability…",
+      "applying": "Applying tracker lists…",
+      "failed": "Sync incomplete. Check your network or sources and try again.",
+      "unavailable": "Can’t read sync status. Check your connection and try again."
     }
   },
   "plugins": {

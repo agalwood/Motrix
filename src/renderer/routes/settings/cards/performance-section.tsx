@@ -1,11 +1,11 @@
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
-import { Badge } from '@renderer/components/ui/badge'
 import {
   FormControl,
   FormDescription,
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import {
   Select,
@@ -19,8 +19,10 @@ import {
   type EnginePerformanceProfile,
   getEnginePerformanceProfileValues,
 } from '@shared/constants/engine-performance-profiles'
+import { getDownloadPerformanceUrl } from '@shared/external-urls'
 import { MAX_CONNECTIONS_PER_SERVER } from '@shared/schemas/engine-settings'
 import {
+  ArrowUpRightIcon,
   DatabaseIcon,
   type LucideIcon,
   RulerIcon,
@@ -43,7 +45,7 @@ export function PerformanceSection({
 }: {
   form: UseFormReturn<DownloadsFields>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const performanceProfile = useWatch({
     control: form.control,
     name: 'engine.performanceProfile',
@@ -61,7 +63,7 @@ export function PerformanceSection({
       ? [
           {
             icon: SplitIcon,
-            label: t('settings.downloads.performance.metrics.segments'),
+            label: t('settings.downloads.performance.metrics.connections'),
             value: selectedPerformanceValues.split,
           },
           {
@@ -161,14 +163,17 @@ export function PerformanceSection({
                     `settings.downloads.performance.profiles.${performanceProfile}.desc`
                   )}
                 </p>
-                {performanceProfile === 'auto' && (
-                  <Badge
-                    className="h-5 bg-transparent px-1.5 text-[10px] text-muted-foreground"
-                    variant="outline"
-                  >
-                    {t('settings.downloads.performance.baseline')}
-                  </Badge>
-                )}
+                <a
+                  href={getDownloadPerformanceUrl(
+                    i18n.resolvedLanguage ?? i18n.language
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm py-0.5 text-xs text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t('settings.downloads.performance.learnMore')}
+                  <ArrowUpRightIcon aria-hidden="true" className="size-3" />
+                </a>
               </div>
               {performanceMetrics && (
                 <div className="mt-2">
@@ -196,11 +201,16 @@ export function PerformanceSection({
                 </div>
               )}
             </div>
+            <FormMessage className="basis-full text-xs" />
           </FormItem>
         )}
       />
 
-      {performanceProfile === 'custom' && (
+      {(performanceProfile === 'custom' ||
+        form.formState.errors.engine?.split ||
+        form.formState.errors.engine?.maxConnectionPerServer ||
+        form.formState.errors.engine?.minSplitSize ||
+        form.formState.errors.engine?.diskCache) && (
         <div className="space-y-4 rounded-md border border-border bg-muted/20 p-3">
           <h4 className="text-xs font-semibold text-foreground">
             {t('settings.downloads.performance.customParameters')}
@@ -210,7 +220,6 @@ export function PerformanceSection({
             name="maxConnectionPerServer"
             labelKey="settings.downloads.performance.maxConnectionPerServer"
             descKey="settings.downloads.performance.maxConnectionPerServerDesc"
-            bounds={{ min: 1, max: MAX_CONNECTIONS_PER_SERVER }}
             presets={[
               { label: '1', value: 1 },
               { label: '8', value: 8 },
@@ -227,7 +236,6 @@ export function PerformanceSection({
             name="split"
             labelKey="settings.downloads.performance.split"
             descKey="settings.downloads.performance.splitDesc"
-            bounds={{ min: 1, max: 128 }}
             presets={[
               { label: '4', value: 4 },
               { label: '16', value: 16 },
@@ -240,7 +248,6 @@ export function PerformanceSection({
             name="minSplitSize"
             labelKey="settings.downloads.performance.minSplitSize"
             descKey="settings.downloads.performance.minSplitSizeDesc"
-            bounds={{ min: 1, scale: MB }}
             presets={[
               { label: '1 MiB', value: 1 },
               { label: '4 MiB', value: 4 },
@@ -253,7 +260,6 @@ export function PerformanceSection({
             name="diskCache"
             labelKey="settings.downloads.disk.diskCache"
             descKey="settings.downloads.disk.diskCacheDesc"
-            bounds={{ min: 0, max: 128, scale: MB }}
             presets={[
               { label: '16 MiB', value: 16 },
               { label: '32 MiB', value: 32 },
@@ -268,12 +274,13 @@ export function PerformanceSection({
         name="maxConcurrentDownloads"
         labelKey="settings.downloads.performance.maxConcurrentDownloads"
         descKey="settings.downloads.performance.maxConcurrentDownloadsDesc"
-        bounds={{ min: 1, max: 100 }}
         presets={[
           { label: '1', value: 1 },
           { label: '3', value: 3 },
           { label: '5', value: 5 },
           { label: '10', value: 10 },
+          { label: '20', value: 20 },
+          { label: '30', value: 30 },
         ]}
       />
     </>

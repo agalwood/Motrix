@@ -234,6 +234,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       return trackerManager.getCuratedList()
     },
 
+    [Queries.GetTrackerSyncStatus]: async () => trackerManager.getSyncStatus(),
+
     [Queries.GetTrackerSources]: async () => {
       return settingsManager.get().tracker.sources
     },

@@ -1,3 +1,4 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import {
   Alert,
   AlertDescription,
@@ -8,7 +9,6 @@ import {
   FormControl,
   FormDescription,
   FormField,
-  FormItem,
   FormLabel,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
@@ -49,7 +49,7 @@ export function BrowserExtensionsSection() {
         control={form.control}
         name="app.browserBridgeEnabled"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
+          <SettingsFormRow>
             <div className="space-y-1">
               <FormLabel>
                 {t('settings.integration.browser.masterSwitch')}
@@ -61,7 +61,7 @@ export function BrowserExtensionsSection() {
             <FormControl>
               <Switch checked={field.value} onCheckedChange={field.onChange} />
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
 

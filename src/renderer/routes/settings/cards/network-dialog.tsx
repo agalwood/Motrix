@@ -1,5 +1,10 @@
 import { EndpointList } from '@renderer/components/settings-kit/endpoint-list'
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
+import {
+  useSettingsForm,
+  useSettingsSubmit,
+} from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -16,6 +21,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -37,6 +43,10 @@ import {
   DEFAULT_NAT_SETTINGS,
   DEFAULT_PROXY_SETTINGS,
 } from '@shared/schemas'
+import {
+  portCheckerInputSchema,
+  stunServerInputSchema,
+} from '@shared/schemas/nat-settings'
 import type {
   AppSettings,
   DnsResolutionMode,
@@ -44,11 +54,10 @@ import type {
   ProxySettings,
 } from '@shared/types/settings'
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
 import type { SettingsCardDialogProps } from './card-types'
 import { ProxySection } from './proxy-section'
+import { networkFormSchema } from './settings-form-schemas'
 
 export interface NetworkFields {
   proxy: ProxySettings
@@ -76,16 +85,6 @@ const NAT_PROTOCOL_OPTIONS = [
   value: NatSettings['preferredProtocol']
 }>
 
-const stunSchema = z
-  .string()
-  .regex(/^[a-z0-9.-]+:\d+$/i, 'invalid host:port')
-  .max(253)
-
-const reachabilitySchema = z
-  .string()
-  .url()
-  .startsWith('https://', 'must be HTTPS')
-
 export function NetworkDialog({
   open,
   onClose,
@@ -93,7 +92,7 @@ export function NetworkDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const form = useForm<NetworkFields>({ defaultValues: DEFAULTS })
+  const form = useSettingsForm<NetworkFields>(networkFormSchema, DEFAULTS)
 
   const dnsModeOptions = [
     { value: 'auto', label: t('settings.network.dns.modeAuto') },
@@ -127,7 +126,7 @@ export function NetworkDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     // biome-ignore lint/suspicious/noExplicitAny: dirtyFields shape doesn't fit DirtyTree; cast is safe
     const dirty = pickDirty(values, form.formState.dirtyFields as any)
     if (!dirty) {
@@ -151,7 +150,7 @@ export function NetworkDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form className="space-y-4">
+            <form className="space-y-4" noValidate onSubmit={onSubmit}>
               <ProxySection form={form} />
 
               <Separator className="my-4" />
@@ -164,7 +163,7 @@ export function NetworkDialog({
                 control={form.control}
                 name="engine.dnsMode"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <SettingsFormRow className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <div className="min-w-0 flex-1 space-y-1">
                       <FormLabel>{t('settings.network.dns.mode')}</FormLabel>
                       <FormDescription className="text-xs">
@@ -193,7 +192,7 @@ export function NetworkDialog({
                         </SelectContent>
                       </Select>
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -208,7 +207,7 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.enabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>{t('settings.network.nat.enable')}</FormLabel>
                       <FormDescription className="text-xs">
@@ -221,7 +220,7 @@ export function NetworkDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -229,7 +228,7 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.preferredProtocol"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>
                       {t('settings.network.nat.preferredProtocol')}
                     </FormLabel>
@@ -258,7 +257,7 @@ export function NetworkDialog({
                         </SelectContent>
                       </Select>
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -266,24 +265,24 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.mappingTtl"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>
                       {t('settings.network.nat.mappingTtl')}
                     </FormLabel>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={1200}
                         max={7200}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10)
-                          field.onChange(Number.isFinite(n) ? n : 7200)
-                        }}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -305,7 +304,7 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.natTypeDetectionEnabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>{t('settings.network.stun.enable')}</FormLabel>
                     <FormControl>
                       <Switch
@@ -313,7 +312,7 @@ export function NetworkDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -326,13 +325,14 @@ export function NetworkDialog({
                     <EndpointList
                       name="nat.stunServers"
                       maxItems={10}
-                      itemSchema={stunSchema}
+                      itemSchema={stunServerInputSchema}
                       placeholder="stun.example.com:3478"
                       i18nKeys={{
                         addButton: 'settings.network.stun.addServer',
                         empty: 'settings.network.stun.empty',
                       }}
                     />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -351,7 +351,7 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.portReachabilityCheckEnabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>
                       {t('settings.network.reachability.enable')}
                     </FormLabel>
@@ -361,7 +361,7 @@ export function NetworkDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -376,13 +376,14 @@ export function NetworkDialog({
                     <EndpointList
                       name="nat.portCheckerEndpoints"
                       maxItems={5}
-                      itemSchema={reachabilitySchema}
+                      itemSchema={portCheckerInputSchema}
                       placeholder="https://example.com/check"
                       i18nKeys={{
                         addButton: 'settings.network.reachability.addEndpoint',
                         empty: 'settings.network.reachability.empty',
                       }}
                     />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -398,7 +399,7 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.autoDiagnostic"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>
                       {t('settings.network.diagnostic.enable')}
                     </FormLabel>
@@ -408,7 +409,7 @@ export function NetworkDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -416,24 +417,24 @@ export function NetworkDialog({
                 control={form.control}
                 name="nat.diagnosticIntervalSec"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>
                       {t('settings.network.diagnostic.interval')}
                     </FormLabel>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={300}
                         max={86400}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10)
-                          field.onChange(Number.isFinite(n) ? n : 3600)
-                        }}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
             </form>
@@ -441,6 +442,11 @@ export function NetworkDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

@@ -50,7 +50,7 @@ export const CompactLimitInput = forwardRef<
   const [draft, setDraft] = useState<{ text: string; unit: string } | null>(
     null
   )
-  const zero = value <= 0
+  const zero = value === 0
   const ResetIcon = zeroAction === 'inherit' ? RotateCcw : InfinityIcon
 
   return (
@@ -89,16 +89,21 @@ export const CompactLimitInput = forwardRef<
           inputMode="decimal"
           autoComplete="off"
           aria-valuemin={0}
-          aria-valuenow={Math.max(0, value)}
+          aria-valuenow={Number.isFinite(value) ? value : undefined}
           aria-valuetext={zero ? zeroLabel : `${value} ${unit}`}
           className="h-8 min-w-0 px-2 text-right tabular-nums placeholder:text-right placeholder:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          value={draft?.unit === unit ? draft.text : zero ? '' : value}
+          value={
+            draft?.unit === unit
+              ? draft.text
+              : zero || !Number.isFinite(value)
+                ? ''
+                : value
+          }
           placeholder={zeroLabel}
           onChange={(event) => {
             setDraft({ text: event.target.value, unit })
-            const nextValue = Number(event.target.value)
             onValueChange(
-              Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0
+              event.target.value === '' ? 0 : event.target.valueAsNumber
             )
           }}
           onBlur={(event) => {

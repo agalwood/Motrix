@@ -1,9 +1,53 @@
 import type { TrackerSettings } from '@shared/types/settings'
+import type { TrackerSource } from '@shared/types/tracker'
 import { z } from 'zod'
+import { settingsInputObject } from './settings-input'
+
+const SYNC_INTERVAL_MIN = 1
+const SYNC_INTERVAL_MAX = 168
+const TRACKER_COUNT_MIN = 5
+const TRACKER_COUNT_MAX = 200
+const syncIntervalHoursSchema = z
+  .number()
+  .int()
+  .min(SYNC_INTERVAL_MIN)
+  .max(SYNC_INTERVAL_MAX)
+const maxTrackerCountSchema = z
+  .number()
+  .int()
+  .min(TRACKER_COUNT_MIN)
+  .max(TRACKER_COUNT_MAX)
 
 // Moved from src/core/settings/validators.ts so the renderer
 // (react-hook-form resolver) and the core (IPC validation)
 // share a single source of truth for tracker settings.
+
+export const ANIME_TRACKER_DIRECT_SOURCE = {
+  id: 'anime-best',
+  label: 'DeSireFire/animeTrackerList (best)',
+  url: 'https://raw.githubusercontent.com/DeSireFire/animeTrackerList/master/AT_best.txt',
+  builtin: true,
+  enabled: false,
+  cdn: false,
+} satisfies TrackerSource
+
+export const ANIME_TRACKER_SOURCE = {
+  id: 'anime-best-cdn',
+  label: 'DeSireFire/animeTrackerList (best, CDN)',
+  url: 'https://cdn.jsdelivr.net/gh/DeSireFire/animeTrackerList/AT_best.txt',
+  builtin: true,
+  enabled: false,
+  cdn: true,
+} satisfies TrackerSource
+
+export const ANIME_TRACKER_BLACKLIST_SOURCE = {
+  id: 'anime-bad',
+  label: 'DeSireFire/animeTrackerList (bad)',
+  url: 'https://cdn.jsdelivr.net/gh/DeSireFire/animeTrackerList/AT_bad.txt',
+  builtin: true,
+  enabled: true,
+  cdn: true,
+} satisfies TrackerSource
 
 const BUILTIN_SOURCES = [
   {
@@ -38,6 +82,8 @@ const BUILTIN_SOURCES = [
     enabled: false,
     cdn: true,
   },
+  ANIME_TRACKER_DIRECT_SOURCE,
+  ANIME_TRACKER_SOURCE,
 ]
 
 const BUILTIN_BLACKLIST_SOURCES = [
@@ -49,12 +95,13 @@ const BUILTIN_BLACKLIST_SOURCES = [
     enabled: true,
     cdn: true,
   },
+  ANIME_TRACKER_BLACKLIST_SOURCE,
 ]
 
 const trackerSourceSchema = z.object({
   id: z.string(),
   label: z.string(),
-  url: z.string().url(),
+  url: z.url(),
   builtin: z.boolean().catch(false),
   enabled: z.boolean().catch(true),
   cdn: z.boolean().catch(false),
@@ -66,7 +113,9 @@ export const trackerSettingsSchema = z.object({
     .number()
     .int()
     .catch(12)
-    .transform((v) => Math.min(Math.max(v, 1), 168)),
+    .transform((v) =>
+      Math.min(Math.max(v, SYNC_INTERVAL_MIN), SYNC_INTERVAL_MAX)
+    ),
   sourcesEnabled: z.boolean().catch(true),
   sources: z.array(trackerSourceSchema).catch(BUILTIN_SOURCES),
   probeEnabled: z.boolean().catch(true),
@@ -77,7 +126,9 @@ export const trackerSettingsSchema = z.object({
     .number()
     .int()
     .catch(50)
-    .transform((v) => Math.min(Math.max(v, 5), 200)),
+    .transform((v) =>
+      Math.min(Math.max(v, TRACKER_COUNT_MIN), TRACKER_COUNT_MAX)
+    ),
   blacklistEnabled: z.boolean().catch(true),
   blacklistSources: z
     .array(trackerSourceSchema)
@@ -86,6 +137,16 @@ export const trackerSettingsSchema = z.object({
 
 export const DEFAULT_TRACKER_SETTINGS: TrackerSettings =
   trackerSettingsSchema.parse({})
+
+export const trackerSettingsInputSchema = settingsInputObject(
+  trackerSettingsSchema.omit({
+    syncIntervalHours: true,
+    maxTrackerCount: true,
+  })
+).extend({
+  syncIntervalHours: syncIntervalHoursSchema,
+  maxTrackerCount: maxTrackerCountSchema,
+})
 
 export function validateTrackerSettings(
   input: TrackerSettings

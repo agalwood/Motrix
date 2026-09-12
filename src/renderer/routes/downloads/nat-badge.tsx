@@ -8,13 +8,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
+import { Spinner } from '@renderer/components/ui/spinner'
 import { useNatStatus } from '@renderer/hooks/use-nat-status'
-import {
-  isNatRetrying,
-  isNatRunning,
-  type NatBucket,
-  natBucket,
-} from '@renderer/lib/nat-status'
+import { type NatBucket, natBucket } from '@renderer/lib/nat-status'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
@@ -22,12 +18,13 @@ import { getNatTroubleshootingUrl } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 const TEXT_KEY: Record<NatBucket, string> = {
   active: 'panel.downloads.stats.natActive',
   settingUp: 'panel.downloads.stats.natSettingUp',
-  failed: 'panel.downloads.stats.natFailed',
-  off: 'panel.downloads.stats.natOff',
+  failed: 'panel.downloads.stats.natMapping',
+  off: 'panel.downloads.stats.natMapping',
 }
 
 export function NatBadge() {
@@ -38,16 +35,11 @@ function ElectronNatBadge() {
   const { t, i18n } = useTranslation()
   const services = usePlatformServices()
   const status = useNatStatus()
-  const { bucket, color } = natBucket(status)
+  const { bucket } = natBucket(status)
+  const color = bucket === 'active' ? 'bg-green-500' : 'bg-muted-foreground'
   const badgeText = t(TEXT_KEY[bucket])
   const detailText =
-    status && isNatRetrying(status)
-      ? t('panel.downloads.stats.natRetrying', {
-          attempt: status.retryAttempt,
-          max: status.maxRetries,
-        })
-      : badgeText
-  const running = isNatRunning(status)
+    bucket === 'failed' ? t('panel.downloads.stats.natUnavailable') : badgeText
 
   const handleEnable = useCallback(() => {
     void transport.invoke(Commands.EnableNat)
@@ -62,6 +54,8 @@ function ElectronNatBadge() {
     void services.openExternal(troubleshootingUrl)
   }, [services, troubleshootingUrl])
 
+  if (!status?.enabled || bucket === 'off') return null
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -70,34 +64,64 @@ function ElectronNatBadge() {
           <Badge
             variant="secondary"
             className="cursor-pointer select-none"
-            aria-label={detailText}
+            aria-label={badgeText}
           />
         }
       >
-        <span className={cn('flex size-2 rounded-full mr-2', color)} />
+        {bucket === 'settingUp' ? (
+          <Spinner
+            aria-hidden="true"
+            className="mr-1.5 size-3 text-muted-foreground motion-reduce:animate-none"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className={cn('size-2 rounded-full mr-2', color)}
+          />
+        )}
         {badgeText}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[8rem]">
+      <DropdownMenuContent
+        align="end"
+        className="w-60 max-w-[calc(100vw-2rem)]"
+      >
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal">
-            <span className={cn('size-2 rounded-full', color)} />
-            {detailText}
+          <DropdownMenuLabel className="space-y-1 whitespace-normal text-xs font-normal">
+            <p className="font-medium text-foreground">{detailText}</p>
+            {bucket === 'active' || bucket === 'failed' ? (
+              <p className="leading-relaxed text-muted-foreground">
+                {t(
+                  bucket === 'active'
+                    ? 'panel.downloads.stats.natActiveDesc'
+                    : 'panel.downloads.stats.natUnavailableDesc'
+                )}
+              </p>
+            ) : null}
+            {status.retryAttempt > 0 ? (
+              <p className="text-muted-foreground">
+                {t('panel.downloads.stats.natRetrying', {
+                  attempt: status.retryAttempt,
+                  max: status.maxRetries,
+                })}
+              </p>
+            ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {running ? (
-            <DropdownMenuItem onClick={handleDisable}>
-              {t('panel.downloads.stats.natDisable')}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onClick={handleEnable}>
-              {t('panel.downloads.stats.natEnable')}
-            </DropdownMenuItem>
-          )}
           {bucket === 'failed' ? (
-            <DropdownMenuItem onClick={handleHelp}>
-              {t('panel.downloads.stats.natHelp')}
+            <DropdownMenuItem onClick={handleEnable}>
+              {t('panel.downloads.stats.natRetry')}
             </DropdownMenuItem>
           ) : null}
+          <DropdownMenuItem render={<Link to="/settings/network" />}>
+            {t('panel.downloads.stats.natSettings')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleHelp}>
+            {t('panel.downloads.stats.natHelp')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleDisable}>
+            {t('panel.downloads.stats.natDisable')}
+          </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

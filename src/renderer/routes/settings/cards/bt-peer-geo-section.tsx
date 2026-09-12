@@ -1,11 +1,12 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
+import { useSettingsForm } from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Form,
   FormControl,
   FormDescription,
   FormField,
-  FormItem,
   FormLabel,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
@@ -20,28 +21,25 @@ import { Spinner } from '@renderer/components/ui/spinner'
 import { Switch } from '@renderer/components/ui/switch'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useGeoIPStatus } from '@renderer/hooks/use-geoip-status'
-
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import {
+  DEFAULT_GEOIP_SETTINGS,
+  geoIpSettingsInputSchema,
+} from '@shared/schemas/geoip-settings'
 import type { GeoIPSettings, GeoIPSource } from '@shared/types/geoip'
 import type { AppSettings } from '@shared/types/settings'
-import { useEffect, useRef, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import {
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 const SAVE_DEBOUNCE_MS = 400
-
-const DEFAULT_GEOIP: GeoIPSettings = {
-  enabled: false,
-  source: 'loyalsoldier',
-  customUrl: '',
-  maxmindLicenseKey: '',
-  autoUpdate: true,
-  autoUpdateIntervalDays: 7,
-  lastUpdatedAt: 0,
-  databaseVersion: '',
-}
 
 const SOURCES: ReadonlyArray<{ key: GeoIPSource; disabled?: boolean }> = [
   { key: 'loyalsoldier' },
@@ -57,13 +55,24 @@ function formatTimestamp(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function BtPeerGeoSection() {
+export interface BtPeerGeoSectionHandle {
+  flush: () => Promise<boolean>
+}
+
+export function BtPeerGeoSection({
+  ref,
+}: {
+  ref?: Ref<BtPeerGeoSectionHandle>
+}) {
   const { formatBytes } = useByteFormat()
 
   const { t } = useTranslation()
   const { status, progress, triggerUpdate } = useGeoIPStatus()
   const [updateError, setUpdateError] = useState<string | null>(null)
-  const form = useForm<GeoIPSettings>({ defaultValues: DEFAULT_GEOIP })
+  const form = useSettingsForm<GeoIPSettings>(
+    geoIpSettingsInputSchema,
+    DEFAULT_GEOIP_SETTINGS
+  )
   const sourceOptions = SOURCES.map(({ key, disabled }) => ({
     value: key,
     label: `${t(`settings.bittorrent.geoip.source.${key}`)}${
@@ -72,6 +81,10 @@ export function BtPeerGeoSection() {
     disabled,
   }))
 
+  const savedValues = useRef(DEFAULT_GEOIP_SETTINGS)
+  const revision = useRef(0)
+  const mounted = useRef(true)
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Initial fetch — settings are the source of truth for source/url/etc.;
@@ -83,7 +96,10 @@ export function BtPeerGeoSection() {
       .then((data) => {
         if (cancelled) return
         const all = data as AppSettings
-        if (all?.geoip) form.reset(all.geoip)
+        if (all?.geoip) {
+          savedValues.current = all.geoip
+          form.reset(all.geoip)
+        }
       })
       .catch(() => {
         /* keep defaults */
@@ -94,40 +110,89 @@ export function BtPeerGeoSection() {
   }, [form])
 
   useEffect(() => {
+    mounted.current = true
     return () => {
+      mounted.current = false
+      revision.current += 1
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [])
 
-  const save = async (patch: Partial<GeoIPSettings>): Promise<void> => {
-    await transport.invoke(Commands.UpdateSettings, { geoip: patch })
+  const persist = (expectedRevision: number, disableOnly = false) => {
+    const pending = saveQueue.current.then(async () => {
+      if (!mounted.current || revision.current !== expectedRevision)
+        return false
+      const valid = disableOnly
+        ? await form.trigger('enabled')
+        : await form.trigger()
+      if (!valid || !mounted.current || revision.current !== expectedRevision)
+        return false
+      const values = form.getValues()
+      const patch: Partial<GeoIPSettings> = disableOnly
+        ? { enabled: false }
+        : Object.fromEntries(
+            (['enabled', 'source', 'customUrl', 'autoUpdate'] as const)
+              .filter((key) => values[key] !== savedValues.current[key])
+              .map((key) => [key, values[key]])
+          )
+      if (Object.keys(patch).length === 0) {
+        form.clearErrors('root.save')
+        return true
+      }
+      try {
+        await transport.invoke(Commands.UpdateSettings, { geoip: patch })
+        savedValues.current = { ...savedValues.current, ...patch }
+        if (mounted.current) form.clearErrors('root.save')
+        return true
+      } catch {
+        if (mounted.current)
+          form.setError('root.save', {
+            type: 'server',
+            message: t('settings.validation.saveFailed'),
+          })
+        return false
+      }
+    })
+    saveQueue.current = pending.then(
+      () => undefined,
+      () => undefined
+    )
+    return pending
   }
 
-  const debouncedSave = (patch: Partial<GeoIPSettings>) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      save(patch).catch(() => {
-        /* surfaced via status events */
-      })
-      debounceRef.current = null
-    }, SAVE_DEBOUNCE_MS)
-  }
-
-  const saveField = <K extends keyof GeoIPSettings>(
-    key: K,
-    value: GeoIPSettings[K],
+  const saveField = <Key extends keyof GeoIPSettings>(
+    key: Key,
+    value: GeoIPSettings[Key],
     debounce = false
   ) => {
-    const patch = { [key]: value } as Partial<GeoIPSettings>
-    if (debounce) debouncedSave(patch)
-    else save(patch).catch(() => undefined)
+    const expectedRevision = ++revision.current
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (debounce) {
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null
+        void persist(expectedRevision)
+      }, SAVE_DEBOUNCE_MS)
+    } else {
+      void persist(expectedRevision, key === 'enabled' && value === false)
+    }
   }
+
+  const flush = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    return persist(++revision.current)
+  }
+  useImperativeHandle(ref, () => ({ flush }))
 
   const enabled = form.watch('enabled')
   const source = form.watch('source')
   const isDownloading = status?.isDownloading ?? false
   const handleUpdateNow = async () => {
     setUpdateError(null)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const expectedRevision = ++revision.current
+    const saved = await persist(expectedRevision)
+    if (!saved || !mounted.current || revision.current !== expectedRevision)
+      return
     try {
       await triggerUpdate()
     } catch (err) {
@@ -146,12 +211,16 @@ export function BtPeerGeoSection() {
       </h3>
 
       <Form {...form}>
-        <form className="space-y-4">
+        <form
+          className="space-y-4"
+          noValidate
+          onSubmit={(event) => event.preventDefault()}
+        >
           <FormField
             control={form.control}
             name="enabled"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="space-y-1">
                   <FormLabel>{t('settings.bittorrent.geoip.enable')}</FormLabel>
                   <FormDescription className="text-xs">
@@ -168,7 +237,7 @@ export function BtPeerGeoSection() {
                     }}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
 
@@ -212,7 +281,7 @@ export function BtPeerGeoSection() {
             control={form.control}
             name="source"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="space-y-1">
                   <FormLabel>{t('settings.bittorrent.geoip.source')}</FormLabel>
                   <FormDescription className="text-xs">
@@ -248,16 +317,16 @@ export function BtPeerGeoSection() {
                     </SelectContent>
                   </Select>
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
 
-          {source === 'custom' && (
+          {(source === 'custom' || form.formState.errors.customUrl) && (
             <FormField
               control={form.control}
               name="customUrl"
               render={({ field }) => (
-                <FormItem className="flex items-start justify-between gap-4">
+                <SettingsFormRow>
                   <div className="space-y-1">
                     <FormLabel>
                       {t('settings.bittorrent.geoip.customUrl')}
@@ -266,18 +335,18 @@ export function BtPeerGeoSection() {
                   <FormControl>
                     <Input
                       className="w-72 h-8"
-                      disabled={!enabled}
+                      disabled={!enabled && !form.formState.errors.customUrl}
                       placeholder={t(
                         'settings.bittorrent.geoip.customUrlPlaceholder'
                       )}
-                      value={field.value}
+                      {...field}
                       onChange={(e) => {
                         field.onChange(e)
                         saveField('customUrl', e.target.value, true)
                       }}
                     />
                   </FormControl>
-                </FormItem>
+                </SettingsFormRow>
               )}
             />
           )}
@@ -286,7 +355,7 @@ export function BtPeerGeoSection() {
             control={form.control}
             name="autoUpdate"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="space-y-1">
                   <FormLabel>
                     {t('settings.bittorrent.geoip.autoUpdate')}
@@ -306,9 +375,14 @@ export function BtPeerGeoSection() {
                     }}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
         </form>
       </Form>
     </section>

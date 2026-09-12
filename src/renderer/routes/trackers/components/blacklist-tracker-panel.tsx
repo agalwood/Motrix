@@ -11,10 +11,12 @@ import { TrackerSourceCombobox } from './tracker-source-combobox'
 
 interface BlacklistTrackerPanelProps {
   filter?: string
+  syncMessage?: string
 }
 
 export function BlacklistTrackerPanel({
   filter,
+  syncMessage,
 }: BlacklistTrackerPanelProps = {}) {
   const { t } = useTranslation()
   const { list } = useTrackerList()
@@ -68,7 +70,7 @@ export function BlacklistTrackerPanel({
   }, [list, sources, filter])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
       <div className="flex shrink-0 items-start justify-between gap-4">
         <div className="space-y-1">
           <span className="text-sm font-medium">
@@ -88,14 +90,17 @@ export function BlacklistTrackerPanel({
           {t('trackers.blacklist.disabled')}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-lg border border-border">
+        <div
+          aria-busy={Boolean(syncMessage)}
+          className="flex min-h-0 flex-1 flex-col overflow-auto rounded-lg border border-border"
+        >
           <div className="sticky top-0 z-10 grid grid-cols-[1fr_140px] items-center gap-4 border-b border-border bg-background px-3 py-2 text-[11px] uppercase text-muted-foreground">
             <div>{t('trackers.blacklist.column.url')}</div>
             <div>{t('trackers.blacklist.column.source')}</div>
           </div>
           {list.blacklist.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              {t('trackers.blacklist.empty')}
+              {syncMessage ?? t('trackers.blacklist.empty')}
             </div>
           ) : (
             visibleRows.map((row) => (

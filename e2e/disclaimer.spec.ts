@@ -1,6 +1,9 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
+import { createServer, type ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
+import { CURRENT_SETTINGS_VERSION } from '../src/core/settings/migrations'
 import { expect, launchMotrix, test } from './fixtures/electron-app'
 
 async function openDisclaimer(app: ElectronApplication): Promise<Page> {
@@ -85,6 +88,86 @@ test.describe('disclaimer startup gate', () => {
       await closed
     } finally {
       await app.close().catch(() => {})
+    }
+  })
+
+  test('fetches first-run trackers only after consent and the startup delay', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    const trackerUrl = 'udp://tracker.example.test:6969/announce'
+    const requests: number[] = []
+    let pendingResponse: ServerResponse | undefined
+    const source = createServer((_request, response) => {
+      requests.push(Date.now())
+      pendingResponse = response
+    })
+    await new Promise<void>((resolve) => source.listen(0, '127.0.0.1', resolve))
+    const sourceUrl = `http://127.0.0.1:${(source.address() as AddressInfo).port}/trackers.txt`
+    let app: ElectronApplication | undefined
+    try {
+      await writeFile(
+        path.join(userDataDir, 'settings.json'),
+        JSON.stringify({
+          version: CURRENT_SETTINGS_VERSION,
+          onboarding: { disclaimerAccepted: false },
+          app: { checkForUpdatesOnLaunch: false },
+          tracker: {
+            autoSync: true,
+            sourcesEnabled: true,
+            sources: [
+              {
+                id: 'local-test',
+                label: 'Local test',
+                url: sourceUrl,
+                builtin: false,
+                enabled: true,
+                cdn: false,
+              },
+            ],
+            probeEnabled: false,
+            blacklistEnabled: false,
+          },
+        })
+      )
+      app = await launchMotrix({
+        userDataDir,
+        rpcPort,
+        disclaimerAccepted: false,
+      })
+      const disclaimer = await openDisclaimer(app)
+      // Stay on the notice longer than the initial-sync delay: consent is required.
+      await disclaimer.waitForTimeout(3_500)
+      expect(requests).toHaveLength(0)
+      const acceptedAt = Date.now()
+      const opened = app.waitForEvent('window')
+      await disclaimer.getByTestId('disclaimer-agree').click()
+      const main = await opened
+      await main.waitForLoadState('domcontentloaded')
+      await expect.poll(() => requests.length, { timeout: 15_000 }).toBe(1)
+      expect(requests[0] - acceptedAt).toBeGreaterThanOrEqual(3_000)
+      // Open after the automatic sync has started: the UI must recover its
+      // state from the host snapshot, without requiring a manual button click.
+      await main.getByRole('link', { name: 'Trackers', exact: true }).click()
+      await expect(
+        main.getByRole('button', { name: 'Syncing...' })
+      ).toBeDisabled()
+      await expect(main.getByRole('status')).toHaveText(
+        'Fetching tracker lists…'
+      )
+      await expect(main.getByRole('tabpanel')).toContainText(
+        'Fetching tracker lists…'
+      )
+      pendingResponse
+        ?.writeHead(200, { 'Content-Type': 'text/plain' })
+        .end(`${trackerUrl}\n`)
+      await expect(main.getByText(trackerUrl, { exact: true })).toBeVisible()
+      await expect(main.getByRole('button', { name: 'Sync Now' })).toBeEnabled()
+      await expect(main.getByText('Fetching tracker lists…')).toHaveCount(0)
+    } finally {
+      pendingResponse?.destroy()
+      await app?.close().catch(() => {})
+      await new Promise<void>((resolve) => source.close(() => resolve()))
     }
   })
 })

@@ -7,6 +7,7 @@ import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
 } from './byte-unit-system'
 import { supportedLocaleSchema } from './locale'
+import { settingsInputObject } from './settings-input'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
 
@@ -54,3 +55,16 @@ export const appSettingsSchema = z.object({
 export const DEFAULT_APP_SETTINGS: MotrixAppSettings = appSettingsSchema.parse(
   {}
 )
+
+export const appSettingsInputSchema = settingsInputObject(
+  appSettingsSchema
+).extend({
+  defaultSaveDir: z
+    .string()
+    .refine((value) => value.trim().length > 0 && !value.includes('\0'), {
+      params: { settingIssue: 'directory' },
+    }),
+  protocols: settingsInputObject(
+    appSettingsSchema.shape.protocols.removeCatch()
+  ),
+})

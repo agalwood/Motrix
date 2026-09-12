@@ -528,14 +528,17 @@
         "engineOk": "引擎已就緒",
         "engineStarting": "引擎啟動中",
         "engineOffline": "引擎離線",
-        "natActive": "NAT 已啟用",
-        "natSettingUp": "NAT 初始化中",
-        "natRetrying": "NAT 正在重試 ({{attempt}}/{{max}})",
-        "natFailed": "NAT 失敗",
-        "natOff": "NAT 已關閉",
-        "natEnable": "啟用 NAT",
-        "natDisable": "停用 NAT",
-        "natHelp": "查看 NAT 疑難排解手冊"
+        "natActive": "NAT 已對應",
+        "natActiveDesc": "協助其他 BT 使用者連線到你。",
+        "natSettingUp": "NAT 對應中",
+        "natRetrying": "自動重試（{{attempt}}/{{max}}）",
+        "natMapping": "NAT 對應",
+        "natUnavailable": "自動對應未建立",
+        "natUnavailableDesc": "一般下載不受影響，BT 連線可能受限。",
+        "natRetry": "重試",
+        "natDisable": "關閉連接埠對應",
+        "natSettings": "網路設定",
+        "natHelp": "最佳化網路"
       },
       "tab": {
         "all": "全部",
@@ -1163,18 +1166,18 @@
         "title": "效能",
         "profile": "效能檔位",
         "profileDesc": "選擇 Motrix 的下載強度。",
-        "baseline": "基準",
+        "learnMore": "瞭解更多",
         "metrics": {
-          "segments": "分段",
-          "perServer": "單一伺服器",
+          "connections": "連線數上限",
+          "perServer": "單一伺服器上限",
           "minimum": "最小分段",
-          "cache": "快取"
+          "cache": "磁碟快取"
         },
         "customParameters": "自訂效能參數",
         "profiles": {
           "auto": {
             "label": "自動",
-            "desc": "依下載磁碟自動調整效能。"
+            "desc": "顯示預設值，實際依磁碟和檔案大小調整。"
           },
           "balanced": {
             "label": "均衡",
@@ -1190,17 +1193,17 @@
           },
           "custom": {
             "label": "自訂",
-            "desc": "手動設定連線、分段和快取。"
+            "desc": "設定連線數、分段大小和快取。"
           }
         },
         "maxConcurrentDownloads": "同時下載數量上限",
         "maxConcurrentDownloadsDesc": "可平行下載的任務數量。",
         "maxConnectionPerServer": "每台伺服器的連線數上限",
-        "maxConnectionPerServerDesc": "每個來源可同時發出的 HTTP 要求數量。",
-        "split": "每個檔案的分割連線數",
-        "splitDesc": "下載單一檔案時使用的分段數量。",
-        "minSplitSize": "最小分段大小 (MiB)",
-        "minSplitSizeDesc": "小於此大小的檔案不會分割。"
+        "maxConnectionPerServerDesc": "每個檔案對同一伺服器的連線上限。",
+        "split": "單一檔案連線數上限",
+        "splitDesc": "實際連線數可能更少。",
+        "minSplitSize": "最小分段大小（MiB）",
+        "minSplitSizeDesc": "小於此值兩倍的分段不再拆分。"
       },
       "reliability": {
         "title": "網路可靠性",
@@ -1706,6 +1709,31 @@
           "io": "操作失敗，請檢查磁碟存取權限後重試修復。"
         }
       }
+    },
+    "validation": {
+      "rangeHint": "範圍：{{min}}–{{max}}。",
+      "range": "請輸入 {{min}}–{{max}} 之間的數值。",
+      "integerRange": "請輸入 {{min}}–{{max}} 之間的整數。",
+      "minimum": "請輸入不小於 {{min}} 的數值。",
+      "maximum": "請輸入不大於 {{max}} 的數值。",
+      "integer": "請輸入整數。",
+      "wholeBytes": "小數位過多，請減少小數位。",
+      "number": "請輸入有效數字。",
+      "invalid": "請輸入有效值。",
+      "selection": "請選擇一個可用選項。",
+      "textLength": "請縮短至 {{max}} 個字元以內。",
+      "itemCount": "最多可填寫 {{max}} 個位址。",
+      "text": "請刪除換行或不可見的控制字元。",
+      "directory": "請選擇下載資料夾。",
+      "proxyHost": "請輸入伺服器名稱或 IP 位址，不要包含 http:// 或連接埠。",
+      "stunServer": "請依「主機:連接埠」填寫，例如 stun.example.com:3478。連接埠範圍為 1–65535。",
+      "httpsUrl": "請輸入以 https:// 開頭的完整位址。",
+      "httpUrl": "請輸入以 http:// 或 https:// 開頭的完整位址。",
+      "saveFailed": "無法儲存變更，請重試。",
+      "address": "位址 {{number}}",
+      "addressDraft": "新位址",
+      "required": "請先填寫位址。",
+      "time": "請使用 24 小時制填寫，例如 23:00。"
     }
   },
   "errors": {
@@ -1807,10 +1835,16 @@
       "removeSource": "移除來源",
       "empty": "沒有符合的來源。",
       "builtinBadge": "內建",
-      "cdnBadge": "CDN"
+      "cdnBadge": "CDN",
+      "directBadge": "直連"
     },
     "sync": {
-      "syncing": "同步中…"
+      "syncing": "同步中…",
+      "fetching": "正在取得 Tracker 清單…",
+      "probing": "正在檢測 Tracker 可用性…",
+      "applying": "正在套用 Tracker 清單…",
+      "failed": "同步未完成，請檢查網路或來源後重試。",
+      "unavailable": "無法取得同步狀態，請檢查連線後重試。"
     }
   },
   "plugin": {

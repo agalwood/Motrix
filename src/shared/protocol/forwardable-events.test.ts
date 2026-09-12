@@ -18,11 +18,12 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.EngineStateChanged)
     expect(ForwardableEvents).toContain(Events.NatStateChanged)
     expect(ForwardableEvents).toContain(Events.TrackerListUpdated)
+    expect(ForwardableEvents).toContain(Events.TrackerSyncStatusChanged)
     expect(ForwardableEvents).toContain(Events.UpdateAvailable)
   })
 
   it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(53)
+    expect(ForwardableEvents).toHaveLength(54)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {

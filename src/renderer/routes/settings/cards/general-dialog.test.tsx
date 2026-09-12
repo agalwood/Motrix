@@ -18,8 +18,9 @@ vi.mock('@renderer/lib/transport', () => ({
   transport: transportMock,
 }))
 
+const { pickSaveDir } = vi.hoisted(() => ({ pickSaveDir: vi.fn() }))
 vi.mock('@renderer/platform/services', () => ({
-  usePlatformServices: () => ({ pickSaveDir: vi.fn() }),
+  usePlatformServices: () => ({ pickSaveDir }),
 }))
 
 import { transport } from '@renderer/lib/transport'
@@ -181,4 +182,35 @@ it('enables the login window preference with auto-launch and saves both dirty fi
   expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
     app: { launchAtStartup: true, showMainWindowAtLogin: true },
   })
+})
+
+it('asks for a download folder and clears the error after browsing', async () => {
+  vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+    if (channel === Queries.GetSettings)
+      return {
+        ...SETTINGS_FIXTURE,
+        app: { ...SETTINGS_FIXTURE.app, defaultSaveDir: '' },
+      }
+    return { saved: true }
+  })
+  pickSaveDir.mockResolvedValue('/Downloads')
+  const onClose = vi.fn()
+  render(<GeneralDialog open onClose={onClose} labelKey="" descKey="" />)
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Save' }))
+  expect(await screen.findByText('Choose a download folder.')).toBeVisible()
+  expect(onClose).not.toHaveBeenCalled()
+  expect(transport.invoke).not.toHaveBeenCalledWith(
+    Commands.UpdateSettings,
+    expect.anything()
+  )
+  await user.click(screen.getByRole('button', { name: 'Browse…' }))
+  await screen.findByDisplayValue('/Downloads')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { defaultSaveDir: '/Downloads' },
+    })
+  )
+  expect(onClose).toHaveBeenCalledOnce()
 })
