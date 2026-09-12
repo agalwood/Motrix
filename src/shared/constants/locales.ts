@@ -17,6 +17,7 @@ export const SUPPORTED_LOCALES = [
   { code: 'en-US', nativeName: 'English', dir: 'ltr' },
   { code: 'zh-CN', nativeName: '简体中文', dir: 'ltr' },
   { code: 'zh-TW', nativeName: '繁體中文', dir: 'ltr' },
+  { code: 'hu-HU', nativeName: 'Magyar', dir: 'ltr' },
 ] as const satisfies readonly LocaleDefinition[]
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]['code']
