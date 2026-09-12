@@ -238,6 +238,17 @@ describe('buildQueryHandlers', () => {
     await expect(detail).resolves.toBe(task)
   })
 
+  it('exposes the current tracker sync status to newly opened windows', async () => {
+    const getSyncStatus = vi.fn(() => 'probing')
+    const handlers = buildQueryHandlers({
+      trackerManager: { getSyncStatus },
+    } as unknown as QueryContext)
+    await expect(handlers[Queries.GetTrackerSyncStatus]?.()).resolves.toBe(
+      'probing'
+    )
+    expect(getSyncStatus).toHaveBeenCalledOnce()
+  })
+
   it('returns a map with all query channels', () => {
     const ctx = {
       taskManager: { getAll: vi.fn(), getById: vi.fn() },

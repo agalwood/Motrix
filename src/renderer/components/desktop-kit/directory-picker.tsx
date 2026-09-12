@@ -2,7 +2,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { usePlatformServices } from '@renderer/platform/services'
 import { Folder } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { type ComponentProps, useRef, useState } from 'react'
 import {
   type FieldPath,
   type FieldValues,
@@ -17,6 +17,7 @@ export interface DirectoryPickerProps<TFields extends FieldValues> {
   prefixLabel?: string
   placeholder?: string
   disabled?: boolean
+  inputProps?: ComponentProps<typeof Input>
 }
 
 export function DirectoryPicker<TFields extends FieldValues>({
@@ -25,6 +26,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
   prefixLabel,
   placeholder,
   disabled,
+  inputProps,
 }: DirectoryPickerProps<TFields>) {
   const { t } = useTranslation()
   const { pickSaveDir } = usePlatformServices()
@@ -88,6 +90,8 @@ export function DirectoryPicker<TFields extends FieldValues>({
   return (
     <div className="flex gap-2">
       <Input
+        {...inputProps}
+        name={name}
         value={current}
         placeholder={placeholder}
         readOnly

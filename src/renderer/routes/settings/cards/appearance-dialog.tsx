@@ -1,4 +1,9 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
+import {
+  useSettingsForm,
+  useSettingsSubmit,
+} from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -13,7 +18,6 @@ import {
   FormControl,
   FormDescription,
   FormField,
-  FormItem,
   FormLabel,
 } from '@renderer/components/ui/form'
 import {
@@ -35,9 +39,9 @@ import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
+import { appearanceFormSchema } from './settings-form-schemas'
 
 type AppearanceFields = Pick<
   MotrixAppSettings,
@@ -81,7 +85,7 @@ export function AppearanceDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const { setTheme } = useTheme()
-  const form = useForm<AppearanceFields>({ defaultValues: DEFAULTS })
+  const form = useSettingsForm<AppearanceFields>(appearanceFormSchema, DEFAULTS)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
@@ -116,7 +120,7 @@ export function AppearanceDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     const dirty = pickDirty(values, form.formState.dirtyFields)
     if (!dirty) {
       onClose()
@@ -204,12 +208,12 @@ export function AppearanceDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form className="space-y-4">
+            <form className="space-y-4" noValidate onSubmit={onSubmit}>
               <FormField
                 control={form.control}
                 name="theme"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>{t('settings.appearance.theme')}</FormLabel>
                     <FormControl>
                       <Select
@@ -236,7 +240,7 @@ export function AppearanceDialog({
                         </SelectContent>
                       </Select>
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -244,7 +248,7 @@ export function AppearanceDialog({
                 control={form.control}
                 name="language"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <FormLabel>{t('settings.appearance.language')}</FormLabel>
                     <FormControl>
                       <Select
@@ -271,7 +275,7 @@ export function AppearanceDialog({
                         </SelectContent>
                       </Select>
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -279,7 +283,7 @@ export function AppearanceDialog({
                 control={form.control}
                 name="byteUnitSystem"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.appearance.byteUnitSystem')}
@@ -313,7 +317,7 @@ export function AppearanceDialog({
                         </SelectContent>
                       </Select>
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -321,7 +325,7 @@ export function AppearanceDialog({
                 control={form.control}
                 name="reduceMotion"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.appearance.reduceMotion')}
@@ -336,7 +340,7 @@ export function AppearanceDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -345,7 +349,7 @@ export function AppearanceDialog({
                   control={form.control}
                   name="traySpeedometer"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t('settings.appearance.traySpeedometer')}
@@ -360,7 +364,7 @@ export function AppearanceDialog({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -370,7 +374,7 @@ export function AppearanceDialog({
                   control={form.control}
                   name="liquidGlassEffect"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t('settings.appearance.liquidGlassEffect')}
@@ -385,7 +389,7 @@ export function AppearanceDialog({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -395,7 +399,7 @@ export function AppearanceDialog({
                   control={form.control}
                   name="runMode"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t(
@@ -437,7 +441,7 @@ export function AppearanceDialog({
                           </SelectContent>
                         </Select>
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -447,7 +451,7 @@ export function AppearanceDialog({
                   control={form.control}
                   name="lightweightMode"
                   render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
+                    <SettingsFormRow>
                       <div className="space-y-1">
                         <FormLabel>
                           {t('settings.appearance.lightweightMode')}
@@ -462,7 +466,7 @@ export function AppearanceDialog({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
               )}
@@ -471,6 +475,11 @@ export function AppearanceDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

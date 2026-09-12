@@ -1,8 +1,8 @@
 import { NatState, type NatStatus } from '@shared/types/nat'
 
 // Shared NAT status semantics for the renderer. Both NatBadge (downloads
-// stats bar) and NatTile (dashboard) classify a NatStatus the same way; only
-// the i18n namespace they map the bucket to differs.
+// stats bar) and NatTile (dashboard) classify a NatStatus the same way;
+// each surface chooses its wording and visual emphasis.
 
 export type NatBucket = 'active' | 'settingUp' | 'failed' | 'off'
 

@@ -115,7 +115,10 @@ function makeCtx(over: Record<string, unknown> = {}) {
       get: vi.fn(() => ({ tracker: { sources: [] } })),
       getApp: vi.fn(() => ({ defaultSaveDir: '' })),
     },
-    trackerManager: { getCuratedList: vi.fn(() => []) },
+    trackerManager: {
+      getCuratedList: vi.fn(() => []),
+      getSyncStatus: vi.fn(() => 'probing'),
+    },
     engineAdapter: { getTaskBtTracker: vi.fn(), getTaskPeers: vi.fn() },
     geoipManager: {
       getStatus: vi.fn(() => ({
@@ -156,6 +159,15 @@ function makeCtx(over: Record<string, unknown> = {}) {
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('exposes the current tracker sync status to remote clients', async () => {
+    const ctx = makeCtx()
+    const handlers = buildServerQueryHandlers(ctx as never)
+    await expect(handlers[Queries.GetTrackerSyncStatus]?.()).resolves.toBe(
+      'probing'
+    )
+    expect(ctx.trackerManager.getSyncStatus).toHaveBeenCalledOnce()
+  })
+
   it('reports the proxy inherited by the Server process', async () => {
     const handlers = buildServerQueryHandlers(
       makeCtx({

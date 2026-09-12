@@ -1,6 +1,11 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 // src/renderer/routes/settings/cards/bit-torrent-dialog.tsx
 
 import { PresetChips } from '@renderer/components/settings-kit/preset-chips'
+import {
+  useSettingsForm,
+  useSettingsSubmit,
+} from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -30,7 +35,6 @@ import { DEFAULT_APP_SETTINGS, DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
 import {
   MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS,
   MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS,
-  magnetFileSelectionTimeoutSecondsSchema,
 } from '@shared/schemas/app-settings'
 import { DEFAULT_TRACKER_SETTINGS } from '@shared/schemas/tracker-settings'
 import type {
@@ -39,11 +43,14 @@ import type {
   MotrixAppSettings,
   TrackerSettings,
 } from '@shared/types/settings'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BtPeerGeoSection } from './bt-peer-geo-section'
+import {
+  BtPeerGeoSection,
+  type BtPeerGeoSectionHandle,
+} from './bt-peer-geo-section'
 import type { SettingsCardDialogProps } from './card-types'
+import { bitTorrentFormSchema } from './settings-form-schemas'
 
 interface BtFields {
   engine: Pick<
@@ -103,7 +110,7 @@ export function BitTorrentDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const form = useForm<BtFields>({ defaultValues: DEFAULTS })
+  const form = useSettingsForm<BtFields>(bitTorrentFormSchema, DEFAULTS)
   const fileSelectionEnabled = form.watch('app.magnetFileSelection')
   const autoDownloadEnabled = form.watch('app.magnetFileSelectionAutoDownload')
 
@@ -151,7 +158,9 @@ export function BitTorrentDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const geoipRef = useRef<BtPeerGeoSectionHandle>(null)
+  const onSubmit = useSettingsSubmit(form, async (values) => {
+    if (!(await geoipRef.current?.flush())) return
     // biome-ignore lint/suspicious/noExplicitAny: dirtyFields array items don't fit DirtyTree; cast is safe
     const dirty = pickDirty(values, form.formState.dirtyFields as any)
     if (!dirty) {
@@ -175,7 +184,7 @@ export function BitTorrentDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form className="space-y-4">
+            <form className="space-y-4" noValidate onSubmit={onSubmit}>
               {/* Listen */}
               <h3 className="text-sm font-semibold text-foreground">
                 {t('settings.bittorrent.listen.title')}
@@ -184,7 +193,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="engine.listenPort"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.listen.listenPort')}
@@ -195,25 +204,25 @@ export function BitTorrentDialog({
                     </div>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={1024}
                         max={65535}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10)
-                          field.onChange(Number.isFinite(n) ? n : 6881)
-                        }}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="engine.dhtListenPort"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.listen.dhtListenPort')}
@@ -224,25 +233,25 @@ export function BitTorrentDialog({
                     </div>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={1024}
                         max={65535}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10)
-                          field.onChange(Number.isFinite(n) ? n : 6881)
-                        }}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="engine.dhtEnabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.listen.dhtEnabled')}
@@ -257,7 +266,7 @@ export function BitTorrentDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -271,7 +280,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="engine.btMaxPeers"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.peers.btMaxPeers')}
@@ -282,25 +291,25 @@ export function BitTorrentDialog({
                     </div>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={1}
                         max={1000}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10)
-                          field.onChange(Number.isFinite(n) ? n : 128)
-                        }}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="engine.btEnableLpd"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.peers.btEnableLpd')}
@@ -315,14 +324,14 @@ export function BitTorrentDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="app.magnetFileSelection"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.peers.magnetFileSelection')}
@@ -337,7 +346,7 @@ export function BitTorrentDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -345,7 +354,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="app.magnetFileSelectionAutoDownload"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t(
@@ -365,25 +374,15 @@ export function BitTorrentDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
-              {autoDownloadEnabled && (
+              {(autoDownloadEnabled ||
+                form.formState.errors.app
+                  ?.magnetFileSelectionTimeoutSeconds) && (
                 <FormField
                   control={form.control}
                   name="app.magnetFileSelectionTimeoutSeconds"
-                  rules={{
-                    validate: (value) =>
-                      magnetFileSelectionTimeoutSecondsSchema.safeParse(value)
-                        .success ||
-                      t(
-                        'settings.bittorrent.peers.magnetFileSelectionTimeoutInvalid',
-                        {
-                          min: MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS,
-                          max: MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS,
-                        }
-                      ),
-                  }}
                   render={({ field }) => (
                     <FormItem className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
@@ -407,9 +406,16 @@ export function BitTorrentDialog({
                           max={MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS}
                           step={1}
                           className="w-30 h-8"
-                          disabled={!fileSelectionEnabled}
+                          disabled={
+                            !fileSelectionEnabled &&
+                            !form.formState.errors.app
+                              ?.magnetFileSelectionTimeoutSeconds
+                          }
+                          value={
+                            Number.isFinite(field.value) ? field.value : ''
+                          }
                           onChange={(event) =>
-                            field.onChange(Number(event.target.value))
+                            field.onChange(event.target.valueAsNumber)
                           }
                         />
                       </FormControl>
@@ -428,7 +434,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="engine.seedRatio"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.seeding.seedRatio')}
@@ -439,25 +445,26 @@ export function BitTorrentDialog({
                     </div>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={0}
                         max={100}
                         step={0.1}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) =>
-                          field.onChange(Number.parseFloat(e.target.value) || 0)
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
                         }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
               <FormField
                 control={form.control}
                 name="engine.seedTime"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.seeding.seedTime')}
@@ -468,18 +475,18 @@ export function BitTorrentDialog({
                     </div>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={0}
                         max={525600}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10)
-                          field.onChange(Number.isFinite(n) ? n : 0)
-                        }}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -497,7 +504,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="tracker.autoSync"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.trackers.autoSync')}
@@ -512,7 +519,7 @@ export function BitTorrentDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -532,15 +539,17 @@ export function BitTorrentDialog({
                       </div>
                       <FormControl>
                         <Input
+                          {...field}
                           type="number"
                           min={1}
                           max={168}
                           className="w-30 h-8"
-                          value={field.value}
-                          onChange={(e) => {
-                            const n = Number.parseInt(e.target.value, 10)
-                            field.onChange(Number.isFinite(n) ? n : 24)
-                          }}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ''
+                          }
+                          onChange={(event) =>
+                            field.onChange(event.target.valueAsNumber)
+                          }
                         />
                       </FormControl>
                     </div>
@@ -552,6 +561,7 @@ export function BitTorrentDialog({
                         { label: '24h', value: 24 },
                       ]}
                     />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -560,7 +570,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="tracker.probeEnabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.trackers.enableProbe')}
@@ -575,7 +585,7 @@ export function BitTorrentDialog({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -595,16 +605,18 @@ export function BitTorrentDialog({
                       </div>
                       <FormControl>
                         <Input
+                          {...field}
                           type="number"
                           min={1000}
                           max={30000}
                           step={500}
                           className="w-30 h-8"
-                          value={field.value}
-                          onChange={(e) => {
-                            const n = Number.parseInt(e.target.value, 10)
-                            field.onChange(Number.isFinite(n) ? n : 5000)
-                          }}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ''
+                          }
+                          onChange={(event) =>
+                            field.onChange(event.target.valueAsNumber)
+                          }
                         />
                       </FormControl>
                     </div>
@@ -616,6 +628,7 @@ export function BitTorrentDialog({
                         { label: '10s', value: 10000 },
                       ]}
                     />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -638,16 +651,18 @@ export function BitTorrentDialog({
                       </div>
                       <FormControl>
                         <Input
+                          {...field}
                           type="number"
                           min={500}
                           max={10000}
                           step={100}
                           className="w-30 h-8"
-                          value={field.value}
-                          onChange={(e) => {
-                            const n = Number.parseInt(e.target.value, 10)
-                            field.onChange(Number.isFinite(n) ? n : 2000)
-                          }}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ''
+                          }
+                          onChange={(event) =>
+                            field.onChange(event.target.valueAsNumber)
+                          }
                         />
                       </FormControl>
                     </div>
@@ -659,6 +674,7 @@ export function BitTorrentDialog({
                         { label: '5s', value: 5000 },
                       ]}
                     />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -667,7 +683,7 @@ export function BitTorrentDialog({
                 control={form.control}
                 name="tracker.minSuccessRate"
                 render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
+                  <SettingsFormRow>
                     <div className="space-y-1">
                       <FormLabel>
                         {t('settings.bittorrent.trackers.minSuccessRate')}
@@ -678,18 +694,19 @@ export function BitTorrentDialog({
                     </div>
                     <FormControl>
                       <Input
+                        {...field}
                         type="number"
                         min={0}
                         max={1}
                         step={0.05}
                         className="w-30 h-8"
-                        value={field.value}
-                        onChange={(e) =>
-                          field.onChange(Number.parseFloat(e.target.value) || 0)
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
                         }
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsFormRow>
                 )}
               />
 
@@ -711,15 +728,17 @@ export function BitTorrentDialog({
                       </div>
                       <FormControl>
                         <Input
+                          {...field}
                           type="number"
                           min={5}
                           max={200}
                           className="w-30 h-8"
-                          value={field.value}
-                          onChange={(e) => {
-                            const n = Number.parseInt(e.target.value, 10)
-                            field.onChange(Number.isFinite(n) ? n : 50)
-                          }}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ''
+                          }
+                          onChange={(event) =>
+                            field.onChange(event.target.valueAsNumber)
+                          }
                         />
                       </FormControl>
                     </div>
@@ -731,6 +750,7 @@ export function BitTorrentDialog({
                         { label: '100', value: 100 },
                       ]}
                     />
+                    <FormMessage className="basis-full text-xs" />
                   </FormItem>
                 )}
               />
@@ -743,11 +763,16 @@ export function BitTorrentDialog({
 
           {/* Peer geo — self-contained form; rendered outside BT form to avoid nested <form> */}
           <div className="mt-4 border-t border-border pt-4">
-            <BtPeerGeoSection />
+            <BtPeerGeoSection ref={geoipRef} />
           </div>
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

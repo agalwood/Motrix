@@ -1,4 +1,5 @@
 import { Events } from '@shared/protocol/events'
+import type { TrackerSyncStatus } from '@shared/schemas/tracker-sync'
 import type { CuratedTrackerList } from '@shared/types/tracker'
 import type { Mock } from 'vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -39,6 +40,7 @@ function createMockEventBus() {
 function createMockSettingsManager() {
   return {
     get: vi.fn().mockReturnValue({
+      onboarding: { disclaimerAccepted: true },
       tracker: {
         autoSync: false,
         syncIntervalHours: 12,
@@ -190,13 +192,74 @@ describe('TrackerManager', () => {
     expect(result.totalCurated).toBe(2)
   })
 
+  it('publishes queryable sync stages for automatic and manual callers', async () => {
+    const fetched = deferred<Awaited<ReturnType<typeof syncer.fetch>>>()
+    const fetchResult = await syncer.fetch()
+    syncer.fetch.mockReturnValueOnce(fetched.promise)
+    const states: TrackerSyncStatus[] = []
+    eventBus.on(Events.TrackerSyncStatusChanged, () => {
+      states.push(manager.getSyncStatus())
+    })
+    expect(manager.getSyncStatus()).toBe('idle')
+    const operation = manager.syncAndCurate()
+    expect(manager.getSyncStatus()).toBe('fetching')
+    expect(manager.syncAndCurate()).toBe(operation)
+    fetched.resolve(fetchResult)
+    await operation
+    expect(states).toEqual(['fetching', 'probing', 'applying', 'idle'])
+    expect(manager.getSyncStatus()).toBe('idle')
+  })
+
+  it.each(['fetch', 'probe', 'save', 'apply'] as const)(
+    'publishes failure when %s rejects and clears it on retry',
+    async (stage) => {
+      const operation = {
+        fetch: syncer.fetch,
+        probe: prober.probe,
+        save: store.save,
+        apply: rpc.changeGlobalOption,
+      }[stage]
+      operation.mockRejectedValueOnce(new Error('offline'))
+      await expect(manager.syncAndCurate()).rejects.toThrow('offline')
+      expect(manager.getSyncStatus()).toBe('failed')
+      await manager.syncAndCurate()
+      expect(manager.getSyncStatus()).toBe('idle')
+    }
+  )
+
+  it('reports incomplete source fetches even when the sync promise resolves', async () => {
+    syncer.fetch.mockResolvedValueOnce({
+      trackers: [],
+      sourceStatus: { s1: { ok: false, count: 0, elapsedMs: 0 } },
+    })
+    await manager.syncAndCurate()
+    expect(manager.getSyncStatus()).toBe('failed')
+  })
+
+  it('does not publish a late failure after disposal', async () => {
+    const fetched = deferred<Awaited<ReturnType<typeof syncer.fetch>>>()
+    syncer.fetch.mockReturnValueOnce(fetched.promise)
+    const operation = manager.syncAndCurate()
+    await vi.advanceTimersByTimeAsync(0)
+    manager.dispose()
+    eventBus.emit.mockClear()
+    fetched.resolve({ trackers: [], sourceStatus: {} })
+    await expect(operation).rejects.toThrow('TrackerManager is disposed')
+    expect(eventBus.emit).not.toHaveBeenCalled()
+  })
+
   describe('applySyncScheduleChange', () => {
+    beforeEach(async () => {
+      await manager.init()
+      eventBus.emit(Events.EngineRecovered)
+    })
     const withTracker = (over: {
       autoSync: boolean
       syncIntervalHours?: number
     }) => {
       const cfg = settings.get().tracker
       settings.get.mockReturnValue({
+        ...settings.get(),
         tracker: { ...cfg, syncIntervalHours: cfg.syncIntervalHours, ...over },
       })
     }
@@ -225,6 +288,108 @@ describe('TrackerManager', () => {
       manager.applySyncScheduleChange()
       await vi.advanceTimersByTimeAsync(3_600_000)
       expect(syncer.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('waits for persisted consent before starting the three-second delay', async () => {
+      withTracker({ autoSync: true })
+      settings.get.mockReturnValue({
+        ...settings.get(),
+        onboarding: { disclaimerAccepted: false },
+      })
+      manager.applySyncScheduleChange()
+      await vi.advanceTimersByTimeAsync(12 * 3600_000)
+      expect(syncer.fetch).not.toHaveBeenCalled()
+
+      settings.get.mockReturnValue({
+        ...settings.get(),
+        onboarding: { disclaimerAccepted: true },
+      })
+      manager.applySyncScheduleChange()
+      await vi.advanceTimersByTimeAsync(2_999)
+      expect(syncer.fetch).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+    })
+
+    it('waits for the engine and then fills the empty cache after three seconds', async () => {
+      eventBus.emit(Events.EngineDisconnected)
+      withTracker({ autoSync: true })
+      manager.applySyncScheduleChange()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(syncer.fetch).not.toHaveBeenCalled()
+      eventBus.emit(Events.EngineRecovered)
+      await vi.advanceTimersByTimeAsync(2_999)
+      expect(syncer.fetch).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+    })
+
+    it('honors the remaining cache lifetime across startup', async () => {
+      const cached = await store.load()
+      store.load.mockResolvedValue({
+        ...cached,
+        effective: ['udp://cached:80'],
+        lastSyncAt: Date.now() - 40 * 60_000,
+      })
+      withTracker({ autoSync: true, syncIntervalHours: 1 })
+      await manager.init()
+      expect(manager.getCuratedList().effective).toEqual(['udp://cached:80'])
+      await vi.advanceTimersByTimeAsync(20 * 60_000 - 1)
+      expect(syncer.fetch).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(3600_000)
+      expect(syncer.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('refreshes an expired cache after three seconds', async () => {
+      const cached = await store.load()
+      store.load.mockResolvedValue({
+        ...cached,
+        effective: ['udp://cached:80'],
+        lastSyncAt: Date.now() - 13 * 3600_000,
+      })
+      withTracker({ autoSync: true })
+      await manager.init()
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+    })
+
+    it('shares an in-flight sync and does not overlap automatic fetches', async () => {
+      withTracker({ autoSync: true, syncIntervalHours: 1 })
+      const fetched = deferred<Awaited<ReturnType<typeof syncer.fetch>>>()
+      syncer.fetch.mockReturnValueOnce(fetched.promise)
+      manager.applySyncScheduleChange()
+      await vi.advanceTimersByTimeAsync(3_000)
+      const manual = manager.syncAndCurate()
+      await vi.advanceTimersByTimeAsync(2 * 3600_000)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+      fetched.resolve({ trackers: [], sourceStatus: {} })
+      await manual
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(3600_000 - 3_000)
+      expect(syncer.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('waits for the regular interval after failure instead of retrying every three seconds', async () => {
+      withTracker({ autoSync: true, syncIntervalHours: 1 })
+      syncer.fetch.mockRejectedValueOnce(new Error('offline'))
+      manager.applySyncScheduleChange()
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(syncer.fetch).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(3600_000 - 3_000)
+      expect(syncer.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('cancels the pending initial sync on shutdown', async () => {
+      withTracker({ autoSync: true })
+      manager.applySyncScheduleChange()
+      await manager.stopAndDrain()
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(syncer.fetch).not.toHaveBeenCalled()
     })
 
     it('does not publish or re-arm when dispose wins a blocked init', async () => {

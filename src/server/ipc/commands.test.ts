@@ -65,6 +65,7 @@ function makeFakeCtx() {
     settingsManager: {
       get: vi.fn(),
       update: vi.fn(),
+      acceptDisclaimer: vi.fn().mockResolvedValue({ saved: true }),
       removePluginConfig: vi.fn().mockResolvedValue(undefined),
       getApp: vi.fn(() => ({
         defaultSaveDir: '/tmp',
@@ -1439,4 +1440,46 @@ describe('server finalize retry wiring', () => {
       expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
     }
   )
+})
+
+describe('server disclaimer acceptance', () => {
+  it('starts the tracker schedule only after consent is saved', async () => {
+    const ctx = makeFakeCtx()
+    let resolve!: (
+      value: Awaited<ReturnType<SettingsManager['acceptDisclaimer']>>
+    ) => void
+    vi.mocked(ctx.settingsManager.acceptDisclaimer).mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = done
+      })
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    const accepting = handlers[Commands.AcceptDisclaimer]?.()
+    expect(ctx.trackerManager.applySyncScheduleChange).not.toHaveBeenCalled()
+    resolve({
+      saved: true,
+      requiresRestart: false,
+      changedRestartKeys: [],
+      requiresAppRestart: false,
+      changedAppRestartKeys: [],
+    })
+    await accepting
+    expect(ctx.trackerManager.applySyncScheduleChange).toHaveBeenCalledOnce()
+  })
+
+  it('does not start tracker sync if consent cannot be saved', async () => {
+    const ctx = makeFakeCtx()
+    vi.mocked(ctx.settingsManager.acceptDisclaimer).mockRejectedValueOnce(
+      new Error('disk full')
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await expect(handlers[Commands.AcceptDisclaimer]?.()).rejects.toThrow(
+      'disk full'
+    )
+    expect(ctx.trackerManager.applySyncScheduleChange).not.toHaveBeenCalled()
+  })
 })

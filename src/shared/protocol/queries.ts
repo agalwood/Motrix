@@ -50,6 +50,7 @@ export const Queries = {
   GetTuningRecommendation: 'query:getTuningRecommendation',
   // Tracker
   GetTrackerList: 'query:getTrackerList',
+  GetTrackerSyncStatus: 'query:getTrackerSyncStatus',
   GetTrackerSources: 'query:getTrackerSources',
   GetTaskBtTracker: 'query:getTaskBtTracker',
   // Save directory allowlist (web degradation, electron returns unrestricted)

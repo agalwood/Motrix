@@ -1,4 +1,5 @@
 import { PresetChips } from '@renderer/components/settings-kit/preset-chips'
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
   FormControl,
@@ -6,6 +7,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -19,7 +21,7 @@ import { Separator } from '@renderer/components/ui/separator'
 import { BUILTIN_USER_AGENTS } from '@shared/constants/user-agents'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { type DownloadsFields, type EngineFields, KB } from './downloads-form'
+import type { DownloadsFields, EngineNumberField } from './downloads-form'
 import { EngineNumberSettingRow } from './engine-number-setting-row'
 
 // Advanced engine groups of the Downloads dialog: reliability, disk, magnet.
@@ -59,10 +61,9 @@ export function EngineTuningSection({
     },
   ] as const
   const numericRow = (
-    name: keyof EngineFields,
+    name: EngineNumberField,
     labelKey: string,
     descKey: string,
-    bounds: { min?: number; max?: number; step?: number; scale?: number },
     presets?: { label: string; value: number }[]
   ) => (
     <EngineNumberSettingRow
@@ -70,7 +71,6 @@ export function EngineTuningSection({
       name={name}
       labelKey={labelKey}
       descKey={descKey}
-      bounds={bounds}
       presets={presets}
     />
   )
@@ -95,13 +95,10 @@ export function EngineTuningSection({
                 </FormDescription>
               </div>
               <FormControl>
-                <Input
-                  value={field.value}
-                  onChange={field.onChange}
-                  className="w-64 h-8"
-                />
+                <Input {...field} className="w-64 h-8" />
               </FormControl>
             </div>
+            <FormMessage className="text-xs" />
             <PresetChips
               name="engine.userAgent"
               options={BUILTIN_USER_AGENTS as never}
@@ -113,7 +110,6 @@ export function EngineTuningSection({
         'connectTimeout',
         'settings.downloads.reliability.connectTimeout',
         'settings.downloads.reliability.connectTimeoutDesc',
-        { min: 1, max: 600 },
         [
           { label: '10s', value: 10 },
           { label: '30s', value: 30 },
@@ -124,7 +120,6 @@ export function EngineTuningSection({
         'socketTimeout',
         'settings.downloads.reliability.socketTimeout',
         'settings.downloads.reliability.socketTimeoutDesc',
-        { min: 1, max: 600 },
         [
           { label: '10s', value: 10 },
           { label: '30s', value: 30 },
@@ -135,7 +130,6 @@ export function EngineTuningSection({
         'maxTries',
         'settings.downloads.reliability.maxTries',
         'settings.downloads.reliability.maxTriesDesc',
-        { min: 0, max: 100 },
         [
           { label: '0', value: 0 },
           { label: '5', value: 5 },
@@ -145,14 +139,12 @@ export function EngineTuningSection({
       {numericRow(
         'retryWait',
         'settings.downloads.reliability.retryWait',
-        'settings.downloads.reliability.retryWaitDesc',
-        { min: 0, max: 300 }
+        'settings.downloads.reliability.retryWaitDesc'
       )}
       {numericRow(
         'lowestSpeedLimit',
         'settings.downloads.reliability.lowestSpeedLimit',
-        'settings.downloads.reliability.lowestSpeedLimitDesc',
-        { min: 0, scale: KB } // displayed KiB/s → stored bytes/sec
+        'settings.downloads.reliability.lowestSpeedLimitDesc'
       )}
 
       <Separator className="my-4" />
@@ -164,7 +156,7 @@ export function EngineTuningSection({
         control={form.control}
         name="engine.fileAllocation"
         render={({ field }) => (
-          <FormItem className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <SettingsFormRow className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0 flex-1 space-y-1">
               <FormLabel>
                 {t('settings.downloads.disk.fileAllocation')}
@@ -195,14 +187,14 @@ export function EngineTuningSection({
                 </SelectContent>
               </Select>
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
       <FormField
         control={form.control}
         name="engine.remoteTime"
         render={({ field }) => (
-          <FormItem className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <SettingsFormRow className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0 flex-1 space-y-1">
               <FormLabel>{t('settings.downloads.disk.modifiedTime')}</FormLabel>
               <FormDescription className="text-xs">
@@ -231,14 +223,13 @@ export function EngineTuningSection({
                 </SelectContent>
               </Select>
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
       {numericRow(
         'sessionSaveInterval',
         'settings.downloads.disk.sessionSaveInterval',
-        'settings.downloads.disk.sessionSaveIntervalDesc',
-        { min: 10, max: 3600 }
+        'settings.downloads.disk.sessionSaveIntervalDesc'
       )}
 
       <Separator className="my-4" />
@@ -249,8 +240,7 @@ export function EngineTuningSection({
       {numericRow(
         'magnetResolveTimeout',
         'settings.downloads.magnet.magnetResolveTimeout',
-        'settings.downloads.magnet.magnetResolveTimeoutDesc',
-        { min: 30, max: 900 }
+        'settings.downloads.magnet.magnetResolveTimeoutDesc'
       )}
     </>
   )

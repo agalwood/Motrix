@@ -1,4 +1,7 @@
-import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  useSettingsForm,
+  useSettingsSubmit,
+} from '@renderer/components/settings-kit/use-settings-form'
 import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -18,10 +21,11 @@ import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import type { AppSettings } from '@shared/types/settings'
 import { CircleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { FormProvider, useForm } from 'react-hook-form'
+import { FormProvider } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
+import type { z } from 'zod'
 import type { SettingsCardDialogProps } from '../card-types'
+import { integrationFormSchema } from '../settings-form-schemas'
 import { AppImageIntegrationSection } from './appimage-integration-section'
 import { AppImageNativeHostSection } from './appimage-native-host-section'
 import { BrowserExtensionsSection } from './browser-extensions-section'
@@ -30,20 +34,6 @@ import { CliToolSection } from './cli-tool-section'
 import { MediaToolsSection } from './media-tools-section'
 import { PendingApprovalsSection } from './pending-approvals-section'
 import { SystemProtocolsSection } from './system-protocols-section'
-
-const integrationFormSchema = z.object({
-  app: z.object({
-    browserBridgeEnabled: z.boolean(),
-    protocols: z.object({
-      magnet: z.boolean(),
-    }),
-  }),
-  media: z.object({
-    ffmpegBinaryPath: z.string(),
-    ffmpegStagingMB: z.number().int().min(256).max(65536),
-    ffmpegOpTimeoutSec: z.number().int().min(60).max(3600),
-  }),
-})
 
 export type IntegrationFormValues = z.infer<typeof integrationFormSchema>
 
@@ -65,10 +55,10 @@ export function IntegrationDialog({
   const isWeb = transport.platform === 'web'
   const [protocolRevision, setProtocolRevision] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const form = useForm<IntegrationFormValues>({
-    resolver: zodResolver(integrationFormSchema),
-    defaultValues: DEFAULTS,
-  })
+  const form = useSettingsForm<IntegrationFormValues>(
+    integrationFormSchema,
+    DEFAULTS
+  )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only fetch
   useEffect(() => {
@@ -95,7 +85,7 @@ export function IntegrationDialog({
     }
   }, [open])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     setSaveError(null)
     const dirty = pickDirty(values, form.formState.dirtyFields) as
       | Partial<{
@@ -209,6 +199,11 @@ export function IntegrationDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           {saveError && (
             <Alert variant="destructive" className="mr-auto">
               <CircleAlert aria-hidden="true" />

@@ -31,7 +31,12 @@ export function PresetChips<T>({ name, options }: PresetChipsProps<T>) {
             size="sm"
             variant={active ? 'default' : 'outline'}
             className="h-6 px-2 text-xs"
-            onClick={() => setValue(name, opt.value, { shouldDirty: true })}
+            onClick={() =>
+              setValue(name, opt.value, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
           >
             {label}
           </Button>

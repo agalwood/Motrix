@@ -87,15 +87,21 @@ export function TrackerSourceCombobox({
     >
       <ComboboxChips
         ref={anchor}
-        className="w-full bg-background"
+        className="min-w-0 w-full bg-background"
         data-testid={testId}
       >
         <ComboboxValue>
           {(values: TrackerSource[]) => (
             <>
               {values.map((s) => (
-                <ComboboxChip key={s.id} aria-label={s.label}>
-                  {s.label}
+                <ComboboxChip
+                  key={s.id}
+                  aria-label={s.label}
+                  className="max-w-full"
+                >
+                  <span className="min-w-0 truncate" title={s.label}>
+                    {s.label}
+                  </span>
                 </ComboboxChip>
               ))}
               <ComboboxChipsInput
@@ -107,20 +113,26 @@ export function TrackerSourceCombobox({
           )}
         </ComboboxValue>
       </ComboboxChips>
-      <ComboboxContent anchor={anchor}>
+      <ComboboxContent anchor={anchor} className="data-[chips=true]:min-w-0">
         <ComboboxEmpty>{t('trackers.combobox.empty')}</ComboboxEmpty>
         <ComboboxList>
           {(s: TrackerSource) => (
             <ComboboxItem key={s.id} value={s}>
-              <span className="flex-1 truncate text-sm">{s.label}</span>
+              <span className="min-w-0 flex-1 truncate text-sm" title={s.url}>
+                {s.label}
+              </span>
               {s.builtin && (
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                   {t('trackers.combobox.builtinBadge')}
                 </span>
               )}
-              {s.cdn && (
+              {(s.builtin || s.cdn) && (
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                  {t('trackers.combobox.cdnBadge')}
+                  {t(
+                    s.cdn
+                      ? 'trackers.combobox.cdnBadge'
+                      : 'trackers.combobox.directBadge'
+                  )}
                 </span>
               )}
               {!s.builtin && (

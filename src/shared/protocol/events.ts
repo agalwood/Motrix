@@ -58,6 +58,8 @@ export const Events = {
   TuningUpdated: 'event:tuningUpdated',
   // Tracker
   TrackerListUpdated: 'event:trackerListUpdated',
+  // No payload; refetch GetTrackerSyncStatus, including after reconnect.
+  TrackerSyncStatusChanged: 'event:trackerSyncStatusChanged',
   TrackerSyncFailed: 'event:trackerSyncFailed',
   // Navigation
   NavigateTo: 'event:navigateTo',

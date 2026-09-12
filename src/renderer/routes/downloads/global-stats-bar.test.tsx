@@ -69,7 +69,7 @@ describe('GlobalStatsBar', () => {
     )
     expect(screen.getByText(/16\.5 MB\/s/)).toBeInTheDocument()
     expect(await screen.findByText(/Engine ready/)).toBeInTheDocument()
-    expect(await screen.findByText(/NAT active/)).toBeInTheDocument()
+    expect(await screen.findByText(/NAT mapped/)).toBeInTheDocument()
   })
 
   it('uses Motrix task counts instead of aria2 runtime counts', () => {

@@ -257,6 +257,8 @@ export function buildServerQueryHandlers(
 
     [Queries.GetTrackerList]: async () => trackerManager.getCuratedList(),
 
+    [Queries.GetTrackerSyncStatus]: async () => trackerManager.getSyncStatus(),
+
     [Queries.GetTrackerSources]: async () =>
       settingsManager.get().tracker.sources,
 

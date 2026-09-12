@@ -1,5 +1,6 @@
 import { proxyToFetchUrl } from '@core/proxy/serializers'
 import { type EventChannel, Events } from '@shared/protocol/events'
+import type { TrackerSyncStatus } from '@shared/schemas/tracker-sync'
 import type { ProxySettings } from '@shared/types/settings'
 import type {
   CuratedTrackerList,
@@ -15,6 +16,7 @@ import type { TrackerStore } from './tracker-store'
 import type { TrackerSyncer } from './tracker-syncer'
 
 const log = trackerLogger('manager')
+const STARTUP_SYNC_DELAY_MS = 3_000
 
 function buildSourceMap(
   statuses: Array<Record<string, SourceFetchStatus>>
@@ -54,6 +56,7 @@ export interface TrackerTaskActions {
 
 interface SettingsManager {
   get(): {
+    onboarding: { disclaimerAccepted: boolean }
     tracker: {
       autoSync: boolean
       syncIntervalHours: number
@@ -106,7 +109,9 @@ export class TrackerManager {
     lastSyncAt: null,
     lastProbeAt: null,
   }
-  private timer: ReturnType<typeof setInterval> | null = null
+  private timer: ReturnType<typeof setTimeout> | null = null
+  private syncInFlight: Promise<SyncAndCurateResult> | null = null
+  private syncStatus: TrackerSyncStatus = 'idle'
   private disposed = false
   private initialized = false
   private engineReady = false
@@ -118,9 +123,11 @@ export class TrackerManager {
     this.engineReady = true
     if (!this.initialized || this.disposed) return
     void this.queueCachedStatePush()
+    this.applySyncScheduleChange()
   }
   private readonly handleEngineDisconnected = (): void => {
     this.engineReady = false
+    this.clearSyncTimer()
   }
 
   constructor(
@@ -153,9 +160,8 @@ export class TrackerManager {
       },
       'init: loaded curated list'
     )
-    this.applySyncScheduleChange()
-
     this.initialized = true
+    this.applySyncScheduleChange()
     if (this.engineReady) {
       await this.queueCachedStatePush()
     }
@@ -199,8 +205,29 @@ export class TrackerManager {
     }
   }
 
-  async syncAndCurate(): Promise<SyncAndCurateResult> {
+  syncAndCurate(): Promise<SyncAndCurateResult> {
+    if (this.syncInFlight) return this.syncInFlight
+    this.clearSyncTimer()
+    const operation = this.performSyncAndCurate()
+      .catch((error) => {
+        if (!this.disposed) this.setSyncStatus('failed')
+        throw error
+      })
+      .finally(() => {
+        this.syncInFlight = null
+        // A failed/empty sync waits for the regular interval, rather than
+        // retrying every three seconds. Manual sync also resets the interval.
+        this.scheduleSync(
+          this.settings.get().tracker.syncIntervalHours * 3600_000
+        )
+      })
+    this.syncInFlight = operation
+    return operation
+  }
+
+  private async performSyncAndCurate(): Promise<SyncAndCurateResult> {
     const generation = this.captureGeneration()
+    this.setSyncStatus('fetching')
     const cfg = this.settings.get().tracker
     const totalStart = Date.now()
     log.info(
@@ -232,6 +259,7 @@ export class TrackerManager {
 
       let healthResults: TrackerHealth[] = []
       if (cfg.probeEnabled && syncResult.trackers.length > 0) {
+        this.setSyncStatus('probing')
         healthResults = await this.prober.probe(syncResult.trackers, {
           timeoutMs: cfg.probeTimeoutMs,
           proxy,
@@ -276,6 +304,7 @@ export class TrackerManager {
     let blacklist: string[] = []
     let blacklistSyncResult: SyncResult = { trackers: [], sourceStatus: {} }
     if (cfg.blacklistEnabled && cfg.blacklistSources.length > 0) {
+      this.setSyncStatus('fetching')
       blacklistSyncResult = await this.syncer.fetch(cfg.blacklistSources, proxy)
       this.assertCurrent(generation)
       blacklist = blacklistSyncResult.trackers
@@ -287,6 +316,7 @@ export class TrackerManager {
       blacklistSyncResult.sourceStatus,
     ])
 
+    this.setSyncStatus('applying')
     this.curated = {
       effective: healthy,
       blacklist,
@@ -329,6 +359,13 @@ export class TrackerManager {
       lastSyncAt: this.curated.lastSyncAt,
     })
 
+    // Source fetches can fail individually without rejecting the whole sync.
+    const sourceFailed = [
+      ...Object.values(syncResult.sourceStatus),
+      ...Object.values(blacklistSyncResult.sourceStatus),
+    ].some((source) => !source.ok)
+    this.setSyncStatus(sourceFailed ? 'failed' : 'idle')
+
     log.info(
       {
         totalFetched: syncResult.trackers.length,
@@ -349,6 +386,16 @@ export class TrackerManager {
 
   getCuratedList(): CuratedTrackerList {
     return this.curated
+  }
+
+  getSyncStatus(): TrackerSyncStatus {
+    return this.syncStatus
+  }
+
+  private setSyncStatus(status: TrackerSyncStatus): void {
+    if (this.syncStatus === status) return
+    this.syncStatus = status
+    this.eventBus.emit(Events.TrackerSyncStatusChanged)
   }
 
   setBtTracker(
@@ -452,30 +499,52 @@ export class TrackerManager {
     // proxyApplier can call it; future caching can be wired here.
   }
 
-  /**
-   * Re-arm (or stop) the periodic sync timer to match current settings.
-   * Called at init and whenever autoSync / syncIntervalHours change at
-   * runtime — without this the timer keeps its boot-time schedule and keeps
-   * firing even after the user turns autoSync off.
-   */
+  /** Recompute the next automatic sync from the persisted cache age. */
   applySyncScheduleChange(): void {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
-    if (this.disposed) return
-    const generation = this.lifecycleGeneration
     const cfg = this.settings.get().tracker
-    if (cfg.autoSync) {
-      this.timer = setInterval(() => {
-        if (!this.isCurrent(generation)) return
-        void this.syncAndCurate().catch((err) => {
-          if (this.isCurrent(generation)) {
-            log.warn({ err }, 'scheduled tracker sync failed')
-          }
-        })
-      }, cfg.syncIntervalHours * 3600_000)
-    }
+    const intervalMs = cfg.syncIntervalHours * 3600_000
+    const lastSyncAt = this.curated.lastSyncAt
+    const empty = cfg.sourcesEnabled && this.curated.effective.length === 0
+    const elapsed =
+      lastSyncAt == null ? intervalMs : Math.max(0, Date.now() - lastSyncAt)
+    this.scheduleSync(
+      empty
+        ? STARTUP_SYNC_DELAY_MS
+        : Math.max(STARTUP_SYNC_DELAY_MS, intervalMs - elapsed)
+    )
+  }
+
+  private clearSyncTimer(): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+  }
+
+  private scheduleSync(delayMs: number): void {
+    this.clearSyncTimer()
+    const settings = this.settings.get()
+    if (
+      this.disposed ||
+      !this.initialized ||
+      !this.engineReady ||
+      this.syncInFlight ||
+      !settings.tracker.autoSync ||
+      !settings.onboarding.disclaimerAccepted
+    )
+      return
+    const generation = this.lifecycleGeneration
+    this.timer = setTimeout(() => {
+      this.timer = null
+      if (
+        !this.isCurrent(generation) ||
+        !this.settings.get().onboarding.disclaimerAccepted
+      )
+        return
+      void this.syncAndCurate().catch((err) => {
+        if (this.isCurrent(generation))
+          log.warn({ err }, 'scheduled tracker sync failed')
+      })
+    }, delayMs)
+    this.timer.unref?.()
   }
 
   dispose(): void {
@@ -484,10 +553,7 @@ export class TrackerManager {
     this.lifecycleGeneration += 1
     this.eventBus.off(Events.EngineRecovered, this.handleEngineRecovered)
     this.eventBus.off(Events.EngineDisconnected, this.handleEngineDisconnected)
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
+    this.clearSyncTimer()
   }
 
   stopAndDrain(): Promise<void> {

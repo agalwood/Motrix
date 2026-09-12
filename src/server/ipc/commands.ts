@@ -364,6 +364,7 @@ export function buildServerCommandHandlers(
 
     [Commands.AcceptDisclaimer]: async () => {
       await settingsManager.acceptDisclaimer()
+      trackerManager.applySyncScheduleChange()
       return { ok: true }
     },
 

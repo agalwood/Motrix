@@ -92,11 +92,6 @@ describe('<AdvancedDialog>', () => {
     await waitFor(() => screen.getByDisplayValue('16800'))
     const user = userEvent.setup()
     const portInput = screen.getByDisplayValue('16800')
-    // fireEvent.change instead of userEvent.clear+type: the rpcPort onChange
-    // clamps every keystroke (1024..65535) and falls back to the default on
-    // empty input, so per-character drives produce intermediate clamp values
-    // rather than the intended final number. fireEvent fires one change event
-    // with the full target value, matching real-user paste/blur semantics.
     fireEvent.change(portInput, { target: { value: '17000' } })
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
@@ -125,5 +120,59 @@ describe('<AdvancedDialog>', () => {
       | undefined
     // The value changes; just check it's not the original mock value
     expect(secretInput?.value).not.toBe('abc12345')
+  })
+
+  it.each(['', '1023', '1.5', '1e100'])(
+    'keeps invalid RPC port %s editable and saves its correction',
+    async (value) => {
+      const onClose = vi.fn()
+      render(<AdvancedDialog open onClose={onClose} labelKey="" descKey="" />)
+      const input = await screen.findByDisplayValue('16800')
+      const user = userEvent.setup()
+      fireEvent.change(input, { target: { value } })
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(
+        await screen.findByText(
+          value === ''
+            ? 'Enter a valid number.'
+            : 'Enter a whole number from 1024 to 65535.'
+        )
+      ).toBeVisible()
+      expect(input).toHaveAttribute('aria-invalid', 'true')
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      expect(onClose).not.toHaveBeenCalled()
+      await user.clear(input)
+      await user.type(input, '17000')
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() =>
+        expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+          engine: { rpcPort: 17000 },
+        })
+      )
+      expect(onClose).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('keeps changes after a save failure and lets the user retry', async () => {
+    const onClose = vi.fn()
+    render(<AdvancedDialog open onClose={onClose} labelKey="" descKey="" />)
+    const input = await screen.findByDisplayValue('16800')
+    fireEvent.change(input, { target: { value: '17000' } })
+    vi.mocked(transport.invoke).mockRejectedValueOnce(
+      new Error('IPC internal stack detail')
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Couldn’t save your changes. Try again.'
+    )
+    expect(screen.queryByText(/IPC internal/)).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(input).toHaveValue(17000)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 })
