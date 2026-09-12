@@ -862,7 +862,16 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
   `{port, instanceId}`。pin **只在**该端口上完成双向认证会话之后提交——
   绝不因 `/discovery` 提交。
 - pinned 端口不匹配 → 对匹配 `instanceId` 做全候选段扫描 → 仅在认证后
-  重新提交；否则清除 pin，回退到全新 code-entry 配对。
+  重新提交。未找到运行中的 App 或认证失败时 MUST 保留凭据供重试，MUST NOT
+  回退到全新 code-entry 配对。路由 pin 失效不能证明配对已被吊销。
+- App 退出、浏览器重启、传输断开以及被动发现耗尽均不吊销配对。打开 popup
+  只进行被动发现，不启动 App。下载或查看任务的操作可以启动已配对的本地 App，
+  经 `/v1` 重连；远端操作只重连对应 Server。启动权限与首次配对权限分别控制。
+  Native Messaging 负责发现和启动，下载在初始化后经认证的 MDXP 提交。
+  Native Host 的回复本身不代表任务已被接收。
+- 只有明确的配对操作且不存在保留凭据时，才允许首次配对。下载、查看任务或普通
+  重连 MUST NOT 丢弃保留凭据或进入 `/pair`。用户可以明确遗忘配对后重新配对；
+  经认证的吊销按其清理流程处理。连接错误或未认证的 `authFailed` 不授予这项权限。
 - `storage.local` 凭据条目携带 `state: "provisional" | "committed"`、
   provisional 的 `unacked` / `commit-uncertain` 子状态（§6.7），外加一个与
   `committed` 转变**原子写入**的 `activeCredentialId` 指针。重连恢复顺序：
@@ -871,7 +880,8 @@ aad       = "MBP1/env/v1"（ASCII，11 字节）
   由指针消歧，绝不靠猜）。凭据**只在经认证的会话证明哪一把存活
   之后**才删除（§6.7）；信道前的 `authFailed` 本身绝不删除凭据，因此伪造的
   `authFailed` 无法使客户端陷入无凭据可用。当没有任何存储凭据通过认证时，
-  保留集留待重试，仅在用户主动操作或凭据被吊销时才回到首次配对。保留状态
+  保留集留待重试。只有明确遗忘或经认证的吊销移除保留集后，才可通过明确的配对
+  操作进入首次配对。保留状态
   有界：每个 principal 至多保留 committed 凭据加最新一条 provisional。
   provisional 条目带子状态（§6.7）：`unacked` 的 10 分钟后过期，而
   `commit-uncertain` 的（其 `credentialAck` 已发出、server 可能已 commit）
