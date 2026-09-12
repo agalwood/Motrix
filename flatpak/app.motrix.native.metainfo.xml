@@ -74,6 +74,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.37" date="2026-09-13">
+      <description>
+        <p>
+          Clarifies settings validation and connection limits, makes tracker
+          synchronization progress visible, adds tracker source choices, and
+          improves NAT mapping feedback and browser pairing documentation.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.36" date="2026-09-11">
       <description>
         <p>
