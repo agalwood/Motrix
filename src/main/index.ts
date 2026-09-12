@@ -2788,7 +2788,7 @@ function beginShutdown(): void {
   // still-live renderer can react by invoking queries after their handlers
   // have been removed.
   windowManager?.destroyAll()
-  trayHandle?.destroy()
+  trayHandle?.prepareForQuit()
   menuManager?.dispose()
   osNotificationBridge?.dispose()
 

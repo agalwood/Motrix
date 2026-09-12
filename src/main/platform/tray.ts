@@ -7,7 +7,7 @@ import { RunMode } from '@shared/constants'
 import { Events } from '@shared/protocol/events'
 import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings } from '@shared/types/settings'
-import { app, type Menu, nativeTheme, Tray } from 'electron'
+import { app, type Menu, nativeTheme, systemPreferences, Tray } from 'electron'
 import type { MenuManager } from '../menu/menu-manager'
 import { resolveDesktopBackgroundPolicy } from './desktop-background-policy'
 import type { createProtocolManager } from './protocol-manager'
@@ -23,6 +23,7 @@ import { createSpeedometer } from './tray-speedometer'
 // Keep this value stable: macOS uses it to restore the tray item's position
 // between launches.
 const MACOS_TRAY_GUID = '493f17b6-d4ac-48d3-8723-c3ac490b14cf'
+const MACOS_TRAY_POSITION_KEY = `NSStatusItem Preferred Position ${MACOS_TRAY_GUID}`
 
 // Linux requires setContextMenu for the context menu to work.
 function applyMenuToTray(tray: Tray, menu: Menu): void {
@@ -41,6 +42,7 @@ export interface TrayDeps {
 }
 
 export interface TrayHandle {
+  prepareForQuit(): void
   destroy(): void
 }
 
@@ -65,6 +67,7 @@ export function setupTray(deps: TrayDeps): TrayHandle {
   let speedometer: SpeedometerHandle | null = null
   let offTrayRebuilt: (() => void) | null = null
   let isActive = false
+  let isDisposed = false
 
   // ─── Icon SVG content (for speedometer) ─────────────────
 
@@ -80,11 +83,13 @@ export function setupTray(deps: TrayDeps): TrayHandle {
   // ─── Create / Destroy ───────────────────────────────────
 
   async function createTray() {
-    if (tray) return
+    if (tray || isDisposed) return
     log.info('creating tray')
 
-    iconProvider = createIconProvider(svgPath, trayAssetDir)
-    await iconProvider.init()
+    const nextIconProvider = createIconProvider(svgPath, trayAssetDir)
+    await nextIconProvider.init()
+    if (isDisposed) return
+    iconProvider = nextIconProvider
 
     const icon = iconProvider.getIcon(false)
     tray =
@@ -155,20 +160,39 @@ export function setupTray(deps: TrayDeps): TrayHandle {
     log.info('tray created')
   }
 
-  function destroyTray() {
-    if (!tray) return
-    log.info('destroying tray')
-
+  function detachTrayBindings() {
     offTrayRebuilt?.()
     offTrayRebuilt = null
 
     speedometer?.destroy()
     speedometer = null
 
-    tray.removeAllListeners()
+    tray?.removeAllListeners()
+  }
+
+  function destroyTray({ preservePosition = false } = {}) {
+    if (!tray) return
+    log.info('destroying tray')
+
+    const savedPosition =
+      preservePosition && process.platform === 'darwin'
+        ? systemPreferences.getUserDefault(MACOS_TRAY_POSITION_KEY, 'double')
+        : null
+
+    detachTrayBindings()
     tray.destroy()
     tray = null
     iconProvider = null
+
+    if (savedPosition !== null && Number.isFinite(savedPosition)) {
+      // AppKit removes this preference together with the NSStatusItem. Restore
+      // it so switching through Dock-only mode does not forget the user's slot.
+      systemPreferences.setUserDefault(
+        MACOS_TRAY_POSITION_KEY,
+        'double',
+        savedPosition
+      )
+    }
   }
 
   // ─── Dock Visibility (macOS only) ───────────────────────
@@ -230,7 +254,7 @@ export function setupTray(deps: TrayDeps): TrayHandle {
       if (policy.keepTray && !tray) {
         createTray().catch((err) => log.error({ err }, 'tray creation failed'))
       } else if (!policy.keepTray) {
-        destroyTray()
+        destroyTray({ preservePosition: true })
       }
       if (oldSettings.app.runMode !== newMode) {
         syncDockVisibility(newMode)
@@ -295,14 +319,31 @@ export function setupTray(deps: TrayDeps): TrayHandle {
 
   // ─── Handle ─────────────────────────────────────────────
 
+  function unsubscribe() {
+    eventBus.off(Events.SettingsChanged, onSettingsChanged)
+    eventBus.off(Events.EngineActiveChanged, onEngineActiveChanged)
+    eventBus.off(Events.StatsUpdated, onStatsUpdated)
+    if (process.platform === 'linux') {
+      nativeTheme.off('updated', onNativeThemeUpdated)
+    }
+  }
+
   return {
-    destroy() {
-      eventBus.off(Events.SettingsChanged, onSettingsChanged)
-      eventBus.off(Events.EngineActiveChanged, onEngineActiveChanged)
-      eventBus.off(Events.StatsUpdated, onStatsUpdated)
-      if (process.platform === 'linux') {
-        nativeTheme.off('updated', onNativeThemeUpdated)
+    prepareForQuit() {
+      isDisposed = true
+      unsubscribe()
+      if (process.platform === 'darwin') {
+        // Removing an NSStatusItem deletes its saved preferred-position entry.
+        // Keep the native item alive until AppKit terminates the process.
+        detachTrayBindings()
+        log.info('tray retained until process exit')
+      } else {
+        destroyTray()
       }
+    },
+    destroy() {
+      isDisposed = true
+      unsubscribe()
       destroyTray()
       log.info('tray destroyed')
     },
