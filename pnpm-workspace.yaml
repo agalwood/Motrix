@@ -2,13 +2,13 @@ packages:
   - '.'
   - 'packages/*'
 
-# pnpm 11 reads project settings from this file, not .npmrc — node-linker
+# pnpm 12 reads project settings from this file, not .npmrc — node-linker
 # moved here. The hoisted (flat) node_modules layout is required by
 # electron-builder and native-module rebuild tooling (see
 # .claude/rules/electron-vite.md).
 nodeLinker: hoisted
 
-# pnpm 11 build-script gate (replaces onlyBuiltDependencies /
+# pnpm 12 build-script gate (replaces onlyBuiltDependencies /
 # ignoredBuiltDependencies — packages not listed have their scripts skipped):
 #   - electron: retained for compatibility with releases that expose an
 #     install script. Electron exposes install.js as a package bin, so
@@ -93,3 +93,6 @@ minimumReleaseAgeExclude:
   - electron@43.4.0 || 44.1.1
   - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1
   - zustand@5.0.15
+  - js-yaml@5.4.2
+  - tailwind-merge@3.7.0
+  - zod@4.6.4

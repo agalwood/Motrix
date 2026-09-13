@@ -173,7 +173,7 @@ describe('third-party notice generator', () => {
     )
     expect(sbom.spdxVersion).toBe('SPDX-2.3')
     expect(sbom.packages).toContainEqual(
-      expect.objectContaining({ name: 'Electron', versionInfo: '44.1.1' })
+      expect.objectContaining({ name: 'Electron', versionInfo: '44.3.0' })
     )
     expect(
       sbom.packages.every(

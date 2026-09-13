@@ -161,7 +161,7 @@ modules:
         # Must track the electron version in package.json — generated-sources
         # unpacks that release's headers here, and electron-rebuild's gyp run
         # fails on a dangling path.
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.1.1
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.3.0
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
@@ -192,10 +192,21 @@ modules:
         --without=rust-docs-json-preview
         --disable-ldconfig
         --verbose
-      - npm install -g
-        --prefix=/run/build/motrix/flatpak-node/pnpm-cli
-        ./flatpak-node/pnpm/pnpm-11.25.0.tgz
-        --offline
+      # pnpm 12's wrapper requires a platform package. npm cannot resolve that
+      # optional dependency from an empty offline registry cache. Both archives
+      # below are already integrity-pinned Flatpak inputs, so unpack them into
+      # the normal dependency layout and run the wrapper's native-bin setup.
+      - |
+        pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm
+        pnpm_native="$pnpm_root/node_modules/@pnpm/exe.linux-${npm_config_target_arch}"
+        mkdir -p "$pnpm_native" flatpak-node/pnpm-cli/bin
+        tar -xzf flatpak-node/pnpm/pnpm-12.4.1.tgz \
+          --strip-components=1 -C "$pnpm_root"
+        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.4.1.tgz" \
+          --strip-components=1 -C "$pnpm_native"
+        node "$pnpm_root/install.js"
+        ln -s ../lib/node_modules/pnpm/pnpm flatpak-node/pnpm-cli/bin/pnpm
+        test "$(pnpm --version)" = '12.4.1'
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
       # network. pnpm treats the setting as workspace-file-only (a
@@ -214,7 +225,7 @@ modules:
       # locked Electron runtime from generated-sources.
       - node node_modules/electron/install.js
 
-      # pnpm 11 otherwise repairs an --ignore-scripts install before run/exec,
+      # pnpm 12 otherwise repairs an --ignore-scripts install before run/exec,
       # changing the audited build graph. All later invocations disable it.
       - pnpm --config.verify-deps-before-run=false
         run check:third-party-notices
@@ -339,8 +350,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-11.25.0.tgz
-        sha256: 33dd0748f27e7916c4f1c8b6943461983e3453b06bbda6312a6280130b4881e5
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.4.1.tgz
+        sha256: 6276298e9af576b7a7f5e9044bfafbe2678209250cd10b1705ea5d3aa64d4882
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked

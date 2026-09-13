@@ -119,7 +119,7 @@ cd -
 
 `--config.dangerouslyAllowAllBuilds=true` makes the install run
 `better-sqlite3`'s own build script under Node (→ Node ABI) and satisfies
-pnpm 11's deps-check, so `build:server` does not silently reinstall and revert
+pnpm 12's deps-check, so `build:server` does not silently reinstall and revert
 the ABI. `MOTRIX_SKIP_ELECTRON_REBUILD=1` skips the Electron rebuild in
 `postinstall`.
 
