@@ -18,7 +18,8 @@ sync reports `remote_acknowledged`. Namespace durability then depends on the
 remote server's acknowledgement and storage policy; it is not a guarantee of
 survival after a NAS power loss. The host logs this distinction. Other remote
 protocols, local volumes, unknown protocols, and other error codes do not use
-this fallback. Copy/removal use the same directory policy. File data flushes
+this fallback. An offline client cache also cannot qualify as a server
+acknowledgement. Copy/removal use the same directory policy. File data flushes
 are never converted into directory acknowledgements.
 
 Identity queries prefer the 128-bit `FileIdInfo`. Unsupported information

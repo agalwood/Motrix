@@ -1,6 +1,8 @@
 //! Thin, checked wrappers around the Windows native handle APIs we need.
 
-use super::super::windows_policy::{remote_directory_acknowledged, unsupported_information};
+use super::super::windows_policy::{
+    is_online_smb2, remote_directory_acknowledged, unsupported_information,
+};
 use crate::error::{native_error, os_code};
 use std::ffi::{OsStr, c_void};
 use std::io;
@@ -439,7 +441,11 @@ fn is_smb2(handle: &OwnedHandle) -> io::Result<bool> {
             None,
         ));
     }
-    Ok(info.Protocol == 0x0002_0000 && info.ProtocolMajorVersion >= 2)
+    Ok(is_online_smb2(
+        info.Protocol,
+        info.ProtocolMajorVersion,
+        info.Flags,
+    ))
 }
 
 fn set_information(
