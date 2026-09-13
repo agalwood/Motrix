@@ -7,6 +7,7 @@ const {
   iconProvider,
   nativeThemeMock,
   speedometer,
+  systemPreferencesMock,
   trayConstructor,
   trayInstance,
 } = vi.hoisted(() => {
@@ -35,6 +36,10 @@ const {
       setEnabled: vi.fn(),
       setUnitSystem: vi.fn(),
     },
+    systemPreferencesMock: {
+      getUserDefault: vi.fn(),
+      setUserDefault: vi.fn(),
+    },
     trayConstructor: vi.fn(),
     trayInstance,
   }
@@ -43,6 +48,7 @@ const {
 vi.mock('electron', () => ({
   app: { dock: appDock },
   nativeTheme: nativeThemeMock,
+  systemPreferences: systemPreferencesMock,
   Tray: class {
     destroy = trayInstance.destroy
     on = trayInstance.on
@@ -163,6 +169,51 @@ describe('setupTray', () => {
 
     handle.destroy()
   })
+
+  it('keeps the native macOS tray alive while preparing to quit', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+    handle.prepareForQuit()
+
+    expect(trayInstance.removeAllListeners).toHaveBeenCalledOnce()
+    expect(speedometer.destroy).toHaveBeenCalledOnce()
+    expect(trayInstance.destroy).not.toHaveBeenCalled()
+    expect(deps.eventBus.off).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not finish creating a tray after shutdown starts', async () => {
+    let resolveInit: () => void = () => {}
+    iconProvider.init.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveInit = resolve
+        })
+    )
+    const handle = setupTray(createDeps())
+
+    handle.prepareForQuit()
+    resolveInit()
+    await Promise.resolve()
+
+    expect(iconProvider.init).toHaveBeenCalledOnce()
+    expect(trayConstructor).not.toHaveBeenCalled()
+  })
+
+  it.each(['win32', 'linux'])(
+    'destroys the native tray while preparing to quit on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+      const handle = setupTray(createDeps())
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+      handle.prepareForQuit()
+
+      expect(trayInstance.destroy).toHaveBeenCalledOnce()
+    }
+  )
 
   it.each([false, true])(
     'refreshes Linux icons on theme changes and preserves active=%s',
@@ -306,6 +357,56 @@ describe('setupTray', () => {
     expect(trayInstance.destroy).not.toHaveBeenCalled()
 
     handle.destroy()
+  })
+
+  it('preserves the macOS tray position while switching through Dock-only mode', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    systemPreferencesMock.getUserDefault.mockReturnValue(486.5)
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    appDock.show.mockClear()
+    appDock.hide.mockClear()
+
+    const settingsChanged = vi
+      .mocked(deps.eventBus.on)
+      .mock.calls.find(([event]) => event === Events.SettingsChanged)?.[1]
+    expect(settingsChanged).toBeTypeOf('function')
+
+    settingsChanged?.({
+      old: { app: { lightweightMode: false, runMode: RunMode.Standard } },
+      updated: { app: { lightweightMode: false, runMode: RunMode.HideTray } },
+    })
+
+    expect(
+      systemPreferencesMock.getUserDefault
+    ).toHaveBeenCalledExactlyOnceWith(
+      'NSStatusItem Preferred Position 493f17b6-d4ac-48d3-8723-c3ac490b14cf',
+      'double'
+    )
+    expect(trayInstance.destroy).toHaveBeenCalledOnce()
+    expect(appDock.show).toHaveBeenCalledOnce()
+    expect(appDock.hide).not.toHaveBeenCalled()
+    expect(
+      systemPreferencesMock.setUserDefault
+    ).toHaveBeenCalledExactlyOnceWith(
+      'NSStatusItem Preferred Position 493f17b6-d4ac-48d3-8723-c3ac490b14cf',
+      'double',
+      486.5
+    )
+
+    settingsChanged?.({
+      old: { app: { lightweightMode: false, runMode: RunMode.HideTray } },
+      updated: { app: { lightweightMode: false, runMode: RunMode.TrayOnly } },
+    })
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledTimes(2))
+
+    expect(appDock.hide).toHaveBeenCalledOnce()
+    expect(trayConstructor).toHaveBeenLastCalledWith(
+      icon,
+      '493f17b6-d4ac-48d3-8723-c3ac490b14cf'
+    )
+    handle.prepareForQuit()
   })
 
   it('toggles the main window without opening the menu on Windows left click', async () => {
