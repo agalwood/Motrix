@@ -408,12 +408,22 @@ pub(super) fn flush_directory(handle: &OwnedHandle) -> io::Result<&'static str> 
 }
 
 fn is_smb2(handle: &OwnedHandle) -> io::Result<bool> {
-    let mut info = FILE_REMOTE_PROTOCOL_INFO::default();
+    // Native information queries on 64-bit Windows can require stricter
+    // output alignment than this Win32 structure's individual fields. Also
+    // initialize the versioned header required by FileRemoteProtocolInfo.
+    #[repr(C, align(8))]
+    struct AlignedProtocolInfo(FILE_REMOTE_PROTOCOL_INFO);
+    let mut aligned = AlignedProtocolInfo(FILE_REMOTE_PROTOCOL_INFO {
+        StructureVersion: 2,
+        StructureSize: size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u16,
+        ..FILE_REMOTE_PROTOCOL_INFO::default()
+    });
+    let info = &mut aligned.0;
     let result = unsafe {
         GetFileInformationByHandleEx(
             handle.as_raw_handle(),
             FileRemoteProtocolInfo,
-            (&mut info as *mut FILE_REMOTE_PROTOCOL_INFO).cast(),
+            (info as *mut FILE_REMOTE_PROTOCOL_INFO).cast(),
             size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32,
         )
     };
