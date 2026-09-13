@@ -281,12 +281,14 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   )
   invariant(
     motrixCommands.includes(
-      'npm install -g --prefix=/run/build/motrix/flatpak-node/pnpm-cli'
+      'pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm'
     ) &&
+      motrixCommands.includes('node "$pnpm_root/install.js"') &&
+      motrixCommands.includes('test "$(pnpm --version)" = \'12.4.1\'') &&
       motrixBuildOptions.includes(
         '/run/build/motrix/flatpak-node/pnpm-cli/bin'
       ),
-    'pnpm CLI must install into a writable build prefix'
+    'pnpm native CLI must bootstrap into a writable build prefix'
   )
   invariant(
     motrixCommands.includes('./flatpak-rust/install.sh') &&
@@ -441,6 +443,17 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     generatedPnpmState.store_version === 'v11',
     'generated pnpm store must use v11'
   )
+  for (const arch of ['x64', 'arm64']) {
+    const filename = `@pnpm__exe.linux-${arch}-12.4.1.tgz`
+    const source = generatedSources.find(
+      (candidate) => candidate?.['dest-filename'] === filename
+    )
+    invariant(
+      /^[a-f0-9]{128}$/.test(source?.sha512 ?? '') &&
+        source?.dest === 'flatpak-node/pnpm-tarballs',
+      `pnpm ${arch} native bootstrap source is missing`
+    )
+  }
   invariant(
     !generatedSources.some((source) =>
       String(source?.dest).startsWith('flatpak-node/cache/ms-playwright/')

@@ -84,8 +84,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'pnpm/action-setup',
     {
-      sha: '0ebf47130e4866e96fce0953f49152a61190b271',
-      comment: 'v6.0.9',
+      sha: 'ea17c68df8912ef543352723c149a84f56e3d413',
+      comment: 'v6.1.0',
     },
   ],
   [
