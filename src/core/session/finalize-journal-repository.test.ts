@@ -14,6 +14,42 @@ describe('SqliteFinalizeJournalRepository', () => {
 
   afterEach(() => db.close())
 
+  it('reopens only the exact legacy journal snapshot selected for recovery', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = { ...makeRecord('legacy'), publicationMode: 'move' as const }
+    await repository.prepare(record)
+    await repository.quarantine(
+      record.journalId,
+      'compensation failed after I/O failure'
+    )
+    const [candidate] = await repository.listRecoverable(record.plan.taskId)
+    expect(candidate).toMatchObject({
+      quarantineReason: 'compensation failed after I/O failure',
+    })
+    expect(await repository.listRecoverable('another-task')).toEqual([])
+    await repository.quarantine(
+      record.journalId,
+      'compensation failed after a newer I/O failure'
+    )
+    await expect(repository.resumeQuarantined(candidate)).rejects.toThrow(
+      'changed before recovery'
+    )
+    expect(
+      db.prepare('SELECT phase FROM plugin_finalize_journals').get()
+    ).toEqual({ phase: 'quarantined' })
+    const [current] = await repository.listRecoverable(record.plan.taskId)
+    await repository.resumeQuarantined(current)
+    expect(
+      db
+        .prepare(
+          'SELECT phase, quarantine_reason FROM plugin_finalize_journals'
+        )
+        .get()
+    ).toEqual({ phase: 'prepared', quarantine_reason: null })
+  })
+
   it('persists the monotonic finalize state and all recovery identities', async () => {
     const commitTerminalBoundary = vi.fn((record: FinalizeJournalRecord) => {
       db.prepare(

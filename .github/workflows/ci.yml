@@ -426,6 +426,7 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
           --reporter=verbose
 
       - name: Stage Electron application

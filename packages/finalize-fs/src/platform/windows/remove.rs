@@ -1,14 +1,13 @@
 use super::ArtifactHandle;
 use super::metadata::{
-    ArtifactSnapshot, assert_name_absent, ensure_named_entry, ensure_same_opened, ensure_snapshot,
-    snapshot_opened,
+    ArtifactSnapshot, assert_name_absent, ensure_named_entry, ensure_snapshot, snapshot_opened,
 };
 use crate::path::validate_relative;
 use std::io;
 use std::os::windows::io::OwnedHandle;
 
 pub(crate) fn remove_opened(
-    artifact: &ArtifactHandle,
+    artifact: ArtifactHandle,
     quarantine_relative: &str,
     resume_isolated: bool,
 ) -> io::Result<()> {
@@ -47,21 +46,16 @@ pub(crate) fn remove_opened(
         super::nt::rename_no_replace(&artifact.handle, &artifact.parent, &quarantine_name)?;
         ensure_named_entry(&artifact.handle, &artifact.parent, &quarantine_name)?;
         assert_name_absent(&artifact.parent, &artifact.name)?;
-        super::nt::flush(&artifact.parent)?;
+        super::nt::flush_directory(&artifact.parent)?;
     }
 
     remove_snapshot_contents(&artifact.handle, snapshot)?;
-    // The admitted artifact handle intentionally outlives this operation. Mark
-    // a separately opened, identity-checked handle for POSIX deletion so that
-    // closing it unlinks the quarantine while the admitted handle remains a
-    // valid reference to the now-nameless artifact.
-    let deletion = super::nt::open_existing(&artifact.parent, &quarantine_name)?;
-    ensure_same_opened(&artifact.handle, &deletion)?;
-    ensure_named_entry(&deletion, &artifact.parent, &quarantine_name)?;
-    super::nt::mark_delete(&deletion)?;
-    drop(deletion);
+    // Consume our admitted handle before testing absence. This also supports
+    // SMB servers with standard delete-on-close but no POSIX disposition class.
+    super::nt::mark_delete(&artifact.handle)?;
+    drop(artifact.handle);
     assert_name_absent(&artifact.parent, &quarantine_name)?;
-    super::nt::flush(&artifact.parent)
+    super::nt::flush_directory(&artifact.parent).map(|_| ())
 }
 
 fn remove_snapshot(handle: &OwnedHandle, expected: &ArtifactSnapshot) -> io::Result<()> {
@@ -88,7 +82,7 @@ fn remove_snapshot_contents(handle: &OwnedHandle, expected: &ArtifactSnapshot) -
                 ));
             }
         }
-        super::nt::flush(handle)?;
+        super::nt::flush_directory(handle)?;
     }
     Ok(())
 }

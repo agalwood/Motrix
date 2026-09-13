@@ -89,6 +89,7 @@ async function identityForFile(
   try {
     handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW)
   } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     throw new ArtifactIdentityError(
       'artifact_missing',
       `cannot open artifact without following links: ${filePath}`,
@@ -204,6 +205,7 @@ export async function readArtifactIdentity(
   options: ArtifactIdentityOptions = {}
 ): Promise<ArtifactIdentity> {
   const root = await lstat(artifactPath, { bigint: true }).catch((error) => {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     throw new ArtifactIdentityError(
       'artifact_missing',
       `artifact does not exist: ${artifactPath}`,

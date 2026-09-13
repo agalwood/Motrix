@@ -5,6 +5,7 @@ import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
 } from './artifact-mutation-lease'
+import { FinalizeRecovery } from './finalize-recovery'
 import { assertValidHookPlan, type HookPlan } from './hook-plan'
 
 export type FinalizeJournalPhase =
@@ -66,10 +67,13 @@ export interface FinalizeJournalRepository {
   ): Promise<void>
   commitTerminal(record: FinalizeJournalRecord): Promise<void>
   quarantine(journalId: string, reason: string): Promise<void>
-  listRecoverable(): Promise<FinalizeJournalRecord[]>
+  listRecoverable(taskId?: string): Promise<FinalizeJournalRecord[]>
+  resumeQuarantined?(record: FinalizeJournalRecord): Promise<void>
 }
 
 export interface FinalizeArtifactOperations {
+  /** Validate the actual roots and flush source data before journaled mutation. */
+  preflight?(sourcePath: string, targetPath: string): Promise<void>
   identity(artifactPath: string): Promise<ArtifactIdentity | null>
   sameFilesystem(leftPath: string, rightPath: string): Promise<boolean>
   materializePrivate(
@@ -135,6 +139,7 @@ export class FinalizeCommitter {
       plan,
       publicationMode: 'copy',
     }
+    let prepared = false
     try {
       await this.requireExactIdentity(
         plan.sourcePath,
@@ -149,11 +154,16 @@ export class FinalizeCommitter {
         )
       }
       record.publicationMode = await this.selectPublicationMode(plan)
+      await this.options.fs.preflight?.(
+        plan.replacement?.stagedPath ?? plan.sourcePath,
+        plan.targetPath
+      )
       await this.options.repository.prepare(record)
+      prepared = true
       return await this.commitPrepared(record, lease)
     } catch (error) {
       if (error instanceof FinalizeQuarantinedError) throw error
-      await this.compensate(record, lease, error)
+      if (prepared) await this.compensate(record, lease, error)
       throw error
     } finally {
       if (ownsLease) await lease.release()
@@ -317,87 +327,34 @@ export class FinalizeCommitter {
 
   private async compensate(
     record: FinalizeJournalRecord,
-    _lease: ArtifactMutationLease,
+    lease: ArtifactMutationLease,
     cause: unknown
   ): Promise<void> {
     if (record.phase === 'db_committed' || record.phase === 'cleaned') return
     try {
-      const movesSource = record.publicationMode === 'move'
-      const installedIdentity =
-        record.targetIdentity ??
-        record.privateTargetIdentity ??
-        (movesSource ? record.plan.sourceIdentity : undefined)
-      const target = await this.options.fs.identity(record.plan.targetPath)
-      if (
-        target &&
-        installedIdentity &&
-        this.options.exactIdentity(target, installedIdentity)
-      ) {
-        if (movesSource) {
-          await this.options.fs.moveNoReplace(
-            record.plan.targetPath,
-            installedIdentity,
-            record.plan.sourcePath
-          )
-          await this.options.fs.makeDurable(record.plan.sourcePath)
-        } else {
-          await this.removeTracked(
-            record,
-            record.plan.targetPath,
-            installedIdentity
-          )
-        }
-      } else if (target) {
-        await this.quarantine(record, 'compensation target identity mismatch')
-      }
-      if (record.rollbackPath) {
-        await this.requireExactIdentity(
-          record.rollbackPath,
-          record.plan.sourceIdentity,
-          record
-        )
-        await this.options.fs.moveNoReplace(
-          record.rollbackPath,
-          record.plan.sourceIdentity,
-          record.plan.sourcePath
-        )
-        await this.options.fs.makeDurable(record.plan.sourcePath)
-      }
-      if (record.privateTargetPath) {
-        const privateTarget = await this.options.fs.identity(
-          record.privateTargetPath
-        )
-        if (privateTarget) {
-          const expectedPrivate = record.privateTargetIdentity
-          const selected =
-            record.plan.replacement?.identity ?? record.plan.sourceIdentity
-          if (
-            expectedPrivate
-              ? !this.options.exactIdentity(privateTarget, expectedPrivate)
-              : !this.options.sameContent(privateTarget, selected)
-          ) {
-            await this.quarantine(
-              record,
-              'compensation private target identity mismatch'
-            )
-          }
-          await this.removeTracked(
-            record,
-            record.privateTargetPath,
-            expectedPrivate ?? privateTarget
-          )
-        }
-      }
+      // Live rollback and startup recovery must make the same identity checks,
+      // and only mark the journal cleaned after the rollback is durable.
+      await new FinalizeRecovery({
+        ...this.options,
+        rollForwardTargetInstalled: false,
+      }).recover(record, lease)
     } catch (compensationError) {
-      await this.options.repository.quarantine(
-        record.journalId,
-        `compensation failed after ${String(cause)}: ${String(compensationError)}`
+      const failures = new AggregateError(
+        [cause, compensationError],
+        'finalize failed and rollback needs recovery'
       )
-      throw new FinalizeQuarantinedError(
-        record.journalId,
-        'compensation failed',
-        { cause: compensationError }
-      )
+      if (compensationError instanceof FinalizeQuarantinedError) {
+        throw new FinalizeQuarantinedError(
+          record.journalId,
+          compensationError.reason,
+          {
+            cause: failures,
+          }
+        )
+      }
+      // I/O and connectivity failures retain the journal's last checkpoint.
+      // Recovery rechecks both names; only identity conflicts are quarantined.
+      throw failures
     }
   }
 

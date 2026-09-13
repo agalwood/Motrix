@@ -71,10 +71,9 @@ fn copies_and_removes_a_held_directory_without_following_paths() {
     sync_root(&root).expect("flush held root");
 
     let copied = open_artifact(&root, "private-target").expect("open copied artifact");
-    remove_opened(&copied, ".motrix-remove", false).expect("remove held copied tree");
+    remove_opened(copied, ".motrix-remove", false).expect("remove held copied tree");
     assert!(!scratch.path().join("private-target").exists());
     assert!(!scratch.path().join(".motrix-remove").exists());
-    drop(copied);
 }
 
 #[test]
@@ -85,11 +84,10 @@ fn removes_a_held_file_without_closing_its_admitted_handle() {
     let root =
         open_root(scratch.path().to_str().expect("UTF-8 scratch path")).expect("open held root");
     let payload = open_artifact(&root, "payload.bin").expect("open payload artifact");
-    remove_opened(&payload, ".motrix-remove", false).expect("remove held payload");
+    remove_opened(payload, ".motrix-remove", false).expect("remove held payload");
 
     assert!(!scratch.path().join("payload.bin").exists());
     assert!(!scratch.path().join(".motrix-remove").exists());
-    drop(payload);
 }
 
 #[test]
@@ -162,7 +160,52 @@ fn rename_only_handles_use_metadata_and_do_not_authorize_removal() {
     let artifact = super::open_artifact_for_rename(&root, "source").unwrap();
     assert!(artifact.snapshot.is_none());
     assert!(copy_opened(&artifact, &root, "copy").is_err());
-    assert!(remove_opened(&artifact, ".quarantine", false).is_err());
     rename_opened_no_replace(&artifact, &root, "target").unwrap();
+    assert!(remove_opened(artifact, ".quarantine", false).is_err());
     assert_eq!(fs::read(scratch.path().join("target")).unwrap(), b"payload");
+}
+
+#[test]
+fn classic_delete_finishes_after_the_admitted_handle_closes() {
+    let scratch = Scratch::new("classic-delete");
+    fs::write(scratch.path().join("payload.bin"), b"payload").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let artifact = open_artifact(&root, "payload.bin").unwrap();
+    super::nt::mark_delete_legacy(&artifact.handle).unwrap();
+    drop(artifact);
+    assert!(!scratch.path().join("payload.bin").exists());
+}
+
+#[test]
+#[ignore = "requires MOTRIX_FINALIZE_SMB_ROOT on a real SMB share"]
+fn smb_share_supports_held_rename_copy_and_removal() {
+    let share = std::env::var("MOTRIX_FINALIZE_SMB_ROOT").expect("SMB test root");
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let scratch =
+        Scratch(PathBuf::from(share).join(format!("finalize-{}-{nonce}", std::process::id())));
+    fs::create_dir_all(scratch.path().join("tree/nested")).unwrap();
+    fs::write(scratch.path().join("tree/nested/payload.bin"), b"payload").unwrap();
+    fs::write(scratch.path().join("source.motrix"), b"complete").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+    rename_opened_no_replace(&artifact, &root, "complete.bin").unwrap();
+    sync_root(&root).unwrap();
+    drop(artifact);
+    assert_eq!(
+        fs::read(scratch.path().join("complete.bin")).unwrap(),
+        b"complete"
+    );
+    assert!(!scratch.path().join("source.motrix").exists());
+    let tree = open_artifact(&root, "tree").unwrap();
+    assert!(rename_opened_no_replace(&tree, &root, "complete.bin").is_err());
+    copy_opened(&tree, &root, "copied-tree").unwrap();
+    let copied = open_artifact(&root, "copied-tree").unwrap();
+    remove_opened(copied, ".remove-copied", false).unwrap();
+    remove_opened(tree, ".remove-tree", false).unwrap();
+    let complete = open_artifact(&root, "complete.bin").unwrap();
+    remove_opened(complete, ".remove-file", false).unwrap();
+    assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
 }

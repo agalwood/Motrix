@@ -82,6 +82,7 @@ export class DurableFinalizeRuntime {
     }
     const lease = await this.leases.acquire(input.task.id)
     try {
+      await this.createRecovery().recoverTask(input.task.id, lease)
       // H8: identity capture is inside the mutation lease, after every
       // engine/Host writer has successfully quiesced.
       const sourceIdentity = await this.captureIdentity(input.sourcePath)
@@ -167,6 +168,10 @@ export class DurableFinalizeRuntime {
 
   /** Recover before task restore: committed rows clean up; uncommitted targets roll back. */
   async recoverAll(): Promise<void> {
+    await this.createRecovery().recoverAll()
+  }
+
+  private createRecovery(): FinalizeRecovery {
     const repository = new SqliteFinalizeJournalRepository(this.options.db, {
       now: this.now,
       commitTerminalBoundary: () => {
@@ -175,7 +180,7 @@ export class DurableFinalizeRuntime {
         )
       },
     })
-    const recovery = new FinalizeRecovery({
+    return new FinalizeRecovery({
       repository,
       leases: this.leases,
       fs: this.options.fs,
@@ -183,6 +188,5 @@ export class DurableFinalizeRuntime {
       sameContent: artifactContentEquals,
       rollForwardTargetInstalled: false,
     })
-    await recovery.recoverAll()
   }
 }

@@ -1,9 +1,8 @@
 //! Handle registry and request dispatch, independent of platform syscalls.
 
-use crate::error::classify_error;
 use crate::platform::{
     ArtifactHandle, RootHandle, copy_opened, open_artifact, open_artifact_for_rename, open_root,
-    remove_opened, rename_no_replace, rename_opened_no_replace, sync_root,
+    remove_opened, rename_no_replace, rename_opened_no_replace, sync_root_mode,
 };
 use crate::protocol::{Request, Response};
 use std::collections::HashMap;
@@ -11,7 +10,7 @@ use std::collections::HashMap;
 pub(crate) struct State {
     next_handle: u64,
     roots: HashMap<u64, RootHandle>,
-    artifacts: HashMap<u64, ArtifactHandle>,
+    artifacts: HashMap<u64, Option<ArtifactHandle>>,
 }
 
 impl State {
@@ -24,6 +23,13 @@ impl State {
     }
 
     pub(crate) fn handle(&mut self, request: Request) -> Response<'static> {
+        let operation = request.operation();
+        let mut response = self.dispatch(request);
+        response.operation = Some(operation);
+        response
+    }
+
+    fn dispatch(&mut self, request: Request) -> Response<'static> {
         match request {
             Request::Capabilities => self.capabilities(),
             Request::OpenRoot { request_id, path } => match open_root(&path) {
@@ -33,7 +39,7 @@ impl State {
                     response.handle = Some(handle);
                     response
                 }
-                Err(error) => Response::error(Some(request_id), classify_error(&error), error),
+                Err(error) => Response::filesystem_error(request_id, error),
             },
             Request::OpenArtifact {
                 request_id,
@@ -56,7 +62,7 @@ impl State {
                         response.handle = Some(handle);
                         response
                     }
-                    Err(error) => Response::error(Some(request_id), classify_error(&error), error),
+                    Err(error) => Response::filesystem_error(request_id, error),
                 }
             }
             Request::RenameOpenedNoReplace {
@@ -65,7 +71,7 @@ impl State {
                 target_root,
                 target_relative,
             } => {
-                let Some(artifact) = self.artifacts.get(&artifact) else {
+                let Some(artifact) = self.artifacts.get(&artifact).and_then(Option::as_ref) else {
                     return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
                 };
                 let Some(target) = self.roots.get(&target_root) else {
@@ -86,7 +92,7 @@ impl State {
                 target_root,
                 target_relative,
             } => {
-                let Some(artifact) = self.artifacts.get(&artifact) else {
+                let Some(artifact) = self.artifacts.get(&artifact).and_then(Option::as_ref) else {
                     return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
                 };
                 let Some(target) = self.roots.get(&target_root) else {
@@ -130,19 +136,31 @@ impl State {
                 quarantine_relative,
                 resume_isolated,
             } => {
-                let Some(artifact) = self.artifacts.get(&artifact) else {
+                let Some(artifact) = self.artifacts.get_mut(&artifact).and_then(Option::take)
+                else {
                     return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
                 };
-                operation_response(
-                    request_id,
-                    remove_opened(artifact, &quarantine_relative, resume_isolated),
-                )
+                // Removal consumes the held handle so classic SMB delete-on-close
+                // can finish. Keep its empty registry slot until the caller closes it.
+                #[cfg(windows)]
+                let result = remove_opened(artifact, &quarantine_relative, resume_isolated);
+                #[cfg(not(windows))]
+                let result = remove_opened(&artifact, &quarantine_relative, resume_isolated);
+                operation_response(request_id, result)
             }
+
             Request::SyncRoot { request_id, root } => {
                 let Some(root) = self.roots.get(&root) else {
                     return Response::error(Some(request_id), "invalid_handle", "unknown root");
                 };
-                operation_response(request_id, sync_root(root))
+                match sync_root_mode(root) {
+                    Ok(mode) => {
+                        let mut response = Response::ok(Some(request_id));
+                        response.directory_sync_mode = Some(mode);
+                        response
+                    }
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
             }
             Request::Close { request_id, handle } => {
                 if self.roots.remove(&handle).is_some() || self.artifacts.remove(&handle).is_some()
@@ -180,7 +198,7 @@ impl State {
 
     fn insert_artifact(&mut self, artifact: ArtifactHandle) -> u64 {
         let handle = self.next_handle();
-        self.artifacts.insert(handle, artifact);
+        self.artifacts.insert(handle, Some(artifact));
         handle
     }
 }
@@ -188,7 +206,7 @@ impl State {
 fn operation_response(request_id: u64, result: std::io::Result<()>) -> Response<'static> {
     match result {
         Ok(()) => Response::ok(Some(request_id)),
-        Err(error) => Response::error(Some(request_id), classify_error(&error), error),
+        Err(error) => Response::filesystem_error(request_id, error),
     }
 }
 

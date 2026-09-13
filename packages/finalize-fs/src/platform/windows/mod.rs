@@ -128,8 +128,13 @@ pub(crate) fn rename_no_replace(
     rename_opened_no_replace(&artifact, target, target_relative)
 }
 
+#[cfg(test)]
 pub(crate) fn sync_root(root: &RootHandle) -> io::Result<()> {
-    nt::flush(&root.handle)
+    sync_root_mode(root).map(|_| ())
+}
+
+pub(crate) fn sync_root_mode(root: &RootHandle) -> io::Result<&'static str> {
+    nt::flush_directory(&root.handle)
 }
 
 fn open_parent(root: &OwnedHandle, parts: &[&str]) -> io::Result<(OwnedHandle, Vec<u16>)> {

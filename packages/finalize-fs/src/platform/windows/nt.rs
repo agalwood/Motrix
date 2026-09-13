@@ -1,5 +1,7 @@
 //! Thin, checked wrappers around the Windows native handle APIs we need.
 
+use super::super::windows_policy::{remote_directory_acknowledged, unsupported_information};
+use crate::error::{native_error, os_code};
 use std::ffi::{OsStr, c_void};
 use std::io;
 use std::mem::size_of;
@@ -9,11 +11,12 @@ use std::path::Path;
 use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
 use windows_sys::Wdk::Storage::FileSystem::{
     FILE_CREATE, FILE_DIRECTORY_FILE, FILE_DISPOSITION_DELETE,
-    FILE_DISPOSITION_IGNORE_READONLY_ATTRIBUTE, FILE_DISPOSITION_INFORMATION_EX,
-    FILE_DISPOSITION_POSIX_SEMANTICS, FILE_INFORMATION_CLASS, FILE_NON_DIRECTORY_FILE, FILE_OPEN,
-    FILE_OPEN_FOR_BACKUP_INTENT, FILE_OPEN_REPARSE_POINT, FILE_RENAME_INFORMATION,
-    FILE_SYNCHRONOUS_IO_NONALERT, FileDispositionInformationEx, FileRenameInformation,
-    NtCreateFile, NtFlushBuffersFile, NtSetInformationFile,
+    FILE_DISPOSITION_IGNORE_READONLY_ATTRIBUTE, FILE_DISPOSITION_INFORMATION,
+    FILE_DISPOSITION_INFORMATION_EX, FILE_DISPOSITION_POSIX_SEMANTICS, FILE_INFORMATION_CLASS,
+    FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_FOR_BACKUP_INTENT, FILE_OPEN_REPARSE_POINT,
+    FILE_RENAME_INFORMATION, FILE_SYNCHRONOUS_IO_NONALERT, FileDispositionInformation,
+    FileDispositionInformationEx, FileRenameInformation, NtCreateFile, NtFlushBuffersFile,
+    NtSetInformationFile,
 };
 use windows_sys::Win32::Foundation::{
     ERROR_DIRECTORY, HANDLE, OBJ_CASE_INSENSITIVE, OBJ_DONT_REPARSE, RtlNtStatusToDosError,
@@ -22,9 +25,10 @@ use windows_sys::Win32::Foundation::{
 use windows_sys::Win32::Storage::FileSystem::{
     CreateFileW, DELETE, FILE_ACCESS_RIGHTS, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL,
     FILE_CASE_SENSITIVE_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-    FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ,
-    FILE_SHARE_WRITE, FILE_TRAVERSE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FileCaseSensitiveInfo,
-    GetFileInformationByHandleEx, OPEN_EXISTING, SYNCHRONIZE,
+    FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_REMOTE_PROTOCOL_INFO,
+    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, FILE_WRITE_ATTRIBUTES,
+    FILE_WRITE_DATA, FileCaseSensitiveInfo, FileRemoteProtocolInfo, GetFileInformationByHandleEx,
+    OPEN_EXISTING, SYNCHRONIZE,
 };
 use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
@@ -159,7 +163,7 @@ pub(super) fn open_existing(parent: &OwnedHandle, name: &[u16]) -> io::Result<Ow
         OPEN_COMMON | FILE_DIRECTORY_FILE,
     ) {
         Ok(handle) => Ok(handle),
-        Err(error) if error.raw_os_error() == Some(ERROR_DIRECTORY as i32) => nt_create(
+        Err(error) if os_code(&error) == Some(ERROR_DIRECTORY as i32) => nt_create(
             parent,
             name,
             SOURCE_FILE_ACCESS,
@@ -271,7 +275,7 @@ fn nt_create(
             0,
         )
     };
-    check_status(status)?;
+    check_status(status, "NtCreateFile")?;
     if handle.is_null() {
         return Err(io::Error::other("NtCreateFile returned a null handle"));
     }
@@ -340,18 +344,78 @@ pub(super) fn mark_delete(artifact: &OwnedHandle) -> io::Result<()> {
             | FILE_DISPOSITION_POSIX_SEMANTICS
             | FILE_DISPOSITION_IGNORE_READONLY_ATTRIBUTE,
     };
-    set_information(
+    match set_information(
         artifact,
         (&raw const disposition).cast(),
         size_of::<FILE_DISPOSITION_INFORMATION_EX>(),
         FileDispositionInformationEx,
+    ) {
+        Err(error) if unsupported_information(os_code(&error)) => {
+            // Standard delete disposition keeps the file until all our held
+            // handles close. The caller consumes its handle before checking absence.
+            mark_delete_legacy(artifact)
+        }
+        result => result,
+    }
+}
+
+pub(super) fn mark_delete_legacy(artifact: &OwnedHandle) -> io::Result<()> {
+    let legacy = FILE_DISPOSITION_INFORMATION { DeleteFile: true };
+    set_information(
+        artifact,
+        (&raw const legacy).cast(),
+        size_of::<FILE_DISPOSITION_INFORMATION>(),
+        FileDispositionInformation,
     )
 }
 
 pub(super) fn flush(handle: &OwnedHandle) -> io::Result<()> {
     let mut io_status = IO_STATUS_BLOCK::default();
     let status = unsafe { NtFlushBuffersFile(handle.as_raw_handle(), &mut io_status) };
-    check_status(status)
+    check_status(status, "NtFlushBuffersFile")
+}
+
+/// Some SMB object stores reject directory FLUSH even though namespace changes
+/// have been acknowledged. Only that precise capability failure uses the remote
+/// acknowledgement contract; file flush, access and transport failures still fail.
+pub(super) fn flush_directory(handle: &OwnedHandle) -> io::Result<&'static str> {
+    match flush(handle) {
+        Ok(()) => Ok("directory_flushed"),
+        Err(error) => {
+            let code = os_code(&error);
+            if matches!(code, Some(1 | 50)) && remote_directory_acknowledged(code, is_smb2(handle)?)
+            {
+                Ok("remote_acknowledged")
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+fn is_smb2(handle: &OwnedHandle) -> io::Result<bool> {
+    let mut info = FILE_REMOTE_PROTOCOL_INFO::default();
+    let result = unsafe {
+        GetFileInformationByHandleEx(
+            handle.as_raw_handle(),
+            FileRemoteProtocolInfo,
+            (&mut info as *mut FILE_REMOTE_PROTOCOL_INFO).cast(),
+            size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32,
+        )
+    };
+    if result == 0 {
+        let error = io::Error::last_os_error();
+        // Local volumes do not expose remote protocol information.
+        if unsupported_information(error.raw_os_error()) {
+            return Ok(false);
+        }
+        return Err(native_error(
+            error,
+            "GetFileInformationByHandleEx(FileRemoteProtocolInfo)",
+            None,
+        ));
+    }
+    Ok(info.Protocol == 0x0002_0000 && info.ProtocolMajorVersion >= 2)
 }
 
 fn set_information(
@@ -372,13 +436,17 @@ fn set_information(
             class,
         )
     };
-    check_status(status)
+    check_status(status, &format!("NtSetInformationFile(class={class})"))
 }
 
-fn check_status(status: i32) -> io::Result<()> {
+fn check_status(status: i32, operation: &str) -> io::Result<()> {
     if status >= 0 {
         return Ok(());
     }
     let error = unsafe { RtlNtStatusToDosError(status) };
-    Err(io::Error::from_raw_os_error(error as i32))
+    Err(native_error(
+        io::Error::from_raw_os_error(error as i32),
+        operation,
+        Some(status),
+    ))
 }

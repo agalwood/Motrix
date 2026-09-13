@@ -25,7 +25,7 @@ pub(crate) fn copy_opened(
     materialize(&artifact.handle, snapshot, &target_parent, &target_name)?;
     ensure_snapshot(&artifact.handle, snapshot)?;
     ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
-    super::nt::flush(&target_parent)
+    super::nt::flush_directory(&target_parent).map(|_| ())
 }
 
 fn materialize(
@@ -47,7 +47,11 @@ fn materialize(
             "Windows copied artifact does not match its held source",
         ));
     }
-    super::nt::flush(&target)
+    if expected.is_directory() {
+        super::nt::flush_directory(&target).map(|_| ())
+    } else {
+        super::nt::flush(&target)
+    }
 }
 
 fn copy_into(
