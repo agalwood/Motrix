@@ -175,6 +175,20 @@ pub(super) fn open_existing(parent: &OwnedHandle, name: &[u16]) -> io::Result<Ow
     }
 }
 
+pub(super) fn open_metadata(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
+    // Identity and absence checks must not probe a file with directory write
+    // access. SMB checks sharing before the requested object type, so that
+    // probe conflicts with our own held file's deliberate denial of write sharing.
+    nt_create(
+        parent,
+        name,
+        FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        SHARE_ALL,
+        FILE_OPEN,
+        OPEN_COMMON,
+    )
+}
+
 pub(super) fn open_existing_directory(
     parent: &OwnedHandle,
     name: &[u16],

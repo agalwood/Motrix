@@ -151,7 +151,7 @@ pub(super) fn ensure_named_entry(
     parent: &OwnedHandle,
     name: &[u16],
 ) -> io::Result<()> {
-    let named = nt::open_existing(parent, name)?;
+    let named = nt::open_metadata(parent, name)?;
     ensure_same_opened(opened, &named)
 }
 
@@ -168,7 +168,7 @@ pub(super) fn ensure_same_opened(left: &OwnedHandle, right: &OwnedHandle) -> io:
 }
 
 pub(super) fn assert_name_absent(parent: &OwnedHandle, name: &[u16]) -> io::Result<()> {
-    match nt::open_existing(parent, name) {
+    match nt::open_metadata(parent, name) {
         Ok(_) => Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "Windows artifact name still exists after mutation",

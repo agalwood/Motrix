@@ -77,7 +77,7 @@ fn copies_and_removes_a_held_directory_without_following_paths() {
 }
 
 #[test]
-fn removes_a_held_file_without_closing_its_admitted_handle() {
+fn removes_a_held_file_by_consuming_its_admitted_handle() {
     let scratch = Scratch::new("remove-file");
     fs::write(scratch.path().join("payload.bin"), b"payload").expect("write payload");
 
@@ -191,6 +191,13 @@ fn smb_share_supports_held_rename_copy_and_removal() {
     fs::write(scratch.path().join("source.motrix"), b"complete").unwrap();
     let root = open_root(scratch.path().to_str().unwrap()).unwrap();
     let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+    assert!(
+        fs::OpenOptions::new()
+            .write(true)
+            .open(scratch.path().join("source.motrix"))
+            .is_err(),
+        "holding an SMB file must continue to exclude content writers"
+    );
     rename_opened_no_replace(&artifact, &root, "complete.bin").unwrap();
     sync_root(&root).unwrap();
     drop(artifact);

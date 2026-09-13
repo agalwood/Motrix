@@ -28,6 +28,11 @@ are rejected. Directory enumeration uses `FileFullDirectoryInfo`, then opens
 each entry and verifies its identity and reparse attributes; enumeration IDs
 are not trusted for object identity.
 
+Name-to-handle identity and absence checks request only metadata access. They
+must not try a directory-write open against a held file: SMB can report the
+sharing conflict before rejecting the directory type, conflicting with the
+held file's intentional denial of write sharing.
+
 Removal prefers extended disposition. If the information class is unsupported,
 it uses standard delete-on-close on the verified handle. A removal request
 consumes its artifact handle, including on error; the caller must close the
