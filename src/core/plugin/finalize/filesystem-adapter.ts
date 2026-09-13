@@ -1,5 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 
 export type FinalizeFsErrorCode =
   | 'unsupported'
@@ -15,7 +16,12 @@ export type FinalizeFsErrorCode =
 export class FinalizeFsError extends Error {
   constructor(
     readonly code: FinalizeFsErrorCode,
-    message: string
+    message: string,
+    readonly details?: {
+      operation?: string
+      osError?: number
+      ntStatus?: string
+    }
   ) {
     super(message)
     this.name = 'FinalizeFsError'
@@ -36,6 +42,10 @@ interface WireResponse {
   handle?: number
   code?: FinalizeFsErrorCode
   message?: string
+  operation?: string
+  os_error?: number
+  nt_status?: string
+  directory_sync_mode?: 'directory_flushed' | 'remote_acknowledged'
   platform?: string
   rename_no_replace?: boolean
   held_roots?: boolean
@@ -108,6 +118,7 @@ export class NativeFinalizeFilesystemAdapter
   private readonly pending = new Map<number, PendingRequest>()
   private readonly requestTimeoutMs: number
   private deadError: Error | null = null
+  private remoteDurabilityReported = false
 
   constructor(
     private readonly binaryPath: string,
@@ -261,7 +272,20 @@ export class NativeFinalizeFilesystemAdapter
   }
 
   async syncRoot(root: FinalizeRootHandle): Promise<void> {
-    await this.request({ op: 'sync_root', root: this.nativeId(root) })
+    const response = await this.request({
+      op: 'sync_root',
+      root: this.nativeId(root),
+    })
+    if (
+      response.directory_sync_mode === 'remote_acknowledged' &&
+      !this.remoteDurabilityReported
+    ) {
+      this.remoteDurabilityReported = true
+      getLogger('finalize').warn(
+        { durability: response.directory_sync_mode },
+        'SMB directory flush is unsupported; namespace durability depends on the remote server'
+      )
+    }
   }
 
   async close(
@@ -353,7 +377,12 @@ export class NativeFinalizeFilesystemAdapter
     if (result.status === 'error') {
       throw new FinalizeFsError(
         result.code ?? 'io_error',
-        result.message ?? 'finalize filesystem operation failed'
+        `${result.operation ?? body.op}: ${result.message ?? 'finalize filesystem operation failed'}`,
+        {
+          operation: result.operation ?? String(body.op),
+          osError: result.os_error,
+          ntStatus: result.nt_status,
+        }
       )
     }
     return result

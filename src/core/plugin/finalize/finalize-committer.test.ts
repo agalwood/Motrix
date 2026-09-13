@@ -142,6 +142,23 @@ function makeCommitter(
 }
 
 describe('FinalizeCommitter', () => {
+  it('does not compensate a different journal when prepare rejects the retry', async () => {
+    const fs = new FakeFilesystem()
+    const plan = makePlan()
+    fs.artifacts.set(plan.sourcePath, sourceIdentity)
+    fs.artifacts.set(plan.targetPath, sourceIdentity)
+    const { repository } = makeRepository()
+    repository.prepare = vi
+      .fn()
+      .mockRejectedValue(new Error('old journal still pending'))
+    await expect(makeCommitter(fs, repository).commit(plan)).rejects.toThrow(
+      'old journal still pending'
+    )
+    expect(fs.actions).toEqual([])
+    expect(fs.artifacts.get(plan.targetPath)).toBe(sourceIdentity)
+    expect(fs.artifacts.get(plan.sourcePath)).toBe(sourceIdentity)
+  })
+
   it('moves an ordinary same-filesystem source without copying it', async () => {
     const fs = new FakeFilesystem()
     const plan = makePlan()

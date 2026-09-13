@@ -1,4 +1,7 @@
-import type { ArtifactMutationLeaseCoordinator } from './artifact-mutation-lease'
+import type {
+  ArtifactMutationLease,
+  ArtifactMutationLeaseCoordinator,
+} from './artifact-mutation-lease'
 import {
   type FinalizeArtifactOperations,
   type FinalizeJournalRecord,
@@ -40,10 +43,44 @@ export class FinalizeRecovery {
     }
   }
 
-  async recover(record: FinalizeJournalRecord): Promise<void> {
-    const lease = await this.options.leases.acquire(record.plan.taskId)
+  async recoverTask(
+    taskId: string,
+    lease: ArtifactMutationLease
+  ): Promise<void> {
+    for (const record of await this.options.repository.listRecoverable(
+      taskId
+    )) {
+      await this.recover(record, lease)
+    }
+  }
+
+  async recover(
+    record: FinalizeJournalRecord,
+    existingLease?: ArtifactMutationLease
+  ): Promise<void> {
+    const lease =
+      existingLease ?? (await this.options.leases.acquire(record.plan.taskId))
     try {
-      if (record.quarantineReason) return
+      if (record.quarantineReason) {
+        if (!this.options.repository.resumeQuarantined) return
+        // Legacy compensation failures can be reopened only for an ordinary
+        // move with exactly one surviving, identity-verified name.
+        if (!isRetryableMoveQuarantine(record)) return
+        const source = await this.options.fs.identity(record.plan.sourcePath)
+        const target = await this.options.fs.identity(record.plan.targetPath)
+        const surviving = source ?? target
+        if (
+          !surviving ||
+          Boolean(source) === Boolean(target) ||
+          !this.options.exactIdentity(surviving, record.plan.sourceIdentity)
+        )
+          return
+        await this.options.fs.makeDurable(
+          source ? record.plan.sourcePath : record.plan.targetPath
+        )
+        await this.options.repository.resumeQuarantined(record)
+        record.quarantineReason = undefined
+      }
       await this.resumeRemovalIntent(record)
       const selected =
         record.plan.replacement?.identity ?? record.plan.sourceIdentity
@@ -186,7 +223,7 @@ export class FinalizeRecovery {
         return
       }
     } finally {
-      await lease.release()
+      if (!existingLease) await lease.release()
     }
   }
 
@@ -332,6 +369,7 @@ export class FinalizeRecovery {
       if (!this.options.exactIdentity(source, record.plan.sourceIdentity)) {
         await this.quarantine(record, 'moved source identity mismatch')
       }
+      await this.options.fs.makeDurable(record.plan.sourcePath)
       await this.options.repository.advance(record.journalId, 'cleaned')
       return
     }
@@ -424,22 +462,27 @@ export class FinalizeRecovery {
   ): Promise<void> {
     const intent = record.removalIntent
     if (!intent) return
-    try {
-      await this.options.fs.removeKnown(
-        intent.artifactPath,
-        intent.identity,
-        intent.quarantinePath
-      )
-      record.removalIntent = undefined
-      await this.options.repository.checkpoint(record.journalId, {
-        removalIntent: undefined,
-      })
-    } catch (error) {
+    const original = await this.options.fs.identity(intent.artifactPath)
+    const quarantined = await this.options.fs.identity(intent.quarantinePath)
+    if (
+      (original && quarantined) ||
+      (original && !this.options.exactIdentity(original, intent.identity)) ||
+      (quarantined && !this.options.exactIdentity(quarantined, intent.identity))
+    ) {
       await this.quarantine(
         record,
-        `persisted removal intent failed: ${error instanceof Error ? error.message : String(error)}`
+        'persisted removal intent identity mismatch'
       )
     }
+    await this.options.fs.removeKnown(
+      intent.artifactPath,
+      intent.identity,
+      intent.quarantinePath
+    )
+    record.removalIntent = undefined
+    await this.options.repository.checkpoint(record.journalId, {
+      removalIntent: undefined,
+    })
   }
 
   private async removeTracked(
@@ -474,4 +517,22 @@ export class FinalizeRecovery {
     await this.options.repository.quarantine(record.journalId, reason)
     throw new FinalizeQuarantinedError(record.journalId, reason)
   }
+}
+
+/** Only the old blanket compensation quarantine is eligible for automatic retry. */
+export function isRetryableMoveQuarantine(
+  record: FinalizeJournalRecord
+): boolean {
+  return (
+    record.quarantineReason?.startsWith('compensation failed after ') ===
+      true &&
+    record.publicationMode === 'move' &&
+    (record.phase === 'prepared' || record.phase === 'target_installed') &&
+    !record.plan.replacement &&
+    !record.privateTargetPath &&
+    !record.privateTargetIdentity &&
+    !record.rollbackPath &&
+    !record.removalIntent &&
+    !finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
+  )
 }

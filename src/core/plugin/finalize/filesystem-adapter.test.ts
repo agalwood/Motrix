@@ -50,6 +50,11 @@ describe.runIf(process.platform !== 'win32')(
                 handle: request.op === 'open_root' ? 1 : 2,
                 platform: 'test', rename_no_replace: true, held_roots: true,
                 directory_sync: true, held_artifacts: true,
+                ...(request.relative === 'unsupported' ? {
+                  status: 'error', code: 'unsupported',
+                  operation: request.op, os_error: 1, nt_status: '0xc0000010',
+                  message: 'NtCreateFile: Incorrect function. (os error 1)',
+                } : {}),
               }))
               const frame = Buffer.alloc(payload.length + 4)
               frame.writeUInt32LE(payload.length)
@@ -111,6 +116,28 @@ describe.runIf(process.platform !== 'win32')(
         await adapter.dispose()
       }
       await expect(adapter.capabilities()).rejects.toThrow('disposed')
+    })
+
+    it('preserves the native operation and status across the sidecar protocol', async () => {
+      const adapter = new NativeFinalizeFilesystemAdapter(await framedSidecar())
+      try {
+        const root = await adapter.openRoot(os.tmpdir())
+        await expect(
+          adapter.openArtifact(root, 'unsupported')
+        ).rejects.toMatchObject({
+          name: 'FinalizeFsError',
+          code: 'unsupported',
+          message:
+            'open_artifact: NtCreateFile: Incorrect function. (os error 1)',
+          details: {
+            operation: 'open_artifact',
+            osError: 1,
+            ntStatus: '0xc0000010',
+          },
+        })
+      } finally {
+        await adapter.dispose()
+      }
     })
 
     async function rejectedError(operation: Promise<unknown>): Promise<Error> {

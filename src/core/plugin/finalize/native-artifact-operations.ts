@@ -38,6 +38,18 @@ export class NativeFinalizeArtifactOperations
     }
   }
 
+  async preflight(sourcePath: string, targetPath: string): Promise<void> {
+    await this.assertSupported()
+    await this.ensureSafeDirectory(path.dirname(targetPath))
+    await this.makeDurable(sourcePath)
+    const targetRoot = await this.adapter.openRoot(path.dirname(targetPath))
+    try {
+      await this.adapter.syncRoot(targetRoot)
+    } finally {
+      await this.adapter.close(targetRoot).catch(() => undefined)
+    }
+  }
+
   async identity(artifactPath: string): Promise<ArtifactIdentity | null> {
     try {
       return await readArtifactIdentity(artifactPath, {
@@ -83,12 +95,12 @@ export class NativeFinalizeArtifactOperations
       )
     }
     const sourceRoot = await this.adapter.openRoot(path.dirname(sourcePath))
-    const targetRoot = await this.adapter.openRoot(
-      path.dirname(privateTargetPath)
-    )
+    let targetRoot: Awaited<ReturnType<typeof this.adapter.openRoot>> | null =
+      null
     let artifact: Awaited<ReturnType<typeof this.adapter.openArtifact>> | null =
       null
     try {
+      targetRoot = await this.adapter.openRoot(path.dirname(privateTargetPath))
       artifact = await this.adapter.openArtifact(
         sourceRoot,
         path.basename(sourcePath)
@@ -102,7 +114,8 @@ export class NativeFinalizeArtifactOperations
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
       await this.adapter.close(sourceRoot).catch(() => undefined)
-      await this.adapter.close(targetRoot).catch(() => undefined)
+      if (targetRoot)
+        await this.adapter.close(targetRoot).catch(() => undefined)
     }
     const copied = await readArtifactIdentity(privateTargetPath, {
       cache: this.identityCache,
@@ -121,10 +134,12 @@ export class NativeFinalizeArtifactOperations
     await this.requireIdentity(sourcePath, expected)
     await this.ensureSafeDirectory(path.dirname(targetPath))
     const sourceRoot = await this.adapter.openRoot(path.dirname(sourcePath))
-    const targetRoot = await this.adapter.openRoot(path.dirname(targetPath))
+    let targetRoot: Awaited<ReturnType<typeof this.adapter.openRoot>> | null =
+      null
     let artifact: Awaited<ReturnType<typeof this.adapter.openArtifact>> | null =
       null
     try {
+      targetRoot = await this.adapter.openRoot(path.dirname(targetPath))
       artifact = await this.adapter.openArtifact(
         sourceRoot,
         path.basename(sourcePath),
@@ -142,7 +157,8 @@ export class NativeFinalizeArtifactOperations
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
       await this.adapter.close(sourceRoot).catch(() => undefined)
-      await this.adapter.close(targetRoot).catch(() => undefined)
+      if (targetRoot)
+        await this.adapter.close(targetRoot).catch(() => undefined)
     }
   }
 

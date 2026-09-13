@@ -55,6 +55,22 @@ pub(crate) enum Request {
     },
 }
 
+impl Request {
+    pub(crate) fn operation(&self) -> &'static str {
+        match self {
+            Self::Capabilities => "capabilities",
+            Self::OpenRoot { .. } => "open_root",
+            Self::OpenArtifact { .. } => "open_artifact",
+            Self::RenameOpenedNoReplace { .. } => "rename_opened_no_replace",
+            Self::CopyOpened { .. } => "copy_opened",
+            Self::RenameNoReplace { .. } => "rename_no_replace",
+            Self::RemoveOpened { .. } => "remove_opened",
+            Self::SyncRoot { .. } => "sync_root",
+            Self::Close { .. } => "close",
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub(crate) struct Response<'a> {
     request_id: Option<u64>,
@@ -75,6 +91,14 @@ pub(crate) struct Response<'a> {
     pub(crate) directory_sync: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) held_artifacts: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) operation: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) directory_sync_mode: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) os_error: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) nt_status: Option<String>,
 }
 
 impl<'a> Response<'a> {
@@ -90,7 +114,22 @@ impl<'a> Response<'a> {
             held_roots: None,
             directory_sync: None,
             held_artifacts: None,
+            operation: None,
+            directory_sync_mode: None,
+            os_error: None,
+            nt_status: None,
         }
+    }
+
+    pub(crate) fn filesystem_error(request_id: u64, error: io::Error) -> Self {
+        let mut response = Self::error(
+            Some(request_id),
+            crate::error::classify_error(&error),
+            &error,
+        );
+        response.os_error = crate::error::os_code(&error);
+        response.nt_status = crate::error::nt_status(&error);
+        response
     }
 
     pub(crate) fn error(request_id: Option<u64>, code: &'a str, error: impl ToString) -> Self {

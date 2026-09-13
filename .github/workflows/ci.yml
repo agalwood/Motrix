@@ -400,6 +400,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
       # Electron does not hydrate dist/ during pnpm install. build:legal
@@ -418,7 +419,6 @@ jobs:
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
-          pnpm run build:electron
 
       - name: Finalize filesystem runtime integration
         env:
@@ -426,7 +426,13 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
           --reporter=verbose
+
+      # SQLite integration tests above use Node. Switch native modules to the
+      # packaged Electron ABI only after those tests have finished.
+      - name: Build Electron application
+        run: pnpm run build:electron
 
       - name: Stage Electron application
         run: >-

@@ -220,6 +220,7 @@ jobs:
         env:
           # Fetching the package target is explicit in the next step.
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
 
       # Electron does not declare a postinstall script, so pnpm install
       # does not hydrate dist/ with the runtime and license payload.
@@ -236,14 +237,11 @@ jobs:
         run: pnpm run check:third-party-notices
 
       # Build each target on a runner with the same native CPU architecture.
-      # This also ensures better-sqlite3 is rebuilt for the packaged Electron.
       - name: Build
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
-          pnpm run build:electron
-          pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
       - name: Finalize filesystem runtime integration
         env:
@@ -251,7 +249,15 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
           --reporter=verbose
+
+      # SQLite integration tests above use Node. Rebuild for Electron before
+      # staging, so the packaged native dependency retains the correct ABI.
+      - name: Build Electron application
+        run: |
+          pnpm run build:electron
+          pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
       # Tagged macOS and Windows outputs are deliberately unsigned here. A
       # fresh, no-checkout job finalizes only the verified data artifact below,

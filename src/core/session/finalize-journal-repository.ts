@@ -4,6 +4,7 @@ import type {
   FinalizeJournalRepository,
 } from '@core/plugin/finalize/finalize-committer'
 import { finalizePathsEquivalent } from '@core/plugin/finalize/finalize-committer'
+import { isRetryableMoveQuarantine } from '@core/plugin/finalize/finalize-recovery'
 import { assertValidHookPlan } from '@core/plugin/finalize/hook-plan'
 import type Database from 'better-sqlite3'
 
@@ -201,19 +202,25 @@ export class SqliteFinalizeJournalRepository
     }
   }
 
-  async listRecoverable(): Promise<FinalizeJournalRecord[]> {
+  async listRecoverable(taskId?: string): Promise<FinalizeJournalRecord[]> {
     const rows = this.db
       .prepare(
         `SELECT * FROM plugin_finalize_journals
-         WHERE phase NOT IN ('cleaned','quarantined')
+         WHERE phase <> 'cleaned' AND (? IS NULL OR task_id=?)
          ORDER BY created_at, plan_id`
       )
-      .all() as RawFinalizeJournal[]
+      .all(taskId ?? null, taskId ?? null) as RawFinalizeJournal[]
     const records: FinalizeJournalRecord[] = []
     for (const row of rows) {
       try {
-        records.push(parseRecord(row))
+        if (row.phase === 'quarantined') {
+          const candidate = parseQuarantinedMove(row)
+          if (candidate) records.push(candidate)
+        } else {
+          records.push(parseRecord(row))
+        }
       } catch (error) {
+        if (row.phase === 'quarantined') continue
         await this.quarantine(
           row.plan_id,
           `invalid persisted finalize journal: ${errorMessage(error)}`
@@ -221,6 +228,22 @@ export class SqliteFinalizeJournalRepository
       }
     }
     return records
+  }
+
+  async resumeQuarantined(record: FinalizeJournalRecord): Promise<void> {
+    this.db.transaction(() => {
+      const raw = this.readRaw(record.journalId)
+      const candidate = raw && parseQuarantinedMove(raw)
+      if (!candidate || JSON.stringify(candidate) !== JSON.stringify(record)) {
+        throw new Error('quarantined finalize journal changed before recovery')
+      }
+      this.db
+        .prepare(
+          `UPDATE plugin_finalize_journals SET phase=?, quarantine_reason=NULL, updated_at=?
+         WHERE plan_id=? AND phase='quarantined'`
+        )
+        .run(candidate.phase, Math.max(1, this.now()), candidate.journalId)
+    })()
   }
 
   private requireRecord(journalId: string): FinalizeJournalRecord {
@@ -237,6 +260,29 @@ export class SqliteFinalizeJournalRepository
       .prepare('SELECT * FROM plugin_finalize_journals WHERE plan_id=?')
       .get(journalId) as RawFinalizeJournal | undefined
   }
+}
+
+function parseQuarantinedMove(
+  raw: RawFinalizeJournal
+): FinalizeJournalRecord | null {
+  if (
+    raw.phase !== 'quarantined' ||
+    !raw.quarantine_reason?.startsWith('compensation failed after ')
+  )
+    return null
+  const value: unknown = JSON.parse(raw.plan_json)
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('phase' in value) ||
+    (value.phase !== 'prepared' && value.phase !== 'target_installed')
+  )
+    return null
+  const record = {
+    ...parseRecord({ ...raw, phase: value.phase }),
+    quarantineReason: raw.quarantine_reason,
+  }
+  return isRetryableMoveQuarantine(record) ? record : null
 }
 
 function serializeRecord(record: FinalizeJournalRecord): string {

@@ -377,6 +377,8 @@ describe('FinalizeRecovery', () => {
     expect(state.artifacts.get('/save/.motrix-finalize-remove-persisted')).toBe(
       unknown
     )
-    expect(state.quarantines[0]).toContain('persisted removal intent failed')
+    expect(state.quarantines[0]).toContain(
+      'persisted removal intent identity mismatch'
+    )
   })
 })
