@@ -112,7 +112,7 @@ jobs:
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 11.25.0
+          version: 12.4.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -169,8 +169,10 @@ jobs:
 
       - name: Generate Flatpak npm sources
         run: |
+          node scripts/prepare-flatpak-node-lock.mjs \
+            pnpm-lock.yaml "$RUNNER_TEMP/flatpak-node-lock.yaml"
           "$RUNNER_TEMP/flatpak-builder-tools/bin/flatpak-node-generator" \
-            pnpm pnpm-lock.yaml \
+            pnpm "$RUNNER_TEMP/flatpak-node-lock.yaml" \
             --pnpm-store-version v11 \
             --electron-node-headers \
             --node-sdk-extension org.freedesktop.Sdk.Extension.node24//25.08 \
@@ -201,7 +203,8 @@ jobs:
             tests/scripts/flatpak-packaging.test.ts \
             tests/scripts/flatpak-project.test.ts \
             tests/scripts/normalize-flatpak-cargo-sources.test.ts \
-            tests/scripts/normalize-flatpak-node-sources.test.ts
+            tests/scripts/normalize-flatpak-node-sources.test.ts \
+            tests/scripts/prepare-flatpak-node-lock.test.ts
 
       - name: Prepare checked-out source for Flatpak
         run: node scripts/prepare-flatpak-project.mjs

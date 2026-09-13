@@ -23,8 +23,8 @@ export const ARIA2_SOURCE = Object.freeze({
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.25.0.tgz',
-  sha256: '33dd0748f27e7916c4f1c8b6943461983e3453b06bbda6312a6280130b4881e5',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.4.1.tgz',
+  sha256: '6276298e9af576b7a7f5e9044bfafbe2678209250cd10b1705ea5d3aa64d4882',
 })
 
 const RUST_SOURCES = Object.freeze({

@@ -109,7 +109,7 @@ cd -
 ```
 
 `--config.dangerouslyAllowAllBuilds=true` 会允许 install 运行 `better-sqlite3`
-自己的 Node build script（→ Node ABI），同时满足 pnpm 11 的 deps-check，避免
+自己的 Node build script（→ Node ABI），同时满足 pnpm 12 的 deps-check，避免
 `build:server` 静默重新 install 并把 ABI 切回去。`MOTRIX_SKIP_ELECTRON_REBUILD=1`
 会跳过 `postinstall` 中的 Electron rebuild。
 

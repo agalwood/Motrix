@@ -43,9 +43,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '11.25.0'
+const PNPM_VERSION = '12.4.1'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956'
+  'pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -2671,7 +2671,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('44.1.1')
+    expect(stringField(config, 'electronVersion')).toBe('44.3.0')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2737,7 +2737,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('44.1.1')
+    expect(version).toBe('44.3.0')
     expect(
       stringField(
         asRecord(
@@ -2935,7 +2935,7 @@ describe('workflow action supply-chain contract', () => {
     }
   })
 
-  it('pins pnpm v11 consistently across local and CI toolchains', () => {
+  it('pins pnpm v12 consistently across local and CI toolchains', () => {
     const packageMetadata = asRecord(
       JSON.parse(
         readFileSync(path.join(ROOT, 'package.json'), 'utf8')
