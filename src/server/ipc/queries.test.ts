@@ -7,6 +7,7 @@ import { NotificationCenter } from '@core/notifications/notification-center'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
 import { Queries } from '@shared/protocol/queries'
+import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildServerQueryHandlers, type ServerQueryContext } from './queries'
@@ -698,6 +699,29 @@ describe('buildServerQueryHandlers — GetTaskInspectorActivity parity', () => {
 })
 
 describe('directory location query validation', () => {
+  it('returns one General draft snapshot and validates before reading it', async () => {
+    const snapshot = generalSettingsSnapshot({
+      favorites: ['/saved'],
+      recent: [],
+    })
+    const getGeneralSettingsSnapshot = vi.fn(() => snapshot)
+    const handlers = buildServerQueryHandlers({
+      settingsManager: { getGeneralSettingsSnapshot },
+    } as unknown as ServerQueryContext)
+    expect(
+      await handlers[Queries.GetGeneralSettingsDraft]?.({ extra: true })
+    ).toEqual({
+      ok: false,
+      error: { code: 'invalidPath' },
+    })
+    expect(getGeneralSettingsSnapshot).not.toHaveBeenCalled()
+    expect(await handlers[Queries.GetGeneralSettingsDraft]?.({})).toEqual({
+      ok: true,
+      value: snapshot,
+    })
+    expect(getGeneralSettingsSnapshot).toHaveBeenCalledOnce()
+  })
+
   it('rejects invalid requests before reading settings or discovering filesystem locations', async () => {
     const getApp = vi.fn()
     const locations = vi.fn()

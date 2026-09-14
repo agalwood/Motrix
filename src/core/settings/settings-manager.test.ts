@@ -255,6 +255,7 @@ describe('SettingsManager', () => {
         path: '/new-recent',
       })
       const save = manager.saveGeneralSettings({
+        expectedRevision: manager.getGeneralSettingsSnapshot().revision,
         app: { notifyOnComplete: false },
         directories: {
           addFavorites: ['/new-favorite '],
@@ -264,11 +265,28 @@ describe('SettingsManager', () => {
       })
       gate.resolve()
       await Promise.all([add, recent, save])
-      expect(await save).toEqual({
+      expect(await save).toMatchObject({
+        ok: false,
+        error: { code: 'conflict' },
+      })
+      expect(manager.getApp().notifyOnComplete).toBe(true)
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { notifyOnComplete: false },
+          directories: {
+            addFavorites: ['/new-favorite '],
+            removeFavorites: ['/baseline'],
+            removeRecent: ['/seen'],
+          },
+        })
+      ).toMatchObject({
         ok: true,
         value: {
-          favorites: ['/other-client', '/new-favorite '],
-          recent: ['/new-recent'],
+          directoryPreferences: {
+            favorites: ['/other-client', '/new-favorite '],
+            recent: ['/new-recent'],
+          },
         },
       })
       expect(manager.getApp().notifyOnComplete).toBe(false)
@@ -297,6 +315,7 @@ describe('SettingsManager', () => {
       onChange.mockClear()
       expect(
         await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { notifyOnError: false },
           directories: { ...empty, addFavorites: ['/extra'] },
         })
@@ -306,6 +325,7 @@ describe('SettingsManager', () => {
       expect(onChange).not.toHaveBeenCalled()
       expect(
         await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { notifyOnError: false },
           directories: {
             ...empty,
@@ -333,6 +353,7 @@ describe('SettingsManager', () => {
       mockWriteFileAtomic.mockRejectedValueOnce(new Error('disk full'))
       await expect(
         manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { notifyOnError: false },
           directories: { ...empty, removeFavorites: ['/keep'] },
         })
@@ -340,6 +361,7 @@ describe('SettingsManager', () => {
       expect(manager.getApp()).toEqual(before)
       expect(onChange).not.toHaveBeenCalled()
       await manager.saveGeneralSettings({
+        expectedRevision: manager.getGeneralSettingsSnapshot().revision,
         app: { notifyOnError: false },
         directories: { ...empty, addFavorites: ['/new'] },
       })
@@ -353,10 +375,27 @@ describe('SettingsManager', () => {
       })
     })
 
-    it('does not write or publish an empty General transaction', async () => {
+    it('fences earlier requests without writing or publishing an empty General transaction', async () => {
+      const revision = manager.getGeneralSettingsSnapshot().revision
       expect(
-        await manager.saveGeneralSettings({ app: {}, directories: empty })
-      ).toEqual({ ok: true, value: { favorites: [], recent: [] } })
+        await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {},
+          directories: empty,
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { directoryPreferences: { favorites: [], recent: [] } },
+      })
+      expect(manager.getGeneralSettingsSnapshot().revision).not.toBe(revision)
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: revision,
+          app: { notifyOnError: false },
+          directories: empty,
+        })
+      ).toMatchObject({ ok: false, error: { code: 'conflict' } })
+      expect(manager.getApp().notifyOnError).toBe(true)
       expect(mockWriteFileAtomic).not.toHaveBeenCalled()
       expect(onChange).not.toHaveBeenCalled()
     })

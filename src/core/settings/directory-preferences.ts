@@ -13,7 +13,7 @@ import type { SettingsManager } from './settings-manager'
 
 export function directoryPreferenceFailure(
   error: unknown
-): DirectoryPreferencesResult {
+): Extract<DirectoryPreferencesResult, { ok: false }> {
   const directoryCode = DirectoryPreferencesErrorCodeSchema.safeParse(
     (error as { directoryCode?: unknown } | null)?.directoryCode
   )

@@ -31,7 +31,6 @@ import {
   ArrowRight,
   ArrowUp,
   Folder,
-  FolderPlus,
   Pencil,
   RefreshCw,
   SlidersHorizontal,
@@ -388,17 +387,27 @@ function PickerSession({ request, controller }: Session) {
     } else if (mac && plain && event.key === 'Enter') {
       event.preventDefault()
       if (!event.repeat) void controller.confirm()
-    } else if (plain && event.key === '/') {
+    } else if (
+      event.key === '/' &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    ) {
       event.preventDefault()
       if (!event.repeat) controller.editPath()
-    } else if (plain && event.key === ' ') {
-      event.preventDefault()
-    } else if (plain && event.key.length === 1) {
+    } else if (
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      event.key.length === 1
+    ) {
       event.preventDefault()
       const now = Date.now()
       const character = event.key.toLocaleLowerCase()
       const previous =
         now - typeahead.current.time <= 700 ? typeahead.current.text : ''
+      // Space continues a filename prefix but does not start a list action.
+      if (character === ' ' && previous === '') return
       const text =
         previous && [...previous].every((value) => value === character)
           ? character
@@ -508,7 +517,7 @@ function PickerSession({ request, controller }: Session) {
             <DialogTitle className="text-[13px]">
               {t('directoryPicker.title')}
             </DialogTitle>
-            <DialogDescription className="text-[11px] leading-4">
+            <DialogDescription className="sr-only">
               {t('directoryPicker.description')}
             </DialogDescription>
             <DialogClose
@@ -989,17 +998,15 @@ function PickerSession({ request, controller }: Session) {
               virtualRef={virtualRef}
             />
           </div>
-          <div className="flex min-w-0 shrink-0 items-start gap-2 border-t px-3 pt-2 text-[11px]">
-            <span className="shrink-0 text-muted-foreground">
-              {t('directoryPicker.selectedPath')}
-            </span>
-            <p
+          <div className="flex min-w-0 shrink-0 items-start border-t px-3 pt-2 text-[11px]">
+            <output
+              aria-label={t('directoryPicker.selectedPath')}
               dir="ltr"
               className="min-w-0 max-h-12 flex-1 overflow-auto break-all whitespace-pre-wrap"
               data-testid="directory-picker-target"
             >
               {target ?? '—'}
-            </p>
+            </output>
           </div>
           <div
             data-testid="directory-picker-actions"
@@ -1011,7 +1018,6 @@ function PickerSession({ request, controller }: Session) {
               disabled={locked || !state.listing?.canCreate || unknown}
               onClick={() => controller.editName()}
             >
-              <FolderPlus />
               {t('directoryPicker.newFolder')}
             </Button>
             <div className="ms-auto flex shrink-0 gap-2">

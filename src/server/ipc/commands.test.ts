@@ -255,6 +255,7 @@ describe('server Commands.UpdateSettings', () => {
       )[Commands.SaveGeneralSettings]
       expect(
         await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { defaultSaveDir: destination, notifyOnComplete: false },
           directories: {
             addFavorites: [destination],
@@ -262,7 +263,12 @@ describe('server Commands.UpdateSettings', () => {
             removeRecent: [],
           },
         })
-      ).toEqual({ ok: true, value: { favorites: [destination], recent: [] } })
+      ).toMatchObject({
+        ok: true,
+        value: {
+          directoryPreferences: { favorites: [destination], recent: [] },
+        },
+      })
       expect(manager.getApp()).toMatchObject({
         defaultSaveDir: await realpath(destination),
         notifyOnComplete: false,
@@ -274,6 +280,7 @@ describe('server Commands.UpdateSettings', () => {
       const before = structuredClone(manager.getApp())
       expect(
         await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { defaultSaveDir: outside, notifyOnComplete: true },
           directories: {
             addFavorites: [],
@@ -284,6 +291,7 @@ describe('server Commands.UpdateSettings', () => {
       ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
       expect(
         await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { notifyOnComplete: true },
           directories: {
             addFavorites: [outside],
@@ -300,6 +308,7 @@ describe('server Commands.UpdateSettings', () => {
       )
       expect(
         await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: { defaultSaveDir: destination, extra: true },
           directories: {
             addFavorites: [destination],

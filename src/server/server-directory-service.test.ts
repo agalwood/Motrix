@@ -171,6 +171,28 @@ describe('ServerDirectoryService', () => {
     )
   })
 
+  it('skips an overlong child link target without hiding siblings or accepting direct access', async () => {
+    const { downloads, service } = await fixture()
+    const visible = path.join(downloads, 'visible')
+    const broken = path.join(downloads, 'broken')
+    await mkdir(visible)
+    await symlink('x'.repeat(256), broken)
+
+    expect(await service.list({ path: downloads })).toMatchObject({
+      ok: true,
+      value: {
+        entries: [{ name: 'visible', path: visible }],
+        truncated: false,
+      },
+    })
+    const tooLarge = { ok: false, error: { code: 'tooLarge' } }
+    expect(await service.list({ path: broken })).toEqual(tooLarge)
+    expect(await service.validate({ path: broken })).toEqual(tooLarge)
+    expect(await service.create({ parentPath: broken, name: 'child' })).toEqual(
+      tooLarge
+    )
+  })
+
   it('browses and validates without prepare, mkdir or write probes, including missing and invalid paths', async () => {
     const { downloads, policy } = await fixture()
     const prepare = vi.spyOn(policy, 'prepareSaveDir')

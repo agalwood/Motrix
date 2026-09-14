@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
@@ -986,7 +986,7 @@ describe('buildCommandHandlers', () => {
     fromWebContentsMock.mockReturnValue(parent)
     showOpenDialogMock
       .mockResolvedValueOnce({ canceled: true, filePaths: [] })
-      .mockResolvedValueOnce({ canceled: false, filePaths: ['/downloads'] })
+      .mockResolvedValueOnce({ canceled: false, filePaths: [tmpdir()] })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(fakeCtx())
 
@@ -995,7 +995,7 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     await expect(
       handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/tmp' })
-    ).resolves.toEqual({ path: '/downloads' })
+    ).resolves.toEqual({ path: await realpath(tmpdir()) })
     expect(showOpenDialogMock).toHaveBeenCalledWith(parent, {
       properties: ['openDirectory'],
       defaultPath: '/tmp',
@@ -1029,8 +1029,8 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     expect(showOpenDialogMock).toHaveBeenCalledOnce()
 
-    resolvePick({ canceled: false, filePaths: ['/picked'] })
-    await expect(first).resolves.toEqual({ path: '/picked' })
+    resolvePick({ canceled: false, filePaths: [tmpdir()] })
+    await expect(first).resolves.toEqual({ path: await realpath(tmpdir()) })
 
     showOpenDialogMock.mockResolvedValueOnce({ canceled: true, filePaths: [] })
     await expect(
@@ -1304,6 +1304,29 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it('returns the canonical native directory identity for General favorite drafts', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-native-directory-'))
+    try {
+      const target = path.join(root, 'target')
+      const alias = path.join(root, 'alias')
+      await mkdir(target)
+      await symlink(target, alias)
+      fromWebContentsMock.mockReturnValue(null)
+      showOpenDialogMock.mockResolvedValueOnce({
+        canceled: false,
+        filePaths: [alias],
+      })
+      const pick = buildCommandHandlers(fakeCtx() as unknown as CommandContext)[
+        Commands.PickSaveDir
+      ]
+      expect(await pick?.({ id: 423 }, {})).toEqual({
+        path: await realpath(target),
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('atomically saves General fields and directories and applies the submitted Desktop runtime fields', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-general-'))
     try {
@@ -1316,18 +1339,22 @@ describe('Commands.UpdateSettings', () => {
       const canonical = await realpath(root)
       expect(
         await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: {
             defaultSaveDir: root,
             launchAtStartup: true,
             notifyOnComplete: false,
           },
           directories: {
-            addFavorites: [root],
+            addFavorites: [canonical],
             removeFavorites: [],
             removeRecent: [],
           },
         })
-      ).toEqual({ ok: true, value: { favorites: [canonical], recent: [] } })
+      ).toMatchObject({
+        ok: true,
+        value: { directoryPreferences: { favorites: [canonical], recent: [] } },
+      })
       expect(manager.getApp()).toMatchObject({
         defaultSaveDir: canonical,
         launchAtStartup: true,
@@ -1339,9 +1366,45 @@ describe('Commands.UpdateSettings', () => {
       ).toHaveBeenCalledExactlyOnceWith(canonical)
       ctx.supervisor.applyDefaultSaveDir.mockClear()
       syncAutoLaunchMock.mockClear()
+      const previousRevision = manager.getGeneralSettingsSnapshot().revision
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(manager.getApp().showMainWindowAtLogin).toBe(true)
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      syncAutoLaunchMock.mockClear()
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: false },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: false,
+        error: { code: 'conflict' },
+        snapshot: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
       const before = structuredClone(manager.getApp())
       expect(
         await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
           app: {
             defaultSaveDir: path.join(root, 'missing'),
             launchAtStartup: false,

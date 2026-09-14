@@ -1,3 +1,7 @@
+import {
+  generalSettingsSnapshot,
+  TEST_GENERAL_REVISION,
+} from '@test-utils/general-settings'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import {
@@ -29,7 +33,10 @@ const initial = {
   favorites: ['/downloads/Movies ', '/missing'],
   recent: ['/downloads/Music', '/stale/recent'],
 }
-const ok = (value = initial) => ({ ok: true, value })
+const ok = (value = initial) => ({
+  ok: true,
+  value: generalSettingsSnapshot(value),
+})
 function platform(
   pickSaveDir: PlatformServices['pickSaveDir'] = vi
     .fn()
@@ -103,6 +110,7 @@ describe('DirectoryPreferencesDialog draft', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }))
       await waitFor(() => expect(close).toHaveBeenCalledTimes(1))
       expect(saves()[0]?.[1]).toEqual({
+        expectedRevision: TEST_GENERAL_REVISION,
         app: {},
         directories: {
           addFavorites: ['/chosen '],
@@ -165,6 +173,7 @@ describe('DirectoryPreferencesDialog draft', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(saves()).toHaveLength(1))
     expect(saves()[0]?.[1]).toEqual({
+      expectedRevision: TEST_GENERAL_REVISION,
       app: {},
       directories: {
         addFavorites: ['/downloads/Music'],
@@ -196,6 +205,7 @@ describe('DirectoryPreferencesDialog draft', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(close).toHaveBeenCalled())
     expect(saves()[1]?.[1]).toEqual({
+      expectedRevision: TEST_GENERAL_REVISION,
       app: {},
       directories: {
         addFavorites: [],

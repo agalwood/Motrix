@@ -562,11 +562,14 @@ test('General Save atomically commits settings and directory intent against conc
     window.directoryPickerFixture.releaseRequest?.()
   })
   await expect(manager).not.toBeVisible()
-  expect(await preferenceWrites(page)).toEqual([
-    {
+  const writes = await preferenceWrites(page)
+  expect(writes).toHaveLength(2)
+  for (const write of writes) {
+    expect(write).toEqual({
       channel: Commands.SaveGeneralSettings,
       args: [
         {
+          expectedRevision: expect.any(String),
           app: { notifyOnComplete: !initialNotification },
           directories: {
             addFavorites: ['/downloads/Music'],
@@ -575,8 +578,13 @@ test('General Save atomically commits settings and directory intent against conc
           },
         },
       ],
-    },
-  ])
+    })
+  }
+  expect(
+    (writes[0].args[0] as { expectedRevision: string }).expectedRevision
+  ).not.toBe(
+    (writes[1].args[0] as { expectedRevision: string }).expectedRevision
+  )
   expect(
     await page.evaluate(() => window.directoryPickerFixture.getPreferences())
   ).toEqual({
@@ -745,6 +753,7 @@ test('history manager Save commits its directory-only draft and restores the his
       channel: Commands.SaveGeneralSettings,
       args: [
         {
+          expectedRevision: expect.any(String),
           app: {},
           directories: {
             addFavorites: [],
@@ -1126,3 +1135,55 @@ for (const control of ['location', 'favorite'] as const) {
     await expect(picker).toBeVisible()
   })
 }
+
+test('a no-op Save fences a timed-out original even when its delayed validation finishes after the dialog closes', async ({
+  page,
+}) => {
+  await seed(page)
+  const { manager } = await openSettingsManager(page)
+  await expandRecent(manager)
+  await manager
+    .getByRole('button', {
+      name: 'Add to favorites /downloads/Music',
+      exact: true,
+    })
+    .click()
+  await page.clock.install()
+  await page.evaluate((channel) => {
+    window.directoryPickerFixture.holdChannel = channel
+  }, Commands.SaveGeneralSettings)
+  await manager.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect.poll(() => preferenceWrites(page)).toHaveLength(1)
+  await page.clock.fastForward(20_001)
+  await expect(manager.getByRole('alert')).toBeVisible()
+  await manager
+    .getByRole('button', {
+      name: 'Remove favorite /downloads/Music',
+      exact: true,
+    })
+    .click()
+  await page.evaluate(() => {
+    window.directoryPickerFixture.holdChannel = null
+  })
+  await manager.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(manager).not.toBeVisible()
+  expect(await preferenceWrites(page)).toHaveLength(2)
+  await page.evaluate(async () => {
+    window.directoryPickerFixture.releaseRequest?.()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect(
+    await page.evaluate(() => window.directoryPickerFixture.getPreferences())
+  ).toEqual({
+    favorites: ['/archive'],
+    recent: ['/downloads/Movies', '/downloads/Music', '/missing'],
+  })
+  const reopened = await openSettingsManager(page)
+  await expect(
+    reopened.manager.getByRole('button', {
+      name: 'Remove favorite /downloads/Music',
+      exact: true,
+    })
+  ).toHaveCount(0)
+})

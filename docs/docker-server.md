@@ -533,6 +533,10 @@ edits together with General settings; Cancel discards them. The history menu’s
 Manage directories entry opens the same folder controls with Save and Cancel.
 Removing records never deletes folders or downloads. Concurrently added records
 are preserved when saving your edits.
+If a save fails, the form keeps your edits. You can retry or change the values
+and save again; a delayed response from the earlier save will not overwrite the
+later choice. A failed response can follow a saved update, so Cancel does not
+undo a save that the server already committed.
 Favorite folders are limited to 20; the 10 most recent folders appear newest
 first. AddTask folder confirmations and directories used by successful
 AddTask submissions update recent history. General folder choices remain drafts

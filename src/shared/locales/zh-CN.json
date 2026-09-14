@@ -2481,6 +2481,7 @@
     "history": "目录历史",
     "emptyHistory": "暂无常用目录或最近记录",
     "errors": {
+      "conflict": "设置已在其他窗口中更改。请检查当前修改后再次保存。",
       "invalidPath": "请输入有效的文件夹绝对路径。",
       "outsideRoots": "此文件夹不在允许的位置内。",
       "notFound": "此文件夹已不存在。",

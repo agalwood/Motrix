@@ -5,6 +5,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSaveGeneralSettingsHandler } from './general-settings'
 import { SettingsManager } from './settings-manager'
 
+function createCurrentSave(
+  manager: SettingsManager,
+  options?: Parameters<typeof createSaveGeneralSettingsHandler>[1]
+) {
+  const save = createSaveGeneralSettingsHandler(manager, options)
+  return (raw: object) =>
+    save({
+      expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+      ...raw,
+    })
+}
+
 const temporary: string[] = []
 const empty = { addFavorites: [], removeFavorites: [], removeRecent: [] }
 afterEach(async () => {
@@ -16,7 +28,9 @@ afterEach(async () => {
   )
 })
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), 'motrix-general-'))
+  const root = await realpath(
+    await mkdtemp(path.join(tmpdir(), 'motrix-general-'))
+  )
   temporary.push(root)
   const file = path.join(root, 'settings.json')
   const change = vi.fn()
@@ -48,7 +62,7 @@ describe('General settings save handler', () => {
       })
     })
     change.mockClear()
-    const save = createSaveGeneralSettingsHandler(manager, {
+    const save = createCurrentSave(manager, {
       applySavedApp: apply,
     })
     expect(
@@ -60,9 +74,14 @@ describe('General settings save handler', () => {
           removeRecent: ['/old '],
         },
       })
-    ).toEqual({
+    ).toMatchObject({
       ok: true,
-      value: { favorites: [await realpath(destination)], recent: [] },
+      value: {
+        directoryPreferences: {
+          favorites: [await realpath(destination)],
+          recent: [],
+        },
+      },
     })
     expect(change).toHaveBeenCalledOnce()
     expect(apply).toHaveBeenCalledOnce()
@@ -83,7 +102,7 @@ describe('General settings save handler', () => {
     const resolve = vi.fn(async (value: string) => value)
     const commit = vi.spyOn(manager, 'saveGeneralSettings')
     const apply = vi.fn()
-    const save = createSaveGeneralSettingsHandler(manager, {
+    const save = createCurrentSave(manager, {
       resolveFavorite: resolve,
       resolveDefaultDirectory: resolve,
       applySavedApp: apply,
@@ -108,7 +127,7 @@ describe('General settings save handler', () => {
     const before = await readFile(file, 'utf8')
     change.mockClear()
     const apply = vi.fn()
-    const save = createSaveGeneralSettingsHandler(manager, {
+    const save = createCurrentSave(manager, {
       applySavedApp: apply,
     })
     for (const request of [
@@ -153,7 +172,7 @@ describe('General settings save handler', () => {
       'saveSettings'
     ).mockRejectedValueOnce(new Error('/private/disk failure'))
     const apply = vi.fn()
-    const save = createSaveGeneralSettingsHandler(manager, {
+    const save = createCurrentSave(manager, {
       applySavedApp: apply,
     })
     expect(
@@ -174,17 +193,67 @@ describe('General settings save handler', () => {
       .fn()
       .mockRejectedValueOnce(new Error('engine unavailable'))
       .mockResolvedValue(undefined)
-    const save = createSaveGeneralSettingsHandler(manager, {
+    const save = createCurrentSave(manager, {
       applySavedApp: apply,
     })
     const request = { app: { warnBeforeQuit: false }, directories: empty }
-    expect(await save(request)).toEqual({
+    expect(await save(request)).toMatchObject({
       ok: false,
       error: { code: 'unavailable' },
+      snapshot: { app: { warnBeforeQuit: false } },
     })
     expect(manager.getApp().warnBeforeQuit).toBe(false)
     expect(await save(request)).toMatchObject({ ok: true })
     expect(apply).toHaveBeenCalledTimes(2)
     expect(change).toHaveBeenCalledOnce()
   })
+})
+
+it('fences a timed-out save still resolving directories when an empty compensation commits first', async () => {
+  const { root, file, manager, change } = await fixture()
+  const before = await readFile(file, 'utf8')
+  const revision = manager.getGeneralSettingsSnapshot().revision
+  let release!: (path: string) => void
+  const save = createSaveGeneralSettingsHandler(manager, {
+    resolveFavorite: () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  })
+  const original = save({
+    expectedRevision: revision,
+    app: { notifyOnError: false },
+    directories: { ...empty, addFavorites: [root] },
+  })
+  const compensation = await save({
+    expectedRevision: revision,
+    app: {},
+    directories: empty,
+  })
+  expect(compensation.ok).toBe(true)
+  expect(manager.getGeneralSettingsSnapshot().revision).not.toBe(revision)
+  release(root)
+  expect(await original).toMatchObject({
+    ok: false,
+    error: { code: 'conflict' },
+  })
+  expect(manager.getApp().notifyOnError).toBe(true)
+  expect(manager.getApp().directoryPreferences.favorites).toEqual([])
+  expect(await readFile(file, 'utf8')).toBe(before)
+  expect(change).not.toHaveBeenCalled()
+})
+
+it('rejects favorite normalization that would make uncertain additions impossible to remove by their draft key', async () => {
+  const { manager } = await fixture()
+  const save = createCurrentSave(manager, {
+    resolveFavorite: async () => '/canonical',
+  })
+  expect(
+    await save({
+      app: { notifyOnError: false },
+      directories: { ...empty, addFavorites: ['/alias'] },
+    })
+  ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+  expect(manager.getApp().directoryPreferences.favorites).toEqual([])
+  expect(manager.getApp().notifyOnError).toBe(true)
 })

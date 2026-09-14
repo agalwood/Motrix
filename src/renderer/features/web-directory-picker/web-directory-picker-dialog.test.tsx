@@ -509,6 +509,64 @@ describe('WebDirectoryPickerDialog', () => {
     )
   })
 
+  it('matches shifted characters and spaces while keeping modifiers and IME out of typeahead', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(100)
+    const original = vi.mocked(transport.invoke).getMockImplementation()
+    vi.mocked(transport.invoke).mockImplementation((channel, ...args) =>
+      channel === Queries.ListServerDirectories
+        ? Promise.resolve(
+            directories('/downloads', [
+              'Alpha',
+              '!Bang',
+              'Folder 01',
+              'Folder 12',
+              'Movies',
+              'Music',
+            ])
+          )
+        : original!(channel, ...args)
+    )
+    render(<Harness />)
+    const { list } = await openPicker()
+    const target = screen.getByTestId('directory-picker-target')
+    expect(fireEvent.keyDown(list, { key: ' ' })).toBe(false)
+    expect(target).toHaveTextContent(/^\/downloads$/)
+    fireEvent.keyDown(list, { key: 'M', shiftKey: true })
+    expect(target).toHaveTextContent('/downloads/Movies')
+
+    clock.mockReturnValue(1_000)
+    fireEvent.keyDown(list, { key: '!', shiftKey: true })
+    expect(target).toHaveTextContent('/downloads/!Bang')
+
+    clock.mockReturnValue(2_000)
+    for (const key of 'folder 12') fireEvent.keyDown(list, { key })
+    expect(target).toHaveTextContent('/downloads/Folder 12')
+
+    clock.mockReturnValue(3_000)
+    for (const modifiers of [
+      { ctrlKey: true },
+      { metaKey: true },
+      { altKey: true },
+      { isComposing: true },
+      { keyCode: 229 },
+    ]) {
+      fireEvent.keyDown(list, { key: 'M', shiftKey: true, ...modifiers })
+    }
+    fireEvent.keyDown(list, { key: 'ArrowDown', shiftKey: true })
+    expect(target).toHaveTextContent('/downloads/Folder 12')
+    expect(fireEvent.keyDown(list, { key: ' ' })).toBe(false)
+    expect(target).toHaveTextContent('/downloads/Folder 12')
+    fireEvent.keyDown(list, { key: 'a' })
+    expect(target).toHaveTextContent('/downloads/Alpha')
+    fireEvent.keyDown(list, { key: '/', shiftKey: true })
+    const pathEditor = screen.getByRole('textbox', { name: 'Folder path' })
+    expect(pathEditor).toHaveFocus()
+    fireEvent.keyDown(pathEditor, { key: 'Escape' })
+    expect(list).toHaveFocus()
+    fireEvent.keyDown(list, { key: '/' })
+    expect(screen.getByRole('textbox', { name: 'Folder path' })).toHaveFocus()
+  })
+
   it('starts fresh typeahead immediately after entering a different folder', async () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(100)
     try {

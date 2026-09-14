@@ -459,6 +459,7 @@ test('General settings retains its own Cancel and Save boundary after selection'
       channel: Commands.SaveGeneralSettings,
       args: [
         {
+          expectedRevision: expect.any(String),
           app: { defaultSaveDir: '/downloads/Music' },
           directories: {
             addFavorites: [],
@@ -789,6 +790,44 @@ test('resizing between sidebar and compact roots preserves focus and editor DOM'
   ).toBe(true)
   await editor.press('Escape')
   await expect(list).toBeFocused()
+})
+
+test('native shifted keys and filename spaces match the typed prefix', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime('2026-09-07T00:00:00Z')
+  const { picker, list } = await openPicker(page)
+  const target = picker.getByTestId('directory-picker-target')
+  await page.keyboard.press('Space')
+  await expect(target).toHaveText('/downloads')
+  await page.keyboard.press('Shift+M')
+  await expect(target).toHaveText('/downloads/Movies')
+  await page.evaluate(() => {
+    window.directoryPickerFixture.setDirectoryChildren('/downloads', [
+      '!Bang',
+      'Folder 01',
+      'Folder 12',
+      'Movies',
+      'Music',
+    ])
+  })
+  await picker.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await expect(picker.getByRole('option', { name: '!Bang' })).toBeVisible()
+  await expect(list).toBeFocused()
+
+  await page.clock.setFixedTime('2026-09-07T00:00:01Z')
+  await page.keyboard.press('Shift+Digit1')
+  await expect(target).toHaveText('/downloads/!Bang')
+  await page.clock.setFixedTime('2026-09-07T00:00:02Z')
+  await page.keyboard.type('folder 12')
+  await expect(target).toHaveText('/downloads/Folder 12')
+  await expect(
+    picker.getByRole('option', { name: 'Folder 12', exact: true })
+  ).toHaveAttribute('aria-selected', 'true')
+  await expect(list).toBeFocused()
+  await expect(picker).toBeVisible()
+  expect(await calls(page, Queries.ValidateServerDirectory)).toHaveLength(0)
+  expect(await calls(page, Commands.CreateTask)).toHaveLength(0)
 })
 
 test('rapid typeahead after navigation starts with the new folder name', async ({

@@ -1,3 +1,4 @@
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
@@ -912,7 +913,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       settingsManager,
       {
         applySavedApp: async (patch) => {
-          if (patch.launchAtStartup !== undefined) {
+          if (
+            patch.launchAtStartup !== undefined ||
+            patch.showMainWindowAtLogin !== undefined
+          ) {
             syncAutoLaunch(settingsManager.getApp().launchAtStartup)
           }
           if (patch.defaultSaveDir !== undefined) {
@@ -1215,7 +1219,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         if (result.canceled || result.filePaths.length === 0) {
           return null
         }
-        return { path: result.filePaths[0] }
+        const selected = await realpath(result.filePaths[0]).catch(() => null)
+        return selected ? { path: selected } : null
       } finally {
         saveDirPickersInFlight.delete(sender)
       }

@@ -11,6 +11,10 @@ import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import {
+  generalSettingsSnapshot,
+  TEST_GENERAL_REVISION,
+} from '@test-utils/general-settings'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServerDownloadPathPolicy } from '../download-path-policy'
@@ -221,6 +225,7 @@ describe('directory preferences RPC boundary', () => {
       kind: 'command',
       channel: Commands.SaveGeneralSettings,
       request: {
+        expectedRevision: TEST_GENERAL_REVISION,
         app: {},
         directories: {
           addFavorites: [],
@@ -228,7 +233,13 @@ describe('directory preferences RPC boundary', () => {
           removeRecent: [],
         },
       },
-      value: { favorites: [], recent: [] },
+      value: generalSettingsSnapshot(),
+    },
+    {
+      kind: 'query',
+      channel: Queries.GetGeneralSettingsDraft,
+      request: {},
+      value: generalSettingsSnapshot(),
     },
     {
       kind: 'query',

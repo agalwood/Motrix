@@ -2502,6 +2502,7 @@
     "history": "Directory history",
     "emptyHistory": "No favorite or recent folders yet",
     "errors": {
+      "conflict": "Settings changed in another window. Review your changes and save again.",
       "invalidPath": "Enter a valid absolute folder path.",
       "outsideRoots": "This folder is outside the allowed locations.",
       "notFound": "This folder no longer exists.",

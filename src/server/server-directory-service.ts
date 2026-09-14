@@ -247,8 +247,8 @@ export class ServerDirectoryService {
           } catch (error) {
             // An unresolvable child link must not hide its healthy siblings.
             // Direct requests still fail through the outer error boundary.
-            if ((error as NodeJS.ErrnoException | null)?.code === 'ELOOP')
-              continue
+            const code = (error as NodeJS.ErrnoException | null)?.code
+            if (code === 'ELOOP' || code === 'ENAMETOOLONG') continue
             if (
               ![
                 'outsideRoots',

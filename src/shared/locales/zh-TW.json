@@ -2481,6 +2481,7 @@
     "history": "目錄歷史",
     "emptyHistory": "尚無常用目錄或最近記錄",
     "errors": {
+      "conflict": "設定已在其他視窗中變更。請檢查目前修改後再次儲存。",
       "invalidPath": "請輸入有效的資料夾絕對路徑。",
       "outsideRoots": "此資料夾不在允許的位置內。",
       "notFound": "此資料夾已不存在。",

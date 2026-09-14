@@ -1,3 +1,8 @@
+import type { SaveGeneralSettingsRequest } from '@shared/schemas/general-settings'
+import {
+  generalSettingsSnapshot,
+  TEST_GENERAL_REVISION,
+} from '@test-utils/general-settings'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { Commands } from '@shared/protocol/commands'
@@ -51,14 +56,19 @@ const SETTINGS_FIXTURE = {
   },
 }
 
+const generalResult = (
+  preferences = { favorites: [] as string[], recent: [] as string[] },
+  app = SETTINGS_FIXTURE.app
+) => ({ ok: true, value: generalSettingsSnapshot(preferences, app) })
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver)
   transportMock.platform = 'darwin'
   transportMock.pickSaveDir.mockReset().mockResolvedValue(null)
   vi.mocked(transport.invoke).mockReset()
   vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
-    if (channel === Queries.GetSettings) return SETTINGS_FIXTURE
-    return { ok: true, value: { favorites: [], recent: [] } }
+    if (channel === Queries.GetGeneralSettingsDraft) return generalResult()
+    return generalResult()
   })
 })
 
@@ -67,8 +77,7 @@ describe('<GeneralDialog>', () => {
     let attempts = 0
     let release!: (value: unknown) => void
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel !== Queries.GetSettings)
-        return { ok: true, value: { favorites: [], recent: [] } }
+      if (channel !== Queries.GetGeneralSettingsDraft) return generalResult()
       if (++attempts === 1) throw new Error('offline')
       return new Promise((resolve) => {
         release = resolve
@@ -94,7 +103,7 @@ describe('<GeneralDialog>', () => {
       document.activeElement as HTMLElement
     )
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
-    await act(async () => release(SETTINGS_FIXTURE))
+    await act(async () => release(generalResult()))
     await screen.findByDisplayValue('/Users/me/Downloads')
   })
 
@@ -103,9 +112,9 @@ describe('<GeneralDialog>', () => {
     async (action) => {
       const preferences = { favorites: ['/saved '], recent: ['/recent'] }
       vi.mocked(transport.invoke).mockImplementation(async (channel) =>
-        channel === Queries.GetSettings
-          ? SETTINGS_FIXTURE
-          : { ok: true, value: preferences }
+        channel === Queries.GetGeneralSettingsDraft
+          ? generalResult(preferences)
+          : generalResult(preferences)
       )
       transportMock.pickSaveDir.mockResolvedValue('/new-default')
       const onClose = vi.fn()
@@ -130,9 +139,7 @@ describe('<GeneralDialog>', () => {
         vi
           .mocked(transport.invoke)
           .mock.calls.every(
-            ([channel]) =>
-              channel === Queries.GetSettings ||
-              channel === Queries.GetDirectoryPreferences
+            ([channel]) => channel === Queries.GetGeneralSettingsDraft
           )
       ).toBe(true)
       await userEvent.click(screen.getByRole('button', { name: action }))
@@ -141,6 +148,7 @@ describe('<GeneralDialog>', () => {
         expect(transport.invoke).toHaveBeenCalledWith(
           Commands.SaveGeneralSettings,
           {
+            expectedRevision: TEST_GENERAL_REVISION,
             app: { defaultSaveDir: '/new-default', notifyOnError: false },
             directories: {
               addFavorites: [],
@@ -150,7 +158,7 @@ describe('<GeneralDialog>', () => {
           }
         )
       } else {
-        expect(vi.mocked(transport.invoke).mock.calls).toHaveLength(2)
+        expect(vi.mocked(transport.invoke).mock.calls).toHaveLength(1)
       }
     }
   )
@@ -188,9 +196,8 @@ describe('<GeneralDialog>', () => {
 
   it('retains dirty app fields and directory rows after an atomic Save failure', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === Queries.GetSettings) return SETTINGS_FIXTURE
-      if (channel === Queries.GetDirectoryPreferences)
-        return { ok: true, value: { favorites: ['/saved'], recent: [] } }
+      if (channel === Queries.GetGeneralSettingsDraft)
+        return generalResult({ favorites: ['/saved'], recent: [] })
       return { ok: false, error: { code: 'permissionDenied' } }
     })
     const onClose = vi.fn()
@@ -226,7 +233,7 @@ describe('<GeneralDialog>', () => {
     ).toHaveLength(2)
   })
 
-  it('hydrates from GetSettings', async () => {
+  it('hydrates General fields and directories from one snapshot', async () => {
     render(
       <GeneralDialog
         open
@@ -255,6 +262,7 @@ describe('<GeneralDialog>', () => {
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.SaveGeneralSettings,
         {
+          expectedRevision: TEST_GENERAL_REVISION,
           app: { warnBeforeQuit: false },
           directories: {
             addFavorites: [],
@@ -299,6 +307,7 @@ describe('<GeneralDialog>', () => {
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.SaveGeneralSettings,
         {
+          expectedRevision: TEST_GENERAL_REVISION,
           app: { notifyOnError: false },
           directories: {
             addFavorites: [],
@@ -323,6 +332,7 @@ describe('<GeneralDialog>', () => {
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.SaveGeneralSettings,
         {
+          expectedRevision: TEST_GENERAL_REVISION,
           app: { autofillClipboardLinks: false },
           directories: {
             addFavorites: [],
@@ -352,6 +362,7 @@ describe('<GeneralDialog>', () => {
     expect(transport.invoke).toHaveBeenCalledWith(
       Commands.SaveGeneralSettings,
       {
+        expectedRevision: TEST_GENERAL_REVISION,
         app: { launchAtStartup: true },
         directories: {
           addFavorites: [],
@@ -376,19 +387,21 @@ it('enables the login window preference with auto-launch and saves both dirty fi
   expect(toggle).not.toHaveAttribute('aria-disabled', 'true')
   await userEvent.click(toggle)
   await userEvent.click(screen.getByRole('button', { name: /save/i }))
-  expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.SaveGeneralSettings, {
+    expectedRevision: TEST_GENERAL_REVISION,
     app: { launchAtStartup: true, showMainWindowAtLogin: true },
+    directories: { addFavorites: [], removeFavorites: [], removeRecent: [] },
   })
 })
 
 it('asks for a download folder and clears the error after browsing', async () => {
   vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
-    if (channel === Queries.GetSettings)
-      return {
-        ...SETTINGS_FIXTURE,
-        app: { ...SETTINGS_FIXTURE.app, defaultSaveDir: '' },
-      }
-    return { saved: true }
+    if (channel === Queries.GetGeneralSettingsDraft)
+      return generalResult(undefined, {
+        ...SETTINGS_FIXTURE.app,
+        defaultSaveDir: '',
+      })
+    return generalResult()
   })
   pickSaveDir.mockResolvedValue('/Downloads')
   const onClose = vi.fn()
@@ -405,9 +418,84 @@ it('asks for a download folder and clears the error after browsing', async () =>
   await screen.findByDisplayValue('/Downloads')
   await user.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      app: { defaultSaveDir: '/Downloads' },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveGeneralSettings,
+      {
+        expectedRevision: TEST_GENERAL_REVISION,
+        app: { defaultSaveDir: '/Downloads' },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   )
   expect(onClose).toHaveBeenCalledOnce()
 })
+
+it.each([false, true])(
+  'saves a boolean restored to its original clean value after a lost committed response (refresh=%s)',
+  async (refresh) => {
+    let host = generalSettingsSnapshot(undefined, SETTINGS_FIXTURE.app)
+    let first = true
+    vi.mocked(transport.invoke).mockImplementation(async (channel, raw) => {
+      if (channel === Queries.GetGeneralSettingsDraft)
+        return { ok: true, value: structuredClone(host) }
+      const request = raw as SaveGeneralSettingsRequest
+      if (request.expectedRevision !== host.revision)
+        return {
+          ok: false,
+          error: { code: 'conflict' },
+          snapshot: structuredClone(host),
+        }
+      host = {
+        ...host,
+        app: { ...host.app, ...request.app },
+        revision: '00000000-0000-4000-8000-000000000002',
+      }
+      if (first) {
+        first = false
+        host.app.autofillClipboardLinks = false // An unrelated client's committed edit.
+        throw new Error('response lost after commit')
+      }
+      return { ok: true, value: structuredClone(host) }
+    })
+    const close = vi.fn()
+    render(<GeneralDialog open onClose={close} labelKey="" descKey="" />)
+    await screen.findByDisplayValue('/Users/me/Downloads')
+    const user = userEvent.setup()
+    const notification = screen.getByRole('switch', {
+      name: /notify on failure/i,
+    })
+    await user.click(notification)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await screen.findByRole('alert')
+    expect(host.app.notifyOnError).toBe(false)
+    expect(close).not.toHaveBeenCalled()
+    await user.click(notification) // RHF dirty=false against the original true baseline.
+    if (refresh) {
+      await user.click(screen.getByRole('button', { name: 'Retry' }))
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      )
+    }
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(close).toHaveBeenCalledOnce())
+    expect(host.app.notifyOnError).toBe(true)
+    expect(host.app.autofillClipboardLinks).toBe(false)
+    expect(
+      screen.getByRole('switch', { name: /autofill link from clipboard/i })
+    ).not.toBeChecked()
+    const saves = vi
+      .mocked(transport.invoke)
+      .mock.calls.filter(
+        ([channel]) => channel === Commands.SaveGeneralSettings
+      )
+    expect(saves.at(-1)?.[1]).toMatchObject({ app: { notifyOnError: true } })
+    const finalRequest = saves.at(-1)?.[1] as
+      | SaveGeneralSettingsRequest
+      | undefined
+    expect(finalRequest?.app).toEqual({ notifyOnError: true })
+  }
+)

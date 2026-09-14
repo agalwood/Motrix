@@ -21,6 +21,7 @@ import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { parseProxyEnvironment } from '@core/proxy/system-proxy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createGetGeneralSettingsDraftHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SpeedLimitController } from '@core/speed-limit/speed-limit-controller'
 import type {
@@ -246,6 +247,8 @@ export function buildServerQueryHandlers(
 
     [Queries.GetNatDiagnostic]: async () => null,
 
+    [Queries.GetGeneralSettingsDraft]:
+      createGetGeneralSettingsDraftHandler(settingsManager),
     [Queries.GetDirectoryPreferences]:
       createDirectoryPreferencesHandlers(settingsManager).get,
 

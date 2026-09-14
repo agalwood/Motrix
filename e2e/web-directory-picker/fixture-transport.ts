@@ -9,7 +9,11 @@ import {
   GetDirectoryPreferencesRequestSchema,
   MutateDirectoryPreferencesRequestSchema,
 } from '@shared/schemas/directory-preferences'
-import { SaveGeneralSettingsRequestSchema } from '@shared/schemas/general-settings'
+import {
+  GeneralSettingsAppSchema,
+  GetGeneralSettingsDraftRequestSchema,
+  SaveGeneralSettingsRequestSchema,
+} from '@shared/schemas/general-settings'
 import {
   CreateServerDirectoryRequestSchema,
   ListServerDirectoriesRequestSchema,
@@ -56,9 +60,16 @@ const canVisit = (path: string) =>
     ['/downloads', '/archive'].some(
       (root) => path === root || path.startsWith(`${root}/`)
     ))
+let generalRevision = crypto.randomUUID()
+const generalSnapshot = () => ({
+  revision: generalRevision,
+  app: GeneralSettingsAppSchema.parse(settings.app),
+  directoryPreferences: preferences(),
+})
 const preferences = () => structuredClone(settings.app.directoryPreferences)
 function setPreferences(value: DirectoryPreferences) {
   settings.app.directoryPreferences = DirectoryPreferencesSchema.parse(value)
+  generalRevision = crypto.randomUUID()
   for (const listener of listeners.get(Events.DirectoryPreferencesChanged) ??
     [])
     listener(preferences())
@@ -132,6 +143,9 @@ export const transport: Transport = {
           defaultPath: '/downloads',
           allowCustom: true,
         }
+      case Queries.GetGeneralSettingsDraft:
+        GetGeneralSettingsDraftRequestSchema.parse(args[0])
+        return { ok: true, value: generalSnapshot() }
       case Queries.GetDirectoryPreferences:
         GetDirectoryPreferencesRequestSchema.parse(args[0])
         return { ok: true, value: preferences() }
@@ -195,7 +209,9 @@ export const transport: Transport = {
         const parsed = SaveGeneralSettingsRequestSchema.safeParse(args[0])
         if (!parsed.success) return error('invalidPath')
         if (fixtureState.mutationFailure) return error('unavailable')
-        const { app, directories } = parsed.data
+        const { app, directories, expectedRevision } = parsed.data
+        if (expectedRevision !== generalRevision)
+          return { ...error('conflict'), snapshot: generalSnapshot() }
         if (
           (app.defaultSaveDir !== undefined && !canVisit(app.defaultSaveDir)) ||
           directories.addFavorites.some((path) => !canVisit(path))
@@ -218,7 +234,8 @@ export const transport: Transport = {
         settings.app = { ...settings.app, ...app, directoryPreferences: next }
         if (JSON.stringify(current) !== JSON.stringify(next))
           setPreferences(next)
-        return { ok: true, value: preferences() }
+        generalRevision = crypto.randomUUID()
+        return { ok: true, value: generalSnapshot() }
       }
       case Queries.ListServerDirectories: {
         const { path, showHidden } = ListServerDirectoriesRequestSchema.parse(

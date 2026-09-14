@@ -28,30 +28,17 @@ import {
   DirectoryPreferencesSection,
   DirectoryPreferencesStatus,
 } from '@renderer/features/directory-preferences/directory-preferences-section'
-import {
-  DIRECTORY_DRAFT_TIMEOUT,
-  useDirectoryPreferencesDraft,
-} from '@renderer/features/directory-preferences/use-directory-preferences-draft'
+import { useDirectoryPreferencesDraft } from '@renderer/features/directory-preferences/use-directory-preferences-draft'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
-import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
-import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
-import { type ComponentProps, useEffect, useRef, useState } from 'react'
+import type { GeneralSettingsApp } from '@shared/schemas/general-settings'
+import { type ComponentProps, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
 import { generalFormSchema } from './settings-form-schemas'
 
-type GeneralFields = Pick<
-  MotrixAppSettings,
-  | 'launchAtStartup'
-  | 'showMainWindowAtLogin'
-  | 'defaultSaveDir'
-  | 'notifyOnComplete'
-  | 'notifyOnError'
-  | 'autofillClipboardLinks'
-  | 'warnBeforeQuit'
->
+type GeneralFields = GeneralSettingsApp
 
 // Source of truth: src/shared/schemas/app-settings.ts (DEFAULT_APP_SETTINGS).
 // Defaults are sourced from the schema; the renderer mirrors the subset of
@@ -75,74 +62,34 @@ export function GeneralDialog({
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
   const form = useSettingsForm<GeneralFields>(generalFormSchema, DEFAULTS)
-  const directories = useDirectoryPreferencesDraft()
+  const directories = useDirectoryPreferencesDraft({
+    getAppDraft: () => ({
+      values: form.getValues(),
+      dirty: pickDirty(form.getValues(), form.formState.dirtyFields) ?? {},
+    }),
+    onAppRebase: (baseline, intent) => {
+      form.reset(baseline)
+      for (const key of Object.keys(intent) as (keyof GeneralFields)[]) {
+        const value = intent[key]
+        if (value !== undefined)
+          form.setValue(key, value, { shouldDirty: true })
+      }
+    },
+  })
   const contentRef = useRef<HTMLDivElement>(null)
   const [defaultPicking, setDefaultPicking] = useState(false)
   const [favoritePicking, setFavoritePicking] = useState(false)
-  const [settingsLoading, setSettingsLoading] = useState(true)
-  const [settingsError, setSettingsError] = useState(false)
-  const [settingsAttempt, setSettingsAttempt] = useState(0)
   const busy = directories.saving || defaultPicking || favoritePicking
-  const fieldsDisabled = directories.saving || settingsLoading || settingsError
+  const fieldsDisabled =
+    directories.saving || directories.loading || !directories.ready
   const close = () => {
     if (!busy) onClose()
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-    setSettingsLoading(true)
-    setSettingsError(false)
-    Promise.race([
-      transport.invoke(Queries.GetSettings),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error('Settings request timed out')),
-          DIRECTORY_DRAFT_TIMEOUT
-        )
-      }),
-    ])
-      .then((data) => {
-        if (cancelled) return
-        const all = data as AppSettings
-        if (all?.app) {
-          form.reset({
-            launchAtStartup: all.app.launchAtStartup,
-            showMainWindowAtLogin: all.app.showMainWindowAtLogin,
-            defaultSaveDir: all.app.defaultSaveDir,
-            notifyOnComplete: all.app.notifyOnComplete,
-            notifyOnError: all.app.notifyOnError,
-            autofillClipboardLinks: all.app.autofillClipboardLinks,
-            warnBeforeQuit: all.app.warnBeforeQuit,
-          })
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSettingsError(true)
-      })
-      .finally(() => {
-        clearTimeout(timer)
-        if (!cancelled) setSettingsLoading(false)
-      })
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [settingsAttempt])
-
-  const onSubmit = useSettingsSubmit(form, async (values) => {
-    if (
-      busy ||
-      settingsLoading ||
-      settingsError ||
-      directories.loading ||
-      !directories.ready
-    )
-      return
-    const dirty = pickDirty(values, form.formState.dirtyFields)
+  const onSubmit = useSettingsSubmit(form, async () => {
+    if (busy || directories.loading || !directories.ready) return
     contentRef.current?.focus({ preventScroll: true })
-    if (await directories.save(dirty ?? {})) onClose()
+    if (await directories.save()) onClose()
   })
 
   return (
@@ -168,28 +115,16 @@ export function GeneralDialog({
           tabIndex={-1}
           className="min-h-0 flex-1 overflow-y-auto px-6 py-4 outline-none"
         >
-          {settingsError && (
-            <div
-              role="alert"
-              className="mb-3 flex items-center gap-2 text-xs text-destructive"
-            >
-              <p className="flex-1">
-                {t('directoryPreferences.errors.unavailable')}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  contentRef.current?.focus({ preventScroll: true })
-                  setSettingsAttempt((attempt) => attempt + 1)
-                }}
-              >
-                {t('directoryPreferences.retry')}
-              </Button>
-            </div>
-          )}
+          <DirectoryPreferencesStatus
+            loading={directories.loading}
+            error={directories.error}
+            disabled={busy}
+            onRetry={() => {
+              contentRef.current?.focus({ preventScroll: true })
+              void directories.refresh()
+            }}
+          />
+
           <Form {...form}>
             <form noValidate onSubmit={onSubmit}>
               <fieldset className="min-w-0 space-y-4" disabled={fieldsDisabled}>
@@ -282,15 +217,6 @@ export function GeneralDialog({
                   <p className="text-xs text-muted-foreground">
                     {t('directoryPreferences.sectionDescription')}
                   </p>
-                  <DirectoryPreferencesStatus
-                    loading={directories.loading}
-                    error={directories.error}
-                    disabled={busy}
-                    onRetry={() => {
-                      contentRef.current?.focus({ preventScroll: true })
-                      void directories.refresh()
-                    }}
-                  />
                   <DirectoryPreferencesSection
                     preferences={directories.preferences}
                     onChange={directories.setPreferences}
@@ -423,8 +349,6 @@ export function GeneralDialog({
             disabled={
               form.formState.isSubmitting ||
               busy ||
-              settingsLoading ||
-              settingsError ||
               directories.loading ||
               !directories.ready
             }

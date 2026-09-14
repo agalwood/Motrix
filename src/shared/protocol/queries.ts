@@ -5,6 +5,7 @@ export const Queries = {
   GetStats: 'query:getStats',
   GetTaskSpeedHistory: 'query:getTaskSpeedHistory',
   GetTaskInspectorActivity: 'query:getTaskInspectorActivity',
+  GetGeneralSettingsDraft: 'query:getGeneralSettingsDraft',
   GetDirectoryPreferences: 'query:getDirectoryPreferences',
   ListServerDirectoryLocations: 'query:listServerDirectoryLocations',
   GetSettings: 'query:getSettings',

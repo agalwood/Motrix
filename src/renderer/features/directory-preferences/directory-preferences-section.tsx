@@ -9,8 +9,8 @@ import {
   DIRECTORY_FAVORITES_LIMIT,
   DIRECTORY_RECENT_LIMIT,
   type DirectoryPreferences,
-  type DirectoryPreferencesErrorCode,
 } from '@shared/schemas/directory-preferences'
+import type { GeneralSettingsErrorCode } from '@shared/schemas/general-settings'
 import { ChevronRight, Folder, FolderPlus, Star, Trash2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -29,7 +29,7 @@ export function DirectoryPreferencesStatus({
   onRetry,
 }: {
   loading: boolean
-  error: DirectoryPreferencesErrorCode | null
+  error: GeneralSettingsErrorCode | null
   disabled?: boolean
   onRetry: () => void
 }) {

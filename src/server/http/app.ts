@@ -16,6 +16,7 @@ import type {
 } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { DirectoryPreferencesResultSchema } from '@shared/schemas/directory-preferences'
+import { GeneralSettingsResultSchema } from '@shared/schemas/general-settings'
 import {
   CreateServerDirectoryResultSchema,
   ListServerDirectoriesResultSchema,
@@ -38,7 +39,8 @@ export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
 
 const directoryResultSchemas = {
   [Commands.MutateDirectoryPreferences]: DirectoryPreferencesResultSchema,
-  [Commands.SaveGeneralSettings]: DirectoryPreferencesResultSchema,
+  [Commands.SaveGeneralSettings]: GeneralSettingsResultSchema,
+  [Queries.GetGeneralSettingsDraft]: GeneralSettingsResultSchema,
   [Queries.GetDirectoryPreferences]: DirectoryPreferencesResultSchema,
   [Queries.ListServerDirectoryLocations]:
     ListServerDirectoryLocationsResultSchema,
@@ -184,6 +186,7 @@ export async function createApp(
         req.params.channel === Queries.ListServerDirectories ||
         req.params.channel === Queries.ValidateServerDirectory ||
         req.params.channel === Queries.GetDirectoryPreferences ||
+        req.params.channel === Queries.GetGeneralSettingsDraft ||
         req.params.channel === Queries.ListServerDirectoryLocations
       ) {
         return directoryRpc(req.params.channel, req.body, handler)
