@@ -1284,6 +1284,23 @@ describe('Aria2Adapter', () => {
   })
 
   describe('getTaskStatus — status translation', () => {
+    it('returns null only when the engine identity is absent', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+      vi.mocked(rpc.tellStatus).mockRejectedValueOnce(
+        new Error('GID#0123456789abcdef is not found')
+      )
+      await expect(
+        adapter.getTaskStatus('0123456789abcdef')
+      ).resolves.toBeNull()
+      vi.mocked(rpc.tellStatus).mockRejectedValueOnce(
+        new Error('connection lost')
+      )
+      await expect(adapter.getTaskStatus('0123456789abcdef')).rejects.toThrow(
+        'connection lost'
+      )
+    })
+
     it('translates active HTTP download', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.tellStatus).mockResolvedValue(RAW_HTTP_ACTIVE)

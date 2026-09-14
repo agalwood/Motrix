@@ -36,5 +36,6 @@ export class TorrentMetaStoreImpl implements TorrentMetaStore {
       const err = e as NodeJS.ErrnoException
       if (err.code !== 'ENOENT') throw err
     }
+    await fs.rm(`${metaPath}.state`, { recursive: true, force: true })
   }
 }

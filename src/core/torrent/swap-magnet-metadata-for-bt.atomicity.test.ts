@@ -315,7 +315,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
         payload: {
           cleanupQuarantined: true,
           cleanupTombstoneHidden: true,
-          cleanupArtifactPaths: [path.join(saveDir, 'resolved.torrent.motrix')],
+          cleanupArtifactPaths: [],
         },
       })
       expect(db.getTaskFiles(taskId)).toEqual(initialFiles)
@@ -332,7 +332,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
         expect.objectContaining({
           taskId,
           gid: failedGid,
-          artifactPaths: [path.join(saveDir, 'resolved.torrent.motrix')],
+          artifactPaths: [],
         })
       )
       expect(
@@ -343,11 +343,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
 
       expect(tracking.allEngineGids).toEqual(new Set([failedGid]))
       await expectPathExists(
-        path.join(
-          saveDir,
-          'resolved.torrent.motrix',
-          `${failedGid}.aria2-artifact`
-        )
+        path.join(saveDir, 'resolved.torrent', `${failedGid}.aria2-artifact`)
       )
       await expectPathExists(path.join(torrentMetaDir, `${taskId}.torrent`))
 

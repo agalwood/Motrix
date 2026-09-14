@@ -21,9 +21,12 @@ import type Database from 'better-sqlite3'
 import type { AddTorrentParams } from '../../engine/engine-adapter'
 import { applyTerminalTransition } from '../apply-terminal-transition'
 import {
+  buildBtDirectOutputPaths,
   buildFinalOutputFilePaths,
+  getBtDirectStorageLayout,
   getBtPayloadPath,
   getBtStorageLayout,
+  markBtDirectOutputFinalized,
   parseBtFileLayout,
 } from '../bt-storage-layout'
 import { settleBtUpload } from '../bt-upload-settlement'
@@ -181,6 +184,7 @@ async function finalizeTaskSerialized(
   const task = structuredClone(publishedTask)
 
   const alreadyOutputReady =
+    getBtDirectStorageLayout(task)?.finalized !== false &&
     task.transitionPhase === TransitionPhase.Idle &&
     task.diskPath === task.finalPath &&
     (task.status === TaskStatus.Completed || task.status === TaskStatus.Seeding)
@@ -217,7 +221,8 @@ async function finalizeTaskSerialized(
     if (
       current?.transitionPhase === TransitionPhase.Renaming &&
       current.status !== TaskStatus.Error &&
-      current.diskPath !== current.finalPath
+      (current.diskPath !== current.finalPath ||
+        getBtDirectStorageLayout(current)?.finalized === false)
     ) {
       try {
         await failFinalize(structuredClone(current), deps, {
@@ -531,6 +536,14 @@ async function finalizeBt(
     return
   }
   const desiredFinalPath = finalizeOutcome.finalFilePath ?? task.finalPath
+  if (
+    getBtDirectStorageLayout(task) &&
+    desiredFinalPath === task.diskPath &&
+    !finalizeOutcome.replacement
+  ) {
+    await finalizeBtInPlace(task, deps, finalizeOutcome, previousStatus)
+    return
+  }
   if (!deps.commitFinalizedArtifact) {
     await persistDesiredFinalPath(task, desiredFinalPath, deps)
   }
@@ -678,6 +691,7 @@ function applyBtTaskAfterRename(
 ): void {
   task.finalPath = desiredFinalPath
   task.diskPath = desiredFinalPath
+  markBtDirectOutputFinalized(task)
   // The instance rows must stop pointing at the `.motrix` container or
   // restore() resurrects it after a restart. Status is left alone here — the
   // task still heads into reseed and its terminal state is decided below.
@@ -839,7 +853,11 @@ async function finalizeBtAfterRename(
     : undefined
   try {
     const storageLayout = getBtStorageLayout(task)
-    const parsedLayout = storageLayout ? await parseBtFileLayout(bytes) : null
+    const directLayout = getBtDirectStorageLayout(task)
+    const parsedLayout =
+      storageLayout || directLayout?.torrentRootName
+        ? await parseBtFileLayout(bytes)
+        : null
     const actualGid = await deps.adapter.addTorrent({
       metadata: bytes,
       // aria2 lays files out at `<dir>/<info.name>/...` (multi-file) or
@@ -847,15 +865,36 @@ async function finalizeBtAfterRename(
       // `<saveDir>/<finalName>.motrix/...`; after rename those files live
       // under `<finalPath>/...`. Pointing aria2 at `task.finalPath` makes
       // its `<dir>/<info.name>` lookup hit the existing on-disk layout.
-      saveDir: storageLayout ? path.dirname(task.finalPath) : task.finalPath,
+      saveDir: directLayout
+        ? buildBtDirectOutputPaths(
+            task.finalPath,
+            parsedLayout,
+            task.torrentMetaPath
+          ).saveDir
+        : storageLayout
+          ? path.dirname(task.finalPath)
+          : task.finalPath,
       outputFilePaths:
-        storageLayout && parsedLayout
-          ? buildFinalOutputFilePaths(
-              parsedLayout,
+        directLayout && parsedLayout
+          ? buildBtDirectOutputPaths(
               task.finalPath,
-              storageLayout
-            )
-          : undefined,
+              parsedLayout,
+              task.torrentMetaPath
+            ).outputFilePaths
+          : storageLayout && parsedLayout
+            ? buildFinalOutputFilePaths(
+                parsedLayout,
+                task.finalPath,
+                storageLayout
+              )
+            : undefined,
+      outputRoot: directLayout
+        ? buildBtDirectOutputPaths(
+            task.finalPath,
+            parsedLayout,
+            task.torrentMetaPath
+          ).outputRoot
+        : undefined,
       selectedFiles,
       seedTime: bt.seedTime,
       seedRatio: seedRatioForNewGid,
@@ -935,6 +974,97 @@ async function finalizeBtAfterRename(
   // Seeding != Completed — afterComplete fires only when the task ends in
   // TaskStatus.Completed (see spec §10). For BT, that transition happens
   // later via stopSeedingTask or aria2's natural seed-time/ratio eviction.
+}
+
+/** Direct BT outputs keep their original engine identity through seeding. */
+async function finalizeBtInPlace(
+  task: DownloadTask,
+  deps: FinalizeTaskDeps,
+  outcome: BeforeFinalizeOutcomeCommit,
+  statusBeforeFinalize: TaskStatus
+): Promise<void> {
+  const live = await deps.adapter.getTaskStatus(task.engineTaskId)
+  if (live) {
+    task.totalBytes = Math.max(task.totalBytes, live.totalBytes)
+    task.downloadedBytes = Math.max(task.downloadedBytes, live.downloadedBytes)
+    task.sizeWhenDone = Math.max(task.sizeWhenDone, live.sizeWhenDone)
+    task.uploadedBytes = task.uploadedBytesBaseline + live.uploadedBytes
+  }
+  if (live?.status === TaskStatus.Error)
+    throw new AppError(
+      ErrorCode.TaskFinalizeFailed,
+      live.errorMessage ?? 'Engine task failed'
+    )
+  if (!live) {
+    // The old engine identity was lost before completion committed. Retain
+    // its last observed upload contribution before assigning a fresh GID.
+    settleBtUpload(
+      task,
+      Math.max(0, task.uploadedBytes - task.uploadedBytesBaseline),
+      false
+    )
+  }
+  const unselected = live ? await snapshotUnselectedRelPaths(task, deps) : []
+  await cleanupUnselectedAfterRename(task, unselected, deps)
+  const completedAt = Date.now()
+  const previousStatus = task.status
+  const nextStatus = !live
+    ? TaskStatus.Finalizing
+    : live.status === TaskStatus.Seeding ||
+        live?.status === TaskStatus.Downloading
+      ? TaskStatus.Seeding
+      : live?.status === TaskStatus.Paused
+        ? TaskStatus.Paused
+        : TaskStatus.Completed
+  markBtDirectOutputFinalized(task)
+  setTaskTransitionPhase(
+    task,
+    live ? TransitionPhase.Idle : TransitionPhase.Reseeding
+  )
+  Object.assign(
+    task,
+    applyTerminalTransition(task, nextStatus, {}, completedAt)
+  )
+  syncPrimaryInstanceIdentity(task)
+  syncCompletionMetrics(task)
+  normalizeTerminalRuntimeMetrics(task)
+
+  const occurrence = buildTerminalOccurrence(
+    terminalSnapshotFromTask(task),
+    previousStatus,
+    'finalize',
+    completedAt
+  )
+  if (deps.commitFinalizedArtifact && outcome.metadataOps.length > 0) {
+    await deps.commitFinalizedArtifact({
+      task,
+      occurrence,
+      sourcePath: task.diskPath,
+      targetPath: task.finalPath,
+      metadataOps: outcome.metadataOps,
+      contributors: outcome.contributors,
+    })
+    deps.taskManager.set(task.id, structuredClone(task))
+    await recordTaskTransition(task, previousStatus, deps, completedAt)
+    if (occurrence) await deps.occurrenceDispatcher?.dispatch(occurrence)
+  } else {
+    outcome.commit(() => {})
+    await persistTaskTransition(task, previousStatus, deps, completedAt)
+  }
+  deps.activityRecorder.recordDownloadCompleted({
+    taskId: task.id,
+    occurredAt: completedAt,
+  })
+  deps.publishTaskUpdateNow()
+  if (!live) {
+    await finalizeBtAfterRename(task, deps, completedAt, [])
+    return
+  }
+  if (nextStatus === TaskStatus.Completed) {
+    await deps.adapter.removeDownloadResult(task.engineTaskId)
+    if (statusBeforeFinalize !== TaskStatus.Completed)
+      fireAfterComplete(deps, task, 'finalize')
+  }
 }
 
 /**

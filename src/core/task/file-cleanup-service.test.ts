@@ -9,6 +9,18 @@ function makeFs() {
 }
 
 describe('FileCleanupService.cleanup', () => {
+  it('removes a direct single-file BT output and its adjacent control file', async () => {
+    const fs = makeFs()
+    await new FileCleanupServiceImpl(fs).cleanup(
+      '/d/movie.iso',
+      TaskType.Bt,
+      true
+    )
+    expect(fs.removePathRecursive.mock.calls).toEqual([
+      ['/d/movie.iso'],
+      ['/d/movie.iso.aria2'],
+    ])
+  })
   it('HTTP: removes diskPath and .aria2 sidecar', async () => {
     const fs = makeFs()
     const svc = new FileCleanupServiceImpl(fs)

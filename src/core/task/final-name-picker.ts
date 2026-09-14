@@ -4,6 +4,7 @@ import {
   MAX_DEDUP_ATTEMPTS,
 } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
+import { outputNameIdentity } from './output-path-identity'
 
 export interface FsProbe {
   exists(absPath: string): Promise<boolean>
@@ -13,9 +14,14 @@ export interface FinalNamePicker {
   pick(
     saveDir: string,
     desiredName: string,
-    reservedNames?: readonly string[]
+    reservedNames?: readonly string[],
+    adjacentControlFile?: boolean
   ): Promise<string>
-  isTaken?(dir: string, name: string): Promise<boolean>
+  isTaken?(
+    dir: string,
+    name: string,
+    adjacentControlFile?: boolean
+  ): Promise<boolean>
 }
 
 export class FinalNamePickerImpl implements FinalNamePicker {
@@ -24,12 +30,18 @@ export class FinalNamePickerImpl implements FinalNamePicker {
   async pick(
     saveDir: string,
     desiredName: string,
-    reservedNames: readonly string[] = []
+    reservedNames: readonly string[] = [],
+    adjacentControlFile = false
   ): Promise<string> {
-    const reserved = new Set(reservedNames)
+    const reserved = new Set(reservedNames.map(outputNameIdentity))
+    const isReserved = (name: string): boolean =>
+      reserved.has(outputNameIdentity(name)) ||
+      reserved.has(outputNameIdentity(`${name}${INCOMPLETE_SUFFIX}`)) ||
+      reserved.has(outputNameIdentity(`${name}${INCOMPLETE_SUFFIX}.aria2`)) ||
+      (adjacentControlFile && reserved.has(outputNameIdentity(`${name}.aria2`)))
     if (
-      !reserved.has(desiredName) &&
-      !(await this.isTaken(saveDir, desiredName))
+      !isReserved(desiredName) &&
+      !(await this.isTaken(saveDir, desiredName, adjacentControlFile))
     ) {
       return desiredName
     }
@@ -39,8 +51,8 @@ export class FinalNamePickerImpl implements FinalNamePicker {
     for (let n = 1; n <= MAX_DEDUP_ATTEMPTS; n++) {
       const candidate = ext ? `${base} (${n})${ext}` : `${base} (${n})`
       if (
-        !reserved.has(candidate) &&
-        !(await this.isTaken(saveDir, candidate))
+        !isReserved(candidate) &&
+        !(await this.isTaken(saveDir, candidate, adjacentControlFile))
       ) {
         return candidate
       }
@@ -52,14 +64,19 @@ export class FinalNamePickerImpl implements FinalNamePicker {
     )
   }
 
-  async isTaken(dir: string, name: string): Promise<boolean> {
+  async isTaken(
+    dir: string,
+    name: string,
+    adjacentControlFile = false
+  ): Promise<boolean> {
     const finalPath = path.join(dir, name)
     const tempPath = finalPath + INCOMPLETE_SUFFIX
-    const [f, t] = await Promise.all([
+    const [f, t, c] = await Promise.all([
       this.fs.exists(finalPath),
       this.fs.exists(tempPath),
+      adjacentControlFile ? this.fs.exists(`${finalPath}.aria2`) : false,
     ])
-    return f || t
+    return f || t || c
   }
 }
 

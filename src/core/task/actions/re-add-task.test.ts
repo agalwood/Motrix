@@ -113,6 +113,37 @@ function makeDeps(task: DownloadTask | undefined) {
 }
 
 describe('reAddTask (BT path)', () => {
+  it.each([TaskStatus.Error, TaskStatus.Completed])(
+    're-adds a direct single-file BT task at the same final path from %s',
+    async (status) => {
+      const task = withPrimaryInstance(
+        makeBtTask({
+          status,
+          diskPath: '/tmp/chosen.iso',
+          finalPath: '/tmp/chosen.iso',
+        })
+      )
+      task.instances[0].payload.btStorageLayout = {
+        version: 2,
+        strategy: 'direct',
+        torrentRootName: 'original.iso',
+        multiFile: false,
+        finalized: status === TaskStatus.Completed,
+      }
+      const deps = makeDeps(task)
+      vi.mocked(deps.torrentMetaStore.read).mockResolvedValue(
+        buildSingleFileTorrent('original.iso')
+      )
+      await reAddTask('t1', deps)
+      expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          saveDir: '/tmp',
+          outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.iso' }],
+          checkIntegrity: true,
+        })
+      )
+    }
+  )
   it('reads torrent metadata and calls addTorrent with checkIntegrity', async () => {
     const task = makeBtTask({ status: TaskStatus.Completed })
     const deps = makeDeps(task)

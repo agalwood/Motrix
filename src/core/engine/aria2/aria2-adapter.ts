@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises'
+import { access, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { getLogger } from '@core/logger'
@@ -600,8 +600,13 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async getTaskStatus(engineTaskId: string): Promise<DownloadTask | null> {
-    const raw = await this.rpc.tellStatus(engineTaskId)
-    return translateRawToTask(raw)
+    try {
+      const raw = await this.rpc.tellStatus(engineTaskId)
+      return translateRawToTask(raw)
+    } catch (error) {
+      if (isNotFoundError(error)) return null
+      throw error
+    }
   }
 
   async getTaskFiles(engineTaskId: string): Promise<TaskFile[]> {
@@ -700,6 +705,8 @@ export class Aria2Adapter implements EngineAdapter {
     if (params.selectedFiles?.length) {
       opts['select-file'] = params.selectedFiles.join(',')
     }
+    if (params.outputRoot !== undefined && !path.isAbsolute(params.outputRoot))
+      throw new TypeError('Torrent output root must be absolute')
     if (params.outputFilePaths?.length) {
       const seen = new Set<number>()
       opts['index-out'] = params.outputFilePaths.map(
@@ -723,7 +730,10 @@ export class Aria2Adapter implements EngineAdapter {
             throw new TypeError('Invalid torrent output file mapping')
           }
           seen.add(fileIndex)
-          return `${fileIndex + 1}=${relativePath}`
+          const outputPath = params.outputRoot
+            ? path.join(params.outputRoot, relativePath)
+            : relativePath
+          return `${fileIndex + 1}=${outputPath}`
         }
       )
     }
@@ -768,6 +778,7 @@ export class Aria2Adapter implements EngineAdapter {
     // Override both user configuration and stale task options so a failed
     // Web Seed cannot abort peers or other Web Seeds before their first byte.
     opts['max-file-not-found'] = '0'
+    if (params.outputRoot) await mkdir(params.saveDir, { recursive: true })
     const b64 = Buffer.from(params.metadata).toString('base64')
     const actualGid = await this.rpc.addTorrent(b64, [], opts)
     if (

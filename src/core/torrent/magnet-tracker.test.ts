@@ -2864,205 +2864,242 @@ describe('MagnetTracker', () => {
     expect(db.getTask('m-quarantined')).toBeNull()
   })
 
-  it('recovers a failed-swap gid and its artifacts from a durable tombstone after restart', async () => {
-    const root = await makeTempDir()
-    const diskPath = path.join(root, 'resolved.motrix')
-    const torrentMetaPath = path.join(root, 'm-swap-restart.torrent')
-    await mkdir(diskPath)
-    await writeFile(path.join(diskPath, 'partial.bin'), 'partial')
-    await writeFile(torrentMetaPath, 'torrent')
+  it.each([false, true])(
+    'recovers a failed swap after restart with directOutput=%s',
+    async (directOutput) => {
+      const root = await makeTempDir()
+      const diskPath = path.join(
+        root,
+        directOutput ? 'resolved' : 'resolved.motrix'
+      )
+      const torrentMetaPath = path.join(root, 'm-swap-restart.torrent')
+      await mkdir(diskPath)
+      await writeFile(path.join(diskPath, 'partial.bin'), 'partial')
+      await writeFile(torrentMetaPath, 'torrent')
 
-    const originalTask: TaskRow = {
-      motrixId: 'm-swap-restart',
-      name: '[METADATA] resolved',
-      kind: TaskKind.Bt,
-      taskType: TaskType.Magnet,
-      category: null,
-      priority: 0,
-      tags: null,
-      createdAt: 1700000000,
-      updatedAt: 1700000001,
-      finalPath: root,
-      finalName: '',
-      torrentMetaPath: null,
-      infoHash: null,
-      totalBytes: 0,
-      downloadedBytes: 0,
-      sizeWhenDone: 0,
-      fileCount: 0,
-      isPrivate: false,
-      trackers: [],
-      pieceLength: 0,
-      aggStatus: TaskStatus.MetadataReady,
-      finishedAt: null,
-      errorMessage: null,
-      errorCode: null,
-      errorDetailKey: null,
-      errorDetailParams: null,
-      diagnosisRevision: 0,
-      uploadedBytesBaseline: 0,
-      source: 'user',
-      sourceMeta: null,
-    }
-    const originalInstance: TaskInstanceRow = {
-      instanceId: 'meta:m-swap-restart',
-      motrixId: 'm-swap-restart',
-      gid: 'g-meta-original',
-      phase: TaskInstancePhase.MagnetMetadataResolution,
-      status: TaskStatus.MetadataReady,
-      progress: 100,
-      totalBytes: 0,
-      downloadedBytes: 0,
-      uploadedBytes: 0,
-      diskPath: '/tmp/original-metadata',
-      transitionPhase: TransitionPhase.Idle,
-      uris: ['magnet:?xt=urn:btih:restart'],
-      uriHash: null,
-      payload: { metadataDir: '/tmp/original-metadata' },
-      createdAt: 1700000000,
-      updatedAt: 1700000001,
-    }
-    const originalFiles: TaskFileRow[] = [
-      { fileIndex: 7, path: '/old/selection.bin', size: 17, selected: true },
-    ]
-    const restoreGraph: TaskWithInstancesAndFiles = {
-      task: originalTask,
-      instances: [originalInstance],
-      files: originalFiles,
-    }
-    db.saveTaskWithInstancesAndFiles({
-      task: {
-        ...originalTask,
-        torrentMetaPath,
-        aggStatus: TaskStatus.Error,
-        finishedAt: 1700000001,
-        errorMessage: 'Magnet swap cleanup is quarantined',
-      },
-      instances: [
-        {
-          ...originalInstance,
-          gid: 'g-bt-orphan',
-          status: TaskStatus.Error,
-          diskPath,
-          payload: withMagnetCleanupRestoreGraph(
-            {
-              metadataDir: diskPath,
-              cleanupQuarantined: true,
-              cleanupTombstoneHidden: true,
-              cleanupArtifactPaths: [diskPath, torrentMetaPath],
-            },
-            restoreGraph
-          ),
-        },
-      ],
-      files: originalFiles,
-    })
-
-    const preRestartTracker = createMagnetTracker(
-      rpc as never,
-      eventBus as never,
-      settings as never,
-      db,
-      taskManager,
-      torrentParser,
-      NOOP_TASK_ACTIVITY_RECORDER,
-      { torrentMetaDir: root }
-    )
-    const cleanupReservation = {
-      taskId: 'm-swap-restart',
-      instanceId: 'meta:m-swap-restart',
-      gid: 'g-bt-orphan',
-      magnetUri: 'magnet:?xt=urn:btih:restart',
-      saveDir: root,
-      metadataDir: diskPath,
-      torrentMetaPath,
-      artifactPaths: [diskPath, torrentMetaPath],
-      restoreGraph,
-    }
-    preRestartTracker.reserveFailedSwapCleanup(cleanupReservation)
-    expect(preRestartTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(true)
-    expect(
-      preRestartTracker.observe({
-        gid: 'g-bt-orphan',
-        status: 'active',
-      } as never)
-    ).toBe(true)
-    preRestartTracker.releaseFailedSwapCleanup('m-swap-restart', 'g-bt-orphan')
-    expect(preRestartTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
-      false
-    )
-
-    preRestartTracker.registerFailedSwapCleanup({
-      ...cleanupReservation,
-      deleteParentOnSuccess: false,
-    })
-    expect(preRestartTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(true)
-    expect(
-      preRestartTracker.observe({
-        gid: 'g-bt-orphan',
-        status: 'active',
-      } as never)
-    ).toBe(true)
-    await preRestartTracker.stopAndDrain()
-
-    vi.mocked(db.saveTaskWithInstancesAndFiles).mockImplementationOnce(() => {
-      throw new Error('restore transaction busy')
-    })
-    const restartedTracker = createMagnetTracker(
-      rpc as never,
-      eventBus as never,
-      settings as never,
-      db,
-      taskManager,
-      torrentParser,
-      NOOP_TASK_ACTIVITY_RECORDER,
-      { torrentMetaDir: root }
-    )
-    restartedTracker.primeFromDatabase()
-
-    expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(true)
-    expect(
-      restartedTracker.observe({
-        gid: 'g-bt-orphan',
-        status: 'active',
-      } as never)
-    ).toBe(true)
-
-    await expect(
-      restartedTracker.cancel('m-swap-restart', { deleteTaskRow: false })
-    ).resolves.toBe('quarantined')
-
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-bt-orphan')
-    expect(rpc.removeDownloadResult).toHaveBeenCalledWith('g-bt-orphan')
-    expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(true)
-    expect(db.getTask('m-swap-restart')?.task.aggStatus).toBe(TaskStatus.Error)
-
-    // The first durable restore failed after engine/artifact cleanup. The
-    // same cache owner must remain shielded and retry finalization.
-    expect(vi.getTimerCount()).toBeGreaterThan(0)
-    await vi.advanceTimersByTimeAsync(5_000)
-
-    vi.useRealTimers()
-    await vi.waitFor(async () => {
-      await expect(access(diskPath)).rejects.toMatchObject({ code: 'ENOENT' })
-      await expect(access(torrentMetaPath)).rejects.toMatchObject({
-        code: 'ENOENT',
-      })
-      expect(db.getTask('m-swap-restart')).toEqual({
+      const originalTask: TaskRow = {
+        motrixId: 'm-swap-restart',
+        name: '[METADATA] resolved',
+        kind: TaskKind.Bt,
+        taskType: TaskType.Magnet,
+        category: null,
+        priority: 0,
+        tags: null,
+        createdAt: 1700000000,
+        updatedAt: 1700000001,
+        finalPath: root,
+        finalName: '',
+        torrentMetaPath: null,
+        infoHash: null,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        sizeWhenDone: 0,
+        fileCount: 0,
+        isPrivate: false,
+        trackers: [],
+        pieceLength: 0,
+        aggStatus: TaskStatus.MetadataReady,
+        finishedAt: null,
+        errorMessage: null,
+        errorCode: null,
+        errorDetailKey: null,
+        errorDetailParams: null,
+        diagnosisRevision: 0,
+        uploadedBytesBaseline: 0,
+        source: 'user',
+        sourceMeta: null,
+      }
+      const originalInstance: TaskInstanceRow = {
+        instanceId: 'meta:m-swap-restart',
+        motrixId: 'm-swap-restart',
+        gid: 'g-meta-original',
+        phase: TaskInstancePhase.MagnetMetadataResolution,
+        status: TaskStatus.MetadataReady,
+        progress: 100,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/tmp/original-metadata',
+        transitionPhase: TransitionPhase.Idle,
+        uris: ['magnet:?xt=urn:btih:restart'],
+        uriHash: null,
+        payload: { metadataDir: '/tmp/original-metadata' },
+        createdAt: 1700000000,
+        updatedAt: 1700000001,
+      }
+      const originalFiles: TaskFileRow[] = [
+        { fileIndex: 7, path: '/old/selection.bin', size: 17, selected: true },
+      ]
+      const restoreGraph: TaskWithInstancesAndFiles = {
         task: originalTask,
         instances: [originalInstance],
+        files: originalFiles,
+      }
+      db.saveTaskWithInstancesAndFiles({
+        task: {
+          ...originalTask,
+          torrentMetaPath,
+          aggStatus: TaskStatus.Error,
+          finishedAt: 1700000001,
+          errorMessage: 'Magnet swap cleanup is quarantined',
+        },
+        instances: [
+          {
+            ...originalInstance,
+            gid: 'g-bt-orphan',
+            status: TaskStatus.Error,
+            diskPath,
+            payload: withMagnetCleanupRestoreGraph(
+              {
+                metadataDir: diskPath,
+                cleanupQuarantined: true,
+                cleanupTombstoneHidden: true,
+                cleanupArtifactPaths: directOutput
+                  ? []
+                  : [diskPath, torrentMetaPath],
+              },
+              restoreGraph
+            ),
+          },
+        ],
+        files: originalFiles,
       })
-      expect(db.getTaskFiles('m-swap-restart')).toEqual(originalFiles)
-      expect(taskManager.getById('m-swap-restart')).toMatchObject({
-        id: 'm-swap-restart',
-        status: TaskStatus.MetadataReady,
-        createdAt: originalTask.createdAt,
-      })
-      expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
+
+      const preRestartTracker = createMagnetTracker(
+        rpc as never,
+        eventBus as never,
+        settings as never,
+        db,
+        taskManager,
+        torrentParser,
+        NOOP_TASK_ACTIVITY_RECORDER,
+        { torrentMetaDir: root }
+      )
+      const cleanupReservation = {
+        taskId: 'm-swap-restart',
+        instanceId: 'meta:m-swap-restart',
+        gid: 'g-bt-orphan',
+        magnetUri: 'magnet:?xt=urn:btih:restart',
+        saveDir: root,
+        metadataDir: diskPath,
+        torrentMetaPath,
+        artifactPaths: directOutput ? [] : [diskPath, torrentMetaPath],
+        restoreGraph,
+      }
+      preRestartTracker.reserveFailedSwapCleanup(cleanupReservation)
+      expect(preRestartTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
+        true
+      )
+      expect(
+        preRestartTracker.observe({
+          gid: 'g-bt-orphan',
+          status: 'active',
+        } as never)
+      ).toBe(true)
+      preRestartTracker.releaseFailedSwapCleanup(
+        'm-swap-restart',
+        'g-bt-orphan'
+      )
+      expect(preRestartTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
         false
       )
-    })
-  })
+
+      preRestartTracker.registerFailedSwapCleanup({
+        ...cleanupReservation,
+        deleteParentOnSuccess: false,
+      })
+      expect(preRestartTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
+        true
+      )
+      expect(
+        preRestartTracker.observe({
+          gid: 'g-bt-orphan',
+          status: 'active',
+        } as never)
+      ).toBe(true)
+      await preRestartTracker.stopAndDrain()
+
+      vi.mocked(db.saveTaskWithInstancesAndFiles).mockImplementationOnce(() => {
+        throw new Error('restore transaction busy')
+      })
+      const restartedTracker = createMagnetTracker(
+        rpc as never,
+        eventBus as never,
+        settings as never,
+        db,
+        taskManager,
+        torrentParser,
+        NOOP_TASK_ACTIVITY_RECORDER,
+        { torrentMetaDir: root }
+      )
+      restartedTracker.primeFromDatabase()
+
+      expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
+        true
+      )
+      expect(
+        restartedTracker.observe({
+          gid: 'g-bt-orphan',
+          status: 'active',
+        } as never)
+      ).toBe(true)
+
+      await expect(
+        restartedTracker.cancel('m-swap-restart', { deleteTaskRow: false })
+      ).resolves.toBe('quarantined')
+
+      expect(rpc.forceRemove).toHaveBeenCalledWith('g-bt-orphan')
+      expect(rpc.removeDownloadResult).toHaveBeenCalledWith('g-bt-orphan')
+      expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
+        true
+      )
+      expect(db.getTask('m-swap-restart')?.task.aggStatus).toBe(
+        TaskStatus.Error
+      )
+
+      // The first durable restore failed after engine/artifact cleanup. The
+      // same cache owner must remain shielded and retry finalization.
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      vi.useRealTimers()
+      await vi.waitFor(async () => {
+        if (directOutput) {
+          await expect(
+            access(path.join(diskPath, 'partial.bin'))
+          ).resolves.toBeUndefined()
+          await expect(access(torrentMetaPath)).resolves.toBeUndefined()
+        } else {
+          await expect(access(diskPath)).rejects.toMatchObject({
+            code: 'ENOENT',
+          })
+          await expect(access(torrentMetaPath)).rejects.toMatchObject({
+            code: 'ENOENT',
+          })
+        }
+        expect(db.getTask('m-swap-restart')).toEqual({
+          task: originalTask,
+          instances: [originalInstance],
+        })
+        expect(db.getTaskFiles('m-swap-restart')).toEqual(originalFiles)
+        expect(taskManager.getById('m-swap-restart')).toMatchObject({
+          id: 'm-swap-restart',
+          status: TaskStatus.MetadataReady,
+          createdAt: originalTask.createdAt,
+        })
+        expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
+          false
+        )
+      })
+      // Cache retirement precedes the last filesystem await. Drain it before
+      // asserting preservation so a pending recursive delete cannot pass.
+      await restartedTracker.stopAndDrain()
+      if (directOutput)
+        await expect(
+          access(path.join(diskPath, 'partial.bin'))
+        ).resolves.toBeUndefined()
+    }
+  )
 
   it('refuses failed-swap artifact paths outside trusted save and torrent roots', async () => {
     const root = await makeTempDir()

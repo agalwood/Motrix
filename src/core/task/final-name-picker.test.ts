@@ -83,3 +83,25 @@ describe('FinalNamePicker.pick', () => {
     await expect(picker.pick('/d', 'x.txt')).rejects.toThrow(AppError)
   })
 })
+
+it.each(['darwin', 'win32'])(
+  'reserves equivalent names on %s',
+  async (platform) => {
+    vi.stubGlobal('process', { ...process, platform })
+    try {
+      const picker = new FinalNamePickerImpl(makeFs(new Set()))
+      expect(await picker.pick('/d', 'bundle', ['Bundle'])).toBe('bundle (1)')
+      expect(await picker.pick('/d', 'Café', ['Cafe\u0301'])).toBe('Café (1)')
+      expect(await picker.pick('/d', 'foo', ['FOO.ARIA2'], true)).toBe(
+        'foo (1)'
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  }
+)
+
+it('avoids an adjacent control path even when it is not a registered task', async () => {
+  const picker = new FinalNamePickerImpl(makeFs(new Set(['/d/foo.aria2'])))
+  expect(await picker.pick('/d', 'foo', [], true)).toBe('foo (1)')
+})

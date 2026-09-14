@@ -1,7 +1,11 @@
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
-import { TaskInstancePhase, TaskStatus } from '@shared/types/task'
+import {
+  type DownloadTask,
+  TaskInstancePhase,
+  TaskStatus,
+} from '@shared/types/task'
 import { isStoppedTaskStatus } from '@shared/types/task-actions'
 import type {
   TaskInstanceRow,
@@ -14,7 +18,13 @@ import {
   withMagnetCleanupTombstoneHidden,
 } from '../../torrent/magnet-cleanup-quarantine'
 import type { MagnetTracker } from '../../torrent/magnet-tracker'
+import { getBtOutputReservations } from '../bt-output-reservation'
+import {
+  getBtDirectStorageLayout,
+  parseBtFileLayout,
+} from '../bt-storage-layout'
 import type { FileCleanupService } from '../file-cleanup-service'
+import { outputPathIdentity } from '../output-path-identity'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { getTaskOrWarn, type TaskActionDeps } from './shared'
 
@@ -119,6 +129,27 @@ async function removeTaskUnderMutation(
       // row can disappear. Keep ownership of that delete in this action.
       deleteTaskRow: false,
     })
+    // A failed swap owns real payloads. Keep its visible, retryable parent
+    // until engine absence and file cleanup have both succeeded.
+    const restoredTask = deps.taskManager.getById(taskId) ?? task
+    const reservations = getBtOutputReservations(restoredTask)
+    if (result !== 'removed' && reservations.length > 0) {
+      throw new AppError(
+        ErrorCode.MagnetCleanupPending,
+        'BT output cleanup is waiting for engine removal'
+      )
+    }
+    if (result === 'removed' && options.deleteWithFiles) {
+      await cleanupReservedOutputs(restoredTask, deps)
+      if (restoredTask.torrentMetaPath)
+        await deps.torrentMetaStore.remove(restoredTask.torrentMetaPath)
+    } else if (result === 'removed' && reservations.length > 0) {
+      for (const reservation of reservations)
+        deps.eventBus.emit(Events.ToastShow, {
+          key: 'task.remove.orphanToast',
+          params: { path: reservation.finalPath },
+        })
+    }
     const publishRemovalOrQuarantine = (): void => {
       if (result === 'removed') {
         deps.db.deleteTask(taskId)
@@ -229,8 +260,12 @@ async function removeTaskUnderMutation(
     isSafeCleanupPath(task.diskPath, task.saveDir)
 
   if (shouldDeleteFiles) {
+    await cleanupReservedOutputs(task, deps)
     await Promise.all([
-      deps.fileCleanupService.cleanup(task.diskPath, task.type),
+      getBtDirectStorageLayout(task)?.multiFile === false &&
+      !isClaimedByOtherTask(`${task.diskPath}.aria2`, task.id, deps)
+        ? deps.fileCleanupService.cleanup(task.diskPath, task.type, true)
+        : deps.fileCleanupService.cleanup(task.diskPath, task.type),
       task.torrentMetaPath
         ? deps.torrentMetaStore.remove(task.torrentMetaPath)
         : Promise.resolve(),
@@ -261,6 +296,75 @@ async function removeTaskUnderMutation(
   deps.publishTaskUpdate()
 }
 
+function isClaimedByOtherTask(
+  candidate: string,
+  taskId: string,
+  deps: RemoveTaskDeps
+): boolean {
+  const identity = outputPathIdentity(candidate)
+  return deps.taskManager.getAll().some((other) => {
+    if (other.id === taskId || other.status === TaskStatus.Removed) return false
+    const claimedPaths = [
+      ...(other.finalName ? [other.finalPath, other.diskPath] : []),
+      ...getBtOutputReservations(other).map((entry) => entry.finalPath),
+    ]
+    return claimedPaths.some((claimed) => {
+      if (!claimed) return false
+      const owner = outputPathIdentity(claimed)
+      return (
+        identity === owner ||
+        identity.startsWith(`${owner}${path.sep}`) ||
+        owner.startsWith(`${identity}${path.sep}`)
+      )
+    })
+  })
+}
+
+async function cleanupReservedOutputs(
+  task: DownloadTask,
+  deps: RemoveTaskDeps
+): Promise<void> {
+  const reservations = getBtOutputReservations(task)
+  if (reservations.length === 0) return
+  // Old reservation rows omitted the shape. Read the durable torrent before
+  // removing anything so a missing/corrupt source leaves a retryable owner.
+  const parsed =
+    reservations.some((entry) => typeof entry.multiFile !== 'boolean') &&
+    task.torrentMetaPath
+      ? await parseBtFileLayout(
+          await deps.torrentMetaStore.read(task.torrentMetaPath)
+        )
+      : null
+  for (const reservation of reservations) {
+    if (
+      !isSafeCleanupPath(reservation.finalPath, task.saveDir) ||
+      isClaimedByOtherTask(reservation.finalPath, task.id, deps)
+    ) {
+      throw new AppError(
+        ErrorCode.InvalidSelection,
+        'BT output cleanup path overlaps another owner or the save root'
+      )
+    }
+    if (
+      typeof reservation.multiFile !== 'boolean' &&
+      parsed?.infoHash !== reservation.infoHash
+    )
+      throw new AppError(
+        ErrorCode.InvalidSelection,
+        'BT output cleanup requires matching torrent metadata'
+      )
+  }
+  for (const reservation of reservations) {
+    const singleFile = (reservation.multiFile ?? parsed?.multiFile) === false
+    await deps.fileCleanupService.cleanup(
+      reservation.finalPath,
+      task.type,
+      singleFile &&
+        !isClaimedByOtherTask(`${reservation.finalPath}.aria2`, task.id, deps)
+    )
+  }
+}
+
 function isSafeCleanupPath(diskPath: string, saveDir?: string): boolean {
   if (diskPath.trim() === '' || !path.isAbsolute(diskPath)) return false
   const normalized = path.resolve(diskPath)
@@ -274,7 +378,7 @@ function isSafeCleanupPath(diskPath: string, saveDir?: string): boolean {
   if (
     saveDir &&
     saveDir.trim() !== '' &&
-    normalized === path.resolve(saveDir)
+    outputPathIdentity(normalized) === outputPathIdentity(saveDir)
   ) {
     return false
   }

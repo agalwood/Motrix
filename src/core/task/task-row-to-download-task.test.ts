@@ -7,8 +7,9 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
 import { describe, expect, it } from 'vitest'
-import { btStoragePayload, createBtStoragePlan } from './bt-storage-layout'
+import { btStoragePayload } from './bt-storage-layout'
 import { taskRowToDownloadTask } from './task-row-to-download-task'
 
 function makeTaskRow(overrides: Partial<TaskRow> = {}): TaskRow {
