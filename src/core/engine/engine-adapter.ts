@@ -53,9 +53,11 @@ export interface AddTorrentParams {
    *  these are 1-based (matching aria2's `select-file`). The create path is
    *  responsible for converting its 0-based request indices before calling. */
   selectedFiles?: number[]
-  /** Optional per-file output mapping. The adapter translates indices and
-   * option syntax to the target engine. */
+  /** Optional per-file mapping relative to outputRoot, or saveDir when absent.
+   * The adapter translates indices and option syntax to the target engine. */
   outputFilePaths?: OutputFilePath[]
+  /** Trusted absolute payload root, independent of the engine metadata directory. */
+  outputRoot?: string
   seedTime?: number
   seedRatio?: number
   btSeedUnverified?: boolean

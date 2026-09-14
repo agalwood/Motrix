@@ -164,6 +164,57 @@ function makeDeps(overrides: Partial<RecoveryDeps> = {}): RecoveryDeps {
 }
 
 describe('TaskRecoveryServiceImpl.recoverOnStartup', () => {
+  it.each([TransitionPhase.Idle, TransitionPhase.Renaming])(
+    'finishes direct BT completion in place after restart from %s',
+    async (phase) => {
+      const task = makeTask({
+        id: 'direct-bt',
+        type: TaskType.Bt,
+        status: TaskStatus.Seeding,
+        transitionPhase: phase,
+        diskPath: '/d/movie.iso',
+        finalPath: '/d/movie.iso',
+      })
+      task.instances = [
+        {
+          instanceId: 'primary',
+          motrixId: task.id,
+          gid: task.engineTaskId,
+          phase: TaskInstancePhase.BtDownload,
+          status: task.status,
+          progress: 100,
+          totalBytes: 1,
+          downloadedBytes: 1,
+          uploadedBytes: 0,
+          diskPath: task.diskPath,
+          transitionPhase: phase,
+          uris: [],
+          uriHash: null,
+          createdAt: 0,
+          updatedAt: 0,
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'movie.iso',
+              multiFile: false,
+              finalized: false,
+            },
+          },
+        },
+      ]
+      const deps = makeDeps({
+        taskManager: { getAll: () => [task], persist: vi.fn(async () => {}) },
+        fs: makeFs(new Set(['/d/movie.iso'])),
+      })
+      const report = await new TaskRecoveryServiceImpl(deps).recoverOnStartup()
+      expect(report.recovered).toEqual([
+        { taskId: task.id, action: RecoveryAction.ResumeFromRename },
+      ])
+      expect(deps.finalizeTask).toHaveBeenCalledWith(task.id)
+      expect(task.transitionPhase).toBe(phase)
+    }
+  )
   it('reports 0 scanned and 0 recovered when no in-flight tasks', async () => {
     const deps = makeDeps({
       taskManager: {

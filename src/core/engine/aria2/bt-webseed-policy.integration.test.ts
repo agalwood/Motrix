@@ -5,10 +5,7 @@ import { mkdir, mkdtemp, open, rm, stat } from 'node:fs/promises'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import {
-  createBtStoragePlan,
-  parseBtFileLayout,
-} from '@core/task/bt-storage-layout'
+import { parseBtFileLayout } from '@core/task/bt-storage-layout'
 import {
   type Aria2Handle,
   bundledAria2Exists,
@@ -16,6 +13,7 @@ import {
   connectAdapter,
   spawnAria2ForTest,
 } from '@test-utils/aria2'
+import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Aria2RawStatus } from './types'
 

@@ -683,6 +683,96 @@ describe('finalizeTask BT branch', () => {
     } as Partial<DownloadTask>)
   }
 
+  it('recovers a missing engine identity without abandoning seeding', async () => {
+    const task = makeBtTask({
+      status: TaskStatus.Finalizing,
+      transitionPhase: TransitionPhase.Renaming,
+      diskPath: '/d/movie.iso',
+      finalPath: '/d/movie.iso',
+      instances: [
+        makePrimaryInstance({
+          phase: TaskInstancePhase.BtDownload,
+          diskPath: '/d/movie.iso',
+          transitionPhase: TransitionPhase.Renaming,
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'original.iso',
+              multiFile: false,
+              finalized: false,
+            },
+          },
+        }),
+      ],
+    })
+    const deps = makeDeps()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(null)
+    vi.mocked(deps.torrentMetaStore.read).mockResolvedValue(
+      buildSingleFileTorrent('original.iso')
+    )
+    await expect(finalizeTask('t1', deps)).resolves.toBeUndefined()
+    expect(deps.adapter.addTorrent).toHaveBeenCalled()
+    expect(task.status).toBe(TaskStatus.Seeding)
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(task.transitionPhase).toBe(TransitionPhase.Idle)
+  })
+
+  it.each([TaskStatus.Seeding, TaskStatus.Completed])(
+    'finalizes direct BT in place with engine status %s and retains its GID',
+    async (engineStatus) => {
+      const task = makeBtTask({
+        diskPath: '/d/movie.iso',
+        finalPath: '/d/movie.iso',
+        uploadedBytesBaseline: 20,
+        instances: [
+          makePrimaryInstance({
+            phase: TaskInstancePhase.BtDownload,
+            diskPath: '/d/movie.iso',
+            payload: {
+              btStorageLayout: {
+                version: 2,
+                strategy: 'direct',
+                torrentRootName: 'original.iso',
+                multiFile: false,
+                finalized: false,
+              },
+            },
+          }),
+        ],
+      })
+      const deps = makeDeps()
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(
+        makeBtTask({
+          status: engineStatus,
+          totalBytes: 1024,
+          downloadedBytes: 1024,
+          uploadedBytes: 10,
+        })
+      )
+      const gid = task.engineTaskId
+      await finalizeTask('t1', deps)
+      expect(task.status).toBe(engineStatus)
+      expect(task.engineTaskId).toBe(gid)
+      expect(task.uploadedBytesBaseline).toBe(20)
+      expect(task.uploadedBytes).toBe(30)
+      expect(task.progress).toBe(1)
+      expect(task.instances[0].payload.btStorageLayout).toMatchObject({
+        finalized: true,
+      })
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+      expect(deps.adapter.removeDownloadResult).toHaveBeenCalledTimes(
+        engineStatus === TaskStatus.Completed ? 1 : 0
+      )
+      await finalizeTask('t1', deps)
+      expect(deps.adapter.getTaskStatus).toHaveBeenCalledTimes(1)
+    }
+  )
+
   it('renames only the indexed payload and reseeds through the restored final name', async () => {
     const workspacePath = '/d/.motrix/0123456789abcdefabcd'
     const renameAtomic = vi.fn(async () => {})

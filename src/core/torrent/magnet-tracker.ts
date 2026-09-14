@@ -288,7 +288,9 @@ export class MagnetTracker {
         torrentMetaPath: cleanupTorrentMetaPath,
         torrentMetaDir: this.lifecycle.torrentMetaDir ?? null,
         cleanupArtifactPaths,
-        failedSwapCleanup: isHiddenTombstone && cleanupArtifactPaths.length > 0,
+        failedSwapCleanup:
+          isHiddenTombstone &&
+          (cleanupArtifactPaths.length > 0 || Boolean(restoreGraph)),
         hiddenTombstone: isHiddenTombstone,
         restoreGraph: restoreGraph ?? undefined,
         timeoutMultiplier: metadataTimeoutMultiplier(metaInst.payload),
@@ -1774,7 +1776,7 @@ export class MagnetTracker {
         this.lifecycle.publishTaskUpdate()
       }
     }
-    if (entry.cleanupArtifactPaths.length === 0) {
+    if (!entry.failedSwapCleanup && entry.cleanupArtifactPaths.length === 0) {
       await this.cleanupMetadataDir(entry.metadataDir)
     }
   }

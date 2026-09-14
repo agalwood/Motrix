@@ -1,9 +1,51 @@
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { shouldSkipEngineCompletionFinalize } from './should-skip-engine-completion-finalize'
 
 describe('shouldSkipEngineCompletionFinalize', () => {
+  it.each([false, true])(
+    'uses the durable BT completion marker when finalized=%s',
+    (finalized) => {
+      const task = makeDownloadTask({
+        diskPath: '/downloads/movie.iso',
+        finalPath: '/downloads/movie.iso',
+      })
+      task.instances = [
+        {
+          instanceId: 'primary',
+          motrixId: task.id,
+          gid: task.engineTaskId,
+          phase: TaskInstancePhase.BtDownload,
+          status: task.status,
+          progress: 0,
+          totalBytes: 0,
+          downloadedBytes: 0,
+          uploadedBytes: 0,
+          diskPath: task.diskPath,
+          transitionPhase: TransitionPhase.Idle,
+          uris: [],
+          uriHash: null,
+          createdAt: 0,
+          updatedAt: 0,
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'movie.iso',
+              multiFile: false,
+              finalized,
+            },
+          },
+        },
+      ]
+      expect(shouldSkipEngineCompletionFinalize(task)).toBe(finalized)
+    }
+  )
   it('allows the first completion event for an idle temporary output', () => {
     expect(
       shouldSkipEngineCompletionFinalize(

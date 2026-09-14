@@ -518,13 +518,14 @@ describe('buildCommandHandlers', () => {
     expect(result).toMatchObject({
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
     })
-    // createTaskHandler writes BT tasks to <saveDir>/<finalName>.motrix as
-    // the container dir (incomplete-suffix). Assert the dir is rooted at
-    // the fallback /tmp path.
+    // Unresolved BT writes directly inside its final container under the
+    // fallback save root.
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
       ['magnet:?xt=x'],
       expect.objectContaining({
-        dir: expect.stringMatching(/^\/tmp\/.+\.motrix$/) as unknown as string,
+        dir: expect.stringMatching(
+          /^\/tmp\/(?!.*\.motrix$).+$/
+        ) as unknown as string,
         gid: result?.gid,
       })
     )

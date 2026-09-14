@@ -25,8 +25,10 @@ import type { Logger } from '../../logger'
 import { DirectRecoveryPlanner } from '../../session/direct-recovery-planner'
 import { applyTerminalTransition } from '../apply-terminal-transition'
 import {
+  buildBtDirectOutputPaths,
   buildFinalOutputFilePaths,
   buildStagingOutputFilePaths,
+  getBtDirectStorageLayout,
   getBtStorageLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPieces,
@@ -137,7 +139,11 @@ async function reAddBt(
   metadata: Uint8Array
 ): Promise<string> {
   const storageLayout = getBtStorageLayout(task)
-  const parsedLayout = storageLayout ? await parseBtFileLayout(metadata) : null
+  const directLayout = getBtDirectStorageLayout(task)
+  const parsedLayout =
+    storageLayout || directLayout?.torrentRootName
+      ? await parseBtFileLayout(metadata)
+      : null
   const completed = task.status === TaskStatus.Completed
   const prioritizePreviewPieces =
     !completed &&
@@ -147,21 +153,40 @@ async function reAddBt(
   const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
-    saveDir: storageLayout
-      ? completed
-        ? path.dirname(task.finalPath)
-        : storageLayout.workspacePath
-      : reAddSaveDir(task),
-    outputFilePaths:
-      storageLayout && parsedLayout
+    saveDir: directLayout
+      ? buildBtDirectOutputPaths(
+          task.diskPath,
+          parsedLayout,
+          task.torrentMetaPath
+        ).saveDir
+      : storageLayout
         ? completed
-          ? buildFinalOutputFilePaths(
-              parsedLayout,
-              task.finalPath,
-              storageLayout
-            )
-          : buildStagingOutputFilePaths(parsedLayout, storageLayout)
-        : undefined,
+          ? path.dirname(task.finalPath)
+          : storageLayout.workspacePath
+        : reAddSaveDir(task),
+    outputFilePaths:
+      directLayout && parsedLayout
+        ? buildBtDirectOutputPaths(
+            task.diskPath,
+            parsedLayout,
+            task.torrentMetaPath
+          ).outputFilePaths
+        : storageLayout && parsedLayout
+          ? completed
+            ? buildFinalOutputFilePaths(
+                parsedLayout,
+                task.finalPath,
+                storageLayout
+              )
+            : buildStagingOutputFilePaths(parsedLayout, storageLayout)
+          : undefined,
+    outputRoot: directLayout
+      ? buildBtDirectOutputPaths(
+          task.diskPath,
+          parsedLayout,
+          task.torrentMetaPath
+        ).outputRoot
+      : undefined,
     gid: reservedGid,
     // AddTorrentParams is engine-native; the task aggregate stays 0-based.
     selectedFiles: selectedFiles?.map((index) => index + 1),

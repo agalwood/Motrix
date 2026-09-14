@@ -6,6 +6,9 @@ import type {
 } from '@shared/schemas/add-task'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
+import { getBtOutputReservations } from './bt-output-reservation'
+import { getBtDirectStorageLayout } from './bt-storage-layout'
+import { outputPathIdentity } from './output-path-identity'
 
 const HEX_INFO_HASH_RE = /^[a-f0-9]{40}$/i
 const BASE32_INFO_HASH_RE = /^[a-z2-7]{32}$/i
@@ -21,6 +24,24 @@ export async function acquireBtInfoHashAdmission(
   infoHash: string
 ): Promise<() => void> {
   const key = normalizeBtInfoHash(infoHash) ?? infoHash.toLowerCase()
+  return acquireBtAdmission(`hash:${key}`)
+}
+
+/** Final outputs cannot be shared by concurrently admitted torrents. */
+export async function withBtOutputAdmission<T>(
+  saveDir: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  const key = canonicalBtPath(saveDir)
+  const release = await acquireBtAdmission(`output:${key}`)
+  try {
+    return await operation()
+  } finally {
+    release()
+  }
+}
+
+async function acquireBtAdmission(key: string): Promise<() => void> {
   const previous = admissionTails.get(key) ?? Promise.resolve()
   let releaseCurrent!: () => void
   const current = new Promise<void>((resolve) => {
@@ -190,13 +211,23 @@ export function reservedBtFinalNames(
   const targetDir = canonicalBtPath(saveDir)
   return tasks
     .filter(
-      (task) =>
-        task.id !== excludeTaskId &&
-        task.status !== TaskStatus.Removed &&
-        task.finalName.length > 0 &&
-        btTaskTargetDir(task) === targetDir
+      (task) => task.id !== excludeTaskId && task.status !== TaskStatus.Removed
     )
-    .map((task) => task.finalName)
+    .flatMap((task) => {
+      const names: string[] = []
+      if (task.finalName && btTaskTargetDir(task) === targetDir) {
+        names.push(task.finalName)
+        if (getBtDirectStorageLayout(task)?.multiFile === false)
+          names.push(`${task.finalName}.aria2`)
+      }
+      for (const reservation of getBtOutputReservations(task)) {
+        if (canonicalBtPath(path.dirname(reservation.finalPath)) !== targetDir)
+          continue
+        const name = path.basename(reservation.finalPath)
+        names.push(name, `${name}.aria2`)
+      }
+      return names
+    })
 }
 
 export function existingFilesConflict(
@@ -263,8 +294,7 @@ export function btTaskTargetDir(task: DownloadTask): string {
 }
 
 export function canonicalBtPath(value: string): string {
-  const resolved = path.resolve(value)
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+  return outputPathIdentity(value)
 }
 
 function normalizeSelection(values: readonly number[]): number[] {

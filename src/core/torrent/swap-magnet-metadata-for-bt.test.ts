@@ -25,9 +25,11 @@ import {
 } from './swap-magnet-metadata-for-bt'
 
 // Stub node:fs/promises so the swap's `mkdir(diskPath, {recursive:true})`
-// (the in-flight .motrix container pre-create) doesn't touch the real FS.
+// (the final output directory pre-create) doesn't touch the real FS.
 const { mkdirMock, rmMock } = vi.hoisted(() => ({
-  mkdirMock: vi.fn(async () => undefined),
+  mkdirMock: vi.fn<(dir: string, options?: unknown) => Promise<void>>(
+    async () => {}
+  ),
   rmMock: vi.fn(async () => undefined),
 }))
 vi.mock('node:fs/promises', () => ({
@@ -330,7 +332,7 @@ describe('swapMagnetMetadataForBt', () => {
   }
 
   beforeEach(() => {
-    mkdirMock.mockClear()
+    mkdirMock.mockReset().mockResolvedValue(undefined)
     rmMock.mockClear()
     db = createMockDb()
     taskManager = createMockTaskManager()
@@ -351,7 +353,123 @@ describe('swapMagnetMetadataForBt', () => {
     })
   })
 
-  it('removes the prepared container when torrent metadata persistence rejects', async () => {
+  it('retries metadata persistence failure in the same final directory', async () => {
+    const createdDirs = new Set<string>()
+    mkdirMock.mockImplementation(async (dir: string) => {
+      createdDirs.add(dir)
+    })
+    const { readFileSync } = await import('node:fs')
+    const { FinalNamePickerImpl } = await import('@core/task/final-name-picker')
+    const base64 = readFileSync(
+      `${__dirname}/__fixtures__/test.torrent`
+    ).toString('base64')
+    const picker = new FinalNamePickerImpl({
+      exists: async (p: string) => createdDirs.has(p),
+    })
+    const deps = {
+      db,
+      taskManager,
+      adapter: adapter as never,
+      magnetTracker: magnetTracker as never as MagnetTracker,
+      publishTaskUpdate: () => {},
+      publishTaskUpdateNow: () => {},
+      finalNamePicker: picker,
+      torrentMetaStore: torrentMetaStore as never,
+      runTaskMutation: runImmediately,
+      runExclusivePersistence: persistImmediately,
+    }
+    const input = {
+      taskId: 'm-mag',
+      base64,
+      selectedFiles: [0],
+      saveDir: '/Downloads',
+      name: 'review-bundle',
+    }
+    torrentMetaStore.persist.mockRejectedValueOnce(new Error('disk full'))
+    await expect(swapMagnetMetadataForBt(input, deps)).rejects.toThrow(
+      'disk full'
+    )
+    expect(createdDirs.has('/Downloads/review-bundle')).toBe(false)
+    await expect(swapMagnetMetadataForBt(input, deps)).resolves.toHaveProperty(
+      'taskId',
+      'm-mag'
+    )
+  })
+
+  it('retries a compensated engine failure against its reserved partial output', async () => {
+    const createdDirs = new Set<string>()
+    mkdirMock.mockImplementation(async (dir) => {
+      createdDirs.add(dir)
+    })
+    const { readFileSync } = await import('node:fs')
+    const { FinalNamePickerImpl } = await import('@core/task/final-name-picker')
+    const base64 = readFileSync(
+      `${__dirname}/__fixtures__/test.torrent`
+    ).toString('base64')
+    const picker = new FinalNamePickerImpl({
+      exists: async (p) => createdDirs.has(p),
+    })
+    const deps = {
+      db,
+      taskManager,
+      adapter: adapter as never,
+      magnetTracker: magnetTracker as never as MagnetTracker,
+      publishTaskUpdate: () => {},
+      publishTaskUpdateNow: () => {},
+      finalNamePicker: picker,
+      torrentMetaStore: torrentMetaStore as never,
+      runTaskMutation: runImmediately,
+      runExclusivePersistence: persistImmediately,
+    }
+    const input = {
+      taskId: 'm-mag',
+      base64,
+      selectedFiles: [0],
+      saveDir: '/Downloads',
+      name: 'partial-bundle',
+    }
+    adapter.addTorrent.mockImplementationOnce(async () => {
+      createdDirs.add('/Downloads/partial-bundle')
+      throw new Error('reply lost after creating output')
+    })
+    await expect(swapMagnetMetadataForBt(input, deps)).rejects.toThrow(
+      'reply lost'
+    )
+    expect(db.getTask('m-mag')?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    expect(db.getTask('m-mag')?.instances[0].payload).toHaveProperty(
+      'btOutputReservation'
+    )
+    adapter.addTorrent.mockImplementationOnce(async () => {
+      createdDirs.add('/Downloads/other-bundle')
+      throw new Error('second reply lost')
+    })
+    await expect(
+      swapMagnetMetadataForBt({ ...input, name: 'other-bundle' }, deps)
+    ).rejects.toThrow('second reply lost')
+    expect(
+      db.getTask('m-mag')?.instances[0].payload.btOutputReservations
+    ).toEqual([
+      expect.objectContaining({ finalPath: '/Downloads/partial-bundle' }),
+      expect.objectContaining({ finalPath: '/Downloads/other-bundle' }),
+    ])
+    await expect(swapMagnetMetadataForBt(input, deps)).resolves.toHaveProperty(
+      'taskId',
+      'm-mag'
+    )
+    expect(
+      db.getTask('m-mag')?.instances[0].payload.btOutputReservations
+    ).toEqual([
+      expect.objectContaining({ finalPath: '/Downloads/other-bundle' }),
+    ])
+    expect(adapter.addTorrent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        outputRoot: '/Downloads/partial-bundle',
+        checkIntegrity: true,
+      })
+    )
+  })
+
+  it('does not create a container when torrent metadata persistence rejects', async () => {
     torrentMetaStore.persist.mockRejectedValueOnce(
       new Error('torrent metadata write failed')
     )
@@ -384,10 +502,7 @@ describe('swapMagnetMetadataForBt', () => {
     expect(adapter.addTorrent).not.toHaveBeenCalled()
     expect(magnetTracker.cancel).not.toHaveBeenCalled()
     expect(magnetTracker.reserveFailedSwapCleanup).not.toHaveBeenCalled()
-    expect(rmMock).toHaveBeenCalledWith('/Downloads/m-mag.motrix', {
-      recursive: true,
-      force: true,
-    })
+    expect(rmMock).not.toHaveBeenCalled()
     expect(db.getTask('m-mag')).toMatchObject({
       task: {
         taskType: TaskType.Magnet,
@@ -549,13 +664,15 @@ describe('swapMagnetMetadataForBt', () => {
     const firstSwap = swapMagnetMetadataForBt(input, deps)
     await cancelStarted.promise
     const duplicateSwap = swapMagnetMetadataForBt(input, deps)
-    await vi.waitFor(() => {
-      expect(
-        admission.calls.length === 2 ||
-          magnetTracker.cancel.mock.calls.length === 2
-      ).toBe(true)
-    })
-    releaseCancel.resolve()
+    try {
+      await Promise.resolve()
+      // Output admission precedes task admission, so the queued confirmation
+      // cannot hold the task lock while waiting for the destination directory.
+      expect(admission.calls).toEqual([['m-mag']])
+      expect(magnetTracker.cancel).toHaveBeenCalledTimes(1)
+    } finally {
+      releaseCancel.resolve()
+    }
 
     const [first, duplicate] = await Promise.allSettled([
       firstSwap,
@@ -951,10 +1068,7 @@ describe('swapMagnetMetadataForBt', () => {
     expect(adapter.forceRemoveTask).toHaveBeenCalledWith(reservedGid)
     expect(adapter.removeDownloadResult).toHaveBeenCalledWith(reservedGid)
     expect(torrentMetaStore.remove).not.toHaveBeenCalled()
-    expect(rmMock).toHaveBeenCalledWith('/Downloads/m-mag.motrix', {
-      recursive: true,
-      force: true,
-    })
+    expect(rmMock).not.toHaveBeenCalled()
   })
 
   it('restores and retires when result purge proves absence after force-remove fails', async () => {
@@ -1061,7 +1175,7 @@ describe('swapMagnetMetadataForBt', () => {
     )
   })
 
-  it('writes into a .motrix container, persists the path trio + torrent meta, and shows type BT', async () => {
+  it('uses the final directory for unparsed metadata and persists BT recovery paths', async () => {
     // Mirrors createTaskHandler's BT branch. The pre-fix swap passed the bare
     // saveDir to aria2 (files loose in ~/Downloads, no in-flight container),
     // left finalPath=saveDir / finalName='' / torrentMetaPath=null — which
@@ -1091,18 +1205,25 @@ describe('swapMagnetMetadataForBt', () => {
       }
     )
 
-    // aria2's dir is the in-flight container, NOT the bare saveDir.
+    const finalPath = '/Downloads/Movie'
+    // The engine writes directly into the final container.
     expect(adapter.addTorrent).toHaveBeenCalledWith(
-      expect.objectContaining({ saveDir: '/Downloads/Movie.motrix' })
+      expect.objectContaining({ saveDir: finalPath })
     )
+    expect(adapter.addTorrent.mock.calls[0][0].outputFilePaths).toBeUndefined()
     // Container is pre-created so aria2's <dir>/<sha1>.torrent write succeeds.
-    expect(mkdirMock).toHaveBeenCalledWith('/Downloads/Movie.motrix', {
+    expect(mkdirMock).toHaveBeenCalledWith(finalPath, {
       recursive: true,
     })
 
     const after = db.getTask('m-mag')
-    expect(after?.instances[0].diskPath).toBe('/Downloads/Movie.motrix')
-    // Path trio set so finalize renames container -> final on completion.
+    expect(after?.instances[0].diskPath).toBe(finalPath)
+    expect(after?.instances[0].payload.btStorageLayout).toMatchObject({
+      version: 2,
+      strategy: 'direct',
+      torrentRootName: null,
+    })
+    // The download uses its final path from creation through completion.
     expect(after?.task.finalPath).toBe('/Downloads/Movie')
     expect(after?.task.finalName).toBe('Movie')
     // torrentMetaPath persisted so reseed / reAdd don't throw meta-missing.
@@ -1116,7 +1237,7 @@ describe('swapMagnetMetadataForBt', () => {
     expect(tmTask.type).toBe(TaskType.Bt)
   })
 
-  it('uses indexed staging and persists a changed destination after magnet metadata resolves', async () => {
+  it('maps files directly to a changed destination after magnet metadata resolves', async () => {
     const torrent = buildSingleFileTorrent('very-long-original-name.iso')
     const original = db.getTask('m-mag')
     if (!original) throw new Error('missing fixture')
@@ -1147,17 +1268,21 @@ describe('swapMagnetMetadataForBt', () => {
     )
 
     const params = adapter.addTorrent.mock.calls[0][0]
-    expect(params.saveDir).toMatch(/^\/Selected\/\.motrix\/[a-f0-9]{20}$/)
+    expect(params.saveDir).toBe('/Selected')
+    expect(db.getTask('m-mag')?.instances[0].diskPath).toBe(
+      '/Selected/User friendly name.iso'
+    )
     expect(db.getTask('m-mag')?.task.saveDir).toBe('/Selected')
     expect(taskManager.getById('m-mag')?.saveDir).toBe('/Selected')
     expect(params.outputFilePaths).toEqual([
-      { fileIndex: 0, relativePath: 'p' },
+      { fileIndex: 0, relativePath: 'User friendly name.iso' },
     ])
     expect(
       db.getTask('m-mag')?.instances[0].payload.btStorageLayout
     ).toMatchObject({
-      workspacePath: params.saveDir,
-      payloadEntry: 'p',
+      version: 2,
+      strategy: 'direct',
+      finalized: false,
       torrentRootName: 'very-long-original-name.iso',
     })
     expect(params.prioritizePreviewPieces).toBeUndefined()

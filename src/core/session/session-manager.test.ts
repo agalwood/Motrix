@@ -13,6 +13,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import type { TaskTerminalOccurrence } from '@shared/types/task-occurrence'
+import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
@@ -24,7 +25,7 @@ import { clearStoppedTasks } from '../task/actions/clear-stopped-tasks'
 import { stopSeedingTask } from '../task/actions/stop-seeding-task'
 import {
   btStoragePayload,
-  createBtStoragePlan,
+  createBtDirectStoragePlan,
   getBtPayloadPath,
   parseBtFileLayout,
 } from '../task/bt-storage-layout'
@@ -4330,6 +4331,46 @@ it('re-adds an interrupted indexed BT download with its original payload mapping
       expect.objectContaining({
         saveDir: plan.layout.workspacePath,
         outputFilePaths: [{ fileIndex: 0, relativePath: 'p' }],
+        pause: true,
+        checkIntegrity: true,
+      })
+    )
+    expect(tm.getById('readd-layout')?.saveDir).toBe(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+it('restores a paused direct BT download at its exact final filename', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'motrix-readd-layout-'))
+  try {
+    const bytes = buildSingleFileTorrent('movie.mkv')
+    const metadata = path.join(root, 'source.torrent')
+    fs.writeFileSync(metadata, bytes)
+    const parsed = await parseBtFileLayout(bytes)
+    const plan = createBtDirectStoragePlan(
+      path.join(root, 'chosen.mkv'),
+      parsed
+    )
+    const tm = new TaskManager()
+    const db = createMockDb()
+    const adapter = createMockAdapter()
+    seedAsPair(db, {
+      motrixId: 'readd-layout',
+      gid: 'old-gid',
+      type: TaskType.Bt,
+      status: TaskStatus.Paused,
+      infoHash: parsed.infoHash,
+      torrentMetaPath: metadata,
+      diskPath: path.join(root, 'chosen.mkv'),
+      finalPath: path.join(root, 'chosen.mkv'),
+      payload: btStoragePayload(plan.layout),
+    })
+    await new SessionManager(tm, createMockRpc(), db, adapter).restore()
+    expect(adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        saveDir: root,
+        outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.mkv' }],
         pause: true,
         checkIntegrity: true,
       })

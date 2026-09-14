@@ -289,6 +289,38 @@ function lastAddedTask(deps: { add: ReturnType<typeof vi.fn> }): DownloadTask {
 }
 
 describe('handleCreateTask', () => {
+  it('reserves different final outputs for concurrent torrents with the same chosen name', async () => {
+    const deps = makeDeps()
+    const owners: DownloadTask[] = []
+    deps.add.mockImplementation((task: DownloadTask) => owners.push(task))
+    vi.mocked(deps.taskManager.getAll).mockImplementation(() => owners)
+    deps.finalNamePicker = new FinalNamePickerImpl({
+      exists: async () => false,
+    })
+    await Promise.all(
+      ['first.iso', 'second.iso'].map((name) => {
+        const bytes = buildMinimalTorrentBytes(name, false)
+        return handleCreateTask(
+          {
+            type: 'bt',
+            payload: {
+              kind: 'torrent-base64',
+              base64: Buffer.from(bytes).toString('base64'),
+            },
+            selectedFiles: [0],
+            saveDir: '/d',
+            displayName: 'chosen.iso',
+          },
+          deps
+        )
+      })
+    )
+    expect(owners.map((task) => task.diskPath).sort()).toEqual([
+      '/d/chosen (1).iso',
+      '/d/chosen.iso',
+    ])
+    expect(owners.every((task) => task.diskPath === task.finalPath)).toBe(true)
+  })
   it('dispatches cookies only to the engine and blocks credential-free probing and replay', async () => {
     const deps = makeDeps()
     const probe = vi.fn()
@@ -913,19 +945,18 @@ describe('handleCreateTask', () => {
     )
     const task = lastAddedTask(deps)
     expect(task.finalName).toBe('ubuntu-25.10-desktop-amd64.iso')
-    expect(task.diskPath).toMatch(/^\/d\/\.motrix\/[a-f0-9]{20}$/)
+    expect(task.diskPath).toBe(task.finalPath)
     expect(task.instances[0].payload.btStorageLayout).toMatchObject({
-      version: 1,
-      strategy: 'indexed-staging',
-      workspacePath: task.diskPath,
-      payloadEntry: 'p',
+      version: 2,
+      strategy: 'direct',
+      finalized: false,
       torrentRootName: 'ubuntu-25.10-desktop-amd64.iso',
       multiFile: false,
     })
     const [, , options] = deps.addTorrent.mock.calls[0]
     expect(options).toMatchObject({
-      dir: task.diskPath,
-      'index-out': ['1=p'],
+      dir: '/d',
+      'index-out': ['1=ubuntu-25.10-desktop-amd64.iso'],
     })
     expect(options).not.toHaveProperty('bt-prioritize-piece')
   })
@@ -1019,7 +1050,7 @@ describe('handleCreateTask', () => {
   })
 })
 
-describe('handleCreateTask with incomplete-suffix', () => {
+describe('handleCreateTask download paths', () => {
   it('HTTP task: taskManager receives task with diskPath=.motrix, finalPath clean', async () => {
     const deps = makeDeps()
     await handleCreateTask(
@@ -1061,7 +1092,7 @@ describe('handleCreateTask with incomplete-suffix', () => {
     expect(options.out).toBe('foo.mp4.motrix')
   })
 
-  it('BT task: taskManager receives task with diskPath=<saveDir>/<name>.motrix', async () => {
+  it('unparsed BT task: persists the final directory without a temporary output', async () => {
     const deps = makeDeps({
       persist: async (id) => `/torrents/${id}.torrent`,
     })
@@ -1077,14 +1108,21 @@ describe('handleCreateTask with incomplete-suffix', () => {
       deps
     )
     const task = lastAddedTask(deps)
-    expect(task.diskPath).toBe('/d/mytorrent.motrix')
+    expect(task.diskPath).toBe(task.finalPath)
+    expect(task.diskPath).toBe(task.finalPath)
+    expect(task.instances[0].diskPath).toBe(task.diskPath)
+    expect(task.instances[0].payload.btStorageLayout).toMatchObject({
+      version: 2,
+      strategy: 'direct',
+      torrentRootName: null,
+    })
     expect(task.finalPath).toBe('/d/mytorrent')
     expect(task.finalName).toBe('mytorrent')
     expect(task.type).toBe(TaskType.Bt)
     expect(task.torrentMetaPath).toBe(`/torrents/${task.id}.torrent`)
   })
 
-  it('BT task: aria2 `dir` option points at the .motrix container and `out` is dropped', async () => {
+  it('unparsed BT task: aria2 writes into the final directory without an output override', async () => {
     const deps = makeDeps()
     await handleCreateTask(
       {
@@ -1097,8 +1135,9 @@ describe('handleCreateTask with incomplete-suffix', () => {
       deps
     )
     const [, , options] = deps.addTorrent.mock.calls[0]
-    expect(options.dir).toBe('/d/mytorrent.motrix')
+    expect(options.dir).toBe('/d/mytorrent')
     expect(options.out).toBeUndefined()
+    expect(options).not.toHaveProperty('index-out')
   })
 
   it('Magnet task: derives name from dn= when no displayName provided', async () => {
@@ -1117,7 +1156,9 @@ describe('handleCreateTask with incomplete-suffix', () => {
     )
     const task = lastAddedTask(deps)
     expect(task.finalName).toBe('Ubuntu 24.04')
-    expect(task.diskPath).toBe('/d/Ubuntu 24.04.motrix')
+    expect(task.diskPath).toBe(task.finalPath)
+    expect(task.instances[0].diskPath).toBe(task.diskPath)
+    expect(deps.addUri.mock.calls[0][1].dir).toBe(task.diskPath)
     expect(task.type).toBe(TaskType.Magnet)
     // magnet payloads never persist torrentBytes
     expect(task.torrentMetaPath).toBeNull()
@@ -1716,7 +1757,7 @@ describe('handleCreateTask mkdir target by task type', () => {
   // — pre-creating the dir is required to keep that write from
   // silently failing (which would skip the sqlite3 task row and hit a
   // FK violation on the next pause).
-  it('BT task: mkdirs the .motrix container (diskPath)', async () => {
+  it('BT task: mkdirs the final container (diskPath)', async () => {
     const deps = makeDeps()
     await handleCreateTask(
       {
@@ -1729,12 +1770,12 @@ describe('handleCreateTask mkdir target by task type', () => {
       deps
     )
     expect(mkdirMock).toHaveBeenCalledTimes(1)
-    expect(mkdirMock).toHaveBeenCalledWith('/d/mytorrent.motrix', {
+    expect(mkdirMock).toHaveBeenCalledWith(lastAddedTask(deps).finalPath, {
       recursive: true,
     })
   })
 
-  it('Magnet task: mkdirs the .motrix container (diskPath)', async () => {
+  it('Magnet task: mkdirs the final container (diskPath)', async () => {
     const deps = makeDeps({ addUriGid: 'gid-m' })
     await handleCreateTask(
       {
@@ -1749,7 +1790,7 @@ describe('handleCreateTask mkdir target by task type', () => {
       deps
     )
     expect(mkdirMock).toHaveBeenCalledTimes(1)
-    expect(mkdirMock).toHaveBeenCalledWith('/d/Ubuntu.motrix', {
+    expect(mkdirMock).toHaveBeenCalledWith(lastAddedTask(deps).finalPath, {
       recursive: true,
     })
   })
@@ -2815,4 +2856,47 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     expect(dispatchMux).not.toHaveBeenCalled()
     expect(deps.addUri).toHaveBeenCalledOnce()
   })
+})
+
+it.each([
+  ['foo', 'foo'],
+  ['foo', 'foo.aria2'],
+  ['foo.motrix', 'foo'],
+])('isolates a pending BT %s from HTTP %s', async (btName, httpName) => {
+  const deps = makeDeps()
+  const owners: DownloadTask[] = []
+  deps.add.mockImplementation((task: DownloadTask) => owners.push(task))
+  vi.mocked(deps.taskManager.getAll).mockImplementation(() => owners)
+  deps.finalNamePicker = new FinalNamePickerImpl({ exists: async () => false })
+  const entered = Promise.withResolvers<void>()
+  const release = Promise.withResolvers<void>()
+  deps.addTorrent.mockImplementationOnce(async (_metadata, _uris, options) => {
+    entered.resolve()
+    await release.promise
+    return options.gid
+  })
+  const bt = handleCreateTask(
+    {
+      type: 'bt',
+      payload: {
+        kind: 'torrent-base64',
+        base64: Buffer.from(buildMinimalTorrentBytes('source', false)).toString(
+          'base64'
+        ),
+      },
+      selectedFiles: [0],
+      saveDir: '/d',
+      displayName: btName,
+    },
+    deps
+  )
+  await entered.promise
+  const http = handleCreateTask({ ...httpRequest(), filename: httpName }, deps)
+  await Promise.resolve()
+  expect(deps.addUri).not.toHaveBeenCalled()
+  release.resolve()
+  await Promise.all([bt, http])
+  const httpTask = owners.find((task) => task.type === TaskType.Http)!
+  expect(httpTask.finalName).not.toBe(httpName)
+  expect(httpTask.diskPath).toBe(`${httpTask.finalPath}.motrix`)
 })

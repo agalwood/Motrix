@@ -48,8 +48,10 @@ import {
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
 import {
+  buildBtDirectOutputPaths,
   buildFinalOutputFilePaths,
   buildStagingOutputFilePaths,
+  getBtDirectStorageLayout,
   getBtStorageLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPiecesFromMetadata,
@@ -1465,28 +1467,53 @@ export class SessionManager {
           await shouldPrioritizeBtPreviewPiecesFromMetadata(bytes)
         const restored = taskRowToDownloadTask(taskPart, pair.instances)
         const layout = getBtStorageLayout(restored)
-        const parsed = layout ? await parseBtFileLayout(bytes) : null
+        const directLayout = getBtDirectStorageLayout(restored)
+        const parsed =
+          layout || directLayout?.torrentRootName
+            ? await parseBtFileLayout(bytes)
+            : null
         const alreadyRenamed = restored.diskPath === restored.finalPath
         return this.dispatchRecoveryCandidate(pair, (gid) =>
           this.adapter.addTorrent({
             metadata: bytes,
             gid,
-            saveDir: layout
-              ? alreadyRenamed
-                ? path.dirname(restored.finalPath)
-                : layout.workspacePath
-              : primary?.diskPath || restored.saveDir || '/',
-            ...(layout && parsed
+            saveDir: directLayout
+              ? buildBtDirectOutputPaths(
+                  restored.diskPath,
+                  parsed,
+                  restored.torrentMetaPath
+                ).saveDir
+              : layout
+                ? alreadyRenamed
+                  ? path.dirname(restored.finalPath)
+                  : layout.workspacePath
+                : primary?.diskPath || restored.saveDir || '/',
+            ...(directLayout && parsed
               ? {
-                  outputFilePaths: alreadyRenamed
-                    ? buildFinalOutputFilePaths(
-                        parsed,
-                        restored.finalPath,
-                        layout
-                      )
-                    : buildStagingOutputFilePaths(parsed, layout),
+                  outputFilePaths: buildBtDirectOutputPaths(
+                    restored.diskPath,
+                    parsed,
+                    restored.torrentMetaPath
+                  ).outputFilePaths,
                 }
-              : {}),
+              : layout && parsed
+                ? {
+                    outputFilePaths: alreadyRenamed
+                      ? buildFinalOutputFilePaths(
+                          parsed,
+                          restored.finalPath,
+                          layout
+                        )
+                      : buildStagingOutputFilePaths(parsed, layout),
+                  }
+                : {}),
+            outputRoot: directLayout
+              ? buildBtDirectOutputPaths(
+                  restored.diskPath,
+                  parsed,
+                  restored.torrentMetaPath
+                ).outputRoot
+              : undefined,
             pause: taskPart.aggStatus === TaskStatus.Paused,
             checkIntegrity: true,
             ...(prioritizePreviewPieces

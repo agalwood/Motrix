@@ -61,11 +61,11 @@ import {
   inspectBtDuplicate,
   reservedBtFinalNames,
   TorrentDuplicateConflictError,
+  withBtOutputAdmission,
 } from './bt-duplicate-policy'
 import {
-  type BtStoragePlan,
   btStoragePayload,
-  createBtStoragePlan,
+  createBtDirectStoragePlan,
   type ParsedBtFileLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPieces,
@@ -246,23 +246,55 @@ export async function handleCreateTask(
     // Keep a runtime guard for untyped composition code: missing policy
     // injection must disable metadata I/O instead of consulting newer,
     // potentially unapplied SettingsManager values.
-    return policy
-      ? policy.runWithSnapshot((snapshot, lease) =>
-          handleCreateTaskUnderAdmission(
+    assertHttpTaskSourceAdmission(parsed.data.uris)
+    const requestedDir =
+      parsed.data.saveDir || deps.settingsManager.getApp().defaultSaveDir
+    const preparedDir = deps.prepareSaveDir
+      ? await deps.prepareSaveDir(requestedDir)
+      : requestedDir
+    return withBtOutputAdmission(preparedDir, () =>
+      policy
+        ? policy.runWithSnapshot((snapshot, lease) =>
+            handleCreateTaskUnderAdmission(
+              rawRequest,
+              deps,
+              opts,
+              snapshot,
+              lease.assertCurrent,
+              preparedDir
+            )
+          )
+        : handleCreateTaskUnderAdmission(
             rawRequest,
             deps,
             opts,
-            snapshot,
-            lease.assertCurrent
+            null,
+            undefined,
+            preparedDir
           )
-        )
-      : handleCreateTaskUnderAdmission(rawRequest, deps, opts, null)
+    )
   }
   if (!parsed.success || parsed.data.type !== 'bt') {
     return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
   }
 
   const req = parsed.data
+  const requestedSaveDir =
+    req.saveDir || deps.settingsManager.getApp().defaultSaveDir
+  const preparedSaveDir = deps.prepareSaveDir
+    ? await deps.prepareSaveDir(requestedSaveDir)
+    : requestedSaveDir
+  const createBtTask = () =>
+    withBtOutputAdmission(preparedSaveDir, () =>
+      handleCreateTaskUnderAdmission(
+        rawRequest,
+        deps,
+        opts,
+        undefined,
+        undefined,
+        preparedSaveDir
+      )
+    )
   let infoHash =
     req.payload.kind === 'magnet'
       ? extractMagnetInfoHash(req.payload.uri)
@@ -275,11 +307,11 @@ export async function handleCreateTask(
       // The canonical create path below owns parse-error handling and logging.
     }
   }
-  if (!infoHash) return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+  if (!infoHash) return createBtTask()
 
   const release = await acquireBtInfoHashAdmission(infoHash)
   try {
-    return await handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+    return await createBtTask()
   } finally {
     release()
   }
@@ -290,7 +322,8 @@ async function handleCreateTaskUnderAdmission(
   deps: CreateTaskDeps,
   opts: CreateTaskOptions = {},
   appliedProxySnapshot?: AppliedDownloadProxySnapshot,
-  assertAppliedProxyCurrent?: () => void
+  assertAppliedProxyCurrent?: () => void,
+  preparedSaveDir?: string
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (!parsed.success) {
@@ -307,9 +340,11 @@ async function handleCreateTaskUnderAdmission(
   if (req.type === 'http') assertHttpTaskSourceAdmission(req.uris)
 
   const requestedSaveDir = req.saveDir || appSettings.defaultSaveDir
-  const effectiveSaveDir = deps.prepareSaveDir
-    ? await deps.prepareSaveDir(requestedSaveDir)
-    : requestedSaveDir
+  const effectiveSaveDir =
+    preparedSaveDir ??
+    (deps.prepareSaveDir
+      ? await deps.prepareSaveDir(requestedSaveDir)
+      : requestedSaveDir)
   const taskId = newTaskId()
 
   log.info(
@@ -346,7 +381,7 @@ async function handleCreateTaskUnderAdmission(
       }
       log.warn(
         { err },
-        'failed to parse torrent for indexed staging; falling back to legacy layout'
+        'failed to parse torrent paths; using engine paths inside the final directory'
       )
     }
   }
@@ -392,33 +427,36 @@ async function handleCreateTaskUnderAdmission(
     btInfoHash &&
     req.duplicatePolicy === 'reuse' &&
     deps.finalNamePicker.isTaken &&
-    (await deps.finalNamePicker.isTaken(effectiveSaveDir, desiredName))
+    (await deps.finalNamePicker.isTaken(
+      effectiveSaveDir,
+      desiredName,
+      parsedBtLayout?.multiFile === false
+    ))
   ) {
     throw existingFilesConflict(btInfoHash, effectiveSaveDir)
   }
-  const reservedNames =
-    req.type === 'bt'
-      ? reservedBtFinalNames(
-          deps.taskManager.getAll(),
-          effectiveSaveDir,
-          req.existingTaskId
-        )
-      : undefined
+  const reservedNames = reservedBtFinalNames(
+    deps.taskManager.getAll(),
+    effectiveSaveDir,
+    req.type === 'bt' ? req.existingTaskId : undefined
+  )
+  const pickHttpFinalName = (desired: string) =>
+    reservedNames.length > 0
+      ? deps.finalNamePicker.pick(effectiveSaveDir, desired, reservedNames)
+      : deps.finalNamePicker.pick(effectiveSaveDir, desired)
   let finalName =
     req.type === 'bt'
       ? await deps.finalNamePicker.pick(
           effectiveSaveDir,
           desiredName,
-          reservedNames
+          reservedNames,
+          parsedBtLayout?.multiFile === false
         )
-      : await deps.finalNamePicker.pick(effectiveSaveDir, desiredName)
+      : await pickHttpFinalName(desiredName)
 
   const taskType = deriveTaskType(req)
   let finalPath = path.join(effectiveSaveDir, finalName)
-  const btStoragePlan: BtStoragePlan | null = parsedBtLayout
-    ? createBtStoragePlan(taskId, effectiveSaveDir, parsedBtLayout)
-    : null
-  let diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
+  let diskPath = isTorrentLikeType(taskType) ? finalPath : toTempPath(finalPath)
   // Anchor "now" early so the hook DTO's requestedAt and the persisted
   // task row share a clock — they are written in the same SQLite
   // transaction when plugin metadata is staged.
@@ -441,28 +479,16 @@ async function handleCreateTaskUnderAdmission(
     }
   }
 
-  // 2.5. Pre-create the on-disk slot before handing off to aria2.
-  // `diskPath` means different things by task family:
-  //   - Parsed .torrent: `diskPath` is a short task workspace and index-out
-  //     maps payload files below `<diskPath>/p`.
-  //   - Unresolved magnet / legacy BT: `diskPath` is the traditional
-  //     `<finalName>.motrix` container.
-  //     For both BT layouts, pre-creating the engine `dir` also
-  //     guarantees `aria2.addTorrent`'s metadata write
-  //     (`<diskPath>/<sha1>.torrent`) succeeds at add time. Without
-  //     this dir, the save fails silently; the resulting task gets a
-  //     data-only `MetadataInfo` and the sqlite3 `task` row is never
-  //     written, so the next pause hits a FOREIGN KEY violation when
-  //     `task_progress` is upserted.
-  //   - HTTP/FTP: `diskPath` IS the file aria2 will create
-  //     (`dir = saveDir`, `out = <finalName>.motrix`). mkdir'ing it
-  //     would race with aria2's open(2) for write — the path becomes
-  //     a directory and aria2 fails the task with EISDIR. Pre-create
-  //     `saveDir` instead so aria2's `dir` option is reachable.
-  // aria2_motrix has the matching mkdirs on its side, so an mkdir
-  // error here is logged but not fatal — defence-in-depth, not
-  // single point of failure.
-  const ensureDir = isTorrentLikeType(taskType) ? diskPath : effectiveSaveDir
+  const btStoragePlan = isTorrentLikeType(taskType)
+    ? createBtDirectStoragePlan(finalPath, parsedBtLayout, torrentMetaPath)
+    : null
+
+  // Create the engine's directory before admission so aria2 can persist its
+  // torrent metadata. Multi-file BT uses its private metadata directory and
+  // maps every payload into the final output root. Single-file BT uses the
+  // destination parent; unresolved BT uses the final container. HTTP keeps
+  // its incomplete suffix inside the chosen save root.
+  const ensureDir = btStoragePlan?.saveDir ?? effectiveSaveDir
   try {
     await mkdir(ensureDir, { recursive: true })
   } catch (cause) {
@@ -474,7 +500,7 @@ async function handleCreateTaskUnderAdmission(
 
   // 3. Build engine-agnostic create params per task family and dispatch
   // through the EngineAdapter. For HTTP, dir=saveDir and out uses the
-  // incomplete suffix. For BT/magnet, dir=diskPath and `out` is absent;
+  // incomplete suffix. BT uses its final output directory and no `out`;
   // parsed torrents additionally carry per-file output mappings. The adapter
   // is responsible for the aria2 wire shape.
   let pluginMetadataOps: readonly StagedMetadataOp[] = []
@@ -534,10 +560,7 @@ async function handleCreateTaskUnderAdmission(
     let currentHttpDesiredName = desiredName
     const pickHttpName = async (nextDesiredName: string): Promise<void> => {
       if (nextDesiredName === currentHttpDesiredName) return
-      finalName = await deps.finalNamePicker.pick(
-        effectiveSaveDir,
-        nextDesiredName
-      )
+      finalName = await pickHttpFinalName(nextDesiredName)
       currentHttpDesiredName = nextDesiredName
       finalPath = path.join(effectiveSaveDir, finalName)
       diskPath = toTempPath(finalPath)
@@ -809,12 +832,12 @@ async function handleCreateTaskUnderAdmission(
     // are always present on the torrent-base64 path.
     const params: AddTorrentParams = {
       metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
-      // applyPathOverrides BT equivalent: dir = diskPath, out dropped.
-      saveDir: diskPath,
+      saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
       // 1-based, and addTorrent serializes selectedFiles with a raw join.
       selectedFiles: req.selectedFiles.map((i) => i + 1),
       outputFilePaths: btStoragePlan?.outputFilePaths,
+      outputRoot: btStoragePlan?.outputRoot,
       dlLimit: req.dlLimit,
       ulLimit: req.ulLimit,
       seedRatio: req.seedRatio,

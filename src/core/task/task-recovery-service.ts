@@ -16,7 +16,7 @@ import {
   type TaskTransitionRecordInput,
 } from './actions/shared'
 import { applyTerminalTransition } from './apply-terminal-transition'
-import { getBtPayloadPath } from './bt-storage-layout'
+import { getBtDirectStorageLayout, getBtPayloadPath } from './bt-storage-layout'
 import { applyDiagnosisUpgrade } from './diagnosis-upgrade'
 import { fireAfterComplete, fireOnError } from './hook-dispatch'
 import type { OccurrenceDispatcher } from './occurrences/occurrence-dispatcher'
@@ -206,7 +206,10 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
       (t) =>
         (taskId === undefined || t.id === taskId) &&
         (t.transitionPhase !== TransitionPhase.Idle ||
-          t.status === TaskStatus.Finalizing)
+          t.status === TaskStatus.Finalizing ||
+          (getBtDirectStorageLayout(t)?.finalized === false &&
+            (t.status === TaskStatus.Seeding ||
+              t.status === TaskStatus.Completed)))
     )
     const inFlight = this.deps.taskManager.set
       ? inFlightPublished.map((task) => structuredClone(task))
@@ -340,12 +343,18 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
       taskIdsByInfoHash
     )
 
-    const action = determineAction({
-      phase: task.transitionPhase,
-      fsState,
-      aria2HasMatchingInfoHash: matchingGid !== undefined,
-      taskType: task.type,
-    })
+    const action =
+      getBtDirectStorageLayout(task)?.finalized === false &&
+      task.transitionPhase !== TransitionPhase.Reseeding &&
+      task.diskPath === task.finalPath &&
+      fsState === 'final_only'
+        ? RecoveryAction.ResumeFromRename
+        : determineAction({
+            phase: task.transitionPhase,
+            fsState,
+            aria2HasMatchingInfoHash: matchingGid !== undefined,
+            taskType: task.type,
+          })
 
     await this.applyAction(task, action, fsState, matchingGid, report)
   }
