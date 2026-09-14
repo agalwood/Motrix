@@ -27,8 +27,13 @@ import { DIRECT_RESOURCE_METADATA_PROFILE } from './engine-adapter'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
-const { probePreciseMock } = vi.hoisted(() => ({
+const { probePreciseMock, recoverSessionMock } = vi.hoisted(() => ({
   probePreciseMock: vi.fn(),
+  recoverSessionMock: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock('./aria2/aria2-session-identity-recovery', () => ({
+  recoverAria2SessionIdentity: recoverSessionMock,
 }))
 
 vi.mock('../probe/disk-probe', () => ({
@@ -112,6 +117,7 @@ function createMockConfigBuilder(): Aria2ConfigBuilder {
   return {
     ensureUserConfig: vi.fn().mockResolvedValue('/tmp/aria2.conf'),
     hasSavedSession: vi.fn().mockResolvedValue(false),
+    resolveSqliteDbPath: vi.fn().mockReturnValue('/tmp/aria2.db'),
     quarantineSqliteDatabase: vi.fn().mockResolvedValue({
       databasePath: '/tmp/aria2.db',
       quarantineBasePath: '/tmp/aria2.db.corrupt-test',
@@ -837,6 +843,54 @@ describe('EngineSupervisor', () => {
         false
       )
     })
+  })
+
+  it('repairs persisted identities before the completed-task guard and spawn', async () => {
+    const prepare = vi.fn().mockResolvedValue(null)
+    supervisor.setStartupGuard({ prepare })
+    await supervisor.start('/usr/bin/aria2c')
+    expect(recoverSessionMock).toHaveBeenCalledWith(
+      '/tmp/aria2.db',
+      expect.any(Function)
+    )
+    expect(recoverSessionMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      prepare.mock.invocationCallOrder[0]!
+    )
+    expect(prepare.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(processManager.spawn).mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('does not repair or spawn when the RPC port is occupied', async () => {
+    vi.mocked(checkPort).mockResolvedValueOnce(false)
+    const calls = recoverSessionMock.mock.calls.length
+    await supervisor.start('/usr/bin/aria2c')
+    expect(recoverSessionMock).toHaveBeenCalledTimes(calls)
+    expect(processManager.spawn).not.toHaveBeenCalled()
+  })
+
+  it('does not spawn when identity recovery fails', async () => {
+    recoverSessionMock.mockRejectedValueOnce(
+      new Error('saved metadata unavailable')
+    )
+    await supervisor.start('/usr/bin/aria2c')
+    expect(supervisor.getState()).toBe(EngineState.Failed)
+    expect(processManager.spawn).not.toHaveBeenCalled()
+    expect(supervisor.getLastError()).toBe('saved metadata unavailable')
+  })
+
+  it('preserves only the GID conflict diagnostic when RPC fails', async () => {
+    vi.mocked(rpcClient.connect).mockRejectedValueOnce(
+      new Error('ECONNREFUSED')
+    )
+    vi.mocked(processManager.getRecentStderr).mockReturnValue(
+      'private-url\nGID 283f007637e2399d is not unique.\nCookie: private'
+    )
+    await supervisor.start('/usr/bin/aria2c')
+    expect(supervisor.getLastError()).toBe(
+      'GID 283f007637e2399d is not unique.'
+    )
+    expect(configBuilder.quarantineSqliteDatabase).not.toHaveBeenCalled()
   })
 
   describe('start — probe failure', () => {

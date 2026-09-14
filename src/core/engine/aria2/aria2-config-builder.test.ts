@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ─── Mock node:fs/promises ───────────────────────────────────
 
-const { mockAccess, mockCopyFile, mockMkdir, mockRename } = vi.hoisted(() => ({
-  mockAccess: vi.fn(),
-  mockCopyFile: vi.fn(),
-  mockMkdir: vi.fn(),
-  mockRename: vi.fn(),
-}))
+const { mockAccess, mockCopyFile, mockMkdir, mockRename, mockReadFile } =
+  vi.hoisted(() => ({
+    mockAccess: vi.fn(),
+    mockCopyFile: vi.fn(),
+    mockMkdir: vi.fn(),
+    mockRename: vi.fn(),
+    mockReadFile: vi.fn(),
+  }))
 
 vi.mock('node:fs/promises', () => ({
   default: {
@@ -15,11 +17,13 @@ vi.mock('node:fs/promises', () => ({
     copyFile: mockCopyFile,
     mkdir: mockMkdir,
     rename: mockRename,
+    readFile: mockReadFile,
   },
   access: mockAccess,
   copyFile: mockCopyFile,
   mkdir: mockMkdir,
   rename: mockRename,
+  readFile: mockReadFile,
 }))
 
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
@@ -68,6 +72,7 @@ describe('Aria2ConfigBuilder', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockReadFile.mockResolvedValue('')
     builder = new Aria2ConfigBuilder(
       '/app/extra/aria2.conf',
       '/home/user/.config/motrix'
@@ -106,6 +111,52 @@ describe('Aria2ConfigBuilder', () => {
         '/home/user/.config/motrix/aria2.conf'
       )
     })
+  })
+
+  it.each([true, false])(
+    'clears a configured input-file when text loading is disabled (SQLite=%s)',
+    async (sqlite3Persistence) => {
+      mockReadFile.mockResolvedValue('  input-file=/old/missing.session\n')
+      await builder.ensureUserConfig()
+      const args = buildArgs(
+        makeEngineSettings({ sqlite3Persistence }),
+        true,
+        null,
+        { download: 0, upload: 0 }
+      )
+      expect(args).toContain('--input-file=')
+      expect(
+        args.filter((arg) => arg.startsWith('--input-file='))
+      ).toHaveLength(1)
+    }
+  )
+
+  it('overrides configured input with an available managed text session', async () => {
+    mockReadFile.mockResolvedValue('input-file=/old/session\n')
+    await builder.ensureUserConfig()
+    expect(
+      buildArgs(
+        makeEngineSettings({ sqlite3Persistence: false }),
+        true,
+        null,
+        { download: 0, upload: 0 },
+        true
+      )
+    ).toContain('--input-file=/home/user/.config/motrix/aria2.session')
+  })
+
+  it('refreshes configured input-file detection on every start', async () => {
+    mockReadFile
+      .mockResolvedValueOnce('input-file=/old/session\n')
+      .mockResolvedValueOnce('# input-file=/commented/session\n')
+    await builder.ensureUserConfig()
+    await builder.ensureUserConfig()
+    expect(
+      buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+        download: 0,
+        upload: 0,
+      }).some((arg) => arg.startsWith('--input-file='))
+    ).toBe(false)
   })
 
   describe('hasSavedSession', () => {

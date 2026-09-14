@@ -179,6 +179,7 @@ import {
   runServerStartup,
   type ServerShutdownActions,
 } from './shutdown'
+import { startServerEngine } from './start-engine'
 import { createServerPersistTask } from './task-persistence'
 
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
@@ -1498,13 +1499,9 @@ async function main() {
         durableFinalizeRuntime.recoverAll()
       )
 
-      try {
-        await pluginStartup.startEngine(() =>
-          supervisor.start(platform.aria2BinaryPath)
-        )
-      } catch (err) {
-        log.error({ err }, 'engine start failed')
-      }
+      await pluginStartup.startEngine(() =>
+        startServerEngine(supervisor, platform.aria2BinaryPath)
+      )
       if (!shellAsyncWork.isAccepting()) return
 
       await appliedDownloadProxyPolicy.runWithSnapshot(
