@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { access, copyFile, mkdir, rename } from 'node:fs/promises'
+import { access, copyFile, mkdir, readFile, rename } from 'node:fs/promises'
 import path from 'node:path'
 import {
   extractAria2ProxyCredentials,
@@ -20,6 +20,7 @@ export class Aria2ConfigBuilder {
   private readonly dhtFilePath: string
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
+  private configuredInputFile = false
 
   constructor(
     private templatePath: string,
@@ -37,13 +38,17 @@ export class Aria2ConfigBuilder {
   async ensureUserConfig(): Promise<string> {
     try {
       await access(this.userConfPath)
-      return this.userConfPath
     } catch {
       // File does not exist — copy from template
       await mkdir(this.userConfigDir, { recursive: true })
       await copyFile(this.templatePath, this.userConfPath)
-      return this.userConfPath
     }
+    // aria2.conf remains user-owned. An omitted CLI flag would inherit its
+    // input-file, so explicitly clear that value when this startup uses no
+    // text input. Ordinary first launches still omit the flag entirely.
+    const config = await readFile(this.userConfPath, 'utf8')
+    this.configuredInputFile = /^\s*input-file\s*=/m.test(config)
+    return this.userConfPath
   }
 
   /**
@@ -182,6 +187,8 @@ export class Aria2ConfigBuilder {
     }
     if (loadTextSession && !sqliteActive) {
       args.push(`--input-file=${this.saveSessionPath}`)
+    } else if (this.configuredInputFile) {
+      args.push('--input-file=')
     }
     if (hasSqlitePersistence) {
       const dbPath = settings.sqlite3DbPath?.trim() || this.defaultDbPath
