@@ -1614,22 +1614,31 @@ async function initializeMainProcess(): Promise<void> {
   // preload buffers it until React subscribes).
   setupEventForwarding(eventBus, windowManager)
 
-  // Best-effort OS notification bridge (Task 16, spec §6): windowManager and
-  // settingsManager are both live at this point, which is all it depends on
-  // — it subscribes directly to eventBus and doesn't need the engine or
-  // notificationCenter (constructed later, in Phase 2 below — see the F4
-  // hoist comment) to exist yet, since it only reacts to NotificationAdded
-  // once emitted.
+  // Subscribe before notification-center replay. Resolve task paths on click
+  // so notifications follow any output moves made after download completion.
+  const revealNotificationTask = createRevealInFolderHandler({
+    shell,
+    getTask: (taskId) => taskManager.getById(taskId),
+  })
   osNotificationBridge = createOsNotificationBridge({
     subscribe: (channel, listener) =>
       eventBus.on(channel, (...args: unknown[]) =>
         listener(args[0] as AppNotification)
       ),
     getMainWindow: () => windowManager?.get('main') ?? null,
+    showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
     translate: i18n.t.bind(i18n),
-    navigateToTask: (taskId) =>
-      eventBus.emit(Events.NavigateTo, `/downloads/all?task=${taskId}`),
+    navigateToTask: (taskId) => {
+      const win = windowManager?.get('main')
+      if (!win || win.isDestroyed()) return
+      dispatchWhenReady(
+        win,
+        Events.NavigateTo,
+        `/downloads/all?task=${encodeURIComponent(taskId)}`
+      )
+    },
+    revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
     log,
   })
 
