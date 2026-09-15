@@ -7,6 +7,7 @@ import {
 } from '@core/proxy/aria2-proxy-routing'
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import type { EngineSettings } from '@shared/types/settings'
+import writeFileAtomic from 'write-file-atomic'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
 export interface Aria2ConfigBuilderOptions {
@@ -21,6 +22,7 @@ export class Aria2ConfigBuilder {
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
   private configuredInputFile = false
+  private runtimeConfPath: string
 
   constructor(
     private templatePath: string,
@@ -28,6 +30,7 @@ export class Aria2ConfigBuilder {
     options: Aria2ConfigBuilderOptions = {}
   ) {
     this.userConfPath = path.join(userConfigDir, 'aria2.conf')
+    this.runtimeConfPath = this.userConfPath
     this.defaultDbPath = path.join(userConfigDir, 'aria2.db')
     this.saveSessionPath = path.join(userConfigDir, 'aria2.session')
     this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
@@ -43,12 +46,24 @@ export class Aria2ConfigBuilder {
       await mkdir(this.userConfigDir, { recursive: true })
       await copyFile(this.templatePath, this.userConfPath)
     }
-    // aria2.conf remains user-owned. An omitted CLI flag would inherit its
-    // input-file, so explicitly clear that value when this startup uses no
-    // text input. Ordinary first launches still omit the flag entirely.
-    const config = await readFile(this.userConfPath, 'utf8')
-    this.configuredInputFile = /^\s*input-file\s*=/m.test(config)
-    return this.userConfPath
+    const source = await readFile(this.userConfPath, 'utf8')
+    // Do not inherit a configured text session when this startup disables it.
+    this.configuredInputFile = /^\s*input-file\s*=/m.test(source)
+    // Application seeding time is task-local. A global time inherited from
+    // the advanced config cannot be cleared with a zero/empty RPC option.
+    // Preserve the user's file and all other settings in a runtime copy.
+    const filtered = source.replace(
+      /^[\t ]*seed-time[\t ]*=.*(?:\r?\n|$)/gm,
+      ''
+    )
+    if (filtered === source) {
+      this.runtimeConfPath = this.userConfPath
+    } else {
+      const runtimePath = path.join(this.userConfigDir, 'aria2.runtime.conf')
+      await writeFileAtomic(runtimePath, filtered, { mode: 0o600 })
+      this.runtimeConfPath = runtimePath
+    }
+    return this.runtimeConfPath
   }
 
   /**
@@ -158,7 +173,7 @@ export class Aria2ConfigBuilder {
     const args: string[] = []
 
     // ── L4 base conf ──
-    args.push(`--conf-path=${this.userConfPath}`)
+    args.push(`--conf-path=${this.runtimeConfPath}`)
 
     // ── L2 engine binding ──
     args.push(
@@ -219,7 +234,6 @@ export class Aria2ConfigBuilder {
       `--bt-max-peers=${settings.btMaxPeers}`,
       `--bt-enable-lpd=${settings.btEnableLpd}`,
       `--seed-ratio=${settings.seedRatio}`,
-      `--seed-time=${settings.seedTime}`,
       `--file-allocation=${settings.fileAllocation}`,
       `--remote-time=${settings.remoteTime}`,
       `--disk-cache=${settings.diskCache}`,

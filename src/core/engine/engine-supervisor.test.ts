@@ -1590,6 +1590,21 @@ describe('EngineSupervisor', () => {
   })
 
   describe('applyEngineSettings', () => {
+    it('never installs a global seeding timer during hot updates', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.changeGlobalOption).mockClear()
+      const previous = settings.getEngine()
+      await supervisor.applyEngineSettings(previous, {
+        ...previous,
+        seedTime: 0,
+      })
+      await supervisor.applyEngineSettings(
+        { ...previous, seedTime: 0 },
+        { ...previous, seedTime: 90 }
+      )
+      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
+    })
+
     it('is a no-op unless Ready', async () => {
       const previous = settings.getEngine()
       await supervisor.applyEngineSettings(previous, {

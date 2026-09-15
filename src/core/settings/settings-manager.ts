@@ -12,10 +12,12 @@ import {
   bridgeSettingsSchema,
   DEFAULT_BRIDGE_SETTINGS,
 } from '@shared/schemas/bridge-settings'
+import type { ByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
 } from '@shared/schemas/proxy-settings'
+import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { GeoIPSettings } from '@shared/types/geoip'
 import type {
   AppSettings,
@@ -39,7 +41,6 @@ import {
   DEFAULT_MEDIA_SETTINGS,
   DEFAULT_NAT_SETTINGS,
   DEFAULT_ONBOARDING_STATE,
-  DEFAULT_SPEED_LIMIT_SETTINGS,
   DEFAULT_TRACKER_SETTINGS,
   geoIpSettingsSchema,
   mediaSettingsSchema,
@@ -107,7 +108,8 @@ function deepMergeSpeedLimit(
 }
 
 function createDefaultSettings(
-  liquidGlassEffectDefault = DEFAULT_APP_SETTINGS.liquidGlassEffect
+  liquidGlassEffectDefault: boolean,
+  byteUnitSystem: ByteUnitSystem
 ): AppSettings {
   return {
     version: CURRENT_SETTINGS_VERSION,
@@ -124,7 +126,7 @@ function createDefaultSettings(
     geoip: { ...DEFAULT_GEOIP_SETTINGS },
     media: { ...DEFAULT_MEDIA_SETTINGS },
     dashboard: validateDashboardLayoutSettings({} as DashboardLayoutSettings),
-    speedLimit: { ...DEFAULT_SPEED_LIMIT_SETTINGS },
+    speedLimit: createDefaultSpeedLimitSettings(byteUnitSystem),
     // Fresh install: mint a real, durable instance id now rather than
     // persisting the '' sentinel. Unlike rpcSecret/defaultSaveDir (seeded
     // later by seedSentinels using instance-scoped defaults), the UUID
@@ -145,6 +147,8 @@ export interface SettingsManagerOptions {
   defaultSaveDir?: string
   isLegacyDefaultSaveDir?: (value: string) => boolean
   liquidGlassEffectDefault?: boolean
+  /** Host-selected units used only when seeding a missing speed-limit profile. */
+  defaultByteUnitSystem?: ByteUnitSystem
   onChange?: (old: AppSettings, updated: AppSettings) => void
 }
 
@@ -153,6 +157,7 @@ export class SettingsManager {
   private readonly defaultSaveDir: string
   private readonly isLegacyDefaultSaveDir?: (value: string) => boolean
   private readonly liquidGlassEffectDefault: boolean
+  private readonly defaultByteUnitSystem: ByteUnitSystem
   private readonly onChange?: (old: AppSettings, updated: AppSettings) => void
   // Keep durable writes, in-memory commits, and change notifications in the
   // same order across every settings mutation entry point.
@@ -164,7 +169,11 @@ export class SettingsManager {
   ) {
     this.liquidGlassEffectDefault =
       opts?.liquidGlassEffectDefault ?? DEFAULT_APP_SETTINGS.liquidGlassEffect
-    this.settings = createDefaultSettings(this.liquidGlassEffectDefault)
+    this.defaultByteUnitSystem = opts?.defaultByteUnitSystem ?? 'binary'
+    this.settings = createDefaultSettings(
+      this.liquidGlassEffectDefault,
+      this.defaultByteUnitSystem
+    )
     this.defaultSaveDir =
       opts?.defaultSaveDir ?? path.join(os.homedir(), 'Downloads')
     if (!path.isAbsolute(this.defaultSaveDir)) {
@@ -177,6 +186,7 @@ export class SettingsManager {
   async load(): Promise<void> {
     let parsed: Record<string, unknown>
     let seedMissingRpcSecret = true
+    let seedMissingSpeedLimit = false
 
     try {
       const raw = await readFile(this.filePath, 'utf-8')
@@ -190,10 +200,14 @@ export class SettingsManager {
       // a missing or invalid field keeps the secure generated first-run
       // default. Check presence after migration so legacy shapes participate.
       seedMissingRpcSecret = !hasPersistedRpcSecret(migrated)
+      seedMissingSpeedLimit = migrated.speedLimit == null
       this.settings = this.buildValidSettings(migrated as Partial<AppSettings>)
     } catch {
       // File missing, corrupt, or unreadable — use defaults
-      this.settings = createDefaultSettings(this.liquidGlassEffectDefault)
+      this.settings = createDefaultSettings(
+        this.liquidGlassEffectDefault,
+        this.defaultByteUnitSystem
+      )
       this.seedSentinels(true)
       await this.save()
       return
@@ -206,7 +220,7 @@ export class SettingsManager {
     const seeded = this.seedSentinels(seedMissingRpcSecret)
     const versionStale =
       !parsed.version || parsed.version !== CURRENT_SETTINGS_VERSION
-    if (seeded || versionStale) {
+    if (seeded || seedMissingSpeedLimit || versionStale) {
       await this.save()
     }
   }
@@ -567,10 +581,11 @@ export class SettingsManager {
       }
     }
 
+    const app = validateAppSettings(appInput as MotrixAppSettings)
     return {
       version: CURRENT_SETTINGS_VERSION,
       engine: validateEngineSettings((raw.engine ?? {}) as EngineSettings),
-      app: validateAppSettings(appInput as MotrixAppSettings),
+      app,
       onboarding: onboardingStateSchema.parse(raw.onboarding ?? {}),
       nat: validateNatSettings((raw.nat ?? {}) as NatSettings),
       proxy: proxySettingsSchema.parse({
@@ -584,9 +599,14 @@ export class SettingsManager {
       dashboard: validateDashboardLayoutSettings(
         (raw.dashboard ?? {}) as DashboardLayoutSettings
       ),
-      speedLimit: validateSpeedLimitSettings(
-        (raw.speedLimit ?? {}) as SpeedLimitSettings
-      ),
+      speedLimit:
+        raw.speedLimit == null
+          ? createDefaultSpeedLimitSettings(
+              app.byteUnitSystem === 'system'
+                ? this.defaultByteUnitSystem
+                : app.byteUnitSystem
+            )
+          : validateSpeedLimitSettings(raw.speedLimit),
       bridge: bridgeSettingsSchema.parse((raw.bridge ?? {}) as BridgeSettings),
       windowState: windowStateSchema.parse(raw.windowState ?? {}),
     }

@@ -434,3 +434,23 @@ describe('TaskInspectorActivityStore', () => {
     db.close()
   })
 })
+
+it('persists seeding time independently and accumulates it after reopening', () => {
+  const db = database()
+  insertParent(db, 'seed')
+  const first = new TaskInspectorActivityStore(db)
+  first.ensureTask('seed', 100)
+  first.checkpointBatch([checkpoint('seed', 2000, { seedingMsDelta: 1500 })])
+  const reopened = new TaskInspectorActivityStore(db)
+  reopened.ensureTask('seed', 2500)
+  reopened.checkpointBatch([checkpoint('seed', 3000, { seedingMsDelta: 500 })])
+  expect(reopened.snapshot('seed')?.summary.seeding).toEqual({
+    activeMs: 2000,
+    trackingStartedAt: 100,
+  })
+  db.prepare('DELETE FROM tasks WHERE motrix_id = ?').run('seed')
+  expect(
+    db.prepare('SELECT COUNT(*) AS n FROM task_seeding_activity').get()
+  ).toEqual({ n: 0 })
+  db.close()
+})

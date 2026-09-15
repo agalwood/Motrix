@@ -21,14 +21,16 @@ export function taskMatchesTab(task: DownloadTask, tab: DownloadsTab): boolean {
   }
 }
 
-/** Main-list filter: tab + protocol type. Search is NOT part of this. */
+/** Search and protocol filters share the current status tab's scope. */
 export function applyFilter(
   tasks: readonly DownloadTask[],
   tab: DownloadsTab,
-  types: readonly TaskType[]
+  types: readonly TaskType[],
+  query = ''
 ): readonly DownloadTask[] {
   return tasks.filter((t) => {
     if (!taskMatchesTab(t, tab)) return false
+    if (!taskMatchesQuery(t, query)) return false
     if (types.length === 0) return true
     return types.includes(t.type)
   })
@@ -98,7 +100,7 @@ function normalize(s: string): string {
   return s.normalize('NFC').toLowerCase()
 }
 
-/** Finder match used by FilterSearchPanel (NOT by applyFilter). */
+/** Match task names, source URLs and categories without case sensitivity. */
 export function taskMatchesQuery(task: DownloadTask, needle: string): boolean {
   const n = normalize(needle.trim())
   if (!n) return true

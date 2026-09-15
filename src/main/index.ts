@@ -121,6 +121,10 @@ import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
 import { Events } from '@shared/protocol/events'
+import {
+  DEFAULT_BYTE_UNIT_PREFERENCE,
+  resolveByteUnitSystem,
+} from '@shared/schemas/byte-unit-system'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
@@ -324,12 +328,21 @@ const cliToolService = new CliToolService({
     !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
 })
 const settingsManager = new SettingsManager(settingsPath, {
+  defaultByteUnitSystem: resolveByteUnitSystem(
+    DEFAULT_BYTE_UNIT_PREFERENCE,
+    process.platform
+  ),
   liquidGlassEffectDefault: shouldEnableLiquidGlassByDefault({
     isDev: platform.isDev,
   }),
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
+    if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
+      eventBus.emit(Events.LiquidGlassChanged, {
+        liquidGlassEffect: updated.app.liquidGlassEffect,
+      })
+    }
     if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
       eventBus.emit(Events.ByteUnitSystemChanged, {
         byteUnitSystem: updated.app.byteUnitSystem,
@@ -1685,7 +1698,9 @@ async function initializeMainProcess(): Promise<void> {
   // Use that window to set up IPC handlers and core services.
 
   rpcClient = new Aria2RpcClient(transport, protocol, engineSettings.rpcSecret)
-  aria2Adapter = new Aria2Adapter(rpcClient)
+  aria2Adapter = new Aria2Adapter(rpcClient, undefined, () =>
+    settingsManager.getEngine()
+  )
   const adapter = aria2Adapter
   proxyBridge = new ProxyBridgeManager()
   supervisor = new EngineSupervisor(

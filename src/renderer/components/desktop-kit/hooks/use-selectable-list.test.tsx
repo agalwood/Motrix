@@ -14,11 +14,22 @@ const makeItems = (count: number): TestItem[] =>
     name: `Item ${i}`,
   }))
 
-function TestHarness({ items }: { items: TestItem[] }) {
+function TestHarness({
+  items,
+  nativeSelection = false,
+  macOS = false,
+}: {
+  items: TestItem[]
+  nativeSelection?: boolean
+  macOS?: boolean
+}) {
   const { getRowProps, headerCheckbox, onKeyDown } = useSelectableList({
     items,
     getId: (t) => t.id,
     rowHeight: 40,
+    nativeSelection,
+    macOS,
+    getText: (item) => item.name,
   })
 
   return (
@@ -272,5 +283,68 @@ describe('useSelectableList (external store)', () => {
     // Mutate via external handle, observe via hook return
     external.getState().toggle('b')
     expect(result.current.selection.getState().selectedIds.has('b')).toBe(true)
+  })
+})
+
+describe('native table selection', () => {
+  it('moves selection immediately and contracts a reversed Shift range', () => {
+    render(<TestHarness items={makeItems(5)} nativeSelection macOS />)
+    const wrapper = screen.getByTestId('wrapper')
+    fireEvent.click(screen.getByTestId('row-1'))
+    fireEvent.keyDown(wrapper, { key: 'ArrowDown', shiftKey: true })
+    fireEvent.keyDown(wrapper, { key: 'ArrowDown', shiftKey: true })
+    expect(screen.getByTestId('row-3').dataset.selected).toBe('true')
+    fireEvent.keyDown(wrapper, { key: 'ArrowUp', shiftKey: true })
+    expect(screen.getByTestId('row-3').dataset.selected).toBe('false')
+    expect(screen.getByTestId('row-1').dataset.selected).toBe('true')
+    fireEvent.keyDown(wrapper, { key: 'ArrowDown' })
+    expect(screen.getByTestId('row-1').dataset.selected).toBe('false')
+    expect(screen.getByTestId('row-3').dataset.selected).toBe('true')
+  })
+
+  it('reserves Control-click on macOS and uses Command-click to move the focus anchor', () => {
+    render(<TestHarness items={makeItems(5)} nativeSelection macOS />)
+    fireEvent.click(screen.getByTestId('row-0'))
+    fireEvent.click(screen.getByTestId('row-2'), { ctrlKey: true })
+    expect(screen.getByTestId('row-2').dataset.selected).toBe('false')
+    fireEvent.click(screen.getByTestId('row-2'), { metaKey: true })
+    expect(screen.getByTestId('row-2').dataset.focused).toBe('true')
+    fireEvent.keyDown(screen.getByTestId('wrapper'), { key: 'ArrowDown' })
+    expect(screen.getByTestId('row-3').dataset.selected).toBe('true')
+    expect(screen.getByTestId('row-0').dataset.selected).toBe('false')
+  })
+
+  it('keeps Ctrl-click multi-selection on other platforms', () => {
+    render(<TestHarness items={makeItems(3)} nativeSelection />)
+    fireEvent.click(screen.getByTestId('row-0'))
+    fireEvent.click(screen.getByTestId('row-2'), { ctrlKey: true })
+    expect(screen.getByTestId('row-0').dataset.selected).toBe('true')
+    expect(screen.getByTestId('row-2').dataset.selected).toBe('true')
+  })
+
+  it('supports type-to-select and ignores composition and form controls', () => {
+    render(
+      <TestHarness
+        items={[
+          { id: 'a', name: 'Alpha' },
+          { id: 'b', name: 'Beta' },
+          { id: 'c', name: 'Bravo' },
+        ]}
+        nativeSelection
+        macOS
+      />
+    )
+    const wrapper = screen.getByTestId('wrapper')
+    fireEvent.keyDown(wrapper, { key: 'b' })
+    expect(screen.getByTestId('row-1').dataset.selected).toBe('true')
+    fireEvent.keyDown(wrapper, { key: 'b' })
+    expect(screen.getByTestId('row-2').dataset.selected).toBe('true')
+    fireEvent.keyDown(wrapper, { key: 'a', isComposing: true })
+    fireEvent.keyDown(screen.getByTestId('checkbox-0'), {
+      key: 'a',
+      metaKey: true,
+    })
+    expect(screen.getByTestId('row-0').dataset.selected).toBe('false')
+    expect(screen.getByTestId('row-2').dataset.selected).toBe('true')
   })
 })

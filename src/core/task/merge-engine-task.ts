@@ -1,5 +1,6 @@
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { unsettledBtUpload } from './bt-upload-settlement'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
@@ -67,6 +68,7 @@ export function mergeEngineTask(
     },
     now
   )
+  const bt = protected_.bt ?? existing.bt
   const merged: DownloadTask = {
     ...existing,
     ...terminalFields,
@@ -84,7 +86,9 @@ export function mergeEngineTask(
     fileCount: protected_.fileCount,
     infoHash: protected_.infoHash ?? existing.infoHash,
     uris: protected_.uris.length > 0 ? protected_.uris : existing.uris,
-    bt: protected_.bt ?? existing.bt,
+    bt: bt
+      ? { ...bt, ratio: shareRatio(uploadedBytes, protected_.totalBytes) }
+      : undefined,
     updatedAt: now,
   }
   if (

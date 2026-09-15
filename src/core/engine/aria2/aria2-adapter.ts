@@ -20,6 +20,7 @@ import type {
 } from '@shared/types/history'
 import type { TaskPeer } from '@shared/types/peer'
 import type { TaskPiecesResult } from '@shared/types/pieces'
+import type { EngineSettings } from '@shared/types/settings'
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { TuningContext } from '@shared/types/tuning'
@@ -156,7 +157,10 @@ export class Aria2Adapter implements EngineAdapter {
 
   constructor(
     private rpc: Aria2RpcClient,
-    private readonly accessFile: FileAccess = access
+    private readonly accessFile: FileAccess = access,
+    private readonly getSeedingDefaults: () =>
+      | Pick<EngineSettings, 'seedTime' | 'seedRatio'>
+      | undefined = () => undefined
   ) {
     const unsubscribers = [
       this.rpc.onBtDownloadComplete((event) => {
@@ -173,6 +177,20 @@ export class Aria2Adapter implements EngineAdapter {
       if (typeof unsubscribe === 'function') {
         this.rpcUnsubscribers.push(unsubscribe)
       }
+    }
+  }
+
+  private seedingOptions(
+    overrides: Pick<AddTorrentParams, 'seedTime' | 'seedRatio'> = {}
+  ): Record<string, string> {
+    const defaults = this.getSeedingDefaults()
+    const time = overrides.seedTime ?? defaults?.seedTime
+    const ratio = overrides.seedRatio ?? defaults?.seedRatio
+    // Keep time task-local: aria2 cannot unset an inherited global seed-time
+    // through RPC, and both "0" and "" terminate seeding immediately.
+    return {
+      ...(time !== undefined && time > 0 ? { 'seed-time': String(time) } : {}),
+      ...(ratio !== undefined ? { 'seed-ratio': String(ratio) } : {}),
     }
   }
 
@@ -375,6 +393,9 @@ export class Aria2Adapter implements EngineAdapter {
       )
     }
     const options: Record<string, string | string[]> = {
+      ...(params.uris.some((uri) => /^magnet:/i.test(uri))
+        ? this.seedingOptions()
+        : {}),
       dir: params.saveDir,
     }
     if (params.filename) options.out = params.filename
@@ -737,12 +758,7 @@ export class Aria2Adapter implements EngineAdapter {
         }
       )
     }
-    if (params.seedTime !== undefined) {
-      opts['seed-time'] = String(params.seedTime)
-    }
-    if (params.seedRatio !== undefined) {
-      opts['seed-ratio'] = String(params.seedRatio)
-    }
+    Object.assign(opts, this.seedingOptions(params))
     if (params.btSeedUnverified) {
       opts['bt-seed-unverified'] = 'true'
     }
@@ -901,6 +917,16 @@ export class Aria2Adapter implements EngineAdapter {
       return Number.parseInt(status.uploadLength ?? '0', 10)
     } catch {
       return 0
+    }
+  }
+
+  async listWaitingTaskIds(): Promise<string[]> {
+    const ids: string[] = []
+    const pageSize = 1000
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await this.rpc.tellWaiting(offset, pageSize, ['gid'])
+      ids.push(...page.map((task) => task.gid))
+      if (page.length < pageSize) return [...new Set(ids)]
     }
   }
 

@@ -52,7 +52,7 @@ export function HeaderActionButton({
       variant={variant}
       size="sm"
       aria-label={label}
-      className={compact ? COMPACT_ACTION_CLASS : undefined}
+      className={compact ? COMPACT_ACTION_CLASS : 'h-9'}
       onClick={onClick}
       disabled={disabled}
     >

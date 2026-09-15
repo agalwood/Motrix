@@ -395,6 +395,42 @@ describe('buildCommandHandlers', () => {
     expect(ctx.sessionManager.runExclusivePersistence).toHaveBeenCalledOnce()
   })
 
+  it('MoveTasks validates the payload and changes the actual engine queue', async () => {
+    const ctx = fakeCtx()
+    const queue = ['first', 'second']
+    vi.mocked(ctx.taskManager.getById).mockReturnValue({
+      id: 'task-second',
+      engineTaskId: 'second',
+      status: TaskStatus.Paused,
+    } as never)
+    Object.assign(ctx.adapter, {
+      listWaitingTaskIds: vi.fn(async () => [...queue]),
+      changePosition: vi.fn(async () => {
+        queue.reverse()
+        return 0
+      }),
+    })
+    const handlers = buildCommandHandlers(
+      ctx as unknown as Parameters<typeof buildCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'up',
+      })
+    ).resolves.toEqual({ moved: ['task-second'], unchanged: [], failed: [] })
+    expect(queue).toEqual(['second', 'first'])
+    await expect(
+      handlers[Commands.MoveTasks]?.({ taskIds: [], direction: 'up' })
+    ).rejects.toThrow()
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'sideways',
+      })
+    ).rejects.toThrow()
+  })
+
   it('PauseTasks fans out per id and returns the IPC-safe bulk result', async () => {
     const ctx = fakeCtx()
     const tasks = new Map([

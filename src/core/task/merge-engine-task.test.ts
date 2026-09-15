@@ -1,6 +1,7 @@
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask, TaskInstance } from '@shared/types/task'
 import {
+  makeDefaultBtExtension,
   TaskInstancePhase,
   TaskStatus,
   TransitionPhase,
@@ -301,4 +302,23 @@ describe('mergeEngineTask', () => {
       finishedAt: null,
     })
   })
+})
+
+it('keeps share ratio cumulative when a new GID starts from zero upload', () => {
+  const existing = baseTask({
+    totalBytes: 1000,
+    uploadedBytesBaseline: 1500,
+    bt: makeDefaultBtExtension({ ratio: 1.5 }),
+  })
+  const incoming = baseTask({
+    totalBytes: 1000,
+    uploadedBytes: 200,
+    bt: makeDefaultBtExtension({ ratio: 0.2 }),
+  })
+  expect(mergeEngineTask(existing, incoming)).toMatchObject({
+    uploadedBytes: 1700,
+    bt: { ratio: 1.7 },
+  })
+  expect(existing.bt?.ratio).toBe(1.5)
+  expect(incoming.bt?.ratio).toBe(0.2)
 })

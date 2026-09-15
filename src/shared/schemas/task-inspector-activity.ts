@@ -210,6 +210,14 @@ const taskInspectorActivitySnapshotSchema = z
         lastEventOrdinal: nonNegativeSafeIntegerSchema,
         activeMs: nonNegativeSafeIntegerSchema,
         downloadActiveMs: nonNegativeSafeIntegerSchema,
+        seeding: z
+          .object({
+            activeMs: nonNegativeSafeIntegerSchema,
+            trackingStartedAt: positiveSafeIntegerSchema,
+          })
+          .strict()
+          .nullable()
+          .optional(),
         estimatedDownloadBytes: serializedByteCountSchema,
         estimatedUploadBytes: serializedByteCountSchema,
         peakDownloadBps: nonNegativeSafeIntegerSchema,

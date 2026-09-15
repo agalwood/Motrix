@@ -10,6 +10,7 @@ export const Commands = {
   // CLI keep driving the singular task/* wire methods.
   PauseTasks: 'command:pauseTasks',
   ResumeTasks: 'command:resumeTasks',
+  MoveTasks: 'command:moveTasks',
   RemoveTasks: 'command:removeTasks',
   ReAddTasks: 'command:reAddTasks',
   // Generic user Retry. Shell handlers route sidecar-backed torrents to
@@ -88,6 +89,7 @@ export const Commands = {
   ConfigureAppImageNativeHost: 'command:configureAppImageNativeHost',
   RemoveAppImageIntegration: 'command:removeAppImageIntegration',
   RevealInFolder: 'command:revealInFolder',
+  OpenTaskFile: 'command:openTaskFile',
   // Menu
   UpdateMenuContext: 'command:updateMenuContext',
   ExecuteApplicationMenuItem: 'command:executeApplicationMenuItem',

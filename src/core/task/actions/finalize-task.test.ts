@@ -1298,7 +1298,7 @@ describe('finalizeTask BT branch', () => {
     expect(task.status).toBe(TaskStatus.Seeding)
   })
 
-  it('status=Completed when both seedTime and seedRatio are 0', async () => {
+  it('seeds without either limit when both seedTime and seedRatio are 0', async () => {
     const deps = makeDeps()
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
       bt: { seedTime: 0, seedRatio: 0 },
@@ -1310,7 +1310,10 @@ describe('finalizeTask BT branch', () => {
 
     await finalizeTask('t1', deps)
 
-    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.status).toBe(TaskStatus.Seeding)
+    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({ seedTime: 0, seedRatio: 0 })
+    )
   })
 
   it('addTorrent failure → status=Completed + soft warning', async () => {
@@ -1400,7 +1403,7 @@ describe('finalizeTask BT branch', () => {
     expect(task.engineTaskId).toBe('gid-1')
   })
 
-  it('still reseeds when ratio is met but seedTime is requested (passes seedRatio=0 to ignore ratio)', async () => {
+  it('stops when the ratio is met even with a positive time limit', async () => {
     const deps = makeDeps()
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
       bt: { seedTime: 30, seedRatio: 1 },
@@ -1415,11 +1418,8 @@ describe('finalizeTask BT branch', () => {
 
     await finalizeTask('t1', deps)
 
-    const call = (deps.adapter.addTorrent as ReturnType<typeof vi.fn>).mock
-      .calls[0][0]
-    expect(call.seedRatio).toBe(0)
-    expect(call.seedTime).toBe(30)
-    expect(task.status).toBe(TaskStatus.Seeding)
+    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    expect(task.status).toBe(TaskStatus.Completed)
   })
 
   it('does not subtract when totalBytes is 0 (degenerate metadata)', async () => {
@@ -1765,13 +1765,14 @@ describe('finalizeTask completion-metrics sync', () => {
     expect(task.progress).toBe(0)
   })
 
-  it('BT skip-reseed (ratio=0, time=0): progress reaches 1 at Completed', async () => {
+  it('BT skip-reseed (ratio reached): progress reaches 1 at Completed', async () => {
     const deps = makeDeps()
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
-      bt: { seedTime: 0, seedRatio: 0 },
+      bt: { seedTime: 0, seedRatio: 1 },
     })
     const task = makeBtTask({
       totalBytes: 1_000_000_000,
+      uploadedBytesBaseline: 1_000_000_000,
       downloadedBytes: 999_998_976,
       progress: 0.999998976,
     })
@@ -2280,9 +2281,9 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
       auditLog: makeAuditLog(),
     }
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
-      bt: { seedTime: 0, seedRatio: 0 },
+      bt: { seedTime: 0, seedRatio: 1 },
     })
-    const task = makeBtTask()
+    const task = makeBtTask({ totalBytes: 1000, uploadedBytesBaseline: 1000 })
     ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
       task
     )

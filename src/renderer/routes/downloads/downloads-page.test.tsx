@@ -4,6 +4,7 @@ import {
   type PlatformServices,
   PlatformServicesProvider,
 } from '@renderer/platform/services'
+import { Queries } from '@shared/protocol/queries'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
@@ -15,6 +16,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import {
   MemoryRouter,
   Route,
@@ -25,6 +27,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DownloadsPage } from './downloads-page'
 import { useDownloadsSelection } from './store'
+import { useDownloadsView } from './view-preferences'
 
 const taskListMock = vi.hoisted(() => {
   const retry = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
@@ -57,7 +60,15 @@ vi.mock('@renderer/hooks/use-task-speed-history', () => ({
 }))
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
-    invoke: vi.fn().mockResolvedValue({ state: 'ready' }),
+    invoke: vi.fn(async (channel: string) =>
+      channel === Queries.GetSpeedLimitState
+        ? {
+            turtle: 'off',
+            effective: { download: 0, upload: 0 },
+            activeReason: 'none',
+          }
+        : { state: 'ready' }
+    ),
     on: vi.fn(),
     off: vi.fn(),
     platform: 'darwin',
@@ -161,6 +172,19 @@ function selectedIds(): string[] {
 }
 
 beforeEach(() => {
+  Element.prototype.getAnimations = vi.fn(() => [])
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
+  useDownloadsView.setState({
+    inspectorVisible: false,
+    inspectorSnap: 'medium',
+  })
   taskListMock.retry.mockClear()
   setTaskList({})
   useDownloadsSelection.getState().setItems([])
@@ -382,13 +406,14 @@ describe('DownloadsPage', () => {
     }
   )
 
-  it('closing the Inspector clears selection and removes task', async () => {
+  it('closing the Inspector preserves selection and consumes the task deep link', async () => {
     setTaskList({ tasks: [task('a', TaskStatus.Downloading)] })
     renderAt('/downloads/active?task=a')
     await waitFor(() => expect(selectedIds()).toEqual(['a']))
 
-    fireEvent.keyDown(window, { key: 'Escape' })
-    await waitFor(() => expect(selectedIds()).toEqual([]))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(selectedIds()).toEqual(['a'])
+    expect(useDownloadsView.getState().inspectorVisible).toBe(false)
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
         '/downloads/active'
@@ -427,5 +452,86 @@ describe('DownloadsPage', () => {
       )
     )
     expect(selectedIds()).toEqual(['b'])
+  })
+})
+
+describe('Downloads inline search', () => {
+  it('filters the current status view by keyword and type, and clears only the keyword', async () => {
+    setTaskList({
+      tasks: [
+        task('alpha', TaskStatus.Downloading),
+        task('beta', TaskStatus.Paused),
+        task('alpha-done', TaskStatus.Completed),
+        task('alpha-bt', TaskStatus.Downloading, TaskType.Bt),
+      ],
+    })
+    renderAt('/downloads/active?type=http')
+    const user = userEvent.setup()
+    const input = screen.getByRole('textbox', { name: 'Search downloads' })
+    await user.type(input, 'alpha')
+    expect(
+      useDownloadsSelection.getState().items.map((task) => task.id)
+    ).toEqual(['alpha'])
+    expect(useDownloadsView.getState().inspectorVisible).toBe(false)
+    await user.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(input).toHaveValue('')
+    expect(input).toHaveFocus()
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/downloads/active?type=http'
+    )
+    expect(
+      screen.getByRole('button', { name: /Filters.*Type filter: HTTP/ })
+    ).toBeInTheDocument()
+  })
+
+  it('keeps selection and inspector open when the selected task still matches a query', async () => {
+    setTaskList({
+      tasks: [
+        task('alpha', TaskStatus.Downloading),
+        task('beta', TaskStatus.Paused),
+      ],
+    })
+    renderAt('/downloads/all?task=alpha')
+    await waitFor(() => expect(selectedIds()).toEqual(['alpha']))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Search downloads' }))
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search downloads' }),
+      'alpha'
+    )
+    expect(selectedIds()).toEqual(['alpha'])
+    expect(useDownloadsView.getState().inspectorVisible).toBe(true)
+    expect(
+      screen.queryByRole('row', { name: 'task beta' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByTestId('location')).not.toHaveTextContent('task=')
+  })
+
+  it('clears a conflicting query to reveal an explicit task deep link', async () => {
+    setTaskList({ tasks: [task('alpha', TaskStatus.Paused)] })
+    renderAt('/downloads/all?q=missing&type=bt&task=alpha')
+    await waitFor(() => expect(selectedIds()).toEqual(['alpha']))
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/downloads/all?task=alpha'
+    )
+    expect(useDownloadsView.getState().inspectorVisible).toBe(true)
+  })
+
+  it('Escape clears text first, then collapses the empty field and returns focus', async () => {
+    setTaskList({ tasks: [task('alpha', TaskStatus.Downloading)] })
+    renderAt('/downloads/all')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Search downloads' }))
+    const input = screen.getByRole('textbox', { name: 'Search downloads' })
+    expect(input).toHaveFocus()
+    await user.type(input, 'missing')
+    await user.keyboard('{Escape}')
+    expect(input).toHaveValue('')
+    expect(input).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Search downloads' })
+    ).toHaveFocus()
   })
 })

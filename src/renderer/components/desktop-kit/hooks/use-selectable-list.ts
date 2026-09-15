@@ -18,6 +18,10 @@ interface UseSelectableListOptions<T> {
   headerHeight?: number
   marquee?: boolean
   store?: SelectionStore<T>
+  /** Opt in without changing the focus-only keyboard model of other lists. */
+  nativeSelection?: boolean
+  macOS?: boolean
+  getText?: (item: T) => string
 }
 
 interface RowProps {
@@ -60,7 +64,16 @@ interface UseSelectableListReturn<T> {
 export function useSelectableList<T>(
   options: UseSelectableListOptions<T>
 ): UseSelectableListReturn<T> {
-  const { items, getId, rowHeight, headerHeight = 0, marquee = true } = options
+  const {
+    items,
+    getId,
+    rowHeight,
+    headerHeight = 0,
+    marquee = true,
+    nativeSelection = false,
+    macOS = false,
+    getText,
+  } = options
 
   const listRef = useRef<VirtualListHandle | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -75,18 +88,31 @@ export function useSelectableList<T>(
 
   const selectedIds = store((s) => s.selectedIds)
   const focusedIndex = store((s) => s.focusedIndex)
+  const focusedItemId = store((state) => {
+    const item =
+      state.focusedIndex === null ? undefined : state.items[state.focusedIndex]
+    return item ? getId(item) : null
+  })
+  const previousFocus = useRef<string | null>(null)
+  const typeSelection = useRef({ text: '', at: 0 })
 
   // Also reveal focus after a filtered list remounts. A store subscription
   // alone misses the initial setItems reindex before its listener attaches.
   useEffect(() => {
-    if (focusedIndex !== null) listRef.current?.scrollToIndex(focusedIndex)
-  }, [focusedIndex])
+    if (
+      focusedIndex !== null &&
+      (!nativeSelection || previousFocus.current !== focusedItemId)
+    ) {
+      listRef.current?.scrollToIndex(focusedIndex)
+    }
+    previousFocus.current = focusedItemId
+  }, [focusedIndex, focusedItemId, nativeSelection])
 
   const hasItems = items.length > 0
   useEffect(() => {
     const container = listRef.current?.getContainerRef()
     if (!hasItems || !container || typeof ResizeObserver === 'undefined') return
-    // Opening the inspector shrinks the scrollport without changing focus.
+    // Window and panel resizing can shrink the scrollport without changing focus.
     // Observe after the virtualizer so its viewport measurement is current.
     const observer = new ResizeObserver(() => {
       const index = store.getState().focusedIndex
@@ -113,10 +139,13 @@ export function useSelectableList<T>(
         focused: focusedIndex === index,
         onClick: (e: ReactMouseEvent) => {
           const state = store.getState()
+          if (nativeSelection && macOS && e.ctrlKey) return
           if (e.shiftKey) {
-            state.rangeSelect(index)
-          } else if (e.ctrlKey || e.metaKey) {
+            if (nativeSelection) state.extendSelection(index)
+            else state.rangeSelect(index)
+          } else if (e.metaKey || (e.ctrlKey && (!nativeSelection || !macOS))) {
             state.toggle(id)
+            if (nativeSelection) state.focus(id)
           } else {
             state.select(id)
           }
@@ -126,7 +155,7 @@ export function useSelectableList<T>(
         },
       }
     },
-    [items, getId, selectedIds, focusedIndex, store]
+    [items, getId, selectedIds, focusedIndex, store, nativeSelection, macOS]
   )
 
   const headerCheckbox = useMemo((): HeaderCheckboxState => {
@@ -147,7 +176,78 @@ export function useSelectableList<T>(
 
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent) => {
+      if (e.defaultPrevented || e.nativeEvent.isComposing) return
+      if (
+        e.target instanceof Element &&
+        e.target.closest(
+          'input, textarea, select, button, [contenteditable="true"], [role="menu"], [role="separator"]'
+        )
+      )
+        return
       const state = store.getState()
+      if (nativeSelection) {
+        if (
+          (e.key === 'ArrowDown' || e.key === 'ArrowUp') &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.altKey
+        ) {
+          e.preventDefault()
+          state.moveSelection(e.key === 'ArrowDown' ? 1 : -1, e.shiftKey)
+          const index = store.getState().focusedIndex
+          if (index !== null) listRef.current?.scrollToIndex(index)
+          return
+        }
+        if (
+          e.key.toLowerCase() === 'a' &&
+          (e.metaKey || (!macOS && e.ctrlKey))
+        ) {
+          e.preventDefault()
+          if (e.shiftKey) state.clearSelection()
+          else state.selectAll()
+          return
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          e.stopPropagation()
+          state.clearSelection()
+          return
+        }
+        if (
+          getText &&
+          e.key.length === 1 &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.altKey
+        ) {
+          e.preventDefault()
+          const now = Date.now()
+          const key = e.key.toLocaleLowerCase()
+          const previous =
+            now - typeSelection.current.at < 700
+              ? typeSelection.current.text
+              : ''
+          const text = previous + key
+          typeSelection.current = { text, at: now }
+          const repeated = [...text].every((letter) => letter === key)
+          const prefix = repeated ? key : text
+          const from =
+            (state.focusedIndex ?? -1) + (previous && !repeated ? 0 : 1)
+          for (let offset = 0; offset < state.items.length; offset++) {
+            const index =
+              (((from + offset) % state.items.length) + state.items.length) %
+              state.items.length
+            if (
+              getText(state.items[index]).toLocaleLowerCase().startsWith(prefix)
+            ) {
+              state.select(getId(state.items[index]))
+              listRef.current?.scrollToIndex(index)
+              break
+            }
+          }
+        }
+        return
+      }
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
@@ -180,7 +280,7 @@ export function useSelectableList<T>(
           break
       }
     },
-    [store]
+    [store, nativeSelection, macOS, getText, getId]
   )
 
   const marqueeProps = useMemo(

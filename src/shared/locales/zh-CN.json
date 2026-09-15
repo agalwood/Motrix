@@ -497,7 +497,23 @@
         "up": "↑",
         "eta": "剩余",
         "connections": "连接",
-        "status": "状态"
+        "status": "状态",
+        "createdAt": "创建时间",
+        "finishedAt": "完成时间"
+      },
+      "timestamp": {
+        "notRecorded": "未记录",
+        "notCompleted": "尚未完成",
+        "relativeDateTime": "{{date}} {{time}}"
+      },
+      "sort": {
+        "down": "下载速度",
+        "up": "上传速度",
+        "asc": "{{column}}：升序",
+        "desc": "{{column}}：降序",
+        "sortAscending": "按{{column}}升序排列",
+        "sortDescending": "按{{column}}降序排列",
+        "reset": "恢复默认顺序"
       },
       "empty": {
         "noTasks": "暂无下载任务",
@@ -522,9 +538,8 @@
         }
       },
       "stats": {
-        "downSpeed": "↓",
-        "upSpeed": "↑",
-        "counts": "活动 {{active}} · 已完成 {{completed}} · 错误 {{error}}",
+        "downSpeed": "下载速度",
+        "upSpeed": "上传速度",
         "engineOk": "引擎就绪",
         "engineStarting": "引擎启动中",
         "engineOffline": "引擎离线",
@@ -566,7 +581,11 @@
           "type": "类型",
           "infoHash": "InfoHash",
           "private": "Private",
-          "connections": "连接"
+          "connections": "连接",
+          "uploaded": "累计上传",
+          "seedingTime": "做种时长",
+          "seedingRecordedSince": "自 {{date}} 起记录。不计暂停和离线时间；此前的做种记录不可用。",
+          "seedingUnavailable": "此任务尚无做种时长记录。"
         },
         "activity": {
           "transferTitle": {
@@ -720,10 +739,22 @@
       },
       "action": {
         "pause": "暂停",
+        "queueMoveFailed": "无法调整等待队列。",
+        "queueTaskStarted": "任务已不在等待队列中。",
+        "queueMoveHint": "队列位置决定等待任务的启动顺序，列排序单独保存。",
+        "queueBoundary": "所选任务已到达队列边界",
+        "queueMoved": "已调整等待队列",
+        "moveQueueDown": "在队列中下移",
+        "moveQueueUp": "在队列中上移",
         "resume": "继续",
         "retry": "重试",
         "openFolder": "打开文件夹",
         "copyUrl": "复制链接",
+        "copyUrls": "复制多个链接",
+        "copyPath": "复制文件路径",
+        "copied": "已复制到剪贴板",
+        "copyFailed": "无法复制到剪贴板，请重试。",
+        "selectFilesFailed": "无法打开文件选择。",
         "copyUrlFailed": "复制失败：无法加载任务链接详情，请重试。",
         "selectFiles": "选择文件",
         "remove": "移除…",
@@ -749,7 +780,15 @@
         "removeAll_completed_Title": "移除 {{count}} 个已完成任务？",
         "removeAll_error_Title": "移除 {{count}} 个失败任务？",
         "removeAll_downloading_Title": "移除 {{count}} 个进行中任务？",
-        "removeMixedTitle": "移除 {{count}} 个任务？"
+        "removeMixedTitle": "移除 {{count}} 个任务？",
+        "openFile": "打开文件",
+        "openFileFailed": "无法打开文件",
+        "chooseFiles": "选择下载文件…",
+        "queueOrder": "调整下载顺序",
+        "moveQueueTop": "移至队列最前",
+        "moveQueueBottom": "移至队列最后",
+        "copyError": "复制错误信息",
+        "errorReport": "{{name}}\n任务 ID：{{id}}\n{{details}}"
       },
       "titleCount": "{{shown}} 项 · 共 {{total}}",
       "type": {
@@ -761,6 +800,11 @@
       },
       "search": {
         "placeholder": "搜索下载任务",
+        "activeTypeFilters": "类型筛选：{{types}}",
+        "filters": "筛选",
+        "resetFilters": "重置筛选",
+        "clearQuery": "清除搜索",
+        "activeQuery": "搜索：{{query}}",
         "scopeLabel": "类型",
         "clear": "清除",
         "empty": "无匹配任务",
@@ -768,6 +812,28 @@
       },
       "stale": {
         "banner": "任务列表可能已过期，正在重新连接…"
+      },
+      "view": {
+        "title": "列表显示",
+        "columns": "显示列",
+        "resetColumns": "恢复默认列布局",
+        "sortBy": "排序方式",
+        "ascending": "升序",
+        "descending": "降序",
+        "showInspector": "显示详情",
+        "hideInspector": "隐藏详情",
+        "inspector": "任务详情",
+        "resizeInspector": "调整详情高度",
+        "selectToInspect": "选择任务以查看详情。",
+        "resizeColumn": "调整{{column}}列宽",
+        "taskActions": "更多"
+      },
+      "speedLimit": {
+        "title": "速度模式",
+        "currentMode": "速度模式：{{mode}}",
+        "uploadLimit": "上传上限：{{speed}}",
+        "downloadLimit": "下载上限：{{speed}}",
+        "saveFailed": "无法切换速度模式，请重试。"
       }
     }
   },
@@ -984,7 +1050,8 @@
       "reduceMotion": "减少动画",
       "reduceMotionDesc": "减少界面动画，包括下载页的玻璃动态效果。",
       "liquidGlassEffect": "启用液态玻璃效果",
-      "liquidGlassEffectDesc": "仅 macOS 26 App — 更改后会重建主窗口。",
+      "liquidGlassEffectDesc": "为下载页工具栏使用半透明玻璃效果。",
+      "liquidGlassEffectMacDesc": "macOS 26 及以上同时使用原生窗口玻璃，更改后会重建主窗口。",
       "runMode": "显示位置",
       "runModeStandard": "程序坞与菜单栏",
       "runModeTray": "仅菜单栏",
@@ -1158,7 +1225,7 @@
         "seedRatio": "做种比率上限",
         "seedRatioDesc": "超过此比率停止做种。0 = 无限制。",
         "seedTime": "做种时间上限（分钟）",
-        "seedTimeDesc": "做种超过该分钟数后停止。0 = 无限制。"
+        "seedTimeDesc": "做种达到该分钟数后停止。0 = 无限制。应用于新建或重新做种的任务。"
       }
     },
     "downloads": {

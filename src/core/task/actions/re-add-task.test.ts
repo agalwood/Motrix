@@ -1184,3 +1184,23 @@ it('retries an interrupted finalize without re-adding its torrent', async () => 
   expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
   expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
 })
+
+it('settles retired BT upload and re-seeds with current defaults instead of stale engine limits', async () => {
+  const task = makeBtTask({ uploadedBytesBaseline: 100, uploadedBytes: 250 })
+  const deps = makeDeps(task)
+  vi.mocked(deps.adapter.getEngineTaskOptions).mockResolvedValue({
+    'seed-time': '0',
+    'seed-ratio': '0.5',
+  })
+  await reAddTask(task.id, deps)
+  expect(deps.adapter.getEngineTaskOptions).not.toHaveBeenCalled()
+  const params = vi.mocked(deps.adapter.addTorrent).mock.calls[0]?.[0]
+  expect(params).not.toHaveProperty('seedTime')
+  expect(params).not.toHaveProperty('seedRatio')
+  expect(deps.taskManager.getById(task.id)).toMatchObject({
+    uploadedBytes: 250,
+    uploadedBytesBaseline: 250,
+    bt: { ratio: 250 / 1024 },
+  })
+  expect(task.uploadedBytesBaseline).toBe(100)
+})

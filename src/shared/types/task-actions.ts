@@ -74,6 +74,37 @@ export function canResume(t: DownloadTask): boolean {
   return t.status === TaskStatus.Paused
 }
 
+/** A completed task whose published output is a single file. */
+export function canOpenTaskFile(t: DownloadTask): boolean {
+  return (
+    t.status === TaskStatus.Completed &&
+    t.fileCount === 1 &&
+    Boolean(t.finalPath || t.diskPath)
+  )
+}
+
+/** Live multi-file downloads that accept a changed file selection. */
+export function canSelectTaskFiles(t: DownloadTask): boolean {
+  return (
+    Boolean(t.engineTaskId) &&
+    t.fileCount > 1 &&
+    (isTorrentLike(t) || t.type === TaskType.Metalink) &&
+    (t.status === TaskStatus.Queued ||
+      t.status === TaskStatus.Downloading ||
+      t.status === TaskStatus.Paused ||
+      t.status === TaskStatus.Seeding)
+  )
+}
+
+/** Waiting queue only; coordinator-managed tasks have no single queue slot. */
+export function canMoveInQueue(t: DownloadTask): boolean {
+  return (
+    Boolean(t.engineTaskId) &&
+    !isMediaKind(t.kind) &&
+    (t.status === TaskStatus.Queued || t.status === TaskStatus.Paused)
+  )
+}
+
 export function canStopSeeding(t: DownloadTask): boolean {
   return t.status === TaskStatus.Seeding
 }

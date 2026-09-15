@@ -2,7 +2,7 @@ import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { useTaskList } from '@renderer/hooks/use-task-list'
-import type { DownloadTask, TaskType } from '@shared/types/task'
+import type { TaskType } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import {
   useCallback,
@@ -19,6 +19,7 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router'
+import { DownloadsToolbar } from './downloads-toolbar'
 import {
   applyFilter,
   countTasksByTab,
@@ -27,14 +28,15 @@ import {
   isValidTab,
   parseTypeParam,
   serializeTypeParam,
+  taskMatchesQuery,
   taskMatchesTab,
 } from './filter'
-import { FilterSearchCommand } from './filter-search-command'
 import { GlobalStatsBar } from './global-stats-bar'
 import { StatusTitleMenu } from './status-title-menu'
 import { useDownloadsSelection } from './store'
 import { TaskInspectorDrawer } from './task-inspector-drawer'
 import { TaskListPanel } from './task-list-panel'
+import { useDownloadsView } from './view-preferences'
 
 interface ActiveDeepLink {
   signature: string
@@ -124,22 +126,33 @@ export function DownloadsPage() {
     () => parseTypeParam(searchParams.get('type')),
     [searchParams]
   )
+  const query = searchParams.get('q') ?? ''
   const taskParam = searchParams.get('task')?.trim() || null
   const deepLinkSignature = `${location.key}:${location.pathname}${location.search}`
 
   const counts = useMemo(() => countTasksByTab(tasks), [tasks])
-  const typeCounts = useMemo(() => countTasksByType(tasks), [tasks])
+  const typeCounts = useMemo(
+    () =>
+      countTasksByType(
+        tasks.filter(
+          (task) =>
+            taskMatchesTab(task, filter) && taskMatchesQuery(task, query)
+        )
+      ),
+    [tasks, filter, query]
+  )
   const filtered = useMemo(
-    () => applyFilter(tasks, filter, types),
-    [tasks, filter, types]
+    () => applyFilter(tasks, filter, types, query),
+    [tasks, filter, types, query]
   )
 
   const onTabChange = useCallback(
     (next: DownloadsTab) => {
-      const qs = serializeTypeParam(types)
-      navigate(`/downloads/${next}${qs ? `?type=${qs}` : ''}`)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('task')
+      navigate(`/downloads/${next}${nextParams.size ? `?${nextParams}` : ''}`)
     },
-    [navigate, types]
+    [navigate, searchParams]
   )
 
   const onTypesChange = useCallback(
@@ -150,6 +163,17 @@ export function DownloadsPage() {
       else sp.delete('type')
       sp.delete('task')
       setSearchParams(sp, { replace: true })
+    },
+    [searchParams, setSearchParams]
+  )
+
+  const onQueryChange = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams)
+      if (next) params.set('q', next)
+      else params.delete('q')
+      params.delete('task')
+      setSearchParams(params, { replace: true })
     },
     [searchParams, setSearchParams]
   )
@@ -220,11 +244,16 @@ export function DownloadsPage() {
     }
 
     const matchesType = types.length === 0 || types.includes(target.type)
-    if (!taskMatchesTab(target, filter) || !matchesType) {
+    if (
+      !taskMatchesTab(target, filter) ||
+      !matchesType ||
+      !taskMatchesQuery(target, query)
+    ) {
       consumedDeepLinks.current.add(deepLinkSignature)
       const next = new URLSearchParams(searchParams)
       next.set('task', target.id)
       next.delete('type')
+      next.delete('q')
       navigate(
         {
           pathname: '/downloads/all',
@@ -238,10 +267,12 @@ export function DownloadsPage() {
     consumedDeepLinks.current.add(deepLinkSignature)
     handlingDeepLinkSelection.current = true
     select(target.id)
+    useDownloadsView.getState().setInspectorVisible(true)
     handlingDeepLinkSelection.current = false
   }, [
     deepLinkSignature,
     filter,
+    query,
     hasReadySnapshot,
     navigate,
     searchParams,
@@ -250,21 +281,6 @@ export function DownloadsPage() {
     tasks,
     types,
   ])
-
-  const onOpenTask = useCallback(
-    (task: DownloadTask) => {
-      removeTaskQuery()
-      if (!taskMatchesTab(task, filter)) {
-        const qs = serializeTypeParam(types)
-        navigate(`/downloads/all${qs ? `?type=${qs}` : ''}`)
-      }
-      // select() sets selectedIds immediately so the inspector opens. When we
-      // just navigated to /downloads/all, focusedIndex re-resolves on the next
-      // list render (setItems) — the drawer only needs selectedIds to be set.
-      select(task.id)
-    },
-    [filter, types, navigate, removeTaskQuery, select]
-  )
 
   const [container, setContainer] = useState<HTMLElement | null>(null)
   const taskList =
@@ -279,8 +295,8 @@ export function DownloadsPage() {
         hasAnyTasks={counts.all > 0}
         selection={useDownloadsSelection}
         filter={filter}
-        search=""
-        onClearSearch={() => onTypesChange([])}
+        search={query}
+        onClearSearch={() => onQueryChange('')}
       />
     )
 
@@ -296,19 +312,25 @@ export function DownloadsPage() {
               tab={filter}
               onTabChange={onTabChange}
               counts={counts}
+              visibleCount={filtered.length}
             />
           }
           actions={
-            <FilterSearchCommand
+            <DownloadsToolbar
               tasks={tasks}
+              selection={useDownloadsSelection}
+              query={query}
+              onQueryChange={onQueryChange}
               types={types}
               onTypesChange={onTypesChange}
               typeCounts={typeCounts}
-              onOpenTask={onOpenTask}
+              onHideInspector={removeTaskQuery}
             />
           }
           actionsPosition="end"
-          footer={<GlobalStatsBar counts={counts} />}
+          headerClassName="compact-header:py-1"
+          actionsClassName="min-w-0 flex-1"
+          footer={<GlobalStatsBar />}
           contentClassName="px-6"
         >
           {status === 'error' && hasReadySnapshot ? (

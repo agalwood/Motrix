@@ -75,3 +75,12 @@ export function formatSpeed(
 ): string {
   return `${formatBytes(bytes, { unitSystem, decimals: 1 })}/s`
 }
+
+/** Static caps omit trailing zeroes while live speeds retain a stable precision. */
+export function formatSpeedLimit(
+  bytes: ByteValue,
+  unitSystem = DEFAULT_BYTE_UNIT_SYSTEM
+): string {
+  const { number, unit } = formatByteParts(bytes, { unitSystem, decimals: 1 })
+  return `${number.replace(/\.0$/, '')} ${unit}/s`
+}

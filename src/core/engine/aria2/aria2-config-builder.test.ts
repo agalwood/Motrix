@@ -2,29 +2,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ─── Mock node:fs/promises ───────────────────────────────────
 
-const { mockAccess, mockCopyFile, mockMkdir, mockRename, mockReadFile } =
-  vi.hoisted(() => ({
-    mockAccess: vi.fn(),
-    mockCopyFile: vi.fn(),
-    mockMkdir: vi.fn(),
-    mockRename: vi.fn(),
-    mockReadFile: vi.fn(),
-  }))
+const {
+  mockAccess,
+  mockCopyFile,
+  mockMkdir,
+  mockReadFile,
+  mockRename,
+  mockWriteFileAtomic,
+} = vi.hoisted(() => ({
+  mockAccess: vi.fn(),
+  mockCopyFile: vi.fn(),
+  mockMkdir: vi.fn(),
+  mockReadFile: vi.fn(),
+  mockRename: vi.fn(),
+  mockWriteFileAtomic: vi.fn(),
+}))
 
 vi.mock('node:fs/promises', () => ({
   default: {
     access: mockAccess,
     copyFile: mockCopyFile,
     mkdir: mockMkdir,
-    rename: mockRename,
     readFile: mockReadFile,
+    rename: mockRename,
   },
   access: mockAccess,
   copyFile: mockCopyFile,
   mkdir: mockMkdir,
-  rename: mockRename,
   readFile: mockReadFile,
+  rename: mockRename,
 }))
+vi.mock('write-file-atomic', () => ({ default: mockWriteFileAtomic }))
 
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
@@ -72,7 +80,8 @@ describe('Aria2ConfigBuilder', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockReadFile.mockResolvedValue('')
+    mockReadFile.mockResolvedValue('bt-detach-seed-only=true\n')
+    mockWriteFileAtomic.mockResolvedValue(undefined)
     builder = new Aria2ConfigBuilder(
       '/app/extra/aria2.conf',
       '/home/user/.config/motrix'
@@ -84,6 +93,32 @@ describe('Aria2ConfigBuilder', () => {
   })
 
   describe('ensureUserConfig', () => {
+    it('excludes advanced global seeding time while preserving the original config', async () => {
+      mockAccess.mockResolvedValue(undefined)
+      const source =
+        '# seed-time=10\r\nseed-time=0\r\n  seed-time = 60\nseed-ratio=2\n'
+      mockReadFile.mockResolvedValue(source)
+      await expect(builder.ensureUserConfig()).resolves.toBe(
+        '/home/user/.config/motrix/aria2.runtime.conf'
+      )
+      expect(mockWriteFileAtomic).toHaveBeenCalledWith(
+        '/home/user/.config/motrix/aria2.runtime.conf',
+        '# seed-time=10\r\nseed-ratio=2\n',
+        { mode: 0o600 }
+      )
+      expect(
+        buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+          download: 0,
+          upload: 0,
+        })[0]
+      ).toBe('--conf-path=/home/user/.config/motrix/aria2.runtime.conf')
+      expect(mockCopyFile).not.toHaveBeenCalled()
+      mockReadFile.mockResolvedValue('# seed-time=10\nseed-ratio=2\n')
+      await expect(builder.ensureUserConfig()).resolves.toBe(
+        '/home/user/.config/motrix/aria2.conf'
+      )
+    })
+
     it('returns existing user config path when file exists', async () => {
       // access resolves → file exists
       mockAccess.mockResolvedValue(undefined)
@@ -540,7 +575,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain(
         `--seed-ratio=${DEFAULT_ENGINE_SETTINGS.seedRatio}`
       )
-      expect(args).toContain(`--seed-time=${DEFAULT_ENGINE_SETTINGS.seedTime}`)
+      expect(args.some((arg) => arg.startsWith('--seed-time='))).toBe(false)
     })
 
     it('injects session-save-interval', () => {
@@ -581,7 +616,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--bt-max-peers=256')
       expect(args).toContain('--bt-enable-lpd=false')
       expect(args).toContain('--seed-ratio=2')
-      expect(args).toContain('--seed-time=0')
+      expect(args.some((arg) => arg.startsWith('--seed-time='))).toBe(false)
     })
   })
 

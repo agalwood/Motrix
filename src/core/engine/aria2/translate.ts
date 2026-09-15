@@ -20,6 +20,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { shareRatio } from '@shared/utils/share-ratio'
 import peerid from 'bittorrent-peerid'
 import type {
   Aria2RawFile,
@@ -211,10 +212,7 @@ export function translateBtExtension(
   return {
     peers: Number(raw.connections) || 0,
     seeds: Number(raw.numSeeders) || 0,
-    ratio:
-      Number(raw.completedLength) > 0
-        ? Number(raw.uploadLength) / Number(raw.completedLength)
-        : 0,
+    ratio: shareRatio(Number(raw.uploadLength), Number(raw.totalLength)),
     trackers: (raw.bittorrent.announceList ?? []).flat(),
     selectedFiles: (raw.files ?? [])
       .filter((f) => f.selected === 'true')

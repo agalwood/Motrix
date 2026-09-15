@@ -1571,6 +1571,52 @@ describe('Aria2Adapter', () => {
   })
 
   describe('addTorrent', () => {
+    it('reads live seeding defaults and omits zero time without leaking them into HTTP', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addTorrent).mockResolvedValue('gid-new')
+      vi.mocked(rpc.addUri).mockResolvedValue('gid-magnet')
+      let settings = { seedTime: 60, seedRatio: 1 }
+      const adapter = new Aria2Adapter(rpc, undefined, () => settings)
+      const params = { metadata: new Uint8Array([1]), saveDir: '/d' }
+      await adapter.addTorrent(params)
+      expect(vi.mocked(rpc.addTorrent).mock.calls.at(-1)?.[2]).toMatchObject({
+        'seed-time': '60',
+        'seed-ratio': '1',
+      })
+      settings = { seedTime: 0, seedRatio: 0 }
+      await adapter.addTorrent(params)
+      expect(
+        vi.mocked(rpc.addTorrent).mock.calls.at(-1)?.[2]
+      ).not.toHaveProperty('seed-time')
+      expect(vi.mocked(rpc.addTorrent).mock.calls.at(-1)?.[2]).toHaveProperty(
+        'seed-ratio',
+        '0'
+      )
+      settings = { seedTime: 30, seedRatio: 2 }
+      await adapter.createDownload({
+        uris: ['magnet:?xt=urn:btih:abc'],
+        saveDir: '/d',
+      })
+      expect(vi.mocked(rpc.addUri).mock.calls.at(-1)?.[1]).toMatchObject({
+        'seed-time': '30',
+        'seed-ratio': '2',
+      })
+      await adapter.addTorrent({ ...params, seedTime: 0, seedRatio: 0 })
+      expect(
+        vi.mocked(rpc.addTorrent).mock.calls.at(-1)?.[2]
+      ).not.toHaveProperty('seed-time')
+      await adapter.createDownload({
+        uris: ['https://example.test/file'],
+        saveDir: '/d',
+      })
+      expect(vi.mocked(rpc.addUri).mock.calls.at(-1)?.[1]).not.toHaveProperty(
+        'seed-time'
+      )
+      expect(vi.mocked(rpc.addUri).mock.calls.at(-1)?.[1]).not.toHaveProperty(
+        'seed-ratio'
+      )
+    })
+
     it('calls aria2.addTorrent with base64 metadata and options', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addTorrent).mockResolvedValue('gid-new')
@@ -2075,6 +2121,20 @@ describe('Aria2Adapter', () => {
 
       expect(await adapter.getUploadLength('g')).toBe(0)
     })
+  })
+
+  it('reads the complete waiting queue across pages in engine order', async () => {
+    const rpc = createMockRpc()
+    const first = Array.from({ length: 1000 }, (_, i) => ({
+      gid: `waiting-${i}`,
+    }))
+    vi.mocked(rpc.tellWaiting)
+      .mockResolvedValueOnce(first as Aria2RawStatus[])
+      .mockResolvedValueOnce([{ gid: 'tail' }] as Aria2RawStatus[])
+    const result = await new Aria2Adapter(rpc).listWaitingTaskIds()
+    expect(result).toEqual([...first.map((task) => task.gid), 'tail'])
+    expect(rpc.tellWaiting).toHaveBeenNthCalledWith(2, 1000, 1000, ['gid'])
+    expect(rpc.tellActive).not.toHaveBeenCalled()
   })
 
   describe('listActiveAndWaiting', () => {

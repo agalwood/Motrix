@@ -224,15 +224,18 @@ async function openActivityForTask(
     await expect.poll(() => page.url()).toContain('#/downloads')
   }
   const openDrawer = page.getByRole('dialog', {
-    name: /^(Downloads|下载)$/i,
+    name: /^(Task Inspector|任务详情)$/i,
   })
   if (await openDrawer.isVisible().catch(() => false)) {
-    await page.keyboard.press('Escape')
+    await openDrawer.getByRole('button', { name: /^(Close|关闭)$/ }).click()
     await expect(openDrawer).toBeHidden()
   }
-  const row = page.getByRole('option', { name: new RegExp(taskName, 'i') })
+  const row = page.getByRole('row', { name: new RegExp(taskName, 'i') })
   await expect(row).toBeVisible()
   await row.click()
+  await page
+    .getByRole('button', { name: /^(Show Inspector|显示详情)$/ })
+    .click()
   const tabs = page.getByRole('tab')
   await expect(tabs.last()).toBeVisible()
   await tabs.last().click()
@@ -257,7 +260,7 @@ async function capture(page: Page, name: string): Promise<void> {
 
 async function expectStatusPillContained(page: Page): Promise<void> {
   const drawer = page.getByRole('dialog', {
-    name: /^(Downloads|下载)$/i,
+    name: /^(Task Inspector|任务详情)$/i,
   })
   const statusPill = drawer.getByTestId('task-status-pill')
   await expect(statusPill).toBeVisible()
@@ -347,13 +350,18 @@ async function presentActiveReference(
 test.describe('Task Inspector Activity', () => {
   test.setTimeout(180_000)
 
-  test('keeps Activity and the selected download reachable inside the minimum 914 by 672 window', async ({
+  test('keeps Activity scrollable in an overlay inside the minimum 914 by 672 window', async ({
     userDataDir,
   }) => {
     const { app, page } = await launchSeededApp(userDataDir)
     try {
       const viewport = await setTaskInspectorContentSize(app, page, 914, 672)
       expect(viewport).toEqual({ width: 914, height: 672 })
+
+      await page.getByRole('link', { name: 'Downloads' }).click()
+      await expect(page.getByTestId('downloads-loading')).toHaveCount(0)
+      const list = page.getByTestId('virtual-list-container')
+      const listBox = await list.boundingBox()
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
 
@@ -389,46 +397,40 @@ test.describe('Task Inspector Activity', () => {
       expect(geometry.overflowY).toBe('auto')
       expect(geometry.clientHeight).toBeGreaterThan(0)
       const drawer = page.getByRole('dialog', {
-        name: 'Downloads',
+        name: 'Task Inspector',
         exact: true,
       })
-      const list = page.getByTestId('virtual-list-container')
-      const selected = page.getByRole('option', {
-        name: new RegExp(TASK_INSPECTOR_ACTIVITY_NAMES.rich),
-      })
-      await expect
-        .poll(() =>
-          selected.evaluate((element) => {
-            const list = element.closest(
-              '[data-testid="virtual-list-container"]'
-            )
-            if (!list?.firstElementChild) return false
-            const rect = element.getBoundingClientRect()
-            return (
-              rect.top >=
-                list.firstElementChild.getBoundingClientRect().bottom - 1 &&
-              rect.bottom <= list.getBoundingClientRect().bottom + 1
-            )
-          })
-        )
-        .toBe(true)
-      const listBox = await list.boundingBox()
-      const drawerBox = await drawer.boundingBox()
-      expect(listBox!.y + listBox!.height).toBeLessThanOrEqual(drawerBox!.y)
-      // The inspector owns overflow when the list needs part of the window.
+      expect(await list.boundingBox()).toEqual(listBox)
+      // Every snap must expose the actual last content pixels, not just
+      // report scrollTop + clientHeight == scrollHeight offscreen.
       const content = page.getByTestId('task-inspector-drawer-content')
-      await content.evaluate((element) => {
-        element.scrollTop = element.scrollHeight
-      })
-      await expect
-        .poll(() =>
-          content.evaluate(
-            (element) =>
-              element.scrollTop + element.clientHeight >=
-              element.scrollHeight - 1
+      const handle = drawer.getByRole('separator', { name: 'Resize Inspector' })
+      for (const key of ['Home', 'ArrowUp', 'End']) {
+        await handle.focus()
+        await handle.press(key)
+        await content.hover()
+        await page.mouse.wheel(0, 10_000)
+        await expect
+          .poll(() =>
+            content.evaluate((element) => {
+              const last = element.querySelector(
+                '[data-testid="task-inspector-activity-root"]'
+              )!
+              const bounds = element.getBoundingClientRect()
+              const end = last.getBoundingClientRect()
+              const hit = document.elementFromPoint(
+                end.left + 20,
+                end.bottom - 5
+              )
+              return (
+                bounds.bottom <= innerHeight &&
+                end.bottom <= bounds.bottom &&
+                last.contains(hit)
+              )
+            })
           )
-        )
-        .toBe(true)
+          .toBe(true)
+      }
       expect(
         await page.evaluate(() => document.documentElement.scrollHeight)
       ).toBeLessThanOrEqual(viewport.height)

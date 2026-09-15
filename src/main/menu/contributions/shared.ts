@@ -103,8 +103,7 @@ export function contributeSharedMenubar(menuReg: MenuRegistry): void {
     menuId: MenuIds.MenubarTask,
     group: '3_bulk',
     order: 30,
-    role: 'selectAll',
-    titleOverride: 'menu.task.selectAllTask',
+    commandId: CommandIds.TaskSelectAll,
   })
   menuReg.appendItem({
     id: MenuItemIds.TaskClearStopped,

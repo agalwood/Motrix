@@ -37,6 +37,8 @@ export const Events = {
   SettingsChanged: 'event:settingsChanged',
   // Payload: { reduceMotion: boolean }. Full settings remain host-internal.
   ReducedMotionChanged: 'event:reducedMotionChanged',
+  // Payload: { liquidGlassEffect: boolean }.
+  LiquidGlassChanged: 'event:liquidGlassChanged',
   // Payload: { byteUnitSystem: ByteUnitPreference }.
   ByteUnitSystemChanged: 'event:byteUnitSystemChanged',
   LocaleChanged: 'event:localeChanged',
@@ -112,6 +114,9 @@ export const Events = {
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
+  // No payload; only the main window's current Downloads list handles this.
+  // Sent directly by the desktop shell, never through the core event bus.
+  TaskSelectAll: 'event:taskSelectAll',
   // Renderer-local shell state. Electron sends this directly to the owning
   // BrowserWindow instead of broadcasting it through the core event bus.
   WindowMaximizedChanged: 'event:windowMaximizedChanged',

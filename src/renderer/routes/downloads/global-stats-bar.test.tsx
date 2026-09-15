@@ -49,8 +49,6 @@ vi.mock('@renderer/lib/transport', () => ({
 
 import { GlobalStatsBar } from './global-stats-bar'
 
-const motrixCounts = { all: 7, active: 2, completed: 3, error: 2 }
-
 const testPlatformServices: PlatformServices = {
   kind: 'electron',
   pickSaveDir: vi.fn(async () => null),
@@ -64,24 +62,13 @@ describe('GlobalStatsBar', () => {
   it('renders formatted speeds with engine and nat badges', async () => {
     render(
       <PlatformServicesProvider services={testPlatformServices}>
-        <GlobalStatsBar counts={motrixCounts} />
+        <GlobalStatsBar />
       </PlatformServicesProvider>
     )
-    expect(screen.getByText(/16\.5 MB\/s/)).toBeInTheDocument()
+    const [upload, download] = screen.getAllByRole('definition')
+    expect(upload).toHaveTextContent('4.0 MB/s')
+    expect(download).toHaveTextContent('16.5 MB/s')
     expect(await screen.findByText(/Engine ready/)).toBeInTheDocument()
     expect(await screen.findByText(/NAT mapped/)).toBeInTheDocument()
-  })
-
-  it('uses Motrix task counts instead of aria2 runtime counts', () => {
-    render(
-      <PlatformServicesProvider services={testPlatformServices}>
-        <GlobalStatsBar counts={motrixCounts} />
-      </PlatformServicesProvider>
-    )
-
-    expect(
-      screen.getByText('Active 2 · Completed 3 · Error 2')
-    ).toBeInTheDocument()
-    expect(screen.queryByText(/Completed 42/)).not.toBeInTheDocument()
   })
 })

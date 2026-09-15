@@ -1,3 +1,4 @@
+import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, DashboardTileLayout } from '@shared/types/settings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CURRENT_SETTINGS_VERSION } from './migrations'
@@ -8,6 +9,7 @@ import {
   DEFAULT_DASHBOARD_LAYOUT,
   DEFAULT_ENGINE_SETTINGS,
   DEFAULT_ONBOARDING_STATE,
+  DEFAULT_SPEED_LIMIT_SETTINGS,
   dashboardLayoutSettingsSchema,
 } from './validators'
 
@@ -66,6 +68,98 @@ describe('SettingsManager', () => {
   })
 
   describe('load', () => {
+    it.each([
+      ['darwin', 64_000, 512_000],
+      ['win32', 65_536, 524_288],
+      ['linux', 65_536, 524_288],
+    ])(
+      'persists first-run speed presets for %s only once',
+      async (platform, upload, download) => {
+        const unitSystem = resolveByteUnitSystem('system', platform as string)
+        manager = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem: unitSystem,
+        })
+        mockedFs.readFile.mockRejectedValue(new Error('ENOENT'))
+        mockedFs.writeFile.mockResolvedValue(undefined)
+        await manager.load()
+        expect(manager.get().speedLimit).toMatchObject({
+          turtle: 'off',
+          base: { upload: 0, download: 0 },
+          alt: { upload, download },
+        })
+        const saved = JSON.parse(
+          mockedFs.writeFile.mock.calls.at(-1)![1] as string
+        )
+        expect(saved.speedLimit.alt).toEqual({ upload, download })
+        mockedFs.readFile.mockResolvedValue(JSON.stringify(saved))
+        const reloaded = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem:
+            unitSystem === 'decimal' ? 'binary' : 'decimal',
+        })
+        await reloaded.load()
+        expect(reloaded.get().speedLimit.alt).toEqual({ upload, download })
+        await reloaded.update({
+          app: {
+            byteUnitSystem: unitSystem === 'decimal' ? 'binary' : 'decimal',
+          },
+        })
+        expect(reloaded.get().speedLimit.alt).toEqual({ upload, download })
+      }
+    )
+
+    it.each(['decimal', 'binary'] as const)(
+      'uses an explicit %s preference when the speed profile is missing',
+      async (units) => {
+        manager = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem: units === 'decimal' ? 'binary' : 'decimal',
+        })
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { byteUnitSystem: units, defaultSaveDir: '/tmp/downloads' },
+            engine: { rpcSecret: 'kept' },
+          })
+        )
+        await manager.load()
+        expect(manager.get().speedLimit.alt).toEqual(
+          units === 'decimal'
+            ? { upload: 64_000, download: 512_000 }
+            : { upload: 65_536, download: 524_288 }
+        )
+        expect(mockedFs.writeFile).toHaveBeenCalledOnce()
+      }
+    )
+
+    it.each([
+      { upload: 65_536, download: 524_288 },
+      { upload: 123_456, download: 987_654 },
+      { upload: 0, download: 0 },
+    ])(
+      'preserves stored limits $upload/$download in decimal mode',
+      async (alt) => {
+        manager = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem: 'decimal',
+        })
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { byteUnitSystem: 'decimal' },
+            speedLimit: {
+              turtle: 'on',
+              base: { upload: 10, download: 20 },
+              alt,
+            },
+          })
+        )
+        await manager.load()
+        expect(manager.get().speedLimit).toMatchObject({
+          turtle: 'on',
+          base: { upload: 10, download: 20 },
+          alt,
+        })
+      }
+    )
+
     it('uses defaults when file does not exist', async () => {
       mockedFs.readFile.mockRejectedValue(
         Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
@@ -129,6 +223,7 @@ describe('SettingsManager', () => {
       mockedFs.readFile.mockResolvedValue(
         JSON.stringify({
           version: CURRENT_SETTINGS_VERSION,
+          speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
           engine: { ...DEFAULT_ENGINE_SETTINGS, rpcSecret: 'saved-secret' },
           app,
           plugins: {},
@@ -167,6 +262,7 @@ describe('SettingsManager', () => {
         mockedFs.readFile.mockResolvedValue(
           JSON.stringify({
             version: CURRENT_SETTINGS_VERSION,
+            speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
             engine: { ...DEFAULT_ENGINE_SETTINGS, rpcSecret: 'saved-secret' },
             app: {
               ...DEFAULT_APP_SETTINGS,
@@ -1109,6 +1205,7 @@ describe('SettingsManager', () => {
     it('preserves an explicitly persisted empty rpcSecret after load', async () => {
       const fileContent = JSON.stringify({
         version: CURRENT_SETTINGS_VERSION,
+        speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
         engine: { rpcSecret: '' },
         app: { defaultSaveDir: '/downloads' },
       })

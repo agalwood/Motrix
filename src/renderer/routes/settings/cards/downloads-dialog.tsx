@@ -16,7 +16,7 @@ import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
+import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { AppSettings } from '@shared/types/settings'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -46,7 +46,10 @@ export function DownloadsDialog({
   const { t } = useTranslation()
   const { unitSystem } = useByteFormat()
   const form = useForm<DownloadsFields>({
-    defaultValues: DOWNLOADS_DEFAULTS,
+    defaultValues: {
+      ...DOWNLOADS_DEFAULTS,
+      speedLimit: createDefaultSpeedLimitSettings(unitSystem),
+    },
     resolver: zodResolver(downloadsFormSchema, {
       error: downloadsValidationError(t, unitSystem === 'binary' ? 1024 : 1000),
     }),
@@ -66,8 +69,11 @@ export function DownloadsDialog({
             ? { ...ENGINE_DEFAULTS, ...all.engine }
             : ENGINE_DEFAULTS,
           speedLimit: all?.speedLimit
-            ? { ...DEFAULT_SPEED_LIMIT_SETTINGS, ...all.speedLimit }
-            : DEFAULT_SPEED_LIMIT_SETTINGS,
+            ? {
+                ...createDefaultSpeedLimitSettings(unitSystem),
+                ...all.speedLimit,
+              }
+            : createDefaultSpeedLimitSettings(unitSystem),
         })
       })
       .catch(() => {})

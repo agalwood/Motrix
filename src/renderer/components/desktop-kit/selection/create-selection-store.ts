@@ -257,6 +257,37 @@ export function createSelectionStore<T>(
       set({ focusedIndex: next })
     },
 
+    focus(id: string) {
+      const index = indexById.get(id)
+      if (index === undefined) return
+      focusedId = id
+      set({ focusedIndex: index })
+    },
+
+    extendSelection(toIndex: number) {
+      const { items, focusedIndex, lastActionIndex } = get()
+      if (items.length === 0) return
+      const target = clamp(toIndex, 0, items.length - 1)
+      if (lastActionIndex === null) {
+        const anchor = focusedIndex ?? target
+        lastActionId = getId(items[anchor])
+        set({ lastActionIndex: anchor })
+      }
+      get().rangeSelect(target)
+      get().focus(getId(items[target]))
+    },
+
+    moveSelection(delta: number, extend = false) {
+      const { focusedIndex, items } = get()
+      if (items.length === 0) return
+      const next =
+        focusedIndex === null
+          ? 0
+          : clamp(focusedIndex + delta, 0, items.length - 1)
+      if (extend) get().extendSelection(next)
+      else get().select(getId(items[next]))
+    },
+
     focusedSelect() {
       resetMarqueeRange()
       const { focusedIndex, items } = get()

@@ -80,7 +80,6 @@ const HOT_ENGINE_OPTIONS = {
   btMaxPeers: 'bt-max-peers',
   btEnableLpd: 'bt-enable-lpd',
   seedRatio: 'seed-ratio',
-  seedTime: 'seed-time',
   remoteTime: 'remote-time',
 } as const satisfies Partial<Record<keyof EngineSettings, string>>
 

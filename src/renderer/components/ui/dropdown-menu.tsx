@@ -1,3 +1,4 @@
+import './menu-density.css'
 import { Menu as DropdownMenuPrimitive } from '@base-ui/react/menu'
 import { cn } from '@renderer/lib/utils'
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react'
@@ -51,6 +52,7 @@ function DropdownMenuContent({
       >
         <DropdownMenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          style={{ outline: 'none' }}
           className={cn(
             'z-50 max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
             className
@@ -133,22 +135,28 @@ function DropdownMenuRadioGroup({
 function DropdownMenuRadioItem({
   className,
   children,
+  showIndicator = true,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem> & {
+  showIndicator?: boolean
+}) {
   return (
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
         "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        !showIndicator && 'pl-2',
         className
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-        <DropdownMenuPrimitive.RadioItemIndicator>
-          <CircleIcon className="size-2 fill-current" />
-        </DropdownMenuPrimitive.RadioItemIndicator>
-      </span>
+      {showIndicator && (
+        <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+          <DropdownMenuPrimitive.RadioItemIndicator>
+            <CircleIcon className="size-2 fill-current" />
+          </DropdownMenuPrimitive.RadioItemIndicator>
+        </span>
+      )}
       {children}
     </DropdownMenuPrimitive.RadioItem>
   )
@@ -195,7 +203,7 @@ function DropdownMenuShortcut({
     <span
       data-slot="dropdown-menu-shortcut"
       className={cn(
-        'ml-auto text-xs tracking-widest text-muted-foreground',
+        'ms-auto shrink-0 whitespace-nowrap text-xs text-muted-foreground',
         className
       )}
       {...props}
@@ -251,6 +259,7 @@ function DropdownMenuSubContent({
       >
         <DropdownMenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
+          style={{ outline: 'none' }}
           className={cn(
             'z-50 min-w-[8rem] origin-(--transform-origin) overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
             className

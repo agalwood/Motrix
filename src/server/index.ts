@@ -312,6 +312,11 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
+          eventBus.emit(Events.LiquidGlassChanged, {
+            liquidGlassEffect: updated.app.liquidGlassEffect,
+          })
+        }
         if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
           eventBus.emit(Events.ByteUnitSystemChanged, {
             byteUnitSystem: updated.app.byteUnitSystem,
@@ -643,7 +648,9 @@ async function main() {
     protocol,
     engineSettings.rpcSecret
   )
-  const adapter = new Aria2Adapter(rpcClient)
+  const adapter = new Aria2Adapter(rpcClient, undefined, () =>
+    settingsManager.getEngine()
+  )
   shutdownActions.unsubscribeProducers = () => {
     let firstError: unknown
     for (const unsubscribe of pollingNotificationUnsubscribers.splice(0)) {

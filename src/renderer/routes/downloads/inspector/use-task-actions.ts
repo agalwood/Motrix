@@ -3,11 +3,16 @@ import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { transport } from '@renderer/lib/transport'
 import { type CommandChannel, Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import {
+  type MoveTasksPayload,
+  moveTasksResultSchema,
+} from '@shared/schemas/move-tasks'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 import type { DownloadTask } from '@shared/types/task'
 import type { BulkTaskCommandResult } from '@shared/types/task-actions'
 import {
   canAttemptRetry,
+  canMoveInQueue,
   canPause,
   canRemove,
   canReseed,
@@ -128,6 +133,9 @@ function buildPrefillFromTask(
 }
 
 export interface TaskActionsState {
+  moveCount: number
+  moving: boolean
+  onMove: (direction: MoveTasksPayload['direction']) => Promise<void>
   pauseCount: number
   resumeCount: number
   stopSeedingCount: number
@@ -137,6 +145,7 @@ export interface TaskActionsState {
   total: number
 
   removeDialog: RemoveDialogState
+  removeTargets: readonly DownloadTask[]
 
   onPause: () => Promise<void>
   onResume: () => Promise<void>
@@ -152,10 +161,14 @@ export function useTaskActions(
   selected: readonly DownloadTask[]
 ): TaskActionsState {
   const { t } = useTranslation()
+  const [moving, setMoving] = useState(false)
   const [removeDialog, setRemoveDialog] = useState<RemoveDialogState>({
     open: false,
     preCheckDeleteFiles: false,
   })
+  const [removeTargets, setRemoveTargets] = useState<readonly DownloadTask[]>(
+    []
+  )
 
   const counts = useMemo(() => {
     let pauseCount = 0
@@ -173,6 +186,7 @@ export function useTaskActions(
       if (canRemove(task)) removeCount++
     }
     return {
+      moveCount: selected.filter(canMoveInQueue).length,
       pauseCount,
       resumeCount,
       stopSeedingCount,
@@ -234,6 +248,55 @@ export function useTaskActions(
     [dispatchSubset]
   )
 
+  const onMove = useCallback(
+    async (direction: MoveTasksPayload['direction']) => {
+      const targets = selected.filter(canMoveInQueue)
+      if (moving || !targets.length) return
+      setMoving(true)
+      try {
+        const result = moveTasksResultSchema.parse(
+          await transport.invoke(Commands.MoveTasks, {
+            taskIds: targets.map((task) => task.id),
+            direction,
+          })
+        )
+        if (result.failed.length) {
+          reportPartial(
+            toActionResults(targets, {
+              succeeded: [...result.moved, ...result.unchanged],
+              failed: result.failed.map((entry) => ({
+                ...entry,
+                reason: t(
+                  entry.reason === 'not-waiting'
+                    ? 'panel.downloads.action.queueTaskStarted'
+                    : 'panel.downloads.action.queueMoveFailed'
+                ),
+              })),
+            })
+          )
+        } else {
+          toast.add({
+            title: t(
+              result.moved.length
+                ? 'panel.downloads.action.queueMoved'
+                : 'panel.downloads.action.queueBoundary'
+            ),
+            description: t('panel.downloads.action.queueMoveHint'),
+            type: 'info',
+          })
+        }
+      } catch {
+        toast.add({
+          title: t('panel.downloads.action.queueMoveFailed'),
+          type: 'error',
+        })
+      } finally {
+        setMoving(false)
+      }
+    },
+    [selected, moving, reportPartial, t]
+  )
+
   const onStopSeeding = useCallback(
     () => dispatchSubset(Commands.StopSeedingTasks, canStopSeeding),
     [dispatchSubset]
@@ -287,12 +350,16 @@ export function useTaskActions(
     [selected, altReAddSingle, dispatchSubset]
   )
 
-  const onRemove = useCallback((modifier?: { shift: boolean }) => {
-    setRemoveDialog({
-      open: true,
-      preCheckDeleteFiles: modifier?.shift ?? false,
-    })
-  }, [])
+  const onRemove = useCallback(
+    (modifier?: { shift: boolean }) => {
+      setRemoveTargets([...selected])
+      setRemoveDialog({
+        open: true,
+        preCheckDeleteFiles: modifier?.shift ?? false,
+      })
+    },
+    [selected]
+  )
 
   const closeRemoveDialog = useCallback(() => {
     setRemoveDialog({ open: false, preCheckDeleteFiles: false })
@@ -300,7 +367,7 @@ export function useTaskActions(
 
   const confirmRemove = useCallback(
     async (deleteFiles: boolean) => {
-      const targets = selected.filter(canRemove)
+      const targets = removeTargets.filter(canRemove)
       if (targets.length > 0) {
         const results = await invokeBulk(Commands.RemoveTasks, targets, {
           taskIds: targets.map((task) => task.id),
@@ -310,12 +377,15 @@ export function useTaskActions(
       }
       setRemoveDialog({ open: false, preCheckDeleteFiles: false })
     },
-    [selected, reportPartial]
+    [removeTargets, reportPartial]
   )
 
   return {
     ...counts,
+    moving,
+    onMove,
     removeDialog,
+    removeTargets,
     onPause,
     onResume,
     onStopSeeding,
