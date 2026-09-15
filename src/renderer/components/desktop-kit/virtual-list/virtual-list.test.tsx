@@ -74,45 +74,55 @@ describe('VirtualList', () => {
     expect(scrollContainer).not.toBeNull()
   })
 
-  it('retains a pinned active option while the visible range scrolls away', () => {
-    const height = vi
-      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
-      .mockReturnValue(200)
-    const width = vi
-      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
-      .mockReturnValue(400)
-    const { unmount } = render(
-      <VirtualList<TestItem>
-        items={makeItems(500)}
-        getId={(item) => item.id}
-        rowHeight={40}
-        activeIndex={0}
-        containerProps={{
-          role: 'listbox',
-          tabIndex: 0,
-          'aria-activedescendant': 'item-0',
-        }}
-        renderRow={({ item }) => (
-          <div
-            role="option"
-            tabIndex={-1}
-            aria-selected={item.id === 'item-0'}
-            id={item.id}
-          >
-            {item.label}
-          </div>
-        )}
-      />
-    )
-    const list = screen.getByRole('listbox')
-    expect(document.getElementById('item-0')).not.toBeNull()
-    fireEvent.scroll(list, { target: { scrollTop: 12_000 } })
-    expect(document.getElementById('item-0')).not.toBeNull()
-    expect(list.getAttribute('aria-activedescendant')).toBe('item-0')
-    expect(screen.getAllByRole('option').length).toBeLessThan(30)
-    expect(document.getElementById('item-300')).not.toBeNull()
-    unmount()
-    height.mockRestore()
-    width.mockRestore()
-  })
+  it.each(['native', 'custom'] as const)(
+    'retains active options and viewport semantics with %s scrollbars',
+    (scrollbar) => {
+      const height = vi
+        .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+        .mockReturnValue(200)
+      const width = vi
+        .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+        .mockReturnValue(400)
+      const { unmount } = render(
+        <VirtualList<TestItem>
+          items={makeItems(500)}
+          getId={(item) => item.id}
+          rowHeight={40}
+          activeIndex={0}
+          keepMountedIndex={499}
+          scrollbar={scrollbar}
+          containerProps={{
+            role: 'listbox',
+            tabIndex: 0,
+            'aria-activedescendant': 'item-0',
+          }}
+          renderRow={({ item }) => (
+            <div
+              role="option"
+              tabIndex={-1}
+              aria-selected={item.id === 'item-0'}
+              id={item.id}
+            >
+              {item.label}
+            </div>
+          )}
+        />
+      )
+      const list = screen.getByRole('listbox')
+      expect(document.getElementById('item-0')).not.toBeNull()
+      expect(document.getElementById('item-499')).not.toBeNull()
+      expect(list.tabIndex).toBe(0)
+      if (scrollbar === 'custom')
+        expect(list.getAttribute('data-slot')).toBe('scroll-area-viewport')
+      fireEvent.scroll(list, { target: { scrollTop: 12_000 } })
+      expect(document.getElementById('item-0')).not.toBeNull()
+      expect(document.getElementById('item-499')).not.toBeNull()
+      expect(list.getAttribute('aria-activedescendant')).toBe('item-0')
+      expect(screen.getAllByRole('option').length).toBeLessThan(30)
+      expect(document.getElementById('item-300')).not.toBeNull()
+      unmount()
+      height.mockRestore()
+      width.mockRestore()
+    }
+  )
 })
