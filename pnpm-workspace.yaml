@@ -96,3 +96,7 @@ minimumReleaseAgeExclude:
   - js-yaml@5.4.2
   - tailwind-merge@3.7.0
   - zod@4.6.4
+  - '@vitest/coverage-v8@5.0.1'
+  - '@vitest/mocker@5.0.1'
+  - '@vitest/spy@5.0.1'
+  - vitest@5.0.1
