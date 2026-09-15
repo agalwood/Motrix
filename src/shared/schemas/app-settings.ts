@@ -6,6 +6,7 @@ import {
   byteUnitSystemSchema,
   DEFAULT_BYTE_UNIT_PREFERENCE,
 } from './byte-unit-system'
+import { DirectoryPreferencesSchema } from './directory-preferences'
 import { supportedLocaleSchema } from './locale'
 import { settingsInputObject } from './settings-input'
 
@@ -30,6 +31,10 @@ export const appSettingsSchema = z.object({
   // absolute platform download directory on first load. The renderer never
   // observes '' because settings are loaded before the UI mounts.
   defaultSaveDir: z.string().catch(''),
+  directoryPreferences: DirectoryPreferencesSchema.catch({
+    favorites: [],
+    recent: [],
+  }),
   notifyOnComplete: z.boolean().catch(true),
   notifyOnError: z.boolean().catch(true),
   autofillClipboardLinks: z.boolean().catch(true),

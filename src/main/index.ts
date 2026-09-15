@@ -348,6 +348,15 @@ const settingsManager = new SettingsManager(settingsPath, {
         byteUnitSystem: updated.app.byteUnitSystem,
       })
     }
+    if (
+      JSON.stringify(old.app.directoryPreferences) !==
+      JSON.stringify(updated.app.directoryPreferences)
+    ) {
+      eventBus.emit(
+        Events.DirectoryPreferencesChanged,
+        structuredClone(updated.app.directoryPreferences)
+      )
+    }
     if (old.app.reduceMotion !== updated.app.reduceMotion) {
       eventBus.emit(Events.ReducedMotionChanged, {
         reduceMotion: updated.app.reduceMotion,

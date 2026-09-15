@@ -3,6 +3,7 @@ import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { SupportedLocale } from '../constants/locales'
 import type { BridgeSettings } from '../schemas/bridge-settings'
+import type { DirectoryPreferences } from '../schemas/directory-preferences'
 import type { GeoIPSettings } from './geoip'
 import type { PluginSettings } from './plugin'
 import type { TrackerSource } from './tracker'
@@ -220,6 +221,7 @@ export interface MotrixAppSettings {
   reduceMotion: boolean
   byteUnitSystem: ByteUnitPreference
   language: SupportedLocale
+  directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
   notifyOnComplete: boolean
   notifyOnError: boolean

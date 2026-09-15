@@ -9,9 +9,28 @@ import { PlatformServicesProvider } from '@renderer/platform/services'
 import { Events } from '@shared/protocol/events'
 import { AddTaskForm } from './add-task-form'
 
+const { recordRecentMock, invokeMock } = vi.hoisted(() => ({
+  recordRecentMock: vi.fn().mockResolvedValue(undefined),
+  invokeMock: vi.fn().mockResolvedValue({ gid: 'test-gid' }),
+}))
+vi.mock('@renderer/lib/directory-preferences', () => ({
+  recordRecentDirectory: (...args: unknown[]) => recordRecentMock(...args),
+}))
+vi.mock('@renderer/components/desktop-kit/directory-history-menu', () => ({
+  DirectoryHistoryMenu: ({
+    onSelect,
+  }: {
+    onSelect: (path: string) => void
+  }) => (
+    <button type="button" onClick={() => onSelect('/later')}>
+      History
+    </button>
+  ),
+}))
+
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
-    invoke: vi.fn().mockResolvedValue({ gid: 'test-gid' }),
+    invoke: invokeMock,
     on: vi.fn(),
     off: vi.fn(),
   },
@@ -45,7 +64,10 @@ function renderForm(props = {}, services: PlatformServices = mockServices) {
 }
 
 describe('AddTaskForm', () => {
-  afterEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    vi.clearAllMocks()
+    invokeMock.mockResolvedValue({ gid: 'test-gid' })
+  })
 
   it('renders links tab by default', () => {
     renderForm()
@@ -58,7 +80,11 @@ describe('AddTaskForm', () => {
 
     expect(content).toBeInTheDocument()
     expect(content).not.toHaveClass('overflow-y-auto')
-    expect(content?.parentElement).toHaveClass('overflow-y-auto')
+    expect(content?.parentElement).toHaveAttribute(
+      'data-slot',
+      'scroll-area-viewport'
+    )
+    expect(content?.parentElement).toHaveAttribute('tabindex', '-1')
   })
 
   it('keeps the footer inside an in-page dialog', () => {
@@ -295,7 +321,73 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
+    expect(recordRecentMock).toHaveBeenCalledWith('/d')
   })
+
+  it.each([
+    ['electron', 'created'],
+    ['electron', 'reused'],
+    ['electron', 'rechecked'],
+    ['web', 'created'],
+    ['web', 'reused'],
+    ['web', 'rechecked'],
+  ] as const)(
+    'records the accepted %s %s request snapshot even after a field change',
+    async (kind, outcome) => {
+      let accept!: (value: unknown) => void
+      const { transport } = await import('@renderer/lib/transport')
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === 'query:getSettings') return { app: {} }
+        if (channel === 'command:createTask')
+          return new Promise((resolve) => {
+            accept = resolve
+          })
+        return {}
+      })
+      const success = vi.fn()
+      renderForm(
+        {
+          onSubmitSuccess: success,
+          defaultValues: {
+            tab: 'links',
+            urls: 'https://a/1',
+            saveDir: '/submitted ',
+          },
+        },
+        { ...mockServices, kind }
+      )
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Download' }))
+      await waitFor(() => expect(accept).toBeDefined())
+      await user.click(screen.getByRole('button', { name: 'History' }))
+      expect(recordRecentMock).not.toHaveBeenCalled()
+      await act(async () =>
+        accept({ outcome, gid: 'accepted', taskId: 'accepted' })
+      )
+      expect(success).toHaveBeenCalledWith('accepted')
+      expect(recordRecentMock.mock.calls).toEqual([['/submitted ']])
+    }
+  )
+
+  it.each(['electron', 'web'] as const)(
+    'records %s picker confirmation but not history-only selection or parent cancellation',
+    async (kind) => {
+      const { transport } = await import('@renderer/lib/transport')
+      vi.mocked(transport.invoke).mockResolvedValue({ app: {} })
+      const onCancel = vi.fn()
+      const pick = vi.fn().mockResolvedValue('/selected ')
+      renderForm({ onCancel }, { ...mockServices, kind, pickSaveDir: pick })
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'History' }))
+      expect(recordRecentMock).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Change directory' }))
+      expect(pick).toHaveBeenCalledWith('/later')
+      expect(recordRecentMock.mock.calls).toEqual([['/selected ']])
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(onCancel).toHaveBeenCalledOnce()
+      expect(recordRecentMock.mock.calls).toEqual([['/selected ']])
+    }
+  )
 
   it('submits one createTask per link line', async () => {
     const onSubmitSuccess = vi.fn()
@@ -321,159 +413,181 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
     expect(mockServices.notify).toHaveBeenCalledWith('info', 'task.add.created')
+    expect(recordRecentMock.mock.calls).toEqual([['/d'], ['/d']])
   })
 
-  it('parses and creates a local multi-torrent batch without shell RPCs', async () => {
-    const onSubmitSuccess = vi.fn()
-    const user = userEvent.setup()
-    const { transport } = await import('@renderer/lib/transport')
-    vi.mocked(readTorrentFile).mockImplementation(async (file) => {
-      const isAlpha = file.name.startsWith('alpha')
-      return {
-        name: file.name,
-        base64: isAlpha ? 'YWxwaGE=' : 'YmV0YQ==',
-        meta: {
-          name: isAlpha ? 'alpha.bin' : 'beta.bin',
-          infoHash: isAlpha ? 'a'.repeat(40) : 'b'.repeat(40),
-          totalSize: 1,
-          comment: '',
-          isPrivate: false,
-          files: [
-            {
-              index: 0,
-              path: isAlpha ? 'alpha.bin' : 'beta.bin',
-              size: 1,
-              extension: 'bin',
-            },
-          ],
-        },
-      }
-    })
-    vi.mocked(transport.invoke).mockImplementation(async (channel, request) => {
-      if (channel === 'query:getSettings') {
-        return { app: { defaultSaveDir: '/d' } }
-      }
-      if (channel === 'command:createTask') {
-        const base64 = (request as { payload?: { base64?: string } }).payload
-          ?.base64
+  it.each(['created', 'conflict', 'failure'] as const)(
+    'records accepted local batch paths when its second item is %s',
+    async (secondOutcome) => {
+      const onSubmitSuccess = vi.fn()
+      const user = userEvent.setup()
+      const { transport } = await import('@renderer/lib/transport')
+      vi.mocked(readTorrentFile).mockImplementation(async (file) => {
+        const isAlpha = file.name.startsWith('alpha')
         return {
-          outcome: 'created',
-          gid: base64 === 'YWxwaGE=' ? 'alpha-gid' : 'beta-gid',
-          taskId: base64 === 'YWxwaGE=' ? 'alpha-task' : 'beta-task',
+          name: file.name,
+          base64: isAlpha ? 'YWxwaGE=' : 'YmV0YQ==',
+          meta: {
+            name: isAlpha ? 'alpha.bin' : 'beta.bin',
+            infoHash: isAlpha ? 'a'.repeat(40) : 'b'.repeat(40),
+            totalSize: 1,
+            comment: '',
+            isPrivate: false,
+            files: [
+              {
+                index: 0,
+                path: isAlpha ? 'alpha.bin' : 'beta.bin',
+                size: 1,
+                extension: 'bin',
+              },
+            ],
+          },
         }
-      }
-      return {}
-    })
-    const webServices = { ...mockServices, kind: 'web' as const }
-    const { container } = renderForm(
-      {
-        onSubmitSuccess,
-        defaultValues: { tab: 'torrent', saveDir: '/d' },
-      },
-      webServices
-    )
-    const input =
-      container.querySelector<HTMLInputElement>('input[type="file"]')
-    expect(input).toHaveAttribute('multiple')
-
-    fireEvent.change(input as HTMLInputElement, {
-      target: {
-        files: [
-          new File(['alpha'], 'alpha.torrent'),
-          new File(['beta'], 'beta.torrent'),
-        ],
-      },
-    })
-
-    expect(await screen.findByText('Torrent 1 of 2')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Download All (2)' }))
-
-    await waitFor(() =>
-      expect(onSubmitSuccess).toHaveBeenCalledWith('alpha-task')
-    )
-    expect(transport.invoke).toHaveBeenCalledWith(
-      'command:createTask',
-      expect.objectContaining({
-        payload: { kind: 'torrent-base64', base64: 'YWxwaGE=' },
       })
-    )
-    expect(transport.invoke).toHaveBeenCalledWith(
-      'command:createTask',
-      expect.objectContaining({
-        payload: { kind: 'torrent-base64', base64: 'YmV0YQ==' },
-      })
-    )
-    expect(transport.invoke).not.toHaveBeenCalledWith(
-      'command:downloadAllTorrents'
-    )
-  })
-
-  it('passes the current torrent form options to the App batch command', async () => {
-    const onSubmitSuccess = vi.fn()
-    const user = userEvent.setup()
-    const { transport } = await import('@renderer/lib/transport')
-    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === 'query:getSettings') {
-        return { app: { defaultSaveDir: '/default' } }
-      }
-      if (channel === 'command:downloadAllTorrents') {
-        return {
-          total: 2,
-          succeeded: 2,
-          failed: 0,
-          firstTaskId: 'first-task',
+      vi.mocked(transport.invoke).mockImplementation(
+        async (channel, request) => {
+          if (channel === 'query:getSettings') {
+            return { app: { defaultSaveDir: '/d' } }
+          }
+          if (channel === 'command:createTask') {
+            const base64 = (request as { payload?: { base64?: string } })
+              .payload?.base64
+            if (base64 === 'YmV0YQ==' && secondOutcome === 'failure')
+              throw new Error('test rejection')
+            if (base64 === 'YmV0YQ==' && secondOutcome === 'conflict')
+              return { outcome: 'conflict' }
+            return {
+              outcome: 'created',
+              gid: base64 === 'YWxwaGE=' ? 'alpha-gid' : 'beta-gid',
+              taskId: base64 === 'YWxwaGE=' ? 'alpha-task' : 'beta-task',
+            }
+          }
+          return {}
         }
-      }
-      return {}
-    })
-    renderForm({
-      subscribeEvents: true,
-      onSubmitSuccess,
-      defaultValues: {
-        tab: 'torrent',
-        source: 'file',
-        base64: 'dG9ycmVudA==',
-        torrentMeta: {
-          name: 'current.bin',
-          infoHash: 'a'.repeat(40),
-          totalSize: 2,
-          files: [
-            { index: 0, path: 'skip.bin', size: 1, extension: '.bin' },
-            { index: 1, path: 'keep.bin', size: 1, extension: '.bin' },
-          ],
-        },
-        selectedFiles: [1],
-        saveDir: '/custom',
-        dlLimit: 2048,
-        ulLimit: 1024,
-        seedRatio: 1.5,
-      },
-    })
-
-    const queueListener = vi
-      .mocked(transport.on)
-      .mock.calls.find(
-        ([channel]) => channel === Events.TorrentQueueSizeChanged
-      )?.[1]
-    act(() => queueListener?.({ queueTotal: 2 }))
-    await user.click(
-      await screen.findByRole('button', { name: 'Download All (2)' })
-    )
-
-    await waitFor(() =>
-      expect(transport.invoke).toHaveBeenCalledWith(
-        'command:downloadAllTorrents',
+      )
+      const webServices = { ...mockServices, kind: 'web' as const }
+      const { container } = renderForm(
         {
+          onSubmitSuccess,
+          defaultValues: { tab: 'torrent', saveDir: '/d' },
+        },
+        webServices
+      )
+      const input =
+        container.querySelector<HTMLInputElement>('input[type="file"]')
+      expect(input).toHaveAttribute('multiple')
+
+      fireEvent.change(input as HTMLInputElement, {
+        target: {
+          files: [
+            new File(['alpha'], 'alpha.torrent'),
+            new File(['beta'], 'beta.torrent'),
+          ],
+        },
+      })
+
+      expect(await screen.findByText('Torrent 1 of 2')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Download All (2)' }))
+
+      await waitFor(() =>
+        expect(onSubmitSuccess).toHaveBeenCalledWith('alpha-task')
+      )
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'command:createTask',
+        expect.objectContaining({
+          payload: { kind: 'torrent-base64', base64: 'YWxwaGE=' },
+        })
+      )
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'command:createTask',
+        expect.objectContaining({
+          payload: { kind: 'torrent-base64', base64: 'YmV0YQ==' },
+        })
+      )
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        'command:downloadAllTorrents'
+      )
+      expect(recordRecentMock.mock.calls).toEqual(
+        secondOutcome === 'created' ? [['/d'], ['/d']] : [['/d']]
+      )
+    }
+  )
+
+  it.each([2, 1, 0])(
+    'records App batch snapshot only if at least one torrent is accepted (%s)',
+    async (succeeded) => {
+      const onSubmitSuccess = vi.fn()
+      const user = userEvent.setup()
+      const { transport } = await import('@renderer/lib/transport')
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === 'query:getSettings') {
+          return { app: { defaultSaveDir: '/default' } }
+        }
+        if (channel === 'command:downloadAllTorrents') {
+          return {
+            total: 2,
+            succeeded,
+            failed: 2 - succeeded,
+            firstTaskId: succeeded > 0 ? 'first-task' : null,
+          }
+        }
+        return {}
+      })
+      renderForm({
+        subscribeEvents: true,
+        onSubmitSuccess,
+        defaultValues: {
+          tab: 'torrent',
+          source: 'file',
+          base64: 'dG9ycmVudA==',
+          torrentMeta: {
+            name: 'current.bin',
+            infoHash: 'a'.repeat(40),
+            totalSize: 2,
+            files: [
+              { index: 0, path: 'skip.bin', size: 1, extension: '.bin' },
+              { index: 1, path: 'keep.bin', size: 1, extension: '.bin' },
+            ],
+          },
           selectedFiles: [1],
           saveDir: '/custom',
           dlLimit: 2048,
           ulLimit: 1024,
           seedRatio: 1.5,
-        }
+        },
+      })
+
+      const queueListener = vi
+        .mocked(transport.on)
+        .mock.calls.find(
+          ([channel]) => channel === Events.TorrentQueueSizeChanged
+        )?.[1]
+      act(() => queueListener?.({ queueTotal: 2 }))
+      await user.click(
+        await screen.findByRole('button', { name: 'Download All (2)' })
       )
-    )
-    expect(onSubmitSuccess).toHaveBeenCalledWith('first-task')
-  })
+
+      await waitFor(() =>
+        expect(transport.invoke).toHaveBeenCalledWith(
+          'command:downloadAllTorrents',
+          {
+            selectedFiles: [1],
+            saveDir: '/custom',
+            dlLimit: 2048,
+            ulLimit: 1024,
+            seedRatio: 1.5,
+          }
+        )
+      )
+      if (succeeded > 0) {
+        expect(onSubmitSuccess).toHaveBeenCalledWith('first-task')
+        expect(recordRecentMock).toHaveBeenCalledWith('/custom')
+      } else {
+        expect(onSubmitSuccess).not.toHaveBeenCalled()
+        expect(recordRecentMock).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('closes an external queue when the shell reports no valid next torrent', async () => {
     const onCancel = vi.fn()
@@ -546,6 +660,7 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
+    expect(recordRecentMock.mock.calls).toEqual([['/d']])
   })
 
   it('surfaces the create failure reason without Electron IPC prefixes', async () => {
@@ -574,6 +689,7 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).not.toHaveBeenCalled()
+    expect(recordRecentMock).not.toHaveBeenCalled()
     await waitFor(() => expect(submit).toBeEnabled())
   })
 
@@ -646,6 +762,7 @@ describe('AddTaskForm', () => {
         name: 'This torrent already exists',
       })
     ).toBeInTheDocument()
+    expect(recordRecentMock).not.toHaveBeenCalled()
     await user.click(
       screen.getByRole('button', { name: 'Create separate copy' })
     )
@@ -657,5 +774,6 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('copy-task')
+    expect(recordRecentMock.mock.calls).toEqual([['/d']])
   })
 })

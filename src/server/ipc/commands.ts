@@ -28,6 +28,8 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   clearStoppedTasks,
@@ -90,6 +92,7 @@ import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { createServerProxyApplier } from '../proxy/wiring'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
@@ -163,6 +166,10 @@ export interface ServerCommandContext {
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<
+    ServerDirectoryService,
+    'create' | 'resolvePreferenceDirectory'
+  >
 }
 
 export function buildServerCommandHandlers(
@@ -361,6 +368,8 @@ export function buildServerCommandHandlers(
     expectedPid: z.number().int().positive().optional(),
   })
   return {
+    [Commands.CreateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.create(request),
     [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {
       const language = supportedLocaleSchema.parse(payload)
       await settingsManager.setDisclaimerLanguage(language)
@@ -659,6 +668,31 @@ export function buildServerCommandHandlers(
     [Commands.RecoverEngine]: async (payload: unknown) => {
       return supervisor.recover(engineRecoverySchema.parse(payload))
     },
+
+    [Commands.MutateDirectoryPreferences]: createDirectoryPreferencesHandlers(
+      settingsManager,
+      (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+    ).mutate,
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        resolveFavorite: (value) =>
+          ctx.serverDirectoryService.resolvePreferenceDirectory(value),
+        resolveDefaultDirectory: async (value) => {
+          const existing =
+            await ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+          return downloadPathPolicy.prepareSaveDir(existing)
+        },
+        applySavedApp: async (patch) => {
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const saveDirPatch = z

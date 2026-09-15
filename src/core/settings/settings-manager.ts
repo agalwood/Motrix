@@ -14,6 +14,21 @@ import {
 } from '@shared/schemas/bridge-settings'
 import type { ByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import {
+  DIRECTORY_FAVORITES_LIMIT,
+  DIRECTORY_RECENT_LIMIT,
+  type DirectoryPreferencesResult,
+  DirectoryPreferencesSchema,
+  type MutateDirectoryPreferencesRequest,
+  MutateDirectoryPreferencesRequestSchema,
+} from '@shared/schemas/directory-preferences'
+import {
+  GeneralSettingsAppSchema,
+  type GeneralSettingsResult,
+  type GeneralSettingsSnapshot,
+  type SaveGeneralSettingsRequest,
+  SaveGeneralSettingsRequestSchema,
+} from '@shared/schemas/general-settings'
+import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
 } from '@shared/schemas/proxy-settings'
@@ -154,6 +169,7 @@ export interface SettingsManagerOptions {
 
 export class SettingsManager {
   private settings: AppSettings
+  private generalSettingsRevision = randomUUID()
   private readonly defaultSaveDir: string
   private readonly isLegacyDefaultSaveDir?: (value: string) => boolean
   private readonly liquidGlassEffectDefault: boolean
@@ -265,6 +281,22 @@ export class SettingsManager {
     return this.settings.engine
   }
 
+  getGeneralSettingsSnapshot(): GeneralSettingsSnapshot {
+    return {
+      revision: this.generalSettingsRevision,
+      app: GeneralSettingsAppSchema.parse(this.settings.app),
+      directoryPreferences: structuredClone(
+        this.settings.app.directoryPreferences
+      ),
+    }
+  }
+
+  private commitSettings(old: AppSettings, next: AppSettings): void {
+    this.settings = next
+    this.generalSettingsRevision = randomUUID()
+    this.onChange?.(old, next)
+  }
+
   getApp(): MotrixAppSettings {
     return this.settings.app
   }
@@ -299,8 +331,7 @@ export class SettingsManager {
       next.app = validateAppSettings({ ...next.app, language })
 
       await this.saveSettings(next)
-      this.settings = next
-      this.onChange?.(old, this.settings)
+      this.commitSettings(old, next)
 
       return {
         saved: true,
@@ -325,8 +356,7 @@ export class SettingsManager {
     })
 
     await this.saveSettings(next)
-    this.settings = next
-    this.onChange?.(old, this.settings)
+    this.commitSettings(old, next)
 
     return {
       saved: true,
@@ -361,6 +391,105 @@ export class SettingsManager {
     return this.enqueueMutation(() => this.persistUpdate(patch))
   }
 
+  /** Compute against the committed snapshot only after earlier writes settle. */
+  async mutateDirectoryPreferences(
+    raw: MutateDirectoryPreferencesRequest
+  ): Promise<DirectoryPreferencesResult> {
+    const parsed = MutateDirectoryPreferencesRequestSchema.safeParse(raw)
+    if (!parsed.success) return { ok: false, error: { code: 'invalidPath' } }
+    const action = parsed.data
+    return this.enqueueMutation(async () => {
+      const old = structuredClone(this.settings)
+      const next = structuredClone(this.settings)
+      const preferences = next.app.directoryPreferences
+      switch (action.action) {
+        case 'addFavorite':
+          if (!preferences.favorites.includes(action.path)) {
+            if (preferences.favorites.length >= DIRECTORY_FAVORITES_LIMIT) {
+              return { ok: false, error: { code: 'limitReached' } }
+            }
+            preferences.favorites.push(action.path)
+          }
+          break
+        case 'recordRecent':
+          preferences.recent = [
+            action.path,
+            ...preferences.recent.filter((entry) => entry !== action.path),
+          ].slice(0, DIRECTORY_RECENT_LIMIT)
+          break
+        case 'removeFavorite':
+          preferences.favorites = preferences.favorites.filter(
+            (entry) => !action.paths.includes(entry)
+          )
+          break
+        case 'removeRecent':
+          preferences.recent = preferences.recent.filter(
+            (entry) => !action.paths.includes(entry)
+          )
+          break
+        case 'clearRecent':
+          preferences.recent = []
+          break
+      }
+      if (
+        JSON.stringify(old.app.directoryPreferences) !==
+        JSON.stringify(preferences)
+      ) {
+        await this.saveSettings(next)
+        this.commitSettings(old, next)
+      }
+      return { ok: true, value: DirectoryPreferencesSchema.parse(preferences) }
+    })
+  }
+
+  /** General fields and baseline-relative directory edits share one commit. */
+  async saveGeneralSettings(
+    raw: SaveGeneralSettingsRequest
+  ): Promise<GeneralSettingsResult> {
+    const parsed = SaveGeneralSettingsRequestSchema.safeParse(raw)
+    if (!parsed.success) return { ok: false, error: { code: 'invalidPath' } }
+    const { app, directories, expectedRevision } = parsed.data
+    return this.enqueueMutation(async () => {
+      if (expectedRevision !== this.generalSettingsRevision) {
+        return {
+          ok: false,
+          error: { code: 'conflict' },
+          snapshot: this.getGeneralSettingsSnapshot(),
+        }
+      }
+      const old = structuredClone(this.settings)
+      const next = structuredClone(this.settings)
+      const preferences = next.app.directoryPreferences
+      preferences.favorites = [
+        ...new Set([
+          ...preferences.favorites.filter(
+            (path) => !directories.removeFavorites.includes(path)
+          ),
+          ...directories.addFavorites,
+        ]),
+      ]
+      if (preferences.favorites.length > DIRECTORY_FAVORITES_LIMIT) {
+        return { ok: false, error: { code: 'limitReached' } }
+      }
+      preferences.recent = preferences.recent.filter(
+        (path) => !directories.removeRecent.includes(path)
+      )
+      next.app = validateAppSettings({
+        ...next.app,
+        ...app,
+        directoryPreferences: preferences,
+      })
+      if (JSON.stringify(old.app) !== JSON.stringify(next.app)) {
+        await this.saveSettings(next)
+        this.commitSettings(old, next)
+      } else {
+        // An empty accepted Save fences a previous request still validating.
+        this.generalSettingsRevision = randomUUID()
+      }
+      return { ok: true, value: this.getGeneralSettingsSnapshot() }
+    })
+  }
+
   /**
    * Remove the durable configuration namespace owned by an uninstalled
    * plugin. A normal partial update cannot express deletion because plugin
@@ -378,8 +507,7 @@ export class SettingsManager {
       const next = structuredClone(this.settings)
       delete next.plugins[pluginId]
       await this.saveSettings(next)
-      this.settings = next
-      this.onChange?.(old, this.settings)
+      this.commitSettings(old, next)
       return {
         saved: true,
         requiresRestart: false,
@@ -434,7 +562,12 @@ export class SettingsManager {
 
     // Merge app settings
     if (partial.app) {
-      const merged = { ...next.app, ...partial.app }
+      const merged = {
+        ...next.app,
+        ...partial.app,
+        // Only dedicated queue actions can change this aggregate.
+        directoryPreferences: next.app.directoryPreferences,
+      }
       const validated = validateAppSettings(merged as MotrixAppSettings)
 
       // Detect app-namespace restart-required key changes
@@ -557,8 +690,7 @@ export class SettingsManager {
 
     await this.saveSettings(next)
 
-    this.settings = next
-    this.onChange?.(old, this.settings)
+    this.commitSettings(old, next)
 
     return {
       saved: true,

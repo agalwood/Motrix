@@ -5,6 +5,9 @@ export const Queries = {
   GetStats: 'query:getStats',
   GetTaskSpeedHistory: 'query:getTaskSpeedHistory',
   GetTaskInspectorActivity: 'query:getTaskInspectorActivity',
+  GetGeneralSettingsDraft: 'query:getGeneralSettingsDraft',
+  GetDirectoryPreferences: 'query:getDirectoryPreferences',
+  ListServerDirectoryLocations: 'query:listServerDirectoryLocations',
   GetSettings: 'query:getSettings',
   GetUpdateState: 'query:getUpdateState',
   GetSystemProxy: 'query:getSystemProxy',
@@ -55,6 +58,8 @@ export const Queries = {
   GetTaskBtTracker: 'query:getTaskBtTracker',
   // Save directory allowlist (web degradation, electron returns unrestricted)
   ListAllowedSaveDirs: 'query:listAllowedSaveDirs',
+  ListServerDirectories: 'query:listServerDirectories',
+  ValidateServerDirectory: 'query:validateServerDirectory',
   // GeoIP
   GetGeoIPStatus: 'query:getGeoIPStatus',
   // FFmpeg detection

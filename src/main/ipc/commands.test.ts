@@ -1,9 +1,10 @@
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
+import { SettingsManager } from '@core/settings/settings-manager'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -34,6 +35,11 @@ const { reconcileAppImageIntegrationFromSettingsMock } = vi.hoisted(() => ({
       getMagnetEnabled: () => boolean
     }): Promise<AppImageIntegrationView> => ({ supported: false })
   ),
+}))
+
+const syncAutoLaunchMock = vi.hoisted(() => vi.fn())
+vi.mock('../platform/auto-launch', () => ({
+  syncAutoLaunch: syncAutoLaunchMock,
 }))
 
 vi.mock('../platform/appimage-integration-host', async (importOriginal) => ({
@@ -980,7 +986,7 @@ describe('buildCommandHandlers', () => {
     fromWebContentsMock.mockReturnValue(parent)
     showOpenDialogMock
       .mockResolvedValueOnce({ canceled: true, filePaths: [] })
-      .mockResolvedValueOnce({ canceled: false, filePaths: ['/downloads'] })
+      .mockResolvedValueOnce({ canceled: false, filePaths: [tmpdir()] })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(fakeCtx())
 
@@ -989,7 +995,7 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     await expect(
       handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/tmp' })
-    ).resolves.toEqual({ path: '/downloads' })
+    ).resolves.toEqual({ path: await realpath(tmpdir()) })
     expect(showOpenDialogMock).toHaveBeenCalledWith(parent, {
       properties: ['openDirectory'],
       defaultPath: '/tmp',
@@ -1023,8 +1029,8 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     expect(showOpenDialogMock).toHaveBeenCalledOnce()
 
-    resolvePick({ canceled: false, filePaths: ['/picked'] })
-    await expect(first).resolves.toEqual({ path: '/picked' })
+    resolvePick({ canceled: false, filePaths: [tmpdir()] })
+    await expect(first).resolves.toEqual({ path: await realpath(tmpdir()) })
 
     showOpenDialogMock.mockResolvedValueOnce({ canceled: true, filePaths: [] })
     await expect(
@@ -1298,6 +1304,160 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it('returns the canonical native directory identity for General favorite drafts', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-native-directory-'))
+    try {
+      const target = path.join(root, 'target')
+      const alias = path.join(root, 'alias')
+      await mkdir(target)
+      await symlink(target, alias)
+      fromWebContentsMock.mockReturnValue(null)
+      showOpenDialogMock.mockResolvedValueOnce({
+        canceled: false,
+        filePaths: [alias],
+      })
+      const pick = buildCommandHandlers(fakeCtx() as unknown as CommandContext)[
+        Commands.PickSaveDir
+      ]
+      expect(await pick?.({ id: 423 }, {})).toEqual({
+        path: await realpath(target),
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('atomically saves General fields and directories and applies the submitted Desktop runtime fields', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-general-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const ctx = { ...fakeCtx(), settingsManager: manager }
+      const save = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.SaveGeneralSettings
+      ]
+      const canonical = await realpath(root)
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {
+            defaultSaveDir: root,
+            launchAtStartup: true,
+            notifyOnComplete: false,
+          },
+          directories: {
+            addFavorites: [canonical],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { directoryPreferences: { favorites: [canonical], recent: [] } },
+      })
+      expect(manager.getApp()).toMatchObject({
+        defaultSaveDir: canonical,
+        launchAtStartup: true,
+        notifyOnComplete: false,
+      })
+      expect(syncAutoLaunchMock).toHaveBeenCalledWith(true)
+      expect(
+        ctx.supervisor.applyDefaultSaveDir
+      ).toHaveBeenCalledExactlyOnceWith(canonical)
+      ctx.supervisor.applyDefaultSaveDir.mockClear()
+      syncAutoLaunchMock.mockClear()
+      const previousRevision = manager.getGeneralSettingsSnapshot().revision
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(manager.getApp().showMainWindowAtLogin).toBe(true)
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      syncAutoLaunchMock.mockClear()
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: false },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: false,
+        error: { code: 'conflict' },
+        snapshot: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+      const before = structuredClone(manager.getApp())
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {
+            defaultSaveDir: path.join(root, 'missing'),
+            launchAtStartup: false,
+            notifyOnComplete: true,
+          },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [canonical],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'notFound' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps queued preferences through stale and malformed App updates using the real Desktop handler', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-preferences-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const staleApp = manager.getApp()
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        settingsManager: manager,
+      } as unknown as CommandContext)
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'addFavorite',
+          path: root,
+        })
+      ).toMatchObject({ ok: true })
+      const stored = manager.getApp().directoryPreferences
+      await handlers[Commands.UpdateSettings]?.({
+        app: { ...staleApp, theme: 'dark' },
+      })
+      await handlers[Commands.UpdateSettings]?.({
+        app: { directoryPreferences: 'invalid', notifyOnComplete: false },
+      })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: stored,
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   // Namespaces come in as one named object, not as trailing positional
   // parameters: five defaulted `object` slots in a row means a call site can
   // silently put its override in the wrong namespace and still type-check.

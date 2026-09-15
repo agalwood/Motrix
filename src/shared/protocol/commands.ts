@@ -21,6 +21,8 @@ export const Commands = {
   RetryTasks: 'command:retryTasks',
   StopSeedingTasks: 'command:stopSeedingTasks',
   SetSelectedFiles: 'command:setSelectedFiles',
+  MutateDirectoryPreferences: 'command:mutateDirectoryPreferences',
+  SaveGeneralSettings: 'command:saveGeneralSettings',
   UpdateSettings: 'command:updateSettings',
   AcceptDisclaimer: 'command:acceptDisclaimer',
   DeclineDisclaimer: 'command:declineDisclaimer',
@@ -83,6 +85,7 @@ export const Commands = {
   SetTaskBtTracker: 'command:setTaskBtTracker',
   // Window
   PickSaveDir: 'command:pickSaveDir',
+  CreateServerDirectory: 'command:createServerDirectory',
   ResizeWindow: 'command:resizeWindow',
   OpenExternal: 'command:openExternal',
   RequestDefaultTorrentHandler: 'command:requestDefaultTorrentHandler',

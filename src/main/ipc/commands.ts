@@ -1,3 +1,4 @@
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
@@ -40,6 +41,8 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
   clearStoppedTasks,
@@ -903,6 +906,28 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return createAndPersist(request as Parameters<typeof handleCreateTask>[0])
     },
 
+    [Commands.MutateDirectoryPreferences]:
+      createDirectoryPreferencesHandlers(settingsManager).mutate,
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        applySavedApp: async (patch) => {
+          if (
+            patch.launchAtStartup !== undefined ||
+            patch.showMainWindowAtLogin !== undefined
+          ) {
+            syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+          }
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
+
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
 
@@ -1194,7 +1219,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         if (result.canceled || result.filePaths.length === 0) {
           return null
         }
-        return { path: result.filePaths[0] }
+        const selected = await realpath(result.filePaths[0]).catch(() => null)
+        return selected ? { path: selected } : null
       } finally {
         saveDirPickersInFlight.delete(sender)
       }

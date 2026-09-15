@@ -1,0 +1,4 @@
+@import "../../src/renderer/styles/globals.css";
+
+/* Vite runs from this harness directory; include production component classes. */
+@source "../../src/renderer";

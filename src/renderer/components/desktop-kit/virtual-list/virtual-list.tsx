@@ -37,6 +37,8 @@ function VirtualListInner<T>(
     renderEmpty,
     className,
     style,
+    activeIndex,
+    containerProps,
   } = props
 
   const internalRef = useRef<HTMLDivElement>(null)
@@ -49,18 +51,19 @@ function VirtualListInner<T>(
   const rangeExtractor = useCallback(
     (range: Range) => {
       const indices = defaultRangeExtractor(range)
-      if (
-        keepMountedIndex !== undefined &&
-        keepMountedIndex >= 0 &&
-        keepMountedIndex < items.length &&
-        !indices.includes(keepMountedIndex)
-      ) {
-        indices.push(keepMountedIndex)
-        indices.sort((a, b) => a - b)
+      for (const index of [keepMountedIndex, activeIndex]) {
+        if (
+          index !== undefined &&
+          index >= 0 &&
+          index < items.length &&
+          !indices.includes(index)
+        ) {
+          indices.push(index)
+        }
       }
-      return indices
+      return indices.sort((a, b) => a - b)
     },
-    [keepMountedIndex, items.length]
+    [keepMountedIndex, activeIndex, items.length]
   )
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -79,6 +82,9 @@ function VirtualListInner<T>(
     },
     getScrollOffset() {
       return virtualizer.scrollOffset ?? 0
+    },
+    scrollToOffset(offset: number) {
+      virtualizer.scrollToOffset(offset)
     },
     getContainerRef() {
       return containerRef.current
@@ -133,6 +139,7 @@ function VirtualListInner<T>(
           ref={containerRef}
           data-testid="virtual-list-container"
           tabIndex={-1}
+          {...containerProps}
           className="relative"
         >
           <ScrollAreaContent style={{ minWidth: '100%' }}>
@@ -147,6 +154,7 @@ function VirtualListInner<T>(
 
   return (
     <div
+      {...containerProps}
       ref={containerRef}
       data-testid="virtual-list-container"
       className={className}

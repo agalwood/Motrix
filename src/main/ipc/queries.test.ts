@@ -12,6 +12,7 @@ import {
   EngineRecoveryRecommendation,
   EngineState,
 } from '@shared/types/engine'
+import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeTaskInspectorActivitySnapshot } from '@test-utils/task-inspector-activity'
 import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -145,6 +146,47 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('returns one General draft snapshot and validates before reading it', async () => {
+    const snapshot = generalSettingsSnapshot({
+      favorites: ['/saved'],
+      recent: [],
+    })
+    const getGeneralSettingsSnapshot = vi.fn(() => snapshot)
+    const handlers = buildQueryHandlers({
+      settingsManager: { getGeneralSettingsSnapshot },
+    } as unknown as QueryContext)
+    expect(
+      await handlers[Queries.GetGeneralSettingsDraft]?.({ extra: true })
+    ).toEqual({
+      ok: false,
+      error: { code: 'invalidPath' },
+    })
+    expect(getGeneralSettingsSnapshot).not.toHaveBeenCalled()
+    expect(await handlers[Queries.GetGeneralSettingsDraft]?.({})).toEqual({
+      ok: true,
+      value: snapshot,
+    })
+    expect(getGeneralSettingsSnapshot).toHaveBeenCalledOnce()
+  })
+
+  it('returns only raw directory preferences and rejects invalid requests before reading settings', async () => {
+    const preferences = { favorites: ['/saved/missing'], recent: ['/previous'] }
+    const getApp = vi.fn(() => ({
+      directoryPreferences: preferences,
+      private: 'not forwarded',
+    }))
+    const handlers = buildQueryHandlers({
+      settingsManager: { getApp },
+    } as unknown as QueryContext)
+    expect(
+      await handlers[Queries.GetDirectoryPreferences]?.({ extra: true })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(getApp).not.toHaveBeenCalled()
+    const result = await handlers[Queries.GetDirectoryPreferences]?.({})
+    expect(result).toEqual({ ok: true, value: preferences })
+    expect(handlers[Queries.ListServerDirectoryLocations]).toBeUndefined()
+  })
+
   it('reads the OS proxy through an isolated system-mode session', async () => {
     ipcMocks.systemProxySession.setProxy.mockResolvedValue(undefined)
     ipcMocks.systemProxySession.forceReloadProxyConfig.mockResolvedValue(

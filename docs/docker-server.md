@@ -491,6 +491,105 @@ services:
       - /srv/archive:/archive
 ```
 
+### Choosing a folder in the Web UI
+
+The folder controls in Add links, Add torrent, and General settings open a
+server folder picker. Its paths belong to the server: with the example mounts,
+`/downloads/Movies` maps to `./downloads/Movies` on the Docker host. A browser
+on another computer does not browse that computer’s local folders.
+
+Single-click a folder to select it, or double-click to enter it. The list shows
+only immediate child folders. Use Back, Forward, Up one level, or a breadcrumb
+to navigate; use Go to folder to enter an exact absolute path. The Location sidebar
+groups accessible common places, allowed roots, favorite folders and recent
+folders. Common places include the default directory, the server user’s home,
+existing Desktop/Documents/Downloads directories, and the filesystem root when
+allowed. On narrow screens, Location becomes a grouped menu. Up stops at the
+current allowed root. Open **View options → Show hidden folders** in the toolbar
+to include names beginning with a dot.
+
+The same **View options** menu sorts folders by **Name** or **Date modified**,
+in ascending or descending order. Name sorting treats numbers naturally, such
+as folder2 before folder10. Your browser remembers the choice. Sorting keeps
+the selected folder and changes only the loaded list, without another server
+request. Unknown modification times stay last; if the list is incomplete,
+sorting applies to the folders currently shown.
+
+Select folder chooses the highlighted child, or the current folder when no
+child is selected. Cancelling leaves the original form value unchanged. The
+selection is checked again by the server; submitting a download or applying
+settings remains a separate action. Browsing and selecting do not create
+folders.
+
+Add links and Add torrent also have a Directory history button beside Browse.
+Choose a favorite or recent path there to fill the form directly. This does not
+start a download. The desktop App offers the same history menu and keeps its
+system-native Browse dialog.
+
+Open **Settings → General** to manage folders below the default save directory.
+The compact form can add or remove favorites, promote a recent folder, delete
+one recent record, or clear the displayed recent records. Save applies these
+edits together with General settings; Cancel discards them. The history menu’s
+Manage directories entry opens the same folder controls with Save and Cancel.
+Removing records never deletes folders or downloads. Concurrently added records
+are preserved when saving your edits.
+If a save fails, the form keeps your edits. You can retry or change the values
+and save again; a delayed response from the earlier save will not overwrite the
+later choice. A failed response can follow a saved update, so Cancel does not
+undo a save that the server already committed.
+Favorite folders are limited to 20; the 10 most recent folders appear newest
+first. AddTask folder confirmations and directories used by successful
+AddTask submissions update recent history. General folder choices remain drafts
+and do not themselves enter recent history. Cancelling the folder picker does
+not add a record; cancelling AddTask afterward does not undo an already
+confirmed folder choice. Adding a favorite in the manager does not itself add
+a recent record. Headless/CLI downloads are not automatically imported into
+this UI history.
+
+Favorite and recent records belong to the Motrix instance: they persist in
+app settings on Desktop and on the server for Web clients. Connected clients
+receive updates, and reconnecting reloads the current records. The Web history
+menu and folder sidebar only offer paths still permitted and accessible on the
+server. The manager retains saved records so unavailable paths can be removed.
+The star in the Web picker immediately adds or removes the folder currently being
+browsed, while keeping the directory list and current position stable.
+These operations do not change the default save directory.
+
+The keyboard follows the browser computer’s operating system, independently of
+the server. With focus in the list:
+
+| Action | macOS | Windows / Linux |
+| --- | --- | --- |
+| Select a folder | Up / Down | Up / Down |
+| First / last folder | Home / End | Home / End |
+| Move by a visible page | Page Up / Page Down | Page Up / Page Down |
+| Enter the selected folder | Command + Down | Enter |
+| Up one level | Command + Up | Alt + Up, or Backspace |
+| Confirm selection | Return | Tab to Select folder, then Enter |
+| Edit the current path | `/`, or Command + Shift + G if the browser delivers it | `/` |
+| Go to Home / Desktop / Documents, when available | Command + Shift + H / D / O | Use Location |
+
+Type a folder-name prefix to select a match. Tab and Shift + Tab move between
+controls. In the path editor, Enter navigates and Escape cancels editing; Escape
+outside an editor closes the picker. Browser-reserved shortcuts keep their
+browser behavior.
+
+Use New folder at the bottom-left to create one folder inside the current
+location. Enter a name
+and press Enter or Create; Escape cancels the name editor. After creation, the
+new folder is selected so it can be confirmed immediately. **A created folder
+remains on the server even if you later cancel selection.** A conflict or
+permission error keeps the name available for correction. If the server’s
+response is lost, refresh and check the list before trying to create again.
+
+Very large folders may show an incomplete-list notice. Enter the exact path to
+reach a folder omitted from the list. Permission checks use the server process
+user and may fail on a read-only mount or a NAS ACL. The allowlist rejects path
+traversal and static symlink escape. As with saving downloads, portable path
+checks do not protect against a hostile local process replacing directory
+ancestors at the same time; restrict write access to the mounted directory
+hierarchy accordingly.
+
 Built-in plugins are read-only under `/app/builtin-plugins`. User-installed
 packages, provenance, grants, configuration, logs, encrypted secrets, and
 enablement state persist under `/data`. Web uploads of `.moext` packages and

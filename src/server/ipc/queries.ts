@@ -20,6 +20,8 @@ import {
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { parseProxyEnvironment } from '@core/proxy/system-proxy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createGetGeneralSettingsDraftHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SpeedLimitController } from '@core/speed-limit/speed-limit-controller'
 import type {
@@ -36,6 +38,7 @@ import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import {
@@ -49,6 +52,7 @@ import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
   phase: CliToolPhase.ManualOnly,
@@ -119,6 +123,10 @@ export interface ServerQueryContext {
   userDataDir: string
   speedLimitController: SpeedLimitController
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<
+    ServerDirectoryService,
+    'list' | 'validate' | 'locations'
+  >
   environment: NodeJS.ProcessEnv
 }
 
@@ -158,6 +166,21 @@ export function buildServerQueryHandlers(
   })
 
   return {
+    [Queries.ListServerDirectoryLocations]: async (request: unknown) => {
+      if (
+        !ListServerDirectoryLocationsRequestSchema.safeParse(request).success
+      ) {
+        return { ok: false, error: { code: 'invalidPath' } }
+      }
+      return ctx.serverDirectoryService.locations(
+        request,
+        settingsManager.getApp()
+      )
+    },
+    [Queries.ListServerDirectories]: async (request: unknown) =>
+      ctx.serverDirectoryService.list(request),
+    [Queries.ValidateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.validate(request),
     [Queries.GetDisclaimerState]: async () => ({
       language: settingsManager.getApp().language,
     }),
@@ -223,6 +246,11 @@ export function buildServerQueryHandlers(
     [Queries.GetNatStatus]: async () => null,
 
     [Queries.GetNatDiagnostic]: async () => null,
+
+    [Queries.GetGeneralSettingsDraft]:
+      createGetGeneralSettingsDraftHandler(settingsManager),
+    [Queries.GetDirectoryPreferences]:
+      createDirectoryPreferencesHandlers(settingsManager).get,
 
     [Queries.GetSettings]: async () => settingsManager.get(),
 
