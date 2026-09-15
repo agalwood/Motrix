@@ -1,3 +1,4 @@
+import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import { z } from 'zod'
 
 const torrentFileSchema = z.object({
@@ -85,7 +86,10 @@ const btTaskRequestSchema = z
   .object({
     type: z.literal('bt'),
     payload: z.discriminatedUnion('kind', [
-      z.object({ kind: z.literal('torrent-base64'), base64: z.string() }),
+      z.object({
+        kind: z.literal('torrent-base64'),
+        base64: z.string().max(MAX_TORRENT_BASE64_SIZE),
+      }),
       z.object({
         kind: z.literal('magnet'),
         uri: z.string().startsWith('magnet:?'),

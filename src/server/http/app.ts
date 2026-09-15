@@ -15,14 +15,22 @@ import type {
 } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
-import Fastify, { type FastifyInstance } from 'fastify'
+import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
 import { bindEventBroadcaster } from './events'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
 import { ServiceUnavailableError } from './service-unavailable-error'
+import {
+  type CommandRequest,
+  RPC_BODY_LIMIT_BYTES,
+  registerTorrentCommandRoutes,
+} from './torrent-command-routes'
 
-export const RPC_BODY_LIMIT_BYTES = 2 * 1024 * 1024
+export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
 
 export interface AppOptions {
+  /** Torrent-only RPC budget; defaults to 8 MiB, configurable from 2 to 64 MiB. */
+  torrentBodyLimitBytes?: number
   commandHandlers?: CommandHandlerMap
   queryHandlers?: QueryHandlerMap
   /**
@@ -51,6 +59,7 @@ export async function createApp(
   const app = Fastify({
     logger: false,
     bodyLimit: RPC_BODY_LIMIT_BYTES,
+    requestTimeout: 120_000,
   })
   // Register the deny-by-default operator gate FIRST so its onRequest hook runs
   // before every route (including /api/* added by the caller post-createApp and
@@ -66,22 +75,32 @@ export async function createApp(
     return reply.code(health.ok ? 200 : 503).send(health)
   })
 
+  const dispatchCommand = async (
+    channel: string,
+    req: CommandRequest,
+    reply: FastifyReply
+  ) => {
+    const handler =
+      commands[channel as keyof typeof commands] ?? bridgeCommands[channel]
+    if (!handler) return reply.code(404).send({ error: 'unknown channel' })
+    try {
+      return await handler(...(req.body?.args ?? []))
+    } catch (err) {
+      req.log.error({ err }, 'command handler failed')
+      return reply
+        .code(err instanceof ServiceUnavailableError ? 503 : 500)
+        .send({ error: (err as Error).message })
+    }
+  }
+
+  await registerTorrentCommandRoutes(
+    app,
+    dispatchCommand,
+    torrentRpcBodyLimitSchema.parse(opts.torrentBodyLimitBytes)
+  )
   app.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>(
     '/rpc/command/:channel',
-    async (req, reply) => {
-      const handler =
-        commands[req.params.channel as keyof typeof commands] ??
-        bridgeCommands[req.params.channel]
-      if (!handler) return reply.code(404).send({ error: 'unknown channel' })
-      try {
-        return await handler(...(req.body?.args ?? []))
-      } catch (err) {
-        req.log.error({ err }, 'command handler failed')
-        return reply
-          .code(err instanceof ServiceUnavailableError ? 503 : 500)
-          .send({ error: (err as Error).message })
-      }
-    }
+    (req, reply) => dispatchCommand(req.params.channel, req, reply)
   )
 
   app.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>(

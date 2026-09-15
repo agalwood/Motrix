@@ -1,3 +1,5 @@
+import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
+
 export function parseServerBoolean(
   value: string | undefined,
   name: string,
@@ -23,4 +25,18 @@ export function parseServerPort(
     throw new Error(`${name} must be an integer between ${minimum} and 65535`)
   }
   return port
+}
+
+export function parseTorrentBodyLimit(value: string | undefined): number {
+  const parsed = torrentRpcBodyLimitSchema.safeParse(
+    value === undefined || value.trim() === ''
+      ? undefined
+      : Number(value) * 1024 * 1024
+  )
+  if (!parsed.success) {
+    throw new Error(
+      'MOTRIX_TORRENT_BODY_LIMIT_MIB must be an integer between 2 and 64'
+    )
+  }
+  return parsed.data
 }

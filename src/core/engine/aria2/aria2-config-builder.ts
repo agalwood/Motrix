@@ -6,12 +6,15 @@ import {
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import type { EngineSettings } from '@shared/types/settings'
 import writeFileAtomic from 'write-file-atomic'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
 export interface Aria2ConfigBuilderOptions {
   rpcListenAll?: boolean
+  /** Server HTTP and engine RPC must use the same torrent upload budget. */
+  rpcMaxRequestSizeBytes?: number
 }
 
 export class Aria2ConfigBuilder {
@@ -21,6 +24,7 @@ export class Aria2ConfigBuilder {
   private readonly dhtFilePath: string
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
+  private readonly rpcMaxRequestSizeBytes?: number
   private configuredInputFile = false
   private runtimeConfPath: string
 
@@ -36,6 +40,10 @@ export class Aria2ConfigBuilder {
     this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
     this.dht6FilePath = path.join(userConfigDir, 'dht6.dat')
     this.rpcListenAll = options.rpcListenAll ?? false
+    this.rpcMaxRequestSizeBytes =
+      options.rpcMaxRequestSizeBytes === undefined
+        ? undefined
+        : torrentRpcBodyLimitSchema.parse(options.rpcMaxRequestSizeBytes)
   }
 
   async ensureUserConfig(): Promise<string> {
@@ -263,6 +271,11 @@ export class Aria2ConfigBuilder {
     )
 
     // ── L1 product-contract invariants — DO NOT REMOVE without spec change ──
+    if (this.rpcMaxRequestSizeBytes !== undefined) {
+      args.push(
+        `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
+      )
+    }
     args.push(
       '--bt-save-metadata=true',
       '--bt-metadata-only=false',

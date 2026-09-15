@@ -181,6 +181,36 @@ docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
 切勿直接发布到公网；优先使用私有 Docker network、宿主 loopback、VPN 或其他带
 鉴权的加密 tunnel。
 
+### 种子上传大小
+
+种子创建请求默认允许 **8 MiB**。需要上传更大的种子元数据时，可将
+`MOTRIX_TORRENT_BODY_LIMIT_MIB` 设为 **2 到 64** 之间的整数，然后重启服务。
+仓库提供的两份 Compose 文件都支持此参数，例如：
+
+```bash
+export MOTRIX_TORRENT_BODY_LIMIT_MIB=16
+docker compose -f compose.yaml up -d --wait
+```
+
+此限制计算完整 UTF-8 JSON 请求的大小，包含 Base64 和选项；8 MiB 请求能容纳的原始
+`.torrent` 文件略小于 6 MiB。放宽后的限制仅适用于
+`/rpc/command/command:createTask` 和 `/rpc/command/command:addTorrentTask`
+中的种子载荷，其他 RPC 请求仍限 2 MiB。超限请求返回 HTTP 413。
+服务最多同时接收两个大请求或长度未知的种子请求，额外请求返回 HTTP 429。
+请求接收超时为 120 秒。
+
+Motrix 启动受管 aria2 时会设置相同的 `--rpc-max-request-size` 上限。
+独立管理的引擎或反向代理也需要配置匹配的限制；使用上面的配置时，在 Nginx 代理 Web API 的
+`server` 或 `location` 块中设置
+[`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)。
+MDXP 与插件包上传限制不受此参数影响。
+
+这些数值是产品的资源限制，不是种子格式要求：
+[BEP 3](https://www.bittorrent.org/beps/bep_0003.html) 和
+[BEP 52](https://www.bittorrent.org/beps/bep_0052.html) 没有规定统一的种子元数据文件
+大小上限。即使请求上限设为 64 MiB，现有解析器仍将 Base64 限制在 50 MiB
+（对应 37.5 MiB 原始文件）。
+
 ### 运行在 Docker 宿主上的反向代理
 
 仓库提供的 [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) 会把两个已发布的
@@ -503,6 +533,7 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_OPERATOR_TOKEN` | 自动生成文件 | operator 控制面凭据 |
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
 | `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | 显式开启带鉴权、面向所有接口的 aria2 RPC listener；Docker 端口发布仍需单独配置 |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | 种子 JSON 请求上限，单位 MiB，取值为 2–64 的整数；同步用于受管 aria2 RPC，重启后生效 |
 | `MOTRIX_WEB_BIND_IP` | Compose：`0.0.0.0` | 发布 Web 8080 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_MDXP_BIND_IP` | Compose：`0.0.0.0` | 发布 MDXP 16801 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |

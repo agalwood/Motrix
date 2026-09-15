@@ -1,5 +1,6 @@
 import {
   MAX_TORRENT_BASE64_SIZE,
+  MAX_TORRENT_FILE_SIZE,
   projectTorrentMeta,
 } from '@shared/lib/torrent-meta'
 import type { TorrentMeta } from '@shared/types/torrent'
@@ -35,10 +36,14 @@ export async function parseTorrentFile(
 }
 
 export async function readTorrentFile(file: File): Promise<ParsedTorrentFile> {
+  if (file.size > MAX_TORRENT_FILE_SIZE) {
+    throw new Error('Torrent file is too large')
+  }
   const bytes = new Uint8Array(await file.arrayBuffer())
+  const meta = await parseTorrentFile(bytes)
   return {
     name: file.name,
     base64: bytesToBase64(bytes),
-    meta: await parseTorrentFile(bytes),
+    meta,
   }
 }
