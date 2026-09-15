@@ -25,16 +25,17 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingEntry[] = [
   {
     accelerator: 'CommandOrControl+,',
     commandId: CommandIds.AppOpenPreferences,
+    webAccelerator: null,
   },
   {
     accelerator: 'CommandOrControl+N',
     commandId: CommandIds.TaskNew,
-    webAccelerator: 'Control+N',
+    webAccelerator: null,
   },
   {
     accelerator: 'CommandOrControl+Shift+N',
     commandId: CommandIds.TaskNewBt,
-    webAccelerator: 'Control+Shift+N',
+    webAccelerator: null,
   },
   {
     accelerator: 'CommandOrControl+O',
@@ -44,14 +45,17 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingEntry[] = [
   {
     accelerator: 'CommandOrControl+L',
     commandId: CommandIds.NavigateTaskList,
+    webAccelerator: null,
   },
   {
     accelerator: 'CommandOrControl+Shift+P',
     commandId: CommandIds.TaskPauseAll,
+    webAccelerator: null,
   },
   {
     accelerator: 'CommandOrControl+Shift+R',
     commandId: CommandIds.TaskResumeAll,
+    webAccelerator: null,
   },
   {
     accelerator: 'CommandOrControl+M',

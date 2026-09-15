@@ -674,3 +674,25 @@ html[data-reduced-motion="true"] *::after {
   scroll-behavior: auto !important;
 }
 /* biome-ignore-end lint/complexity/noImportantStyles: The accessibility preference overrides inline timings and animation utilities. */
+
+/* Browser chrome includes the same Logo and primary controls as desktop. */
+.web-window-chrome {
+  --window-chrome-safe-area-leading: 160px;
+  --window-chrome-safe-area-trailing: 24px;
+}
+
+@media (width < 640px) {
+  .web-window-chrome [data-slot="panel-shell-header"],
+  .electron-window-chrome [data-slot="panel-shell-header"] {
+    padding-block-start: 44px;
+    padding-inline: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@media (pointer: coarse) and (width < 640px) {
+  .web-window-chrome [data-slot="panel-shell-header"],
+  .electron-window-chrome [data-slot="panel-shell-header"] {
+    padding-block-start: 56px;
+  }
+}

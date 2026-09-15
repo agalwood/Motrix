@@ -257,6 +257,29 @@ describe('Aria2ConfigBuilder', () => {
   })
 
   describe('buildArgs', () => {
+    it.each([8, 64])(
+      'uses the configured server RPC budget of %s MiB',
+      (mib) => {
+        builder = new Aria2ConfigBuilder(
+          '/app/extra/aria2.conf',
+          '/home/user/.config/motrix',
+          {
+            rpcMaxRequestSizeBytes: mib * 1024 * 1024,
+          }
+        )
+        const args = buildArgs(DEFAULT_ENGINE_SETTINGS, false, null, {
+          download: 0,
+          upload: 0,
+        })
+        const requestLimitIndex = args.indexOf(`--rpc-max-request-size=${mib}M`)
+        expect(requestLimitIndex).toBeGreaterThan(
+          args.findIndex((arg) => arg.startsWith('--conf-path='))
+        )
+        expect(requestLimitIndex).toBeGreaterThan(
+          args.findIndex((arg) => arg.startsWith('--max-concurrent-downloads='))
+        )
+      }
+    )
     it('builds args array with default settings', () => {
       const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,

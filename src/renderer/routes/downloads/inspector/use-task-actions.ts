@@ -1,4 +1,6 @@
 import { toast } from '@renderer/components/ui/toast'
+import { taskWritesAvailable } from '@renderer/features/application-menu/task-context'
+import { getTaskListSnapshot } from '@renderer/hooks/use-task-list'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { transport } from '@renderer/lib/transport'
 import { type CommandChannel, Commands } from '@shared/protocol/commands'
@@ -22,6 +24,7 @@ import {
 } from '@shared/types/task-actions'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useRemoveTasksStore } from './remove-tasks-store'
 
 export interface RemoveDialogState {
   open: boolean
@@ -157,18 +160,20 @@ export interface TaskActionsState {
   confirmRemove: (deleteFiles: boolean) => Promise<void>
 }
 
+function resolveLatest(targets: readonly DownloadTask[]) {
+  const snapshot = getTaskListSnapshot()
+  if (!snapshot.hasReadySnapshot) return targets
+  const ids = new Set(targets.map((task) => task.id))
+  return snapshot.tasks.filter((task) => ids.has(task.id))
+}
+
 export function useTaskActions(
   selected: readonly DownloadTask[]
 ): TaskActionsState {
   const { t } = useTranslation()
   const [moving, setMoving] = useState(false)
-  const [removeDialog, setRemoveDialog] = useState<RemoveDialogState>({
-    open: false,
-    preCheckDeleteFiles: false,
-  })
-  const [removeTargets, setRemoveTargets] = useState<readonly DownloadTask[]>(
-    []
-  )
+  const removeDialog = useRemoveTasksStore()
+  const removeTargets = removeDialog.targets
 
   const counts = useMemo(() => {
     let pauseCount = 0
@@ -224,9 +229,16 @@ export function useTaskActions(
     [t]
   )
 
+  const readyToWrite = useCallback(() => {
+    if (transport.platform !== 'web' || taskWritesAvailable()) return true
+    toast.add({ title: t('applicationMenu.actionFailed'), type: 'error' })
+    return false
+  }, [t])
+
   const dispatchSubset = useCallback(
     async (cmd: CommandChannel, predicate: (task: DownloadTask) => boolean) => {
-      const targets = selected.filter(predicate)
+      if (!readyToWrite()) return
+      const targets = resolveLatest(selected).filter(predicate)
       if (targets.length === 0) return
       const results = await invokeBulk(
         cmd,
@@ -235,7 +247,7 @@ export function useTaskActions(
       )
       reportPartial(results)
     },
-    [selected, reportPartial]
+    [selected, reportPartial, readyToWrite]
   )
 
   const onPause = useCallback(
@@ -250,7 +262,8 @@ export function useTaskActions(
 
   const onMove = useCallback(
     async (direction: MoveTasksPayload['direction']) => {
-      const targets = selected.filter(canMoveInQueue)
+      if (!readyToWrite()) return
+      const targets = resolveLatest(selected).filter(canMoveInQueue)
       if (moving || !targets.length) return
       setMoving(true)
       try {
@@ -294,7 +307,7 @@ export function useTaskActions(
         setMoving(false)
       }
     },
-    [selected, moving, reportPartial, t]
+    [selected, moving, reportPartial, t, readyToWrite]
   )
 
   const onStopSeeding = useCallback(
@@ -352,32 +365,48 @@ export function useTaskActions(
 
   const onRemove = useCallback(
     (modifier?: { shift: boolean }) => {
-      setRemoveTargets([...selected])
-      setRemoveDialog({
+      if (useRemoveTasksStore.getState().busy || !readyToWrite()) return
+      const targets = resolveLatest(selected).filter(canRemove)
+      if (!targets.length) return
+      useRemoveTasksStore.setState({
+        targets,
         open: true,
         preCheckDeleteFiles: modifier?.shift ?? false,
       })
     },
-    [selected]
+    [selected, readyToWrite]
   )
 
   const closeRemoveDialog = useCallback(() => {
-    setRemoveDialog({ open: false, preCheckDeleteFiles: false })
+    if (!useRemoveTasksStore.getState().busy)
+      useRemoveTasksStore.setState({
+        open: false,
+        preCheckDeleteFiles: false,
+        targets: [],
+      })
   }, [])
 
   const confirmRemove = useCallback(
     async (deleteFiles: boolean) => {
-      const targets = removeTargets.filter(canRemove)
+      if (useRemoveTasksStore.getState().busy || !readyToWrite()) return
+      useRemoveTasksStore.setState({ busy: true })
+      const targets = resolveLatest(removeTargets).filter(canRemove)
       if (targets.length > 0) {
         const results = await invokeBulk(Commands.RemoveTasks, targets, {
           taskIds: targets.map((task) => task.id),
           deleteWithFiles: deleteFiles,
         })
+        if (useRemoveTasksStore.getState().targets !== removeTargets) return
         reportPartial(results)
       }
-      setRemoveDialog({ open: false, preCheckDeleteFiles: false })
+      useRemoveTasksStore.setState({
+        open: false,
+        preCheckDeleteFiles: false,
+        targets: [],
+        busy: false,
+      })
     },
-    [removeTargets, reportPartial]
+    [removeTargets, reportPartial, readyToWrite]
   )
 
   return {

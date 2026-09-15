@@ -1,3 +1,7 @@
+import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
+import { useRemoveTasksStore } from '@renderer/routes/downloads/inspector/remove-tasks-store'
+import { render as renderBase } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { createSelectionStore } from '@renderer/components/desktop-kit/selection/create-selection-store'
@@ -10,11 +14,23 @@ import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskActionsMenu } from './task-actions-menu'
 import { useDownloadsView } from './view-preferences'
+
+function render(element: ReactElement) {
+  return renderBase(
+    <>
+      <RemoveTasksDialogHost />
+      {element}
+    </>
+  )
+}
+beforeEach(() =>
+  useRemoveTasksStore.setState({ open: false, targets: [], busy: false })
+)
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {

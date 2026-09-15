@@ -181,6 +181,36 @@ docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
 切勿直接发布到公网；优先使用私有 Docker network、宿主 loopback、VPN 或其他带
 鉴权的加密 tunnel。
 
+### 种子上传大小
+
+种子创建请求默认允许 **8 MiB**。需要上传更大的种子元数据时，可将
+`MOTRIX_TORRENT_BODY_LIMIT_MIB` 设为 **2 到 64** 之间的整数，然后重启服务。
+仓库提供的两份 Compose 文件都支持此参数，例如：
+
+```bash
+export MOTRIX_TORRENT_BODY_LIMIT_MIB=16
+docker compose -f compose.yaml up -d --wait
+```
+
+此限制计算完整 UTF-8 JSON 请求的大小，包含 Base64 和选项；8 MiB 请求能容纳的原始
+`.torrent` 文件略小于 6 MiB。放宽后的限制仅适用于
+`/rpc/command/command:createTask` 和 `/rpc/command/command:addTorrentTask`
+中的种子载荷，其他 RPC 请求仍限 2 MiB。超限请求返回 HTTP 413。
+服务最多同时接收两个大请求或长度未知的种子请求，额外请求返回 HTTP 429。
+请求接收超时为 120 秒。
+
+Motrix 启动受管 aria2 时会设置相同的 `--rpc-max-request-size` 上限。
+独立管理的引擎或反向代理也需要配置匹配的限制；使用上面的配置时，在 Nginx 代理 Web API 的
+`server` 或 `location` 块中设置
+[`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)。
+MDXP 与插件包上传限制不受此参数影响。
+
+这些数值是产品的资源限制，不是种子格式要求：
+[BEP 3](https://www.bittorrent.org/beps/bep_0003.html) 和
+[BEP 52](https://www.bittorrent.org/beps/bep_0052.html) 没有规定统一的种子元数据文件
+大小上限。即使请求上限设为 64 MiB，现有解析器仍将 Base64 限制在 50 MiB
+（对应 37.5 MiB 原始文件）。
+
 ### 运行在 Docker 宿主上的反向代理
 
 仓库提供的 [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) 会把两个已发布的
@@ -348,6 +378,28 @@ origin，并保留 cookie、Authorization header 和流式响应。MDXP 是独�
 MDXP，只转发 16801 也不会提供审批界面。不应通过禁用配对来实现这些保护；远程
 CLI/agent 与浏览器扩展配对都仍然需要 operator 审批。
 
+## Web 界面的 Logo 菜单
+
+点击左上角的 **Motrix** Logo，可打开关于、设置、任务、帮助和**退出登录**。
+窄屏一次显示一级菜单；点击**返回**、按左方向键或 Escape 可返回上一级。
+
+- **新建任务**打开链接表单，**新建 BT 任务**打开种子表单。
+  **打开种子文件**读取浏览器所在设备上的 `.torrent` 文件，支持多选，
+  提交前可逐个检查。下载保存路径属于 Server。请求体大小可配置，
+  详见本文的种子上传大小说明。
+- 暂停、继续、移除和队列调整作用于当前筛选列表中已确认的选择。
+  **全选任务**包含视口外的行；选择或筛选变化会取消尚未执行的选择操作。
+- **全部暂停**和**全部继续**作用于整个实例。**清理已停止任务记录**会确认
+  当前已完成、出错和已移除的记录，并保留下载文件。随后才停止的任务留待下次清理。
+- 关闭已编辑的任务表单前会确认是否丢弃草稿；提交过程中表单保持打开。
+  暂时断线会保留草稿，远程任务操作在连接恢复并取得新快照后重新可用。
+- 浏览器使用 Cookie 会话时显示**退出登录**。确认后，共享该 Cookie 的标签页
+  会一起退出并清除私有界面状态。Server 上的下载继续运行，独立浏览器会话和
+  Bearer 客户端不受影响。单纯的网络故障不会导致退出登录。
+
+Ctrl/Cmd+N、L、O、B 等浏览器快捷键保持原有用途。任务全选和移除快捷键
+仅在下载列表获得焦点时生效，文本输入框保留正常的编辑快捷键。
+
 ## 下载路径与插件
 
 镜像默认值如下：
@@ -503,6 +555,7 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_OPERATOR_TOKEN` | 自动生成文件 | operator 控制面凭据 |
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
 | `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | 显式开启带鉴权、面向所有接口的 aria2 RPC listener；Docker 端口发布仍需单独配置 |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | 种子 JSON 请求上限，单位 MiB，取值为 2–64 的整数；同步用于受管 aria2 RPC，重启后生效 |
 | `MOTRIX_WEB_BIND_IP` | Compose：`0.0.0.0` | 发布 Web 8080 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_MDXP_BIND_IP` | Compose：`0.0.0.0` | 发布 MDXP 16801 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |

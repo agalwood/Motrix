@@ -38,6 +38,7 @@ export function PanelShell({
     <div className="relative flex h-full flex-col">
       {/* PanelShell header */}
       <header
+        data-slot="panel-shell-header"
         className={cn(
           // Standard headers retain the 36px clearance below window controls.
           // A 36px action row and 8px bottom padding make an 80px header.

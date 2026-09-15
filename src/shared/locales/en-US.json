@@ -1848,13 +1848,13 @@
       "taskList": "Task List",
       "pauseTask": "Pause",
       "resumeTask": "Resume",
-      "deleteTask": "Delete",
-      "moveTaskUp": "Move Up",
-      "moveTaskDown": "Move Down",
+      "deleteTask": "Remove tasks…",
+      "moveTaskUp": "Move up in queue",
+      "moveTaskDown": "Move down in queue",
       "pauseAllTask": "Pause All",
       "resumeAllTask": "Resume All",
-      "selectAllTask": "Select All",
-      "clearRecentTasks": "Clear Recent"
+      "selectAllTask": "Select all tasks",
+      "clearRecentTasks": "Clear stopped task records…"
     },
     "edit": {
       "title": "Edit",
@@ -2405,5 +2405,21 @@
       "rowUnreadAria": "{{title}} (unread)",
       "toastRegionAria": "Notifications"
     }
+  },
+  "applicationMenu": {
+    "signOut": "Sign out…",
+    "back": "Back",
+    "serverUnavailable": "The server is unavailable. Your session has not been signed out.",
+    "retry": "Retry",
+    "actionFailed": "The action could not be completed. Check the connection and try again.",
+    "clearTitle": "Clear stopped task records?",
+    "clearDescription": "Remove completed, failed, and removed task records captured when this dialog opened. Downloaded files stay on disk.",
+    "clearConfirm": "Clear records",
+    "logoutTitle": "Sign out of this server?",
+    "logoutDescription": "This signs out other tabs using the same browser session. Downloads continue on the server. Unsaved input in those tabs will be discarded.",
+    "logoutConfirm": "Sign out",
+    "discardTitle": "Discard this task draft?",
+    "discardDescription": "Your unsaved links, torrent selection, and settings will be discarded.",
+    "discardConfirm": "Discard"
   }
 }

@@ -26,6 +26,7 @@ export interface Transport {
    * Optional because Electron IPC has no renderer-owned connection lifecycle.
    * Web transports return an unsubscribe function.
    */
+  getConnectionState?(): TransportConnectionState
   onConnectionChange?(cb: TransportConnectionListener): () => void
   platform: NodeJS.Platform | 'web'
 }

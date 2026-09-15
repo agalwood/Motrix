@@ -199,6 +199,38 @@ engine. It is also not TLS-protected, so never publish it directly to the
 public Internet. Prefer a private Docker network, host loopback, VPN, or
 another authenticated encrypted tunnel.
 
+### Torrent upload size
+
+Torrent creation requests accept **8 MiB** by default. Set
+`MOTRIX_TORRENT_BODY_LIMIT_MIB` to an integer from **2 to 64** and restart the
+server when larger metainfo files are needed. For example, with either supplied
+Compose file:
+
+```bash
+export MOTRIX_TORRENT_BODY_LIMIT_MIB=16
+docker compose -f compose.yaml up -d --wait
+```
+
+This counts the complete UTF-8 JSON request, including Base64 and options;
+an 8 MiB request holds slightly less than 6 MiB of original `.torrent` bytes.
+The larger budget applies only to torrent payloads sent to
+`/rpc/command/command:createTask` and `/rpc/command/command:addTorrentTask`.
+Other RPC requests retain their 2 MiB limit. Oversized requests return HTTP 413.
+At most two large or unknown-length torrent requests are admitted concurrently;
+additional requests return HTTP 429. Request reception has a 120-second timeout.
+
+Motrix starts its managed aria2 with the same `--rpc-max-request-size` budget.
+An independently managed engine or reverse proxy needs a matching limit; for
+Nginx, set [`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
+in the `server` or `location` block serving the Web API when using the example
+above. MDXP and plugin package upload limits are independent of this setting.
+
+These are product resource limits, not torrent format requirements:
+[BEP 3](https://www.bittorrent.org/beps/bep_0003.html) and
+[BEP 52](https://www.bittorrent.org/beps/bep_0052.html) do not specify a universal
+metainfo file size ceiling. The existing parser still caps Base64 at 50 MiB
+(37.5 MiB of original bytes), even with the 64 MiB request setting.
+
 ### Reverse proxy on the Docker host
 
 The included [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) binds
@@ -394,6 +426,36 @@ not publish MDXP, and forwarding only 16801 does not serve the approval UI.
 These protections must not be implemented by disabling pairing; remote
 CLI/agent and browser-Extension pairing remain operator-approved workflows.
 
+## Logo menu in the Web UI
+
+Open the **Motrix** logo at the upper left for About, Settings, Task, Help,
+and **Sign out**. Narrow screens show one menu level at a time; use **Back**,
+Left Arrow, or Escape to return to the parent level.
+
+- **New Task** opens links; **New BitTorrent Task** opens the torrent form.
+  **Open Torrent File** reads `.torrent` files from the device running your
+  browser, supports multiple files, and lets you review each before submitting.
+  The download destination is a path on the Server. See [torrent upload
+  size](#torrent-upload-size) for the configurable request limit.
+- Pause, resume, remove, and queue commands apply to the committed selection
+  in the current filtered downloads list. **Select all tasks** includes rows
+  outside the visible viewport. Changing the selection or filter cancels a
+  pending selection command.
+- **Pause All** and **Resume All** affect the whole instance. **Clear stopped
+  task records** confirms the current completed, error, and removed records
+  and keeps downloaded files. Newly stopped tasks are left for a later clear.
+- Closing an edited task form asks before discarding the draft. A submission
+  in progress keeps its form open. Temporary disconnections preserve drafts
+  and disable remote task commands until a fresh connection and snapshot return.
+- **Sign out** is shown for browser cookie sessions. Confirmation ends that
+  session in all tabs sharing its cookie and clears their private UI state.
+  Server downloads continue; independent browser sessions and Bearer clients
+  stay connected. Network failures alone do not sign you out.
+
+Browser shortcuts such as Ctrl/Cmd+N, L, O, and B keep their browser behavior.
+Task selection and removal shortcuts operate only within the focused downloads
+list, and text inputs retain their editing shortcuts.
+
 ## Download paths and plugins
 
 The image defaults are:
@@ -564,6 +626,7 @@ uses this ownership record and the already-bound Web listener as one proof.
 | `MOTRIX_OPERATOR_TOKEN` | generated file | Operator control-plane credential |
 | `MOTRIX_SECRETS_SEED` | generated lockbox | 64-hex-character plugin secret key |
 | `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | Opt in to an authenticated all-interface aria2 RPC listener; Docker port publication is still separate |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | Torrent JSON request limit in MiB; integer 2–64, also applied to managed aria2 RPC; restart required |
 | `MOTRIX_WEB_BIND_IP` | Compose: `0.0.0.0` | Host address publishing Web port 8080; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_MDXP_BIND_IP` | Compose: `0.0.0.0` | Host address publishing MDXP port 16801; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |

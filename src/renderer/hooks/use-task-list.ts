@@ -1,3 +1,4 @@
+import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -300,7 +301,11 @@ function attachListeners(): void {
   // guard discard every response except the last one's, which may fail.
   detachConnectionListener =
     transport.onConnectionChange?.((event) => {
-      if (event.state !== 'connected') return
+      publish({ status: 'loading' })
+      if (event.state !== 'connected') {
+        dataGeneration += 1
+        return
+      }
       resetResyncRetry()
       dataGeneration += 1
       legacyRefreshRequested = true
@@ -335,7 +340,7 @@ function scheduleDeferredTeardown(): void {
   }, 0)
 }
 
-function subscribe(listener: StoreListener): () => void {
+export function subscribeTaskList(listener: StoreListener): () => void {
   cancelDeferredTeardown()
   subscribers.add(listener)
   attachListeners()
@@ -346,14 +351,18 @@ function subscribe(listener: StoreListener): () => void {
   }
 }
 
-function getSnapshot(): TaskListAggregates {
+export function getTaskListSnapshot(): TaskListAggregates {
   return snapshot
 }
 
-const getServerSnapshot = getSnapshot
+const getServerSnapshot = getTaskListSnapshot
 
 export function useTaskList(): TaskListAggregates {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useSyncExternalStore(
+    subscribeTaskList,
+    getTaskListSnapshot,
+    getServerSnapshot
+  )
 }
 
 /** Internal: tests only. Resets the module-level external store. */
@@ -370,3 +379,12 @@ export function __resetTaskListStoreForTests(): void {
   resetResyncRetry()
   snapshot = createSnapshot(EMPTY_TASKS, 'loading', false, 0)
 }
+
+/** Clear privileged cached data when the operator session is confirmed lost. */
+export function clearTaskListSession(): void {
+  cancelDeferredTeardown()
+  detachListeners()
+  dataGeneration += 1
+  publish({ tasks: EMPTY_TASKS, status: 'loading', hasReadySnapshot: false })
+}
+onOperatorSessionLost(clearTaskListSession)

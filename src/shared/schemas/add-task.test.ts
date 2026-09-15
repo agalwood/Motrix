@@ -102,6 +102,20 @@ describe('addTaskFormSchema', () => {
 })
 
 describe('taskCreateRequestSchema', () => {
+  it('rejects oversized Base64 at the shared command boundary', () => {
+    const result = taskCreateRequestSchema.safeParse({
+      type: 'bt',
+      payload: {
+        kind: 'torrent-base64',
+        base64: 'A'.repeat(50 * 1024 * 1024 + 4),
+      },
+      selectedFiles: [0],
+      saveDir: '/d',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success)
+      expect(result.error.issues[0].path).toEqual(['payload', 'base64'])
+  })
   it('accepts minimal http request', () => {
     const result = taskCreateRequestSchema.safeParse({
       type: 'http',

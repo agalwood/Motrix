@@ -1,3 +1,4 @@
+import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { buildActivityDayBoundaries } from '@renderer/routes/dashboard/activity/activity-calendar-model'
 import { Events } from '@shared/protocol/events'
@@ -484,3 +485,12 @@ export function __resetTaskActivityStoreForTests(): void {
   rangeEnvironment = buildRangeEnvironment()
   state = Object.freeze({ status: 'loading', retry })
 }
+
+onOperatorSessionLost(() => {
+  cancelDeferredTeardown()
+  detach()
+  rangeEpoch++
+  activitySnapshot = null
+  activitySnapshotRangeSignature = null
+  publish({ status: 'loading', retry }, true)
+})

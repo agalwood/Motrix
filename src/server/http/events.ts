@@ -6,7 +6,7 @@ interface SocketLike {
 }
 
 export function bindEventBroadcaster(bus: EventBus) {
-  const sockets = new Set<SocketLike>()
+  const sockets = new Map<SocketLike, () => boolean>()
 
   subscribeForwardableEvents(bus, (channel, args) => {
     broadcast(channel, args)
@@ -15,7 +15,11 @@ export function bindEventBroadcaster(bus: EventBus) {
   function broadcast(channel: string, args: unknown[]): void {
     if (sockets.size === 0) return
     const frame = JSON.stringify({ channel, args })
-    for (const s of sockets) {
+    for (const [s, eligible] of sockets) {
+      if (!eligible()) {
+        sockets.delete(s)
+        continue
+      }
       try {
         s.send(frame)
       } catch {
@@ -26,7 +30,8 @@ export function bindEventBroadcaster(bus: EventBus) {
 
   return {
     broadcast,
-    register: (s: SocketLike) => sockets.add(s),
+    register: (s: SocketLike, eligible: () => boolean = () => true) =>
+      sockets.set(s, eligible),
     unregister: (s: SocketLike) => sockets.delete(s),
     count: () => sockets.size,
   }

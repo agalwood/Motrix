@@ -37,12 +37,14 @@ vi.mock('@renderer/components/add-task/add-task-form', () => ({
     onAdvancedOpenChange: _onAdvancedOpenChange,
     presentation,
     defaultValues,
+    onDraftStateChange,
   }: {
     onSubmitSuccess?: (gid: string) => void
     onCancel: () => void
     onAdvancedOpenChange?: (expanded: boolean) => void
     presentation?: 'dialog' | 'window'
     defaultValues?: Partial<AddTaskFormValues>
+    onDraftStateChange?: (dirty: boolean, busy: boolean) => void
   }) => {
     // Like react-hook-form, defaults are read on mount, not on every render.
     const [initialValues] = useState(defaultValues)
@@ -54,6 +56,12 @@ vi.mock('@renderer/components/add-task/add-task-form', () => ({
         </span>
         <button type="button" onClick={() => onSubmitSuccess?.('gid-1')}>
           stub-submit
+        </button>
+        <button type="button" onClick={() => onDraftStateChange?.(true, false)}>
+          stub-edit
+        </button>
+        <button type="button" onClick={() => onDraftStateChange?.(true, true)}>
+          stub-busy
         </button>
         <button type="button" onClick={onCancel}>
           stub-cancel
@@ -83,6 +91,30 @@ function renderWithRouter() {
 }
 
 describe('AddTaskDialogHost', () => {
+  it('preserves edited drafts until discard is confirmed', () => {
+    useAddTaskDialogStore.getState().openWith({ tab: 'links' })
+    renderWithRouter()
+    fireEvent.click(screen.getByText('stub-edit'))
+    fireEvent.click(screen.getByText('stub-cancel'))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(
+      screen.getByRole('dialog', { name: 'Discard this task draft?' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(useAddTaskDialogStore.getState().open).toBe(false)
+  })
+  it('keeps an in-flight form open and rejects replacement requests', () => {
+    useAddTaskDialogStore.getState().openWith({ tab: 'links', urls: 'draft' })
+    renderWithRouter()
+    fireEvent.click(screen.getByText('stub-busy'))
+    fireEvent.click(screen.getByText('stub-cancel'))
+    act(() => useAddTaskDialogStore.getState().openWith({ tab: 'torrent' }))
+    expect(useAddTaskDialogStore.getState().prefill?.tab).toBe('links')
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(
+      screen.queryByRole('dialog', { name: 'Discard this task draft?' })
+    ).toBeNull()
+  })
   it('closes only the matching picker when the background service accepts it', () => {
     useAddTaskDialogStore
       .getState()
@@ -100,7 +132,7 @@ describe('AddTaskDialogHost', () => {
     expect(useAddTaskDialogStore.getState().open).toBe(false)
   })
 
-  it('hydrates a replacement form while the dialog is already open', () => {
+  it('preserves the current draft when another open request arrives', () => {
     useAddTaskDialogStore
       .getState()
       .openWith({ tab: 'links', urls: 'https://example.com/a' })
@@ -110,8 +142,10 @@ describe('AddTaskDialogHost', () => {
         .getState()
         .openWith({ tab: 'torrent', existingTaskId: 'ready-2' })
     })
-    expect(screen.getByTestId('initial-values')).toHaveTextContent('ready-2')
     expect(screen.getByTestId('initial-values')).not.toHaveTextContent(
+      'ready-2'
+    )
+    expect(screen.getByTestId('initial-values')).toHaveTextContent(
       'https://example.com/a'
     )
   })
@@ -120,6 +154,7 @@ describe('AddTaskDialogHost', () => {
     useAddTaskDialogStore.getState().openWith({ tab: 'links' })
     renderWithRouter()
     const oldSubmission = submitSuccessRef.current
+    act(() => useAddTaskDialogStore.getState().close())
     act(() => {
       useAddTaskDialogStore
         .getState()

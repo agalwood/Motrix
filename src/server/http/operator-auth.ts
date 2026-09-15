@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import type { OperatorStatus } from '@shared/schemas/operator-auth'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 /**
@@ -156,24 +157,45 @@ function isPublic(method: string, url: string): boolean {
   return false
 }
 
+interface SessionSocket {
+  close(code: number, reason: string): void
+}
+
+export interface OperatorSessionPolicy {
+  bindSocket(
+    req: FastifyRequest,
+    socket: SessionSocket
+  ): {
+    eligible: () => boolean
+    dispose: () => void
+  }
+}
+
 export function registerOperatorAuth(
   app: FastifyInstance,
   opts: OperatorAuthOptions
-): void {
+): OperatorSessionPolicy {
   const now = opts.now ?? Date.now
   const publicOrigin = configuredPublicOrigin(opts.publicUrl)
   const sessions = new Map<string, number>() // sessionId -> expiresAt
+  const sessionSockets = new Map<string, Set<SessionSocket>>()
+  const revoke = (id: string): void => {
+    sessions.delete(id)
+    const sockets = sessionSockets.get(id)
+    sessionSockets.delete(id)
+    for (const socket of sockets ?? []) socket.close(4401, 'Session expired')
+  }
   let failedLogins: number[] = [] // timestamps of FAILED attempts only
 
-  const validSession = (id: string | undefined): boolean => {
+  const validSession = (id: string | undefined, renew = true): boolean => {
     if (!id) return false
     const exp = sessions.get(id)
     if (!exp) return false
-    if (now() > exp) {
-      sessions.delete(id)
+    if (now() >= exp) {
+      revoke(id)
       return false
     }
-    sessions.set(id, now() + SESSION_TTL_MS) // sliding renewal
+    if (renew) sessions.set(id, now() + SESSION_TTL_MS)
     return true
   }
 
@@ -260,17 +282,45 @@ export function registerOperatorAuth(
     }
   )
 
-  app.get('/rpc/auth/status', async (req) => ({
-    authed: authenticate(req) !== null,
-  }))
+  app.get('/rpc/auth/status', async (req): Promise<OperatorStatus> => {
+    const mode = authenticate(req)
+    return {
+      authed: mode !== null,
+      mode: mode ?? 'unauthenticated',
+      canLogout: mode === 'cookie',
+    }
+  })
 
   app.post('/rpc/auth/logout', async (req, reply) => {
     const id = parseCookies(req.headers.cookie)[COOKIE]
-    if (id) sessions.delete(id)
+    if (authenticate(req) === 'cookie' && id) revoke(id)
     reply.header(
       'set-cookie',
       `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`
     )
     return { ok: true }
   })
+
+  return {
+    bindSocket(req, socket) {
+      const mode = authenticate(req)
+      const id =
+        mode === 'cookie' ? parseCookies(req.headers.cookie)[COOKIE] : undefined
+      if (id) {
+        const sockets = sessionSockets.get(id) ?? new Set<SessionSocket>()
+        sockets.add(socket)
+        sessionSockets.set(id, sockets)
+      }
+      return {
+        eligible: () =>
+          mode === 'bearer' || (mode === 'cookie' && validSession(id, false)),
+        dispose: () => {
+          if (!id) return
+          const sockets = sessionSockets.get(id)
+          sockets?.delete(socket)
+          if (sockets?.size === 0) sessionSockets.delete(id)
+        },
+      }
+    },
+  }
 }

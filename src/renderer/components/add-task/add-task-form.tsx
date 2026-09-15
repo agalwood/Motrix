@@ -54,6 +54,8 @@ import {
 } from './use-external-hydration'
 
 interface AddTaskFormProps {
+  initialTorrentFiles?: ParsedTorrentFile[]
+  onDraftStateChange?: (dirty: boolean, busy: boolean) => void
   defaultValues?: DeepPartial<AddTaskFormValues>
   onSubmitSuccess?: (taskId: string) => void
   onCancel: () => void
@@ -84,6 +86,8 @@ function taskCreateFailureReason(error: unknown): string | null {
 
 export function AddTaskForm({
   defaultValues,
+  initialTorrentFiles,
+  onDraftStateChange,
   onSubmitSuccess,
   onCancel,
   onAdvancedOpenChange,
@@ -110,6 +114,14 @@ export function AddTaskForm({
     mode: 'onTouched',
     defaultValues: { ...BASE_DEFAULTS, ...defaultValues } as AddTaskFormValues,
   })
+
+  const dirty = form.formState.isDirty
+  useEffect(() => {
+    onDraftStateChange?.(
+      dirty,
+      submitting || batchSubmitting || advancingTorrent
+    )
+  }, [dirty, submitting, batchSubmitting, advancingTorrent, onDraftStateChange])
 
   const openHydrationRequest = useRef(0)
 
@@ -216,6 +228,12 @@ export function AddTaskForm({
     },
     []
   )
+
+  useEffect(() => {
+    if (!initialTorrentFiles?.length) return
+    hydrateLocalTorrent(initialTorrentFiles[0])
+    handleLocalTorrentFilesLoaded(initialTorrentFiles)
+  }, [initialTorrentFiles, hydrateLocalTorrent, handleLocalTorrentFilesLoaded])
 
   useExternalHydration(
     form,

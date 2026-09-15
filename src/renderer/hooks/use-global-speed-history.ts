@@ -1,3 +1,4 @@
+import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
 // src/renderer/hooks/use-global-speed-history.ts
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
@@ -19,6 +20,7 @@ const MOCK_UPLOAD_BPS = [
 
 let store: readonly SpeedPoint[] = []
 const listeners = new Set<() => void>()
+let sessionEpoch = 0
 let initialized = false
 let initializing = false
 let pendingTail: SpeedPoint[] = []
@@ -63,10 +65,12 @@ function onStatsEvent(...args: unknown[]) {
 function initialize() {
   if (initialized || initializing) return
   initializing = true
+  const epoch = sessionEpoch
   transport.on(Events.StatsUpdated, onStatsEvent)
   void transport
     .invoke(Queries.GetSpeedHistory, { limit: MAX_POINTS })
     .then((data) => {
+      if (epoch !== sessionEpoch) return
       const seed = data as readonly SpeedPoint[]
       const base =
         seed.length === 0 && pendingTail.length === 0 && shouldUseWebMock()
@@ -80,6 +84,7 @@ function initialize() {
       notify()
     })
     .catch(() => {
+      if (epoch !== sessionEpoch) return
       if (shouldUseWebMock()) {
         store = createMockSpeedHistory()
         initialized = true
@@ -118,3 +123,13 @@ export function __resetGlobalSpeedHistoryStoreForTests(): void {
   initializing = false
   pendingTail = []
 }
+
+onOperatorSessionLost(() => {
+  sessionEpoch++
+  transport.off(Events.StatsUpdated, onStatsEvent)
+  store = []
+  pendingTail = []
+  initialized = false
+  initializing = false
+  notify()
+})

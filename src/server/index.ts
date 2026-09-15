@@ -150,7 +150,11 @@ import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
 } from './download-path-policy'
-import { parseServerBoolean, parseServerPort } from './environment'
+import {
+  parseServerBoolean,
+  parseServerPort,
+  parseTorrentBodyLimit,
+} from './environment'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
@@ -188,6 +192,9 @@ async function main() {
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
+  const torrentBodyLimitBytes = parseTorrentBodyLimit(
+    process.env.MOTRIX_TORRENT_BODY_LIMIT_MIB
+  )
 
   // ─── Platform ─────────────────────────────────────────────────
   const platform = createNodePlatformServices()
@@ -446,6 +453,7 @@ async function main() {
         process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
         'MOTRIX_ARIA2_RPC_LISTEN_ALL'
       ),
+      rpcMaxRequestSizeBytes: torrentBodyLimitBytes,
     }
   )
   const trustStore = new Aria2TrustStore(platform.userDataDir)
@@ -1217,6 +1225,7 @@ async function main() {
   )
 
   const app = await createApp({
+    torrentBodyLimitBytes,
     commandHandlers,
     queryHandlers,
     bridgeCommandHandlers: bridgeManager.bridgeCommandHandlers,

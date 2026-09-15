@@ -1834,13 +1834,13 @@
       "taskList": "任務清單",
       "pauseTask": "暫停",
       "resumeTask": "繼續",
-      "deleteTask": "刪除",
-      "moveTaskUp": "上移",
-      "moveTaskDown": "下移",
+      "deleteTask": "移除任務…",
+      "moveTaskUp": "在佇列中上移",
+      "moveTaskDown": "在佇列中下移",
       "pauseAllTask": "全部暫停",
       "resumeAllTask": "全部繼續",
-      "selectAllTask": "全選",
-      "clearRecentTasks": "清除最近項目"
+      "selectAllTask": "全選任務",
+      "clearRecentTasks": "清空已停止的任務記錄…"
     },
     "edit": {
       "title": "編輯",
@@ -2384,5 +2384,21 @@
         "grant": "允許"
       }
     }
+  },
+  "applicationMenu": {
+    "signOut": "登出…",
+    "back": "返回",
+    "serverUnavailable": "暫時無法連線至伺服器。目前工作階段尚未登出。",
+    "retry": "重試",
+    "actionFailed": "操作未完成，請檢查連線後重試。",
+    "clearTitle": "清空已停止的任務記錄？",
+    "clearDescription": "清除此對話框開啟時已完成、失敗或移除的任務記錄，保留磁碟上的下載檔案。",
+    "clearConfirm": "清空記錄",
+    "logoutTitle": "登出此伺服器？",
+    "logoutDescription": "使用同一瀏覽器工作階段的其他分頁也會登出。伺服器上的下載會繼續，這些分頁中未儲存的輸入將被捨棄。",
+    "logoutConfirm": "登出",
+    "discardTitle": "捨棄此任務草稿？",
+    "discardDescription": "未儲存的連結、種子選擇與設定將被捨棄。",
+    "discardConfirm": "捨棄"
   }
 }
