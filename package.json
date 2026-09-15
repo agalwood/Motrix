@@ -3,8 +3,8 @@
   "type": "module",
   "productName": "Motrix",
   "homepage": "https://motrix.app",
-  "version": "2.0.0-beta.38",
-  "packageManager": "pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c",
+  "version": "2.0.0-beta.39",
+  "packageManager": "pnpm@12.4.2+sha512.08adc6613180275c7c9edada39dcf08c9c61ad4e7eaf330a4f3461f102b0f907423454d117f98e72d47fef0616070644d7bffc973a6a57f5090a6d7c368b07c9",
   "description": "A full-featured download manager",
   "keywords": [],
   "author": {
@@ -103,7 +103,7 @@
     "@types/write-file-atomic": "^4.0.3",
     "@types/ws": "^8.18.1",
     "@types/yauzl": "^3.4.0",
-    "@vitest/coverage-v8": "^5.0.0",
+    "@vitest/coverage-v8": "^5.0.1",
     "cross-spawn": "^7.0.6",
     "electron": "44.3.0",
     "electron-builder": "26.15.7",
@@ -114,7 +114,7 @@
     "tsx": "^4.23.13",
     "typescript": "~7.0.2",
     "vite": "^8.3.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.1"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -129,7 +129,7 @@
     "@noble/hashes": "2.4.0",
     "@resvg/resvg-wasm": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/react-virtual": "^3.14.12",
+    "@tanstack/react-virtual": "^3.14.13",
     "@xyflow/react": "^12.11.6",
     "ajv": "^8.20.0",
     "better-sqlite3": "^13.0.3",
@@ -143,7 +143,7 @@
     "fastify": "^5.12.4",
     "i18next": "^26.4.2",
     "libsodium-wrappers": "^0.8.4",
-    "lucide-react": "^1.45.0",
+    "lucide-react": "^1.46.0",
     "mmdb-lib": "^3.0.3",
     "next-themes": "^0.4.6",
     "parse-torrent": "^11.0.24",
@@ -154,7 +154,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-hook-form": "^7.88.0",
-    "react-i18next": "^17.0.13",
+    "react-i18next": "^17.0.14",
     "react-router": "^8.3.1",
     "recharts": "^3.10.1",
     "shadcn": "^4.21.0",
@@ -169,7 +169,7 @@
     "write-file-atomic": "^8.0.0",
     "ws": "^8.21.3",
     "yauzl": "^3.4.0",
-    "zod": "^4.6.4",
+    "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },
   "optionalDependencies": {

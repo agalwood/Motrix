@@ -22,7 +22,7 @@ ENV MOTRIX_SKIP_ELECTRON_REBUILD=1 \
     MOTRIX_SKIP_ENGINE_FETCH=1
 RUN --mount=type=cache,id=motrix-pnpm-store,target=/pnpm/store \
     corepack enable \
- && corepack prepare pnpm@12.4.1 --activate \
+ && corepack prepare pnpm@12.4.2 --activate \
  && pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
@@ -38,7 +38,7 @@ ENV CI=true \
     MOTRIX_SKIP_ENGINE_FETCH=1
 RUN --mount=type=cache,id=motrix-pnpm-store,target=/pnpm/store \
     corepack enable \
- && corepack prepare pnpm@12.4.1 --activate \
+ && corepack prepare pnpm@12.4.2 --activate \
  && pnpm config set store-dir /pnpm/store \
  && pnpm install --prod --frozen-lockfile --ignore-scripts
 

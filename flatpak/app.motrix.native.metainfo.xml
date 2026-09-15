@@ -74,6 +74,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.39" date="2026-09-15">
+      <description>
+        <p>
+          Adds a Server directory picker and application menu, improves download
+          controls and BitTorrent seeding, recovers conflicting magnet session
+          identities, fixes macOS Menu Bar Only mode, and refreshes dependencies.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.38" date="2026-09-13">
       <description>
         <p>

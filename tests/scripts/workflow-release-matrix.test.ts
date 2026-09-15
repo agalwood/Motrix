@@ -43,9 +43,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '12.4.1'
+const PNPM_VERSION = '12.4.2'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c'
+  'pnpm@12.4.2+sha512.08adc6613180275c7c9edada39dcf08c9c61ad4e7eaf330a4f3461f102b0f907423454d117f98e72d47fef0616070644d7bffc973a6a57f5090a6d7c368b07c9'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
