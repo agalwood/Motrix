@@ -35,24 +35,24 @@ Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请�
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-cn-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-cn.webp">
-  <img alt="Motrix 仪表盘" src="./screenshots/motrix-dashboard-cn.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-cn-light.webp">
+  <img alt="Motrix 仪表盘" src="./screenshots/motrix-dashboard-cn-light.webp">
 </picture>
 
 ### 下载任务
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-cn-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-cn.webp">
-  <img alt="Motrix 下载任务" src="./screenshots/motrix-downloads-cn.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-cn-light.webp">
+  <img alt="Motrix 下载任务" src="./screenshots/motrix-downloads-cn-light.webp">
 </picture>
 
 ### 设置
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-cn-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-cn.webp">
-  <img alt="Motrix 设置" src="./screenshots/motrix-settings-cn.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-cn-light.webp">
+  <img alt="Motrix 设置" src="./screenshots/motrix-settings-cn-light.webp">
 </picture>
 
 ## ✨ 主要功能

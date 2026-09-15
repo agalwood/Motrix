@@ -36,25 +36,25 @@ account, machine, or Docker data directory.
 ### Dashboard
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard.webp">
-  <img alt="Motrix Dashboard" src="./screenshots/motrix-dashboard.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-en-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-en-light.webp">
+  <img alt="Motrix Dashboard" src="./screenshots/motrix-dashboard-en-light.webp">
 </picture>
 
 ### Downloads
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads.webp">
-  <img alt="Motrix Downloads" src="./screenshots/motrix-downloads.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-en-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-en-light.webp">
+  <img alt="Motrix Downloads" src="./screenshots/motrix-downloads-en-light.webp">
 </picture>
 
 ### Settings
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings.webp">
-  <img alt="Motrix Settings" src="./screenshots/motrix-settings.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-en-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-en-light.webp">
+  <img alt="Motrix Settings" src="./screenshots/motrix-settings-en-light.webp">
 </picture>
 
 ## ✨ Features
