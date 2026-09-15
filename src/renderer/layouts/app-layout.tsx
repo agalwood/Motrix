@@ -7,6 +7,8 @@ import { AddTaskTriggerButton } from '@renderer/components/window-chrome/add-tas
 import { MotrixMenuButton } from '@renderer/components/window-chrome/motrix-menu-button'
 import { SidebarTriggerButton } from '@renderer/components/window-chrome/sidebar-trigger-button'
 import { WindowChrome } from '@renderer/components/window-chrome/window-chrome'
+import { DesktopMenuActions } from '@renderer/features/application-menu/desktop-menu-actions'
+import { MenuNavigationFocus } from '@renderer/features/application-menu/navigation-focus'
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
 import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restart-required-toast'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
@@ -18,17 +20,20 @@ import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
+import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
 import { usePairRequestPrompts } from '@renderer/routes/settings/cards/integration/use-pair-request-prompts'
-import { useShortcuts } from '@renderer/shortcuts/use-shortcuts'
 import { Events } from '@shared/protocol/events'
 import { Outlet, useMatches, useNavigate } from 'react-router'
 
 const platformServices =
   __MOTRIX_TARGET__ === 'electron' ? electronServices : webServices
 
-export function AppLayout() {
+function DesktopMenuContext() {
   useMenuContextSync()
-  useShortcuts()
+  return <DesktopMenuActions />
+}
+
+export function AppLayout() {
   useToastEvents()
   usePairRequestPrompts()
   useEngineRestartRequiredToast()
@@ -55,6 +60,7 @@ export function AppLayout() {
         <SidebarProvider
           className={cn(
             'h-svh overflow-hidden bg-sidebar',
+            __MOTRIX_TARGET__ === 'web' && 'web-window-chrome',
             __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome',
             __MOTRIX_TARGET__ === 'electron' &&
               __MOTRIX_PREVIEW_MAC_MENU__ &&
@@ -92,6 +98,9 @@ export function AppLayout() {
             <Outlet />
           </SidebarInset>
         </SidebarProvider>
+        {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
+        <MenuNavigationFocus />
+        <RemoveTasksDialogHost />
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
       </PlatformServicesProvider>

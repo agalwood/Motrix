@@ -77,7 +77,7 @@ function Root({
 }
 
 async function startRenderer(rootContainer: HTMLElement): Promise<void> {
-  await bootstrapRendererLocale(windowId)
+  if (transport.platform !== 'web') await bootstrapRendererLocale(windowId)
   const root = createRoot(rootContainer)
 
   if (windowId === 'add-task') {
@@ -98,11 +98,11 @@ async function startRenderer(rootContainer: HTMLElement): Promise<void> {
     )
   } else {
     root.render(
-      <Root>
-        <OperatorUnlockGate>
+      <OperatorUnlockGate>
+        <Root>
           <RouterProvider router={router} />
-        </OperatorUnlockGate>
-      </Root>
+        </Root>
+      </OperatorUnlockGate>
     )
   }
 }

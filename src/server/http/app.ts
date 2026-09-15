@@ -64,7 +64,16 @@ export async function createApp(
   // Register the deny-by-default operator gate FIRST so its onRequest hook runs
   // before every route (including /api/* added by the caller post-createApp and
   // the /rpc/events WS upgrade).
-  if (opts.operatorAuth) registerOperatorAuth(app, opts.operatorAuth)
+  const operatorSessions = opts.operatorAuth
+    ? registerOperatorAuth(app, opts.operatorAuth)
+    : undefined
+  if (!operatorSessions) {
+    app.get('/rpc/auth/status', async () => ({
+      authed: true,
+      mode: 'unrestricted',
+      canLogout: false,
+    }))
+  }
   const commands = opts.commandHandlers ?? {}
   const queries = opts.queryHandlers ?? {}
   const bridgeCommands = opts.bridgeCommandHandlers ?? {}
@@ -147,9 +156,13 @@ export async function createApp(
       app.addHook('onClose', async () => unsubscribePluginLogs())
     }
     await app.register(websocket)
-    app.get('/rpc/events', { websocket: true }, (socket) => {
-      broadcaster.register(socket)
-      const cleanup = () => broadcaster.unregister(socket)
+    app.get('/rpc/events', { websocket: true }, (socket, request) => {
+      const session = operatorSessions?.bindSocket(request, socket)
+      broadcaster.register(socket, session?.eligible)
+      const cleanup = () => {
+        broadcaster.unregister(socket)
+        session?.dispose()
+      }
       socket.on('close', cleanup)
       socket.on('error', cleanup)
     })

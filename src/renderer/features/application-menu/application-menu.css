@@ -1,0 +1,20 @@
+.application-menu {
+  min-width: min(224px, calc(100vw - 16px));
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: min(var(--available-height), calc(100dvh - 16px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (pointer: coarse) {
+  .application-menu[data-menu-density="compact"] [role^="menuitem"] {
+    min-height: 40px;
+  }
+  .window-chrome [data-slot="motrix-menu-trigger"],
+  .window-chrome [data-slot="window-chrome-actions"] button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  .window-chrome [data-slot="window-chrome-actions"] {
+    gap: 4px;
+  }
+}

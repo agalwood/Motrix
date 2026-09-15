@@ -113,6 +113,7 @@ export const Events = {
   // Payload: EngineCompatibilityWarningPayload. Internal shell signal; the
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
+  RendererTaskMenuRequested: 'event:rendererTaskMenuRequested',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
   // No payload; only the main window's current Downloads list handles this.
   // Sent directly by the desktop shell, never through the core event bus.

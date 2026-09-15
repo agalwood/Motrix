@@ -1,3 +1,4 @@
+import { registerDownloadsMenuContext } from '@renderer/features/application-menu/task-context'
 import './downloads-list.css'
 import { useSelectableList } from '@renderer/components/desktop-kit/hooks/use-selectable-list'
 import { MarqueeOverlay } from '@renderer/components/desktop-kit/marquee-selection/marquee-overlay'
@@ -61,6 +62,14 @@ export function TaskListPanel({
     })
   }, [tasks, sorted, frozenIds])
   const gridRef = useRef<HTMLDivElement>(null)
+  useEffect(
+    () =>
+      registerDownloadsMenuContext(
+        () => gridRef.current?.focus({ preventScroll: true }),
+        `${filter}:${search}`
+      ),
+    [filter, search]
+  )
   const [active, setActive] = useState(false)
   const pointerFocus = useRef(false)
   const [keyboardFocus, setKeyboardFocus] = useState(false)
@@ -90,6 +99,7 @@ export function TaskListPanel({
       : state.items[state.focusedIndex]?.id
   )
   useIpcEvent(Events.TaskSelectAll, () => {
+    if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
     selection.getState().selectAll()
     window.getSelection()?.removeAllRanges()
     pointerFocus.current = true

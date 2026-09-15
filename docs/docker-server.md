@@ -426,6 +426,36 @@ not publish MDXP, and forwarding only 16801 does not serve the approval UI.
 These protections must not be implemented by disabling pairing; remote
 CLI/agent and browser-Extension pairing remain operator-approved workflows.
 
+## Logo menu in the Web UI
+
+Open the **Motrix** logo at the upper left for About, Settings, Task, Help,
+and **Sign out**. Narrow screens show one menu level at a time; use **Back**,
+Left Arrow, or Escape to return to the parent level.
+
+- **New Task** opens links; **New BitTorrent Task** opens the torrent form.
+  **Open Torrent File** reads `.torrent` files from the device running your
+  browser, supports multiple files, and lets you review each before submitting.
+  The download destination is a path on the Server. See [torrent upload
+  size](#torrent-upload-size) for the configurable request limit.
+- Pause, resume, remove, and queue commands apply to the committed selection
+  in the current filtered downloads list. **Select all tasks** includes rows
+  outside the visible viewport. Changing the selection or filter cancels a
+  pending selection command.
+- **Pause All** and **Resume All** affect the whole instance. **Clear stopped
+  task records** confirms the current completed, error, and removed records
+  and keeps downloaded files. Newly stopped tasks are left for a later clear.
+- Closing an edited task form asks before discarding the draft. A submission
+  in progress keeps its form open. Temporary disconnections preserve drafts
+  and disable remote task commands until a fresh connection and snapshot return.
+- **Sign out** is shown for browser cookie sessions. Confirmation ends that
+  session in all tabs sharing its cookie and clears their private UI state.
+  Server downloads continue; independent browser sessions and Bearer clients
+  stay connected. Network failures alone do not sign you out.
+
+Browser shortcuts such as Ctrl/Cmd+N, L, O, and B keep their browser behavior.
+Task selection and removal shortcuts operate only within the focused downloads
+list, and text inputs retain their editing shortcuts.
+
 ## Download paths and plugins
 
 The image defaults are:

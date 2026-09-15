@@ -54,9 +54,9 @@ describe('openMagnetFileSelection', () => {
 
   it('does not reset edits if the matching selection is already displayed', async () => {
     showMagnetFileSelection(selection)
-    useAddTaskDialogStore
-      .getState()
-      .openWith({ existingTaskId: 'ready', tab: 'torrent', selectedFiles: [1] })
+    useAddTaskDialogStore.setState({
+      prefill: { existingTaskId: 'ready', tab: 'torrent', selectedFiles: [1] },
+    })
     const revision = useAddTaskDialogStore.getState().revision
     await openMagnetFileSelection('ready')
     expect(useAddTaskDialogStore.getState().revision).toBe(revision)

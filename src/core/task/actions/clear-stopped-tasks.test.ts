@@ -96,6 +96,23 @@ function createDeps(initial: readonly DownloadTask[]) {
 }
 
 describe('clearStoppedTasks', () => {
+  it('clears only frozen candidate IDs, preserving newly stopped tasks and files', async () => {
+    const { deps, tasks } = createDeps([
+      task('first', TaskStatus.Completed),
+      task('later', TaskStatus.Completed),
+      task('finalizing', TaskStatus.Finalizing),
+    ])
+    expect(await clearStoppedTasks(deps, ['first', 'finalizing'])).toEqual({
+      succeeded: ['first'],
+      failed: [],
+    })
+    expect([...tasks.keys()]).toEqual(['later', 'finalizing'])
+    expect(deps.adapter.removeDownloadResults).toHaveBeenCalledWith([
+      'gid-first',
+    ])
+    expect(deps.db.deleteTasks).toHaveBeenCalledWith(['first'])
+  })
+
   it('deletes Completed, Error, and Removed while retaining active tasks', async () => {
     const { deps, tasks } = createDeps([
       task('active', TaskStatus.Downloading),

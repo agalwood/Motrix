@@ -1,3 +1,7 @@
+import {
+  refreshOperatorSession,
+  useOperatorSession,
+} from '@renderer/lib/operator-auth'
 import { ErrorCode } from '@shared/errors'
 import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import {
@@ -58,6 +62,14 @@ export class HttpWsTransport implements Transport {
     this.WSCtor =
       opts.WebSocketCtor ??
       (typeof WebSocket !== 'undefined' ? WebSocket : undefined)
+    useOperatorSession.subscribe((state, previous) => {
+      if (state.state === 'locked') this.stopSocket()
+      else if (
+        state.state === 'authenticated' &&
+        previous.state !== 'authenticated'
+      )
+        this.ensureSocket()
+    })
     this.reconnectDelaysMs =
       opts.reconnectDelaysMs?.length === 0
         ? [0]
@@ -65,6 +77,9 @@ export class HttpWsTransport implements Transport {
   }
 
   async invoke(channel: AnyChannel, ...args: unknown[]): Promise<unknown> {
+    const session = useOperatorSession.getState()
+    if (session.state === 'locked' || session.state === 'logging-out')
+      throw new Error('Operator session is locked')
     const kind = rpcKindFor(channel)
     const isInspectorActivity = channel === Queries.GetTaskInspectorActivity
     const res = await this.fetchFn(
@@ -78,6 +93,7 @@ export class HttpWsTransport implements Transport {
         body: JSON.stringify({ args }),
       }
     )
+    if (res.status === 401) void refreshOperatorSession(session.epoch)
     if (!res.ok) {
       if (isInspectorActivity) {
         throw new TransportError(
@@ -111,6 +127,10 @@ export class HttpWsTransport implements Transport {
     if (!this.hasEventListeners()) this.stopSocket()
   }
 
+  getConnectionState(): TransportConnectionState {
+    return this.connectionState
+  }
+
   onConnectionChange(cb: TransportConnectionListener): () => void {
     this.connectionListeners.add(cb)
     return () => {
@@ -126,6 +146,8 @@ export class HttpWsTransport implements Transport {
 
   private ensureSocket(): void {
     if (
+      useOperatorSession.getState().state === 'locked' ||
+      useOperatorSession.getState().state === 'logging-out' ||
       this.socket ||
       this.reconnectTimer !== null ||
       !this.WSCtor ||
@@ -163,6 +185,7 @@ export class HttpWsTransport implements Transport {
       if (!this.isCurrentSocket(socket, epoch)) return
       this.socket = null
       this.publishConnectionState('disconnected')
+      void refreshOperatorSession()
       this.scheduleReconnect()
     })
   }

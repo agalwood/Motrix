@@ -1826,13 +1826,13 @@
       "taskList": "任务列表",
       "pauseTask": "暂停",
       "resumeTask": "继续",
-      "deleteTask": "删除",
-      "moveTaskUp": "上移",
-      "moveTaskDown": "下移",
+      "deleteTask": "移除任务…",
+      "moveTaskUp": "在队列中上移",
+      "moveTaskDown": "在队列中下移",
       "pauseAllTask": "全部暂停",
       "resumeAllTask": "全部继续",
-      "selectAllTask": "全选",
-      "clearRecentTasks": "清除最近任务"
+      "selectAllTask": "全选任务",
+      "clearRecentTasks": "清空已停止的任务记录…"
     },
     "edit": {
       "title": "编辑",
@@ -2384,5 +2384,21 @@
       "rowUnreadAria": "{{title}}（未读）",
       "toastRegionAria": "通知"
     }
+  },
+  "applicationMenu": {
+    "signOut": "退出登录…",
+    "back": "返回",
+    "serverUnavailable": "暂时无法连接服务器。当前会话尚未退出。",
+    "retry": "重试",
+    "actionFailed": "操作未完成，请检查连接后重试。",
+    "clearTitle": "清空已停止的任务记录？",
+    "clearDescription": "清除此对话框打开时已完成、失败或移除的任务记录，保留磁盘上的下载文件。",
+    "clearConfirm": "清空记录",
+    "logoutTitle": "退出此服务器？",
+    "logoutDescription": "使用同一浏览器会话的其他标签页也会退出。服务器上的下载会继续，这些标签页中未保存的输入将被丢弃。",
+    "logoutConfirm": "退出登录",
+    "discardTitle": "丢弃此任务草稿？",
+    "discardDescription": "未保存的链接、种子选择和设置将被丢弃。",
+    "discardConfirm": "丢弃"
   }
 }

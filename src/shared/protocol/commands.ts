@@ -8,6 +8,9 @@ export const Commands = {
   // renderer request per multi-select action instead of one per task.
   // Renderer-IPC only — deliberately NOT MDXP methods; extensions and the
   // CLI keep driving the singular task/* wire methods.
+  PauseAllTasks: 'command:pauseAllTasks',
+  ResumeAllTasks: 'command:resumeAllTasks',
+  ClearStoppedTasks: 'command:clearStoppedTasks',
   PauseTasks: 'command:pauseTasks',
   ResumeTasks: 'command:resumeTasks',
   MoveTasks: 'command:moveTasks',

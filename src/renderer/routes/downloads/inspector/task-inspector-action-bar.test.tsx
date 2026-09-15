@@ -1,8 +1,28 @@
+import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
+import { useRemoveTasksStore } from '@renderer/routes/downloads/inspector/remove-tasks-store'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  fireEvent,
+  render as renderBase,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+function render(element: ReactElement) {
+  return renderBase(
+    <>
+      <RemoveTasksDialogHost />
+      {element}
+    </>
+  )
+}
+beforeEach(() =>
+  useRemoveTasksStore.setState({ open: false, targets: [], busy: false })
+)
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn().mockResolvedValue({ ok: true }) },

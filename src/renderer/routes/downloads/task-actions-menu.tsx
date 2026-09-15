@@ -38,7 +38,6 @@ import {
 import { useTranslation } from 'react-i18next'
 import { DownloadsToolbarButton } from './downloads-toolbar-button'
 import { canRevealTaskFolder } from './inspector/can-reveal-task-folder'
-import { RemoveTasksDialog } from './inspector/remove-tasks-dialog'
 import { copyTaskUrls } from './inspector/task-copy-url'
 import { taskErrorReport } from './inspector/task-error-report'
 import { useTaskActions } from './inspector/use-task-actions'
@@ -427,58 +426,9 @@ export function TaskActionsMenu({
       <DropdownMenuGroup>{group.content}</DropdownMenuGroup>
     </Fragment>
   ))
-  const dialog = (
-    <RemoveTasksDialog
-      open={actions.removeDialog.open}
-      selected={actions.removeTargets}
-      preCheckDeleteFiles={actions.removeDialog.preCheckDeleteFiles}
-      onOpenChange={(open) => {
-        if (!open) actions.closeRemoveDialog()
-      }}
-      onConfirm={(deleteFiles) => void actions.confirmRemove(deleteFiles)}
-    />
-  )
   if (children)
     return (
-      <>
-        <ContextMenu
-          open={menuOpen}
-          onOpenChange={(open) => {
-            if (open) prepare()
-            else setTargetIds(null)
-            setMenuOpen(open)
-          }}
-        >
-          <ContextMenuTrigger
-            render={children}
-            onKeyDownCapture={handleShortcut}
-            onCopyCapture={handleCopy}
-            onContextMenuCapture={(event) => {
-              const row = (event.target as Element).closest<HTMLElement>(
-                '[data-task-id]'
-              )
-              if (!row?.dataset.taskId) return
-              const state = selection.getState()
-              if (!state.selectedIds.has(row.dataset.taskId))
-                state.select(row.dataset.taskId)
-              state.focus(row.dataset.taskId)
-              prepare()
-            }}
-          />
-          <ContextMenuContent
-            onKeyDownCapture={handleShortcut}
-            onCopyCapture={handleCopy}
-            className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
-          >
-            {items}
-          </ContextMenuContent>
-        </ContextMenu>
-        {dialog}
-      </>
-    )
-  return (
-    <>
-      <DropdownMenu
+      <ContextMenu
         open={menuOpen}
         onOpenChange={(open) => {
           if (open) prepare()
@@ -486,30 +436,62 @@ export function TaskActionsMenu({
           setMenuOpen(open)
         }}
       >
-        <DropdownMenuTrigger
+        <ContextMenuTrigger
+          render={children}
           onKeyDownCapture={handleShortcut}
           onCopyCapture={handleCopy}
-          render={
-            <DownloadsToolbarButton
-              aria-label={t('panel.downloads.view.taskActions')}
-              title={t('panel.downloads.view.taskActions')}
-              ref={triggerRef}
-            />
-          }
-        >
-          <Ellipsis className="size-4" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
+          onContextMenuCapture={(event) => {
+            const row = (event.target as Element).closest<HTMLElement>(
+              '[data-task-id]'
+            )
+            if (!row?.dataset.taskId) return
+            const state = selection.getState()
+            if (!state.selectedIds.has(row.dataset.taskId))
+              state.select(row.dataset.taskId)
+            state.focus(row.dataset.taskId)
+            prepare()
+          }}
+        />
+        <ContextMenuContent
           onKeyDownCapture={handleShortcut}
           onCopyCapture={handleCopy}
-          align="end"
-          data-menu-density="compact"
           className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
         >
           {items}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {dialog}
-    </>
+        </ContextMenuContent>
+      </ContextMenu>
+    )
+  return (
+    <DropdownMenu
+      open={menuOpen}
+      onOpenChange={(open) => {
+        if (open) prepare()
+        else setTargetIds(null)
+        setMenuOpen(open)
+      }}
+    >
+      <DropdownMenuTrigger
+        onKeyDownCapture={handleShortcut}
+        onCopyCapture={handleCopy}
+        render={
+          <DownloadsToolbarButton
+            aria-label={t('panel.downloads.view.taskActions')}
+            title={t('panel.downloads.view.taskActions')}
+            ref={triggerRef}
+          />
+        }
+      >
+        <Ellipsis className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        onKeyDownCapture={handleShortcut}
+        onCopyCapture={handleCopy}
+        align="end"
+        data-menu-density="compact"
+        className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
+      >
+        {items}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

@@ -21,6 +21,14 @@ vi.mock('@renderer/lib/transport', () => ({
   },
 }))
 
+vi.mock('@renderer/features/application-menu/task-context', () => ({
+  captureTaskMenuIntent: () => ({
+    generation: 0,
+    ids: [],
+    selection: new Set(),
+  }),
+}))
+
 vi.mock('@renderer/hooks/use-application-menu', () => ({
   useApplicationMenu: mocks.useApplicationMenu,
 }))
@@ -241,6 +249,7 @@ describe('MotrixMenuButton', () => {
       itemId: 'app.about',
       revision: 7,
       trigger: 'menu',
+      selectedTaskGeneration: 0,
       selectedTaskId: null,
       modifiers: { alt: true, control: true, meta: false, shift: true },
     })

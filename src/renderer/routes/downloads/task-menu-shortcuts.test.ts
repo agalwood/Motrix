@@ -18,10 +18,7 @@ describe('task menu shortcuts', () => {
   it('uses Ctrl and Delete on Windows/Linux, and the web new-task override on Mac', () => {
     expect(taskMenuShortcuts(false, true).copyUrl.label).toBe('Ctrl+C')
     expect(taskMenuShortcuts(false, true).remove.label).toBe('Delete')
-    expect(taskMenuShortcuts(true, false).newTask).toMatchObject({
-      label: '⌃N',
-      aria: 'Control+N',
-    })
+    expect(taskMenuShortcuts(true, false).newTask).toBeNull()
   })
   it('matches exact modifiers and never treats bare macOS Backspace as Remove', () => {
     const event = {

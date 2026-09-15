@@ -9,6 +9,7 @@ import {
 } from '@renderer/components/ui/dialog'
 import { Input } from '@renderer/components/ui/input'
 import { WindowChromeCaptionIcon } from '@renderer/components/window-chrome/window-chrome'
+import { MenuConfirmation } from '@renderer/features/application-menu/menu-confirmation'
 import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { PlatformServicesProvider } from '@renderer/platform/services'
@@ -41,9 +42,27 @@ export function AddTaskDialogHost() {
   const { t } = useTranslation()
   const open = useAddTaskDialogStore((s) => s.open)
   const revision = useAddTaskDialogStore((s) => s.revision)
+  const torrentFiles = useAddTaskDialogStore((s) => s.torrentFiles)
+  const [draft, setDraft] = useState({ dirty: false, busy: false })
+  const [discard, setDiscard] = useState(false)
+  const onDraftStateChange = useCallback(
+    (dirty: boolean, busy: boolean) => setDraft({ dirty, busy }),
+    []
+  )
   const prefill = useAddTaskDialogStore((s) => s.prefill)
   const openWith = useAddTaskDialogStore((s) => s.openWith)
   const close = useAddTaskDialogStore((s) => s.close)
+  const requestClose = useCallback(() => {
+    if (draft.busy) return
+    if (draft.dirty) setDiscard(true)
+    else close()
+  }, [draft, close])
+  useEffect(() => {
+    if (!open) {
+      setDraft({ dirty: false, busy: false })
+      setDiscard(false)
+    }
+  }, [open])
   const navigate = useNavigate()
   const dialogRef = useRef<HTMLDivElement>(null)
   const {
@@ -85,9 +104,9 @@ export function AddTaskDialogHost() {
 
   // Register the web close handler so webServices.closeHost() works.
   useEffect(() => {
-    __setWebCloseHandler(() => useAddTaskDialogStore.getState().close())
+    __setWebCloseHandler(requestClose)
     return () => __setWebCloseHandler(null)
-  }, [])
+  }, [requestClose])
 
   // Global event subscription — even when Dialog is closed.
   useEffect(() => {
@@ -142,7 +161,7 @@ export function AddTaskDialogHost() {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => !v && close()}>
+      <Dialog open={open} onOpenChange={(v) => !v && requestClose()}>
         <DialogContent
           ref={dialogRef}
           showCloseButton={false}
@@ -162,14 +181,17 @@ export function AddTaskDialogHost() {
             <AddTaskForm
               key={revision}
               defaultValues={prefill}
+              initialTorrentFiles={torrentFiles}
+              onDraftStateChange={onDraftStateChange}
               onSubmitSuccess={onSubmitSuccess}
-              onCancel={close}
+              onCancel={requestClose}
               onAdvancedOpenChange={onAdvancedOpenChange}
               presentation="dialog"
               subscribeEvents={false}
             />
           </PlatformServicesProvider>
           <DialogClose
+            disabled={draft.busy}
             aria-label={t('chrome.close')}
             className="app-no-drag absolute top-3.5 right-3.5 flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground outline-none transition-colors [&>svg]:opacity-65 hover:bg-accent hover:text-accent-foreground hover:[&>svg]:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:[&>svg]:opacity-90 dark:hover:bg-accent/50"
           >
@@ -177,6 +199,20 @@ export function AddTaskDialogHost() {
           </DialogClose>
         </DialogContent>
       </Dialog>
+      <MenuConfirmation
+        request={
+          discard
+            ? {
+                kind: 'discard',
+                run: async () => {
+                  setDiscard(false)
+                  close()
+                },
+              }
+            : null
+        }
+        close={() => setDiscard(false)}
+      />
       <WebPathPickerDialog />
     </>
   )

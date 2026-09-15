@@ -54,9 +54,17 @@ function snapshotCandidates(tasks: readonly DownloadTask[]): Candidate[] {
 }
 
 export async function clearStoppedTasks(
-  deps: ClearStoppedTasksDeps
-): Promise<void> {
-  const candidates = snapshotCandidates(deps.taskManager.getAll())
+  deps: ClearStoppedTasksDeps,
+  taskIds?: readonly string[]
+): Promise<{
+  succeeded: string[]
+  failed: { taskId: string; reason: string }[]
+}> {
+  const allowed = taskIds ? new Set(taskIds) : null
+  const candidates = snapshotCandidates(
+    deps.taskManager.getAll().filter((task) => !allowed || allowed.has(task.id))
+  )
+  const succeeded: string[] = []
   const cleaned: Candidate[] = []
 
   // One engine round-trip for every gid of every candidate, flattened in
@@ -141,6 +149,7 @@ export async function clearStoppedTasks(
       } else {
         deleteParents()
       }
+      succeeded.push(...ids)
       deps.publishTaskUpdateNow()
       return ids.length
     })
@@ -153,4 +162,14 @@ export async function clearStoppedTasks(
     { candidateCount: candidates.length, count },
     'clearStoppedTasks removed terminal tasks'
   )
+  const removed = new Set(succeeded)
+  return {
+    succeeded,
+    failed: candidates
+      .filter((c) => !removed.has(c.id))
+      .map((c) => ({
+        taskId: c.id,
+        reason: 'Task changed or engine cleanup failed',
+      })),
+  }
 }

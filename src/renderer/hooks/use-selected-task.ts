@@ -1,4 +1,6 @@
+import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import type { DownloadTask } from '@shared/types/task'
+import { useMemo } from 'react'
 
 export interface SelectedTaskSnapshot {
   task: DownloadTask | null
@@ -6,19 +8,18 @@ export interface SelectedTaskSnapshot {
   atBottom: boolean
 }
 
-const NONE: SelectedTaskSnapshot = {
-  task: null,
-  atTop: false,
-  atBottom: false,
-}
-
-/**
- * Returns the currently-selected download task.
- * Today the renderer has no task-list UI or selection store, so this
- * always returns the "none" snapshot. Wire the real selection source
- * in (or alongside) the download-list UI work; when done, this hook's
- * contract (task + atTop + atBottom) is what useMenuContextSync consumes.
- */
 export function useSelectedTask(): SelectedTaskSnapshot {
-  return NONE
+  const signature = useDownloadsSelection((state) => {
+    const task = state.items.find((task) =>
+      state.committedSelectedIds.has(task.id)
+    )
+    return JSON.stringify([task?.id, task?.status])
+  })
+  return useMemo(() => {
+    const [id] = JSON.parse(signature)
+    const task =
+      useDownloadsSelection.getState().items.find((task) => task.id === id) ??
+      null
+    return { task, atTop: false, atBottom: false }
+  }, [signature])
 }

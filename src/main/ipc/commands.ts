@@ -42,9 +42,12 @@ import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
+  clearStoppedTasks,
+  pauseAllTasks,
   pauseTask,
   reAddTask,
   removeTask,
+  resumeAllTasks,
   resumeTask,
   runBulkTaskAction,
   stopSeedingTask,
@@ -673,6 +676,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // runBulkTaskAction forces one immediate snapshot flush.
     [Commands.MoveTasks]: async (rawPayload: unknown) =>
       moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
+
+    [Commands.PauseAllTasks]: async () =>
+      toBulkTaskCommandResult(await pauseAllTasks(pauseResumeDeps)),
+    [Commands.ResumeAllTasks]: async () =>
+      toBulkTaskCommandResult(await resumeAllTasks(pauseResumeDeps)),
+    [Commands.ClearStoppedTasks]: async (rawPayload: unknown) =>
+      clearStoppedTasks(removeDeps, taskIdsPayloadSchema.parse(rawPayload)),
 
     [Commands.PauseTasks]: async (rawPayload: unknown) => {
       const taskIds = taskIdsPayloadSchema.parse(rawPayload)

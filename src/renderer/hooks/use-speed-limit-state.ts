@@ -1,3 +1,4 @@
+import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -66,3 +67,7 @@ export function useSpeedLimitState(): SpeedLimitStateView {
 
   return state
 }
+
+onOperatorSessionLost(() => {
+  cachedState = null
+})

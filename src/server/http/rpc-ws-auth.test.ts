@@ -12,13 +12,16 @@ describe('/rpc/events WebSocket auth', () => {
   let app: FastifyInstance
   let bus: EventBus
   let port: number
+  let now: number
 
   beforeEach(async () => {
+    now = 1_000
     bus = new EventBus()
     app = await createApp({
       eventBus: bus,
       operatorAuth: {
         operatorToken: TOKEN,
+        now: () => now,
         publicUrl: 'https://motrix.example/operator',
       },
     })
@@ -83,5 +86,55 @@ describe('/rpc/events WebSocket auth', () => {
     const ws = await connect({ authorization: `Bearer ${TOKEN}` })
     expect(ws.readyState).toBe(WebSocket.OPEN)
     ws.close()
+  })
+  it('revokes every socket owned by the logged-out cookie before further broadcasts', async () => {
+    const session = await cookie()
+    const sockets = await Promise.all([
+      connect({ cookie: session, origin: 'https://motrix.example' }),
+      connect({ cookie: session, origin: 'https://motrix.example' }),
+    ])
+    const independent = await connect({
+      cookie: await cookie(),
+      origin: 'https://motrix.example',
+    })
+    const bearer = await connect({ authorization: `Bearer ${TOKEN}` })
+    const received: string[] = []
+    for (const ws of sockets)
+      ws.on('message', (data) => received.push(String(data)))
+    const closed = sockets.map(
+      (ws) => new Promise<number>((resolve) => ws.once('close', resolve))
+    )
+    await app.inject({
+      method: 'POST',
+      url: '/rpc/auth/logout',
+      headers: { cookie: session },
+    })
+    const unaffected = [independent, bearer].map(
+      (ws) => new Promise<unknown>((resolve) => ws.once('message', resolve))
+    )
+    bus.emit(Events.TaskUpdated, { id: 'after-logout' })
+    expect(await Promise.all(closed)).toEqual([4401, 4401])
+    await Promise.all(unaffected)
+    expect(received).toEqual([])
+    independent.close()
+    bearer.close()
+  })
+
+  it('does not renew the cookie on broadcasts and suppresses the first expired frame', async () => {
+    const ws = await connect({
+      cookie: await cookie(),
+      origin: 'https://motrix.example',
+    })
+    now += 6 * 24 * 60 * 60 * 1000
+    const first = new Promise<unknown>((resolve) => ws.once('message', resolve))
+    bus.emit(Events.TaskUpdated, { id: 'still-valid' })
+    await first
+    const received: string[] = []
+    ws.on('message', (data) => received.push(String(data)))
+    const closed = new Promise<number>((resolve) => ws.once('close', resolve))
+    now += 24 * 60 * 60 * 1000
+    bus.emit(Events.TaskUpdated, { id: 'expired' })
+    expect(await closed).toBe(4401)
+    expect(received).toEqual([])
   })
 })

@@ -191,7 +191,7 @@ export function WindowChrome({
     !previewDesktopControls &&
     !windowState.fullscreen
   const offsetStartActionsForDesktopMenu =
-    showDesktopControls && leading != null && actionsPosition === 'start'
+    leading != null && actionsPosition === 'start'
 
   const containerStyle: React.CSSProperties = {
     height: DESKTOP_WINDOW_CHROME_HEIGHT,
