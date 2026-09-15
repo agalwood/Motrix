@@ -10,6 +10,12 @@ import {
   AlertDialogTitle,
 } from '@renderer/components/ui/alert-dialog'
 import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -556,25 +562,29 @@ export function AddTaskForm({
   return (
     <AddTaskLayoutProvider onAdvancedOpenChange={onAdvancedOpenChange}>
       <FormProvider {...form}>
-        <div
+        <ScrollArea
           data-slot="add-task-form-body"
-          className={cn(
-            'flex flex-col overflow-y-auto',
-            presentation === 'dialog'
-              ? 'min-h-0 flex-auto'
-              : 'max-h-[calc(100vh-40px)]'
-          )}
+          className={cn(presentation === 'dialog' ? 'flex-auto' : 'flex-1')}
         >
-          <div
-            data-adaptive-content
-            className={cn(
-              'px-4 pt-2',
-              presentation === 'dialog' ? 'pb-4' : 'pb-[72px]'
-            )}
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="overscroll-contain focus-visible:ring-0"
           >
-            <TabsSection onTorrentFilesLoaded={handleLocalTorrentFilesLoaded} />
-          </div>
-        </div>
+            <ScrollAreaContent
+              data-adaptive-content
+              className={cn(
+                'px-4 pt-2',
+                presentation === 'dialog' ? 'pb-4' : 'pb-[72px]'
+              )}
+              style={{ minWidth: '100%' }}
+            >
+              <TabsSection
+                onTorrentFilesLoaded={handleLocalTorrentFilesLoaded}
+              />
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
         <div
           data-slot="add-task-form-footer"
           className={cn(

@@ -4,6 +4,7 @@ import { Queries } from '../../src/shared/protocol/queries'
 
 async function seed(page: Page, query = '') {
   await page.goto(`/${query}`)
+  await page.waitForFunction(() => !!window.directoryPickerFixture)
   await page.evaluate(() =>
     window.directoryPickerFixture.setPreferences({
       favorites: ['/archive'],

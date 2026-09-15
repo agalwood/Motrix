@@ -20,6 +20,13 @@ import {
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
 import { Input } from '@renderer/components/ui/input'
+import { InputGroup } from '@renderer/components/ui/input-group'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import {
@@ -27,9 +34,9 @@ import {
   type PickRequest,
 } from '@renderer/platform/web-services'
 import {
-  ArrowLeft,
-  ArrowRight,
   ArrowUp,
+  ChevronLeft,
+  ChevronRight,
   Folder,
   Pencil,
   RefreshCw,
@@ -55,6 +62,7 @@ import {
   DirectoryPickerController,
 } from './directory-picker-controller'
 import { type DirectorySort, sortDirectoryEntries } from './directory-sort'
+import './web-directory-picker.css'
 
 const ROW_HEIGHT = 32
 const EMPTY_ENTRIES: DirectoryEntry[] = []
@@ -464,54 +472,70 @@ function PickerSession({ request, controller }: Session) {
         data-testid="web-directory-picker"
       >
         {groups.length > 0 && (
-          <nav
-            ref={rootSidebarRef}
-            aria-label={t('directoryPicker.location')}
+          <ScrollArea
             data-testid="directory-picker-locations"
-            className="hidden w-40 shrink-0 flex-col gap-2 overflow-y-auto border-e bg-muted/40 p-2 sm:flex"
+            className="hidden w-40 shrink-0 border-e bg-muted/40 sm:block"
           >
-            {groups.map((group) => (
-              <div key={group.id} data-directory-location-group={group.id}>
-                <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
-                  {group.label}
-                </p>
-                {group.items.map((entry) => (
-                  <Button
-                    key={entry.path}
-                    data-directory-location
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'w-full justify-start gap-2 px-2 text-xs',
-                      activeLocation === entry.path &&
-                        'bg-accent text-accent-foreground'
-                    )}
-                    aria-disabled={locked || locationPending(entry.path)}
-                    disabled={locked}
-                    aria-label={entry.name}
-                    aria-current={
-                      activeLocation === entry.path ? 'location' : undefined
-                    }
-                    title={entry.path}
-                    onClick={() => controller.navigateLocation(entry.path)}
-                  >
-                    {group.id === 'favorites' ? (
-                      <Star className="size-4 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <Folder className="size-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span dir="ltr" className="truncate whitespace-pre">
-                      {entry.name}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-            ))}
-          </nav>
+            <ScrollAreaViewport tabIndex={-1} className="focus-visible:ring-0">
+              <ScrollAreaContent>
+                <nav
+                  ref={rootSidebarRef}
+                  aria-label={t('directoryPicker.location')}
+                  className="flex flex-col gap-2 p-2"
+                >
+                  {groups.map((group) => (
+                    <div
+                      key={group.id}
+                      data-directory-location-group={group.id}
+                    >
+                      <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
+                        {group.label}
+                      </p>
+                      {group.items.map((entry) => (
+                        <Button
+                          key={entry.path}
+                          data-directory-location
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            'w-full justify-start gap-2 px-2 text-xs',
+                            activeLocation === entry.path &&
+                              'bg-accent text-accent-foreground'
+                          )}
+                          aria-disabled={locked || locationPending(entry.path)}
+                          disabled={locked}
+                          aria-label={entry.name}
+                          aria-current={
+                            activeLocation === entry.path
+                              ? 'location'
+                              : undefined
+                          }
+                          title={entry.path}
+                          onClick={() =>
+                            controller.navigateLocation(entry.path)
+                          }
+                        >
+                          {group.id === 'favorites' ? (
+                            <Star className="size-4 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <Folder className="size-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span dir="ltr" className="truncate whitespace-pre">
+                            {entry.name}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                  ))}
+                </nav>
+              </ScrollAreaContent>
+            </ScrollAreaViewport>
+            <ScrollBar />
+          </ScrollArea>
         )}
         <div
           data-testid="directory-picker-main"
-          className="flex min-w-0 flex-1 flex-col"
+          className="directory-picker-pane flex min-w-0 flex-1 flex-col"
         >
           <div className="relative shrink-0 space-y-0.5 px-3 pt-3 pb-2 pe-11">
             <DialogTitle className="text-[13px]">
@@ -547,7 +571,7 @@ function PickerSession({ request, controller }: Session) {
               disabled={locked || state.historyIndex <= 0}
               onClick={() => controller.history(-1)}
             >
-              <ArrowLeft />
+              <ChevronLeft />
             </Button>
             <Button
               variant="ghost"
@@ -560,7 +584,7 @@ function PickerSession({ request, controller }: Session) {
               }
               onClick={() => controller.history(1)}
             >
-              <ArrowRight />
+              <ChevronRight />
             </Button>
             <Button
               variant="ghost"
@@ -609,49 +633,78 @@ function PickerSession({ request, controller }: Session) {
                   </Button>
                 </>
               ) : (
-                <>
-                  <nav
-                    aria-label={t('directoryPicker.path')}
-                    dir="ltr"
-                    className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto rounded-md border bg-background px-1"
-                  >
-                    {state.listing?.breadcrumbs.map((crumb, index) => (
-                      <span
-                        key={crumb.path}
-                        className="flex shrink-0 items-center"
-                      >
-                        {index > 0 &&
-                          state.listing?.breadcrumbs[index - 1]?.name !==
-                            '/' && (
-                            <span aria-hidden className="text-muted-foreground">
-                              /
-                            </span>
-                          )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 max-w-40 truncate px-1.5 text-xs"
-                          title={crumb.path}
-                          disabled={locked}
-                          onClick={() => controller.navigate(crumb.path)}
+                <InputGroup
+                  className="h-8 min-w-0 flex-1 gap-0.5 bg-background px-1 shadow-none"
+                  onClick={(event) => {
+                    if (
+                      !locked &&
+                      state.listing &&
+                      !(event.target as HTMLElement).closest(
+                        'button, [data-slot="scroll-area-scrollbar"]'
+                      )
+                    )
+                      controller.editPath()
+                  }}
+                >
+                  <ScrollArea className="h-7 min-w-0 flex-1">
+                    <ScrollAreaViewport
+                      tabIndex={-1}
+                      className="focus-visible:ring-0"
+                    >
+                      <ScrollAreaContent>
+                        <nav
+                          aria-label={t('directoryPicker.path')}
+                          dir="ltr"
+                          className="flex min-w-max items-center gap-0.5"
                         >
-                          {crumb.name}
-                        </Button>
-                      </span>
-                    ))}
-                    {!state.listing && <span className="h-7" />}
-                  </nav>
+                          {state.listing?.breadcrumbs.map((crumb, index) => (
+                            <span
+                              key={crumb.path}
+                              className="flex shrink-0 items-center"
+                            >
+                              {index > 0 &&
+                                state.listing?.breadcrumbs[index - 1]?.name !==
+                                  '/' && (
+                                  <span
+                                    aria-hidden
+                                    className="text-muted-foreground"
+                                  >
+                                    /
+                                  </span>
+                                )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 max-w-40 truncate px-1.5 text-xs focus-visible:ring-inset"
+                                title={crumb.path}
+                                disabled={locked}
+                                onClick={() => controller.navigate(crumb.path)}
+                              >
+                                {crumb.name}
+                              </Button>
+                            </span>
+                          ))}
+                          {!state.listing && <span className="h-7" />}
+                        </nav>
+                      </ScrollAreaContent>
+                    </ScrollAreaViewport>
+                    <ScrollBar
+                      orientation="horizontal"
+                      className="h-1.5 p-px"
+                    />
+                  </ScrollArea>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     aria-label={t('directoryPicker.goToFolder')}
                     title={`${t('directoryPicker.goToFolder')} (${mac ? '⌘ ⇧ G /' : '/'})`}
                     disabled={locked || !state.listing}
+                    className="size-6 shrink-0"
                     onClick={() => controller.editPath()}
                   >
                     <Pencil />
                   </Button>
-                </>
+                </InputGroup>
               )}
             </div>
             {request.allowFavoriteEditing !== false && (
@@ -831,182 +884,198 @@ function PickerSession({ request, controller }: Session) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {groups.length > 0 && (
-              <div className="flex shrink-0 items-center gap-3 border-b px-3 py-1.5 sm:hidden">
-                <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] sm:hidden">
-                  {t('directoryPicker.location')}
-                  <select
-                    ref={rootSelectRef}
-                    aria-label={t('directoryPicker.location')}
-                    disabled={locked}
-                    aria-disabled={
-                      locked ||
-                      (state.locationsLoading && !state.bootstrap?.paths.length)
-                    }
-                    value={activeLocation ?? ''}
-                    onChange={(event) =>
-                      controller.navigateLocation(event.target.value)
-                    }
-                    className="h-6 min-w-0 flex-1 rounded border bg-background px-1"
-                    dir="ltr"
-                  >
-                    <option value="" disabled>
-                      —
-                    </option>
-                    {groups.map((group) => (
-                      <optgroup key={group.id} label={group.label}>
-                        {group.items.map((entry) => (
-                          <option
-                            key={entry.path}
-                            value={entry.path}
-                            disabled={locationPending(entry.path)}
-                          >
-                            {entry.name}
-                          </option>
+          <ScrollArea className="min-h-0 flex-1">
+            <ScrollAreaViewport tabIndex={-1} className="focus-visible:ring-0">
+              <ScrollAreaContent className="flex h-full min-h-0 flex-col">
+                {groups.length > 0 && (
+                  <div className="flex shrink-0 items-center gap-3 border-b px-3 py-1.5 sm:hidden">
+                    <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] sm:hidden">
+                      {t('directoryPicker.location')}
+                      <select
+                        ref={rootSelectRef}
+                        aria-label={t('directoryPicker.location')}
+                        disabled={locked}
+                        aria-disabled={
+                          locked ||
+                          (state.locationsLoading &&
+                            !state.bootstrap?.paths.length)
+                        }
+                        value={activeLocation ?? ''}
+                        onChange={(event) =>
+                          controller.navigateLocation(event.target.value)
+                        }
+                        className="h-6 min-w-0 flex-1 rounded border bg-background px-1"
+                        dir="ltr"
+                      >
+                        <option value="" disabled>
+                          —
+                        </option>
+                        {groups.map((group) => (
+                          <optgroup key={group.id} label={group.label}>
+                            {group.items.map((entry) => (
+                              <option
+                                key={entry.path}
+                                value={entry.path}
+                                disabled={locationPending(entry.path)}
+                              >
+                                {entry.name}
+                              </option>
+                            ))}
+                          </optgroup>
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            )}
-            {state.locationsError && (
-              <div
-                role="status"
-                className="flex shrink-0 items-center gap-2 px-3 py-1 text-[11px] text-muted-foreground"
-              >
-                <p className="flex-1">
-                  {t('directoryPicker.places.loadFailed')}
-                </p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={state.locationsLoading}
-                  onClick={() => {
-                    listRef.current?.focus({ preventScroll: true })
-                    controller.refreshLocations()
-                  }}
-                >
-                  {t('directoryPicker.retry')}
-                </Button>
-              </div>
-            )}
-            {state.favoriteError && (
-              <p
-                role="alert"
-                className="shrink-0 px-3 py-1 text-xs text-destructive"
-              >
-                {t(`directoryPreferences.errors.${state.favoriteError}`)}
-              </p>
-            )}
-            {editor?.kind === 'name' && (
-              <div className="shrink-0 space-y-2 border-b px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Folder className="size-4 shrink-0 text-muted-foreground" />
-                  <Input
-                    ref={editorRef}
-                    aria-label={t('directoryPicker.folderName')}
-                    aria-invalid={!!editorError}
-                    aria-describedby={`${id}-create-help${editorError ? ` ${id}-editor-error` : ''}`}
-                    value={editor.text}
-                    maxLength={255}
-                    disabled={creating}
-                    onChange={(event) =>
-                      controller.setEditorText(event.target.value)
-                    }
-                    dir="ltr"
-                    className="h-8 min-w-0 flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => controller.submitEditor()}
-                  >
-                    {t('directoryPicker.create')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={creating}
-                    onClick={cancelEditor}
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-                <p
-                  id={`${id}-create-help`}
-                  className="text-xs text-muted-foreground"
-                >
-                  {t('directoryPicker.createHelp')}
-                </p>
-              </div>
-            )}
-            {editorError && (
-              <p
-                role="alert"
-                id={`${id}-editor-error`}
-                className="shrink-0 px-3 py-2 text-xs text-destructive"
-              >
-                {t(`directoryPicker.errors.${editorError}`)}
-              </p>
-            )}
-            {!editorError && state.error && (
-              <div
-                role="alert"
-                className="flex shrink-0 items-center gap-2 px-3 py-2 text-xs text-destructive"
-              >
-                <p className="flex-1">
-                  {t(`directoryPicker.errors.${state.error}`)}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={locked}
-                  onClick={() => controller.refresh()}
-                >
-                  {t('directoryPicker.retry')}
-                </Button>
-              </div>
-            )}
-            {(state.notice || unknown) && (
-              <p
-                role="status"
-                className="shrink-0 px-3 py-2 text-xs text-muted-foreground"
-              >
-                {t(
-                  `directoryPicker.${unknown ? 'unknownOutcome' : (state.notice ?? 'unknownOutcome')}`,
-                  { path: state.listing?.path }
+                      </select>
+                    </label>
+                  </div>
                 )}
-              </p>
-            )}
-            {state.listing?.truncated && (
-              <p className="shrink-0 px-3 py-2 text-xs text-muted-foreground">
-                {t('directoryPicker.incomplete')}
-              </p>
-            )}
-            <DirectoryEntries
-              controller={controller}
-              entries={entries}
-              selected={state.selected}
-              busy={!!state.busy}
-              locked={locked}
-              hasListing={!!state.listing}
-              activeIndex={activeIndex}
-              id={id}
-              listRef={listRef}
-              virtualRef={virtualRef}
-            />
-          </div>
+                {state.locationsError && (
+                  <div
+                    role="status"
+                    className="flex shrink-0 items-center gap-2 px-3 py-1 text-[11px] text-muted-foreground"
+                  >
+                    <p className="flex-1">
+                      {t('directoryPicker.places.loadFailed')}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={state.locationsLoading}
+                      onClick={() => {
+                        listRef.current?.focus({ preventScroll: true })
+                        controller.refreshLocations()
+                      }}
+                    >
+                      {t('directoryPicker.retry')}
+                    </Button>
+                  </div>
+                )}
+                {state.favoriteError && (
+                  <p
+                    role="alert"
+                    className="shrink-0 px-3 py-1 text-xs text-destructive"
+                  >
+                    {t(`directoryPreferences.errors.${state.favoriteError}`)}
+                  </p>
+                )}
+                {editor?.kind === 'name' && (
+                  <div className="shrink-0 space-y-2 border-b px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Folder className="size-4 shrink-0 text-muted-foreground" />
+                      <Input
+                        ref={editorRef}
+                        aria-label={t('directoryPicker.folderName')}
+                        aria-invalid={!!editorError}
+                        aria-describedby={`${id}-create-help${editorError ? ` ${id}-editor-error` : ''}`}
+                        value={editor.text}
+                        maxLength={255}
+                        disabled={creating}
+                        onChange={(event) =>
+                          controller.setEditorText(event.target.value)
+                        }
+                        dir="ltr"
+                        className="h-8 min-w-0 flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        disabled={creating}
+                        onClick={() => controller.submitEditor()}
+                      >
+                        {t('directoryPicker.create')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={creating}
+                        onClick={cancelEditor}
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                    </div>
+                    <p
+                      id={`${id}-create-help`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {t('directoryPicker.createHelp')}
+                    </p>
+                  </div>
+                )}
+                {editorError && (
+                  <p
+                    role="alert"
+                    id={`${id}-editor-error`}
+                    className="shrink-0 px-3 py-2 text-xs text-destructive"
+                  >
+                    {t(`directoryPicker.errors.${editorError}`)}
+                  </p>
+                )}
+                {!editorError && state.error && (
+                  <div
+                    role="alert"
+                    className="flex shrink-0 items-center gap-2 px-3 py-2 text-xs text-destructive"
+                  >
+                    <p className="flex-1">
+                      {t(`directoryPicker.errors.${state.error}`)}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={locked}
+                      onClick={() => controller.refresh()}
+                    >
+                      {t('directoryPicker.retry')}
+                    </Button>
+                  </div>
+                )}
+                {(state.notice || unknown) && (
+                  <p
+                    role="status"
+                    className="shrink-0 px-3 py-2 text-xs text-muted-foreground"
+                  >
+                    {t(
+                      `directoryPicker.${unknown ? 'unknownOutcome' : (state.notice ?? 'unknownOutcome')}`,
+                      { path: state.listing?.path }
+                    )}
+                  </p>
+                )}
+                {state.listing?.truncated && (
+                  <p className="shrink-0 px-3 py-2 text-xs text-muted-foreground">
+                    {t('directoryPicker.incomplete')}
+                  </p>
+                )}
+                <DirectoryEntries
+                  controller={controller}
+                  entries={entries}
+                  selected={state.selected}
+                  busy={!!state.busy}
+                  locked={locked}
+                  hasListing={!!state.listing}
+                  activeIndex={activeIndex}
+                  id={id}
+                  listRef={listRef}
+                  virtualRef={virtualRef}
+                />
+              </ScrollAreaContent>
+            </ScrollAreaViewport>
+            <ScrollBar />
+          </ScrollArea>
           <div className="flex min-w-0 shrink-0 items-start border-t px-3 pt-2 text-[11px]">
-            <output
-              aria-label={t('directoryPicker.selectedPath')}
-              dir="ltr"
-              className="min-w-0 max-h-12 flex-1 overflow-auto break-all whitespace-pre-wrap"
-              data-testid="directory-picker-target"
-            >
-              {target ?? '—'}
-            </output>
+            <ScrollArea className="directory-picker-target min-w-0 flex-1">
+              <ScrollAreaViewport
+                tabIndex={-1}
+                className="max-h-12 focus-visible:ring-0"
+              >
+                <ScrollAreaContent>
+                  <output
+                    aria-label={t('directoryPicker.selectedPath')}
+                    dir="ltr"
+                    className="block break-all whitespace-pre-wrap"
+                    data-testid="directory-picker-target"
+                  >
+                    {target ?? '—'}
+                  </output>
+                </ScrollAreaContent>
+              </ScrollAreaViewport>
+              <ScrollBar />
+            </ScrollArea>
           </div>
           <div
             data-testid="directory-picker-actions"
@@ -1077,7 +1146,8 @@ const DirectoryEntries = memo(function DirectoryEntries({
       items={entries}
       getId={(entry) => entry.path}
       rowHeight={ROW_HEIGHT}
-      className="min-h-0 flex-1 bg-background outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      scrollbar="custom"
+      className="directory-picker-list min-h-0 flex-1 bg-background outline-none"
       containerProps={{
         role: 'listbox',
         tabIndex: 0,

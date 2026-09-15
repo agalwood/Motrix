@@ -80,7 +80,11 @@ describe('AddTaskForm', () => {
 
     expect(content).toBeInTheDocument()
     expect(content).not.toHaveClass('overflow-y-auto')
-    expect(content?.parentElement).toHaveClass('overflow-y-auto')
+    expect(content?.parentElement).toHaveAttribute(
+      'data-slot',
+      'scroll-area-viewport'
+    )
+    expect(content?.parentElement).toHaveAttribute('tabindex', '-1')
   })
 
   it('keeps the footer inside an in-page dialog', () => {

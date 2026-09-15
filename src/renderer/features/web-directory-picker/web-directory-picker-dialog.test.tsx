@@ -158,6 +158,37 @@ afterEach(() => {
 })
 
 describe('WebDirectoryPickerDialog', () => {
+  it('edits the address background while preserving breadcrumb navigation and editor locking', async () => {
+    render(<Harness />)
+    const { list } = await openPicker()
+    fireEvent.doubleClick(screen.getByRole('option', { name: 'Alpha' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('directory-picker-target')).toHaveTextContent(
+        '/downloads/Alpha'
+      )
+    )
+    const path = screen.getByRole('navigation', { name: 'Folder path' })
+    fireEvent.click(within(path).getByRole('button', { name: 'downloads' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('directory-picker-target')).toHaveTextContent(
+        /^\/downloads$/
+      )
+    )
+    expect(screen.queryByRole('textbox', { name: 'Folder path' })).toBeNull()
+
+    fireEvent.click(path)
+    const editor = screen.getByRole('textbox', { name: 'Folder path' })
+    expect(editor).toHaveValue('/downloads')
+    expect(editor).toHaveFocus()
+    fireEvent.keyDown(editor, { key: 'Escape' })
+    expect(list).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'New folder' }))
+    fireEvent.click(screen.getByRole('navigation', { name: 'Folder path' }))
+    expect(screen.getByRole('textbox', { name: 'Folder name' })).toHaveFocus()
+    expect(screen.queryByRole('textbox', { name: 'Folder path' })).toBeNull()
+  })
+
   it('does not rerender directory rows for favorite updates or editor keystrokes', async () => {
     let complete!: (value: boolean) => void
     vi.spyOn(directoryPreferences, 'mutate').mockImplementation(
