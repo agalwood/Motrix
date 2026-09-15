@@ -1,12 +1,13 @@
 import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import { RunMode } from '@shared/constants'
 import {
   Events,
   type WindowMaximizedChangedPayload,
 } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds, WindowState } from '@shared/types/settings'
-import { BrowserWindow, nativeTheme, screen, shell } from 'electron'
+import { app, BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { buildPlatformOptions } from './platform-options'
 import {
@@ -157,6 +158,7 @@ export class WindowManager {
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) return
     win.hide()
+    this.restoreDockAfterDismiss(id)
   }
 
   close(id: WindowId): void {
@@ -171,6 +173,7 @@ export class WindowManager {
     } else {
       this.release(id)
     }
+    this.restoreDockAfterDismiss(id)
   }
 
   release(id: WindowId): void {
@@ -357,6 +360,20 @@ export class WindowManager {
     return this.deps.retentionPolicy?.prewarmAddTask() ?? true
   }
 
+  private restoreDockAfterDismiss(id: WindowId): void {
+    if (
+      id !== 'main' ||
+      (this.deps.platform ?? process.platform) !== 'darwin' ||
+      this.deps.settingsManager.get().app?.runMode !== RunMode.TrayOnly
+    ) {
+      return
+    }
+
+    // Showing a BrowserWindow can make macOS expose the Dock even while the
+    // app is configured for Menu Bar Only. Re-apply the mode after dismissal.
+    app.dock?.hide()
+  }
+
   private createBrowserWindow(
     config: (typeof WINDOW_CONFIGS)[WindowId],
     show: boolean
@@ -497,9 +514,13 @@ export class WindowManager {
     win.on('close', (event) => {
       if (config.closeBehavior === 'hide' && !this.willQuit) {
         this.saveBounds(id)
-        if (this.shouldReleaseOnDismiss(id)) return
+        if (this.shouldReleaseOnDismiss(id)) {
+          this.restoreDockAfterDismiss(id)
+          return
+        }
         event.preventDefault()
         win.hide()
+        this.restoreDockAfterDismiss(id)
       }
     })
 
