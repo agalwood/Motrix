@@ -243,21 +243,15 @@ test('double-click, parent navigation, roots and exact paths keep a coherent lis
   ).toBeDisabled()
 })
 
-test('editor Escape and picker Escape restore nested focus without submitting or triggering global shortcuts', async ({
+test('nested Escape restores focus and preserves the parent draft until discard is confirmed', async ({
   page,
 }) => {
-  const shortcutWarnings: string[] = []
-  page.on('console', (message) => {
-    if (message.text().includes('[shortcuts]'))
-      shortcutWarnings.push(message.text())
-  })
   const { picker, list, opener } = await openPicker(page)
   await page.keyboard.press('Control+Enter')
   await page.keyboard.press('Control+Shift+N')
   await page.keyboard.press('Control+,')
   expect(await calls(page, Commands.CreateTask)).toHaveLength(0)
   expect(new URL(page.url()).hash).toBe('')
-  expect(shortcutWarnings).toEqual([])
   await picker.getByRole('button', { name: 'New folder', exact: true }).click()
   await picker
     .getByRole('textbox', { name: 'Folder name' })
@@ -274,9 +268,31 @@ test('editor Escape and picker Escape restore nested focus without submitting or
   await expect(opener).toBeFocused()
   await expect(opener).toHaveAttribute('title', '/downloads')
   expect(await calls(page, Commands.CreateServerDirectory)).toHaveLength(0)
-  // Prove the real document listener is installed and responds after dismissal.
+  // Web no longer installs the legacy document-level preferences shortcut.
   await page.keyboard.press('Control+,')
-  await expect.poll(() => new URL(page.url()).hash).toBe('#/settings')
+  expect(new URL(page.url()).hash).toBe('')
+  const parent = page.getByRole('dialog', { name: 'New Task', exact: true })
+  const draft = parent.locator('textarea')
+  await draft.fill('https://example.com/retained-draft.zip')
+  await page.keyboard.press('Escape')
+  const confirmation = page.getByRole('dialog', {
+    name: 'Discard this task draft?',
+    exact: true,
+  })
+  await expect(confirmation).toBeVisible()
+  await confirmation
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .click()
+  await expect(confirmation).not.toBeVisible()
+  await expect(parent).toBeVisible()
+  await expect(draft).toHaveValue('https://example.com/retained-draft.zip')
+  await parent.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(confirmation).toBeVisible()
+  await confirmation
+    .getByRole('button', { name: 'Discard', exact: true })
+    .click()
+  await expect(parent).not.toBeVisible()
+  expect(await calls(page, Commands.CreateTask)).toHaveLength(0)
 })
 
 test('creation failure retains the editor and typed name for correction', async ({
@@ -601,11 +617,6 @@ test('creating then cancelling selection keeps the folder and original form path
 test('pending creation contains focus and shortcuts, then restores the rejected name editor', async ({
   page,
 }) => {
-  const shortcutWarnings: string[] = []
-  page.on('console', (message) => {
-    if (message.text().includes('[shortcuts]'))
-      shortcutWarnings.push(message.text())
-  })
   const { picker } = await openPicker(page)
   await page.evaluate((channel) => {
     window.directoryPickerFixture.holdChannel = channel
@@ -632,7 +643,6 @@ test('pending creation contains focus and shortcuts, then restores the rejected 
   await page.keyboard.press('Escape')
   await expect(picker).toBeVisible()
   expect(await calls(page, Commands.CreateTask)).toHaveLength(0)
-  expect(shortcutWarnings).toEqual([])
   expect(new URL(page.url()).hash).toBe('')
   await page.keyboard.press('Tab')
   await expect

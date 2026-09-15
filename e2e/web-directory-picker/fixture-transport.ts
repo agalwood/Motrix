@@ -109,7 +109,7 @@ export const fixtureState = {
 const error = (code: string) => ({ ok: false, error: { code } })
 
 // Only RPC data and unrelated transport events are replaced. The browser runs
-// the actual add-task form, picker, Base UI dialogs, and document shortcuts.
+// the actual add-task form, picker, Base UI dialogs, and their keyboard handlers.
 export const transport: Transport = {
   platform:
     new URLSearchParams(location.search).get('transportPlatform') === 'linux'

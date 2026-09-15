@@ -36,7 +36,8 @@ and Change directory. Stop Vite with Ctrl + C. Fixture state resets on reload;
 `/archive` contains 800 folders for virtualization checks. Tests cover keyboard
 creation/confirmation, Mac client keys with a Linux transport override, pointer navigation,
 allowed-root boundaries, exact-path rejection, nested Escape/focus,
-parent dialog keyboard isolation during held creation, creation failure and editor
+parent dialog keyboard isolation during held creation, parent draft discard
+confirmation after picker dismissal, creation failure and editor
 focus restoration, offscreen active descendants and Refresh/Back scroll preservation,
 all three entry points and settings Cancel/Save boundaries, and narrow/short
 light/dark layouts, native-style sidebar/footer geometry, breakpoint focus and
