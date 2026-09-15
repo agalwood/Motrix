@@ -499,7 +499,23 @@
         "up": "↑",
         "eta": "ETA",
         "connections": "Peers",
-        "status": "Status"
+        "status": "Status",
+        "createdAt": "Date created",
+        "finishedAt": "Date completed"
+      },
+      "timestamp": {
+        "notRecorded": "Not recorded",
+        "notCompleted": "Not completed yet",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Download speed",
+        "up": "Upload speed",
+        "asc": "{{column}}: ascending",
+        "desc": "{{column}}: descending",
+        "sortAscending": "Sort {{column}} ascending",
+        "sortDescending": "Sort {{column}} descending",
+        "reset": "Restore default order"
       },
       "empty": {
         "noTasks": "No downloads yet",
@@ -524,9 +540,8 @@
         }
       },
       "stats": {
-        "downSpeed": "↓",
-        "upSpeed": "↑",
-        "counts": "Active {{active}} · Completed {{completed}} · Error {{error}}",
+        "downSpeed": "Download speed",
+        "upSpeed": "Upload speed",
         "engineOk": "Engine ready",
         "engineStarting": "Engine starting",
         "engineOffline": "Engine offline",
@@ -568,7 +583,11 @@
           "type": "Type",
           "infoHash": "Info hash",
           "private": "Private",
-          "connections": "Connections"
+          "connections": "Connections",
+          "uploaded": "Uploaded",
+          "seedingTime": "Seeding time",
+          "seedingRecordedSince": "Recorded since {{date}}. Paused and offline time is excluded; earlier seeding history is unavailable.",
+          "seedingUnavailable": "Seeding time has not been recorded for this task."
         },
         "activity": {
           "transferTitle": {
@@ -731,10 +750,22 @@
       },
       "action": {
         "pause": "Pause",
+        "queueMoveFailed": "Could not update the waiting queue.",
+        "queueTaskStarted": "The task is no longer in the waiting queue.",
+        "queueMoveHint": "Queue position determines which waiting download starts next. Column sorting is saved separately.",
+        "queueBoundary": "Selection is already at the queue boundary",
+        "queueMoved": "Waiting queue updated",
+        "moveQueueDown": "Move Down in Queue",
+        "moveQueueUp": "Move Up in Queue",
         "resume": "Resume",
         "retry": "Retry",
         "openFolder": "Open folder",
         "copyUrl": "Copy URL",
+        "copyUrls": "Copy URLs",
+        "copyPath": "Copy file path",
+        "copied": "Copied to clipboard",
+        "copyFailed": "Could not copy to clipboard. Try again.",
+        "selectFilesFailed": "Could not open file selection.",
         "copyUrlFailed": "Copy failed: could not load the task’s link details. Try again.",
         "selectFiles": "Select files",
         "remove": "Remove",
@@ -760,7 +791,15 @@
         "removeAll_completed_Title": "Remove {{count}} completed tasks?",
         "removeAll_error_Title": "Remove {{count}} failed tasks?",
         "removeAll_downloading_Title": "Remove {{count}} active tasks?",
-        "removeMixedTitle": "Remove {{count}} tasks?"
+        "removeMixedTitle": "Remove {{count}} tasks?",
+        "openFile": "Open file",
+        "openFileFailed": "Could not open file",
+        "chooseFiles": "Choose files…",
+        "queueOrder": "Download order",
+        "moveQueueTop": "Move to Front",
+        "moveQueueBottom": "Move to Back",
+        "copyError": "Copy error information",
+        "errorReport": "{{name}}\nTask ID: {{id}}\n{{details}}"
       },
       "titleCount": "{{shown}} shown · {{total}} total",
       "type": {
@@ -772,6 +811,11 @@
       },
       "search": {
         "placeholder": "Search downloads",
+        "activeTypeFilters": "Type filter: {{types}}",
+        "filters": "Filters",
+        "resetFilters": "Reset filters",
+        "clearQuery": "Clear search",
+        "activeQuery": "Search: {{query}}",
         "scopeLabel": "Type",
         "clear": "Clear",
         "empty": "No matching tasks",
@@ -779,6 +823,28 @@
       },
       "stale": {
         "banner": "Task list may be out of date — reconnecting…"
+      },
+      "view": {
+        "title": "List View",
+        "columns": "Columns",
+        "resetColumns": "Restore Default Columns",
+        "sortBy": "Sort By",
+        "ascending": "Ascending",
+        "descending": "Descending",
+        "showInspector": "Show Inspector",
+        "hideInspector": "Hide Inspector",
+        "inspector": "Task Inspector",
+        "resizeInspector": "Resize Inspector",
+        "selectToInspect": "Select a task to view its details.",
+        "resizeColumn": "Resize {{column}} column",
+        "taskActions": "More"
+      },
+      "speedLimit": {
+        "title": "Speed mode",
+        "currentMode": "Speed mode: {{mode}}",
+        "uploadLimit": "Upload limit: {{speed}}",
+        "downloadLimit": "Download limit: {{speed}}",
+        "saveFailed": "Couldn’t change the speed mode. Try again."
       }
     }
   },
@@ -997,7 +1063,8 @@
       "reduceMotion": "Reduce motion",
       "reduceMotionDesc": "Reduce interface animations, including the glass motion effects on the Downloads page.",
       "liquidGlassEffect": "Enable Liquid Glass effect",
-      "liquidGlassEffectDesc": "macOS 26 App only — recreates the main window when changed.",
+      "liquidGlassEffectDesc": "Use translucent glass for the Downloads toolbar.",
+      "liquidGlassEffectMacDesc": "Also uses native window glass on macOS 26+. Changing this recreates the main window.",
       "runMode": "Show app in",
       "runModeStandard": "Dock & Menu Bar",
       "runModeTray": "Menu Bar Only",
@@ -1171,7 +1238,7 @@
         "seedRatio": "Seed ratio limit",
         "seedRatioDesc": "Stop seeding above this ratio. 0 = unlimited.",
         "seedTime": "Seed time limit (minutes)",
-        "seedTimeDesc": "Stop seeding after this many minutes. 0 = unlimited."
+        "seedTimeDesc": "Stop seeding after this many minutes. 0 = unlimited. Applies to new and re-seeded tasks."
       }
     },
     "downloads": {

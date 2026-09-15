@@ -1,4 +1,14 @@
-import { useVirtualizer } from '@tanstack/react-virtual'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
+import {
+  defaultRangeExtractor,
+  type Range,
+  useVirtualizer,
+} from '@tanstack/react-virtual'
 import {
   type ForwardedRef,
   forwardRef,
@@ -19,6 +29,8 @@ function VirtualListInner<T>(
     rowHeight,
     headerHeight = 0,
     overscan = 5,
+    keepMountedIndex,
+    scrollbar = 'native',
     scrollRef,
     renderRow,
     renderHeader,
@@ -34,6 +46,22 @@ function VirtualListInner<T>(
     (index: number) => getId(items[index]),
     [getId, items]
   )
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const indices = defaultRangeExtractor(range)
+      if (
+        keepMountedIndex !== undefined &&
+        keepMountedIndex >= 0 &&
+        keepMountedIndex < items.length &&
+        !indices.includes(keepMountedIndex)
+      ) {
+        indices.push(keepMountedIndex)
+        indices.sort((a, b) => a - b)
+      }
+      return indices
+    },
+    [keepMountedIndex, items.length]
+  )
   const virtualizer = useVirtualizer({
     count: items.length,
     getItemKey,
@@ -42,6 +70,7 @@ function VirtualListInner<T>(
     getScrollElement: () => containerRef.current,
     estimateSize: () => rowHeight,
     overscan,
+    rangeExtractor,
   })
 
   useImperativeHandle(ref, () => ({
@@ -56,21 +85,63 @@ function VirtualListInner<T>(
     },
   }))
 
-  if (items.length === 0 && renderEmpty) {
+  const content = (
+    <>
+      {renderHeader?.()}
+      {items.length === 0 && renderEmpty ? (
+        renderEmpty()
+      ) : (
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const item = items[virtualRow.index]
+            return (
+              <div
+                key={getId(item)}
+                data-index={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: rowHeight,
+                  transform: `translateY(${virtualRow.start - headerHeight}px)`,
+                }}
+              >
+                {renderRow({
+                  item,
+                  index: virtualRow.index,
+                  style: { height: rowHeight },
+                })}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+
+  if (scrollbar === 'custom') {
     return (
-      <div
-        ref={containerRef}
-        data-testid="virtual-list-container"
-        className={className}
-        style={{
-          overflow: 'auto',
-          position: 'relative',
-          ...style,
-        }}
-      >
-        {renderHeader?.()}
-        {renderEmpty()}
-      </div>
+      <ScrollArea className={className} style={style}>
+        <ScrollAreaViewport
+          ref={containerRef}
+          data-testid="virtual-list-container"
+          tabIndex={-1}
+          className="relative"
+        >
+          <ScrollAreaContent style={{ minWidth: '100%' }}>
+            {content}
+          </ScrollAreaContent>
+        </ScrollAreaViewport>
+        <ScrollBar />
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     )
   }
 
@@ -79,44 +150,9 @@ function VirtualListInner<T>(
       ref={containerRef}
       data-testid="virtual-list-container"
       className={className}
-      style={{
-        overflow: 'auto',
-        position: 'relative',
-        ...style,
-      }}
+      style={{ overflow: 'auto', position: 'relative', ...style }}
     >
-      {renderHeader?.()}
-      <div
-        style={{
-          height: virtualizer.getTotalSize(),
-          width: '100%',
-          position: 'relative',
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const item = items[virtualRow.index]
-          return (
-            <div
-              key={getId(item)}
-              data-index={virtualRow.index}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: rowHeight,
-                transform: `translateY(${virtualRow.start - headerHeight}px)`,
-              }}
-            >
-              {renderRow({
-                item,
-                index: virtualRow.index,
-                style: { height: rowHeight },
-              })}
-            </div>
-          )
-        })}
-      </div>
+      {content}
     </div>
   )
 }

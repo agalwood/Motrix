@@ -3,6 +3,7 @@ import type {
   SpeedTestProvider,
 } from '@shared/types/settings'
 import { z } from 'zod'
+import type { ByteUnitSystem } from './byte-unit-system'
 import { settingsInputObject } from './settings-input'
 
 const byteRateSchema = z.number().min(0).max(Number.MAX_SAFE_INTEGER)
@@ -102,3 +103,15 @@ export const speedLimitSettingsInputSchema = settingsInputObject(
 
 export const DEFAULT_SPEED_LIMIT_SETTINGS: SpeedLimitSettings =
   speedLimitSettingsSchema.parse({})
+
+/** First-run presets follow display units; persisted values retain their bytes. */
+export function createDefaultSpeedLimitSettings(
+  unitSystem: ByteUnitSystem
+): SpeedLimitSettings {
+  const kiloByte = unitSystem === 'binary' ? 1024 : 1000
+  return structuredClone(
+    speedLimitSettingsSchema.parse({
+      alt: { upload: 64 * kiloByte, download: 512 * kiloByte },
+    })
+  )
+}

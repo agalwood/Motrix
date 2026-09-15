@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { DragState, MarqueeOverlayProps } from './types'
 import { useAutoScroll } from './use-auto-scroll'
 
@@ -35,6 +35,12 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
   const boxRef = useRef<SVGRectElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const rafRef = useRef<number | null>(null)
+  // Selection feedback rerenders the parent while the pointer is still down.
+  // Read its latest callbacks without tearing down the active gesture's listeners.
+  const selectionCallbacks = useRef({ onSelectionChange, onSelectionEnd })
+  useLayoutEffect(() => {
+    selectionCallbacks.current = { onSelectionChange, onSelectionEnd }
+  }, [onSelectionChange, onSelectionEnd])
 
   const {
     updatePointer: updateAutoScrollPointer,
@@ -93,9 +99,12 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
       container.scrollTop
     )
     if (range.startIndex <= range.endIndex) {
-      onSelectionChange(range.startIndex, range.endIndex)
+      selectionCallbacks.current.onSelectionChange(
+        range.startIndex,
+        range.endIndex
+      )
     }
-  }, [computeIndices, containerRef, onSelectionChange])
+  }, [computeIndices, containerRef])
 
   const renderDragFrame = useCallback(
     (timestamp: number) => {
@@ -123,6 +132,14 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
   const onMouseDown = useCallback(
     (event: MouseEvent) => {
       if (!enabled || event.button !== 0) return
+      if (event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          'button, input, [role="separator"], [role="columnheader"], [data-slot="scroll-area-scrollbar"]'
+        )
+      )
+        return
       const container = containerRef.current
       if (!container) return
 
@@ -195,7 +212,7 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
 
     if (drag.active) {
       paintDragFrame()
-      onSelectionEnd()
+      selectionCallbacks.current.onSelectionEnd()
     }
 
     hideBox()
@@ -205,7 +222,7 @@ export function MarqueeOverlay(props: MarqueeOverlayProps) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-  }, [hideBox, onSelectionEnd, paintDragFrame, stopAutoScroll])
+  }, [hideBox, paintDragFrame, stopAutoScroll])
 
   useEffect(() => {
     const container = containerRef.current

@@ -272,6 +272,8 @@ export function validateCheckpoint(
   const taskId = assertTaskId(input.taskId)
   assertPositiveSafeInteger(input.updatedAt, 'updatedAt')
   assertNonNegativeSafeInteger(input.activeMsDelta, 'activeMsDelta')
+  if (input.seedingMsDelta !== undefined)
+    assertNonNegativeSafeInteger(input.seedingMsDelta, 'seedingMsDelta')
   assertNonNegativeSafeInteger(
     input.downloadActiveMsDelta,
     'downloadActiveMsDelta'

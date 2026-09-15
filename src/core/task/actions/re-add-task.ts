@@ -3,7 +3,6 @@ import { newEngineTaskId } from '@core/lib/ids'
 import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
-import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -34,6 +33,7 @@ import {
   shouldPrioritizeBtPreviewPieces,
   shouldPrioritizeBtPreviewPiecesFromMetadata,
 } from '../bt-storage-layout'
+import { settleBtUpload } from '../bt-upload-settlement'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
@@ -133,7 +133,6 @@ function reAddSaveDir(task: DownloadTask): string {
 
 async function reAddBt(
   task: DownloadTask,
-  opts: EngineTaskOptions | null,
   deps: ReAddTaskDeps,
   reservedGid: string,
   metadata: Uint8Array
@@ -194,12 +193,8 @@ async function reAddBt(
     pause: false,
     isPrivate: task.bt?.isPrivate ?? false,
     ...(prioritizePreviewPieces ? { prioritizePreviewPieces: true } : {}),
-    seedTime: opts?.['seed-time']
-      ? Number.parseInt(opts['seed-time'], 10)
-      : undefined,
-    seedRatio: opts?.['seed-ratio']
-      ? Number.parseFloat(opts['seed-ratio'])
-      : undefined,
+    // Explicit re-seeding starts a new session using the current defaults.
+    // Never replay a retired GID's seed-time=0 or spent ratio allowance.
   })
 }
 
@@ -353,6 +348,7 @@ function withReservedGid(
         ? {
             ...instance,
             gid: engineTaskId,
+            uploadedBytes: 0,
             ...(status ? { status } : {}),
             updatedAt: now,
           }
@@ -459,9 +455,8 @@ async function handleFailedEngineAdd(
 
 /**
  * Re-add a task to the engine — used for both Retry (Error/Removed)
- * and Re-seed (Completed BT). Pulls live options from aria2 if the
- * stopped-result is still resident (Tier 1) and falls back to
- * task-record fields when not (Tier 2).
+ * and Re-seed (Completed BT). Reconstructs inputs from the durable task
+ * record; torrent sessions use the adapter's current seeding defaults.
  *
  * No `terminalCause` is threaded through this file's `commitTaskUpdate`
  * calls: every candidate this function ever publishes lands in `Seeding` or
@@ -567,22 +562,23 @@ async function reAddTaskUnderMutation(
         assertProxyCurrent,
         canMirrorAria2MetadataHeaders(deps.adapter.getFeatureReport?.())
       )
-  let opts: EngineTaskOptions | null = null
-  try {
-    opts = await deps.adapter.getEngineTaskOptions(task.engineTaskId)
-  } catch (err) {
-    deps.log.debug(
-      { err: String(err), taskId },
-      'reAddTask: getEngineTaskOptions failed; falling back to task fields'
-    )
-  }
   await bestEffortRemove(deps.adapter, task.engineTaskId, deps.log)
+  const retired = structuredClone(task)
+  if (torrentLike) {
+    let upload = 0
+    try {
+      upload = await deps.adapter.getUploadLength(task.engineTaskId)
+    } catch {
+      /* Keep the last observed total. */
+    }
+    settleBtUpload(retired, upload, false)
+  }
 
   const now = Date.now()
   const status = torrentLike ? TaskStatus.Seeding : TaskStatus.Downloading
   const reservedGid = newEngineTaskId(deps.createEngineTaskId, 'reAddTask')
-  const reservedOwner = withReservedGid(task, reservedGid, now)
-  const candidate = withReservedGid(task, reservedGid, now, status)
+  const reservedOwner = withReservedGid(retired, reservedGid, now)
+  const candidate = withReservedGid(retired, reservedGid, now, status)
 
   deps.taskManager.reserveEngineTaskId(reservedGid)
   try {
@@ -607,7 +603,7 @@ async function reAddTaskUnderMutation(
 
   try {
     if (torrentLike && torrentMetadata) {
-      await reAddBt(task, opts, deps, reservedGid, torrentMetadata)
+      await reAddBt(task, deps, reservedGid, torrentMetadata)
     } else if (directParams) {
       assertProxyCurrent?.()
       await deps.adapter.createDownload({ ...directParams, gid: reservedGid })

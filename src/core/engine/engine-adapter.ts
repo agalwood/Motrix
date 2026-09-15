@@ -58,6 +58,7 @@ export interface AddTorrentParams {
   outputFilePaths?: OutputFilePath[]
   /** Trusted absolute payload root, independent of the engine metadata directory. */
   outputRoot?: string
+  /** Seeding minutes; zero disables the time limit. Omitted uses current defaults. */
   seedTime?: number
   seedRatio?: number
   btSeedUnverified?: boolean
@@ -278,6 +279,8 @@ export interface EngineAdapter {
    * Used by TaskRecoveryService to match persisted tasks to aria2 state.
    */
   listActiveAndWaiting(): Promise<Array<{ gid: string; infoHash?: string }>>
+  /** Engine task IDs in scheduling order, including paused waiting tasks. */
+  listWaitingTaskIds(): Promise<string[]>
 
   /**
    * List all stopped (completed/errored/removed) tasks.

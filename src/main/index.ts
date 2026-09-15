@@ -121,6 +121,10 @@ import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
 import { Events } from '@shared/protocol/events'
+import {
+  DEFAULT_BYTE_UNIT_PREFERENCE,
+  resolveByteUnitSystem,
+} from '@shared/schemas/byte-unit-system'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
@@ -324,12 +328,21 @@ const cliToolService = new CliToolService({
     !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
 })
 const settingsManager = new SettingsManager(settingsPath, {
+  defaultByteUnitSystem: resolveByteUnitSystem(
+    DEFAULT_BYTE_UNIT_PREFERENCE,
+    process.platform
+  ),
   liquidGlassEffectDefault: shouldEnableLiquidGlassByDefault({
     isDev: platform.isDev,
   }),
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
+    if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
+      eventBus.emit(Events.LiquidGlassChanged, {
+        liquidGlassEffect: updated.app.liquidGlassEffect,
+      })
+    }
     if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
       eventBus.emit(Events.ByteUnitSystemChanged, {
         byteUnitSystem: updated.app.byteUnitSystem,
@@ -1601,22 +1614,31 @@ async function initializeMainProcess(): Promise<void> {
   // preload buffers it until React subscribes).
   setupEventForwarding(eventBus, windowManager)
 
-  // Best-effort OS notification bridge (Task 16, spec §6): windowManager and
-  // settingsManager are both live at this point, which is all it depends on
-  // — it subscribes directly to eventBus and doesn't need the engine or
-  // notificationCenter (constructed later, in Phase 2 below — see the F4
-  // hoist comment) to exist yet, since it only reacts to NotificationAdded
-  // once emitted.
+  // Subscribe before notification-center replay. Resolve task paths on click
+  // so notifications follow any output moves made after download completion.
+  const revealNotificationTask = createRevealInFolderHandler({
+    shell,
+    getTask: (taskId) => taskManager.getById(taskId),
+  })
   osNotificationBridge = createOsNotificationBridge({
     subscribe: (channel, listener) =>
       eventBus.on(channel, (...args: unknown[]) =>
         listener(args[0] as AppNotification)
       ),
     getMainWindow: () => windowManager?.get('main') ?? null,
+    showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
     translate: i18n.t.bind(i18n),
-    navigateToTask: (taskId) =>
-      eventBus.emit(Events.NavigateTo, `/downloads/all?task=${taskId}`),
+    navigateToTask: (taskId) => {
+      const win = windowManager?.get('main')
+      if (!win || win.isDestroyed()) return
+      dispatchWhenReady(
+        win,
+        Events.NavigateTo,
+        `/downloads/all?task=${encodeURIComponent(taskId)}`
+      )
+    },
+    revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
     log,
   })
 
@@ -1685,7 +1707,9 @@ async function initializeMainProcess(): Promise<void> {
   // Use that window to set up IPC handlers and core services.
 
   rpcClient = new Aria2RpcClient(transport, protocol, engineSettings.rpcSecret)
-  aria2Adapter = new Aria2Adapter(rpcClient)
+  aria2Adapter = new Aria2Adapter(rpcClient, undefined, () =>
+    settingsManager.getEngine()
+  )
   const adapter = aria2Adapter
   proxyBridge = new ProxyBridgeManager()
   supervisor = new EngineSupervisor(

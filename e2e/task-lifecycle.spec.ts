@@ -45,7 +45,7 @@ test.describe('task lifecycle', () => {
       await mainWindow.getByRole('link', { name: 'Downloads' }).click()
       await expect.poll(() => mainWindow.url()).toContain('#/downloads')
 
-      const row = mainWindow.getByRole('option').first()
+      const row = mainWindow.locator('[data-task-id]').first()
       await expect(row).toBeVisible({ timeout: 10_000 })
 
       // Reads through window.motrix.invoke so the assertion exercises

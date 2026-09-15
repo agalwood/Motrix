@@ -20,6 +20,7 @@ import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { formatTaskTimestamp } from './format-task-timestamp'
 import { TaskRow } from './task-row'
 
 function fake(overrides: Partial<DownloadTask> = {}): DownloadTask {
@@ -54,7 +55,7 @@ const rowProps = {
 
 function getEtaCell(container: HTMLElement): Element {
   const row = container.firstElementChild
-  const etaCell = row?.children.item(row.children.length - 2)
+  const etaCell = row?.children.item(row.children.length - 4)
   if (!etaCell) throw new Error('TaskRow ETA cell not found')
   return etaCell
 }
@@ -78,7 +79,7 @@ describe('TaskRow', () => {
 
   it('renders task name and formatted size', () => {
     render(<TaskRow task={fake()} rowProps={rowProps} />)
-    expect(screen.getByText('ubuntu.iso')).toBeInTheDocument()
+    expect(screen.getByTitle('ubuntu.iso')).toBeInTheDocument()
     expect(screen.getByText(/4\.70 GB/)).toBeInTheDocument()
   })
 
@@ -117,13 +118,71 @@ describe('TaskRow', () => {
     const { container } = render(
       <TaskRow task={fake()} rowProps={{ ...rowProps, selected: true }} />
     )
-    expect(container.firstChild).toHaveClass('bg-accent/40')
+    expect(container.firstChild).toHaveAttribute('aria-selected', 'true')
   })
 
   it('uses the same minimum width as the scrollable column header', () => {
     const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
 
-    expect(container.firstChild).toHaveStyle({ minWidth: '960px' })
+    expect(container.firstChild).toHaveStyle({ minWidth: '1310px' })
+  })
+
+  it('renders localized creation and completion timestamps and refreshes on completion', () => {
+    const createdAt = Date.parse('2020-09-13T01:02:08Z')
+    const finishedAt = Date.parse('2020-09-13T03:04:19Z')
+    const task = fake({ createdAt })
+    const { container, rerender } = render(
+      <TaskRow task={task} rowProps={rowProps} />
+    )
+    const row = container.firstElementChild!
+    expect(row.children.item(row.children.length - 2)).toHaveTextContent(
+      formatTaskTimestamp(createdAt, 'en-US', Date.now())!.compact
+    )
+    expect(
+      row.children.item(row.children.length - 2)?.querySelector('time')
+    ).toHaveAttribute('datetime', '2020-09-13T01:02:08.000Z')
+    expect(row.lastElementChild).toHaveTextContent('—')
+    rerender(
+      <TaskRow
+        task={{ ...task, status: TaskStatus.Completed, finishedAt }}
+        rowProps={rowProps}
+      />
+    )
+    expect(row.lastElementChild).toHaveTextContent(
+      formatTaskTimestamp(finishedAt, 'en-US', Date.now())!.compact
+    )
+    expect(row.lastElementChild?.querySelector('time')).toHaveAttribute(
+      'datetime',
+      '2020-09-13T03:04:19.000Z'
+    )
+  })
+
+  it('does not present failure timestamps as completion or render invalid dates', () => {
+    const { container, rerender } = render(
+      <TaskRow
+        task={fake({
+          status: TaskStatus.Error,
+          createdAt: 0,
+          finishedAt: Date.now(),
+        })}
+        rowProps={rowProps}
+      />
+    )
+    const row = container.firstElementChild!
+    expect(row.children.item(row.children.length - 2)).toHaveTextContent('—')
+    expect(row.lastElementChild).toHaveTextContent('—')
+    rerender(
+      <TaskRow
+        task={fake({
+          status: TaskStatus.Completed,
+          createdAt: Number.NaN,
+          finishedAt: 1e20,
+        })}
+        rowProps={rowProps}
+      />
+    )
+    expect(row.children.item(row.children.length - 2)).toHaveTextContent('—')
+    expect(row.lastElementChild).toHaveTextContent('—')
   })
 
   it('renders gracefully for magnet metadata pending (Plan B)', () => {
@@ -161,7 +220,10 @@ describe('TaskRow', () => {
           rowProps={rowProps}
         />
       )
-      expect(screen.getByText('Disk is full')).toBeInTheDocument()
+      expect(container.firstChild).toHaveAttribute(
+        'aria-description',
+        'Disk is full'
+      )
       expect(container.firstChild).toHaveAttribute(
         'title',
         'ENOSPC: no space left on device'

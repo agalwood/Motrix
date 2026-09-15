@@ -6,6 +6,10 @@ export interface VirtualListProps<T> {
   rowHeight: number
   headerHeight?: number
   overscan?: number
+  /** Keep an active ARIA descendant mounted without scrolling it into view. */
+  keepMountedIndex?: number
+  /** Opt into the shared cross-platform scrollbar without changing scroll ownership. */
+  scrollbar?: 'native' | 'custom'
   scrollRef?: RefObject<HTMLDivElement | null>
   renderRow: (props: RowRenderProps<T>) => ReactNode
   renderHeader?: () => ReactNode

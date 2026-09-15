@@ -6,6 +6,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import { isTorrentLikeType } from '@shared/types/task-actions'
+import { shareRatio } from '@shared/utils/share-ratio'
 import { unsettledBtUpload } from './bt-upload-settlement'
 import { restoreTaskSaveDirectory } from './task-save-directory'
 
@@ -35,7 +36,7 @@ export function taskRowToDownloadTask(
     )
   const bt = isTorrentLikeType(task.taskType)
     ? makeDefaultBtExtension({
-        ratio: task.totalBytes > 0 ? uploadedBytes / task.totalBytes : 0,
+        ratio: shareRatio(uploadedBytes, task.totalBytes),
         trackers: task.trackers.flat(),
         announceList: task.trackers,
         isPrivate: task.isPrivate,

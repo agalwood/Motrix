@@ -50,6 +50,7 @@ import {
   stopSeedingTask,
   toBulkTaskCommandResult,
 } from '@core/task/actions'
+import { moveTasks } from '@core/task/actions/move-tasks'
 import type {
   TaskActionDeps,
   TaskTransitionRecordInput,
@@ -93,6 +94,7 @@ import {
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
@@ -133,6 +135,7 @@ import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { WindowManager } from '../window/window-manager'
+import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
 import { NatCommandHandlers } from './nat-commands'
@@ -668,6 +671,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Plural task commands (option C): one IPC request per multi-select
     // action. Per-task outcomes come back IPC-safe; the bulk close inside
     // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.MoveTasks]: async (rawPayload: unknown) =>
+      moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
+
     [Commands.PauseTasks]: async (rawPayload: unknown) => {
       const taskIds = taskIdsPayloadSchema.parse(rawPayload)
       return toBulkTaskCommandResult(
@@ -1291,6 +1297,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.RevealInFolder]: createRevealInFolderHandler({
+      shell,
+      getTask: (taskId) => taskManager.getById(taskId),
+    }),
+    [Commands.OpenTaskFile]: createOpenTaskFileHandler({
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
     }),

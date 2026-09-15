@@ -83,7 +83,7 @@ function ElectronNatBadge() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-60 max-w-[calc(100vw-2rem)]"
+        className="w-52 max-w-[calc(100vw-2rem)]"
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="space-y-1 whitespace-normal text-xs font-normal">

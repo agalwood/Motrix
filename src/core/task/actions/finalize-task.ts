@@ -730,13 +730,11 @@ async function finalizeBtAfterRename(
     bt.seedRatio > 0 ? Math.max(0, bt.seedRatio - alreadyRatio) : 0
   const ratioRequested = bt.seedRatio > 0
   const ratioSatisfied = ratioRequested && remainingRatio === 0
-  const timeRequested = bt.seedTime > 0
 
   // Nothing left to seed: skip the reseed entirely. The file is already
   // on disk at finalPath; we just enter Completed. Avoids spinning up
   // a new aria2 row that would be torn down on its first poll.
-  const shouldSkipReseed =
-    (!ratioRequested && !timeRequested) || (ratioSatisfied && !timeRequested)
+  const shouldSkipReseed = ratioSatisfied
   if (shouldSkipReseed) {
     setTaskTransitionPhase(task, TransitionPhase.Idle)
     const previousStatus = task.status
@@ -757,28 +755,9 @@ async function finalizeBtAfterRename(
     return
   }
 
-  // When the user requested a ratio but it's already met (and time is
-  // still pending), tell aria2 to ignore ratio for this gid so only
-  // seed-time governs the stop condition. `seed-ratio=0.0` is aria2's
-  // documented "ignore ratio" sentinel.
+  // Either enabled limit ends seeding. A zero ratio imposes no ratio limit;
+  // a zero time is translated by the adapter into an absent time condition.
   const seedRatioForNewGid = ratioRequested ? remainingRatio : 0
-
-  // Known issue: aria2 treats `seed-time=0` as "don't seed at all",
-  // not "seed forever". If the user has time=0 and is here because of
-  // a ratio-only request, the new gid will terminate immediately on
-  // aria2's side. Surfacing rather than papering over until the
-  // seed-time semantic translation lands (next iteration).
-  if (!timeRequested && ratioRequested && !ratioSatisfied) {
-    deps.log.warn(
-      {
-        taskId: task.id,
-        seedRatio: bt.seedRatio,
-        seedTime: bt.seedTime,
-        remainingRatio,
-      },
-      'finalize_bt_ratio_only_with_zero_seed_time'
-    )
-  }
 
   const completeWithoutSeeding = async (error: unknown): Promise<void> => {
     // Soft degradation: download succeeded; seeding didn't start.

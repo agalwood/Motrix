@@ -1,4 +1,5 @@
 import type { DownloadTask, TaskInstance } from '@shared/types/task'
+import { shareRatio } from '@shared/utils/share-ratio'
 import { pickPrimaryInstance } from './task-instance'
 
 const KEY = 'btFinalizeUpload'
@@ -39,11 +40,20 @@ export function settleBtUpload(
 ): void {
   const primary = pickPrimaryInstance(task.instances)
   const accounted = accountedUpload(task.instances, task.engineTaskId)
+  upload = Math.max(
+    Number.isFinite(upload) ? upload : 0,
+    task.uploadedBytes - task.uploadedBytesBaseline + (accounted ?? 0)
+  )
   // Old interrupted finalizes already saved their baseline without a marker.
   // Preserve that total instead of guessing and crediting the same GID twice.
   const previous = accounted ?? (recovering && primary ? upload : 0)
   task.uploadedBytesBaseline += Math.max(0, upload - previous)
   task.uploadedBytes = task.uploadedBytesBaseline
+  if (task.bt)
+    task.bt = {
+      ...task.bt,
+      ratio: shareRatio(task.uploadedBytes, task.totalBytes),
+    }
   if (primary) {
     primary.payload = {
       ...primary.payload,

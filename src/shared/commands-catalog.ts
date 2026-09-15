@@ -24,6 +24,7 @@ export const CommandIds = {
   TaskMoveDown: 'motrix.task.moveDown',
   TaskPauseAll: 'motrix.task.pauseAll',
   TaskResumeAll: 'motrix.task.resumeAll',
+  TaskSelectAll: 'motrix.task.selectAll',
   TaskClearStopped: 'motrix.task.clearStopped',
 
   // Navigation

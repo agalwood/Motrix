@@ -3,7 +3,11 @@ import '@testing-library/jest-dom/vitest'
 import { vi } from 'vitest'
 
 vi.mock('@renderer/lib/transport', () => ({
-  transport: { invoke: vi.fn().mockResolvedValue({ ok: true }) },
+  transport: {
+    invoke: vi.fn().mockResolvedValue({ ok: true }),
+    on: vi.fn(),
+    off: vi.fn(),
+  },
 }))
 vi.mock('@renderer/lib/open-add-task-dialog', () => ({
   openAddTaskDialog: vi.fn().mockResolvedValue(undefined),

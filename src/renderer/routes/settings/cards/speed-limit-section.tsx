@@ -231,7 +231,7 @@ export function SpeedLimitSection({
 }: {
   form: UseFormReturn<DownloadsFields>
 }) {
-  const { formatSpeed, unitSystem } = useByteFormat()
+  const { formatSpeedLimit, unitSystem } = useByteFormat()
   const kiloByte = unitSystem === 'binary' ? 1024 : 1000
 
   const { t } = useTranslation()
@@ -239,7 +239,7 @@ export function SpeedLimitSection({
   const turtle = settings.turtle
   const scheduleEnabled = settings.auto.schedule.enabled
   const adaptiveEnabled = settings.auto.adaptive.enabled
-  const summary = effectSummary(settings, t, formatSpeed)
+  const summary = effectSummary(settings, t, formatSpeedLimit)
 
   const kbLimitRow = (
     name: KbLimitName,

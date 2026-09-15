@@ -369,30 +369,30 @@ export function AppearanceDialog({
                 />
               )}
 
-              {isMac && (
-                <FormField
-                  control={form.control}
-                  name="liquidGlassEffect"
-                  render={({ field }) => (
-                    <SettingsFormRow>
-                      <div className="space-y-1">
-                        <FormLabel>
-                          {t('settings.appearance.liquidGlassEffect')}
-                        </FormLabel>
-                        <FormDescription className="text-xs">
-                          {t('settings.appearance.liquidGlassEffectDesc')}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </SettingsFormRow>
-                  )}
-                />
-              )}
+              <FormField
+                control={form.control}
+                name="liquidGlassEffect"
+                render={({ field }) => (
+                  <SettingsFormRow>
+                    <div className="space-y-1">
+                      <FormLabel>
+                        {t('settings.appearance.liquidGlassEffect')}
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        {t('settings.appearance.liquidGlassEffectDesc')}
+                        {isMac &&
+                          ` ${t('settings.appearance.liquidGlassEffectMacDesc')}`}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </SettingsFormRow>
+                )}
+              />
 
               {showRunMode && (
                 <FormField

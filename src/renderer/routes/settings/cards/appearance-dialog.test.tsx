@@ -68,6 +68,37 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it.each(['darwin', 'win32', 'linux', 'web'])(
+    'uses the existing glass switch and saves only that preference on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const toggle = await screen.findByRole('switch', {
+        name: 'Enable Liquid Glass effect',
+      })
+      const user = userEvent.setup()
+      await user.click(toggle)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { liquidGlassEffect: true },
+      })
+    }
+  )
+
   it('renders hydrated select labels instead of raw values', async () => {
     render(
       <AppearanceDialog

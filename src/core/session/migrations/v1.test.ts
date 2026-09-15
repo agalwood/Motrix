@@ -458,7 +458,7 @@ describe('migration v1 (final schema)', () => {
 })
 
 describe('migrate() schema guard (Codex finding #7)', () => {
-  it('fails fast with SchemaVersionTooNewError when schema_version > 1', async () => {
+  it('fails fast with SchemaVersionTooNewError when schema_version exceeds the supported version', async () => {
     const { migrate, SchemaVersionTooNewError } = await import('.')
     const db = new Database(':memory:')
     db.pragma('foreign_keys = ON')
@@ -468,7 +468,7 @@ describe('migrate() schema guard (Codex finding #7)', () => {
         version INTEGER PRIMARY KEY,
         applied_at INTEGER NOT NULL
       );
-      INSERT INTO schema_version (version, applied_at) VALUES (6, 0);
+      INSERT INTO schema_version (version, applied_at) VALUES (7, 0);
       CREATE TABLE task_metadata (motrix_id TEXT PRIMARY KEY);
     `)
 
@@ -524,7 +524,7 @@ describe('migrate() schema guard (Codex finding #7)', () => {
     const rows = db
       .prepare('SELECT version FROM schema_version ORDER BY version')
       .all() as Array<{ version: number }>
-    expect(rows.map((r) => r.version)).toEqual([1, 2, 3, 4, 5])
+    expect(rows.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6])
 
     db.close()
   })
@@ -541,8 +541,9 @@ describe('migrate() schema guard (Codex finding #7)', () => {
       .all() as Array<{ version: number }>
     // v1 is the Plan A baseline, v2 widens task statuses, v3 adds task-owned
     // Inspector Activity persistence, and v4 adds durable Hook delivery and
-    // finalize journals. All apply on a fresh DB.
-    expect(rows.map((r) => r.version)).toEqual([1, 2, 3, 4, 5])
+    // finalize journals. V5 repairs terminal instances and v6 tracks seeding time.
+    // All apply on a fresh DB.
+    expect(rows.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6])
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table'")

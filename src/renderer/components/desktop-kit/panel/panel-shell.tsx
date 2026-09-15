@@ -19,6 +19,7 @@ export interface PanelShellProps {
   footer?: React.ReactNode
   children: React.ReactNode
   headerClassName?: string
+  actionsClassName?: string
   contentClassName?: string
 }
 
@@ -30,6 +31,7 @@ export function PanelShell({
   footer,
   children,
   headerClassName,
+  actionsClassName,
   contentClassName,
 }: PanelShellProps) {
   return (
@@ -37,7 +39,9 @@ export function PanelShell({
       {/* PanelShell header */}
       <header
         className={cn(
-          'flex shrink-0 items-start justify-between gap-4 px-6 pt-9 pb-4 transition-[padding] duration-200',
+          // Standard headers retain the 36px clearance below window controls.
+          // A 36px action row and 8px bottom padding make an 80px header.
+          'flex shrink-0 items-center justify-between gap-4 px-6 pt-9 pb-2 transition-[padding] duration-200 motion-reduce:transition-none',
           // Compact rows center on the window-chrome icon line: the overlay
           // strip renders its 28px buttons at window y 13..41 (pt-[14px]
           // wrapper in AppLayout), i.e. centerline y=27. The inset sits 8px
@@ -59,7 +63,10 @@ export function PanelShell({
           data-slot="panel-shell-actions"
           // Keep actions above the z-30 WindowChrome drag strip but below the
           // z-50 modal layer so dialogs always cover background controls.
-          className="app-no-drag relative z-40 flex shrink-0 items-center gap-2"
+          className={cn(
+            'app-no-drag relative z-40 flex min-h-9 shrink-0 items-center gap-2 compact-header:min-h-7',
+            actionsClassName
+          )}
         >
           {actionsPosition === 'start' && actions}
           {search && (
@@ -67,7 +74,7 @@ export function PanelShell({
               value={search.value}
               onChange={(e) => search.onChange(e.target.value)}
               placeholder={search.placeholder}
-              className="h-8 w-56 text-sm placeholder:text-xs compact-header:h-7 compact-header:w-40"
+              className="h-9 w-56 text-sm placeholder:text-xs compact-header:h-7 compact-header:w-40"
             />
           )}
           {actionsPosition === 'end' && actions}

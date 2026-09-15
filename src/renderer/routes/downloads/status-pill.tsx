@@ -16,19 +16,27 @@ const LABEL_KEY: Record<TaskStatus, string> = {
   [TaskStatus.Removed]: 'panel.downloads.status.error',
 }
 
-export function StatusPill({ status }: { status: TaskStatus }) {
+export function StatusPill({
+  status,
+  compact = false,
+}: {
+  status: TaskStatus
+  compact?: boolean
+}) {
   const { t } = useTranslation()
   const tone = getStatusTone(status)
   return (
     <span
       data-testid="task-status-pill"
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+        compact
+          ? 'inline-flex w-fit max-w-full items-center rounded px-1.5 py-0.5 text-[11px] leading-4'
+          : 'inline-flex w-fit max-w-full shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
         tone.bg,
         tone.text
       )}
     >
-      {t(LABEL_KEY[status])}
+      <span className="truncate">{t(LABEL_KEY[status])}</span>
     </span>
   )
 }

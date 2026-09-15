@@ -1,64 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
-import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TaskType } from '@shared/types/task'
-import { makeDownloadTask } from '@test-utils/task'
+import { TaskType } from '@shared/types/task'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   FilterSearchPanel,
   type FilterSearchPanelProps,
 } from './filter-search-panel'
 
-beforeAll(() => {
-  Element.prototype.scrollIntoView = vi.fn()
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-  )
-})
-
-function fake(over: Partial<DownloadTask> = {}): DownloadTask {
-  return makeDownloadTask({
-    id: 't',
-    engineTaskId: 'g',
-    name: 'demo.iso',
-    progress: 0.5,
-    totalBytes: 1000,
-    downloadedBytes: 500,
-    saveDir: '/tmp',
-    uris: ['https://example.com/demo.iso'],
-    fileCount: 1,
-    filename: 'demo.iso',
-    sizeWhenDone: 1000,
-    diskPath: '/tmp/demo.iso',
-    finalPath: '/tmp/demo.iso',
-    finalName: 'demo.iso',
-    ...over,
-  })
-}
-
-const tasks = [
-  fake({ id: 'a', name: 'Ubuntu 24.04', type: TaskType.Http }),
-  fake({
-    id: 'b',
-    name: 'Ubuntu server',
-    type: TaskType.Magnet,
-    status: TaskStatus.Completed,
-  }),
-  fake({ id: 'c', name: 'Fedora 41', type: TaskType.Bt }),
-  fake({
-    id: 'd',
-    name: 'Ubuntu meta',
-    type: TaskType.Http,
-    status: TaskStatus.MetadataReady,
-  }),
-]
 const typeCounts = {
   [TaskType.Http]: 2,
   [TaskType.Magnet]: 1,
@@ -69,60 +19,45 @@ const typeCounts = {
 
 function setup(props: Partial<FilterSearchPanelProps> = {}) {
   const onTypesChange = vi.fn()
-  const onOpenTask = vi.fn()
-  const user = userEvent.setup()
   render(
     <FilterSearchPanel
-      tasks={tasks}
       types={[]}
       onTypesChange={onTypesChange}
       typeCounts={typeCounts}
-      onOpenTask={onOpenTask}
       {...props}
     />
   )
-  return { onTypesChange, onOpenTask, user }
+  return { onTypesChange, user: userEvent.setup() }
 }
 
 describe('FilterSearchPanel', () => {
-  it('renders only matching tasks as the user types', async () => {
-    const { user } = setup()
-    await user.type(screen.getByPlaceholderText(/search downloads/i), 'ubuntu')
-    expect(screen.getByText('Ubuntu 24.04')).toBeInTheDocument()
-    expect(screen.getByText('Ubuntu server')).toBeInTheDocument()
-    expect(screen.getByText('Ubuntu meta')).toBeInTheDocument()
-    expect(screen.queryByText('Fedora 41')).not.toBeInTheDocument()
-  })
-
-  it('toggling a type chip calls onTypesChange', async () => {
-    const { user, onTypesChange } = setup()
+  it('adds and removes types without replacing the other selected types', async () => {
+    const { user, onTypesChange } = setup({
+      types: [TaskType.Bt, TaskType.Http],
+    })
     await user.click(screen.getByRole('button', { name: /HTTP/i }))
-    expect(onTypesChange).toHaveBeenCalledWith([TaskType.Http])
+    expect(onTypesChange).toHaveBeenLastCalledWith([TaskType.Bt])
+    await user.click(screen.getByRole('button', { name: /Magnet/i }))
+    expect(onTypesChange).toHaveBeenLastCalledWith([
+      TaskType.Bt,
+      TaskType.Http,
+      TaskType.Magnet,
+    ])
   })
-
-  it('toggling an active type chip deselects it', async () => {
-    const { user, onTypesChange } = setup({ types: [TaskType.Http] })
-    await user.click(screen.getByRole('button', { name: /HTTP/i }))
+  it('disables unavailable unselected types but permits clearing a selected zero-count type', async () => {
+    const { user, onTypesChange } = setup({ types: [TaskType.Ftp] })
+    expect(screen.getByRole('button', { name: /Metalink/i })).toBeDisabled()
+    const ftp = screen.getByRole('button', { name: /FTP/i })
+    expect(ftp).toBeEnabled()
+    expect(ftp).toHaveAttribute('aria-pressed', 'true')
+    await user.click(ftp)
     expect(onTypesChange).toHaveBeenCalledWith([])
   })
-
-  it('disables zero-count chips', () => {
-    setup()
-    expect(screen.getByRole('button', { name: /FTP/i })).toBeDisabled()
-  })
-
-  it('Enter on the highlighted result calls onOpenTask', async () => {
-    const { user, onOpenTask } = setup()
-    await user.type(screen.getByPlaceholderText(/search downloads/i), 'fedora')
-    await user.keyboard('{Enter}')
-    expect(onOpenTask).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'c' })
-    )
-  })
-
-  it('shows the empty state for no matches', async () => {
-    const { user } = setup()
-    await user.type(screen.getByPlaceholderText(/search downloads/i), 'zzzz')
-    expect(screen.getByText(/no matching tasks/i)).toBeInTheDocument()
+  it('resets all type filters', async () => {
+    const { user, onTypesChange } = setup({
+      types: [TaskType.Http, TaskType.Bt],
+    })
+    await user.click(screen.getByRole('button', { name: 'Reset filters' }))
+    expect(onTypesChange).toHaveBeenCalledWith([])
   })
 })

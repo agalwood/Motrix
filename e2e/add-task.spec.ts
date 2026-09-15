@@ -91,7 +91,9 @@ test.describe('add task', () => {
     // row that aria2 emitted from a previous failure (a real risk
     // we hit during development — see git log around the
     // createTaskHandler `.motrix` mkdir guard).
-    const row = mainWindow.getByRole('option').filter({ hasText: 'test.bin' })
+    const row = mainWindow
+      .locator('[data-task-id]')
+      .filter({ hasText: 'test.bin' })
     await expect(row).toBeVisible({ timeout: 15_000 })
 
     // Sanity-check via IPC that the task isn't in `error` — the row
@@ -170,13 +172,13 @@ test.describe('add task', () => {
         .poll(() => mainWindow.url())
         .toContain('#/downloads/all?task=')
       await expect(
-        mainWindow.getByRole('option').filter({ hasText: 'beta.bin' })
+        mainWindow.locator('[data-task-id]').filter({ hasText: 'beta.bin' })
       ).toBeVisible({ timeout: 15_000 })
       await expect(
-        mainWindow.getByRole('option').filter({ hasText: 'gamma.bin' })
+        mainWindow.locator('[data-task-id]').filter({ hasText: 'gamma.bin' })
       ).toBeVisible({ timeout: 15_000 })
       await expect(
-        mainWindow.getByRole('option').filter({ hasText: 'alpha.bin' })
+        mainWindow.locator('[data-task-id]').filter({ hasText: 'alpha.bin' })
       ).toHaveCount(0)
     } finally {
       // These unreachable-tracker one-byte tasks intentionally remain active.

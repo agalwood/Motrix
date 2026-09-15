@@ -8,6 +8,7 @@ import {
   resumeTask,
 } from '@core/task/actions'
 import { CommandIds } from '@shared/commands-catalog'
+import { Events } from '@shared/protocol/events'
 import { TaskStatus } from '@shared/types/task'
 import type { CommandRegistry } from '../command-registry'
 import type { CommandDeps } from '../types'
@@ -140,6 +141,16 @@ export function registerTaskCommands(
     precondition: ctxTrue('hasAnyPausedTask'),
     run: async ({ deps }) => {
       await resumeAllTasks(deps)
+    },
+  })
+
+  registry.register({
+    id: CommandIds.TaskSelectAll,
+    title: 'menu.task.selectAllTask',
+    precondition: ({ currentRoute }) =>
+      currentRoute === '/downloads' || currentRoute.startsWith('/downloads/'),
+    run: ({ deps }) => {
+      deps.windowManager.get('main')?.webContents.send(Events.TaskSelectAll)
     },
   })
 

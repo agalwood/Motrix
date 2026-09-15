@@ -44,6 +44,60 @@ function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
 }
 
 describe('TaskInspectorActionBar', () => {
+  it('opens a completed file from the inspector and allows retry after failure', async () => {
+    vi.mocked(transport.invoke).mockClear()
+    let reject!: (error: Error) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    render(
+      <TaskInspectorActionBar
+        selected={[makeTask({ status: TaskStatus.Completed })]}
+        onClose={vi.fn()}
+      />
+    )
+    const button = screen.getByRole('button', { name: 'Open file' })
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(transport.invoke).toHaveBeenCalledTimes(1)
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.OpenTaskFile, {
+      taskId: 't1',
+    })
+    expect(button).toHaveProperty('disabled', true)
+    reject(new Error('File no longer exists'))
+    await waitFor(() =>
+      expect(toastAddMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Could not open file',
+          description: 'File no longer exists',
+          type: 'error',
+        })
+      )
+    )
+    await waitFor(() => expect(button).toHaveProperty('disabled', false))
+    fireEvent.click(button)
+    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(2))
+  })
+
+  it.each(
+    [
+      [makeTask({ status: TaskStatus.Downloading })],
+      [makeTask({ status: TaskStatus.Finalizing })],
+      [makeTask({ status: TaskStatus.Error })],
+      [makeTask({ status: TaskStatus.Completed, fileCount: 2 })],
+      [makeTask({ status: TaskStatus.Completed, finalPath: '', diskPath: '' })],
+      [
+        makeTask({ id: 'a', status: TaskStatus.Completed }),
+        makeTask({ id: 'b', status: TaskStatus.Completed }),
+      ],
+    ].map((selected) => ({ selected }))
+  )('hides Open file for ineligible selections: $selected', ({ selected }) => {
+    render(<TaskInspectorActionBar selected={selected} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Open file' })).toBeNull()
+  })
+
   it('Downloading single: shows Pause + Copy URL + Remove', () => {
     render(
       <TaskInspectorActionBar

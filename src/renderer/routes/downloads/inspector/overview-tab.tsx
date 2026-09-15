@@ -12,17 +12,16 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import type { TaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import {
-  formatDateTime,
-  formatDurationHMS,
-  formatProgressPercent,
-} from '@renderer/lib/format'
+import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { canAttemptRetry } from '@shared/types/task-actions'
 import { AlertCircleIcon, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { TaskTimestamp } from '../task-timestamp'
+import { SeedingDuration } from './seeding-duration'
 import { useTaskActions } from './use-task-actions'
 
 function Card({
@@ -60,32 +59,6 @@ function Row({
         value
       )}
     </div>
-  )
-}
-
-function TaskTimestamp({
-  timestamp,
-  locale,
-}: {
-  timestamp: number | null
-  locale: string
-}) {
-  const date = timestamp !== null ? new Date(timestamp) : null
-  if (
-    timestamp === null ||
-    timestamp <= 0 ||
-    !date ||
-    !Number.isFinite(date.getTime())
-  ) {
-    return <span>—</span>
-  }
-  return (
-    <time
-      className="ml-auto text-right tabular-nums"
-      dateTime={date.toISOString()}
-    >
-      {formatDateTime(timestamp, locale)}
-    </time>
   )
 }
 
@@ -136,7 +109,13 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
   )
 }
 
-export function OverviewTab({ task }: { task: DownloadTask }) {
+export function OverviewTab({
+  task,
+  snapshotCache,
+}: {
+  task: DownloadTask
+  snapshotCache?: TaskInspectorActivitySnapshotCache
+}) {
   const { formatSpeed, formatBytes } = useByteFormat()
 
   const { t, i18n } = useTranslation()
@@ -164,6 +143,23 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
             label={t('panel.downloads.inspector.overview.downloaded')}
             value={formatBytes(task.downloadedBytes)}
           />
+          {isBt && (
+            <Row
+              label={t('panel.downloads.inspector.overview.uploaded')}
+              value={formatBytes(task.uploadedBytes)}
+            />
+          )}
+          {isBt && (
+            <Row
+              label={t('panel.downloads.inspector.overview.seedingTime')}
+              value={
+                <SeedingDuration
+                  taskId={task.id}
+                  snapshotCache={snapshotCache}
+                />
+              }
+            />
+          )}
           <Row
             label={t('panel.downloads.inspector.overview.totalSize')}
             value={formatBytes(task.sizeWhenDone)}
@@ -186,7 +182,10 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
               />
               <Row
                 label={t('panel.downloads.inspector.overview.ratio')}
-                value={task.bt.ratio.toFixed(2)}
+                value={new Intl.NumberFormat(i18n.language, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(task.bt.ratio)}
               />
             </>
           ) : (
@@ -231,10 +230,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
           <Row
             label={t('panel.downloads.inspector.overview.createdAt')}
             value={
-              <TaskTimestamp
-                timestamp={task.createdAt}
-                locale={i18n.language}
-              />
+              <TaskTimestamp timestamp={task.createdAt} variant="inspector" />
             }
           />
           {task.status === TaskStatus.Completed && (
@@ -243,7 +239,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
               value={
                 <TaskTimestamp
                   timestamp={task.finishedAt}
-                  locale={i18n.language}
+                  variant="inspector"
                 />
               }
             />

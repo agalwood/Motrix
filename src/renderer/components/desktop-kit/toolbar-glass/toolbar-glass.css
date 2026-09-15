@@ -1,0 +1,37 @@
+.toolbar-glass-surface {
+  position: relative;
+  isolation: isolate;
+}
+
+.toolbar-glass-surface:has(> .toolbar-glass) {
+  background: transparent;
+}
+
+.toolbar-glass {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 58%);
+  backdrop-filter: blur(8px) saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 80%),
+    inset 0 -1px 0 rgb(90 100 115 / 8%),
+    0 2px 5px rgb(20 30 45 / 5%);
+}
+
+.dark .toolbar-glass {
+  background: rgb(42 44 48 / 66%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 13%),
+    inset 0 -1px 0 rgb(0 0 0 / 16%),
+    0 2px 5px rgb(0 0 0 / 12%);
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more),
+  (forced-colors: active) {
+  .toolbar-glass-surface {
+    background: var(--background);
+  }
+}

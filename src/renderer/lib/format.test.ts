@@ -1,5 +1,6 @@
 import { SUPPORTED_LOCALE_CODES } from '@shared/constants/locales'
 import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
+import { formatSpeedLimit } from '@shared/utils/format-bytes'
 import { describe, expect, it } from 'vitest'
 import {
   formatByteParts,
@@ -10,6 +11,15 @@ import {
 } from './format'
 
 describe('formatBytes', () => {
+  it('omits redundant zeroes from static limits without changing live rates', () => {
+    expect(formatSpeedLimit(64_000)).toBe('64 KB/s')
+    expect(formatSpeedLimit(512_000)).toBe('512 KB/s')
+    expect(formatSpeedLimit(65_536, 'binary')).toBe('64 KiB/s')
+    expect(formatSpeedLimit(524_288, 'binary')).toBe('512 KiB/s')
+    expect(formatSpeedLimit(1_500_000)).toBe('1.5 MB/s')
+    expect(formatSpeedLimit(65_536)).toBe('65.5 KB/s')
+    expect(formatSpeed(64_000)).toBe('64.0 KB/s')
+  })
   it('uses decimal units and two decimal places for sizes', () => {
     expect(formatBytes(0)).toBe('0 B')
     expect(formatBytes(Number.NaN)).toBe('0 B')

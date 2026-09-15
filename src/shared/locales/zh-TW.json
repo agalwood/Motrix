@@ -497,7 +497,23 @@
         "up": "↑",
         "eta": "預估剩餘時間",
         "connections": "對等節點",
-        "status": "狀態"
+        "status": "狀態",
+        "createdAt": "建立時間",
+        "finishedAt": "完成時間"
+      },
+      "timestamp": {
+        "notRecorded": "未記錄",
+        "notCompleted": "尚未完成",
+        "relativeDateTime": "{{date}} {{time}}"
+      },
+      "sort": {
+        "down": "下載速度",
+        "up": "上傳速度",
+        "asc": "{{column}}：遞增",
+        "desc": "{{column}}：遞減",
+        "sortAscending": "依{{column}}遞增排序",
+        "sortDescending": "依{{column}}遞減排序",
+        "reset": "恢復預設順序"
       },
       "empty": {
         "noTasks": "尚無下載任務",
@@ -522,9 +538,8 @@
         }
       },
       "stats": {
-        "downSpeed": "↓",
-        "upSpeed": "↑",
-        "counts": "進行中 {{active}} · 已完成 {{completed}} · 錯誤 {{error}}",
+        "downSpeed": "下載速度",
+        "upSpeed": "上傳速度",
         "engineOk": "引擎已就緒",
         "engineStarting": "引擎啟動中",
         "engineOffline": "引擎離線",
@@ -566,7 +581,11 @@
           "type": "類型",
           "infoHash": "資訊雜湊",
           "private": "私人",
-          "connections": "連線數"
+          "connections": "連線數",
+          "uploaded": "累計上傳",
+          "seedingTime": "做種時長",
+          "seedingRecordedSince": "自 {{date}} 起記錄。不計暫停及離線時間；此前的做種記錄無法取得。",
+          "seedingUnavailable": "此任務尚無做種時長記錄。"
         },
         "activity": {
           "transferTitle": {
@@ -720,10 +739,22 @@
       },
       "action": {
         "pause": "暫停",
+        "queueMoveFailed": "無法調整等待佇列。",
+        "queueTaskStarted": "任務已不在等待佇列中。",
+        "queueMoveHint": "佇列位置決定等待任務的啟動順序，欄位排序另行儲存。",
+        "queueBoundary": "所選任務已到達佇列邊界",
+        "queueMoved": "已調整等待佇列",
+        "moveQueueDown": "在佇列中下移",
+        "moveQueueUp": "在佇列中上移",
         "resume": "繼續",
         "retry": "重試",
         "openFolder": "開啟資料夾",
         "copyUrl": "複製 URL",
+        "copyUrls": "複製多個連結",
+        "copyPath": "複製檔案路徑",
+        "copied": "已複製到剪貼簿",
+        "copyFailed": "無法複製到剪貼簿，請重試。",
+        "selectFilesFailed": "無法開啟檔案選擇。",
         "copyUrlFailed": "複製失敗：無法載入任務的連結詳細資料。請再試一次。",
         "selectFiles": "選擇檔案",
         "remove": "移除",
@@ -749,7 +780,15 @@
         "removeAll_completed_Title": "要移除 {{count}} 個已完成的任務嗎？",
         "removeAll_error_Title": "要移除 {{count}} 個失敗的任務嗎？",
         "removeAll_downloading_Title": "要移除 {{count}} 個進行中的任務嗎？",
-        "removeMixedTitle": "要移除 {{count}} 個任務嗎？"
+        "removeMixedTitle": "要移除 {{count}} 個任務嗎？",
+        "openFile": "開啟檔案",
+        "openFileFailed": "無法開啟檔案",
+        "chooseFiles": "選擇下載檔案…",
+        "queueOrder": "調整下載順序",
+        "moveQueueTop": "移至佇列最前",
+        "moveQueueBottom": "移至佇列最後",
+        "copyError": "複製錯誤資訊",
+        "errorReport": "{{name}}\n任務 ID：{{id}}\n{{details}}"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {
@@ -761,6 +800,11 @@
       },
       "search": {
         "placeholder": "搜尋下載項目",
+        "activeTypeFilters": "類型篩選：{{types}}",
+        "filters": "篩選",
+        "resetFilters": "重設篩選",
+        "clearQuery": "清除搜尋",
+        "activeQuery": "搜尋：{{query}}",
         "scopeLabel": "類型",
         "clear": "清除",
         "empty": "沒有符合的任務",
@@ -768,6 +812,28 @@
       },
       "stale": {
         "banner": "任務清單可能不是最新的，正在重新連線…"
+      },
+      "view": {
+        "title": "列表顯示",
+        "columns": "顯示欄",
+        "resetColumns": "回復預設欄配置",
+        "sortBy": "排序方式",
+        "ascending": "升冪",
+        "descending": "降冪",
+        "showInspector": "顯示詳細資訊",
+        "hideInspector": "隱藏詳細資訊",
+        "inspector": "任務詳細資訊",
+        "resizeInspector": "調整詳細資訊高度",
+        "selectToInspect": "選擇任務以查看詳細資訊。",
+        "resizeColumn": "調整{{column}}欄寬",
+        "taskActions": "更多"
+      },
+      "speedLimit": {
+        "title": "速度模式",
+        "currentMode": "速度模式：{{mode}}",
+        "uploadLimit": "上傳上限：{{speed}}",
+        "downloadLimit": "下載上限：{{speed}}",
+        "saveFailed": "無法切換速度模式，請重試。"
       }
     }
   },
@@ -984,7 +1050,8 @@
       "reduceMotion": "減少動畫",
       "reduceMotionDesc": "減少介面動畫，包括下載頁的玻璃動態效果。",
       "liquidGlassEffect": "啟用液態玻璃效果",
-      "liquidGlassEffectDesc": "僅限 macOS 26 App，變更後會重新建立主視窗。",
+      "liquidGlassEffectDesc": "為下載頁工具列使用半透明玻璃效果。",
+      "liquidGlassEffectMacDesc": "macOS 26 及以上同時使用原生視窗玻璃，變更後會重新建立主視窗。",
       "runMode": "顯示位置",
       "runModeStandard": "Dock 與選單列",
       "runModeTray": "僅選單列",
@@ -1158,7 +1225,7 @@
         "seedRatio": "分享率上限",
         "seedRatioDesc": "分享率超過此值後停止做種。0 = 無限制。",
         "seedTime": "做種時間上限 (分鐘)",
-        "seedTimeDesc": "做種達此分鐘數後停止。0 = 無限制。"
+        "seedTimeDesc": "做種達到此分鐘數後停止。0 = 無限制。套用於新建或重新做種的任務。"
       }
     },
     "downloads": {

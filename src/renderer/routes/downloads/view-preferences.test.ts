@@ -1,0 +1,66 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDownloadsViewStore } from './view-preferences'
+
+beforeEach(() => localStorage.clear())
+afterEach(() => {
+  vi.restoreAllMocks()
+  localStorage.clear()
+})
+
+describe('Downloads view preferences', () => {
+  it('shares the inspector tab during the session without persisting it', () => {
+    const store = createDownloadsViewStore()
+    store.getState().setInspectorTab('files')
+    store.getState().setInspectorVisible(true)
+    expect(store.getState().inspectorTab).toBe('files')
+    expect(createDownloadsViewStore().getState().inspectorTab).toBe('overview')
+  })
+  it('restores columns, order and inspector independently of selection', () => {
+    const store = createDownloadsViewStore()
+    expect(store.getState().inspectorVisible).toBe(false)
+    store.getState().setColumnWidth('name', 320)
+    store.getState().setColumnVisible('eta', true)
+    store.getState().moveColumn('eta', 'name')
+    store.getState().setInspectorVisible(true)
+    store.getState().setInspectorSnap('compact')
+    const restored = createDownloadsViewStore().getState()
+    expect(restored.columns[0].id).toBe('eta')
+    expect(restored.columns[1].width).toBe(320)
+    expect(restored.inspectorVisible).toBe(true)
+    expect(restored.inspectorSnap).toBe('compact')
+    store.getState().resetColumns()
+    expect(store.getState().inspectorVisible).toBe(true)
+  })
+
+  it('clamps resizing and keeps the name visible without persisting every drag frame', () => {
+    const store = createDownloadsViewStore()
+    const write = vi.spyOn(Storage.prototype, 'setItem')
+    store.getState().setColumnWidth('name', 20000, false)
+    expect(store.getState().columns[0].width).toBe(900)
+    expect(write).not.toHaveBeenCalled()
+    store.getState().persist()
+    expect(write).toHaveBeenCalledOnce()
+    store.getState().setColumnVisible('name', false)
+    expect(store.getState().columns[0].visible).toBe(true)
+  })
+
+  it('falls back on corrupt or duplicated columns and blocked storage', () => {
+    localStorage.setItem('motrix.downloads.view.v1', '{invalid')
+    expect(createDownloadsViewStore().getState().columns[0].id).toBe('name')
+    const store = createDownloadsViewStore()
+    store.getState().persist()
+    const data = JSON.parse(localStorage.getItem('motrix.downloads.view.v1')!)
+    data.columns[1] = data.columns[0]
+    localStorage.setItem('motrix.downloads.view.v1', JSON.stringify(data))
+    expect(createDownloadsViewStore().getState().columns[1].id).toBe('size')
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    const blocked = createDownloadsViewStore()
+    expect(() => blocked.getState().setInspectorVisible(true)).not.toThrow()
+    expect(blocked.getState().inspectorVisible).toBe(true)
+  })
+})

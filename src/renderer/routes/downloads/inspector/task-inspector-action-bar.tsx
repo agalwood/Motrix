@@ -3,17 +3,16 @@ import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
-import { fetchTaskBtDetail } from '@renderer/hooks/use-task-bt-detail'
-import { infoHashToMagnetUri } from '@renderer/lib/magnet'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import { isTorrentLike } from '@shared/types/task-actions'
+import { canOpenTaskFile } from '@shared/types/task-actions'
 import {
   ChevronDown,
+  File,
   FolderOpen,
   Pause,
   Play,
@@ -23,14 +22,17 @@ import {
   Trash2,
 } from 'lucide-react'
 import type React from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { canRevealTaskFolder } from './can-reveal-task-folder'
 import { RemoveTasksDialog } from './remove-tasks-dialog'
+import { copyTaskUrls } from './task-copy-url'
 import { useTaskActions } from './use-task-actions'
 
 export interface TaskInspectorActionBarProps {
   selected: readonly DownloadTask[]
   onClose: () => void
+  resizeHandle?: React.ReactNode
 }
 
 /**
@@ -42,30 +44,12 @@ async function copyTaskUrl(
   task: DownloadTask,
   onFailure: () => void
 ): Promise<void> {
-  let url: string
   try {
-    url = await getCopyUrl(task)
+    await copyTaskUrls([task])
   } catch (error) {
     onFailure()
     throw error
   }
-  await navigator.clipboard.writeText(url)
-}
-
-async function getCopyUrl(task: DownloadTask): Promise<string> {
-  if (isTorrentLike(task)) {
-    // magnetUri/announceList are projected out of the broadcast (option E);
-    // fetch the full per-task detail at click time.
-    const detail = await fetchTaskBtDetail(task.id)
-    if (detail.magnetUri) return detail.magnetUri
-    if (task.infoHash) {
-      return infoHashToMagnetUri(task.infoHash, {
-        name: task.name,
-        trackers: detail.announceList.flat(),
-      })
-    }
-  }
-  return task.uris[0] ?? ''
 }
 
 interface CountedButtonProps {
@@ -112,12 +96,45 @@ function CountedButton({
   )
 }
 
+function OpenTaskFileButton({ task }: { task: DownloadTask }) {
+  const { t } = useTranslation()
+  const [opening, setOpening] = useState(false)
+  const open = async () => {
+    if (opening) return
+    setOpening(true)
+    try {
+      await transport.invoke(Commands.OpenTaskFile, { taskId: task.id })
+    } catch (error) {
+      toast.add({
+        title: t('panel.downloads.action.openFileFailed'),
+        description: error instanceof Error ? error.message : String(error),
+        type: 'error',
+      })
+    } finally {
+      setOpening(false)
+    }
+  }
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      disabled={opening}
+      onClick={() => void open()}
+    >
+      <File />
+      {t('panel.downloads.action.openFile')}
+    </Button>
+  )
+}
+
 function FinalizingActionBar({
   task,
   onClose,
+  resizeHandle,
 }: {
   task: DownloadTask
   onClose: () => void
+  resizeHandle?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const reason = t('panel.downloads.action.finalizingTooltip')
@@ -153,6 +170,7 @@ function FinalizingActionBar({
       >
         {t('panel.downloads.action.copyUrl')}
       </CopyButton>
+      {resizeHandle}
       <Button
         size="xs"
         variant="outline"
@@ -178,6 +196,7 @@ function FinalizingActionBar({
 export function TaskInspectorActionBar({
   selected,
   onClose,
+  resizeHandle,
 }: TaskInspectorActionBarProps) {
   const { t } = useTranslation()
   const { shift, alt } = useModifierKeys()
@@ -185,7 +204,13 @@ export function TaskInspectorActionBar({
   const actions = useTaskActions(selected)
 
   if (single && single.status === TaskStatus.Finalizing) {
-    return <FinalizingActionBar task={single} onClose={onClose} />
+    return (
+      <FinalizingActionBar
+        task={single}
+        onClose={onClose}
+        resizeHandle={resizeHandle}
+      />
+    )
   }
 
   return (
@@ -276,6 +301,9 @@ export function TaskInspectorActionBar({
 
         {single &&
           __MOTRIX_TARGET__ === 'electron' &&
+          canOpenTaskFile(single) && <OpenTaskFileButton task={single} />}
+        {single &&
+          __MOTRIX_TARGET__ === 'electron' &&
           canRevealTaskFolder(single) && (
             <Button
               size="xs"
@@ -325,6 +353,7 @@ export function TaskInspectorActionBar({
           onClick={(e) => actions.onRemove({ shift: e.shiftKey })}
         />
 
+        {resizeHandle}
         <Button
           size="icon-xs"
           variant="ghost"
@@ -338,7 +367,7 @@ export function TaskInspectorActionBar({
 
       <RemoveTasksDialog
         open={actions.removeDialog.open}
-        selected={selected}
+        selected={actions.removeTargets}
         preCheckDeleteFiles={actions.removeDialog.preCheckDeleteFiles}
         onOpenChange={(open) => {
           if (!open) actions.closeRemoveDialog()

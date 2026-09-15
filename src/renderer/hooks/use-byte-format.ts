@@ -8,6 +8,7 @@ import {
   type ByteValue,
   formatBytes,
   formatSpeed,
+  formatSpeedLimit,
 } from '@shared/utils/format-bytes'
 import { useSyncExternalStore } from 'react'
 
@@ -16,6 +17,7 @@ function createFormatters(unitSystem: ByteUnitSystem) {
     unitSystem,
     formatBytes: (bytes: ByteValue) => formatBytes(bytes, { unitSystem }),
     formatSpeed: (bytes: ByteValue) => formatSpeed(bytes, unitSystem),
+    formatSpeedLimit: (bytes: ByteValue) => formatSpeedLimit(bytes, unitSystem),
   }
 }
 
