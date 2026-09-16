@@ -90,10 +90,11 @@ describe('TaskColumnHeader', () => {
       await screen.findByRole('menuitemcheckbox', { name: 'Name' })
     ).toHaveAttribute('aria-disabled', 'true')
     const eta = screen.getByRole('menuitemcheckbox', { name: 'ETA' })
+    expect(eta).toHaveAttribute('aria-checked', 'true')
     fireEvent.click(eta)
     expect(
       useDownloadsView.getState().columns.find((column) => column.id === 'eta')
         ?.visible
-    ).toBe(true)
+    ).toBe(false)
   })
 })

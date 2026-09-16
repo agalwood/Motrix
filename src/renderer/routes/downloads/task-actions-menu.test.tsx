@@ -6,9 +6,11 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { createSelectionStore } from '@renderer/components/desktop-kit/selection/create-selection-store'
 import { toast } from '@renderer/components/ui/toast'
+import { menuActionEnabled } from '@renderer/features/application-menu/task-context'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
+import { CommandIds } from '@shared/commands-catalog'
 import { DownloadErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
@@ -39,6 +41,20 @@ vi.mock('@renderer/lib/transport', () => ({
   },
 }))
 vi.mock('@renderer/components/ui/toast', () => ({ toast: { add: vi.fn() } }))
+const menuContext = vi.hoisted(() => ({ listeners: new Set<() => void>() }))
+vi.mock(
+  '@renderer/features/application-menu/task-context',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('@renderer/features/application-menu/task-context')
+    >()),
+    menuActionEnabled: vi.fn(() => false),
+    subscribeMenuContext: (listener: () => void) => {
+      menuContext.listeners.add(listener)
+      return () => menuContext.listeners.delete(listener)
+    },
+  })
+)
 vi.mock('@renderer/lib/open-add-task-dialog', () => ({
   openAddTaskDialog: vi.fn().mockResolvedValue(undefined),
 }))
@@ -50,6 +66,7 @@ const tasks = ['a', 'b', 'c'].map((id) =>
 )
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(menuActionEnabled).mockReturnValue(false)
   vi.mocked(transport).platform = 'darwin'
   useDownloadsView.setState({
     inspectorVisible: false,
@@ -83,6 +100,70 @@ function setup(context = true, items = tasks) {
 }
 
 describe('TaskActionsMenu', () => {
+  it.each([
+    ['Pause All', CommandIds.TaskPauseAll, Commands.PauseAllTasks],
+    ['Resume All', CommandIds.TaskResumeAll, Commands.ResumeAllTasks],
+  ] as const)(
+    'runs %s for the whole instance even when the current list has no selection',
+    async (label, commandId, command) => {
+      vi.mocked(menuActionEnabled).mockImplementation((id) => id === commandId)
+      setup(false, [])
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'More' }))
+      await user.click(await screen.findByRole('menuitem', { name: label }))
+      await waitFor(() =>
+        expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(command)
+      )
+    }
+  )
+
+  it('updates global action availability while the menu is open', async () => {
+    setup(false, [])
+    await userEvent.click(screen.getByRole('button', { name: 'More' }))
+    const pause = await screen.findByRole('menuitem', { name: 'Pause All' })
+    const resume = screen.getByRole('menuitem', { name: 'Resume All' })
+    expect(pause).toHaveAttribute('aria-disabled', 'true')
+    expect(resume).toHaveAttribute('aria-disabled', 'true')
+    for (const command of [CommandIds.TaskPauseAll, CommandIds.TaskResumeAll]) {
+      act(() => {
+        vi.mocked(menuActionEnabled).mockImplementation((id) => id === command)
+        for (const listener of menuContext.listeners) listener()
+      })
+      const enabled = command === CommandIds.TaskPauseAll ? pause : resume
+      const disabled = command === CommandIds.TaskPauseAll ? resume : pause
+      expect(enabled).not.toHaveAttribute('aria-disabled', 'true')
+      expect(disabled).toHaveAttribute('aria-disabled', 'true')
+    }
+    expect(transport.invoke).not.toHaveBeenCalled()
+  })
+
+  it('reports partial and whole-command failures from global actions', async () => {
+    vi.mocked(menuActionEnabled).mockReturnValue(true)
+    setup(false, [])
+    const user = userEvent.setup()
+    vi.mocked(transport.invoke).mockResolvedValueOnce({
+      succeeded: ['a'],
+      failed: [{ taskId: 'b', reason: 'Unavailable' }],
+    })
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Pause All' }))
+    await waitFor(() =>
+      expect(toast.add).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'warning' })
+      )
+    )
+    vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('Disconnected'))
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Resume All' })
+    )
+    await waitFor(() =>
+      expect(toast.add).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', description: 'Disconnected' })
+      )
+    )
+  })
+
   it('opens a new task from an empty list without empty task groups', async () => {
     setup(true, [])
     fireEvent.contextMenu(screen.getByTestId('context-list'))

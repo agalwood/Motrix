@@ -13,7 +13,7 @@ import {
   updateTaskInspectorAppearance,
 } from './fixtures/task-inspector-activity'
 
-test('toolbar glass follows the saved switch and preserves search, sizing and focus', async ({
+test('toolbar glass follows the saved switch and preserves dragging, search, sizing and focus', async ({
   userDataDir,
   rpcPort,
 }, testInfo) => {
@@ -128,7 +128,33 @@ test('toolbar glass follows the saved switch and preserves search, sizing and fo
       .click()
     await expect(toolbar).toHaveAttribute('data-density', 'compact')
     await expect.poll(async () => (await search.boundingBox())!.height).toBe(30)
-    await input.focus()
+    // Blank toolbar space must reach a window drag region, while the two
+    // control capsules remain clickable after collapsing the sidebar.
+    const blankSpace = await toolbar.evaluate((element) => {
+      const toolbarBounds = element.getBoundingClientRect()
+      const controls = element
+        .querySelector('[data-slot="downloads-action-group"]')!
+        .getBoundingClientRect()
+      return {
+        width: controls.left - toolbarBounds.left,
+        regions: document
+          .elementsFromPoint(
+            (toolbarBounds.left + controls.left) / 2,
+            toolbarBounds.top + toolbarBounds.height / 2
+          )
+          .map((node) =>
+            getComputedStyle(node).getPropertyValue('-webkit-app-region')
+          ),
+      }
+    })
+    expect(blankSpace.width).toBeGreaterThan(100)
+    expect(blankSpace.regions).toContain('drag')
+    expect(blankSpace.regions).not.toContain('no-drag')
+    await expect(
+      toolbar.locator('[data-slot="downloads-action-group"]')
+    ).toHaveCSS('-webkit-app-region', 'no-drag')
+    await expect(search).toHaveCSS('-webkit-app-region', 'no-drag')
+    await input.click()
     await page.emulateMedia({ contrast: 'more' })
     await expect(layers).toHaveCount(0)
     await expect(input).toBeFocused()
@@ -148,7 +174,13 @@ test('toolbar glass follows the saved switch and preserves search, sizing and fo
     // macOS recreates its native window for this setting. Other hosts update
     // the same renderer through the sanitized preference event.
     const replacement =
-      process.platform === 'darwin' ? app.waitForEvent('window') : null
+      process.platform === 'darwin'
+        ? app.waitForEvent('window', async (candidate) => {
+            // Ignore the add-task window that may be prewarmed concurrently.
+            await candidate.waitForLoadState('domcontentloaded')
+            return new URL(candidate.url()).searchParams.get('w') === 'main'
+          })
+        : null
     await page.evaluate(async (command) => {
       const api = (
         window as unknown as {

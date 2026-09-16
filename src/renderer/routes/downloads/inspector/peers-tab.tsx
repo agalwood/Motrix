@@ -149,8 +149,8 @@ export function PeersTab({ task }: { task: DownloadTask }) {
             seeders: summary.seeders,
           })}
         </span>
-        <span className="font-mono tabular-nums">
-          ↓ {formatSpeed(summary.totalDown)} · ↑ {formatSpeed(summary.totalUp)}
+        <span className="tabular-nums">
+          ↑ {formatSpeed(summary.totalUp)} · ↓ {formatSpeed(summary.totalDown)}
         </span>
       </div>
 
@@ -193,6 +193,7 @@ export function PeersTab({ task }: { task: DownloadTask }) {
           </p>
         ) : (
           <VirtualList<TaskPeer>
+            scrollbar="custom"
             items={sorted}
             getId={(p) => p.id}
             rowHeight={ROW_HEIGHT}

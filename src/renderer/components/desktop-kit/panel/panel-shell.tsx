@@ -20,6 +20,8 @@ export interface PanelShellProps {
   children: React.ReactNode
   headerClassName?: string
   actionsClassName?: string
+  /** Let a toolbar with its own no-drag controls expose draggable blank space. */
+  actionsDraggable?: boolean
   contentClassName?: string
 }
 
@@ -32,6 +34,7 @@ export function PanelShell({
   children,
   headerClassName,
   actionsClassName,
+  actionsDraggable = false,
   contentClassName,
 }: PanelShellProps) {
   return (
@@ -65,7 +68,8 @@ export function PanelShell({
           // Keep actions above the z-30 WindowChrome drag strip but below the
           // z-50 modal layer so dialogs always cover background controls.
           className={cn(
-            'app-no-drag relative z-40 flex min-h-9 shrink-0 items-center gap-2 compact-header:min-h-7',
+            'relative z-40 flex min-h-9 shrink-0 items-center gap-2 compact-header:min-h-7',
+            actionsDraggable ? 'app-drag' : 'app-no-drag',
             actionsClassName
           )}
         >
@@ -75,7 +79,7 @@ export function PanelShell({
               value={search.value}
               onChange={(e) => search.onChange(e.target.value)}
               placeholder={search.placeholder}
-              className="h-9 w-56 text-sm placeholder:text-xs compact-header:h-7 compact-header:w-40"
+              className="app-no-drag h-9 w-56 text-sm placeholder:text-xs compact-header:h-7 compact-header:w-40"
             />
           )}
           {actionsPosition === 'end' && actions}

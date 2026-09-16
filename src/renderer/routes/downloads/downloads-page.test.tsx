@@ -48,6 +48,8 @@ const taskListMock = vi.hoisted(() => {
 
 vi.mock('@renderer/hooks/use-task-list', () => ({
   useTaskList: () => taskListMock.current,
+  getTaskListSnapshot: () => taskListMock.current,
+  subscribeTaskList: () => () => {},
 }))
 vi.mock('@renderer/hooks/use-global-stats', () => ({
   useGlobalStats: () => ({ stats: null }),

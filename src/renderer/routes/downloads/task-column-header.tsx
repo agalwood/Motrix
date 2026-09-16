@@ -98,7 +98,7 @@ export function TaskColumnHeader({
                 )}
                 className={cn(
                   'flex h-7 w-full min-w-0 cursor-default items-center gap-1 rounded-sm px-2 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-                  active && 'text-foreground'
+                  active && 'font-semibold text-foreground'
                 )}
                 onClick={() => onSort(id)}
                 onDragStart={(event) => {

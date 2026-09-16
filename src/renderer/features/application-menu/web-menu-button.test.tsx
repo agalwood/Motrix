@@ -67,7 +67,7 @@ it('renders browser product entries without desktop IPC or reserved accelerators
   await user.click(screen.getByRole('button', { name: 'Motrix' }))
   await screen.findByRole('menu')
   expect(screen.getByRole('menuitem', { name: 'About Motrix' })).toBeVisible()
-  expect(screen.getByRole('menuitem', { name: 'Sign out…' })).toBeVisible()
+  expect(screen.getByRole('menuitem', { name: 'Sign Out…' })).toBeVisible()
   expect(screen.queryByText(/Quit|Check for Updates|DevTools/)).toBeNull()
   expect(transport.invoke).not.toHaveBeenCalled()
 })
@@ -104,7 +104,7 @@ it('uses real anchors for help and hides logout for unrestricted access', async 
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Motrix' }))
   await screen.findByRole('menu')
-  expect(screen.queryByRole('menuitem', { name: 'Sign out…' })).toBeNull()
+  expect(screen.queryByRole('menuitem', { name: 'Sign Out…' })).toBeNull()
   await user.click(screen.getByRole('menuitem', { name: 'Help' }))
   for (const link of screen
     .getAllByRole('menuitem')

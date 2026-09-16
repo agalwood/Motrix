@@ -199,7 +199,7 @@ describe('FilesTab', () => {
     expect(useTaskFiles).toHaveBeenCalledWith('t1', true)
   })
 
-  it('treats HTTP task as read-only regardless of file count', () => {
+  it('shows every HTTP file as selected and read-only', () => {
     ;(useTaskFiles as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       files: [
         {
@@ -226,5 +226,9 @@ describe('FilesTab', () => {
     expect(
       screen.queryByRole('button', { name: /save/i })
     ).not.toBeInTheDocument()
+    const checkbox = screen.getByRole('checkbox', { name: 'release.zip' })
+    expect(checkbox).toBeChecked()
+    expect(checkbox).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText(/1 file selected/)).toBeInTheDocument()
   })
 })

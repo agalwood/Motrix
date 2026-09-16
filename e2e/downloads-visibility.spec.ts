@@ -1012,6 +1012,15 @@ test('native list controls preserve selection through context menus, column chan
   await expect(
     mainWindow.getByRole('menuitem', { name: 'Resume', exact: true })
   ).toBeVisible()
+  await expect(
+    mainWindow.getByRole('menuitem', { name: 'Pause All', exact: true })
+  ).toBeEnabled()
+  await expect(
+    mainWindow.getByRole('menuitem', { name: 'Resume All', exact: true })
+  ).toBeEnabled()
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('global-transfer-actions.png'),
+  })
   await mainWindow.keyboard.press('Escape')
   await expect(mainWindow.getByRole('menu')).toHaveCount(0)
 

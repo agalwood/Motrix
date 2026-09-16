@@ -4,6 +4,7 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
+import { cn } from '@renderer/lib/utils'
 import {
   defaultRangeExtractor,
   type Range,
@@ -134,13 +135,13 @@ function VirtualListInner<T>(
 
   if (scrollbar === 'custom') {
     return (
-      <ScrollArea className={className} style={style}>
+      <ScrollArea className={cn('flex flex-col', className)} style={style}>
         <ScrollAreaViewport
           ref={containerRef}
           data-testid="virtual-list-container"
           tabIndex={-1}
           {...containerProps}
-          className="relative"
+          className="relative min-h-0"
         >
           <ScrollAreaContent style={{ minWidth: '100%' }}>
             {content}

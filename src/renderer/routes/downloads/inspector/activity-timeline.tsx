@@ -4,6 +4,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import { formatTime24Hour } from '@renderer/lib/format'
 import { cn } from '@renderer/lib/utils'
@@ -168,40 +174,45 @@ function NodeDetails({
 }) {
   const { t } = useTranslation()
   return (
-    <div className="max-h-60 overflow-y-auto">
-      {node.presentation === 'truncated' && (
-        <div className="space-y-1 text-xs">
-          <p className="font-medium text-foreground">
-            {t('panel.downloads.inspector.activity.timeline.truncated', {
-              count: node.count,
-            })}
-          </p>
-          <p className="text-muted-foreground tabular-nums">
-            {t('panel.downloads.inspector.activity.timeline.truncatedAt', {
-              time: formatTimelineTime(node.occurredAt, locale),
-            })}
-          </p>
-        </div>
-      )}
-      <ol className="space-y-2">
-        {node.events.map((item) => (
-          <li
-            key={item.eventKey}
-            className="border-b border-border/60 pb-2 last:border-0 last:pb-0"
-          >
-            <div className="flex items-baseline justify-between gap-3 text-xs">
-              <span className="font-medium text-foreground">
-                {localizedEventLabel(item.kind, item.toStatus, t)}
-              </span>
-              <time className="shrink-0 text-muted-foreground tabular-nums">
-                {formatTimelineTime(item.occurredAt, locale)}
-              </time>
+    <ScrollArea>
+      <ScrollAreaViewport className="max-h-60">
+        <ScrollAreaContent>
+          {node.presentation === 'truncated' && (
+            <div className="space-y-1 text-xs">
+              <p className="font-medium text-foreground">
+                {t('panel.downloads.inspector.activity.timeline.truncated', {
+                  count: node.count,
+                })}
+              </p>
+              <p className="text-muted-foreground tabular-nums">
+                {t('panel.downloads.inspector.activity.timeline.truncatedAt', {
+                  time: formatTimelineTime(node.occurredAt, locale),
+                })}
+              </p>
             </div>
-            <HistoryEventError item={item} />
-          </li>
-        ))}
-      </ol>
-    </div>
+          )}
+          <ol className="space-y-2">
+            {node.events.map((item) => (
+              <li
+                key={item.eventKey}
+                className="border-b border-border/60 pb-2 last:border-0 last:pb-0"
+              >
+                <div className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="font-medium text-foreground">
+                    {localizedEventLabel(item.kind, item.toStatus, t)}
+                  </span>
+                  <time className="shrink-0 text-muted-foreground tabular-nums">
+                    {formatTimelineTime(item.occurredAt, locale)}
+                  </time>
+                </div>
+                <HistoryEventError item={item} />
+              </li>
+            ))}
+          </ol>
+        </ScrollAreaContent>
+      </ScrollAreaViewport>
+      <ScrollBar />
+    </ScrollArea>
   )
 }
 
@@ -378,39 +389,44 @@ export function ActivityTimeline({
             </Button>
           </>
         )}
-        <div
-          ref={scrollerRef}
-          data-testid="activity-timeline-scroller"
-          className="overflow-x-auto overflow-y-hidden py-1"
-        >
-          <div
-            className="relative grid min-h-16 items-start gap-1 px-1"
-            style={{
-              gridTemplateColumns: `repeat(${Math.max(1, model.nodes.length)}, minmax(72px, 1fr))`,
-              minWidth: minimumWidth,
-            }}
+        <ScrollArea>
+          <ScrollAreaViewport
+            ref={scrollerRef}
+            data-testid="activity-timeline-scroller"
+            style={{ overflowX: 'auto', overflowY: 'hidden' }}
           >
-            {model.nodes.length > 1 && (
+            <ScrollAreaContent className="py-1">
               <div
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[calc(50%/var(--activity-node-count))] right-[calc(50%/var(--activity-node-count))] top-2.5 border-t border-border"
-                style={
-                  {
-                    '--activity-node-count': model.nodes.length,
-                  } as CSSProperties
-                }
-              />
-            )}
-            {model.nodes.map((node) => (
-              <TimelineNodeView
-                key={node.id}
-                node={node}
-                selected={selectedNodeId === node.id}
-                onSelect={() => onSelectNode(node)}
-              />
-            ))}
-          </div>
-        </div>
+                className="relative grid min-h-16 items-start gap-1 px-1"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(1, model.nodes.length)}, minmax(72px, 1fr))`,
+                  minWidth: minimumWidth,
+                }}
+              >
+                {model.nodes.length > 1 && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-[calc(50%/var(--activity-node-count))] right-[calc(50%/var(--activity-node-count))] top-2.5 border-t border-border"
+                    style={
+                      {
+                        '--activity-node-count': model.nodes.length,
+                      } as CSSProperties
+                    }
+                  />
+                )}
+                {model.nodes.map((node) => (
+                  <TimelineNodeView
+                    key={node.id}
+                    node={node}
+                    selected={selectedNodeId === node.id}
+                    onSelect={() => onSelectNode(node)}
+                  />
+                ))}
+              </div>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </section>
   )
