@@ -120,7 +120,7 @@ export function FilterSearchCommand({
         if (!open && rootRef.current?.contains(event.target)) collapseIfIdle()
       }}
       className={cn(
-        'toolbar-glass-surface flex h-9 shrink-0 items-center rounded-full border border-border/70 bg-background/70 p-0.5 transition-[width] duration-150 ease-out motion-reduce:transition-none compact-header:h-[30px]',
+        'app-no-drag toolbar-glass-surface flex h-9 shrink-0 items-center rounded-full border border-border/70 bg-background/70 p-0.5 transition-[width] duration-150 ease-out motion-reduce:transition-none compact-header:h-[30px]',
         expanded &&
           'has-[input:focus]:border-[#7388a3] dark:has-[input:focus]:border-[#97aac4]'
       )}

@@ -17,13 +17,22 @@ import {
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
 import { toast } from '@renderer/components/ui/toast'
+import {
+  menuActionEnabled,
+  subscribeMenuContext,
+} from '@renderer/features/application-menu/task-context'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
+import { CommandIds } from '@shared/commands-catalog'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import { canOpenTaskFile, canSelectTaskFiles } from '@shared/types/task-actions'
+import {
+  type BulkTaskCommandResult,
+  canOpenTaskFile,
+  canSelectTaskFiles,
+} from '@shared/types/task-actions'
 import { Ellipsis } from 'lucide-react'
 import {
   type ClipboardEvent,
@@ -34,6 +43,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DownloadsToolbarButton } from './downloads-toolbar-button'
@@ -47,6 +57,38 @@ import {
   taskMenuShortcuts,
 } from './task-menu-shortcuts'
 import { useDownloadsView } from './view-preferences'
+
+function GlobalTransferMenuItems({
+  pending,
+  onAction,
+}: {
+  pending: boolean
+  onAction: (action: 'pause' | 'resume') => void
+}) {
+  const { t } = useTranslation()
+  const canPauseAll = useSyncExternalStore(subscribeMenuContext, () =>
+    menuActionEnabled(CommandIds.TaskPauseAll)
+  )
+  const canResumeAll = useSyncExternalStore(subscribeMenuContext, () =>
+    menuActionEnabled(CommandIds.TaskResumeAll)
+  )
+  return (
+    <>
+      <DropdownMenuItem
+        disabled={pending || !canPauseAll}
+        onClick={() => onAction('pause')}
+      >
+        {t('menu.task.pauseAllTask')}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={pending || !canResumeAll}
+        onClick={() => onAction('resume')}
+      >
+        {t('menu.task.resumeAllTask')}
+      </DropdownMenuItem>
+    </>
+  )
+}
 
 export function TaskActionsMenu({
   tasks,
@@ -119,6 +161,24 @@ export function TaskActionsMenu({
       await action()
       toast.add({ title: t('panel.downloads.action.copied'), type: 'success' })
     }, t('panel.downloads.action.copyFailed'))
+  }
+  const runAll = (action: 'pause' | 'resume') => {
+    const commandId =
+      action === 'pause' ? CommandIds.TaskPauseAll : CommandIds.TaskResumeAll
+    if (!menuActionEnabled(commandId)) return
+    void runAction(async () => {
+      const result = (await transport.invoke(
+        action === 'pause' ? Commands.PauseAllTasks : Commands.ResumeAllTasks
+      )) as BulkTaskCommandResult
+      if (result.failed.length)
+        toast.add({
+          title: t('panel.downloads.action.batchPartial', {
+            ok: result.succeeded.length,
+            failed: result.failed.length,
+          }),
+          type: 'warning',
+        })
+    }, t('applicationMenu.actionFailed'))
   }
   const prepare = () =>
     setTargetIds(new Set(selection.getState().committedSelectedIds))
@@ -333,6 +393,11 @@ export function TaskActionsMenu({
           )}
         </>
       ),
+    },
+    {
+      id: 'all-transfers',
+      visible: !children,
+      content: <GlobalTransferMenuItems pending={pending} onAction={runAll} />,
     },
     {
       id: 'copy',

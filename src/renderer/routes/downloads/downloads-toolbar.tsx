@@ -103,7 +103,7 @@ export function DownloadsToolbar({
     >
       <div
         data-slot="downloads-action-group"
-        className="toolbar-glass-surface flex h-9 shrink-0 items-center gap-1 rounded-full border border-border/70 bg-background/70 p-0.5 compact-header:h-[30px]"
+        className="app-no-drag toolbar-glass-surface flex h-9 shrink-0 items-center gap-1 rounded-full border border-border/70 bg-background/70 p-0.5 compact-header:h-[30px]"
       >
         <ToolbarGlass enabled={glassEnabled} />
         <TaskActionsMenu

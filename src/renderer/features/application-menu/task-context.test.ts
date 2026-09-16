@@ -83,6 +83,26 @@ it('keeps local actions available while a fresh task snapshot is unavailable', (
   expect(menuActionEnabled(CommandIds.TaskNew)).toBe(true)
   expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(false)
 })
+it('keeps global transfers available for tasks outside the filtered selection', () => {
+  const completed = makeDownloadTask({
+    id: 'completed',
+    status: TaskStatus.Completed,
+  })
+  mocks.snapshot.tasks = [
+    completed,
+    makeDownloadTask({ id: 'active', status: TaskStatus.Downloading }),
+    makeDownloadTask({ id: 'paused', status: TaskStatus.Paused }),
+  ]
+  useDownloadsSelection.getState().setItems([completed])
+  useDownloadsSelection.getState().select(completed.id)
+  expect(menuActionEnabled(CommandIds.TaskPause)).toBe(false)
+  expect(menuActionEnabled(CommandIds.TaskResume)).toBe(false)
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(true)
+  expect(menuActionEnabled(CommandIds.TaskResumeAll)).toBe(true)
+  useOperatorSession.setState({ state: 'locked' })
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(false)
+  expect(menuActionEnabled(CommandIds.TaskResumeAll)).toBe(false)
+})
 it('does not commit menu renders for progress-only updates in a 10,000 task list', () => {
   const tasks = Array.from({ length: 10_000 }, (_, index) =>
     makeDownloadTask({ id: String(index), status: TaskStatus.Downloading })

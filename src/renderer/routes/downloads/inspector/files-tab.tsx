@@ -43,6 +43,11 @@ export function FilesTab({ task }: { task: DownloadTask }) {
     files.length <= 1
   const isReadOnly =
     READ_ONLY_STATES.has(task.status) || isStructurallyImmutable
+  const selectedIndices = isStructurallyImmutable
+    ? files.map((file) => file.index)
+    : isReadOnly
+      ? initial
+      : draft
   const dirty = !arraysEqualSorted(draft, initial)
   const canSave = dirty && draft.length > 0
 
@@ -56,8 +61,10 @@ export function FilesTab({ task }: { task: DownloadTask }) {
   return (
     <div className="flex min-h-[105px] flex-1 flex-col gap-2 border border-border rounded-md">
       <FileList<TaskFile>
+        scrollbar="custom"
+        className="max-h-60"
         files={files}
-        selectedIndices={isReadOnly ? initial : draft}
+        selectedIndices={selectedIndices}
         onSelectionChange={isReadOnly ? undefined : setDraft}
         readOnly={isReadOnly}
         renderRowTrailing={(f) =>

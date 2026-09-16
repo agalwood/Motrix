@@ -126,22 +126,12 @@ export function OverviewTab({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card title={t('panel.downloads.inspector.overview.transfer')}>
           <Row
-            label={t('panel.downloads.inspector.overview.downSpeed')}
-            value={formatSpeed(task.downloadSpeed)}
-          />
-          <Row
             label={t('panel.downloads.inspector.overview.upSpeed')}
             value={formatSpeed(task.uploadSpeed)}
           />
           <Row
-            label={t('panel.downloads.inspector.overview.eta')}
-            value={formatDurationHMS(task.etaSeconds)}
-          />
-        </Card>
-        <Card title={t('panel.downloads.inspector.overview.progress')}>
-          <Row
-            label={t('panel.downloads.inspector.overview.downloaded')}
-            value={formatBytes(task.downloadedBytes)}
+            label={t('panel.downloads.inspector.overview.downSpeed')}
+            value={formatSpeed(task.downloadSpeed)}
           />
           {isBt && (
             <Row
@@ -149,6 +139,24 @@ export function OverviewTab({
               value={formatBytes(task.uploadedBytes)}
             />
           )}
+          <Row
+            label={t('panel.downloads.inspector.overview.downloaded')}
+            value={formatBytes(task.downloadedBytes)}
+          />
+        </Card>
+        <Card title={t('panel.downloads.inspector.overview.progress')}>
+          <Row
+            label={t('panel.downloads.inspector.overview.totalSize')}
+            value={formatBytes(task.sizeWhenDone)}
+          />
+          <Row
+            label={t('panel.downloads.inspector.overview.percent')}
+            value={`${formatProgressPercent(task.progress)}%`}
+          />
+          <Row
+            label={t('panel.downloads.inspector.overview.eta')}
+            value={formatDurationHMS(task.etaSeconds)}
+          />
           {isBt && (
             <Row
               label={t('panel.downloads.inspector.overview.seedingTime')}
@@ -160,14 +168,6 @@ export function OverviewTab({
               }
             />
           )}
-          <Row
-            label={t('panel.downloads.inspector.overview.totalSize')}
-            value={formatBytes(task.sizeWhenDone)}
-          />
-          <Row
-            label={t('panel.downloads.inspector.overview.percent')}
-            value={`${formatProgressPercent(task.progress)}%`}
-          />
         </Card>
         <Card title={t('panel.downloads.inspector.overview.network')}>
           {isBt && task.bt ? (
@@ -186,6 +186,10 @@ export function OverviewTab({
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 }).format(task.bt.ratio)}
+              />
+              <Row
+                label={t('panel.downloads.inspector.overview.private')}
+                value={task.bt.isPrivate ? '✓' : '—'}
               />
             </>
           ) : (
@@ -219,12 +223,6 @@ export function OverviewTab({
                   />
                 </div>
               }
-            />
-          )}
-          {isBt && task.bt && (
-            <Row
-              label={t('panel.downloads.inspector.overview.private')}
-              value={task.bt.isPrivate ? '✓' : '—'}
             />
           )}
           <Row

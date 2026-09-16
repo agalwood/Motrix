@@ -1830,7 +1830,7 @@
       "title": "Motrix",
       "about": "About Motrix",
       "preferences": "Settings…",
-      "checkForUpdates": "Check for Updates…",
+      "checkForUpdates": "Check for Updates",
       "show": "Show Motrix",
       "hide": "Hide Motrix",
       "hideOthers": "Hide Others",
@@ -1848,13 +1848,13 @@
       "taskList": "Task List",
       "pauseTask": "Pause",
       "resumeTask": "Resume",
-      "deleteTask": "Remove tasks…",
-      "moveTaskUp": "Move up in queue",
-      "moveTaskDown": "Move down in queue",
+      "deleteTask": "Remove Tasks…",
+      "moveTaskUp": "Move Up in Queue",
+      "moveTaskDown": "Move Down in Queue",
       "pauseAllTask": "Pause All",
       "resumeAllTask": "Resume All",
-      "selectAllTask": "Select all tasks",
-      "clearRecentTasks": "Clear stopped task records…"
+      "selectAllTask": "Select All Tasks",
+      "clearRecentTasks": "Clear Stopped Task Records…"
     },
     "edit": {
       "title": "Edit",
@@ -1872,15 +1872,15 @@
       "close": "Close",
       "minimize": "Minimize",
       "zoom": "Zoom",
-      "toggleFullscreen": "Toggle Fullscreen",
+      "toggleFullscreen": "Toggle Full Screen",
       "front": "Bring All to Front"
     },
     "help": {
       "title": "Help",
-      "officialWebsite": "Official Website",
-      "manual": "Manual",
-      "changelog": "Changelog",
-      "reportProblem": "Report an Issue",
+      "officialWebsite": "Motrix Website",
+      "manual": "Motrix Help",
+      "changelog": "Release Notes",
+      "reportProblem": "Report a Problem",
       "toggleDevTools": "Toggle Developer Tools"
     }
   },
@@ -2407,7 +2407,7 @@
     }
   },
   "applicationMenu": {
-    "signOut": "Sign out…",
+    "signOut": "Sign Out…",
     "back": "Back",
     "serverUnavailable": "The server is unavailable. Your session has not been signed out.",
     "retry": "Retry",

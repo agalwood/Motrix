@@ -328,6 +328,7 @@ export function DownloadsPage() {
             />
           }
           actionsPosition="end"
+          actionsDraggable
           headerClassName="compact-header:py-1"
           actionsClassName="min-w-0 flex-1"
           footer={<GlobalStatsBar />}

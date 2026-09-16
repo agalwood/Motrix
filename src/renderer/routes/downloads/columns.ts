@@ -30,7 +30,7 @@ export function defaultTaskColumns() {
   return TASK_SORT_COLUMNS.map((id) => ({
     id,
     width: TASK_COLUMNS[id].width,
-    visible: !['up', 'eta', 'connections'].includes(id),
+    visible: true,
   }))
 }
 

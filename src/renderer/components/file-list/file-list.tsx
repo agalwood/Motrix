@@ -12,6 +12,7 @@ interface FileListProps<T extends BaseFileRow = BaseFileRow> {
   onSelectionChange?: (indices: number[]) => void
   readOnly?: boolean
   scrollbar?: 'native' | 'custom'
+  className?: string
   /** Optional slot rendered in the sticky header's trailing area. */
   headerSlot?: ReactNode
   headerClassName?: string
@@ -25,6 +26,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
   onSelectionChange,
   readOnly = false,
   scrollbar = 'native',
+  className,
   headerSlot,
   headerClassName,
   renderRowTrailing,
@@ -74,7 +76,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
       items={files}
       getId={(f) => String(f.index)}
       rowHeight={32}
-      className="h-full w-full"
+      className={cn('h-full w-full', className)}
       renderHeader={() => (
         <div
           className={cn(

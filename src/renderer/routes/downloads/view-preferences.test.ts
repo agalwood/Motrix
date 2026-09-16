@@ -19,17 +19,36 @@ describe('Downloads view preferences', () => {
     const store = createDownloadsViewStore()
     expect(store.getState().inspectorVisible).toBe(false)
     store.getState().setColumnWidth('name', 320)
-    store.getState().setColumnVisible('eta', true)
+    store.getState().setColumnVisible('eta', false)
+    store.getState().setColumnVisible('createdAt', false)
     store.getState().moveColumn('eta', 'name')
     store.getState().setInspectorVisible(true)
     store.getState().setInspectorSnap('compact')
     const restored = createDownloadsViewStore().getState()
     expect(restored.columns[0].id).toBe('eta')
+    expect(restored.columns[0].visible).toBe(false)
     expect(restored.columns[1].width).toBe(320)
     expect(restored.inspectorVisible).toBe(true)
     expect(restored.inspectorSnap).toBe('compact')
     store.getState().resetColumns()
     expect(store.getState().inspectorVisible).toBe(true)
+    expect(
+      createDownloadsViewStore()
+        .getState()
+        .columns.filter((column) => column.visible)
+        .map((column) => column.id)
+    ).toEqual([
+      'name',
+      'size',
+      'progress',
+      'status',
+      'down',
+      'up',
+      'eta',
+      'connections',
+      'createdAt',
+      'finishedAt',
+    ])
   })
 
   it('clamps resizing and keeps the name visible without persisting every drag frame', () => {
