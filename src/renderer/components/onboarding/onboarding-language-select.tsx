@@ -35,7 +35,7 @@ export function OnboardingLanguageSelect() {
   }
 
   return (
-    <div className="flex items-center pt-3.5">
+    <div className="flex items-center">
       <Select
         items={LANGUAGE_OPTIONS}
         value={i18n.resolvedLanguage ?? i18n.language}

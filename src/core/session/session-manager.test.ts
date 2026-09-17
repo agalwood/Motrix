@@ -29,6 +29,7 @@ import {
   getBtPayloadPath,
   parseBtFileLayout,
 } from '../task/bt-storage-layout'
+import { getMediaMetaPath } from '../task/media-task-files'
 import { TaskManager } from '../task/task-manager'
 import { computeUriHash } from './content-key'
 import type {
@@ -880,6 +881,37 @@ describe('SessionManager', () => {
         TaskInstancePhase.HlsSegment,
       ])
     })
+
+    it.each([TaskStatus.Completed, TaskStatus.Error])(
+      'restores the media metadata reference for a %s task',
+      async (status) => {
+        const task = makeMultiInstanceTask()
+        task.status = status
+        task.engineTaskId = ''
+        for (const instance of task.instances) {
+          instance.gid = null
+          instance.status = status
+        }
+        task.instances[0].payload.mediaMetaPath =
+          '/metadata/media/m-multi/files.json'
+        // Equal creation timestamps do not guarantee an instance row order.
+        task.instances.reverse()
+        taskManager.add(task)
+        await session.save()
+        const saved = db.getTask(task.id)
+        expect(saved).not.toBeNull()
+        db.saveTaskWithInstances(JSON.parse(JSON.stringify(saved)))
+        taskManager.clear()
+
+        await session.restore()
+
+        const restored = taskManager.getById(task.id)
+        expect(restored?.status).toBe(status)
+        expect(getMediaMetaPath(restored as DownloadTask)).toEqual(
+          getMediaMetaPath(task)
+        )
+      }
+    )
   })
 
   describe('exclusive persistence queue', () => {

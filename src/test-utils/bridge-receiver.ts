@@ -5,6 +5,7 @@ import type { MdxpSessionContext } from '@core/bridge/mdxp-session-context'
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
 import { TaskManager } from '@core/task/task-manager'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { vi } from 'vitest'
 
 /** Typed receiver dependencies with inert IO; each call owns independent state. */
@@ -13,6 +14,7 @@ export function makeBridgeReceiverDeps(
 ): BridgeReceiverDeps {
   let serial = 0
   return {
+    mediaMetaStore: makeMediaMetaStoreStub(),
     getDefaultSaveDir: () => '/downloads',
     pickName: vi.fn(async (_dir, name) => name),
     createTask: vi.fn(async () => ({

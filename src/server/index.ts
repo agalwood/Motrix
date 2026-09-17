@@ -95,6 +95,7 @@ import { handleCreateTask } from '@core/task/create-task-handler'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
+import { MediaMetaStoreImpl } from '@core/task/media-meta-store'
 import {
   hasEngineTaskDelta,
   mergeEngineTask,
@@ -1018,6 +1019,12 @@ async function main() {
   const torrentMetaStore = new TorrentMetaStoreImpl(
     runtimeDirectories.torrentsDir
   )
+  const mediaMetaStore = new MediaMetaStoreImpl(
+    path.join(platform.userDataDir, 'media')
+  )
+  await mediaMetaStore
+    .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
+    .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
       await fs.rm(absPath, { recursive: true, force: true })
@@ -1111,6 +1118,7 @@ async function main() {
   // ─── HTTP App ─────────────────────────────────────────────────
   const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
   const commandHandlers = buildServerCommandHandlers({
+    mediaMetaStore,
     serverDirectoryService,
     supervisor,
     settingsManager,
@@ -1193,6 +1201,7 @@ async function main() {
     ])
   }
   const queryHandlers = buildServerQueryHandlers({
+    mediaMetaStore,
     serverDirectoryService,
     taskManager,
     statsAggregator,
@@ -1771,6 +1780,7 @@ async function main() {
         adapter,
         log,
         fileCleanupService,
+        mediaMetaStore,
         torrentMetaStore,
         eventBus,
         db,
@@ -1912,6 +1922,7 @@ async function main() {
         trustedExtensionRegistry,
         createExtensionReceiver: ({ bridgeBus }) =>
           new BridgeReceiver({
+            mediaMetaStore,
             getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
             pickName: (saveDir, desired) =>
               finalNamePicker.pick(saveDir, desired),

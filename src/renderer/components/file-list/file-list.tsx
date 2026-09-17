@@ -18,6 +18,7 @@ interface FileListProps<T extends BaseFileRow = BaseFileRow> {
   headerClassName?: string
   /** Optional trailing renderer per row (e.g. progress percent in detail). */
   renderRowTrailing?: (file: T) => ReactNode
+  renderRowSize?: (file: T) => ReactNode
 }
 
 export function FileList<T extends BaseFileRow = BaseFileRow>({
@@ -30,6 +31,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
   headerSlot,
   headerClassName,
   renderRowTrailing,
+  renderRowSize,
 }: FileListProps<T>) {
   const { formatBytes } = useByteFormat()
 
@@ -122,7 +124,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
               {file.path}
             </span>
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {formatBytes(file.size)}
+              {renderRowSize ? renderRowSize(file) : formatBytes(file.size)}
             </span>
             {renderRowTrailing?.(file)}
           </div>

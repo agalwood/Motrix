@@ -5,6 +5,7 @@ import { ErrorCodes } from '@motrix/mdxp'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it, vi } from 'vitest'
 import { BridgeReceiver } from './bridge-receiver'
@@ -23,6 +24,7 @@ function fakeDeps(
   over: Partial<ConstructorParameters<typeof BridgeReceiver>[0]> = {}
 ) {
   return {
+    mediaMetaStore: makeMediaMetaStoreStub(),
     getDefaultSaveDir: () => '/tmp/save',
     pickName: async (_d: string, n: string) => n,
     createTask: vi.fn(async () => ({ gid: 'gid-1', taskId: 'task-abc' })),

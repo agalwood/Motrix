@@ -276,4 +276,6 @@ export interface TaskFile {
   size: number
   completedBytes: number
   selected: boolean
+  /** Media segment progress, independent of the parent task's mux progress. */
+  progress?: number
 }

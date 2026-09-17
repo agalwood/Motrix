@@ -439,6 +439,7 @@ export async function bootstrapBridge(args: {
    *  threaded through BridgeReceiver into the MediaTaskCoordinator. */
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
+  mediaMetaStore: BridgeReceiverDeps['mediaMetaStore']
   taskManager: BridgeReceiverDeps['taskManager']
   segmentAria2: BridgeReceiverDeps['segmentAria2']
   tmpRoot: string
@@ -592,6 +593,7 @@ export async function bootstrapBridge(args: {
       args.pluginHost
     )
     const receiver = new BridgeReceiver({
+      mediaMetaStore: args.mediaMetaStore,
       getDefaultSaveDir: args.getDefaultSaveDir,
       pickName: (saveDir, desired) =>
         args.finalNamePicker.pick(saveDir, desired),

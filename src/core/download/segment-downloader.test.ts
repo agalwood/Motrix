@@ -1,7 +1,11 @@
 import path from 'node:path'
 import type { SegmentPlan } from '@core/media/segment-plan'
 import { describe, expect, it } from 'vitest'
-import type { PollScheduler, SegmentAria2 } from './segment-downloader'
+import type {
+  PollScheduler,
+  SegmentAria2,
+  SegmentFileProgress,
+} from './segment-downloader'
 import { SegmentDownloader } from './segment-downloader'
 
 // A poll scheduler that swallows the callback: polls NEVER auto-fire. Tests
@@ -142,6 +146,66 @@ const TMP = '/tmp/test-seg'
 // ---------------------------------------------------------------------------
 
 describe('SegmentDownloader', () => {
+  it('reports file progress by plan index across polling, retries and out-of-order completion', async () => {
+    const fake = makeFakeAria2()
+    const clock = makeManualScheduler()
+    const dl = new SegmentDownloader({
+      aria2: fake.aria2,
+      tmpDir: TMP,
+      concurrency: 2,
+      pollScheduler: clock.scheduler,
+    })
+    const updates = new Map<number, SegmentFileProgress>()
+    const run = dl.run(
+      makePlan({
+        init: { url: 'https://cdn.example/init.mp4' },
+        segments: [
+          { url: 'https://cdn.example/1.m4s' },
+          { url: 'https://cdn.example/2.m4s' },
+        ],
+      }),
+      {},
+      () => {},
+      (p) => updates.set(p.index, p)
+    )
+    await new Promise((resolve) => setImmediate(resolve))
+    fake.setBytes('gid1', 5, 10)
+    fake.setBytes('gid2', 0, 0)
+    await clock.tick()
+    expect(updates.get(0)).toMatchObject({
+      downloadedBytes: 5,
+      totalBytes: 10,
+      completed: false,
+    })
+    expect(updates.has(2)).toBe(false)
+
+    fake.fireError('gid1')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(updates.get(0)).toMatchObject({
+      downloadedBytes: 0,
+      completed: false,
+    })
+    // The terminal size must replace a prior poll's unknown length.
+    fake.setBytes('gid2', 25, 25)
+    fake.fireComplete('gid2')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(updates.get(1)).toMatchObject({
+      downloadedBytes: 25,
+      totalBytes: 25,
+      completed: true,
+    })
+    fake.setBytes('gid3', 10, 10)
+    fake.fireComplete('gid3')
+    // A completed transfer with unavailable lengths is still complete.
+    fake.fireComplete('gid4')
+    await run
+    expect(updates.get(0)).toMatchObject({
+      downloadedBytes: 10,
+      completed: true,
+    })
+    expect(updates.get(2)).toMatchObject({ totalBytes: 0, completed: true })
+  })
+
   it('(a) submits exactly one addUri per part — uris array length is always 1', async () => {
     const fake = makeFakeAria2()
     const dl = new SegmentDownloader({

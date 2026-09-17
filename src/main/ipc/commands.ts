@@ -74,6 +74,7 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import {
   admitTaskCreateRequest,
@@ -188,6 +189,7 @@ export interface CommandContext {
   trackerManager: TrackerManager
   contextStore: ContextStore
   finalNamePicker: FinalNamePicker
+  mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   fileCleanupService: FileCleanupService
   eventBus: EventBus
@@ -279,6 +281,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     trackerManager,
     contextStore,
     finalNamePicker,
+    mediaMetaStore,
     torrentMetaStore,
     fileCleanupService,
     eventBus,
@@ -444,6 +447,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     adapter,
     log,
     fileCleanupService,
+    mediaMetaStore,
     torrentMetaStore,
     eventBus,
     db: motrixDatabase,

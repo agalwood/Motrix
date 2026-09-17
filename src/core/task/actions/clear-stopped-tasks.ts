@@ -5,6 +5,8 @@ import type { SessionManager } from '@core/session/session-manager'
 import type { DownloadTask } from '@shared/types/task'
 import { isStoppedTaskStatus } from '@shared/types/task-actions'
 import type { Logger } from '../../logger'
+import type { MediaMetaStore } from '../media-meta-store'
+import { getMediaMetaPath } from '../media-task-files'
 import { collectTaskGids } from '../task-instance'
 import type { TaskManager } from '../task-manager'
 
@@ -14,6 +16,7 @@ interface Candidate {
 }
 
 export interface ClearStoppedTasksDeps {
+  mediaMetaStore?: Pick<MediaMetaStore, 'remove'>
   taskManager: Pick<TaskManager, 'getAll' | 'getById' | 'remove'>
   adapter: Pick<EngineAdapter, 'removeDownloadResults'>
   db: Pick<MotrixDatabase, 'deleteTasks'>
@@ -140,6 +143,12 @@ export async function clearStoppedTasks(
 
       if (ids.length === 0) return 0
 
+      const mediaPaths = ids.flatMap((id) => {
+        const task = deps.taskManager.getById(id)
+        const metaPath = task && getMediaMetaPath(task)
+        return metaPath ? [metaPath] : []
+      })
+
       const deleteParents = (): void => {
         deps.db.deleteTasks(ids)
         for (const id of ids) deps.taskManager.remove(id)
@@ -150,6 +159,11 @@ export async function clearStoppedTasks(
         deleteParents()
       }
       succeeded.push(...ids)
+      for (const metaPath of mediaPaths) {
+        await deps.mediaMetaStore?.remove(metaPath).catch((err) => {
+          deps.log.warn({ err, metaPath }, 'Failed to remove media metadata')
+        })
+      }
       deps.publishTaskUpdateNow()
       return ids.length
     })

@@ -3,7 +3,12 @@ import { DownloadErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
-import { type DownloadTask, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  type DownloadTask,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+} from '@shared/types/task'
 import { makeDownloadTask } from '../src/test-utils/task'
 import {
   expect,
@@ -92,6 +97,77 @@ async function expectDrawerSettled(drawer: Locator) {
     )
     .toBe(true)
 }
+
+test('media file list shows every segment through virtual scrolling and stays read-only', async ({
+  electronApp,
+  mainWindow,
+}, testInfo) => {
+  await waitForEngineReady(mainWindow)
+  await setTaskInspectorContentSize(electronApp, mainWindow, 1280, 900)
+  await mainWindow.getByRole('link', { name: 'Downloads', exact: true }).click()
+  await expect(mainWindow.getByTestId('downloads-loading')).toHaveCount(0)
+  await electronApp.evaluate(({ ipcMain }, channel) => {
+    ipcMain.removeHandler(channel)
+    ipcMain.handle(channel, () =>
+      Array.from({ length: 2000 }, (_, index) => ({
+        index,
+        path:
+          index === 0
+            ? 'video/init.mp4'
+            : index === 1999
+              ? 'audio/001000.aac'
+              : `video/${String(index).padStart(6, '0')}.ts`,
+        size: index < 2 ? 1000 : 0,
+        selected: true,
+        completedBytes: index === 0 ? 1000 : index === 1 ? 500 : 0,
+        progress: index === 0 ? 1 : index === 1 ? 0.5 : 0,
+      }))
+    )
+  }, Queries.GetTaskFiles)
+  const task = makeDownloadTask({
+    id: 'hls-segments',
+    name: 'Playlist.mp4',
+    kind: TaskKind.Hls,
+    status: TaskStatus.Downloading,
+    progress: 0.25,
+    fileCount: 1,
+  })
+  await publish(electronApp, [task])
+  await mainWindow.locator('[data-task-id="hls-segments"]').dblclick()
+  const inspector = mainWindow.getByRole('dialog', { name: 'Task Inspector' })
+  await inspector.getByRole('tab', { name: 'Files', exact: true }).click()
+  const list = inspector.getByTestId('virtual-list-container')
+  await expect(list.getByText('video/init.mp4', { exact: true })).toBeVisible()
+  await expect(list.getByText('100%', { exact: true })).toBeVisible()
+  await expect(list.getByText('50%', { exact: true })).toBeVisible()
+  expect(await list.getByRole('checkbox').count()).toBeLessThan(50)
+  await expect(list.getByRole('checkbox').first()).toHaveAttribute(
+    'aria-disabled',
+    'true'
+  )
+  await expect(
+    inspector.getByRole('button', { name: 'Save', exact: true })
+  ).toHaveCount(0)
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('media-segments.png'),
+  })
+
+  await list.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
+  await expect(
+    list.getByText('audio/001000.aac', { exact: true })
+  ).toBeVisible()
+  expect(await list.getByRole('checkbox').count()).toBeLessThan(50)
+  expect(
+    await mainWindow.evaluate(
+      () => document.documentElement.scrollHeight <= window.innerHeight
+    )
+  ).toBe(true)
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('media-segments-last.png'),
+  })
+})
 
 test('download columns sort live tasks without losing selection or filter state', async ({
   electronApp,
