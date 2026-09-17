@@ -187,7 +187,10 @@ export class MagnetSelectionTimeout {
           displayName: selection.meta.name || undefined,
           existingTaskId: taskId,
         })
-        if (result.outcome !== 'conflict') {
+        if (
+          result.outcome !== 'conflict' &&
+          result.outcome !== 'invalid-source'
+        ) {
           outcome = 'started'
           downloadTaskId = result.taskId
         }

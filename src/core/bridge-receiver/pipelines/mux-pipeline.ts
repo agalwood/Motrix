@@ -35,6 +35,7 @@ export class MuxPipeline {
       // ffmpeg needs an output extension or it can't pick a muxer (exit 234).
       finalName: ensureMediaExtension(adapted.finalName, adapted.container),
       sourceMeta: adapted.sourceMeta,
+      ...(adapted.receipt ? { receipt: adapted.receipt } : {}),
       ...(adapted.durationSec !== undefined
         ? { durationSec: adapted.durationSec }
         : {}),

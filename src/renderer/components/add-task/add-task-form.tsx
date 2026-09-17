@@ -48,9 +48,16 @@ import {
   useWatch,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { v4 as uuid } from 'uuid'
 import { AddTaskLayoutProvider } from './add-task-layout-context'
 import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
+import {
+  createInputIdentity,
+  forgetPendingCreate,
+  readPendingCreates,
+  rememberPendingCreate,
+} from './pending-create-inputs'
 import { TorrentTabPanel } from './torrent-tab-panel'
 import { parseUrlLines } from './url-interpreters/multiline-url'
 import {
@@ -104,6 +111,8 @@ export function AddTaskForm({
   const platform = usePlatformServices()
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
+  const [initialSubmissionInputs] = useState(readPendingCreates)
+  const submissionInputs = useRef(initialSubmissionInputs)
   const [advancingTorrent, setAdvancingTorrent] = useState(false)
   const [batchSubmitting, setBatchSubmitting] = useState(false)
   const [torrentQueue, setTorrentQueue] = useState<TorrentQueueState | null>(
@@ -114,6 +123,8 @@ export function AddTaskForm({
   const [duplicateConflict, setDuplicateConflict] = useState<{
     request: TaskCreateRequest
     result: Extract<TaskCreateCommandResult, { outcome: 'conflict' }>
+    draft?: string
+    line?: number
   } | null>(null)
 
   const form = useForm<AddTaskFormValues>({
@@ -393,7 +404,10 @@ export function AddTaskForm({
               Commands.CreateTask,
               request
             )) as TaskCreateCommandResult
-            if (created.outcome === 'conflict') {
+            if (
+              created.outcome === 'conflict' ||
+              created.outcome === 'invalid-source'
+            ) {
               failed += 1
               continue
             }
@@ -457,32 +471,110 @@ export function AddTaskForm({
       if (submitting || advancingTorrent || batchSubmitting) return
       setSubmitting(true)
       try {
+        form.clearErrors('urls')
         const requests = formValuesToTaskCreateRequests(values)
+        const lines = values.tab === 'links' ? parseUrlLines(values.urls) : []
+        const validLines = lines.filter((line) => line.valid)
+        const unused = [
+          ...new Map(
+            [...readPendingCreates(), ...submissionInputs.current].map(
+              (input) => [input.id, input]
+            )
+          ).values(),
+        ]
+        const inputs = requests.map((request) => {
+          const identity = createInputIdentity(request)
+          const index = unused.findIndex((input) => input.identity === identity)
+          return index < 0
+            ? { id: uuid(), identity }
+            : unused.splice(index, 1)[0]
+        })
+        submissionInputs.current = inputs
+        const completedLines = new Set<number>()
         const successes: Array<
           Extract<TaskCreateCommandResult, { gid: string }>
         > = []
-        let failed = 0
+        let failed = lines.length - validLines.length
         let firstFailureReason: string | null = null
+        let unconfirmed = false
         let blockedByConflict = false
-        for (const request of requests) {
+        for (const [index, originalRequest] of requests.entries()) {
+          const request =
+            originalRequest.type === 'http'
+              ? { ...originalRequest, requestId: inputs[index].id }
+              : originalRequest
           try {
+            if (request.type === 'http') rememberPendingCreate(inputs[index])
             const result = (await transport.invoke(
               Commands.CreateTask,
               request
             )) as TaskCreateCommandResult
+            if (result.outcome === 'invalid-source') {
+              if (request.type === 'http') forgetPendingCreate(inputs[index].id)
+              failed += 1
+              firstFailureReason ??= t(
+                `task.add.sourceErrors.${result.failure.diagnostic.reason}`
+              )
+              continue
+            }
             if (result.outcome === 'conflict') {
-              setDuplicateConflict({ request, result })
+              setDuplicateConflict({
+                request,
+                result,
+                draft: values.tab === 'links' ? values.urls : undefined,
+                line: validLines[index]?.line,
+              })
               blockedByConflict = true
               break
             }
             successes.push(result)
+            if (request.type === 'http') forgetPendingCreate(inputs[index].id)
+            if (validLines[index]) completedLines.add(validLines[index].line)
             void recordRecentDirectory(request.saveDir)
           } catch (err) {
             failed += 1
+            if (request.type === 'http') unconfirmed = true
             firstFailureReason ??= taskCreateFailureReason(err)
             console.error(err)
           }
         }
+        if (values.tab === 'links' && form.getValues('urls') === values.urls) {
+          form.setValue(
+            'urls',
+            values.urls
+              .split('\n')
+              .filter((_, index) => !completedLines.has(index))
+              .join('\n'),
+            // A concurrent resolver pass would erase the submission error below.
+            { shouldDirty: true, shouldValidate: false }
+          )
+          submissionInputs.current = inputs.filter(
+            (_, index) => !completedLines.has(validLines[index]?.line)
+          )
+          if (blockedByConflict)
+            setDuplicateConflict((current) =>
+              current
+                ? {
+                    ...current,
+                    draft: form.getValues('urls'),
+                    line:
+                      current.line === undefined
+                        ? undefined
+                        : current.line -
+                          [...completedLines].filter(
+                            (line) => line < (current.line ?? 0)
+                          ).length,
+                  }
+                : null
+            )
+        }
+        if (firstFailureReason)
+          form.setError('urls', {
+            type: 'submission',
+            message: unconfirmed
+              ? `${firstFailureReason}\n${t('task.add.submissionUnconfirmed')}`
+              : firstFailureReason,
+          })
         if (blockedByConflict) return
         if (failed === 0 && successes.length > 0) {
           platform.notify('info', 'task.add.created')
@@ -500,7 +592,7 @@ export function AddTaskForm({
             platform.notify('error', 'task.add.createFailed')
           }
         }
-        if (successes.length > 0) {
+        if (successes.length > 0 && failed === 0) {
           await completeCurrentSubmission(
             successes[0].taskId ?? successes[0].gid
           )
@@ -515,7 +607,30 @@ export function AddTaskForm({
       completeCurrentSubmission,
       platform,
       submitting,
+      form,
+      t,
     ]
+  )
+
+  const completeConflict = useCallback(
+    async (taskId: string) => {
+      const conflict = duplicateConflict
+      setDuplicateConflict(null)
+      if (conflict?.draft !== undefined && conflict.line !== undefined) {
+        if (form.getValues('urls') !== conflict.draft) return
+        const remaining = conflict.draft
+          .split('\n')
+          .filter((_, index) => index !== conflict.line)
+          .join('\n')
+        form.setValue('urls', remaining, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+        if (remaining.trim()) return
+      }
+      await completeCurrentSubmission(taskId)
+    },
+    [duplicateConflict, form, completeCurrentSubmission]
   )
 
   const createSeparateCopy = useCallback(async () => {
@@ -526,14 +641,21 @@ export function AddTaskForm({
         ...duplicateConflict.request,
         duplicatePolicy: 'create-copy',
       })) as TaskCreateCommandResult
+      if (result.outcome === 'invalid-source') {
+        platform.notify(
+          'error',
+          `task.add.sourceErrors.${result.failure.diagnostic.reason}`
+        )
+        return
+      }
       if (result.outcome === 'conflict') {
-        setDuplicateConflict({ request: duplicateConflict.request, result })
+        setDuplicateConflict({ ...duplicateConflict, result })
         return
       }
       setDuplicateConflict(null)
       void recordRecentDirectory(duplicateConflict.request.saveDir)
       platform.notify('info', 'task.add.createdCopy')
-      await completeCurrentSubmission(result.taskId)
+      await completeConflict(result.taskId)
     } catch (error) {
       console.error(error)
       const reason = taskCreateFailureReason(error)
@@ -545,13 +667,19 @@ export function AddTaskForm({
     } finally {
       setSubmitting(false)
     }
-  }, [completeCurrentSubmission, duplicateConflict, platform])
+  }, [completeConflict, duplicateConflict, platform])
 
   // ⌘↵ / Ctrl+Enter submit
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
+        const values = form.getValues()
+        if (
+          values.tab === 'links' &&
+          !parseUrlLines(values.urls).some((line) => line.valid)
+        )
+          return
         void form.handleSubmit(onSubmit)()
       }
     }
@@ -628,7 +756,7 @@ export function AddTaskForm({
                     const taskId =
                       duplicateConflict.result.conflict.existingTaskId
                     setDuplicateConflict(null)
-                    if (taskId) void completeCurrentSubmission(taskId)
+                    if (taskId) void completeConflict(taskId)
                   }}
                 >
                   {t('task.add.duplicate.showExisting')}
@@ -709,10 +837,12 @@ function FooterActionsBridge({
   })
 
   const hasSaveDir = Boolean((saveDir ?? '').trim())
+  const inputLines = tab === 'links' ? parseUrlLines(urls ?? '') : []
+  const validLinks = inputLines.filter((line) => line.valid).length
   const canSubmit =
     hasSaveDir &&
     (tab === 'links'
-      ? Boolean((urls ?? '').trim())
+      ? validLinks > 0
       : Boolean(torrentMeta) && (selectedFiles ?? []).length > 0)
 
   return (

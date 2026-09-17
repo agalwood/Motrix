@@ -168,6 +168,36 @@ describe('taskCreateRequestSchema', () => {
 })
 
 describe('formValuesToTaskCreateRequests', () => {
+  it('routes bare hashes and URLs in a batch to the correct task types', () => {
+    const hash = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+    const base32 = 'U3VG6P2M2T4K4I7NL4ZATCYXMVTZHDAL'
+    const url = `https://example.com/${hash}?sig=A%2Fb%5Cc`
+    const reqs = formValuesToTaskCreateRequests({
+      tab: 'links',
+      urls: ` ${hash.toUpperCase()} \r\n${url}\n${base32.toLowerCase()}`,
+      saveDir: '/d',
+    })
+    expect(reqs).toMatchObject([
+      {
+        type: 'bt',
+        payload: { kind: 'magnet', uri: `magnet:?xt=urn:btih:${hash}` },
+      },
+      { type: 'http', uris: [url] },
+      {
+        type: 'bt',
+        payload: { kind: 'magnet', uri: `magnet:?xt=urn:btih:${base32}` },
+      },
+    ])
+    expect(
+      reqs.every(
+        (request) => taskCreateRequestSchema.safeParse(request).success
+      )
+    ).toBe(true)
+    expect(
+      formValuesToTaskCreateRequest({ tab: 'links', urls: hash, saveDir: '/d' })
+    ).toEqual(reqs[0])
+  })
+
   it('creates one request per link line', () => {
     const reqs = formValuesToTaskCreateRequests({
       tab: 'links',

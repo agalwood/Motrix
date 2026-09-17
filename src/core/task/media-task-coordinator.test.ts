@@ -230,6 +230,30 @@ describe('MediaTaskCoordinator.start', () => {
     vi.restoreAllMocks()
   })
 
+  it.each(['segment', 'init', 'key'])(
+    'rejects an invalid %s before saving or creating directories',
+    async (kind) => {
+      const { deps, taskManager, downloaderFakes } = makeDeps()
+      const job = baseJob()
+      const invalid = 'https://cdn.test/a\\b'
+      if (kind === 'segment') job.video.segments[0].url = invalid
+      else if (kind === 'init') job.video.init = { url: invalid }
+      else
+        job.video.segments[0].key = {
+          method: 'AES-128',
+          uri: invalid,
+          iv: new Uint8Array(16),
+        }
+      await expect(
+        new MediaTaskCoordinator(deps).submit(job)
+      ).rejects.toMatchObject({ code: 'TASK_SOURCE_INVALID' })
+      expect(mkdirSpy).not.toHaveBeenCalled()
+      expect(deps.persist).not.toHaveBeenCalled()
+      expect(taskManager.getAll()).toHaveLength(0)
+      expect(downloaderFakes).toHaveLength(0)
+    }
+  )
+
   it('creates the output saveDir before muxing (so ffmpeg never ENOENTs)', async () => {
     const { deps } = makeDeps()
     const c = new MediaTaskCoordinator(deps)

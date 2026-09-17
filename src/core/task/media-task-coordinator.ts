@@ -34,8 +34,10 @@ import {
   terminalSnapshotFromTask,
 } from './actions/shared'
 import { applyTerminalTransition } from './apply-terminal-transition'
+import type { CreateRequestReceipt } from './create-request-id'
 import type { OccurrenceDispatcher } from './occurrences/occurrence-dispatcher'
 import { toTempPath } from './paths'
+import { admitHttpSource } from './source-admission'
 import {
   applyTerminalStatusToTask,
   completeTaskAfterRename,
@@ -50,6 +52,7 @@ const log = getLogger('media-coordinator')
 // ---------------------------------------------------------------------------
 
 export interface MediaJob {
+  receipt?: CreateRequestReceipt
   taskId?: string
   video: SegmentPlan
   audio?: SegmentPlan
@@ -226,6 +229,27 @@ export class MediaTaskCoordinator {
     taskId: string,
     onAccepted?: () => void
   ): Promise<{ taskId: string }> {
+    const admitPlan = (plan: SegmentPlan): SegmentPlan => {
+      const admitPart = <T extends { url: string; key?: { uri: string } }>(
+        part: T
+      ): T => ({
+        ...part,
+        url: admitHttpSource(part.url),
+        ...(part.key
+          ? { key: { ...part.key, uri: admitHttpSource(part.key.uri) } }
+          : {}),
+      })
+      return {
+        ...plan,
+        init: plan.init ? admitPart(plan.init) : undefined,
+        segments: plan.segments.map(admitPart),
+      }
+    }
+    job = {
+      ...job,
+      video: admitPlan(job.video),
+      audio: job.audio ? admitPlan(job.audio) : undefined,
+    }
     const now = Date.now()
 
     // Reserve the final name by creating the `.motrix` placeholder in saveDir —
@@ -958,6 +982,8 @@ export class MediaTaskCoordinator {
     instances: TaskInstance[],
     now: number
   ): DownloadTask {
+    if (job.receipt && instances[0])
+      instances[0].payload = { ...instances[0].payload, ...job.receipt }
     return makeDownloadTask({
       id: taskId,
       name: finalName,

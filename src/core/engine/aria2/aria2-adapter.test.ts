@@ -189,7 +189,7 @@ const RAW_MAGNET_ACTIVE: Aria2RawStatus = {
       selected: 'true',
       uris: [
         {
-          uri: 'magnet:?xt=urn:btih:aabb',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
           status: 'used',
         },
       ],
@@ -785,8 +785,8 @@ describe('Aria2Adapter', () => {
     })
 
     it.each([
-      ['magnet:?xt=urn:btih:aabb', '0'],
-      ['MAGNET:?xt=urn:btih:aabb', '0'],
+      ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc', '0'],
+      ['MAGNET:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc', '0'],
       ['https://example.com/magnet:fixture.bin', '10'],
     ])(
       'isolates Web Seed 404s only for magnet URIs: %s',
@@ -802,7 +802,7 @@ describe('Aria2Adapter', () => {
         })
 
         expect(rpc.addUri).toHaveBeenCalledWith(
-          [uri],
+          [uri.replace(/^MAGNET:/, 'magnet:')],
           expect.objectContaining({ 'max-file-not-found': limit })
         )
       }
@@ -814,13 +814,13 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         connections: 8,
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           split: '8',
           'max-connection-per-server': '8',
@@ -841,13 +841,13 @@ describe('Aria2Adapter', () => {
       )
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         connections: 64,
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           split: '16',
           'max-connection-per-server': '16',
@@ -862,13 +862,13 @@ describe('Aria2Adapter', () => {
       adapter.setFeatureReport(featureReport())
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         connections: 64,
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           split: '64',
           'max-connection-per-server': '64',
@@ -890,20 +890,20 @@ describe('Aria2Adapter', () => {
 
       await expect(
         adapter.createDownload({
-          uris: ['first'],
+          uris: ['https://example.com/first'],
           saveDir: '/d',
           connections: 64,
         })
       ).resolves.toBe('gid-first')
       await adapter.createDownload({
-        uris: ['second'],
+        uris: ['https://example.com/second'],
         saveDir: '/d',
         connections: 64,
       })
 
       expect(rpc.addUri).toHaveBeenNthCalledWith(
         1,
-        ['first'],
+        ['https://example.com/first'],
         expect.objectContaining({
           split: '64',
           'max-connection-per-server': '64',
@@ -911,7 +911,7 @@ describe('Aria2Adapter', () => {
       )
       expect(rpc.addUri).toHaveBeenNthCalledWith(
         2,
-        ['first'],
+        ['https://example.com/first'],
         expect.objectContaining({
           split: '16',
           'max-connection-per-server': '16',
@@ -919,7 +919,7 @@ describe('Aria2Adapter', () => {
       )
       expect(rpc.addUri).toHaveBeenNthCalledWith(
         3,
-        ['second'],
+        ['https://example.com/second'],
         expect.objectContaining({
           split: '16',
           'max-connection-per-server': '16',
@@ -934,7 +934,7 @@ describe('Aria2Adapter', () => {
 
       await expect(
         adapter.createDownload({
-          uris: ['u'],
+          uris: ['https://example.com/file'],
           saveDir: '/d',
           connections: 64,
         })
@@ -948,7 +948,7 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         performanceProfile: 'auto',
         protocol: 'http',
@@ -956,7 +956,7 @@ describe('Aria2Adapter', () => {
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           split: '32',
           'min-split-size': String(10 * 1024 * 1024),
@@ -972,16 +972,17 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         performanceProfile: 'high',
         protocol: 'http',
         totalSizeBytes: 10 * 1024 * 1024 * 1024,
       })
 
-      expect(rpc.addUri).toHaveBeenCalledWith(['u'], {
+      expect(rpc.addUri).toHaveBeenCalledWith(['https://example.com/file'], {
         continue: 'false',
         dir: '/d',
+        header: ['Accept: */*'],
       })
     })
 
@@ -991,7 +992,7 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         performanceProfile: 'auto',
         protocol: 'http',
@@ -1000,7 +1001,7 @@ describe('Aria2Adapter', () => {
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           split: '8',
           'max-connection-per-server': '8',
@@ -1014,14 +1015,14 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         proxy: 'http://a%40b:p%3As@p:1080',
         extraEngineOptions: { referer: 'https://r', 'load-cookies': '/c' },
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           'all-proxy': 'http://p:1080',
           'all-proxy-user': 'a@b',
@@ -1041,13 +1042,13 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         userAgent: 'Motrix/Applied',
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({ 'user-agent': 'Motrix/Applied' })
       )
     })
@@ -1079,7 +1080,7 @@ describe('Aria2Adapter', () => {
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['HTTPS://downloads.example/release'],
+        ['https://downloads.example/release'],
         expect.objectContaining({ header: ['Accept: */*'] })
       )
     })
@@ -1109,13 +1110,13 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         userAgent: '',
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({ 'user-agent': '' })
       )
     })
@@ -1126,7 +1127,7 @@ describe('Aria2Adapter', () => {
 
       await expect(
         adapter.createDownload({
-          uris: ['u'],
+          uris: ['https://example.com/file'],
           saveDir: '/d',
           userAgent: 'Motrix\nall-proxy=http://evil',
         })
@@ -1140,13 +1141,13 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         proxy: 'proxy.example:1080',
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           'all-proxy': 'proxy.example:1080',
           'all-proxy-user': '',
@@ -1161,13 +1162,13 @@ describe('Aria2Adapter', () => {
       const adapter = new Aria2Adapter(rpc)
 
       await adapter.createDownload({
-        uris: ['u'],
+        uris: ['https://example.com/file'],
         saveDir: '/d',
         proxy: 'http://user:pass@127.1:8080',
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
-        ['u'],
+        ['https://example.com/file'],
         expect.objectContaining({
           'all-proxy': 'http://127.1:8080',
           'all-proxy-user': 'user',
@@ -1182,7 +1183,7 @@ describe('Aria2Adapter', () => {
 
       await expect(
         adapter.createDownload({
-          uris: ['u'],
+          uris: ['https://example.com/file'],
           saveDir: '/d',
           extraEngineOptions: { 'http-proxy': 'http://other:8080' },
         })
@@ -1197,7 +1198,11 @@ describe('Aria2Adapter', () => {
         const adapter = new Aria2Adapter(rpc)
 
         await expect(
-          adapter.createDownload({ uris: ['u'], saveDir: '/d', proxy })
+          adapter.createDownload({
+            uris: ['https://example.com/file'],
+            saveDir: '/d',
+            proxy,
+          })
         ).rejects.toThrow('Task proxy must use aria2-compatible HTTP or HTTPS')
         expect(rpc.addUri).not.toHaveBeenCalled()
       }
@@ -1209,7 +1214,7 @@ describe('Aria2Adapter', () => {
 
       await expect(
         adapter.createDownload({
-          uris: ['u'],
+          uris: ['https://example.com/file'],
           saveDir: '/d',
           proxy:
             'http://user%0Ahttp-proxy%3Dhttp%3A%2F%2Fevil:pass@proxy.example:8080',
@@ -1594,7 +1599,7 @@ describe('Aria2Adapter', () => {
       )
       settings = { seedTime: 30, seedRatio: 2 }
       await adapter.createDownload({
-        uris: ['magnet:?xt=urn:btih:abc'],
+        uris: ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
         saveDir: '/d',
       })
       expect(vi.mocked(rpc.addUri).mock.calls.at(-1)?.[1]).toMatchObject({

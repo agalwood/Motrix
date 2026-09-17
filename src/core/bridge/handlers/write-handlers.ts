@@ -1,3 +1,4 @@
+import { scopedCreateRequestId } from '@core/task/create-request-id'
 import {
   DownloadAddParamsSchema,
   ErrorCodes,
@@ -131,6 +132,12 @@ export function registerWriteHandlers(
     async (params, ctx): Promise<MdxpTask> => {
       const createAndSnapshot = async (): Promise<MdxpTask> => {
         const req = await buildCreateRequest(params, deps.parseTorrentFileCount)
+        if (req.type === 'http' && params.idempotencyKey) {
+          req.requestId = scopedCreateRequestId(
+            clientKey(ctx.identity),
+            params.idempotencyKey
+          )
+        }
         const { taskId } = await deps.createTask(req)
         // handleCreateTask registers the task synchronously, so getById should
         // resolve immediately; a miss means the create path is broken.

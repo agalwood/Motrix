@@ -854,7 +854,7 @@
       "title": "New Task",
       "links": "Links",
       "torrent": "Torrent",
-      "urlPlaceholder": "Enter URL, magnet link...",
+      "urlPlaceholder": "Enter a URL, magnet link, or BT info hash…",
       "dropTorrent": "Drop .torrent file here or click to select",
       "clearSelection": "Clear selection",
       "createFailed": "Failed to create download task.",
@@ -863,6 +863,8 @@
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
       "urlsWithInvalid": "{{valid}} valid, {{invalid}} invalid",
+      "validUrlCount": "{{count}} valid",
+      "invalidUrlCount": "{{count}} invalid",
       "urlsLabel": "URLs",
       "advanced": "Advanced",
       "filename": "Filename",
@@ -903,6 +905,35 @@
       },
       "adding": "Adding…",
       "interpretedMagnet": "Magnet link detected",
+      "interpretedInfoHash": "BT info hash converted to a magnet link",
+      "unsupportedCurl": "This cURL command cannot be imported faithfully. Copy the URL or a Bash GET command with supported options.",
+      "invalidJson": "Expected a JSON URL string or an array of URL strings.",
+      "interpretedJson": "URLs imported from JSON",
+      "sourceLine": "Line {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Use this expanded URL",
+        "usePathSeparators": "Treat backslashes as path separators",
+        "encodeLiteralCharacters": "Encode as literal characters"
+      },
+      "sourceErrors": {
+        "missingScheme": "Include the URL scheme, such as https://.",
+        "invalidHost": "The URL host is missing or invalid.",
+        "invalidPort": "The URL port is invalid.",
+        "controlCharacter": "Remove control characters from the URL.",
+        "invalidUnicode": "The URL contains invalid Unicode.",
+        "ambiguousBackslash": "A backslash makes the host or path ambiguous. Choose how to interpret it.",
+        "invalidPercentEncoding": "A percent sign must be followed by two hexadecimal digits.",
+        "credentialsInUrl": "Use the authentication fields instead of credentials in the URL.",
+        "unsupportedProtocol": "This URL protocol is not supported for this download.",
+        "urlTooLong": "The URL exceeds the 16 KiB limit.",
+        "tooManySources": "Input exceeds the allowed number or size of links.",
+        "ambiguousStructure": "The URL parser would change this address. Review the expanded URL.",
+        "unescapedCharacter": "Encode spaces and reserved characters explicitly.",
+        "invalidMagnet": "The magnet link needs a supported BT info hash in its xt parameter.",
+        "mixedProtocols": "Mirrors of one download must use the same protocol family.",
+        "unsupportedInput": "This input container was not imported. Paste a URL or a supported JSON or Bash cURL input.",
+        "unsupportedRequestOptions": "HTTP headers cannot be applied to an FTP download."
+      },
       "interpretedCurl": "cURL command parsed",
       "filterBy": {
         "video": "Video",
@@ -919,7 +950,9 @@
       "selectionTimeout": {
         "started": "File selection timed out: downloading all files in {{name}}",
         "failed": "Could not start {{name}} automatically. Open task details to select files and retry."
-      }
+      },
+      "undoCorrection": "Undo URL correction",
+      "submissionUnconfirmed": "The result is unconfirmed. Retry will check the original request before creating another task."
     },
     "detail": {
       "peers": "Peers: {{count}}",

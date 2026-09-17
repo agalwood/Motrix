@@ -226,7 +226,10 @@ describe('BridgeReceiver', () => {
           pageTitle: 'P',
           detectedAt: 1,
         },
-        selection: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+        selection: {
+          kind: 'magnet',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+        },
         meta: { suggestedFilename: 'm', qualityLabel: 'file' },
       },
       {
@@ -236,7 +239,10 @@ describe('BridgeReceiver', () => {
     expect(out).toEqual({ taskId: 'mt1' })
     expect((createTask.mock.calls as unknown[][])[0]?.[0]).toMatchObject({
       type: 'bt',
-      payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
     })
   })
 

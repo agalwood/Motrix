@@ -64,9 +64,135 @@ function renderForm(props = {}, services: PlatformServices = mockServices) {
 }
 
 describe('AddTaskForm', () => {
+  it('submits only valid lines and retains rejected input', async () => {
+    const onSubmitSuccess = vi.fn()
+    renderForm({
+      onSubmitSuccess,
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://a/file\nsftp://a/file',
+        saveDir: '/d',
+      },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveValue('sftp://a/file')
+    )
+    expect(
+      invokeMock.mock.calls.filter(
+        ([channel]) => channel === 'command:createTask'
+      )
+    ).toHaveLength(1)
+    expect(onSubmitSuccess).not.toHaveBeenCalled()
+  })
+
+  it('retries only unfinished rows with the same request ID after a lost response', async () => {
+    let retry = false
+    invokeMock.mockImplementation(async (channel, request) => {
+      if (channel !== 'command:createTask') return {}
+      if (request.uris[0] === 'https://a/second' && !retry)
+        throw new TypeError('Failed to fetch')
+      return {
+        outcome: retry ? 'reused' : 'created',
+        taskId: 'task',
+        gid: 'gid',
+      }
+    })
+    renderForm({
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://a/first\nhttps://a/second',
+        saveDir: '/d',
+      },
+    })
+    await userEvent.click(screen.getByRole('button', { name: /download/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveValue('https://a/second')
+    )
+    retry = true
+    await userEvent.click(screen.getByRole('button', { name: /download/i }))
+    const submitted = invokeMock.mock.calls
+      .filter(([channel]) => channel === 'command:createTask')
+      .map(([, request]) => request)
+    expect(submitted).toHaveLength(3)
+    expect(submitted[0].requestId).not.toBe(submitted[1].requestId)
+    expect(submitted[1].requestId).toBe(submitted[2].requestId)
+    expect(submitted[2].uris).toEqual(['https://a/second'])
+  })
+  it('autofills bare hashes from the clipboard as magnet links', async () => {
+    const hash = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+    vi.mocked(mockServices.readClipboard).mockResolvedValueOnce(
+      `${hash}\nhttps://a/b`
+    )
+    renderForm()
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveValue(
+        `magnet:?xt=urn:btih:${hash}\nhttps://a/b`
+      )
+    )
+  })
+
+  it('submits a typed hash as a BT task even without a blur or paste event', async () => {
+    const user = userEvent.setup()
+    const hash = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+    const onSubmitSuccess = vi.fn()
+    renderForm({ onSubmitSuccess })
+    const textbox = screen.getByRole('textbox')
+    await user.type(textbox, hash)
+    fireEvent.click(screen.getByRole('button', { name: /download/i }))
+    await waitFor(() =>
+      expect(
+        invokeMock.mock.calls.map(([, payload]) => payload)
+      ).toContainEqual(
+        expect.objectContaining({
+          type: 'bt',
+          payload: { kind: 'magnet', uri: `magnet:?xt=urn:btih:${hash}` },
+        })
+      )
+    )
+    expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
+    localStorage.removeItem('motrix.pending-create-inputs.v1')
     invokeMock.mockResolvedValue({ gid: 'test-gid' })
+  })
+
+  it('recovers the request ID after closing and reopening an unconfirmed submission', async () => {
+    let retry = false
+    invokeMock.mockImplementation(async (channel) => {
+      if (channel !== 'command:createTask') return {}
+      if (!retry) throw new TypeError('Failed to fetch')
+      return { outcome: 'reused', taskId: 'task', gid: 'gid' }
+    })
+    const props = {
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://a/uncertain',
+        saveDir: '/d',
+      },
+    }
+    const first = renderForm(props)
+    await userEvent.click(screen.getByRole('button', { name: /download/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The result is unconfirmed'
+      )
+    )
+    const requestId = invokeMock.mock.calls.find(
+      ([channel]) => channel === 'command:createTask'
+    )?.[1].requestId
+    first.unmount()
+    retry = true
+    renderForm(props)
+    await userEvent.click(screen.getByRole('button', { name: /download/i }))
+    const submissions = invokeMock.mock.calls.filter(
+      ([channel]) => channel === 'command:createTask'
+    )
+    expect(submissions).toHaveLength(2)
+    expect(submissions[1][1].requestId).toBe(requestId)
+    expect(localStorage.getItem('motrix.pending-create-inputs.v1')).toBeNull()
   })
 
   it('renders links tab by default', () => {
@@ -108,6 +234,42 @@ describe('AddTaskForm', () => {
     const submit = screen.getByRole('button', { name: /download/i })
     expect(submit).toBeDisabled()
   })
+
+  it.each(['', '  \n  '])(
+    'keeps blank input idle on blur, shortcut submission and clearing (%j)',
+    async (blank) => {
+      const user = userEvent.setup()
+      renderForm()
+      const textbox = screen.getByRole('textbox', { name: 'URLs' })
+      expect(screen.queryByText('URLs')).not.toBeInTheDocument()
+      await user.click(textbox)
+      fireEvent.change(textbox, { target: { value: blank } })
+      await user.tab()
+      fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+      fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true })
+      await waitFor(() => {
+        expect(textbox).toHaveAttribute('aria-invalid', 'false')
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      })
+
+      await user.type(textbox, 'htps://example.com')
+      await user.tab()
+      expect(textbox).toHaveAttribute('aria-invalid', 'true')
+      await user.clear(textbox)
+      await user.tab()
+      await waitFor(() => {
+        expect(textbox).toHaveAttribute('aria-invalid', 'false')
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      })
+      expect(screen.getByRole('status')).toBeEmptyDOMElement()
+      expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled()
+      expect(
+        invokeMock.mock.calls.filter(
+          ([channel]) => channel === 'command:createTask'
+        )
+      ).toHaveLength(0)
+    }
+  )
 
   it('disables submit when saveDir is empty even if urls are filled', async () => {
     const user = userEvent.setup()
@@ -659,7 +821,8 @@ describe('AddTaskForm', () => {
         { ok: 1, failed: 1 }
       )
     )
-    expect(onSubmitSuccess).toHaveBeenCalledWith('ok-gid')
+    expect(onSubmitSuccess).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox')).toHaveValue('https://bad/2')
     expect(recordRecentMock.mock.calls).toEqual([['/d']])
   })
 

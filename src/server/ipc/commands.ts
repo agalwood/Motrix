@@ -63,6 +63,10 @@ import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import { createSetSelectedFilesHandler } from '@core/task/set-selected-files'
+import {
+  admitTaskCreateRequest,
+  taskCreateSourceFailure,
+} from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
@@ -422,11 +426,19 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.CreateTask]: async (request: unknown) => {
+      try {
+        request = admitTaskCreateRequest(request)
+      } catch (error) {
+        const failure = taskCreateSourceFailure(error)
+        if (failure) return failure
+        throw error
+      }
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
         if (req.type === 'http') {
-          await activatePluginsForTask('http', req.uris[0] ?? '')
+          if (!req.uris[0].startsWith('ftp:'))
+            await activatePluginsForTask('http', req.uris[0] ?? '')
         } else if (req.payload.kind === 'magnet') {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
@@ -440,7 +452,9 @@ export function buildServerCommandHandlers(
             try {
               taskId = await magnetTracker.submit(req.payload.uri, saveDir)
             } catch (error) {
-              const conflict = taskCreateConflictResult(error)
+              const conflict =
+                taskCreateSourceFailure(error) ??
+                taskCreateConflictResult(error)
               if (conflict) return conflict
               throw error
             }
@@ -538,7 +552,9 @@ export function buildServerCommandHandlers(
                   }
                 )
               } catch (error) {
-                const conflict = taskCreateConflictResult(error)
+                const conflict =
+                  taskCreateSourceFailure(error) ??
+                  taskCreateConflictResult(error)
                 if (conflict) return conflict
                 throw error
               }
@@ -551,7 +567,8 @@ export function buildServerCommandHandlers(
       try {
         return await handleCreateTask(request, createDeps)
       } catch (error) {
-        const conflict = taskCreateConflictResult(error)
+        const conflict =
+          taskCreateSourceFailure(error) ?? taskCreateConflictResult(error)
         if (conflict) return conflict
         throw error
       }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { ADD_TASK_COLLAPSED_HEIGHT } from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { useState } from 'react'
@@ -198,7 +199,7 @@ describe('AddTaskDialogHost', () => {
       'motion-reduce:transition-none',
       'sm:max-w-[640px]'
     )
-    expect(dialog.style.height).toBe('374px')
+    expect(dialog.style.height).toBe(`${ADD_TASK_COLLAPSED_HEIGHT}px`)
     expect(dialog.style.maxHeight).toContain('760px')
     expect(dialog.style.maxHeight).toContain('100vh')
     expect(screen.getByTestId('add-task-form-stub')).toHaveAttribute(

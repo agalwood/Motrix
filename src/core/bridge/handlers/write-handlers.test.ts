@@ -333,6 +333,23 @@ describe('download/add idempotency', () => {
     await d.dispatch('download/add', keyedParams, cliCtx)
     await d.dispatch('download/add', keyedParams, otherCtx)
     expect(deps.createTask).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(deps.createTask).mock.calls[0][0]).toHaveProperty(
+      'requestId',
+      expect.any(String)
+    )
+    expect(vi.mocked(deps.createTask).mock.calls[0][0]).not.toEqual(
+      vi.mocked(deps.createTask).mock.calls[1][0]
+    )
+  })
+
+  it('keeps the Core request ID stable when the transport cache is recreated', async () => {
+    const first = setup()
+    const restarted = setup()
+    await first.d.dispatch('download/add', keyedParams, cliCtx)
+    await restarted.d.dispatch('download/add', keyedParams, cliCtx)
+    expect(vi.mocked(first.deps.createTask).mock.calls[0][0]).toEqual(
+      vi.mocked(restarted.deps.createTask).mock.calls[0][0]
+    )
   })
 
   it('does not cache a failed attempt — the retry re-executes', async () => {

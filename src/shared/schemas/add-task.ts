@@ -1,5 +1,8 @@
+import { analyzeDownloadInput } from '@shared/lib/download-source-input'
 import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import { z } from 'zod'
+import { MAX_MIRROR_URIS, type SourceFailure } from './download-source'
+import { infoHashToMagnetUri } from './magnet-input'
 
 const torrentFileSchema = z.object({
   index: z.number().int().nonnegative(),
@@ -17,11 +20,17 @@ const torrentMetaSchema = z.object({
 
 export { torrentMetaSchema }
 
+const httpHeaderSchema = z.object({
+  name: z.string().min(1),
+  value: z.string(),
+})
+
 const linksTabSchema = z.object({
   tab: z.literal('links'),
   urls: z.string().min(1, { message: 'task.add.errors.urlsRequired' }),
   saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
   filename: z.string().optional(),
+  extraHeaders: z.array(httpHeaderSchema).optional(),
   split: z.number().int().min(1).max(128).optional(),
   userAgent: z.string().optional(),
   referer: z.string().optional(),
@@ -67,14 +76,10 @@ export type AddTaskFormValues = z.infer<typeof addTaskFormSchema>
 
 // ── Engine-agnostic request ─────────────────────────────────
 
-const httpHeaderSchema = z.object({
-  name: z.string().min(1),
-  value: z.string(),
-})
-
 const httpTaskRequestSchema = z.object({
   type: z.literal('http'),
-  uris: z.array(z.url()).min(1),
+  requestId: z.uuid().optional(),
+  uris: z.array(z.string()).min(1).max(MAX_MIRROR_URIS),
   saveDir: z.string().min(1),
   filename: z.string().optional(),
   connections: z.number().int().min(1).max(128).optional(),
@@ -158,6 +163,7 @@ export type TaskCreateSuccessResult = {
 
 export type TaskCreateCommandResult =
   | TaskCreateSuccessResult
+  | { outcome: 'invalid-source'; failure: SourceFailure }
   | {
       outcome: 'conflict'
       conflict: TorrentDuplicateConflict
@@ -260,7 +266,7 @@ function compactHeader(name: string, value?: string) {
 function splitUrlLines(raw: string): string[] {
   return raw
     .split('\n')
-    .map((l) => l.trim())
+    .map((l) => infoHashToMagnetUri(l) ?? l.trim())
     .filter((l) => l.length > 0)
 }
 
@@ -276,7 +282,9 @@ export function formValuesToTaskCreateRequests(
   v: AddTaskFormValues
 ): TaskCreateRequest[] {
   if (v.tab !== 'links') return [formValuesToTaskCreateRequest(v)]
-  const lines = splitUrlLines(v.urls)
+  const lines = analyzeDownloadInput(v.urls)
+    .filter((line) => line.valid)
+    .map((line) => line.url)
   const filename = lines.length === 1 ? v.filename : undefined
   return lines.map((line) =>
     formValuesToTaskCreateRequest({ ...v, urls: line, filename })
@@ -300,6 +308,7 @@ export function formValuesToTaskCreateRequest(
       }
     }
     const headers = [
+      ...(v.extraHeaders ?? []),
       ...compactHeader('User-Agent', v.userAgent),
       ...compactHeader('Referer', v.referer),
       ...compactHeader('Cookie', v.cookie),

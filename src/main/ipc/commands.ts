@@ -75,6 +75,10 @@ import { DirectResourceValidatorService } from '@core/task/direct-resource-valid
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import {
+  admitTaskCreateRequest,
+  taskCreateSourceFailure,
+} from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
@@ -563,7 +567,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     try {
       result = await handleCreateTask(request, createDeps)
     } catch (error) {
-      const conflict = taskCreateConflictResult(error)
+      const conflict =
+        taskCreateSourceFailure(error) ?? taskCreateConflictResult(error)
       if (conflict) return conflict
       throw error
     }
@@ -774,15 +779,22 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.CreateTask]: async (request: unknown) => {
-      // Schema validation happens inside handleCreateTask; createAndPersist
-      // forwards the raw request unchanged. Activate plugins JIT first so
-      // beforeCreate hooks see the request (Plan C: onTaskType/onProtocol
+      try {
+        request = admitTaskCreateRequest(request)
+      } catch (error) {
+        const failure = taskCreateSourceFailure(error)
+        if (failure) return failure
+        throw error
+      }
+      // Activate plugins only after source admission, before task creation,
+      // so beforeCreate hooks see the validated request (onTaskType/onProtocol
       // resolvers don't activate at startup).
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
         if (req.type === 'http') {
-          await activatePluginsForTask('http', req.uris[0] ?? '')
+          if (!req.uris[0].startsWith('ftp:'))
+            await activatePluginsForTask('http', req.uris[0] ?? '')
         } else if (req.payload.kind === 'magnet') {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
@@ -796,7 +808,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                 req.saveDir || settingsManager.getApp().defaultSaveDir
               )
             } catch (error) {
-              const conflict = taskCreateConflictResult(error)
+              const conflict =
+                taskCreateSourceFailure(error) ??
+                taskCreateConflictResult(error)
               if (conflict) return conflict
               throw error
             }
@@ -893,7 +907,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                   }
                 )
               } catch (error) {
-                const conflict = taskCreateConflictResult(error)
+                const conflict =
+                  taskCreateSourceFailure(error) ??
+                  taskCreateConflictResult(error)
                 if (conflict) return conflict
                 throw error
               }
@@ -1122,7 +1138,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
             seedRatio: options.seedRatio,
             displayName: torrent.meta.name,
           })
-          if (result.outcome === 'conflict') {
+          if (
+            result.outcome === 'conflict' ||
+            result.outcome === 'invalid-source'
+          ) {
             failed += 1
             continue
           }

@@ -7,6 +7,7 @@ import {
   normalizeAria2TaskProxyUrl,
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
+import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
   EngineCapability,
@@ -369,6 +370,12 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
+    params = {
+      ...params,
+      uris: admitDownloadSources(params.uris, 'engine').map(
+        (source) => source.requestUrl
+      ),
+    }
     const extraGid = params.extraEngineOptions?.gid
     if (extraGid !== undefined && typeof extraGid !== 'string') {
       throw new TypeError(

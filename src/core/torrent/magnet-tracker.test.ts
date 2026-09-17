@@ -402,18 +402,24 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    await tracker.submit('magnet:?xt=urn:btih:abc123', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      dir
+    )
 
     const metadataDir = lastMetadataDir()
     expect(metadataDir).not.toBe(dir)
-    expect(rpc.addUri).toHaveBeenCalledWith(['magnet:?xt=urn:btih:abc123'], {
-      'max-file-not-found': '0',
-      'bt-load-saved-metadata': 'false',
-      'bt-metadata-only': 'true',
-      dir: metadataDir,
-      'follow-torrent': 'false',
-      gid: expect.stringMatching(/^[a-f0-9]{16}$/),
-    })
+    expect(rpc.addUri).toHaveBeenCalledWith(
+      ['magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee'],
+      {
+        'max-file-not-found': '0',
+        'bt-load-saved-metadata': 'false',
+        'bt-metadata-only': 'true',
+        dir: metadataDir,
+        'follow-torrent': 'false',
+        gid: expect.stringMatching(/^[a-f0-9]{16}$/),
+      }
+    )
   })
 
   it('reuses a same-directory seed and rejects a second active directory', async () => {
@@ -511,7 +517,7 @@ describe('MagnetTracker', () => {
     )
 
     const submitting = tracker.submit(
-      'magnet:?xt=urn:btih:reserved-before-add',
+      'magnet:?xt=urn:btih:a00fc8f79a760f568d3ec349689f6e643ca1d013',
       dir
     )
     await addStarted
@@ -547,7 +553,10 @@ describe('MagnetTracker', () => {
       activityRecorder
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:activity', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:0bf4170444cd473cd4066c79b80cf62ffce582d8',
+      dir
+    )
 
     const task = taskManager.getById(taskId)
     const save = db.saveTaskWithInstances as ReturnType<typeof vi.fn>
@@ -601,7 +610,10 @@ describe('MagnetTracker', () => {
       lifecycle
     )
 
-    await tracker.submit('magnet:?xt=urn:btih:durable-parent', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:6f6d3477d6434863b5951fb85c1e1e500a54fa70',
+      dir
+    )
 
     expect(lifecycle.parentTaskCreated).toHaveBeenCalledOnce()
     expect(order).toEqual([
@@ -630,7 +642,10 @@ describe('MagnetTracker', () => {
     )
 
     await expect(
-      tracker.submit('magnet:?xt=urn:btih:parent-failure', dir)
+      tracker.submit(
+        'magnet:?xt=urn:btih:a16da35a10b23c7916a73924ad287f46000cab0f',
+        dir
+      )
     ).rejects.toThrow('parent persistence failed')
 
     const reservedGid = vi.mocked(taskManager.reserveEngineTaskId).mock
@@ -660,7 +675,10 @@ describe('MagnetTracker', () => {
     )
 
     await expect(
-      tracker.submit('magnet:?xt=urn:btih:add-response-lost', dir)
+      tracker.submit(
+        'magnet:?xt=urn:btih:549e00b51f7a4d4692c543d940e21810c06d155c',
+        dir
+      )
     ).rejects.toThrow('rpc response lost')
 
     const requestedGid = rpc.addUri.mock.calls[0]?.[1]?.gid as string
@@ -697,7 +715,10 @@ describe('MagnetTracker', () => {
     )
 
     await expect(
-      tracker.submit('magnet:?xt=urn:btih:hidden-tombstone-occurrence', dir)
+      tracker.submit(
+        'magnet:?xt=urn:btih:e77f26bbac2dd08e0ea8325660915758a31d4cd9',
+        dir
+      )
     ).rejects.toThrow('rpc response lost')
 
     expect(dispatch).not.toHaveBeenCalled()
@@ -772,7 +793,7 @@ describe('MagnetTracker', () => {
     )
     const onError = rpc.onDownloadError.mock.calls[0][0]
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:metadata-error',
+      'magnet:?xt=urn:btih:1c3829fa09c7e6d2cd049d8469d2540d2d9461db',
       saveDir
     )
     const gid = lastMetadataGid()
@@ -828,7 +849,7 @@ describe('MagnetTracker', () => {
       { runTaskMutation }
     )
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:callback-after-swap',
+      'magnet:?xt=urn:btih:de6514e24009c2cfb12b1b9e7ec711abfe24b374',
       saveDir
     )
     const gid = lastMetadataGid()
@@ -908,7 +929,7 @@ describe('MagnetTracker', () => {
       torrentParser
     )
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:stale-error-after-swap',
+      'magnet:?xt=urn:btih:de36c430bd1f6c8f7454dc9ce45e64316b10f985',
       saveDir
     )
     const gid = lastMetadataGid()
@@ -959,7 +980,10 @@ describe('MagnetTracker', () => {
       taskManager,
       torrentParser
     )
-    await tracker.submit('magnet:?xt=urn:btih:duplicate-complete', saveDir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:c01805e3b6a30a790b2e763d11cc302fa3a66d25',
+      saveDir
+    )
     const gid = lastMetadataGid()
     await writeTorrentFixture(lastMetadataDir())
     eventBus.emit.mockClear()
@@ -999,7 +1023,7 @@ describe('MagnetTracker', () => {
       { runExclusivePersistence }
     )
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:queued-autosave',
+      'magnet:?xt=urn:btih:12683da484f1d35228941df8350c968dd94b2548',
       saveDir
     )
     const gid = lastMetadataGid()
@@ -1062,10 +1086,14 @@ describe('MagnetTracker', () => {
       submittedAt: 1,
     }
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc123', dir, {
-      source: 'bridge',
-      sourceMeta,
-    })
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      dir,
+      {
+        source: 'bridge',
+        sourceMeta,
+      }
+    )
 
     const pair = db.getTask(taskId)
     expect(pair?.task.source).toBe('bridge')
@@ -1083,7 +1111,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc123', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      dir
+    )
 
     const pair = db.getTask(taskId)
     expect(pair?.task.source).toBe('user')
@@ -1103,12 +1134,18 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    await tracker.submit('magnet:?xt=urn:btih:abc123', '/downloads')
+    await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      '/downloads'
+    )
 
-    expect(rpc.addUri).toHaveBeenCalledWith(['magnet:?xt=urn:btih:abc123'], {
-      dir: '/downloads',
-      'max-file-not-found': '0',
-    })
+    expect(rpc.addUri).toHaveBeenCalledWith(
+      ['magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee'],
+      {
+        dir: '/downloads',
+        'max-file-not-found': '0',
+      }
+    )
   })
 
   // ── 4. onComplete for known gid ──────────────────────────────
@@ -1486,7 +1523,7 @@ describe('MagnetTracker', () => {
     )
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:result-purge-failed',
+      'magnet:?xt=urn:btih:5059f80d16ae552ccb397a269bb49d015a3c6388',
       saveDir
     )
     await writeTorrentFixture(lastMetadataDir())
@@ -1556,7 +1593,7 @@ describe('MagnetTracker', () => {
     )
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:task-updated-throws',
+      'magnet:?xt=urn:btih:60cb4b775789a47367611766baad373e8dbf5c90',
       saveDir
     )
     await writeTorrentFixture(lastMetadataDir())
@@ -1609,7 +1646,7 @@ describe('MagnetTracker', () => {
     )
     const onComplete = rpc.onBtDownloadComplete.mock.calls[0][0]
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:file-selection-throws',
+      'magnet:?xt=urn:btih:19be438596485c6f3ff67002a7046ae2dbabd17b',
       saveDir
     )
     await writeTorrentFixture(lastMetadataDir())
@@ -1659,7 +1696,7 @@ describe('MagnetTracker', () => {
     )
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:read-failed',
+      'magnet:?xt=urn:btih:5ab7152919bbbeea66421c7b727d0dc803b18393',
       saveDir
     )
     eventBus.emit.mockClear()
@@ -1717,7 +1754,7 @@ describe('MagnetTracker', () => {
     )
     const onComplete = rpc.onBtDownloadComplete.mock.calls[0][0]
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:parse-failed',
+      'magnet:?xt=urn:btih:42f497d831126938a5b45e9b2e29bcb2bf4f652e',
       saveDir
     )
     await writeTorrentFixture(lastMetadataDir())
@@ -1794,7 +1831,10 @@ describe('MagnetTracker', () => {
     )
     const onError = rpc.onDownloadError.mock.calls[0][0]
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc123', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      dir
+    )
     const gid = lastMetadataGid()
     eventBus.emit.mockClear()
 
@@ -1842,7 +1882,10 @@ describe('MagnetTracker', () => {
     )
     const onError = rpc.onDownloadError.mock.calls[0][0]
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc123', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      dir
+    )
     const gid = lastMetadataGid()
 
     await onError({ gid })
@@ -1881,7 +1924,7 @@ describe('MagnetTracker', () => {
     const onError = rpc.onDownloadError.mock.calls[0][0]
 
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:visible-after-restart',
+      'magnet:?xt=urn:btih:6166f8bf4cfb6b5051ab6724c37e0043c7535593',
       dir
     )
     const gid = lastMetadataGid()
@@ -1925,7 +1968,10 @@ describe('MagnetTracker', () => {
       taskManager,
       torrentParser
     )
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:slow-peers', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:5317e7774679644353d9f5deecd44bbeacffb344',
+      dir
+    )
 
     await vi.advanceTimersByTimeAsync(120_000)
     expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
@@ -1958,7 +2004,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc123', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      dir
+    )
     const gid = lastMetadataGid()
     eventBus.emit.mockClear()
 
@@ -1997,7 +2046,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d',
+      dir
+    )
     const gid = lastMetadataGid()
 
     expect(taskId).toMatch(/.+/)
@@ -2034,7 +2086,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    await tracker.submit('magnet:?xt=urn:btih:emit', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:2e96e89125f4c1aef797410a4bfdb32c0632ef0c',
+      dir
+    )
 
     const emit = (eventBus.emit as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === Events.TaskUpdated
@@ -2062,7 +2117,10 @@ describe('MagnetTracker', () => {
       taskManager,
       torrentParser
     )
-    await tracker.submit('magnet:?xt=urn:btih:abc', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d',
+      dir
+    )
 
     expect(
       tracker.observe({ gid: 'g-meta-1', status: 'active' } as never)
@@ -2095,7 +2153,10 @@ describe('MagnetTracker', () => {
       taskManager,
       torrentParser
     )
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:owner-heal', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:455bec88b6227cfd291f503a71e793a90a571e4c',
+      dir
+    )
     const metadataTask = taskManager.getById(taskId)
     if (!metadataTask) throw new Error('metadata task fixture missing')
 
@@ -2103,7 +2164,7 @@ describe('MagnetTracker', () => {
       taskId,
       instanceId: `meta:${taskId}`,
       gid: 'g-bt-committed',
-      magnetUri: 'magnet:?xt=urn:btih:owner-heal',
+      magnetUri: 'magnet:?xt=urn:btih:455bec88b6227cfd291f503a71e793a90a571e4c',
       saveDir: '/Downloads',
       metadataDir: '/Downloads/resolved.motrix',
       torrentMetaPath: '/torrent-meta/owner-heal.torrent',
@@ -2149,7 +2210,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:abc', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d',
+      dir
+    )
     await tracker.cancel(taskId)
 
     // Regression guard for Codex finding #2: cleanupCacheEntry must
@@ -2180,7 +2244,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:keep', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:1264bdfe5ff3215cf6abac2152fff607f7dc78dc',
+      dir
+    )
     expect(db.getTask(taskId)).not.toBeNull()
 
     await tracker.cancel(taskId, { deleteTaskRow: false })
@@ -2212,7 +2279,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    await tracker.submit('magnet:?xt=urn:btih:def', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:589c22335a381f122d129225f5c0ba3056ed5811',
+      dir
+    )
     await vi.advanceTimersByTimeAsync(1500)
 
     expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-timeout')
@@ -2237,7 +2307,7 @@ describe('MagnetTracker', () => {
     )
 
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:retry-timeout',
+      'magnet:?xt=urn:btih:43efb4f44e8b1198387ddd79269a2dbdece78bec',
       dir
     )
     const firstOptions = rpc.addUri.mock.calls[0][1]
@@ -2296,7 +2366,7 @@ describe('MagnetTracker', () => {
       torrentParser
     )
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:retry-restart',
+      'magnet:?xt=urn:btih:61b7491a0284c6e93550066f9f0854b94b92670d',
       dir
     )
     await vi.advanceTimersByTimeAsync(1_000)
@@ -2340,7 +2410,7 @@ describe('MagnetTracker', () => {
     )
 
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:retry-cleanup-pending',
+      'magnet:?xt=urn:btih:9f8696ac773d190b8e35a5da7ce7d52115719960',
       dir
     )
     await vi.advanceTimersByTimeAsync(1_000)
@@ -2364,7 +2434,10 @@ describe('MagnetTracker', () => {
     )
     const onError = rpc.onDownloadError.mock.calls[0][0]
 
-    await tracker.submit('magnet:?xt=urn:btih:err', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:eb35c321d6997c344882962b8aa1cd0939b123e1',
+      dir
+    )
     await onError({ gid: 'g-meta-err' })
 
     expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-err')
@@ -2393,7 +2466,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:flaky', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:0612bcf5b16a1ec368ef4ebb92d6be2f7040260b',
+      dir
+    )
     await tracker.cancel(taskId)
 
     expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-flaky')
@@ -2418,7 +2494,7 @@ describe('MagnetTracker', () => {
     )
 
     const taskId = await tracker.submit(
-      'magnet:?xt=urn:btih:stopped-result',
+      'magnet:?xt=urn:btih:437ce18345723780a1b100f9b6420946459e5f6d',
       dir
     )
     await expect(tracker.cancel(taskId)).resolves.toBe('removed')
@@ -2449,7 +2525,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:gone', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:a6dfdeaa3a44a4c52d44284847d7160892b4017e',
+      dir
+    )
     await tracker.cancel(taskId)
 
     expect(
@@ -2476,7 +2555,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:proxy', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:d799bae6088a90139b415fccb011d540531df83b',
+      dir
+    )
     await tracker.cancel(taskId)
 
     // Cache entry preserved because the failure was classified as
@@ -2505,7 +2587,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:real', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:c9c64e071d2853bc7906c017a231ad1cc46ab630',
+      dir
+    )
     await tracker.cancel(taskId)
 
     expect(
@@ -2532,7 +2617,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:recover', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:55bc5de4ad739fc0c332d826cb21bab6c0fd28b7',
+      dir
+    )
     await tracker.cancel(taskId)
 
     // First attempt: cache still present (transient failure).
@@ -2576,7 +2664,10 @@ describe('MagnetTracker', () => {
       lifecycle
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:stuck', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:cfb18e81efbda9473cefbd150d9be1eb0ac7840b',
+      dir
+    )
     await tracker.cancel(taskId)
 
     await vi.advanceTimersByTimeAsync(400_000)
@@ -2627,7 +2718,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:revive', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:97dd8cdfab89963b2a8c0116f6a21bf32932860e',
+      dir
+    )
     await tracker.cancel(taskId)
     await vi.advanceTimersByTimeAsync(400_000)
 
@@ -2675,7 +2769,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:userdel', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:fe6fbe03b2e72b3e7477c88130e6d69031e62456',
+      dir
+    )
     const result = await tracker.cancel(taskId, { deleteTaskRow: false })
     expect(result).toBe('quarantined')
 
@@ -2748,7 +2845,10 @@ describe('MagnetTracker', () => {
       { deleteParentTask }
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:delete-retry', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:44cf336cb7f1336842b3a0b08e50929a7de96db4',
+      dir
+    )
     await expect(tracker.cancel(taskId)).resolves.toBe('quarantined')
 
     expect(deleteParentTask).toHaveBeenCalledTimes(1)
@@ -2822,7 +2922,9 @@ describe('MagnetTracker', () => {
           uploadedBytes: 0,
           diskPath: '/tmp/motrix-magnet-metadata-x',
           transitionPhase: TransitionPhase.Idle,
-          uris: ['magnet:?xt=urn:btih:quarantined'],
+          uris: [
+            'magnet:?xt=urn:btih:6ecc2c259036f3099e06e4885d6e82a1ee8202d6',
+          ],
           uriHash: null,
           payload: {
             metadataDir: '/tmp/motrix-magnet-metadata-x',
@@ -2921,7 +3023,7 @@ describe('MagnetTracker', () => {
         uploadedBytes: 0,
         diskPath: '/tmp/original-metadata',
         transitionPhase: TransitionPhase.Idle,
-        uris: ['magnet:?xt=urn:btih:restart'],
+        uris: ['magnet:?xt=urn:btih:16f766f2f5d7ff50934fb25604a14e9fd4126771'],
         uriHash: null,
         payload: { metadataDir: '/tmp/original-metadata' },
         createdAt: 1700000000,
@@ -2979,7 +3081,8 @@ describe('MagnetTracker', () => {
         taskId: 'm-swap-restart',
         instanceId: 'meta:m-swap-restart',
         gid: 'g-bt-orphan',
-        magnetUri: 'magnet:?xt=urn:btih:restart',
+        magnetUri:
+          'magnet:?xt=urn:btih:16f766f2f5d7ff50934fb25604a14e9fd4126771',
         saveDir: root,
         metadataDir: diskPath,
         torrentMetaPath,
@@ -3126,7 +3229,7 @@ describe('MagnetTracker', () => {
       taskId: 'm-path-guard',
       instanceId: 'meta:m-path-guard',
       gid: 'g-path-guard',
-      magnetUri: 'magnet:?xt=urn:btih:path-guard',
+      magnetUri: 'magnet:?xt=urn:btih:c53c83bd551481cfdd8eb8597f0694bbcf88650c',
       saveDir,
       metadataDir: unsafeMotrixPath,
       torrentMetaPath: unsafeTorrentPath,
@@ -3165,7 +3268,7 @@ describe('MagnetTracker', () => {
       taskId,
       instanceId: `meta:${taskId}`,
       gid: 'g-indexed-cleanup',
-      magnetUri: 'magnet:?xt=urn:btih:indexed-cleanup',
+      magnetUri: 'magnet:?xt=urn:btih:b725471d7373cd172c40ff8fb1a24dff0718a7f3',
       saveDir,
       metadataDir: workspacePath,
       torrentMetaPath: null,
@@ -3230,7 +3333,9 @@ describe('MagnetTracker', () => {
           uploadedBytes: 0,
           diskPath: '/tmp/motrix-magnet-metadata-visible',
           transitionPhase: TransitionPhase.Idle,
-          uris: ['magnet:?xt=urn:btih:visible'],
+          uris: [
+            'magnet:?xt=urn:btih:223883960405d6589d6cd37f175c73b073c4180f',
+          ],
           uriHash: null,
           payload: {
             metadataDir: '/tmp/motrix-magnet-metadata-visible',
@@ -3281,7 +3386,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:shutdown', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:53669f193b2174641c72654b5c3e5b67950334ae',
+      dir
+    )
     await tracker.cancel(taskId)
     expect(
       tracker.observe({ gid: 'g-meta-shutdown', status: 'active' } as never)
@@ -3326,7 +3434,10 @@ describe('MagnetTracker', () => {
       taskManager,
       torrentParser
     )
-    await tracker.submit('magnet:?xt=urn:btih:drain', dir)
+    await tracker.submit(
+      'magnet:?xt=urn:btih:2780acf0b90856242725c016989fa59c5f78bd83',
+      dir
+    )
     const onError = rpc.onDownloadError.mock.calls[0][0]
     onError({ gid: 'g-meta-drain' })
     for (let i = 0; i < 20 && !resolveRemove; i += 1) {
@@ -3392,7 +3503,10 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    const taskId = await tracker.submit('magnet:?xt=urn:btih:race', dir)
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:de4bedce64a13c433914abccee8d49016e57d089',
+      dir
+    )
 
     const cancelPromise = tracker.cancel(taskId)
     await vi.advanceTimersByTimeAsync(1100)

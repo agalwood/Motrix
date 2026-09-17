@@ -5,6 +5,7 @@ export enum ErrorCode {
   EngineProcessOwnershipUnverified = 'ENGINE_PROCESS_OWNERSHIP_UNVERIFIED',
   EngineProcessTerminationFailed = 'ENGINE_PROCESS_TERMINATION_FAILED',
   TaskCreateFailed = 'TASK_CREATE_FAILED',
+  TaskSourceInvalid = 'TASK_SOURCE_INVALID',
   TaskNotFound = 'TASK_NOT_FOUND',
   TaskRevealFailed = 'TASK_REVEAL_FAILED',
   TaskOpenFailed = 'TASK_OPEN_FAILED',

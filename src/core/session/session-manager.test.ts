@@ -3984,7 +3984,9 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
             TaskInstancePhase.MagnetMetadataResolution
           ),
           diskPath: '/tmp/motrix-magnet-metadata-xyz',
-          uris: ['magnet:?xt=urn:btih:abc'],
+          uris: [
+            'magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d',
+          ],
           payload: { metadataDir: '/tmp/motrix-magnet-metadata-xyz' },
         },
       ],
@@ -3995,7 +3997,7 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     const addUri = (rpc as unknown as { addUri: ReturnType<typeof vi.fn> })
       .addUri
     expect(addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=urn:btih:abc'],
+      ['magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d'],
       expect.objectContaining({
         'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
@@ -4041,7 +4043,9 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
             TaskInstancePhase.MagnetMetadataResolution
           ),
           diskPath: '/tmp/motrix-magnet-metadata-failed',
-          uris: ['magnet:?xt=urn:btih:failed'],
+          uris: [
+            'magnet:?xt=urn:btih:5f5f8758f5f22d523e531f58123b6db9161683a4',
+          ],
           payload: {
             metadataDir: '/tmp/motrix-magnet-metadata-failed',
             cleanupQuarantined: false,
@@ -4099,7 +4103,9 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
           ),
           status: TaskStatus.Error,
           diskPath: '/tmp/motrix-magnet-metadata-q',
-          uris: ['magnet:?xt=urn:btih:q'],
+          uris: [
+            'magnet:?xt=urn:btih:22ea1c649c82946aa6e479e1ffd321e4a318b1b0',
+          ],
           payload: {
             metadataDir: '/tmp/motrix-magnet-metadata-q',
             cleanupQuarantined: true,
