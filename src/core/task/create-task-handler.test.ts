@@ -130,6 +130,85 @@ function httpRequest() {
   }
 }
 
+describe('source admission before side effects', () => {
+  it.each([
+    'https:example.test/a',
+    'https://example.test/a\\b',
+    'https://example.test/a%ZZ',
+    'https://user:secret@example.test/a',
+    'https://example.test/a\tb',
+    'sftp://example.test/a',
+    'ftps://example.test/a',
+  ])(
+    'rejects %s without plugin, directory, probe or engine work',
+    async (uri) => {
+      const wait = vi.fn(async () => {})
+      const prepare = vi.fn(async (dir: string) => dir)
+      const deps = makeDeps({
+        waitForEngineReady: wait,
+        prepareSaveDir: prepare,
+      })
+      const { addUri, pick, add } = deps
+      const plugin = vi.fn()
+      const probe = vi.fn()
+      deps.orchestrator = { runBeforeCreateHttp: plugin } as never
+      deps.directResourceValidator = { capture: probe, probe }
+      await expect(
+        handleCreateTask({ ...httpRequest(), uris: [uri] }, deps)
+      ).rejects.toMatchObject({
+        code: ErrorCode.TaskSourceInvalid,
+        details: { stage: 'input', index: 0 },
+      })
+      for (const fn of [
+        wait,
+        prepare,
+        pick,
+        plugin,
+        probe,
+        mkdirMock,
+        addUri,
+        add,
+      ])
+        expect(fn).not.toHaveBeenCalled()
+    }
+  )
+
+  it('routes FTP to the FTP task type and skips HTTP plugins and probes', async () => {
+    const deps = makeDeps()
+    const { addUri, add } = deps
+    const plugin = vi.fn()
+    const probe = vi.fn()
+    const resolve = vi.fn()
+    deps.orchestrator = { runBeforeCreateHttp: plugin } as never
+    deps.directResourceValidator = { capture: probe, probe }
+    deps.resolveToMux = resolve
+    await handleCreateTask(
+      { ...httpRequest(), uris: ['ftp://example.test/archive.zip'] },
+      deps
+    )
+    expect(addUri).toHaveBeenCalledWith(
+      ['ftp://example.test/archive.zip'],
+      expect.objectContaining({ dir: '/d' })
+    )
+    expect(addUri.mock.calls[0][1]).not.toHaveProperty('header')
+    expect(add.mock.calls[0][0]).toMatchObject({ type: TaskType.Ftp })
+    for (const fn of [plugin, probe, resolve]) expect(fn).not.toHaveBeenCalled()
+  })
+
+  it('reuses a persisted receipt even when the prepared directory differs from the request', async () => {
+    const deps = makeDeps({ prepareSaveDir: async () => '/resolved-dir' })
+    const { addUri, add } = deps
+    const tasks: DownloadTask[] = []
+    vi.mocked(deps.taskManager.getAll).mockImplementation(() => tasks)
+    add.mockImplementation((task) => tasks.push(task))
+    const request = { ...httpRequest(), requestId: crypto.randomUUID() }
+    const first = await handleCreateTask(request, deps)
+    const second = await handleCreateTask(request, deps)
+    expect(second).toMatchObject({ outcome: 'reused', taskId: first.taskId })
+    expect(addUri).toHaveBeenCalledOnce()
+  })
+})
+
 function makeDeps(overrides: DepOverrides = {}): Deps & {
   addUri: ReturnType<typeof vi.fn>
   addUriWithCookies: ReturnType<typeof vi.fn>
@@ -537,7 +616,7 @@ describe('handleCreateTask', () => {
     }
   })
 
-  it('redacts plugin-rewritten URIs without reducing the result to a count', async () => {
+  it('logs plugin attribution and URI counts without exposing rewritten targets', async () => {
     const rewrittenSecret = 'REWRITTEN_URI_SECRET_753'
     const orchestrator = {
       runBeforeCreateHttp: vi.fn().mockResolvedValue({
@@ -578,7 +657,7 @@ describe('handleCreateTask', () => {
       (call) => call[1] === 'beforeCreate hook chain result'
     )
     expect(resultLog?.[0]).toMatchObject({
-      rewrittenUris: ['https://cdn.example/file.zip'],
+      rewrittenUriCount: 1,
       contributors: { uris: 'plugin-rewriter' },
     })
     const task = lastAddedTask(deps)
@@ -1026,7 +1105,10 @@ describe('handleCreateTask', () => {
     const result = await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:x' },
+        payload: {
+          kind: 'magnet',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+        },
         dlLimit: 1_000_000,
         ulLimit: 512_000,
         selectedFiles: [0],
@@ -1038,7 +1120,7 @@ describe('handleCreateTask', () => {
     expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
     expect(typeof result.taskId).toBe('string')
     expect(deps.addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=urn:btih:x'],
+      ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.any(Object)
     )
     const [, options] = deps.addUri.mock.calls[0]
@@ -1147,7 +1229,7 @@ describe('handleCreateTask download paths', () => {
         type: 'bt',
         payload: {
           kind: 'magnet',
-          uri: 'magnet:?xt=urn:btih:deadbeef&dn=Ubuntu%2024.04',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc&dn=Ubuntu%2024.04',
         },
         selectedFiles: [0],
         saveDir: '/d',
@@ -1782,7 +1864,7 @@ describe('handleCreateTask mkdir target by task type', () => {
         type: 'bt',
         payload: {
           kind: 'magnet',
-          uri: 'magnet:?xt=urn:btih:deadbeef&dn=Ubuntu',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc&dn=Ubuntu',
         },
         selectedFiles: [0],
         saveDir: '/d',
@@ -2319,7 +2401,10 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
           makeChainCommit({ uris: [uri], uriContributor: 'plugin-a' })
         ),
       })
-    ).rejects.toMatchObject({ code: ErrorCode.TaskCreateFailed })
+    ).rejects.toMatchObject({
+      code: ErrorCode.TaskSourceInvalid,
+      details: { stage: 'plugin' },
+    })
     expect(deps.addUri).not.toHaveBeenCalled()
     expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
   })
@@ -2846,7 +2931,10 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc&dn=Test' },
+        payload: {
+          kind: 'magnet',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc&dn=Test',
+        },
         selectedFiles: [],
         saveDir: '/d',
       },

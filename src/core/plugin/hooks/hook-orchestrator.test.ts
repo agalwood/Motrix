@@ -7,8 +7,8 @@
 //
 // Mocking strategy: we substitute a minimal PluginHost shape that the
 // orchestrator uses (allActive, invokeHook). The bridge/worker pair is mocked
-// so newHookAbort can call notifyAbort without crashing. Real workers / VMs
-// are not spawned here — that is T17's e2e responsibility.
+// to track per-invocation context. Real workers / VMs are exercised by the
+// PluginHost e2e tests.
 
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
@@ -57,7 +57,6 @@ interface FixturePlugin {
 interface MockBridge {
   setHookContext: ReturnType<typeof vi.fn>
   clearHookContext: ReturnType<typeof vi.fn>
-  notifyAbort: ReturnType<typeof vi.fn>
 }
 
 function makeManifest(p: FixturePlugin): PluginManifest {
@@ -83,7 +82,6 @@ function makeMockBridge(): MockBridge {
   return {
     setHookContext: vi.fn(),
     clearHookContext: vi.fn(),
-    notifyAbort: vi.fn(),
   }
 }
 
@@ -200,6 +198,62 @@ const ORCH_OPTS_BASE = {
 // ---------------------------------------------------------------------------
 
 describe('HookOrchestrator', () => {
+  describe.each([
+    'beforeCreate',
+    'beforeFinalize',
+    'afterComplete',
+    'onError',
+  ] as const)('%s budget cleanup', (hook) => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it.each(['success', 'failure'] as const)(
+      'releases its deadline after %s without cancelling a completed invocation',
+      async (outcome) => {
+        const signals: AbortSignal[] = []
+        const { host } = makeMockHost([
+          {
+            id: 'budget-test',
+            role: 'resolve',
+            hooks: [hook],
+            handler: ({ signal }) => {
+              signals.push(signal)
+              if (outcome === 'failure') throw new Error('hook failed')
+            },
+          },
+        ])
+        const orch = new HookOrchestrator({
+          host,
+          hookTimeoutMs: TIMEOUTS,
+          ...ORCH_OPTS_BASE,
+        })
+        if (hook === 'beforeCreate') {
+          const result = await orch.runBeforeCreateHttp(
+            makeBeforeCreateDto(),
+            'task-1'
+          )
+          expect(result.aborted === true).toBe(outcome === 'failure')
+        } else if (hook === 'beforeFinalize') {
+          const result = await orch.runBeforeFinalize(
+            makeBeforeFinalizeDto(),
+            'task-1'
+          )
+          expect(result.aborted === true).toBe(outcome === 'failure')
+        } else {
+          await orch.runParallel(
+            hook,
+            { task: { id: 'task-1' }, filePath: '/x' } as never,
+            'task-1'
+          )
+        }
+        expect(signals).toHaveLength(1)
+        expect(vi.getTimerCount()).toBe(0)
+        await vi.advanceTimersByTimeAsync(1_000)
+        expect(signals[0].aborted).toBe(false)
+      }
+    )
+  })
+
   it('discovers an inactive registry candidate and activates it on Hook demand', async () => {
     const plugin: FixturePlugin = {
       id: 'idle-plugin',

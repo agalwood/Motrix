@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { newEngineTaskId } from '@core/lib/ids'
 import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
+import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
@@ -219,6 +220,11 @@ async function buildDirectReAddParams(
       `Task ${task.id} cannot be retried: its direct replay recipe is unavailable`
     )
   }
+  const sources = admitDownloadSources(primary.uris, 'recovery', [
+    'http',
+    'https',
+    'ftp',
+  ])
   const requestOptions = getProxyOptions()
 
   const plan = await directRecoveryPlanner.plan({
@@ -274,7 +280,7 @@ async function buildDirectReAddParams(
       )
     }
     const validation = await resourceValidator.verify(
-      primary.uris[0] as string,
+      sources[0].requestUrl,
       recipe.resourceValidator,
       requestOptions
     )
@@ -289,7 +295,7 @@ async function buildDirectReAddParams(
   }
 
   return {
-    uris: primary.uris,
+    uris: sources.map((source) => source.requestUrl),
     saveDir: plan.saveDir,
     filename: plan.filename,
     connections: recipe.connections,

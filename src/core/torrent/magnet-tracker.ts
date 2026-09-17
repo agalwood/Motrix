@@ -35,6 +35,7 @@ import {
 } from '@core/task/bt-duplicate-policy'
 import { btWorkspacePath } from '@core/task/bt-storage-layout'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { admitDownloadSources } from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
@@ -416,6 +417,7 @@ export class MagnetTracker {
     saveDir: string,
     provenance?: { source?: TaskSource; sourceMeta?: SourceMeta }
   ): Promise<string> {
+    uri = admitDownloadSources([uri], 'input', ['magnet'])[0].sourceUrl
     const requestedInfoHash = extractInfoHash(uri)
     if (requestedInfoHash === UNKNOWN_INFO_HASH) {
       return this.submitUnderAdmission(uri, saveDir, provenance)
@@ -446,7 +448,7 @@ export class MagnetTracker {
         'max-file-not-found': '0',
       })
       if (this.stopped) return ''
-      log.info({ gid, uri }, 'magnet added (file selection disabled)')
+      log.info({ gid }, 'magnet added (file selection disabled)')
       return ''
     }
 
@@ -757,6 +759,7 @@ export class MagnetTracker {
     // click can arrive while the old GID is still shielded. Serialize behind
     // that cleanup and require authoritative absence before creating a new
     // sibling GID.
+    admitDownloadSources([magnetUri], 'recovery', ['magnet'])
     const previousEntry = this.findCacheEntryByTaskId(taskId)
     if (previousEntry) {
       previousEntry.cleanupAttempts = 0

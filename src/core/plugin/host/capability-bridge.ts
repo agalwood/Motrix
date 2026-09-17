@@ -1520,15 +1520,15 @@ export class CapabilityBridge {
     })
   }
 
-  /**
-   * Called by abort.ts when the host-owned AbortController fires. Posts an
-   * 'abort' event to the worker so the plugin runtime can cancel in-flight ops.
-   *
-   * TODO(T16): also cancel any tracked ffmpeg/http handles held by this bridge.
-   */
-  notifyAbort(): void {
-    if (this.disposed || !this.currentInvocationScope) return
-    const scope = this.currentInvocationScope
+  /** Cancel only the invocation captured by callHook's signal/deadline. */
+  private notifyAbort(scope: HookInvocationScopeV1): void {
+    if (
+      this.disposed ||
+      !this.currentInvocationScope ||
+      !sameHookScope(this.currentInvocationScope, scope)
+    ) {
+      return
+    }
     this.worker.postMessage({
       type: 'event',
       event: 'abort',
@@ -1929,7 +1929,7 @@ export class CapabilityBridge {
     return new Promise<HookEffectsV1>((resolve, reject) => {
       const onAbort = () => {
         if (this.pendingHook && sameHookScope(this.pendingHook.scope, scope)) {
-          this.notifyAbort()
+          this.notifyAbort(scope)
           this.pendingHook.detach()
           this.pendingHook = null
           this.clearHookContext()
@@ -1940,7 +1940,7 @@ export class CapabilityBridge {
       }
       const timer = setTimeout(() => {
         if (this.pendingHook && sameHookScope(this.pendingHook.scope, scope)) {
-          this.notifyAbort()
+          this.notifyAbort(scope)
           this.pendingHook.detach()
           this.pendingHook = null
           this.clearHookContext()
@@ -1979,11 +1979,7 @@ export class CapabilityBridge {
     })
   }
 
-  /**
-   * Plan C — public accessor for the underlying Worker. Required by
-   * `newHookAbort(bridge, worker, timeoutMs)` so the abort budget can
-   * `worker.terminate()` as a backstop for hung workers.
-   */
+  /** Worker access for host lifecycle management and diagnostics. */
   getWorker(): Worker {
     return this.worker
   }

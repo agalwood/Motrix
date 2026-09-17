@@ -843,7 +843,7 @@
       "title": "新增任務",
       "links": "連結",
       "torrent": "Torrent",
-      "urlPlaceholder": "輸入 URL、Magnet 連結…",
+      "urlPlaceholder": "輸入 URL、Magnet 連結或 BT 雜湊值…",
       "dropTorrent": "將 .torrent 檔案拖放到這裡，或按一下以選擇檔案",
       "clearSelection": "清除選取項目",
       "createFailed": "無法建立下載任務。",
@@ -851,6 +851,8 @@
       "parseFailed": "無法解析 Torrent 檔案。",
       "urlsCount_other": "{{count}} 個 URL",
       "urlsWithInvalid": "{{valid}} 個有效，{{invalid}} 個無效",
+      "validUrlCount": "{{count}} 個有效",
+      "invalidUrlCount": "{{count}} 個無效",
       "urlsLabel": "URL",
       "advanced": "進階",
       "filename": "檔案名稱",
@@ -891,6 +893,35 @@
       },
       "adding": "正在新增…",
       "interpretedMagnet": "已偵測到 Magnet 連結",
+      "interpretedInfoHash": "已將 BT 雜湊值轉換為 Magnet 連結",
+      "unsupportedCurl": "無法準確匯入此 cURL 命令。請複製 URL，或使用支援選項的 Bash GET 命令。",
+      "invalidJson": "請輸入 JSON 格式的 URL 字串或 URL 字串陣列。",
+      "interpretedJson": "已從 JSON 匯入連結",
+      "sourceLine": "第 {{line}} 行",
+      "sourceCorrections": {
+        "useCanonicalUrl": "使用此展開後的位址",
+        "usePathSeparators": "將反斜線作為路徑分隔符號",
+        "encodeLiteralCharacters": "按字面字元編碼"
+      },
+      "sourceErrors": {
+        "missingScheme": "請補全 URL 協定，例如 https://。",
+        "invalidHost": "URL 缺少主機名稱，或主機名稱無效。",
+        "invalidPort": "URL 連接埠無效。",
+        "controlCharacter": "請移除 URL 中的控制字元。",
+        "invalidUnicode": "URL 包含無效的 Unicode 字元。",
+        "ambiguousBackslash": "反斜線使主機或路徑存在歧義，請選擇其含義。",
+        "invalidPercentEncoding": "百分號後必須緊接兩位十六進位數字。",
+        "credentialsInUrl": "請使用認證欄位，不要在 URL 中嵌入憑證。",
+        "unsupportedProtocol": "此下載不支援該 URL 協定。",
+        "urlTooLong": "URL 超過 16 KiB 長度限制。",
+        "tooManySources": "輸入的連結數量或文字大小超過限制。",
+        "ambiguousStructure": "解析器會改變此位址，請核對展開後的 URL。",
+        "unescapedCharacter": "請明確編碼空格和保留字元。",
+        "invalidMagnet": "Magnet 連結的 xt 參數需要包含支援的 BT 雜湊值。",
+        "mixedProtocols": "同一下載的鏡像位址必須屬於相同協定族。",
+        "unsupportedInput": "未能匯入此輸入格式，請貼上 URL 或支援的 JSON、Bash cURL 內容。",
+        "unsupportedRequestOptions": "FTP 下載不能套用 HTTP 請求標頭。"
+      },
       "interpretedCurl": "已解析 cURL 命令",
       "filterBy": {
         "video": "影片",
@@ -907,7 +938,9 @@
       "selectionTimeout": {
         "started": "選擇檔案已逾時，開始下載 {{name}} 的全部檔案",
         "failed": "無法自動開始下載 {{name}}，請開啟任務詳細資料，選擇檔案後重試。"
-      }
+      },
+      "undoCorrection": "復原 URL 修正",
+      "submissionUnconfirmed": "結果尚未確認。再次提交時會先核對原請求，避免重複建立任務。"
     },
     "detail": {
       "peers": "對等節點：{{count}}",

@@ -9,6 +9,10 @@ import {
   safeObserve,
 } from '@core/plugin/post/delivery-observability'
 import type { PostDeliveryAdmissionSummary } from '@core/plugin/post/delivery-retention'
+import {
+  admitDownloadSources,
+  DownloadSourceError,
+} from '@core/task/source-admission'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -1534,6 +1538,17 @@ export class SessionManager {
     }
 
     if (primary && primary.uris.length > 0) {
+      let admittedUris: string[]
+      try {
+        admittedUris = admitDownloadSources(primary.uris, 'recovery', [
+          'http',
+          'https',
+          'ftp',
+        ]).map((source) => source.requestUrl)
+      } catch (error) {
+        if (!(error instanceof DownloadSourceError)) throw error
+        return this.markRecoverErrorFromPair(pair, error.message)
+      }
       const recipe = parseDirectReplayRecipe(primary.payload)
       if (recipe?.replayability === 'requires-credentials') {
         return this.markRecoverErrorFromPair(
@@ -1605,7 +1620,7 @@ export class SessionManager {
           requestOptions &&
           canMirrorAria2MetadataHeaders(this.adapter.getFeatureReport?.())
             ? await this.directResourceValidator.verify(
-                primary.uris[0] as string,
+                admittedUris[0],
                 recipe.resourceValidator,
                 requestOptions
               )
@@ -1625,7 +1640,7 @@ export class SessionManager {
       return this.dispatchRecoveryCandidate(pair, (gid) => {
         assertProxyCurrent?.()
         return this.adapter.createDownload({
-          uris: primary.uris,
+          uris: admittedUris,
           gid,
           saveDir: plan.saveDir as string,
           filename: plan.filename as string,
@@ -1839,7 +1854,10 @@ export class SessionManager {
     }
 
     try {
-      const newGid = await this.rpc.addUri([magnetUri], {
+      const uris = admitDownloadSources([magnetUri], 'recovery', [
+        'magnet',
+      ]).map((source) => source.requestUrl)
+      const newGid = await this.rpc.addUri(uris, {
         'max-file-not-found': '0',
         'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',

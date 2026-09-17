@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createServer, type Server as HttpServer } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
+import { DownloadSourceError } from '@core/task/source-admission'
 import {
   type DownloadCancelParams,
   DownloadCancelParamsSchema,
@@ -2484,6 +2485,7 @@ function isMdxpErrorShape(
 function appErrorToMdxpCode(code: ErrorCode): number {
   switch (code) {
     case ErrorCode.IpcInvalidPayload:
+    case ErrorCode.TaskSourceInvalid:
     case ErrorCode.InvalidSelection:
     case ErrorCode.SettingsInvalid:
       return ErrorCodes.InvalidParams
@@ -2498,6 +2500,12 @@ function appErrorToMdxpCode(code: ErrorCode): number {
 
 /** Normalize any thrown value into an MDXP-shaped error for the unary response. */
 function normalizeUnaryError(err: unknown): NormalizedError {
+  if (err instanceof DownloadSourceError)
+    return {
+      code: ErrorCodes.InvalidParams,
+      message: err.message,
+      data: err.details,
+    }
   if (err instanceof AppError) {
     return { code: appErrorToMdxpCode(err.code), message: err.message }
   }

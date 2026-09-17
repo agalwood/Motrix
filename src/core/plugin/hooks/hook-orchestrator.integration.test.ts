@@ -47,7 +47,6 @@ interface FixturePlugin {
 interface MockBridge {
   setHookContext: Mock<(args: HookContextArgs) => void>
   clearHookContext: Mock<() => void>
-  notifyAbort: Mock<() => void>
 }
 
 function makeManifest(p: FixturePlugin): PluginManifest {
@@ -71,7 +70,6 @@ function makeMockBridge(): MockBridge {
   return {
     setHookContext: vi.fn<(args: HookContextArgs) => void>(),
     clearHookContext: vi.fn<() => void>(),
-    notifyAbort: vi.fn<() => void>(),
   }
 }
 

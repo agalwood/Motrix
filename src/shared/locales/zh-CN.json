@@ -843,7 +843,7 @@
       "title": "新建任务",
       "links": "链接",
       "torrent": "种子",
-      "urlPlaceholder": "输入 URL、磁力链接…",
+      "urlPlaceholder": "输入 URL、磁力链接或 BT 哈希值…",
       "dropTorrent": "拖拽 .torrent 文件到此处，或点击选择",
       "clearSelection": "清除选择",
       "createFailed": "创建下载任务失败。",
@@ -851,6 +851,8 @@
       "parseFailed": "解析种子文件失败。",
       "urlsCount_other": "{{count}} 个 URL",
       "urlsWithInvalid": "{{valid}} 个有效，{{invalid}} 个无效",
+      "validUrlCount": "{{count}} 个有效",
+      "invalidUrlCount": "{{count}} 个无效",
       "urlsLabel": "链接",
       "advanced": "高级",
       "filename": "文件名",
@@ -891,6 +893,35 @@
       },
       "adding": "添加中…",
       "interpretedMagnet": "已识别磁力链接",
+      "interpretedInfoHash": "已将 BT 哈希值转换为磁力链接",
+      "unsupportedCurl": "无法准确导入此 cURL 命令。请复制 URL，或使用受支持选项的 Bash GET 命令。",
+      "invalidJson": "请输入 JSON 格式的 URL 字符串或 URL 字符串数组。",
+      "interpretedJson": "已从 JSON 导入链接",
+      "sourceLine": "第 {{line}} 行",
+      "sourceCorrections": {
+        "useCanonicalUrl": "使用此展开后的地址",
+        "usePathSeparators": "将反斜杠作为路径分隔符",
+        "encodeLiteralCharacters": "按字面字符编码"
+      },
+      "sourceErrors": {
+        "missingScheme": "请补全 URL 协议，例如 https://。",
+        "invalidHost": "URL 缺少主机名，或主机名无效。",
+        "invalidPort": "URL 端口无效。",
+        "controlCharacter": "请移除 URL 中的控制字符。",
+        "invalidUnicode": "URL 包含无效的 Unicode 字符。",
+        "ambiguousBackslash": "反斜杠使主机或路径存在歧义，请选择其含义。",
+        "invalidPercentEncoding": "百分号后必须紧跟两位十六进制数字。",
+        "credentialsInUrl": "请使用认证字段，不要在 URL 中嵌入凭据。",
+        "unsupportedProtocol": "此下载不支持该 URL 协议。",
+        "urlTooLong": "URL 超过 16 KiB 长度限制。",
+        "tooManySources": "输入的链接数量或文本大小超过限制。",
+        "ambiguousStructure": "解析器会改变此地址，请核对展开后的 URL。",
+        "unescapedCharacter": "请明确编码空格和保留字符。",
+        "invalidMagnet": "磁力链接的 xt 参数需要包含受支持的 BT 哈希值。",
+        "mixedProtocols": "同一下载的镜像地址必须属于相同协议族。",
+        "unsupportedInput": "未能导入此输入格式，请粘贴 URL 或受支持的 JSON、Bash cURL 内容。",
+        "unsupportedRequestOptions": "FTP 下载不能应用 HTTP 请求头。"
+      },
       "interpretedCurl": "已解析 cURL 命令",
       "filterBy": {
         "video": "视频",
@@ -907,7 +938,9 @@
       "selectionTimeout": {
         "started": "选择文件已超时，开始下载 {{name}} 的全部文件",
         "failed": "无法自动开始下载 {{name}}，请打开任务详情，选择文件后重试。"
-      }
+      },
+      "undoCorrection": "撤销 URL 修正",
+      "submissionUnconfirmed": "结果尚未确认。再次提交时会先核对原请求，避免重复创建任务。"
     },
     "detail": {
       "peers": "节点：{{count}}",

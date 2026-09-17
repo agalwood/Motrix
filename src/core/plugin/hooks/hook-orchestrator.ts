@@ -1,3 +1,7 @@
+import {
+  admitDownloadSources,
+  DownloadSourceError,
+} from '@core/task/source-admission'
 // src/core/plugin/hooks/hook-orchestrator.ts
 // Plan C — drives every hook chain:
 //   - beforeCreate / beforeFinalize: serial chain over eligible plugins,
@@ -155,7 +159,7 @@ export class HookOrchestrator {
     log.info(
       {
         taskId,
-        url: initial.uris[0],
+        uriCount: initial.uris.length,
         chainLength: chain.length,
         chain: chain.map((e) => ({ id: e.id, role: e.role })),
       },
@@ -188,7 +192,7 @@ export class HookOrchestrator {
         continue
       }
 
-      const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
+      const abort = newHookAbort(timeout)
 
       try {
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
@@ -209,8 +213,13 @@ export class HookOrchestrator {
           },
         })
         working = mergeBeforeCreateWorking(initial, staged)
+        working.uris = admitDownloadSources(working.uris, 'plugin', [
+          'http',
+          'https',
+        ]).map((source) => source.sourceUrl)
         this.opts.breaker?.success(entry.id, 'beforeCreate')
       } catch (e) {
+        if (e instanceof DownloadSourceError) throw e
         this.opts.breaker?.failure(entry.id, 'beforeCreate')
         await this.maybeDisable(entry.id, 'beforeCreate')
         const message = (e as Error).message
@@ -238,6 +247,8 @@ export class HookOrchestrator {
         // merge step does not pick them up.
         staged.removeFromPlugin(entry.id)
         working = mergeBeforeCreateWorking(initial, staged)
+      } finally {
+        abort.dispose()
       }
     }
 
@@ -311,8 +322,6 @@ export class HookOrchestrator {
         continue
       }
 
-      const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
-
       // beforeFinalize uses the saveDir derived from initial.filePath's parent
       // for path-escape validation (T3 validateFinalizePatch). The bridge gate
       // also needs a non-null fsTaskHost for the matrix branch.
@@ -333,6 +342,7 @@ export class HookOrchestrator {
       staged.appendStaging(entry.id, staging)
       const previousFinalizePath = staged.pendingFinalizePath
 
+      const abort = newHookAbort(timeout)
       try {
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeFinalize', {
@@ -396,6 +406,8 @@ export class HookOrchestrator {
           filePath: previousFinalizePath ?? initial.filePath,
           targetFilePath: previousFinalizePath ?? initial.targetFilePath,
         }
+      } finally {
+        abort.dispose()
       }
     }
 
@@ -459,7 +471,7 @@ export class HookOrchestrator {
         return
       }
 
-      const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
+      const abort = newHookAbort(timeout)
 
       try {
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
@@ -490,6 +502,8 @@ export class HookOrchestrator {
           role: entry.role,
           error: (e as Error).message,
         })
+      } finally {
+        abort.dispose()
       }
     })
 

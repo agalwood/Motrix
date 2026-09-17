@@ -550,7 +550,7 @@ describe('buildCommandHandlers', () => {
     // @ts-expect-error — partial ctx
     const handlers = buildCommandHandlers(ctx)
     const result = (await handlers[Commands.AddMagnetTask]?.({
-      uri: 'magnet:?xt=x',
+      uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       selectedFiles: [0],
       saveDir: '',
     })) as { gid: string; taskId?: string } | undefined
@@ -563,7 +563,7 @@ describe('buildCommandHandlers', () => {
     // Unresolved BT writes directly inside its final container under the
     // fallback save root.
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=x'],
+      ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.objectContaining({
         dir: expect.stringMatching(
           /^\/tmp\/(?!.*\.motrix$).+$/
@@ -604,14 +604,17 @@ describe('buildCommandHandlers', () => {
 
     const result = await handlers[Commands.CreateTask]?.({
       type: 'bt',
-      payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
       selectedFiles: [],
       saveDir: '/downloads',
     })
 
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
-      'magnet:?xt=urn:btih:abc',
+      'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       '/downloads'
     )
     expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
