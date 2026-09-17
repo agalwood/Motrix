@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import {
   generalSettingsSnapshot,
   TEST_GENERAL_REVISION,

@@ -50,14 +50,14 @@ export function NotificationsNavItem() {
                   aria-label={t('notification.center.unreadBadgeAria', {
                     count: unreadCount,
                   })}
-                  className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium leading-none text-white tabular-nums group-data-[collapsible=icon]:hidden"
+                  className="ml-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#007aff] px-1 text-[11px] font-semibold leading-none text-white proportional-nums group-data-[collapsible=icon]:hidden"
                 >
                   {badgeLabel}
                 </span>
                 <span
                   data-testid="notification-badge-dot"
                   aria-hidden="true"
-                  className="absolute top-1 right-1 hidden size-1.5 rounded-full bg-destructive group-data-[collapsible=icon]:block"
+                  className="absolute top-1 right-1 hidden size-1.5 rounded-full bg-[#007aff] group-data-[collapsible=icon]:block"
                 />
               </>
             )}

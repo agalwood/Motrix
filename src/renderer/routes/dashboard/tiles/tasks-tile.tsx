@@ -338,7 +338,7 @@ function TaskRow({
             <span className="min-w-0 flex-1 truncate font-medium">
               {task.name}
             </span>
-            <span className="shrink-0 text-muted-foreground tabular-nums">
+            <span className="shrink-0 text-muted-foreground">
               {presentation.primary}
             </span>
           </div>
@@ -355,7 +355,7 @@ function TaskRow({
             <span className="min-w-0 truncate text-[12px] font-medium leading-[13px]">
               {task.name}
             </span>
-            <span className="shrink-0 text-[11px] leading-[13px] text-muted-foreground tabular-nums">
+            <span className="shrink-0 text-[11px] leading-[13px] text-muted-foreground">
               {presentation.primary}
             </span>
             <span className="col-span-2 min-w-0 truncate text-[10px] leading-[11px] text-muted-foreground">

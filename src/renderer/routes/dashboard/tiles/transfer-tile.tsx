@@ -203,10 +203,10 @@ function DirectionBreakdown({
         data-testid="transfer-direction-values"
         className="flex w-full justify-between"
       >
-        <div className="text-left font-medium tabular-nums text-foreground text-sm">
+        <div className="text-left font-medium text-foreground text-sm">
           <KpiNumber value={formatBytes(range.uploadBytes)} variant="compact" />
         </div>
-        <div className="text-right font-medium tabular-nums text-foreground text-sm">
+        <div className="text-right font-medium text-foreground text-sm">
           <KpiNumber
             value={formatBytes(range.downloadBytes)}
             variant="compact"

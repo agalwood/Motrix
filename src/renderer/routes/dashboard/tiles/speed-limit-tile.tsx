@@ -127,7 +127,7 @@ export function SpeedLimitTile({
         {!compact ? (
           <div
             data-testid="speed-limit-rates"
-            className="flex shrink-0 items-center gap-3 text-[12px] text-muted-foreground tabular-nums"
+            className="flex shrink-0 items-center gap-3 text-[12px] text-muted-foreground"
           >
             <span className="flex gap-0.5 items-center">
               <span className="mr-0.5 text-xs">↓</span>

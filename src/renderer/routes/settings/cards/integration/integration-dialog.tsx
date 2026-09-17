@@ -12,6 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
@@ -119,84 +125,95 @@ export function IntegrationDialog({
           <DialogDescription>{t(descKey)}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <FormProvider {...form}>
-            <div className="flex flex-col gap-6">
-              {!isWeb && (
-                <>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="px-6 py-4"
+              style={{ minWidth: '100%' }}
+            >
+              <FormProvider {...form}>
+                <div className="flex flex-col gap-6">
+                  {!isWeb && (
+                    <>
+                      <section
+                        aria-labelledby="integration-system"
+                        className="flex flex-col gap-3"
+                      >
+                        <h3
+                          id="integration-system"
+                          className="text-sm font-semibold text-foreground"
+                        >
+                          {t('settings.integration.system.title')}
+                        </h3>
+                        <SystemProtocolsSection
+                          refreshRevision={protocolRevision}
+                        />
+                        <AppImageIntegrationSection
+                          onIntegrationChange={() =>
+                            setProtocolRevision((revision) => revision + 1)
+                          }
+                        />
+                      </section>
+
+                      <Separator />
+                    </>
+                  )}
+
                   <section
-                    aria-labelledby="integration-system"
+                    aria-labelledby="integration-browser"
                     className="flex flex-col gap-3"
                   >
                     <h3
-                      id="integration-system"
+                      id="integration-browser"
                       className="text-sm font-semibold text-foreground"
                     >
-                      {t('settings.integration.system.title')}
+                      {t('settings.integration.browser.title')}
                     </h3>
-                    <SystemProtocolsSection
-                      refreshRevision={protocolRevision}
-                    />
-                    <AppImageIntegrationSection
-                      onIntegrationChange={() =>
-                        setProtocolRevision((revision) => revision + 1)
-                      }
-                    />
+                    <BrowserExtensionsSection />
+                    {!isWeb && <AppImageNativeHostSection />}
                   </section>
 
                   <Separator />
-                </>
-              )}
 
-              <section
-                aria-labelledby="integration-browser"
-                className="flex flex-col gap-3"
-              >
-                <h3
-                  id="integration-browser"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  {t('settings.integration.browser.title')}
-                </h3>
-                <BrowserExtensionsSection />
-                {!isWeb && <AppImageNativeHostSection />}
-              </section>
+                  <section
+                    aria-labelledby="integration-cli"
+                    className="flex flex-col gap-4"
+                  >
+                    <h3
+                      id="integration-cli"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {t('settings.integration.cli.title')}
+                    </h3>
+                    <CliToolSection />
+                    <Separator />
+                    <CLIClientsSection />
+                    <PendingApprovalsSection />
+                  </section>
 
-              <Separator />
+                  <Separator />
 
-              <section
-                aria-labelledby="integration-cli"
-                className="flex flex-col gap-4"
-              >
-                <h3
-                  id="integration-cli"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  {t('settings.integration.cli.title')}
-                </h3>
-                <CliToolSection />
-                <Separator />
-                <CLIClientsSection />
-                <PendingApprovalsSection />
-              </section>
-
-              <Separator />
-
-              <section
-                aria-labelledby="integration-media"
-                className="flex flex-col gap-3"
-              >
-                <h3
-                  id="integration-media"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  {t('settings.integration.media.title')}
-                </h3>
-                <MediaToolsSection />
-              </section>
-            </div>
-          </FormProvider>
-        </div>
+                  <section
+                    aria-labelledby="integration-media"
+                    className="flex flex-col gap-3"
+                  >
+                    <h3
+                      id="integration-media"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {t('settings.integration.media.title')}
+                    </h3>
+                    <MediaToolsSection />
+                  </section>
+                </div>
+              </FormProvider>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           {form.formState.errors.root?.save && (

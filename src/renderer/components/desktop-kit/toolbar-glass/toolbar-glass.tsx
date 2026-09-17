@@ -93,7 +93,7 @@ function GlassLayer() {
       aria-hidden="true"
       style={
         ready
-          ? { backdropFilter: `url("#${id}") blur(2px) saturate(1.08)` }
+          ? { backdropFilter: `url("#${id}") blur(3px) saturate(1.03)` }
           : undefined
       }
     >
@@ -125,7 +125,7 @@ function GlassLayer() {
             <feDisplacementMap
               in="SourceGraphic"
               in2="rim"
-              scale="8"
+              scale="4"
               xChannelSelector="R"
               yChannelSelector="G"
             />

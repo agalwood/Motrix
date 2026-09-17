@@ -8,6 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { cn } from '@renderer/lib/utils'
 import type { ConsentPayloadFfmpegRuntime } from '@shared/types/plugin-install'
 import { useEffect, useRef, useState } from 'react'
@@ -143,28 +149,45 @@ export function PluginInstallDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 space-y-4">
-          {install.error && (
-            <Alert variant="destructive" className="mb-4 shadow-none border">
-              <span className="text-xs">{install.error}</span>
-            </Alert>
-          )}
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="space-y-4 px-4 pb-4"
+              style={{ minWidth: '100%' }}
+            >
+              {install.error && (
+                <Alert
+                  variant="destructive"
+                  className="mb-4 shadow-none border"
+                >
+                  <span className="text-xs">{install.error}</span>
+                </Alert>
+              )}
 
-          {!fixedSource && (
-            <PluginInputGroup onCheck={onCheck} checking={install.pending} />
-          )}
+              {!fixedSource && (
+                <PluginInputGroup
+                  onCheck={onCheck}
+                  checking={install.pending}
+                />
+              )}
 
-          {install.consent && (
-            <>
-              <FfmpegRuntimeBlock rt={install.consent.ffmpegRuntime} />
-              <InlineConsentPanel
-                consent={install.consent}
-                grants={grants}
-                onGrantsChange={setGrants}
-              />
-            </>
-          )}
-        </div>
+              {install.consent && (
+                <>
+                  <FfmpegRuntimeBlock rt={install.consent.ffmpegRuntime} />
+                  <InlineConsentPanel
+                    consent={install.consent}
+                    grants={grants}
+                    onGrantsChange={setGrants}
+                  />
+                </>
+              )}
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
           <Button variant="outline" size="sm" onClick={onCancel}>

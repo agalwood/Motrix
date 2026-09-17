@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { transport } from '@renderer/lib/transport'
@@ -460,10 +461,9 @@ describe('<AboutDialog>', () => {
       'max-h-[calc(100svh-2rem)]',
       'overflow-hidden'
     )
-    expect(screen.getByTestId('about-dialog-scroll')).toHaveClass(
-      'min-h-0',
-      'flex-1',
-      'overflow-y-auto'
+    expect(screen.getByTestId('about-dialog-scroll')).toHaveAttribute(
+      'data-slot',
+      'scroll-area-viewport'
     )
   })
 

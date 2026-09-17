@@ -1,11 +1,14 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { __resetTaskListStoreForTests } from '@renderer/hooks/use-task-list'
 import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import type { AppNotification } from '@shared/types/notification'
+import { TaskStatus } from '@shared/types/task'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -36,14 +39,24 @@ function notification(
   }
 }
 
-function mockList(items: AppNotification[]) {
-  vi.mocked(transport.invoke).mockImplementation(async (ch: string) => {
-    if (ch === Queries.ListNotifications) return items
-    if (ch === Queries.GetUnreadNotificationCount) {
-      return items.filter((it) => it.readAt === null).length
+function mockList(
+  items: AppNotification[],
+  taskIds = items.flatMap((item) => (item.taskId ? [item.taskId] : [])),
+  status = TaskStatus.Completed
+) {
+  const tasks = taskIds.map((id) => ({ id, status }))
+  vi.mocked(transport.invoke).mockImplementation(
+    async (ch: string, id: unknown) => {
+      if (ch === Queries.ListTasks) return tasks
+      if (ch === Queries.GetTaskDetail)
+        return tasks.find((task) => task.id === id) ?? null
+      if (ch === Queries.ListNotifications) return items
+      if (ch === Queries.GetUnreadNotificationCount) {
+        return items.filter((it) => it.readAt === null).length
+      }
+      return undefined
     }
-    return undefined
-  })
+  )
 }
 
 let location = ''
@@ -64,9 +77,11 @@ function renderPage() {
 
 describe('<NotificationsPage>', () => {
   beforeEach(() => {
+    __resetTaskListStoreForTests()
     location = ''
   })
   afterEach(async () => {
+    __resetTaskListStoreForTests()
     vi.clearAllMocks()
     // Restore the default locale so a later test file sharing this i18n
     // singleton doesn't inherit zh-CN from a language-switch test elsewhere.
@@ -119,7 +134,7 @@ describe('<NotificationsPage>', () => {
     expect(list.children).toHaveLength(2)
   })
 
-  it('labels the open button with the unread suffix for unread rows and the plain title for read rows', async () => {
+  it('labels the row button with the unread suffix for unread rows and the plain title for read rows', async () => {
     mockList([
       notification({ id: 'n1', readAt: null }),
       notification({
@@ -139,8 +154,12 @@ describe('<NotificationsPage>', () => {
     ).toBeInTheDocument()
   })
 
-  it('marks read and navigates to the task on row click', async () => {
-    mockList([notification({ id: 'n1', taskId: 't1' })])
+  it('opens an existing failed task and marks read when the row is clicked', async () => {
+    mockList(
+      [notification({ id: 'n1', taskId: 't1' })],
+      ['t1'],
+      TaskStatus.Error
+    )
     renderPage()
     const row = await screen.findByText('file.zip failed')
     fireEvent.click(row)
@@ -151,6 +170,31 @@ describe('<NotificationsPage>', () => {
       )
     )
     await waitFor(() => expect(location).toBe('/downloads/all?task=t1'))
+    expect(transport.invoke).toHaveBeenCalledWith(Queries.GetTaskDetail, 't1')
+  })
+
+  it('opens a completed task from the row without a separate action button', async () => {
+    mockList([
+      notification({
+        kind: 'task-complete',
+        severity: 'info',
+        titleKey: 'notification.taskComplete.title',
+      }),
+    ])
+    renderPage()
+    await screen.findByText('file.zip finished downloading')
+    expect(screen.queryByText('View task')).not.toBeInTheDocument()
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'file.zip finished downloading (unread)',
+      })
+    )
+    await waitFor(() => expect(location).toBe('/downloads/all?task=t1'))
+    expect(transport.invoke).toHaveBeenCalledWith(Queries.GetTaskDetail, 't1')
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.MarkNotificationRead,
+      'n1'
+    )
   })
 
   it('does not navigate when the notification has no taskId', async () => {
@@ -178,6 +222,224 @@ describe('<NotificationsPage>', () => {
         'n1'
       )
     )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.MarkNotificationRead,
+      'n1'
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.GetTaskDetail,
+      't1'
+    )
+    expect(location).toBe('/notifications')
+  })
+
+  it('disables mark-all-read when every notification is already read', async () => {
+    mockList([notification({ readAt: Date.now() })])
+    renderPage()
+    await screen.findByText('file.zip failed')
+    expect(
+      screen.getByRole('button', { name: /mark all read/i })
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^clear$/i })).toBeEnabled()
+  })
+
+  it('opens an already-read task without another read write', async () => {
+    mockList([notification({ readAt: Date.now(), taskId: 'task&other=1' })])
+    renderPage()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'file.zip failed' })
+    )
+    await waitFor(() =>
+      expect(location).toBe('/downloads/all?task=task%26other%3D1')
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.MarkNotificationRead,
+      'n1'
+    )
+  })
+
+  it('marks a deleted task notification read without querying or navigating', async () => {
+    mockList([notification()], [])
+    renderPage()
+    expect(await screen.findByText('Task removed')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^file.zip failed/ })
+    ).toHaveAttribute('title', 'Task removed')
+    fireEvent.click(screen.getByText('file.zip failed'))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.MarkNotificationRead,
+        'n1'
+      )
+    )
+    expect(location).toBe('/notifications')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.GetTaskDetail,
+      't1'
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.DeleteNotification,
+      'n1'
+    )
+  })
+
+  it('stops navigating when a task is removed while the page is open', async () => {
+    mockList([notification()])
+    renderPage()
+    await screen.findByRole('button', { name: /^file.zip failed/ })
+    const listener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([channel]) => channel === Events.TaskUpdated)?.[1]
+    act(() => listener?.([{ id: 't1', status: TaskStatus.Removed }]))
+    expect(await screen.findByText('Task removed')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^file.zip failed/ })
+    ).toHaveAttribute('title', 'Task removed')
+    fireEvent.click(screen.getByText('file.zip failed'))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.MarkNotificationRead,
+        'n1'
+      )
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.GetTaskDetail,
+      't1'
+    )
+    expect(location).toBe('/notifications')
+  })
+
+  it.each([null, { id: 't1', status: TaskStatus.Removed }])(
+    'does not navigate when the fresh task check returns %s',
+    async (task) => {
+      mockList([notification({ readAt: Date.now() })])
+      renderPage()
+      const button = await screen.findByRole('button', {
+        name: /^file.zip failed/,
+      })
+      vi.mocked(transport.invoke).mockResolvedValueOnce(task)
+      fireEvent.click(button)
+      expect(await screen.findByText('Task removed')).toBeInTheDocument()
+      expect(location).toBe('/notifications')
+      expect(
+        screen.getByRole('button', { name: /^file.zip failed/ })
+      ).toBeDisabled()
+    }
+  )
+
+  it('allows retry after a failed task check without claiming the task was deleted', async () => {
+    mockList([notification({ readAt: Date.now() })])
+    renderPage()
+    const button = await screen.findByRole('button', {
+      name: /^file.zip failed/,
+    })
+    vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('Disconnected'))
+    fireEvent.click(button)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Couldn’t open the task. Try again.'
+    )
+    expect(location).toBe('/notifications')
+    expect(screen.queryByText('Task removed')).not.toBeInTheDocument()
+    fireEvent.click(button)
+    await waitFor(() => expect(location).toBe('/downloads/all?task=t1'))
+  })
+
+  it('does not follow a stale task response after a removal event', async () => {
+    mockList([notification({ readAt: Date.now() })])
+    renderPage()
+    const button = await screen.findByRole('button', {
+      name: /^file.zip failed/,
+    })
+    let resolveTask!: (task: unknown) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveTask = resolve
+      })
+    )
+    fireEvent.click(button)
+    fireEvent.click(button)
+    const listener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([channel]) => channel === Events.TaskUpdated)?.[1]
+    act(() => listener?.([]))
+    await act(async () =>
+      resolveTask({ id: 't1', status: TaskStatus.Completed })
+    )
+    expect(location).toBe('/notifications')
+    expect(screen.getByText('Task removed')).toBeInTheDocument()
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(([channel]) => channel === Queries.GetTaskDetail)
+    ).toHaveLength(1)
+  })
+
+  it('checks the task on row click if the task list could not be loaded', async () => {
+    mockList([notification({ readAt: Date.now() })])
+    const invoke = vi.mocked(transport.invoke).getMockImplementation()!
+    vi.mocked(transport.invoke).mockImplementation((channel, ...args) =>
+      channel === Queries.ListTasks
+        ? Promise.reject(new Error('Disconnected'))
+        : invoke(channel, ...args)
+    )
+    renderPage()
+    const button = await screen.findByRole('button', {
+      name: /^file.zip failed/,
+    })
+    expect(screen.queryByText('Task removed')).not.toBeInTheDocument()
+    fireEvent.click(button)
+    await waitFor(() => expect(location).toBe('/downloads/all?task=t1'))
+  })
+
+  it('does not navigate after leaving the notification page during a task check', async () => {
+    mockList([notification({ readAt: Date.now() })])
+    const view = renderPage()
+    const button = await screen.findByRole('button', {
+      name: /^file.zip failed/,
+    })
+    let resolveTask!: (task: unknown) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveTask = resolve
+      })
+    )
+    fireEvent.click(button)
+    view.rerender(
+      <MemoryRouter initialEntries={['/notifications']}>
+        <LocationSpy />
+      </MemoryRouter>
+    )
+    await act(async () =>
+      resolveTask({ id: 't1', status: TaskStatus.Completed })
+    )
+    expect(location).toBe('/notifications')
+  })
+
+  it('keeps a failed deletion visible and allows retrying it', async () => {
+    mockList([notification()])
+    renderPage()
+    await screen.findByText('file.zip failed')
+    vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('Disconnected'))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove file.zip failed' })
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Couldn’t update notifications. Try again.'
+    )
+    expect(screen.getByText('file.zip failed')).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove file.zip failed' })
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    )
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(
+          ([channel]) => channel === Commands.DeleteNotification
+        )
+    ).toHaveLength(2)
   })
 
   it('mark-all-read and clear invoke their commands', async () => {

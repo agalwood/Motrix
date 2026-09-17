@@ -355,6 +355,29 @@
 .dark.platform-darwin.window-main [data-slot="sidebar-wrapper"] {
   background-color: oklch(0.205 0 0 / 0.55);
 }
+
+/* A shallow etched groove stays quiet over both glass and vibrancy. */
+.platform-darwin.window-main
+  [data-slot="sidebar-inner"]
+  [data-sidebar="separator"] {
+  background-color: rgb(0 0 0 / 9%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 14%);
+}
+.platform-darwin.window-main:where(.dark)
+  [data-slot="sidebar-inner"]
+  [data-sidebar="separator"] {
+  background-color: rgb(0 0 0 / 16%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+@media (prefers-contrast: more), (forced-colors: active) {
+  .platform-darwin.window-main
+    [data-slot="sidebar-inner"]
+    [data-sidebar="separator"] {
+    background-color: var(--sidebar-border);
+    box-shadow: none;
+  }
+}
 .platform-darwin.window-main [data-slot="sidebar-inner"] {
   background-color: transparent;
 }

@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import { setByteUnitSystem } from '@renderer/hooks/use-byte-format'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'

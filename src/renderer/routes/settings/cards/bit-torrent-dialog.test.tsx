@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 // src/renderer/routes/settings/cards/bit-torrent-dialog.test.tsx
 
 import '@testing-library/jest-dom/vitest'

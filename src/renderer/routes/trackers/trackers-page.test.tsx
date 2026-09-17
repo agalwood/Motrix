@@ -46,6 +46,23 @@ beforeEach(() => {
 })
 
 describe('TrackersPage', () => {
+  it('expands the URL filter, keeps it across tabs and clears before collapsing', async () => {
+    const user = userEvent.setup()
+    render(<TrackersPage />)
+    expect(screen.queryByRole('textbox', { name: 'Filter by URL…' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Filter by URL…' }))
+    const input = screen.getByRole('textbox', { name: 'Filter by URL…' })
+    expect(input).toHaveFocus()
+    await user.type(input, 'tracker.example')
+    await user.click(screen.getByRole('tab', { name: /blacklist/i }))
+    expect(input).toHaveValue('tracker.example')
+    await user.click(input)
+    await user.keyboard('{Escape}')
+    expect(input).toHaveValue('')
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Filter by URL…' })).toHaveFocus()
+  })
+
   it('renders panel title and the two tabs', () => {
     render(<TrackersPage />)
     expect(screen.getByText('Trackers')).toBeInTheDocument()

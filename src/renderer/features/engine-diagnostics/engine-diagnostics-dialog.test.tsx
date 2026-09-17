@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
@@ -117,9 +118,9 @@ describe('EngineDiagnosticsDialogHost', () => {
       'grid-rows-[auto_minmax(0,1fr)_auto]',
       'overflow-hidden'
     )
-    expect(screen.getByTestId('engine-diagnostics-scroll')).toHaveClass(
-      'min-h-0',
-      'overflow-y-auto'
+    expect(screen.getByTestId('engine-diagnostics-scroll')).toHaveAttribute(
+      'data-slot',
+      'scroll-area-viewport'
     )
     expect(
       screen.queryByRole('button', {

@@ -7,6 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { type KeyboardEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -86,29 +92,37 @@ function OpenDirectoryPreferencesDialog({ onClose }: { onClose: () => void }) {
             {t('directoryPreferences.description')}
           </DialogDescription>
         </DialogHeader>
-        <div
-          ref={contentRef}
-          tabIndex={-1}
-          aria-busy={busy || draft.loading}
-          data-testid="directory-preferences-content"
-          className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 outline-none"
-        >
-          <DirectoryPreferencesStatus
-            loading={draft.loading}
-            error={draft.error}
-            disabled={busy}
-            onRetry={() => {
-              contentRef.current?.focus({ preventScroll: true })
-              void draft.refresh()
-            }}
-          />
-          <DirectoryPreferencesSection
-            preferences={draft.preferences}
-            onChange={draft.setPreferences}
-            disabled={draft.loading || busy || !draft.ready}
-            onPickingChange={setPicking}
-          />
-        </div>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            ref={contentRef}
+            tabIndex={-1}
+            aria-busy={busy || draft.loading}
+            data-testid="directory-preferences-content"
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="space-y-3 p-4"
+              style={{ minWidth: '100%' }}
+            >
+              <DirectoryPreferencesStatus
+                loading={draft.loading}
+                error={draft.error}
+                disabled={busy}
+                onRetry={() => {
+                  contentRef.current?.focus({ preventScroll: true })
+                  void draft.refresh()
+                }}
+              />
+              <DirectoryPreferencesSection
+                preferences={draft.preferences}
+                onChange={draft.setPreferences}
+                disabled={draft.loading || busy || !draft.ready}
+                onPickingChange={setPicking}
+              />
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
         <DialogFooter className="shrink-0 flex-row justify-end border-t px-4 py-3">
           <Button
             type="button"

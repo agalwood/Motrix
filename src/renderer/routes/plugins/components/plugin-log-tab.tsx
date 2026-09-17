@@ -1,6 +1,12 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import { Button } from '@renderer/components/ui/button'
 import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -146,29 +152,38 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
           </span>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          {filtered.length === 0 ? (
-            <div className="flex min-h-full flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-              <div className="mb-1 flex size-10 items-center justify-center rounded-xl border border-border/60 bg-background/80 shadow-xs">
-                <TerminalSquare className="size-4.5 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium tracking-tight text-foreground">
-                {entries.length === 0
-                  ? t('plugins.logs.empty')
-                  : t('plugins.logs.emptyFiltered')}
-              </p>
-              {entries.length === 0 && (
-                <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-                  {t('plugins.logs.emptyHint')}
-                </p>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport className="min-h-0 flex-1 overscroll-contain">
+            <ScrollAreaContent
+              className="flex min-h-full flex-col"
+              style={{ minWidth: '100%' }}
+            >
+              {filtered.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+                  <div className="mb-1 flex size-10 items-center justify-center rounded-xl border border-border/60 bg-background/80 shadow-xs">
+                    <TerminalSquare className="size-4.5 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium tracking-tight text-foreground">
+                    {entries.length === 0
+                      ? t('plugins.logs.empty')
+                      : t('plugins.logs.emptyFiltered')}
+                  </p>
+                  {entries.length === 0 && (
+                    <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                      {t('plugins.logs.emptyHint')}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                filtered.map((e) => (
+                  <PluginLogRow key={`${e.ts}-${e.level}-${e.msg}`} entry={e} />
+                ))
               )}
-            </div>
-          ) : (
-            filtered.map((e) => (
-              <PluginLogRow key={`${e.ts}-${e.level}-${e.msg}`} entry={e} />
-            ))
-          )}
-        </div>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </div>
   )

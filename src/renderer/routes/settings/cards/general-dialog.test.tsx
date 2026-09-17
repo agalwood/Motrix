@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import type { SaveGeneralSettingsRequest } from '@shared/schemas/general-settings'
 import {
   generalSettingsSnapshot,

@@ -148,7 +148,7 @@ export function EngineTile({
           data-testid="engine-footer"
           className="mt-auto flex items-center justify-between"
         >
-          <div className="flex shrink-0 items-center gap-3 text-muted-foreground tabular-nums text-[11px]">
+          <div className="flex shrink-0 items-center gap-3 text-muted-foreground text-[11px]">
             {`aria2 v${shortVersion}`}
           </div>
           <StatusDot pulse={pulse} className={cn(DOT[status.state])} />
@@ -181,7 +181,7 @@ function Sub({
       </span>
       <span
         title={value}
-        className="mt-1 block truncate text-[15px] font-medium text-foreground tabular-nums"
+        className="mt-1 block truncate text-[15px] font-medium text-foreground"
       >
         {value}
       </span>
