@@ -7,12 +7,9 @@ import {
 } from 'lucide-react'
 
 /**
- * Single source for a severity/type's icon + accent — shared by the toast
- * surface (`ui/toast.tsx`) and the notifications page
- * (`routes/notifications/notifications-page.tsx`) so the two never drift
- * apart. `'success'` only applies to toasts; the
- * notification center's `NotificationSeverity` (`info` | `warning` |
- * `error`) is a subset of this key set.
+ * Severity icons and accents for toast feedback. The notification center
+ * uses category-specific icons in its persistent list. Toasts additionally
+ * support 'success', beyond the persisted info/warning/error severities.
  */
 export type SeverityIconKind = 'success' | 'info' | 'warning' | 'error'
 

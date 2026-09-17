@@ -58,6 +58,7 @@
     }
   },
   "common": {
+    "clearSearch": "清除搜尋",
     "download": "下載",
     "cancel": "取消",
     "save": "儲存",
@@ -1061,7 +1062,7 @@
       "runModeTrayDesktop": "在系統匣中啟動",
       "runModeLinuxDesc": "系統匣的可用性和啟用方式取決於桌面環境。",
       "lightweightMode": "輕量模式",
-      "lightweightModeDesc": "關閉主視窗後釋放介面記憶體，背景下載會繼續運作。Windows 和 Linux 會保留系統匣入口；重新開啟會稍慢，未儲存的介面狀態將被捨棄。",
+      "lightweightModeDesc": "關閉視窗後節省記憶體，下載不受影響。重新開啟稍慢，未儲存的輸入會清除。",
       "byteUnitSystem": "大小與速度單位",
       "byteUnitSystemDesc": "用於檔案大小與傳輸速度的顯示。",
       "byteUnitDecimal": "十進位（MB、GB · 1000）",
@@ -2004,7 +2005,13 @@
       "emptyDesc": "下載活動和重要應用程式通知會顯示在這裡",
       "unreadBadgeAria_other": "{{count}} 則未讀通知",
       "rowUnreadAria": "{{title}} (未讀)",
-      "toastRegionAria": "通知"
+      "toastRegionAria": "通知",
+      "removeAria": "移除{{title}}",
+      "actionFailed": "無法更新通知，請再試一次。",
+      "markRead": "標示為已讀",
+      "viewTask": "檢視任務",
+      "taskRemoved": "任務已移除",
+      "openTaskFailed": "無法開啟任務，請再試一次。"
     }
   },
   "plugins": {

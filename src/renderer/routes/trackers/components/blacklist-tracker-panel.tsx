@@ -1,3 +1,9 @@
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Switch } from '@renderer/components/ui/switch'
 import { useTrackerList } from '@renderer/hooks/use-tracker-list'
 import { transport } from '@renderer/lib/transport'
@@ -90,37 +96,45 @@ export function BlacklistTrackerPanel({
           {t('trackers.blacklist.disabled')}
         </div>
       ) : (
-        <div
-          aria-busy={Boolean(syncMessage)}
-          className="flex min-h-0 flex-1 flex-col overflow-auto rounded-lg border border-border"
-        >
-          <div className="sticky top-0 z-10 grid grid-cols-[1fr_140px] items-center gap-4 border-b border-border bg-background px-3 py-2 text-[11px] uppercase text-muted-foreground">
-            <div>{t('trackers.blacklist.column.url')}</div>
-            <div>{t('trackers.blacklist.column.source')}</div>
-          </div>
-          {list.blacklist.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              {syncMessage ?? t('trackers.blacklist.empty')}
-            </div>
-          ) : (
-            visibleRows.map((row) => (
-              <div
-                key={row.url}
-                className="grid grid-cols-[1fr_140px] items-center gap-4 border-b border-border px-3 py-2 text-sm last:border-b-0"
-              >
-                <span className="truncate text-xs" title={row.url}>
-                  {row.url}
-                </span>
-                <span
-                  className="truncate text-xs text-muted-foreground"
-                  title={row.sourceLabels}
-                >
-                  {row.sourceLabels || '—'}
-                </span>
+        <ScrollArea className="min-h-0 min-w-0 flex-1 rounded-lg border border-border">
+          <ScrollAreaViewport
+            role="region"
+            aria-label={t('panel.trackers.tab.blacklist')}
+            aria-busy={Boolean(syncMessage)}
+            className="overscroll-contain"
+          >
+            <ScrollAreaContent style={{ minWidth: '100%' }}>
+              <div className="sticky top-0 z-10 grid grid-cols-[1fr_140px] items-center gap-4 border-b border-border bg-background px-3 py-2 text-[11px] uppercase text-muted-foreground">
+                <div>{t('trackers.blacklist.column.url')}</div>
+                <div>{t('trackers.blacklist.column.source')}</div>
               </div>
-            ))
-          )}
-        </div>
+              {list.blacklist.length === 0 ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {syncMessage ?? t('trackers.blacklist.empty')}
+                </div>
+              ) : (
+                visibleRows.map((row) => (
+                  <div
+                    key={row.url}
+                    className="grid grid-cols-[1fr_140px] items-center gap-4 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                  >
+                    <span className="truncate text-xs" title={row.url}>
+                      {row.url}
+                    </span>
+                    <span
+                      className="truncate text-xs text-muted-foreground"
+                      title={row.sourceLabels}
+                    >
+                      {row.sourceLabels || '—'}
+                    </span>
+                  </div>
+                ))
+              )}
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       )}
     </div>
   )

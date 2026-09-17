@@ -80,7 +80,11 @@ test('toolbar glass follows the saved switch and preserves dragging, search, siz
       path: testInfo.outputPath('rim-refraction.png'),
     })
     await glassSearch.evaluate((element) => {
-      element.style.backdropFilter = 'blur(2px) saturate(1.08)'
+      // Isolate refraction while retaining the material's current frost.
+      element.style.backdropFilter = element.style.backdropFilter.replace(
+        /url\([^)]+\)\s*/,
+        ''
+      )
     })
     const frosted = await search.screenshot({
       path: testInfo.outputPath('rim-frost.png'),
@@ -106,7 +110,8 @@ test('toolbar glass follows the saved switch and preserves dragging, search, siz
         for (let x = 70; x < 150; x++) {
           for (let y = 2; y < a.height - 2; y++) {
             const index = (y * a.width + x) * 4
-            if (Math.abs(a.data[index] - b.data[index]) <= 5) continue
+            // The denser material intentionally keeps the rim low contrast.
+            if (Math.abs(a.data[index] - b.data[index]) <= 1) continue
             if (y < 7 || y >= a.height - 7) rim++
             else if (y >= 12 && y < a.height - 12) center++
           }

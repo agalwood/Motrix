@@ -58,6 +58,7 @@
     }
   },
   "common": {
+    "clearSearch": "Clear search",
     "download": "Download",
     "cancel": "Cancel",
     "save": "Save",
@@ -1074,7 +1075,7 @@
       "runModeTrayDesktop": "Start in System Tray",
       "runModeLinuxDesc": "System tray availability and activation behavior depend on your desktop environment.",
       "lightweightMode": "Lightweight mode",
-      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded.",
+      "lightweightModeDesc": "Save memory when the window is closed. Downloads continue, but reopening takes longer and clears unsaved input.",
       "byteUnitSystem": "Size and speed units",
       "byteUnitSystemDesc": "Applies to file sizes and transfer speeds.",
       "byteUnitDecimal": "Decimal (MB, GB · 1000)",
@@ -2403,7 +2404,13 @@
       "unreadBadgeAria_one": "{{count}} unread notification",
       "unreadBadgeAria_other": "{{count}} unread notifications",
       "rowUnreadAria": "{{title}} (unread)",
-      "toastRegionAria": "Notifications"
+      "toastRegionAria": "Notifications",
+      "removeAria": "Remove {{title}}",
+      "actionFailed": "Couldn’t update notifications. Try again.",
+      "markRead": "Mark as read",
+      "viewTask": "View task",
+      "taskRemoved": "Task removed",
+      "openTaskFailed": "Couldn’t open the task. Try again."
     }
   },
   "applicationMenu": {

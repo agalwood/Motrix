@@ -10,6 +10,12 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { Form } from '@renderer/components/ui/form'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { pickDirty } from '@renderer/lib/form-utils'
@@ -110,17 +116,28 @@ export function DownloadsDialog({
           <DialogDescription>{t(descKey)}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <Form {...form}>
-            <form className="space-y-4" noValidate onSubmit={onSubmit}>
-              <PerformanceSection form={form} />
-              <Separator className="my-4" />
-              <SpeedLimitSection form={form} />
-              <Separator className="my-4" />
-              <EngineTuningSection form={form} />
-            </form>
-          </Form>
-        </div>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="px-6 py-4"
+              style={{ minWidth: '100%' }}
+            >
+              <Form {...form}>
+                <form className="space-y-4" noValidate onSubmit={onSubmit}>
+                  <PerformanceSection form={form} />
+                  <Separator className="my-4" />
+                  <SpeedLimitSection form={form} />
+                  <Separator className="my-4" />
+                  <EngineTuningSection form={form} />
+                </form>
+              </Form>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           {form.formState.errors.root?.save && (

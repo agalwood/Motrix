@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -142,8 +143,10 @@ describe('PluginCallGraphTable', () => {
     const region = screen.getByRole('region', {
       name: strings.tableRegionLabel,
     })
-    expect(region).toHaveClass('min-h-0', 'flex-1', 'overflow-auto')
-    expect(container.querySelectorAll('.overflow-auto')).toHaveLength(1)
+    expect(region).toHaveClass('min-h-0', 'flex-1')
+    expect(
+      container.querySelectorAll('[data-slot="scroll-area-viewport"]')
+    ).toHaveLength(1)
     expect(region.querySelector('thead')).toHaveClass(
       'sticky',
       'top-0',

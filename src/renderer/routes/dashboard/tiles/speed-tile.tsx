@@ -72,7 +72,7 @@ export function SpeedTile({
         <div
           data-testid="speed-scale"
           className={cn(
-            'pointer-events-none absolute top-0 right-0 z-10 flex flex-col items-end justify-between text-right text-[11px] leading-none text-muted-foreground/45 tabular-nums',
+            'pointer-events-none absolute top-0 right-0 z-10 flex flex-col items-end justify-between text-right text-[11px] leading-none text-muted-foreground/45',
             showPeak ? 'bottom-10' : 'bottom-4'
           )}
         >
@@ -82,7 +82,7 @@ export function SpeedTile({
         </div>
       )}
       {showPeak ? (
-        <span className="pointer-events-none absolute right-0 bottom-3 z-10 text-[11px] leading-none text-muted-foreground/55 tabular-nums">
+        <span className="pointer-events-none absolute right-0 bottom-3 z-10 text-[11px] leading-none text-muted-foreground/55">
           {t('panel.dashboard.speed.peak', { value: formatSpeed(peak) })}
         </span>
       ) : null}

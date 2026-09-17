@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { i18n } from '@renderer/lib/i18n'
@@ -963,19 +964,23 @@ describe('PluginDiagnosticsPage', () => {
     expect(root).not.toHaveClass('overflow-hidden')
     expect(activePanel('Graph')).toHaveClass('overflow-hidden')
     expect(root.innerHTML).not.toMatch(/(?:min-h|h)-\[360px\]/)
-    expect(root.querySelectorAll('[class~="overflow-auto"]')).toHaveLength(1)
+    expect(
+      root.querySelectorAll('[data-slot="scroll-area-viewport"]')
+    ).toHaveLength(1)
     expect(
       screen.getByRole('complementary', {
         name: 'Call graph selection details',
       })
-    ).toHaveClass('overflow-auto')
+    ).toContainElement(root.querySelector('[data-slot="scroll-area-viewport"]'))
 
     await user.click(screen.getByRole('tab', { name: 'Table' }))
     expect(activePanel('Table')).toHaveClass('overflow-hidden')
-    expect(root.querySelectorAll('[class~="overflow-auto"]')).toHaveLength(1)
+    expect(
+      root.querySelectorAll('[data-slot="scroll-area-viewport"]')
+    ).toHaveLength(1)
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
     expect(
       screen.getByRole('region', { name: 'Scrollable command relationships' })
-    ).toHaveClass('overflow-auto')
+    ).toContainElement(root.querySelector('[data-slot="scroll-area-viewport"]'))
   })
 })

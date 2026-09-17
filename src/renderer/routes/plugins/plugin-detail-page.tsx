@@ -3,6 +3,12 @@ import {
   PanelShell,
 } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { Button } from '@renderer/components/ui/button'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Switch } from '@renderer/components/ui/switch'
 import {
   Tabs,
@@ -305,63 +311,102 @@ export function PluginDetailPage() {
 
           <TabsContent
             value="overview"
-            className="m-0 min-h-0 flex-1 overflow-auto pb-6"
+            className="m-0 flex min-h-0 flex-1 flex-col"
           >
-            <div className="mx-auto flex w-full flex-col gap-4">
-              <OverviewSection
-                plugin={listEntry}
-                manifest={manifest}
-                onJumpToLogs={() => setTab('logs')}
-              />
-            </div>
+            <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <ScrollAreaViewport
+                tabIndex={-1}
+                className="min-h-0 flex-1 overscroll-contain"
+              >
+                <ScrollAreaContent
+                  className="pb-6"
+                  style={{ minWidth: '100%' }}
+                >
+                  <div className="mx-auto flex w-full flex-col gap-4">
+                    <OverviewSection
+                      plugin={listEntry}
+                      manifest={manifest}
+                      onJumpToLogs={() => setTab('logs')}
+                    />
+                  </div>
+                </ScrollAreaContent>
+              </ScrollAreaViewport>
+              <ScrollBar />
+            </ScrollArea>
           </TabsContent>
 
           {schema && (
             <TabsContent
               value="settings"
-              className="m-0 min-h-0 flex-1 overflow-auto pb-6"
+              className="m-0 flex min-h-0 flex-1 flex-col"
             >
-              <div className="mx-auto flex w-full flex-col gap-4">
-                <PluginSettingsForm
-                  pluginId={id}
-                  schema={schema}
-                  initialValues={detail.config}
-                />
-              </div>
+              <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <ScrollAreaViewport
+                  tabIndex={-1}
+                  className="min-h-0 flex-1 overscroll-contain"
+                >
+                  <ScrollAreaContent
+                    className="pb-6"
+                    style={{ minWidth: '100%' }}
+                  >
+                    <div className="mx-auto flex w-full flex-col gap-4">
+                      <PluginSettingsForm
+                        pluginId={id}
+                        schema={schema}
+                        initialValues={detail.config}
+                      />
+                    </div>
+                  </ScrollAreaContent>
+                </ScrollAreaViewport>
+                <ScrollBar />
+              </ScrollArea>
             </TabsContent>
           )}
 
           <TabsContent
             value="access"
-            className="m-0 min-h-0 flex-1 overflow-auto pb-6"
+            className="m-0 flex min-h-0 flex-1 flex-col"
           >
-            <div className="mx-auto flex w-full flex-col gap-4">
-              <AccessSection
-                manifest={manifest}
-                grants={detail.grants}
-                // Builtin / dev plugins are trusted: the host auto-grants all
-                // declared permissions and rejects grant mutations
-                // (updateGrants → plugin.grants.not_supported). Render their
-                // optional permissions read-only so the toggle never fires that
-                // rejected command (which surfaced as an uncaught promise error).
-                trusted={
-                  listEntry.source?.type === 'builtin' ||
-                  listEntry.source?.type === 'dev'
-                }
-                onToggleGrant={async (permission) => {
-                  const next =
-                    detail.grants[permission] === 'granted'
-                      ? 'denied'
-                      : 'granted'
-                  await transport.invoke(Commands.UpdatePluginGrants, {
-                    pluginId: id,
-                    patch: { [permission]: next },
-                  })
-                  // usePluginDetail re-fetches via PluginGrantsChanged event;
-                  // no local mutation needed.
-                }}
-              />
-            </div>
+            <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <ScrollAreaViewport
+                tabIndex={-1}
+                className="min-h-0 flex-1 overscroll-contain"
+              >
+                <ScrollAreaContent
+                  className="pb-6"
+                  style={{ minWidth: '100%' }}
+                >
+                  <div className="mx-auto flex w-full flex-col gap-4">
+                    <AccessSection
+                      manifest={manifest}
+                      grants={detail.grants}
+                      // Builtin / dev plugins are trusted: the host auto-grants all
+                      // declared permissions and rejects grant mutations
+                      // (updateGrants → plugin.grants.not_supported). Render their
+                      // optional permissions read-only so the toggle never fires that
+                      // rejected command (which surfaced as an uncaught promise error).
+                      trusted={
+                        listEntry.source?.type === 'builtin' ||
+                        listEntry.source?.type === 'dev'
+                      }
+                      onToggleGrant={async (permission) => {
+                        const next =
+                          detail.grants[permission] === 'granted'
+                            ? 'denied'
+                            : 'granted'
+                        await transport.invoke(Commands.UpdatePluginGrants, {
+                          pluginId: id,
+                          patch: { [permission]: next },
+                        })
+                        // usePluginDetail re-fetches via PluginGrantsChanged event;
+                        // no local mutation needed.
+                      }}
+                    />
+                  </div>
+                </ScrollAreaContent>
+              </ScrollAreaViewport>
+              <ScrollBar />
+            </ScrollArea>
           </TabsContent>
 
           <TabsContent value="logs" className="m-0 flex min-h-0 flex-1">

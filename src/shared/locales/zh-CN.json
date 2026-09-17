@@ -58,6 +58,7 @@
     }
   },
   "common": {
+    "clearSearch": "清除搜索",
     "download": "下载",
     "cancel": "取消",
     "save": "保存",
@@ -1061,7 +1062,7 @@
       "runModeTrayDesktop": "在系统托盘中启动",
       "runModeLinuxDesc": "系统托盘的可用性和激活方式取决于桌面环境。",
       "lightweightMode": "轻量模式",
-      "lightweightModeDesc": "关闭主窗口后释放界面内存，后台下载继续运行。Windows 和 Linux 会保留托盘入口；重新打开会稍慢，未保存的界面状态将被丢弃。",
+      "lightweightModeDesc": "关闭窗口后节省内存，下载不受影响。重新打开稍慢，未保存的输入会清除。",
       "byteUnitSystem": "大小和速度单位",
       "byteUnitSystemDesc": "用于文件大小与传输速度的显示。",
       "byteUnitDecimal": "十进制（MB、GB · 1000）",
@@ -2382,7 +2383,13 @@
       "emptyDesc": "下载活动和重要应用提醒会显示在这里",
       "unreadBadgeAria_other": "{{count}} 条未读通知",
       "rowUnreadAria": "{{title}}（未读）",
-      "toastRegionAria": "通知"
+      "toastRegionAria": "通知",
+      "removeAria": "移除{{title}}",
+      "actionFailed": "未能更新通知，请重试。",
+      "markRead": "标为已读",
+      "viewTask": "查看任务",
+      "taskRemoved": "任务已移除",
+      "openTaskFailed": "未能打开任务，请重试。"
     }
   },
   "applicationMenu": {

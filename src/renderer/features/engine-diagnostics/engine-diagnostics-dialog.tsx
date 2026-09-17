@@ -19,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { toast } from '@renderer/components/ui/toast'
 import {
   Tooltip,
@@ -235,227 +241,251 @@ export function EngineDiagnosticsDialogHost() {
             </DialogDescription>
           </DialogHeader>
 
-          <div
-            data-testid="engine-diagnostics-scroll"
-            className="min-h-0 space-y-4 overflow-y-auto overscroll-contain px-5 pb-1 scrollbar-gutter-stable"
-          >
-            {loading && !report ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-                <LoaderCircle className="size-4 animate-spin" />
-                {t('panel.dashboard.engine.diagnostics.checking')}
-              </div>
-            ) : report ? (
-              <>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">
-                      {t('panel.dashboard.engine.diagnostics.currentStatus')}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {t('panel.dashboard.engine.diagnostics.lastChecked', {
-                        time: new Date(report.generatedAt).toLocaleTimeString(),
-                      })}
-                    </div>
+          <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <ScrollAreaViewport
+              data-testid="engine-diagnostics-scroll"
+              tabIndex={-1}
+              className="min-h-0 flex-1 overscroll-contain"
+            >
+              <ScrollAreaContent
+                className="space-y-4 px-5 pb-1"
+                style={{ minWidth: '100%' }}
+              >
+                {loading && !report ? (
+                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                    <LoaderCircle className="size-4 animate-spin" />
+                    {t('panel.dashboard.engine.diagnostics.checking')}
                   </div>
-                  <Badge
-                    variant={
-                      report.state === EngineState.Ready
-                        ? 'secondary'
-                        : 'destructive'
-                    }
-                  >
-                    {t(
-                      `panel.dashboard.engine.state.${
-                        report.state === EngineState.Restarting
-                          ? 'reconnecting'
-                          : report.state
-                      }`
-                    )}
-                  </Badge>
-                </div>
-
-                {report.recommendation !== 'none' && (
-                  <div className="flex gap-3 rounded-md bg-muted/60 p-3">
-                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <div>
-                      <div className="text-sm font-medium">
-                        {t(
-                          'panel.dashboard.engine.diagnostics.recommendation.title'
-                        )}
+                ) : report ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium">
+                          {t(
+                            'panel.dashboard.engine.diagnostics.currentStatus'
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          {t('panel.dashboard.engine.diagnostics.lastChecked', {
+                            time: new Date(
+                              report.generatedAt
+                            ).toLocaleTimeString(),
+                          })}
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
+                      <Badge
+                        variant={
+                          report.state === EngineState.Ready
+                            ? 'secondary'
+                            : 'destructive'
+                        }
+                      >
                         {t(
-                          `panel.dashboard.engine.diagnostics.recommendation.${report.recommendation}`,
-                          {
-                            port: report.suggestedRpcPort ?? '',
-                            rpcPort: report.rpc.port,
-                            pid: report.process?.pid ?? '',
-                          }
+                          `panel.dashboard.engine.state.${
+                            report.state === EngineState.Restarting
+                              ? 'reconnecting'
+                              : report.state
+                          }`
                         )}
-                      </div>
+                      </Badge>
                     </div>
-                  </div>
-                )}
 
-                <div className="grid gap-2">
-                  <CheckRow
-                    label={t(
-                      'panel.dashboard.engine.diagnostics.checks.binary'
-                    )}
-                    value={
-                      report.binary.available
-                        ? t(
-                            'panel.dashboard.engine.diagnostics.binary.available',
-                            {
-                              name: report.binary.name,
-                              version: report.binary.version ?? '?',
-                            }
-                          )
-                        : t(
-                            'panel.dashboard.engine.diagnostics.binary.unavailable',
-                            { name: report.binary.name }
-                          )
-                    }
-                    state={report.binary.available ? 'pass' : 'fail'}
-                  />
-                  <CheckRow
-                    label={t(
-                      'panel.dashboard.engine.diagnostics.checks.features'
-                    )}
-                    value={
-                      engineFeatures.length > 0
-                        ? engineFeatures.join(', ')
-                        : report.binary.available
-                          ? t(
-                              'panel.dashboard.engine.diagnostics.features.none'
-                            )
-                          : t(
-                              'panel.dashboard.engine.diagnostics.features.unavailable'
-                            )
-                    }
-                    state={
-                      !report.binary.available
-                        ? 'fail'
-                        : engineFeatures.length > 0
-                          ? 'pass'
-                          : 'warn'
-                    }
-                  />
-                  <CheckRow
-                    testId="engine-check-rpc"
-                    label={t('panel.dashboard.engine.diagnostics.checks.rpc')}
-                    value={
-                      report.rpc.expectedListener
-                        ? t(
-                            'panel.dashboard.engine.diagnostics.rpc.listening',
-                            { port: report.rpc.port }
-                          )
-                        : report.rpc.available
-                          ? t(
-                              'panel.dashboard.engine.diagnostics.rpc.available',
-                              { port: report.rpc.port }
-                            )
-                          : t(
-                              'panel.dashboard.engine.diagnostics.rpc.occupied',
-                              { port: report.rpc.port }
-                            )
-                    }
-                    state={
-                      report.rpc.available || report.rpc.expectedListener
-                        ? 'pass'
-                        : 'fail'
-                    }
-                    action={
-                      !report.defaultRpc.isCurrent ? (
-                        <TooltipProvider delay={300}>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <span
-                                  className="inline-flex"
-                                  tabIndex={
-                                    recovering || !report.defaultRpc.canRestore
-                                      ? 0
-                                      : undefined
-                                  }
-                                >
-                                  <Button
-                                    variant="outline"
-                                    size="icon-xs"
-                                    aria-label={t(
-                                      'panel.dashboard.engine.diagnostics.fallback.restore',
-                                      { port: report.defaultRpc.port }
-                                    )}
-                                    disabled={
-                                      recovering ||
-                                      !report.defaultRpc.canRestore
-                                    }
-                                    onClick={() => {
-                                      if (
-                                        report.defaultRpc.requiresTermination
-                                      ) {
-                                        setConfirmRestoreDefault(true)
-                                      } else {
-                                        void recover(
-                                          EngineRecoveryAction.RestoreDefaultPort
-                                        )
-                                      }
-                                    }}
-                                  >
-                                    {recovering ? (
-                                      <LoaderCircle className="animate-spin" />
-                                    ) : (
-                                      <RotateCcw />
-                                    )}
-                                  </Button>
-                                </span>
+                    {report.recommendation !== 'none' && (
+                      <div className="flex gap-3 rounded-md bg-muted/60 p-3">
+                        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <div>
+                          <div className="text-sm font-medium">
+                            {t(
+                              'panel.dashboard.engine.diagnostics.recommendation.title'
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {t(
+                              `panel.dashboard.engine.diagnostics.recommendation.${report.recommendation}`,
+                              {
+                                port: report.suggestedRpcPort ?? '',
+                                rpcPort: report.rpc.port,
+                                pid: report.process?.pid ?? '',
                               }
-                            />
-                            <TooltipContent side="left" className="max-w-80">
-                              {defaultPortTooltip}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : undefined
-                    }
-                  />
-                  <CheckRow
-                    label={t(
-                      'panel.dashboard.engine.diagnostics.checks.process'
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
-                    value={processDescription(report, t)}
-                    state={processState}
-                  />
-                  <CheckRow
-                    label={t(
-                      'panel.dashboard.engine.diagnostics.checks.communication'
-                    )}
-                    value={
-                      report.state === EngineState.Ready
-                        ? t(
-                            'panel.dashboard.engine.diagnostics.communication.ready'
-                          )
-                        : t(
-                            `panel.dashboard.engine.diagnostics.reason.${report.failure?.reason ?? 'unknown'}`
-                          )
-                    }
-                    state={report.state === EngineState.Ready ? 'pass' : 'fail'}
-                  />
-                </div>
 
-                {report.failure?.technicalMessage && (
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer select-none">
-                      {t('panel.dashboard.engine.diagnostics.technicalDetails')}
-                    </summary>
-                    <code className="mt-2 block break-all rounded bg-muted p-2">
-                      {report.failure.technicalMessage}
-                    </code>
-                  </details>
-                )}
-              </>
-            ) : null}
-          </div>
+                    <div className="grid gap-2">
+                      <CheckRow
+                        label={t(
+                          'panel.dashboard.engine.diagnostics.checks.binary'
+                        )}
+                        value={
+                          report.binary.available
+                            ? t(
+                                'panel.dashboard.engine.diagnostics.binary.available',
+                                {
+                                  name: report.binary.name,
+                                  version: report.binary.version ?? '?',
+                                }
+                              )
+                            : t(
+                                'panel.dashboard.engine.diagnostics.binary.unavailable',
+                                { name: report.binary.name }
+                              )
+                        }
+                        state={report.binary.available ? 'pass' : 'fail'}
+                      />
+                      <CheckRow
+                        label={t(
+                          'panel.dashboard.engine.diagnostics.checks.features'
+                        )}
+                        value={
+                          engineFeatures.length > 0
+                            ? engineFeatures.join(', ')
+                            : report.binary.available
+                              ? t(
+                                  'panel.dashboard.engine.diagnostics.features.none'
+                                )
+                              : t(
+                                  'panel.dashboard.engine.diagnostics.features.unavailable'
+                                )
+                        }
+                        state={
+                          !report.binary.available
+                            ? 'fail'
+                            : engineFeatures.length > 0
+                              ? 'pass'
+                              : 'warn'
+                        }
+                      />
+                      <CheckRow
+                        testId="engine-check-rpc"
+                        label={t(
+                          'panel.dashboard.engine.diagnostics.checks.rpc'
+                        )}
+                        value={
+                          report.rpc.expectedListener
+                            ? t(
+                                'panel.dashboard.engine.diagnostics.rpc.listening',
+                                { port: report.rpc.port }
+                              )
+                            : report.rpc.available
+                              ? t(
+                                  'panel.dashboard.engine.diagnostics.rpc.available',
+                                  { port: report.rpc.port }
+                                )
+                              : t(
+                                  'panel.dashboard.engine.diagnostics.rpc.occupied',
+                                  { port: report.rpc.port }
+                                )
+                        }
+                        state={
+                          report.rpc.available || report.rpc.expectedListener
+                            ? 'pass'
+                            : 'fail'
+                        }
+                        action={
+                          !report.defaultRpc.isCurrent ? (
+                            <TooltipProvider delay={300}>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  render={
+                                    <span
+                                      className="inline-flex"
+                                      tabIndex={
+                                        recovering ||
+                                        !report.defaultRpc.canRestore
+                                          ? 0
+                                          : undefined
+                                      }
+                                    >
+                                      <Button
+                                        variant="outline"
+                                        size="icon-xs"
+                                        aria-label={t(
+                                          'panel.dashboard.engine.diagnostics.fallback.restore',
+                                          { port: report.defaultRpc.port }
+                                        )}
+                                        disabled={
+                                          recovering ||
+                                          !report.defaultRpc.canRestore
+                                        }
+                                        onClick={() => {
+                                          if (
+                                            report.defaultRpc
+                                              .requiresTermination
+                                          ) {
+                                            setConfirmRestoreDefault(true)
+                                          } else {
+                                            void recover(
+                                              EngineRecoveryAction.RestoreDefaultPort
+                                            )
+                                          }
+                                        }}
+                                      >
+                                        {recovering ? (
+                                          <LoaderCircle className="animate-spin" />
+                                        ) : (
+                                          <RotateCcw />
+                                        )}
+                                      </Button>
+                                    </span>
+                                  }
+                                />
+                                <TooltipContent
+                                  side="left"
+                                  className="max-w-80"
+                                >
+                                  {defaultPortTooltip}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : undefined
+                        }
+                      />
+                      <CheckRow
+                        label={t(
+                          'panel.dashboard.engine.diagnostics.checks.process'
+                        )}
+                        value={processDescription(report, t)}
+                        state={processState}
+                      />
+                      <CheckRow
+                        label={t(
+                          'panel.dashboard.engine.diagnostics.checks.communication'
+                        )}
+                        value={
+                          report.state === EngineState.Ready
+                            ? t(
+                                'panel.dashboard.engine.diagnostics.communication.ready'
+                              )
+                            : t(
+                                `panel.dashboard.engine.diagnostics.reason.${report.failure?.reason ?? 'unknown'}`
+                              )
+                        }
+                        state={
+                          report.state === EngineState.Ready ? 'pass' : 'fail'
+                        }
+                      />
+                    </div>
+
+                    {report.failure?.technicalMessage && (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer select-none">
+                          {t(
+                            'panel.dashboard.engine.diagnostics.technicalDetails'
+                          )}
+                        </summary>
+                        <code className="mt-2 block break-all rounded bg-muted p-2">
+                          {report.failure.technicalMessage}
+                        </code>
+                      </details>
+                    )}
+                  </>
+                ) : null}
+              </ScrollAreaContent>
+            </ScrollAreaViewport>
+            <ScrollBar />
+          </ScrollArea>
 
           <DialogFooter className="border-t px-5 py-4">
             <DialogClose

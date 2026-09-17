@@ -23,6 +23,12 @@ import {
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { PasswordInput } from '@renderer/components/ui/password-input'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
@@ -114,175 +120,201 @@ export function AdvancedDialog({
           <DialogDescription>{t(descKey)}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <Form {...form}>
-            <form className="space-y-4" noValidate onSubmit={onSubmit}>
-              <h3 className="text-sm font-semibold text-foreground">
-                {t('settings.advanced.rpc.title')}
-              </h3>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="px-6 py-4"
+              style={{ minWidth: '100%' }}
+            >
+              <Form {...form}>
+                <form className="space-y-4" noValidate onSubmit={onSubmit}>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {t('settings.advanced.rpc.title')}
+                  </h3>
 
-              <FormField
-                control={form.control}
-                name="rpcPort"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>{t('settings.advanced.rpc.port')}</FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.advanced.rpc.portDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        min={1024}
-                        max={65535}
-                        className="w-30 h-8"
-                        value={Number.isFinite(field.value) ? field.value : ''}
-                        onChange={(event) =>
-                          field.onChange(event.target.valueAsNumber)
-                        }
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="rpcPort"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.advanced.rpc.port')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.advanced.rpc.portDesc')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={1024}
+                            max={65535}
+                            className="w-30 h-8"
+                            value={
+                              Number.isFinite(field.value) ? field.value : ''
+                            }
+                            onChange={(event) =>
+                              field.onChange(event.target.valueAsNumber)
+                            }
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="rpcSecret"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <div className="space-y-1">
-                      <FormLabel>{t('settings.advanced.rpc.secret')}</FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.advanced.rpc.secretDesc')}
-                      </FormDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <FormControl>
-                        <PasswordInput
-                          {...field}
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          showPasswordLabel={t('settings.common.showSecret')}
-                          hidePasswordLabel={t('settings.common.hideSecret')}
-                          className="flex-1"
-                        />
-                      </FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        aria-label={t('settings.common.generate')}
-                        onClick={() => field.onChange(generateRpcSecret())}
-                      >
-                        <Dices className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <FormMessage className="basis-full text-xs" />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="rpcSecret"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.advanced.rpc.secret')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.advanced.rpc.secretDesc')}
+                          </FormDescription>
+                        </div>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <PasswordInput
+                              {...field}
+                              value={field.value}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              showPasswordLabel={t(
+                                'settings.common.showSecret'
+                              )}
+                              hidePasswordLabel={t(
+                                'settings.common.hideSecret'
+                              )}
+                              className="flex-1"
+                            />
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={t('settings.common.generate')}
+                            onClick={() => field.onChange(generateRpcSecret())}
+                          >
+                            <Dices className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <FormMessage className="basis-full text-xs" />
+                      </FormItem>
+                    )}
+                  />
 
-              <Separator className="my-4" />
+                  <Separator className="my-4" />
 
-              <h3 className="text-sm font-semibold text-foreground">
-                {t('settings.advanced.persistence.title')}
-              </h3>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {t('settings.advanced.persistence.title')}
+                  </h3>
 
-              <FormField
-                control={form.control}
-                name="sqlite3Persistence"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.advanced.persistence.enable')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.advanced.persistence.enableDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="sqlite3Persistence"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.advanced.persistence.enable')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.advanced.persistence.enableDesc')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="sqlite3DbPath"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.advanced.persistence.dbPath')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.advanced.persistence.dbPathDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        className="w-56 h-8"
-                        placeholder={t(
-                          'settings.advanced.persistence.dbPathPlaceholder'
-                        )}
-                        disabled={
-                          !persistenceOn && !form.formState.errors.sqlite3DbPath
-                        }
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="sqlite3DbPath"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.advanced.persistence.dbPath')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.advanced.persistence.dbPathDesc')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            className="w-56 h-8"
+                            placeholder={t(
+                              'settings.advanced.persistence.dbPathPlaceholder'
+                            )}
+                            disabled={
+                              !persistenceOn &&
+                              !form.formState.errors.sqlite3DbPath
+                            }
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="sqlite3HistoryLimit"
-                render={({ field }) => (
-                  <SettingsFormRow>
-                    <div className="space-y-1">
-                      <FormLabel>
-                        {t('settings.advanced.persistence.historyLimit')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.advanced.persistence.historyLimitDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        min={-1}
-                        max={1000000}
-                        className="w-30 h-8"
-                        disabled={
-                          !persistenceOn &&
-                          !form.formState.errors.sqlite3HistoryLimit
-                        }
-                        value={Number.isFinite(field.value) ? field.value : ''}
-                        onChange={(event) =>
-                          field.onChange(event.target.valueAsNumber)
-                        }
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-            </form>
-          </Form>
-        </div>
+                  <FormField
+                    control={form.control}
+                    name="sqlite3HistoryLimit"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.advanced.persistence.historyLimit')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t(
+                              'settings.advanced.persistence.historyLimitDesc'
+                            )}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={-1}
+                            max={1000000}
+                            className="w-30 h-8"
+                            disabled={
+                              !persistenceOn &&
+                              !form.formState.errors.sqlite3HistoryLimit
+                            }
+                            value={
+                              Number.isFinite(field.value) ? field.value : ''
+                            }
+                            onChange={(event) =>
+                              field.onChange(event.target.valueAsNumber)
+                            }
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+                </form>
+              </Form>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           {form.formState.errors.root?.save && (

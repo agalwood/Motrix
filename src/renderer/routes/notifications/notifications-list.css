@@ -1,0 +1,70 @@
+.notification-list {
+  container-type: inline-size;
+  --notification-focus: #7388a3;
+  --notification-pressed: #e4ebf3;
+}
+.dark .notification-list {
+  --notification-focus: #97aac4;
+  --notification-pressed: #303d50;
+}
+.notification-row {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.notification-row:last-child {
+  border-bottom: 0;
+}
+.notification-row:nth-child(even) {
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+}
+.notification-row:hover,
+.notification-row:focus-within {
+  background: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+.notification-row-content {
+  display: grid;
+  grid-template-columns: 6px 16px minmax(0, 1fr) auto;
+  align-content: start;
+  gap: 10px;
+  min-height: 68px;
+  padding: 12px 4px 12px 12px;
+}
+/* Include row padding in the target; the remove button stays above it. */
+.notification-row-button::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+.notification-row:has(.notification-row-button:enabled:active) {
+  background: var(--notification-pressed);
+}
+.notification-row-button:focus-visible::after,
+.notification-row-remove:focus-visible {
+  outline: 1px solid var(--notification-focus);
+  outline-offset: -2px;
+}
+@container (width < 420px) {
+  .notification-row-content {
+    grid-template-columns: 6px 16px minmax(0, 1fr);
+    row-gap: 2px;
+  }
+  .notification-row-meta {
+    grid-column: 3;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  .notification-row-remove {
+    opacity: 1;
+  }
+}
+@media (forced-colors: active) {
+  .notification-list {
+    --notification-focus: Highlight;
+  }
+  .notification-row {
+    border-color: CanvasText;
+  }
+}

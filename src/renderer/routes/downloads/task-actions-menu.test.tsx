@@ -1,3 +1,4 @@
+import { Toolbar as ToolbarPrimitive } from '@base-ui/react/toolbar'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
 import { useRemoveTasksStore } from '@renderer/routes/downloads/inspector/remove-tasks-store'
 import { render as renderBase } from '@testing-library/react'
@@ -83,7 +84,7 @@ function setup(context = true, items = tasks) {
   selection.getState().setItems(items)
   if (items[0]) selection.getState().select(items[0].id)
   if (items[1]) selection.getState().toggle(items[1].id)
-  render(
+  const menu = (
     <TaskActionsMenu tasks={items} selection={selection}>
       {context ? (
         <div data-testid="context-list">
@@ -96,6 +97,7 @@ function setup(context = true, items = tasks) {
       ) : undefined}
     </TaskActionsMenu>
   )
+  render(context ? menu : <ToolbarPrimitive.Root>{menu}</ToolbarPrimitive.Root>)
   return selection
 }
 

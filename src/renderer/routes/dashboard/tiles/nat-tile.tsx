@@ -227,7 +227,7 @@ function ElectronNatTile({ viewport, className }: NatTileProps) {
       {summary ? (
         <dl
           data-testid="nat-summary"
-          className="mt-auto grid min-w-0 grid-cols-3 pt-3 tabular-nums"
+          className="mt-auto grid min-w-0 grid-cols-3 pt-3"
         >
           <Metric
             label={t('panel.dashboard.nat.health')}
@@ -339,7 +339,7 @@ function Metric({
       <dd
         title={value}
         className={cn(
-          'mt-1.5 block min-w-0 font-medium tracking-[-0.01em] text-foreground tabular-nums',
+          'mt-1.5 block min-w-0 font-medium tracking-[-0.01em] text-foreground',
           featured ? 'break-all' : 'break-words',
           compact
             ? 'text-[14px]'
