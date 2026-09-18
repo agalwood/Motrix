@@ -1,9 +1,11 @@
+import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { DownloadErrorCode } from '@shared/errors'
 import {
   type BtExtension,
   type DownloadTask,
+  TaskKind,
   TaskStatus,
   TaskType,
 } from '@shared/types/task'
@@ -208,6 +210,32 @@ describe('TasksTile', () => {
     cleanup()
     __resetMinuteClockForTests()
     vi.useRealTimers()
+  })
+
+  it('projects media stages and indeterminate mux duration without a stale ETA', () => {
+    setSource([
+      task('video', TaskStatus.Downloading, {
+        kind: TaskKind.Hls,
+        progress: 1,
+        mediaProgress: makeMediaProgress({
+          phase: 'muxing',
+          download: {
+            progress: 1,
+            completedParts: 1000,
+            totalParts: 1000,
+            totalBytes: null,
+          },
+        }),
+      }),
+    ])
+    renderTile()
+    expect(
+      screen.getByRole('button', { name: 'video.iso, Merging' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('progressbar', { name: 'video.iso progress: Merging' })
+    ).not.toHaveAttribute('aria-valuenow')
+    expect(screen.queryByText(/ETA/)).not.toBeInTheDocument()
   })
 
   it('exposes a three-option radio control with Active selected', () => {

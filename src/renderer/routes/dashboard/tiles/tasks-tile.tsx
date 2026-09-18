@@ -5,7 +5,6 @@ import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useMinuteClock } from '@renderer/hooks/use-minute-clock'
 import { useTaskList } from '@renderer/hooks/use-task-list'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { formatRelativeTime } from '@renderer/lib/relative-time'
 import { TASK_TYPE_META } from '@renderer/lib/task-type-meta'
@@ -13,6 +12,15 @@ import { projectTaskWindow, type TaskView } from '@renderer/lib/task-views'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
+import {
+  getDownloadProgress,
+  getMediaPhaseLabel,
+  getOutputSize,
+  getStageProgress,
+  getTransferMetrics,
+  isMediaTask,
+  mediaProgressPercent,
+} from '@shared/utils/media-progress'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -59,6 +67,7 @@ interface RowPresentation {
   primary: string
   secondary: string
   progress: number | null
+  indeterminate?: boolean
 }
 
 function spanKey(viewport: DashboardTileViewport): string {
@@ -168,7 +177,8 @@ function TaskRow({
   const { t, i18n } = useTranslation()
   const descriptionId = useId()
   const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const statusLabel = taskStatusLabel(task.status, t)
+  const phase = getMediaPhaseLabel(task)
+  const statusLabel = phase ? t(phase) : taskStatusLabel(task.status, t)
   let technicalDetail: string | null = null
   let presentation: RowPresentation
 
@@ -195,14 +205,54 @@ function TaskRow({
       progress: null,
     }
   } else if (view === 'recent') {
-    const finalSize =
-      task.sizeWhenDone > 0 ? task.sizeWhenDone : task.totalBytes
+    const finalSize = isMediaTask(task)
+      ? getOutputSize(task)
+      : task.sizeWhenDone > 0
+        ? task.sizeWhenDone
+        : task.totalBytes
     presentation = {
-      primary: formatBytes(finalSize),
+      primary: finalSize === null ? '—' : formatBytes(finalSize),
       secondary: t('panel.dashboard.tasks.secondary.completed', {
         time: formatRelativeTime(terminalDisplayTime(task), now, i18n.language),
       }),
       progress: null,
+    }
+  } else if (
+    isMediaTask(task) &&
+    (task.status === TaskStatus.Downloading ||
+      task.status === TaskStatus.Finalizing ||
+      task.status === TaskStatus.Queued)
+  ) {
+    const progress = getStageProgress(task)
+    const transfer = getTransferMetrics(task)
+    const downloading = task.mediaProgress?.phase === 'downloading'
+    presentation = {
+      primary:
+        downloading && engineOnline
+          ? formatSpeed(transfer.speedBps)
+          : statusLabel,
+      secondary: !engineOnline
+        ? t('panel.dashboard.tasks.secondary.offline')
+        : [
+            progress === null
+              ? statusLabel
+              : `${statusLabel} ${mediaProgressPercent(progress)}%`,
+            task.mediaProgress
+              ? t('panel.downloads.media.partsFormat', {
+                  completed: task.mediaProgress.download.completedParts,
+                  total: task.mediaProgress.download.totalParts,
+                })
+              : null,
+            downloading && transfer.etaSec !== null
+              ? t('panel.dashboard.tasks.secondary.eta', {
+                  time: formatEta(transfer.etaSec, i18n.language),
+                })
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+      progress: progress === null ? null : mediaProgressPercent(progress),
+      indeterminate: progress === null,
     }
   } else {
     switch (task.status) {
@@ -271,7 +321,12 @@ function TaskRow({
           primary: t('panel.dashboard.tasks.metric.paused'),
           secondary: engineOnline
             ? t('panel.dashboard.tasks.secondary.saved', {
-                percent: Math.round(clampProgress(task.progress)),
+                percent:
+                  getDownloadProgress(task) === null
+                    ? '—'
+                    : isMediaTask(task)
+                      ? mediaProgressPercent(getDownloadProgress(task) ?? 0)
+                      : Math.round(clampProgress(task.progress)),
               })
             : t('panel.dashboard.tasks.secondary.offline'),
           progress: null,
@@ -348,7 +403,8 @@ function TaskRow({
             className={cn(
               'pointer-events-none relative z-10 grid h-full min-w-0 grid-cols-[14px_minmax(0,1fr)_auto] grid-rows-2 items-center gap-x-2 px-1',
               verticalPaddingClass,
-              presentation.progress !== null && 'pb-1.5'
+              (presentation.progress !== null || presentation.indeterminate) &&
+                'pb-1.5'
             )}
           >
             <Icon className="row-span-2 size-3.5 text-muted-foreground" />
@@ -368,12 +424,14 @@ function TaskRow({
           {accessibleDescription}
         </span>
 
-        {!summary && presentation.progress !== null ? (
+        {!summary &&
+        (presentation.progress !== null || presentation.indeterminate) ? (
           <Progress
-            value={presentation.progress}
-            aria-label={t('panel.dashboard.tasks.progressLabel', {
-              name: task.name,
-            })}
+            value={presentation.progress ?? undefined}
+            aria-label={
+              t('panel.dashboard.tasks.progressLabel', { name: task.name }) +
+              (phase ? `: ${statusLabel}` : '')
+            }
             className="pointer-events-none absolute right-1 bottom-0.5 left-[26px] z-10 h-0.5 w-auto rounded-full"
           />
         ) : null}

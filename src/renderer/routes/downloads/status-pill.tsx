@@ -1,6 +1,10 @@
 import { getStatusTone } from '@renderer/lib/task-status-ui'
 import { cn } from '@renderer/lib/utils'
-import { TaskStatus } from '@shared/types/task'
+import { type DownloadTask, TaskStatus } from '@shared/types/task'
+import {
+  getMediaPhaseLabel,
+  isMediaProcessing,
+} from '@shared/utils/media-progress'
 import { useTranslation } from 'react-i18next'
 
 const LABEL_KEY: Record<TaskStatus, string> = {
@@ -19,12 +23,17 @@ const LABEL_KEY: Record<TaskStatus, string> = {
 export function StatusPill({
   status,
   compact = false,
+  task,
 }: {
   status: TaskStatus
+  task?: DownloadTask
   compact?: boolean
 }) {
   const { t } = useTranslation()
-  const tone = getStatusTone(status)
+  const tone = getStatusTone(
+    task && isMediaProcessing(task) ? TaskStatus.Finalizing : status
+  )
+  const label = (task && getMediaPhaseLabel(task)) || LABEL_KEY[status]
   return (
     <span
       data-testid="task-status-pill"
@@ -36,7 +45,7 @@ export function StatusPill({
         tone.text
       )}
     >
-      <span className="truncate">{t(LABEL_KEY[status])}</span>
+      <span className="truncate">{t(label)}</span>
     </span>
   )
 }

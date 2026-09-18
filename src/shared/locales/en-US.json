@@ -846,6 +846,23 @@
         "uploadLimit": "Upload limit: {{speed}}",
         "downloadLimit": "Download limit: {{speed}}",
         "saveFailed": "Couldn’t change the speed mode. Try again."
+      },
+      "media": {
+        "preparing": "Preparing",
+        "decrypting": "Decrypting",
+        "assembling": "Assembling",
+        "muxing": "Merging",
+        "renaming": "Saving",
+        "stage": "Stage",
+        "downloadProgress": "Download progress",
+        "muxProgress": "Merge progress",
+        "parts": "Segments",
+        "partsFormat": "{{completed}} / {{total}} segments",
+        "downloadSize": "Download size",
+        "outputSize": "Output size",
+        "downloadEta": "Download ETA",
+        "avgDownloadProgress": "Average download progress",
+        "processingTasks": "Processing"
       }
     }
   },

@@ -9,6 +9,7 @@ import {
   TaskStatus,
   TaskType,
 } from '@shared/types/task'
+import { makeMediaProgress } from '../src/test-utils/media-progress'
 import { makeDownloadTask } from '../src/test-utils/task'
 import {
   expect,
@@ -97,6 +98,115 @@ async function expectDrawerSettled(drawer: Locator) {
     )
     .toBe(true)
 }
+
+test('media task progress follows segments, then the processing stage, until the output is saved', async ({
+  electronApp,
+  mainWindow,
+}, testInfo) => {
+  await mainWindow.emulateMedia({ reducedMotion: 'reduce' })
+  await waitForEngineReady(mainWindow)
+  await setTaskInspectorContentSize(electronApp, mainWindow, 1280, 900)
+  await mainWindow.getByRole('link', { name: 'Downloads', exact: true }).click()
+  await expect(mainWindow.getByTestId('downloads-loading')).toHaveCount(0)
+  const task = makeDownloadTask({
+    id: 'media-progress',
+    name: 'Progress.mp4',
+    kind: TaskKind.Hls,
+    status: TaskStatus.Downloading,
+    progress: 1,
+    totalBytes: 100,
+    downloadedBytes: 100,
+    mediaProgress: makeMediaProgress(),
+  })
+  await publish(electronApp, [task])
+  const row = mainWindow.locator('[data-task-id="media-progress"]')
+  await expect(row.getByText('Downloading 0.1%', { exact: true })).toBeVisible()
+  await expect(row.getByRole('progressbar')).toHaveAttribute(
+    'aria-valuenow',
+    '0.1'
+  )
+  await mainWindow
+    .getByRole('button', { name: 'List View', exact: true })
+    .click()
+  await mainWindow
+    .getByRole('menuitemcheckbox', { name: 'Status', exact: true })
+    .click()
+  await mainWindow.keyboard.press('Escape')
+  await expect(row.getByText('Downloading 0.1%', { exact: true })).toBeVisible()
+  const completeDownload = {
+    progress: 1,
+    completedParts: 1000,
+    totalParts: 1000,
+    totalBytes: null,
+  }
+  task.mediaProgress = makeMediaProgress({
+    phase: 'muxing',
+    download: completeDownload,
+  })
+  await publish(electronApp, [task])
+  await expect(row.getByText('Merging —', { exact: true })).toBeVisible()
+  await expect(row.getByRole('progressbar')).not.toHaveAttribute(
+    'aria-valuenow'
+  )
+  task.mediaProgress = { ...task.mediaProgress, muxProgress: 0.42 }
+  await publish(electronApp, [task])
+  await expect(row.getByText('Merging 42%', { exact: true })).toBeVisible()
+  await row.dblclick()
+  const inspector = mainWindow.getByRole('dialog', { name: 'Task Inspector' })
+  await expect(
+    inspector.getByText('Download progress', { exact: true })
+  ).toBeVisible()
+  await expect(inspector.getByText('100%', { exact: true })).toBeVisible()
+  await expect(inspector.getByText('42%', { exact: true })).toBeVisible()
+  await expect(
+    inspector.getByText('1000 / 1000 segments', { exact: true })
+  ).toBeVisible()
+  await expect(
+    inspector.getByRole('button', { name: 'Pause', exact: true })
+  ).toHaveCount(0)
+  await inspector
+    .getByRole('separator', { name: 'Resize Inspector' })
+    .press('End')
+  await expectDrawerSettled(inspector)
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('media-mux-progress.png'),
+    animations: 'disabled',
+  })
+  await setTaskInspectorContentSize(electronApp, mainWindow, 914, 640)
+  await expectDrawerSettled(inspector)
+  await inspector
+    .getByText('Download progress', { exact: true })
+    .scrollIntoViewIfNeeded()
+  expect(
+    await mainWindow.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  ).toBe(true)
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('media-mux-progress-compact.png'),
+    animations: 'disabled',
+  })
+
+  task.status = TaskStatus.Finalizing
+  task.mediaProgress = {
+    ...task.mediaProgress,
+    phase: 'renaming',
+    muxProgress: 1,
+  }
+  await publish(electronApp, [task])
+  await expect(
+    inspector.getByText('Saving', { exact: true }).first()
+  ).toBeVisible()
+  await expect(inspector.getByText('Completed', { exact: true })).toHaveCount(0)
+  task.status = TaskStatus.Completed
+  task.mediaProgress = { ...task.mediaProgress, outputBytes: 2_000_000 }
+  task.sizeWhenDone = 2_000_000
+  await publish(electronApp, [task])
+  await expect(
+    inspector.getByText('Completed', { exact: true }).first()
+  ).toBeVisible()
+  await expect(inspector.getByText('2.00 MB', { exact: true })).toBeVisible()
+})
 
 test('media file list shows every segment through virtual scrolling and stays read-only', async ({
   electronApp,
@@ -295,9 +405,12 @@ test('download columns sort live tasks without losing selection or filter state'
   await mainWindow
     .getByRole('button', { name: 'List View', exact: true })
     .click()
-  await mainWindow
-    .getByRole('menuitemcheckbox', { name: 'ETA', exact: true })
-    .click()
+  const etaColumn = mainWindow.getByRole('menuitemcheckbox', {
+    name: 'ETA',
+    exact: true,
+  })
+  if ((await etaColumn.getAttribute('aria-checked')) !== 'true')
+    await etaColumn.click()
   await mainWindow.keyboard.press('Escape')
   await list.getByRole('button', { name: 'ETA', exact: true }).click()
   await expectOrder([1, 2, 10])

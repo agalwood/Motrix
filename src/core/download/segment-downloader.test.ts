@@ -5,6 +5,7 @@ import type {
   PollScheduler,
   SegmentAria2,
   SegmentFileProgress,
+  SegmentProgress,
 } from './segment-downloader'
 import { SegmentDownloader } from './segment-downloader'
 
@@ -146,6 +147,135 @@ const TMP = '/tmp/test-seg'
 // ---------------------------------------------------------------------------
 
 describe('SegmentDownloader', () => {
+  it('counts init and active fractions, rolls back retries and keeps totals unknown until every size is known', async () => {
+    const fake = makeFakeAria2()
+    const clock = makeManualScheduler()
+    const dl = new SegmentDownloader({
+      aria2: fake.aria2,
+      tmpDir: TMP,
+      concurrency: 2,
+      pollScheduler: clock.scheduler,
+    })
+    const updates: SegmentProgress[] = []
+    const run = dl
+      .run(
+        makePlan({
+          init: { url: 'https://cdn/init' },
+          segments: [{ url: 'https://cdn/1' }, { url: 'https://cdn/2' }],
+        }),
+        {},
+        (p) => updates.push(p)
+      )
+      .catch(() => {})
+    await new Promise((resolve) => setImmediate(resolve))
+    fake.setBytes('gid1', 50, 100)
+    fake.setBytes('gid2', 700, 0)
+    await clock.tick()
+    expect(updates.at(-1)).toMatchObject({
+      fraction: 0.5 / 3,
+      completedParts: 0,
+      totalParts: 3,
+      totalBytes: 0,
+    })
+    fake.fireError('gid1')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(updates.at(-1)?.fraction).toBe(0)
+    fake.setBytes('gid3', 100, 100)
+    await clock.tick()
+    expect(updates.at(-1)?.fraction).toBeLessThan(1 / 3)
+    fake.fireComplete('gid3')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(updates.at(-1)?.fraction).toBe(1 / 3)
+    fake.setBytes('gid2', 700, 700)
+    fake.setBytes('gid4', 25, 50)
+    await clock.tick()
+    expect(updates.at(-1)?.totalBytes).toBe(850)
+    fake.fireComplete('gid2')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(updates.at(-1)?.fraction).toBeCloseTo(2.5 / 3)
+    await dl.cancel()
+    await run
+  })
+
+  it('serializes polls and discards a response for a job completed during the request', async () => {
+    const fake = makeFakeAria2()
+    const clock = makeManualScheduler()
+    const response = Promise.withResolvers<{
+      completedLength: number
+      totalLength: number
+    }>()
+    let requests = 0
+    fake.aria2.tellStatus = async () => {
+      requests++
+      return response.promise
+    }
+    const dl = new SegmentDownloader({
+      aria2: fake.aria2,
+      tmpDir: TMP,
+      concurrency: 1,
+      pollScheduler: clock.scheduler,
+    })
+    const updates: SegmentProgress[] = []
+    const run = dl
+      .run(
+        makePlan({
+          segments: [{ url: 'https://cdn/1' }, { url: 'https://cdn/2' }],
+        }),
+        {},
+        (p) => updates.push(p)
+      )
+      .catch(() => {})
+    await new Promise((resolve) => setImmediate(resolve))
+    const first = clock.tick()
+    await clock.tick()
+    expect(requests).toBe(1)
+    fake.fireComplete('gid1')
+    response.resolve({ completedLength: 50, totalLength: 100 })
+    await first
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(updates.at(-1)).toMatchObject({
+      fraction: 0.5,
+      completedParts: 1,
+      downloadedBytes: 100,
+    })
+    await dl.cancel()
+    await run
+  })
+
+  it('knows the full byte-range denominator before queued jobs begin', async () => {
+    const fake = makeFakeAria2()
+    const clock = makeManualScheduler()
+    const dl = new SegmentDownloader({
+      aria2: fake.aria2,
+      tmpDir: TMP,
+      concurrency: 1,
+      pollScheduler: clock.scheduler,
+    })
+    const updates: SegmentProgress[] = []
+    const run = dl
+      .run(
+        makePlan({
+          segments: [
+            { url: 'https://cdn/1', byteRange: { offset: 0, length: 100 } },
+            { url: 'https://cdn/2', byteRange: { offset: 100, length: 300 } },
+          ],
+        }),
+        {},
+        (p) => updates.push(p)
+      )
+      .catch(() => {})
+    await new Promise((resolve) => setImmediate(resolve))
+    fake.setBytes('gid1', 50, 100)
+    await clock.tick()
+    expect(updates.at(-1)).toMatchObject({
+      fraction: 0.25,
+      totalBytes: 400,
+      downloadedBytes: 50,
+    })
+    await dl.cancel()
+    await run
+  })
+
   it('reports file progress by plan index across polling, retries and out-of-order completion', async () => {
     const fake = makeFakeAria2()
     const clock = makeManualScheduler()
@@ -607,6 +737,7 @@ describe('SegmentDownloader', () => {
     // seg0 finishes: its last-seen total (1000) is retained as a finished
     // segment; the total must never shrink when a segment leaves the active set.
     fake.fireComplete('gid1')
+    await new Promise((resolve) => setImmediate(resolve))
     const afterComplete = reports[reports.length - 1]
     expect(afterComplete.totalBytes).toBe(1500) // 1000 finished + 500 active
     expect(afterComplete.downloadedBytes).toBe(1200) // 1000 finished + 200 live

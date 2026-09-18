@@ -67,6 +67,7 @@ import {
   type DirectResourceProxyOptionsProvider,
   DirectResourceValidatorService,
 } from '../task/direct-resource-validator'
+import { restoreMediaProgress } from '../task/media-task-progress'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
@@ -1385,7 +1386,7 @@ export class SessionManager {
     )
     const retainedIdentity = newGid === primary?.gid
 
-    return {
+    return restoreMediaProgress({
       id: taskPart.motrixId,
       engineTaskId: newGid,
       name: taskPart.name,
@@ -1445,7 +1446,7 @@ export class SessionManager {
             }
           : inst
       ),
-    }
+    })
   }
 
   private async reAddOrMarkErrorFromPair(

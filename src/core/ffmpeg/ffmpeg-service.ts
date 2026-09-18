@@ -1,5 +1,9 @@
 import { type ChildProcess, spawn as nodeSpawn } from 'node:child_process'
 
+export interface FfmpegProgress {
+  progress: number | null
+}
+
 export interface RemuxJob {
   binaryPath: string
   videoPath: string
@@ -76,7 +80,7 @@ export class FfmpegService {
 
   run(
     job: RemuxJob,
-    onProgress: (p: { progress: number }) => void,
+    onProgress: (p: FfmpegProgress) => void,
     spawnImpl: SpawnImpl = nodeSpawn as SpawnImpl
   ): Promise<void> {
     this.aborted = false
@@ -99,26 +103,67 @@ export class FfmpegService {
       }
     })
 
+    let closed = false
+    let pending = ''
+    let droppingLine = false
+    let outTimeUs = 0
+    const MAX_PROGRESS_LINE = 4096
+    const acceptLine = (line: string) => {
+      const eq = line.indexOf('=')
+      if (eq < 0) return
+      const key = line.slice(0, eq)
+      const value = line.slice(eq + 1).trim()
+      if (key === 'out_time_ms') {
+        const time = Number(value)
+        if (Number.isFinite(time) && time >= 0)
+          outTimeUs = Math.max(outTimeUs, time)
+      }
+      if (key === 'progress' && (value === 'continue' || value === 'end')) {
+        onProgress({
+          progress:
+            Number.isFinite(durMs) && durMs > 0
+              ? Math.min(0.9999, outTimeUs / 1000 / durMs)
+              : null,
+        })
+      }
+    }
     child.stdout?.on('data', (chunk: Buffer) => {
-      const fields = parseProgressBlock(chunk.toString())
-      const outTimeUs = fields.out_time_ms ?? 0
-      const done = fields.progress === 'end'
-      const progress = done
-        ? 1
-        : durMs > 0
-          ? Math.min(0.999, outTimeUs / 1000 / durMs)
-          : 0
-      onProgress({ progress })
+      if (closed || this.aborted) return
+      const text = chunk.toString()
+      let start = 0
+      for (let index = 0; index < text.length; index++) {
+        if (text[index] !== '\n') continue
+        const part = text.slice(start, index)
+        if (!droppingLine && pending.length + part.length <= MAX_PROGRESS_LINE)
+          acceptLine(pending + part)
+        pending = ''
+        droppingLine = false
+        start = index + 1
+      }
+      if (!droppingLine) {
+        const tail = text.slice(start)
+        if (pending.length + tail.length <= MAX_PROGRESS_LINE) pending += tail
+        else {
+          pending = ''
+          droppingLine = true
+        }
+      }
     })
 
     return new Promise<void>((resolve, reject) => {
-      child.on('error', (err) =>
+      child.on('error', (err) => {
+        closed = true
         reject(new Error(`mux-failed: ${err.message}`))
-      )
+      })
       child.on('close', (code) => {
+        if (closed) return
+        closed = true
         this.child = null
         if (this.aborted) return reject(new Error('mux-aborted'))
-        if (code === 0) return resolve()
+        if (code === 0) {
+          onProgress({ progress: 1 })
+          return resolve()
+        }
         // Append the last few non-empty stderr lines — ffmpeg names the
         // offending input/stream here. The message MUST still start with
         // "mux-failed" (MediaTaskCoordinator.mapError matches that prefix to
@@ -139,23 +184,4 @@ export class FfmpegService {
     this.aborted = true
     this.child?.kill('SIGKILL')
   }
-}
-
-function parseProgressBlock(text: string): {
-  out_time_ms?: number
-  total_size?: number
-  progress?: string
-} {
-  const out: { out_time_ms?: number; total_size?: number; progress?: string } =
-    {}
-  for (const line of text.split(/\r?\n/)) {
-    const eq = line.indexOf('=')
-    if (eq < 0) continue
-    const key = line.slice(0, eq)
-    const val = line.slice(eq + 1)
-    if (key === 'out_time_ms') out.out_time_ms = Number(val)
-    else if (key === 'total_size') out.total_size = Number(val)
-    else if (key === 'progress') out.progress = val
-  }
-  return out
 }

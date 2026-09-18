@@ -14,6 +14,7 @@ import {
 } from '@shared/types/task'
 import type { TaskTerminalOccurrence } from '@shared/types/task-occurrence'
 import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
+import { makeMediaProgress } from '@test-utils/media-progress'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
@@ -3295,6 +3296,33 @@ describe('SessionManager', () => {
         const restored = taskManager.getAll().find((t) => t.id === 'm-hls-done')
         expect(restored?.status).toBe(TaskStatus.Completed)
         expect(restored?.progress).toBe(1)
+      })
+
+      it('retains the bounded media checkpoint when restart interrupts a pipeline', async () => {
+        seedAsPair(db, {
+          motrixId: 'media-checkpoint',
+          gid: '',
+          kind: TaskKind.Hls,
+          status: TaskStatus.Downloading,
+          totalBytes: 100,
+          downloadedBytes: 100,
+        })
+        const pair = db.getTask('media-checkpoint')!
+        pair.instances[0].phase = TaskInstancePhase.HlsSegment
+        pair.instances[0].payload.mediaProgress = makeMediaProgress()
+        db.saveTaskWithInstances(pair)
+        rpc.tellActive = vi.fn(async () => [])
+        rpc.tellStopped = vi.fn(async () => [])
+        await sessionManager.restore()
+        const restored = taskManager.getById('media-checkpoint')!
+        expect(restored.status).toBe(TaskStatus.Error)
+        expect(restored.progress).toBe(0.001)
+        expect(restored.mediaProgress?.download.completedParts).toBe(1)
+        expect(restored.totalBytes).toBe(0)
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(
+          db.getTask('media-checkpoint')?.instances[0].payload.mediaProgress
+        ).toEqual(makeMediaProgress())
       })
 
       it('marks an in-progress media task Error on restart (cannot resume; not re-added)', async () => {

@@ -5,6 +5,7 @@ import {
   type TaskFile,
   TaskInstancePhase,
 } from '@shared/types/task'
+import { segmentFraction } from '@shared/utils/media-progress'
 import { z } from 'zod'
 
 // Display metadata only; source manifests live in the central media store.
@@ -47,11 +48,7 @@ export function updateMediaTaskFile(
     ...file,
     size,
     completedBytes: update.completed ? size : update.downloadedBytes,
-    progress: update.completed
-      ? 1
-      : size > 0
-        ? Math.min(update.downloadedBytes / size, 1)
-        : 0,
+    progress: segmentFraction(update.downloadedBytes, size, update.completed),
   } satisfies MediaFile
 }
 

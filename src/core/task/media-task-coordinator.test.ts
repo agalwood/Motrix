@@ -3,7 +3,13 @@ import type {
   SegmentFileProgress,
   SegmentProgress,
 } from '@core/download/segment-downloader'
+import {
+  type SegmentAria2,
+  SegmentDownloader,
+} from '@core/download/segment-downloader'
+import type { SegmentPlan } from '@core/media/segment-plan'
 import { Events } from '@shared/protocol/events'
+import { MediaProgressSchema } from '@shared/schemas/media-progress'
 import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -11,6 +17,7 @@ import {
   TaskStatus,
   TransitionPhase,
 } from '@shared/types/task'
+import { canPause } from '@shared/types/task-actions'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaCoordinatorDeps, MediaJob } from './media-task-coordinator'
@@ -28,7 +35,7 @@ function makeDownloaderFake(opts?: {
   partPaths?: string[]
   hang?: boolean
   /** Progress sequence to emit; defaults to a byte-less 0.5 → 1 fraction. */
-  report?: SegmentProgress[]
+  report?: Omit<SegmentProgress, 'completedParts' | 'totalParts'>[]
   fileReports?: SegmentFileProgress[]
   /** Active segment gids this stream reports (Bug B). */
   activeGids?: string[]
@@ -39,7 +46,7 @@ function makeDownloaderFake(opts?: {
 
   const runFn = vi.fn(
     async (
-      _plan: unknown,
+      plan: SegmentPlan,
       _headers: unknown,
       onProgress: (p: SegmentProgress) => void,
       onFileProgress?: (p: SegmentFileProgress) => void
@@ -61,7 +68,13 @@ function makeDownloaderFake(opts?: {
         { fraction: 0.5, downloadedBytes: 0, totalBytes: 0 },
         { fraction: 1, downloadedBytes: 0, totalBytes: 0 },
       ]
-      for (const r of reports) onProgress(r)
+      const totalParts = plan.segments.length + (plan.init ? 1 : 0)
+      for (const r of reports)
+        onProgress({
+          ...r,
+          totalParts,
+          completedParts: Math.floor(r.fraction * totalParts),
+        })
       return {
         initPath: opts?.initPath,
         partPaths: opts?.partPaths ?? ['/tmp/000001.seg'],
@@ -272,6 +285,170 @@ describe('MediaTaskCoordinator.start', () => {
     await coordinator.stopAndDrain()
   })
 
+  it.each(['video', 'audio'] as const)(
+    'rejects an empty %s plan before creating a task or files',
+    async (stream) => {
+      const { deps, taskManager } = makeDeps()
+      const job = baseJob()
+      job[stream] = { ...job.video, segments: [] }
+      await expect(new MediaTaskCoordinator(deps).start(job)).rejects.toThrow(
+        'Media plan has no segments'
+      )
+      expect(taskManager.getAll()).toHaveLength(0)
+      expect(deps.persist).not.toHaveBeenCalled()
+      expect(fs.promises.mkdir).not.toHaveBeenCalled()
+    }
+  )
+
+  it('uses the real downloader denominator across 1000 unstarted segments', async () => {
+    let complete!: (gid: string) => void
+    let poll!: () => void | Promise<void>
+    let nextGid = 0
+    const engine: SegmentAria2 = {
+      addUri: async () => `part-${++nextGid}`,
+      tellStatus: async () => ({ completedLength: 100, totalLength: 100 }),
+      forceRemove: async () => {},
+      removeDownloadResult: async () => {},
+      onComplete: (cb) => {
+        complete = cb
+      },
+      onError: () => {},
+    }
+    const { deps, taskManager } = makeDeps({
+      makeDownloader: (tmpDir) =>
+        new SegmentDownloader({
+          aria2: engine,
+          tmpDir,
+          concurrency: 1,
+          pollScheduler: (cb) => {
+            poll = cb
+            return () => {}
+          },
+        }),
+    })
+    const job = baseJob()
+    job.video.segments = Array.from({ length: 1000 }, (_, index) => ({
+      index,
+      url: `https://cdn/${index}.ts`,
+    }))
+    const coordinator = new MediaTaskCoordinator(deps)
+    const { taskId } = await coordinator.submit(job)
+    await vi.waitFor(() => expect(nextGid).toBe(1))
+    await poll()
+    let task = taskManager.getById(taskId)!
+    expect(task.progress).toBeLessThan(0.001)
+    expect(task.totalBytes).toBe(0)
+    complete('part-1')
+    complete('part-1') // Duplicate engine notifications must not double count.
+    await vi.waitFor(() =>
+      expect(
+        taskManager.getById(taskId)?.mediaProgress?.download.completedParts
+      ).toBe(1)
+    )
+    task = taskManager.getById(taskId)!
+    expect(task.progress).toBe(0.001)
+    expect(task.mediaProgress?.download).toEqual({
+      progress: 0.001,
+      completedParts: 1,
+      totalParts: 1000,
+      totalBytes: null,
+    })
+    expect(task.sizeWhenDone).toBe(0)
+    expect(task.etaSeconds).toBe(0)
+    expect(MediaProgressSchema.safeParse(task.mediaProgress).success).toBe(true)
+    await coordinator.stopAndDrain()
+    const cancelled = structuredClone(taskManager.getById(taskId))
+    complete('part-2')
+    await poll()
+    expect(taskManager.getById(taskId)).toEqual(cancelled)
+  })
+
+  it('weights unequal video/audio plans including both initialization segments', async () => {
+    const { deps, taskManager } = makeDeps({
+      makeDownloader: (dir) =>
+        makeDownloaderFake({ hang: dir.endsWith('audio') }) as never,
+    })
+    const job = baseJob()
+    job.video.init = { url: 'https://cdn/video-init' }
+    job.video.segments = [0, 1, 2].map((index) => ({
+      index,
+      url: `https://cdn/video-${index}`,
+    }))
+    job.audio = { ...baseJob().video, init: { url: 'https://cdn/audio-init' } }
+    const coordinator = new MediaTaskCoordinator(deps)
+    const { taskId } = await coordinator.submit(job)
+    await vi.waitFor(() =>
+      expect(
+        taskManager.getById(taskId)?.mediaProgress?.download.completedParts
+      ).toBe(4)
+    )
+    expect(taskManager.getById(taskId)?.mediaProgress?.download).toEqual({
+      progress: 4 / 6,
+      completedParts: 4,
+      totalParts: 6,
+      totalBytes: null,
+    })
+    await coordinator.stopAndDrain()
+  })
+
+  it('preserves completed downloads throughout mux and measures output after rename', async () => {
+    let muxTick!: (p: { progress: number | null }) => void
+    let finishMux!: () => void
+    const ffmpeg = {
+      run: vi.fn((_job: unknown, cb: typeof muxTick) => {
+        muxTick = cb
+        return new Promise<void>((resolve) => {
+          finishMux = resolve
+        })
+      }),
+      kill: vi.fn(),
+      buildArgs: () => [],
+    }
+    const stat = vi
+      .spyOn(fs.promises, 'stat')
+      .mockResolvedValue({ size: 999 } as fs.Stats)
+    const { deps, taskManager } = makeDeps({
+      makeFfmpeg: () => ffmpeg as never,
+    })
+    const snapshots: DownloadTask[] = []
+    deps.eventBus.emit = (_event, payload) => {
+      snapshots.push(...structuredClone(payload as DownloadTask[]))
+    }
+    const coordinator = new MediaTaskCoordinator(deps)
+    const run = coordinator.start(baseJob())
+    await vi.waitFor(() => expect(ffmpeg.run).toHaveBeenCalled())
+    muxTick({ progress: 0.42 })
+    let task = taskManager.getById('stable-task-id')!
+    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(task.progress).toBe(1)
+    expect(task.mediaProgress?.muxProgress).toBe(0.42)
+    expect(task.mediaProgress?.outputBytes).toBeNull()
+    expect(canPause(task)).toBe(false)
+    muxTick({ progress: null })
+    expect(taskManager.getById(task.id)?.mediaProgress?.muxProgress).toBeNull()
+    finishMux()
+    await run
+    task = taskManager.getById(task.id)!
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.sizeWhenDone).toBe(999)
+    expect(task.mediaProgress?.outputBytes).toBe(999)
+    expect(stat).toHaveBeenCalledWith('/save/video.mp4')
+    expect(snapshots.map((t) => t.mediaProgress?.phase)).toEqual(
+      expect.arrayContaining([
+        'preparing',
+        'downloading',
+        'assembling',
+        'muxing',
+        'renaming',
+      ])
+    )
+    expect(
+      snapshots
+        .filter((t) => t.mediaProgress?.phase === 'muxing')
+        .every((t) => t.progress === 1 && t.status === TaskStatus.Downloading)
+    ).toBe(true)
+  })
+
   it('keeps a ten-thousand-segment task small enough for database snapshots', async () => {
     const { deps, taskManager } = makeDeps({
       makeDownloader: () => makeDownloaderFake({ hang: true }) as never,
@@ -284,7 +461,7 @@ describe('MediaTaskCoordinator.start', () => {
     }))
     const { taskId } = await coordinator.submit(job)
     const task = taskManager.getById(taskId)
-    expect(task?.instances[0].payload).toEqual({
+    expect(task?.instances[0].payload).toMatchObject({
       mediaMetaPath: `/metadata/media/${taskId}/files.json`,
     })
     expect(JSON.stringify(task).length).toBeLessThan(4_000)
@@ -646,16 +823,34 @@ describe('MediaTaskCoordinator.start', () => {
     expect(task?.errorMessage).toBe('mux-aborted')
   })
 
-  it.each(['metadata', 'ffmpeg-location'] as const)(
+  it.each(['metadata', 'decrypting', 'assembling', 'ffmpeg-location'] as const)(
     'does not resume media work after cancellation during %s IO',
     async (phase) => {
       const gate = Promise.withResolvers<void>()
       const entered = Promise.withResolvers<void>()
       const { deps, taskManager, assembleFake, ffmpegFakes } = makeDeps()
+      const job = baseJob()
       if (phase === 'metadata') {
         vi.mocked(deps.mediaMetaStore.release).mockImplementation(async () => {
           entered.resolve()
           await gate.promise
+        })
+      } else if (phase === 'assembling') {
+        assembleFake.mockImplementation(async () => {
+          entered.resolve()
+          await gate.promise
+        })
+      } else if (phase === 'decrypting') {
+        job.video.segments[0].key = {
+          method: 'AES-128',
+          uri: 'https://cdn/key',
+          iv: new Uint8Array(16),
+        }
+        vi.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.alloc(16))
+        vi.mocked(deps.decryptor.getKey).mockImplementation(async () => {
+          entered.resolve()
+          await gate.promise
+          return new Uint8Array(16)
         })
       } else {
         vi.mocked(deps.resolveFfmpegBinaryPath).mockImplementation(async () => {
@@ -665,7 +860,7 @@ describe('MediaTaskCoordinator.start', () => {
         })
       }
       const coordinator = new MediaTaskCoordinator(deps)
-      const run = coordinator.start(baseJob()).catch((error) => error)
+      const run = coordinator.start(job).catch((error) => error)
       await entered.promise
       const cancel = coordinator.cancel('stable-task-id')
       gate.resolve()
@@ -678,7 +873,8 @@ describe('MediaTaskCoordinator.start', () => {
         ffmpegFakes.every((ffmpeg) => ffmpeg.run.mock.calls.length === 0)
       ).toBe(true)
       expect(fs.promises.rename).not.toHaveBeenCalled()
-      if (phase === 'metadata') expect(assembleFake).not.toHaveBeenCalled()
+      if (phase === 'metadata' || phase === 'decrypting')
+        expect(assembleFake).not.toHaveBeenCalled()
     }
   )
 
@@ -769,8 +965,7 @@ describe('MediaTaskCoordinator.start', () => {
     ).resolves.toBeUndefined()
     await startPromise
 
-    expect(persist).toHaveBeenCalledTimes(1)
-    expect(snapshots).toEqual([
+    expect(snapshots.filter((s) => s.status === TaskStatus.Error)).toEqual([
       {
         status: TaskStatus.Error,
         errorMessage: 'mux-aborted',
@@ -1029,7 +1224,8 @@ describe('MediaTaskCoordinator.start', () => {
     expect(task?.status).toBe(TaskStatus.Completed)
     // The UI reads sizeWhenDone (list "size" column + detail "Total size"), not
     // totalBytes — the coordinator must mirror it or the size renders 0 B.
-    expect(task?.sizeWhenDone).toBe(16)
+    expect(task?.sizeWhenDone).toBe(0)
+    expect(task?.mediaProgress?.outputBytes).toBeNull()
     // A completed task has no segment in flight → 0 speed / 0 connections.
     expect(task?.connections).toBe(0)
     expect(task?.downloadSpeed).toBe(0)
@@ -1061,10 +1257,9 @@ describe('MediaTaskCoordinator.start', () => {
 
     // The many progress updateTask calls (3 stream reports + ffmpeg ticks +
     // instance-status tweaks) are coalesced away by the constant-clock throttle;
-    // only forced status transitions (add, Downloading, Finalizing, Completed)
-    // get through — far fewer than the un-throttled ~10.
+    // status and media phase transitions are forced through the throttle.
     expect(snapshots.length).toBeGreaterThanOrEqual(2)
-    expect(snapshots.length).toBeLessThanOrEqual(5)
+    expect(snapshots.length).toBeLessThanOrEqual(6)
     // Terminal state was emitted despite the throttle.
     expect(snapshots.at(-1)?.[0]?.status).toBe(TaskStatus.Completed)
   })
@@ -1072,7 +1267,7 @@ describe('MediaTaskCoordinator.start', () => {
   // Bug A follow-up: the UI reads the aria2-task display fields (sizeWhenDone,
   // downloadSpeed, connections). A coordinator task must populate them during
   // download too, or the detail panel shows 0 B / 0 B/s / 0 connections.
-  it('populates sizeWhenDone + connections + downloadSpeed during the download phase', async () => {
+  it('reports transfer metrics without presenting input bytes as output size', async () => {
     let clock = 0
     const now = () => {
       clock += 1000 // advance 1s per read so the speed sampler has a delta
@@ -1091,11 +1286,15 @@ describe('MediaTaskCoordinator.start', () => {
             ) => {
               onProgress({
                 fraction: 0.25,
+                completedParts: 0,
+                totalParts: 1,
                 downloadedBytes: 1_000_000,
                 totalBytes: 4_000_000,
               })
               onProgress({
                 fraction: 0.5,
+                completedParts: 0,
+                totalParts: 1,
                 downloadedBytes: 2_000_000,
                 totalBytes: 4_000_000,
               })
@@ -1117,7 +1316,8 @@ describe('MediaTaskCoordinator.start', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     const task = taskManager.getById('ui-live')
-    expect(task?.sizeWhenDone).toBe(4_000_000) // == totalBytes, not 0 B
+    expect(task?.sizeWhenDone).toBe(0)
+    expect(task?.totalBytes).toBe(4_000_000)
     expect(task?.connections).toBe(2) // two segment gids in flight
     expect(task?.downloadSpeed).toBeGreaterThan(0)
 
@@ -1455,14 +1655,13 @@ describe('MediaTaskCoordinator .motrix placeholder contract', () => {
     const { deps } = makeDeps({ persist })
     await new MediaTaskCoordinator(deps).start(baseJob())
 
-    expect(persist).toHaveBeenCalledTimes(2)
-    expect(persisted[0]).toEqual({
+    expect(persisted.at(-2)).toEqual({
       status: TaskStatus.Finalizing,
       diskPath: TEMP,
       instancePhases: [TransitionPhase.Renaming, TransitionPhase.Renaming],
       instanceStatuses: [TaskStatus.Downloading, TaskStatus.Downloading],
     })
-    expect(persisted[1]).toEqual({
+    expect(persisted.at(-1)).toEqual({
       status: TaskStatus.Completed,
       diskPath: FINAL,
       instancePhases: [TransitionPhase.Idle, TransitionPhase.Idle],
@@ -1496,6 +1695,8 @@ describe('MediaTaskCoordinator .motrix placeholder contract', () => {
     expect(persistedStatuses).toEqual([
       TaskStatus.Queued,
       TaskStatus.Downloading,
+      TaskStatus.Downloading, // assembling
+      TaskStatus.Downloading, // muxing
       TaskStatus.Finalizing,
       TaskStatus.Completed,
     ])
@@ -1611,15 +1812,14 @@ describe('MediaTaskCoordinator .motrix placeholder contract', () => {
         Number.POSITIVE_INFINITY
     )
     expect(recordDownloadCompleted.mock.invocationCallOrder[0]).toBeLessThan(
-      persist.mock.invocationCallOrder[1] ?? Number.POSITIVE_INFINITY
+      persist.mock.invocationCallOrder.at(-1) ?? Number.POSITIVE_INFINITY
     )
   })
 
   it('a failing post-rename persist hook does not fail the completed task', async () => {
-    const persist = vi
-      .fn<(task: DownloadTask) => Promise<void>>()
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('db locked'))
+    const persist = vi.fn(async (task: DownloadTask) => {
+      if (task.status === TaskStatus.Completed) throw new Error('db locked')
+    })
     const { deps, taskManager } = makeDeps({ persist })
     await new MediaTaskCoordinator(deps).start(baseJob())
 
@@ -1632,10 +1832,8 @@ describe('MediaTaskCoordinator .motrix placeholder contract', () => {
     // The type promises Promise<void>, but a sync throw before the promise
     // exists would land in start()'s outer catch and flip an already-renamed,
     // Completed task to Error — guard against convention violations.
-    let calls = 0
-    const persist = vi.fn(() => {
-      calls += 1
-      if (calls === 1) return Promise.resolve()
+    const persist = vi.fn((task: DownloadTask) => {
+      if (task.status !== TaskStatus.Completed) return Promise.resolve()
       throw new Error('sync boom')
     }) as MediaCoordinatorDeps['persist']
     const { deps, taskManager } = makeDeps({ persist })
@@ -1715,8 +1913,7 @@ describe('MediaTaskCoordinator .motrix placeholder contract', () => {
       new MediaTaskCoordinator(deps).start(baseJob())
     ).rejects.toThrow('mux-failed: original ffmpeg failure')
 
-    expect(persist).toHaveBeenCalledTimes(1)
-    expect(snapshots).toEqual([
+    expect(snapshots.filter((s) => s.status === TaskStatus.Error)).toEqual([
       {
         status: TaskStatus.Error,
         errorMessage: 'mux-failed',

@@ -1,4 +1,8 @@
 import { type DownloadTask, TaskStatus } from '@shared/types/task'
+import {
+  getOutputSize,
+  getProgressSortValue,
+} from '@shared/utils/media-progress'
 import { z } from 'zod'
 import {
   getTaskConnections,
@@ -77,9 +81,9 @@ function numericValue(
 ): number | null {
   switch (column) {
     case 'size':
-      return task.sizeWhenDone
+      return getOutputSize(task)
     case 'progress':
-      return Math.max(0, Math.min(1, task.progress))
+      return getProgressSortValue(task)
     case 'status':
       return STATUS_ORDER[task.status]
     case 'down':
