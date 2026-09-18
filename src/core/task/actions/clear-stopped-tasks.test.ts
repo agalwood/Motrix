@@ -96,6 +96,54 @@ function createDeps(initial: readonly DownloadTask[]) {
 }
 
 describe('clearStoppedTasks', () => {
+  it('cleans metadata only for successfully deleted media tasks', async () => {
+    const completed = task('media-done', TaskStatus.Completed, {
+      engineTaskId: '',
+    })
+    const active = task('media-active', TaskStatus.Downloading, {
+      engineTaskId: '',
+    })
+    for (const item of [completed, active]) {
+      item.instances = [
+        {
+          ...instance(item.id, '', 0),
+          phase: TaskInstancePhase.HlsSegment,
+          gid: null,
+          payload: { mediaMetaPath: `/metadata/media/${item.id}/files.json` },
+        },
+      ]
+    }
+    const { deps } = createDeps([completed, active])
+    const mediaMetaStore = { remove: vi.fn(async () => {}) }
+    await clearStoppedTasks({ ...deps, mediaMetaStore })
+    expect(mediaMetaStore.remove).toHaveBeenCalledExactlyOnceWith(
+      '/metadata/media/media-done/files.json'
+    )
+  })
+
+  it('keeps media metadata if the batch database deletion fails', async () => {
+    const completed = task('media-done', TaskStatus.Completed, {
+      engineTaskId: '',
+    })
+    completed.instances = [
+      {
+        ...instance(completed.id, '', 0),
+        phase: TaskInstancePhase.HlsSegment,
+        gid: null,
+        payload: { mediaMetaPath: '/metadata/media/media-done/files.json' },
+      },
+    ]
+    const { deps } = createDeps([completed])
+    const mediaMetaStore = { remove: vi.fn(async () => {}) }
+    deps.db.deleteTasks.mockImplementation(() => {
+      throw new Error('disk full')
+    })
+    await expect(
+      clearStoppedTasks({ ...deps, mediaMetaStore })
+    ).rejects.toThrow('disk full')
+    expect(mediaMetaStore.remove).not.toHaveBeenCalled()
+  })
+
   it('clears only frozen candidate IDs, preserving newly stopped tasks and files', async () => {
     const { deps, tasks } = createDeps([
       task('first', TaskStatus.Completed),

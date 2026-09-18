@@ -171,6 +171,9 @@ describe('HlsDashPipeline', () => {
       // coordinator.submit called with correct job
       expect(coordinator.submit).toHaveBeenCalledTimes(1)
       const job = captured[0]!
+      expect(job.manifests).toEqual([
+        { name: 'video.m3u8', url: adapted.manifestUrl, text: MEDIA_VOD },
+      ])
       expect(job.taskId).toBe('task-hls-1')
       expect(job.saveDir).toBe('/downloads')
       expect(job.finalName).toBe('video.ts')
@@ -237,6 +240,11 @@ describe('HlsDashPipeline', () => {
       expect(fetchManifest).toHaveBeenCalledTimes(3)
 
       const job = coordinator.submit.mock.calls[0]![0] as MediaJob
+      expect(job.manifests).toEqual([
+        { name: 'master.m3u8', url: MASTER_URL, text: MASTER_WITH_AUDIO },
+        { name: 'video.m3u8', url: VARIANT_URL, text: VARIANT_MEDIA },
+        { name: 'audio.m3u8', url: AUDIO_URL, text: AUDIO_MEDIA },
+      ])
       expect(job.video.segments).toHaveLength(2) // from VARIANT_MEDIA
       expect(job.audio).toBeDefined()
       expect(job.audio!.segments).toHaveLength(1) // from AUDIO_MEDIA
@@ -275,6 +283,9 @@ describe('HlsDashPipeline', () => {
 
       expect(fetchManifest).toHaveBeenCalledTimes(1)
       const job = captured[0]!
+      expect(job.manifests).toEqual([
+        { name: 'manifest.mpd', url: adapted.manifestUrl, text: DASH_MPD },
+      ])
       expect(job.taskId).toBe('task-dash-1')
       expect(job.video).toBeDefined()
       expect(job.video.segments.length).toBeGreaterThan(0)

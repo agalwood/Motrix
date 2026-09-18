@@ -61,6 +61,7 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import { createSetSelectedFilesHandler } from '@core/task/set-selected-files'
 import {
@@ -120,6 +121,7 @@ export interface ServerCommandContext {
   }
   aria2BinaryPath: string
   finalNamePicker: FinalNamePicker
+  mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   taskManager: TaskManager
   fileCleanupService: FileCleanupService
@@ -189,6 +191,7 @@ export function buildServerCommandHandlers(
     trackerManager,
     bridgeControl,
     finalNamePicker,
+    mediaMetaStore,
     torrentMetaStore,
     taskManager,
     fileCleanupService,
@@ -335,6 +338,7 @@ export function buildServerCommandHandlers(
     adapter,
     log,
     fileCleanupService,
+    mediaMetaStore,
     torrentMetaStore,
     eventBus,
     db: motrixDatabase,

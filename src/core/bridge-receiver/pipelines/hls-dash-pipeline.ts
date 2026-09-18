@@ -1,6 +1,7 @@
 import { parseDash } from '@core/media/dash-parser'
 import { parseHlsMaster, parseHlsMedia } from '@core/media/hls-parser'
 import { MediaParseError } from '@core/media/segment-plan'
+import type { MediaManifest } from '@core/task/media-meta-store'
 import type {
   MediaJob,
   MediaTaskCoordinator,
@@ -64,6 +65,13 @@ export class HlsDashPipeline {
         const job: MediaJob = {
           taskId: adapted.taskId,
           kind: 'dash',
+          manifests: [
+            {
+              name: 'manifest.mpd',
+              url: adapted.manifestUrl,
+              text: manifestText,
+            },
+          ],
           video,
           ...(audio !== undefined ? { audio } : {}),
           headers,
@@ -97,6 +105,10 @@ export class HlsDashPipeline {
           )
         }
         const video = parseHlsMedia(variantText, variantUrl)
+        const manifests: MediaManifest[] = [
+          { name: 'master.m3u8', url: adapted.manifestUrl, text: manifestText },
+          { name: 'video.m3u8', url: variantUrl, text: variantText },
+        ]
 
         let audioJob: ReturnType<typeof parseHlsMedia> | undefined
         if (audioUrl !== undefined) {
@@ -111,11 +123,13 @@ export class HlsDashPipeline {
             )
           }
           audioJob = parseHlsMedia(audioText, audioUrl)
+          manifests.push({ name: 'audio.m3u8', url: audioUrl, text: audioText })
         }
 
         const job: MediaJob = {
           taskId: adapted.taskId,
           kind: 'hls',
+          manifests,
           video,
           ...(audioJob !== undefined ? { audio: audioJob } : {}),
           headers,
@@ -134,6 +148,9 @@ export class HlsDashPipeline {
       const job: MediaJob = {
         taskId: adapted.taskId,
         kind: 'hls',
+        manifests: [
+          { name: 'video.m3u8', url: adapted.manifestUrl, text: manifestText },
+        ],
         video,
         headers,
         saveDir: adapted.saveDir,

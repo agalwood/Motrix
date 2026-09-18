@@ -34,6 +34,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServerDownloadPathPolicy } from '../download-path-policy'
@@ -96,6 +97,7 @@ function makeFakeCtx() {
     },
     aria2BinaryPath: '/usr/bin/aria2c',
     finalNamePicker: {} as FinalNamePicker,
+    mediaMetaStore: makeMediaMetaStoreStub(),
     torrentMetaStore: {} as TorrentMetaStore,
     taskManager: {
       getById: vi.fn(() => undefined),

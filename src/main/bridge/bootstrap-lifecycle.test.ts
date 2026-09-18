@@ -29,6 +29,7 @@ import {
   makeDirectSubmit,
   makeExtensionContext,
 } from '@test-utils/bridge-receiver'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeManifestPaths,
@@ -144,6 +145,7 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
     },
     ffmpegBinaryPath: null,
     taskManager: {} as never,
+    mediaMetaStore: makeMediaMetaStoreStub(),
     segmentAria2: {} as never,
     tmpRoot: '/tmp/media',
     persistTask: vi.fn(async () => {}),

@@ -30,6 +30,7 @@ import type {
 } from '@core/stats'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
@@ -78,6 +79,7 @@ export interface QueryContext {
   natManager: NatManager
   trackerManager: TrackerManager
   engineAdapter: EngineAdapter
+  mediaMetaStore: MediaMetaStore
   motrixDatabase: MotrixDatabase
   geoipManager: GeoIPManager
   pluginRegistry: PluginRegistry
@@ -214,6 +216,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetSpeedLimitState]: async () => speedLimitController.getState(),
 
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
+      mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
       taskManager,
       engine: engineAdapter,

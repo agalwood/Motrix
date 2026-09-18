@@ -21,6 +21,94 @@ const mkTask = (over: Partial<DownloadTask> = {}): DownloadTask =>
   })
 
 describe('getTaskFiles handler', () => {
+  it.each([
+    TaskStatus.Downloading,
+    TaskStatus.Paused,
+    TaskStatus.Error,
+    TaskStatus.Completed,
+  ])(
+    'returns retained media segments while %s without querying a parent engine GID',
+    async (status) => {
+      const task = mkTask({
+        kind: TaskKind.Hls,
+        type: TaskType.Http,
+        engineTaskId: '',
+        status,
+      })
+      task.instances = [
+        {
+          instanceId: 'video',
+          motrixId: task.id,
+          gid: null,
+          phase: TaskInstancePhase.HlsSegment,
+          status,
+          progress: 0,
+          totalBytes: 0,
+          downloadedBytes: 0,
+          uploadedBytes: 0,
+          diskPath: '',
+          transitionPhase: TransitionPhase.Idle,
+          uris: [],
+          uriHash: null,
+          payload: {},
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ]
+      task.instances[0].payload.mediaMetaPath = '/metadata/media/t1/files.json'
+      const files = [
+        {
+          path: 'video/000001-first.ts',
+          size: 100,
+          completedBytes: 100,
+          progress: 1,
+        },
+        {
+          path: 'video/000002-second.ts',
+          size: 0,
+          completedBytes: 0,
+          progress: 0,
+        },
+      ]
+      const mediaMetaStore = {
+        read: vi.fn(async () =>
+          files.map((file, index) => ({ ...file, index, selected: true }))
+        ),
+      }
+      const db = { getTaskFiles: vi.fn(() => []) }
+      const engine = { getTaskFiles: vi.fn() }
+      const handler = createGetTaskFilesHandler({
+        mediaMetaStore,
+        db,
+        engine,
+        taskManager: { getById: () => task },
+      })
+      expect(await handler(task.id)).toEqual([
+        {
+          index: 0,
+          path: 'video/000001-first.ts',
+          size: 100,
+          completedBytes: 100,
+          progress: 1,
+          selected: true,
+        },
+        {
+          index: 1,
+          path: 'video/000002-second.ts',
+          size: 0,
+          completedBytes: 0,
+          progress: 0,
+          selected: true,
+        },
+      ])
+      expect(mediaMetaStore.read).toHaveBeenCalledWith(
+        '/metadata/media/t1/files.json'
+      )
+      expect(db.getTaskFiles).not.toHaveBeenCalled()
+      expect(engine.getTaskFiles).not.toHaveBeenCalled()
+    }
+  )
+
   it('merges db structure with engine completedBytes when active', async () => {
     const db = {
       getTaskFiles: vi.fn(() => [

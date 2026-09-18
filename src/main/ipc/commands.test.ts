@@ -16,6 +16,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -206,6 +207,7 @@ function fakeCtx() {
     finalNamePicker: {
       pick: vi.fn(async (_dir: string, name: string) => name),
     },
+    mediaMetaStore: makeMediaMetaStoreStub(),
     torrentMetaStore: {
       persist: vi.fn(async () => '/tmp/x.torrent'),
       read: vi.fn(),

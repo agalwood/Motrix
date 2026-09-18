@@ -77,7 +77,75 @@ function makeDeps(overrides: Partial<RemoveTaskDeps> = {}): RemoveTaskDeps {
   return { ...base, ...directTaskUpdatePublication(base), ...overrides }
 }
 
+function mediaTaskWithMetadata() {
+  return makeDownloadTask({
+    engineTaskId: '',
+    saveDir: '/d',
+    diskPath: '/d/video.mp4',
+    instances: [
+      {
+        instanceId: 'video',
+        motrixId: 'task-1',
+        gid: null,
+        phase: TaskInstancePhase.HlsSegment,
+        status: TaskStatus.Downloading,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/d/video.mp4',
+        transitionPhase: TransitionPhase.Idle,
+        uris: [],
+        uriHash: null,
+        createdAt: 0,
+        updatedAt: 0,
+        payload: { mediaMetaPath: '/metadata/media/task-1/files.json' },
+      },
+    ],
+  })
+}
+
 describe('removeTask', () => {
+  it.each([false, true])(
+    'removes associated media metadata when deleteWithFiles=%s',
+    async (deleteWithFiles) => {
+      const mediaMetaStore = { remove: vi.fn(async () => {}) }
+      const deps = makeDeps({
+        mediaMetaStore,
+        cancelMedia: vi.fn(async () => {}),
+      })
+      const task = mediaTaskWithMetadata()
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      await removeTask(task.id, { deleteWithFiles }, deps)
+      expect(mediaMetaStore.remove).toHaveBeenCalledWith(
+        '/metadata/media/task-1/files.json'
+      )
+      expect(
+        vi.mocked(deps.cancelMedia!).mock.invocationCallOrder[0]
+      ).toBeLessThan(mediaMetaStore.remove.mock.invocationCallOrder[0])
+      expect(
+        vi.mocked(deps.db.deleteTask).mock.invocationCallOrder[0]
+      ).toBeLessThan(mediaMetaStore.remove.mock.invocationCallOrder[0])
+      expect(deps.fileCleanupService.cleanup).toHaveBeenCalledTimes(
+        deleteWithFiles ? 1 : 0
+      )
+    }
+  )
+
+  it('retains media metadata if the durable task delete fails', async () => {
+    const mediaMetaStore = { remove: vi.fn(async () => {}) }
+    const deps = makeDeps({ mediaMetaStore })
+    const task = mediaTaskWithMetadata()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.db.deleteTask).mockImplementation(() => {
+      throw new Error('disk full')
+    })
+    await expect(
+      removeTask(task.id, { deleteWithFiles: false }, deps)
+    ).rejects.toThrow('disk full')
+    expect(mediaMetaStore.remove).not.toHaveBeenCalled()
+  })
+
   it('tears down the coordinator for a media task and never calls the engine with an empty gid', async () => {
     // A coordinator-managed media task (Mux/Hls) has engineTaskId ''. Removing
     // it must abort the in-flight SegmentDownloaders + ffmpeg (via cancelMedia)

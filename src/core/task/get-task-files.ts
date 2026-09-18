@@ -11,6 +11,8 @@ import type { TaskManager } from '@core/task/task-manager'
 import { relativizeTorrentPath } from '@shared/lib/path-ext'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import type { MediaMetaStore } from './media-meta-store'
+import { getMediaMetaPath } from './media-task-files'
 
 const log = getLogger('TaskFilesProvider')
 const ACTIVE_STATES = new Set<TaskStatus>([
@@ -20,6 +22,7 @@ const ACTIVE_STATES = new Set<TaskStatus>([
 ])
 
 interface Deps {
+  mediaMetaStore?: Pick<MediaMetaStore, 'read'>
   db: Pick<MotrixDatabase, 'getTaskFiles'>
   taskManager: Pick<TaskManager, 'getById'>
   engine: Pick<EngineAdapter, 'getTaskFiles'>
@@ -60,6 +63,11 @@ function toDisplayPath(physicalPath: string, task: DownloadTask): string {
 export function createGetTaskFilesHandler(deps: Deps) {
   return async function getTaskFiles(taskId: string): Promise<TaskFile[]> {
     const task = deps.taskManager.getById(taskId)
+    const metaPath = task ? getMediaMetaPath(task) : undefined
+    const mediaFiles = metaPath
+      ? await deps.mediaMetaStore?.read(metaPath)
+      : null
+    if (mediaFiles) return mediaFiles
     const base: TaskFile[] = deps.db.getTaskFiles(taskId).map((row) => ({
       index: row.fileIndex,
       path: task ? toDisplayPath(row.path, task) : row.path,

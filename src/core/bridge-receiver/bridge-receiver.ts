@@ -53,6 +53,9 @@ export function serializeCookieHeader(
 }
 
 export interface BridgeReceiverDeps {
+  mediaMetaStore: ConstructorParameters<
+    typeof MediaTaskCoordinator
+  >[0]['mediaMetaStore']
   getDefaultSaveDir: AdapterDeps['getDefaultSaveDir']
   pickName: AdapterDeps['pickName']
   createTask: ConstructorParameters<typeof DirectPipeline>[0]['createTask']
@@ -212,6 +215,7 @@ export class BridgeReceiver {
       }
       const tmpRoot = deps.tmpRoot
       const coordinator = new MediaTaskCoordinator({
+        mediaMetaStore: deps.mediaMetaStore,
         taskManager: deps.taskManager,
         activityRecorder: deps.activityRecorder,
         eventBus: eventBusWithEmit,

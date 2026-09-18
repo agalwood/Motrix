@@ -33,6 +33,7 @@ import type {
 import { createGetTaskFilesHandler } from '@core/task/get-task-files'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
@@ -111,6 +112,7 @@ export interface ServerQueryContext {
   settingsManager: SettingsManager
   trackerManager: TrackerManager
   engineAdapter: EngineAdapter
+  mediaMetaStore: MediaMetaStore
   motrixDatabase: MotrixDatabase
   geoipManager: Pick<GeoIPManager, 'getStatus' | 'isEnabled' | 'lookupCountry'>
   notificationCenter: NotificationCenter
@@ -198,6 +200,7 @@ export function buildServerQueryHandlers(
       taskManager.getById(taskId) ?? null,
 
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
+      mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
       taskManager,
       engine: engineAdapter,

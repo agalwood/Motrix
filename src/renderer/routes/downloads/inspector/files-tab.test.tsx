@@ -104,6 +104,47 @@ beforeEach(() => {
 })
 
 describe('FilesTab', () => {
+  it.each([TaskStatus.Downloading, TaskStatus.Completed, TaskStatus.Error])(
+    'shows media segment progress independently of mux progress while %s',
+    (status) => {
+      vi.mocked(useTaskFiles).mockReturnValue({
+        files: [
+          {
+            index: 0,
+            path: 'video/000001-first.ts',
+            size: 0,
+            completedBytes: 0,
+            selected: true,
+            progress: 1,
+          },
+        ],
+        loading: false,
+        refetch: vi.fn(),
+      })
+      render(
+        <FilesTab
+          task={mockTask({
+            kind: TaskKind.Hls,
+            type: TaskType.Http,
+            status,
+            progress: 0.25,
+          })}
+        />
+      )
+      expect(screen.getByText('video/000001-first.ts')).toBeInTheDocument()
+      expect(screen.getByText('100%')).toBeInTheDocument()
+      expect(screen.queryByText('25%')).not.toBeInTheDocument()
+      expect(screen.getByText('—')).toBeInTheDocument()
+      expect(screen.getByRole('checkbox')).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      )
+      expect(
+        screen.queryByRole('button', { name: /save/i })
+      ).not.toBeInTheDocument()
+    }
+  )
+
   it('shows readOnly mode for completed tasks (no save button)', () => {
     render(<FilesTab task={mockTask({ status: TaskStatus.Completed })} />)
     for (const cb of screen.getAllByRole('checkbox')) {

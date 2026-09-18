@@ -1,5 +1,8 @@
 import fs from 'node:fs'
-import type { SegmentProgress } from '@core/download/segment-downloader'
+import type {
+  SegmentFileProgress,
+  SegmentProgress,
+} from '@core/download/segment-downloader'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -8,9 +11,11 @@ import {
   TaskStatus,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaCoordinatorDeps, MediaJob } from './media-task-coordinator'
 import { MediaTaskCoordinator } from './media-task-coordinator'
+import { getMediaMetaPath } from './media-task-files'
 import { TaskManager } from './task-manager'
 
 // ---------------------------------------------------------------------------
@@ -24,6 +29,7 @@ function makeDownloaderFake(opts?: {
   hang?: boolean
   /** Progress sequence to emit; defaults to a byte-less 0.5 → 1 fraction. */
   report?: SegmentProgress[]
+  fileReports?: SegmentFileProgress[]
   /** Active segment gids this stream reports (Bug B). */
   activeGids?: string[]
   error?: Error
@@ -35,7 +41,8 @@ function makeDownloaderFake(opts?: {
     async (
       _plan: unknown,
       _headers: unknown,
-      onProgress: (p: SegmentProgress) => void
+      onProgress: (p: SegmentProgress) => void,
+      onFileProgress?: (p: SegmentFileProgress) => void
     ): Promise<{ initPath?: string; partPaths: string[] }> => {
       if (opts?.error) throw opts.error
       if (opts?.hang) {
@@ -49,6 +56,7 @@ function makeDownloaderFake(opts?: {
           }
         )
       }
+      for (const p of opts?.fileReports ?? []) onFileProgress?.(p)
       const reports = opts?.report ?? [
         { fraction: 0.5, downloadedBytes: 0, totalBytes: 0 },
         { fraction: 1, downloadedBytes: 0, totalBytes: 0 },
@@ -142,6 +150,7 @@ function makeDeps(overrides?: Partial<MediaCoordinatorDeps>): {
   const decryptorFake = makeDecryptorFake()
 
   const deps: MediaCoordinatorDeps = {
+    mediaMetaStore: makeMediaMetaStoreStub(),
     taskManager,
     activityRecorder: {
       recordSubmitted: vi.fn(),
@@ -228,6 +237,103 @@ describe('MediaTaskCoordinator.start', () => {
   })
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('registers every queued video/audio segment before downloading', async () => {
+    const { deps, taskManager } = makeDeps({
+      makeDownloader: () => makeDownloaderFake({ hang: true }) as never,
+    })
+    const coordinator = new MediaTaskCoordinator(deps)
+    const { taskId } = await coordinator.submit({
+      ...baseJob(),
+      video: { ...videoOnlyPlan(), init: { url: 'https://cdn/init.mp4' } },
+      audio: {
+        ...videoOnlyPlan(),
+        segments: [{ index: 0, url: 'https://cdn/audio.aac' }],
+      },
+    })
+    const task = taskManager.getById(taskId)
+    expect(task).toBeDefined()
+    expect(getMediaMetaPath(task as DownloadTask)).toBe(
+      `/metadata/media/${taskId}/files.json`
+    )
+    expect(deps.mediaMetaStore.persist).toHaveBeenCalledWith(
+      taskId,
+      expect.objectContaining({
+        video: expect.objectContaining({
+          init: { url: 'https://cdn/init.mp4' },
+        }),
+        audio: expect.objectContaining({
+          segments: [{ index: 0, url: 'https://cdn/audio.aac' }],
+        }),
+      })
+    )
+    expect(JSON.stringify(task)).not.toContain('mediaFiles')
+    await coordinator.stopAndDrain()
+  })
+
+  it('keeps a ten-thousand-segment task small enough for database snapshots', async () => {
+    const { deps, taskManager } = makeDeps({
+      makeDownloader: () => makeDownloaderFake({ hang: true }) as never,
+    })
+    const coordinator = new MediaTaskCoordinator(deps)
+    const job = baseJob()
+    job.video.segments = Array.from({ length: 10_000 }, (_, index) => ({
+      index,
+      url: `https://cdn/segment-${index}.ts`,
+    }))
+    const { taskId } = await coordinator.submit(job)
+    const task = taskManager.getById(taskId)
+    expect(task?.instances[0].payload).toEqual({
+      mediaMetaPath: `/metadata/media/${taskId}/files.json`,
+    })
+    expect(JSON.stringify(task).length).toBeLessThan(4_000)
+    expect(JSON.stringify(task)).not.toContain('segment-9999')
+    await coordinator.stopAndDrain()
+  })
+
+  it('removes new metadata if the parent task cannot be persisted', async () => {
+    const { deps, taskManager } = makeDeps({
+      parentTaskCreated: vi.fn(async () => {
+        throw new Error('database busy')
+      }),
+    })
+    const unlink = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined)
+    await expect(
+      new MediaTaskCoordinator(deps).start(baseJob())
+    ).rejects.toThrow('database busy')
+    expect(deps.mediaMetaStore.remove).toHaveBeenCalledWith(
+      '/metadata/media/stable-task-id/files.json'
+    )
+    expect(unlink).toHaveBeenCalledWith('/save/video.mp4.motrix')
+    expect(taskManager.getAll()).toEqual([])
+  })
+
+  it('persists downloaded file metadata after muxing and temporary segment cleanup', async () => {
+    const { deps, taskManager } = makeDeps({
+      makeDownloader: () =>
+        makeDownloaderFake({
+          fileReports: [
+            { index: 0, downloadedBytes: 64, totalBytes: 64, completed: true },
+          ],
+        }) as never,
+      // Exercise the production transition path that replaces task snapshots.
+      recordTransition: vi.fn(),
+    })
+    const coordinator = new MediaTaskCoordinator(deps)
+    const { taskId } = await coordinator.start(baseJob())
+    expect(taskManager.getById(taskId)?.status).toBe(TaskStatus.Completed)
+    const saved = vi.mocked(deps.persist).mock.calls.at(-1)?.[0]
+    expect(saved).toBeDefined()
+    const metaPath = getMediaMetaPath(saved as DownloadTask)
+    expect(deps.mediaMetaStore.update).toHaveBeenCalledWith(metaPath, 'video', {
+      index: 0,
+      downloadedBytes: 64,
+      totalBytes: 64,
+      completed: true,
+    })
+    expect(deps.mediaMetaStore.release).toHaveBeenCalledWith(metaPath)
+    expect(JSON.stringify(saved)).not.toContain('mediaFiles')
   })
 
   it.each(['segment', 'init', 'key'])(
@@ -538,6 +644,61 @@ describe('MediaTaskCoordinator.start', () => {
     const task = taskManager.getById('cancel-test')
     expect(task?.status).toBe(TaskStatus.Error)
     expect(task?.errorMessage).toBe('mux-aborted')
+  })
+
+  it.each(['metadata', 'ffmpeg-location'] as const)(
+    'does not resume media work after cancellation during %s IO',
+    async (phase) => {
+      const gate = Promise.withResolvers<void>()
+      const entered = Promise.withResolvers<void>()
+      const { deps, taskManager, assembleFake, ffmpegFakes } = makeDeps()
+      if (phase === 'metadata') {
+        vi.mocked(deps.mediaMetaStore.release).mockImplementation(async () => {
+          entered.resolve()
+          await gate.promise
+        })
+      } else {
+        vi.mocked(deps.resolveFfmpegBinaryPath).mockImplementation(async () => {
+          entered.resolve()
+          await gate.promise
+          return '/usr/bin/ffmpeg'
+        })
+      }
+      const coordinator = new MediaTaskCoordinator(deps)
+      const run = coordinator.start(baseJob()).catch((error) => error)
+      await entered.promise
+      const cancel = coordinator.cancel('stable-task-id')
+      gate.resolve()
+      await cancel
+      await run
+      expect(taskManager.getById('stable-task-id')?.status).toBe(
+        TaskStatus.Error
+      )
+      expect(
+        ffmpegFakes.every((ffmpeg) => ffmpeg.run.mock.calls.length === 0)
+      ).toBe(true)
+      expect(fs.promises.rename).not.toHaveBeenCalled()
+      if (phase === 'metadata') expect(assembleFake).not.toHaveBeenCalled()
+    }
+  )
+
+  it('does not publish a queued task or retain metadata when temporary storage is unavailable', async () => {
+    const { deps, taskManager } = makeDeps({
+      mkdtemp: vi.fn(async () => {
+        throw new Error('ENOSPC')
+      }),
+      parentTaskCreated: vi.fn(async (_task, persist) => persist()),
+    })
+    const unlink = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined)
+    await expect(
+      new MediaTaskCoordinator(deps).submit(baseJob())
+    ).rejects.toThrow('ENOSPC')
+    expect(taskManager.getAll()).toEqual([])
+    expect(deps.persist).not.toHaveBeenCalled()
+    expect(deps.mediaMetaStore.remove).toHaveBeenCalledWith(
+      '/metadata/media/stable-task-id/files.json'
+    )
+    expect(unlink).toHaveBeenCalledWith('/save/video.mp4.motrix')
   })
 
   it('cancel writes the terminal occurrence with cause "user-cancel" (not "media") and dispatches it', async () => {

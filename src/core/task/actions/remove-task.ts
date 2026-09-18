@@ -24,6 +24,8 @@ import {
   parseBtFileLayout,
 } from '../bt-storage-layout'
 import type { FileCleanupService } from '../file-cleanup-service'
+import type { MediaMetaStore } from '../media-meta-store'
+import { getMediaMetaPath } from '../media-task-files'
 import { outputPathIdentity } from '../output-path-identity'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { getTaskOrWarn, type TaskActionDeps } from './shared'
@@ -37,6 +39,7 @@ export interface RemoveTaskDeps extends TaskActionDeps {
   taskPersistence: Pick<SessionManager, 'runExclusivePersistence'>
   fileCleanupService: FileCleanupService
   torrentMetaStore: TorrentMetaStore
+  mediaMetaStore?: Pick<MediaMetaStore, 'remove'>
   // Structural slice of MotrixDatabase. Removal needs `deleteTask` for
   // normal tasks; magnet_metadata_resolution removal also reads via
   // `getTask` and writes the quarantine tombstone via
@@ -288,6 +291,13 @@ async function removeTaskUnderMutation(
     deps.db.deleteTask(taskId)
     deps.taskManager.remove(taskId)
   })
+
+  const mediaMetaPath = getMediaMetaPath(task)
+  if (mediaMetaPath) {
+    await deps.mediaMetaStore?.remove(mediaMetaPath).catch((err) => {
+      deps.log.warn({ err, taskId }, 'Failed to remove media metadata')
+    })
+  }
 
   // Publish the removal through the coalescing publisher: the flush-time
   // snapshot no longer contains the deleted id, and handlePolledTasks does

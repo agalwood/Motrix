@@ -1,11 +1,12 @@
 import { FileList } from '@renderer/components/file-list/file-list'
 import { Button } from '@renderer/components/ui/button'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useTaskFiles } from '@renderer/hooks/use-task-files'
 import { formatProgressPercent } from '@renderer/lib/format'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
-import { TaskStatus, TaskType } from '@shared/types/task'
+import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -30,14 +31,17 @@ function arraysEqualSorted(a: number[], b: number[]): boolean {
 
 export function FilesTab({ task }: { task: DownloadTask }) {
   const { t } = useTranslation()
+  const { formatBytes } = useByteFormat()
+  const isMedia = task.kind === TaskKind.Hls || task.kind === TaskKind.Mux
   const isActive = ACTIVE_DOWNLOAD.has(task.status)
   const { files } = useTaskFiles(task.id, isActive)
   const initial = task.bt?.selectedFiles ?? []
   const [draft, setDraft] = useState<number[]>(initial)
-  // Single-file tasks (HTTP/FTP always; single-file BT/Magnet/Metalink) have
-  // no meaningful selection to make — there's only one file. Treat them as
-  // read-only so the select-all checkbox + Save/Cancel footer disappear.
+  // Direct HTTP/FTP and single-file tasks have no file selection to make.
+  // Media tasks require the entire segment plan, so their list is read-only
+  // too, with no select-all checkbox or Save/Cancel controls.
   const isStructurallyImmutable =
+    isMedia ||
     task.type === TaskType.Http ||
     task.type === TaskType.Ftp ||
     files.length <= 1
@@ -67,12 +71,18 @@ export function FilesTab({ task }: { task: DownloadTask }) {
         selectedIndices={selectedIndices}
         onSelectionChange={isReadOnly ? undefined : setDraft}
         readOnly={isReadOnly}
+        renderRowSize={
+          isMedia ? (f) => (f.size > 0 ? formatBytes(f.size) : '—') : undefined
+        }
         renderRowTrailing={(f) =>
-          isActive ? (
+          isActive || isMedia ? (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {files.length === 1
-                ? formatProgressPercent(task.progress)
-                : formatProgressPercent(f.completedBytes / Math.max(f.size, 1))}
+              {formatProgressPercent(
+                f.progress ??
+                  (files.length === 1 && !isMedia
+                    ? task.progress
+                    : f.completedBytes / Math.max(f.size, 1))
+              )}
               %
             </span>
           ) : null

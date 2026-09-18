@@ -91,6 +91,7 @@ import { handleCreateTask } from '@core/task/create-task-handler'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
+import { MediaMetaStoreImpl } from '@core/task/media-meta-store'
 import {
   hasEngineTaskDelta,
   mergeEngineTask,
@@ -441,6 +442,9 @@ const finalNamePicker = new FinalNamePickerImpl({
 })
 const torrentMetaStore = new TorrentMetaStoreImpl(
   path.join(platform.userDataDir, 'torrents')
+)
+const mediaMetaStore = new MediaMetaStoreImpl(
+  path.join(platform.userDataDir, 'media')
 )
 const fileCleanupService = new FileCleanupServiceImpl({
   removePathRecursive,
@@ -1759,6 +1763,10 @@ async function initializeMainProcess(): Promise<void> {
   )
 
   motrixDb.init()
+  await mediaMetaStore
+    .pruneOrphans(motrixDb.getAllTasks().map(({ task }) => task.motrixId))
+    .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
+
   const activityEnvironment = taskInspectorActivityEnvironment(process.env)
   const activeTaskInspectorActivityRuntime = new TaskInspectorActivityRuntime(
     new TaskInspectorActivityStore(motrixDb.database),
@@ -2357,6 +2365,7 @@ async function initializeMainProcess(): Promise<void> {
       adapter,
       log,
       fileCleanupService,
+      mediaMetaStore,
       torrentMetaStore,
       eventBus,
       db: motrixDb,
@@ -2435,6 +2444,7 @@ async function initializeMainProcess(): Promise<void> {
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
     // SessionManager.restore() and the poll loop share the exact same root.
     return bootstrapBridge({
+      mediaMetaStore,
       getMainWindow: () => windowManager?.get('main') ?? null,
       motrixVersion: app.getVersion(),
       ffmpegAvailable: ff.available,
@@ -2590,6 +2600,7 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   const disposeCommandHandlers = registerCommandHandlers({
+    mediaMetaStore,
     cliToolService,
     supervisor,
     dnsFallback: { reset: () => dnsFallbackConsumer?.reset() },
@@ -2667,6 +2678,7 @@ async function initializeMainProcess(): Promise<void> {
     overlayDir,
   })
   const disposeQueryHandlers = registerQueryHandlers({
+    mediaMetaStore,
     cliToolService,
     taskManager,
     statsAggregator,

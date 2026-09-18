@@ -66,6 +66,14 @@ export interface SegmentProgress {
   totalBytes: number
 }
 
+/** A stable index in the plan's [init?, ...segments] order, across retries. */
+export interface SegmentFileProgress {
+  index: number
+  downloadedBytes: number
+  totalBytes: number
+  completed: boolean
+}
+
 /**
  * Injectable timer seam for the byte-polling loop. Returns a stop function.
  * Production uses `setInterval`; tests inject a manual scheduler to drive
@@ -222,7 +230,8 @@ export class SegmentDownloader {
   run(
     plan: SegmentPlan,
     headers: Record<string, string>,
-    onProgress: (p: SegmentProgress) => void
+    onProgress: (p: SegmentProgress) => void,
+    onFileProgress?: (p: SegmentFileProgress) => void
   ): Promise<{ initPath?: string; partPaths: string[] }> {
     this.cancelled = false
     this.rejectRun = null
@@ -341,17 +350,25 @@ export class SegmentDownloader {
           this.settlingGids.add(gid)
           const operation = (async () => {
             const ls = lastSeen.get(gid)
-            if (ls) {
-              // Size known from a prior poll: move it to finished before the
-              // gid leaves the active set so the running total never dips.
-              lastSeen.delete(gid)
-              addFinished(ls.total)
-            } else {
-              // Query before purging: terminal downloads remain queryable only
-              // until removeDownloadResult succeeds.
-              const status = await this.aria2.tellStatus(gid).catch(() => null)
-              if (status) addFinished(status.totalLength)
-            }
+            // A prior poll may have seen an unknown length. Read the final
+            // size before removing the engine result, retaining the last poll
+            // (or declared byte range) if the terminal query fails.
+            const status = ls?.total
+              ? null
+              : await this.aria2.tellStatus(gid).catch(() => null)
+            const size =
+              status?.totalLength ||
+              ls?.total ||
+              job.part.byteRange?.length ||
+              0
+            lastSeen.delete(gid)
+            onFileProgress?.({
+              index: job.jobIndex,
+              downloadedBytes: size,
+              totalBytes: size,
+              completed: true,
+            })
+            if (size > 0) addFinished(size)
 
             await this.purgeResult(gid)
             this.settlingGids.delete(gid)
@@ -372,6 +389,13 @@ export class SegmentDownloader {
           // A retry restarts this segment from zero; drop its cached bytes so
           // the active sum reflects only live in-flight segments.
           lastSeen.delete(gid)
+          onFileProgress?.({
+            index: job.jobIndex,
+            downloadedBytes: 0,
+            totalBytes: job.part.byteRange?.length ?? 0,
+            completed: false,
+          })
+          report()
           const operation = (async () => {
             await this.purgeResult(gid)
             this.settlingGids.delete(gid)
@@ -415,6 +439,15 @@ export class SegmentDownloader {
                   completed: s.completedLength,
                   total: s.totalLength,
                 })
+                const job = this.activeJobs.get(gid)
+                if (job) {
+                  onFileProgress?.({
+                    index: job.jobIndex,
+                    downloadedBytes: s.completedLength,
+                    totalBytes: s.totalLength,
+                    completed: false,
+                  })
+                }
               }
             }
           }
