@@ -2429,7 +2429,6 @@ async function initializeMainProcess(): Promise<void> {
         },
         (candidate) => resolveExecutable(candidate, process.env)
       )
-    const ff = await resolveFfmpegLocation()
     const segmentAria2Client = new Aria2SegmentClient(rpcClient, adapter)
     segmentClient = segmentAria2Client
     const revealInFolder = createRevealInFolderHandler({
@@ -2447,7 +2446,7 @@ async function initializeMainProcess(): Promise<void> {
       mediaMetaStore,
       getMainWindow: () => windowManager?.get('main') ?? null,
       motrixVersion: app.getVersion(),
-      ffmpegAvailable: ff.available,
+      ffmpegAvailable: async () => (await resolveFfmpegLocation()).available,
       enabled: true,
       // Read fresh on every factory invocation (including a hot restart from
       // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
@@ -2494,7 +2493,7 @@ async function initializeMainProcess(): Promise<void> {
           (await torrentParser.parse(base64)).files.length,
         revealTask: (taskId) => revealInFolder({ taskId }),
       },
-      ffmpegBinaryPath: ff.binaryPath,
+      ffmpegBinaryPath: null,
       resolveFfmpegBinaryPath: async () =>
         (await resolveFfmpegLocation()).binaryPath,
       publishTaskUpdate,

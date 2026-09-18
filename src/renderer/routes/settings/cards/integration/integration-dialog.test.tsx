@@ -1,15 +1,18 @@
 import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { toast } from '@renderer/components/ui/toast'
 import {
   CliInstallCapability,
   CliPackageManager,
   CliToolPhase,
   CliToolReason,
 } from '@shared/types/cli-tool'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@renderer/components/ui/toast', () => ({ toast: { add: vi.fn() } }))
 
 // Mutable so individual tests can flip the bridge's reported port status
 // (Task 21) without redefining the whole `vi.mock` factory per test.
@@ -191,6 +194,71 @@ describe('IntegrationDialog scaffold', () => {
       /only in the desktop app/i
     )
   })
+
+  it.each([true, false])(
+    'shows the plugin restart reminder only after a successful FFmpeg save (%s)',
+    async (saved) => {
+      const original = vi.mocked(transport.invoke).getMockImplementation()!
+      vi.mocked(transport.invoke).mockImplementation(
+        async (channel, ...args) => {
+          if (channel === 'command:updateSettings') {
+            if (!saved) throw new Error('Save failed')
+            return { ok: true }
+          }
+          return original(channel, ...args)
+        }
+      )
+      const onClose = vi.fn()
+      try {
+        render(
+          <IntegrationDialog
+            open
+            onClose={onClose}
+            labelKey="settings.cards.integration.title"
+            descKey="settings.cards.integration.desc"
+          />
+        )
+        fireEvent.click(
+          await screen.findByRole('button', { name: 'Show detection details' })
+        )
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Edit custom FFmpeg path' })
+        )
+        fireEvent.change(
+          screen.getByRole('textbox', { name: 'Custom FFmpeg path' }),
+          { target: { value: '/configured/ffmpeg' } }
+        )
+        expect(toast.add).not.toHaveBeenCalled()
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+        await waitFor(() =>
+          expect(transport.invoke).toHaveBeenCalledWith(
+            'command:updateSettings',
+            { media: { ffmpegBinaryPath: '/configured/ffmpeg' } }
+          )
+        )
+        if (saved) {
+          await waitFor(() =>
+            expect(toast.add).toHaveBeenCalledWith(
+              expect.objectContaining({
+                title: 'FFmpeg settings saved',
+                description: expect.stringContaining(
+                  'Restart Motrix for active plugins'
+                ),
+                timeout: 0,
+              })
+            )
+          )
+          expect(onClose).toHaveBeenCalled()
+        } else {
+          await screen.findByText('Couldn’t save your changes. Try again.')
+          expect(toast.add).not.toHaveBeenCalled()
+          expect(onClose).not.toHaveBeenCalled()
+        }
+      } finally {
+        vi.mocked(transport.invoke).mockImplementation(original)
+      }
+    }
+  )
 
   it('keeps the dialog open when the saved magnet association was rejected', async () => {
     const onClose = vi.fn()

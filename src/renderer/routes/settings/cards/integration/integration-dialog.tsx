@@ -19,6 +19,7 @@ import {
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
+import { toast } from '@renderer/components/ui/toast'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
@@ -106,6 +107,18 @@ export function IntegrationDialog({
     const patch = dirty as Partial<AppSettings>
     const result = (await transport.invoke(Commands.UpdateSettings, patch)) as {
       protocolAssociationApplied?: boolean
+    }
+    if (dirty.media?.ffmpegBinaryPath !== undefined) {
+      toast.add({
+        title: t('settings.integration.media.savedTitle'),
+        description: t(
+          isWeb
+            ? 'settings.integration.media.restartHint'
+            : 'settings.integration.media.desktopSavedHint'
+        ),
+        type: 'info',
+        timeout: 0,
+      })
     }
     if (result.protocolAssociationApplied === false) {
       setSaveError(t('settings.integration.system.protocolMagnetApplyFailed'))

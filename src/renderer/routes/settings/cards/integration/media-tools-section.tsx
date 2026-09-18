@@ -178,6 +178,12 @@ export function MediaToolsSection() {
           </div>
         </div>
 
+        {transport.platform !== 'web' && (
+          <p className="text-xs text-muted-foreground">
+            {t('settings.integration.media.applyHint')}
+          </p>
+        )}
+
         <Collapsible
           open={detailsOpen || Boolean(pathError)}
           onOpenChange={setDetailsOpen}

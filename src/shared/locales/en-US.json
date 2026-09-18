@@ -1797,7 +1797,12 @@
         "restartNow": "Restart now",
         "validation": {
           "fileMissing": "File does not exist at this path."
-        }
+        },
+        "applyHint": "Save to apply the custom path. Media downloads use the current FFmpeg path without restarting Motrix; rescan in the browser extension to refresh support.",
+        "savedTitle": "FFmpeg settings saved",
+        "desktopSavedHint": "New media downloads read the saved path. Restart Motrix for active plugins to detect the change.",
+        "pipelineUnavailable": "Media download support is unavailable.",
+        "ffmpegRequired": "This download requires FFmpeg. Configure it in Settings → Integration → Media tools, save, then retry."
       },
       "pairResolveFailed": "Couldn’t submit your decision — try again.",
       "appimage": {
