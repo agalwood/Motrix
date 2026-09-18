@@ -21,7 +21,10 @@ import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
+import { useDownloadsSelection } from '@renderer/routes/downloads/store'
+import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
 import { usePairRequestPrompts } from '@renderer/routes/settings/cards/integration/use-pair-request-prompts'
+import { ALL_DOWNLOADS_ROUTE } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
 import { Outlet, useMatches, useNavigate } from 'react-router'
 
@@ -46,7 +49,13 @@ export function AppLayout() {
   )
   useIpcEvent(Events.NavigateTo, (...args) => {
     const path = args[0]
-    if (typeof path === 'string' && path) navigate(path)
+    if (typeof path !== 'string' || !path) return
+    if (path === ALL_DOWNLOADS_ROUTE) {
+      // A deleted-task fallback must not leave another task's details open.
+      useDownloadsView.getState().setInspectorVisible(false)
+      useDownloadsSelection.getState().clearSelection()
+    }
+    navigate(path)
   })
 
   return (

@@ -1,10 +1,11 @@
 import type { Logger } from '@core/logger'
+import { isTaskAvailable } from '@shared/lib/task-navigation'
 import type { EventChannel } from '@shared/protocol/events'
 import { Events } from '@shared/protocol/events'
 import type { AppNotification } from '@shared/types/notification'
 import { NotificationKinds } from '@shared/types/notification'
 import type { MotrixAppSettings } from '@shared/types/settings'
-import { TaskStatus } from '@shared/types/task'
+import type { TaskStatus } from '@shared/types/task'
 import { Notification } from 'electron'
 
 /** Structural subset of Electron's `BrowserWindow` this bridge needs. */
@@ -50,20 +51,6 @@ function isEnabledForKind(kind: string, settings: MotrixAppSettings): boolean {
   return kind === NotificationKinds.TaskComplete
     ? settings.notifyOnComplete
     : settings.notifyOnError
-}
-
-function isTaskAvailable(status: TaskStatus | null): boolean {
-  return status != null && status !== TaskStatus.Removed
-}
-
-/** Resolve again at dispatch time when a released renderer needs to reload. */
-export function resolveNotificationTaskRoute(
-  taskId: string,
-  status: TaskStatus | null
-): string {
-  return isTaskAvailable(status)
-    ? `/downloads/all?task=${encodeURIComponent(taskId)}`
-    : '/downloads/all'
 }
 
 /**

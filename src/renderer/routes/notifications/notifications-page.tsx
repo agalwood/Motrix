@@ -23,9 +23,10 @@ import { resolveNotificationText } from '@renderer/lib/notification-text'
 import { formatRelativeTime } from '@renderer/lib/relative-time'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { isTaskAvailable, resolveTaskRoute } from '@shared/lib/task-navigation'
 import { Queries } from '@shared/protocol/queries'
 import type { AppNotification } from '@shared/types/notification'
-import { type DownloadTask, TaskStatus } from '@shared/types/task'
+import type { DownloadTask } from '@shared/types/task'
 import { Bell, CheckCheck, Trash2 } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -166,7 +167,7 @@ export function NotificationsPage() {
     () =>
       new Set(
         tasks
-          .filter((task) => task.status !== TaskStatus.Removed)
+          .filter((task) => isTaskAvailable(task.status))
           .map((task) => task.id)
       ),
     [tasks]
@@ -221,17 +222,13 @@ export function NotificationsPage() {
         latest.status === 'ready' &&
         !latest.tasks.some(
           (candidate) =>
-            candidate.id === taskId && candidate.status !== TaskStatus.Removed
+            candidate.id === taskId && isTaskAvailable(candidate.status)
         )
-      if (
-        task == null ||
-        task.status === TaskStatus.Removed ||
-        removedDuringCheck
-      ) {
+      if (task == null || !isTaskAvailable(task.status) || removedDuringCheck) {
         setMissingTaskIds((ids) => new Set(ids).add(taskId))
         return
       }
-      navigate(`/downloads/all?task=${encodeURIComponent(taskId)}`)
+      navigate(resolveTaskRoute(taskId, task.status))
     }, 'notification.center.openTaskFailed')
 
   return (

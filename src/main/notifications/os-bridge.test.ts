@@ -42,10 +42,7 @@ import type {
   OsNotificationHandle,
   OsNotificationMainWindow,
 } from './os-bridge'
-import {
-  createOsNotificationBridge,
-  resolveNotificationTaskRoute,
-} from './os-bridge'
+import { createOsNotificationBridge } from './os-bridge'
 
 // ---------------------------------------------------------------------------
 // Fixtures & helpers
@@ -458,23 +455,6 @@ describe('createOsNotificationBridge — body rendering', () => {
 // ---------------------------------------------------------------------------
 // Click behavior
 // ---------------------------------------------------------------------------
-
-describe('resolveNotificationTaskRoute', () => {
-  it.each([null, TaskStatus.Removed])(
-    'falls back to all downloads when the current task status is %s',
-    (status) => {
-      expect(resolveNotificationTaskRoute('t-1', status)).toBe('/downloads/all')
-    }
-  )
-
-  it.each(
-    Object.values(TaskStatus).filter((status) => status !== TaskStatus.Removed)
-  )('preserves task navigation for an existing %s task', (status) => {
-    expect(resolveNotificationTaskRoute('task/?#1', status)).toBe(
-      '/downloads/all?task=task%2F%3F%231'
-    )
-  })
-})
 
 describe('createOsNotificationBridge — click behavior', () => {
   it.each([

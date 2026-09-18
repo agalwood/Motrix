@@ -121,6 +121,10 @@ import {
 import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
+import {
+  ALL_DOWNLOADS_ROUTE,
+  resolveTaskRoute,
+} from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
 import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
@@ -180,10 +184,7 @@ import { suppressMacOSAutomaticFullscreenMenuItem } from './menu/macos-fullscree
 import { MenuManager } from './menu/menu-manager'
 import { MenuRegistry } from './menu/menu-registry'
 import { createNatManager } from './nat/nat-manager-factory'
-import {
-  createOsNotificationBridge,
-  resolveNotificationTaskRoute,
-} from './notifications/os-bridge'
+import { createOsNotificationBridge } from './notifications/os-bridge'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
 import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
@@ -666,6 +667,21 @@ function dispatchWhenReady(
   }
 }
 
+// Notifications and protocol links share the same last-moment availability
+// check, including the wait for a released main window to finish loading.
+function navigateToTask(taskId: string) {
+  runShellAsyncWork('task navigation', async () => {
+    // A cold-start link can arrive before the persisted tasks are restored.
+    await mainProcessWork.waitForStartup()
+    if (!mainProcessWork.isAccepting()) return
+    const win = windowManager?.get('main')
+    if (!win || win.isDestroyed()) return
+    dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE, () =>
+      resolveTaskRoute(taskId, taskManager.getById(taskId)?.status)
+    )
+  })
+}
+
 // Each new add-task BrowserWindow gets a `closed` listener that resets
 // protocolManager's dialog state. Without this, after the first .torrent
 // open + close, dialogActive stays true and subsequent opens fall through
@@ -727,6 +743,11 @@ const protocolManager = createProtocolManager({
     const win = windowManager.get('main')
     if (!win || win.isDestroyed()) return
     dispatchWhenReady(win, Events.NavigateTo, `/plugins/${pluginId}`)
+  },
+  onOpenTaskDetail: (taskId) => {
+    if (!windowManager) return
+    windowManager.show('main')
+    navigateToTask(taskId)
   },
 })
 
@@ -1650,20 +1671,11 @@ async function initializeMainProcess(): Promise<void> {
     getAppSettings: () => settingsManager.getApp(),
     translate: i18n.t.bind(i18n),
     getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
-    navigateToTask: (taskId) => {
-      const win = windowManager?.get('main')
-      if (!win || win.isDestroyed()) return
-      dispatchWhenReady(win, Events.NavigateTo, '/downloads/all', () =>
-        resolveNotificationTaskRoute(
-          taskId,
-          taskManager.getById(taskId)?.status ?? null
-        )
-      )
-    },
+    navigateToTask,
     navigateToDownloads: () => {
       const win = windowManager?.get('main')
       if (!win || win.isDestroyed()) return
-      dispatchWhenReady(win, Events.NavigateTo, '/downloads/all')
+      dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE)
     },
     revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
     log,
