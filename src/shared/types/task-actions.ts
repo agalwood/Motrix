@@ -55,6 +55,7 @@ export function canPause(t: DownloadTask): boolean {
   // mux instance instead of status alone (status alone would leave the Pause
   // button enabled during mux, where every click would fail with no gids).
   if (isMediaKind(t.kind)) {
+    if (t.mediaProgress && t.mediaProgress.phase !== 'downloading') return false
     const muxStarted = t.instances.some(
       (i) =>
         i.phase === TaskInstancePhase.FfmpegMux &&

@@ -1,7 +1,8 @@
+import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus } from '@shared/types/task'
+import { TaskKind, TaskStatus } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -65,4 +66,66 @@ describe('MultiSelectionSummary', () => {
     expect(screen.getByText(/totals/i)).toBeInTheDocument()
     expect(screen.getByText(/8\.00 GB/)).toBeInTheDocument()
   })
+})
+
+it('averages download fractions while counting post-processing separately', () => {
+  const { rerender } = render(
+    <MultiSelectionSummary
+      tasks={[
+        fake({
+          kind: TaskKind.Hls,
+          progress: 1,
+          mediaProgress: makeMediaProgress({
+            phase: 'muxing',
+            download: {
+              progress: 1,
+              completedParts: 1000,
+              totalParts: 1000,
+              totalBytes: null,
+            },
+            muxProgress: 0.1,
+          }),
+        }),
+        fake({ progress: 0.5 }),
+      ]}
+    />
+  )
+  expect(screen.getByText('75%')).toBeInTheDocument()
+  expect(screen.getByText('Processing').parentElement).toHaveTextContent('1')
+  expect(screen.getByText('Total size').parentElement).toHaveTextContent('—')
+  rerender(
+    <MultiSelectionSummary
+      tasks={[
+        fake({ kind: TaskKind.Hls, progress: 1 }),
+        fake({ progress: 0.5 }),
+      ]}
+    />
+  )
+  expect(
+    screen.getByText('Average download progress').parentElement
+  ).toHaveTextContent('—')
+})
+
+it('does not let completed selections erase a known remaining download ETA', () => {
+  render(
+    <MultiSelectionSummary
+      tasks={[
+        fake({ status: TaskStatus.Completed }),
+        fake({
+          kind: TaskKind.Hls,
+          mediaProgress: makeMediaProgress({
+            download: {
+              progress: 0.5,
+              completedParts: 1,
+              totalParts: 2,
+              totalBytes: 1000,
+            },
+          }),
+        }),
+      ]}
+    />
+  )
+  expect(screen.getByText('Longest ETA').parentElement).toHaveTextContent(
+    '00:10'
+  )
 })

@@ -1,3 +1,4 @@
+import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 
 import { vi } from 'vitest'
@@ -61,6 +62,59 @@ function getEtaCell(container: HTMLElement): Element {
 }
 
 describe('TaskRow', () => {
+  it('shows media stages even with the status column hidden and exposes indeterminate progress', () => {
+    const task = fake({
+      kind: TaskKind.Hls,
+      progress: 1,
+      mediaProgress: makeMediaProgress(),
+    })
+    const { rerender } = render(
+      <TaskRow
+        task={task}
+        rowProps={rowProps}
+        columns={[
+          { id: 'name', width: 240, visible: true },
+          { id: 'progress', width: 160, visible: true },
+        ]}
+      />
+    )
+    expect(screen.getByText('Downloading 0.1%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '0.1'
+    )
+    rerender(
+      <TaskRow
+        task={{
+          ...task,
+          mediaProgress: makeMediaProgress({ phase: 'assembling' }),
+        }}
+        rowProps={rowProps}
+        columns={[{ id: 'progress', width: 160, visible: true }]}
+      />
+    )
+    expect(screen.getByText('Assembling —')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
+    rerender(
+      <TaskRow
+        task={{
+          ...task,
+          mediaProgress: makeMediaProgress({
+            phase: 'muxing',
+            muxProgress: 0.42,
+          }),
+        }}
+        rowProps={rowProps}
+        columns={[{ id: 'progress', width: 160, visible: true }]}
+      />
+    )
+    expect(screen.getByText('Merging 42%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '42'
+    )
+  })
+
   it('keeps a slow unfinished tail below 100% until bytes finish', () => {
     const task = fake({ progress: 0.995, downloadSpeed: 102400 })
     const { rerender } = render(<TaskRow task={task} rowProps={rowProps} />)

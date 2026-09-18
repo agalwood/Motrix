@@ -1,10 +1,15 @@
 import { type DownloadTask, TaskStatus, TaskType } from '@shared/types/task'
+import { getTransferMetrics, isMediaTask } from '@shared/utils/media-progress'
 
 export function getTaskSpeed(
   task: DownloadTask,
   field: 'downloadSpeed' | 'uploadSpeed'
 ): number | null {
-  const speed = task[field]
+  const speed = isMediaTask(task)
+    ? field === 'downloadSpeed'
+      ? getTransferMetrics(task).speedBps
+      : 0
+    : task[field]
   return task.status === TaskStatus.Completed ||
     task.status === TaskStatus.Finalizing ||
     !Number.isFinite(speed) ||
@@ -14,6 +19,7 @@ export function getTaskSpeed(
 }
 
 export function getTaskEta(task: DownloadTask): number | null {
+  if (isMediaTask(task)) return getTransferMetrics(task).etaSec
   return task.status === TaskStatus.Paused ||
     task.status === TaskStatus.Completed ||
     task.status === TaskStatus.Finalizing ||

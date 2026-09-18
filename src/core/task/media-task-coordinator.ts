@@ -15,6 +15,7 @@ import { getLogger } from '@core/logger'
 import type { assembleSegments } from '@core/media/segment-assembler'
 import type { SegmentDecryptor } from '@core/media/segment-decryptor'
 import type { SegmentPlan } from '@core/media/segment-plan'
+import type { MediaPhase } from '@shared/schemas/media-progress'
 import type { SourceMeta } from '@shared/types/task'
 import {
   type DownloadTask,
@@ -28,6 +29,7 @@ import {
 } from '@shared/types/task'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
+import { finiteProgress } from '@shared/utils/media-progress'
 import {
   buildTerminalOccurrence,
   persistWithOccurrenceOrWarn,
@@ -37,6 +39,7 @@ import {
 import { applyTerminalTransition } from './apply-terminal-transition'
 import type { CreateRequestReceipt } from './create-request-id'
 import type { MediaManifest, MediaMetaStore } from './media-meta-store'
+import { setMediaProgress } from './media-task-progress'
 import type { OccurrenceDispatcher } from './occurrences/occurrence-dispatcher'
 import { toTempPath } from './paths'
 import { admitHttpSource } from './source-admission'
@@ -255,6 +258,24 @@ export class MediaTaskCoordinator {
       video: admitPlan(job.video),
       audio: job.audio ? admitPlan(job.audio) : undefined,
     }
+    if (job.video.segments.length === 0 || job.audio?.segments.length === 0) {
+      throw new Error('Media plan has no segments')
+    }
+    const countParts = (plan: SegmentPlan) =>
+      plan.segments.length + (plan.init ? 1 : 0)
+    const videoTotal = countParts(job.video)
+    const audioTotal = job.audio ? countParts(job.audio) : 0
+    const grandTotal = videoTotal + audioTotal
+    const declaredSize = (plan: SegmentPlan): number => {
+      const parts = plan.init ? [plan.init, ...plan.segments] : plan.segments
+      return parts.every(
+        (part) =>
+          Number.isFinite(part.byteRange?.length) &&
+          (part.byteRange?.length ?? 0) > 0
+      )
+        ? parts.reduce((sum, part) => sum + (part.byteRange?.length ?? 0), 0)
+        : 0
+    }
     const now = Date.now()
 
     // Reserve the final name by creating the `.motrix` placeholder in saveDir —
@@ -358,6 +379,23 @@ export class MediaTaskCoordinator {
       instances,
       now
     )
+    const initialVideoBytes = declaredSize(job.video)
+    const initialAudioBytes = job.audio ? declaredSize(job.audio) : 0
+    setMediaProgress(task, {
+      version: 1,
+      phase: 'preparing',
+      download: {
+        progress: 0,
+        completedParts: 0,
+        totalParts: grandTotal,
+        totalBytes:
+          initialVideoBytes > 0 && (!job.audio || initialAudioBytes > 0)
+            ? initialVideoBytes + initialAudioBytes
+            : null,
+      },
+      muxProgress: null,
+      outputBytes: null,
+    })
     // Prepare task-owned IO before publication. Once visible, every task must
     // already have cancellation ownership; a failed temp-directory setup must
     // not leave a durable queued task or metadata without a runnable pipeline.
@@ -417,6 +455,26 @@ export class MediaTaskCoordinator {
       }
     }
 
+    const changePhase = async (phase: MediaPhase) => {
+      assertActive()
+      this.updateTask(taskId, (t) => {
+        if (!t.mediaProgress) return
+        setMediaProgress(t, { ...t.mediaProgress, phase })
+        t.downloadSpeed = 0
+        t.etaSeconds = 0
+        t.connections = 0
+        if (phase === 'muxing') {
+          setInstanceStatus(
+            t.instances,
+            TaskInstancePhase.FfmpegMux,
+            TaskStatus.Downloading
+          )
+        }
+      })
+      await this.persistBestEffort(taskId, 'phase')
+      assertActive()
+    }
+
     try {
       assertActive()
       // -----------------------------------------------------------------------
@@ -430,6 +488,8 @@ export class MediaTaskCoordinator {
       // empty downloader list and the segment run would start uncancellable.
       const toDownloading = (t: DownloadTask): void => {
         t.status = TaskStatus.Downloading
+        if (t.mediaProgress)
+          setMediaProgress(t, { ...t.mediaProgress, phase: 'downloading' })
         setInstanceStatus(
           t.instances,
           TaskInstancePhase.HlsSegment,
@@ -443,24 +503,19 @@ export class MediaTaskCoordinator {
       }
       assertActive()
 
-      // Total segment count across video + audio — the fallback for aggregate
-      // progress when byte counts are not yet known (e.g. before the first
-      // poll, or if aria2 reports no lengths).
-      const videoTotal = (job.video.init ? 1 : 0) + job.video.segments.length
-      const audioTotal = job.audio
-        ? (job.audio.init ? 1 : 0) + job.audio.segments.length
-        : 0
-      const grandTotal = videoTotal + audioTotal
-
-      // Live per-stream state, updated by each downloader's progress callback.
-      // The two streams download CONCURRENTLY (see below), so both totals are
-      // known once each stream has been polled once — the task's totalBytes is
-      // correct up front and the bar climbs smoothly end-to-end, instead of the
-      // total growing (and progress jumping back) when audio starts under a
-      // sequential model. `completed` is the per-stream segment count feeding
-      // the fraction fallback; `downloaded`/`total` are bytes.
-      const videoBytes = { downloaded: 0, total: 0, completed: 0 }
-      const audioBytes = { downloaded: 0, total: 0, completed: 0 }
+      // The plan denominator is fixed, including streams not yet polled.
+      const videoBytes = {
+        downloaded: 0,
+        total: initialVideoBytes,
+        completed: 0,
+        fraction: 0,
+      }
+      const audioBytes = {
+        downloaded: 0,
+        total: initialAudioBytes,
+        completed: 0,
+        fraction: 0,
+      }
 
       // Download-speed sampler: bytes/s from the downloaded delta over a ≥0.5s
       // window (the two stream callbacks interleave, so a coarse window avoids
@@ -469,26 +524,35 @@ export class MediaTaskCoordinator {
       let speedSampleTime = clock()
       let speedSampleBytes = 0
 
-      // Derive real byte progress; fall back to the segment-count fraction only
-      // while totalBytes is still 0 (never NaN, never a shrinking total). Also
-      // populate the aria2-task display fields the UI reads — sizeWhenDone (the
-      // list "size" column + detail "Total size"), connections, downloadSpeed,
-      // etaSeconds — which a coordinator task would otherwise leave at 0.
+      // Bytes describe transfer volume; only the complete plan can supply a
+      // byte denominator. Main progress always uses all planned segments.
       const applyBytes = (t: DownloadTask) => {
         const downloadedBytes = videoBytes.downloaded + audioBytes.downloaded
-        const totalBytes = videoBytes.total + audioBytes.total
+        const totalBytes =
+          videoBytes.total > 0 && (!job.audio || audioBytes.total > 0)
+            ? videoBytes.total + audioBytes.total
+            : 0
         const overallFrac =
           grandTotal > 0
-            ? (videoBytes.completed + audioBytes.completed) / grandTotal
+            ? (videoBytes.fraction * videoTotal +
+                audioBytes.fraction * audioTotal) /
+              grandTotal
             : 0
         const connections = state.downloaders.reduce(
           (n, d) => n + d.getActiveGidCount(),
           0
         )
         t.downloadedBytes = downloadedBytes
-        t.totalBytes = totalBytes
-        t.sizeWhenDone = totalBytes
-        t.progress = totalBytes > 0 ? downloadedBytes / totalBytes : overallFrac
+        if (t.mediaProgress)
+          setMediaProgress(t, {
+            ...t.mediaProgress,
+            download: {
+              progress: overallFrac,
+              completedParts: videoBytes.completed + audioBytes.completed,
+              totalParts: grandTotal,
+              totalBytes: totalBytes > 0 ? totalBytes : null,
+            },
+          })
         t.connections = connections
 
         if (connections === 0) {
@@ -507,8 +571,11 @@ export class MediaTaskCoordinator {
           speedSampleBytes = downloadedBytes
         }
         t.etaSeconds =
-          t.downloadSpeed > 0
-            ? Math.round((totalBytes - downloadedBytes) / t.downloadSpeed)
+          totalBytes > 0 && t.downloadSpeed > 0
+            ? Math.max(
+                0,
+                Math.round((totalBytes - downloadedBytes) / t.downloadSpeed)
+              )
             : 0
       }
 
@@ -516,16 +583,22 @@ export class MediaTaskCoordinator {
       // state it writes and which instance phase it advances.
       const onStreamProgress =
         (
-          streamBytes: { downloaded: number; total: number; completed: number },
-          phase: TaskInstancePhase,
-          segTotal: number
+          streamBytes: {
+            downloaded: number
+            total: number
+            completed: number
+            fraction: number
+          },
+          phase: TaskInstancePhase
         ) =>
         (p: SegmentProgress) => {
-          if (state.cancelled) return
+          if (state.cancelled || !this.running.has(taskId)) return
           streamBytes.downloaded = p.downloadedBytes
           streamBytes.total = p.totalBytes
-          streamBytes.completed = Math.round(p.fraction * segTotal)
+          streamBytes.completed = p.completedParts
+          streamBytes.fraction = p.fraction
           this.updateTask(taskId, (t) => {
+            if (t.mediaProgress?.phase !== 'downloading') return
             setInstanceProgress(t.instances, phase, p.fraction)
             applyBytes(t)
           })
@@ -565,7 +638,7 @@ export class MediaTaskCoordinator {
       const runVideo = videoDownloader.run(
         job.video,
         job.headers,
-        onStreamProgress(videoBytes, TaskInstancePhase.HlsSegment, videoTotal),
+        onStreamProgress(videoBytes, TaskInstancePhase.HlsSegment),
         onFileProgress('video')
       )
 
@@ -577,11 +650,7 @@ export class MediaTaskCoordinator {
           ? audioDownloader.run(
               audioPlan,
               job.headers,
-              onStreamProgress(
-                audioBytes,
-                TaskInstancePhase.HlsAudio,
-                audioTotal
-              ),
+              onStreamProgress(audioBytes, TaskInstancePhase.HlsAudio),
               onFileProgress('audio')
             )
           : Promise.resolve(null)
@@ -595,6 +664,14 @@ export class MediaTaskCoordinator {
       // -----------------------------------------------------------------------
       // Phase: decrypt
       // -----------------------------------------------------------------------
+      if (
+        [job.video, job.audio].some(
+          (plan) =>
+            plan && (plan.init?.key || plan.segments.some((part) => part.key))
+        )
+      ) {
+        await changePhase('decrypting')
+      }
       await decryptPlan(job.video, videoResult, this.deps.decryptor)
       assertActive()
       if (job.audio && audioResult) {
@@ -609,6 +686,7 @@ export class MediaTaskCoordinator {
       // (bilibili/DASH fragmented-MP4) are MP4-family — use .mp4 so the
       // extension matches the content (ffmpeg also probes, but the hint should
       // not lie).
+      await changePhase('assembling')
       const ext = job.video.container === 'mpegts' ? 'ts' : 'mp4'
       const videoAssembled = path.join(tmpDir, `video.${ext}`)
       await this.deps.assemble({
@@ -633,15 +711,7 @@ export class MediaTaskCoordinator {
       // -----------------------------------------------------------------------
       // Phase: muxing
       // -----------------------------------------------------------------------
-      this.updateTask(taskId, (t) => {
-        t.progress = 0
-        t.status = TaskStatus.Downloading // keep as Downloading until mux done
-        setInstanceStatus(
-          t.instances,
-          TaskInstancePhase.FfmpegMux,
-          TaskStatus.Downloading
-        )
-      })
+      await changePhase('muxing')
 
       // saveDir was already created at reservation time; re-ensure it here in
       // case the user deleted it during a long download — ffmpeg does NOT
@@ -687,12 +757,22 @@ export class MediaTaskCoordinator {
           durationSec: job.durationSec,
         },
         (p) => {
+          if (state.cancelled) return
           this.updateTask(taskId, (t) => {
-            t.progress = p.progress
+            if (
+              t.status !== TaskStatus.Downloading ||
+              t.mediaProgress?.phase !== 'muxing'
+            )
+              return
+            const progress =
+              p.progress === null
+                ? null
+                : Math.min(0.9999, finiteProgress(p.progress))
+            setMediaProgress(t, { ...t.mediaProgress, muxProgress: progress })
             setInstanceProgress(
               t.instances,
               TaskInstancePhase.FfmpegMux,
-              p.progress
+              progress ?? 0
             )
           })
         }
@@ -707,7 +787,12 @@ export class MediaTaskCoordinator {
       await this.transition(
         taskId,
         (t) => {
-          t.progress = 1
+          if (t.mediaProgress)
+            setMediaProgress(t, {
+              ...t.mediaProgress,
+              phase: 'renaming',
+              muxProgress: 1,
+            })
           assertActive()
           Object.assign(t, applyTerminalTransition(t, TaskStatus.Finalizing))
           setTaskTransitionPhase(t, TransitionPhase.Renaming)
@@ -722,11 +807,21 @@ export class MediaTaskCoordinator {
       assertActive()
       await fs.promises.rename(diskPath, finalPath)
       assertActive()
+      const outputBytes = await fs.promises
+        .stat(finalPath)
+        .then((stat) => stat.size)
+        .catch((err) => {
+          log.warn({ err, taskId }, 'Final media size unavailable')
+          return null
+        })
+      assertActive()
       const completedAt = this.now()
 
       await this.transition(
         taskId,
         (t) => {
+          if (t.mediaProgress)
+            setMediaProgress(t, { ...t.mediaProgress, outputBytes })
           t.progress = 1
           completeTaskAfterRename(
             t,
@@ -867,6 +962,7 @@ export class MediaTaskCoordinator {
     const task = this.deps.taskManager.getById(taskId)
     if (!task) return
     const prevStatus = task.status
+    const prevPhase = task.mediaProgress?.phase
     mut(task)
     task.updatedAt = Date.now()
     this.deps.taskManager.set(taskId, task)
@@ -874,12 +970,14 @@ export class MediaTaskCoordinator {
     // terminal Completed/Error must never be dropped by the throttle (bridge
     // consumers derive terminal notifications from the status in the payload).
     // Pure byte-progress updates are throttled.
-    this.emitUpdate(task.status !== prevStatus)
+    this.emitUpdate(
+      task.status !== prevStatus || task.mediaProgress?.phase !== prevPhase
+    )
   }
 
   private async persistBestEffort(
     taskId: string,
-    context: 'completion' | 'failure' | 'cancellation'
+    context: 'completion' | 'failure' | 'cancellation' | 'phase'
   ): Promise<void> {
     const task = this.deps.taskManager.getById(taskId)
     if (!task) return

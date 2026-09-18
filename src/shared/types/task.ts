@@ -1,4 +1,5 @@
 import type { DownloadErrorCode } from '../errors'
+import type { MediaProgressSnapshot } from '../schemas/media-progress'
 
 export enum TaskStatus {
   Queued = 'queued',
@@ -78,6 +79,8 @@ export interface DownloadTask {
   type: TaskType
   status: TaskStatus
   progress: number
+  /** Fixed-size media phase snapshot; detailed files live outside SQLite. */
+  mediaProgress?: MediaProgressSnapshot
   totalBytes: number
   downloadedBytes: number
   downloadSpeed: number

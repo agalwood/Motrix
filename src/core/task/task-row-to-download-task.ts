@@ -8,6 +8,7 @@ import {
 import { isTorrentLikeType } from '@shared/types/task-actions'
 import { shareRatio } from '@shared/utils/share-ratio'
 import { unsettledBtUpload } from './bt-upload-settlement'
+import { restoreMediaProgress } from './media-task-progress'
 import { restoreTaskSaveDirectory } from './task-save-directory'
 
 /** Build a generic DownloadTask domain object from canonical TaskRow data.
@@ -43,7 +44,7 @@ export function taskRowToDownloadTask(
       })
     : undefined
 
-  return {
+  return restoreMediaProgress({
     id: task.motrixId,
     engineTaskId: primary?.gid ?? '',
     name: task.name,
@@ -88,5 +89,5 @@ export function taskRowToDownloadTask(
     torrentMetaPath: task.torrentMetaPath,
     bt,
     instances: instances.map((i) => ({ ...i })),
-  }
+  })
 }

@@ -7,6 +7,7 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import { mediaProgressPercent } from '@shared/utils/media-progress'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -77,7 +78,7 @@ export function FilesTab({ task }: { task: DownloadTask }) {
         renderRowTrailing={(f) =>
           isActive || isMedia ? (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {formatProgressPercent(
+              {(isMedia ? mediaProgressPercent : formatProgressPercent)(
                 f.progress ??
                   (files.length === 1 && !isMedia
                     ? task.progress

@@ -835,6 +835,23 @@
         "uploadLimit": "上传上限：{{speed}}",
         "downloadLimit": "下载上限：{{speed}}",
         "saveFailed": "无法切换速度模式，请重试。"
+      },
+      "media": {
+        "preparing": "准备中",
+        "decrypting": "解密中",
+        "assembling": "拼接中",
+        "muxing": "合并中",
+        "renaming": "保存中",
+        "stage": "当前阶段",
+        "downloadProgress": "下载进度",
+        "muxProgress": "合并进度",
+        "parts": "分片",
+        "partsFormat": "{{completed}} / {{total}} 个分片",
+        "downloadSize": "下载总量",
+        "outputSize": "成品大小",
+        "downloadEta": "下载剩余时间",
+        "avgDownloadProgress": "平均下载进度",
+        "processingTasks": "处理中任务"
       }
     }
   },

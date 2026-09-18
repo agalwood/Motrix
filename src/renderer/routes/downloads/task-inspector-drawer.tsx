@@ -178,7 +178,7 @@ export function TaskInspectorDrawer({
                         </div>
                       )}
                   </div>
-                  <StatusPill status={single.status} />
+                  <StatusPill status={single.status} task={single} />
                 </div>
                 <Tabs
                   value={activeSubtab}

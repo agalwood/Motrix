@@ -1,10 +1,10 @@
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
-import { getProgressBarTone } from '@renderer/lib/task-status-ui'
+import { formatDurationHMS } from '@renderer/lib/format'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
+import { getOutputSize } from '@shared/utils/media-progress'
 import { memo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -21,6 +21,7 @@ import {
   getTaskSpeed,
   getTaskTimestamp,
 } from './task-column-values'
+import { TaskProgress } from './task-progress'
 import { TaskTimestamp } from './task-timestamp'
 
 export interface TaskRowProps {
@@ -45,7 +46,7 @@ function TaskRowBase({
 }: TaskRowProps) {
   const { formatBytes, formatSpeed } = useByteFormat()
   const { t, i18n } = useTranslation()
-  const pct = formatProgressPercent(task.progress)
+  const outputSize = getOutputSize(task)
   const downloadSpeed = getTaskSpeed(task, 'downloadSpeed')
   const uploadSpeed = getTaskSpeed(task, 'uploadSpeed')
   const eta = getTaskEta(task)
@@ -82,19 +83,9 @@ function TaskRowBase({
         {extension && <span className="shrink-0">{extension}</span>}
       </span>
     ),
-    size: formatBytes(task.sizeWhenDone),
-    progress: (
-      <span className="flex items-center gap-2">
-        <span className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-          <span
-            className={cn('block h-full', getProgressBarTone(task.status))}
-            style={{ width: `${pct}%` }}
-          />
-        </span>
-        <span className="w-10 shrink-0 text-right">{pct}%</span>
-      </span>
-    ),
-    status: <StatusPill status={task.status} compact />,
+    size: outputSize === null ? '—' : formatBytes(outputSize),
+    progress: <TaskProgress task={task} />,
+    status: <StatusPill status={task.status} task={task} compact />,
     down: downloadSpeed === null ? '—' : formatSpeed(downloadSpeed),
     up: uploadSpeed === null ? '—' : formatSpeed(uploadSpeed),
     eta: eta === null ? '—' : formatDurationHMS(eta),

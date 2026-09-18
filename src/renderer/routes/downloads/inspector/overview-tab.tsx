@@ -18,8 +18,17 @@ import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { canAttemptRetry } from '@shared/types/task-actions'
+import {
+  getDownloadProgress,
+  getOutputSize,
+  getTransferMetrics,
+  isMediaTask,
+  mediaProgressPercent,
+} from '@shared/utils/media-progress'
 import { AlertCircleIcon, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { StatusPill } from '../status-pill'
+import { getTaskEta, getTaskSpeed } from '../task-column-values'
 import { TaskTimestamp } from '../task-timestamp'
 import { SeedingDuration } from './seeding-duration'
 import { useTaskActions } from './use-task-actions'
@@ -119,6 +128,13 @@ export function OverviewTab({
   const { formatSpeed, formatBytes } = useByteFormat()
 
   const { t, i18n } = useTranslation()
+  const media = isMediaTask(task)
+  const progress = getDownloadProgress(task)
+  const outputSize = getOutputSize(task)
+  const transfer = getTransferMetrics(task)
+  const eta = getTaskEta(task)
+  const muxProgress = task.mediaProgress?.muxProgress ?? null
+  const downSpeed = getTaskSpeed(task, 'downloadSpeed')
   const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
   return (
     <div className="flex flex-col gap-3">
@@ -127,11 +143,15 @@ export function OverviewTab({
         <Card title={t('panel.downloads.inspector.overview.transfer')}>
           <Row
             label={t('panel.downloads.inspector.overview.upSpeed')}
-            value={formatSpeed(task.uploadSpeed)}
+            value={media ? '—' : formatSpeed(task.uploadSpeed)}
           />
           <Row
             label={t('panel.downloads.inspector.overview.downSpeed')}
-            value={formatSpeed(task.downloadSpeed)}
+            value={
+              media && downSpeed === null
+                ? '—'
+                : formatSpeed(task.downloadSpeed)
+            }
           />
           {isBt && (
             <Row
@@ -145,17 +165,70 @@ export function OverviewTab({
           />
         </Card>
         <Card title={t('panel.downloads.inspector.overview.progress')}>
+          {media && (
+            <>
+              <Row
+                label={t('panel.downloads.media.stage')}
+                value={<StatusPill status={task.status} task={task} />}
+              />
+              {task.mediaProgress?.phase === 'muxing' && (
+                <Row
+                  label={t('panel.downloads.media.muxProgress')}
+                  value={
+                    muxProgress === null
+                      ? '—'
+                      : `${mediaProgressPercent(muxProgress)}%`
+                  }
+                />
+              )}
+              <Row
+                label={t('panel.downloads.media.parts')}
+                value={
+                  task.mediaProgress
+                    ? t('panel.downloads.media.partsFormat', {
+                        completed: task.mediaProgress.download.completedParts,
+                        total: task.mediaProgress.download.totalParts,
+                      })
+                    : '—'
+                }
+              />
+              <Row
+                label={t('panel.downloads.media.downloadSize')}
+                value={
+                  transfer.bytesTotal === null
+                    ? '—'
+                    : formatBytes(transfer.bytesTotal)
+                }
+              />
+            </>
+          )}
           <Row
-            label={t('panel.downloads.inspector.overview.totalSize')}
-            value={formatBytes(task.sizeWhenDone)}
+            label={t(
+              media
+                ? 'panel.downloads.media.outputSize'
+                : 'panel.downloads.inspector.overview.totalSize'
+            )}
+            value={outputSize === null ? '—' : formatBytes(outputSize)}
           />
           <Row
-            label={t('panel.downloads.inspector.overview.percent')}
-            value={`${formatProgressPercent(task.progress)}%`}
+            label={t(
+              media
+                ? 'panel.downloads.media.downloadProgress'
+                : 'panel.downloads.inspector.overview.percent'
+            )}
+            value={
+              progress === null
+                ? '—'
+                : `${media ? mediaProgressPercent(progress) : formatProgressPercent(progress)}%`
+            }
           />
           <Row
-            label={t('panel.downloads.inspector.overview.eta')}
-            value={formatDurationHMS(task.etaSeconds)}
+            label={t(
+              media
+                ? 'panel.downloads.media.downloadEta'
+                : 'panel.downloads.inspector.overview.eta'
+            )}
+            value={eta === null ? '—' : formatDurationHMS(eta)}
           />
           {isBt && (
             <Row
