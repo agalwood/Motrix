@@ -1,6 +1,10 @@
 import type { DownloadCookie } from '@core/engine/engine-adapter'
 import type { CreateRequestReceipt } from '@core/task/create-request-id'
 import {
+  filenameFromResourceUrl,
+  sanitizeRemoteFilename,
+} from '@core/task/direct-resource-validator'
+import {
   admitDownloadSources,
   admitHttpSource,
 } from '@core/task/source-admission'
@@ -23,6 +27,8 @@ export interface AdaptedDirect {
   taskId: string
   saveDir: string
   finalName: string
+  /** The client supplied no usable filename; discover it during creation. */
+  discoverFilename?: true
   kind: 'direct'
   primaryUrl: string
   sanitizedHeaders: Record<string, string>
@@ -191,9 +197,12 @@ export class SubmitDownloadAdapter {
 
     // selection.kind === 'direct'
     const primaryUrl = selection.primary.url
-    const sanitized = sanitizeFilename(meta.suggestedFilename)
+    const sanitized = sanitizeRemoteFilename(meta.suggestedFilename)
     const taskId = this.deps.mintTaskId()
-    const finalName = await this.deps.pickName(saveDir, sanitized)
+    const finalName = await this.deps.pickName(
+      saveDir,
+      sanitized ?? filenameFromResourceUrl(primaryUrl) ?? 'download'
+    )
     const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
 
     return {
@@ -201,6 +210,7 @@ export class SubmitDownloadAdapter {
       saveDir,
       finalName,
       kind: 'direct',
+      ...(sanitized ? {} : { discoverFilename: true as const }),
       primaryUrl,
       sanitizedHeaders,
       // Export only the engine-neutral fields. SameSite describes browser

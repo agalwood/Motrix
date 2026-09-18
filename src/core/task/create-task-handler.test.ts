@@ -1,3 +1,5 @@
+import { DirectPipeline } from '@core/bridge-receiver/pipelines/direct-pipeline'
+import { SubmitDownloadAdapter } from '@core/bridge-receiver/submit-download-adapter'
 import { initLogger } from '@core/logger'
 import {
   AppliedDownloadProxyPolicy,
@@ -24,7 +26,10 @@ import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
-import { sanitizeRemoteFilename } from './direct-resource-validator'
+import {
+  DirectResourceValidatorService,
+  sanitizeRemoteFilename,
+} from './direct-resource-validator'
 import { FinalNamePickerImpl } from './final-name-picker'
 
 // Stub `mkdir` (and the other `fs.*` calls inadvertently dragged
@@ -366,6 +371,123 @@ function lastAddedTask(deps: { add: ReturnType<typeof vi.fn> }): DownloadTask {
   const call = deps.add.mock.calls[0]
   return call[0] as DownloadTask
 }
+
+describe('browser direct download filenames', () => {
+  const url =
+    'https://cdn.example/c-m9021?filename=BCUninstaller_6.3.0_portable.7z'
+  const filename = 'BCUninstaller_6.3.0_portable.7z'
+
+  async function submit(suggestedFilename: string, response: Response | Error) {
+    const deps = makeDeps()
+    const fetchMetadata = vi.fn(
+      async (_url: string | URL, _init?: RequestInit) => {
+        if (response instanceof Error) throw response
+        return response
+      }
+    )
+    deps.directResourceValidator = new DirectResourceValidatorService(
+      fetchMetadata
+    )
+    const adapter = new SubmitDownloadAdapter({
+      getDefaultSaveDir: () => '/d',
+      pickName: (dir, name) => deps.finalNamePicker.pick(dir, name),
+      mintTaskId: () => 'bridge-filename',
+    })
+    const adapted = await adapter.adapt(
+      {
+        source: {
+          pageUrl: 'https://origin.example/page',
+          pageTitle: 'Download',
+          detectedAt: 1,
+        },
+        selection: {
+          kind: 'direct',
+          primary: {
+            url,
+            headers: {},
+            cookies: [],
+            refererPolicy: 'strict-origin-when-cross-origin',
+          },
+        },
+        meta: { suggestedFilename, qualityLabel: 'file' },
+      },
+      { extensionId: 'extension', browser: 'chromium' }
+    )
+    if (adapted.kind !== 'direct') throw new Error('expected direct')
+    const pipeline = new DirectPipeline({
+      createTask: (request, _deps, options) =>
+        handleCreateTask(request, deps, options),
+      removeTask: vi.fn(),
+    })
+    await pipeline.dispatch(adapted)
+    return { deps, fetchMetadata }
+  }
+
+  it.each([
+    ['automatic', filename],
+    [
+      'legacy Windows automatic',
+      String.raw`E:\Downloads\BCUninstaller_6.3.0_portable.7z`,
+    ],
+    ['right click', ''],
+  ])(
+    'uses the same final filename for %s and manual paste',
+    async (_origin, hint) => {
+      const response = () =>
+        new Response(null, {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${filename}`,
+          },
+        })
+      const { deps, fetchMetadata } = await submit(hint, response())
+      expect(lastAddedTask(deps).finalName).toBe(filename)
+      expect(deps.addUriWithCookies).toHaveBeenCalledWith(
+        [url],
+        [],
+        expect.objectContaining({
+          out: `${filename}.motrix`,
+          header: expect.arrayContaining([
+            'Referer: https://origin.example/page',
+          ]),
+        })
+      )
+      if (!hint) {
+        expect(fetchMetadata).toHaveBeenCalledOnce()
+        const init = fetchMetadata.mock.calls[0]?.[1]
+        expect(init?.method).toBe('GET')
+        expect(new Headers(init?.headers).get('referer')).toBe(
+          'https://origin.example/page'
+        )
+      }
+      const manualDeps = makeDeps()
+      manualDeps.directResourceValidator = new DirectResourceValidatorService(
+        async () => response()
+      )
+      await handleCreateTask(
+        { type: 'http', uris: [url], saveDir: '/d', headers: [] },
+        manualDeps
+      )
+      expect(lastAddedTask(manualDeps).finalName).toBe(filename)
+    }
+  )
+
+  it('retains the URL fallback when optional filename discovery fails', async () => {
+    const { deps, fetchMetadata } = await submit('', new Error('offline'))
+    expect(fetchMetadata).toHaveBeenCalledOnce()
+    expect(lastAddedTask(deps).finalName).toBe('c-m9021')
+    expect(deps.addUriWithCookies).toHaveBeenCalledOnce()
+  })
+
+  it('preserves a browser-selected name instead of replacing it with a header', async () => {
+    const { deps, fetchMetadata } = await submit(
+      'chosen.7z',
+      new Error('must not probe')
+    )
+    expect(lastAddedTask(deps).finalName).toBe('chosen.7z')
+    expect(fetchMetadata).not.toHaveBeenCalled()
+  })
+})
 
 describe('handleCreateTask', () => {
   it('reserves different final outputs for concurrent torrents with the same chosen name', async () => {

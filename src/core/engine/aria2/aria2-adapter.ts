@@ -392,7 +392,7 @@ export class Aria2Adapter implements EngineAdapter {
     const metadataProfile = params.directResourceMetadataProfile
     if (
       metadataProfile !== undefined &&
-      (params.cookies !== undefined ||
+      ((params.cookies?.length ?? 0) > 0 ||
         this.getDirectResourceMetadataProfile() !== metadataProfile)
     ) {
       throw new Error(

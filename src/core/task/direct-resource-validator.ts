@@ -797,8 +797,8 @@ function filenameFromMetadata(
   const disposition = contentDispositionFilename(
     metadata.headers.get('content-disposition')
   )
-  const finalUrlName = urlFilename(metadata.finalUrl)
-  const initialUrlName = urlFilename(initialUrl.toString())
+  const finalUrlName = filenameFromResourceUrl(metadata.finalUrl)
+  const initialUrlName = filenameFromResourceUrl(initialUrl.toString())
   let filename =
     sanitizeRemoteFilename(disposition ?? '') ?? finalUrlName ?? initialUrlName
   if (!filename) filename = 'download'
@@ -827,7 +827,7 @@ function filenameFromMetadata(
   return sanitizeRemoteFilename(filename)
 }
 
-function urlFilename(uri: string): string | null {
+export function filenameFromResourceUrl(uri: string): string | null {
   try {
     const url = new URL(uri)
     const encoded = url.pathname.split('/').filter(Boolean).pop()
