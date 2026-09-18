@@ -1532,7 +1532,25 @@ describe('SettingsManager', () => {
       const app = manager.getApp()
       expect(app.runMode).toBe(1) // RunMode.Standard
       expect(app.traySpeedometer).toBe(true)
+      expect(app.trayIconColor).toBe('auto')
     })
+
+    it.each(['light', 'dark', 'auto'] as const)(
+      'persists tray color %s without changing the app theme or requiring restart',
+      async (trayIconColor) => {
+        const theme = manager.getApp().theme
+        const result = await manager.update({ app: { trayIconColor } })
+        expect(result.requiresRestart).toBe(false)
+        expect(manager.getApp().theme).toBe(theme)
+        const saved = mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+        expect(JSON.parse(saved).app.trayIconColor).toBe(trayIconColor)
+        mockedFs.readFile.mockResolvedValue(saved)
+        const reloaded = new SettingsManager(TEST_PATH)
+        await reloaded.load()
+        expect(reloaded.getApp().trayIconColor).toBe(trayIconColor)
+        expect(reloaded.getApp().theme).toBe(theme)
+      }
+    )
   })
 
   describe('rpcSecret seeding', () => {

@@ -56,6 +56,7 @@ type AppearanceFields = Pick<
   | 'language'
   | 'byteUnitSystem'
   | 'traySpeedometer'
+  | 'trayIconColor'
   | 'runMode'
   | 'liquidGlassEffect'
   | 'lightweightMode'
@@ -70,6 +71,7 @@ const DEFAULTS: AppearanceFields = {
   language: DEFAULT_APP_SETTINGS.language,
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
+  trayIconColor: DEFAULT_APP_SETTINGS.trayIconColor,
   runMode: DEFAULT_APP_SETTINGS.runMode,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
   lightweightMode: DEFAULT_APP_SETTINGS.lightweightMode,
@@ -108,6 +110,7 @@ export function AppearanceDialog({
             language: all.app.language,
             byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
             traySpeedometer: all.app.traySpeedometer,
+            trayIconColor: all.app.trayIconColor ?? DEFAULTS.trayIconColor,
             runMode:
               transport.platform !== 'darwin' &&
               all.app.runMode === RunMode.HideTray
@@ -174,6 +177,11 @@ export function AppearanceDialog({
   }>
   const isMac = transport.platform === 'darwin'
   const isLinux = transport.platform === 'linux'
+  const trayIconColorOptions = [
+    { value: 'auto', label: t('settings.appearance.trayIconColorAuto') },
+    { value: 'light', label: t('settings.appearance.trayIconColorLight') },
+    { value: 'dark', label: t('settings.appearance.trayIconColorDark') },
+  ] satisfies Array<{ value: AppearanceFields['trayIconColor']; label: string }>
   const showRunMode = transport.platform !== 'web'
   const runModeOptions = isMac
     ? [
@@ -360,6 +368,50 @@ export function AppearanceDialog({
                       </SettingsFormRow>
                     )}
                   />
+
+                  {isLinux && (
+                    <FormField
+                      control={form.control}
+                      name="trayIconColor"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.appearance.trayIconColor')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.appearance.trayIconColorDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Select
+                              items={trayIconColorOptions}
+                              value={field.value}
+                              onValueChange={(value) => {
+                                if (value !== null) field.onChange(value)
+                              }}
+                            >
+                              <SettingsSelectTrigger>
+                                <SelectValue />
+                              </SettingsSelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {trayIconColorOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                  )}
 
                   {isMac && (
                     <FormField

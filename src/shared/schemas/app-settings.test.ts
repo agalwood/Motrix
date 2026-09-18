@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { appSettingsSchema, DEFAULT_APP_SETTINGS } from './app-settings'
+import {
+  appSettingsInputSchema,
+  appSettingsSchema,
+  DEFAULT_APP_SETTINGS,
+} from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('defaults old or invalid tray colors to auto without resetting valid preferences', () => {
+    expect(DEFAULT_APP_SETTINGS.trayIconColor).toBe('auto')
+    for (const trayIconColor of [undefined, null, 'white', true]) {
+      expect(appSettingsSchema.parse({ trayIconColor }).trayIconColor).toBe(
+        'auto'
+      )
+    }
+    for (const trayIconColor of ['auto', 'light', 'dark']) {
+      expect(appSettingsSchema.parse({ trayIconColor }).trayIconColor).toBe(
+        trayIconColor
+      )
+    }
+    expect(
+      appSettingsInputSchema.partial().safeParse({ trayIconColor: 'white' })
+        .success
+    ).toBe(false)
+  })
   it('keeps selection timeout downloads opt-in with a 60 second default', () => {
     expect(DEFAULT_APP_SETTINGS.magnetFileSelectionAutoDownload).toBe(false)
     expect(DEFAULT_APP_SETTINGS.magnetFileSelectionTimeoutSeconds).toBe(60)

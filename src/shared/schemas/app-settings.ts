@@ -9,6 +9,7 @@ import {
 import { DirectoryPreferencesSchema } from './directory-preferences'
 import { supportedLocaleSchema } from './locale'
 import { settingsInputObject } from './settings-input'
+import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
 
@@ -46,6 +47,7 @@ export const appSettingsSchema = z.object({
   runMode: z.enum(RunMode).catch(RunMode.Standard),
   lightweightMode: z.boolean().catch(false),
   traySpeedometer: z.boolean().catch(true),
+  trayIconColor: trayIconColorSchema.catch(DEFAULT_TRAY_ICON_COLOR),
   magnetFileSelection: z.boolean().catch(true),
   magnetFileSelectionAutoDownload: z.boolean().catch(false),
   magnetFileSelectionTimeoutSeconds:

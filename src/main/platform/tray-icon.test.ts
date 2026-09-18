@@ -16,6 +16,7 @@ vi.mock('@resvg/resvg-wasm', () => ({
   Resvg: vi.fn(),
 }))
 
+import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import { createLinuxIconProvider, formatSpeed } from './tray-icon'
 
 describe('createLinuxIconProvider', () => {
@@ -62,6 +63,48 @@ describe('createLinuxIconProvider', () => {
     expect(provider.getIcon(false)).toEqual({
       filePath: path.join(assetDir, 'mo-tray-dark-normal.png'),
     })
+    expect(provider.getIcon(true)).toEqual({
+      filePath: path.join(assetDir, 'mo-tray-dark-active.png'),
+    })
+  })
+
+  it.each([
+    { color: 'light' as const, background: 'dark' },
+    { color: 'dark' as const, background: 'light' },
+  ])(
+    'keeps $color artwork independent of the application theme',
+    async ({ color, background }) => {
+      const provider = createLinuxIconProvider(assetDir, () => color)
+      for (const dark of [false, true]) {
+        nativeThemeMock.shouldUseDarkColors = dark
+        await provider.init()
+        for (const active of [false, true]) {
+          expect(provider.getIcon(active)).toEqual({
+            filePath: path.join(
+              assetDir,
+              `mo-tray-${background}-${active ? 'active' : 'normal'}.png`
+            ),
+          })
+        }
+      }
+    }
+  )
+
+  it('reloads a changed preference and resumes following the application theme', async () => {
+    let color: TrayIconColor = 'light'
+    const provider = createLinuxIconProvider(assetDir, () => color)
+    await provider.init()
+    expect(provider.getIcon(false)).toEqual({
+      filePath: path.join(assetDir, 'mo-tray-dark-normal.png'),
+    })
+    color = 'dark'
+    await provider.init()
+    expect(provider.getIcon(true)).toEqual({
+      filePath: path.join(assetDir, 'mo-tray-light-active.png'),
+    })
+    color = 'auto'
+    nativeThemeMock.shouldUseDarkColors = true
+    await provider.init()
     expect(provider.getIcon(true)).toEqual({
       filePath: path.join(assetDir, 'mo-tray-dark-active.png'),
     })

@@ -1,4 +1,5 @@
 import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
+import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { SupportedLocale } from '../constants/locales'
@@ -237,6 +238,8 @@ export interface MotrixAppSettings {
    *  services such as downloads, notifications, and the tray keep running. */
   lightweightMode: boolean
   traySpeedometer: boolean
+  /** Linux tray artwork color; auto follows the resolved application theme. */
+  trayIconColor: TrayIconColor
   magnetFileSelection: boolean
   magnetFileSelectionAutoDownload: boolean
   magnetFileSelectionTimeoutSeconds: number

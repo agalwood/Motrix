@@ -75,6 +75,7 @@ describe('Settings form schemas', () => {
     ['general', 'defaultSaveDir', '  '],
     ['general', 'notifyOnComplete', 'yes'],
     ['appearance', 'theme', 'unknown'],
+    ['appearance', 'trayIconColor', 'white'],
     ['appearance', 'runMode', 999],
     ['advanced', 'rpcPort', 65536],
     ['advanced', 'rpcPort', NaN],
