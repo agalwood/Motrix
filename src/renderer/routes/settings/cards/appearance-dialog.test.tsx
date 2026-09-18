@@ -69,6 +69,93 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it.each(['darwin', 'win32', 'web'])(
+    'hides the Linux tray color selector on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      await screen.findByRole('combobox', { name: 'Theme' })
+      expect(
+        screen.queryByRole('combobox', { name: 'Tray icon color' })
+      ).toBeNull()
+    }
+  )
+
+  it('lets Linux users save only the tray color without changing the application theme', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Tray icon color',
+    })
+    expect(select).toHaveTextContent('Follow app theme')
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', { name: 'Light icon (dark panel)' })
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { trayIconColor: 'light' },
+    })
+  })
+
+  it('hydrates the saved Linux tray color and discards edits on cancel', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, trayIconColor: 'dark' },
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Tray icon color',
+    })
+    await waitFor(() =>
+      expect(select).toHaveTextContent('Dark icon (light panel)')
+    )
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', { name: 'Follow app theme' })
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
   it.each(['darwin', 'win32', 'linux', 'web'])(
     'uses the existing glass switch and saves only that preference on %s',
     async (platform) => {

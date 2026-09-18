@@ -3,6 +3,10 @@ import {
   type ByteUnitSystem,
   DEFAULT_BYTE_UNIT_SYSTEM,
 } from '@shared/schemas/byte-unit-system'
+import {
+  DEFAULT_TRAY_ICON_COLOR,
+  type TrayIconColor,
+} from '@shared/schemas/tray-icon-color'
 import type { NativeImage } from 'electron'
 import { nativeImage, nativeTheme } from 'electron'
 
@@ -109,13 +113,16 @@ export function createWindowsIconProvider(
 // ─── Linux: themed PNG icons ────────────────────────────────
 
 export function createLinuxIconProvider(
-  trayAssetDir: string
+  trayAssetDir: string,
+  getColor: () => TrayIconColor = () => DEFAULT_TRAY_ICON_COLOR
 ): TrayIconProvider {
   let normalIcon: NativeImage | null = null
   let activeIcon: NativeImage | null = null
 
   function getThemePrefix(): string {
     // Asset names describe the background: dark uses white artwork and vice versa.
+    const color = getColor()
+    if (color !== 'auto') return color === 'light' ? 'dark' : 'light'
     return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   }
 
@@ -147,7 +154,8 @@ export function createLinuxIconProvider(
 
 export function createIconProvider(
   svgPath: string,
-  trayAssetDir: string
+  trayAssetDir: string,
+  getColor?: () => TrayIconColor
 ): TrayIconProvider {
   switch (process.platform) {
     case 'darwin':
@@ -155,6 +163,6 @@ export function createIconProvider(
     case 'win32':
       return createWindowsIconProvider(trayAssetDir)
     default:
-      return createLinuxIconProvider(trayAssetDir)
+      return createLinuxIconProvider(trayAssetDir, getColor)
   }
 }
