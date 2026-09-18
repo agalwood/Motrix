@@ -1,9 +1,11 @@
 import type { Logger } from '@core/logger'
+import { isTaskAvailable } from '@shared/lib/task-navigation'
 import type { EventChannel } from '@shared/protocol/events'
 import { Events } from '@shared/protocol/events'
 import type { AppNotification } from '@shared/types/notification'
 import { NotificationKinds } from '@shared/types/notification'
 import type { MotrixAppSettings } from '@shared/types/settings'
+import type { TaskStatus } from '@shared/types/task'
 import { Notification } from 'electron'
 
 /** Structural subset of Electron's `BrowserWindow` this bridge needs. */
@@ -30,8 +32,11 @@ export interface OsNotificationBridgeDeps {
   getAppSettings: () => MotrixAppSettings
   /** `i18n.t.bind(i18n)` — follows `LocaleCoordinator` language switches. */
   translate: (key: string, params?: Record<string, string>) => string
+  /** Read current state: an OS notification may outlive its task. */
+  getTaskStatus: (taskId: string) => TaskStatus | null
   /** Navigate once the main window's renderer is ready. */
   navigateToTask: (taskId: string) => void
+  navigateToDownloads: () => void
   /** Reveal the task's current output, or its containing directory if missing. */
   revealTaskInFolder: (taskId: string) => Promise<void>
   isSupported?: () => boolean
@@ -83,23 +88,31 @@ export function createOsNotificationBridge(deps: OsNotificationBridgeDeps): {
     try {
       if (
         payload.kind === NotificationKinds.TaskComplete &&
-        payload.taskId != null
+        payload.taskId != null &&
+        isTaskAvailable(deps.getTaskStatus(payload.taskId))
       ) {
         try {
           await deps.revealTaskInFolder(payload.taskId)
           return
         } catch (err) {
-          deps.log.warn(
-            { err, taskId: payload.taskId },
-            'os-notification-bridge: reveal failed; opening task'
-          )
+          if (disposed) return
+          if (isTaskAvailable(deps.getTaskStatus(payload.taskId))) {
+            deps.log.warn(
+              { err, taskId: payload.taskId },
+              'os-notification-bridge: reveal failed; opening task'
+            )
+          }
         }
       }
 
       if (disposed) return
       deps.showMainWindow()
       if (payload.taskId != null) {
-        deps.navigateToTask(payload.taskId)
+        if (isTaskAvailable(deps.getTaskStatus(payload.taskId))) {
+          deps.navigateToTask(payload.taskId)
+        } else {
+          deps.navigateToDownloads()
+        }
       }
     } catch (err) {
       deps.log.warn({ err }, 'os-notification-bridge: click handler threw')

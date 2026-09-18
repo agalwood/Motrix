@@ -175,7 +175,7 @@ async function addLiveDownload(
 
 async function launchSeededApp(
   userDataDir: string,
-  options: { failAfterFirstQuery?: boolean } = {}
+  options: { failAfterFirstQuery?: boolean; initialTaskId?: string } = {}
 ): Promise<{ app: ElectronApplication; page: Page }> {
   const preparation = await launchMotrix({
     userDataDir,
@@ -201,6 +201,14 @@ async function launchSeededApp(
         : {}),
     },
   })
+  if (options.initialTaskId) {
+    await app.evaluate(
+      ({ app: electronApp }, url) => {
+        electronApp.emit('open-url', { preventDefault: () => undefined }, url)
+      },
+      `motrix://tasks/${encodeURIComponent(options.initialTaskId)}`
+    )
+  }
   const page = await firstWindow(app)
   const geometry = await configureTaskInspectorWindow(app, page, {
     width: 914,
@@ -349,6 +357,128 @@ async function presentActiveReference(
 
 test.describe('Task Inspector Activity', () => {
   test.setTimeout(180_000)
+
+  test('opens the linked task details and restores them after recreating the main window', async ({
+    userDataDir,
+  }) => {
+    const { app, page } = await launchSeededApp(userDataDir, {
+      initialTaskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+    })
+    const openTask = async (taskId: string) => {
+      await app.evaluate(
+        ({ app: electronApp }, url) => {
+          electronApp.emit('open-url', { preventDefault: () => undefined }, url)
+        },
+        `motrix://tasks/${encodeURIComponent(taskId)}`
+      )
+    }
+    const expectTaskDetails = async (
+      targetPage: Page,
+      taskId: string,
+      taskName: string
+    ) => {
+      await expect
+        .poll(() => targetPage.url())
+        .toContain(`#/downloads/all?task=${encodeURIComponent(taskId)}`)
+      const inspector = targetPage.getByRole('dialog', {
+        name: 'Task Inspector',
+        exact: true,
+      })
+      await expect(inspector).toBeVisible()
+      await expect(inspector.getByText(taskName, { exact: true })).toBeVisible()
+      await expect(
+        targetPage.getByRole('row', { name: new RegExp(taskName, 'i') })
+      ).toHaveAttribute('aria-selected', 'true')
+    }
+
+    try {
+      await expectTaskDetails(
+        page,
+        TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        TASK_INSPECTOR_ACTIVITY_NAMES.rich
+      )
+      await openTask(TASK_INSPECTOR_ACTIVITY_IDS.error)
+      await expectTaskDetails(
+        page,
+        TASK_INSPECTOR_ACTIVITY_IDS.error,
+        TASK_INSPECTOR_ACTIVITY_NAMES.error
+      )
+
+      const inspector = page.getByRole('dialog', { name: 'Task Inspector' })
+      await inspector
+        .getByRole('button', { name: 'Close', exact: true })
+        .click()
+      await expect(inspector).toBeHidden()
+      await openTask(TASK_INSPECTOR_ACTIVITY_IDS.error)
+      await expectTaskDetails(
+        page,
+        TASK_INSPECTOR_ACTIVITY_IDS.error,
+        TASK_INSPECTOR_ACTIVITY_NAMES.error
+      )
+
+      const closed = page.waitForEvent('close')
+      await app.evaluate(({ BrowserWindow }) => {
+        const main = BrowserWindow.getAllWindows().find((window) =>
+          window.webContents.getURL().includes('w=main')
+        )
+        if (!main) throw new Error('Main window not found')
+        main.destroy()
+      })
+      await closed
+      const recreated = app.waitForEvent('window', {
+        predicate: async (candidate) => {
+          await candidate.waitForLoadState('domcontentloaded')
+          return candidate.url().includes('w=main')
+        },
+      })
+      await openTask(TASK_INSPECTOR_ACTIVITY_IDS.rich)
+      const restoredPage = await recreated
+      await restoredPage.waitForLoadState('domcontentloaded')
+      await expectTaskDetails(
+        restoredPage,
+        TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        TASK_INSPECTOR_ACTIVITY_NAMES.rich
+      )
+
+      // A popup can retain a row after the App has already removed its task.
+      await restoredPage.evaluate(
+        async ({ command, taskId }) => {
+          const api = (
+            window as unknown as {
+              motrix: {
+                invoke: (channel: string, payload: unknown) => Promise<unknown>
+              }
+            }
+          ).motrix
+          await api.invoke(command, { taskId, deleteWithFiles: false })
+        },
+        {
+          command: Commands.RemoveTask,
+          taskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        }
+      )
+      for (const missingTaskId of [
+        TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        'already-deleted-task',
+      ]) {
+        await openTask(TASK_INSPECTOR_ACTIVITY_IDS.error)
+        await expectTaskDetails(
+          restoredPage,
+          TASK_INSPECTOR_ACTIVITY_IDS.error,
+          TASK_INSPECTOR_ACTIVITY_NAMES.error
+        )
+        await openTask(missingTaskId)
+        await expect
+          .poll(() => new URL(restoredPage.url()).hash)
+          .toBe('#/downloads/all')
+        await expect(
+          restoredPage.getByRole('dialog', { name: 'Task Inspector' })
+        ).toBeHidden()
+      }
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
 
   test('keeps Activity scrollable in an overlay inside the minimum 914 by 672 window', async ({
     userDataDir,

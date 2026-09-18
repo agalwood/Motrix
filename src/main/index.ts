@@ -121,6 +121,10 @@ import {
 import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
+import {
+  ALL_DOWNLOADS_ROUTE,
+  resolveTaskRoute,
+} from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
 import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
@@ -637,14 +641,18 @@ function loadWindowUrl(win: BrowserWindow, route: string) {
 function dispatchWhenReady(
   win: BrowserWindow,
   channel: string,
-  payload: unknown
+  payload: unknown,
+  resolvePayload?: () => unknown
 ) {
   const dispatchLog = getLogger('dispatch')
   const send = (reason: string) => {
     setTimeout(() => {
       if (!win.isDestroyed()) {
         dispatchLog.info({ channel, reason }, 'webContents.send firing')
-        win.webContents.send(channel, payload)
+        win.webContents.send(
+          channel,
+          resolvePayload ? resolvePayload() : payload
+        )
       } else {
         dispatchLog.warn({ channel, reason }, 'window destroyed before send')
       }
@@ -657,6 +665,21 @@ function dispatchWhenReady(
   } else {
     send('already-loaded')
   }
+}
+
+// Notifications and protocol links share the same last-moment availability
+// check, including the wait for a released main window to finish loading.
+function navigateToTask(taskId: string) {
+  runShellAsyncWork('task navigation', async () => {
+    // A cold-start link can arrive before the persisted tasks are restored.
+    await mainProcessWork.waitForStartup()
+    if (!mainProcessWork.isAccepting()) return
+    const win = windowManager?.get('main')
+    if (!win || win.isDestroyed()) return
+    dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE, () =>
+      resolveTaskRoute(taskId, taskManager.getById(taskId)?.status)
+    )
+  })
 }
 
 // Each new add-task BrowserWindow gets a `closed` listener that resets
@@ -720,6 +743,11 @@ const protocolManager = createProtocolManager({
     const win = windowManager.get('main')
     if (!win || win.isDestroyed()) return
     dispatchWhenReady(win, Events.NavigateTo, `/plugins/${pluginId}`)
+  },
+  onOpenTaskDetail: (taskId) => {
+    if (!windowManager) return
+    windowManager.show('main')
+    navigateToTask(taskId)
   },
 })
 
@@ -1642,14 +1670,12 @@ async function initializeMainProcess(): Promise<void> {
     showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
     translate: i18n.t.bind(i18n),
-    navigateToTask: (taskId) => {
+    getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
+    navigateToTask,
+    navigateToDownloads: () => {
       const win = windowManager?.get('main')
       if (!win || win.isDestroyed()) return
-      dispatchWhenReady(
-        win,
-        Events.NavigateTo,
-        `/downloads/all?task=${encodeURIComponent(taskId)}`
-      )
+      dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE)
     },
     revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
     log,
