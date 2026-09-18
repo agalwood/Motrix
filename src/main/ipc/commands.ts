@@ -1,5 +1,6 @@
 import { realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -135,6 +136,7 @@ import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
 import type { ContextStore } from '../commands/context-store'
 import type { UpdateManager } from '../core/update-manager'
+import { i18n } from '../lib/i18n'
 import {
   enableAppImageIntegrationFromSettings,
   reconcileAppImageIntegrationFromSettings,
@@ -359,20 +361,29 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Bilibili HD comes via the extension submit path, which carries cookies.
     resolveToMux: (url: string) =>
       bridgeManager.current?.resolveToMux(url) ?? Promise.resolve(null),
-    // A resolver can produce a mux pair WITHOUT ffmpeg (it only queries APIs),
-    // but actually downloading it needs the MuxPipeline, which exists only when
-    // ffmpeg is available. Throw a clear, actionable error instead of a
-    // TypeError when the pipeline is absent (bridge disabled / no ffmpeg) —
-    // mirrors the extension path's "ffmpeg unavailable" guard in BridgeReceiver.
-    dispatchMux: (adapted: AdaptedMux) => {
+    // Share the receiver's live FFmpeg check with desktop submissions.
+    dispatchMux: async (adapted: AdaptedMux) => {
       const mux = bridgeManager.current?.muxPipeline
       if (!mux) {
         throw new AppError(
           ErrorCode.EngineFeatureUnavailable,
-          'ffmpeg is required to download this video: its video and audio are separate streams that must be muxed. Install ffmpeg (or set MOTRIX_FFMPEG_BIN) and restart Motrix.'
+          i18n.t('settings.integration.media.pipelineUnavailable')
         )
       }
-      return mux.dispatch(adapted)
+      try {
+        return await mux.dispatch(adapted)
+      } catch (error) {
+        if (
+          error instanceof BridgeReceiverError &&
+          error.code === 'unsupported-kind'
+        ) {
+          throw new AppError(
+            ErrorCode.EngineFeatureUnavailable,
+            i18n.t('settings.integration.media.ffmpegRequired')
+          )
+        }
+        throw error
+      }
     },
   }
 

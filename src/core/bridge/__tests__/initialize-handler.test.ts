@@ -181,6 +181,31 @@ describe('initialize handler', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
   })
 
+  it('rechecks FFmpeg on each capability exchange after configuration changes', async () => {
+    let available = false
+    const detect = vi.fn(async () => available)
+    const handler = createInitializeHandler({
+      ...baseCapabilities,
+      ffmpegAvailable: detect,
+    })
+    const read = () => handler(validClientInfo as never, makeCtx({}))
+    expect((await read()).capabilities).toMatchObject({
+      ffmpegAvailable: false,
+      selectionKinds: ['direct'],
+    })
+    available = true
+    expect((await read()).capabilities).toMatchObject({
+      ffmpegAvailable: true,
+      selectionKinds: ['direct', 'hls', 'dash', 'mux'],
+    })
+    available = false
+    expect((await read()).capabilities).toMatchObject({
+      ffmpegAvailable: false,
+      selectionKinds: ['direct'],
+    })
+    expect(detect).toHaveBeenCalledTimes(3)
+  })
+
   it('ffmpegAvailable:false → selectionKinds is only ["direct"]', async () => {
     const handler = createInitializeHandler({
       ...baseCapabilities,

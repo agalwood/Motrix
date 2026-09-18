@@ -9,7 +9,7 @@ import type { MdxpSessionContext } from '../mdxp-session-context'
 export interface InitializeHandlerDeps {
   motrixVersion: string
   runtime: 'electron' | 'server'
-  ffmpegAvailable: boolean
+  ffmpegAvailable: boolean | (() => Promise<boolean>)
   /** Read lazily so capabilities match the methods actually registered. */
   supportsTaskReveal: () => boolean
 }
@@ -74,7 +74,13 @@ export function createInitializeHandler(
   }
 }
 
-function buildResult(deps: InitializeHandlerDeps): InitializeResult {
+async function buildResult(
+  deps: InitializeHandlerDeps
+): Promise<InitializeResult> {
+  const ffmpegAvailable =
+    typeof deps.ffmpegAvailable === 'function'
+      ? await deps.ffmpegAvailable()
+      : deps.ffmpegAvailable
   return {
     protocolVersion: '1.0',
     server: {
@@ -83,8 +89,8 @@ function buildResult(deps: InitializeHandlerDeps): InitializeResult {
       runtime: deps.runtime,
     },
     capabilities: {
-      ffmpegAvailable: deps.ffmpegAvailable,
-      selectionKinds: deps.ffmpegAvailable
+      ffmpegAvailable,
+      selectionKinds: ffmpegAvailable
         ? ['direct', 'hls', 'dash', 'mux']
         : ['direct'],
       progress: true,

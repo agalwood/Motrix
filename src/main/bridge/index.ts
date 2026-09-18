@@ -240,7 +240,7 @@ export interface BridgeRuntime {
    * The shared MuxPipeline used by BridgeReceiver. Exposed read-only so the
    * desktop Add-Task path can reuse the SAME coordinator instance — never
    * construct a second one (that would reintroduce the SP-1 phantom-task bug).
-   * Undefined when ffmpeg is unavailable.
+   * Undefined when this runtime has no media pipeline.
    */
   muxPipeline:
     | import('@core/bridge-receiver/pipelines/mux-pipeline').MuxPipeline
@@ -401,7 +401,7 @@ export async function syncNativeMessagingManifests(args: {
 export async function bootstrapBridge(args: {
   getMainWindow: () => Electron.BrowserWindow | null
   motrixVersion: string
-  ffmpegAvailable: boolean
+  ffmpegAvailable: boolean | (() => Promise<boolean>)
   enabled: boolean
   // new — required for ③. `off` is needed so the SSE stream source can
   // unsubscribe on shutdown (else listeners leak dead server instances across
@@ -430,8 +430,8 @@ export async function bootstrapBridge(args: {
   readHandlerDeps: ReadHandlerDeps
   // Spec 4 — v1 WRITE methods (pause/resume/remove/add).
   writeHandlerDeps: WriteHandlerDeps
-  // T14/T15 media pipeline deps. Threaded here so T15 can inject real values.
-  // Until T15 wires them, ffmpegBinaryPath=null disables the media pipeline.
+  // A live resolver keeps the media pipeline available when FFmpeg is
+  // configured after startup. Shells without media support omit it.
   ffmpegBinaryPath: string | null
   /** Re-resolves the current executable immediately before each mux. */
   resolveFfmpegBinaryPath?: BridgeReceiverDeps['resolveFfmpegBinaryPath']

@@ -16,6 +16,8 @@ export interface HlsDashPipelineDeps {
     opts: { headers?: Record<string, string> }
   ) => Promise<string>
   coordinator: Pick<MediaTaskCoordinator, 'submit'>
+  /** Reject before fetching manifests or creating a task if FFmpeg is absent. */
+  assertFfmpegAvailable?: () => Promise<void>
 }
 
 /**
@@ -40,6 +42,7 @@ export class HlsDashPipeline {
   async dispatch(
     adapted: AdaptedHls | AdaptedDash
   ): Promise<{ taskId: string }> {
+    await this.deps.assertFfmpegAvailable?.()
     const { fetchManifest, coordinator } = this.deps
     const headers = adapted.sanitizedHeaders
     // ffmpeg needs an output extension or it can't pick a muxer (exit 234) —

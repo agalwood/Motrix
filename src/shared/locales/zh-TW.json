@@ -1779,11 +1779,16 @@
         "opTimeoutSecDesc": "單一 FFmpeg 作業的最長時間。預設為 1800 秒 (30 分鐘)，上限為 3600。",
         "cleanupStaging": "清理暫存檔案",
         "cleanupConfirm": "要移除所有 FFmpeg 暫存目錄嗎？",
-        "restartHint": "已儲存。請重新啟動 Motrix，讓使用中的外掛程式偵測變更。",
+        "restartHint": "已儲存。重新啟動 Motrix 後，已啟用的外掛才能偵測到變更。",
         "restartNow": "立即重新啟動",
         "validation": {
           "fileMissing": "此路徑不存在檔案。"
-        }
+        },
+        "applyHint": "修改自訂路徑後需點選「儲存」。媒體下載會讀取目前的 FFmpeg 路徑，無須重新啟動 Motrix；請在瀏覽器擴充功能中重新掃描以更新支援狀態。",
+        "savedTitle": "FFmpeg 設定已儲存",
+        "desktopSavedHint": "新的媒體下載會讀取儲存的路徑。已啟用的外掛需要重新啟動 Motrix 才能偵測到此次變更。",
+        "pipelineUnavailable": "媒體下載功能目前無法使用。",
+        "ffmpegRequired": "此下載需要 FFmpeg。請在「設定 → 整合 → 媒體工具」中設定並儲存後重試。"
       },
       "pairResolveFailed": "無法提交您的決定，請再試一次。",
       "appimage": {

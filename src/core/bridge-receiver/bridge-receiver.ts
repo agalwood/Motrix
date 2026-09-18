@@ -73,11 +73,12 @@ export interface BridgeReceiverDeps {
   }
   bridgeBus: BridgeEventBus
   localize: (code: BridgeErrorCode) => string
-  /** Path to ffmpeg binary. When null, hls/dash/mux submissions are rejected. */
+  /** Static fallback for shells without a live FFmpeg resolver. */
   ffmpegBinaryPath: string | null
   /**
-   * Live resolver used immediately before muxing. Defaults to the startup
-   * path for shells/tests that do not provide dynamic resolution.
+   * Live resolver used before accepting media and immediately before muxing.
+   * Providing it enables the pipeline even if FFmpeg is absent at startup.
+   * Defaults to the startup path for shells/tests without dynamic resolution.
    */
   resolveFfmpegBinaryPath?: () => Promise<string | null>
   taskManager: TaskManager
@@ -207,7 +208,18 @@ export class BridgeReceiver {
     })
     this.publisher = new ProgressPublisher(deps.bridgeBus, deps.localize)
 
-    if (deps.ffmpegBinaryPath !== null) {
+    if (deps.resolveFfmpegBinaryPath || deps.ffmpegBinaryPath !== null) {
+      const resolveFfmpegBinaryPath =
+        deps.resolveFfmpegBinaryPath ??
+        (() => Promise.resolve(deps.ffmpegBinaryPath))
+      const assertFfmpegAvailable = async () => {
+        if (!(await resolveFfmpegBinaryPath())) {
+          throw new BridgeReceiverError(
+            'unsupported-kind',
+            'ffmpeg is unavailable; configure it in Settings and retry'
+          )
+        }
+      }
       const eventBusWithEmit = deps.eventBus as {
         on(event: string, listener: (payload: unknown) => void): unknown
         off(event: string, listener: (payload: unknown) => void): unknown
@@ -221,9 +233,7 @@ export class BridgeReceiver {
         eventBus: eventBusWithEmit,
         publishTaskUpdate: deps.publishTaskUpdate,
         publishTaskUpdateNow: deps.publishTaskUpdateNow,
-        resolveFfmpegBinaryPath:
-          deps.resolveFfmpegBinaryPath ??
-          (() => Promise.resolve(deps.ffmpegBinaryPath)),
+        resolveFfmpegBinaryPath,
         pickName: deps.pickName,
         persist: deps.persistTask,
         persistTaskWithOccurrence: deps.persistTaskWithOccurrence,
@@ -250,8 +260,9 @@ export class BridgeReceiver {
       this.hlsDash = new HlsDashPipeline({
         fetchManifest: resolvedFetchManifest,
         coordinator,
+        assertFfmpegAvailable,
       })
-      this.mux = new MuxPipeline({ coordinator })
+      this.mux = new MuxPipeline({ coordinator, assertFfmpegAvailable })
     }
   }
 
@@ -260,7 +271,8 @@ export class BridgeReceiver {
    * Add-Task path (main/index.ts createDeps) to reuse the same
    * coordinator/mux-pipeline instance — avoids the SP-1 phantom-task
    * bug that would arise from constructing a second coordinator.
-   * Undefined when ffmpeg is unavailable (mux pipeline not active).
+   * Undefined only when this shell provides no media runtime. Availability
+   * is checked from the live resolver on every dispatch.
    */
   get muxPipeline(): MuxPipeline | undefined {
     return this.mux
@@ -270,7 +282,7 @@ export class BridgeReceiver {
    * Active aria2 segment gids for a coordinator-managed media task (kind
    * Mux/Hls). These ARE real aria2 gids — unlike the task's empty engineTaskId
    * — so pause/resume can act on them. Returns [] when the task is unknown, is
-   * past the download phase, or ffmpeg (and thus the coordinator) is absent.
+   * past the download phase, or this shell has no media runtime.
    */
   getMediaSegmentGids(taskId: string): string[] {
     return this.coordinator?.getActiveSegmentGids(taskId) ?? []
