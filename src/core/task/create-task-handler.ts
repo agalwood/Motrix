@@ -1246,8 +1246,10 @@ function directResourceRequestContext(
 ): DirectResourceRequestOptions | null {
   // Passthrough engine options can add cookies, a referer, headers, or other
   // request semantics the metadata client cannot reconstruct safely.
+  // An explicitly empty task jar is representable; keep it isolated when
+  // dispatching to the engine, while refusing probes for populated jars.
   if (
-    params.cookies !== undefined ||
+    (params.cookies?.length ?? 0) > 0 ||
     (params.extraEngineOptions &&
       Object.keys(params.extraEngineOptions).length > 0) ||
     params.directResourceMetadataProfile !== DIRECT_RESOURCE_METADATA_PROFILE ||
@@ -1302,7 +1304,7 @@ function canApplyDirectResourceMetadataProfile(
 ): DirectResourceMetadataProfile | null {
   if (
     profile === null ||
-    params.cookies !== undefined ||
+    (params.cookies?.length ?? 0) > 0 ||
     (params.extraEngineOptions &&
       Object.keys(params.extraEngineOptions).length > 0) ||
     !params.uris.every(isCredentialFreeHttpUri)

@@ -601,6 +601,43 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
     })
   }, 30_000)
 
+  it('filename-template applies an updated date template to a completed browser download', async () => {
+    const config = { 'motrix.filename-template': { template: '{{title}}' } }
+    const harness = await makeHarness({ config })
+    enableOnly(harness, 'motrix.filename-template')
+    const taskId = 'browser-filename-date'
+    const source = path.join(harness.root, 'E__Downloads_BCUninstaller.7z')
+    await writeFile(source, 'payload')
+    const dto = beforeFinalize({
+      task: taskSnapshot({
+        id: taskId,
+        type: 'http',
+        kind: 'direct',
+        saveDir: harness.root,
+        filePath: source,
+      }),
+      sourceUrl: 'https://cdn.example/c-m9021',
+    })
+    dto.requestedAt = new Date(2026, 8, 17, 12).getTime()
+    const original = await harness.orchestrator.runBeforeFinalize(dto, taskId)
+    if (original.aborted) throw new Error(original.reason)
+    expect(original.final.filePath).toBe(source)
+
+    config['motrix.filename-template'].template = '{{date}}'
+    const dated = await harness.orchestrator.runBeforeFinalize(dto, taskId)
+    if (dated.aborted) throw new Error(dated.reason)
+    expect(dated.finalFilePath).toBe(path.join(harness.root, '2026-09-17.7z'))
+    expect(harness.logs).toContainEqual(
+      expect.objectContaining({
+        message: 'renaming via filename template',
+        fields: expect.objectContaining({
+          template: '{{date}}',
+          newName: '2026-09-17.7z',
+        }),
+      })
+    )
+  }, 30_000)
+
   it('filename-template reads nested metadata and reactivates after idle disposal', async () => {
     const harness = await makeHarness({
       config: {

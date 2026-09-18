@@ -503,11 +503,33 @@ describe('Aria2Adapter', () => {
         adapter.createDownload({
           uris: ['https://example.com/file'],
           saveDir: '/tmp',
-          cookies: [],
+          cookies: [{ name: 'sid', value: 'synthetic', domain: 'example.com' }],
           directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
         })
       ).rejects.toThrow('request profile')
       expect(rpc.addUriWithCookies).not.toHaveBeenCalled()
+    })
+
+    it('preserves empty task cookie isolation while using the metadata profile', async () => {
+      const rpc = createMockRpc()
+      vi.mocked(rpc.addUriWithCookies).mockResolvedValue('profile-gid')
+      const adapter = new Aria2Adapter(rpc)
+      adapter.setDirectResourceMetadataProfile(DIRECT_RESOURCE_METADATA_PROFILE)
+      await adapter.createDownload({
+        uris: ['https://example.com/file'],
+        saveDir: '/tmp',
+        cookies: [],
+        directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+      })
+      expect(rpc.addUri).not.toHaveBeenCalled()
+      expect(rpc.addUriWithCookies).toHaveBeenCalledWith(
+        ['https://example.com/file'],
+        [],
+        expect.objectContaining({
+          header: expect.arrayContaining(['Cookie: ', 'Authorization: ']),
+          'no-netrc': 'true',
+        })
+      )
     })
 
     it('pins the metadata-owned baseline and preserves explicit credentials', async () => {

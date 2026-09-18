@@ -140,7 +140,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
     expect(result.cookies[0]?.value).toBe('1')
   })
 
-  it('sanitizes filename: control chars stripped, max 200', async () => {
+  it('extracts the filename before replacing forbidden characters', async () => {
     const input: DownloadSubmitParams = {
       ...baseInput(),
       meta: {
@@ -153,7 +153,53 @@ describe('SubmitDownloadAdapter.adapt', () => {
       browser: 'chromium',
     })
     if (result.kind !== 'direct') throw new Error('expected direct')
-    expect(result.finalName).toBe('a_b_c_d_e_f_g_h_i_j_k.mp4')
+    expect(result.finalName).toBe('c_d_e_f_g_h_i_j_k.mp4')
+  })
+
+  it.each([
+    String.raw`E:\Downloads\BCUninstaller_6.3.0_portable.7z`,
+    String.raw`\\server\share\BCUninstaller_6.3.0_portable.7z`,
+    '/home/user/Downloads/BCUninstaller_6.3.0_portable.7z',
+  ])('accepts only the leaf of a legacy client path: %s', async (name) => {
+    const input = baseInput()
+    input.meta.suggestedFilename = name
+    const result = await adapter().adapt(input, {
+      extensionId: 'e',
+      browser: 'chromium',
+    })
+    if (result.kind !== 'direct') throw new Error('expected direct')
+    expect(result.finalName).toBe('BCUninstaller_6.3.0_portable.7z')
+    expect(result).not.toHaveProperty('discoverFilename')
+  })
+
+  it.each(['', ' ', '.', '..'])(
+    'discovers a remote filename for an unusable hint: %s',
+    async (name) => {
+      const input = baseInput()
+      input.meta.suggestedFilename = name
+      const result = await adapter().adapt(input, {
+        extensionId: 'e',
+        browser: 'chromium',
+      })
+      expect(result).toMatchObject({
+        finalName: 'file.mp4',
+        discoverFilename: true,
+      })
+    }
+  )
+
+  it('bounds a multibyte browser filename without losing its extension', async () => {
+    const input = baseInput()
+    input.meta.suggestedFilename = `${'界'.repeat(240)}.7z`
+    const result = await adapter().adapt(input, {
+      extensionId: 'e',
+      browser: 'chromium',
+    })
+    if (result.kind !== 'direct') throw new Error('expected direct')
+    expect(result.finalName).toMatch(/\.7z$/)
+    expect(
+      Buffer.byteLength(`${result.finalName}.motrix`, 'utf8')
+    ).toBeLessThanOrEqual(255)
   })
 
   it('strips Cookie / Host / Content-Length from headers', async () => {
