@@ -627,6 +627,31 @@ describe('WebUI recovery without event delivery', () => {
     vi.restoreAllMocks()
   })
 
+  it('adversarial: accepts healthy HTTP snapshots while successful WebSocket handshakes keep flapping', async () => {
+    const requests: Deferred<readonly DownloadTask[]>[] = []
+    transportMock.invoke.mockImplementation(() => {
+      const request = deferred<readonly DownloadTask[]>()
+      requests.push(request)
+      return request.promise
+    })
+    const { result } = renderHook(() => useTaskList())
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await act(async () => vi.advanceTimersByTimeAsync(2_000))
+      act(() => {
+        for (const state of ['connecting', 'connected', 'disconnected'])
+          for (const callback of connectionListeners) callback({ state })
+      })
+      await act(async () => {
+        requests[attempt].resolve([
+          task('visible-over-http', TaskStatus.Paused),
+        ])
+      })
+    }
+    expect(requests).toHaveLength(6)
+    expect(result.current.status).toBe('ready')
+    expect(result.current.tasks[0]?.id).toBe('visible-over-http')
+  })
+
   it('accepts HTTP hydration despite repeated failed event connections and keeps polling', async () => {
     const hydration = deferred<readonly DownloadTask[]>()
     transportMock.invoke.mockReturnValueOnce(hydration.promise)

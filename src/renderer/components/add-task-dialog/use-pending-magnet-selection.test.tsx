@@ -18,6 +18,8 @@ const taskList = vi.hoisted(() => ({
 }))
 vi.mock('@renderer/hooks/use-task-list', () => ({
   useTaskList: () => taskList,
+  getTaskListSnapshot: () => taskList,
+  invalidateTaskList: vi.fn(),
 }))
 vi.mock('@renderer/lib/transport', () => ({ transport: { invoke: vi.fn() } }))
 vi.mock('@renderer/components/ui/toast', () => ({ toast: { add: vi.fn() } }))
@@ -230,3 +232,22 @@ it('recovers a transient selection failure without marking the task as shown', a
     vi.useRealTimers()
   }
 })
+
+it.each([TaskStatus.Error, TaskStatus.Paused, TaskStatus.Queued])(
+  'keeps a new selection event open over cached %s from an earlier attempt',
+  (status) => {
+    taskList.tasks = [{ ...ready('retried'), status }]
+    const settled = vi.fn(() => useAddTaskDialogStore.getState().close())
+    const { rerender } = renderHook(() => usePendingMagnetSelection(settled))
+
+    // A retry can happen while this client is disconnected. The reconnect
+    // selection event arrives before its HTTP/coalesced task snapshot.
+    act(() => showMagnetFileSelection(result('retried').selection))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(settled).not.toHaveBeenCalled()
+
+    taskList.tasks = [ready('retried')]
+    rerender()
+    expect(displayedTaskId()).toBe('retried')
+  }
+)

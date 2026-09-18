@@ -17,6 +17,7 @@ export function usePendingMagnetSelection(
   const open = useAddTaskDialogStore((state) => state.open)
   const revision = useAddTaskDialogStore((state) => state.revision)
   const prefill = useAddTaskDialogStore((state) => state.prefill)
+  const tasksAtOpen = useAddTaskDialogStore((state) => state.tasksAtOpen)
   const [handled, setHandled] = useState(() => new Set<string>())
   const [retryTick, setRetryTick] = useState(0)
   const attempts = useRef(new Map<string, number>())
@@ -61,23 +62,19 @@ export function usePendingMagnetSelection(
     if (
       !hasReadySnapshot ||
       !open ||
+      tasks === tasksAtOpen ||
       prefill?.tab !== 'torrent' ||
       !prefill.existingTaskId
     )
       return
     const task = tasks.find((entry) => entry.id === prefill.existingTaskId)
-    // The selection event is immediate, but TaskUpdated is coalesced. The
-    // cached FetchingMetadata snapshot can predate this already-ready picker;
-    // it is not evidence that selection was accepted or the task stopped.
-    if (
-      task &&
-      task.status !== TaskStatus.MetadataReady &&
-      task.status !== TaskStatus.FetchingMetadata
-    ) {
+    // Opening a picker records the cached list and invalidates older queries.
+    // A later snapshot can settle it without trusting any pre-open status.
+    if (task && task.status !== TaskStatus.MetadataReady) {
       if (onSelectionSettled) onSelectionSettled(task.id)
       else useAddTaskDialogStore.getState().close()
     }
-  }, [hasReadySnapshot, open, prefill, tasks, onSelectionSettled])
+  }, [hasReadySnapshot, open, prefill, tasks, tasksAtOpen, onSelectionSettled])
 
   useEffect(() => {
     if (open || !taskId) return

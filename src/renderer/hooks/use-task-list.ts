@@ -107,7 +107,7 @@ function onForeground(): void {
     scheduleWebRefresh()
     return
   }
-  invalidateTaskList()
+  refreshTaskList()
 }
 
 function onVisibilityChange(): void {
@@ -358,8 +358,15 @@ function onTaskEvent(...args: unknown[]): void {
  * an older snapshot request is still in flight. Never retry the mutation. */
 export function invalidateTaskList(): void {
   if (!listenersAttached) return
-  resetResyncRetry()
   dataGeneration += 1
+  refreshTaskList()
+}
+
+/** A connection/focus edge requests fresh data, but is not evidence that an
+ * in-flight HTTP snapshot is stale. Keep it usable while queuing one refresh. */
+function refreshTaskList(): void {
+  if (!listenersAttached) return
+  resetResyncRetry()
   legacyRefreshRequested = true
   drainLegacyRefresh()
 }
@@ -371,7 +378,7 @@ function attachListeners(): void {
   detachConnectionListener =
     transport.onConnectionChange?.((event) => {
       publish({ realtimeConnected: event.state === 'connected' })
-      if (event.state === 'connected') invalidateTaskList()
+      if (event.state === 'connected') refreshTaskList()
       else scheduleWebRefresh()
     }) ?? null
   transport.on(Events.TaskUpdated, onTaskEvent)
