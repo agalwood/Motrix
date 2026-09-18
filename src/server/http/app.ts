@@ -26,6 +26,7 @@ import {
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
+import { bindEventHeartbeat } from './event-heartbeat'
 import { bindEventBroadcaster } from './events'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
 import { ServiceUnavailableError } from './service-unavailable-error'
@@ -229,7 +230,9 @@ export async function createApp(
     app.get('/rpc/events', { websocket: true }, (socket, request) => {
       const session = operatorSessions?.bindSocket(request, socket)
       broadcaster.register(socket, session?.eligible)
+      const stopHeartbeat = bindEventHeartbeat(socket)
       const cleanup = () => {
+        stopHeartbeat()
         broadcaster.unregister(socket)
         session?.dispose()
       }

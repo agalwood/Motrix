@@ -184,3 +184,24 @@ describe('pending magnet selection recovery', () => {
     await waitFor(() => expect(displayedTaskId()).toBe('strict'))
   })
 })
+
+it('recovers a transient selection failure without marking the task as shown', async () => {
+  vi.useFakeTimers()
+  try {
+    vi.mocked(transport.invoke)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(result('retry'))
+    taskList.tasks = [ready('retry')]
+    renderHook(() => usePendingMagnetSelection())
+    await act(async () => {})
+    expect(displayedTaskId()).toBeUndefined()
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    expect(displayedTaskId()).toBe('retry')
+    expect(toast.add).toHaveBeenCalledTimes(1)
+    act(() => useAddTaskDialogStore.getState().close())
+    await act(async () => vi.advanceTimersByTimeAsync(10_000))
+    expect(transport.invoke).toHaveBeenCalledTimes(2)
+  } finally {
+    vi.useRealTimers()
+  }
+})

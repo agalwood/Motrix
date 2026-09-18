@@ -330,6 +330,18 @@ Docker 宿主。
 URL**。它没有 localhost 默认值：远程客户端需要配对时必须显式设置，不要向另一台机器上的
 客户端发布 `localhost`、`127.0.0.1` 或 `0.0.0.0`。应使用 Web 端口或它的反向代理 URL，
 而不是 MDXP 端口。留空不会禁用配对，但客户端无法从服务器获得有效的审批 URL。
+
+`MOTRIX_PUBLIC_URL` 也决定浏览器事件连接 `/rpc/events` 接受的来源。浏览器
+地址栏中的协议、主机名和端口需要与它一致；配置了 HTTPS 域名后改用内网 IP
+访问，可能出现 HTTP 操作成功但实时事件连接被拒绝的情况。反向代理应转发
+WebSocket Upgrade，并保留正确的 Host 和协议信息。
+
+事件连接不可用时，WebUI 保留任务列表，并在页面可见时每 5 秒通过 HTTP 更新。
+Dashboard 的引擎卡片与下载页的引擎徽标会显示定时更新或连接异常状态；
+这不代表下载引擎已经停止。若显示“访问地址不匹配”，请使用配置的访问地址，
+或修正 `MOTRIX_PUBLIC_URL` 后重启容器。浏览器控制台中的 WebSocket 错误和
+容器日志中的 `operator event connection rejected` 可用于进一步排查。
+
 首次启动时，Motrix 会以 `0600` 权限生成 `/data/operator-token`。使用 bind mount 时可这样读取：
 
 ```bash

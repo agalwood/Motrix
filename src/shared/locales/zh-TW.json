@@ -113,6 +113,12 @@
     "quit": "結束"
   },
   "panel": {
+    "connection": {
+      "polling": "定時更新中",
+      "reconnecting": "正在重新連線伺服器…",
+      "unavailable": "無法連線伺服器",
+      "originMismatch": "存取位址不符"
+    },
     "dashboard": {
       "title": "儀表板",
       "engine": {

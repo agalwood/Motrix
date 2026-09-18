@@ -1,6 +1,8 @@
 import { useOperatorSession } from '@renderer/lib/operator-auth'
+import { transport } from '@renderer/lib/transport'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { CommandIds } from '@shared/commands-catalog'
+import { Events } from '@shared/protocol/events'
 import { TaskStatus } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { act, renderHook } from '@testing-library/react'
@@ -33,7 +35,7 @@ vi.mock('@renderer/hooks/use-task-list', () => ({
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     platform: 'web',
-    getConnectionState: () => 'connected',
+    getConnectionState: vi.fn(() => 'connected'),
     invoke: vi.fn().mockResolvedValue({ state: 'ready' }),
     on: vi.fn(),
     off: vi.fn(),
@@ -42,6 +44,8 @@ vi.mock('@renderer/lib/transport', () => ({
 let dispose: () => void
 let connection: () => void
 beforeEach(async () => {
+  vi.mocked(transport.getConnectionState!).mockReturnValue('connected')
+  vi.mocked(transport.invoke).mockResolvedValue({ state: 'ready' })
   mocks.snapshot = { tasks: [], status: 'ready', hasReadySnapshot: true }
   useDownloadsSelection.getState().setItems([])
   useOperatorSession.setState({ state: 'authenticated' })
@@ -52,6 +56,45 @@ beforeEach(async () => {
 afterEach(() => {
   dispose()
   connection()
+  vi.useRealTimers()
+})
+
+it('keeps task actions available through HTTP when the event stream is disconnected', async () => {
+  connection()
+  vi.useFakeTimers()
+  vi.mocked(transport.getConnectionState!).mockReturnValue('disconnected')
+  mocks.snapshot.tasks = [makeDownloadTask({ status: TaskStatus.Downloading })]
+  connection = startMenuConnection()
+  await Promise.resolve()
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(true)
+
+  vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('offline'))
+  await vi.advanceTimersByTimeAsync(5_000)
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(false)
+  await vi.advanceTimersByTimeAsync(5_000)
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(true)
+})
+
+it('accepts a newer engine event while the initial HTTP observation is still pending', async () => {
+  connection()
+  let resolve!: (value: unknown) => void
+  vi.mocked(transport.invoke).mockReturnValueOnce(
+    new Promise((done) => {
+      resolve = done
+    })
+  )
+  mocks.snapshot.tasks = [makeDownloadTask({ status: TaskStatus.Downloading })]
+  connection = startMenuConnection()
+  const onEngine = vi
+    .mocked(transport.on)
+    .mock.calls.findLast(
+      ([channel]) => channel === Events.EngineStateChanged
+    )?.[1]
+  onEngine?.('ready')
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(true)
+  resolve({ state: 'stopped' })
+  await Promise.resolve()
+  expect(menuActionEnabled(CommandIds.TaskPauseAll)).toBe(true)
 })
 it('freezes only committed selection and cancels when selection changes', () => {
   const tasks = [

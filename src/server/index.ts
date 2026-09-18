@@ -1258,6 +1258,8 @@ async function main() {
     operatorAuth: {
       operatorToken: operator.token,
       publicUrl: process.env.MOTRIX_PUBLIC_URL,
+      onEventSocketRejected: (detail) =>
+        log.warn(detail, 'operator event connection rejected'),
     },
     healthCheck: () =>
       serverHealthSnapshot({

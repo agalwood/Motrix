@@ -368,7 +368,23 @@ device-code clients. It has no localhost default: set it explicitly whenever a
 remote client must pair, and do not advertise `localhost`, `127.0.0.1`, or
 `0.0.0.0` to a client on another machine. Use the Web port or its reverse-proxy
 URL, not the MDXP port. Leaving it unset does not disable pairing, but the
-client cannot receive a useful approval URL from the server. On first start,
+client cannot receive a useful approval URL from the server.
+
+`MOTRIX_PUBLIC_URL` also determines the accepted browser origin for the
+`/rpc/events` event connection. The browser URL must match its scheme, hostname,
+and port. Accessing a LAN IP after configuring an HTTPS hostname can allow HTTP
+operations while rejecting live events. A reverse proxy must forward WebSocket
+Upgrade requests and preserve the correct Host and protocol information.
+
+When the event connection is unavailable, WebUI retains the task list and updates
+it over HTTP every 5 seconds while the page is visible. The dashboard engine tile
+and downloads engine badge show periodic updates or a connection problem; this
+does not mean the download engine has stopped. For an access-address mismatch,
+use the configured URL or correct `MOTRIX_PUBLIC_URL` and restart the container.
+Browser WebSocket errors and `operator event connection rejected` in container
+logs provide additional diagnostics.
+
+On first start,
 Motrix generates `/data/operator-token` at mode `0600`. With bind mounts, read
 it with:
 

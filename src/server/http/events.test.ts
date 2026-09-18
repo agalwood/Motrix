@@ -34,3 +34,23 @@ describe('bindEventBroadcaster', () => {
     expect(sent).toEqual([])
   })
 })
+
+it('unregisters a socket after an asynchronous send failure', () => {
+  const bus = new EventEmitter()
+  let fail: ((error?: Error) => void) | undefined
+  let terminated = false
+  const socket = {
+    send: (_data: string, callback?: (error?: Error) => void) => {
+      fail = callback
+    },
+    terminate: () => {
+      terminated = true
+    },
+  }
+  const broadcaster = bindEventBroadcaster(bus as never)
+  broadcaster.register(socket)
+  bus.emit(Events.TaskUpdated, [])
+  fail?.(new Error('write failed'))
+  expect(broadcaster.count()).toBe(0)
+  expect(terminated).toBe(true)
+})
