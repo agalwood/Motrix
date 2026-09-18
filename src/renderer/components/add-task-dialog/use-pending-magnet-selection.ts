@@ -66,7 +66,14 @@ export function usePendingMagnetSelection(
     )
       return
     const task = tasks.find((entry) => entry.id === prefill.existingTaskId)
-    if (task && task.status !== TaskStatus.MetadataReady) {
+    // The selection event is immediate, but TaskUpdated is coalesced. The
+    // cached FetchingMetadata snapshot can predate this already-ready picker;
+    // it is not evidence that selection was accepted or the task stopped.
+    if (
+      task &&
+      task.status !== TaskStatus.MetadataReady &&
+      task.status !== TaskStatus.FetchingMetadata
+    ) {
       if (onSelectionSettled) onSelectionSettled(task.id)
       else useAddTaskDialogStore.getState().close()
     }

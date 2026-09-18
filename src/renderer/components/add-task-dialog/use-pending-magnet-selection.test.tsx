@@ -1,5 +1,6 @@
 import '@renderer/lib/i18n'
 import { toast } from '@renderer/components/ui/toast'
+import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
@@ -70,6 +71,30 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('pending magnet selection recovery', () => {
+  it('keeps event-driven selection open while the task snapshot still shows metadata fetching', () => {
+    taskList.tasks = [
+      { ...ready('resolving'), status: TaskStatus.FetchingMetadata },
+    ]
+    const settled = vi.fn(() => useAddTaskDialogStore.getState().close())
+    const { rerender } = renderHook(() => usePendingMagnetSelection(settled))
+
+    // Selection events bypass the task publisher's trailing 16 ms window.
+    act(() => showMagnetFileSelection(result('resolving').selection))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(displayedTaskId()).toBe('resolving')
+    expect(settled).not.toHaveBeenCalled()
+
+    taskList.tasks = [ready('resolving')]
+    rerender()
+    expect(displayedTaskId()).toBe('resolving')
+    expect(transport.invoke).not.toHaveBeenCalled()
+
+    taskList.tasks = [{ ...ready('resolving'), status: TaskStatus.Downloading }]
+    rerender()
+    expect(settled).toHaveBeenCalledOnce()
+    expect(useAddTaskDialogStore.getState().open).toBe(false)
+  })
+
   it('closes a stale picker when a reconnect snapshot shows it already downloading', () => {
     taskList.tasks = [ready('restored')]
     useAddTaskDialogStore
