@@ -43,9 +43,9 @@ export function PanelShell({
       <header
         data-slot="panel-shell-header"
         className={cn(
-          // Standard headers retain the 36px clearance below window controls.
-          // A 36px action row and 8px bottom padding make an 80px header.
-          'flex shrink-0 items-center justify-between gap-4 px-6 pt-9 pb-2 transition-[padding] duration-200 motion-reduce:transition-none',
+          // Standard headers keep 32px above the title and 12px below it.
+          // Together with the 36px action row, the header remains 80px tall.
+          'flex shrink-0 items-center justify-between gap-4 px-6 pt-8 pb-3 transition-[padding] duration-200 motion-reduce:transition-none',
           // Compact rows center on the window-chrome icon line: the overlay
           // strip renders its 28px buttons at window y 13..41 (pt-[14px]
           // wrapper in AppLayout), i.e. centerline y=27. The inset sits 8px

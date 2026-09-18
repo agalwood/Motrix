@@ -46,10 +46,7 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await expect(trackerInput).toHaveValue('')
     await trackerInput.press('Escape')
     await expect(trackerSearch).toBeFocused()
-    await page.screenshot({
-      path: testInfo.outputPath('trackers-toolbar.png'),
-      animations: 'disabled',
-    })
+    await page.screenshot({ path: testInfo.outputPath('trackers-toolbar.png') })
 
     await page.getByRole('link', { name: 'Plugins', exact: true }).click()
     const plugins = page.getByRole('toolbar', { name: 'Plugins' })
@@ -73,7 +70,6 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await page.screenshot({
       path: testInfo.outputPath('plugins-toolbar-light.png'),
-      animations: 'disabled',
     })
     await plugins.getByRole('link', { name: 'Diagnostics' }).click()
     await expect.poll(() => page.url()).toContain('/plugins/diagnostics')
@@ -90,7 +86,6 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await expect(input).toBeFocused()
     await page.screenshot({
       path: testInfo.outputPath('plugins-toolbar-dark-compact.png'),
-      animations: 'disabled',
     })
     await page.emulateMedia({ contrast: 'more' })
     await expect(plugins.locator('[data-slot="toolbar-glass"]')).toHaveCount(0)
