@@ -180,7 +180,10 @@ import { suppressMacOSAutomaticFullscreenMenuItem } from './menu/macos-fullscree
 import { MenuManager } from './menu/menu-manager'
 import { MenuRegistry } from './menu/menu-registry'
 import { createNatManager } from './nat/nat-manager-factory'
-import { createOsNotificationBridge } from './notifications/os-bridge'
+import {
+  createOsNotificationBridge,
+  resolveNotificationTaskRoute,
+} from './notifications/os-bridge'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
 import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
@@ -637,14 +640,18 @@ function loadWindowUrl(win: BrowserWindow, route: string) {
 function dispatchWhenReady(
   win: BrowserWindow,
   channel: string,
-  payload: unknown
+  payload: unknown,
+  resolvePayload?: () => unknown
 ) {
   const dispatchLog = getLogger('dispatch')
   const send = (reason: string) => {
     setTimeout(() => {
       if (!win.isDestroyed()) {
         dispatchLog.info({ channel, reason }, 'webContents.send firing')
-        win.webContents.send(channel, payload)
+        win.webContents.send(
+          channel,
+          resolvePayload ? resolvePayload() : payload
+        )
       } else {
         dispatchLog.warn({ channel, reason }, 'window destroyed before send')
       }
@@ -1642,14 +1649,21 @@ async function initializeMainProcess(): Promise<void> {
     showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
     translate: i18n.t.bind(i18n),
+    getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
     navigateToTask: (taskId) => {
       const win = windowManager?.get('main')
       if (!win || win.isDestroyed()) return
-      dispatchWhenReady(
-        win,
-        Events.NavigateTo,
-        `/downloads/all?task=${encodeURIComponent(taskId)}`
+      dispatchWhenReady(win, Events.NavigateTo, '/downloads/all', () =>
+        resolveNotificationTaskRoute(
+          taskId,
+          taskManager.getById(taskId)?.status ?? null
+        )
       )
+    },
+    navigateToDownloads: () => {
+      const win = windowManager?.get('main')
+      if (!win || win.isDestroyed()) return
+      dispatchWhenReady(win, Events.NavigateTo, '/downloads/all')
     },
     revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
     log,

@@ -12,6 +12,7 @@ import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import type { AppNotification } from '@shared/types/notification'
 import { NotificationKinds } from '@shared/types/notification'
 import type { MotrixAppSettings } from '@shared/types/settings'
+import { TaskStatus } from '@shared/types/task'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
@@ -41,7 +42,10 @@ import type {
   OsNotificationHandle,
   OsNotificationMainWindow,
 } from './os-bridge'
-import { createOsNotificationBridge } from './os-bridge'
+import {
+  createOsNotificationBridge,
+  resolveNotificationTaskRoute,
+} from './os-bridge'
 
 // ---------------------------------------------------------------------------
 // Fixtures & helpers
@@ -145,12 +149,18 @@ function baseDeps(overrides: {
   isSupported?: () => boolean
   log?: ReturnType<typeof makeLog>
   showMainWindow?: () => void
+  getTaskStatus?: (taskId: string) => TaskStatus | null
   navigateToTask?: (taskId: string) => void
+  navigateToDownloads?: () => void
   revealTaskInFolder?: (taskId: string) => Promise<void>
   translate?: (key: string, params?: Record<string, string>) => string
 }) {
   const { subscribe, deliver } = makeCapturingSubscribe()
   const navigateToTask = vi.fn(overrides.navigateToTask)
+  const navigateToDownloads = vi.fn(overrides.navigateToDownloads)
+  const getTaskStatus = vi.fn(
+    overrides.getTaskStatus ?? (() => TaskStatus.Completed)
+  )
   const showMainWindow = vi.fn(overrides.showMainWindow)
   const revealTaskInFolder = vi.fn(
     overrides.revealTaskInFolder ?? (async () => {})
@@ -164,6 +174,8 @@ function baseDeps(overrides: {
     deliver,
     log,
     navigateToTask,
+    navigateToDownloads,
+    getTaskStatus,
     showMainWindow,
     revealTaskInFolder,
     deps: {
@@ -173,6 +185,8 @@ function baseDeps(overrides: {
       getAppSettings: () => settings,
       translate,
       navigateToTask,
+      navigateToDownloads,
+      getTaskStatus,
       revealTaskInFolder,
       isSupported: overrides.isSupported ?? (() => true),
       createNotification: overrides.createNotification,
@@ -309,6 +323,8 @@ describe('createOsNotificationBridge — subscription', () => {
       getAppSettings: () => makeSettings(),
       translate: (key) => key,
       showMainWindow: vi.fn(),
+      getTaskStatus: () => null,
+      navigateToDownloads: vi.fn(),
       revealTaskInFolder: vi.fn(async () => {}),
       navigateToTask: vi.fn(),
       isSupported: () => true,
@@ -443,7 +459,118 @@ describe('createOsNotificationBridge — body rendering', () => {
 // Click behavior
 // ---------------------------------------------------------------------------
 
+describe('resolveNotificationTaskRoute', () => {
+  it.each([null, TaskStatus.Removed])(
+    'falls back to all downloads when the current task status is %s',
+    (status) => {
+      expect(resolveNotificationTaskRoute('t-1', status)).toBe('/downloads/all')
+    }
+  )
+
+  it.each(
+    Object.values(TaskStatus).filter((status) => status !== TaskStatus.Removed)
+  )('preserves task navigation for an existing %s task', (status) => {
+    expect(resolveNotificationTaskRoute('task/?#1', status)).toBe(
+      '/downloads/all?task=task%2F%3F%231'
+    )
+  })
+})
+
 describe('createOsNotificationBridge — click behavior', () => {
+  it.each([
+    [NotificationKinds.TaskComplete, null],
+    [NotificationKinds.TaskComplete, TaskStatus.Removed],
+    [NotificationKinds.TaskError, null],
+    [NotificationKinds.TaskError, TaskStatus.Removed],
+  ])(
+    'opens all downloads when a %s task becomes %s before the click',
+    async (kind, removedStatus) => {
+      const { createNotification, instances } = makeNotificationFactory()
+      let status: TaskStatus | null = TaskStatus.Completed
+      const {
+        deps,
+        deliver,
+        showMainWindow,
+        navigateToTask,
+        navigateToDownloads,
+        revealTaskInFolder,
+        getTaskStatus,
+        log,
+      } = baseDeps({
+        settings: makeSettings({ notifyOnComplete: true, notifyOnError: true }),
+        createNotification,
+        getTaskStatus: () => status,
+      })
+
+      createOsNotificationBridge(deps)
+      deliver(makeNotification({ kind, taskId: 't-1' }))
+      status = removedStatus
+
+      await instances[0].click()
+
+      expect(getTaskStatus).toHaveBeenCalledWith('t-1')
+      expect(showMainWindow).toHaveBeenCalledOnce()
+      expect(showMainWindow).toHaveBeenCalledBefore(navigateToDownloads)
+      expect(navigateToDownloads).toHaveBeenCalledOnce()
+      expect(navigateToTask).not.toHaveBeenCalled()
+      expect(revealTaskInFolder).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rechecks task availability after an asynchronous reveal failure', async () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const reveal = Promise.withResolvers<void>()
+    let status: TaskStatus | null = TaskStatus.Completed
+    const {
+      deps,
+      deliver,
+      navigateToTask,
+      navigateToDownloads,
+      showMainWindow,
+      log,
+    } = baseDeps({
+      settings: makeSettings({ notifyOnComplete: true }),
+      createNotification,
+      getTaskStatus: () => status,
+      revealTaskInFolder: () => reveal.promise,
+    })
+
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: 't-1' }))
+    const click = instances[0].click()
+    status = null
+    reveal.reject(new Error('task removed while revealing'))
+    await click
+
+    expect(showMainWindow).toHaveBeenCalledOnce()
+    expect(navigateToDownloads).toHaveBeenCalledOnce()
+    expect(navigateToTask).not.toHaveBeenCalled()
+    expect(log.warn).not.toHaveBeenCalled()
+  })
+
+  it('rechecks task availability after recreating the main window', async () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    let status: TaskStatus | null = TaskStatus.Error
+    const { deps, deliver, navigateToTask, navigateToDownloads } = baseDeps({
+      settings: makeSettings({ notifyOnError: true }),
+      createNotification,
+      getTaskStatus: () => status,
+      showMainWindow: () => {
+        status = null
+      },
+    })
+
+    createOsNotificationBridge(deps)
+    deliver(
+      makeNotification({ kind: NotificationKinds.TaskError, taskId: 't-1' })
+    )
+    await instances[0].click()
+
+    expect(navigateToDownloads).toHaveBeenCalledOnce()
+    expect(navigateToTask).not.toHaveBeenCalled()
+  })
+
   it.each(['hidden', 'released'])(
     'reveals a completed task without showing the %s main window',
     async (windowState) => {
@@ -631,7 +758,15 @@ describe('createOsNotificationBridge — click behavior', () => {
   it('does not reopen the app if disposed while revealing', async () => {
     const { createNotification, instances } = makeNotificationFactory()
     const reveal = Promise.withResolvers<void>()
-    const { deps, deliver, showMainWindow, navigateToTask } = baseDeps({
+    const {
+      deps,
+      deliver,
+      showMainWindow,
+      navigateToTask,
+      navigateToDownloads,
+      getTaskStatus,
+      log,
+    } = baseDeps({
       settings: makeSettings({ notifyOnComplete: true }),
       createNotification,
       revealTaskInFolder: () => reveal.promise,
@@ -641,11 +776,14 @@ describe('createOsNotificationBridge — click behavior', () => {
     deliver(makeNotification({ taskId: 't-1' }))
     const click = instances[0].click()
     bridge.dispose()
+    getTaskStatus.mockReturnValue(null)
     reveal.reject(new Error('folder unavailable'))
     await click
 
     expect(showMainWindow).not.toHaveBeenCalled()
     expect(navigateToTask).not.toHaveBeenCalled()
+    expect(navigateToDownloads).not.toHaveBeenCalled()
+    expect(log.warn).not.toHaveBeenCalled()
   })
 })
 
@@ -736,6 +874,8 @@ describe('createOsNotificationBridge — Electron defaults', () => {
       getAppSettings: () => makeSettings({ notifyOnComplete: true }),
       translate: (key) => key,
       showMainWindow: vi.fn(),
+      getTaskStatus: () => null,
+      navigateToDownloads: vi.fn(),
       revealTaskInFolder: vi.fn(async () => {}),
       navigateToTask: vi.fn(),
       log: { warn: vi.fn() },
@@ -760,6 +900,8 @@ describe('createOsNotificationBridge — Electron defaults', () => {
       getAppSettings: () => makeSettings({ notifyOnComplete: true }),
       translate: (key) => key,
       showMainWindow: vi.fn(),
+      getTaskStatus: () => null,
+      navigateToDownloads: vi.fn(),
       revealTaskInFolder: vi.fn(async () => {}),
       navigateToTask: vi.fn(),
       log: { warn: vi.fn() },
