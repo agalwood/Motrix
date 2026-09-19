@@ -18,6 +18,7 @@ import type {
   DashboardTileSpan,
 } from '@shared/types/settings'
 import {
+  Check,
   GripVertical,
   MoveDiagonal2,
   PanelTop,
@@ -26,26 +27,29 @@ import {
   Trash2,
 } from 'lucide-react'
 import type React from 'react'
+import { useId, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   DashboardLayoutFailureReason,
   DashboardTileSizeOption,
 } from '../layout/dashboard-layout'
 import {
-  type DashboardTilePresentationDefinition,
-  type DashboardTileSpanKey,
   dashboardTileOrientation,
+  dashboardTileSizeLabel,
   dashboardTileSpanKey,
 } from '../layout/dashboard-registry'
+import {
+  DASHBOARD_LAYOUT_MENU_CLASS,
+  DASHBOARD_LAYOUT_OPTION_CLASS,
+  DashboardLayoutHint,
+  DashboardLayoutPreview,
+} from './dashboard-layout-menu'
 
 export interface DashboardTileFrameLabels {
   drag: string
   remove: string
   resize?: string
   sizeGroup: string
-  size: (
-    size: DashboardTileSpanKey,
-    presentation: DashboardTilePresentationDefinition
-  ) => string
   unavailable: (reason: DashboardLayoutFailureReason) => string
 }
 
@@ -97,6 +101,13 @@ export function DashboardTileFrame({
   onResize,
   onRemove,
 }: DashboardTileFrameProps) {
+  const { t } = useTranslation()
+  const hintId = useId()
+  const [hintReason, setHintReason] =
+    useState<DashboardLayoutFailureReason | null>(null)
+  const unavailableReason = sizeOptions.find(
+    (option) => !option.available
+  )?.failureReason
   const currentSize = dashboardTileSpanKey(tile)
   const gridStyle = {
     '--dashboard-grid-column': `${tile.x + 1} / span ${tile.w}`,
@@ -162,7 +173,7 @@ export function DashboardTileFrame({
                 <Trash2 aria-hidden />
               </Button>
             </ControlTooltip>
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={() => setHintReason(null)}>
               <DropdownMenuTrigger
                 render={
                   <Button
@@ -176,8 +187,17 @@ export function DashboardTileFrame({
               >
                 <SizeIcon span={tile} />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-40">
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className={DASHBOARD_LAYOUT_MENU_CLASS}
+              >
+                <div className="shrink-0 px-2 pt-1 pb-1.5 text-[11px] font-medium">
+                  {labels.sizeGroup}
+                </div>
                 <DropdownMenuRadioGroup
+                  aria-label={labels.sizeGroup}
+                  className="min-h-0 space-y-0.5 overflow-y-auto overscroll-contain"
                   value={currentSize}
                   onValueChange={(value) => {
                     const option = sizeOptions.find(
@@ -192,31 +212,74 @@ export function DashboardTileFrame({
                   {sizeOptions.map(
                     ({ presentation, available, failureReason }) => {
                       const size = dashboardTileSpanKey(presentation.span)
+                      const selected = size === currentSize
+                      const name = t(
+                        `panel.dashboard.configure.sizeLabels.${dashboardTileSizeLabel(presentation)}`
+                      )
+                      const dimensions = t('panel.dashboard.configure.size', {
+                        width: presentation.span.w,
+                        height: presentation.span.h,
+                      })
+                      const accessibleName = `${name} ${dimensions}`
                       return (
                         <DropdownMenuRadioItem
                           key={size}
                           value={size}
                           disabled={!available}
+                          showIndicator={false}
+                          label={name}
                           aria-label={
                             !available && failureReason
-                              ? `${labels.size(size, presentation)} ${labels.unavailable(failureReason)}`
-                              : labels.size(size, presentation)
+                              ? `${accessibleName} ${labels.unavailable(failureReason)}`
+                              : accessibleName
                           }
-                          className="gap-2"
+                          aria-describedby={!available ? hintId : undefined}
+                          onMouseEnter={() =>
+                            setHintReason(failureReason ?? null)
+                          }
+                          onFocus={() => setHintReason(failureReason ?? null)}
+                          className={cn(
+                            DASHBOARD_LAYOUT_OPTION_CLASS,
+                            selected && 'bg-accent/70'
+                          )}
                         >
-                          <SizeIcon span={presentation.span} />
-                          <span>{labels.size(size, presentation)}</span>
-                          {!available && failureReason ? (
-                            <span className="ml-auto text-[10px] text-muted-foreground">
-                              {' · '}
-                              {labels.unavailable(failureReason)}
+                          <DashboardLayoutPreview
+                            span={presentation.span}
+                            className={cn(
+                              'text-foreground',
+                              !available && 'opacity-35'
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1',
+                              !available && 'opacity-60'
+                            )}
+                          >
+                            <span className="block text-xs leading-4 font-medium">
+                              {name}
                             </span>
+                            <span className="block text-[10px] leading-3.5 tabular-nums text-muted-foreground">
+                              {dimensions}
+                            </span>
+                          </span>
+                          {selected ? (
+                            <Check
+                              aria-hidden
+                              className="size-3.5 text-foreground"
+                            />
                           ) : null}
                         </DropdownMenuRadioItem>
                       )
                     }
                   )}
                 </DropdownMenuRadioGroup>
+                {unavailableReason ? (
+                  <DashboardLayoutHint
+                    id={hintId}
+                    reason={hintReason ?? unavailableReason}
+                  />
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

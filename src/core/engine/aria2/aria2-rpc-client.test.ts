@@ -81,6 +81,17 @@ describe('Aria2RpcClient', () => {
     vi.restoreAllMocks()
   })
 
+  it.each([true, false])(
+    'reports the actual WebSocket connection state: %s',
+    (connected) => {
+      fakeTransport.isConnected.mockReturnValue(connected)
+      expect(client.getConnectionStatus()).toEqual({
+        transport: 'websocket',
+        connected,
+      })
+    }
+  )
+
   describe('accepted pause reconciliation', () => {
     const active = {
       gid: 'gid1',

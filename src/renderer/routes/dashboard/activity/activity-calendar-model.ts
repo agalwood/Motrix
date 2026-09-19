@@ -11,6 +11,8 @@ const PREFERRED_CELL_SIZE = 9
 const STANDARD_MIN_CELL_SIZE = 7
 const EMERGENCY_MIN_CELL_SIZE = 5
 const MAX_CELL_SIZE = 12
+const MAX_BANDED_CELL_SIZE = 18
+const BAND_GAP = 24
 const WEEKDAY_LABEL_WIDTH = 24
 const MONTH_LABEL_HEIGHT = 14
 const LEGEND_HEIGHT = 18
@@ -52,6 +54,10 @@ export interface ActivityCalendarGeometry extends ActivityCalendarChrome {
   gridTop: number
   gridWidth: number
   gridHeight: number
+  bands: number
+  weeksPerBand: number
+  bandHeight: number
+  bandStride: number
 }
 
 export interface ActivityGeometryInput {
@@ -180,8 +186,8 @@ export function maxActivityWeeks(
 ): 13 | 26 | 53 {
   switch (contentLevel) {
     case 'compact':
-    case 'summary':
       return 13
+    case 'summary':
     case 'detailed':
       return 26
     case 'focus':
@@ -209,8 +215,8 @@ function maximumChrome(
       }
     case 'summary':
       return {
-        showMonthLabels: false,
-        showWeekdayLabels: true,
+        showMonthLabels: true,
+        showWeekdayLabels: false,
         showLegend: false,
       }
     case 'detailed':
@@ -286,22 +292,34 @@ function fitGeometry(
   weeks: number,
   gap: 1 | 2 | 3,
   minimumCellSize: number,
-  chrome: ActivityCalendarChrome
+  chrome: ActivityCalendarChrome,
+  bands = 1
 ): ActivityCalendarGeometry | null {
   const labelWidth = chrome.showWeekdayLabels ? WEEKDAY_LABEL_WIDTH : 0
   const labelHeight = chrome.showMonthLabels ? MONTH_LABEL_HEIGHT : 0
   const legendHeight = chrome.showLegend ? LEGEND_HEIGHT : 0
   const availableWidth = width - labelWidth
-  const availableHeight = height - labelHeight - legendHeight
-  const widthCellSize = Math.floor((availableWidth - (weeks - 1) * gap) / weeks)
+  const availableHeight =
+    (height - bands * labelHeight - legendHeight - (bands - 1) * BAND_GAP) /
+    bands
+  const weeksPerBand = Math.ceil(weeks / bands)
+  const widthCellSize = Math.floor(
+    (availableWidth - (weeksPerBand - 1) * gap) / weeksPerBand
+  )
   const heightCellSize = Math.floor((availableHeight - 6 * gap) / 7)
-  const cellSize = Math.min(MAX_CELL_SIZE, widthCellSize, heightCellSize)
+  const cellSize = Math.min(
+    bands > 1 ? MAX_BANDED_CELL_SIZE : MAX_CELL_SIZE,
+    widthCellSize,
+    heightCellSize
+  )
 
   if (cellSize < minimumCellSize) return null
 
   const stride = cellSize + gap
-  const gridWidth = weeks * cellSize + (weeks - 1) * gap
-  const gridHeight = 7 * cellSize + 6 * gap
+  const gridWidth = weeksPerBand * cellSize + (weeksPerBand - 1) * gap
+  const bandHeight = 7 * cellSize + 6 * gap
+  const bandStride = bandHeight + labelHeight + BAND_GAP
+  const gridHeight = bandHeight + (bands - 1) * bandStride
   const gridAreaHeight = height - labelHeight - legendHeight
 
   return {
@@ -318,6 +336,10 @@ function fitGeometry(
       labelHeight + Math.max(0, Math.floor((gridAreaHeight - gridHeight) / 2)),
     gridWidth,
     gridHeight,
+    bands,
+    weeksPerBand,
+    bandHeight,
+    bandStride,
   }
 }
 
@@ -331,23 +353,30 @@ export function selectActivityGeometry({
   const maxWeeks = maxActivityWeeks(contentLevel)
   const requestedWeeks = [53, 26, 13].filter((weeks) => weeks <= maxWeeks)
   const plans = chromePlans(contentLevel)
+  const bandOptions =
+    height >= 220 && (contentLevel === 'detailed' || contentLevel === 'focus')
+      ? [2, 1]
+      : [1]
 
   for (const weeks of requestedWeeks) {
     let best: ActivityCalendarGeometry | null = null
     for (const chrome of plans) {
-      for (const gap of GAP_PREFERENCES) {
-        const candidate = fitGeometry(
-          width,
-          height,
-          weeks,
-          gap,
-          STANDARD_MIN_CELL_SIZE,
-          chrome
-        )
-        if (!candidate) continue
+      for (const bands of bandOptions) {
+        for (const gap of GAP_PREFERENCES) {
+          const candidate = fitGeometry(
+            width,
+            height,
+            weeks,
+            gap,
+            STANDARD_MIN_CELL_SIZE,
+            chrome,
+            bands
+          )
+          if (!candidate) continue
 
-        if (isBetterStandardGeometry(candidate, best)) {
-          best = candidate
+          if (isBetterStandardGeometry(candidate, best)) {
+            best = candidate
+          }
         }
       }
     }
@@ -386,6 +415,22 @@ export function selectActivityGeometry({
   return best
 }
 
+/** Calendar coordinates stay chronological when the week columns wrap. */
+export function activityCellPosition(
+  geometry: ActivityCalendarGeometry,
+  index: number
+): { left: number; top: number } {
+  const week = Math.floor(index / 7)
+  const band = Math.floor(week / geometry.weeksPerBand)
+  return {
+    left: geometry.gridLeft + (week % geometry.weeksPerBand) * geometry.stride,
+    top:
+      geometry.gridTop +
+      band * geometry.bandStride +
+      (index % 7) * geometry.stride,
+  }
+}
+
 export function hitTestActivityCell(
   geometry: ActivityCalendarGeometry,
   cells: readonly ActivityCalendarCell[],
@@ -397,16 +442,25 @@ export function hitTestActivityCell(
   if (localX < 0 || localY < 0) return null
 
   const column = Math.floor(localX / geometry.stride)
-  const row = Math.floor(localY / geometry.stride)
-  if (column >= geometry.weeks || row >= 7) return null
+  const band = Math.floor(localY / geometry.bandStride)
+  const bandY = localY - band * geometry.bandStride
+  const row = Math.floor(bandY / geometry.stride)
+  const week = band * geometry.weeksPerBand + column
+  if (
+    band >= geometry.bands ||
+    column >= geometry.weeksPerBand ||
+    week >= geometry.weeks ||
+    row >= 7
+  )
+    return null
   if (
     localX - column * geometry.stride >= geometry.cellSize ||
-    localY - row * geometry.stride >= geometry.cellSize
+    bandY - row * geometry.stride >= geometry.cellSize
   ) {
     return null
   }
 
-  const index = column * 7 + row
+  const index = week * 7 + row
   return cells[index]?.tracking === 'future' ? null : index
 }
 
@@ -486,8 +540,20 @@ export function moveActivityActiveIndex(
 }
 
 export function activityMonthLabels(
-  cells: readonly ActivityCalendarCell[]
+  cells: readonly ActivityCalendarCell[],
+  weeksPerBand = cells.length / 7
 ): ActivityMonthLabel[] {
+  if (weeksPerBand > 0 && weeksPerBand * 7 < cells.length) {
+    const labels: ActivityMonthLabel[] = []
+    for (let start = 0; start < cells.length; start += weeksPerBand * 7) {
+      labels.push(
+        ...activityMonthLabels(
+          cells.slice(start, start + weeksPerBand * 7)
+        ).map((label) => ({ ...label, cellIndex: label.cellIndex + start }))
+      )
+    }
+    return labels
+  }
   const labels: ActivityMonthLabel[] = []
 
   for (let column = 0; column < cells.length / 7; column += 1) {

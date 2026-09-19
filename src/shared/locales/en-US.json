@@ -148,33 +148,33 @@
           "currentStatus": "Current status",
           "lastChecked": "Checked at {{time}}",
           "checks": {
-            "binary": "Bundled aria2",
-            "features": "Engine Features",
-            "rpc": "Motrix RPC port",
-            "process": "Process ownership",
-            "communication": "Engine communication"
+            "binary": "Engine",
+            "features": "Features",
+            "rpc": "RPC port",
+            "process": "Process",
+            "communication": "Connection"
           },
           "binary": {
-            "available": "{{name}} {{version}} is available.",
+            "available": "{{name}} {{version}}",
             "unavailable": "{{name}} is missing or cannot be started."
           },
           "features": {
-            "none": "aria2 did not report any engine features.",
-            "unavailable": "Engine feature information is unavailable."
+            "none": "Not reported",
+            "unavailable": "Unavailable"
           },
           "rpc": {
-            "listening": "Motrix aria2 is listening normally on port {{port}}.",
-            "available": "Port {{port}} is free and ready for Motrix aria2.",
-            "occupied": "Port {{port}} is already being used."
+            "listening": "{{port}} (Listening)",
+            "available": "{{port}} (Available)",
+            "occupied": "{{port}} (In use)"
           },
           "process": {
-            "none": "No process is blocking the RPC port.",
-            "unidentified": "The process using this port could not be identified. Motrix will not terminate it.",
-            "current_app": "PID {{pid}} ({{name}}) is managed by this Motrix session.",
-            "verified_orphan": "PID {{pid}} ({{name}}) matches Motrix’s bundled binary and private launch parameters, so it is safe to terminate.",
-            "external_aria2": "PID {{pid}} ({{name}}) is aria2, but Motrix cannot verify ownership. It will not be terminated automatically.",
-            "other": "PID {{pid}} ({{name}}) is not a verified Motrix aria2 process and is protected.",
-            "unknown": "PID {{pid}} could not be identified and is protected."
+            "none": "No port conflict",
+            "unidentified": "Unidentified, Will not be stopped",
+            "current_app": "PID {{pid}} ({{name}}), Managed by Motrix",
+            "verified_orphan": "PID {{pid}} ({{name}}), Verified Motrix leftover; safe to stop",
+            "external_aria2": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
+            "other": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
+            "unknown": "PID {{pid}}, Unidentified; will not be stopped"
           },
           "communication": {
             "ready": "Motrix can communicate with aria2."
@@ -220,6 +220,50 @@
             "title": "Force stop the leftover aria2 process?",
             "description": "PID {{pid}} matches Motrix’s bundled binary, private RPC secret, and data paths. It will be terminated immediately, then aria2 will restart on the Motrix RPC port.",
             "action": "Force stop & recover"
+          },
+          "details": "Diagnostic details",
+          "versionUnknown": "Version unavailable",
+          "copy": "Copy diagnostics",
+          "copied": "Copied",
+          "copyFailed": "Could not copy diagnostics. Please try again.",
+          "refreshFailed": "Could not refresh diagnostics. The last successful report is shown below.",
+          "summary": {
+            "ready": "The download engine is running normally",
+            "starting": "The download engine is starting",
+            "restarting": "The download engine is recovering",
+            "stopped": "The download engine is stopped",
+            "port_in_use": "The engine’s control port is occupied",
+            "binary_unavailable": "The download engine is unavailable",
+            "spawn_failed": "The download engine could not start",
+            "rpc_unavailable": "The engine’s control connection is unavailable",
+            "unexpected_exit": "The download engine exited unexpectedly",
+            "health_check_failed": "The download engine stopped responding",
+            "unknown": "The download engine is unavailable"
+          },
+          "impact": {
+            "failed": "Download controls are unavailable. Task status may be out of date.",
+            "connecting": "Download controls will be available when the engine is ready.",
+            "stopped": "Start the engine to begin or manage downloads."
+          },
+          "runtime": {
+            "process": "Process",
+            "running": "Running",
+            "notRunning": "Not running",
+            "connection": "Connection",
+            "connected": "Connected",
+            "connecting": "Connecting…",
+            "disconnected": "Not connected",
+            "unavailable": "Unavailable",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Available)",
+            "listening": "{{port}} (Listening)",
+            "occupied": "{{port}} (In use)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
           }
         }
       },
@@ -345,6 +389,7 @@
       "configure": {
         "action": "Configure",
         "addTile": "Add",
+        "addTitle": "Add a tile",
         "apply": "Apply",
         "cancel": "Cancel",
         "reset": "Reset",
@@ -355,6 +400,11 @@
         "size": "{{width}} × {{height}}",
         "currentSize": "Current size: {{width}} × {{height}}",
         "invalidCapacity": "Not enough space for this size",
+        "availabilityHints": {
+          "space": "Shrink or remove another tile.",
+          "bounds": "Move the tile inward first.",
+          "unsupported": "Choose a supported size."
+        },
         "sizeLabels": {
           "compact": "Compact",
           "wide": "Wide",
@@ -373,20 +423,16 @@
           "custom": "Custom",
           "undo": "Undo last preset",
           "balanced": {
-            "title": "Balanced",
-            "description": "A balanced overview of status, speed, activity, and tasks."
+            "title": "Balanced"
           },
           "taskFocus": {
-            "title": "Task Focus",
-            "description": "Give Tasks the most space while keeping key status visible."
+            "title": "Task Focus"
           },
           "speedFocus": {
-            "title": "Speed Focus",
-            "description": "Emphasize upload and download trends alongside active tasks."
+            "title": "Speed Focus"
           },
           "compact": {
-            "title": "Compact",
-            "description": "Fit every Dashboard tile into the fixed 4 × 3 canvas."
+            "title": "Compact"
           }
         },
         "saveFailed": "Could not save layout. Try again.",
@@ -421,6 +467,37 @@
       },
       "nat": {
         "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Mapped",
+            "settingUp": "Mapping",
+            "failed": "Mapping",
+            "off": "Off"
+          },
+          "caption": {
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} ports",
+            "settingUp": "Connecting…",
+            "failed": "Unavailable",
+            "off": "BT / DHT",
+            "waiting": "Loading…"
+          }
+        },
+        "internalIp": "Local IP",
+        "gatewayIp": "Router",
+        "caption": {
+          "off": "BT port mapping is off.",
+          "settingUp": "Connecting to your router…",
+          "failed": "Automatic mapping unavailable.",
+          "waiting": "Waiting for network status…"
+        },
+        "mappingDetails": "Mapped ports",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Internal {{internal}} to external {{external}}",
+        "noMappings": "No active port mappings.",
         "state": {
           "active": "Active",
           "settingUp": "Initializing",

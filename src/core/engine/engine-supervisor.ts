@@ -927,6 +927,7 @@ export class EngineSupervisor {
         port: engineSettings.rpcPort,
         available: portAvailable,
         expectedListener,
+        connection: this.rpcClient.getConnectionStatus(),
       },
       process: processInfo,
       defaultRpc: {
