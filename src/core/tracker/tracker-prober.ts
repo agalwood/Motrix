@@ -105,36 +105,61 @@ export class TrackerProber {
     return Date.now() - start
   }
 
-  private probeUdp(url: string, timeoutMs: number): Promise<number> {
+  private async probeUdp(url: string, timeoutMs: number): Promise<number> {
+    const { createSocket } = await import('node:dgram')
+    const parsed = new URL(url)
     return new Promise((resolve, reject) => {
-      import('node:dgram').then(({ createSocket }) => {
-        const start = Date.now()
-        const parsed = new URL(url)
-        const socket = createSocket('udp4')
-        const timer = setTimeout(() => {
-          socket.close()
-          reject(new Error('UDP probe timeout'))
-        }, timeoutMs)
+      const start = Date.now()
+      const socket = createSocket('udp4')
+      let settled = false
 
+      const finish = (error?: Error) => {
+        // DNS/send callbacks can arrive after the deadline closed the socket.
+        // Every completion path must claim cleanup before calling close().
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        socket.off('message', onMessage)
+        try {
+          socket.close()
+        } catch (closeError) {
+          // A native socket may already be closed after a network failure.
+          if (
+            (closeError as NodeJS.ErrnoException).code !==
+            'ERR_SOCKET_DGRAM_NOT_RUNNING'
+          ) {
+            reject(closeError)
+            return
+          }
+        }
+        if (error) reject(error)
+        else resolve(Date.now() - start)
+      }
+      const onMessage = () => finish()
+      const onError = (error: Error) => finish(error)
+      const timer = setTimeout(
+        () => finish(new Error('UDP probe timeout')),
+        timeoutMs
+      )
+
+      // Keep the error handler through close so in-flight network errors are
+      // contained by this probe instead of reaching uncaughtException.
+      socket.on('error', onError)
+      socket.once('close', () => socket.off('error', onError))
+      socket.once('message', onMessage)
+
+      try {
         // Minimal BT UDP tracker connection request
         const buf = Buffer.alloc(16)
         buf.writeBigInt64BE(0x41727101980n, 0) // protocol_id
         buf.writeInt32BE(0, 8) // action: connect
         buf.writeInt32BE((Math.random() * 0x7fffffff) | 0, 12) // transaction_id
         socket.send(buf, 0, 16, Number(parsed.port), parsed.hostname, (err) => {
-          if (err) {
-            clearTimeout(timer)
-            socket.close()
-            reject(err)
-            return
-          }
-          socket.once('message', () => {
-            clearTimeout(timer)
-            socket.close()
-            resolve(Date.now() - start)
-          })
+          if (err) finish(err)
         })
-      })
+      } catch (error) {
+        finish(error as Error)
+      }
     })
   }
 
