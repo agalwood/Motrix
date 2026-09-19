@@ -35,7 +35,7 @@ const listeners = new Set<() => void>()
 const publish = () => {
   for (const listener of listeners) listener()
 }
-let connected = transport.platform !== 'web'
+let serverReachable = transport.platform !== 'web'
 let engineReady = false
 
 export function registerDownloadsMenuContext(
@@ -94,7 +94,7 @@ export function selectAllDownloads(): void {
 }
 export function taskWritesAvailable(): boolean {
   return (
-    connected &&
+    serverReachable &&
     engineReady &&
     getTaskListSnapshot().status === 'ready' &&
     (transport.platform !== 'web' ||
@@ -147,45 +147,70 @@ export function menuContextSignature(intent?: TaskMenuIntent): string {
   ).join('')
 }
 export function startMenuConnection(): () => void {
-  connected =
-    transport.platform !== 'web' ||
-    transport.getConnectionState?.() === 'connected'
+  serverReachable = transport.platform !== 'web'
   let epoch = 0
   let disposed = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let inFlight = false
   const refreshEngine = async () => {
+    if (inFlight || disposed) return
+    inFlight = true
+    clearTimeout(timer)
     const current = ++epoch
+    const sessionEpoch = useOperatorSession.getState().epoch
+    const canPublish = () =>
+      !disposed &&
+      current === epoch &&
+      sessionEpoch === useOperatorSession.getState().epoch
     try {
       const result = (await transport.invoke(
         Queries.GetEngineStatus
       )) as EngineStatusSnapshot
-      if (!disposed && current === epoch) {
+      if (canPublish()) {
+        serverReachable = true
         engineReady = result.state === EngineState.Ready
         publish()
       }
     } catch {
-      if (current === epoch) {
+      if (canPublish()) {
+        serverReachable = false
         engineReady = false
         publish()
       }
+    } finally {
+      inFlight = false
+      if (!disposed && transport.platform === 'web')
+        timer = setTimeout(
+          () => {
+            if (document.visibilityState !== 'hidden') void refreshEngine()
+          },
+          transport.getConnectionState?.() === 'connected' ? 30_000 : 5_000
+        )
     }
   }
   const onEngine = (...args: unknown[]) => {
     epoch++
+    serverReachable = true
     engineReady = args[0] === EngineState.Ready
     publish()
   }
   const detach = transport.onConnectionChange?.((event) => {
-    connected = event.state === 'connected'
-    engineReady = false
-    epoch++
-    publish()
-    if (connected) void refreshEngine()
+    if (event.state === 'connected' || event.state === 'disconnected')
+      void refreshEngine()
   })
+  const foreground = () => {
+    if (document.visibilityState !== 'hidden') void refreshEngine()
+  }
   transport.on(Events.EngineStateChanged, onEngine)
+  window.addEventListener('online', foreground)
+  document.addEventListener('visibilitychange', foreground)
   void refreshEngine()
   return () => {
     disposed = true
     epoch++
+    clearTimeout(timer)
+    window.removeEventListener('online', foreground)
+    document.removeEventListener('visibilitychange', foreground)
     detach?.()
     transport.off(Events.EngineStateChanged, onEngine)
   }
@@ -193,7 +218,7 @@ export function startMenuConnection(): () => void {
 onOperatorSessionLost(() => {
   useDownloadsSelection.getState().clearSelection()
   useDownloadsSelection.getState().setItems([])
-  connected = false
+  serverReachable = false
   engineReady = false
   publish()
 })

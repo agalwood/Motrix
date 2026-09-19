@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net'
 import { EventBus } from '@core/events/event-bus'
+import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -19,6 +20,13 @@ describe('/rpc/events WebSocket auth', () => {
     bus = new EventBus()
     app = await createApp({
       eventBus: bus,
+      commandHandlers: {
+        [Commands.CreateTask]: async () => ({
+          outcome: 'created',
+          taskId: 't1',
+          gid: 'g1',
+        }),
+      },
       operatorAuth: {
         operatorToken: TOKEN,
         now: () => now,
@@ -136,5 +144,43 @@ describe('/rpc/events WebSocket auth', () => {
     bus.emit(Events.TaskUpdated, { id: 'expired' })
     expect(await closed).toBe(4401)
     expect(received).toEqual([])
+  })
+  it('diagnoses a mismatched browser origin while HTTP commands remain available', async () => {
+    const session = await cookie()
+    const origin = 'http://nas.local:8080'
+    const response = await app.inject({
+      method: 'POST',
+      url: `/rpc/command/${encodeURIComponent(Commands.CreateTask)}`,
+      headers: { cookie: session, origin, host: 'nas.local:8080' },
+      payload: { args: [] },
+    })
+    expect(response.statusCode).toBe(200)
+    const diagnostic = await app.inject({
+      method: 'GET',
+      url: '/rpc/auth/status',
+      headers: { cookie: session, 'x-motrix-web-origin': origin },
+    })
+    expect(diagnostic.json()).toMatchObject({
+      authed: true,
+      eventOriginMatches: false,
+    })
+    await expect(connect({ cookie: session, origin })).rejects.toThrow(
+      'http 403'
+    )
+    const anonymous = await app.inject({
+      method: 'GET',
+      url: '/rpc/auth/status',
+      headers: { 'x-motrix-web-origin': origin },
+    })
+    expect(anonymous.json()).not.toHaveProperty('eventOriginMatches')
+    const matching = await app.inject({
+      method: 'GET',
+      url: '/rpc/auth/status',
+      headers: {
+        cookie: session,
+        'x-motrix-web-origin': 'https://motrix.example',
+      },
+    })
+    expect(matching.json()).toMatchObject({ eventOriginMatches: true })
   })
 })

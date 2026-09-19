@@ -1,3 +1,4 @@
+import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +13,9 @@ import { AddTaskForm } from './add-task-form'
 const { recordRecentMock, invokeMock } = vi.hoisted(() => ({
   recordRecentMock: vi.fn().mockResolvedValue(undefined),
   invokeMock: vi.fn().mockResolvedValue({ gid: 'test-gid' }),
+}))
+vi.mock('@renderer/hooks/use-task-list', () => ({
+  invalidateTaskList: vi.fn(),
 }))
 vi.mock('@renderer/lib/directory-preferences', () => ({
   recordRecentDirectory: (...args: unknown[]) => recordRecentMock(...args),
@@ -822,6 +826,7 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).not.toHaveBeenCalled()
+    expect(invalidateTaskList).toHaveBeenCalled()
     expect(screen.getByRole('textbox')).toHaveValue('https://bad/2')
     expect(recordRecentMock.mock.calls).toEqual([['/d']])
   })

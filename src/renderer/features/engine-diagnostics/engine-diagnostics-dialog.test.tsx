@@ -99,6 +99,11 @@ describe('EngineDiagnosticsDialogHost', () => {
 
     expect(await screen.findByText('Engine diagnostics')).toBeVisible()
     expect(
+      await screen.findByText(
+        'Motrix’s RPC port is occupied, so aria2 engine could not start.'
+      )
+    ).toBeVisible()
+    expect(
       await screen.findByText(/matches Motrix’s bundled binary/i)
     ).toBeVisible()
     expect(

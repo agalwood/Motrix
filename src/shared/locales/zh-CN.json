@@ -113,6 +113,12 @@
     "quit": "退出"
   },
   "panel": {
+    "connection": {
+      "polling": "定时刷新中",
+      "reconnecting": "正在重连服务器…",
+      "unavailable": "无法连接服务器",
+      "originMismatch": "访问地址不匹配"
+    },
     "dashboard": {
       "title": "仪表板",
       "engine": {

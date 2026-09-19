@@ -114,7 +114,7 @@ describe('EngineTile', () => {
       />
     )
     expect(screen.getByText(/Failed|失败/)).toBeInTheDocument()
-    expect(screen.getByTestId('engine-failure')).toBeInTheDocument()
+    expect(screen.queryByTestId('engine-failure')).not.toBeInTheDocument()
     expect(screen.getByTestId('engine-subs')).toHaveClass('grid-cols-3')
     expect(
       container.querySelector('[data-slot="status-dot"]')
@@ -129,7 +129,7 @@ describe('EngineTile', () => {
       />
     )
 
-    expect(screen.getByTestId('engine-failure')).toBeInTheDocument()
+    expect(screen.queryByTestId('engine-failure')).not.toBeInTheDocument()
     expect(screen.getByTestId('engine-subs')).toHaveClass(
       'grid-cols-1',
       'gap-2'

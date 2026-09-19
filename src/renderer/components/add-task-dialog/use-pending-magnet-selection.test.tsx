@@ -1,5 +1,6 @@
 import '@renderer/lib/i18n'
 import { toast } from '@renderer/components/ui/toast'
+import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
@@ -17,6 +18,8 @@ const taskList = vi.hoisted(() => ({
 }))
 vi.mock('@renderer/hooks/use-task-list', () => ({
   useTaskList: () => taskList,
+  getTaskListSnapshot: () => taskList,
+  invalidateTaskList: vi.fn(),
 }))
 vi.mock('@renderer/lib/transport', () => ({ transport: { invoke: vi.fn() } }))
 vi.mock('@renderer/components/ui/toast', () => ({ toast: { add: vi.fn() } }))
@@ -70,6 +73,30 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('pending magnet selection recovery', () => {
+  it('keeps event-driven selection open while the task snapshot still shows metadata fetching', () => {
+    taskList.tasks = [
+      { ...ready('resolving'), status: TaskStatus.FetchingMetadata },
+    ]
+    const settled = vi.fn(() => useAddTaskDialogStore.getState().close())
+    const { rerender } = renderHook(() => usePendingMagnetSelection(settled))
+
+    // Selection events bypass the task publisher's trailing 16 ms window.
+    act(() => showMagnetFileSelection(result('resolving').selection))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(displayedTaskId()).toBe('resolving')
+    expect(settled).not.toHaveBeenCalled()
+
+    taskList.tasks = [ready('resolving')]
+    rerender()
+    expect(displayedTaskId()).toBe('resolving')
+    expect(transport.invoke).not.toHaveBeenCalled()
+
+    taskList.tasks = [{ ...ready('resolving'), status: TaskStatus.Downloading }]
+    rerender()
+    expect(settled).toHaveBeenCalledOnce()
+    expect(useAddTaskDialogStore.getState().open).toBe(false)
+  })
+
   it('closes a stale picker when a reconnect snapshot shows it already downloading', () => {
     taskList.tasks = [ready('restored')]
     useAddTaskDialogStore
@@ -184,3 +211,43 @@ describe('pending magnet selection recovery', () => {
     await waitFor(() => expect(displayedTaskId()).toBe('strict'))
   })
 })
+
+it('recovers a transient selection failure without marking the task as shown', async () => {
+  vi.useFakeTimers()
+  try {
+    vi.mocked(transport.invoke)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(result('retry'))
+    taskList.tasks = [ready('retry')]
+    renderHook(() => usePendingMagnetSelection())
+    await act(async () => {})
+    expect(displayedTaskId()).toBeUndefined()
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    expect(displayedTaskId()).toBe('retry')
+    expect(toast.add).toHaveBeenCalledTimes(1)
+    act(() => useAddTaskDialogStore.getState().close())
+    await act(async () => vi.advanceTimersByTimeAsync(10_000))
+    expect(transport.invoke).toHaveBeenCalledTimes(2)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it.each([TaskStatus.Error, TaskStatus.Paused, TaskStatus.Queued])(
+  'keeps a new selection event open over cached %s from an earlier attempt',
+  (status) => {
+    taskList.tasks = [{ ...ready('retried'), status }]
+    const settled = vi.fn(() => useAddTaskDialogStore.getState().close())
+    const { rerender } = renderHook(() => usePendingMagnetSelection(settled))
+
+    // A retry can happen while this client is disconnected. The reconnect
+    // selection event arrives before its HTTP/coalesced task snapshot.
+    act(() => showMagnetFileSelection(result('retried').selection))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(settled).not.toHaveBeenCalled()
+
+    taskList.tasks = [ready('retried')]
+    rerender()
+    expect(displayedTaskId()).toBe('retried')
+  }
+)

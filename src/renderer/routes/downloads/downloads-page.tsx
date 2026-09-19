@@ -286,7 +286,7 @@ export function DownloadsPage() {
 
   const [container, setContainer] = useState<HTMLElement | null>(null)
   const taskList =
-    status === 'loading' ? (
+    status === 'loading' && !hasReadySnapshot ? (
       <TaskListSkeleton />
     ) : status === 'error' && !hasReadySnapshot ? (
       <TaskListUnavailable onRetry={() => void retry()} />

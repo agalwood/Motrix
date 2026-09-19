@@ -60,6 +60,7 @@ export async function refreshOperatorSession(
     const res = await fetch(`${base}/rpc/auth/status`, {
       credentials: 'same-origin',
       cache: 'no-store',
+      headers: { 'x-motrix-web-origin': base },
     })
     if (!res.ok) throw new Error(`auth status ${res.status}`)
     const status = operatorStatusSchema.parse(await res.json())

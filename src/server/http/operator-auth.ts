@@ -36,6 +36,11 @@ export interface OperatorAuthOptions {
    * event WebSockets must present this exact URL origin; scripts using Bearer
    * authentication remain independent of browser Origin semantics. */
   publicUrl?: string
+  onEventSocketRejected?: (detail: {
+    reason: 'unauthorized' | 'origin-mismatch'
+    expectedOrigin: string | null
+    presentedOrigin: string | null
+  }) => void
   /** Injectable clock (tests). */
   now?: () => number
 }
@@ -95,13 +100,11 @@ function configuredPublicOrigin(value: string | undefined): string | null {
   }
 }
 
-function exactBrowserOrigin(
+function expectedBrowserOrigin(
   req: FastifyRequest,
   publicOrigin: string | null
-): boolean {
-  const presented = req.headers.origin
-  if (typeof presented !== 'string' || presented.length === 0) return false
-  const expected =
+): string | null {
+  return (
     publicOrigin ??
     (() => {
       const host = req.headers.host
@@ -112,6 +115,16 @@ function exactBrowserOrigin(
         return null
       }
     })()
+  )
+}
+
+function exactBrowserOrigin(
+  req: FastifyRequest,
+  publicOrigin: string | null,
+  presented = req.headers.origin
+): boolean {
+  if (typeof presented !== 'string' || presented.length === 0) return false
+  const expected = expectedBrowserOrigin(req, publicOrigin)
   return expected !== null && presented === expected
 }
 
@@ -237,6 +250,12 @@ export function registerOperatorAuth(
       }
     }
     if (authentication === null) {
+      if (isWebSocketUpgrade(req))
+        opts.onEventSocketRejected?.({
+          reason: 'unauthorized',
+          expectedOrigin: expectedBrowserOrigin(req, publicOrigin),
+          presentedOrigin: configuredPublicOrigin(req.headers.origin),
+        })
       return deny(req, reply, 401, 'unauthorized')
     }
     if (
@@ -244,6 +263,11 @@ export function registerOperatorAuth(
       authentication === 'cookie' &&
       !exactBrowserOrigin(req, publicOrigin)
     ) {
+      opts.onEventSocketRejected?.({
+        reason: 'origin-mismatch',
+        expectedOrigin: expectedBrowserOrigin(req, publicOrigin),
+        presentedOrigin: configuredPublicOrigin(req.headers.origin),
+      })
       return deny(req, reply, 403, 'cross-origin forbidden')
     }
   })
@@ -284,10 +308,21 @@ export function registerOperatorAuth(
 
   app.get('/rpc/auth/status', async (req): Promise<OperatorStatus> => {
     const mode = authenticate(req)
+    const browserOrigin = req.headers['x-motrix-web-origin']
     return {
       authed: mode !== null,
       mode: mode ?? 'unauthenticated',
       canLogout: mode === 'cookie',
+      // Diagnostic only: this caller-supplied header never authorizes a request.
+      ...(mode !== null && typeof browserOrigin === 'string'
+        ? {
+            eventOriginMatches: exactBrowserOrigin(
+              req,
+              publicOrigin,
+              browserOrigin
+            ),
+          }
+        : {}),
     }
   })
 

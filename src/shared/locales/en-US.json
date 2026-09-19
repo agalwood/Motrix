@@ -114,6 +114,12 @@
     "quit": "Quit"
   },
   "panel": {
+    "connection": {
+      "polling": "Periodic updates",
+      "reconnecting": "Reconnecting to server…",
+      "unavailable": "Server unreachable",
+      "originMismatch": "Access address mismatch"
+    },
     "dashboard": {
       "title": "Dashboard",
       "engine": {

@@ -17,6 +17,8 @@ vi.mock('@renderer/lib/transport', () => ({
 
 vi.mock('@renderer/hooks/use-task-list', () => ({
   useTaskList: () => ({ tasks: [] }),
+  getTaskListSnapshot: () => ({ tasks: [] }),
+  invalidateTaskList: vi.fn(),
 }))
 
 // Stub AddTaskForm so tests can drive onSubmitSuccess / onCancel directly

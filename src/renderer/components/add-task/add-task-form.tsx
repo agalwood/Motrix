@@ -21,6 +21,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
+import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import { recordRecentDirectory } from '@renderer/lib/directory-preferences'
 import type { ParsedTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { transport } from '@renderer/lib/transport'
@@ -411,6 +412,7 @@ export function AddTaskForm({
               failed += 1
               continue
             }
+            invalidateTaskList()
             succeeded += 1
             void recordRecentDirectory(request.saveDir)
             firstTaskId ??= created.taskId ?? created.gid
@@ -438,6 +440,7 @@ export function AddTaskForm({
           options
         )) as TorrentBatchCreateResult
         if (result.succeeded > 0) {
+          invalidateTaskList()
           void recordRecentDirectory(options.saveDir)
         }
       }
@@ -527,6 +530,7 @@ export function AddTaskForm({
               blockedByConflict = true
               break
             }
+            invalidateTaskList()
             successes.push(result)
             if (request.type === 'http') forgetPendingCreate(inputs[index].id)
             if (validLines[index]) completedLines.add(validLines[index].line)
@@ -652,6 +656,7 @@ export function AddTaskForm({
         setDuplicateConflict({ ...duplicateConflict, result })
         return
       }
+      invalidateTaskList()
       setDuplicateConflict(null)
       void recordRecentDirectory(duplicateConflict.request.saveDir)
       platform.notify('info', 'task.add.createdCopy')
