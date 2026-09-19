@@ -42,8 +42,6 @@ export function EngineTile({
 }: EngineTileProps) {
   const { t } = useTranslation()
   const compact = viewport.contentLevel === 'compact'
-  const detailed =
-    viewport.contentLevel === 'detailed' || viewport.contentLevel === 'focus'
   const tall = viewport.orientation === 'tall'
   const pulse =
     status.state === 'ready' ||
@@ -106,19 +104,13 @@ export function EngineTile({
         {stateLabel}
       </TileTitle>
       {connectionLabel && status.state !== 'ready' && !compact && (
-        <p role="status" className="mt-1 text-xs text-muted-foreground">
+        <p
+          role="status"
+          title={connectionLabel}
+          className="mt-1 shrink-0 truncate text-xs text-muted-foreground"
+        >
           {connectionLabel}
         </p>
-      )}
-      {detailed && status.state === 'failed' && (
-        <div
-          data-testid="engine-failure"
-          className="mt-1 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
-        >
-          {t(
-            `panel.dashboard.engine.diagnostics.reason.${status.failureReason ?? 'unknown'}`
-          )}
-        </div>
       )}
       {!compact ? (
         <div
