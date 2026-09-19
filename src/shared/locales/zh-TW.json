@@ -388,6 +388,7 @@
       "configure": {
         "action": "設定",
         "addTile": "新增",
+        "addTitle": "新增磚塊",
         "apply": "套用",
         "cancel": "取消",
         "reset": "重設",
@@ -398,6 +399,11 @@
         "size": "{{width}} × {{height}}",
         "currentSize": "目前大小：{{width}} × {{height}}",
         "invalidCapacity": "沒有足夠空間容納此大小",
+        "availabilityHints": {
+          "space": "縮小或移除其他磚塊",
+          "bounds": "將磚塊移離邊緣後重試",
+          "unsupported": "請選擇支援的大小"
+        },
         "sizeLabels": {
           "compact": "精簡",
           "wide": "寬",
@@ -416,20 +422,16 @@
           "custom": "自訂",
           "undo": "復原上次的預設版面",
           "balanced": {
-            "title": "均衡",
-            "description": "均衡呈現狀態、速度、活動與任務。"
+            "title": "均衡"
           },
           "taskFocus": {
-            "title": "著重任務",
-            "description": "讓任務使用最多空間，同時保留重要狀態。"
+            "title": "著重任務"
           },
           "speedFocus": {
-            "title": "著重速度",
-            "description": "著重上傳與下載趨勢，同時顯示進行中的任務。"
+            "title": "著重速度"
           },
           "compact": {
-            "title": "精簡",
-            "description": "將所有儀表板磚塊放入固定的 4 × 3 版面。"
+            "title": "精簡"
           }
         },
         "saveFailed": "無法儲存版面配置。請再試一次。",
@@ -464,6 +466,36 @@
       },
       "nat": {
         "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "已映射",
+            "settingUp": "映射中",
+            "failed": "映射",
+            "off": "未啟用"
+          },
+          "caption": {
+            "active_other": "{{count}} 個連接埠",
+            "settingUp": "連線中…",
+            "failed": "暫不可用",
+            "off": "BT / DHT",
+            "waiting": "載入中…"
+          }
+        },
+        "internalIp": "本機 IP",
+        "gatewayIp": "路由器",
+        "caption": {
+          "off": "BT 連接埠映射已關閉",
+          "settingUp": "正在連線至路由器…",
+          "failed": "自動映射暫不可用",
+          "waiting": "正在取得網路狀態…"
+        },
+        "mappingDetails": "連接埠映射",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "內部連接埠 {{internal}} 到外部連接埠 {{external}}",
+        "noMappings": "暫無連接埠映射",
         "state": {
           "active": "啟用中",
           "settingUp": "初始化中",

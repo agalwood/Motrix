@@ -389,6 +389,7 @@
       "configure": {
         "action": "Configure",
         "addTile": "Add",
+        "addTitle": "Add a tile",
         "apply": "Apply",
         "cancel": "Cancel",
         "reset": "Reset",
@@ -399,6 +400,11 @@
         "size": "{{width}} × {{height}}",
         "currentSize": "Current size: {{width}} × {{height}}",
         "invalidCapacity": "Not enough space for this size",
+        "availabilityHints": {
+          "space": "Shrink or remove another tile.",
+          "bounds": "Move the tile inward first.",
+          "unsupported": "Choose a supported size."
+        },
         "sizeLabels": {
           "compact": "Compact",
           "wide": "Wide",
@@ -417,20 +423,16 @@
           "custom": "Custom",
           "undo": "Undo last preset",
           "balanced": {
-            "title": "Balanced",
-            "description": "A balanced overview of status, speed, activity, and tasks."
+            "title": "Balanced"
           },
           "taskFocus": {
-            "title": "Task Focus",
-            "description": "Give Tasks the most space while keeping key status visible."
+            "title": "Task Focus"
           },
           "speedFocus": {
-            "title": "Speed Focus",
-            "description": "Emphasize upload and download trends alongside active tasks."
+            "title": "Speed Focus"
           },
           "compact": {
-            "title": "Compact",
-            "description": "Fit every Dashboard tile into the fixed 4 × 3 canvas."
+            "title": "Compact"
           }
         },
         "saveFailed": "Could not save layout. Try again.",
@@ -465,6 +467,37 @@
       },
       "nat": {
         "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Mapped",
+            "settingUp": "Mapping",
+            "failed": "Mapping",
+            "off": "Off"
+          },
+          "caption": {
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} ports",
+            "settingUp": "Connecting…",
+            "failed": "Unavailable",
+            "off": "BT / DHT",
+            "waiting": "Loading…"
+          }
+        },
+        "internalIp": "Local IP",
+        "gatewayIp": "Router",
+        "caption": {
+          "off": "BT port mapping is off.",
+          "settingUp": "Connecting to your router…",
+          "failed": "Automatic mapping unavailable.",
+          "waiting": "Waiting for network status…"
+        },
+        "mappingDetails": "Mapped ports",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Internal {{internal}} to external {{external}}",
+        "noMappings": "No active port mappings.",
         "state": {
           "active": "Active",
           "settingUp": "Initializing",

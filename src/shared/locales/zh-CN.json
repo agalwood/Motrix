@@ -388,6 +388,7 @@
       "configure": {
         "action": "配置",
         "addTile": "添加",
+        "addTitle": "添加卡片",
         "apply": "应用",
         "cancel": "取消",
         "reset": "重置",
@@ -398,6 +399,11 @@
         "size": "{{width}} × {{height}}",
         "currentSize": "当前尺寸：{{width}} × {{height}}",
         "invalidCapacity": "没有足够空间容纳此尺寸",
+        "availabilityHints": {
+          "space": "缩小或移除其他卡片",
+          "bounds": "将卡片移离边缘后重试",
+          "unsupported": "请选择支持的尺寸"
+        },
         "sizeLabels": {
           "compact": "紧凑",
           "wide": "横向",
@@ -416,20 +422,16 @@
           "custom": "自定义",
           "undo": "撤销上次预设",
           "balanced": {
-            "title": "均衡",
-            "description": "均衡展示状态、速度、活跃任务与任务列表。"
+            "title": "均衡"
           },
           "taskFocus": {
-            "title": "任务优先",
-            "description": "为任务列表提供最大空间，同时保留关键状态。"
+            "title": "任务优先"
           },
           "speedFocus": {
-            "title": "速度优先",
-            "description": "突出上传、下载趋势与活跃任务。"
+            "title": "速度优先"
           },
           "compact": {
-            "title": "紧凑",
-            "description": "在固定 4 × 3 画布中完整展示所有仪表板卡片。"
+            "title": "紧凑"
           }
         },
         "saveFailed": "布局保存失败，请重试。",
@@ -464,6 +466,36 @@
       },
       "nat": {
         "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "已映射",
+            "settingUp": "映射中",
+            "failed": "映射",
+            "off": "未启用"
+          },
+          "caption": {
+            "active_other": "{{count}} 个端口",
+            "settingUp": "连接中…",
+            "failed": "暂不可用",
+            "off": "BT / DHT",
+            "waiting": "加载中…"
+          }
+        },
+        "internalIp": "本机 IP",
+        "gatewayIp": "路由器",
+        "caption": {
+          "off": "BT 端口映射已关闭",
+          "settingUp": "正在连接路由器…",
+          "failed": "自动映射暂不可用",
+          "waiting": "正在获取网络状态…"
+        },
+        "mappingDetails": "端口映射",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "内部端口 {{internal}} 到外部端口 {{external}}",
+        "noMappings": "暂无端口映射",
         "state": {
           "active": "已激活",
           "settingUp": "初始化中",

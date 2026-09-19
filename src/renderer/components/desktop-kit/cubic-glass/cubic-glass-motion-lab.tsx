@@ -70,16 +70,16 @@ export function CubicGlassMotionLab({
   }
 
   return (
-    <div className="app-no-drag absolute right-3 top-3 z-20">
+    <div className="app-no-drag absolute right-0 top-3 z-20">
       <Popover>
         <PopoverTrigger
           render={
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
               aria-label={t('panel.downloads.empty.motion.open')}
-              className="rounded-full bg-background/70 shadow-sm backdrop-blur-md"
+              className="hover:bg-transparent"
             />
           }
         >

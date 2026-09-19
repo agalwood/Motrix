@@ -161,6 +161,7 @@ graphify-out/*
 /playwright-report
 /test-results
 /.playwright
+/output/playwright
 
 .agents/
 skills-lock.json
