@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { subscribeEngineDiagnostics } from '@renderer/features/engine-diagnostics/controller'
 import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { dashboardTileViewport } from '@renderer/routes/dashboard/layout/dashboard-registry'
@@ -14,6 +15,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { useEngineDisplayStatus } from './use-engine-display-status'
 
@@ -97,6 +99,30 @@ it('distinguishes server unavailability and a confirmed origin mismatch from eng
   )
   expect(screen.getAllByText('Access address mismatch')).toHaveLength(2)
   expect(screen.queryByText('Engine offline')).not.toBeInTheDocument()
+})
+
+it('keeps the diagnostics action available while the badge reports connection health', async () => {
+  const requested = vi.fn()
+  const unsubscribe = subscribeEngineDiagnostics(requested)
+  try {
+    const user = userEvent.setup()
+    const { rerender } = render(<EngineBadge />)
+    await screen.findByRole('button', { name: 'Engine ready' })
+    health.realtimeConnected = false
+    rerender(<EngineBadge />)
+
+    const badge = screen.getByRole('button', { name: 'Periodic updates' })
+    expect(badge).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(badge).toHaveAttribute(
+      'title',
+      'Engine diagnostics: Engine ready, Periodic updates'
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Periodic updates')
+    await user.click(badge)
+    expect(requested).toHaveBeenCalledOnce()
+  } finally {
+    unsubscribe()
+  }
 })
 
 it('shows a confirmed engine failure without waiting for unrelated settings', async () => {

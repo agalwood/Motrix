@@ -9,8 +9,68 @@
 //   subprocess. No e2e helper exists for this. This test is skipped.
 //   Both are documented below with test.skip.
 import { expect, test } from './fixtures/electron-app'
+import { setTaskInspectorContentSize } from './fixtures/task-inspector-activity'
 
 test.describe('Dashboard v1', () => {
+  test('keeps the compact header aligned with Downloads while configuring tiles', async ({
+    mainWindow,
+    electronApp,
+  }) => {
+    await expect(mainWindow.locator('html')).toHaveClass(/window-main/)
+    await setTaskInspectorContentSize(electronApp, mainWindow, 1100, 780)
+    const toggleSidebar = mainWindow.getByRole('button', {
+      name: 'Toggle sidebar',
+      exact: true,
+    })
+    const header = mainWindow.locator('[data-slot="panel-shell-header"]')
+    const headerHeight = () =>
+      header.evaluate((element) => element.getBoundingClientRect().height)
+
+    await mainWindow
+      .getByRole('link', { name: 'Downloads', exact: true })
+      .click()
+    await toggleSidebar.click()
+    await expect(
+      mainWindow.getByRole('toolbar', { name: 'Downloads' })
+    ).toHaveAttribute('data-density', 'compact')
+    await expect.poll(headerHeight).toBe(38)
+    const downloadsHeight = await headerHeight()
+
+    await toggleSidebar.click()
+    await mainWindow
+      .getByRole('link', { name: 'Dashboard', exact: true })
+      .click()
+    await toggleSidebar.click()
+    await expect.poll(headerHeight).toBe(downloadsHeight)
+    const engine = mainWindow.getByTestId('dashboard-tile-engine')
+    const tileTop = await engine.evaluate(
+      (element) => element.getBoundingClientRect().top
+    )
+
+    await mainWindow
+      .getByRole('button', { name: 'Configure', exact: true })
+      .click()
+    const toolbar = mainWindow.getByRole('toolbar', {
+      name: 'Configure',
+      exact: true,
+    })
+    await expect(toolbar).toHaveAttribute('data-density', 'compact')
+    await expect.poll(headerHeight).toBe(downloadsHeight)
+    await expect
+      .poll(() =>
+        engine.evaluate((element) => element.getBoundingClientRect().top)
+      )
+      .toBe(tileTop)
+    await toolbar.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(toolbar).toHaveCount(0)
+    await expect.poll(headerHeight).toBe(downloadsHeight)
+    await expect
+      .poll(() =>
+        engine.evaluate((element) => element.getBoundingClientRect().top)
+      )
+      .toBe(tileTop)
+  })
+
   test('cold launch renders seven default tile labels within 800ms', async ({
     mainWindow,
   }) => {

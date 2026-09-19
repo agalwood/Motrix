@@ -27,6 +27,7 @@ import {
   type ActivityNavigationKey,
   activityMonthLabels,
   buildActivityCells,
+  activityCellPosition as cellPosition,
   defaultActivityActiveIndex,
   hitTestActivityCell,
   maxActivityWeeks,
@@ -123,16 +124,6 @@ function readPalette(
   return palette
 }
 
-function cellPosition(
-  geometry: ActivityCalendarGeometry,
-  index: number
-): { left: number; top: number } {
-  return {
-    left: geometry.gridLeft + Math.floor(index / 7) * geometry.stride,
-    top: geometry.gridTop + (index % 7) * geometry.stride,
-  }
-}
-
 function isActivityCellGap(
   geometry: ActivityCalendarGeometry,
   x: number,
@@ -150,16 +141,18 @@ function isActivityCellGap(
   }
 
   const column = Math.floor(relativeX / geometry.stride)
-  const row = Math.floor(relativeY / geometry.stride)
-  if (column < 0 || column >= geometry.weeks || row < 0 || row >= 7) {
+  const band = Math.floor(relativeY / geometry.bandStride)
+  const bandY = relativeY - band * geometry.bandStride
+  const row = Math.floor(bandY / geometry.stride)
+  const week = band * geometry.weeksPerBand + column
+  if (column >= geometry.weeksPerBand || week >= geometry.weeks || row >= 7) {
     return false
   }
 
   const horizontalGap =
     relativeX % geometry.stride >= geometry.cellSize &&
-    column < geometry.weeks - 1
-  const verticalGap =
-    relativeY % geometry.stride >= geometry.cellSize && row < 6
+    column < geometry.weeksPerBand - 1
+  const verticalGap = bandY % geometry.stride >= geometry.cellSize && row < 6
   return horizontalGap || verticalGap
 }
 
@@ -226,6 +219,8 @@ function geometryEqual(
     left.gap === right.gap &&
     left.gridLeft === right.gridLeft &&
     left.gridTop === right.gridTop &&
+    left.weeksPerBand === right.weeksPerBand &&
+    left.bandStride === right.bandStride &&
     left.showLegend === right.showLegend &&
     left.showMonthLabels === right.showMonthLabels &&
     left.showWeekdayLabels === right.showWeekdayLabels
@@ -978,7 +973,10 @@ export function ActivityCalendar({
             tooltipAnchorRef.current?.getBoundingClientRect() ?? new DOMRect(),
         }
       : null
-  const monthLabels = useMemo(() => activityMonthLabels(cells), [cells])
+  const monthLabels = useMemo(
+    () => activityMonthLabels(cells, geometry?.weeksPerBand),
+    [cells, geometry?.weeksPerBand]
+  )
   const tooltipDetails = tooltipCell
     ? [
         tooltipCell.tracking !== 'untracked' && tooltipCell.submitted > 0
@@ -1022,6 +1020,7 @@ export function ActivityCalendar({
       <div
         ref={containerRef}
         data-testid="activity-calendar"
+        data-bands={geometry?.bands}
         dir="ltr"
         role="grid"
         tabIndex={interactive ? 0 : -1}
@@ -1055,14 +1054,16 @@ export function ActivityCalendar({
 
         {geometry?.showMonthLabels
           ? monthLabels.map((label) => {
-              const column = Math.floor(label.cellIndex / 7)
+              const position = cellPosition(geometry, label.cellIndex)
               return (
                 <span
                   key={label.cellIndex}
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-0 truncate text-[10px] leading-3 text-muted-foreground"
+                  data-calendar-label="month"
+                  className="pointer-events-none absolute truncate text-[10px] leading-3 text-muted-foreground"
                   style={{
-                    left: geometry.gridLeft + column * geometry.stride,
+                    left: position.left,
+                    top: position.top - 14,
                     maxWidth: Math.max(geometry.stride * 4, geometry.cellSize),
                   }}
                 >
@@ -1073,24 +1074,30 @@ export function ActivityCalendar({
           : null}
 
         {geometry?.showWeekdayLabels
-          ? weekdayLabels.map(({ key, index }) => (
-              <span
-                key={key}
-                aria-hidden="true"
-                className="pointer-events-none absolute start-0 w-6 truncate text-[10px] leading-none text-muted-foreground"
-                style={{
-                  top:
-                    geometry.gridTop +
-                    index * geometry.stride +
-                    Math.max(
-                      0,
-                      Math.floor((geometry.cellSize - LABEL_FONT_SIZE) / 2)
-                    ),
-                }}
-              >
-                {t(`${KEY_ROOT}.weekday.${key}`)}
-              </span>
-            ))
+          ? Array.from({ length: geometry.bands }, (_, band) => {
+              const bandStart = cells[band * geometry.weeksPerBand * 7]
+              return weekdayLabels.map(({ key, index }) => (
+                <span
+                  key={`${bandStart?.dateKey}-${key}`}
+                  aria-hidden="true"
+                  data-calendar-label="weekday"
+                  className="pointer-events-none absolute start-0 w-6 truncate text-[10px] leading-none text-muted-foreground"
+                  style={{
+                    left: geometry.gridLeft - 24,
+                    top:
+                      geometry.gridTop +
+                      band * geometry.bandStride +
+                      index * geometry.stride +
+                      Math.max(
+                        0,
+                        Math.floor((geometry.cellSize - LABEL_FONT_SIZE) / 2)
+                      ),
+                  }}
+                >
+                  {t(`${KEY_ROOT}.weekday.${key}`)}
+                </span>
+              ))
+            })
           : null}
 
         {geometry?.showLegend ? (
@@ -1106,8 +1113,8 @@ export function ActivityCalendar({
                 aria-hidden="true"
                 className="rounded-[2px]"
                 style={{
-                  width: geometry.cellSize,
-                  height: geometry.cellSize,
+                  width: Math.min(12, geometry.cellSize),
+                  height: Math.min(12, geometry.cellSize),
                   backgroundColor:
                     depth === 0
                       ? 'var(--muted)'
@@ -1208,7 +1215,7 @@ export function ActivityCalendar({
             </div>
             {tooltipDetails.length > 0 ? (
               <div className="text-primary-foreground/70">
-                {tooltipDetails.join(' · ')}
+                {tooltipDetails.join(', ')}
               </div>
             ) : null}
           </div>

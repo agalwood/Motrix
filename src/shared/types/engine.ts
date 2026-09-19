@@ -1,3 +1,5 @@
+import type { EngineConnectionSnapshot } from '../schemas/engine-connection'
+
 export enum EngineState {
   Stopped = 'stopped',
   Starting = 'starting',
@@ -111,6 +113,7 @@ export interface EngineDiagnosticReport extends EngineStatusSnapshot {
     port: number
     available: boolean
     expectedListener: boolean
+    connection: EngineConnectionSnapshot
   }
   process: EngineProcessInfo | null
   defaultRpc: {

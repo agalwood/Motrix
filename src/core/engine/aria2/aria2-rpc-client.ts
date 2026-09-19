@@ -1,3 +1,4 @@
+import type { EngineConnectionSnapshot } from '@shared/schemas/engine-connection'
 import type { DownloadCookie } from '../engine-adapter'
 import { Aria2PauseState } from './aria2-pause-state'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
@@ -67,6 +68,10 @@ export class Aria2RpcClient {
 
   isConnected(): boolean {
     return this.transport.isConnected()
+  }
+
+  getConnectionStatus(): EngineConnectionSnapshot {
+    return { transport: 'websocket', connected: this.transport.isConnected() }
   }
 
   // ─── Secret injection ────────────────────────────────────────

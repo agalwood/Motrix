@@ -133,6 +133,10 @@ function createMockRpcClient(): Aria2RpcClient {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
     isConnected: vi.fn(() => true),
+    getConnectionStatus: vi.fn(() => ({
+      transport: 'websocket',
+      connected: true,
+    })),
     getVersion: vi.fn().mockResolvedValue({
       version: '1.37.0',
       enabledFeatures: ['SQLite3-Persistence'],
@@ -1370,6 +1374,22 @@ describe('EngineSupervisor', () => {
   })
 
   describe('manual recovery', () => {
+    it('includes the current transport state even before lifecycle health checks catch up', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.getConnectionStatus).mockReturnValue({
+        transport: 'websocket',
+        connected: false,
+      })
+
+      const report = await supervisor.diagnose()
+
+      expect(report.state).toBe(EngineState.Ready)
+      expect(report.rpc.connection).toEqual({
+        transport: 'websocket',
+        connected: false,
+      })
+    })
+
     function useFallbackPort(): { rpcPort: number } {
       const engineSettings = {
         ...settings.getEngine(),

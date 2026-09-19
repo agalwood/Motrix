@@ -2,6 +2,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Check, Copy } from 'lucide-react'
 import {
   type ComponentProps,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -16,6 +17,8 @@ type CopyButtonProps = Omit<
   iconPosition?: 'start' | 'end'
   onClick?: () => void | Promise<void>
   resetMs?: number
+  copiedLabel?: ReactNode
+  onCopyError?: (error: unknown) => void
 }
 
 export function CopyButton({
@@ -23,6 +26,8 @@ export function CopyButton({
   iconPosition = 'start',
   onClick,
   resetMs = 1500,
+  copiedLabel,
+  onCopyError,
   children,
   ...rest
 }: CopyButtonProps) {
@@ -45,7 +50,8 @@ export function CopyButton({
       } else {
         return
       }
-    } catch {
+    } catch (error) {
+      onCopyError?.(error)
       return
     }
 
@@ -55,14 +61,34 @@ export function CopyButton({
       setCopied(false)
       timerRef.current = null
     }, resetMs)
-  }, [content, onClick, resetMs])
+  }, [content, onClick, onCopyError, resetMs])
 
   const Icon = copied ? Check : Copy
 
   return (
     <Button type="button" onClick={handleClick} {...rest}>
       {iconPosition === 'start' && <Icon />}
-      {children}
+      {copiedLabel ? (
+        <span className="grid">
+          <span
+            aria-hidden="true"
+            className="invisible col-start-1 row-start-1"
+          >
+            {children}
+          </span>
+          <span
+            aria-hidden="true"
+            className="invisible col-start-1 row-start-1"
+          >
+            {copiedLabel}
+          </span>
+          <span aria-live="polite" className="col-start-1 row-start-1">
+            {copied ? copiedLabel : children}
+          </span>
+        </span>
+      ) : (
+        children
+      )}
       {iconPosition === 'end' && <Icon />}
     </Button>
   )

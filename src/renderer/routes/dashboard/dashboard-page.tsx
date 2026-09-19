@@ -179,7 +179,8 @@ export function DashboardPage() {
     <PanelShell
       title={t('panel.dashboard.title')}
       actions={dashboardActions}
-      headerClassName="px-2"
+      headerClassName="px-2 compact-header:py-1"
+      actionsClassName="compact-header:min-h-[30px]"
       contentClassName="pl-2.5 pr-2 pt-4 pb-10"
     >
       <DashboardGrid
