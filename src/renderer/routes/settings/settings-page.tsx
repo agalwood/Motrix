@@ -9,25 +9,19 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { cardId } = useParams<{ cardId: string }>()
   const activeCard = findCard(cardId)
-  const columnsPerRow = 3
-  const lastRowStartIndex =
-    Math.floor((SETTINGS_CARDS.length - 1) / columnsPerRow) * columnsPerRow
 
   const closeDialog = () => navigate('/settings')
 
   return (
     <PanelShell title={t('settings.title')}>
-      <div className="grid h-full grid-cols-2 items-stretch border-t-[0.5px] px-6 py-4 min-[914px]:grid-cols-3">
-        {SETTINGS_CARDS.map((card, index) => (
+      <div className="grid h-full grid-cols-2 gap-3 items-stretch px-6 py-4 min-[914px]:grid-cols-3">
+        {SETTINGS_CARDS.map((card) => (
           <SettingsCard
             key={card.id}
             icon={card.icon}
             labelKey={card.labelKey}
             descKey={card.descKey}
             onClick={() => navigate(`/settings/${card.id}`)}
-            className={
-              index < lastRowStartIndex ? 'border-b-[0.5px] border-border' : ''
-            }
           />
         ))}
       </div>
