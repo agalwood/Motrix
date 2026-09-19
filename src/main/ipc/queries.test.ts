@@ -705,7 +705,12 @@ describe('GetEngineDiagnostics handler', () => {
       managedPid: null,
       featureReport: null,
       binary: { name: 'aria2c', available: true, version: '1.37.0' },
-      rpc: { port: 16800, available: false, expectedListener: false },
+      rpc: {
+        port: 16800,
+        available: false,
+        expectedListener: false,
+        connection: { transport: 'websocket', connected: false },
+      },
       process: null,
       defaultRpc: {
         port: 16800,

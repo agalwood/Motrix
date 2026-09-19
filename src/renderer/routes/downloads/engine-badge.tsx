@@ -1,4 +1,5 @@
 import { Badge } from '@renderer/components/ui/badge'
+import { requestEngineDiagnostics } from '@renderer/features/engine-diagnostics/controller'
 import { useEngineDisplayStatus } from '@renderer/hooks/use-engine-display-status'
 import { cn } from '@renderer/lib/utils'
 import { useTranslation } from 'react-i18next'
@@ -13,6 +14,9 @@ export function EngineBadge() {
         ? t('panel.downloads.stats.engineStarting')
         : t('panel.downloads.stats.engineOffline')
   const connectionText = connection ? t(`panel.connection.${connection}`) : null
+  const statusTitle = connectionText
+    ? `${engineText}, ${connectionText}`
+    : engineText
   const text =
     state === 'failed' || state === 'stopped'
       ? engineText
@@ -29,12 +33,18 @@ export function EngineBadge() {
             : 'bg-gray-500'
   return (
     <Badge
+      render={<button type="button" />}
       variant="secondary"
-      title={connectionText ? `${engineText} · ${connectionText}` : engineText}
-      role="status"
+      className="app-no-drag cursor-pointer select-none hover:bg-secondary/80 focus-visible:outline-none"
+      aria-haspopup="dialog"
+      title={`${t('panel.dashboard.engine.diagnostics.title')}: ${statusTitle}`}
+      onClick={requestEngineDiagnostics}
     >
-      <span className={cn('flex size-2 rounded-full mr-2', dot)} />
-      {text}
+      <span
+        aria-hidden="true"
+        className={cn('flex size-2 rounded-full mr-2', dot)}
+      />
+      <span role="status">{text}</span>
     </Badge>
   )
 }

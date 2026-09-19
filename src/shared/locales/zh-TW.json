@@ -147,33 +147,33 @@
           "currentStatus": "目前狀態",
           "lastChecked": "檢查時間：{{time}}",
           "checks": {
-            "binary": "內建 aria2",
-            "features": "引擎功能",
-            "rpc": "Motrix RPC 連接埠",
-            "process": "處理程序擁有權",
-            "communication": "引擎通訊"
+            "binary": "引擎",
+            "features": "功能",
+            "rpc": "RPC 連接埠",
+            "process": "程序",
+            "communication": "連線"
           },
           "binary": {
-            "available": "{{name}} {{version}} 可供使用。",
+            "available": "{{name}} {{version}}",
             "unavailable": "缺少 {{name}}，或無法啟動。"
           },
           "features": {
-            "none": "aria2 未回報任何引擎功能。",
-            "unavailable": "無法取得引擎功能資訊。"
+            "none": "未回報",
+            "unavailable": "無法取得"
           },
           "rpc": {
-            "listening": "Motrix aria2 正常監聽連接埠 {{port}}。",
-            "available": "連接埠 {{port}} 未被使用，可供 Motrix aria2 使用。",
-            "occupied": "連接埠 {{port}} 已被使用。"
+            "listening": "{{port}}（監聽中）",
+            "available": "{{port}}（閒置）",
+            "occupied": "{{port}}（已占用）"
           },
           "process": {
-            "none": "沒有處理程序阻擋 RPC 連接埠。",
-            "unidentified": "無法辨識使用此連接埠的處理程序。Motrix 不會將其終止。",
-            "current_app": "PID {{pid}} ({{name}}) 由此 Motrix 工作階段管理。",
-            "verified_orphan": "PID {{pid}} ({{name}}) 符合 Motrix 內建執行檔與私有啟動參數，可安全終止。",
-            "external_aria2": "PID {{pid}} ({{name}}) 是 aria2，但 Motrix 無法確認擁有權，不會自動終止。",
-            "other": "PID {{pid}} ({{name}}) 不是已驗證的 Motrix aria2 處理程序，已受到保護。",
-            "unknown": "無法辨識 PID {{pid}}，已受到保護。"
+            "none": "無連接埠衝突",
+            "unidentified": "無法辨識，不會終止",
+            "current_app": "PID {{pid}} ({{name}})，Motrix 管理",
+            "verified_orphan": "PID {{pid}} ({{name}})，已驗證的 Motrix 殘留程序，可安全終止",
+            "external_aria2": "PID {{pid}} ({{name}})，擁有權未驗證，不會終止",
+            "other": "PID {{pid}} ({{name}})，擁有權未驗證，不會終止",
+            "unknown": "PID {{pid}}，無法辨識，不會終止"
           },
           "communication": {
             "ready": "Motrix 可以與 aria2 通訊。"
@@ -219,6 +219,50 @@
             "title": "要強制停止遺留的 aria2 處理程序嗎？",
             "description": "PID {{pid}} 符合 Motrix 的內建執行檔、私有 RPC 密鑰與資料路徑。系統會立即將其終止，然後在 Motrix RPC 連接埠重新啟動 aria2。",
             "action": "強制停止並復原"
+          },
+          "details": "診斷詳情",
+          "versionUnknown": "無法取得版本資訊",
+          "copy": "複製診斷資訊",
+          "copied": "已複製",
+          "copyFailed": "無法複製診斷資訊，請重試。",
+          "refreshFailed": "無法重新整理診斷資訊，以下為上次成功檢查的結果。",
+          "summary": {
+            "ready": "下載引擎運作正常",
+            "starting": "下載引擎正在啟動",
+            "restarting": "下載引擎正在恢復",
+            "stopped": "下載引擎已停止",
+            "port_in_use": "引擎控制連接埠被占用",
+            "binary_unavailable": "下載引擎無法使用",
+            "spawn_failed": "下載引擎無法啟動",
+            "rpc_unavailable": "引擎控制連線無法使用",
+            "unexpected_exit": "下載引擎意外結束",
+            "health_check_failed": "下載引擎停止回應",
+            "unknown": "下載引擎無法使用"
+          },
+          "impact": {
+            "failed": "暫時無法控制下載，任務狀態可能尚未更新。",
+            "connecting": "引擎就緒後，即可開始或管理下載。",
+            "stopped": "啟動引擎以開始或管理下載。"
+          },
+          "runtime": {
+            "process": "程序",
+            "running": "運作中",
+            "notRunning": "未執行",
+            "connection": "連線",
+            "connected": "已連線",
+            "connecting": "正在連線…",
+            "disconnected": "未連線",
+            "unavailable": "無法使用",
+            "connectionStatus": "{{transport}}（{{status}}）"
+          },
+          "port": {
+            "available": "{{port}}（閒置）",
+            "listening": "{{port}}（監聽中）",
+            "occupied": "{{port}}（已占用）"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
           }
         }
       },

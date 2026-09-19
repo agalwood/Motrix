@@ -147,33 +147,33 @@
           "currentStatus": "当前状态",
           "lastChecked": "检查于 {{time}}",
           "checks": {
-            "binary": "内置 aria2",
-            "features": "引擎特性",
-            "rpc": "Motrix RPC 端口",
-            "process": "进程归属",
-            "communication": "引擎通信"
+            "binary": "引擎",
+            "features": "功能",
+            "rpc": "RPC 端口",
+            "process": "进程",
+            "communication": "连接"
           },
           "binary": {
-            "available": "{{name}} {{version}} 可用。",
+            "available": "{{name}} {{version}}",
             "unavailable": "{{name}} 缺失或无法启动。"
           },
           "features": {
-            "none": "aria2 未报告任何引擎特性。",
-            "unavailable": "无法获取引擎特性信息。"
+            "none": "未报告",
+            "unavailable": "无法获取"
           },
           "rpc": {
-            "listening": "Motrix aria2 正常监听端口 {{port}}。",
-            "available": "端口 {{port}} 空闲，可供 Motrix aria2 使用。",
-            "occupied": "端口 {{port}} 已被占用。"
+            "listening": "{{port}}（监听中）",
+            "available": "{{port}}（空闲）",
+            "occupied": "{{port}}（已占用）"
           },
           "process": {
-            "none": "没有进程占用 RPC 端口。",
-            "unidentified": "无法识别占用该端口的进程，Motrix 不会将其终止。",
-            "current_app": "PID {{pid}}（{{name}}）由本次 Motrix 会话管理。",
-            "verified_orphan": "PID {{pid}}（{{name}}）与 Motrix 内置 binary 及私有启动参数一致，可以安全终止。",
-            "external_aria2": "PID {{pid}}（{{name}}）是 aria2，但 Motrix 无法确认其归属，因此不会自动终止。",
-            "other": "PID {{pid}}（{{name}}）不是已验证的 Motrix aria2 引擎进程，将受到保护。",
-            "unknown": "无法识别 PID {{pid}}，该进程将受到保护。"
+            "none": "无端口冲突",
+            "unidentified": "无法识别，不会终止",
+            "current_app": "PID {{pid}}（{{name}}），Motrix 管理",
+            "verified_orphan": "PID {{pid}}（{{name}}），已验证的 Motrix 残留进程，可安全终止",
+            "external_aria2": "PID {{pid}}（{{name}}），归属未验证，不会终止",
+            "other": "PID {{pid}}（{{name}}），归属未验证，不会终止",
+            "unknown": "PID {{pid}}，无法识别，不会终止"
           },
           "communication": {
             "ready": "Motrix 可以正常连接 aria2。"
@@ -219,6 +219,50 @@
             "title": "强制终止残留的 aria2 进程？",
             "description": "PID {{pid}} 与 Motrix 内置 binary、私有 RPC secret 和数据路径一致。该进程会被立即终止，随后 aria2 将在 Motrix RPC 端口重新启动。",
             "action": "强制终止并恢复"
+          },
+          "details": "诊断详情",
+          "versionUnknown": "版本信息不可用",
+          "copy": "复制诊断信息",
+          "copied": "已复制",
+          "copyFailed": "无法复制诊断信息，请重试。",
+          "refreshFailed": "未能刷新诊断信息，以下为上次成功检查的结果。",
+          "summary": {
+            "ready": "下载引擎运行正常",
+            "starting": "下载引擎正在启动",
+            "restarting": "下载引擎正在恢复",
+            "stopped": "下载引擎已停止",
+            "port_in_use": "引擎控制端口被占用",
+            "binary_unavailable": "下载引擎不可用",
+            "spawn_failed": "下载引擎无法启动",
+            "rpc_unavailable": "引擎控制连接不可用",
+            "unexpected_exit": "下载引擎意外退出",
+            "health_check_failed": "下载引擎停止响应",
+            "unknown": "下载引擎不可用"
+          },
+          "impact": {
+            "failed": "暂时无法控制下载，任务状态可能尚未更新。",
+            "connecting": "引擎就绪后，即可开始或管理下载。",
+            "stopped": "启动引擎以开始或管理下载。"
+          },
+          "runtime": {
+            "process": "进程",
+            "running": "运行中",
+            "notRunning": "未运行",
+            "connection": "连接",
+            "connected": "已连接",
+            "connecting": "正在连接…",
+            "disconnected": "未连接",
+            "unavailable": "不可用",
+            "connectionStatus": "{{transport}}（{{status}}）"
+          },
+          "port": {
+            "available": "{{port}}（空闲）",
+            "listening": "{{port}}（监听中）",
+            "occupied": "{{port}}（已占用）"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
           }
         }
       },
