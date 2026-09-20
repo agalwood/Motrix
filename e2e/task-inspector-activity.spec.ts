@@ -1,5 +1,3 @@
-import { mkdir } from 'node:fs/promises'
-import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -23,8 +21,6 @@ import {
   updateTaskInspectorAppearance,
 } from './fixtures/task-inspector-activity'
 import { getFreePort } from './helpers/free-port'
-
-const SCREENSHOT_DIR = path.resolve('e2e/test-results/task-inspector-activity')
 
 interface RuntimeTask {
   id: string
@@ -251,7 +247,6 @@ async function openActivityForTask(
 }
 
 async function capture(page: Page, name: string): Promise<void> {
-  await mkdir(SCREENSHOT_DIR, { recursive: true })
   // Interaction assertions intentionally leave focus on the control that
   // regained ownership. Visual-reference captures represent the resting
   // surface, so remove that transient focus-visible treatment first.
@@ -261,7 +256,7 @@ async function capture(page: Page, name: string): Promise<void> {
     }
   })
   await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, name),
+    path: test.info().outputPath(name),
     animations: 'disabled',
   })
 }

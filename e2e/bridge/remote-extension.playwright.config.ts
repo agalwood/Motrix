@@ -21,5 +21,5 @@ export default defineConfig({
         ],
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  outputDir: '../test-results/remote-extension',
+  outputDir: '../../output/playwright/test-results/remote-extension',
 })
