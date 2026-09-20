@@ -71,8 +71,9 @@ test.describe('Dashboard v1', () => {
       .toBe(tileTop)
   })
 
-  test('cold launch renders seven default tile labels within 800ms', async ({
+  test('renders 160px square tiles at minimum window size, including configure mode', async ({
     mainWindow,
+    electronApp,
   }) => {
     // Navigate to dashboard (hash router — '#/' is the dashboard route)
     await mainWindow.waitForLoadState('domcontentloaded')
@@ -81,6 +82,7 @@ test.describe('Dashboard v1', () => {
     await expect(mainWindow.locator('html')).toHaveClass(/window-main/, {
       timeout: 15_000,
     })
+    await setTaskInspectorContentSize(electronApp, mainWindow, 914, 672)
 
     // Click the Dashboard nav link to ensure we're on the dashboard route
     await mainWindow.getByRole('link', { name: 'Dashboard' }).click()
@@ -124,6 +126,25 @@ test.describe('Dashboard v1', () => {
           .getByText('Transfer', { exact: true })
       ).toBeVisible({ timeout: 800 }),
     ])
+
+    const engine = mainWindow.getByTestId('dashboard-tile-engine')
+    const expectSquareTile = () =>
+      expect
+        .poll(() => engine.boundingBox())
+        .toMatchObject({
+          width: 160,
+          height: 160,
+        })
+    await expectSquareTile()
+    await mainWindow
+      .getByRole('button', { name: 'Configure', exact: true })
+      .click()
+    await expectSquareTile()
+    await mainWindow
+      .getByRole('toolbar', { name: 'Configure', exact: true })
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .click()
+    await expectSquareTile()
   })
 
   test.skip('window narrows below 904px → Tasks falls beneath grid', async () => {

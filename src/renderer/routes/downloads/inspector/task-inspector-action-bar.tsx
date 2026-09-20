@@ -16,8 +16,8 @@ import {
   FolderOpen,
   Pause,
   Play,
-  RadioTower,
   Repeat2,
+  Sprout,
   Square,
   Trash2,
 } from 'lucide-react'
@@ -274,7 +274,7 @@ export function TaskInspectorActionBar({
             n: actions.reseedCount,
             total: actions.total,
           })}
-          icon={<RadioTower />}
+          icon={<Sprout />}
           onClick={(e) => void actions.onReseed({ alt: e.altKey })}
         />
       )}
