@@ -46,6 +46,7 @@ their patterns match the files under inspection or modification.
 | `commit-and-quality.md` | Required checks and conditional validation |
 | `git-workflow.md` | Commits, branches, PRs, and releases |
 | `language-and-docs.md` | Language and public/private documentation |
+| `browser-artifacts.md` | Browser test output paths and temporary UI verification files |
 | `architecture.md` | Layer boundaries and transport flow |
 | `electron-vite.md` | Build, packaging, native ABI, and pnpm |
 | `code-style.md` | TypeScript, React, CSS, and file naming |

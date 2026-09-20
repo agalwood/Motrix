@@ -19,5 +19,5 @@ export default defineConfig({
   reporter: [['list']],
   // Pairing passwords must not enter traces, screenshots or video.
   use: { trace: 'off', screenshot: 'off', video: 'off' },
-  outputDir: '../test-results/appimage',
+  outputDir: '../../output/playwright/test-results/appimage',
 })

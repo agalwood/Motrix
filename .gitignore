@@ -155,13 +155,16 @@ graphify-out/*
 /.obsidian-doc-context.json
 /.obsidian-doc-context.json.tmp-*
 
-# Playwright e2e
+# Playwright configuration and generated artifacts
+/.playwright/*
+!/.playwright/cli.config.json
+/output/playwright/
+# Legacy artifact locations (keep old local evidence ignored)
 /e2e/test-results
 /e2e/playwright-report
 /playwright-report
 /test-results
-/.playwright
-/output/playwright
+.playwright-cli
 
 .agents/
 skills-lock.json
