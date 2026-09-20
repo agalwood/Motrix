@@ -194,6 +194,50 @@ beforeEach(() => {
 })
 
 describe('DownloadsPage', () => {
+  it('keeps the toolbar in sync with empty selection and requires an explicit reopen', async () => {
+    setTaskList({
+      tasks: [task('a', TaskStatus.Paused), task('b', TaskStatus.Paused)],
+    })
+    useDownloadsView.setState({ inspectorVisible: true })
+    renderAt('/downloads/all')
+
+    const toggle = screen.getByRole('button', { name: 'Show Inspector' })
+    expect(toggle).toBeDisabled()
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(toggle).toHaveAttribute(
+      'title',
+      'Select a task to view its details.'
+    )
+
+    act(() => useDownloadsSelection.getState().select('a'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show Inspector' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Hide Inspector' })
+    ).toHaveAttribute('aria-pressed', 'true')
+
+    act(() => useDownloadsSelection.getState().clearSelection())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(
+      screen.getByRole('button', { name: 'Show Inspector' })
+    ).toBeDisabled()
+
+    act(() => useDownloadsSelection.getState().select('b'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show Inspector' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Inspector' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    act(() => useDownloadsSelection.getState().select('a'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Inspector' })).toBeEnabled()
+  })
+
   it('renders the status title heading and search trigger', () => {
     renderAt('/downloads/all')
     expect(

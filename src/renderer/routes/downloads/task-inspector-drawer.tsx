@@ -29,9 +29,8 @@ import {
   RadioTower,
   SquareActivity,
   UsersRound,
-  X,
 } from 'lucide-react'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useLayoutEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityTab } from './inspector/activity-tab'
 import { canRevealTaskFolder } from './inspector/can-reveal-task-folder'
@@ -43,6 +42,7 @@ import { PiecesTab } from './inspector/pieces-tab'
 import { TaskInspectorActionBar } from './inspector/task-inspector-action-bar'
 import { TrackersTab } from './inspector/trackers-tab'
 import { StatusPill } from './status-pill'
+import { useTaskInspectorState } from './use-task-inspector-state'
 import { type InspectorTab, useDownloadsView } from './view-preferences'
 
 export interface TaskInspectorDrawerProps {
@@ -53,14 +53,6 @@ export interface TaskInspectorDrawerProps {
   onDismiss?: () => void
 }
 
-function useSelectedTasks(
-  selection: SelectionStore<DownloadTask>,
-  tasks: readonly DownloadTask[]
-): DownloadTask[] {
-  const ids = selection((s) => s.committedSelectedIds)
-  return useMemo(() => tasks.filter((t) => ids.has(t.id)), [ids, tasks])
-}
-
 export function TaskInspectorDrawer({
   selection,
   tasks,
@@ -68,8 +60,8 @@ export function TaskInspectorDrawer({
   onDismiss,
 }: TaskInspectorDrawerProps) {
   const { t } = useTranslation()
-  const selected = useSelectedTasks(selection, tasks)
-  const open = useDownloadsView((s) => s.inspectorVisible)
+  const { selected, open } = useTaskInspectorState(selection, tasks)
+  const visible = useDownloadsView((state) => state.inspectorVisible)
   const snap = useDownloadsView((s) => s.inspectorSnap)
   const setSnap = useDownloadsView((s) => s.setInspectorSnap)
   const single = selected.length === 1 ? selected[0] : null
@@ -81,6 +73,14 @@ export function TaskInspectorDrawer({
     createTaskInspectorActivitySnapshotCache,
     []
   )
+
+  useLayoutEffect(() => {
+    // Clearing selection closes the inspector. Selecting another task later
+    // must not reopen it without an explicit request to view its details.
+    if (visible && selected.length === 0) {
+      useDownloadsView.getState().setInspectorVisible(false)
+    }
+  }, [visible, selected.length])
 
   const onClose = useCallback(() => {
     onDismiss?.()
@@ -101,30 +101,13 @@ export function TaskInspectorDrawer({
       onClose={onClose}
       title={t('panel.downloads.view.inspector')}
       resizeLabel={t('panel.downloads.view.resizeInspector')}
-      renderHeader={(resizeHandle) =>
-        selected.length > 0 ? (
-          <TaskInspectorActionBar
-            selected={selected}
-            onClose={onClose}
-            resizeHandle={resizeHandle}
-          />
-        ) : (
-          <div className="flex shrink-0 items-center justify-between border-b border-border/50 px-4 py-2">
-            <span className="text-xs font-medium">
-              {t('panel.downloads.view.inspector')}
-            </span>
-            {resizeHandle}
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              aria-label={t('common.close')}
-              onClick={onClose}
-            >
-              <X />
-            </Button>
-          </div>
-        )
-      }
+      renderHeader={(resizeHandle) => (
+        <TaskInspectorActionBar
+          selected={selected}
+          onClose={onClose}
+          resizeHandle={resizeHandle}
+        />
+      )}
     >
       <ScrollArea className="min-h-0 flex-1">
         <ScrollAreaViewport
@@ -274,11 +257,7 @@ export function TaskInspectorDrawer({
               </>
             ) : selected.length > 0 ? (
               <MultiSelectionSummary tasks={selected} />
-            ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                {t('panel.downloads.view.selectToInspect')}
-              </p>
-            )}
+            ) : null}
           </ScrollAreaContent>
         </ScrollAreaViewport>
         <ScrollBar />

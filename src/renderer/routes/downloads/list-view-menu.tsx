@@ -155,19 +155,24 @@ export function ListViewMenu({
 }
 
 export function InspectorMenuItem({
+  visible,
+  disabled,
   onHide,
   onShow,
   shortcut,
 }: {
+  visible: boolean
+  disabled: boolean
   onHide?: () => void
   onShow?: () => void
   shortcut?: TaskMenuShortcut
 }) {
   const { t } = useTranslation()
-  const visible = useDownloadsView((state) => state.inspectorVisible)
   const setVisible = useDownloadsView((state) => state.setInspectorVisible)
   return (
     <DropdownMenuItem
+      disabled={disabled}
+      title={disabled ? t('panel.downloads.view.selectToInspect') : undefined}
       aria-keyshortcuts={shortcut?.aria}
       onClick={() => {
         if (visible) onHide?.()
@@ -186,14 +191,17 @@ export function InspectorMenuItem({
 }
 
 export function InspectorToggle({
+  visible,
+  disabled,
   onHide,
   triggerRef,
 }: {
+  visible: boolean
+  disabled: boolean
   onHide?: () => void
   triggerRef?: Ref<HTMLButtonElement>
 }) {
   const { t } = useTranslation()
-  const visible = useDownloadsView((state) => state.inspectorVisible)
   const setVisible = useDownloadsView((state) => state.setInspectorVisible)
   const label = t(
     `panel.downloads.view.${visible ? 'hideInspector' : 'showInspector'}`
@@ -202,7 +210,8 @@ export function InspectorToggle({
     <DownloadsToolbarButton
       ref={triggerRef}
       aria-label={label}
-      title={label}
+      title={disabled ? t('panel.downloads.view.selectToInspect') : label}
+      disabled={disabled}
       aria-pressed={visible}
       onClick={() => {
         if (visible) onHide?.()

@@ -12,7 +12,7 @@ import {
   type TaskInspectorActivitySnapshot,
 } from '@shared/types/task-inspector-activity'
 import { makeDownloadTask } from '@test-utils/task'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -175,7 +175,10 @@ describe('TaskInspectorDrawer', () => {
     try {
       const user = userEvent.setup()
       const selection = createSelectionStore<DownloadTask>((task) => task.id)
-      render(<TestHarness selection={selection} tasks={[]} />)
+      const tasks = [fake()]
+      selection.getState().setItems(tasks)
+      selection.getState().select('a')
+      render(<TestHarness selection={selection} tasks={tasks} />)
       const resize = screen.getByRole('separator', { name: 'Resize Inspector' })
       expect(resize).toHaveAttribute('aria-valuenow', '220')
       expect(useDownloadsView.getState().inspectorSnap).toBe('medium')
@@ -210,6 +213,102 @@ describe('TaskInspectorDrawer', () => {
     const selection = createSelectionStore<DownloadTask>((t) => t.id)
     render(<TestHarness selection={selection} tasks={[fake()]} />)
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('closes a restored inspector with no selection and keeps a subsequent single selection closed', () => {
+    const selection = createSelectionStore<DownloadTask>((task) => task.id)
+    const tasks = [fake()]
+    selection.getState().setItems(tasks)
+    render(<TestHarness selection={selection} tasks={tasks} />)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(useDownloadsView.getState().inspectorVisible).toBe(false)
+    act(() => selection.getState().select('a'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes on empty selection and preserves tab and height for an explicit reopen', async () => {
+    const selection = createSelectionStore<DownloadTask>((task) => task.id)
+    const tasks = [fake({ id: 'a' }), fake({ id: 'b' })]
+    const onDismiss = vi.fn()
+    selection.getState().setItems(tasks)
+    selection.getState().select('a')
+    useDownloadsView.setState({
+      inspectorSnap: 'expanded',
+      inspectorTab: 'activity',
+    })
+    render(
+      <TestHarness selection={selection} tasks={tasks} onDismiss={onDismiss} />
+    )
+
+    act(() => selection.getState().clearSelection())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(useDownloadsView.getState().inspectorVisible).toBe(false)
+    expect(onDismiss).not.toHaveBeenCalled()
+
+    act(() => selection.getState().select('b'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    act(() => useDownloadsView.getState().setInspectorVisible(true))
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(useDownloadsView.getState().inspectorSnap).toBe('expanded')
+
+    act(() => screen.getByRole('button', { name: 'Close' }).click())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    act(() => selection.getState().select('a'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(onDismiss).toHaveBeenCalledOnce()
+  })
+
+  it.each(['missing', 'removed'] as const)(
+    'hides when the selected task becomes %s',
+    async (mode) => {
+      const selection = createSelectionStore<DownloadTask>((task) => task.id)
+      const tasks = [fake()]
+      selection.getState().setItems(tasks)
+      selection.getState().select('a')
+      const view = render(<TestHarness selection={selection} tasks={tasks} />)
+
+      view.rerender(
+        <TestHarness
+          selection={selection}
+          tasks={
+            mode === 'missing' ? [] : [fake({ status: TaskStatus.Removed })]
+          }
+        />
+      )
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      )
+      expect(useDownloadsView.getState().inspectorVisible).toBe(false)
+    }
+  )
+
+  it('does not move focus away from an input when selection is cleared', async () => {
+    const selection = createSelectionStore<DownloadTask>((task) => task.id)
+    const tasks = [fake()]
+    selection.getState().setItems(tasks)
+    selection.getState().select('a')
+    render(
+      <>
+        <input aria-label="Search" />
+        <TestHarness selection={selection} tasks={tasks} />
+      </>
+    )
+
+    const search = screen.getByRole('textbox', { name: 'Search' })
+    search.focus()
+    act(() => selection.getState().clearSelection())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(search).toHaveFocus()
   })
 
   it('renders single-mode body with Overview tab active when one task selected', () => {
@@ -409,7 +508,7 @@ describe('TaskInspectorDrawer', () => {
     expect(useDownloadsView.getState().inspectorSnap).toBe('medium')
   })
 
-  it.each(['empty', 'single', 'multiple', 'finalizing'] as const)(
+  it.each(['single', 'multiple', 'finalizing'] as const)(
     'resizes from the %s header without consuming button keys',
     async (mode) => {
       const user = userEvent.setup()
@@ -424,7 +523,7 @@ describe('TaskInspectorDrawer', () => {
       ]
       selection.getState().setItems(tasks)
       if (mode === 'multiple') selection.getState().selectAll()
-      else if (mode !== 'empty') selection.getState().select('a')
+      else selection.getState().select('a')
       render(<TestHarness selection={selection} tasks={tasks} />)
 
       const resize = screen.getByRole('separator', { name: 'Resize Inspector' })
