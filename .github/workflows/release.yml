@@ -15,7 +15,9 @@
 # runtime and per-architecture native zsync metadata. It self-integrates its
 # desktop entry and URL-scheme handlers at runtime under the user's XDG data
 # tree (src/main/platform/appimage-integration.ts). Snap has its own
-# strict-confinement build and Store promotion workflows. 32-bit targets remain
+# strict-confinement build and Store promotion workflows. Flatpak reuses its
+# native build and installed-payload checks and joins both Linux release sets.
+# 32-bit targets remain
 # unsupported. Windows arm64 remains reserved until the aria2 lock supplies that
 # architecture.
 
@@ -1529,13 +1531,21 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  flatpak:
+    name: Build and validate Flatpak
+    needs: preflight
+    uses: ./.github/workflows/flatpak.yml
+    with:
+      release-version: ${{ needs.preflight.outputs.version }}
+
   assemble:
     name: Assemble and validate release
-    needs: [preflight, build, sign]
+    needs: [preflight, build, sign, flatpak]
     if: >-
       always() &&
       needs.preflight.result == 'success' &&
       needs.build.result == 'success' &&
+      needs.flatpak.result == 'success' &&
       (
         (github.event_name == 'push' && needs.sign.result == 'success') ||
         (github.event_name == 'workflow_dispatch' && needs.sign.result == 'skipped')
@@ -1569,6 +1579,18 @@ jobs:
         with:
           pattern: release-input-*
           path: release-input
+
+      - name: Download verified x86_64 Flatpak
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-release-x64
+          path: release-input/release-input-linux-x64/flatpak
+
+      - name: Download verified aarch64 Flatpak
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-release-arm64
+          path: release-input/release-input-linux-arm64/flatpak
 
       - name: Assemble release artifacts
         run: >-

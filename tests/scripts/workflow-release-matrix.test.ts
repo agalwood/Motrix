@@ -2755,20 +2755,16 @@ describe('release workflow publication contract', () => {
 
   it('keeps inline Node workflow steps syntactically executable', () => {
     let checked = 0
-    for (const [jobName, value] of Object.entries(
-      workflowJobs(releaseWorkflow)
-    )) {
-      for (const step of jobSteps(asRecord(value, `${jobName} job`))) {
-        if (step.shell !== 'node {0}') continue
-        const source = stringField(step, 'run').replace(
-          /\$\{\{[\s\S]*?\}\}/gu,
-          'github_expression'
-        )
-        expect(
-          () => new Script(source, { filename: `${jobName}.js` })
-        ).not.toThrow()
-        checked += 1
-      }
+    for (const { jobName, step } of allSteps(releaseWorkflow)) {
+      if (step.shell !== 'node {0}') continue
+      const source = stringField(step, 'run').replace(
+        /\$\{\{[\s\S]*?\}\}/gu,
+        'github_expression'
+      )
+      expect(
+        () => new Script(source, { filename: `${jobName}.js` })
+      ).not.toThrow()
+      checked += 1
     }
     expect(checked).toBeGreaterThan(0)
   })

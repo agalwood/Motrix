@@ -141,12 +141,15 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 | Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
+| Linux（Flatpak） | `x86_64`、`aarch64` | `.flatpak` | 从包含该格式的 Release 下载对应版本的安装包，详见 [Flatpak 安装指南](docs/flatpak.zh-CN.md) |
 | Arch Linux / Omarchy | `x64`、`arm64` | `.pacman` | 使用 `sudo pacman -U ./Motrix-<version>-<arch>.pacman` 安装原生 Arch 包，详见 [Arch 安装指南](docs/arch-linux.zh-CN.md) |
 
 `.AppImage` 首次启动时会询问是否把桌面入口和 URL scheme 处理程序注册到你的用户数据目录；拒绝则不改动系统。之后随时可以在「设置 → 集成」中启用或移除该桌面集成。
 Snap Store 安装包使用严格限制。已批准的 `personal-files` interface 允许 Motrix
 为支持的浏览器注册 Native Messaging host，不会授予常规 Snap interface
-之外的通用文件访问权限。Flatpak 会单独验证，不会随该版本 tag 发布。
+之外的通用文件访问权限。Release tag 会构建并验证两种架构的 Flatpak 主程序包，
+通过后再发布。beta.39 等旧版本仅包含 Flatpak Native Host 配套程序。
+这些单文件安装包需要手动升级，不会配置 Motrix 更新仓库。
 同时不提供 Windows `arm64` 和任何 32 位安装包。Windows `x64` 安装包未签名，
 可能触发 Windows SmartScreen 警告。
 

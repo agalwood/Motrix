@@ -1,10 +1,10 @@
 # Flathub manifest for Motrix Turbo.
 #
-# The canonical application source remains a placeholder until motrix-turbo
-# has a public, tagged release. PR CI derives a temporary manifest from this
-# file and replaces only that source with a git archive of the checked-out
-# commit. Every dependency used after flatpak-builder enters its offline build
-# phase is declared below or in the two committed generated source manifests.
+# PR CI and release builds derive a manifest from this template, replacing the
+# application source with a checksum-pinned archive of the checked-out commit.
+# Direct Flathub submission still requires a public source tag and commit here.
+# Every dependency used during the offline build is declared below or in the
+# two committed generated source manifests.
 
 app-id: app.motrix.native
 runtime: org.freedesktop.Platform

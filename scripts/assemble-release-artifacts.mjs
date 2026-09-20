@@ -56,6 +56,7 @@ export const RELEASE_TARGETS = [
       `Motrix-${version}-x64.pacman`,
       `Motrix-${version}-x86_64.AppImage`,
       `Motrix-${version}-x86_64.AppImage.zsync`,
+      `Motrix-${version}-x86_64.flatpak`,
       flatpakCompanionArchiveName(version, 'x64'),
     ],
     manifestAssetNames: (version) => [
@@ -76,6 +77,7 @@ export const RELEASE_TARGETS = [
       `Motrix-${version}-aarch64.pacman`,
       `Motrix-${version}-arm64.AppImage`,
       `Motrix-${version}-arm64.AppImage.zsync`,
+      `Motrix-${version}-aarch64.flatpak`,
       flatpakCompanionArchiveName(version, 'arm64'),
     ],
     manifestAssetNames: (version) => [
@@ -105,6 +107,7 @@ const RELEASE_ASSET_EXTENSIONS = [
   '.deb',
   '.dmg',
   '.exe',
+  '.flatpak',
   '.rpm',
   '.pacman',
   '.snap',
@@ -313,6 +316,9 @@ async function collectTargetFiles(directory, target, version, manifestNames) {
           ...requiredAssets,
         ].join(', ')}`
       )
+    }
+    if (name.endsWith('.flatpak') && (await stat(source)).size === 0) {
+      throw new Error(`${target.name}: Flatpak bundle ${name} is empty`)
     }
 
     const key = name.toLowerCase()

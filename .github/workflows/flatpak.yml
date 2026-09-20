@@ -1,9 +1,8 @@
-# Motrix Turbo — reproducible Flatpak validation and native builds.
+# Motrix — reproducible Flatpak validation and release builds.
 #
-# The canonical manifest keeps the application source pointed at a future
-# public release. CI replaces only that source with a git archive of the
-# checked-out commit; every third-party source remains pinned and is fetched by
-# flatpak-builder before the offline build starts.
+# PR CI and the release caller replace the application's template source with
+# a checksum-pinned archive of the event commit. The release caller also checks
+# its preflight version. Third-party sources remain pinned for offline builds.
 
 name: Flatpak
 
@@ -56,13 +55,19 @@ on:
       - 'tsconfig*.json'
       - 'vite*.config.ts'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release-version:
+        description: Expected package version from the release preflight
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: flatpak-${{ github.ref }}
-  cancel-in-progress: true
+  group: flatpak-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ inputs.release-version == '' }}
 
 jobs:
   lint:
@@ -88,8 +93,7 @@ jobs:
         run: desktop-file-validate flatpak/app.motrix.native.desktop
 
       - name: Validate AppStream metainfo
-        # Public repository and screenshot URLs are still maintainer-owned
-        # submission blockers, so URL reachability is intentionally excluded.
+        # Keep metadata validation independent of website availability.
         run: appstreamcli validate --no-net flatpak/app.motrix.native.metainfo.xml
 
       - name: Lint Flatpak manifest
@@ -101,6 +105,9 @@ jobs:
     name: Verify locked offline sources
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.source.outputs.version }}
+      branch: ${{ steps.source.outputs.branch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -207,7 +214,15 @@ jobs:
             tests/scripts/prepare-flatpak-node-lock.test.ts
 
       - name: Prepare checked-out source for Flatpak
-        run: node scripts/prepare-flatpak-project.mjs
+        id: source
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: |
+          args=(--ref "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT")
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            args+=(--version "$RELEASE_VERSION")
+          fi
+          node scripts/prepare-flatpak-project.mjs "${args[@]}"
 
       - name: Upload prepared Flatpak source
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -261,14 +276,18 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb # v6.7
         with:
           arch: ${{ matrix.flatpak_arch }}
+          branch: ${{ needs.sources.outputs.branch }}
           bundle: app.motrix.native-${{ matrix.flatpak_arch }}.flatpak
           manifest-path: flatpak/app.motrix.native.ci.yml
           cache-key: flatpak-${{ matrix.flatpak_arch }}-${{ hashFiles('flatpak/app.motrix.native.yml', 'flatpak/generated-sources.json', 'flatpak/cargo-sources.json', 'pnpm-lock.yaml', 'packages/native-host/Cargo.lock', 'packages/finalize-fs/Cargo.lock') }}
-          upload-artifact: true
+          upload-artifact: false
 
       - name: Smoke-test installed payload
         env:
           MOTRIX_FLATPAK_ARCH: ${{ matrix.electron_arch }}
+          MOTRIX_FLATPAK_REF_ARCH: ${{ matrix.flatpak_arch }}
+          MOTRIX_FLATPAK_BRANCH: ${{ needs.sources.outputs.branch }}
+          MOTRIX_RELEASE_VERSION: ${{ needs.sources.outputs.version }}
           # Container-local /tmp, not runner.temp: the workspace mount (/__w)
           # is owned by neither the container user nor root, and the host
           # companion refuses install trees under such ancestors by design.
@@ -283,6 +302,19 @@ jobs:
           mkdir -p "$HOME" "$XDG_DATA_HOME" "$XDG_CONFIG_HOME"
           flatpak --user install -y --noninteractive \
             "./app.motrix.native-${{ matrix.flatpak_arch }}.flatpak"
+          test "$(flatpak --user info --show-ref app.motrix.native)" = \
+            "app/app.motrix.native/$MOTRIX_FLATPAK_REF_ARCH/$MOTRIX_FLATPAK_BRANCH"
+          installed_location="$(flatpak --user info --show-location app.motrix.native)"
+          python3 - "$installed_location" "$MOTRIX_RELEASE_VERSION" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          metainfo = Path(sys.argv[1]) / 'files/share/metainfo/app.motrix.native.metainfo.xml'
+          root = ET.parse(metainfo).getroot()
+          assert root.findtext('id') == 'app.motrix.native'
+          assert root.find('releases/release').get('version') == sys.argv[2]
+          PY
           # The single-quoted payload is expanded by sh inside the Flatpak.
           # shellcheck disable=SC2016
           flatpak run \
@@ -441,3 +473,22 @@ jobs:
           nonce_server_pid=''
           cleanup
           trap - EXIT
+
+      # Only successful builds and installed-payload checks may feed a release.
+      # Use this same staging path in PR CI and reusable release invocations.
+      - name: Stage verified Flatpak release bundle
+        env:
+          RELEASE_VERSION: ${{ needs.sources.outputs.version }}
+          FLATPAK_ARCH: ${{ matrix.flatpak_arch }}
+        run: |
+          mkdir -p flatpak-release
+          cp "app.motrix.native-${FLATPAK_ARCH}.flatpak" \
+            "flatpak-release/Motrix-${RELEASE_VERSION}-${FLATPAK_ARCH}.flatpak"
+
+      - name: Upload verified Flatpak release bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: flatpak-release-${{ matrix.electron_arch }}
+          path: flatpak-release/*.flatpak
+          if-no-files-found: error
+          retention-days: 14

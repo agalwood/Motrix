@@ -144,6 +144,7 @@ package that matches your operating system and architecture:
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
 | Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 | Linux (Snap Store) | `amd64`, `arm64` | `latest/edge` | Install the strictly confined beta with `sudo snap install motrix --edge` |
+| Linux (Flatpak) | `x86_64`, `aarch64` | `.flatpak` | Install a versioned bundle from a release that includes it; see the [Flatpak guide](docs/flatpak.md) |
 | Arch Linux / Omarchy | `x64`, `arm64` | `.pacman` | Install the native Arch package with `sudo pacman -U ./Motrix-<version>-<arch>.pacman`; see the [Arch installation guide](docs/arch-linux.md) |
 
 The `.AppImage` asks on first launch whether to register its desktop entry and
@@ -153,8 +154,11 @@ Settings → Integration.
 The Snap Store package is strictly confined. Its approved `personal-files`
 interface permits Motrix to register Native Messaging hosts for supported
 browsers; it does not grant general access to files outside the normal Snap
-interfaces. Flatpak is validated separately and is not published by the
-release tag. Windows `arm64` and all 32-bit packages are not available.
+interfaces. Release tags build and validate Flatpak application bundles for
+both architectures before publication. Older releases, including beta.39,
+contain only the Flatpak Native Host companion. These single-file bundles
+require manual upgrades; they do not configure a Motrix update repository.
+Windows `arm64` and all 32-bit packages are not available.
 Windows `x64` packages are unsigned and may trigger a Windows SmartScreen
 warning.
 
