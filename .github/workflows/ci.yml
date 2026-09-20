@@ -207,6 +207,7 @@ jobs:
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
           tests/scripts/workflow-release-matrix.test.ts
+          tests/scripts/workflow-flatpak-release.test.ts
           tests/scripts/workflow-snap.test.ts
 
       - name: Type-check (root)

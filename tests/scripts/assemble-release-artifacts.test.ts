@@ -50,6 +50,8 @@ describe('assembleReleaseArtifacts', () => {
         'Motrix-2.0.0-arm64.AppImage.zsync',
         'Motrix-2.0.0-x86_64.AppImage',
         'Motrix-2.0.0-x86_64.AppImage.zsync',
+        'Motrix-2.0.0-aarch64.flatpak',
+        'Motrix-2.0.0-x86_64.flatpak',
         'Motrix-2.0.0.aarch64.rpm',
         'Motrix-2.0.0.x86_64.rpm',
         'Motrix-2.0.0-x64.pacman',
@@ -101,6 +103,9 @@ describe('assembleReleaseArtifacts', () => {
       expect(
         linuxManifest.files.some((file) => file.url.endsWith('.AppImage'))
       ).toBe(true)
+      expect(
+        linuxManifest.files.some((file) => file.url.endsWith('.flatpak'))
+      ).toBe(false)
     }
 
     await expect(
@@ -292,6 +297,54 @@ describe('assembleReleaseArtifacts', () => {
     ).rejects.toThrow(
       'linux-arm64: required release asset Motrix-2.0.0.aarch64.rpm is missing'
     )
+  })
+
+  it.each(['linuxX64Flatpak', 'linuxArm64Flatpak'] as const)(
+    'requires the Flatpak application bundle %s before assembly',
+    async (key) => {
+      const fixture = await createFixture()
+      await unlink(fixture.paths[key])
+      await expect(
+        assembleReleaseArtifacts({
+          inputDirectory: fixture.input,
+          outputDirectory: fixture.output,
+          version: VERSION,
+        })
+      ).rejects.toThrow(
+        `required release asset ${fixture.names[key]} is missing`
+      )
+      await expect(access(fixture.output)).rejects.toThrow()
+    }
+  )
+
+  it.each(['Motrix-1.0.0-x86_64.flatpak', 'Motrix-2.0.0-aarch64.flatpak'])(
+    'rejects a wrong version or architecture in the x64 bundle: %s',
+    async (name) => {
+      const fixture = await createFixture()
+      await rename(
+        fixture.paths.linuxX64Flatpak,
+        path.join(path.dirname(fixture.paths.linuxX64Flatpak), name)
+      )
+      await expect(
+        assembleReleaseArtifacts({
+          inputDirectory: fixture.input,
+          outputDirectory: fixture.output,
+          version: VERSION,
+        })
+      ).rejects.toThrow('unexpected release asset')
+    }
+  )
+
+  it('rejects an empty Flatpak bundle', async () => {
+    const fixture = await createFixture()
+    await writeFile(fixture.paths.linuxX64Flatpak, '')
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow('is empty')
   })
 
   it('requires one architecture-specific Flatpak companion per Linux target', async () => {
@@ -622,12 +675,14 @@ async function createFixture(version = VERSION) {
   await mkdir(input)
 
   const names = {
+    linuxArm64Flatpak: `Motrix-${version}-aarch64.flatpak`,
     linuxArm64Pacman: `Motrix-${version}-aarch64.pacman`,
     linuxArm64Deb: `Motrix_${version}_arm64.deb`,
     linuxArm64Companion: `Motrix-Native-Host-${version}-linux-arm64.tar.gz`,
     linuxArm64Rpm: `Motrix-${version}.aarch64.rpm`,
     linuxArm64AppImage: `Motrix-${version}-arm64.AppImage`,
     linuxArm64Zsync: `Motrix-${version}-arm64.AppImage.zsync`,
+    linuxX64Flatpak: `Motrix-${version}-x86_64.flatpak`,
     linuxX64Pacman: `Motrix-${version}-x64.pacman`,
     linuxX64Deb: `Motrix_${version}_amd64.deb`,
     linuxX64Companion: `Motrix-Native-Host-${version}-linux-x64.tar.gz`,
@@ -643,6 +698,7 @@ async function createFixture(version = VERSION) {
   const linuxArm64AppImageContent = Buffer.from('Linux arm64 AppImage')
   const linuxX64AppImageContent = Buffer.from('Linux x64 AppImage')
   const contents = {
+    linuxArm64Flatpak: Buffer.from('Flatpak aarch64'),
     linuxArm64Pacman: Buffer.from('Linux arm64 pacman'),
     linuxArm64Deb: Buffer.from('Linux arm64 deb'),
     linuxArm64Companion: Buffer.from('Linux arm64 Flatpak companion'),
@@ -652,6 +708,7 @@ async function createFixture(version = VERSION) {
       names.linuxArm64AppImage,
       linuxArm64AppImageContent
     ),
+    linuxX64Flatpak: Buffer.from('Flatpak x86_64'),
     linuxX64Pacman: Buffer.from('Linux x64 pacman'),
     linuxX64Deb: Buffer.from('Linux x64 deb'),
     linuxX64Companion: Buffer.from('Linux x64 Flatpak companion'),
@@ -719,6 +776,11 @@ async function createFixture(version = VERSION) {
   )
 
   const linuxX64 = await makeTarget(input, 'linux-x64')
+  const linuxX64Flatpak = await writeAsset(
+    linuxX64,
+    names.linuxX64Flatpak,
+    contents.linuxX64Flatpak
+  )
   const linuxX64Pacman = await writeAsset(
     linuxX64,
     names.linuxX64Pacman,
@@ -773,6 +835,11 @@ async function createFixture(version = VERSION) {
   )
 
   const linuxArm64 = await makeTarget(input, 'linux-arm64')
+  const linuxArm64Flatpak = await writeAsset(
+    linuxArm64,
+    names.linuxArm64Flatpak,
+    contents.linuxArm64Flatpak
+  )
   const linuxArm64Pacman = await writeAsset(
     linuxArm64,
     names.linuxArm64Pacman,
@@ -852,6 +919,7 @@ async function createFixture(version = VERSION) {
     names,
     output,
     paths: {
+      linuxArm64Flatpak: linuxArm64Flatpak.path,
       linuxArm64Pacman: linuxArm64Pacman.path,
       linuxArm64Deb: linuxArm64Deb.path,
       linuxArm64Companion: linuxArm64Companion.path,
@@ -859,6 +927,7 @@ async function createFixture(version = VERSION) {
       linuxArm64Rpm: linuxArm64Rpm.path,
       linuxArm64AppImage: linuxArm64AppImage.path,
       linuxArm64Zsync: linuxArm64Zsync.path,
+      linuxX64Flatpak: linuxX64Flatpak.path,
       linuxX64Pacman: linuxX64Pacman.path,
       linuxX64Deb: linuxX64Deb.path,
       linuxX64Companion: linuxX64Companion.path,
