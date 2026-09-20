@@ -28,6 +28,62 @@ export function normalizeSpeedHistory(
   return [...padding, ...history]
 }
 
+/** Select observed points by triangle area, retaining endpoints and the peak. */
+export function sampleSpeedHistory(
+  history: readonly SpeedPoint[],
+  maxPoints: number,
+  direction: 'up' | 'down'
+): readonly SpeedPoint[] {
+  const limit = Math.max(3, Math.floor(maxPoints))
+  if (history.length <= limit) return history
+
+  const peakIndex = history.reduce(
+    (peak, point, index) =>
+      point[direction] > history[peak][direction] ? index : peak,
+    0
+  )
+  const bucketSize = (history.length - 2) / (limit - 2)
+  const sampled = [history[0]]
+  let previous = history[0]
+
+  for (let bucket = 0; bucket < limit - 2; bucket++) {
+    const start = Math.floor(bucket * bucketSize) + 1
+    const end = Math.floor((bucket + 1) * bucketSize) + 1
+    const nextEnd = Math.min(
+      Math.floor((bucket + 2) * bucketSize) + 1,
+      history.length
+    )
+    let averageTime = 0
+    let averageSpeed = 0
+    for (let index = end; index < nextEnd; index++) {
+      averageTime += history[index].t
+      averageSpeed += history[index][direction]
+    }
+    averageTime /= nextEnd - end
+    averageSpeed /= nextEnd - end
+
+    let selected = start
+    let largestArea = -1
+    for (let index = start; index < end; index++) {
+      const point = history[index]
+      const area = Math.abs(
+        (previous.t - averageTime) * (point[direction] - previous[direction]) -
+          (previous.t - point.t) * (averageSpeed - previous[direction])
+      )
+      if (area > largestArea) {
+        largestArea = area
+        selected = index
+      }
+    }
+    if (peakIndex >= start && peakIndex < end) selected = peakIndex
+    previous = history[selected]
+    sampled.push(previous)
+  }
+
+  sampled.push(history[history.length - 1])
+  return sampled
+}
+
 export function normalizeObservedSpeedHistory<T extends SpeedPoint>(
   history: readonly T[],
   maxPoints: number

@@ -17,24 +17,31 @@ const UNITS = {
   binary: ['KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'],
 } as const
 
+function formatSpeedNumber(value: number): string {
+  const twoDecimals = value.toFixed(2)
+  // Include rounding across 999.99 so four-digit values never keep decimals.
+  return Number(twoDecimals) >= 1000 ? value.toFixed(0) : twoDecimals
+}
+
 export function formatSpeed(
   bytes: number,
   unitSystem: ByteUnitSystem = DEFAULT_BYTE_UNIT_SYSTEM
 ): string {
   const base = unitSystem === 'binary' ? 1024 : 1000
   const units = UNITS[unitSystem]
+  if (bytes === 0) return `0 ${units[0]}`
   // The tray keeps its compact presentation: minimum KB/s or KiB/s.
   let value = bytes / base
   let unitIndex = 0
+  let number = formatSpeedNumber(value)
 
-  while (value >= base && unitIndex < units.length - 1) {
+  while (Number(number) >= base && unitIndex < units.length - 1) {
     value /= base
     unitIndex++
+    number = formatSpeedNumber(value)
   }
 
-  // KB/s or KiB/s: no decimal; MB/s or MiB/s and above: one decimal.
-  if (unitIndex === 0) return `${Math.round(value)} ${units[unitIndex]}`
-  return `${value.toFixed(1)} ${units[unitIndex]}`
+  return `${number} ${units[unitIndex]}`
 }
 
 // ─── TrayIconProvider interface ─────────────────────────────

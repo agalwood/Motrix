@@ -112,24 +112,37 @@ describe('createLinuxIconProvider', () => {
 })
 
 describe('formatSpeed', () => {
-  it('keeps integer kilobytes as the minimum unit in decimal mode', () => {
+  it.each([
+    [12.34, '12.34 MiB/s'],
+    [999.99, '999.99 MiB/s'],
+    [999.999, '1000 MiB/s'],
+    [1000.23, '1000 MiB/s'],
+    [1023.49, '1023 MiB/s'],
+    [1023.5, '1.00 GiB/s'],
+    [1023.99, '1.00 GiB/s'],
+  ])('formats %s MiB/s for the compact tray', (speed, expected) => {
+    expect(formatSpeed(Math.round(speed * 1_048_576), 'binary')).toBe(expected)
+  })
+
+  it('keeps two decimal places with kilobytes as the minimum unit', () => {
     expect(formatSpeed(0)).toBe('0 KB/s')
-    expect(formatSpeed(512)).toBe('1 KB/s')
-    expect(formatSpeed(50_000)).toBe('50 KB/s')
-    expect(formatSpeed(999_999)).toBe('1000 KB/s')
+    expect(formatSpeed(512)).toBe('0.51 KB/s')
+    expect(formatSpeed(50_000)).toBe('50.00 KB/s')
+    expect(formatSpeed(999_990)).toBe('999.99 KB/s')
+    expect(formatSpeed(999_999)).toBe('1.00 MB/s')
   })
-  it('keeps one decimal place for megabytes and above in decimal mode', () => {
-    expect(formatSpeed(16_500_000)).toBe('16.5 MB/s')
-    expect(formatSpeed(125_000_000)).toBe('125.0 MB/s')
-    expect(formatSpeed(1_500_000_000)).toBe('1.5 GB/s')
+  it('keeps two decimal places for megabytes and above', () => {
+    expect(formatSpeed(16_543_210)).toBe('16.54 MB/s')
+    expect(formatSpeed(125_000_000)).toBe('125.00 MB/s')
+    expect(formatSpeed(1_500_000_000)).toBe('1.50 GB/s')
   })
-  it('preserves the original binary rounding with IEC labels', () => {
+  it('uses two decimal places with IEC labels and promotes rounded units', () => {
     expect(formatSpeed(0, 'binary')).toBe('0 KiB/s')
-    expect(formatSpeed(512, 'binary')).toBe('1 KiB/s')
-    expect(formatSpeed(50 * 1024, 'binary')).toBe('50 KiB/s')
-    expect(formatSpeed(1_048_575, 'binary')).toBe('1024 KiB/s')
-    expect(formatSpeed(1_048_576, 'binary')).toBe('1.0 MiB/s')
-    expect(formatSpeed(125 * 1_048_576, 'binary')).toBe('125.0 MiB/s')
-    expect(formatSpeed(1_073_741_824, 'binary')).toBe('1.0 GiB/s')
+    expect(formatSpeed(512, 'binary')).toBe('0.50 KiB/s')
+    expect(formatSpeed(50 * 1024, 'binary')).toBe('50.00 KiB/s')
+    expect(formatSpeed(1_048_575, 'binary')).toBe('1.00 MiB/s')
+    expect(formatSpeed(1_048_576, 'binary')).toBe('1.00 MiB/s')
+    expect(formatSpeed(125 * 1_048_576, 'binary')).toBe('125.00 MiB/s')
+    expect(formatSpeed(1_073_741_824, 'binary')).toBe('1.00 GiB/s')
   })
 })

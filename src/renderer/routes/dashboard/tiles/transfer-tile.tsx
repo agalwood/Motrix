@@ -12,6 +12,7 @@ import type { TransferStatsState } from '@renderer/hooks/use-transfer-stats'
 
 import { cn } from '@renderer/lib/utils'
 import type { TransferRangeStats } from '@shared/types/stats'
+import { formatBytes as formatByteCount } from '@shared/utils/format-bytes'
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -282,7 +283,7 @@ export function TransferTile({
   viewport,
   className,
 }: TransferTileProps) {
-  const { formatBytes } = useByteFormat()
+  const { unitSystem } = useByteFormat()
 
   const { t, i18n } = useTranslation()
   const [scope, setScope] = useState<TransferScope>('today')
@@ -293,7 +294,12 @@ export function TransferTile({
   const snapshot = 'snapshot' in state ? state.snapshot : null
   const range = snapshot?.[scope]
   const totalIsZero = range ? parseByteCount(range.totalBytes) === 0n : false
-  const formattedTotal = range ? formatBytes(range.totalBytes) : null
+  const formattedTotal = range
+    ? formatByteCount(range.totalBytes, {
+        unitSystem,
+        decimals: compact ? 1 : 2,
+      })
+    : null
   const scopeLabel = t(`panel.dashboard.transfer.scope.${scope}`)
 
   let statusCaption: string | null = null

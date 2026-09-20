@@ -131,7 +131,7 @@ describe('TransferTile', () => {
     expect(screen.queryByTestId('transfer-proportion-bar')).toBeNull()
     expect(
       screen.getByRole('region', {
-        name: 'Today transfer total: 1.01 GB',
+        name: 'Today transfer total: 1.0 GB',
       })
     ).toBeInTheDocument()
 
@@ -143,7 +143,7 @@ describe('TransferTile', () => {
     expect(
       screen.getByRole('button', { name: 'Transfer range: All Time' })
     ).toHaveTextContent('All Time')
-    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.22 GB')
+    expect(screen.getByTestId('transfer-total')).toHaveTextContent('3.2 GB')
   })
 
   it('renders ordered transfer endpoints with proportional segments', () => {
