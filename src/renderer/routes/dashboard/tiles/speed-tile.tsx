@@ -1,15 +1,10 @@
 // src/renderer/routes/dashboard/tiles/speed-tile.tsx
-import { type ChartConfig, ChartContainer } from '@renderer/components/ui/chart'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
-import {
-  chartCeiling,
-  normalizeSpeedHistory,
-  sampleSpeedHistory,
-} from '@renderer/lib/speed-chart'
+import { chartCeiling, SPEED_CHART_MIN_POINTS } from '@renderer/lib/speed-chart'
 import { cn } from '@renderer/lib/utils'
 import type { SpeedPoint } from '@shared/types/stats'
 import { useTranslation } from 'react-i18next'
-import { Area, AreaChart, XAxis, YAxis } from 'recharts'
+import { SpeedSparkline } from '../components/speed-sparkline'
 import { TileShell } from '../components/tile-shell'
 import { TileTitle } from '../components/tile-title'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
@@ -19,11 +14,6 @@ export interface SpeedTileProps {
   history: readonly SpeedPoint[]
   viewport: DashboardTileViewport
   className?: string
-}
-
-const CHART_CONFIG: ChartConfig = {
-  up: { label: 'Up', color: 'hsl(var(--chart-2))' },
-  down: { label: 'Down', color: 'hsl(var(--chart-1))' },
 }
 
 export function SpeedTile({
@@ -42,19 +32,9 @@ export function SpeedTile({
   const showPeak =
     viewport.contentLevel === 'detailed' || viewport.contentLevel === 'focus'
   const focus = viewport.contentLevel === 'focus'
-  const normalizedHistory = normalizeSpeedHistory(history)
-  // Preserve sample spacing: clock gaps must not compress recent activity.
-  const chartData = sampleSpeedHistory(
-    normalizedHistory,
-    viewport.span.w * 16,
-    dataKey
-  ).map((point) => ({
-    ...point,
-    position: normalizedHistory.indexOf(point),
-  }))
+  // Keep the scale anchored to retained history while recent samples roll by.
   const visibleMax = Math.max(peak, current)
   const chartMax = chartCeiling(visibleMax)
-  const chartMin = -chartMax / 7
   const scaleMax = visibleMax > 0 ? chartMax : 0
   const scaleValues = focus
     ? [
@@ -112,37 +92,12 @@ export function SpeedTile({
               : '-top-10'
         )}
       >
-        <ChartContainer
-          config={CHART_CONFIG}
-          className="aspect-auto h-full w-full"
-          initialDimension={{ width: 240, height: 112 }}
-        >
-          <AreaChart
-            data={chartData}
-            margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-          >
-            <XAxis
-              dataKey="position"
-              type="number"
-              domain={['dataMin', 'dataMax']}
-              hide
-            />
-            <YAxis dataKey={dataKey} domain={[chartMin, chartMax]} hide />
-            <Area
-              type="monotoneX"
-              dataKey={dataKey}
-              stroke={`var(--color-${kind})`}
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              baseValue={chartMin}
-              fill={`var(--color-${kind})`}
-              fillOpacity={0.12}
-              isAnimationActive={false}
-              dot={false}
-            />
-          </AreaChart>
-        </ChartContainer>
+        <SpeedSparkline
+          history={history}
+          kind={kind}
+          ceiling={chartMax}
+          pointCount={Math.max(SPEED_CHART_MIN_POINTS, viewport.span.w * 16)}
+        />
       </div>
     </TileShell>
   )
