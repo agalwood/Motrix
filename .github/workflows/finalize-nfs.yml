@@ -82,4 +82,4 @@ jobs:
           export MOTRIX_FINALIZE_NFS_ROOT="$mount_root"
           # The test fails if the supplied path is not really an NFS mount.
           cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::unix::tests::nfs_supports_link_publication_and_private_removal
-          pnpm exec vitest run src/core/plugin/finalize/finalize-nfs-recovery.integration.test.ts --reporter=verbose
+          pnpm exec vitest run src/core/plugin/finalize/finalize-nfs-recovery.integration.test.ts src/core/plugin/finalize/finalize-adversarial.integration.test.ts --reporter=verbose

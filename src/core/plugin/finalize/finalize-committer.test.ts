@@ -350,7 +350,7 @@ describe('hard-link publication', () => {
     }
   )
 
-  it('rolls back a link whose response was lost', async () => {
+  it('quarantines both names when a link response was lost', async () => {
     const { fs, plan, state, operations, linkNoReplace } = await linked()
     const link = linkNoReplace.getMockImplementation()!
     linkNoReplace.mockImplementation(async (...args) => {
@@ -359,10 +359,50 @@ describe('hard-link publication', () => {
     })
     await expect(
       makeCommitter(operations, state.repository).commit(plan)
-    ).rejects.toThrow('lost response')
-    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath])
-    expect(state.quarantines).toEqual([])
-    expect(state.phases.at(-1)).toBe('cleaned')
+    ).rejects.toThrow('ownership is unconfirmed')
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath, plan.targetPath])
+    expect(state.quarantines).toEqual([
+      'hard-link publication ownership is unconfirmed',
+    ])
+    expect(state.phases.at(-1)).toBe('prepared')
+  })
+
+  it('preserves both names if recording link confirmation fails', async () => {
+    const { fs, plan, state, operations } = await linked()
+    const checkpoint = state.repository.checkpoint
+    state.repository.checkpoint = async (_id, patch) => {
+      await checkpoint(_id, patch)
+      if (patch.publicationIntent?.confirmed)
+        throw new Error('journal write failed')
+    }
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow('ownership is unconfirmed')
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath, plan.targetPath])
+    expect(state.quarantines).toEqual([
+      'hard-link publication ownership is unconfirmed',
+    ])
+  })
+
+  it('does not resume a removal intent whose journal checkpoint failed', async () => {
+    const { fs, plan, state, operations } = await linked(
+      true,
+      new Error('DB unavailable')
+    )
+    const remove = vi.spyOn(operations, 'removeKnown')
+    const originalCheckpoint = state.repository.checkpoint
+    const checkpoint = vi.fn(
+      async (_id: string, patch: Partial<FinalizeJournalRecord>) => {
+        await originalCheckpoint(_id, patch)
+        if (patch.removalIntent) throw new Error('journal write failed')
+      }
+    )
+    state.repository.checkpoint = checkpoint
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow('rollback needs recovery')
+    expect(remove).not.toHaveBeenCalled()
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath, plan.targetPath])
   })
 
   it('preserves the source when the DB commit fails', async () => {

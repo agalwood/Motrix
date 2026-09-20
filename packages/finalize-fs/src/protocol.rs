@@ -60,6 +60,13 @@ pub(crate) enum Request {
         quarantine_relative: String,
         resume_isolated: bool,
     },
+    RemoveOpenedPreserving {
+        request_id: u64,
+        artifact: u64,
+        quarantine_relative: String,
+        resume_isolated: bool,
+        survivor: u64,
+    },
     SyncRoot {
         request_id: u64,
         root: u64,
@@ -82,6 +89,7 @@ impl Request {
             Self::CopyOpened { .. } => "copy_opened",
             Self::RenameNoReplace { .. } => "rename_no_replace",
             Self::RemoveOpened { .. } => "remove_opened",
+            Self::RemoveOpenedPreserving { .. } => "remove_opened_preserving",
             Self::SyncRoot { .. } => "sync_root",
             Self::Close { .. } => "close",
         }

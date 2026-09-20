@@ -37,6 +37,12 @@ describe('SqliteFinalizeJournalRepository', () => {
     expect((await repository.listRecoverable())[0].publicationIntent).toEqual(
       publicationIntent
     )
+    await repository.checkpoint(record.journalId, {
+      publicationIntent: { ...publicationIntent, confirmed: true },
+    })
+    expect(
+      (await repository.listRecoverable())[0].publicationIntent?.confirmed
+    ).toBe(true)
     await expect(
       repository.checkpoint(record.journalId, {
         publicationIntent: { ...publicationIntent, sourcePath: '/unrelated' },

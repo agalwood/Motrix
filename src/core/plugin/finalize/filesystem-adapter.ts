@@ -9,6 +9,7 @@ export type FinalizeFsErrorCode =
   | 'not_found'
   | 'invalid_path'
   | 'invalid_handle'
+  | 'invalid_request'
   | 'permission_denied'
   | 'cross_device'
   | 'symlink_rejected'
@@ -38,7 +39,7 @@ export interface FinalizeFsCapabilities {
 }
 
 interface WireResponse {
-  request_id?: number
+  request_id?: number | null
   status: 'ok' | 'error'
   handle?: number
   code?: FinalizeFsErrorCode
@@ -113,7 +114,8 @@ export interface FinalizeFilesystemAdapter {
   removeOpened(
     artifact: FinalizeArtifactHandle,
     quarantineRelative: string,
-    resumeIsolated: boolean
+    resumeIsolated: boolean,
+    survivor?: FinalizeArtifactHandle
   ): Promise<void>
   syncRoot(root: FinalizeRootHandle): Promise<void>
   close(root: FinalizeRootHandle | FinalizeArtifactHandle): Promise<void>
@@ -311,10 +313,12 @@ export class NativeFinalizeFilesystemAdapter
   async removeOpened(
     artifact: FinalizeArtifactHandle,
     quarantineRelative: string,
-    resumeIsolated: boolean
+    resumeIsolated: boolean,
+    survivor?: FinalizeArtifactHandle
   ): Promise<void> {
     await this.request({
-      op: 'remove_opened',
+      op: survivor ? 'remove_opened_preserving' : 'remove_opened',
+      ...(survivor ? { survivor: this.nativeId(survivor) } : {}),
       artifact: this.nativeId(artifact),
       quarantine_relative: quarantineRelative,
       resume_isolated: resumeIsolated,
@@ -461,7 +465,10 @@ export class NativeFinalizeFilesystemAdapter
       const key = response.request_id ?? 0
       const pending = this.pending.get(key)
       if (!pending) {
-        if (response.request_id === undefined && this.pending.size > 0) {
+        if (
+          (response.request_id === undefined || response.request_id === null) &&
+          this.pending.size > 0
+        ) {
           this.markDead(
             new FinalizeFsError(
               response.code ?? 'io_error',

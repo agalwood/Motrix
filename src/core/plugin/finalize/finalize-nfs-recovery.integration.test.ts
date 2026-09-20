@@ -172,7 +172,7 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
       )
     })
 
-    it('retries after link succeeds but its response is lost', async () => {
+    it('preserves uncertain link publication across restart and retry', async () => {
       const s = await setup()
       const link = s.adapter.linkOpenedNoReplace.bind(s.adapter)
       vi.spyOn(s.adapter, 'linkOpenedNoReplace').mockImplementationOnce(
@@ -182,19 +182,19 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
         }
       )
       await expect(s.runtime.commit(s.input)).rejects.toThrow(
-        'lost link response'
+        'ownership is unconfirmed'
       )
-      expect(s.row().phase).toBe('cleaned')
-      expect(existsSync(s.input.targetPath)).toBe(false)
+      expect(s.row().phase).toBe('quarantined')
       await s.restart()
-      await s.runtime.commit(s.input)
-      expect(s.row().phase).toBe('cleaned')
-      expect(await readFile(s.input.targetPath, 'utf8')).toBe(
-        'complete download'
-      )
+      await s.runtime.recoverAll()
+      await expect(s.runtime.commit(s.input)).rejects.toThrow()
+      expect(s.row().phase).toBe('quarantined')
+      for (const name of [s.input.sourcePath, s.input.targetPath]) {
+        expect(await readFile(name, 'utf8')).toBe('complete download')
+      }
     })
 
-    it('recovers a durable link intent after disconnection blocks live rollback', async () => {
+    it('preserves an unconfirmed link after disconnection blocks live rollback', async () => {
       const s = await setup()
       let offline = false
       const identity = s.fs.identity.bind(s.fs)
@@ -218,13 +218,13 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
       expect(existsSync(s.input.targetPath)).toBe(true)
       await s.restart()
       await s.runtime.recoverAll()
-      expect(s.row().phase).toBe('cleaned')
-      expect(existsSync(s.input.targetPath)).toBe(false)
+      expect(s.row().phase).toBe('quarantined')
+      expect(existsSync(s.input.targetPath)).toBe(true)
       expect(await readFile(s.input.sourcePath, 'utf8')).toBe(
         'complete download'
       )
-      await s.runtime.commit(s.input)
-      expect(s.row().phase).toBe('cleaned')
+      await expect(s.runtime.commit(s.input)).rejects.toThrow()
+      expect(s.row().phase).toBe('quarantined')
     })
 
     it.each(['before_isolation', 'after_isolation', 'after_unlink'] as const)(

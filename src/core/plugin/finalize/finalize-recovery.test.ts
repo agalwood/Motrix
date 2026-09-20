@@ -253,6 +253,21 @@ describe('FinalizeRecovery', () => {
     expect(state.phases).toEqual(['cleaned'])
   })
 
+  it.each([undefined, targetIdentity])(
+    'does not close an empty rollback when the original is missing or changed (%s)',
+    async (source) => {
+      const staged = record('target_staged')
+      staged.privateTargetPath = '/save/.private'
+      staged.privateTargetIdentity = targetIdentity
+      const state = fixture(source ? { '/save/source': source } : {})
+      await expect(state.recovery.recover(staged)).rejects.toThrow(
+        'source changed before install recovery'
+      )
+      expect(state.phases).not.toContain('cleaned')
+      if (source) expect(state.artifacts.get('/save/source')).toBe(source)
+    }
+  )
+
   it('removes replacement staging during committed cleanup', async () => {
     const committed = record('db_committed')
     committed.plan.replacement = {
@@ -391,6 +406,7 @@ describe('hard-link recovery', () => {
       journal.publicationMode = 'move'
       journal.targetIdentity = sourceIdentity
       journal.publicationIntent = {
+        confirmed: true,
         version: 1,
         method: 'hard_link',
         sourcePath: '/save/source',
@@ -406,6 +422,25 @@ describe('hard-link recovery', () => {
       expect(state.phases.at(-1)).toBe('cleaned')
     }
   )
+
+  it('preserves legacy unconfirmed publication intents with both names', async () => {
+    const journal = record('prepared')
+    journal.publicationMode = 'move'
+    journal.publicationIntent = {
+      version: 1,
+      method: 'hard_link',
+      sourcePath: '/save/source',
+      identity: sourceIdentity,
+    }
+    const state = fixture({
+      '/save/source': sourceIdentity,
+      '/save/target': sourceIdentity,
+    })
+    await expect(state.recovery.recover(journal)).rejects.toThrow(
+      'ownership is unconfirmed'
+    )
+    expect(state.artifacts.size).toBe(2)
+  })
 
   it('does not reinterpret legacy duplicate names as a completed link', async () => {
     const journal = record('prepared')

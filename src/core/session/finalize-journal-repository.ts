@@ -346,6 +346,7 @@ const publicationIntentSchema = z
   .object({
     version: z.literal(1),
     method: z.literal('hard_link'),
+    confirmed: z.literal(true).optional(),
     sourcePath: z.string(),
     identity: fileIdentitySchema,
   })

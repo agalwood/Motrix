@@ -11,6 +11,11 @@ import {
   prepareRemovalIntent,
 } from './finalize-committer'
 
+import {
+  linkPublicationConfirmed,
+  selectRemovalSurvivor,
+} from './finalize-removal-safety'
+
 export interface FinalizeRecoveryOptions {
   repository: FinalizeJournalRepository
   leases: ArtifactMutationLeaseCoordinator
@@ -81,17 +86,6 @@ export class FinalizeRecovery {
         await this.options.repository.resumeQuarantined(record)
         record.quarantineReason = undefined
       }
-      // Never resume source cleanup unless the committed output still exists.
-      if (record.phase === 'db_committed' && record.removalIntent) {
-        const target = await this.options.fs.identity(record.plan.targetPath)
-        const expected =
-          record.targetIdentity ??
-          record.privateTargetIdentity ??
-          record.plan.sourceIdentity
-        if (!target || !this.options.exactIdentity(target, expected)) {
-          await this.quarantine(record, 'committed target identity mismatch')
-        }
-      }
       await this.resumeRemovalIntent(record)
       const selected =
         record.plan.replacement?.identity ?? record.plan.sourceIdentity
@@ -109,6 +103,12 @@ export class FinalizeRecovery {
         : null
 
       const linked = record.publicationIntent
+      if (linked && target && !linkPublicationConfirmed(record)) {
+        await this.quarantine(
+          record,
+          'hard-link publication ownership is unconfirmed'
+        )
+      }
       if (
         linked &&
         target &&
@@ -208,7 +208,7 @@ export class FinalizeRecovery {
             )
           }
         } else if (
-          !privateTarget ||
+          privateTarget &&
           (record.privateTargetIdentity
             ? !this.options.exactIdentity(
                 privateTarget,
@@ -216,8 +216,10 @@ export class FinalizeRecovery {
               )
             : !this.options.sameContent(privateTarget, selected))
         ) {
-          await this.quarantine(record, 'private target is missing or changed')
+          await this.quarantine(record, 'private target identity mismatch')
         }
+        // Both output names can be gone after an interrupted rollback. The
+        // original must still be verified below before closing that journal.
         const samePathReplacement =
           record.plan.replacement !== undefined &&
           finalizePathsEquivalent(
@@ -534,11 +536,19 @@ export class FinalizeRecovery {
         'persisted removal intent identity mismatch'
       )
     }
+    const survivor = await selectRemovalSurvivor(
+      record,
+      intent,
+      this.options.fs,
+      this.options.exactIdentity
+    )
+    if (typeof survivor === 'string') return this.quarantine(record, survivor)
     await this.options.fs.removeKnown(
       intent.artifactPath,
       intent.identity,
       intent.quarantinePath,
-      intent.isolation
+      intent.isolation,
+      survivor
     )
     record.removalIntent = undefined
     await this.options.repository.checkpoint(record.journalId, {
@@ -557,15 +567,23 @@ export class FinalizeRecovery {
       artifactPath,
       identity
     )
-    record.removalIntent = removalIntent
     await this.options.repository.checkpoint(record.journalId, {
       removalIntent,
     })
+    record.removalIntent = removalIntent
+    const survivor = await selectRemovalSurvivor(
+      record,
+      removalIntent,
+      this.options.fs,
+      this.options.exactIdentity
+    )
+    if (typeof survivor === 'string') return this.quarantine(record, survivor)
     await this.options.fs.removeKnown(
       artifactPath,
       identity,
       removalIntent.quarantinePath,
-      removalIntent.isolation
+      removalIntent.isolation,
+      survivor
     )
     record.removalIntent = undefined
     await this.options.repository.checkpoint(record.journalId, {

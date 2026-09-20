@@ -177,19 +177,26 @@ impl State {
                 artifact,
                 quarantine_relative,
                 resume_isolated,
-            } => {
-                let Some(artifact) = self.artifacts.get_mut(&artifact).and_then(Option::take)
-                else {
-                    return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
-                };
-                // Removal consumes the held handle so classic SMB delete-on-close
-                // can finish. Keep its empty registry slot until the caller closes it.
-                #[cfg(windows)]
-                let result = remove_opened(artifact, &quarantine_relative, resume_isolated);
-                #[cfg(not(windows))]
-                let result = remove_opened(&artifact, &quarantine_relative, resume_isolated);
-                operation_response(request_id, result)
-            }
+            } => self.remove(
+                request_id,
+                artifact,
+                &quarantine_relative,
+                resume_isolated,
+                None,
+            ),
+            Request::RemoveOpenedPreserving {
+                request_id,
+                artifact,
+                quarantine_relative,
+                resume_isolated,
+                survivor,
+            } => self.remove(
+                request_id,
+                artifact,
+                &quarantine_relative,
+                resume_isolated,
+                Some(survivor),
+            ),
 
             Request::SyncRoot { request_id, root } => {
                 let Some(root) = self.roots.get(&root) else {
@@ -213,6 +220,53 @@ impl State {
                 }
             }
         }
+    }
+
+    fn remove(
+        &mut self,
+        request_id: u64,
+        artifact_id: u64,
+        quarantine_relative: &str,
+        resume_isolated: bool,
+        survivor: Option<u64>,
+    ) -> Response<'static> {
+        // Removal consumes the held handle so classic SMB delete-on-close
+        // can finish. Keep its empty registry slot until the caller closes it.
+        let Some(artifact) = self.artifacts.get_mut(&artifact_id).and_then(Option::take) else {
+            return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
+        };
+        if let Some(survivor_id) = survivor {
+            #[cfg(unix)]
+            {
+                let Some(survivor) = self.artifacts.get(&survivor_id).and_then(Option::as_ref)
+                else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown survivor");
+                };
+                return operation_response(
+                    request_id,
+                    crate::platform::remove_opened_preserving(
+                        &artifact,
+                        quarantine_relative,
+                        resume_isolated,
+                        survivor,
+                    ),
+                );
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = survivor_id;
+                return Response::error(
+                    Some(request_id),
+                    "unsupported",
+                    "held survivor removal is unsupported",
+                );
+            }
+        }
+        #[cfg(windows)]
+        let result = remove_opened(artifact, quarantine_relative, resume_isolated);
+        #[cfg(not(windows))]
+        let result = remove_opened(&artifact, quarantine_relative, resume_isolated);
+        operation_response(request_id, result)
     }
 
     fn publish(

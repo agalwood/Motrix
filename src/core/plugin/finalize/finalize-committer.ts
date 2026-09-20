@@ -7,6 +7,7 @@ import type {
 } from './artifact-mutation-lease'
 import { FinalizeFsError } from './filesystem-adapter'
 import { FinalizeRecovery } from './finalize-recovery'
+import { selectRemovalSurvivor } from './finalize-removal-safety'
 import { assertValidHookPlan, type HookPlan } from './hook-plan'
 
 export type FinalizeJournalPhase =
@@ -33,6 +34,8 @@ export interface FinalizeJournalRecord {
 }
 
 export interface FinalizePublicationIntent {
+  /** Written only after the native exclusive link call returns success. */
+  confirmed?: true
   version: 1
   method: 'hard_link'
   sourcePath: string
@@ -42,6 +45,11 @@ export interface FinalizePublicationIntent {
 export interface FinalizeIsolation {
   directory: string
   platformFileId: string
+}
+
+export interface FinalizeRemovalSurvivor {
+  path: string
+  identity: ArtifactIdentity
 }
 
 export interface FinalizeRemovalIntent {
@@ -117,7 +125,8 @@ export interface FinalizeArtifactOperations {
     artifactPath: string,
     expected: ArtifactIdentity,
     quarantinePath: string,
-    isolation?: FinalizeIsolation
+    isolation?: FinalizeIsolation,
+    survivor?: FinalizeRemovalSurvivor
   ): Promise<void>
 }
 
@@ -391,6 +400,11 @@ export class FinalizeCommitter {
       })
       record.publicationIntent = publicationIntent
       await this.options.fs.linkNoReplace(sourcePath, identity, targetPath)
+      const confirmed = { ...publicationIntent, confirmed: true as const }
+      await this.options.repository.checkpoint(record.journalId, {
+        publicationIntent: confirmed,
+      })
+      record.publicationIntent = confirmed
     }
   }
 
@@ -467,22 +481,23 @@ export class FinalizeCommitter {
       artifactPath,
       identity
     )
-    record.removalIntent = removalIntent
     await this.options.repository.checkpoint(record.journalId, {
       removalIntent,
     })
-    if (record.publicationIntent && record.targetIdentity) {
-      await this.requireExactIdentity(
-        record.plan.targetPath,
-        record.targetIdentity,
-        record
-      )
-    }
+    record.removalIntent = removalIntent
+    const survivor = await selectRemovalSurvivor(
+      record,
+      removalIntent,
+      this.options.fs,
+      this.options.exactIdentity
+    )
+    if (typeof survivor === 'string') return this.quarantine(record, survivor)
     await this.options.fs.removeKnown(
       artifactPath,
       identity,
       removalIntent.quarantinePath,
-      removalIntent.isolation
+      removalIntent.isolation,
+      survivor
     )
     record.removalIntent = undefined
     await this.options.repository.checkpoint(record.journalId, {

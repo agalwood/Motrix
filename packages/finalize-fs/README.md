@@ -15,14 +15,28 @@ available until the target is durable and the task database commits. Copy
 staging on a different filesystem uses this same publication path.
 
 Recovery accepts two names only when their exact identities match a recorded
-link intent. An uncommitted publication rolls back; a committed publication
-retries cleanup. Each file removal first journals a new mode-0700 sibling
-directory and its device/inode identity. Ordinary rename is confined to that
-empty private directory, then a newly opened, identity-checked handle removes
-the isolated file. Restart recovery checks the held directory identity too.
+link intent and successful publication was durably confirmed. An intent alone
+cannot distinguish our link from a competing client's same-inode link. Lost
+responses or failed confirmation checkpoints with both names present preserve
+both files and quarantine the journal for reconciliation. Confirmed publication
+can roll forward or roll back before DB commit; committed publication retries
+cleanup.
+
+Each file removal first journals a new mode-0700 sibling directory and its
+device/inode identity. Ordinary rename is confined to that empty private
+directory, then a newly opened, identity-checked handle removes the isolated
+file. Every removal, including replay of a pending intent, requires a durable,
+identity-verified survivor: the source/rollback before commit, or the final
+target after commit. Unix removal also revalidates its held survivor name after
+content hashing, immediately before unlink. The separate
+`remove_opened_preserving` operation fails closed with older sidecars.
+Recovery can restart a failed sidecar before preparing or resuming cleanup.
+
 This assumes the application owns its private namespace; processes running
-as the same user can still modify it. A crash before the removal checkpoint
-can leave an empty private directory, but cannot remove source data.
+as the same user can still modify it. POSIX cannot atomically validate one name
+and unlink another against unrestricted external writers. A crash before the
+removal checkpoint can leave an empty private directory, but cannot remove
+source data.
 
 Public targets are never overwritten. Permissions, target conflicts, I/O and
 sync errors remain errors. Directory publication and same-path plugin
@@ -115,5 +129,8 @@ with root squashing. The ignored native test
 SQLite database with artifacts on that mount. It covers same-mount and
 cross-device publication, conflicts, lost responses, disconnection during
 rollback, and reopening the database/sidecar after cleanup interruptions.
+`finalize-adversarial.integration.test.ts` additionally injects a competing
+same-inode link, a lost rollback source, a changed survivor at native deletion,
+and sidecar termination. It uses the same real mount when configured.
 Without the NFS variable it uses a local scratch directory and injects only
 the unsupported rename response; all subsequent file operations remain real.

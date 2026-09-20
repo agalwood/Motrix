@@ -21,6 +21,7 @@ import type {
   FinalizeArtifactOperations,
   FinalizeIsolation,
   FinalizeRemovalIntent,
+  FinalizeRemovalSurvivor,
 } from './finalize-committer'
 
 /**
@@ -215,6 +216,7 @@ export class NativeFinalizeArtifactOperations
     identity: ArtifactIdentity,
     quarantinePath: string
   ): Promise<FinalizeRemovalIntent> {
+    await this.assertSupported()
     if (process.platform === 'win32' || identity.kind !== 'file') {
       return { artifactPath, identity, quarantinePath }
     }
@@ -269,7 +271,8 @@ export class NativeFinalizeArtifactOperations
     artifactPath: string,
     expected: ArtifactIdentity,
     quarantinePath: string,
-    isolation: FinalizeIsolation
+    isolation: FinalizeIsolation,
+    survivor?: FinalizeRemovalSurvivor
   ): Promise<void> {
     if (
       expected.kind !== 'file' ||
@@ -342,7 +345,7 @@ export class NativeFinalizeArtifactOperations
         const artifact = await this.adapter.openArtifact(root, 'payload')
         try {
           await this.requireIdentity(quarantinePath, expected)
-          await this.adapter.removeOpened(artifact, 'payload', true)
+          await this.removeOpenedPreserving(artifact, 'payload', true, survivor)
         } finally {
           await this.adapter.close(artifact).catch(() => undefined)
         }
@@ -373,16 +376,18 @@ export class NativeFinalizeArtifactOperations
     artifactPath: string,
     expected: ArtifactIdentity,
     quarantinePath: string,
-    isolation?: FinalizeIsolation
+    isolation?: FinalizeIsolation,
+    survivor?: FinalizeRemovalSurvivor
   ): Promise<void> {
+    await this.assertSupported()
     if (isolation)
       return this.removeIsolated(
         artifactPath,
         expected,
         quarantinePath,
-        isolation
+        isolation,
+        survivor
       )
-    await this.assertSupported()
     if (
       path.dirname(quarantinePath) !== path.dirname(artifactPath) ||
       path.basename(quarantinePath) === path.basename(artifactPath)
@@ -425,10 +430,11 @@ export class NativeFinalizeArtifactOperations
         path.basename(openedPath)
       )
       await this.requireIdentity(openedPath, expected)
-      await this.adapter.removeOpened(
+      await this.removeOpenedPreserving(
         artifact,
         path.basename(quarantinePath),
-        resumeIsolated
+        resumeIsolated,
+        survivor
       )
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
@@ -446,6 +452,52 @@ export class NativeFinalizeArtifactOperations
         'artifact_mutated',
         `artifact name was replaced during removal: ${artifactPath}`
       )
+    }
+  }
+
+  private async removeOpenedPreserving(
+    artifact: Parameters<FinalizeFilesystemAdapter['removeOpened']>[0],
+    quarantineRelative: string,
+    resumeIsolated: boolean,
+    survivor?: FinalizeRemovalSurvivor
+  ): Promise<void> {
+    if (!survivor) {
+      return this.adapter.removeOpened(
+        artifact,
+        quarantineRelative,
+        resumeIsolated
+      )
+    }
+    // Windows retains its handle-bound deletion contract. Unix additionally
+    // checks the held surviving name after hashing, immediately before unlink.
+    if (process.platform === 'win32') {
+      await this.requireIdentity(survivor.path, survivor.identity)
+      return this.adapter.removeOpened(
+        artifact,
+        quarantineRelative,
+        resumeIsolated
+      )
+    }
+    const root = await this.adapter.openRoot(path.dirname(survivor.path))
+    let held:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
+      | undefined
+    try {
+      held = await this.adapter.openArtifact(
+        root,
+        path.basename(survivor.path),
+        'rename'
+      )
+      await this.requireIdentity(survivor.path, survivor.identity)
+      await this.adapter.removeOpened(
+        artifact,
+        quarantineRelative,
+        resumeIsolated,
+        held
+      )
+    } finally {
+      if (held) await this.adapter.close(held).catch(() => undefined)
+      await this.adapter.close(root).catch(() => undefined)
     }
   }
 

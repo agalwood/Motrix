@@ -37,7 +37,9 @@ pub(crate) fn sync_root_mode(root: &RootHandle) -> std::io::Result<&'static str>
 }
 
 #[cfg(unix)]
-pub(crate) use unix::{isolate_opened, link_opened_no_replace, validate_root_identity};
+pub(crate) use unix::{
+    isolate_opened, link_opened_no_replace, remove_opened_preserving, validate_root_identity,
+};
 
 #[cfg(not(unix))]
 pub(crate) fn link_opened_no_replace(

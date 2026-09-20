@@ -47,6 +47,10 @@ describe.runIf(process.platform !== 'win32')(
             const send = () => {
               const payload = Buffer.from(JSON.stringify({
                 request_id: request.request_id, status: 'ok',
+                ...(request.op === 'remove_opened_preserving' ? {
+                  request_id: null, status: 'error', code: 'invalid_request',
+                  message: 'unknown variant remove_opened_preserving',
+                } : {}),
                 handle: request.op === 'open_root' ? 1 : 2,
                 platform: 'test', rename_no_replace: true, held_roots: true,
                 directory_sync: true, held_artifacts: true,
@@ -116,6 +120,33 @@ describe.runIf(process.platform !== 'win32')(
         await adapter.dispose()
       }
       await expect(adapter.capabilities()).rejects.toThrow('disposed')
+    })
+
+    it('rejects an old sidecar response with a null request id instead of hanging cleanup', async () => {
+      const adapter = new NativeFinalizeFilesystemAdapter(await framedSidecar())
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+        const root = await adapter.openRoot(os.tmpdir())
+        const artifact = await adapter.openArtifact(root, 'payload')
+        const survivor = await adapter.openArtifact(root, 'survivor', 'rename')
+        const result = adapter
+          .removeOpened(artifact, 'payload', true, survivor)
+          .then(
+            () => 'unexpected success',
+            (error: { code: string }) => error.code
+          )
+        await expect(
+          Promise.race([
+            result,
+            new Promise<string>((resolve) => {
+              timeout = setTimeout(() => resolve('request hung'), 1000)
+            }),
+          ])
+        ).resolves.toBe('invalid_request')
+      } finally {
+        clearTimeout(timeout)
+        await adapter.dispose()
+      }
     })
 
     it('preserves the native operation and status across the sidecar protocol', async () => {
