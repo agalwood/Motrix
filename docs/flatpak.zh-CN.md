@@ -17,7 +17,7 @@
 
 ```bash
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./Motrix-<version>-<arch>.flatpak
+flatpak install --user --or-update ./Motrix-<version>-<arch>.flatpak
 flatpak run app.motrix.native
 ```
 
@@ -41,7 +41,7 @@ Flathub。旧 ID 对应另一个应用，不会自动升级为新 ID。
 ## 升级和卸载
 
 退出 Motrix，下载相同架构、相同分支的新版本 `.flatpak`，再次执行
-`flatpak install --user ./…flatpak`。Flatpak 会提示更新现有安装。如果安装了浏览器
+`flatpak install --user --or-update ./…flatpak`。Flatpak 会提示更新现有安装。如果安装了浏览器
 companion，还需要按照其文档使用 `install --force` 单独升级。
 
 这些包不会配置 Motrix remote。`flatpak update` 可以更新共享运行时，但不会从

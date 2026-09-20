@@ -19,7 +19,7 @@ Replace the placeholders with the actual filename:
 
 ```bash
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./Motrix-<version>-<arch>.flatpak
+flatpak install --user --or-update ./Motrix-<version>-<arch>.flatpak
 flatpak run app.motrix.native
 ```
 
@@ -48,7 +48,7 @@ replaces the other; installing just the `.tar.gz` does not install Motrix.
 ## Upgrade and remove
 
 Quit Motrix, download a newer `.flatpak` for the same architecture and branch,
-and install it with the same `flatpak install --user ./…flatpak` command.
+and install it with the same `flatpak install --user --or-update ./…flatpak` command.
 Flatpak will offer to update the existing installation. Update an installed
 browser companion separately using its documented `install --force` command.
 
