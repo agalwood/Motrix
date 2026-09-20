@@ -7,12 +7,12 @@ export const TASK_COLUMNS: Record<
   TaskSortColumn,
   { width: number; min: number; max: number; numeric?: boolean }
 > = {
-  name: { width: 240, min: 160, max: 900 },
+  name: { width: 200, min: 160, max: 900 },
   size: { width: 84, min: 72, max: 240, numeric: true },
-  progress: { width: 120, min: 100, max: 300, numeric: true },
+  progress: { width: 104, min: 100, max: 300, numeric: true },
   status: { width: 100, min: 80, max: 240 },
-  down: { width: 140, min: 140, max: 240, numeric: true },
-  up: { width: 140, min: 140, max: 240, numeric: true },
+  down: { width: 128, min: 128, max: 240, numeric: true },
+  up: { width: 128, min: 128, max: 240, numeric: true },
   eta: { width: 112, min: 112, max: 240, numeric: true },
   connections: { width: 90, min: 72, max: 240, numeric: true },
   createdAt: { width: 196, min: 140, max: 300 },

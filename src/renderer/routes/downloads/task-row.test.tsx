@@ -178,7 +178,7 @@ describe('TaskRow', () => {
   it('uses the same minimum width as the scrollable column header', () => {
     const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
 
-    expect(container.firstChild).toHaveStyle({ minWidth: '1310px' })
+    expect(container.firstChild).toHaveStyle({ minWidth: '1362px' })
   })
 
   it('renders localized creation and completion timestamps and refreshes on completion', () => {

@@ -372,13 +372,13 @@
         },
         "secondary": {
           "metadata": "正在获取元数据",
-          "chooseFiles": "选择文件",
+          "chooseFiles": "等待选择文件",
           "finalizing": "正在完成下载",
           "waiting": "等待开始",
           "eta": "预计 {{time}}",
           "ratio": "分享率 {{ratio}}",
           "saved": "已保存 {{percent}}%",
-          "offline": "离线 · 显示上次进度",
+          "offline": "离线（显示上次进度）",
           "completed": "完成于 {{time}}",
           "failed": "失败：{{reason}}",
           "technicalDetail": "技术详情：{{detail}}"
@@ -564,7 +564,7 @@
       "status": {
         "queued": "排队中",
         "fetchingMetadata": "获取信息中",
-        "metadataReady": "待选文件",
+        "metadataReady": "等待选择文件",
         "downloading": "下载中",
         "finalizing": "收尾中",
         "seeding": "做种中",
@@ -583,6 +583,10 @@
         "status": "状态",
         "createdAt": "创建时间",
         "finishedAt": "完成时间"
+      },
+      "columnHeader": {
+        "down": "下载速度",
+        "up": "上传速度"
       },
       "timestamp": {
         "notRecorded": "未记录",
@@ -652,8 +656,8 @@
           "general": "常规",
           "createdAt": "创建时间",
           "finishedAt": "完成时间",
-          "downSpeed": "↓ 速度",
-          "upSpeed": "↑ 速度",
+          "downSpeed": "下载速度",
+          "upSpeed": "上传速度",
           "eta": "ETA",
           "downloaded": "已下载",
           "totalSize": "大小",
@@ -1426,6 +1430,11 @@
         "lowestSpeedLimitDesc": "速度低于此值时断开。0 表示关闭。"
       },
       "disk": {
+        "fileDeletionMode": "删除任务文件时",
+        "fileDeletionTrash": "移到回收站",
+        "fileDeletionPermanent": "直接删除",
+        "fileDeletionTrashDesc": "适用于移除任务时同时删除文件。清空回收站后才会释放磁盘空间。",
+        "fileDeletionPermanentDesc": "文件将直接删除，无法从回收站恢复。",
         "title": "磁盘与会话",
         "fileAllocation": "文件预分配",
         "fileAllocationDesc": "aria2 如何为新文件预留磁盘空间。",

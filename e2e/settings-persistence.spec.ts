@@ -25,6 +25,57 @@ async function openMain(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('settings persistence', () => {
+  test('task file deletion defaults to trash and persists an explicit permanent choice', async ({
+    userDataDir,
+    rpcPort,
+  }, testInfo) => {
+    let app = await launchMotrix({ userDataDir, rpcPort })
+    const openDownloadsSettings = async () => {
+      const main = await openMain(app)
+      await waitForEngineReady(main)
+      await main.getByRole('link', { name: 'Settings', exact: true }).click()
+      await main
+        .getByRole('button', {
+          name: /Concurrency, bandwidth limits, network reliability/,
+        })
+        .click()
+      return main
+    }
+    try {
+      let main = await openDownloadsSettings()
+      const deletion = main.getByRole('combobox', {
+        name: 'When deleting task files',
+      })
+      await expect(deletion).toHaveText('Move to trash')
+      await deletion.click()
+      await main.getByRole('option', { name: 'Delete permanently' }).click()
+      await expect(
+        main.getByText(
+          'Files are deleted directly and cannot be restored from the trash.'
+        )
+      ).toBeVisible()
+      await main.screenshot({
+        path: testInfo.outputPath('file-deletion-settings.png'),
+      })
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(deletion).toBeHidden()
+      await app.close()
+
+      app = await launchMotrix({ userDataDir, rpcPort })
+      main = await openDownloadsSettings()
+      const restored = main.getByRole('combobox', {
+        name: 'When deleting task files',
+      })
+      await expect(restored).toHaveText('Delete permanently')
+      await restored.click()
+      await main.getByRole('option', { name: 'Move to trash' }).click()
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(restored).toBeHidden()
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('magnet selection timeout is opt-in and persists its waiting time', async ({
     userDataDir,
     rpcPort,

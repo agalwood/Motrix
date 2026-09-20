@@ -50,11 +50,15 @@ export function TaskColumnHeader({
         {columns.map((column, index) => {
           const id = column.id
           const active = sort?.column === id
-          const label = t(`panel.downloads.column.${id}`)
-          const accessibleLabel =
-            id === 'down' || id === 'up'
-              ? t(`panel.downloads.sort.${id}`)
-              : label
+          const speedColumn = id === 'down' || id === 'up'
+          const label = t(
+            speedColumn
+              ? `panel.downloads.columnHeader.${id}`
+              : `panel.downloads.column.${id}`
+          )
+          const accessibleLabel = speedColumn
+            ? t(`panel.downloads.sort.${id}`)
+            : label
           const next = nextTaskSort(sort, id)
           const SortIcon = sort?.direction === 'asc' ? ChevronUp : ChevronDown
           return (

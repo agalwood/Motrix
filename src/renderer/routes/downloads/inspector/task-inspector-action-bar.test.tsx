@@ -335,16 +335,24 @@ describe('TaskInspectorActionBar', () => {
     expect(screen.queryByText('(1)')).toBeNull()
   })
 
-  it('clicking Remove opens the confirmation dialog', () => {
-    render(
-      <TaskInspectorActionBar
-        selected={[makeTask({ status: TaskStatus.Downloading })]}
-        onClose={vi.fn()}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Remove/ }))
-    expect(screen.getByText(/Remove “sample”\?/)).toBeDefined()
-  })
+  it.each([false, true])(
+    'clicking Remove preserves Shift=%s in the confirmation dialog',
+    (shift) => {
+      render(
+        <TaskInspectorActionBar
+          selected={[makeTask({ status: TaskStatus.Downloading })]}
+          onClose={vi.fn()}
+        />
+      )
+      fireEvent.click(screen.getByRole('button', { name: /Remove/ }), {
+        shiftKey: shift,
+      })
+      expect(screen.getByText(/Remove “sample”\?/)).toBeDefined()
+      expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe(
+        String(shift)
+      )
+    }
+  )
 
   describe('Copy URL', () => {
     beforeEach(() => {

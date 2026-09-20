@@ -1,3 +1,4 @@
+import type { FileDeletionMode } from '@shared/schemas/app-settings'
 import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
 import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
@@ -224,6 +225,8 @@ export interface MotrixAppSettings {
   language: SupportedLocale
   directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
+  /** Desktop task file deletion only; the server always deletes directly. */
+  fileDeletionMode: FileDeletionMode
   notifyOnComplete: boolean
   notifyOnError: boolean
   /** When true, opening the New Task dialog reads the clipboard once and

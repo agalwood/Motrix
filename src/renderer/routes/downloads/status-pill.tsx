@@ -24,10 +24,12 @@ export function StatusPill({
   status,
   compact = false,
   task,
+  className,
 }: {
   status: TaskStatus
   task?: DownloadTask
   compact?: boolean
+  className?: string
 }) {
   const { t } = useTranslation()
   const tone = getStatusTone(
@@ -37,12 +39,14 @@ export function StatusPill({
   return (
     <span
       data-testid="task-status-pill"
+      title={t(label)}
       className={cn(
         compact
           ? 'inline-flex w-fit max-w-full items-center rounded px-1.5 py-0.5 text-[11px] leading-4'
           : 'inline-flex w-fit max-w-full shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
         tone.bg,
-        tone.text
+        tone.text,
+        className
       )}
     >
       <span className="truncate">{t(label)}</span>

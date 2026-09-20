@@ -22,10 +22,18 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DownloadsDialog } from './downloads-dialog'
 
-const { toastAddMock } = vi.hoisted(() => ({ toastAddMock: vi.fn() }))
+const { toastAddMock, runtime } = vi.hoisted(() => ({
+  toastAddMock: vi.fn(),
+  runtime: { platform: 'darwin' },
+}))
 
 vi.mock('@renderer/lib/transport', () => ({
-  transport: { invoke: vi.fn() },
+  transport: {
+    invoke: vi.fn(),
+    get platform() {
+      return runtime.platform
+    },
+  },
 }))
 
 vi.mock('@renderer/components/ui/toast', () => ({
@@ -85,6 +93,7 @@ afterEach(() => {
 
 describe('<DownloadsDialog>', () => {
   beforeEach(async () => {
+    runtime.platform = 'darwin'
     await i18n.changeLanguage('en-US')
     vi.mocked(transport.invoke).mockReset()
     toastAddMock.mockReset()
@@ -92,6 +101,87 @@ describe('<DownloadsDialog>', () => {
       if (channel === Queries.GetSettings) return FIXTURE
       return { saved: true, requiresRestart: false, changedRestartKeys: [] }
     })
+  })
+
+  it('defaults desktop deletion to trash and saves only the chosen mode with a warning', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    const deletion = await screen.findByRole('combobox', {
+      name: 'When deleting task files',
+    })
+    await waitFor(() =>
+      expect(screen.getByLabelText(/magnet resolve timeout/i)).toHaveValue(120)
+    )
+    expect(deletion).toHaveTextContent('Move to trash')
+    const user = userEvent.setup()
+    await user.click(deletion)
+    await user.click(
+      await screen.findByRole('option', { name: 'Delete permanently' })
+    )
+    expect(
+      screen.getByText(
+        'Files are deleted directly and cannot be restored from the trash.'
+      )
+    ).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { fileDeletionMode: 'permanent' },
+    })
+  })
+
+  it('hydrates a saved deletion mode and can switch back to trash', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return { ...FIXTURE, app: { fileDeletionMode: 'permanent' } }
+      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+    })
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    const deletion = await screen.findByRole('combobox', {
+      name: 'When deleting task files',
+    })
+    await waitFor(() =>
+      expect(deletion).toHaveTextContent('Delete permanently')
+    )
+    const user = userEvent.setup()
+    await user.click(deletion)
+    await user.click(
+      await screen.findByRole('option', { name: 'Move to trash' })
+    )
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { fileDeletionMode: 'trash' },
+    })
+  })
+
+  it('hides the desktop deletion preference in the web client', async () => {
+    runtime.platform = 'web'
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText(/magnet resolve timeout/i)).toHaveValue(120)
+    )
+    expect(
+      screen.queryByRole('combobox', { name: 'When deleting task files' })
+    ).not.toBeInTheDocument()
   })
 
   it('hydrates and submits dirty fields without restart confirm for non-RESTART change', async () => {

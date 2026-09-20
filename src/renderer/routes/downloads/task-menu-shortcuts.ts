@@ -55,6 +55,10 @@ export function taskMenuShortcuts(macOS: boolean, desktop: boolean) {
     inspector: shortcut('CommandOrControl+I', macOS),
     copyUrl: shortcut('CommandOrControl+C', macOS),
     remove: shortcut(macOS ? 'Command+Backspace' : 'Delete', macOS),
+    removeWithFiles: shortcut(
+      macOS ? 'Command+Shift+Backspace' : 'Shift+Delete',
+      macOS
+    ),
   }
 }
 

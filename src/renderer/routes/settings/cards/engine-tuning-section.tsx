@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
+import { transport } from '@renderer/lib/transport'
 import { BUILTIN_USER_AGENTS } from '@shared/constants/user-agents'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -32,6 +33,13 @@ export function EngineTuningSection({
   form: UseFormReturn<DownloadsFields>
 }) {
   const { t } = useTranslation()
+  const fileDeletionOptions = [
+    { value: 'trash', label: t('settings.downloads.disk.fileDeletionTrash') },
+    {
+      value: 'permanent',
+      label: t('settings.downloads.disk.fileDeletionPermanent'),
+    },
+  ] as const
   const fileAllocationOptions = [
     {
       value: 'none',
@@ -152,6 +160,50 @@ export function EngineTuningSection({
       <h3 className="text-sm font-semibold text-foreground">
         {t('settings.downloads.disk.title')}
       </h3>
+      {transport.platform !== 'web' && (
+        <FormField
+          control={form.control}
+          name="app.fileDeletionMode"
+          render={({ field }) => (
+            <SettingsFormRow className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1 space-y-1">
+                <FormLabel>
+                  {t('settings.downloads.disk.fileDeletionMode')}
+                </FormLabel>
+                <FormDescription className="text-xs">
+                  {t(
+                    field.value === 'permanent'
+                      ? 'settings.downloads.disk.fileDeletionPermanentDesc'
+                      : 'settings.downloads.disk.fileDeletionTrashDesc'
+                  )}
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Select
+                  items={fileDeletionOptions}
+                  value={field.value}
+                  onValueChange={(value) => {
+                    if (value !== null) field.onChange(value)
+                  }}
+                >
+                  <SettingsSelectTrigger>
+                    <SelectValue />
+                  </SettingsSelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {fileDeletionOptions.map(({ label, value }) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+            </SettingsFormRow>
+          )}
+        />
+      )}
       <FormField
         control={form.control}
         name="engine.fileAllocation"

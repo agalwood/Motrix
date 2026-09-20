@@ -284,7 +284,7 @@ export function OverviewTab({
                 <div className="flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger render={<span className="tabular-nums" />}>
-                      {`${task.infoHash.slice(0, 4)}…${task.infoHash.slice(-4)}`}
+                      {`${task.infoHash.slice(0, 6)}...${task.infoHash.slice(-6)}`}
                     </TooltipTrigger>
                     <TooltipContent side="left">{task.infoHash}</TooltipContent>
                   </Tooltip>

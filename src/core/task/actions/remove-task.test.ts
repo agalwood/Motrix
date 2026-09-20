@@ -106,6 +106,26 @@ function mediaTaskWithMetadata() {
 }
 
 describe('removeTask', () => {
+  it('retains the task and torrent metadata when file cleanup fails', async () => {
+    const deps = makeDeps()
+    const task = makeDownloadTask({
+      status: TaskStatus.Completed,
+      type: TaskType.Bt,
+      diskPath: '/downloads/torrent',
+      saveDir: '/downloads',
+      torrentMetaPath: '/metadata/source.torrent',
+    })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    const error = new Error('Trash unavailable')
+    vi.mocked(deps.fileCleanupService.cleanup).mockRejectedValue(error)
+
+    await expect(
+      removeTask(task.id, { deleteWithFiles: true }, deps)
+    ).rejects.toBe(error)
+    expect(deps.torrentMetaStore.remove).not.toHaveBeenCalled()
+    expect(deps.db.deleteTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.remove).not.toHaveBeenCalled()
+  })
   it.each([false, true])(
     'removes associated media metadata when deleteWithFiles=%s',
     async (deleteWithFiles) => {

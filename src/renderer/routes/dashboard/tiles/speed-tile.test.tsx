@@ -46,7 +46,10 @@ describe('SpeedTile', () => {
   it('keeps samples distributed across the chart after a long sampling gap', () => {
     const now = Date.now()
     const history = Array.from({ length: 200 }, (_, index) => ({
-      t: index === 0 ? now - 86_400_000 : now - (199 - index) * 1_000,
+      t:
+        index < 180
+          ? now - 86_400_000 + index * 1_000
+          : now - (199 - index) * 1_000,
       up: 100 + (index % 7) * 10,
       down: 200 + (index % 11) * 10,
     }))
@@ -54,12 +57,12 @@ describe('SpeedTile', () => {
       <SpeedTile kind="up" history={history} viewport={COMPACT} />
     )
     const path = container
-      .querySelector('.recharts-area-curve')
+      .querySelector('[data-slot="speed-curve"]')
       ?.getAttribute('d')
     expect(path).toBeDefined()
     expect(Number(path?.match(/^M([\d.-]+)/)?.[1])).toBeCloseTo(0)
-    const firstSegment = path?.match(/C([^C]+)/)?.[1].match(/[\d.-]+/g)
-    expect(Number(firstSegment?.[4])).toBeLessThan(60)
+    const firstSegment = path?.match(/L([\d.-]+)/)
+    expect(Number(firstSegment?.[1])).toBeCloseTo(1_000 / 23)
   })
 
   it('renders the UPLOAD label and current up speed', () => {
@@ -75,14 +78,16 @@ describe('SpeedTile', () => {
     expect(screen.getAllByText(/150/).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('renders a lighter smooth stroke for non-zero speeds', () => {
+  it('renders a light, rounded streaming stroke for non-zero speeds', () => {
     const { container } = render(
       <SpeedTile kind="down" history={points} viewport={SUMMARY} />
     )
-    const line = container.querySelector('.recharts-area-curve')
+    const line = container.querySelector('[data-slot="speed-curve"]')
     expect(line).not.toBeNull()
     expect(line).toHaveAttribute('stroke-width', '1.5')
-    expect(line?.getAttribute('d')).toContain('C')
+    expect(line).toHaveAttribute('stroke-linejoin', 'round')
+    expect(line).toHaveAttribute('vector-effect', 'non-scaling-stroke')
+    expect(line?.getAttribute('d')).toContain('L')
   })
 
   it('renders only the KPI and minimal chart treatment when compact', () => {
@@ -122,12 +127,12 @@ describe('SpeedTile', () => {
     const { container, rerender } = render(
       <SpeedTile kind="up" history={points} viewport={SUMMARY} />
     )
-    const chart = container.querySelector('.recharts-wrapper')
+    const chart = container.querySelector('[data-slot="speed-sparkline"]')
 
     rerender(<SpeedTile kind="up" history={points} viewport={FOCUS} />)
 
     expect(screen.getByTestId('speed-scale').children).toHaveLength(3)
-    expect(container.querySelector('.recharts-wrapper')).toBe(chart)
+    expect(container.querySelector('[data-slot="speed-sparkline"]')).toBe(chart)
   })
 
   it('renders a flat zero state with no history', () => {

@@ -8,8 +8,14 @@ import {
 import { TASK_SORT_COLUMNS, type TaskSortColumn } from './sort'
 
 const STORAGE_KEY = 'motrix.downloads.view.v1'
+const PREVIOUS_DEFAULT_WIDTHS: Partial<Record<TaskSortColumn, number>> = {
+  name: 240,
+  progress: 120,
+  down: 140,
+  up: 140,
+}
 const ViewPreferencesSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   columns: z
     .array(
       z.object({
@@ -30,7 +36,7 @@ const ViewPreferencesSchema = z.object({
 
 function defaults() {
   return {
-    version: 1 as const,
+    version: 2 as const,
     columns: defaultTaskColumns(),
     inspectorVisible: false,
     inspectorSnap: 'medium' as const,
@@ -42,13 +48,28 @@ function readPreferences() {
     const saved = ViewPreferencesSchema.parse(
       JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
     )
+    const columns = saved.columns.map((column) => ({
+      ...column,
+      width: clampColumnWidth(column.id, column.width),
+      visible: column.id === 'name' || column.visible,
+    }))
+    const defaultColumns = defaultTaskColumns()
+    // Only migrate the untouched old layout; preserve custom widths and order.
+    const oldDefaults =
+      saved.version === 1 &&
+      columns.every((column, index) => {
+        const current = defaultColumns[index]
+        const oldWidth = PREVIOUS_DEFAULT_WIDTHS[column.id] ?? current.width
+        return (
+          column.id === current.id &&
+          column.visible &&
+          column.width === oldWidth
+        )
+      })
     return {
       ...saved,
-      columns: saved.columns.map((column) => ({
-        ...column,
-        width: clampColumnWidth(column.id, column.width),
-        visible: column.id === 'name' || column.visible,
-      })),
+      version: 2 as const,
+      columns: oldDefaults ? defaultColumns : columns,
     }
   } catch {
     return defaults()
@@ -89,7 +110,7 @@ export function createDownloadsViewStore() {
         localStorage.setItem(
           STORAGE_KEY,
           JSON.stringify({
-            version: 1,
+            version: 2,
             columns,
             inspectorVisible,
             inspectorSnap,

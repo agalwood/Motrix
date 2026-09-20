@@ -279,6 +279,75 @@ test('media file list shows every segment through virtual scrolling and stays re
   })
 })
 
+test('default columns keep the download speed fully visible at minimum window size', async ({
+  electronApp,
+  mainWindow,
+}) => {
+  await waitForEngineReady(mainWindow)
+  await setTaskInspectorContentSize(electronApp, mainWindow, 914, 672)
+  await mainWindow.getByRole('link', { name: 'Downloads', exact: true }).click()
+  await expect(mainWindow.getByTestId('downloads-loading')).toHaveCount(0)
+  await publish(electronApp, [
+    makeDownloadTask({
+      id: 'minimum-window-speed',
+      name: 'A reasonably descriptive download filename.zip',
+      status: TaskStatus.Downloading,
+      downloadSpeed: 999_900_000,
+      progress: 0.425,
+    }),
+  ])
+  const list = mainWindow.getByTestId('virtual-list-container')
+  const header = list.getByRole('columnheader').nth(4)
+  const speed = list.locator('[data-task-id]').getByRole('gridcell').nth(4)
+  await expect(speed).toHaveText('999.9 MB/s')
+  await header.getByRole('button').click()
+  await expect(header).toHaveAttribute('aria-sort', 'descending')
+
+  const expectSpeedFits = async () => {
+    await expect
+      .poll(() =>
+        speed.evaluate((cell) => {
+          const viewport = cell.closest(
+            '[data-testid="virtual-list-container"]'
+          )!
+          const bounds = viewport.getBoundingClientRect()
+          const rect = cell.getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(cell)
+          const text = range.getBoundingClientRect()
+          return (
+            rect.left >= bounds.left &&
+            rect.right <= bounds.right - 8 &&
+            text.left >= rect.left + 8 &&
+            text.right <= rect.right - 8 &&
+            viewport.scrollLeft === 0
+          )
+        })
+      )
+      .toBe(true)
+    const label = header.locator('button span')
+    expect(
+      await label.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth
+      )
+    ).toBe(true)
+    expect(
+      await mainWindow.evaluate(
+        () => document.documentElement.scrollWidth === window.innerWidth
+      )
+    ).toBe(true)
+  }
+  await expectSpeedFits()
+  const toggleSidebar = mainWindow.getByRole('button', {
+    name: 'Toggle sidebar',
+    exact: true,
+  })
+  await toggleSidebar.click()
+  await expectSpeedFits()
+  await toggleSidebar.click()
+  await expectSpeedFits()
+})
+
 test('download columns sort live tasks without losing selection or filter state', async ({
   electronApp,
   mainWindow,
@@ -507,7 +576,7 @@ test('remembers a manual sort across app restarts and clears it when restoring t
     await expect(list.getByRole('columnheader').first()).toContainText('Size')
     await expect(
       list.getByRole('separator', { name: 'Resize Name column' })
-    ).toHaveAttribute('aria-valuenow', '256')
+    ).toHaveAttribute('aria-valuenow', '216')
     await expect(
       list.getByRole('button', { name: 'Date completed', exact: true })
     ).toHaveCount(0)
@@ -1268,7 +1337,7 @@ test('native list controls preserve selection through context menus, column chan
   const nameResize = grid.getByRole('separator', { name: 'Resize Name column' })
   await nameResize.focus()
   await mainWindow.keyboard.press('ArrowRight')
-  await expect(nameResize).toHaveAttribute('aria-valuenow', '256')
+  await expect(nameResize).toHaveAttribute('aria-valuenow', '216')
   const nameHeader = grid.getByRole('button', { name: 'Name', exact: true })
   await nameHeader.click({ button: 'right' })
   await mainWindow
@@ -1397,7 +1466,7 @@ test('native list controls preserve selection through context menus, column chan
     }),
   ])
   const darkRow = mainWindow.getByRole('row', { name: '示例任务.zip' })
-  await darkRow.click()
+  await darkRow.dblclick()
   await expectDrawerSettled(
     mainWindow.getByRole('dialog', { name: '任务详情' })
   )
@@ -2216,6 +2285,36 @@ test('organized context menus expose working scoped shortcuts and keep text edit
     exact: true,
   })
   await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('checkbox')).not.toBeChecked()
+  expect(await removeCalls()).toEqual([])
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+
+  for (const entry of ['context', 'more'] as const) {
+    for (const shift of [true, false]) {
+      if (entry === 'context')
+        await row('shortcut-b').click({ button: 'right' })
+      else
+        await mainWindow
+          .getByRole('button', { name: 'More', exact: true })
+          .click()
+      await menu.getByRole('menuitem', { name: 'Remove', exact: true }).click({
+        modifiers: shift ? ['Shift'] : [],
+      })
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByRole('checkbox')).toBeChecked({ checked: shift })
+      expect(await removeCalls()).toEqual([])
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(dialog).toHaveCount(0)
+    }
+  }
+
+  await grid.focus()
+  await mainWindow.keyboard.press(
+    macOS ? 'Meta+Shift+Backspace' : 'Shift+Delete'
+  )
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('checkbox')).toBeChecked()
   expect(await removeCalls()).toEqual([])
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(dialog).toHaveCount(0)
