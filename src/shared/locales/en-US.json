@@ -373,13 +373,13 @@
         },
         "secondary": {
           "metadata": "Fetching metadata",
-          "chooseFiles": "Choose files",
+          "chooseFiles": "Awaiting file selection",
           "finalizing": "Finishing download",
           "waiting": "Waiting to start",
           "eta": "ETA {{time}}",
           "ratio": "Ratio {{ratio}}",
           "saved": "{{percent}}% saved",
-          "offline": "Offline · last known progress",
+          "offline": "Offline (last known progress)",
           "completed": "Completed {{time}}",
           "failed": "Failed: {{reason}}",
           "technicalDetail": "Technical detail: {{detail}}"
@@ -567,7 +567,7 @@
       "status": {
         "queued": "Queued",
         "fetchingMetadata": "Fetching",
-        "metadataReady": "Ready",
+        "metadataReady": "Awaiting file selection",
         "downloading": "Downloading",
         "finalizing": "Finalizing",
         "seeding": "Seeding",
@@ -586,6 +586,10 @@
         "status": "Status",
         "createdAt": "Date created",
         "finishedAt": "Date completed"
+      },
+      "columnHeader": {
+        "down": "Download",
+        "up": "Upload"
       },
       "timestamp": {
         "notRecorded": "Not recorded",
@@ -655,8 +659,8 @@
           "general": "General",
           "createdAt": "Created",
           "finishedAt": "Completed",
-          "downSpeed": "↓ speed",
-          "upSpeed": "↑ speed",
+          "downSpeed": "Download speed",
+          "upSpeed": "Upload speed",
           "eta": "ETA",
           "downloaded": "Downloaded",
           "totalSize": "Total size",
@@ -1441,6 +1445,11 @@
       },
       "disk": {
         "title": "Disk and session",
+        "fileDeletionMode": "When deleting task files",
+        "fileDeletionTrash": "Move to trash",
+        "fileDeletionPermanent": "Delete permanently",
+        "fileDeletionTrashDesc": "Applies when removing tasks with their files. Files stay in the trash until it is emptied.",
+        "fileDeletionPermanentDesc": "Files are deleted directly and cannot be restored from the trash.",
         "fileAllocation": "File allocation",
         "fileAllocationDesc": "How aria2 reserves disk space for new files.",
         "fileAllocationNone": "None",

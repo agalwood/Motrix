@@ -2,6 +2,7 @@ import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { DownloadErrorCode } from '@shared/errors'
+import { Commands } from '@shared/protocol/commands'
 import {
   type BtExtension,
   type DownloadTask,
@@ -18,6 +19,8 @@ import type { DashboardTileViewport } from '../layout/dashboard-registry'
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
+  invoke: vi.fn(),
+  toast: vi.fn(),
   openAddTaskDialog: vi.fn(),
   retry: vi.fn(async () => {}),
   now: { current: Date.UTC(2026, 6, 27, 8, 0, 0) },
@@ -42,7 +45,15 @@ vi.mock('react-router', async () => {
   return { ...actual, useNavigate: () => mocks.navigate }
 })
 
+vi.mock('@renderer/lib/transport', () => ({
+  transport: { platform: 'darwin', invoke: mocks.invoke },
+}))
+vi.mock('@renderer/components/ui/toast', () => ({
+  toast: { add: mocks.toast },
+}))
+
 vi.mock('@renderer/hooks/use-task-list', () => ({
+  getTaskListSnapshot: () => mocks.taskList.current,
   useTaskList: () => ({
     ...mocks.taskList.current,
     retry: mocks.retry,
@@ -197,6 +208,8 @@ function renderTile({
 describe('TasksTile', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en-US')
+    mocks.invoke.mockReset().mockResolvedValue({ succeeded: [], failed: [] })
+    mocks.toast.mockReset()
     mocks.navigate.mockReset()
     mocks.openAddTaskDialog.mockReset()
     mocks.retry.mockClear()
@@ -248,7 +261,7 @@ describe('TasksTile', () => {
     ).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('renders every Active status with honest metrics and one real progress bar', () => {
+  it('renders every Active status with concise metrics and meaningful progress', () => {
     setSource([
       task('ready', TaskStatus.MetadataReady, { priority: 7 }),
       task('downloading', TaskStatus.Downloading, { priority: 6 }),
@@ -268,20 +281,33 @@ describe('TasksTile', () => {
     renderTile({ viewport: VIEWPORTS['2x3'] })
 
     expect(screen.getAllByTestId('tasks-row')).toHaveLength(7)
-    expect(screen.getByText('Fetching')).toBeInTheDocument()
-    expect(screen.getByText('Ready')).toBeInTheDocument()
-    expect(screen.getByText('Finalizing')).toBeInTheDocument()
-    expect(screen.getByText('Queued')).toBeInTheDocument()
-    expect(screen.getByText('Paused')).toBeInTheDocument()
-    expect(screen.getByText('68% saved')).toBeInTheDocument()
-    expect(screen.getByText('Seeding · Ratio 1.25')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'metadata.iso, Fetching' })
+    ).toHaveAccessibleDescription('Fetching')
+    expect(
+      screen.getByRole('button', { name: 'ready.iso, Awaiting file selection' })
+    ).toHaveAccessibleDescription('Awaiting file selection')
+    expect(
+      screen.getByRole('button', { name: 'finalizing.iso, Finalizing' })
+    ).toHaveAccessibleDescription('Finalizing')
+    expect(
+      screen.getByRole('button', { name: 'queued.iso, Queued' })
+    ).toHaveAccessibleDescription('Queued')
+    expect(
+      screen.getByRole('button', { name: 'paused.iso, Paused' })
+    ).toHaveAccessibleDescription('Paused 68%')
+    expect(
+      screen.getByRole('button', { name: 'seeding.iso, Seeding' })
+    ).toHaveAccessibleDescription('Seeding. 1.0 KB/s')
     expect(screen.queryByText('37%')).toBeNull()
-    expect(screen.getAllByRole('progressbar')).toHaveLength(1)
+    expect(screen.getAllByRole('progressbar')).toHaveLength(2)
     const progress = screen.getByRole('progressbar', {
       name: 'downloading.iso progress',
     })
     expect(progress).toHaveAttribute('aria-valuenow', '50')
-    expect(progress).toHaveClass('left-[26px]', 'right-1', 'w-auto')
+    expect(
+      screen.getByRole('progressbar', { name: 'paused.iso progress' })
+    ).toHaveAttribute('aria-valuenow', '68')
   })
 
   it('keeps ordering stable when only speed and progress change', () => {
@@ -320,11 +346,11 @@ describe('TasksTile', () => {
     ['2x1', 3],
     ['2x2', 4],
     ['2x3', 7],
-    ['3x2', 5],
-    ['3x3', 8],
-    ['4x2', 6],
+    ['3x2', 4],
+    ['3x3', 7],
+    ['4x2', 4],
   ] as const)(
-    'reserves the final %s slot for overflow',
+    'fits the %s rows with an overflow footer',
     (viewportKey, limit) => {
       setSource(
         Array.from({ length: 10 }, (_, index) =>
@@ -335,12 +361,112 @@ describe('TasksTile', () => {
       )
       renderTile({ viewport: VIEWPORTS[viewportKey] })
 
-      expect(screen.getAllByTestId('tasks-row')).toHaveLength(limit - 1)
+      const visible = viewportKey === '2x1' ? limit - 1 : limit
+      expect(screen.getAllByTestId('tasks-row')).toHaveLength(visible)
       expect(screen.getByTestId('tasks-more')).toHaveTextContent(
-        `${10 - (limit - 1)} more`
+        `${10 - visible} more`
       )
     }
   )
+
+  it('keeps every detailed row free of icons and secondary transfer details', () => {
+    setSource([
+      task('download'),
+      task('seed', TaskStatus.Seeding, { bt: bt(1.27) }),
+    ])
+    renderTile()
+    expect(screen.getByTestId('tasks-list').querySelector('svg')).toBeNull()
+    const status = screen.getAllByTestId('task-status-pill')[0]
+    expect(status).toHaveTextContent('Downloading')
+    expect(status).not.toHaveTextContent('50%')
+    expect(screen.getByText('50%')).toBeVisible()
+    expect(screen.queryByText(/ETA|Ratio/)).toBeNull()
+  })
+
+  it('pauses and resumes inline without opening the task', async () => {
+    const user = userEvent.setup()
+    setSource([task('download'), task('paused', TaskStatus.Paused)])
+    renderTile()
+    await user.click(
+      screen.getByRole('button', { name: 'Pause: download.iso' })
+    )
+    expect(mocks.invoke).toHaveBeenCalledWith(Commands.PauseTasks, ['download'])
+    await user.click(screen.getByRole('button', { name: 'Resume: paused.iso' }))
+    expect(mocks.invoke).toHaveBeenCalledWith(Commands.ResumeTasks, ['paused'])
+    expect(mocks.navigate).not.toHaveBeenCalled()
+  })
+
+  it('blocks duplicate actions until the pending command settles and reports failure', async () => {
+    const user = userEvent.setup()
+    let finish!: (value: unknown) => void
+    mocks.invoke.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    setSource([task('download')])
+    renderTile()
+    const pause = screen.getByRole('button', { name: 'Pause: download.iso' })
+    await user.click(pause)
+    expect(pause).toBeDisabled()
+    expect(pause).toHaveAttribute('aria-busy', 'true')
+    await user.click(pause)
+    expect(mocks.invoke).toHaveBeenCalledOnce()
+    await act(async () =>
+      finish({
+        succeeded: [],
+        failed: [{ taskId: 'download', reason: 'Engine unavailable' }],
+      })
+    )
+    expect(pause).toBeEnabled()
+    expect(mocks.toast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error' })
+    )
+  })
+
+  it('disables inline actions for stale snapshots and development fixtures', () => {
+    setSource([task('cached')], 'error', true)
+    const rendered = renderTile()
+    expect(
+      screen.getByRole('button', { name: 'Pause: cached.iso' })
+    ).toBeDisabled()
+    rendered.unmount()
+    renderTile({ initialEntry: '/?dashboardTasksFixture=active-all' })
+    expect(
+      screen.getByRole('button', { name: 'Pause: Design Resources 2026.zip' })
+    ).toBeDisabled()
+  })
+
+  it('retries an eligible failed task inline', async () => {
+    const user = userEvent.setup()
+    setSource([
+      task('retry', TaskStatus.Error, {
+        type: TaskType.Bt,
+        kind: TaskKind.Bt,
+        torrentMetaPath: '/sidecar/retry.torrent',
+      }),
+    ])
+    renderTile()
+    await user.click(screen.getByRole('radio', { name: 'Failed' }))
+    await user.click(screen.getByRole('button', { name: 'Retry: retry.iso' }))
+    expect(mocks.invoke).toHaveBeenCalledWith(Commands.RetryTasks, ['retry'])
+    expect(mocks.navigate).not.toHaveBeenCalled()
+  })
+
+  it('returns focus to the selected view when a focused action disappears with its row', () => {
+    const active = task('focused')
+    setSource([active])
+    const rendered = renderTile()
+    screen.getByRole('button', { name: 'Pause: focused.iso' }).focus()
+    setSource([{ ...active, status: TaskStatus.Completed }])
+    rendered.rerender(
+      <MemoryRouter>
+        <TasksTile engineOnline viewport={VIEWPORTS['2x2']} />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('radio', { name: 'Active' })).toHaveFocus()
+  })
 
   it('uses summary rows without glyphs, secondary copy, or progress', () => {
     setSource([task('summary')])
@@ -374,21 +500,19 @@ describe('TasksTile', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Failed' }))
     expect(screen.getAllByTestId('tasks-row')).toHaveLength(2)
-    expect(
-      screen.getByText('Failed: Network connection failed')
-    ).toBeInTheDocument()
-    expect(screen.getByText('Failed: Download failed')).toBeInTheDocument()
+    expect(screen.getByText('Network connection failed')).toBeInTheDocument()
+    expect(screen.getByText('Download failed')).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'failed.iso, Error' })
     ).toHaveAccessibleDescription(
-      '5 min. ago. Failed: Network connection failed. Technical detail: Connection refused'
+      'Network connection failed. 5 min. ago. Technical detail: Connection refused'
     )
     expect(screen.queryByRole('progressbar')).toBeNull()
 
     await user.click(screen.getByRole('radio', { name: 'Recent' }))
     expect(screen.getAllByTestId('tasks-row')).toHaveLength(1)
     expect(screen.getByText('2.05 KB')).toBeInTheDocument()
-    expect(screen.getAllByText(/Completed/)).toHaveLength(2)
+    expect(screen.getByText('15 min. ago')).toBeVisible()
     expect(screen.queryByText('Connection refused')).toBeNull()
   })
 
@@ -396,10 +520,12 @@ describe('TasksTile', () => {
     setSource([task('offline', TaskStatus.Downloading)])
     renderTile({ engineOnline: false })
 
-    expect(screen.getByText('—')).toBeInTheDocument()
     expect(
-      screen.getByText('Offline · last known progress')
-    ).toBeInTheDocument()
+      screen.getByRole('button', { name: 'Pause: offline.iso' })
+    ).toBeDisabled()
+    expect(screen.getByTestId('tasks-row')).toHaveAccessibleDescription(
+      'Offline (last known progress)'
+    )
     expect(screen.queryByText(/KB\/s/)).toBeNull()
     expect(screen.queryByText(/ETA/)).toBeNull()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
@@ -445,7 +571,7 @@ describe('TasksTile', () => {
     expect(screen.getByText('No active tasks')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('No active tasks')
 
-    await user.click(screen.getByRole('button', { name: '+ New task' }))
+    await user.click(screen.getByRole('button', { name: 'New task' }))
     expect(mocks.openAddTaskDialog).toHaveBeenCalledOnce()
 
     await user.click(screen.getByRole('radio', { name: 'Failed' }))
@@ -499,9 +625,7 @@ describe('TasksTile', () => {
     expect(button).toHaveAccessibleName(
       'A very long accessible task name, Downloading'
     )
-    expect(button).toHaveAccessibleDescription(
-      '10.0 KB/s. Downloading · ETA 2m'
-    )
+    expect(button).toHaveAccessibleDescription('Downloading 50%. 10.0 KB/s')
     expect(button.getAttribute('aria-label')).not.toMatch(/B\/s|9999/)
     expect(button.closest('li')).not.toBeNull()
   })
@@ -622,11 +746,11 @@ describe('TasksTile', () => {
     expect(screen.getByText('20 min. ago')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Failed: Cannot recover this task: it is missing the identifying information needed to resume.'
+        'Cannot recover this task: it is missing the identifying information needed to resume.'
       )
     ).toBeInTheDocument()
     expect(screen.getByTestId('tasks-row')).toHaveAccessibleDescription(
-      '20 min. ago. Failed: Cannot recover this task: it is missing the identifying information needed to resume.'
+      'Cannot recover this task: it is missing the identifying information needed to resume.. 20 min. ago'
     )
   })
 
@@ -646,7 +770,7 @@ describe('TasksTile', () => {
     const row = screen.getByTestId('tasks-row')
     expect(row).toHaveAttribute('title', `${longName}\n${longReason.trim()}`)
     expect(row).toHaveAccessibleDescription(
-      `5 min. ago. Failed: Download failed. Technical detail: ${longReason.trim()}`
+      `Download failed. 5 min. ago. Technical detail: ${longReason.trim()}`
     )
   })
 
@@ -664,16 +788,18 @@ describe('TasksTile', () => {
 
     expect(screen.getByText('任务')).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '活跃' })).toBeInTheDocument()
-    expect(screen.getByText('已保存 26%')).toBeInTheDocument()
+    expect(screen.getByTestId('tasks-row')).toHaveAccessibleDescription(
+      '已暂停 26%'
+    )
     expect(screen.getByTestId('tasks-row')).toHaveAccessibleName(
       'cn.iso, 已暂停'
     )
 
     await user.click(screen.getByRole('radio', { name: '失败' }))
     const failedRow = screen.getByTestId('tasks-row')
-    expect(screen.getByText('失败：网络连接失败')).toBeInTheDocument()
+    expect(screen.getByText('网络连接失败')).toBeInTheDocument()
     expect(failedRow).toHaveAccessibleDescription(
-      '5分钟前. 失败：网络连接失败. 技术详情：Connection refused'
+      '网络连接失败. 5分钟前. 技术详情：Connection refused'
     )
     expect(
       failedRow

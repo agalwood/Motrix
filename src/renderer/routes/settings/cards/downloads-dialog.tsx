@@ -71,6 +71,11 @@ export function DownloadsDialog({
         if (cancelled) return
         const all = data as AppSettings
         form.reset({
+          app: {
+            fileDeletionMode:
+              all?.app?.fileDeletionMode ??
+              DOWNLOADS_DEFAULTS.app.fileDeletionMode,
+          },
           engine: all?.engine
             ? { ...ENGINE_DEFAULTS, ...all.engine }
             : ENGINE_DEFAULTS,
@@ -91,10 +96,8 @@ export function DownloadsDialog({
   const onSubmit = useSettingsSubmit(form, async (values) => {
     // pickDirty recurses the dirty-fields tree: if speedLimit.base.download
     // is dirty, it returns { speedLimit: { base: { download: <new> } } }.
-    // We then spread the engine dirty patch back into { engine: ... } and pass
-    // the whole thing to UpdateSettings. SettingsManager deep-merges each
-    // top-level namespace, so partial patches for both engine and speedLimit
-    // are safe.
+    // SettingsManager deep-merges each top-level namespace, so partial
+    // patches for app, engine, and speedLimit are safe.
     // biome-ignore lint/suspicious/noExplicitAny: dirtyFields shape doesn't fit DirtyTree; cast is safe
     const dirty = pickDirty(values, form.formState.dirtyFields as any)
     if (!dirty) {

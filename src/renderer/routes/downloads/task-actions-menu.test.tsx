@@ -525,6 +525,65 @@ describe('TaskActionsMenu', () => {
 })
 
 describe('organized task menu and keyboard actions', () => {
+  it.each([
+    [true, false],
+    [true, true],
+    [false, false],
+    [false, true],
+  ])(
+    'preserves Shift on Remove (context menu: %s, shift: %s)',
+    async (context, shift) => {
+      setup(context)
+      if (context) fireEvent.contextMenu(screen.getByText('b'))
+      else await userEvent.click(screen.getByRole('button', { name: 'More' }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }), {
+        shiftKey: shift,
+      })
+      const checkbox = await screen.findByRole('checkbox')
+      expect(checkbox).toHaveAttribute('aria-checked', String(shift))
+      expect(transport.invoke).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+      await waitFor(() =>
+        expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+          Commands.RemoveTasks,
+          {
+            taskIds: ['a', 'b'],
+            deleteWithFiles: shift,
+          }
+        )
+      )
+    }
+  )
+
+  it.each(['darwin', 'win32', 'linux'] as const)(
+    'prechecks files for the shifted removal shortcut on %s without deleting immediately',
+    async (platform) => {
+      vi.mocked(transport).platform = platform
+      setup()
+      const list = screen.getByTestId('context-list')
+      const shortcut = {
+        key: platform === 'darwin' ? 'Backspace' : 'Delete',
+        metaKey: platform === 'darwin',
+      }
+      fireEvent.keyDown(list, { ...shortcut, shiftKey: true })
+      expect(await screen.findByRole('checkbox')).toHaveAttribute(
+        'aria-checked',
+        'true'
+      )
+      expect(transport.invoke).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      )
+      fireEvent.keyDown(list, shortcut)
+      expect(await screen.findByRole('checkbox')).toHaveAttribute(
+        'aria-checked',
+        'false'
+      )
+      expect(transport.invoke).not.toHaveBeenCalled()
+    }
+  )
+
   it('groups completed-task access, clipboard, creation and removal in that order', async () => {
     setup(true, [
       makeDownloadTask({
@@ -652,6 +711,12 @@ describe('organized task menu and keyboard actions', () => {
     fireEvent.keyDown(list, { key: 'i', metaKey: true, shiftKey: true })
     fireEvent.keyDown(list, { key: 'i', metaKey: true, repeat: true })
     fireEvent.keyDown(list, { key: 'Backspace' })
+    fireEvent.keyDown(list, {
+      key: 'Backspace',
+      metaKey: true,
+      shiftKey: true,
+      altKey: true,
+    })
     expect(useDownloadsView.getState().inspectorVisible).toBe(false)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(navigator.clipboard.writeText).not.toHaveBeenCalled()

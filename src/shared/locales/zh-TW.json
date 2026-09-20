@@ -372,13 +372,13 @@
         },
         "secondary": {
           "metadata": "正在取得中繼資料",
-          "chooseFiles": "選擇檔案",
+          "chooseFiles": "等待選擇檔案",
           "finalizing": "正在完成下載",
           "waiting": "等待開始",
           "eta": "預估剩餘 {{time}}",
           "ratio": "分享率 {{ratio}}",
           "saved": "已儲存 {{percent}}%",
-          "offline": "離線 · 上次已知的進度",
+          "offline": "離線（顯示上次進度）",
           "completed": "完成於 {{time}}",
           "failed": "失敗：{{reason}}",
           "technicalDetail": "技術詳細資料：{{detail}}"
@@ -564,7 +564,7 @@
       "status": {
         "queued": "排隊中",
         "fetchingMetadata": "取得中",
-        "metadataReady": "就緒",
+        "metadataReady": "等待選擇檔案",
         "downloading": "下載中",
         "finalizing": "完成中",
         "seeding": "做種中",
@@ -583,6 +583,10 @@
         "status": "狀態",
         "createdAt": "建立時間",
         "finishedAt": "完成時間"
+      },
+      "columnHeader": {
+        "down": "下載速度",
+        "up": "上傳速度"
       },
       "timestamp": {
         "notRecorded": "未記錄",
@@ -652,8 +656,8 @@
           "general": "一般",
           "createdAt": "建立時間",
           "finishedAt": "完成時間",
-          "downSpeed": "↓ 速度",
-          "upSpeed": "↑ 速度",
+          "downSpeed": "下載速度",
+          "upSpeed": "上傳速度",
           "eta": "預估剩餘時間",
           "downloaded": "已下載",
           "totalSize": "總大小",
@@ -1426,6 +1430,11 @@
         "lowestSpeedLimitDesc": "低於此速度時中斷連線。0 = 停用。"
       },
       "disk": {
+        "fileDeletionMode": "刪除任務檔案時",
+        "fileDeletionTrash": "移至資源回收筒",
+        "fileDeletionPermanent": "直接刪除",
+        "fileDeletionTrashDesc": "適用於移除任務時一併刪除檔案。清空資源回收筒後才會釋放磁碟空間。",
+        "fileDeletionPermanentDesc": "檔案將直接刪除，無法從資源回收筒還原。",
         "title": "磁碟與工作階段",
         "fileAllocation": "檔案配置",
         "fileAllocationDesc": "aria2 為新檔案保留磁碟空間的方式。",

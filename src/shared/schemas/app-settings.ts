@@ -12,6 +12,8 @@ import { settingsInputObject } from './settings-input'
 import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
+export const fileDeletionModeSchema = z.enum(['trash', 'permanent'])
+export type FileDeletionMode = z.infer<typeof fileDeletionModeSchema>
 
 export const MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS = 10
 export const MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS = 3600
@@ -32,6 +34,7 @@ export const appSettingsSchema = z.object({
   // absolute platform download directory on first load. The renderer never
   // observes '' because settings are loaded before the UI mounts.
   defaultSaveDir: z.string().catch(''),
+  fileDeletionMode: fileDeletionModeSchema.catch('trash'),
   directoryPreferences: DirectoryPreferencesSchema.catch({
     favorites: [],
     recent: [],

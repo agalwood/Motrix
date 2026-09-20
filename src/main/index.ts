@@ -195,6 +195,7 @@ import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
 import { createElectronPlatformServices } from './platform/services'
+import { removeTaskPath } from './platform/task-file-remover'
 import { setupTray } from './platform/tray'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
@@ -451,7 +452,8 @@ const mediaMetaStore = new MediaMetaStoreImpl(
   path.join(platform.userDataDir, 'media')
 )
 const fileCleanupService = new FileCleanupServiceImpl({
-  removePathRecursive,
+  removePathRecursive: (absPath) =>
+    removeTaskPath(absPath, settingsManager.getApp().fileDeletionMode),
 })
 
 // ─── Late-Initialized (assigned in app.on('ready')) ─────

@@ -264,15 +264,14 @@ async function removeTaskUnderMutation(
 
   if (shouldDeleteFiles) {
     await cleanupReservedOutputs(task, deps)
-    await Promise.all([
-      getBtDirectStorageLayout(task)?.multiFile === false &&
-      !isClaimedByOtherTask(`${task.diskPath}.aria2`, task.id, deps)
-        ? deps.fileCleanupService.cleanup(task.diskPath, task.type, true)
-        : deps.fileCleanupService.cleanup(task.diskPath, task.type),
-      task.torrentMetaPath
-        ? deps.torrentMetaStore.remove(task.torrentMetaPath)
-        : Promise.resolve(),
-    ])
+    await (getBtDirectStorageLayout(task)?.multiFile === false &&
+    !isClaimedByOtherTask(`${task.diskPath}.aria2`, task.id, deps)
+      ? deps.fileCleanupService.cleanup(task.diskPath, task.type, true)
+      : deps.fileCleanupService.cleanup(task.diskPath, task.type))
+    // Keep metadata with a retryable task if file cleanup (including trash)
+    // fails. Removing both concurrently can orphan the retained BT task.
+    if (task.torrentMetaPath)
+      await deps.torrentMetaStore.remove(task.torrentMetaPath)
   } else if (!options.deleteWithFiles) {
     deps.eventBus.emit(Events.ToastShow, {
       key: 'task.remove.orphanToast',

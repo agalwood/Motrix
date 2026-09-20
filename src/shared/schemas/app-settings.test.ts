@@ -6,6 +6,23 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('defaults existing and invalid file deletion preferences to trash', () => {
+    expect(DEFAULT_APP_SETTINGS.fileDeletionMode).toBe('trash')
+    for (const fileDeletionMode of [undefined, null, 'delete', false]) {
+      expect(
+        appSettingsSchema.parse({ fileDeletionMode }).fileDeletionMode
+      ).toBe('trash')
+    }
+    for (const fileDeletionMode of ['trash', 'permanent']) {
+      expect(
+        appSettingsSchema.parse({ fileDeletionMode }).fileDeletionMode
+      ).toBe(fileDeletionMode)
+    }
+    expect(
+      appSettingsInputSchema.partial().safeParse({ fileDeletionMode: 'delete' })
+        .success
+    ).toBe(false)
+  })
   it('defaults old or invalid tray colors to auto without resetting valid preferences', () => {
     expect(DEFAULT_APP_SETTINGS.trayIconColor).toBe('auto')
     for (const trayIconColor of [undefined, null, 'white', true]) {

@@ -19,6 +19,9 @@ describe('TaskColumnHeader', () => {
     )
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(container.querySelector('button svg')).toBeNull()
+    const download = screen.getByRole('button', { name: 'Download speed' })
+    expect(download).toHaveTextContent(/^Download$/)
+    expect(download).toHaveAttribute('title', 'Sort Download speed descending')
     await user.hover(screen.getByRole('button', { name: 'Name' }))
     expect(container.querySelector('button svg')).toBeNull()
     rerender(
@@ -68,7 +71,7 @@ describe('TaskColumnHeader', () => {
       screen.getByRole('separator', { name: 'Resize Name column' }),
       { key: 'ArrowRight' }
     )
-    expect(useDownloadsView.getState().columns[0].width).toBe(256)
+    expect(useDownloadsView.getState().columns[0].width).toBe(216)
     fireEvent.keyDown(screen.getByRole('button', { name: 'Name' }), {
       key: 'ArrowRight',
       shiftKey: true,

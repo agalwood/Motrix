@@ -14,10 +14,17 @@ describe('task menu shortcuts', () => {
       label: '⌘⌫',
       aria: 'Meta+Backspace',
     })
+    expect(bindings.removeWithFiles).toMatchObject({
+      label: '⇧⌘⌫',
+      aria: 'Shift+Meta+Backspace',
+    })
   })
   it('uses Ctrl and Delete on Windows/Linux, and the web new-task override on Mac', () => {
     expect(taskMenuShortcuts(false, true).copyUrl.label).toBe('Ctrl+C')
     expect(taskMenuShortcuts(false, true).remove.label).toBe('Delete')
+    expect(taskMenuShortcuts(false, true).removeWithFiles.label).toBe(
+      'Shift+Delete'
+    )
     expect(taskMenuShortcuts(true, false).newTask).toBeNull()
   })
   it('matches exact modifiers and never treats bare macOS Backspace as Remove', () => {

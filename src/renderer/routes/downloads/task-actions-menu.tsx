@@ -216,7 +216,8 @@ export function TaskActionsMenu({
       ? 'inspector'
       : matchesTaskMenuShortcut(event, shortcuts.copyUrl)
         ? 'copy'
-        : matchesTaskMenuShortcut(event, shortcuts.remove)
+        : matchesTaskMenuShortcut(event, shortcuts.remove) ||
+            matchesTaskMenuShortcut(event, shortcuts.removeWithFiles)
           ? 'remove'
           : null
     if (!action || (action !== 'inspector' && selected.length === 0)) return
@@ -231,7 +232,7 @@ export function TaskActionsMenu({
     } else if (action === 'copy') {
       copy(() => copyTaskUrls(selected))
     } else if (actions.removeCount > 0 && !actions.removeDialog.open) {
-      actions.onRemove()
+      actions.onRemove({ shift: event.shiftKey })
     }
     closeMenu()
   }
@@ -472,7 +473,7 @@ export function TaskActionsMenu({
         <DropdownMenuItem
           variant="destructive"
           aria-keyshortcuts={shortcuts.remove.aria}
-          onClick={() => actions.onRemove()}
+          onClick={(event) => actions.onRemove({ shift: event.shiftKey })}
         >
           {t('panel.downloads.action.remove')}
           <DropdownMenuShortcut aria-hidden="true">
