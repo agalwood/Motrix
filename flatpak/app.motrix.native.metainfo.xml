@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.40" date="2026-09-21">
+      <description>
+        <p>
+          Improves Dashboard charts and task controls, defaults desktop file
+          removal to Trash, publishes verified Flatpak bundles, and fixes media
+          progress, Server task updates, browser filenames, and NAT lifecycle errors.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.39" date="2026-09-15">
       <description>
         <p>
