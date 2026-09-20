@@ -382,3 +382,80 @@ describe('FinalizeRecovery', () => {
     )
   })
 })
+
+describe('hard-link recovery', () => {
+  it.each(['prepared', 'target_installed', 'db_committed'] as const)(
+    'recovers both names after %s',
+    async (phase) => {
+      const journal = record(phase)
+      journal.publicationMode = 'move'
+      journal.targetIdentity = sourceIdentity
+      journal.publicationIntent = {
+        version: 1,
+        method: 'hard_link',
+        sourcePath: '/save/source',
+        identity: sourceIdentity,
+      }
+      const state = fixture({
+        '/save/source': sourceIdentity,
+        '/save/target': sourceIdentity,
+      })
+      await state.recovery.recover(journal)
+      expect([...state.artifacts.keys()]).toEqual(['/save/target'])
+      expect(state.quarantines).toEqual([])
+      expect(state.phases.at(-1)).toBe('cleaned')
+    }
+  )
+
+  it('does not reinterpret legacy duplicate names as a completed link', async () => {
+    const journal = record('prepared')
+    journal.publicationMode = 'move'
+    const state = fixture({
+      '/save/source': sourceIdentity,
+      '/save/target': sourceIdentity,
+    })
+    await expect(state.recovery.recover(journal)).rejects.toThrow('quarantined')
+    expect(state.artifacts.size).toBe(2)
+  })
+
+  it('does not resume source deletion when the committed output was replaced', async () => {
+    const journal = record('db_committed')
+    journal.publicationMode = 'move'
+    journal.targetIdentity = sourceIdentity
+    journal.publicationIntent = {
+      version: 1,
+      method: 'hard_link',
+      sourcePath: '/save/source',
+      identity: sourceIdentity,
+    }
+    journal.removalIntent = {
+      artifactPath: '/save/source',
+      identity: sourceIdentity,
+      quarantinePath: '/save/quarantine',
+    }
+    const state = fixture({
+      '/save/source': sourceIdentity,
+      '/save/target': targetIdentity,
+    })
+    await expect(state.recovery.recover(journal)).rejects.toThrow('quarantined')
+    expect(state.artifacts.get('/save/source')).toBe(sourceIdentity)
+    expect(state.artifacts.get('/save/target')).toBe(targetIdentity)
+  })
+
+  it('preserves an unrelated target even with a persisted link intent', async () => {
+    const journal = record('prepared')
+    journal.publicationMode = 'move'
+    journal.publicationIntent = {
+      version: 1,
+      method: 'hard_link',
+      sourcePath: '/save/source',
+      identity: sourceIdentity,
+    }
+    const state = fixture({
+      '/save/source': sourceIdentity,
+      '/save/target': targetIdentity,
+    })
+    await expect(state.recovery.recover(journal)).rejects.toThrow('quarantined')
+    expect(state.artifacts.size).toBe(2)
+  })
+})

@@ -12,6 +12,8 @@ pub(crate) enum Request {
     OpenRoot {
         request_id: u64,
         path: String,
+        #[serde(default)]
+        expected_identity: Option<String>,
     },
     OpenArtifact {
         request_id: u64,
@@ -21,6 +23,19 @@ pub(crate) enum Request {
         rename_only: bool,
     },
     RenameOpenedNoReplace {
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        target_relative: String,
+    },
+    LinkOpenedNoReplace {
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        target_relative: String,
+    },
+    IsolateOpened {
+        expected_root_identity: String,
         request_id: u64,
         artifact: u64,
         target_root: u64,
@@ -62,6 +77,8 @@ impl Request {
             Self::OpenRoot { .. } => "open_root",
             Self::OpenArtifact { .. } => "open_artifact",
             Self::RenameOpenedNoReplace { .. } => "rename_opened_no_replace",
+            Self::LinkOpenedNoReplace { .. } => "link_opened_no_replace",
+            Self::IsolateOpened { .. } => "isolate_opened",
             Self::CopyOpened { .. } => "copy_opened",
             Self::RenameNoReplace { .. } => "rename_no_replace",
             Self::RemoveOpened { .. } => "remove_opened",

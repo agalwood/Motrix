@@ -32,8 +32,18 @@ impl State {
     fn dispatch(&mut self, request: Request) -> Response<'static> {
         match request {
             Request::Capabilities => self.capabilities(),
-            Request::OpenRoot { request_id, path } => match open_root(&path) {
+            Request::OpenRoot {
+                request_id,
+                path,
+                expected_identity,
+            } => match open_root(&path) {
                 Ok(root) => {
+                    if let Some(expected) = expected_identity
+                        && let Err(error) =
+                            crate::platform::validate_root_identity(&root, &expected)
+                    {
+                        return Response::filesystem_error(request_id, error);
+                    }
                     let handle = self.insert_root(root);
                     let mut response = Response::ok(Some(request_id));
                     response.handle = Some(handle);
@@ -86,6 +96,38 @@ impl State {
                     rename_opened_no_replace(artifact, target, &target_relative),
                 )
             }
+            Request::LinkOpenedNoReplace {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+            } => self.publish(
+                request_id,
+                artifact,
+                target_root,
+                &target_relative,
+                crate::platform::link_opened_no_replace,
+            ),
+            Request::IsolateOpened {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+                expected_root_identity,
+            } => self.publish(
+                request_id,
+                artifact,
+                target_root,
+                &target_relative,
+                |artifact, root, relative| {
+                    crate::platform::isolate_opened(
+                        artifact,
+                        root,
+                        relative,
+                        &expected_root_identity,
+                    )
+                },
+            ),
             Request::CopyOpened {
                 request_id,
                 artifact,
@@ -171,6 +213,23 @@ impl State {
                 }
             }
         }
+    }
+
+    fn publish(
+        &self,
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        relative: &str,
+        operation: impl FnOnce(&ArtifactHandle, &RootHandle, &str) -> std::io::Result<()>,
+    ) -> Response<'static> {
+        let Some(artifact) = self.artifacts.get(&artifact).and_then(Option::as_ref) else {
+            return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
+        };
+        let Some(root) = self.roots.get(&target_root) else {
+            return Response::error(Some(request_id), "invalid_handle", "unknown target root");
+        };
+        operation_response(request_id, operation(artifact, root, relative))
     }
 
     fn capabilities(&self) -> Response<'static> {

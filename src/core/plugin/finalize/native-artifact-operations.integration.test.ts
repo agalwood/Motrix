@@ -6,6 +6,7 @@ import {
   realpath,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises'
@@ -111,6 +112,26 @@ describe.runIf(existsSync(binary))(
         await adapter.dispose()
       }
     })
+
+    it.runIf(process.platform !== 'win32')(
+      'rejects a different held isolation directory identity',
+      async () => {
+        const { root, adapter } = await setup()
+        try {
+          const metadata = await stat(root, { bigint: true })
+          const held = await adapter.openRoot(
+            root,
+            `${metadata.dev}:${metadata.ino}`
+          )
+          await adapter.close(held)
+          await expect(
+            adapter.openRoot(root, `${metadata.dev}:${metadata.ino + 1n}`)
+          ).rejects.toThrow('held directory identity changed')
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
 
     it('publishes a held file without replacing an existing target', async () => {
       const { root, adapter, operations } = await setup()

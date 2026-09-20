@@ -191,14 +191,17 @@ jobs:
 
       - name: Generate Flatpak Cargo sources
         run: |
-          # native-host's reviewed lock is the vendoring superset;
-          # check:third-party-notices enforces finalize-fs remains a subset.
+          # Vendor the union of the two reviewed native dependency locks.
           "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
             "$RUNNER_TEMP/flatpak-cargo-generator.py" \
             packages/native-host/Cargo.lock \
             --output "$RUNNER_TEMP/cargo-sources.json"
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
+            "$RUNNER_TEMP/flatpak-cargo-generator.py" \
+            packages/finalize-fs/Cargo.lock \
+            --output "$RUNNER_TEMP/finalize-cargo-sources.json"
           node scripts/normalize-flatpak-cargo-sources.mjs \
-            "$RUNNER_TEMP/cargo-sources.json"
+            "$RUNNER_TEMP/cargo-sources.json" "$RUNNER_TEMP/finalize-cargo-sources.json"
           cmp flatpak/cargo-sources.json \
             "$RUNNER_TEMP/cargo-sources.json"
 

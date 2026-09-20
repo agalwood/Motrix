@@ -4,6 +4,34 @@ The sidecar performs handle-relative, identity-checked file publication and
 removal. Renames never replace an existing destination. Reparse points and
 unsafe path components remain rejected on Windows.
 
+## Linux and NFS
+
+Linux NFS mounts can reject `renameat2(RENAME_NOREPLACE)` with `EINVAL` even
+when ordinary rename works. For a regular file only, the native rename call
+reports `rename_unsupported` for `EINVAL`, `EOPNOTSUPP`, or `ENOSYS`. The host
+then journals a hard-link publication intent before installing the target
+name exclusively through the held source descriptor. The source name stays
+available until the target is durable and the task database commits. Copy
+staging on a different filesystem uses this same publication path.
+
+Recovery accepts two names only when their exact identities match a recorded
+link intent. An uncommitted publication rolls back; a committed publication
+retries cleanup. Each file removal first journals a new mode-0700 sibling
+directory and its device/inode identity. Ordinary rename is confined to that
+empty private directory, then a newly opened, identity-checked handle removes
+the isolated file. Restart recovery checks the held directory identity too.
+This assumes the application owns its private namespace; processes running
+as the same user can still modify it. A crash before the removal checkpoint
+can leave an empty private directory, but cannot remove source data.
+
+Public targets are never overwritten. Permissions, target conflicts, I/O and
+sync errors remain errors. Directory publication and same-path plugin
+replacement still require native no-replace rename; they do not use the file
+fallback. Filesystems without hard links or a usable Linux `/proc/self/fd`
+retain the journal and return an error. `rustix` supplies the safe Unix syscall
+wrappers; `sha2` supplies the shared digest implementation. Neither replaces
+the application's durable transaction and recovery rules.
+
 ## Windows and SMB
 
 Windows volumes are checked when opening the actual roots, before the
@@ -77,3 +105,15 @@ native sidecar and SQLite journal, injecting unsupported-root and post-rename
 sync failures at the adapter boundary. They cover live retry, startup rollback,
 legacy quarantine recovery, conflicts and offline shares. They can use
 `MOTRIX_FINALIZE_FS_TEST_BIN` to select the target platform's binary.
+
+
+`.github/workflows/finalize-nfs.yml` provisions real NFSv3 and NFSv4.2 mounts
+with root squashing. The ignored native test
+`nfs_supports_link_publication_and_private_removal` requires a writable
+`MOTRIX_FINALIZE_NFS_ROOT` and rejects non-NFS paths. The Linux application test
+`finalize-nfs-recovery.integration.test.ts` uses a real sidecar and a local
+SQLite database with artifacts on that mount. It covers same-mount and
+cross-device publication, conflicts, lost responses, disconnection during
+rollback, and reopening the database/sidecar after cleanup interruptions.
+Without the NFS variable it uses a local scratch directory and injects only
+the unsupported rename response; all subsequent file operations remain real.

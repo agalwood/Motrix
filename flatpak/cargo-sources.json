@@ -15,6 +15,19 @@
   {
     "type": "archive",
     "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/bitflags/bitflags-2.13.1.crate",
+    "sha256": "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da",
+    "dest": "cargo/vendor/bitflags-2.13.1"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da\", \"files\": {}}",
+    "dest": "cargo/vendor/bitflags-2.13.1",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
     "url": "https://static.crates.io/crates/block-buffer/block-buffer-0.10.4.crate",
     "sha256": "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71",
     "dest": "cargo/vendor/block-buffer-0.10.4"
@@ -75,6 +88,19 @@
     "type": "inline",
     "contents": "{\"package\": \"9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292\", \"files\": {}}",
     "dest": "cargo/vendor/digest-0.10.7",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/errno/errno-0.3.14.crate",
+    "sha256": "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb",
+    "dest": "cargo/vendor/errno-0.3.14"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb\", \"files\": {}}",
+    "dest": "cargo/vendor/errno-0.3.14",
     "dest-filename": ".cargo-checksum.json"
   },
   {
@@ -171,6 +197,19 @@
   {
     "type": "archive",
     "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/linux-raw-sys/linux-raw-sys-0.12.1.crate",
+    "sha256": "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53",
+    "dest": "cargo/vendor/linux-raw-sys-0.12.1"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53\", \"files\": {}}",
+    "dest": "cargo/vendor/linux-raw-sys-0.12.1",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
     "url": "https://static.crates.io/crates/memchr/memchr-2.8.3.crate",
     "sha256": "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98",
     "dest": "cargo/vendor/memchr-2.8.3"
@@ -205,6 +244,19 @@
     "type": "inline",
     "contents": "{\"package\": \"1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001\", \"files\": {}}",
     "dest": "cargo/vendor/quote-1.0.47",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/rustix/rustix-1.1.4.crate",
+    "sha256": "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190",
+    "dest": "cargo/vendor/rustix-1.1.4"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190\", \"files\": {}}",
+    "dest": "cargo/vendor/rustix-1.1.4",
     "dest-filename": ".cargo-checksum.json"
   },
   {

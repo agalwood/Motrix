@@ -8,7 +8,7 @@ import {
   type FinalizeJournalRepository,
   FinalizeQuarantinedError,
   finalizePathsEquivalent,
-  removalQuarantinePath,
+  prepareRemovalIntent,
 } from './finalize-committer'
 
 export interface FinalizeRecoveryOptions {
@@ -81,6 +81,17 @@ export class FinalizeRecovery {
         await this.options.repository.resumeQuarantined(record)
         record.quarantineReason = undefined
       }
+      // Never resume source cleanup unless the committed output still exists.
+      if (record.phase === 'db_committed' && record.removalIntent) {
+        const target = await this.options.fs.identity(record.plan.targetPath)
+        const expected =
+          record.targetIdentity ??
+          record.privateTargetIdentity ??
+          record.plan.sourceIdentity
+        if (!target || !this.options.exactIdentity(target, expected)) {
+          await this.quarantine(record, 'committed target identity mismatch')
+        }
+      }
       await this.resumeRemovalIntent(record)
       const selected =
         record.plan.replacement?.identity ?? record.plan.sourceIdentity
@@ -97,6 +108,32 @@ export class FinalizeRecovery {
         ? await this.options.fs.identity(record.plan.replacement.stagedPath)
         : null
 
+      const linked = record.publicationIntent
+      if (
+        linked &&
+        target &&
+        (record.phase === 'prepared' || record.phase === 'target_staged')
+      ) {
+        const linkSource = await this.options.fs.identity(linked.sourcePath)
+        if (
+          !linkSource ||
+          !this.options.exactIdentity(linkSource, linked.identity) ||
+          !this.options.exactIdentity(target, linked.identity)
+        ) {
+          await this.quarantine(record, 'linked publication identity mismatch')
+        }
+        if (this.options.rollForwardTargetInstalled !== false) {
+          await this.options.fs.makeDurable(record.plan.targetPath)
+          await this.options.repository.advance(
+            record.journalId,
+            'target_installed',
+            { targetIdentity: linked.identity }
+          )
+          record.targetIdentity = linked.identity
+          record.phase = 'target_installed'
+        }
+      }
+
       if (record.phase === 'db_committed') {
         if (!target || !this.options.exactIdentity(target, installed)) {
           await this.quarantine(record, 'committed target identity mismatch')
@@ -106,7 +143,10 @@ export class FinalizeRecovery {
       }
 
       if (record.phase === 'target_installed') {
-        if (target && this.options.exactIdentity(target, installed)) {
+        if (
+          target &&
+          this.options.exactIdentity(target, record.targetIdentity ?? installed)
+        ) {
           if (this.options.rollForwardTargetInstalled !== false) {
             await this.options.repository.commitTerminal(record)
             record.phase = 'db_committed'
@@ -161,7 +201,7 @@ export class FinalizeRecovery {
           if (!this.options.exactIdentity(target, expectedInstalled)) {
             await this.quarantine(record, 'unknown target blocks recovery')
           }
-          if (privateTarget) {
+          if (privateTarget && !record.publicationIntent) {
             await this.quarantine(
               record,
               'target and private target both exist during recovery'
@@ -294,14 +334,18 @@ export class FinalizeRecovery {
     privateTarget: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>,
     replacement: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>
   ): Promise<void> {
-    if (record.publicationMode === 'move' && source) {
+    if (
+      record.publicationMode === 'move' &&
+      source &&
+      !record.publicationIntent
+    ) {
       await this.quarantine(
         record,
         'moved source path unexpectedly exists after commit'
       )
     }
     if (
-      record.publicationMode !== 'move' &&
+      (record.publicationMode !== 'move' || record.publicationIntent) &&
       source &&
       !finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
     ) {
@@ -358,6 +402,22 @@ export class FinalizeRecovery {
       finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
     ) {
       await this.quarantine(record, 'invalid move publication journal')
+    }
+    if (
+      source &&
+      target &&
+      record.publicationIntent &&
+      this.options.exactIdentity(source, record.plan.sourceIdentity) &&
+      this.options.exactIdentity(target, record.publicationIntent.identity)
+    ) {
+      await this.removeTracked(
+        record,
+        record.plan.targetPath,
+        record.publicationIntent.identity
+      )
+      await this.options.fs.makeDurable(record.plan.sourcePath)
+      await this.options.repository.advance(record.journalId, 'cleaned')
+      return
     }
     if (source && target) {
       await this.quarantine(
@@ -477,7 +537,8 @@ export class FinalizeRecovery {
     await this.options.fs.removeKnown(
       intent.artifactPath,
       intent.identity,
-      intent.quarantinePath
+      intent.quarantinePath,
+      intent.isolation
     )
     record.removalIntent = undefined
     await this.options.repository.checkpoint(record.journalId, {
@@ -490,11 +551,12 @@ export class FinalizeRecovery {
     artifactPath: string,
     identity: FinalizeJournalRecord['plan']['sourceIdentity']
   ): Promise<void> {
-    const removalIntent = {
+    const removalIntent = await prepareRemovalIntent(
+      this.options.fs,
+      record.journalId,
       artifactPath,
-      quarantinePath: removalQuarantinePath(record.journalId, artifactPath),
-      identity,
-    }
+      identity
+    )
     record.removalIntent = removalIntent
     await this.options.repository.checkpoint(record.journalId, {
       removalIntent,
@@ -502,7 +564,8 @@ export class FinalizeRecovery {
     await this.options.fs.removeKnown(
       artifactPath,
       identity,
-      removalIntent.quarantinePath
+      removalIntent.quarantinePath,
+      removalIntent.isolation
     )
     record.removalIntent = undefined
     await this.options.repository.checkpoint(record.journalId, {
@@ -533,6 +596,7 @@ export function isRetryableMoveQuarantine(
     !record.privateTargetIdentity &&
     !record.rollbackPath &&
     !record.removalIntent &&
+    !record.publicationIntent &&
     !finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
   )
 }

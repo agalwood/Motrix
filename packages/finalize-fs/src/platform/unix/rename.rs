@@ -25,36 +25,25 @@ pub(crate) fn rename_opened_no_replace(
         ));
     }
 
-    #[cfg(target_os = "macos")]
-    let result = unsafe {
-        libc::renameatx_np(
-            artifact.parent.as_raw_fd(),
-            artifact.name.as_ptr(),
-            target_parent.as_raw_fd(),
-            target_name.as_ptr(),
-            libc::RENAME_EXCL,
+    rustix::fs::renameat_with(
+        &artifact.parent,
+        &artifact.name,
+        &target_parent,
+        &target_name,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(|error| {
+        crate::error::rename_error(
+            error.into(),
+            super::metadata::stat_opened(artifact.artifact.as_raw_fd())
+                .is_ok_and(|stat| stat.st_mode & libc::S_IFMT == libc::S_IFREG),
         )
-    };
-    #[cfg(target_os = "linux")]
-    let result = unsafe {
-        libc::syscall(
-            libc::SYS_renameat2,
-            artifact.parent.as_raw_fd(),
-            artifact.name.as_ptr(),
-            target_parent.as_raw_fd(),
-            target_name.as_ptr(),
-            libc::RENAME_NOREPLACE,
-        ) as i32
-    };
-    if result < 0 {
-        return Err(io::Error::last_os_error());
-    }
+    })?;
     assert_opened_artifact(artifact, target_parent.as_raw_fd(), &target_name)?;
-    if unsafe { libc::fsync(target_parent.as_raw_fd()) } < 0
-        || unsafe { libc::fsync(artifact.parent.as_raw_fd()) } < 0
-    {
-        return Err(io::Error::last_os_error());
-    }
+    rustix::fs::fsync(&target_parent)
+        .map_err(|e| crate::error::native_error(e.into(), "fsync(rename_target_parent)", None))?;
+    rustix::fs::fsync(&artifact.parent)
+        .map_err(|e| crate::error::native_error(e.into(), "fsync(rename_source_parent)", None))?;
     Ok(())
 }
 
@@ -87,30 +76,14 @@ pub(crate) fn rename_no_replace(
     let target_name =
         CString::new(*target_parts.last().expect("nonempty")).expect("validated component");
 
-    #[cfg(target_os = "macos")]
-    let result = unsafe {
-        libc::renameatx_np(
-            source_parent.as_raw_fd(),
-            source_name.as_ptr(),
-            target_parent.as_raw_fd(),
-            target_name.as_ptr(),
-            libc::RENAME_EXCL,
-        )
-    };
-    #[cfg(target_os = "linux")]
-    let result = unsafe {
-        libc::syscall(
-            libc::SYS_renameat2,
-            source_parent.as_raw_fd(),
-            source_name.as_ptr(),
-            target_parent.as_raw_fd(),
-            target_name.as_ptr(),
-            libc::RENAME_NOREPLACE,
-        ) as i32
-    };
-    if result < 0 {
-        return Err(io::Error::last_os_error());
-    }
+    rustix::fs::renameat_with(
+        &source_parent,
+        &source_name,
+        &target_parent,
+        &target_name,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(|error| crate::error::native_error(error.into(), "renameat_with(NOREPLACE)", None))?;
     Ok(())
 }
 

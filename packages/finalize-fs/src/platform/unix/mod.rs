@@ -3,6 +3,7 @@
 mod copy;
 mod digest;
 mod metadata;
+mod publish;
 mod remove;
 mod rename;
 
@@ -19,6 +20,7 @@ use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::path::{Component, Path};
 
 pub(crate) use copy::copy_opened;
+pub(crate) use publish::{isolate_opened, link_opened_no_replace, validate_root_identity};
 pub(crate) use remove::remove_opened;
 pub(crate) use rename::{rename_no_replace, rename_opened_no_replace};
 

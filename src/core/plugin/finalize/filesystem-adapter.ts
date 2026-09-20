@@ -4,6 +4,7 @@ import { getLogger } from '@core/logger'
 
 export type FinalizeFsErrorCode =
   | 'unsupported'
+  | 'rename_unsupported'
   | 'target_exists'
   | 'not_found'
   | 'invalid_path'
@@ -73,7 +74,10 @@ export interface FinalizeArtifactHandle {
 
 export interface FinalizeFilesystemAdapter {
   capabilities(): Promise<FinalizeFsCapabilities>
-  openRoot(rootPath: string): Promise<FinalizeRootHandle>
+  openRoot(
+    rootPath: string,
+    expectedIdentity?: string
+  ): Promise<FinalizeRootHandle>
   openArtifact(
     root: FinalizeRootHandle,
     relativePath: string,
@@ -83,6 +87,17 @@ export interface FinalizeFilesystemAdapter {
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
     targetRelative: string
+  ): Promise<void>
+  linkOpenedNoReplace(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string
+  ): Promise<void>
+  isolateOpened(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedRootIdentity: string
   ): Promise<void>
   copyOpened(
     artifact: FinalizeArtifactHandle,
@@ -219,6 +234,34 @@ export class NativeFinalizeFilesystemAdapter
     })
   }
 
+  async linkOpenedNoReplace(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string
+  ): Promise<void> {
+    await this.request({
+      op: 'link_opened_no_replace',
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
+      target_relative: targetRelative,
+    })
+  }
+
+  async isolateOpened(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedRootIdentity: string
+  ): Promise<void> {
+    await this.request({
+      op: 'isolate_opened',
+      expected_root_identity: expectedRootIdentity,
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
+      target_relative: targetRelative,
+    })
+  }
+
   async copyOpened(
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
@@ -232,12 +275,19 @@ export class NativeFinalizeFilesystemAdapter
     })
   }
 
-  async openRoot(rootPath: string): Promise<FinalizeRootHandle> {
+  async openRoot(
+    rootPath: string,
+    expectedIdentity?: string
+  ): Promise<FinalizeRootHandle> {
     if (!path.isAbsolute(rootPath)) {
       throw new FinalizeFsError('invalid_path', 'root path must be absolute')
     }
     const generation = this.generation
-    const response = await this.request({ op: 'open_root', path: rootPath })
+    const response = await this.request({
+      op: 'open_root',
+      path: rootPath,
+      expected_identity: expectedIdentity,
+    })
     if (response.handle === undefined)
       throw new Error('sidecar omitted root handle')
     return this.heldHandle(response.handle, generation)
