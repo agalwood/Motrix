@@ -11,6 +11,7 @@ import {
 } from './filter-search-command'
 import { InspectorToggle, ListViewMenu } from './list-view-menu'
 import { TaskActionsMenu } from './task-actions-menu'
+import { useTaskInspectorState } from './use-task-inspector-state'
 
 // Match the 30px / 24px targets, 4px gaps and capsule padding in both densities.
 const actionWidth = (count: number, compact: boolean) =>
@@ -49,6 +50,7 @@ export function DownloadsToolbar({
 }) {
   const compact = useCompactHeader()
   const { t } = useTranslation()
+  const inspector = useTaskInspectorState(selection, tasks)
   const rootRef = useRef<HTMLDivElement>(null)
   const moreRef = useRef<HTMLButtonElement>(null)
   const viewRef = useRef<HTMLButtonElement>(null)
@@ -111,7 +113,12 @@ export function DownloadsToolbar({
           <ListViewMenu triggerRef={viewRef} onOpenChange={setViewMenuOpen} />
         )}
         {count >= 2 && (
-          <InspectorToggle triggerRef={inspectorRef} onHide={onHideInspector} />
+          <InspectorToggle
+            triggerRef={inspectorRef}
+            onHide={onHideInspector}
+            visible={inspector.open}
+            disabled={inspector.selected.length === 0}
+          />
         )}
       </ToolbarGroup>
       <FilterSearchCommand

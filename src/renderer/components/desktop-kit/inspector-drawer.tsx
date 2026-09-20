@@ -106,9 +106,23 @@ export function InspectorDrawer({
           <DrawerPopup
             ref={popupRef}
             initialFocus={false}
-            finalFocus={() =>
-              container.querySelector<HTMLElement>('[data-downloads-grid]')
-            }
+            finalFocus={() => {
+              const active = container.ownerDocument.activeElement
+              // Filtering can hide the inspector while the user is typing.
+              // Preserve focus outside the drawer instead of stealing it.
+              if (
+                active &&
+                active !== container.ownerDocument.body &&
+                !popupRef.current?.contains(active)
+              )
+                return false
+              return (
+                container.querySelector<HTMLElement>('[data-downloads-grid]') ??
+                container.querySelector<HTMLElement>(
+                  '[data-slot="toolbar-button"]'
+                )
+              )
+            }}
             aria-label={title}
             className="downloads-inspector-popup pointer-events-auto w-full shadow-[0_-3px_12px_rgba(15,23,42,0.08)]"
             style={{

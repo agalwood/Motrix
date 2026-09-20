@@ -56,6 +56,7 @@ import {
   matchesTaskMenuShortcut,
   taskMenuShortcuts,
 } from './task-menu-shortcuts'
+import { useTaskInspectorState } from './use-task-inspector-state'
 import { useDownloadsView } from './view-preferences'
 
 function GlobalTransferMenuItems({
@@ -127,7 +128,7 @@ export function TaskActionsMenu({
     single?.status === TaskStatus.MetadataReady ||
     canChooseFiles ||
     actions.moveCount > 0
-  const inspectorVisible = useDownloadsView((state) => state.inspectorVisible)
+  const { open: inspectorVisible } = useTaskInspectorState(selection, tasks)
   const macOS =
     transport.platform === 'darwin' ||
     (transport.platform === 'web' && /Mac|iPhone|iPad/.test(navigator.platform))
@@ -219,13 +220,7 @@ export function TaskActionsMenu({
           ? 'remove'
           : null
     if (!action || (action !== 'inspector' && selected.length === 0)) return
-    if (
-      action === 'inspector' &&
-      children &&
-      !selected.length &&
-      !inspectorVisible
-    )
-      return
+    if (action === 'inspector' && !selected.length && !inspectorVisible) return
     event.preventDefault()
     event.stopPropagation()
     if (event.repeat) return
@@ -299,6 +294,8 @@ export function TaskActionsMenu({
               </DropdownMenuItem>
             )}
           <InspectorMenuItem
+            visible={inspectorVisible}
+            disabled={!inspectorVisible && selected.length === 0}
             onHide={onHideInspector}
             onShow={restoreSelection}
             shortcut={shortcuts.inspector}

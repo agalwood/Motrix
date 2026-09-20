@@ -102,6 +102,19 @@ function setup(context = true, items = tasks) {
 }
 
 describe('TaskActionsMenu', () => {
+  it('disables the inspector menu and shortcut without changing the saved intent when selection is empty', async () => {
+    const selection = setup(false)
+    act(() => {
+      useDownloadsView.getState().setInspectorVisible(true)
+      selection.getState().clearSelection()
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'More' }))
+    const item = await screen.findByRole('menuitem', { name: 'Show Inspector' })
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'i', metaKey: true })
+    expect(useDownloadsView.getState().inspectorVisible).toBe(true)
+  })
+
   it.each([
     ['Pause All', CommandIds.TaskPauseAll, Commands.PauseAllTasks],
     ['Resume All', CommandIds.TaskResumeAll, Commands.ResumeAllTasks],

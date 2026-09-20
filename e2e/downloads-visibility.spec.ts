@@ -493,6 +493,7 @@ test('remembers a manual sort across app restarts and clears it when restoring t
     await page.getByRole('button', { name: 'List View', exact: true }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Date completed' }).click()
     await page.keyboard.press('Escape')
+    await list.locator('[data-task-id]').first().click()
     await page
       .getByRole('button', { name: 'Show Inspector', exact: true })
       .click()
@@ -510,6 +511,20 @@ test('remembers a manual sort across app restarts and clears it when restoring t
     await expect(
       list.getByRole('button', { name: 'Date completed', exact: true })
     ).toHaveCount(0)
+    await expect(
+      list.page().getByRole('dialog', { name: 'Task Inspector' })
+    ).toBeHidden()
+    await expect(
+      list.page().getByRole('button', { name: 'Show Inspector', exact: true })
+    ).toBeDisabled()
+    await list.locator('[data-task-id]').first().click()
+    await expect(
+      list.page().getByRole('dialog', { name: 'Task Inspector' })
+    ).toBeHidden()
+    await list
+      .page()
+      .getByRole('button', { name: 'Show Inspector', exact: true })
+      .click()
     await expect(
       list.page().getByRole('dialog', { name: 'Task Inspector' })
     ).toBeVisible()
@@ -792,7 +807,7 @@ test('clears selection with modifier clicks, Escape and list whitespace', async 
 test('opens details by double click and keeps selection separate from inspector visibility', async ({
   electronApp,
   mainWindow,
-}) => {
+}, testInfo) => {
   await waitForEngineReady(mainWindow)
   await setTaskInspectorContentSize(electronApp, mainWindow, 1280, 900)
   await mainWindow.getByRole('link', { name: 'Downloads', exact: true }).click()
@@ -849,6 +864,32 @@ test('opens details by double click and keeps selection separate from inspector 
   await expect(
     content.getByText('Details 0.bin', { exact: true })
   ).toBeVisible()
+  await rows.nth(0).dblclick()
+  await expect(drawer).toBeVisible()
+  await expect(handle).toHaveAttribute(
+    'aria-valuenow',
+    String(Math.round(viewportHeight * 0.75))
+  )
+  await testInfo.attach('inspector-open', {
+    body: await mainWindow.screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await grid.press('Escape')
+  await expect(selected).toHaveCount(0)
+  await expect(drawer).toBeHidden()
+  await expect(
+    mainWindow.getByRole('button', { name: 'Show Inspector', exact: true })
+  ).toBeDisabled()
+  await testInfo.attach('inspector-selection-cleared', {
+    body: await mainWindow.screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await rows.nth(0).click()
+  await expect(drawer).toBeHidden()
+  await testInfo.attach('inspector-reselected-stays-closed', {
+    body: await mainWindow.screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
+  })
   await rows.nth(0).dblclick()
   await expect(drawer).toBeVisible()
   await expect(handle).toHaveAttribute(
