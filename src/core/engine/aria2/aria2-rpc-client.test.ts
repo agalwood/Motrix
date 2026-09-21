@@ -231,6 +231,83 @@ describe('Aria2RpcClient', () => {
       expect(await client.tellStatus('gid1')).toEqual(active)
     })
 
+    it('resumes once an accepted graceful pause finishes draining', async () => {
+      vi.useFakeTimers()
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      const call = vi.spyOn(fakeProtocol, 'call')
+      call
+        .mockRejectedValueOnce(new Error('GID#gid1 cannot be unpaused now'))
+        .mockRejectedValueOnce(new Error('GID#gid1 cannot be unpaused now'))
+        .mockResolvedValueOnce('gid1')
+      const resuming = client.unpause('gid1')
+      await vi.advanceTimersByTimeAsync(200)
+      await expect(resuming).resolves.toBe('gid1')
+      expect(call).toHaveBeenCalledTimes(3)
+      fakeProtocol.nextResult = active
+      expect(await client.tellStatus('gid1')).toEqual(active)
+    })
+
+    it.each(['none', 'confirmed', 'other-gid'])(
+      'does not retry a resume without its own unconfirmed pause: %s',
+      async (pause) => {
+        fakeProtocol.nextResult = pause === 'other-gid' ? 'gid2' : 'gid1'
+        if (pause !== 'none')
+          await client.pause(fakeProtocol.nextResult as string)
+        if (pause === 'confirmed') {
+          fakeProtocol.nextResult = { ...active, status: 'paused' }
+          await client.tellStatus('gid1')
+        }
+        const error = new Error('GID#gid1 cannot be unpaused now')
+        const call = vi.spyOn(fakeProtocol, 'call').mockRejectedValue(error)
+        await expect(client.unpause('gid1')).rejects.toBe(error)
+        expect(call).toHaveBeenCalledTimes(1)
+      }
+    )
+
+    it('allows a poll to confirm the pause while resume is waiting', async () => {
+      vi.useFakeTimers()
+      fakeProtocol.nextResult = 'gid1'
+      await client.pause('gid1')
+      const call = vi.spyOn(fakeProtocol, 'call')
+      call.mockRejectedValueOnce(new Error('GID#gid1 cannot be unpaused now'))
+      const resuming = client.unpause('gid1')
+      await vi.advanceTimersByTimeAsync(0)
+      fakeProtocol.nextResult = { ...active, status: 'paused' }
+      await client.tellStatus('gid1')
+      fakeProtocol.nextResult = 'gid1'
+      await vi.advanceTimersByTimeAsync(100)
+      await expect(resuming).resolves.toBe('gid1')
+    })
+
+    it.each(['disconnect', 'new-pause', 'expiry'])(
+      'stops a pending resume when invalidated by %s',
+      async (invalidation) => {
+        vi.useFakeTimers()
+        fakeProtocol.nextResult = 'gid1'
+        await client.pause('gid1')
+        const error = new Error('GID#gid1 cannot be unpaused now')
+        const call = vi.spyOn(fakeProtocol, 'call').mockRejectedValue(error)
+        const resuming = expect(client.unpause('gid1')).rejects.toBe(error)
+        await vi.advanceTimersByTimeAsync(0)
+        if (invalidation === 'disconnect') client.disconnect()
+        if (invalidation === 'new-pause') {
+          call.mockResolvedValueOnce('gid1')
+          await client.pause('gid1')
+        }
+        const callsBeforeInvalidation = call.mock.calls.length
+        await vi.advanceTimersByTimeAsync(
+          invalidation === 'expiry' ? 30_000 : 100
+        )
+        await resuming
+        if (invalidation !== 'expiry')
+          expect(call).toHaveBeenCalledTimes(callsBeforeInvalidation)
+        const callsAfterInvalidation = call.mock.calls.length
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(call).toHaveBeenCalledTimes(callsAfterInvalidation)
+      }
+    )
+
     it('clears pending pauses across engine disconnection', async () => {
       fakeProtocol.nextResult = 'gid1'
       await client.pause('gid1')
