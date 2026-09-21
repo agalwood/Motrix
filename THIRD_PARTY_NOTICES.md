@@ -200,11 +200,13 @@ the Windows native executable builds.
 | Crate | Version | SPDX license expression | Repository |
 | --- | --- | --- | --- |
 | base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
+| bitflags | 2.13.1 | `MIT OR Apache-2.0` | <https://github.com/bitflags/bitflags> |
 | block-buffer | 0.10.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | cfg-if | 1.0.4 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/cfg-if> |
 | cpufeatures | 0.2.17 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | crypto-common | 0.1.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
 | digest | 0.10.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
+| errno | 0.3.14 | `MIT OR Apache-2.0` | <https://github.com/lambda-fairy/rust-errno> |
 | generic-array | 0.14.7 | `MIT` | <https://github.com/fizyk20/generic-array> |
 | hkdf | 0.12.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/KDFs> |
 | hmac | 0.12.1 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/MACs> |
@@ -212,9 +214,11 @@ the Windows native executable builds.
 | humantime | 2.4.0 | `MIT OR Apache-2.0` | <https://github.com/chronotope/humantime> |
 | itoa | 1.0.18 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/itoa> |
 | libc | 0.2.189 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/libc> |
+| linux-raw-sys | 0.12.1 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/sunfishcode/linux-raw-sys> |
 | memchr | 2.8.3 | `Unlicense OR MIT` | <https://github.com/BurntSushi/memchr> |
 | proc-macro2 | 1.0.107 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/proc-macro2> |
 | quote | 1.0.47 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/quote> |
+| rustix | 1.1.4 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/bytecodealliance/rustix> |
 | serde | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_core | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_derive | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
@@ -238,6 +242,12 @@ crate-specific notices are preserved separately:
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-bitflags-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-errno-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-rustix-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-rustix-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT`

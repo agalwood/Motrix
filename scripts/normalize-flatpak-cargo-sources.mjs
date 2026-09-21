@@ -19,8 +19,40 @@ export function serializeFlatpakCargoSources(sources) {
   return `${JSON.stringify(sources, null, 2)}\n`
 }
 
-export async function normalizeFlatpakCargoSourcesFile(filePath) {
-  const sources = JSON.parse(await readFile(filePath, 'utf8'))
+// Both native executables have independent locks. Preserve the generator's
+// source objects, deduplicate identical destinations, and reject disagreements.
+export function mergeFlatpakCargoSources(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
+    throw new TypeError('Flatpak Cargo sources must be arrays')
+  }
+  const merged = new Map()
+  for (const source of [...left, ...right]) {
+    const key = `${source.dest}/${source['dest-filename'] ?? ''}`
+    const previous = merged.get(key)
+    if (previous && JSON.stringify(previous) !== JSON.stringify(source)) {
+      throw new Error(`Conflicting Cargo source: ${key}`)
+    }
+    merged.set(key, source)
+  }
+  return [...merged.values()].sort((a, b) => {
+    // Cargo config stays last, after each archive/checksum pair.
+    const key = (s) =>
+      s.dest === 'cargo' ? '~config' : `${s.dest}/${s['dest-filename'] ?? ''}`
+    return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0
+  })
+}
+
+export async function normalizeFlatpakCargoSourcesFile(
+  filePath,
+  additionalPath
+) {
+  let sources = JSON.parse(await readFile(filePath, 'utf8'))
+  if (additionalPath) {
+    sources = mergeFlatpakCargoSources(
+      sources,
+      JSON.parse(await readFile(additionalPath, 'utf8'))
+    )
+  }
   await writeFile(filePath, serializeFlatpakCargoSources(sources), 'utf8')
   biomeFormatJson(filePath)
   return { entries: sources.length }
@@ -28,7 +60,10 @@ export async function normalizeFlatpakCargoSourcesFile(filePath) {
 
 async function main() {
   const filePath = path.resolve(process.argv[2] ?? 'flatpak/cargo-sources.json')
-  const result = await normalizeFlatpakCargoSourcesFile(filePath)
+  const result = await normalizeFlatpakCargoSourcesFile(
+    filePath,
+    process.argv[3]
+  )
   process.stdout.write(
     `normalized Flatpak Cargo sources: ${result.entries} entries\n`
   )

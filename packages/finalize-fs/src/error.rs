@@ -1,6 +1,13 @@
 use std::io;
 
 pub(crate) fn classify_error(error: &io::Error) -> &'static str {
+    if let Some(code) = error
+        .get_ref()
+        .and_then(|e| e.downcast_ref::<NativeError>())
+        .and_then(|e| e.code)
+    {
+        return code;
+    }
     #[cfg(windows)]
     match os_code(error) {
         Some(17) => return "cross_device",
@@ -27,6 +34,7 @@ pub(crate) fn classify_error(error: &io::Error) -> &'static str {
 
 #[derive(Debug)]
 struct NativeError {
+    code: Option<&'static str>,
     operation: String,
     source: io::Error,
     nt_status: Option<i32>,
@@ -47,7 +55,6 @@ impl std::error::Error for NativeError {
     }
 }
 
-#[cfg(windows)]
 pub(crate) fn native_error(
     error: io::Error,
     operation: impl Into<String>,
@@ -56,6 +63,7 @@ pub(crate) fn native_error(
     io::Error::new(
         error.kind(),
         NativeError {
+            code: None,
             operation: operation.into(),
             source: error,
             nt_status,
@@ -79,4 +87,53 @@ pub(crate) fn nt_status(error: &io::Error) -> Option<String> {
         .downcast_ref::<NativeError>()?
         .nt_status
         .map(|status| format!("0x{:08x}", status as u32))
+}
+
+#[cfg(unix)]
+pub(crate) fn rename_error(error: io::Error, regular_file: bool) -> io::Error {
+    let unsupported = matches!(
+        error.raw_os_error(),
+        Some(libc::EINVAL | libc::ENOSYS | libc::EOPNOTSUPP)
+    );
+    let code = (unsupported && regular_file).then_some("rename_unsupported");
+    io::Error::new(
+        error.kind(),
+        NativeError {
+            code,
+            operation: "renameat_with(NOREPLACE)".into(),
+            source: error,
+            nt_status: None,
+        },
+    )
+}
+
+#[cfg(all(test, unix))]
+mod rename_tests {
+    use super::*;
+
+    #[test]
+    fn rename_capability_errors_keep_the_original_errno() {
+        for code in [libc::EINVAL, libc::ENOSYS, libc::EOPNOTSUPP] {
+            let error = rename_error(io::Error::from_raw_os_error(code), true);
+            assert_eq!(classify_error(&error), "rename_unsupported");
+            assert_eq!(os_code(&error), Some(code));
+        }
+        for code in [libc::EACCES, libc::ENOSPC, libc::EIO, libc::EROFS] {
+            assert_ne!(
+                classify_error(&rename_error(io::Error::from_raw_os_error(code), true)),
+                "rename_unsupported"
+            );
+        }
+        assert_eq!(
+            classify_error(&io::Error::from_raw_os_error(libc::EINVAL)),
+            "invalid_path"
+        );
+        assert_ne!(
+            classify_error(&rename_error(
+                io::Error::from_raw_os_error(libc::EINVAL),
+                false
+            )),
+            "rename_unsupported"
+        );
+    }
 }

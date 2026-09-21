@@ -5,6 +5,7 @@ import {
   artifactIdentityEquals,
 } from './artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from './artifact-mutation-lease'
+import { FinalizeFsError } from './filesystem-adapter'
 import {
   type FinalizeArtifactOperations,
   FinalizeCommitter,
@@ -299,5 +300,160 @@ describe('FinalizeCommitter', () => {
     await committer.commit(plan)
     expect(resume).toHaveBeenCalledOnce()
     expect(leases.isHeld(plan.taskId)).toBe(false)
+  })
+})
+
+describe('hard-link publication', () => {
+  async function linked(sameDevice = true, commitError?: Error) {
+    const fs = new FakeFilesystem(sameDevice)
+    const plan = makePlan()
+    fs.artifacts.set(plan.sourcePath, sourceIdentity)
+    const state = makeRepository(commitError)
+    const checkpoints: unknown[] = []
+    state.repository.checkpoint = async (_id, patch) => {
+      checkpoints.push(structuredClone(patch))
+    }
+    vi.spyOn(fs, 'moveNoReplace').mockRejectedValue(
+      new FinalizeFsError('rename_unsupported', 'NFS rejects NOREPLACE')
+    )
+    const linkNoReplace = vi.fn(
+      async (source: string, expected: ArtifactIdentity, target: string) => {
+        expect(checkpoints.at(-1)).toEqual({
+          publicationIntent: {
+            version: 1,
+            method: 'hard_link',
+            sourcePath: source,
+            identity: expected,
+          },
+        })
+        if (fs.artifacts.has(target)) throw new Error('target exists')
+        fs.artifacts.set(target, fs.artifacts.get(source)!)
+      }
+    )
+    const operations = Object.assign(fs, { linkNoReplace })
+    return { fs, plan, state, operations, linkNoReplace }
+  }
+
+  it.each([true, false])(
+    'publishes without overwriting and cleans both staging and source (same device: %s)',
+    async (sameDevice) => {
+      const { fs, plan, state, operations, linkNoReplace } =
+        await linked(sameDevice)
+      state.repository.commitTerminal = async () => {
+        expect(fs.artifacts.has(plan.sourcePath)).toBe(true)
+        expect(fs.artifacts.has(plan.targetPath)).toBe(true)
+      }
+      await makeCommitter(operations, state.repository).commit(plan)
+      expect(linkNoReplace).toHaveBeenCalledOnce()
+      expect([...fs.artifacts.keys()]).toEqual([plan.targetPath])
+      expect(state.quarantines).toEqual([])
+    }
+  )
+
+  it('quarantines both names when a link response was lost', async () => {
+    const { fs, plan, state, operations, linkNoReplace } = await linked()
+    const link = linkNoReplace.getMockImplementation()!
+    linkNoReplace.mockImplementation(async (...args) => {
+      await link(...args)
+      throw new Error('lost response')
+    })
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow('ownership is unconfirmed')
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath, plan.targetPath])
+    expect(state.quarantines).toEqual([
+      'hard-link publication ownership is unconfirmed',
+    ])
+    expect(state.phases.at(-1)).toBe('prepared')
+  })
+
+  it('preserves both names if recording link confirmation fails', async () => {
+    const { fs, plan, state, operations } = await linked()
+    const checkpoint = state.repository.checkpoint
+    state.repository.checkpoint = async (_id, patch) => {
+      await checkpoint(_id, patch)
+      if (patch.publicationIntent?.confirmed)
+        throw new Error('journal write failed')
+    }
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow('ownership is unconfirmed')
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath, plan.targetPath])
+    expect(state.quarantines).toEqual([
+      'hard-link publication ownership is unconfirmed',
+    ])
+  })
+
+  it('does not resume a removal intent whose journal checkpoint failed', async () => {
+    const { fs, plan, state, operations } = await linked(
+      true,
+      new Error('DB unavailable')
+    )
+    const remove = vi.spyOn(operations, 'removeKnown')
+    const originalCheckpoint = state.repository.checkpoint
+    const checkpoint = vi.fn(
+      async (_id: string, patch: Partial<FinalizeJournalRecord>) => {
+        await originalCheckpoint(_id, patch)
+        if (patch.removalIntent) throw new Error('journal write failed')
+      }
+    )
+    state.repository.checkpoint = checkpoint
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow('rollback needs recovery')
+    expect(remove).not.toHaveBeenCalled()
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath, plan.targetPath])
+  })
+
+  it('preserves the source when the DB commit fails', async () => {
+    const { fs, plan, state, operations } = await linked(
+      true,
+      new Error('DB unavailable')
+    )
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow('DB unavailable')
+    expect([...fs.artifacts.keys()]).toEqual([plan.sourcePath])
+    expect(state.quarantines).toEqual([])
+  })
+
+  it('preserves the source if the target is replaced during DB commit', async () => {
+    const { fs, plan, state, operations } = await linked()
+    state.repository.commitTerminal = async () => {
+      fs.artifacts.set(plan.targetPath, replacementIdentity)
+    }
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).resolves.toMatchObject({ cleanupPending: true })
+    expect(fs.artifacts.get(plan.sourcePath)).toBe(sourceIdentity)
+    expect(fs.artifacts.get(plan.targetPath)).toBe(replacementIdentity)
+    expect(state.quarantines).toHaveLength(1)
+  })
+
+  it('keeps the completed target when cleanup fails', async () => {
+    const { fs, plan, state, operations } = await linked()
+    vi.spyOn(fs, 'removeKnown').mockRejectedValue(new Error('offline'))
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).resolves.toMatchObject({ cleanupPending: true })
+    expect(fs.artifacts.has(plan.targetPath)).toBe(true)
+    expect(state.phases.at(-1)).toBe('db_committed')
+  })
+
+  it.each([
+    'permission_denied',
+    'io_error',
+    'invalid_path',
+    'target_exists',
+  ] as const)('does not fall back for %s', async (code) => {
+    const { fs, plan, state, operations, linkNoReplace } = await linked()
+    vi.mocked(fs.moveNoReplace).mockRejectedValue(
+      new FinalizeFsError(code, code)
+    )
+    await expect(
+      makeCommitter(operations, state.repository).commit(plan)
+    ).rejects.toThrow(code)
+    expect(linkNoReplace).not.toHaveBeenCalled()
+    expect(fs.artifacts.has(plan.sourcePath)).toBe(true)
   })
 })

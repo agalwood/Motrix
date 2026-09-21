@@ -14,6 +14,53 @@ describe('SqliteFinalizeJournalRepository', () => {
 
   afterEach(() => db.close())
 
+  it('persists and validates the installation source of a hard-link intent', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = makeRecord()
+    record.publicationMode = 'move'
+    record.plan.sourceIdentity = {
+      kind: 'file',
+      size: 4,
+      sha256: 'a'.repeat(64),
+      platformFileId: '1:1',
+    }
+    await repository.prepare(record)
+    const publicationIntent = {
+      version: 1 as const,
+      method: 'hard_link' as const,
+      sourcePath: record.plan.sourcePath,
+      identity: record.plan.sourceIdentity,
+    }
+    await repository.checkpoint(record.journalId, { publicationIntent })
+    expect((await repository.listRecoverable())[0].publicationIntent).toEqual(
+      publicationIntent
+    )
+    await repository.checkpoint(record.journalId, {
+      publicationIntent: { ...publicationIntent, confirmed: true },
+    })
+    expect(
+      (await repository.listRecoverable())[0].publicationIntent?.confirmed
+    ).toBe(true)
+    await expect(
+      repository.checkpoint(record.journalId, {
+        publicationIntent: { ...publicationIntent, sourcePath: '/unrelated' },
+      })
+    ).rejects.toThrow('installation source')
+    const persisted = {
+      ...record,
+      publicationIntent: { ...publicationIntent, version: 99 },
+    }
+    db.prepare('UPDATE plugin_finalize_journals SET plan_json=?').run(
+      JSON.stringify(persisted)
+    )
+    expect(await repository.listRecoverable()).toEqual([])
+    expect(
+      db.prepare('SELECT phase FROM plugin_finalize_journals').get()
+    ).toEqual({ phase: 'quarantined' })
+  })
+
   it('reopens only the exact legacy journal snapshot selected for recovery', async () => {
     const repository = new SqliteFinalizeJournalRepository(db, {
       commitTerminalBoundary: vi.fn(),

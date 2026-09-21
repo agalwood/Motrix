@@ -35,3 +35,41 @@ pub(crate) fn sync_root_mode(root: &RootHandle) -> std::io::Result<&'static str>
         sync_root(root).map(|()| "directory_flushed")
     }
 }
+
+#[cfg(unix)]
+pub(crate) use unix::{
+    isolate_opened, link_opened_no_replace, remove_opened_preserving, validate_root_identity,
+};
+
+#[cfg(not(unix))]
+pub(crate) fn link_opened_no_replace(
+    _: &ArtifactHandle,
+    _: &RootHandle,
+    _: &str,
+) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "held hard-link publication is unsupported",
+    ))
+}
+
+#[cfg(not(unix))]
+pub(crate) fn isolate_opened(
+    _: &ArtifactHandle,
+    _: &RootHandle,
+    _: &str,
+    _: &str,
+) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "private removal isolation is unsupported",
+    ))
+}
+
+#[cfg(not(unix))]
+pub(crate) fn validate_root_identity(_: &RootHandle, _: &str) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "Unix directory identity is unsupported",
+    ))
+}
