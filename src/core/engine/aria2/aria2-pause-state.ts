@@ -17,6 +17,11 @@ export class Aria2PauseState {
     this.pending.clear()
   }
 
+  getPendingPause(gid: string): Readonly<PendingPause> | undefined {
+    const pause = this.pending.get(gid)
+    return pause && performance.now() < pause.expiresAt ? pause : undefined
+  }
+
   reconcile(
     method: string,
     params: unknown[],

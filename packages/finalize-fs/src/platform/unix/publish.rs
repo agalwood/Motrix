@@ -22,6 +22,8 @@ fn unchanged_file(artifact: &ArtifactHandle) -> io::Result<libc::stat> {
     let stat = stat_opened(artifact.artifact.as_raw_fd())?;
     if stat.st_mode & libc::S_IFMT != libc::S_IFREG
         || artifact_stamp(&stat) != artifact.opened_stamp
+        // ctime can stay unchanged for multiple mutations within one clock tick.
+        || stat.st_nlink != artifact.opened_link_count
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,

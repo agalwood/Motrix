@@ -227,7 +227,7 @@ fn held_link_is_exclusive_and_preserves_the_source() {
     std::fs::write(base.join("source"), b"complete").unwrap();
     std::fs::write(base.join("conflict"), b"unrelated").unwrap();
     let root = open_root(base.to_str().unwrap()).unwrap();
-    let artifact = super::open_artifact_for_rename(&root, "source").unwrap();
+    let mut artifact = super::open_artifact_for_rename(&root, "source").unwrap();
     assert_eq!(
         super::link_opened_no_replace(&artifact, &root, "conflict")
             .unwrap_err()
@@ -238,8 +238,20 @@ fn held_link_is_exclusive_and_preserves_the_source() {
     assert_eq!(std::fs::read(base.join("source")).unwrap(), b"complete");
     assert_eq!(std::fs::read(base.join("target")).unwrap(), b"complete");
     assert_eq!(std::fs::read(base.join("conflict")).unwrap(), b"unrelated");
-    // Linking changes ctime. A stale pre-link handle must not authorize another mutation.
-    assert!(super::link_opened_no_replace(&artifact, &root, "second").is_err());
+    // Model an inode timestamp tick shared by open and link. A real hard link
+    // changes nlink even when ctime does not advance; never sleep to force it.
+    let linked =
+        super::metadata::stat_opened(std::os::fd::AsRawFd::as_raw_fd(&artifact.artifact)).unwrap();
+    assert_eq!(linked.st_nlink, 2);
+    artifact.opened_stamp.changed_seconds = linked.st_ctime;
+    artifact.opened_stamp.changed_nanoseconds = linked.st_ctime_nsec;
+    assert_eq!(
+        super::link_opened_no_replace(&artifact, &root, "second")
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::InvalidData
+    );
+    assert!(!base.join("second").exists());
     std::fs::remove_dir_all(base).unwrap();
 }
 

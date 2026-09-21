@@ -158,8 +158,29 @@ export class Aria2RpcClient {
     return this.call<string>('aria2.forcePause', [gid])
   }
 
-  unpause(gid: string): Promise<string> {
-    return this.call<string>('aria2.unpause', [gid])
+  async unpause(gid: string): Promise<string> {
+    const pause = this.pauseState.getPendingPause(gid)
+    const wasUnconfirmed = pause?.confirmedBy === undefined
+    for (;;) {
+      try {
+        return await this.call<string>('aria2.unpause', [gid])
+      } catch (error) {
+        // A graceful BT pause is acknowledged before tracker requests drain.
+        // Retry only that accepted pause, within its existing settle deadline.
+        if (
+          !pause ||
+          !wasUnconfirmed ||
+          pause !== this.pauseState.getPendingPause(gid) ||
+          !(error instanceof Error) ||
+          error.message !== `GID#${gid} cannot be unpaused now`
+        ) {
+          throw error
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        // Disconnect, expiry, or a newer pause invalidates this resume intent.
+        if (pause !== this.pauseState.getPendingPause(gid)) throw error
+      }
+    }
   }
 
   pauseAll(): Promise<'OK'> {
