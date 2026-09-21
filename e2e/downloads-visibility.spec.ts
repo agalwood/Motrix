@@ -379,9 +379,12 @@ test('download columns sort live tasks without losing selection or filter state'
     )
   }
   await expectOrder([10, 2, 1])
-  await expect(list.locator('button[aria-pressed] svg')).toHaveCount(0)
+  await expect(list.locator('button[aria-pressed] svg')).toHaveCount(1)
+  await expect(
+    list.getByRole('columnheader', { name: /Date created/ })
+  ).toHaveAttribute('aria-sort', 'descending')
   await list.getByRole('button', { name: 'Name', exact: true }).hover()
-  await expect(list.locator('button[aria-pressed] svg')).toHaveCount(0)
+  await expect(list.locator('button[aria-pressed] svg')).toHaveCount(1)
   await list.getByRole('row', { name: /File 2\.bin/ }).click()
   await list.getByRole('button', { name: 'Name', exact: true }).click()
   await expectOrder([1, 2, 10])
@@ -420,11 +423,11 @@ test('download columns sort live tasks without losing selection or filter state'
   await mainWindow
     .getByRole('menuitem', { name: 'Restore default order', exact: true })
     .click()
-  await expect(list.locator('button[aria-pressed] svg')).toHaveCount(0)
-
-  await list.getByRole('button', { name: 'Date created', exact: true }).click()
   await expectOrder([10, 2, 1])
   await expect(list.locator('button[aria-pressed] svg')).toHaveCount(1)
+  await expect(
+    list.getByRole('columnheader', { name: /Date created/ })
+  ).toHaveAttribute('aria-sort', 'descending')
   await list
     .getByRole('button', { name: 'Date created: descending', exact: true })
     .click()
@@ -630,7 +633,10 @@ test('remembers a manual sort across app restarts and clears it when restoring t
       .page()
       .getByRole('menuitem', { name: 'Restore default order', exact: true })
       .click()
-    await expect(list.locator('button[aria-pressed] svg')).toHaveCount(0)
+    await expect(list.locator('button[aria-pressed] svg')).toHaveCount(1)
+    await expect(
+      list.getByRole('columnheader', { name: /Date created/ })
+    ).toHaveAttribute('aria-sort', 'descending')
     await expect(list.locator('[data-task-id]')).toHaveText([
       /Gamma.bin/,
       /Beta.bin/,
@@ -640,7 +646,10 @@ test('remembers a manual sort across app restarts and clears it when restoring t
 
     app = await launchMotrix({ userDataDir, rpcPort })
     list = await openDownloads()
-    await expect(list.locator('button[aria-pressed] svg')).toHaveCount(0)
+    await expect(list.locator('button[aria-pressed] svg')).toHaveCount(1)
+    await expect(
+      list.getByRole('columnheader', { name: /Date created/ })
+    ).toHaveAttribute('aria-sort', 'descending')
     await expect(list.locator('[data-task-id]')).toHaveText([
       /Gamma.bin/,
       /Beta.bin/,

@@ -15,7 +15,12 @@ import {
   taskGridStyle,
 } from './columns'
 import { ColumnVisibilityItems } from './list-view-menu'
-import { nextTaskSort, type TaskSort, type TaskSortColumn } from './sort'
+import {
+  DEFAULT_TASK_SORT,
+  nextTaskSort,
+  type TaskSort,
+  type TaskSortColumn,
+} from './sort'
 import { useDownloadsView } from './view-preferences'
 
 export interface TaskColumnHeaderProps {
@@ -33,6 +38,7 @@ export function TaskColumnHeader({
   const setWidth = useDownloadsView((state) => state.setColumnWidth)
   const moveColumn = useDownloadsView((state) => state.moveColumn)
   const dragging = useRef<TaskSortColumn | null>(null)
+  const effectiveSort = sort ?? DEFAULT_TASK_SORT
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -49,7 +55,7 @@ export function TaskColumnHeader({
       >
         {columns.map((column, index) => {
           const id = column.id
-          const active = sort?.column === id
+          const active = effectiveSort.column === id
           const speedColumn = id === 'down' || id === 'up'
           const label = t(
             speedColumn
@@ -59,8 +65,9 @@ export function TaskColumnHeader({
           const accessibleLabel = speedColumn
             ? t(`panel.downloads.sort.${id}`)
             : label
-          const next = nextTaskSort(sort, id)
-          const SortIcon = sort?.direction === 'asc' ? ChevronUp : ChevronDown
+          const next = nextTaskSort(effectiveSort, id)
+          const SortIcon =
+            effectiveSort.direction === 'asc' ? ChevronUp : ChevronDown
           return (
             // biome-ignore lint/a11y/useSemanticElements: Column headers belong to the virtual ARIA grid.
             <div
@@ -70,7 +77,7 @@ export function TaskColumnHeader({
               aria-colindex={index + 1}
               aria-sort={
                 active
-                  ? sort.direction === 'asc'
+                  ? effectiveSort.direction === 'asc'
                     ? 'ascending'
                     : 'descending'
                   : undefined
@@ -91,7 +98,7 @@ export function TaskColumnHeader({
                 aria-pressed={active}
                 aria-label={
                   active
-                    ? t(`panel.downloads.sort.${sort.direction}`, {
+                    ? t(`panel.downloads.sort.${effectiveSort.direction}`, {
                         column: accessibleLabel,
                       })
                     : accessibleLabel
@@ -146,7 +153,7 @@ export function TaskColumnHeader({
                 value={column.width}
                 min={TASK_COLUMNS[id].min}
                 max={TASK_COLUMNS[id].max}
-                className="absolute -right-1 top-0 z-10 h-7 w-2 cursor-col-resize touch-none border-r border-border/50 outline-none focus-visible:bg-ring/30"
+                className="absolute -right-1 top-1 z-10 h-5 w-2 cursor-col-resize touch-none border-r border-border/50 outline-none focus-visible:bg-ring/30"
                 onChange={(width) => setWidth(id, width, false)}
                 onCommit={(width) => setWidth(id, width)}
               />
