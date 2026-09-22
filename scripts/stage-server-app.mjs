@@ -239,19 +239,40 @@ async function copyPath(source, destination, canonicalRepoRoot, options = {}) {
   await normalizeDirectoryModes(destination)
 }
 
+// Build-time-only payloads that a published package carries but a running
+// Server never reads: source maps, type declarations, the TypeScript sources
+// they were emitted from, and project documentation. Attribution files are
+// deliberately absent here — those must ship.
+const BUILD_ONLY_FILE = /\.(?:map|d\.ts|d\.mts|d\.cts|ts|tsx|mts|cts|flow)$/i
+const DOCUMENTATION_FILE =
+  /^(?:readme|changelog|changes|history|contributing|authors|security|code_of_conduct|governance|maintainers|upgrading|migration)(?:[.-].*)?$/i
+
+function isBuildOnlyEntry(portable) {
+  const base = portable.slice(portable.lastIndexOf('/') + 1)
+  // `.d.ts` also matches `.ts`; both are covered by BUILD_ONLY_FILE.
+  if (BUILD_ONLY_FILE.test(base)) return true
+  const stem = base.includes('.') ? base.slice(0, base.indexOf('.')) : base
+  return DOCUMENTATION_FILE.test(stem) && !/^licen[sc]e|^notice/i.test(stem)
+}
+
 function packageCopyFilter(name, target) {
-  if (name !== 'better-sqlite3') return undefined
+  const prune = (relative) => {
+    if (relative.length === 0) return true
+    return !isBuildOnlyEntry(relative.replaceAll(path.sep, '/'))
+  }
+  if (name !== 'better-sqlite3') return prune
   const selected = `prebuilds/${betterSqlite3PrebuildName(target)}`
   return (relative) => {
     if (relative.length === 0) return true
     const portable = relative.replaceAll(path.sep, '/')
     return (
-      portable === 'package.json' ||
-      /^LICENSE(?:\..*)?$/i.test(portable) ||
-      portable === 'lib' ||
-      portable.startsWith('lib/') ||
-      portable === 'prebuilds' ||
-      portable === selected
+      (portable === 'package.json' ||
+        /^LICENSE(?:\..*)?$/i.test(portable) ||
+        portable === 'lib' ||
+        portable.startsWith('lib/') ||
+        portable === 'prebuilds' ||
+        portable === selected) &&
+      !isBuildOnlyEntry(portable)
     )
   }
 }

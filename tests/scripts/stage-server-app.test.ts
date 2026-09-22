@@ -581,4 +581,56 @@ describe('stageServerApp', () => {
     ).rejects.toThrow('runtime root gamma is not installed')
     await expect(stat(path.join(root, 'dist/server-app'))).rejects.toThrow()
   })
+
+  it('drops build-time-only files while keeping license and runtime assets', async () => {
+    const root = await createFixture()
+    // Files a published package carries but a running Server never reads.
+    for (const [file, content] of [
+      ['index.js.map', '{"version":3}'],
+      ['index.d.ts', 'export declare const a: number'],
+      ['index.d.mts', 'export declare const b: number'],
+      ['src/impl.ts', 'export const impl = 1'],
+      ['README.md', '# alpha'],
+      ['CHANGELOG.md', '## 1.0.0'],
+      // These must survive: attribution is a legal requirement, and the
+      // runtime genuinely loads json/wasm/node payloads.
+      ['LICENSE', 'MIT'],
+      ['NOTICE', 'attribution'],
+      ['data/table.json', '{"ok":true}'],
+      ['vendor/engine.wasm', 'wasm'],
+    ] as const) {
+      await writeFixtureFile(root, `node_modules/alpha/${file}`, content)
+    }
+
+    await stageServerApp({
+      repoRoot: root,
+      platform: 'darwin',
+      arch: 'arm64',
+      strict: true,
+      contract: fixtureContract(),
+      budgets: fixtureBudgets(),
+    })
+
+    const staged = path.join(root, 'dist/server-app/node_modules/alpha')
+    for (const gone of [
+      'index.js.map',
+      'index.d.ts',
+      'index.d.mts',
+      'src/impl.ts',
+      'README.md',
+      'CHANGELOG.md',
+    ]) {
+      await expect(stat(path.join(staged, gone))).rejects.toThrow()
+    }
+    for (const kept of [
+      'index.js',
+      'package.json',
+      'LICENSE',
+      'NOTICE',
+      'data/table.json',
+      'vendor/engine.wasm',
+    ]) {
+      expect((await stat(path.join(staged, kept))).isFile()).toBe(true)
+    }
+  })
 })
