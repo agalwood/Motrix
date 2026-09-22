@@ -142,6 +142,10 @@ function fakeCtx() {
       ),
     },
     settingsManager: {
+      mutateDirectoryPreferences: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { favorites: [], recent: [] },
+      }),
       getApp: () => ({ defaultSaveDir: '/tmp', magnetFileSelection: true }),
       getEngine: () => ({ maxConnectionPerServer: 5 }),
       removePluginConfig: vi.fn().mockResolvedValue(undefined),
@@ -904,70 +908,93 @@ describe('buildCommandHandlers', () => {
     })
   })
 
-  it('applies the current form options when creating an App torrent batch', async () => {
-    const ctx = fakeCtx()
-    ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
-      {
-        payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
-        meta: {
-          name: 'first.bin',
-          files: [
-            { index: 0, path: 'skip.bin' },
-            { index: 1, path: 'keep.bin' },
-          ],
+  it.each([0, 1, 2])(
+    'applies App batch options and records history only for accepted tasks (%s failures)',
+    async (failures) => {
+      const ctx = fakeCtx()
+      for (let index = 0; index < failures; index++) {
+        ctx.rpcClient.addTorrent.mockRejectedValueOnce(
+          new Error('engine rejected torrent')
+        )
+      }
+      ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
+        {
+          payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+          meta: {
+            name: 'first.bin',
+            files: [
+              { index: 0, path: 'skip.bin' },
+              { index: 1, path: 'keep.bin' },
+            ],
+          },
         },
-      },
-      {
-        payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
-        meta: {
-          name: 'second.bin',
-          files: [
-            { index: 0, path: 'one.bin' },
-            { index: 1, path: 'two.bin' },
-          ],
+        {
+          payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+          meta: {
+            name: 'second.bin',
+            files: [
+              { index: 0, path: 'one.bin' },
+              { index: 1, path: 'two.bin' },
+            ],
+          },
         },
-      },
-    ] as never)
-    // @ts-expect-error partial ctx
-    const handlers = buildCommandHandlers(ctx)
+      ] as never)
+      // @ts-expect-error partial ctx
+      const handlers = buildCommandHandlers(ctx)
 
-    await expect(
-      handlers[Commands.DownloadAllTorrents]?.({
-        selectedFiles: [1],
-        saveDir: '/tmp/batch',
-        dlLimit: 2048,
-        ulLimit: 1024,
-        seedRatio: 1.5,
+      await expect(
+        handlers[Commands.DownloadAllTorrents]?.({
+          selectedFiles: [1],
+          saveDir: '/tmp',
+          dlLimit: 2048,
+          ulLimit: 1024,
+          seedRatio: 1.5,
+        })
+      ).resolves.toEqual({
+        total: 2,
+        succeeded: 2 - failures,
+        failed: failures,
+        firstTaskId: failures === 2 ? null : expect.any(String),
       })
-    ).resolves.toEqual({
-      total: 2,
-      succeeded: 2,
-      failed: 0,
-      firstTaskId: expect.any(String),
-    })
-    expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
-      1,
-      'Zmlyc3Q=',
-      [],
-      expect.objectContaining({
-        'select-file': '2',
-        'max-download-limit': '2048',
-        'max-upload-limit': '1024',
-        'seed-ratio': '1.5',
-      })
-    )
-    expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
-      2,
-      'c2Vjb25k',
-      [],
-      expect.objectContaining({
-        'select-file': '1,2',
-        'max-download-limit': '2048',
-        'max-upload-limit': '1024',
-        'seed-ratio': '1.5',
-      })
-    )
-  })
+      expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+        1,
+        'Zmlyc3Q=',
+        [],
+        expect.objectContaining({
+          'select-file': '2',
+          'max-download-limit': '2048',
+          'max-upload-limit': '1024',
+          'seed-ratio': '1.5',
+        })
+      )
+      expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+        2,
+        'c2Vjb25k',
+        [],
+        expect.objectContaining({
+          'select-file': '1,2',
+          'max-download-limit': '2048',
+          'max-upload-limit': '1024',
+          'seed-ratio': '1.5',
+        })
+      )
+      if (failures < 2) {
+        const canonical = await realpath('/tmp')
+        await vi.waitFor(() =>
+          expect(
+            ctx.settingsManager.mutateDirectoryPreferences
+          ).toHaveBeenCalledExactlyOnceWith({
+            action: 'recordRecent',
+            path: canonical,
+          })
+        )
+      } else {
+        expect(
+          ctx.settingsManager.mutateDirectoryPreferences
+        ).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('rejects menu-context updates from auxiliary windows', async () => {
     const ctx = fakeCtx()
@@ -2620,4 +2647,41 @@ describe('main finalize retry wiring', () => {
       expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
     }
   )
+})
+
+describe('host-owned task directory history', () => {
+  it('returns an accepted magnet while the directory write is pending', async () => {
+    const ctx = fakeCtx()
+    let finish!: (value: unknown) => void
+    const record = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    ctx.settingsManager.mutateDirectoryPreferences = record as never
+    const handlers = buildCommandHandlers(
+      ctx as unknown as Parameters<typeof buildCommandHandlers>[0]
+    )
+    const request = {
+      type: 'bt',
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
+      selectedFiles: [],
+      saveDir: '/tmp',
+    }
+    await expect(handlers[Commands.CreateTask]?.(request)).resolves.toEqual({
+      ok: true,
+    })
+    const canonical = await realpath('/tmp')
+    await vi.waitFor(() =>
+      expect(record).toHaveBeenCalledExactlyOnceWith({
+        action: 'recordRecent',
+        path: canonical,
+      })
+    )
+    finish({ ok: true, value: { favorites: [], recent: [] } })
+  })
 })
