@@ -236,6 +236,7 @@ describe('Electron package contracts', () => {
         'win32-x64',
       ],
       common: [
+        '@jitl/quickjs-wasmfile-release-sync',
         '@motrix/mdxp',
         '@motrix/nat',
         '@motrix/plugin-manifest-schema',
@@ -249,7 +250,7 @@ describe('Electron package contracts', () => {
         'libsodium-wrappers',
         'mmdb-lib',
         'proxy-chain',
-        'quickjs-emscripten',
+        'quickjs-emscripten-core',
         'undici',
         'uuid',
         'vscode-jsonrpc',
