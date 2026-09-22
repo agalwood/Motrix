@@ -61,7 +61,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-tool/package-lock.json':
     '54d575e0b5d9ec9ebfdc4703cdcbd5c3a91dd51f0580df918875d7f3c4af8887',
   'scripts/electron-package-size-budgets.json':
-    'f37ffcdb32967077cf66711526de91201d1bb976f3e48687cbc89fba89b94696',
+    'cd2c132dcf527eb15b4a4ecea110d5a9f0d32c3fa6faa58de67fb9cae1fa0596',
   'scripts/electron-package-utils.mjs':
     '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
   'scripts/before-build-use-staged-dependencies.mjs':
