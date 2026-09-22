@@ -107,7 +107,7 @@ describe('Downloads sort persistence', () => {
       store.getState().toggleSort('createdAt')
       expect(createDownloadsSortStore().getState().sort).toEqual({
         column: 'createdAt',
-        direction: 'desc',
+        direction: 'asc',
       })
     }
   )

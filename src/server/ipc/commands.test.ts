@@ -71,6 +71,10 @@ function makeFakeCtx() {
     } as unknown as EngineSupervisor,
     dnsFallback: { reset: vi.fn() },
     settingsManager: {
+      mutateDirectoryPreferences: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { favorites: [], recent: [] },
+      }),
       get: vi.fn(),
       update: vi.fn(),
       acceptDisclaimer: vi.fn().mockResolvedValue({ saved: true }),
@@ -1830,5 +1834,41 @@ describe('server disclaimer acceptance', () => {
       'disk full'
     )
     expect(ctx.trackerManager.applySyncScheduleChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('host-owned task directory history', () => {
+  it('returns an accepted magnet while the directory write is pending', async () => {
+    const ctx = makeFakeCtx()
+    let finish!: (value: unknown) => void
+    const record = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    ctx.settingsManager.mutateDirectoryPreferences = record as never
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    const request = {
+      type: 'bt',
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
+      selectedFiles: [],
+      saveDir: '/tmp',
+    }
+    await expect(handlers[Commands.CreateTask]?.(request)).resolves.toEqual({
+      ok: true,
+    })
+    await vi.waitFor(() =>
+      expect(record).toHaveBeenCalledExactlyOnceWith({
+        action: 'recordRecent',
+        path: '/tmp',
+      })
+    )
+    finish({ ok: true, value: { favorites: [], recent: [] } })
   })
 })

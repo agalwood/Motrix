@@ -237,8 +237,16 @@ describe('TaskListPanel', () => {
     const { updateTasks } = renderTasks(tasks)
     expect(visibleNames()).toEqual(['Newer', 'Older'])
     expect(
-      screen.getByRole('button', { name: 'Date created' })
-    ).toHaveAttribute('aria-pressed', 'false')
+      screen.getByRole('button', { name: 'Date created: descending' })
+    ).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Date created: descending' })
+    )
+    expect(visibleNames()).toEqual(['Older', 'Newer'])
+    expect(
+      screen.getByRole('columnheader', { name: /Date created/ })
+    ).toHaveAttribute('aria-sort', 'ascending')
+    act(() => useDownloadsSort.getState().resetSort())
     updateTasks([
       ...tasks,
       makeDownloadTask({ id: 'latest', name: 'Latest', createdAt: 3_000 }),
@@ -249,6 +257,9 @@ describe('TaskListPanel', () => {
     expect(visibleNames()).toEqual(['Older', 'Newer', 'Latest'])
     act(() => useDownloadsSort.getState().resetSort())
     expect(visibleNames()).toEqual(['Latest', 'Newer', 'Older'])
+    expect(
+      screen.getByRole('columnheader', { name: /Date created/ })
+    ).toHaveAttribute('aria-sort', 'descending')
     expect(screen.getByRole('button', { name: 'Name' })).toHaveAttribute(
       'aria-pressed',
       'false'

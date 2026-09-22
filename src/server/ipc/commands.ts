@@ -68,6 +68,7 @@ import {
   admitTaskCreateRequest,
   taskCreateSourceFailure,
 } from '@core/task/source-admission'
+import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
@@ -375,6 +376,15 @@ export function buildServerCommandHandlers(
     action: z.enum(EngineRecoveryAction),
     expectedPid: z.number().int().positive().optional(),
   })
+  const directoryPreferences = createDirectoryPreferencesHandlers(
+    settingsManager,
+    (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+  )
+  const directoryHistory = createTaskDirectoryHistory({
+    recordRecent: (path) =>
+      directoryPreferences.mutate({ action: 'recordRecent', path }),
+  })
+
   return {
     [Commands.CreateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.create(request),
@@ -429,7 +439,7 @@ export function buildServerCommandHandlers(
       return { ok: true, selection: selection ?? null }
     },
 
-    [Commands.CreateTask]: async (request: unknown) => {
+    [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
       try {
         request = admitTaskCreateRequest(request)
       } catch (error) {
@@ -576,7 +586,7 @@ export function buildServerCommandHandlers(
         if (conflict) return conflict
         throw error
       }
-    },
+    }),
 
     [Commands.PauseTask]: async (taskId: string) => {
       await pauseTask(taskId, pauseResumeDeps)
@@ -690,10 +700,7 @@ export function buildServerCommandHandlers(
       return supervisor.recover(engineRecoverySchema.parse(payload))
     },
 
-    [Commands.MutateDirectoryPreferences]: createDirectoryPreferencesHandlers(
-      settingsManager,
-      (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
-    ).mutate,
+    [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
 
     [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
       settingsManager,

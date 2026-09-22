@@ -124,11 +124,14 @@ describe('formatSpeed', () => {
     expect(formatSpeed(Math.round(speed * 1_048_576), 'binary')).toBe(expected)
   })
 
-  it('keeps two decimal places with kilobytes as the minimum unit', () => {
+  it('rounds kilobytes to integers and promotes rounded units', () => {
     expect(formatSpeed(0)).toBe('0 KB/s')
-    expect(formatSpeed(512)).toBe('0.51 KB/s')
-    expect(formatSpeed(50_000)).toBe('50.00 KB/s')
-    expect(formatSpeed(999_990)).toBe('999.99 KB/s')
+    expect(formatSpeed(499)).toBe('0 KB/s')
+    expect(formatSpeed(512)).toBe('1 KB/s')
+    expect(formatSpeed(50_000)).toBe('50 KB/s')
+    expect(formatSpeed(999_499)).toBe('999 KB/s')
+    expect(formatSpeed(999_500)).toBe('1.00 MB/s')
+    expect(formatSpeed(999_990)).toBe('1.00 MB/s')
     expect(formatSpeed(999_999)).toBe('1.00 MB/s')
   })
   it('keeps two decimal places for megabytes and above', () => {
@@ -136,10 +139,13 @@ describe('formatSpeed', () => {
     expect(formatSpeed(125_000_000)).toBe('125.00 MB/s')
     expect(formatSpeed(1_500_000_000)).toBe('1.50 GB/s')
   })
-  it('uses two decimal places with IEC labels and promotes rounded units', () => {
+  it('uses integer KiB speeds and retains precision for larger IEC units', () => {
     expect(formatSpeed(0, 'binary')).toBe('0 KiB/s')
-    expect(formatSpeed(512, 'binary')).toBe('0.50 KiB/s')
-    expect(formatSpeed(50 * 1024, 'binary')).toBe('50.00 KiB/s')
+    expect(formatSpeed(511, 'binary')).toBe('0 KiB/s')
+    expect(formatSpeed(512, 'binary')).toBe('1 KiB/s')
+    expect(formatSpeed(50 * 1024, 'binary')).toBe('50 KiB/s')
+    expect(formatSpeed(1_048_063, 'binary')).toBe('1023 KiB/s')
+    expect(formatSpeed(1_048_064, 'binary')).toBe('1.00 MiB/s')
     expect(formatSpeed(1_048_575, 'binary')).toBe('1.00 MiB/s')
     expect(formatSpeed(1_048_576, 'binary')).toBe('1.00 MiB/s')
     expect(formatSpeed(125 * 1_048_576, 'binary')).toBe('125.00 MiB/s')

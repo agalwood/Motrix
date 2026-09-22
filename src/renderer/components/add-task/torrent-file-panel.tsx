@@ -39,9 +39,10 @@ export function TorrentFilePanel({ onClear }: TorrentFilePanelProps) {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <TorrentInfoHeader onClear={onClear} />
 
-      <div className="flex min-h-[200px] max-h-[calc(100vh-380px)] min-w-0 overflow-hidden rounded-md border border-border [&_[data-slot=scroll-area-viewport]]:focus-visible:ring-0">
+      <div className="flex min-h-50 max-h-[calc(100vh-380px)] min-w-0 overflow-hidden rounded-md border border-border **:data-[slot=scroll-area-viewport]:focus-visible:ring-0">
         <FileList<TorrentFileInfo>
           scrollbar="custom"
+          showColumnHeaders={false}
           files={meta.files}
           selectedIndices={selected ?? []}
           onSelectionChange={handleSelection}

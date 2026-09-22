@@ -81,6 +81,7 @@ import {
   admitTaskCreateRequest,
   taskCreateSourceFailure,
 } from '@core/task/source-admission'
+import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
@@ -631,6 +632,14 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   })
   const saveDirPickersInFlight = new WeakSet<WebContents>()
 
+  const directoryPreferences =
+    createDirectoryPreferencesHandlers(settingsManager)
+  const directoryHistory = createTaskDirectoryHistory({
+    recordRecent: (path) =>
+      directoryPreferences.mutate({ action: 'recordRecent', path }),
+    runWork: ctx.trackAsyncWork,
+  })
+
   return {
     [Commands.InstallCliTool]: async (payload: unknown) =>
       cliToolService.install(
@@ -793,7 +802,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.CreateTask]: async (request: unknown) => {
+    [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
       try {
         request = admitTaskCreateRequest(request)
       } catch (error) {
@@ -935,10 +944,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         }
       }
       return createAndPersist(request as Parameters<typeof handleCreateTask>[0])
-    },
+    }),
 
-    [Commands.MutateDirectoryPreferences]:
-      createDirectoryPreferencesHandlers(settingsManager).mutate,
+    [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
 
     [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
       settingsManager,
@@ -1170,6 +1178,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           )
         }
       }
+
+      if (succeeded > 0) directoryHistory.record(options.saveDir)
 
       return {
         total: torrents.length,

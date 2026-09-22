@@ -578,7 +578,7 @@
         "progress": "進度",
         "down": "下載速度",
         "up": "上傳速度",
-        "eta": "預估剩餘時間",
+        "eta": "剩餘時間",
         "connections": "對等節點",
         "status": "狀態",
         "createdAt": "建立時間",
@@ -658,7 +658,7 @@
           "finishedAt": "完成時間",
           "downSpeed": "下載速度",
           "upSpeed": "上傳速度",
-          "eta": "預估剩餘時間",
+          "eta": "剩餘時間",
           "downloaded": "已下載",
           "totalSize": "總大小",
           "percent": "百分比",
@@ -808,7 +808,7 @@
           "avgProgress": "平均進度",
           "combinedDown": "合計 ↓",
           "combinedUp": "合計 ↑",
-          "longestEta": "最長預估剩餘時間"
+          "longestEta": "最長剩餘時間"
         },
         "tab": {
           "overview": "概覽",
@@ -1050,6 +1050,11 @@
       "seeds": "種子：{{count}}"
     },
     "torrent": {
+      "column": {
+        "name": "檔案名稱",
+        "type": "檔案類型",
+        "size": "大小"
+      },
       "fileSelected_other": "已選取 {{count}} 個檔案",
       "selectAll": "全選",
       "video": "影片",

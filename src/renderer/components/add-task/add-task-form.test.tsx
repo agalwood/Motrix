@@ -487,8 +487,28 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
-    expect(recordRecentMock).toHaveBeenCalledWith('/d')
+    expect(recordRecentMock).not.toHaveBeenCalled()
   })
+
+  it.each([
+    'https://a/file.zip',
+    'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+  ])(
+    'closes after host acceptance without another directory request for %s',
+    async (url) => {
+      const onSubmitSuccess = vi.fn()
+      renderForm({
+        onSubmitSuccess,
+        defaultValues: { tab: 'links', urls: url, saveDir: '/d' },
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+      await waitFor(() =>
+        expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
+      )
+      expect(recordRecentMock).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     ['electron', 'created'],
@@ -498,7 +518,7 @@ describe('AddTaskForm', () => {
     ['web', 'reused'],
     ['web', 'rechecked'],
   ] as const)(
-    'records the accepted %s %s request snapshot even after a field change',
+    'submits the %s %s directory snapshot and leaves history to the host',
     async (kind, outcome) => {
       let accept!: (value: unknown) => void
       const { transport } = await import('@renderer/lib/transport')
@@ -531,7 +551,11 @@ describe('AddTaskForm', () => {
         accept({ outcome, gid: 'accepted', taskId: 'accepted' })
       )
       expect(success).toHaveBeenCalledWith('accepted')
-      expect(recordRecentMock.mock.calls).toEqual([['/submitted ']])
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'command:createTask',
+        expect.objectContaining({ saveDir: '/submitted ' })
+      )
+      expect(recordRecentMock).not.toHaveBeenCalled()
     }
   )
 
@@ -579,11 +603,11 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('test-gid')
     expect(mockServices.notify).toHaveBeenCalledWith('info', 'task.add.created')
-    expect(recordRecentMock.mock.calls).toEqual([['/d'], ['/d']])
+    expect(recordRecentMock).not.toHaveBeenCalled()
   })
 
   it.each(['created', 'conflict', 'failure'] as const)(
-    'records accepted local batch paths when its second item is %s',
+    'leaves local batch history to the host when its second item is %s',
     async (secondOutcome) => {
       const onSubmitSuccess = vi.fn()
       const user = userEvent.setup()
@@ -673,14 +697,12 @@ describe('AddTaskForm', () => {
       expect(transport.invoke).not.toHaveBeenCalledWith(
         'command:downloadAllTorrents'
       )
-      expect(recordRecentMock.mock.calls).toEqual(
-        secondOutcome === 'created' ? [['/d'], ['/d']] : [['/d']]
-      )
+      expect(recordRecentMock).not.toHaveBeenCalled()
     }
   )
 
   it.each([2, 1, 0])(
-    'records App batch snapshot only if at least one torrent is accepted (%s)',
+    'closes App batch only if at least one torrent is accepted (%s)',
     async (succeeded) => {
       const onSubmitSuccess = vi.fn()
       const user = userEvent.setup()
@@ -747,7 +769,7 @@ describe('AddTaskForm', () => {
       )
       if (succeeded > 0) {
         expect(onSubmitSuccess).toHaveBeenCalledWith('first-task')
-        expect(recordRecentMock).toHaveBeenCalledWith('/custom')
+        expect(recordRecentMock).not.toHaveBeenCalled()
       } else {
         expect(onSubmitSuccess).not.toHaveBeenCalled()
         expect(recordRecentMock).not.toHaveBeenCalled()
@@ -828,7 +850,7 @@ describe('AddTaskForm', () => {
     expect(onSubmitSuccess).not.toHaveBeenCalled()
     expect(invalidateTaskList).toHaveBeenCalled()
     expect(screen.getByRole('textbox')).toHaveValue('https://bad/2')
-    expect(recordRecentMock.mock.calls).toEqual([['/d']])
+    expect(recordRecentMock).not.toHaveBeenCalled()
   })
 
   it('surfaces the create failure reason without Electron IPC prefixes', async () => {
@@ -942,6 +964,6 @@ describe('AddTaskForm', () => {
       )
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('copy-task')
-    expect(recordRecentMock.mock.calls).toEqual([['/d']])
+    expect(recordRecentMock).not.toHaveBeenCalled()
   })
 })

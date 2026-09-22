@@ -18,22 +18,34 @@ describe('TaskColumnHeader', () => {
       <TaskColumnHeader sort={null} onSort={() => {}} />
     )
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-    expect(container.querySelector('button svg')).toBeNull()
+    expect(container.querySelectorAll('button svg')).toHaveLength(1)
+    const created = screen.getByRole('button', {
+      name: 'Date created: descending',
+    })
+    expect(created).toHaveAttribute('aria-pressed', 'true')
+    expect(created).toHaveAttribute('title', 'Sort Date created ascending')
+    expect(
+      screen.getByRole('columnheader', { name: /Date created/ })
+    ).toHaveAttribute('aria-sort', 'descending')
     const download = screen.getByRole('button', { name: 'Download speed' })
     expect(download).toHaveTextContent(/^Download$/)
     expect(download).toHaveAttribute('title', 'Sort Download speed descending')
     await user.hover(screen.getByRole('button', { name: 'Name' }))
-    expect(container.querySelector('button svg')).toBeNull()
+    expect(container.querySelectorAll('button svg')).toHaveLength(1)
     rerender(
       <TaskColumnHeader
-        sort={{ column: 'createdAt', direction: 'desc' }}
+        sort={{ column: 'name', direction: 'asc' }}
         onSort={() => {}}
       />
     )
     expect(container.querySelectorAll('button svg')).toHaveLength(1)
+    expect(screen.getByRole('columnheader', { name: /Name/ })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
     expect(
       screen.getByRole('columnheader', { name: /Date created/ })
-    ).toHaveAttribute('aria-sort', 'descending')
+    ).not.toHaveAttribute('aria-sort')
   })
 
   it('reverses sorting repeatedly by keyboard without reaching the list handler', async () => {

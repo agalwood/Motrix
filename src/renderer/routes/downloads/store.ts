@@ -2,6 +2,7 @@ import { createSelectionStore } from '@renderer/components/desktop-kit/selection
 import type { DownloadTask } from '@shared/types/task'
 import { create } from 'zustand'
 import {
+  DEFAULT_TASK_SORT,
   nextTaskSort,
   type TaskSort,
   type TaskSortColumn,
@@ -50,7 +51,7 @@ export function createDownloadsSortStore() {
   return create<DownloadsSortState>((set, get) => ({
     sort: readSavedSort(),
     toggleSort: (column) => {
-      const sort = nextTaskSort(get().sort, column)
+      const sort = nextTaskSort(get().sort ?? DEFAULT_TASK_SORT, column)
       get().setSort(sort)
     },
     setSort: (sort) => {

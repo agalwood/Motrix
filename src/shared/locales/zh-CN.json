@@ -375,7 +375,7 @@
           "chooseFiles": "等待选择文件",
           "finalizing": "正在完成下载",
           "waiting": "等待开始",
-          "eta": "预计 {{time}}",
+          "eta": "预计剩余 {{time}}",
           "ratio": "分享率 {{ratio}}",
           "saved": "已保存 {{percent}}%",
           "offline": "离线（显示上次进度）",
@@ -658,7 +658,7 @@
           "finishedAt": "完成时间",
           "downSpeed": "下载速度",
           "upSpeed": "上传速度",
-          "eta": "ETA",
+          "eta": "剩余时间",
           "downloaded": "已下载",
           "totalSize": "大小",
           "percent": "百分比",
@@ -787,7 +787,7 @@
           "avgProgress": "平均进度",
           "combinedDown": "合计 ↓",
           "combinedUp": "合计 ↑",
-          "longestEta": "ETA（最长）"
+          "longestEta": "最长剩余时间"
         },
         "tab": {
           "overview": "概览",
@@ -1050,6 +1050,11 @@
       "seeds": "Seeds: {{count}}"
     },
     "torrent": {
+      "column": {
+        "name": "文件名",
+        "type": "文件类型",
+        "size": "大小"
+      },
       "fileSelected_other": "已选择 {{count}} 个文件",
       "selectAll": "全选",
       "video": "视频",

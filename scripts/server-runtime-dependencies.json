@@ -12,6 +12,7 @@
   "runtimeRoots": [
     "@fastify/static",
     "@fastify/websocket",
+    "@jitl/quickjs-wasmfile-release-sync",
     "@motrix/mdxp",
     "@motrix/plugin-manifest-schema",
     "@noble/curves",
@@ -27,7 +28,7 @@
     "parse-torrent",
     "pino",
     "proxy-chain",
-    "quickjs-emscripten",
+    "quickjs-emscripten-core",
     "undici",
     "uuid",
     "vscode-jsonrpc",
@@ -81,17 +82,17 @@
       "type": "file"
     },
     {
-      "source": "build/legal/THIRD_PARTY_DEPENDENCIES.md",
+      "source": "build/legal/server/THIRD_PARTY_DEPENDENCIES.md",
       "destination": "legal/THIRD_PARTY_DEPENDENCIES.md",
       "type": "file"
     },
     {
-      "source": "build/legal/THIRD_PARTY_LICENSES.txt",
+      "source": "build/legal/server/THIRD_PARTY_LICENSES.txt",
       "destination": "legal/THIRD_PARTY_LICENSES.txt",
       "type": "file"
     },
     {
-      "source": "build/legal/sbom.spdx.json",
+      "source": "build/legal/server/sbom.spdx.json",
       "destination": "legal/sbom.spdx.json",
       "type": "file"
     },

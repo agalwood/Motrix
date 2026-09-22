@@ -20,7 +20,7 @@ const REPOSITORY_ROOT = path.resolve(
 )
 const SCHEMA_VERSION = 2
 const ELECTRON_BUILDER_VERSION = '26.15.7'
-const ELECTRON_VERSION = '44.3.0'
+const ELECTRON_VERSION = '44.4.3'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
 
@@ -35,7 +35,7 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
   'electron-builder.signing.json':
-    'f9bce7cb7845e09112c7a704216785550946a634b23945f6faa12ce96dbfabe0',
+    '2722cb4f6f925478e238f0e4dc7a9bd14d8371e644ffb7bbd3c4655257dcd762',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -61,7 +61,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-tool/package-lock.json':
     '54d575e0b5d9ec9ebfdc4703cdcbd5c3a91dd51f0580df918875d7f3c4af8887',
   'scripts/electron-package-size-budgets.json':
-    'f37ffcdb32967077cf66711526de91201d1bb976f3e48687cbc89fba89b94696',
+    'cd2c132dcf527eb15b4a4ecea110d5a9f0d32c3fa6faa58de67fb9cae1fa0596',
   'scripts/electron-package-utils.mjs':
     '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
   'scripts/before-build-use-staged-dependencies.mjs':

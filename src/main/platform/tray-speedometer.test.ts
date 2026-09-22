@@ -29,7 +29,7 @@ describe('buildSpeedometerSvg', () => {
   it('produces valid SVG with speed text', () => {
     const svg = buildSpeedometerSvg(MOCK_ICON_SVG, 1024, 1048576)
     expect(svg).toContain('<svg')
-    expect(svg).toContain('1.02 KB/s')
+    expect(svg).toContain('1 KB/s')
     expect(svg).toContain('1.05 MB/s')
   })
 
