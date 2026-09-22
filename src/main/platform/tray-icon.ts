@@ -33,7 +33,7 @@ export function formatSpeed(
   // The tray keeps its compact presentation: minimum KB/s or KiB/s.
   let value = bytes / base
   let unitIndex = 0
-  let number = formatSpeedNumber(value)
+  let number = value.toFixed(0)
 
   while (Number(number) >= base && unitIndex < units.length - 1) {
     value /= base
