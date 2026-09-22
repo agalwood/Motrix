@@ -271,5 +271,7 @@ describe('FilesTab', () => {
     expect(checkbox).toBeChecked()
     expect(checkbox).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText(/1 file selected/)).toBeInTheDocument()
+    expect(screen.queryByText('File type')).not.toBeInTheDocument()
+    expect(screen.getByText('zip')).toBeInTheDocument()
   })
 })

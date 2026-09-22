@@ -64,9 +64,10 @@ export function FilesTab({ task }: { task: DownloadTask }) {
   }
 
   return (
-    <div className="flex min-h-[105px] flex-1 flex-col gap-2 border border-border rounded-md">
+    <div className="flex min-h-26 flex-1 flex-col gap-2 border border-border rounded-md">
       <FileList<TaskFile>
         scrollbar="custom"
+        showColumnHeaders={false}
         className="max-h-60"
         files={files}
         selectedIndices={selectedIndices}
@@ -75,18 +76,21 @@ export function FilesTab({ task }: { task: DownloadTask }) {
         renderRowSize={
           isMedia ? (f) => (f.size > 0 ? formatBytes(f.size) : '—') : undefined
         }
-        renderRowTrailing={(f) =>
-          isActive || isMedia ? (
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {(isMedia ? mediaProgressPercent : formatProgressPercent)(
-                f.progress ??
-                  (files.length === 1 && !isMedia
-                    ? task.progress
-                    : f.completedBytes / Math.max(f.size, 1))
-              )}
-              %
-            </span>
-          ) : null
+        rowTrailingLabel={t('panel.downloads.column.progress')}
+        renderRowTrailing={
+          isActive || isMedia
+            ? (f) => (
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {(isMedia ? mediaProgressPercent : formatProgressPercent)(
+                    f.progress ??
+                      (files.length === 1 && !isMedia
+                        ? task.progress
+                        : f.completedBytes / Math.max(f.size, 1))
+                  )}
+                  %
+                </span>
+              )
+            : undefined
         }
         headerClassName="rounded-t-md"
         headerSlot={

@@ -1063,6 +1063,11 @@
       "seeds": "Seeds: {{count}}"
     },
     "torrent": {
+      "column": {
+        "name": "File name",
+        "type": "File type",
+        "size": "Size"
+      },
       "fileSelected_one": "{{count}} file selected",
       "fileSelected_other": "{{count}} files selected",
       "selectAll": "Select all",

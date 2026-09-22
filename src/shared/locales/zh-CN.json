@@ -1050,6 +1050,11 @@
       "seeds": "Seeds: {{count}}"
     },
     "torrent": {
+      "column": {
+        "name": "文件名",
+        "type": "文件类型",
+        "size": "大小"
+      },
       "fileSelected_other": "已选择 {{count}} 个文件",
       "selectAll": "全选",
       "video": "视频",
