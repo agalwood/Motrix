@@ -231,4 +231,45 @@ describe('third-party notice generator', () => {
     )
     expect(parsedAgain.schemaVersion).toBe(1)
   }, 15_000)
+
+  it('omits desktop-only components from the server distribution', async () => {
+    const [desktop, server] = await Promise.all([
+      buildThirdPartyBundle({ distribution: 'desktop' }),
+      buildThirdPartyBundle({ distribution: 'server' }),
+    ])
+
+    const desktopLicenses = desktop.files['THIRD_PARTY_LICENSES.txt']
+    const serverLicenses = server.files['THIRD_PARTY_LICENSES.txt']
+
+    // The Server runtime never ships Electron, so Chromium's license set --
+    // by far the largest block in the bundle -- must not ride along.
+    expect(desktopLicenses).toContain(
+      'Chromium software is made available as source code'
+    )
+    expect(serverLicenses).not.toContain(
+      'Chromium software is made available as source code'
+    )
+    expect(desktopLicenses).toMatch(/^Components:.*\bElectron@/m)
+    expect(serverLicenses).not.toMatch(/^Components:.*\bElectron@/m)
+
+    // Everything the Server does ship keeps its notice.
+    for (const licenses of [desktopLicenses, serverLicenses]) {
+      expect(licenses).toContain('GNU GENERAL PUBLIC LICENSE')
+    }
+    const serverInventory = server.files['THIRD_PARTY_DEPENDENCIES.md']
+    expect(serverInventory).toContain('| aria2 | 1.37.0-motrix.14 |')
+    expect(serverInventory).toContain('| motrix.filename-template | 1.1.1 |')
+    expect(serverInventory).not.toContain('| Electron |')
+
+    const serverSbom = JSON.parse(server.files['sbom.spdx.json']) as {
+      packages: Array<{ name: string }>
+    }
+    expect(serverSbom.packages.some((pkg) => pkg.name === 'Electron')).toBe(
+      false
+    )
+
+    expect(Buffer.byteLength(serverLicenses, 'utf8')).toBeLessThan(
+      Buffer.byteLength(desktopLicenses, 'utf8') / 2
+    )
+  }, 20_000)
 })
