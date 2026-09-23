@@ -1140,7 +1140,7 @@
         "networkError": "Check your network connection, then retry",
         "timeout": "Check your connection speed and stability, then retry",
         "fileWriteError": "Check folder permissions and available disk space, then retry",
-        "pathTooLong": "Shorten the save folder or the file name, or enable Windows long path support, then retry",
+        "pathTooLong": "Shorten the save folder or the file name, then retry",
         "checksumMismatch": "The downloaded file may be corrupted; re-download to verify it",
         "tooManyRedirects": "The source link may be broken; try a different link",
         "btMetadataFailed": "Check the magnet link or add more trackers, then retry"

@@ -1126,7 +1126,7 @@
         "networkError": "請檢查網路連線，然後重試",
         "timeout": "請檢查連線速度與穩定性，然後重試",
         "fileWriteError": "請檢查資料夾權限與可用磁碟空間，然後重試",
-        "pathTooLong": "縮短儲存目錄或檔名後重試；也可在 Windows 中啟用長路徑支援",
+        "pathTooLong": "縮短儲存目錄或檔名後重試",
         "checksumMismatch": "下載的檔案可能損毀，請重新下載以驗證",
         "tooManyRedirects": "來源連結可能失效，請嘗試其他連結",
         "btMetadataFailed": "請檢查 Magnet 連結或新增更多 Tracker，然後重試"

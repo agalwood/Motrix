@@ -1126,7 +1126,7 @@
         "networkError": "检查网络连接后重试",
         "timeout": "检查网络连接速度和稳定性后重试",
         "fileWriteError": "检查文件夹权限和磁盘空间后重试",
-        "pathTooLong": "缩短保存目录或文件名后重试；也可在 Windows 中启用长路径支持",
+        "pathTooLong": "缩短保存目录或文件名后重试",
         "checksumMismatch": "下载的文件可能已损坏，请重新下载以校验",
         "tooManyRedirects": "该链接可能已失效，请尝试更换下载链接",
         "btMetadataFailed": "检查磁力链接或添加更多 Tracker 后重试"

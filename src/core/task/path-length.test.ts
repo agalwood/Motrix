@@ -10,12 +10,16 @@ import {
 const ISSUE_2183 = String.raw`F:\Game\Dead Cells (2018).motrix\Dead Cells (2018)\Bonuses\Dead Cells - Demake Soundtrack\FLAC Yoann Laulan - Dead Cells - Soundtrack Part 2 (Demake) FLAC\Yoann Laulan - Dead Cells - Soundtrack Part 2 (Demake) - 21 The Time Keeper Formerly Known As Assassin.flac`
 
 describe('exceedsPathLimit', () => {
-  it('flags the #2183 destination on win32', () => {
+  it('accepts the #2183 destination now that the engine opens long paths', () => {
+    // 262 characters used to overrun MAX_PATH. aria2 passes such paths
+    // through the \\?\ namespace since 1.37.0-motrix.16, so it fits.
     expect(ISSUE_2183).toHaveLength(262)
-    expect(exceedsPathLimit(ISSUE_2183, 'win32')).toEqual({
-      length: 262,
-      limit: WINDOWS_MAX_PATH,
-    })
+    expect(exceedsPathLimit(ISSUE_2183, 'win32')).toBeNull()
+  })
+
+  it('uses the extended-length limit, less the engine prefix', () => {
+    // 32,767 UTF-16 units, minus the longest prefix aria2 adds (\\?\UNC\).
+    expect(WINDOWS_MAX_PATH).toBe(32_767 - '\\\\?\\UNC\\'.length)
   })
 
   it('accepts a path exactly at the limit', () => {
@@ -26,25 +30,30 @@ describe('exceedsPathLimit', () => {
 
   it('flags one character past the limit', () => {
     const overLimit = `C:\\${'a'.repeat(WINDOWS_MAX_PATH - 2)}`
-    expect(exceedsPathLimit(overLimit, 'win32')?.length).toBe(
-      WINDOWS_MAX_PATH + 1
-    )
+    expect(exceedsPathLimit(overLimit, 'win32')).toEqual({
+      length: WINDOWS_MAX_PATH + 1,
+      limit: WINDOWS_MAX_PATH,
+    })
   })
 
-  it('never flags on platforms without the MAX_PATH cap', () => {
-    expect(exceedsPathLimit(ISSUE_2183, 'darwin')).toBeNull()
-    expect(exceedsPathLimit(ISSUE_2183, 'linux')).toBeNull()
+  it('never flags on POSIX platforms', () => {
+    const huge = `/d/${'a'.repeat(WINDOWS_MAX_PATH)}`
+    expect(exceedsPathLimit(huge, 'darwin')).toBeNull()
+    expect(exceedsPathLimit(huge, 'linux')).toBeNull()
   })
 
   it('ignores a path already escaped with the long-path prefix', () => {
-    expect(exceedsPathLimit(`\\\\?\\${ISSUE_2183}`, 'win32')).toBeNull()
+    const huge = `\\\\?\\C:\\${'a'.repeat(WINDOWS_MAX_PATH)}`
+    expect(exceedsPathLimit(huge, 'win32')).toBeNull()
   })
 
   it('measures UTF-16 code units, not code points', () => {
-    // An astral emoji is two UTF-16 units to Windows, so a path that looks
-    // short by code points can still overrun MAX_PATH.
-    const emoji = '\u{1F600}'.repeat(130) // 130 code points, 260 units
-    expect(exceedsPathLimit(`C:\\${emoji}`, 'win32')?.length).toBe(263)
+    // An astral character costs Windows two units: this path is under the
+    // limit by code points but over it by units.
+    const pairs = Math.ceil(WINDOWS_MAX_PATH / 2)
+    const emoji = `C:\\${'\u{1F600}'.repeat(pairs)}`
+    expect([...emoji].length).toBeLessThan(WINDOWS_MAX_PATH)
+    expect(exceedsPathLimit(emoji, 'win32')?.length).toBe(3 + pairs * 2)
   })
 })
 
@@ -79,8 +88,8 @@ describe('findPathOverrun', () => {
   })
 
   it('reports the worst offender, not the first', () => {
-    const slightly = `${dir}\\${'a'.repeat(160)}`
-    const badly = `${dir}\\${'b'.repeat(400)}`
+    const slightly = `${dir}\\${'a'.repeat(WINDOWS_MAX_PATH)}`
+    const badly = `${dir}\\${'b'.repeat(WINDOWS_MAX_PATH * 2)}`
     expect(findPathOverrun([slightly, badly], 'win32')?.path).toBe(badly)
   })
 
@@ -89,6 +98,8 @@ describe('findPathOverrun', () => {
   })
 
   it('is inert off win32', () => {
-    expect(findPathOverrun([`${dir}\\${'b'.repeat(400)}`], 'linux')).toBeNull()
+    expect(
+      findPathOverrun([`${dir}\\${'b'.repeat(WINDOWS_MAX_PATH)}`], 'linux')
+    ).toBeNull()
   })
 })
