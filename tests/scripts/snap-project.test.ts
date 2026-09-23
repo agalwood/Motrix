@@ -130,6 +130,13 @@ describe('prepare-snap-project', () => {
       'unity7',
     ])
     expect(yaml.apps.motrix.extensions).toEqual(['gnome'])
+
+    // The desktop entry ships through snap/gui/, which snapcraft copies into
+    // meta/gui/ when it builds the snap. The apps.<name>.desktop key is the
+    // other, mutually exclusive route: its path resolves against the prime
+    // directory during the prime step, where nothing puts this file. Declaring
+    // both made snapcraft look for prime/meta/gui/motrix.desktop and fail.
+    expect(yaml.apps.motrix.desktop).toBeUndefined()
     expect(yaml.apps['native-host'].plugs).toEqual(['desktop', 'network'])
     expect(yaml.plugs).toEqual({
       'browser-support': {

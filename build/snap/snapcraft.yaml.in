@@ -36,7 +36,6 @@ plugs:
 apps:
   motrix:
     command: app/motrix --no-sandbox
-    desktop: meta/gui/motrix.desktop
     extensions:
       - gnome
     environment:
