@@ -1490,6 +1490,7 @@ async function main() {
         operation: () => Promise<T>
       ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       log,
+      finalNamePicker,
       commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
         const post =
           input.occurrence?.type === 'terminal'

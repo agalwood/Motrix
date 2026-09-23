@@ -4,6 +4,7 @@ mod error;
 mod path;
 mod platform;
 mod protocol;
+mod sanitize;
 mod state;
 
 use protocol::{Request, Response, read_frame, write_frame};

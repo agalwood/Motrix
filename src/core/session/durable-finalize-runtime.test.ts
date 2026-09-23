@@ -138,3 +138,85 @@ it('rejects an invalid target before acquiring leases or reading file identities
     db.close()
   }
 })
+
+it('sanitizes a cross-platform hostile final name before planning', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-sanitize-'))
+  try {
+    const sourcePath = path.join(root, 'source.part')
+    await writeFile(sourcePath, 'payload')
+    // Windows reserved stem with trailing space: publishable nowhere as-is.
+    const requestedTarget = path.join(root, 'CON.txt ')
+    const sanitizedTarget = path.join(root, 'CON_.txt')
+    const sourceIdentity = await readArtifactIdentity(sourcePath)
+    const moved: string[] = []
+    const db = new Database(':memory:')
+    migrate(db)
+    let rebaseTargetRoot: string | undefined
+    const fs = {
+      identity: async (artifactPath: string) =>
+        artifactPath === sanitizedTarget || artifactPath === sourcePath
+          ? sourceIdentity
+          : null,
+      sameFilesystem: async () => true,
+      materializePrivate: async () => sourceIdentity,
+      moveNoReplace: async (
+        _source: string,
+        _expected: ArtifactIdentity,
+        targetPath: string
+      ) => {
+        moved.push(targetPath)
+        await writeFile(targetPath, 'payload')
+      },
+      makeDurable: async () => undefined,
+      removeKnown: async () => undefined,
+    } satisfies FinalizeArtifactOperations
+    const runtime = new DurableFinalizeRuntime({
+      db,
+      session: {
+        persistFinalizedArtifact: async (_task, _occurrence, input, commit) => {
+          rebaseTargetRoot = input.fileRebase?.targetRoot
+          return commit((mutation) => {
+            db.prepare(
+              `UPDATE plugin_finalize_journals SET phase='db_committed',
+             updated_at=? WHERE plan_id=? AND phase='target_installed'`
+            ).run(mutation.updatedAt, mutation.journalId)
+          })
+        },
+      },
+      fs,
+    })
+
+    const result = await runtime.commit({
+      task: makeDownloadTask({
+        id: 'task-sanitize',
+        name: 'CON.txt ',
+        type: TaskType.Http,
+        kind: TaskKind.Direct,
+        saveDir: root,
+        filename: 'CON.txt ',
+        finalName: 'CON.txt ',
+        diskPath: sourcePath,
+        finalPath: requestedTarget,
+        source: 'user',
+        sourceMeta: null,
+        instances: [],
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+      occurrence: null,
+      sourcePath,
+      targetPath: requestedTarget,
+      metadataOps: [],
+      contributors: [],
+      postDeliveries: [],
+      fileRebase: { sourceRoot: sourcePath, targetRoot: requestedTarget },
+    })
+
+    expect(moved).toEqual([sanitizedTarget])
+    expect(result.targetPath).toBe(sanitizedTarget)
+    expect(rebaseTargetRoot).toBe(sanitizedTarget)
+    db.close()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

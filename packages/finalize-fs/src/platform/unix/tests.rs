@@ -6,6 +6,55 @@ use super::{rename_no_replace, rename_opened_no_replace};
 use std::io;
 
 #[test]
+fn copy_staging_preserves_source_timestamps() {
+    let base = std::env::temp_dir().join(format!(
+        "motrix-finalize-fs-copy-times-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    std::fs::write(base.join("source"), b"payload").unwrap();
+    std::fs::create_dir_all(base.join("tree/nested")).unwrap();
+    std::fs::write(base.join("tree/nested/leaf"), b"leaf").unwrap();
+    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(86_400);
+    for path in [
+        base.join("source"),
+        base.join("tree"),
+        base.join("tree/nested"),
+    ] {
+        let handle = std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap_or_else(|_| std::fs::OpenOptions::new().read(true).open(&path).unwrap());
+        handle
+            .set_times(std::fs::FileTimes::new().set_modified(past))
+            .unwrap();
+    }
+
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    let file = open_artifact(&root, "source").unwrap();
+    super::copy_opened(&file, &root, "staged-file").unwrap();
+    let tree = open_artifact(&root, "tree").unwrap();
+    super::copy_opened(&tree, &root, "staged-tree").unwrap();
+
+    for path in [
+        base.join("staged-file"),
+        base.join("staged-tree"),
+        base.join("staged-tree/nested"),
+    ] {
+        let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+        assert_eq!(
+            modified,
+            past,
+            "copy staging must preserve the source mtime for {}",
+            path.display()
+        );
+    }
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
 fn held_file_digest_uses_sha256() {
     let mut hash = Sha256State::new();
     hash.update(b"abc");

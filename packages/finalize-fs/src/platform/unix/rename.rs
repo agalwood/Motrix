@@ -84,6 +84,12 @@ pub(crate) fn rename_no_replace(
         rustix::fs::RenameFlags::NOREPLACE,
     )
     .map_err(|error| crate::error::native_error(error.into(), "renameat_with(NOREPLACE)", None))?;
+    // Keep the held-handle variant's durability contract: both mutated
+    // directories are flushed before the operation reports success.
+    rustix::fs::fsync(&target_parent)
+        .map_err(|e| crate::error::native_error(e.into(), "fsync(rename_target_parent)", None))?;
+    rustix::fs::fsync(&source_parent)
+        .map_err(|e| crate::error::native_error(e.into(), "fsync(rename_source_parent)", None))?;
     Ok(())
 }
 

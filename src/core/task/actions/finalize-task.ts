@@ -30,6 +30,8 @@ import {
   parseBtFileLayout,
 } from '../bt-storage-layout'
 import { settleBtUpload } from '../bt-upload-settlement'
+import type { FinalNamePicker } from '../final-name-picker'
+import { resolvePublishedTargetPath } from '../finalize-target-name'
 import { fireAfterComplete, fireOnError } from '../hook-dispatch'
 import { normalizeTerminalRuntimeMetrics } from '../normalize-terminal-runtime-metrics'
 import type { OccurrenceDispatcher } from '../occurrences/occurrence-dispatcher'
@@ -149,6 +151,11 @@ export interface FinalizeTaskDeps {
   monotonicNow?: () => number
   createEngineTaskId?: () => string
   /** Production FS+journal+task transaction. Tests may omit for legacy IO. */
+  /**
+   * Re-deduplicates a final name that sanitization changed. Optional so tests
+   * that never publish an unsafe name can omit it.
+   */
+  finalNamePicker?: Pick<FinalNamePicker, 'pick'>
   commitFinalizedArtifact?: (
     input: FinalizeArtifactCommitRequest
   ) => Promise<void>
@@ -272,7 +279,14 @@ async function finalizeHttp(
     })
     return
   }
-  const desiredFinalPath = finalizeOutcome.finalFilePath ?? task.finalPath
+  // The final name can arrive from Content-Disposition or plugin hooks with
+  // characters that Windows or exFAT volumes cannot reopen; sanitize only the
+  // final component, and re-deduplicate it, before any rename or durable
+  // commit consumes it.
+  const desiredFinalPath = await resolvePublishedTargetPath(
+    finalizeOutcome.finalFilePath ?? task.finalPath,
+    deps.finalNamePicker
+  )
   const renameSource = task.diskPath
   if (!deps.commitFinalizedArtifact) {
     await persistDesiredFinalPath(task, desiredFinalPath, deps)
@@ -544,8 +558,15 @@ async function finalizeBt(
     await finalizeBtInPlace(task, deps, finalizeOutcome, previousStatus)
     return
   }
+  // Same publication rule as HTTP. DurableFinalizeRuntime would sanitize the
+  // target anyway, but only here does the task row learn the name it lands
+  // under.
+  const publishedFinalPath = await resolvePublishedTargetPath(
+    desiredFinalPath,
+    deps.finalNamePicker
+  )
   if (!deps.commitFinalizedArtifact) {
-    await persistDesiredFinalPath(task, desiredFinalPath, deps)
+    await persistDesiredFinalPath(task, publishedFinalPath, deps)
   }
   const storageLayout = getBtStorageLayout(task)
   const stagingPayloadPath = getBtPayloadPath(task)
@@ -602,19 +623,19 @@ async function finalizeBt(
 
   if (deps.commitFinalizedArtifact) {
     const renamedTask = structuredClone(task)
-    applyBtTaskAfterRename(renamedTask, desiredFinalPath)
+    applyBtTaskAfterRename(renamedTask, publishedFinalPath)
     try {
       await deps.commitFinalizedArtifact({
         task: renamedTask,
         occurrence: null,
         sourcePath: renameSource,
-        targetPath: desiredFinalPath,
+        targetPath: publishedFinalPath,
         replacement: finalizeOutcome.replacement,
         metadataOps: finalizeOutcome.metadataOps,
         contributors: finalizeOutcome.contributors,
         fileRebase: {
           sourceRoot: renameSource,
-          targetRoot: desiredFinalPath,
+          targetRoot: publishedFinalPath,
         },
       })
       Object.assign(task, structuredClone(renamedTask))
@@ -633,7 +654,7 @@ async function finalizeBt(
     }
   } else {
     try {
-      await deps.fs.renameAtomic(renameSource, desiredFinalPath)
+      await deps.fs.renameAtomic(renameSource, publishedFinalPath)
     } catch (e) {
       const cause = (e as Error).message
       const errorMessage = `Failed to rename directory: ${cause}`
@@ -646,7 +667,7 @@ async function finalizeBt(
       throw new AppError(ErrorCode.TaskFinalizeRenameFailed, errorMessage, e)
     }
     try {
-      deps.rebaseTaskFilePaths?.(task.id, renameSource, desiredFinalPath)
+      deps.rebaseTaskFilePaths?.(task.id, renameSource, publishedFinalPath)
     } catch (err) {
       deps.log.warn(
         { err, taskId: task.id },
@@ -661,13 +682,13 @@ async function finalizeBt(
         'finalize_bt_metadata_commit_failed'
       )
     }
-    applyBtTaskAfterRename(task, desiredFinalPath)
+    applyBtTaskAfterRename(task, publishedFinalPath)
     await persistTaskState(task, deps)
   }
 
   if (
     storageLayout &&
-    !isSameOrDescendant(desiredFinalPath, storageLayout.workspacePath)
+    !isSameOrDescendant(publishedFinalPath, storageLayout.workspacePath)
   ) {
     try {
       await deps.fs.removePathRecursive(storageLayout.workspacePath)

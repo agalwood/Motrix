@@ -1,7 +1,8 @@
 //! Thin, checked wrappers around the Windows native handle APIs we need.
 
 use super::super::windows_policy::{
-    is_online_smb2, remote_directory_acknowledged, unsupported_information,
+    is_online_smb2, is_transient_rename_conflict, remote_directory_acknowledged,
+    rename_retry_delay_ms, unsupported_information,
 };
 use crate::error::{native_error, os_code};
 use std::ffi::{OsStr, c_void};
@@ -10,6 +11,7 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::path::Path;
+use std::time::Duration;
 use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
 use windows_sys::Wdk::Storage::FileSystem::{
     FILE_CREATE, FILE_DIRECTORY_FILE, FILE_DISPOSITION_DELETE,
@@ -26,11 +28,12 @@ use windows_sys::Win32::Foundation::{
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateFileW, DELETE, FILE_ACCESS_RIGHTS, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL,
-    FILE_CASE_SENSITIVE_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-    FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_REMOTE_PROTOCOL_INFO,
-    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, FILE_WRITE_ATTRIBUTES,
-    FILE_WRITE_DATA, FileCaseSensitiveInfo, FileRemoteProtocolInfo, GetFileInformationByHandleEx,
-    OPEN_EXISTING, SYNCHRONIZE,
+    FILE_BASIC_INFO, FILE_CASE_SENSITIVE_INFO, FILE_FLAG_BACKUP_SEMANTICS,
+    FILE_FLAG_OPEN_REPARSE_POINT, FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_READ_DATA,
+    FILE_REMOTE_PROTOCOL_INFO, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
+    FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FileBasicInfo, FileCaseSensitiveInfo,
+    FileRemoteProtocolInfo, GetFileInformationByHandleEx, OPEN_EXISTING, SYNCHRONIZE,
+    SetFileInformationByHandle,
 };
 use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
@@ -354,6 +357,37 @@ pub(super) fn rename_no_replace(
     )
 }
 
+/// Rename with surge-style exponential backoff. Antivirus scanners, search
+/// indexers and handles lingering after `Close()` returns can hold the
+/// artifact or target name with a sharing violation for a few milliseconds;
+/// only that error family (`ACCESS_DENIED`, `SHARING_VIOLATION`,
+/// `LOCK_VIOLATION`) is retried, five attempts with a 50 ms doubling base.
+/// Every other error — and exhaustion of the schedule — is reported
+/// immediately, so the host journal recovery path is unchanged.
+pub(super) fn rename_no_replace_with_retry(
+    artifact: &OwnedHandle,
+    target_parent: &OwnedHandle,
+    target_name: &[u16],
+) -> io::Result<()> {
+    let mut attempt = 0_usize;
+    loop {
+        let error = match rename_no_replace(artifact, target_parent, target_name) {
+            Ok(()) => return Ok(()),
+            Err(error) => error,
+        };
+        let delay = is_transient_rename_conflict(os_code(&error))
+            .then(|| rename_retry_delay_ms(attempt))
+            .flatten();
+        match delay {
+            Some(delay) => {
+                std::thread::sleep(Duration::from_millis(delay));
+                attempt += 1;
+            }
+            None => return Err(error),
+        }
+    }
+}
+
 pub(super) fn mark_delete(artifact: &OwnedHandle) -> io::Result<()> {
     let disposition = FILE_DISPOSITION_INFORMATION_EX {
         Flags: FILE_DISPOSITION_DELETE
@@ -389,6 +423,47 @@ pub(super) fn flush(handle: &OwnedHandle) -> io::Result<()> {
     let mut io_status = IO_STATUS_BLOCK::default();
     let status = unsafe { NtFlushBuffersFile(handle.as_raw_handle(), &mut io_status) };
     check_status(status, "NtFlushBuffersFile")
+}
+
+/// Copy staging is the cross-device fallback, so the staged file keeps the
+/// source's creation, access and modification times instead of advertising
+/// the copy time as the download's own timestamp.
+pub(super) fn copy_basic_times(source: &OwnedHandle, target: &OwnedHandle) -> io::Result<()> {
+    let mut basic = FILE_BASIC_INFO::default();
+    let result = unsafe {
+        GetFileInformationByHandleEx(
+            source.as_raw_handle(),
+            FileBasicInfo,
+            (&mut basic as *mut FILE_BASIC_INFO).cast(),
+            u32::try_from(size_of::<FILE_BASIC_INFO>()).expect("FILE_BASIC_INFO size"),
+        )
+    };
+    if result == 0 {
+        return Err(native_error(
+            io::Error::last_os_error(),
+            "GetFileInformationByHandleEx(FileBasicInfo)",
+            None,
+        ));
+    }
+    // ChangeTime cannot be set and zero fields are left unchanged.
+    basic.ChangeTime = 0;
+    basic.FileAttributes = 0;
+    let result = unsafe {
+        SetFileInformationByHandle(
+            target.as_raw_handle(),
+            FileBasicInfo,
+            (&basic as *const FILE_BASIC_INFO).cast(),
+            u32::try_from(size_of::<FILE_BASIC_INFO>()).expect("FILE_BASIC_INFO size"),
+        )
+    };
+    if result == 0 {
+        return Err(native_error(
+            io::Error::last_os_error(),
+            "SetFileInformationByHandle(FileBasicInfo)",
+            None,
+        ));
+    }
+    Ok(())
 }
 
 /// Some SMB object stores reject directory FLUSH even though namespace changes

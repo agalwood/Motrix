@@ -9,6 +9,10 @@ const MAX_FRAME_BYTES: usize = 64 * 1024;
 #[serde(tag = "op", rename_all = "snake_case")]
 pub(crate) enum Request {
     Capabilities,
+    SanitizeName {
+        request_id: u64,
+        name: String,
+    },
     OpenRoot {
         request_id: u64,
         path: String,
@@ -81,6 +85,7 @@ impl Request {
     pub(crate) fn operation(&self) -> &'static str {
         match self {
             Self::Capabilities => "capabilities",
+            Self::SanitizeName { .. } => "sanitize_name",
             Self::OpenRoot { .. } => "open_root",
             Self::OpenArtifact { .. } => "open_artifact",
             Self::RenameOpenedNoReplace { .. } => "rename_opened_no_replace",
@@ -109,6 +114,8 @@ pub(crate) struct Response<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) platform: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) sanitized_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) rename_no_replace: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) held_roots: Option<bool>,
@@ -135,6 +142,7 @@ impl<'a> Response<'a> {
             code: None,
             message: None,
             platform: None,
+            sanitized_name: None,
             rename_no_replace: None,
             held_roots: None,
             directory_sync: None,
