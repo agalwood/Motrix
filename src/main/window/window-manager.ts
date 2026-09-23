@@ -51,6 +51,7 @@ export class WindowManager {
   private windows = new Map<WindowId, BrowserWindow | null>()
   private deps: WindowManagerDeps
   private willQuit = false
+  private pendingMaximize = new WeakSet<BrowserWindow>()
   private boundsTimers = new Map<WindowId, ReturnType<typeof setTimeout>>()
   private rendererUrlPolicy: RendererUrlPolicy
   // The window the user most recently asked to be brought to the
@@ -296,7 +297,7 @@ export class WindowManager {
 
     const state: WindowState = {
       ...win.getNormalBounds(),
-      maximized: win.isMaximized(),
+      maximized: this.pendingMaximize.has(win) || win.isMaximized(),
     }
     this.deps.settingsManager
       .update({ windowState: { [id]: state } })
@@ -599,7 +600,17 @@ export class WindowManager {
     }
 
     if (maximized && config.maximizable) {
-      win.maximize()
+      // maximize() also shows hidden windows. Restore it only after an
+      // intentional show, keeping login/tray launches in the background.
+      if (win.isVisible()) {
+        win.maximize()
+      } else {
+        this.pendingMaximize.add(win)
+        win.once('show', () => {
+          this.pendingMaximize.delete(win)
+          if (!win.isDestroyed()) win.maximize()
+        })
+      }
     }
   }
 
