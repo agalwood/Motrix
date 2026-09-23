@@ -476,6 +476,10 @@ if (invokedDirectly) {
         )
         process.exit(EXIT_FAILURE)
       }
+      // Prune here too: retiring a builtin from the lockfile must take
+      // effect in offline/CI packaging runs as well, or the retired plugin
+      // keeps shipping from a stale seed dir.
+      await pruneOutDir(lockIds)
       console.log('[fetch-builtins] skipped (seeds present)')
       process.exit(EXIT_OK)
     }

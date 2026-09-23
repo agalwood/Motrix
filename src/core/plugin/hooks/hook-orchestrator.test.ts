@@ -989,6 +989,37 @@ describe('HookOrchestrator', () => {
       expect(breaker.failure).not.toHaveBeenCalled()
     })
 
+    it('defaults to a real breaker when the caller supplies none', async () => {
+      // Regression: createPluginRuntime shipped without a breaker, so a
+      // persistently failing plugin was never skipped and never disabled.
+      // A missing breaker must fail safe, not fail open.
+      const { host, extras } = makeMockHost([
+        {
+          id: 'plugin-flaky',
+          role: 'enrich',
+          hooks: ['beforeCreate'],
+          handler: () => {
+            throw new Error('boom')
+          },
+        },
+      ])
+      const orch = new HookOrchestrator({
+        host,
+        hookTimeoutMs: TIMEOUTS,
+        ...ORCH_OPTS_BASE,
+      })
+      // Default threshold is 3 consecutive failures.
+      for (const taskId of ['task-1', 'task-2', 'task-3']) {
+        await orch.runBeforeCreateHttp(makeBeforeCreateDto(), taskId)
+      }
+      expect(extras.invocations).toHaveLength(3)
+      expect(host.disable).toHaveBeenCalledWith('plugin-flaky', 'circuit_open')
+
+      // Breaker is open now: the fourth chain skips the plugin entirely.
+      await orch.runBeforeCreateHttp(makeBeforeCreateDto(), 'task-4')
+      expect(extras.invocations).toHaveLength(3)
+    })
+
     it('calls host.disable with reason "circuit_open" when breaker trips', async () => {
       const { host } = makeMockHost([
         {

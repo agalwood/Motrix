@@ -83,11 +83,12 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
     )
   })
 
-  // Regression lock (carried from A1): motrix.scraper-hook is a builtin
-  // 'site-resolver' with hostPermissions ['*://*/*'] and NO resolve command.
-  // Routing keyed off the resolve-command marker (not the site-resolver
-  // category) must NEVER invoke it, so a broad co-installed site-resolver
-  // cannot collapse the seam to match-everything.
+  // Regression lock (carried from A1): motrix.scraper-hook — a builtin at the
+  // time, since retired from the shipped set — was a 'site-resolver' with
+  // hostPermissions ['*://*/*'] and NO resolve command. Routing keyed off the
+  // resolve-command marker (not the site-resolver category) must NEVER invoke
+  // such a plugin, so a broad co-installed site-resolver cannot collapse the
+  // seam to match-everything. The id stays as the historical fixture.
   it('never routes to a broad site-resolver that has no <id>.resolve command', async () => {
     const invokeCommand = vi.fn()
     const pluginHost = { activate: vi.fn(), invokeCommand } as any

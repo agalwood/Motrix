@@ -256,6 +256,14 @@ export interface EngineAdapter {
   removeDownloadResult(engineTaskId: string): Promise<void>
 
   /**
+   * Whether the engine holds a resumable checkpoint for the download written
+   * to `outputPath`, answered from the store it actually reads (a control
+   * file, or aria2.db under sqlite3 persistence). Null when the engine
+   * cannot answer; callers then fall back to the `.aria2` control file.
+   */
+  getCheckpointStatus?(outputPath: string): Promise<'present' | 'absent' | null>
+
+  /**
    * Batch variant of {@link removeDownloadResult}, executed in bounded
    * chunks. Entries are attempted in array order and each outcome is
    * reported independently, `Promise.allSettled`-shaped — an already-gone

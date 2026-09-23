@@ -22,7 +22,10 @@ import type {
   EngineAdapter,
 } from '../../engine/engine-adapter'
 import type { Logger } from '../../logger'
-import { DirectRecoveryPlanner } from '../../session/direct-recovery-planner'
+import {
+  createEngineCheckpointProbe,
+  DirectRecoveryPlanner,
+} from '../../session/direct-recovery-planner'
 import { applyTerminalTransition } from '../apply-terminal-transition'
 import {
   buildBtDirectOutputPaths,
@@ -199,7 +202,6 @@ async function reAddBt(
   })
 }
 
-const directRecoveryPlanner = new DirectRecoveryPlanner()
 const directResourceValidator = new DirectResourceValidatorService()
 
 async function buildDirectReAddParams(
@@ -227,7 +229,11 @@ async function buildDirectReAddParams(
   ])
   const requestOptions = getProxyOptions()
 
-  const plan = await directRecoveryPlanner.plan({
+  // Ask the engine: only it knows whether the checkpoint lives in a control
+  // file or in aria2.db (issue #2187).
+  const plan = await new DirectRecoveryPlanner(undefined, undefined, () =>
+    createEngineCheckpointProbe(adapter)
+  ).plan({
     primary,
     finalPath: task.finalPath,
   })

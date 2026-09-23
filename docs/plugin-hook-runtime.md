@@ -867,7 +867,6 @@ rewritten fixture or source copy.
 
 | Plugin | Locked release | Required real Hook acceptance |
 |---|---:|---|
-| `motrix.scraper-hook` | 1.0.0 | `beforeCreate` performs HEAD and GET through the real HTTP capability and rewrites a nested relative archive URL. |
 | `motrix.url-resolver` | 1.0.0 | `beforeCreate` keeps its API requests and redirects inside Commons host permission, then rewrites to the returned `upload.wikimedia.org` URL after independent output-policy validation. |
 | `motrix.filename-template` | 1.1.1 | `beforeFinalize` reads `ctx.metadata.getAll()`, renders nested metadata, and commits an automatic no-clobber rename. |
 

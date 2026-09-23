@@ -60,7 +60,7 @@ export interface SessionIdentityRecovery {
 }
 
 /**
- * Repair the v1/v2 fork's metadata-ancestor GID serialization before spawn.
+ * Repair the fork's metadata-ancestor GID serialization (schema v1–v3) before spawn.
  * The actual row key remains the owner of progress, cookies and app identity.
  * A verified local torrent replaces the magnet so aria2 recreates that exact
  * payload task directly. No engine schema, setting or download data changes.
@@ -78,7 +78,8 @@ export async function recoverAria2SessionIdentity(
   const db = new Database(databasePath, { fileMustExist: true, timeout: 0 })
   try {
     const schemaVersion = db.pragma('user_version', { simple: true })
-    if (schemaVersion !== 1 && schemaVersion !== 2) return null
+    if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3)
+      return null
     const dataVersion = db.pragma('data_version', { simple: true })
     const rows = z
       .array(rowSchema)
@@ -212,7 +213,17 @@ export async function recoverAria2SessionIdentity(
           throw failure(row.gid, 'task changed during recovery')
       }
       const remove = db.prepare('DELETE FROM task WHERE gid = ?')
-      for (const gid of retiredMetadataGids) remove.run(gid)
+      // Schema v3 no longer cascades task → task_progress (checkpoints are
+      // addressed by output path), so a retired ancestor's checkpoint is
+      // dropped explicitly, exactly as v1/v2 did through the cascade.
+      const removeProgress =
+        schemaVersion === 3
+          ? db.prepare('DELETE FROM task_progress WHERE gid = ?')
+          : null
+      for (const gid of retiredMetadataGids) {
+        remove.run(gid)
+        removeProgress?.run(gid)
+      }
     }).immediate()
     return {
       backupPath,

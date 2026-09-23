@@ -247,8 +247,6 @@ Tests must fetch/read the exact archives from `scripts/builtins.lock.json`, then
 assert size, SHA-256, and signature before install. They must invoke the built
 bundle through PluginHost/QuickJS:
 
-- scraper-hook performs real loopback HEAD+GET and resolves a nested relative
-  archive URL;
 - url-resolver performs the Commons page/API flow through a real loopback
   transport that preserves the authorized URL/Host and returns an independently
   accepted `upload.wikimedia.org` URL;

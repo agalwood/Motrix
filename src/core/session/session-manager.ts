@@ -30,11 +30,11 @@ import {
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
 import {
+  classifyTerminalError,
   computeEta,
   derivePathsFromRaw,
   extractUris,
   translateBtExtension,
-  translateErrorCode,
   translateRawToTask,
   translateStatus,
 } from '../engine/aria2/translate'
@@ -75,7 +75,10 @@ import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
 import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
-import { DirectRecoveryPlanner } from './direct-recovery-planner'
+import {
+  createEngineCheckpointProbe,
+  DirectRecoveryPlanner,
+} from './direct-recovery-planner'
 import type {
   MotrixDatabase,
   TaskInstanceRow,
@@ -269,10 +272,14 @@ export class SessionManager {
      * and non-media callers can omit it.
      */
     private mediaTmpRoot?: string,
+    // Checkpoints are probed through the engine, which alone knows whether it
+    // keeps them in control files or in aria2.db (issue #2187).
     private directRecoveryPlanner: Pick<
       DirectRecoveryPlanner,
       'plan'
-    > = new DirectRecoveryPlanner(),
+    > = new DirectRecoveryPlanner(undefined, undefined, () =>
+      createEngineCheckpointProbe(adapter)
+    ),
     private directResourceValidator: Pick<
       DirectResourceValidatorService,
       'verify'
@@ -1275,7 +1282,7 @@ export class SessionManager {
       {
         finishedAt: aria2.status === 'complete' ? now : null,
         errorMessage: aria2.errorMessage ?? null,
-        errorCode: translateErrorCode(aria2.errorCode),
+        ...classifyTerminalError(aria2.errorCode, aria2.errorMessage),
       },
       now
     )

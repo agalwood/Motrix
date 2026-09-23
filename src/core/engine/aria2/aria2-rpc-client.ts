@@ -3,6 +3,7 @@ import type { DownloadCookie } from '../engine-adapter'
 import { Aria2PauseState } from './aria2-pause-state'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
 import type {
+  Aria2CheckpointStatus,
   Aria2HistoryCount,
   Aria2HistoryFilter,
   Aria2MethodCall,
@@ -384,6 +385,12 @@ export class Aria2RpcClient {
     const params: unknown[] = [query, offset, num]
     if (keys !== undefined) params.push(keys)
     return this.call<Aria2RawStatus[]>('aria2.searchDownloadResult', params)
+  }
+
+  getCheckpointStatus(outputPath: string): Promise<Aria2CheckpointStatus> {
+    return this.call<Aria2CheckpointStatus>('aria2.getCheckpointStatus', [
+      outputPath,
+    ])
   }
 
   exportSession(filePath: string): Promise<'OK'> {

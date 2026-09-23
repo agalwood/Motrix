@@ -831,6 +831,29 @@ export class Aria2Adapter implements EngineAdapter {
     )
   }
 
+  async getCheckpointStatus(
+    outputPath: string
+  ): Promise<'present' | 'absent' | null> {
+    try {
+      const status = await this.rpc.getCheckpointStatus(outputPath)
+      return status.exists === 'true' ? 'present' : 'absent'
+    } catch (error) {
+      // Official aria2 and fork builds before 1.37.0-motrix.15 lack the
+      // method. The caller's control-file probe then matches what they can
+      // resume: official aria2 only writes control files, and older fork
+      // sqlite checkpoints are keyed by gid, which a retry never matches.
+      if (
+        error instanceof Error &&
+        /(?:no such method|method not found).*getCheckpointStatus/i.test(
+          error.message
+        )
+      ) {
+        return null
+      }
+      throw error
+    }
+  }
+
   async removeDownloadResult(engineTaskId: string): Promise<void> {
     // forceRemove acknowledges a halt request before aria2 creates its stopped
     // result. Retry only that precise transition race; successful cleanups add

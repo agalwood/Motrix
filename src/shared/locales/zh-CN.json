@@ -951,6 +951,8 @@
       "clearSelection": "清除选择",
       "createFailed": "创建下载任务失败。",
       "createFailedWithReason": "创建下载任务失败：{{reason}}",
+      "createFailedByPlugin": "创建任务失败：插件「{{pluginId}}」中断了任务创建（{{detail}}）。可在「设置 → 插件」中停用该插件后重试。",
+      "createFailedPathTooLong": "创建任务失败：目标路径长 {{length}} 个字符，超出 Windows 上限 {{limit}}。请改用更短的保存目录或文件名。",
       "parseFailed": "解析种子文件失败。",
       "urlsCount_other": "{{count}} 个 URL",
       "urlsWithInvalid": "{{valid}} 个有效，{{invalid}} 个无效",
@@ -1099,7 +1101,8 @@
         "renameDirFailed": "重命名目录失败：{{cause}}",
         "pluginChainAborted": "插件链已中止：{{cause}}",
         "magnetCleanupQuarantined": "磁力链接元数据清理被隔离",
-        "muxFailed": "混流下载的媒体文件失败"
+        "muxFailed": "混流下载的媒体文件失败",
+        "pathTooLong": "路径长度 {{length}} 个字符，Windows 上限为 {{limit}} 个字符"
       },
       "reason": {
         "unknown": "下载失败",
@@ -1109,6 +1112,7 @@
         "timeout": "下载超时",
         "diskFull": "磁盘空间不足",
         "fileWriteError": "无法写入文件",
+        "pathTooLong": "文件路径超出 Windows 长度上限",
         "checksumMismatch": "文件校验失败",
         "tooManyRedirects": "重定向次数过多",
         "serverError": "服务器返回错误",
@@ -1122,6 +1126,7 @@
         "networkError": "检查网络连接后重试",
         "timeout": "检查网络连接速度和稳定性后重试",
         "fileWriteError": "检查文件夹权限和磁盘空间后重试",
+        "pathTooLong": "缩短保存目录或文件名后重试；也可在 Windows 中启用长路径支持",
         "checksumMismatch": "下载的文件可能已损坏，请重新下载以校验",
         "tooManyRedirects": "该链接可能已失效，请尝试更换下载链接",
         "btMetadataFailed": "检查磁力链接或添加更多 Tracker 后重试"

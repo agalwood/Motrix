@@ -25,7 +25,7 @@
   "packageOverrides": {
     "@resvg/resvg-wasm@2.6.2": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/MPL-2.0"],
-      "attribution": "Copyright (c) 2021-present, yisibl (一丝)"
+      "attribution": "Copyright (c) 2021-present, yisibl (\u4e00\u4e1d)"
     },
     "abstract-logging@2.0.1": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
@@ -113,18 +113,6 @@
       "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
       "licenseDeclared": "NOASSERTION",
       "noticeMarkers": ["motrix.filename-template"]
-    },
-    {
-      "id": "builtin-scraper-hook",
-      "name": "motrix.scraper-hook",
-      "scope": "bundled first-party extension; standalone license pending upstream",
-      "distributions": ["desktop", "server"],
-      "metadataFile": "scripts/builtins.lock.json",
-      "metadataPath": ["plugins", "motrix.scraper-hook"],
-      "versionField": "version",
-      "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
-      "licenseDeclared": "NOASSERTION",
-      "noticeMarkers": ["motrix.scraper-hook"]
     },
     {
       "id": "builtin-url-resolver",

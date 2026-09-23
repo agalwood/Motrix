@@ -92,11 +92,13 @@ const nativeMessagingLog = getLogger('native-messaging')
  * `${manifest.id}.resolve` — the resolve-command marker.
  *
  * Keying off this marker (not the `site-resolver` category alone) is the
- * load-bearing distinction learned in A1: motrix.scraper-hook is also a
- * `site-resolver` whose hostPermissions match all URLs, yet it has NO resolve
- * command (it works via the `beforeCreate` hook, not the mux command seam).
- * Deriving seam membership from the category alone would let it collapse
- * routing to match-everything and send every download through a resolver VM.
+ * load-bearing distinction learned in A1: a plugin can be a `site-resolver`
+ * whose hostPermissions match all URLs and still have NO resolve command —
+ * motrix.scraper-hook (since retired from the built-in set) was exactly that,
+ * working through the `beforeCreate` hook rather than the mux command seam.
+ * Deriving seam membership from the category alone would let such a plugin
+ * collapse routing to match-everything and send every download through a
+ * resolver VM.
  */
 function contributesResolveCommand(manifest: PluginManifest): boolean {
   const commands = manifest.contributes?.commands ?? []

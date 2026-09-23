@@ -81,6 +81,46 @@ export interface CapabilityBridgeOptions {
  * method-level check is left to the capability host (spec §I30 is
  * capability-scope, not method-scope, in Phase 1A).
  */
+/**
+ * How a hook invocation was cancelled. `HookAbortBudget` (see
+ * `@core/plugin/hooks/abort`) aborts its signal with the literal reason
+ * `'timeout'` when the chain deadline elapses; anything else — policy change,
+ * admission close, caller cancellation — is a plain abort.
+ */
+type HookAbortKind = 'timeout' | 'aborted'
+
+/**
+ * Reason strings posted into the plugin VM's `onabort` event. Deliberately a
+ * closed set: an arbitrary host-side `signal.reason` must never cross the
+ * sandbox boundary.
+ */
+const HOOK_ABORT_REASON: Record<HookAbortKind, string> = {
+  timeout: 'plugin hook timed out',
+  aborted: 'plugin hook aborted',
+}
+
+/**
+ * Margin between the caller's deadline and this bridge's defensive timer, so
+ * the two never race for the same tick. See `callHook`.
+ */
+const HOOK_DEFENSIVE_TIMEOUT_GRACE_MS = 500
+
+function abortKindOf(signal: AbortSignal): HookAbortKind {
+  return signal.reason === 'timeout' ? 'timeout' : 'aborted'
+}
+
+function hookAbortError(
+  kind: HookAbortKind,
+  timeoutMs: number
+): Error & { code?: string } {
+  const e: Error & { code?: string } =
+    kind === 'timeout'
+      ? new Error(`plugin hook timed out after ${timeoutMs}ms`)
+      : new Error(HOOK_ABORT_REASON.aborted)
+  e.code = kind === 'timeout' ? 'plugin.hook.timeout' : 'plugin.hook.aborted'
+  return e
+}
+
 const CAPABILITY_PERMISSIONS: Record<string, ReadonlyArray<string>> = {
   http: ['http'],
   notify: ['notify'],
@@ -1521,7 +1561,7 @@ export class CapabilityBridge {
   }
 
   /** Cancel only the invocation captured by callHook's signal/deadline. */
-  private notifyAbort(scope: HookInvocationScopeV1): void {
+  private notifyAbort(scope: HookInvocationScopeV1, kind: HookAbortKind): void {
     if (
       this.disposed ||
       !this.currentInvocationScope ||
@@ -1533,7 +1573,7 @@ export class CapabilityBridge {
       type: 'event',
       event: 'abort',
       ...scope,
-      reason: 'plugin hook aborted',
+      reason: HOOK_ABORT_REASON[kind],
     })
     this.abortHttpCalls(
       (entry) =>
@@ -1855,12 +1895,13 @@ export class CapabilityBridge {
    *
    * @param hook        Hook name as registered by the plugin.
    * @param taskId      Stable task id to send in `hookEnter`.
-   * @param signal      AbortSignal from the host-owned HookAbortBudget; if it
-   *                    fires (timeout or external abort), this rejects with
+   * @param signal      AbortSignal from the host-owned HookAbortBudget. A
+   *                    deadline overrun (reason `'timeout'`) rejects with
+   *                    `plugin.hook.timeout`; any other abort rejects with
    *                    `plugin.hook.aborted`.
    * @param timeoutMs   Defensive timeout in case the worker never replies
-   *                    (e.g. crash). Generally the AbortBudget's deadline is
-   *                    shorter; this is the upper bound.
+   *                    (e.g. crash). Armed at `timeoutMs` plus a grace margin
+   *                    so it never races the caller's own deadline.
    */
   callHook(
     hook: HookName,
@@ -1927,37 +1968,34 @@ export class CapabilityBridge {
     }
 
     return new Promise<HookEffectsV1>((resolve, reject) => {
-      const onAbort = () => {
-        if (this.pendingHook && sameHookScope(this.pendingHook.scope, scope)) {
-          this.notifyAbort(scope)
-          this.pendingHook.detach()
-          this.pendingHook = null
-          this.clearHookContext()
-          const e: Error & { code?: string } = new Error('plugin hook aborted')
-          e.code = 'plugin.hook.aborted'
-          reject(e)
+      const settleAborted = (kind: HookAbortKind): void => {
+        if (
+          !this.pendingHook ||
+          !sameHookScope(this.pendingHook.scope, scope)
+        ) {
+          return
         }
+        this.notifyAbort(scope, kind)
+        this.pendingHook.detach()
+        this.pendingHook = null
+        this.clearHookContext()
+        reject(hookAbortError(kind, timeoutMs))
       }
-      const timer = setTimeout(() => {
-        if (this.pendingHook && sameHookScope(this.pendingHook.scope, scope)) {
-          this.notifyAbort(scope)
-          this.pendingHook.detach()
-          this.pendingHook = null
-          this.clearHookContext()
-          const e: Error & { code?: string } = new Error(
-            `plugin hook timed out after ${timeoutMs}ms`
-          )
-          e.code = 'plugin.hook.timeout'
-          reject(e)
-        }
-      }, timeoutMs)
+      // The caller's budget and this defensive timer watch the same deadline.
+      // Without the grace margin the two fire in the same tick and whichever
+      // wins decides the message, so a plain deadline overrun could surface as
+      // the uninformative 'plugin hook aborted'. The caller's signal is the
+      // authority; this timer only covers callers that pass none.
+      const onAbort = () => settleAborted(abortKindOf(signal))
+      const timer = setTimeout(
+        () => settleAborted('timeout'),
+        timeoutMs + HOOK_DEFENSIVE_TIMEOUT_GRACE_MS
+      )
 
       if (signal.aborted) {
         clearTimeout(timer)
         this.clearHookContext()
-        const e: Error & { code?: string } = new Error('plugin hook aborted')
-        e.code = 'plugin.hook.aborted'
-        reject(e)
+        reject(hookAbortError(abortKindOf(signal), timeoutMs))
         return
       }
 

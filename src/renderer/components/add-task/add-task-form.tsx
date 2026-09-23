@@ -25,7 +25,10 @@ import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import type { ParsedTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
-import { usePlatformServices } from '@renderer/platform/services'
+import {
+  type PlatformServices,
+  usePlatformServices,
+} from '@renderer/platform/services'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
@@ -58,6 +61,11 @@ import {
   readPendingCreates,
   rememberPendingCreate,
 } from './pending-create-inputs'
+import {
+  parsePathTooLong,
+  parsePluginChainAbort,
+  taskCreateFailureReason,
+} from './task-create-failure'
 import { TorrentTabPanel } from './torrent-tab-panel'
 import { parseUrlLines } from './url-interpreters/multiline-url'
 import {
@@ -89,13 +97,33 @@ interface LocalTorrentQueue {
   currentIndex: number
 }
 
-function taskCreateFailureReason(error: unknown): string | null {
-  if (!(error instanceof Error)) return null
-  const reason = error.message
-    .replace(/^Error invoking remote method '[^']+':\s*/u, '')
-    .replace(/^(?:AppError|Error):\s*/u, '')
-    .trim()
-  return reason || null
+/**
+ * Notify the failure, preferring the plugin-attributed message when the chain
+ * was aborted by a plugin: the raw text names an internal chain and gives the
+ * user no way to act, while the plugin id plus "disable it in Settings" does.
+ */
+function notifyTaskCreateFailure(
+  notify: PlatformServices['notify'],
+  reason: string | null
+): void {
+  if (!reason) {
+    notify('error', 'task.add.createFailed')
+    return
+  }
+  const abort = parsePluginChainAbort(reason)
+  if (abort) {
+    notify('error', 'task.add.createFailedByPlugin', {
+      pluginId: abort.pluginId,
+      detail: abort.detail,
+    })
+    return
+  }
+  const tooLong = parsePathTooLong(reason)
+  if (tooLong) {
+    notify('error', 'task.add.createFailedPathTooLong', { ...tooLong })
+    return
+  }
+  notify('error', 'task.add.createFailedWithReason', { reason })
 }
 
 export function AddTaskForm({
@@ -584,13 +612,7 @@ export function AddTaskForm({
             failed,
           })
         } else if (failed > 0) {
-          if (firstFailureReason) {
-            platform.notify('error', 'task.add.createFailedWithReason', {
-              reason: firstFailureReason,
-            })
-          } else {
-            platform.notify('error', 'task.add.createFailed')
-          }
+          notifyTaskCreateFailure(platform.notify, firstFailureReason)
         }
         if (successes.length > 0 && failed === 0) {
           await completeCurrentSubmission(
@@ -658,12 +680,7 @@ export function AddTaskForm({
       await completeConflict(result.taskId)
     } catch (error) {
       console.error(error)
-      const reason = taskCreateFailureReason(error)
-      if (reason) {
-        platform.notify('error', 'task.add.createFailedWithReason', { reason })
-      } else {
-        platform.notify('error', 'task.add.createFailed')
-      }
+      notifyTaskCreateFailure(platform.notify, taskCreateFailureReason(error))
     } finally {
       setSubmitting(false)
     }

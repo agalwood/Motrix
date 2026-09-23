@@ -8,12 +8,8 @@ import { parseManifest } from './parse'
 // Each builtin ships a config schema whose field titles MUST localize through
 // the manifest %placeholder% mechanism. Without a resolvable title the renderer
 // (PluginSettingsForm) falls back to a non-existent app i18next key and shows a
-// raw string like "plugin.motrix.scraper-hook.settings.enabled.title".
-const BUILTINS = [
-  'motrix.scraper-hook',
-  'motrix.filename-template',
-  'motrix.url-resolver',
-] as const
+// raw string like "plugin.motrix.url-resolver.settings.quality.title".
+const BUILTINS = ['motrix.filename-template', 'motrix.url-resolver'] as const
 
 const PLACEHOLDER_RE = /%[\w.-]+%/
 

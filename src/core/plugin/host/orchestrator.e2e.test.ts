@@ -326,23 +326,38 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
     const response = Promise.withResolvers<void>()
     let requests = 0
     dispatcher
-      .get('https://example.test')
-      .intercept({ method: 'HEAD', path: '/archive.zip' })
+      .get('https://commons.wikimedia.org')
+      .intercept({
+        method: 'GET',
+        path: (value: string) => value.startsWith('/w/api.php'),
+      })
       .reply(async () => {
         requests += 1
         requestStarted.resolve()
         await response.promise
         return {
           statusCode: 200,
-          data: '',
+          data: JSON.stringify({
+            query: {
+              pages: {
+                1: {
+                  imageinfo: [
+                    {
+                      url: 'https://upload.wikimedia.org/wikipedia/commons/example.jpg',
+                    },
+                  ],
+                },
+              },
+            },
+          }),
           responseOptions: {
-            headers: { 'content-type': 'application/octet-stream' },
+            headers: { 'content-type': 'application/json' },
           },
         }
       })
       .persist()
     const harness = await makeHarness({ dispatcher })
-    const pluginId = 'motrix.scraper-hook'
+    const pluginId = 'motrix.url-resolver'
     enableOnly(harness, pluginId)
     await harness.host.activate(pluginId)
     const queuedEntry = Promise.withResolvers<void>()
@@ -354,7 +369,7 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
         return result
       }
     )
-    const url = 'https://example.test/archive.zip'
+    const url = 'https://commons.wikimedia.org/wiki/File:Example.jpg'
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       const active = harness.host.invokeHook(pluginId, 'beforeCreate', {
@@ -404,7 +419,7 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
     }
   }, 20_000)
 
-  it('keeps a repeated scraper request alive across the previous Hook deadline', async () => {
+  it('keeps a repeated plugin request alive across the previous Hook deadline', async () => {
     const dispatcher = new MockAgent()
     dispatcher.disableNetConnect()
     cleanups.push(() => dispatcher.close())
@@ -412,8 +427,11 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
     const response = Promise.withResolvers<void>()
     let requests = 0
     dispatcher
-      .get('https://example.test')
-      .intercept({ method: 'HEAD', path: '/WeChatWin.exe' })
+      .get('https://commons.wikimedia.org')
+      .intercept({
+        method: 'GET',
+        path: (value: string) => value.startsWith('/w/api.php'),
+      })
       .reply(async () => {
         requests += 1
         if (requests === 2) {
@@ -422,18 +440,30 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
         }
         return {
           statusCode: 200,
-          data: '',
+          data: JSON.stringify({
+            query: {
+              pages: {
+                1: {
+                  imageinfo: [
+                    {
+                      url: 'https://upload.wikimedia.org/wikipedia/commons/example.jpg',
+                    },
+                  ],
+                },
+              },
+            },
+          }),
           responseOptions: {
-            headers: { 'content-type': 'application/octet-stream' },
+            headers: { 'content-type': 'application/json' },
           },
         }
       })
       .persist()
     const harness = await makeHarness({ dispatcher })
-    enableOnly(harness, 'motrix.scraper-hook')
-    await harness.host.activate('motrix.scraper-hook')
+    enableOnly(harness, 'motrix.url-resolver')
+    await harness.host.activate('motrix.url-resolver')
     const invokeHook = vi.spyOn(harness.host, 'invokeHook')
-    const url = 'https://example.test/WeChatWin.exe'
+    const url = 'https://commons.wikimedia.org/wiki/File:Example.jpg'
     const saveDir = String.raw`C:\Users\tester\Downloads`
     // The production 10-second budget runs on a controlled host clock;
     // worker execution and the HTTP response are synchronized by promises.
@@ -456,7 +486,9 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
       const result = await second
       expect(result.aborted).not.toBe(true)
       if (result.aborted) throw new Error(result.reason)
-      expect(result.final.uris).toEqual([url])
+      expect(result.final.uris).toEqual([
+        'https://upload.wikimedia.org/wikipedia/commons/example.jpg',
+      ])
       expect(result.final.saveDir).toBe(saveDir)
       expect(requests).toBe(2)
       expect(harness.logs.filter((entry) => entry.level === 'warn')).toEqual([])
@@ -465,74 +497,6 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
       vi.useRealTimers()
     }
   }, 20_000)
-
-  it('scraper-hook performs real HEAD+GET and resolves a nested relative archive', async () => {
-    const requests: Array<{ method: string; host: string; path: string }> = []
-    const loopback = await createOriginPreservingLoopback(
-      (request, response) => {
-        requests.push({
-          method: request.method ?? '',
-          host: request.headers.host ?? '',
-          path: request.url ?? '',
-        })
-        if (
-          request.headers.host !== 'example.test' ||
-          request.url !== '/catalog/deep/page.html'
-        ) {
-          response.writeHead(421).end()
-          return
-        }
-        response.setHeader('content-type', 'text/html; charset=utf-8')
-        if (request.method === 'HEAD') {
-          response.writeHead(200).end()
-          return
-        }
-        if (request.method === 'GET') {
-          response
-            .writeHead(200)
-            .end('<html><a href="../archives/release.zip">download</a></html>')
-          return
-        }
-        response.writeHead(405).end()
-      }
-    )
-    cleanups.push(() => loopback.close())
-
-    const harness = await makeHarness({
-      dispatcher: loopback.dispatcher,
-      config: {
-        'motrix.scraper-hook': { enabled: true, maxBodyBytes: 64 << 10 },
-      },
-    })
-    enableOnly(harness, 'motrix.scraper-hook')
-    const taskId = 'builtin-scraper-task'
-    const result = await harness.orchestrator.runBeforeCreateHttp(
-      beforeCreate(
-        taskId,
-        'https://example.test/catalog/deep/page.html',
-        harness.root
-      ),
-      taskId
-    )
-
-    if (result.aborted) throw new Error(result.reason)
-    expect(harness.logs.filter((entry) => entry.level === 'warn')).toEqual([])
-    expect(requests).toEqual([
-      {
-        method: 'HEAD',
-        host: 'example.test',
-        path: '/catalog/deep/page.html',
-      },
-      {
-        method: 'GET',
-        host: 'example.test',
-        path: '/catalog/deep/page.html',
-      },
-    ])
-    expect(result.final.uris).toEqual([
-      'https://example.test/catalog/archives/release.zip',
-    ])
-  }, 30_000)
 
   it('url-resolver keeps the Commons API transport authorized and emits the API-selected upload URL', async () => {
     const requests: Array<{ method: string; host: string; path: string }> = []

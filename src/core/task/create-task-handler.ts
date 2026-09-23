@@ -89,6 +89,7 @@ import {
   sanitizeRemoteFilename,
 } from './direct-resource-validator'
 import type { FinalNamePicker } from './final-name-picker'
+import { findPathOverrun } from './path-length'
 import { toTempPath } from './paths'
 import {
   admitDownloadSources,
@@ -537,6 +538,27 @@ async function handleCreateTaskUnderAdmission(
   const btStoragePlan = isTorrentLikeType(taskType)
     ? createBtDirectStoragePlan(finalPath, parsedBtLayout, torrentMetaPath)
     : null
+
+  // Fail before a single byte moves when a destination cannot be opened at
+  // all. Windows caps a path at MAX_PATH and reports the overrun as
+  // ERROR_PATH_NOT_FOUND mid-download, so without this the user pays for the
+  // transfer first and then reads a misleading "cannot find the path" error
+  // (agalwood/Motrix#2183). A .torrent declares its internal paths up front,
+  // so the deep nesting that actually overruns is knowable here; a magnet's
+  // is not, and falls back to the terminal-error classifier.
+  const plannedPaths = [diskPath, finalPath]
+  for (const file of parsedBtLayout?.files ?? []) {
+    if (file.pathInsideRoot) {
+      plannedPaths.push(path.join(finalPath, file.pathInsideRoot))
+    }
+  }
+  const overrun = findPathOverrun(plannedPaths, process.platform)
+  if (overrun) {
+    throw new AppError(
+      ErrorCode.TaskPathTooLong,
+      `task path too long: ${overrun.length}/${overrun.limit}: ${overrun.path}`
+    )
+  }
 
   // Create the engine's directory before admission so aria2 can persist its
   // torrent metadata. Multi-file BT uses its private metadata directory and

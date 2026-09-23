@@ -963,6 +963,8 @@
       "clearSelection": "Clear selection",
       "createFailed": "Failed to create download task.",
       "createFailedWithReason": "Failed to create download task: {{reason}}",
+      "createFailedByPlugin": "Couldn’t create the task: the plugin “{{pluginId}}” stopped it ({{detail}}). Disable that plugin under Settings → Plugins, then try again.",
+      "createFailedPathTooLong": "Couldn’t create the task: the destination path is {{length}} characters, over the Windows limit of {{limit}}. Choose a shorter save folder or file name.",
       "parseFailed": "Failed to parse torrent file.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
@@ -1113,7 +1115,8 @@
         "renameDirFailed": "Failed to rename the directory: {{cause}}",
         "pluginChainAborted": "Plugin chain aborted: {{cause}}",
         "magnetCleanupQuarantined": "Magnet metadata cleanup is quarantined",
-        "muxFailed": "Failed to mux the downloaded media"
+        "muxFailed": "Failed to mux the downloaded media",
+        "pathTooLong": "The path is {{length}} characters; Windows allows {{limit}}"
       },
       "reason": {
         "unknown": "Download failed",
@@ -1123,6 +1126,7 @@
         "timeout": "Download timed out",
         "diskFull": "Disk is full",
         "fileWriteError": "Could not write the file",
+        "pathTooLong": "File path is too long for Windows",
         "checksumMismatch": "File checksum did not match",
         "tooManyRedirects": "Too many redirects",
         "serverError": "Server returned an error",
@@ -1136,6 +1140,7 @@
         "networkError": "Check your network connection, then retry",
         "timeout": "Check your connection speed and stability, then retry",
         "fileWriteError": "Check folder permissions and available disk space, then retry",
+        "pathTooLong": "Shorten the save folder or the file name, or enable Windows long path support, then retry",
         "checksumMismatch": "The downloaded file may be corrupted; re-download to verify it",
         "tooManyRedirects": "The source link may be broken; try a different link",
         "btMetadataFailed": "Check the magnet link or add more trackers, then retry"

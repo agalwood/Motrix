@@ -443,6 +443,65 @@ describe('reAddTask (HTTP path)', () => {
     )
   })
 
+  it('resumes from a checkpoint the engine reports without any .aria2 file', async () => {
+    // sqlite3 persistence keeps the checkpoint in aria2.db, so there is no
+    // <file>.aria2 on disk. The engine answers where it keeps it; the retry
+    // after a network drop must resume, not fail checkpoint-missing (#2187).
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-readd-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          resourceValidator: {
+            kind: 'strong-etag',
+            value: '"release-v1"',
+            contentLength: 4096,
+            capturedAt: 7,
+          },
+        },
+      }
+      const deps = makeDeps(task)
+      const getCheckpointStatus = vi.fn(async () => 'present' as const)
+      deps.adapter.getCheckpointStatus = getCheckpointStatus
+
+      await reAddTask('t2', {
+        ...deps,
+        directResourceValidator: {
+          verify: vi.fn(async () => ({
+            outcome: 'unchanged' as const,
+            ifRange: '"release-v1"',
+          })),
+        },
+        getDirectResourceProxyOptions: () => ({
+          proxy: '',
+          noProxy: '',
+          userAgent: 'Motrix/Verified',
+        }),
+      })
+
+      expect(getCheckpointStatus).toHaveBeenCalledWith(diskPath)
+      expect(deps.adapter.createDownload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filename: 'file.zip.motrix',
+          resumePolicy: 'checkpoint',
+        })
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
   it('uses checkpoint resume for a non-empty HTTP partial with .aria2 state', async () => {
     const tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'motrix-direct-readd-')
