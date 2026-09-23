@@ -30,11 +30,11 @@ import {
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
 import {
+  classifyTerminalError,
   computeEta,
   derivePathsFromRaw,
   extractUris,
   translateBtExtension,
-  translateErrorCode,
   translateRawToTask,
   translateStatus,
 } from '../engine/aria2/translate'
@@ -1275,7 +1275,7 @@ export class SessionManager {
       {
         finishedAt: aria2.status === 'complete' ? now : null,
         errorMessage: aria2.errorMessage ?? null,
-        errorCode: translateErrorCode(aria2.errorCode),
+        ...classifyTerminalError(aria2.errorCode, aria2.errorMessage),
       },
       now
     )

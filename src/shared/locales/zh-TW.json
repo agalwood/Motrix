@@ -951,6 +951,8 @@
       "clearSelection": "清除選取項目",
       "createFailed": "無法建立下載任務。",
       "createFailedWithReason": "無法建立下載任務：{{reason}}",
+      "createFailedByPlugin": "建立任務失敗：外掛「{{pluginId}}」中斷了任務建立（{{detail}}）。可在「設定 → 外掛」中停用該外掛後重試。",
+      "createFailedPathTooLong": "建立任務失敗：目標路徑長 {{length}} 個字元，超出 Windows 上限 {{limit}}。請改用更短的儲存目錄或檔名。",
       "parseFailed": "無法解析 Torrent 檔案。",
       "urlsCount_other": "{{count}} 個 URL",
       "urlsWithInvalid": "{{valid}} 個有效，{{invalid}} 個無效",
@@ -1099,7 +1101,8 @@
         "renameDirFailed": "無法重新命名目錄：{{cause}}",
         "pluginChainAborted": "外掛程式鏈已中止：{{cause}}",
         "magnetCleanupQuarantined": "Magnet 中繼資料清理作業已隔離",
-        "muxFailed": "無法合併已下載的媒體"
+        "muxFailed": "無法合併已下載的媒體",
+        "pathTooLong": "路徑長度 {{length}} 個字元，Windows 上限為 {{limit}} 個字元"
       },
       "reason": {
         "unknown": "下載失敗",
@@ -1109,6 +1112,7 @@
         "timeout": "下載逾時",
         "diskFull": "磁碟空間已滿",
         "fileWriteError": "無法寫入檔案",
+        "pathTooLong": "檔案路徑超出 Windows 長度上限",
         "checksumMismatch": "檔案總和檢查不符",
         "tooManyRedirects": "重新導向次數過多",
         "serverError": "伺服器傳回錯誤",
@@ -1122,6 +1126,7 @@
         "networkError": "請檢查網路連線，然後重試",
         "timeout": "請檢查連線速度與穩定性，然後重試",
         "fileWriteError": "請檢查資料夾權限與可用磁碟空間，然後重試",
+        "pathTooLong": "縮短儲存目錄或檔名後重試；也可在 Windows 中啟用長路徑支援",
         "checksumMismatch": "下載的檔案可能損毀，請重新下載以驗證",
         "tooManyRedirects": "來源連結可能失效，請嘗試其他連結",
         "btMetadataFailed": "請檢查 Magnet 連結或新增更多 Tracker，然後重試"

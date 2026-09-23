@@ -51,6 +51,7 @@ const ERROR_REASON_LEAF: Readonly<Record<DownloadErrorCode, string>> = {
   DL_TIMEOUT: 'timeout',
   DL_DISK_FULL: 'diskFull',
   DL_FILE_WRITE_ERROR: 'fileWriteError',
+  DL_PATH_TOO_LONG: 'pathTooLong',
   DL_CHECKSUM_MISMATCH: 'checksumMismatch',
   DL_TOO_MANY_REDIRECTS: 'tooManyRedirects',
   DL_SERVER_ERROR: 'serverError',

@@ -3,6 +3,7 @@ import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { describe, expect, it } from 'vitest'
 import {
   bitfieldProgress,
+  classifyTerminalError,
   decodeAria2PeerId,
   derivePathsFromRaw,
   translateErrorCode,
@@ -363,5 +364,65 @@ describe('translatePeer', () => {
     expect(peer.seeder).toBe(true)
     expect(peer.amChoking).toBe(true)
     expect(peer.peerChoking).toBe(false)
+  })
+})
+
+describe('classifyTerminalError', () => {
+  const OVER_LIMIT = String.raw`F:\Game\Dead Cells (2018).motrix\Dead Cells (2018)\Bonuses\Dead Cells - Demake Soundtrack\FLAC Yoann Laulan - Dead Cells - Soundtrack Part 2 (Demake) FLAC\Yoann Laulan - Dead Cells - Soundtrack Part 2 (Demake) - 21 The Time Keeper Formerly Known As Assassin.flac`
+
+  it('re-reads a file-open failure over MAX_PATH as a path-length error', () => {
+    expect(
+      classifyTerminalError(
+        '16',
+        `Failed to open the file ${OVER_LIMIT}, cause: The system cannot find the path specified.`,
+        'win32'
+      )
+    ).toEqual({
+      errorCode: DownloadErrorCode.PathTooLong,
+      errorDetailKey: 'task.error.detail.pathTooLong',
+      errorDetailParams: { length: '262', limit: '259', path: OVER_LIMIT },
+    })
+  })
+
+  it('leaves a genuine write failure alone when the path fits', () => {
+    expect(
+      classifyTerminalError(
+        '16',
+        'Failed to open the file C:/d/a.bin, cause: Access is denied.',
+        'win32'
+      )
+    ).toEqual({
+      errorCode: DownloadErrorCode.FileWriteError,
+      errorDetailKey: null,
+      errorDetailParams: null,
+    })
+  })
+
+  it('does not reclassify on platforms without the MAX_PATH cap', () => {
+    expect(
+      classifyTerminalError(
+        '16',
+        `Failed to open the file ${OVER_LIMIT}, cause: nope`,
+        'darwin'
+      ).errorCode
+    ).toBe(DownloadErrorCode.FileWriteError)
+  })
+
+  it('does not reclassify an unrelated error code that mentions a long path', () => {
+    expect(
+      classifyTerminalError(
+        '6',
+        `Failed to open the file ${OVER_LIMIT}, cause: nope`,
+        'win32'
+      ).errorCode
+    ).toBe(DownloadErrorCode.NetworkError)
+  })
+
+  it('passes through when there is no error', () => {
+    expect(classifyTerminalError('0', null, 'win32')).toEqual({
+      errorCode: null,
+      errorDetailKey: null,
+      errorDetailParams: null,
+    })
   })
 })
