@@ -20,7 +20,7 @@ const CHILD = '2222222222222222'
 const OTHER = '3333333333333333'
 const folders: string[] = []
 
-async function setup(state = 'paused') {
+async function setup(state = 'paused', schemaVersion: 2 | 3 = 2) {
   const root = await mkdtemp(path.join(tmpdir(), 'motrix-identity-'))
   folders.push(root)
   const file = path.join(root, 'aria2.db')
@@ -36,11 +36,17 @@ async function setup(state = 'paused') {
   const db = new Database(file)
   db.pragma('foreign_keys = ON')
   db.pragma('journal_mode = WAL')
-  db.pragma('user_version = 2')
+  db.pragma(`user_version = ${schemaVersion}`)
+  // Schema v3 (aria2_motrix 1.37.0-motrix.15) addresses checkpoints by output
+  // path and no longer cascades them from task.
+  const progressTable =
+    schemaVersion === 3
+      ? 'CREATE TABLE task_progress(gid TEXT NOT NULL, bitfield BLOB, out_path TEXT UNIQUE);'
+      : 'CREATE TABLE task_progress(gid TEXT PRIMARY KEY REFERENCES task(gid) ON DELETE CASCADE, bitfield BLOB);'
   db.exec(`
     CREATE TABLE task(gid TEXT PRIMARY KEY, state TEXT, serialized TEXT,
       digest BLOB, bt_local_path TEXT, updated_at INTEGER, queue_position INTEGER);
-    CREATE TABLE task_progress(gid TEXT PRIMARY KEY REFERENCES task(gid) ON DELETE CASCADE, bitfield BLOB);
+    ${progressTable}
     CREATE TABLE task_cookie_context(gid TEXT PRIMARY KEY REFERENCES task(gid) ON DELETE CASCADE, secret TEXT);
     CREATE TABLE download_history(id INTEGER PRIMARY KEY, gid TEXT, status TEXT, followed_by TEXT);
   `)
@@ -60,7 +66,7 @@ async function setup(state = 'paused') {
     Buffer.from('other-digest'),
     2
   )
-  db.prepare('INSERT INTO task_progress VALUES (?, ?)').run(
+  db.prepare('INSERT INTO task_progress (gid, bitfield) VALUES (?, ?)').run(
     CHILD,
     Buffer.from([0xaa, 0xc0])
   )
@@ -288,10 +294,29 @@ describe('aria2 persisted task identity recovery', () => {
     }
   })
 
+  it('repairs a schema-v3 database and retires the ancestor checkpoint explicitly', async () => {
+    // v3 dropped the task→task_progress CASCADE, so retiring the metadata
+    // ancestor must delete its checkpoint itself or it would outlive the task.
+    const h = await setup('paused', 3)
+    try {
+      h.db
+        .prepare('INSERT INTO task_progress (gid, bitfield) VALUES (?, ?)')
+        .run(PARENT, Buffer.from([0xff]))
+      const result = await recoverAria2SessionIdentity(h.file)
+      expect(result?.repairedGids).toEqual([CHILD])
+      expect(result?.retiredMetadataGids).toEqual([PARENT])
+      expect(
+        h.db.prepare('SELECT gid, bitfield FROM task_progress').all()
+      ).toEqual([{ gid: CHILD, bitfield: Buffer.from([0xaa, 0xc0]) }])
+    } finally {
+      h.db.close()
+    }
+  })
+
   it('leaves an unfamiliar future schema unchanged', async () => {
     const h = await setup()
     try {
-      h.db.pragma('user_version = 3')
+      h.db.pragma('user_version = 4')
       const before = h.rows()
       expect(await recoverAria2SessionIdentity(h.file)).toBeNull()
       expect(h.rows()).toEqual(before)
