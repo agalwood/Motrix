@@ -37,9 +37,11 @@ vi.mock('electron', () => {
     loadFile = vi.fn().mockResolvedValue(undefined)
     show = vi.fn(() => {
       this._visible = true
+      this.fireOnce('show')
     })
     showInactive = vi.fn(() => {
       this._visible = true
+      this.fireOnce('show')
     })
     hide = vi.fn(() => {
       this._visible = false
@@ -56,7 +58,10 @@ vi.mock('electron', () => {
     isFullScreen = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
     getNormalBounds = vi.fn(() => ({ ...this._bounds }))
-    maximize = vi.fn()
+    maximize = vi.fn(() => {
+      // Electron also reveals a hidden window when maximizing it.
+      if (!this._visible) this.showInactive()
+    })
     setBounds = vi.fn(
       (b: { x: number; y: number; width: number; height: number }) => {
         this._bounds = b
@@ -78,10 +83,14 @@ vi.mock('electron', () => {
     })
     removeAllListeners = vi.fn().mockReturnThis()
 
-    fireReadyToShow() {
-      const listeners = this.onceListeners['ready-to-show'] ?? []
-      this.onceListeners['ready-to-show'] = []
+    fireOnce(event: string) {
+      const listeners = this.onceListeners[event] ?? []
+      this.onceListeners[event] = []
       for (const fn of listeners) fn()
+    }
+
+    fireReadyToShow() {
+      this.fireOnce('ready-to-show')
     }
 
     static instances = instances
@@ -800,8 +809,49 @@ describe('WindowManager', () => {
       width: 1024,
       height: 768,
     })
+    expect(win.maximize).not.toHaveBeenCalled()
+    ;(win as unknown as { fireReadyToShow(): void }).fireReadyToShow()
     expect(win.maximize).toHaveBeenCalledOnce()
   })
+
+  it.each(['show', 'toggle', 'open'] as const)(
+    'keeps a maximized background window hidden until %s is requested',
+    (action) => {
+      const saved = {
+        x: 100,
+        y: 100,
+        width: 1024,
+        height: 768,
+        maximized: true,
+      }
+      const sm = createMockSettingsManager({ main: saved })
+      const wm = new WindowManager({
+        settingsManager: sm,
+        platform: 'win32',
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      const win = wm.open('main', { show: false })
+      ;(win as unknown as { fireReadyToShow(): void }).fireReadyToShow()
+      expect(win.isVisible()).toBe(false)
+      expect(win.maximize).not.toHaveBeenCalled()
+      wm.saveBounds('main')
+      expect(sm.update).toHaveBeenCalledWith({ windowState: { main: saved } })
+
+      wm[action]('main')
+      expect(win.isVisible()).toBe(true)
+      expect(win.maximize).toHaveBeenCalledOnce()
+      wm.hide('main')
+      wm.show('main')
+      expect(win.maximize).toHaveBeenCalledOnce()
+      // After first reveal, the live window state takes precedence again.
+      vi.mocked(win.isMaximized).mockReturnValue(false)
+      wm.saveBounds('main')
+      expect(sm.update).toHaveBeenLastCalledWith({
+        windowState: { main: { ...saved, maximized: false } },
+      })
+    }
+  )
 
   it('ignores saved bounds if outside all screens', () => {
     const savedBounds = { x: 5000, y: 5000, width: 1024, height: 768 }
