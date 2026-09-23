@@ -224,7 +224,6 @@ no-op。
 测试从 `scripts/builtins.lock.json` 读取精确 archive，并在安装前断言 size、
 SHA-256、signature。构建 bundle 必须通过 PluginHost/QuickJS 真正调用：
 
-- scraper-hook 走真实 loopback HEAD+GET，解析嵌套相对 archive URL；
 - url-resolver 通过保留授权 URL/Host 的真实 loopback transport 完成 Commons
   page/API 流程，再返回独立接受的 `upload.wikimedia.org` URL；
 - filename-template 同步读取 `ctx.metadata.getAll()`、渲染嵌套值、经历 idle

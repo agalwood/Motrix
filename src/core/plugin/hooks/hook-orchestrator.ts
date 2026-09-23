@@ -31,6 +31,7 @@ import type {
   OnErrorContextDTO,
 } from '@shared/types/plugin-hooks'
 import type { CapabilityHost } from '../capabilities/interface'
+import { CircuitBreaker as RealCircuitBreaker } from '../circuit/circuit-breaker'
 import type { ActivationDispatcher } from '../host/activation-dispatcher'
 import type { ActivePluginInfo, PluginHost } from '../host/plugin-host'
 import { newHookAbort } from './abort'
@@ -76,7 +77,13 @@ export interface OrchestratorOptions {
   ffmpegStagingQuotaBytes?: number
   /** Optional NDJSON audit log; T15 wires the real instance. */
   auditLog?: HookAuditLog
-  /** Optional circuit breaker; T16 wires the real instance. */
+  /**
+   * Circuit breaker for per-(plugin, hook) failure accounting. Optional only
+   * so callers can substitute a stub: when omitted the orchestrator builds a
+   * real one. It must never be absent in effect — a `pre-resolve` plugin that
+   * fails every chain would otherwise block task creation forever, with no
+   * skip and no auto-disable (the #2189 failure mode).
+   */
   breaker?: CircuitBreaker
 }
 
@@ -141,7 +148,11 @@ function roleFromManifest(
 // ---------------------------------------------------------------------------
 
 export class HookOrchestrator {
-  constructor(private readonly opts: OrchestratorOptions) {}
+  private readonly breaker: CircuitBreaker
+
+  constructor(private readonly opts: OrchestratorOptions) {
+    this.breaker = opts.breaker ?? new RealCircuitBreaker()
+  }
 
   // -------------------------------------------------------------------------
   // beforeCreate (HTTP)
@@ -178,7 +189,7 @@ export class HookOrchestrator {
     let working = cloneBeforeCreate(initial)
 
     for (const entry of chain) {
-      if (this.opts.breaker?.isOpen(entry.id, 'beforeCreate')) {
+      if (this.breaker.isOpen(entry.id, 'beforeCreate')) {
         // Breaker open — skip this plugin entirely. Treated like fail-open:
         // resolve/post-process being skipped is a host policy decision, not a
         // plugin failure, so the chain continues regardless of band.
@@ -217,10 +228,10 @@ export class HookOrchestrator {
           'http',
           'https',
         ]).map((source) => source.sourceUrl)
-        this.opts.breaker?.success(entry.id, 'beforeCreate')
+        this.breaker.success(entry.id, 'beforeCreate')
       } catch (e) {
         if (e instanceof DownloadSourceError) throw e
-        this.opts.breaker?.failure(entry.id, 'beforeCreate')
+        this.breaker.failure(entry.id, 'beforeCreate')
         await this.maybeDisable(entry.id, 'beforeCreate')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
@@ -311,7 +322,7 @@ export class HookOrchestrator {
     let working = cloneBeforeFinalize(initial)
 
     for (const entry of chain) {
-      if (this.opts.breaker?.isOpen(entry.id, 'beforeFinalize')) {
+      if (this.breaker.isOpen(entry.id, 'beforeFinalize')) {
         await this.opts.auditLog?.log({
           type: 'chain.skip',
           hook: 'beforeFinalize',
@@ -374,9 +385,9 @@ export class HookOrchestrator {
             targetFilePath: nextTarget,
           }
         }
-        this.opts.breaker?.success(entry.id, 'beforeFinalize')
+        this.breaker.success(entry.id, 'beforeFinalize')
       } catch (e) {
-        this.opts.breaker?.failure(entry.id, 'beforeFinalize')
+        this.breaker.failure(entry.id, 'beforeFinalize')
         await this.maybeDisable(entry.id, 'beforeFinalize')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
@@ -460,7 +471,7 @@ export class HookOrchestrator {
     const timeout = this.opts.hookTimeoutMs.parallel
 
     const work = chain.map(async (entry) => {
-      if (this.opts.breaker?.isOpen(entry.id, hook)) {
+      if (this.breaker.isOpen(entry.id, hook)) {
         await this.opts.auditLog?.log({
           type: 'chain.skip',
           hook,
@@ -490,9 +501,9 @@ export class HookOrchestrator {
             taskId,
           },
         })
-        this.opts.breaker?.success(entry.id, hook)
+        this.breaker.success(entry.id, hook)
       } catch (e) {
-        this.opts.breaker?.failure(entry.id, hook)
+        this.breaker.failure(entry.id, hook)
         await this.maybeDisable(entry.id, hook)
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -608,7 +619,7 @@ export class HookOrchestrator {
    * up and break the running hook chain's fail-mode handling.
    */
   private async maybeDisable(pluginId: string, hook: AnyHook): Promise<void> {
-    if (!this.opts.breaker?.isOpen(pluginId, hook)) return
+    if (!this.breaker.isOpen(pluginId, hook)) return
     try {
       await this.opts.host.disable(pluginId, 'circuit_open')
     } catch {

@@ -53,8 +53,6 @@ const COMPANION_PAIR_FRAME_HEX =
 const BUILTIN_SIGNATURE_DIGESTS = Object.freeze({
   'motrix.filename-template-1.1.1.moext.sig':
     '5b6bfcc74e0d923ed37c4f2340bfdc4cdac30f64191a15ce5c46ddc86590bc6d',
-  'motrix.scraper-hook-1.0.0.moext.sig':
-    '7403d5ec5f61819370bcf153fe955e0736109b844c1eb53f959e6ebd0790be78',
   'motrix.url-resolver-1.0.0.moext.sig':
     '716af87eb2adbb4796ed6ac600c9b14840cb8354eb9ccebfe6122615ba88c17c',
 })

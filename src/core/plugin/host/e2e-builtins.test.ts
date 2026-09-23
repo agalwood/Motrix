@@ -123,19 +123,4 @@ describe('Built-in plugins via PluginHost', () => {
       await s.bridge.dispose()
     }
   })
-
-  it('M2: motrix.scraper-hook registers beforeCreate hook', async () => {
-    const s = await load('motrix.scraper-hook')
-    try {
-      expect(
-        s.registrations.some(
-          (r) => r.kind === 'hook' && r.key === 'beforeCreate'
-        )
-      ).toBe(true)
-      // No public commands; the hook itself is exercised via the
-      // HookOrchestrator suite, not directly here.
-    } finally {
-      await s.bridge.dispose()
-    }
-  })
 })

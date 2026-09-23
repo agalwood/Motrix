@@ -767,7 +767,6 @@ DTO、调度、提交、恢复和投递策略必须完全一致。
 
 | 插件 | 锁定发布版 | 必须通过的真实 Hook 验收 |
 |---|---:|---|
-| `motrix.scraper-hook` | 1.0.0 | `beforeCreate` 通过真实 HTTP capability 执行 HEAD 与 GET，并把嵌套的相对 archive URL 改写为目标 URL。 |
 | `motrix.url-resolver` | 1.0.0 | `beforeCreate` 的 API 请求与 redirect 始终位于 Commons host permission 内，再把独立 output policy 验证后的 `upload.wikimedia.org` URL 写回。 |
 | `motrix.filename-template` | 1.1.1 | `beforeFinalize` 读取 `ctx.metadata.getAll()`，渲染嵌套 metadata，并提交自动 no-clobber rename。 |
 

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { getLogger } from '@core/logger'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
+import { CircuitBreaker } from '@core/plugin/circuit/circuit-breaker'
 import { ArtifactMutationLeaseCoordinator } from '@core/plugin/finalize/artifact-mutation-lease'
 import { NativeFinalizeFilesystemAdapter } from '@core/plugin/finalize/filesystem-adapter'
 import { NativeFinalizeArtifactOperations } from '@core/plugin/finalize/native-artifact-operations'
@@ -79,13 +80,27 @@ export interface PluginRuntimeAssembly {
 export async function createPluginRuntime(
   options: PluginRuntimeFactoryOptions
 ): Promise<PluginRuntimeAssembly> {
+  const breakerLog = getLogger('plugin:circuit')
   const auditLog = new HookAuditLog(options.auditLogPath)
   const observability =
     options.observability ??
     createLoggingPostDeliveryObservability(getLogger('plugin:post-delivery'))
+  // A misbehaving plugin must degrade, not brick the app: three consecutive
+  // failures on the same (plugin, hook) evict it from later chains and
+  // disable it. Without this a `pre-resolve` builtin that fails every
+  // beforeCreate blocks every new task, permanently (issue #2189).
+  const breaker = new CircuitBreaker({
+    onOpen: (pluginId, hook, reason) => {
+      breakerLog.warn(
+        { pluginId, hook, reason },
+        'plugin circuit breaker opened; disabling plugin'
+      )
+    },
+  })
   const orchestrator = new HookOrchestrator({
     host: options.host,
     activationDispatcher: options.activation,
+    breaker,
     hookTimeoutMs: { series: 10_000, parallel: 30_000 },
     pluginsDir: options.pluginsDir,
     pluginStorageRootFor: (pluginId) =>
