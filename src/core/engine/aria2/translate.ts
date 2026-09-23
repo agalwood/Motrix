@@ -134,12 +134,13 @@ export interface TerminalErrorClassification {
 /**
  * Refine `translateErrorCode` with what the engine's message reveals.
  *
- * aria2 reports an over-long Windows destination as a plain file-open failure
- * carrying the OS text "The system cannot find the path specified"
- * (ERROR_PATH_NOT_FOUND), which the code-only mapping flattens into
+ * aria2 reports a Windows destination past the extended-length path limit as
+ * a plain file-open failure, which the code-only mapping flattens into
  * `FileWriteError` — surfaced to the user as "check folder permissions and
  * disk space", advice that cannot resolve it. Measuring the path aria2 names
- * separates the two causes. See agalwood/Motrix#2183.
+ * separates the two causes. Paths merely past MAX_PATH are not flagged: the
+ * engine opens those (agalwood/Motrix#2183), so a failure there is a genuine
+ * write error.
  */
 export function classifyTerminalError(
   rawErrorCode: string | null | undefined,

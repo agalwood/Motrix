@@ -540,12 +540,12 @@ async function handleCreateTaskUnderAdmission(
     : null
 
   // Fail before a single byte moves when a destination cannot be opened at
-  // all. Windows caps a path at MAX_PATH and reports the overrun as
-  // ERROR_PATH_NOT_FOUND mid-download, so without this the user pays for the
-  // transfer first and then reads a misleading "cannot find the path" error
-  // (agalwood/Motrix#2183). A .torrent declares its internal paths up front,
-  // so the deep nesting that actually overruns is knowable here; a magnet's
-  // is not, and falls back to the terminal-error classifier.
+  // all. The engine opens Windows paths past MAX_PATH (agalwood/Motrix#2183),
+  // but not past the extended-length limit (see path-length); without this
+  // the user would pay for the transfer before a generic write error. A
+  // .torrent declares its internal paths up front, so its deepest one is
+  // checkable here; a magnet's is not, and falls back to the terminal-error
+  // classifier.
   const plannedPaths = [diskPath, finalPath]
   for (const file of parsedBtLayout?.files ?? []) {
     if (file.pathInsideRoot) {
