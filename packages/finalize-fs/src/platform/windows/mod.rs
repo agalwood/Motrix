@@ -112,9 +112,15 @@ pub(crate) fn rename_opened_no_replace(
     ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
     let parts = validate_relative(target_relative)?;
     let (target_parent, target_name) = open_parent(&target.handle, &parts)?;
-    nt::rename_no_replace(&artifact.handle, &target_parent, &target_name)?;
+    nt::rename_no_replace_with_retry(&artifact.handle, &target_parent, &target_name)?;
     ensure_named_entry(&artifact.handle, &target_parent, &target_name)?;
     assert_name_absent(&artifact.parent, &artifact.name)?;
+    // Match the Unix durability contract: flush both mutated directories
+    // before reporting success, instead of depending on the host to flush
+    // after the sidecar could have crashed. flush_directory keeps the SMB
+    // remote-acknowledgement policy for directory flushes.
+    nt::flush_directory(&target_parent).map(|_| ())?;
+    nt::flush_directory(&artifact.parent).map(|_| ())?;
     Ok(())
 }
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { sanitizeFinalizePath } from '@core/fs/finalize-path'
 import { getLogger } from '@core/logger'
 import {
   ArtifactIdentityError,
@@ -59,13 +60,24 @@ export class DurableFinalizeRuntime {
   async commit(
     input: DurableFinalizeArtifactInput
   ): Promise<FinalizeCommitResult> {
+    // The final name can carry characters that Windows or exFAT volumes
+    // cannot reopen. Sanitize the final component once, before validation or
+    // identity capture, so journal, rebase and database all record the name
+    // the filesystem actually received.
+    const targetPath = sanitizeFinalizePath(input.targetPath)
+    if (targetPath !== input.targetPath) {
+      getLogger('finalize').info(
+        {
+          taskId: input.task.id,
+          requested: input.targetPath,
+          sanitized: targetPath,
+        },
+        'finalize_target_name_sanitized'
+      )
+    }
     // Reject invalid output plans before quiescing writers or hashing large files.
     try {
-      assertFinalizePaths(
-        input.task.saveDir,
-        input.sourcePath,
-        input.targetPath
-      )
+      assertFinalizePaths(input.task.saveDir, input.sourcePath, targetPath)
     } catch (err) {
       getLogger('finalize').warn(
         {
@@ -73,7 +85,7 @@ export class DurableFinalizeRuntime {
           phase: input.task.transitionPhase,
           saveDir: input.task.saveDir,
           sourcePath: input.sourcePath,
-          targetPath: input.targetPath,
+          targetPath,
           err,
         },
         'finalize_path_validation_failed'
@@ -97,12 +109,19 @@ export class DurableFinalizeRuntime {
         taskId: input.task.id,
         saveDir: input.task.saveDir,
         sourcePath: input.sourcePath,
-        targetPath: input.targetPath,
+        targetPath,
         sourceIdentity,
         replacement,
         metadataOps: input.metadataOps,
         contributors: input.contributors,
       })
+
+      // Rebase paths must follow the sanitized final component when the
+      // requested target named the same file.
+      const fileRebase =
+        input.fileRebase && input.fileRebase.targetRoot === input.targetPath
+          ? { ...input.fileRebase, targetRoot: targetPath }
+          : input.fileRebase
 
       return await this.options.session.persistFinalizedArtifact(
         input.task,
@@ -111,7 +130,7 @@ export class DurableFinalizeRuntime {
           metadataOps: input.metadataOps,
           postDeliveries: input.postDeliveries,
           beforeCommit: input.beforeCommit,
-          fileRebase: input.fileRebase,
+          fileRebase,
         },
         async (commitDatabase) => {
           const repository = new SqliteFinalizeJournalRepository(

@@ -2030,6 +2030,40 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     expect(task.status).toBe(TaskStatus.Completed)
   })
 
+  it('HTTP: a sanitized final name is deduplicated before publication', async () => {
+    // `a:b.txt` sanitizes to `a_b.txt`. That name was never reserved at create
+    // time, so an existing `a_b.txt` must yield `a_b (1).txt` instead of a
+    // no-replace rename failure.
+    const commitFinalizedArtifact = vi.fn(async () => {})
+    const finalNamePicker = { pick: vi.fn(async () => 'a_b (1).txt') }
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact,
+      finalNamePicker,
+    }
+    const task = makeTask({
+      diskPath: '/d/a:b.txt.motrix',
+      finalPath: '/d/a:b.txt',
+      finalName: 'a:b.txt',
+    })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(finalNamePicker.pick).toHaveBeenCalledWith('/d', 'a_b.txt')
+    expect(commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: '/d/a:b.txt.motrix',
+        targetPath: '/d/a_b (1).txt',
+        task: expect.objectContaining({ finalPath: '/d/a_b (1).txt' }),
+      })
+    )
+  })
+
   it('HTTP: durable commit failure preserves the recoverable rename intent', async () => {
     const deps: FinalizeTaskDeps = {
       ...makeDeps(),

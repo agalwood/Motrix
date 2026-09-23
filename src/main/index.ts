@@ -1166,6 +1166,7 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
         ? taskInspectorActivityRuntime.runTaskMutation(taskIds, operation)
         : operation(),
     log,
+    finalNamePicker,
     commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
       if (!durableFinalizeRuntime) {
         throw new Error('durable finalize runtime is unavailable')

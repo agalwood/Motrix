@@ -2,7 +2,39 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NativeFinalizeFilesystemAdapter } from './filesystem-adapter'
+import {
+  NativeFinalizeFilesystemAdapter,
+  normalizeSidecarRootPath,
+} from './filesystem-adapter'
+
+describe('normalizeSidecarRootPath', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('strips verbatim namespace prefixes on Windows only', () => {
+    const original = Object.getOwnPropertyDescriptor(process, 'platform')
+    try {
+      Object.defineProperty(process, 'platform', { value: 'win32' })
+      expect(normalizeSidecarRootPath('\\\\?\\C:\\Downloads')).toBe(
+        'C:\\Downloads'
+      )
+      expect(normalizeSidecarRootPath('\\\\?\\UNC\\server\\share')).toBe(
+        '\\\\server\\share'
+      )
+      expect(normalizeSidecarRootPath('C:\\Downloads')).toBe('C:\\Downloads')
+      expect(normalizeSidecarRootPath('\\\\server\\share')).toBe(
+        '\\\\server\\share'
+      )
+    } finally {
+      if (original) Object.defineProperty(process, 'platform', original)
+    }
+    expect(normalizeSidecarRootPath('\\\\?\\C:\\Downloads')).toBe(
+      process.platform === 'win32' ? 'C:\\Downloads' : '\\\\?\\C:\\Downloads'
+    )
+  })
+})
 
 describe.runIf(process.platform !== 'win32')(
   'NativeFinalizeFilesystemAdapter process failures',

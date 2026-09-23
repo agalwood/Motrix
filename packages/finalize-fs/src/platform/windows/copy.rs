@@ -47,6 +47,9 @@ fn materialize(
             "Windows copied artifact does not match its held source",
         ));
     }
+    // Directory timestamps change with every child creation, so they are
+    // restored only after the whole subtree has been staged.
+    super::nt::copy_basic_times(source, &target)?;
     if expected.is_directory() {
         super::nt::flush_directory(&target).map(|_| ())
     } else {

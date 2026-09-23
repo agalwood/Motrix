@@ -48,6 +48,7 @@ interface WireResponse {
   os_error?: number
   nt_status?: string
   directory_sync_mode?: 'directory_flushed' | 'remote_acknowledged'
+  sanitized_name?: string
   platform?: string
   rename_no_replace?: boolean
   held_roots?: boolean
@@ -75,6 +76,8 @@ export interface FinalizeArtifactHandle {
 
 export interface FinalizeFilesystemAdapter {
   capabilities(): Promise<FinalizeFsCapabilities>
+  /** Map a final-name candidate onto the shared cross-platform domain. */
+  sanitizeName?(name: string): Promise<string>
   openRoot(
     rootPath: string,
     expectedIdentity?: string
@@ -277,6 +280,14 @@ export class NativeFinalizeFilesystemAdapter
     })
   }
 
+  async sanitizeName(name: string): Promise<string> {
+    const response = await this.request({ op: 'sanitize_name', name })
+    if (response.sanitized_name === undefined) {
+      throw new Error('sidecar omitted sanitized name')
+    }
+    return response.sanitized_name
+  }
+
   async openRoot(
     rootPath: string,
     expectedIdentity?: string
@@ -287,7 +298,7 @@ export class NativeFinalizeFilesystemAdapter
     const generation = this.generation
     const response = await this.request({
       op: 'open_root',
-      path: rootPath,
+      path: normalizeSidecarRootPath(rootPath),
       expected_identity: expectedIdentity,
     })
     if (response.handle === undefined)
@@ -496,4 +507,16 @@ export class NativeFinalizeFilesystemAdapter
     if (this.child.exitCode === null && this.child.signalCode === null)
       this.child.kill()
   }
+}
+
+/**
+ * The sidecar's Windows root walker rejects verbatim `\\?\` namespace paths,
+ * while user-selected and API-derived roots can carry either spelling.
+ * Normalize to the Win32 form before the path crosses the sidecar boundary.
+ */
+export function normalizeSidecarRootPath(rootPath: string): string {
+  if (process.platform !== 'win32') return rootPath
+  return rootPath
+    .replace(/^\\\\\?\\UNC\\/i, '\\\\')
+    .replace(/^\\\\\?\\([a-z]:\\)/i, '$1')
 }

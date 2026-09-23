@@ -32,6 +32,11 @@ impl State {
     fn dispatch(&mut self, request: Request) -> Response<'static> {
         match request {
             Request::Capabilities => self.capabilities(),
+            Request::SanitizeName { request_id, name } => {
+                let mut response = Response::ok(Some(request_id));
+                response.sanitized_name = Some(crate::sanitize::sanitize_filename(&name));
+                response
+            }
             Request::OpenRoot {
                 request_id,
                 path,
@@ -341,5 +346,14 @@ mod tests {
             assert_eq!(response.held_roots, Some(true));
             assert_eq!(response.directory_sync, Some(true));
         }
+    }
+
+    #[test]
+    fn sanitize_name_maps_any_candidate_onto_the_shared_domain() {
+        let response = State::new().handle(Request::SanitizeName {
+            request_id: 3,
+            name: "CON.txt ".to_string(),
+        });
+        assert_eq!(response.sanitized_name.as_deref(), Some("CON_.txt"));
     }
 }
