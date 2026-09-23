@@ -44,6 +44,7 @@ function createMockRpc(): Aria2RpcClient {
     onDownloadError: vi.fn(),
     getOption: vi.fn(),
     getDownloadResultCount: vi.fn(),
+    getCheckpointStatus: vi.fn(),
     searchDownloadResult: vi.fn(),
     exportSession: vi.fn(),
     requeueDownloadResult: vi.fn(),
@@ -316,6 +317,52 @@ describe('Aria2Adapter', () => {
           vi.fn().mockRejectedValue(missing)
         )
       ).resolves.toBe(DIRECT_RESOURCE_METADATA_PROFILE)
+    })
+  })
+
+  describe('getCheckpointStatus', () => {
+    // The engine answers from the checkpoint store it actually reads, so
+    // recovery never has to guess between <file>.aria2 and aria2.db (#2187).
+    it('maps the engine answer onto present / absent', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+      vi.mocked(rpc.getCheckpointStatus).mockResolvedValueOnce({
+        exists: 'true',
+        store: 'sqlite3',
+      })
+      await expect(adapter.getCheckpointStatus('/d/a.motrix')).resolves.toBe(
+        'present'
+      )
+      expect(rpc.getCheckpointStatus).toHaveBeenCalledWith('/d/a.motrix')
+      vi.mocked(rpc.getCheckpointStatus).mockResolvedValueOnce({
+        exists: 'false',
+        store: 'control-file',
+      })
+      await expect(adapter.getCheckpointStatus('/d/b.motrix')).resolves.toBe(
+        'absent'
+      )
+    })
+
+    it('reports null when the engine predates the method', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+      vi.mocked(rpc.getCheckpointStatus).mockRejectedValueOnce(
+        new Error('No such method: aria2.getCheckpointStatus')
+      )
+      await expect(adapter.getCheckpointStatus('/d/a.motrix')).resolves.toBe(
+        null
+      )
+    })
+
+    it('propagates any other engine failure', async () => {
+      const rpc = createMockRpc()
+      const adapter = new Aria2Adapter(rpc)
+      vi.mocked(rpc.getCheckpointStatus).mockRejectedValueOnce(
+        new Error('Connection lost')
+      )
+      await expect(adapter.getCheckpointStatus('/d/a.motrix')).rejects.toThrow(
+        'Connection lost'
+      )
     })
   })
 

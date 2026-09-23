@@ -2524,6 +2524,44 @@ describe('SessionManager', () => {
       }
     })
 
+    it('takes the checkpoint path when the engine reports one without any .aria2 file', async () => {
+      // sqlite3 persistence keeps the checkpoint in aria2.db; the engine, not
+      // the filesystem, says whether it exists (#2187). The task then leaves
+      // the checkpoint-missing gate and reaches resource validation.
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-http-engine-checkpoint-')
+      )
+      const diskPath = path.join(tempDir, 'partial.bin.motrix')
+      try {
+        fs.writeFileSync(diskPath, Buffer.from('partial-bytes'))
+        const getCheckpointStatus = vi.fn(async () => 'present' as const)
+        ;(
+          adapter as unknown as {
+            getCheckpointStatus: typeof getCheckpointStatus
+          }
+        ).getCheckpointStatus = getCheckpointStatus
+        seedAsPair(db, {
+          motrixId: 'm-http-engine-checkpoint',
+          gid: 'lost-http-engine-checkpoint',
+          name: 'partial.bin',
+          diskPath,
+          finalPath: path.join(tempDir, 'partial.bin'),
+          finalName: 'partial.bin',
+          uris: ['https://example.com/partial.bin'],
+          status: TaskStatus.Downloading,
+        })
+
+        await sessionManager.restore()
+
+        expect(getCheckpointStatus).toHaveBeenCalledWith(diskPath)
+        expect(
+          taskManager.getById('m-http-engine-checkpoint')?.errorDetailKey
+        ).not.toBe('task.recovery.startup.resumeCheckpointMissing')
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
     it('does not replay a direct task whose request credentials were not persisted', async () => {
       seedAsPair(db, {
         motrixId: 'm-http-credentials',
