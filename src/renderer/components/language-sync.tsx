@@ -1,5 +1,9 @@
 import type { RendererWindowId } from '@renderer/lib/bootstrap-locale'
 import { applyRendererLocale } from '@renderer/lib/i18n'
+import {
+  onSettingsRefresh,
+  type SettingsReader,
+} from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import { isSupportedLocale } from '@shared/constants/locales'
 import { Events, type LocaleChangedPayload } from '@shared/protocol/events'
@@ -16,8 +20,8 @@ function localeFromEvent(
   return undefined
 }
 
-// Initial locale hydration happens before createRoot. This component keeps
-// every renderer window in sync with later changes broadcast by the host.
+// Hydrate authenticated web pages and keep every renderer in sync with host
+// events and the authoritative readback after a local settings save.
 export function LanguageSync({
   windowId = 'main',
 }: {
@@ -31,44 +35,42 @@ export function LanguageSync({
     const queueLocale = (
       locale: LocaleChangedPayload['language'],
       localeGeneration: number
-    ): void => {
-      applicationTail = applicationTail
-        .then(async () => {
-          if (!active || localeGeneration !== generation) return
-          await applyRendererLocale(locale)
-        })
-        // A malformed or temporarily unavailable renderer resource must not
-        // surface as an unhandled rejection or poison later locale updates.
-        .catch(() => {})
+    ): Promise<void> => {
+      const pending = applicationTail.then(async () => {
+        if (!active || localeGeneration !== generation) return
+        await applyRendererLocale(locale)
+      })
+      applicationTail = pending.catch(() => {})
+      return pending
     }
 
     const onLocaleChanged = (payload: unknown): void => {
       const locale = localeFromEvent(payload)
       if (!locale) return
       const localeGeneration = ++generation
-      queueLocale(locale, localeGeneration)
+      void queueLocale(locale, localeGeneration).catch(() => {})
     }
 
-    const reconcileHostLocale = (): void => {
+    const reconcileHostLocale = async (
+      read: SettingsReader = (channel) => transport.invoke(channel)
+    ): Promise<void> => {
       const localeGeneration = ++generation
-      void transport
-        .invoke(
-          windowId === 'onboarding'
-            ? Queries.GetDisclaimerState
-            : Queries.GetSettings
-        )
-        .then((state) => {
-          if (!active || localeGeneration !== generation) return
-          const locale =
-            windowId === 'onboarding'
-              ? (state as { language?: unknown } | undefined)?.language
-              : (state as { app?: { language?: unknown } } | undefined)?.app
-                  ?.language
-          if (!isSupportedLocale(locale)) return
-          queueLocale(locale, localeGeneration)
-        })
-        .catch(() => {})
+      const state = await read(
+        windowId === 'onboarding'
+          ? Queries.GetDisclaimerState
+          : Queries.GetSettings
+      )
+      if (!active || localeGeneration !== generation) return
+      const locale =
+        windowId === 'onboarding'
+          ? (state as { language?: unknown } | undefined)?.language
+          : (state as { app?: { language?: unknown } } | undefined)?.app
+              ?.language
+      if (!isSupportedLocale(locale)) return
+      await queueLocale(locale, localeGeneration)
     }
+
+    const refresh = () => void reconcileHostLocale().catch(() => {})
 
     // Subscribe before starting a query so a newer live/buffered event wins
     // over any older authoritative snapshot returned by IPC/HTTP.
@@ -76,18 +78,21 @@ export function LanguageSync({
     const stopConnectionSync =
       transport.platform === 'web'
         ? transport.onConnectionChange?.((event) => {
-            if (event.state === 'connected') reconcileHostLocale()
+            if (event.state === 'connected') refresh()
           })
         : undefined
-    // Electron has no connection lifecycle. Reconcile once on mount as a
-    // backstop for an event sent before forwarding/renderer startup; preload's
-    // replay and the generation guard preserve newer live events.
-    if (transport.platform !== 'web') reconcileHostLocale()
+    const stopSettingsSync = onSettingsRefresh(reconcileHostLocale)
+    // The web root mounts after authentication. Its HTTP snapshot must not
+    // depend on the event socket ever connecting (for example behind a proxy).
+    refresh()
+    window.addEventListener('focus', refresh)
     return () => {
       active = false
       generation += 1
       transport.off(Events.LocaleChanged, onLocaleChanged)
       stopConnectionSync?.()
+      stopSettingsSync()
+      window.removeEventListener('focus', refresh)
     }
   }, [windowId])
 

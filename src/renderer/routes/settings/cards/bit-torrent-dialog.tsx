@@ -5,6 +5,8 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
+import { saveSettings } from '@renderer/lib/settings-save'
+import { transport } from '@renderer/lib/transport'
 // src/renderer/routes/settings/cards/bit-torrent-dialog.tsx
 
 import { PresetChips } from '@renderer/components/settings-kit/preset-chips'
@@ -34,8 +36,6 @@ import { Input } from '@renderer/components/ui/input'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
-import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
 import {
@@ -173,7 +173,7 @@ export function BitTorrentDialog({
       onClose()
       return
     }
-    await transport.invoke(Commands.UpdateSettings, dirty)
+    await saveSettings(dirty)
     onClose()
   })
 

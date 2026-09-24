@@ -1,4 +1,3 @@
-import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import type { CuratedTrackerList } from '@shared/types/tracker'
@@ -21,10 +20,11 @@ export function useTrackerList() {
 
   useTransportMirror({
     events: [Events.TrackerListUpdated, Events.TrackerSyncStatusChanged],
-    load: async (stale) => {
+    refreshOnSettingsSave: true,
+    load: async (stale, read) => {
       try {
         setIsLoading(true)
-        const data = await transport.invoke(Queries.GetTrackerList)
+        const data = await read(Queries.GetTrackerList)
         if (stale()) return
         setList(data as CuratedTrackerList)
         setError(null)

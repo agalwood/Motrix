@@ -6,9 +6,9 @@ import {
 } from '@renderer/components/ui/scroll-area'
 import { Switch } from '@renderer/components/ui/switch'
 import { useTrackerList } from '@renderer/hooks/use-tracker-list'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { AppSettings } from '@shared/types/settings'
 import type { TrackerHealth, TrackerSource } from '@shared/types/tracker'
@@ -64,14 +64,14 @@ export function EffectiveTrackerPanel({
 
   const handleEnabledChange = async (next: boolean) => {
     setEnabled(next)
-    await transport.invoke(Commands.UpdateSettings, {
+    await saveSettings({
       tracker: { sourcesEnabled: next },
     })
   }
 
   const handleSourcesChange = async (next: TrackerSource[]) => {
     setSources(next)
-    await transport.invoke(Commands.UpdateSettings, {
+    await saveSettings({
       tracker: { sources: next },
     })
   }

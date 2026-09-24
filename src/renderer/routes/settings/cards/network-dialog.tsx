@@ -41,8 +41,8 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
   DEFAULT_ENGINE_SETTINGS,
@@ -139,7 +139,7 @@ export function NetworkDialog({
       onClose()
       return
     }
-    await transport.invoke(Commands.UpdateSettings, dirty)
+    await saveSettings(dirty)
     onClose()
   })
 

@@ -401,7 +401,7 @@ describe('<AppearanceDialog>', () => {
     )
   })
 
-  it('waits for the host locale event after persisting a language change', async () => {
+  it('leaves language application to the mounted settings synchronizer', async () => {
     render(
       <AppearanceDialog
         open

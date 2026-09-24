@@ -42,6 +42,7 @@ const TRACKER_LIST_RESPONSE = {
 describe('<EffectiveTrackerPanel>', () => {
   beforeEach(() => {
     vi.mocked(transport.invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === Commands.UpdateSettings) return { saved: true }
       if (cmd === Queries.GetSettings) return SETTINGS_RESPONSE
       if (cmd === Queries.GetTrackerList) return TRACKER_LIST_RESPONSE
       return undefined
@@ -68,6 +69,7 @@ describe('<EffectiveTrackerPanel>', () => {
 
   it('renders effective list rows with URL and health columns', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === Commands.UpdateSettings) return { saved: true }
       if (cmd === Queries.GetSettings) return SETTINGS_RESPONSE
       if (cmd === Queries.GetTrackerList)
         return {
@@ -101,6 +103,7 @@ describe('<EffectiveTrackerPanel>', () => {
 
   it('shows disabled hint when sourcesEnabled is false', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === Commands.UpdateSettings) return { saved: true }
       if (cmd === Queries.GetSettings)
         return {
           tracker: { ...SETTINGS_RESPONSE.tracker, sourcesEnabled: false },
@@ -114,6 +117,7 @@ describe('<EffectiveTrackerPanel>', () => {
 
   it('filters list by page-level search prop', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === Commands.UpdateSettings) return { saved: true }
       if (cmd === Queries.GetSettings) return SETTINGS_RESPONSE
       if (cmd === Queries.GetTrackerList)
         return {

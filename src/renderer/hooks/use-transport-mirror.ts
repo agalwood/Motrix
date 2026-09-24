@@ -1,3 +1,7 @@
+import {
+  onSettingsRefresh,
+  type SettingsReader,
+} from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import type { EventChannel } from '@shared/protocol/events'
 import { useCallback, useEffect, useRef } from 'react'
@@ -22,7 +26,9 @@ export interface TransportMirrorOptions {
    * treat it as an unmount guard (an unmounted hook simply stops scheduling
    * further work; it does not flip `stale()` for a still-in-flight call).
    */
-  load: (stale: () => boolean) => Promise<void>
+  load: (stale: () => boolean, read: SettingsReader) => Promise<void>
+  /** Refresh this settings-dependent mirror after a local settings save. */
+  refreshOnSettingsSave?: boolean
   /**
    * Refetch on window focus (default true). Mount-captured; changes after
    * mount are ignored.
@@ -128,16 +134,20 @@ export function useTransportMirror(
       refetchOnFocus = true,
       refetchOnVisibility = false,
       retryOnce = true,
+      refreshOnSettingsSave = false,
     } = optionsRef.current
 
     const runLoad = async (
       myGeneration: number,
-      isRetry: boolean
+      isRetry: boolean,
+      read: SettingsReader = (channel) => transport.invoke(channel),
+      reportFailure = false
     ): Promise<void> => {
       const stale = () => myGeneration !== generation.current
       try {
-        await optionsRef.current.load(stale)
-      } catch {
+        await optionsRef.current.load(stale, read)
+      } catch (error) {
+        if (reportFailure && !disposed && !stale()) throw error
         // Bounded: only the first failure for this generation schedules a
         // retry. A second failure in a row falls back to the next live
         // event/focus/reconnect instead of retrying indefinitely.
@@ -150,10 +160,13 @@ export function useTransportMirror(
       }
     }
 
-    const performRefresh = (): Promise<void> => {
+    const performRefresh = (
+      read?: SettingsReader,
+      reportFailure = false
+    ): Promise<void> => {
       const myGeneration = ++generation.current
       clearRetryTimer()
-      return runLoad(myGeneration, false)
+      return runLoad(myGeneration, false, read, reportFailure)
     }
     performRefreshRef.current = performRefresh
 
@@ -180,6 +193,10 @@ export function useTransportMirror(
         if (connectionEvent.state === 'connected') void performRefresh()
       }) ?? null
 
+    const stopSettingsSync = refreshOnSettingsSave
+      ? onSettingsRefresh((read) => performRefresh(read, true))
+      : undefined
+
     if (refetchOnFocus) window.addEventListener('focus', onEvent)
     if (refetchOnVisibility) {
       document.addEventListener('visibilitychange', onVisibilityChange)
@@ -191,6 +208,7 @@ export function useTransportMirror(
       disposed = true
       for (const event of dedupedEvents) transport.off(event, onEvent)
       removeConnectionListener?.()
+      stopSettingsSync?.()
       if (refetchOnFocus) window.removeEventListener('focus', onEvent)
       if (refetchOnVisibility) {
         document.removeEventListener('visibilitychange', onVisibilityChange)

@@ -42,6 +42,7 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { applySavedSettings } from '@core/settings/apply-saved-settings'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
 import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
@@ -174,6 +175,7 @@ export interface CommandContext {
   recoverFinalization?: (taskId: string) => Promise<void>
   sessionManager: SessionManager
   settingsManager: SettingsManager
+  applyLocale?: (language: string) => Promise<void>
   protocolManager: ReturnType<typeof createProtocolManager>
   windowManager: WindowManager
   natManager: NatManager
@@ -1010,110 +1012,137 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
 
       const result = await settingsManager.update(patched)
-      const newFull = settingsManager.get()
+      return applySavedSettings(
+        result,
+        async () => {
+          const newFull = settingsManager.get()
 
-      const proxySettingsChanged = proxyChanged(oldFull.proxy, newFull.proxy)
-      if (
-        proxySettingsChanged ||
-        proxySubmitted ||
-        appliedDownloadProxyPolicy.snapshot() === null
-      ) {
-        await appliedDownloadProxyPolicy.applyTransition(() => {
-          const latestProxy = settingsManager.get().proxy
-          // A command-local old value cannot describe concurrent updates
-          // across independent scopes. Stale commands do no work; the one
-          // matching the latest persisted value idempotently reasserts all
-          // proxy consumers, including aria2's explicit direct route.
-          return proxyChanged(newFull.proxy, latestProxy)
-            ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
-            : proxyApplier.applyAll(latestProxy)
-        })
-      }
+          const proxySettingsChanged = proxyChanged(
+            oldFull.proxy,
+            newFull.proxy
+          )
+          if (
+            proxySettingsChanged ||
+            proxySubmitted ||
+            appliedDownloadProxyPolicy.snapshot() === null
+          ) {
+            await appliedDownloadProxyPolicy.applyTransition(() => {
+              const latestProxy = settingsManager.get().proxy
+              // A command-local old value cannot describe concurrent updates
+              // across independent scopes. Stale commands do no work; the one
+              // matching the latest persisted value idempotently reasserts all
+              // proxy consumers, including aria2's explicit direct route.
+              return proxyChanged(newFull.proxy, latestProxy)
+                ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
+                : proxyApplier.applyAll(latestProxy)
+            })
+          }
 
-      // Proxy state is security-sensitive and settings are already durable at
-      // this point. Apply/fail-closed before unrelated shell side effects can
-      // reject and otherwise leave aria2 on the previous non-null route.
-      let protocolAssociationApplied: boolean | undefined
+          // Proxy state is security-sensitive and settings are already durable at
+          // this point. Apply/fail-closed before unrelated shell side effects can
+          // reject and otherwise leave aria2 on the previous non-null route.
+          let protocolAssociationApplied: boolean | undefined
 
-      if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
-        updateManager.setChannel(newFull.app.updateChannel)
-      }
+          if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
+            updateManager.setChannel(newFull.app.updateChannel)
+          }
 
-      if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
-        syncAutoLaunch(newFull.app.launchAtStartup)
-      }
-      if (
-        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
-      ) {
-        await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
-      }
-      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
-        await bridgeManager.restart()
-      }
-      if (
-        magnetPreferenceSubmitted ||
-        oldFull.app.protocols.magnet !== newFull.app.protocols.magnet
-      ) {
-        const registration = protocolManager.register()
-        if (registration?.magnetMatchesSetting !== null) {
-          protocolAssociationApplied = registration?.magnetMatchesSetting
-        }
-        const appImageView = await reconcileAppImageIntegrationFromSettings({
-          getMagnetEnabled: () => newFull.app.protocols.magnet,
-        })
-        if (
-          appImageView.supported &&
-          appImageView.decision === 'accepted' &&
-          appImageView.owner === 'self'
-        ) {
-          protocolAssociationApplied = appImageView.status === 'healthy'
-        }
-      }
+          if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
+            syncAutoLaunch(newFull.app.launchAtStartup)
+          }
+          if (
+            oldFull.app.browserBridgeEnabled !==
+            newFull.app.browserBridgeEnabled
+          ) {
+            await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
+          }
+          if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+            await bridgeManager.restart()
+          }
+          if (
+            magnetPreferenceSubmitted ||
+            oldFull.app.protocols.magnet !== newFull.app.protocols.magnet
+          ) {
+            const registration = protocolManager.register()
+            if (registration?.magnetMatchesSetting !== null) {
+              protocolAssociationApplied = registration?.magnetMatchesSetting
+            }
+            const appImageView = await reconcileAppImageIntegrationFromSettings(
+              {
+                getMagnetEnabled: () => newFull.app.protocols.magnet,
+              }
+            )
+            if (
+              appImageView.supported &&
+              appImageView.decision === 'accepted' &&
+              appImageView.owner === 'self'
+            ) {
+              protocolAssociationApplied = appImageView.status === 'healthy'
+            }
+          }
 
-      if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
-        await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
-      }
+          if (
+            oldFull.app.language !== newFull.app.language ||
+            typeof (partial as { app?: { language?: unknown } } | null)?.app
+              ?.language === 'string'
+          ) {
+            await ctx.applyLocale?.(settingsManager.get().app.language)
+          }
 
-      if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
-        await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
-      }
+          if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
+            await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+          }
 
-      if (
-        oldFull.tracker.blacklistEnabled !== newFull.tracker.blacklistEnabled
-      ) {
-        await trackerManager.applyBlacklistChange(
-          newFull.tracker.blacklistEnabled
-        )
-      }
+          if (
+            oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled
+          ) {
+            await trackerManager.applySourcesChange(
+              newFull.tracker.sourcesEnabled
+            )
+          }
 
-      if (
-        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
-        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
-      ) {
-        trackerManager.applySyncScheduleChange()
-      }
+          if (
+            oldFull.tracker.blacklistEnabled !==
+            newFull.tracker.blacklistEnabled
+          ) {
+            await trackerManager.applyBlacklistChange(
+              newFull.tracker.blacklistEnabled
+            )
+          }
 
-      await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
+          if (
+            oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+            oldFull.tracker.syncIntervalHours !==
+              newFull.tracker.syncIntervalHours
+          ) {
+            trackerManager.applySyncScheduleChange()
+          }
 
-      if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
-        await supervisor.applyAsyncDns(
-          dnsModeToAsyncDns(newFull.engine.dnsMode)
-        )
-        // Mode changes re-arm the auto fallback so a later switch back to
-        // 'auto' starts optimistic again.
-        dnsFallback?.reset()
-      }
+          await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
 
-      if (result.requiresRestart) {
-        publishEngineRestartRequired(
-          { eventBus, notificationCenter, log },
-          result.changedRestartKeys
-        )
-      }
+          if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
+            await supervisor.applyAsyncDns(
+              dnsModeToAsyncDns(newFull.engine.dnsMode)
+            )
+            // Mode changes re-arm the auto fallback so a later switch back to
+            // 'auto' starts optimistic again.
+            dnsFallback?.reset()
+          }
 
-      return protocolAssociationApplied === undefined
-        ? result
-        : { ...result, protocolAssociationApplied }
+          if (result.requiresRestart) {
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys
+            )
+          }
+
+          return protocolAssociationApplied === undefined
+            ? result
+            : { ...result, protocolAssociationApplied }
+        },
+        (err) =>
+          log.warn({ err }, 'settings saved but runtime application failed')
+      )
     },
 
     [Commands.RestartEngine]: async () => {

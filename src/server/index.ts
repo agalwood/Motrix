@@ -1122,6 +1122,7 @@ async function main() {
     serverDirectoryService,
     supervisor,
     settingsManager,
+    applyLocale: enqueueLocaleUpdate,
     geoipManager: activeGeoipManager,
     dnsFallback: dnsFallbackConsumer,
     bindTaskRetry: (fn) => {

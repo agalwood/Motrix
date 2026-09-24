@@ -28,6 +28,7 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { applySavedSettings } from '@core/settings/apply-saved-settings'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
 import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
@@ -103,6 +104,7 @@ import type { ServerDirectoryService } from '../server-directory-service'
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
+  applyLocale?: (language: string) => Promise<void>
   geoipManager: Pick<GeoIPManager, 'triggerUpdate'>
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
   dnsFallback?: Pick<DnsFallbackConsumer, 'reset'>
@@ -753,76 +755,101 @@ export function buildServerCommandHandlers(
       const result = await settingsManager.update(
         validatedPartial as Parameters<typeof settingsManager.update>[0]
       )
-      const newFull = settingsManager.get()
+      return applySavedSettings(
+        result,
+        async () => {
+          const newFull = settingsManager.get()
 
-      const proxySettingsChanged = proxyChanged(oldFull.proxy, newFull.proxy)
-      if (
-        proxySettingsChanged ||
-        proxySubmitted ||
-        appliedDownloadProxyPolicy.snapshot() === null
-      ) {
-        await appliedDownloadProxyPolicy.applyTransition(() => {
-          const latestProxy = settingsManager.get().proxy
-          // Re-check after acquiring the writer, then reassert the entire
-          // latest proxy state. Incremental command-local diffs lose updates
-          // when concurrent commands modify different proxy scopes.
-          return proxyChanged(newFull.proxy, latestProxy)
-            ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
-            : proxyApplier.applyAll(latestProxy)
-        })
-      }
+          const proxySettingsChanged = proxyChanged(
+            oldFull.proxy,
+            newFull.proxy
+          )
+          if (
+            proxySettingsChanged ||
+            proxySubmitted ||
+            appliedDownloadProxyPolicy.snapshot() === null
+          ) {
+            await appliedDownloadProxyPolicy.applyTransition(() => {
+              const latestProxy = settingsManager.get().proxy
+              // Re-check after acquiring the writer, then reassert the entire
+              // latest proxy state. Incremental command-local diffs lose updates
+              // when concurrent commands modify different proxy scopes.
+              return proxyChanged(newFull.proxy, latestProxy)
+                ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
+                : proxyApplier.applyAll(latestProxy)
+            })
+          }
 
-      if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
-        await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
-      }
+          if (
+            oldFull.app.language !== newFull.app.language ||
+            typeof (partial as { app?: { language?: unknown } } | null)?.app
+              ?.language === 'string'
+          ) {
+            await ctx.applyLocale?.(settingsManager.get().app.language)
+          }
 
-      if (
-        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
-      ) {
-        await bridgeControl?.setEnabled(newFull.app.browserBridgeEnabled)
-      }
-      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
-        await bridgeControl?.restart()
-      }
+          if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
+            await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+          }
 
-      if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
-        await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
-      }
+          if (
+            oldFull.app.browserBridgeEnabled !==
+            newFull.app.browserBridgeEnabled
+          ) {
+            await bridgeControl?.setEnabled(newFull.app.browserBridgeEnabled)
+          }
+          if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+            await bridgeControl?.restart()
+          }
 
-      if (
-        oldFull.tracker.blacklistEnabled !== newFull.tracker.blacklistEnabled
-      ) {
-        await trackerManager.applyBlacklistChange(
-          newFull.tracker.blacklistEnabled
-        )
-      }
+          if (
+            oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled
+          ) {
+            await trackerManager.applySourcesChange(
+              newFull.tracker.sourcesEnabled
+            )
+          }
 
-      if (
-        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
-        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
-      ) {
-        trackerManager.applySyncScheduleChange()
-      }
+          if (
+            oldFull.tracker.blacklistEnabled !==
+            newFull.tracker.blacklistEnabled
+          ) {
+            await trackerManager.applyBlacklistChange(
+              newFull.tracker.blacklistEnabled
+            )
+          }
 
-      await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
+          if (
+            oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+            oldFull.tracker.syncIntervalHours !==
+              newFull.tracker.syncIntervalHours
+          ) {
+            trackerManager.applySyncScheduleChange()
+          }
 
-      if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
-        await supervisor.applyAsyncDns(
-          dnsModeToAsyncDns(newFull.engine.dnsMode)
-        )
-        // Mode changes re-arm the auto fallback so a later switch back to
-        // 'auto' starts optimistic again.
-        dnsFallback?.reset()
-      }
+          await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
 
-      if (result.requiresRestart) {
-        publishEngineRestartRequired(
-          { eventBus, notificationCenter, log },
-          result.changedRestartKeys
-        )
-      }
+          if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
+            await supervisor.applyAsyncDns(
+              dnsModeToAsyncDns(newFull.engine.dnsMode)
+            )
+            // Mode changes re-arm the auto fallback so a later switch back to
+            // 'auto' starts optimistic again.
+            dnsFallback?.reset()
+          }
 
-      return result
+          if (result.requiresRestart) {
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys
+            )
+          }
+
+          return result
+        },
+        (err) =>
+          log.warn({ err }, 'settings saved but runtime application failed')
+      )
     },
 
     [Commands.UpdateGeoIPDatabase]: createUpdateGeoIPDatabaseHandler({

@@ -234,6 +234,49 @@ function makeSettings(
 }
 
 describe('server Commands.UpdateSettings', () => {
+  it('awaits locale application and permits retrying an already saved language', async () => {
+    const base = makeSettings(PROXY_OFF)
+    const current = { ...base, app: { ...base.app, language: 'zh-CN' } }
+    let rejectLocale!: (error: Error) => void
+    const applyLocale = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_, reject) => {
+            rejectLocale = reject
+          })
+      )
+      .mockResolvedValue(undefined)
+    const ctx = { ...makeFakeCtx(), applyLocale }
+    vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
+    vi.mocked(ctx.settingsManager.update).mockResolvedValue({
+      saved: true,
+      requiresRestart: false,
+      changedRestartKeys: [],
+      requiresAppRestart: false,
+      changedAppRestartKeys: [],
+    })
+    const update = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )[Commands.UpdateSettings]!
+    let settled = false
+    const pending = update({ app: { language: 'zh-CN' } }).then((value) => {
+      settled = true
+      return value
+    })
+    await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith('zh-CN'))
+    expect(settled).toBe(false)
+    rejectLocale(new Error('locale apply failed'))
+    await expect(pending).resolves.toMatchObject({
+      saved: true,
+      applicationFailed: true,
+    })
+    await expect(update({ app: { language: 'zh-CN' } })).resolves.toMatchObject(
+      { saved: true }
+    )
+    expect(applyLocale).toHaveBeenCalledTimes(2)
+  })
+
   it('uses Server path policy before one General commit and does not apply partial fields on an outside-root destination', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-server-general-'))
     try {
@@ -611,7 +654,7 @@ describe('server Commands.UpdateSettings', () => {
 
     await expect(
       handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
-    ).rejects.toThrow('RPC failed')
+    ).resolves.toMatchObject({ applicationFailed: true })
     expect(policy.snapshot()).toBeNull()
   })
 
@@ -646,7 +689,7 @@ describe('server Commands.UpdateSettings', () => {
 
     await expect(
       handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
-    ).rejects.toThrow('RPC failed')
+    ).resolves.toMatchObject({ applicationFailed: true })
     expect(policy.snapshot()).toBeNull()
 
     await expect(

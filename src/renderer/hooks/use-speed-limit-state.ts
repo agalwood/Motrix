@@ -1,4 +1,8 @@
 import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
+import {
+  onSettingsRefresh,
+  type SettingsReader,
+} from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -37,21 +41,21 @@ export function useSpeedLimitState(): SpeedLimitStateView {
       cachedState = next
       setState(next)
     }
-    const refresh = async () => {
+    const reconcile = async (
+      read: SettingsReader = (channel) => transport.invoke(channel)
+    ) => {
       const current = ++generation
-      try {
-        const next = await transport.invoke(Queries.GetSpeedLimitState)
-        if (next && current === generation) apply(next as SpeedLimitStateView)
-      } catch {
-        /* Refresh again on the next event, focus or reconnect. */
-      }
+      const next = await read(Queries.GetSpeedLimitState)
+      if (next && current === generation) apply(next as SpeedLimitStateView)
     }
+    const refresh = () => void reconcile().catch(() => {})
     const onChange = (...args: unknown[]) => {
       // A live mode change supersedes any earlier in-flight snapshot.
       generation++
       apply(args[0] as SpeedLimitStateView)
     }
     transport.on(Events.SpeedLimitChanged, onChange)
+    const stopSettingsSync = onSettingsRefresh(reconcile)
     const removeConnectionListener = transport.onConnectionChange?.((event) => {
       if (event.state === 'connected') void refresh()
     })
@@ -61,6 +65,7 @@ export function useSpeedLimitState(): SpeedLimitStateView {
       disposed = true
       transport.off(Events.SpeedLimitChanged, onChange)
       removeConnectionListener?.()
+      stopSettingsSync()
       window.removeEventListener('focus', refresh)
     }
   }, [])

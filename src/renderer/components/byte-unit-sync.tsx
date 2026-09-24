@@ -1,4 +1,8 @@
 import { setByteUnitSystem } from '@renderer/hooks/use-byte-format'
+import {
+  onSettingsRefresh,
+  type SettingsReader,
+} from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -17,23 +21,22 @@ export function ByteUnitSync() {
         : (transport.platform ?? '')
     let active = true
     let generation = 0
-    const reconcile = () => {
+    const reconcile = async (
+      read: SettingsReader = (channel) => transport.invoke(channel)
+    ) => {
       const requestGeneration = ++generation
-      void transport
-        .invoke(Queries.GetSettings)
-        .then((data) => {
-          if (!active || requestGeneration !== generation) return
-          const settings = data as AppSettings | undefined
-          const parsed = byteUnitSystemSchema.safeParse(
-            settings?.app?.byteUnitSystem
-          )
-          setByteUnitSystem(
-            parsed.success ? parsed.data : DEFAULT_BYTE_UNIT_PREFERENCE,
-            platform
-          )
-        })
-        .catch(() => {})
+      const data = await read(Queries.GetSettings)
+      if (!active || requestGeneration !== generation) return
+      const settings = data as AppSettings | undefined
+      const parsed = byteUnitSystemSchema.safeParse(
+        settings?.app?.byteUnitSystem
+      )
+      setByteUnitSystem(
+        parsed.success ? parsed.data : DEFAULT_BYTE_UNIT_PREFERENCE,
+        platform
+      )
     }
+    const refresh = () => void reconcile().catch(() => {})
     const onChange = (payload: unknown) => {
       const parsed = byteUnitSystemSchema.safeParse(
         (payload as { byteUnitSystem?: unknown } | null)?.byteUnitSystem
@@ -44,14 +47,16 @@ export function ByteUnitSync() {
     }
     transport.on(Events.ByteUnitSystemChanged, onChange)
     const stopConnectionSync = transport.onConnectionChange?.((event) => {
-      if (event.state === 'connected') reconcile()
+      if (event.state === 'connected') refresh()
     })
-    reconcile()
+    const stopSettingsSync = onSettingsRefresh(reconcile)
+    refresh()
     return () => {
       active = false
       generation += 1
       transport.off(Events.ByteUnitSystemChanged, onChange)
       stopConnectionSync?.()
+      stopSettingsSync()
     }
   }, [])
   return null

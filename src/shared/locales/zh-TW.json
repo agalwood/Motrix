@@ -1963,6 +1963,21 @@
       "addressDraft": "新位址",
       "required": "請先填寫位址。",
       "time": "請使用 24 小時制填寫，例如 23:00。"
+    },
+    "feedback": {
+      "syncFailedTitle": "設定已儲存，但介面更新失敗",
+      "syncFailedBody": "設定已儲存。請重試同步以更新目前頁面，無需再次儲存。",
+      "retrySync": "重試同步",
+      "applyFailedTitle": "設定已儲存，但部分變更未能套用",
+      "applyFailedBody": "已儲存的設定仍然保留。請檢查應用程式記錄，解決問題後重新啟動受影響的服務。",
+      "appRestartTitle": "重新啟動 Motrix 以套用設定",
+      "appRestartBody": "設定已儲存，請在方便時重新啟動 Motrix。"
+    },
+    "connection": {
+      "originMismatchTitle": "伺服器存取位址不符。",
+      "originMismatchBody": "即時更新無法使用。請使用伺服器設定的存取位址，或聯絡管理員修正設定。",
+      "disconnectedTitle": "即時更新連線已中斷。",
+      "disconnectedBody": "部分資訊可能延遲。如果持續出現，請檢查伺服器連線和反向代理設定。"
     }
   },
   "errors": {

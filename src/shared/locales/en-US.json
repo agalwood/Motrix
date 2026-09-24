@@ -1978,6 +1978,21 @@
       "addressDraft": "New address",
       "required": "Enter an address first.",
       "time": "Use a 24-hour time, such as 23:00."
+    },
+    "feedback": {
+      "syncFailedTitle": "Settings saved; interface update failed",
+      "syncFailedBody": "Your settings have been saved. Retry synchronization to update this page without saving again.",
+      "retrySync": "Retry synchronization",
+      "applyFailedTitle": "Settings saved; some changes could not be applied",
+      "applyFailedBody": "The saved configuration is retained. Check the application logs and restart the affected service after resolving the problem.",
+      "appRestartTitle": "Restart Motrix to apply settings",
+      "appRestartBody": "Your settings are saved. Restart Motrix when convenient."
+    },
+    "connection": {
+      "originMismatchTitle": "The server access address does not match.",
+      "originMismatchBody": "Real-time updates are unavailable. Use the configured server address or ask the administrator to correct it.",
+      "disconnectedTitle": "Real-time updates are disconnected.",
+      "disconnectedBody": "Some information may be delayed. If this persists, check the server connection and proxy configuration."
     }
   },
   "errors": {

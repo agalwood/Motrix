@@ -17,9 +17,8 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useSpeedLimitState } from '@renderer/hooks/use-speed-limit-state'
-import { transport } from '@renderer/lib/transport'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { cn } from '@renderer/lib/utils'
-import { Commands } from '@shared/protocol/commands'
 import type { TurtleState } from '@shared/types/settings'
 import { ChevronDown } from 'lucide-react'
 import { useRef, useState } from 'react'
@@ -52,7 +51,7 @@ export function SpeedLimitBadge() {
     pendingRef.current = true
     setPending(true)
     try {
-      await transport.invoke(Commands.UpdateSettings, {
+      await saveSettings({
         speedLimit: { turtle },
       })
     } catch {

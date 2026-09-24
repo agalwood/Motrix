@@ -3,6 +3,7 @@ import { AppSidebar } from '@renderer/components/desktop-kit/sidebar/app-sidebar
 import { SidebarInset, SidebarProvider } from '@renderer/components/ui/sidebar'
 import { Toaster } from '@renderer/components/ui/toast'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
+import { WebConnectionNotice } from '@renderer/components/web-connection-notice'
 import { AddTaskTriggerButton } from '@renderer/components/window-chrome/add-task-trigger-button'
 import { MotrixMenuButton } from '@renderer/components/window-chrome/motrix-menu-button'
 import { SidebarTriggerButton } from '@renderer/components/window-chrome/sidebar-trigger-button'
@@ -104,7 +105,10 @@ export function AppLayout() {
                 'bg-transparent shadow-none md:peer-data-[variant=inset]:shadow-none'
             )}
           >
-            <Outlet />
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <Outlet />
+            </div>
+            <WebConnectionNotice />
           </SidebarInset>
         </SidebarProvider>
         {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
