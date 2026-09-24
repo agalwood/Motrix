@@ -2646,6 +2646,7 @@ async function initializeMainProcess(): Promise<void> {
     },
     sessionManager,
     settingsManager,
+    applyLocale: (language) => enqueueLocaleUpdate(language, true),
     protocolManager,
     windowManager,
     natManager,

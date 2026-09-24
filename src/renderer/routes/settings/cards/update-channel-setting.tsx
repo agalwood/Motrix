@@ -7,8 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@renderer/components/ui/select'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { appUpdateChannelSchema } from '@shared/schemas'
 import type { AppUpdateChannel } from '@shared/types/settings'
@@ -98,7 +98,7 @@ export function UpdateChannelSetting({
       setPending(true)
       setFailed(false)
       try {
-        await transport.invoke(Commands.UpdateSettings, {
+        await saveSettings({
           app: { updateChannel: parsed.data },
         })
       } catch {

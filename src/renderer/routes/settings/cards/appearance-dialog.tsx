@@ -35,15 +35,14 @@ import {
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
 import { RunMode } from '@shared/constants'
 import { isSupportedLocale, SUPPORTED_LOCALES } from '@shared/constants/locales'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
-import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
@@ -92,7 +91,6 @@ export function AppearanceDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const { setTheme } = useTheme()
   const form = useSettingsForm<AppearanceFields>(appearanceFormSchema, DEFAULTS)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
@@ -135,8 +133,7 @@ export function AppearanceDialog({
       onClose()
       return
     }
-    await transport.invoke(Commands.UpdateSettings, { app: dirty })
-    if (dirty.theme !== undefined) setTheme(dirty.theme)
+    await saveSettings({ app: dirty })
     onClose()
   })
 

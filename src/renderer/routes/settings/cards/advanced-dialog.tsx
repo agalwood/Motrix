@@ -32,8 +32,8 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
 import type { AppSettings, EngineSettings } from '@shared/types/settings'
@@ -103,7 +103,7 @@ export function AdvancedDialog({
       return
     }
     const patch = { engine: dirty }
-    await transport.invoke(Commands.UpdateSettings, patch)
+    await saveSettings(patch)
     onClose()
   })
 

@@ -21,8 +21,8 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { toast } from '@renderer/components/ui/toast'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import type { AppSettings } from '@shared/types/settings'
@@ -105,7 +105,7 @@ export function IntegrationDialog({
       return
     }
     const patch = dirty as Partial<AppSettings>
-    const result = (await transport.invoke(Commands.UpdateSettings, patch)) as {
+    const result = (await saveSettings(patch)) as {
       protocolAssociationApplied?: boolean
     }
     if (dirty.media?.ffmpegBinaryPath !== undefined) {

@@ -67,6 +67,7 @@ describe('BtPeerGeoSection', () => {
     mockOn.mockReset()
     mockOff.mockReset()
     mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === Commands.UpdateSettings) return { saved: true }
       if (channel === 'query:getSettings') {
         return {
           geoip: {

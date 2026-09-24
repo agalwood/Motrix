@@ -19,8 +19,8 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { AppSettings } from '@shared/types/settings'
@@ -104,7 +104,7 @@ export function DownloadsDialog({
       onClose()
       return
     }
-    await transport.invoke(Commands.UpdateSettings, dirty)
+    await saveSettings(dirty)
     onClose()
   })
 

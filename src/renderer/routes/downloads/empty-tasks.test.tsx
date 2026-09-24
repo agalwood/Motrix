@@ -44,6 +44,7 @@ beforeEach(() => {
         .reduceMotion
       for (const listener of motionListeners)
         listener({ reduceMotion: savedReduceMotion })
+      return { saved: true }
     }
     return { app: { reduceMotion: savedReduceMotion } }
   })
@@ -135,7 +136,7 @@ describe('EmptyTasks', () => {
       expect(positionConstraint).not.toHaveAttribute('aria-disabled', 'true')
     )
     expect(gradient).toHaveAttribute('data-effect-position-constraint', 'true')
-    expect(transport.invoke).toHaveBeenLastCalledWith(Commands.UpdateSettings, {
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
       app: { reduceMotion: false },
     })
     const horizontalSpeed = screen.getByRole('group', {

@@ -93,6 +93,7 @@ describe('LanguageSync', () => {
   it('reconciles persisted settings whenever the web transport connects', async () => {
     mocks.platform = 'web'
     vi.mocked(transport.invoke)
+      .mockResolvedValueOnce({ app: { language: 'en-US' } })
       .mockResolvedValueOnce({ app: { language: 'zh-CN' } })
       .mockResolvedValueOnce({ app: { language: 'en-US' } })
     render(<LanguageSync windowId="main" />)
@@ -108,7 +109,7 @@ describe('LanguageSync', () => {
       mocks.connectionListener?.({ state: 'connecting' })
       mocks.connectionListener?.({ state: 'connected' })
     })
-    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(3))
     await waitFor(() => expect(i18n.resolvedLanguage).toBe('en-US'))
   })
 

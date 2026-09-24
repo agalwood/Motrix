@@ -21,8 +21,8 @@ import { Spinner } from '@renderer/components/ui/spinner'
 import { Switch } from '@renderer/components/ui/switch'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useGeoIPStatus } from '@renderer/hooks/use-geoip-status'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
   DEFAULT_GEOIP_SETTINGS,
@@ -140,7 +140,7 @@ export function BtPeerGeoSection({
         return true
       }
       try {
-        await transport.invoke(Commands.UpdateSettings, { geoip: patch })
+        await saveSettings({ geoip: patch })
         savedValues.current = { ...savedValues.current, ...patch }
         if (mounted.current) form.clearErrors('root.save')
         return true

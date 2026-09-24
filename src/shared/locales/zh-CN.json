@@ -1963,6 +1963,21 @@
       "addressDraft": "新地址",
       "required": "请先填写地址。",
       "time": "请使用 24 小时制填写，例如 23:00。"
+    },
+    "feedback": {
+      "syncFailedTitle": "设置已保存，但界面更新失败",
+      "syncFailedBody": "设置已保存。请重试同步以更新当前页面，无需再次保存。",
+      "retrySync": "重试同步",
+      "applyFailedTitle": "设置已保存，但部分更改未能应用",
+      "applyFailedBody": "已保存的配置仍然保留。请检查应用日志，解决问题后重启受影响的服务。",
+      "appRestartTitle": "重启 Motrix 以应用设置",
+      "appRestartBody": "设置已保存，请在方便时重启 Motrix。"
+    },
+    "connection": {
+      "originMismatchTitle": "服务器访问地址不匹配。",
+      "originMismatchBody": "实时更新不可用。请使用服务器配置的访问地址，或联系管理员修正配置。",
+      "disconnectedTitle": "实时更新连接已中断。",
+      "disconnectedBody": "部分信息可能延迟。如果持续出现，请检查服务器连接和反向代理配置。"
     }
   },
   "menu": {

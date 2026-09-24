@@ -33,6 +33,7 @@ beforeEach(() => {
   vi.mocked(transport.on).mockReset()
   vi.mocked(transport.off).mockReset()
   vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+    if (channel === Commands.UpdateSettings) return { saved: true }
     if (channel === Queries.GetUpdateState) return idleState
     if (channel === Queries.GetSettings) {
       return {

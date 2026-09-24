@@ -12,7 +12,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@renderer/components/ui/toast', () => ({ toast: { add: vi.fn() } }))
+vi.mock('@renderer/components/ui/toast', () => ({
+  toast: { add: vi.fn(), close: vi.fn() },
+}))
 
 // Mutable so individual tests can flip the bridge's reported port status
 // (Task 21) without redefining the whole `vi.mock` factory per test.
@@ -203,7 +205,7 @@ describe('IntegrationDialog scaffold', () => {
         async (channel, ...args) => {
           if (channel === 'command:updateSettings') {
             if (!saved) throw new Error('Save failed')
-            return { ok: true }
+            return { saved: true }
           }
           return original(channel, ...args)
         }
@@ -277,7 +279,7 @@ describe('IntegrationDialog scaffold', () => {
         }
       }
       if (channel === 'command:updateSettings') {
-        return { ok: true, protocolAssociationApplied: false }
+        return { saved: true, protocolAssociationApplied: false }
       }
       if (
         channel === 'bridge:listPaired' ||

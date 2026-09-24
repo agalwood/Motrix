@@ -15,8 +15,7 @@ import {
   useReducedMotion,
   useSystemReducedMotion,
 } from '@renderer/lib/reduced-motion'
-import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DownloadsTab } from './filter'
@@ -65,7 +64,7 @@ export function EmptyTasks({
     setSavingMotion(true)
     setMotionSaveError(false)
     try {
-      await transport.invoke(Commands.UpdateSettings, {
+      await saveSettings({
         app: { reduceMotion: !enabled },
       })
     } catch {

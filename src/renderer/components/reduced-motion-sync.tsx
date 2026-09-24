@@ -2,6 +2,10 @@ import {
   setAppReduceMotion,
   useReducedMotion,
 } from '@renderer/lib/reduced-motion'
+import {
+  onSettingsRefresh,
+  type SettingsReader,
+} from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -21,19 +25,18 @@ export function ReducedMotionSync({ syncSettings = true }) {
     let active = true
     let generation = 0
 
-    const reconcile = () => {
+    const reconcile = async (
+      read: SettingsReader = (channel) => transport.invoke(channel)
+    ) => {
       const requestGeneration = ++generation
-      void transport
-        .invoke(Queries.GetSettings)
-        .then((data) => {
-          if (!active || requestGeneration !== generation) return
-          const settings = data as AppSettings | undefined
-          setAppReduceMotion(
-            settings?.app?.reduceMotion ?? DEFAULT_APP_SETTINGS.reduceMotion
-          )
-        })
-        .catch(() => {})
+      const data = await read(Queries.GetSettings)
+      if (!active || requestGeneration !== generation) return
+      const settings = data as AppSettings | undefined
+      setAppReduceMotion(
+        settings?.app?.reduceMotion ?? DEFAULT_APP_SETTINGS.reduceMotion
+      )
     }
+    const refresh = () => void reconcile().catch(() => {})
     const onReducedMotionChanged = (payload: unknown) => {
       const { reduceMotion } = (payload ?? {}) as { reduceMotion?: unknown }
       if (typeof reduceMotion !== 'boolean') return
@@ -44,14 +47,16 @@ export function ReducedMotionSync({ syncSettings = true }) {
     // Subscribe first so a live update wins over an older settings snapshot.
     transport.on(Events.ReducedMotionChanged, onReducedMotionChanged)
     const stopConnectionSync = transport.onConnectionChange?.((event) => {
-      if (event.state === 'connected') reconcile()
+      if (event.state === 'connected') refresh()
     })
-    reconcile()
+    const stopSettingsSync = onSettingsRefresh(reconcile)
+    refresh()
     return () => {
       active = false
       generation += 1
       transport.off(Events.ReducedMotionChanged, onReducedMotionChanged)
       stopConnectionSync?.()
+      stopSettingsSync()
     }
   }, [syncSettings])
 
